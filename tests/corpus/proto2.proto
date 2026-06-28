@@ -1,0 +1,85 @@
+// proto2 feature coverage: labels, all scalar types + defaults, groups (incl. nested),
+// reserved (nums/ranges/to max/names), extension ranges, file-level and nested extend,
+// closed enum with aliases/negatives/reserved/value options, maps, oneof, a dropped service.
+syntax = "proto2";
+
+package p2;
+
+enum Color {
+  option allow_alias = true;
+
+  COLOR_UNKNOWN = 0;
+  COLOR_RED = 1;
+  COLOR_CRIMSON = 1;
+  COLOR_NEG = -2 [deprecated = true];
+
+  reserved 5, 7 to 9;
+  reserved "OLD_COLOR";
+}
+
+message Scalars {
+  required int32 i32 = 1 [default = -7];
+  optional int64 i64 = 2 [default = 42];
+  optional uint32 u32 = 3;
+  optional uint64 u64 = 4;
+  optional sint32 s32 = 5;
+  optional sint64 s64 = 6;
+  optional fixed32 f32 = 7;
+  optional fixed64 f64 = 8;
+  optional sfixed32 sf32 = 9;
+  optional sfixed64 sf64 = 10;
+  optional bool b = 11 [default = true];
+  optional string s = 12 [default = "hi\n\"there\""];
+  optional bytes by = 13 [default = "\x00\xff"];
+  optional float fl = 14 [default = 1.5];
+  optional double db = 15 [default = -2.25];
+  optional Color color = 16 [default = COLOR_RED];
+  repeated int32 packed_nums = 17 [packed = true];
+  repeated int32 expanded_nums = 18;
+}
+
+message WithGroup {
+  optional group MyGroup = 1 {
+    optional int32 a = 2;
+    optional group Inner = 3 {
+      optional bool flag = 4;
+    }
+  }
+
+  extensions 100 to 200;
+  extensions 300 to max;
+
+  reserved 50, 60 to 70;
+  reserved "legacy";
+
+  option deprecated = true;
+}
+
+extend WithGroup {
+  optional int32 ext_a = 100 [default = 9];
+  repeated string ext_b = 101;
+}
+
+message Container {
+  message Nested {
+    optional int32 x = 1;
+
+    extend WithGroup {
+      optional Nested ext_nested = 150;
+    }
+  }
+
+  map<string, Nested> by_name = 1;
+  map<int32, Color> by_id = 2;
+
+  oneof choice {
+    int32 ci = 3;
+    Nested cn = 4;
+  }
+
+  repeated Nested items = 5;  // repeated sub-message: fires the callback once per element
+}
+
+service Ignored {
+  rpc Do(Scalars) returns (Container);
+}

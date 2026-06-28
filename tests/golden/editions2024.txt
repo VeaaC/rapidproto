@@ -1,0 +1,9 @@
+file editions2024.proto
+  syntax edition 2024
+  package ed24
+  message M [fqn=.ed24.M]
+    field a num=1 presence=explicit type=int32
+    field b num=2 presence=explicit repeated=packed type=int32
+symbols
+  .ed24.M message
+  extensions

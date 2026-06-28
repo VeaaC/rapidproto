@@ -1,0 +1,28 @@
+// Entry of the cross-file scenario: a standard import (dep), a public re-export chain
+// (forward -> pub, giving transitive visibility of Pub), a cross-file message and enum
+// reference, and a cross-file extend that lands in the extension registry. The repeated /
+// map-value / oneof fields exercise every cross-file decoder call site (all routed through
+// the arena_detail::decode_into forwarder).
+syntax = "proto2";
+
+package main;
+
+import "dep.proto";
+import "forward.proto";
+
+message Main {
+  optional dep.Dep d = 1;
+  optional pub.Pub p = 2;
+  optional fwd.Fwd f = 3;
+  optional dep.DepEnum e = 4;
+  repeated dep.Dep ds = 5;       // cross-file repeated message
+  map<int32, dep.Dep> dm = 6;    // cross-file map value (an imported message)
+  oneof choice {                 // cross-file oneof member
+    dep.Dep od = 7;
+    int32 oi = 8;
+  }
+}
+
+extend dep.Dep {
+  optional int32 main_ext = 100;
+}

@@ -1,0 +1,28 @@
+field=1 wire=VARINT u10 i64=10 zz64=5
+field=2 wire=VARINT u20 i64=20 zz64=10
+field=3 wire=LEN len=3
+  as-bytes "abc"
+field=4 wire=VARINT u1 i64=1 zz64=-1
+field=5 wire=LEN len=2
+  as-bytes "\x08c"
+  as-message
+    field=1 wire=VARINT u99 i64=99 zz64=-50
+field=6 wire=LEN len=3
+  as-bytes "\x01\x02\x03"
+field=7 wire=VARINT u4 i64=4 zz64=2
+field=7 wire=VARINT u5 i64=5 zz64=-3
+field=8 wire=LEN len=2
+  as-bytes "\x01\x00"
+field=9 wire=LEN len=5
+  as-bytes "\x0a\x01x\x10\x01"
+  as-message
+    field=1 wire=LEN len=1
+      as-bytes "x"
+    field=2 wire=VARINT u1 i64=1 zz64=-1
+field=9 wire=LEN len=5
+  as-bytes "\x0a\x01y\x10\x02"
+  as-message
+    field=1 wire=LEN len=1
+      as-bytes "y"
+    field=2 wire=VARINT u2 i64=2 zz64=1
+field=10 wire=VARINT u7 i64=7 zz64=-4

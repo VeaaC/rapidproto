@@ -1,0 +1,10 @@
+// Public re-export: importers of forward.proto also gain visibility of pub.proto's symbols.
+syntax = "proto2";
+
+import public "pub.proto";
+
+package fwd;
+
+message Fwd {
+  optional int32 z = 1;
+}

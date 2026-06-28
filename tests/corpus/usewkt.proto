@@ -1,0 +1,14 @@
+// Cross-file with well-known types: fields whose type is a google.protobuf WKT. The CLI generates
+// the whole resolved closure (this file plus the embedded WKT sources it imports), so the emitted
+// includes point at headers that are also produced -- the output compiles standalone.
+syntax = "proto3";
+
+package uw;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
+
+message Event {
+  google.protobuf.Timestamp at = 1;
+  google.protobuf.Duration took = 2;
+}

@@ -1,0 +1,22 @@
+name: Set up toolchain
+description: >
+  Install the exact toolchain the gate pins: gcc-13, the clang/LLVM-20 suite (clang, clang-format,
+  clang-tidy, llvm-cov, llvm-profdata), CMake + Ninja, and the benchmark dependencies (libprotobuf,
+  protozero) so the full build -- benches included -- compiles as it does locally.
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        set -euxo pipefail
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends \
+          gcc-13 g++-13 cmake ninja-build \
+          protobuf-compiler libprotobuf-dev libprotozero-dev
+        # The clang/LLVM-20 suite from apt.llvm.org -- the versioned -20 binaries the gate + presets pin
+        # (clang/clang++ for builds, clang-format/clang-tidy for the gate, llvm-cov/profdata for the
+        # deep tier's coverage).
+        wget -qO /tmp/llvm.sh https://apt.llvm.org/llvm.sh
+        chmod +x /tmp/llvm.sh
+        sudo /tmp/llvm.sh 20
+        sudo apt-get install -y clang-format-20 clang-tidy-20 llvm-20

@@ -1,0 +1,48 @@
+message .al.Point size=8 align=4 fixed=yes
+  field x num=1 inline-scalar int32 off=0 size=4 align=4 presence=none
+  field y num=2 inline-scalar int32 off=4 size=4 align=4 presence=none
+message .al.Big size=24 align=8 fixed=yes
+  field a num=1 inline-scalar fixed64 off=0 size=8 align=8 presence=none
+  field b num=2 inline-scalar fixed64 off=8 size=8 align=8 presence=none
+  field c num=3 inline-scalar fixed64 off=16 size=8 align=8 presence=none
+message .al.HasString size=16 align=8 fixed=no
+  field s num=1 sso-string ArenaString off=0 size=16 align=8 presence=none
+message .al.BoolWrap size=1 align=1 fixed=yes bool-wrapper
+  field value num=1 inline-scalar bool off=- size=- align=- presence=none value=bit0
+  mask off=0 size=1 align=1 bits=1
+    bit 0 value value
+message .al.SelfRef size=16 align=8 fixed=no
+  field next num=1 pointer-submsg .al.SelfRef off=0 size=8 align=8 presence=ptr
+  field v num=2 inline-scalar int32 off=8 size=4 align=4 presence=none
+message .al.Layout size=176 align=8 fixed=no
+  field name num=6 sso-string ArenaString off=0 size=16 align=8 presence=none
+  field oname num=7 sso-string ArenaString off=16 size=16 align=8 presence=bit3
+  field nums num=13 repeated ArrayView<int32> off=32 size=16 align=8 presence=empty
+  field points num=14 repeated ArrayView<.al.Point> off=48 size=16 align=8 presence=empty
+  map counts num=15 off=64 size=16 align=8 presence=empty
+    entry key=sso-string:ArenaString value=inline-scalar:int32 size=24 align=8
+  map grid num=16 off=80 size=16 align=8 presence=empty
+    entry key=inline-scalar:int32 value=inline-submsg:.al.Point size=12 align=4
+  field labels num=20 repeated ArrayView<ArenaString> off=112 size=16 align=8 presence=empty
+  field big num=2 inline-scalar int64 off=128 size=8 align=8 presence=none
+  field bg num=10 pointer-submsg .al.Big off=136 size=8 align=8 presence=ptr
+  field hs num=11 pointer-submsg .al.HasString off=144 size=8 align=8 presence=ptr
+  field pt num=9 inline-submsg .al.Point off=152 size=8 align=4 presence=bit4
+  field small num=4 inline-scalar int32 off=160 size=4 align=4 presence=none
+  field opt num=5 inline-scalar int32 off=164 size=4 align=4 presence=bit2
+  field color num=8 inline-enum .al.Color off=168 size=4 align=4 presence=none
+  field b1 num=1 inline-scalar bool off=- size=- align=- presence=none value=bit0
+  field b2 num=3 inline-scalar bool off=- size=- align=- presence=none value=bit1
+  field flag num=12 bool-wrapper .al.BoolWrap off=- size=- align=- presence=bit5 value=bit6
+  oneof choice disc-off=172 union-off=96 union-size=16 union-align=8
+    member ci num=17 inline-scalar int32 size=4 align=4
+    member cs num=18 sso-string ArenaString size=16 align=8
+    member cp num=19 inline-submsg .al.Point size=8 align=4
+  mask off=173 size=1 align=1 bits=7
+    bit 0 value b1
+    bit 1 value b2
+    bit 2 presence opt
+    bit 3 presence oname
+    bit 4 presence pt
+    bit 5 presence flag
+    bit 6 value flag

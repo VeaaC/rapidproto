@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package demo;
+
+import "types.proto";
+
+// A top-level enum: ONE shared C++ type (demo::Kind) in message.rp.common.hpp that both the arena and
+// the streaming decoder include -- so the consumer can use it with either model in the same TU.
+enum Kind {
+  KIND_UNKNOWN = 0;
+  KIND_CIRCLE = 1;
+  KIND_SQUARE = 2;
+}
+
+message Shape {
+  string name = 1;
+  Point origin = 2;
+  Kind kind = 3;
+}

@@ -1,0 +1,12 @@
+// Packed fixed-width repeated fields: exercises the packed I32/I64 element decode path
+// (read_fixed32 / read_fixed64 inside the packed sub-reader), which the varint-only packed
+// fixtures never reach at runtime.
+syntax = "proto2";
+
+package pk;
+
+message Packed {
+  repeated double pd = 1 [packed = true];    // I64 elements
+  repeated sfixed32 psf = 2 [packed = true];  // I32 elements
+  repeated float pf = 3 [packed = true];      // I32 (float) elements
+}

@@ -1,0 +1,23 @@
+file options.proto
+  syntax proto2
+  package opt
+  option java_package = "com.example"
+  option (custom.file_opt) = {a:u1 b:i-2 c:id:true d:"str" e:id:ID f:d1.5}
+  message M [fqn=.opt.M]
+    option (custom.msg_opt) = {nums:[u1, u2, u3] nested:{x:u1 y:u2} deep:{inner:{leaf:u7}} [custom.ext_field]:u9 [type.googleapis.com/foo.Bar]:{v:u1}}
+    field f num=1 presence=explicit type=int32
+      option (custom.field_opt) = u5
+      option deprecated = id:true
+      option (a.b).c = "x"
+    field special num=2 presence=explicit type=double
+      default = dinf
+      option default = dinf
+    field special2 num=3 presence=explicit type=double
+      default = dnan
+      option default = dnan
+    field special3 num=4 presence=explicit type=double
+      default = d-inf
+      option default = d-inf
+symbols
+  .opt.M message
+  extensions

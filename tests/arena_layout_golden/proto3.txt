@@ -1,0 +1,16 @@
+message .p3.Msg size=120 align=8 fixed=no
+  field name num=3 sso-string ArenaString off=0 size=16 align=8 presence=none
+  field nums num=6 repeated ArrayView<int32> off=16 size=16 align=8 presence=empty
+  field unpacked num=7 repeated ArrayView<int32> off=32 size=16 align=8 presence=empty
+  field states num=8 repeated ArrayView<.p3.State> off=48 size=16 align=8 presence=empty
+  map counts num=9 off=64 size=16 align=8 presence=empty
+    entry key=sso-string:ArenaString value=inline-scalar:int32 size=24 align=8
+  field self num=5 pointer-submsg .p3.Msg off=96 size=8 align=8 presence=ptr
+  field implicit_i num=1 inline-scalar int32 off=104 size=4 align=4 presence=none
+  field explicit_i num=2 inline-scalar int32 off=108 size=4 align=4 presence=bit0
+  field state num=4 inline-enum .p3.State off=112 size=4 align=4 presence=none
+  oneof pick disc-off=116 union-off=80 union-size=16 union-align=8
+    member a num=10 inline-scalar int32 size=4 align=4
+    member b num=11 sso-string ArenaString size=16 align=8
+  mask off=117 size=1 align=1 bits=1
+    bit 0 presence explicit_i

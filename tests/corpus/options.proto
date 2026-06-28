@@ -1,0 +1,28 @@
+// Full-fidelity option value tree: scalars (bool/int/uint/double/identifier/string),
+// message literals with {} and <> bodies, nested literals, list literals, extension keys
+// [a.b], Any type-URL keys [domain/type], aggregate option names, special floats.
+syntax = "proto2";
+
+package opt;
+
+option java_package = "com.example";
+option (custom.file_opt) = { a: 1 b: -2 c: true d: "str" e: ID f: 1.5 };
+
+message M {
+  option (custom.msg_opt) = {
+    nums: [1, 2, 3]
+    nested: < x: 1 y: 2 >
+    deep: { inner: { leaf: 7 } }
+    [custom.ext_field]: 9
+    [type.googleapis.com/foo.Bar]: { v: 1 }
+  };
+
+  optional int32 f = 1 [
+    (custom.field_opt) = 5,
+    deprecated = true,
+    (a.b).c = "x"
+  ];
+  optional double special = 2 [default = inf];
+  optional double special2 = 3 [default = nan];
+  optional double special3 = 4 [default = -inf];
+}

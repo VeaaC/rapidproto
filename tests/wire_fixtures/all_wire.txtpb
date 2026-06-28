@@ -1,0 +1,9 @@
+zz: -1234567890123
+db: 3.14159
+fx: 305419896
+s: "wire"
+by: "\xde\xad\xbe\xef"
+nested { zz: 7 }
+packed: [10, 20, 30]
+G { a: 99 }
+oi: 5

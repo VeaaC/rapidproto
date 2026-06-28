@@ -1,0 +1,9 @@
+// A weak-imported dependency. `weak` is a link-time optimization, not a visibility restriction:
+// the resolver still exposes wd.WDep as a usable field type, so its header must be included.
+syntax = "proto2";
+
+package wd;
+
+message WDep {
+  optional int32 v = 1;
+}

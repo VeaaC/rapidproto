@@ -1,0 +1,27 @@
+// proto3 feature coverage: implicit vs explicit (optional) presence, message/enum-typed
+// fields, packed-by-default repeated, un-packed override, repeated enum (expanded fixup),
+// map, oneof, open enum.
+syntax = "proto3";
+
+package p3;
+
+enum State {
+  STATE_UNKNOWN = 0;
+  STATE_ON = 1;
+}
+
+message Msg {
+  int32 implicit_i = 1;
+  optional int32 explicit_i = 2;
+  string name = 3;
+  State state = 4;
+  Msg self = 5;
+  repeated int32 nums = 6;
+  repeated int32 unpacked = 7 [packed = false];
+  repeated State states = 8;
+  map<string, int32> counts = 9;
+  oneof pick {
+    int32 a = 10;
+    string b = 11;
+  }
+}

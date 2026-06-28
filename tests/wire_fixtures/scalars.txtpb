@@ -1,0 +1,18 @@
+i32: -7
+i64: 42
+u32: 300
+u64: 1000000
+s32: -5
+s64: -2
+f32: 16909060
+f64: 72623859790382856
+sf32: -2
+sf64: -3
+b: true
+s: "hi"
+by: "\x00\x01\xff"
+fl: 1.5
+db: -2.25
+color: COLOR_RED
+packed_nums: [1, 2, 300]
+expanded_nums: [3, 4]

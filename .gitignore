@@ -1,0 +1,2 @@
+# CMake build tree (also holds the local schema/ test corpus, which stays untracked)
+/build/

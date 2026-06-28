@@ -1,0 +1,48 @@
+# Continuous integration: the project's quality bar on every push and pull request. Three parallel
+# jobs -- the default gate, the heavy "deep" tier (sanitizers + coverage floor + fuzz smoke), and a
+# Release -O3 -Werror build on both compilers -- so wall-clock is the slowest job, not their sum.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+# A newer push to the same ref cancels an in-progress run, so only the latest commit is gated.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    name: gate (format + dual-compiler build/test + tidy)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-toolchain
+      - name: Quality gate (./check.sh)
+        run: ./check.sh
+
+  deep:
+    name: deep (ASan/UBSan + coverage + fuzz smoke)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-toolchain
+      - name: Heavy tier (./check.sh deep)
+        run: ./check.sh deep
+
+  release:
+    name: release (-O3 -Werror, gcc-13 + clang-20)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-toolchain
+      - name: Build + test Release on both compilers
+        run: |
+          set -euxo pipefail
+          for cxx in g++-13 clang++-20; do
+            dir="build/release-${cxx}"
+            cmake -S . -B "$dir" -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER="$cxx"
+            cmake --build "$dir" -j"$(nproc)"
+            "$dir/rapidproto_tests"
+          done

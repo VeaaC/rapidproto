@@ -1,0 +1,17 @@
+# clang-tidy-20 — test-subtree overrides. Inherits the strict root config and
+# relaxes only checks that are pure test-fixture noise: test code legitimately
+# uses C arrays, raw pointer math, and literal "magic" numbers as fixtures and
+# expected values. The library itself is still held to these (see the root config
+# and src/header_self_contained.cpp, which is linted strict).
+# clang-analyzer-* is also dropped here: the test TUs include the vendored Catch2
+# amalgamation, whose code trips analyzer checks the HeaderFilterRegex can't scope
+# out (analyzer diagnostics are TU-level). The library keeps the analyzer (root config).
+InheritParentConfig: true
+Checks: >
+  -cppcoreguidelines-avoid-c-arrays,
+  -modernize-avoid-c-arrays,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -readability-magic-numbers,
+  -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
+  -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+  -clang-analyzer-*

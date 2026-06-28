@@ -1,0 +1,11 @@
+// Entry exercising a weak import: the field type wd.WDep is fully usable, so weakmain.rp.stream.hpp
+// must #include weakdep.rp.stream.hpp (weak is filtered the same as standard, only Option is skipped).
+syntax = "proto2";
+
+package wm;
+
+import weak "weakdep.proto";
+
+message WMain {
+  optional wd.WDep d = 1;
+}

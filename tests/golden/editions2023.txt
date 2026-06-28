@@ -1,0 +1,25 @@
+file editions2023.proto
+  syntax edition 2023
+  package ed23
+  option features.field_presence = id:IMPLICIT
+  enum E [fqn=.ed23.E open]
+    value E_ZERO = 0 [fqn=.ed23.E_ZERO]
+    value E_ONE = 1 [fqn=.ed23.E_ONE]
+  message M [fqn=.ed23.M]
+    option features.enum_type = id:CLOSED
+    field implicit_scalar num=1 presence=implicit type=int32
+    field explicit_scalar num=2 presence=explicit type=int32
+      option features.field_presence = id:EXPLICIT
+    field child num=3 presence=explicit type=M -> .ed23.M msg
+    field packed_nums num=4 presence=implicit repeated=packed type=int32
+    field expanded_nums num=5 presence=implicit repeated=expanded type=int32
+      option features.repeated_field_encoding = id:EXPANDED
+    field delim num=6 presence=explicit delimited type=M -> .ed23.M msg
+      option features.message_encoding = id:DELIMITED
+    enum Inner [fqn=.ed23.M.Inner closed]
+      value INNER_ZERO = 0 [fqn=.ed23.M.INNER_ZERO]
+symbols
+  .ed23.E enum
+  .ed23.M message
+  .ed23.M.Inner enum
+  extensions

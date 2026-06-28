@@ -1,0 +1,7 @@
+// Two files sharing one package (samepkg), both arena-generated and included in one TU -- the guard
+// against the decoder machinery being a single per-package entity that redefines across files.
+syntax = "proto2";
+package samepkg;
+message SecondB {
+  optional int32 v = 1;
+}

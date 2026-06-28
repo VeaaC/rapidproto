@@ -1,0 +1,32 @@
+// Regression corpus for identifier handling: distinct proto names that sanitize to the
+// same C++ identifier must be de-duplicated per scope (never redefine a struct/enumerator), and
+// type references must be fully `::`-rooted absolute names. All names below are protoc-valid.
+syntax = "proto2";
+
+package nm;
+
+// Enumerator dedup: `read` -> `read_` (keyword-ish/reserved), `read_` then collides -> `read__`.
+enum E {
+  read = 0;
+  read_ = 1;
+}
+
+message M {
+  // Nested type named after a C++ keyword -> `int_`. A sibling field `int_` (below) must not
+  // collide with it; because nested types are indexed before field tags, the type keeps `int_`
+  // and the field becomes `int__`.
+  message int {
+    optional int32 x = 1;
+  }
+
+  optional int32 read = 1;       // reserved -> `read_`
+  optional int32 read_ = 2;      // collides -> `read__`
+  optional int int_field = 3;    // value type must reference ::nm::M::int_
+  optional int32 int_ = 4;       // collides with nested type `int_` -> `int__`
+  optional E e = 5;              // value type must reference ::nm::E
+  optional int32 decode = 7;     // reserved (the decode() entry point) -> `decode_`
+
+  oneof pick {
+    int32 read__ = 6;            // collides with the deduped field `read_` -> `read___`
+  }
+}

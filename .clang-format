@@ -1,0 +1,25 @@
+# clang-format-20. Base: Google, adapted to the project's conventions
+# (4-space indent, 100-column lines, left-aligned pointers/references).
+---
+Language: Cpp
+BasedOnStyle: Google
+Standard: c++17
+ColumnLimit: 100
+IndentWidth: 4
+AccessModifierOffset: -4
+ContinuationIndentWidth: 4
+PointerAlignment: Left
+DerivePointerAlignment: false
+QualifierAlignment: Left  # normalize to west-const (const T, not T const)
+AlignAfterOpenBracket: Align
+AllowShortFunctionsOnASingleLine: Inline
+AlwaysBreakTemplateDeclarations: Yes
+BreakBeforeBraces: Attach
+InsertBraces: true  # brace every if/for/while body (pairs with readability-braces-around-statements)
+IncludeBlocks: Preserve
+SortIncludes: CaseSensitive
+SpacesBeforeTrailingComments: 2
+# Do not re-wrap comment prose: reflowing was silently moving `// NOLINTNEXTLINE(...)` off the line
+# it must precede (re-enabling the diagnostic). Wrap long comment lines yourself.
+ReflowComments: false
+...

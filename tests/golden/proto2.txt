@@ -1,0 +1,88 @@
+file proto2.proto
+  syntax proto2
+  package p2
+  enum Color [fqn=.p2.Color closed]
+    option allow_alias = id:true
+    reserved nums [5] [7..9]
+    reserved names "OLD_COLOR"
+    value COLOR_UNKNOWN = 0 [fqn=.p2.COLOR_UNKNOWN]
+    value COLOR_RED = 1 [fqn=.p2.COLOR_RED]
+    value COLOR_CRIMSON = 1 [fqn=.p2.COLOR_CRIMSON]
+    value COLOR_NEG = -2 [fqn=.p2.COLOR_NEG]
+      option deprecated = id:true
+  message Scalars [fqn=.p2.Scalars]
+    field i32 num=1 presence=required type=int32
+      default = i-7
+      option default = i-7
+    field i64 num=2 presence=explicit type=int64
+      default = u42
+      option default = u42
+    field u32 num=3 presence=explicit type=uint32
+    field u64 num=4 presence=explicit type=uint64
+    field s32 num=5 presence=explicit type=sint32
+    field s64 num=6 presence=explicit type=sint64
+    field f32 num=7 presence=explicit type=fixed32
+    field f64 num=8 presence=explicit type=fixed64
+    field sf32 num=9 presence=explicit type=sfixed32
+    field sf64 num=10 presence=explicit type=sfixed64
+    field b num=11 presence=explicit type=bool
+      default = id:true
+      option default = id:true
+    field s num=12 presence=explicit type=string
+      default = "hi\n\"there\""
+      option default = "hi\n\"there\""
+    field by num=13 presence=explicit type=bytes
+      default = "\x00\xff"
+      option default = "\x00\xff"
+    field fl num=14 presence=explicit type=float
+      default = d1.5
+      option default = d1.5
+    field db num=15 presence=explicit type=double
+      default = d-2.25
+      option default = d-2.25
+    field color num=16 presence=explicit type=Color -> .p2.Color enum
+      default = id:COLOR_RED
+      option default = id:COLOR_RED
+    field packed_nums num=17 presence=explicit repeated=packed type=int32
+      option packed = id:true
+    field expanded_nums num=18 presence=explicit repeated=expanded type=int32
+  message WithGroup [fqn=.p2.WithGroup]
+    option deprecated = id:true
+    reserved nums [50] [60..70]
+    reserved names "legacy"
+    extension-range [100..200]
+    extension-range [300..maxfield]
+    field mygroup num=1 presence=explicit group delimited type=MyGroup -> .p2.WithGroup.MyGroup msg
+    message MyGroup [fqn=.p2.WithGroup.MyGroup]
+      field a num=2 presence=explicit type=int32
+      field inner num=3 presence=explicit group delimited type=Inner -> .p2.WithGroup.MyGroup.Inner msg
+      message Inner [fqn=.p2.WithGroup.MyGroup.Inner]
+        field flag num=4 presence=explicit type=bool
+  message Container [fqn=.p2.Container]
+    field items num=5 presence=explicit repeated=expanded type=Nested -> .p2.Container.Nested msg
+    map by_name num=1 key=string value=Nested -> .p2.Container.Nested msg
+    map by_id num=2 key=int32 value=Color -> .p2.Color enum
+    oneof choice
+      field ci num=3 presence=explicit type=int32
+      field cn num=4 presence=explicit type=Nested -> .p2.Container.Nested msg
+    message Nested [fqn=.p2.Container.Nested]
+      field x num=1 presence=explicit type=int32
+      extend WithGroup
+        field ext_nested num=150 presence=explicit type=Nested -> .p2.Container.Nested msg fqn=.p2.Container.Nested.ext_nested
+  extend WithGroup
+    field ext_a num=100 presence=explicit type=int32 fqn=.p2.ext_a
+      default = u9
+      option default = u9
+    field ext_b num=101 presence=explicit repeated=expanded type=string fqn=.p2.ext_b
+symbols
+  .p2.Color enum
+  .p2.Container message
+  .p2.Container.Nested message
+  .p2.Scalars message
+  .p2.WithGroup message
+  .p2.WithGroup.MyGroup message
+  .p2.WithGroup.MyGroup.Inner message
+  extensions
+    (.p2.WithGroup, 100) -> .p2.ext_a
+    (.p2.WithGroup, 101) -> .p2.ext_b
+    (.p2.WithGroup, 150) -> .p2.Container.Nested.ext_nested

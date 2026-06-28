@@ -1,0 +1,30 @@
+# clang-tidy-20 — strict root config for the library (include/, src/).
+# Nearly everything is on. The tests/ subtree has its own .clang-tidy that relaxes
+# a few checks that are pure test-fixture noise (C arrays, magic numbers, array
+# decay, pointer arithmetic). Run against the clang compile DB, e.g.:
+#   clang-tidy-20 -p build/clang src/header_self_contained.cpp   # strict, library
+#   clang-tidy-20 -p build/clang tests/test_range.cpp            # relaxed, tests
+#
+# Three checks are disabled globally:
+#   readability-identifier-length      — short conventional names (i, x, a, b, r)
+#   modernize-use-trailing-return-type — pure style (auto f() -> T); polarizing
+#   misc-no-recursion                  — the AST / type-resolution / layout / parse / codegen walks are
+#                                        inherently recursive; every suppressed instance was an
+#                                        intentional, cycle-guarded tree walk, so the check only ever
+#                                        flagged design, never a bug. (It flags that recursion EXISTS,
+#                                        not unbounded depth, so disabling loses no stack-safety signal.)
+Checks: >
+  -*,
+  bugprone-*,
+  clang-analyzer-*,
+  cppcoreguidelines-*,
+  misc-*,
+  modernize-*,
+  performance-*,
+  portability-*,
+  readability-*,
+  -misc-no-recursion,
+  -modernize-use-trailing-return-type,
+  -readability-identifier-length
+HeaderFilterRegex: 'rapidproto/.*'
+WarningsAsErrors: ''

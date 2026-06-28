@@ -1,0 +1,7 @@
+// Same package as samepkg_b; references it (same-package cross-file message field).
+syntax = "proto2";
+package samepkg;
+import "samepkg_b.proto";
+message FirstA {
+  optional SecondB b = 1;
+}

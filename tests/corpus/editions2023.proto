@@ -1,0 +1,28 @@
+// editions 2023 feature coverage: file-level field_presence feature, field-level override,
+// message-typed presence fixup, packed default + EXPANDED override, DELIMITED message
+// encoding feature, message-level enum_type feature inherited by a nested enum.
+edition = "2023";
+
+package ed23;
+
+option features.field_presence = IMPLICIT;
+
+enum E {
+  E_ZERO = 0;
+  E_ONE = 1;
+}
+
+message M {
+  option features.enum_type = CLOSED;
+
+  int32 implicit_scalar = 1;
+  int32 explicit_scalar = 2 [features.field_presence = EXPLICIT];
+  M child = 3;
+  repeated int32 packed_nums = 4;
+  repeated int32 expanded_nums = 5 [features.repeated_field_encoding = EXPANDED];
+  M delim = 6 [features.message_encoding = DELIMITED];
+
+  enum Inner {
+    INNER_ZERO = 0;
+  }
+}

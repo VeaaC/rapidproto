@@ -1,0 +1,15 @@
+// A dependency: a message with an extension range (extended cross-file by main.proto) and
+// an enum, both referenced across files.
+syntax = "proto2";
+
+package dep;
+
+message Dep {
+  optional int32 v = 1;
+  extensions 100 to max;
+}
+
+enum DepEnum {
+  DEP_ZERO = 0;
+  DEP_ONE = 1;
+}

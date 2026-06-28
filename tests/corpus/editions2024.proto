@@ -1,0 +1,10 @@
+// editions 2024: decode-relevant defaults match 2023 (EXPLICIT presence, PACKED repeated);
+// present to pin the edition string and the default-table behavior.
+edition = "2024";
+
+package ed24;
+
+message M {
+  int32 a = 1;
+  repeated int32 b = 2;
+}

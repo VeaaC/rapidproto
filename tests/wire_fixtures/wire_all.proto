@@ -1,0 +1,22 @@
+// Focused schema for wire-format fixtures: one field of (almost) every wire shape,
+// including a group (proto2-only) and a oneof. Encoded by generate.py into all_wire.bin.
+syntax = "proto2";
+
+package wire;
+
+message AllWire {
+  optional sint64 zz = 1;     // VARINT, zigzag
+  optional double db = 2;     // I64
+  optional fixed32 fx = 3;    // I32
+  optional string s = 4;      // LEN
+  optional bytes by = 5;      // LEN
+  optional AllWire nested = 6;  // LEN (embedded message)
+  repeated int32 packed = 7 [packed = true];  // LEN (packed varints)
+  optional group G = 8 {       // SGROUP/EGROUP
+    optional int32 a = 9;
+  }
+  oneof pick {
+    int32 oi = 10;
+    string os = 11;
+  }
+}

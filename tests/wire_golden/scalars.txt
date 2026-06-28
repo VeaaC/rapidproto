@@ -1,0 +1,24 @@
+field=1 wire=VARINT u18446744073709551609 i64=-7 zz64=-9223372036854775805
+field=2 wire=VARINT u42 i64=42 zz64=21
+field=3 wire=VARINT u300 i64=300 zz64=150
+field=4 wire=VARINT u1000000 i64=1000000 zz64=500000
+field=5 wire=VARINT u9 i64=9 zz64=-5
+field=6 wire=VARINT u3 i64=3 zz64=-2
+field=7 wire=I32 bits=0x01020304 f32=2.38794e-38
+field=8 wire=I64 bits=0x0102030405060708 f64=8.20788e-304
+field=9 wire=I32 bits=0xfffffffe f32=nan
+field=10 wire=I64 bits=0xfffffffffffffffd f64=nan
+field=11 wire=VARINT u1 i64=1 zz64=-1
+field=12 wire=LEN len=2
+  as-bytes "hi"
+  as-message
+    field=13 wire=VARINT u105 i64=105 zz64=-53
+field=13 wire=LEN len=3
+  as-bytes "\x00\x01\xff"
+field=14 wire=I32 bits=0x3fc00000 f32=1.5
+field=15 wire=I64 bits=0xc002000000000000 f64=-2.25
+field=16 wire=VARINT u1 i64=1 zz64=-1
+field=17 wire=LEN len=4
+  as-bytes "\x01\x02\xac\x02"
+field=18 wire=VARINT u3 i64=3 zz64=-2
+field=18 wire=VARINT u4 i64=4 zz64=2

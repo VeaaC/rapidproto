@@ -1,0 +1,45 @@
+file dep.proto
+  syntax proto2
+  package dep
+  enum DepEnum [fqn=.dep.DepEnum closed]
+    value DEP_ZERO = 0 [fqn=.dep.DEP_ZERO]
+    value DEP_ONE = 1 [fqn=.dep.DEP_ONE]
+  message Dep [fqn=.dep.Dep]
+    extension-range [100..maxfield]
+    field v num=1 presence=explicit type=int32
+file pub.proto
+  syntax proto2
+  package pub
+  message Pub [fqn=.pub.Pub]
+    field w num=1 presence=explicit type=int32
+file forward.proto
+  syntax proto2
+  package fwd
+  import public "pub.proto"
+  message Fwd [fqn=.fwd.Fwd]
+    field z num=1 presence=explicit type=int32
+file main.proto
+  syntax proto2
+  package main
+  import "dep.proto"
+  import "forward.proto"
+  message Main [fqn=.main.Main]
+    field d num=1 presence=explicit type=dep.Dep -> .dep.Dep msg
+    field p num=2 presence=explicit type=pub.Pub -> .pub.Pub msg
+    field f num=3 presence=explicit type=fwd.Fwd -> .fwd.Fwd msg
+    field e num=4 presence=explicit type=dep.DepEnum -> .dep.DepEnum enum
+    field ds num=5 presence=explicit repeated=expanded type=dep.Dep -> .dep.Dep msg
+    map dm num=6 key=int32 value=dep.Dep -> .dep.Dep msg
+    oneof choice
+      field od num=7 presence=explicit type=dep.Dep -> .dep.Dep msg
+      field oi num=8 presence=explicit type=int32
+  extend dep.Dep
+    field main_ext num=100 presence=explicit type=int32 fqn=.main.main_ext
+symbols
+  .dep.Dep message
+  .dep.DepEnum enum
+  .fwd.Fwd message
+  .main.Main message
+  .pub.Pub message
+  extensions
+    (.dep.Dep, 100) -> .main.main_ext

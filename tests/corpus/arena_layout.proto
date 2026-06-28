@@ -1,0 +1,63 @@
+// Fixture for the arena layout planner: exercises every storage decision in one message --
+// padding reorder, bit-packed bools + presence, SSO strings, inline-fixed vs pointer sub-messages
+// (the size cutoff), the single-bool-wrapper collapse, self-reference -> pointer, repeated/map views,
+// and a heterogeneous oneof union. proto3 so singular scalars are implicit (no presence bit) while
+// `optional` fields are explicit (a presence bit), giving both in one golden.
+syntax = "proto3";
+
+package al;
+
+enum Color {
+  RED = 0;
+  GREEN = 1;
+  BLUE = 2;
+}
+
+message Point {  // fixed-size, 8 bytes -> inlined when used as a field (<= 16B cutoff)
+  int32 x = 1;
+  int32 y = 2;
+}
+
+message Big {  // fixed-size, 24 bytes -> exceeds the 16B cutoff -> stored as a pointer
+  fixed64 a = 1;
+  fixed64 b = 2;
+  fixed64 c = 3;
+}
+
+message HasString {  // contains a string -> not fixed-size -> pointer when used as a field
+  string s = 1;
+}
+
+message BoolWrap {  // a single singular bool -> collapses to presence+value bits in a parent
+  bool value = 1;
+}
+
+message SelfRef {  // self-referential -> the recursive field is a pointer, message is not fixed-size
+  SelfRef next = 1;
+  int32 v = 2;
+}
+
+message Layout {
+  bool b1 = 1;                // value bit (implicit presence)
+  int64 big = 2;             // inline 8/8
+  bool b2 = 3;               // value bit
+  int32 small = 4;           // inline 4/4 (implicit)
+  optional int32 opt = 5;    // inline 4/4 + presence bit (explicit)
+  string name = 6;           // ArenaString 16/8 (implicit)
+  optional string oname = 7; // ArenaString 16/8 + presence bit (explicit)
+  Color color = 8;           // inline enum 4/4 (implicit)
+  Point pt = 9;              // inline-fixed 8/8 + presence bit (message presence is explicit)
+  Big bg = 10;               // pointer (exceeds cutoff)
+  HasString hs = 11;         // pointer (not fixed-size)
+  BoolWrap flag = 12;        // bool-wrapper: presence + value bits, no storage
+  repeated int32 nums = 13;     // ArrayView<int32>
+  repeated Point points = 14;   // ArrayView<.al.Point>
+  repeated string labels = 20;  // ArrayView<ArenaString> (repeated string)
+  map<string, int32> counts = 15;  // MapView, entry {ArenaString, int32}
+  map<int32, Point> grid = 16;     // MapView, entry {int32, inline Point}
+  oneof choice {
+    int32 ci = 17;   // 4/4 in the union
+    string cs = 18;  // ArenaString 16/8 in the union (largest -> sizes the union)
+    Point cp = 19;   // inline Point 8/8 in the union
+  }
+}

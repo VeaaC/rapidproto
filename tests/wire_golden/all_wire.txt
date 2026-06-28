@@ -1,0 +1,16 @@
+field=1 wire=VARINT u2469135780245 i64=2469135780245 zz64=-1234567890123
+field=2 wire=I64 bits=0x400921f9f01b866e f64=3.14159
+field=3 wire=I32 bits=0x12345678 f32=5.69046e-28
+field=4 wire=LEN len=4
+  as-bytes "wire"
+field=5 wire=LEN len=4
+  as-bytes "\xde\xad\xbe\xef"
+field=6 wire=LEN len=2
+  as-bytes "\x08\x0e"
+  as-message
+    field=1 wire=VARINT u14 i64=14 zz64=7
+field=7 wire=LEN len=3
+  as-bytes "\x0a\x14\x1e"
+field=8 wire=GROUP
+  field=9 wire=VARINT u99 i64=99 zz64=-50
+field=10 wire=VARINT u5 i64=5 zz64=-3

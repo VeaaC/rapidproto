@@ -1,0 +1,15 @@
+@PACKAGE_INIT@
+
+# Imported targets: rapidproto::rapidprotoc (the code generator) and rapidproto::runtime (the std-only
+# headers generated code includes, for consumers who prefer the installed form over the copy the CLI
+# drops beside its output).
+include("${CMAKE_CURRENT_LIST_DIR}/rapidprotoTargets.cmake")
+
+# The rapidproto_generate() helper, installed beside this Config.
+include("${CMAKE_CURRENT_LIST_DIR}/rapidproto-generate.cmake")
+
+# Both targets ship together, so any requested via COMPONENTS is satisfied. Without this,
+# find_package(rapidproto REQUIRED COMPONENTS rapidprotoc) would fail inside check_required_components.
+set(rapidproto_rapidprotoc_FOUND TRUE)
+set(rapidproto_runtime_FOUND TRUE)
+check_required_components(rapidproto)

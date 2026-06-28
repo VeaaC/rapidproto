@@ -1,0 +1,8 @@
+// Re-exported through forward.proto's `import public`; main.proto sees Pub transitively.
+syntax = "proto2";
+
+package pub;
+
+message Pub {
+  optional int32 w = 1;
+}

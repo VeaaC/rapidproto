@@ -1,0 +1,24 @@
+file proto3.proto
+  syntax proto3
+  package p3
+  enum State [fqn=.p3.State open]
+    value STATE_UNKNOWN = 0 [fqn=.p3.STATE_UNKNOWN]
+    value STATE_ON = 1 [fqn=.p3.STATE_ON]
+  message Msg [fqn=.p3.Msg]
+    field implicit_i num=1 presence=implicit type=int32
+    field explicit_i num=2 presence=explicit type=int32
+    field name num=3 presence=implicit type=string
+    field state num=4 presence=implicit type=State -> .p3.State enum
+    field self num=5 presence=explicit type=Msg -> .p3.Msg msg
+    field nums num=6 presence=explicit repeated=packed type=int32
+    field unpacked num=7 presence=explicit repeated=expanded type=int32
+      option packed = id:false
+    field states num=8 presence=explicit repeated=expanded type=State -> .p3.State enum
+    map counts num=9 key=string value=int32
+    oneof pick
+      field a num=10 presence=explicit type=int32
+      field b num=11 presence=explicit type=string
+symbols
+  .p3.Msg message
+  .p3.State enum
+  extensions

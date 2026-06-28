@@ -1,0 +1,11 @@
+implicit_i: 10
+explicit_i: 20
+name: "abc"
+state: STATE_ON
+self { implicit_i: 99 }
+nums: [1, 2, 3]
+unpacked: [4, 5]
+states: [STATE_ON, STATE_UNKNOWN]
+counts { key: "x" value: 1 }
+counts { key: "y" value: 2 }
+a: 7

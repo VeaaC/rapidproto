@@ -1,0 +1,65 @@
+message .p2.Scalars size=144 align=8 fixed=no
+  field s num=12 sso-string ArenaString off=0 size=16 align=8 presence=bit11
+  field by num=13 sso-string ArenaString off=16 size=16 align=8 presence=bit12
+  field packed_nums num=17 repeated ArrayView<int32> off=32 size=16 align=8 presence=empty
+  field expanded_nums num=18 repeated ArrayView<int32> off=48 size=16 align=8 presence=empty
+  field i64 num=2 inline-scalar int64 off=64 size=8 align=8 presence=bit0
+  field u64 num=4 inline-scalar uint64 off=72 size=8 align=8 presence=bit2
+  field s64 num=6 inline-scalar sint64 off=80 size=8 align=8 presence=bit4
+  field f64 num=8 inline-scalar fixed64 off=88 size=8 align=8 presence=bit6
+  field sf64 num=10 inline-scalar sfixed64 off=96 size=8 align=8 presence=bit8
+  field db num=15 inline-scalar double off=104 size=8 align=8 presence=bit14
+  field i32 num=1 inline-scalar int32 off=112 size=4 align=4 presence=none required
+  field u32 num=3 inline-scalar uint32 off=116 size=4 align=4 presence=bit1
+  field s32 num=5 inline-scalar sint32 off=120 size=4 align=4 presence=bit3
+  field f32 num=7 inline-scalar fixed32 off=124 size=4 align=4 presence=bit5
+  field sf32 num=9 inline-scalar sfixed32 off=128 size=4 align=4 presence=bit7
+  field fl num=14 inline-scalar float off=132 size=4 align=4 presence=bit13
+  field color num=16 inline-enum .p2.Color off=136 size=4 align=4 presence=bit15
+  field b num=11 inline-scalar bool off=- size=- align=- presence=bit9 value=bit10
+  mask off=140 size=2 align=2 bits=16
+    bit 0 presence i64
+    bit 1 presence u32
+    bit 2 presence u64
+    bit 3 presence s32
+    bit 4 presence s64
+    bit 5 presence f32
+    bit 6 presence f64
+    bit 7 presence sf32
+    bit 8 presence sf64
+    bit 9 presence b
+    bit 10 value b
+    bit 11 presence s
+    bit 12 presence by
+    bit 13 presence fl
+    bit 14 presence db
+    bit 15 presence color
+message .p2.WithGroup size=12 align=4 fixed=yes
+  field mygroup num=1 inline-submsg .p2.WithGroup.MyGroup off=0 size=8 align=4 presence=bit0
+  mask off=8 size=1 align=1 bits=1
+    bit 0 presence mygroup
+message .p2.WithGroup.MyGroup size=8 align=4 fixed=yes
+  field a num=2 inline-scalar int32 off=0 size=4 align=4 presence=bit0
+  field inner num=3 bool-wrapper .p2.WithGroup.MyGroup.Inner off=- size=- align=- presence=bit1 value=bit2
+  mask off=4 size=1 align=1 bits=3
+    bit 0 presence a
+    bit 1 presence inner
+    bit 2 value inner
+message .p2.WithGroup.MyGroup.Inner size=1 align=1 fixed=yes bool-wrapper
+  field flag num=4 inline-scalar bool off=- size=- align=- presence=bit0 value=bit1
+  mask off=0 size=1 align=1 bits=2
+    bit 0 presence flag
+    bit 1 value flag
+message .p2.Container size=64 align=8 fixed=no
+  map by_name num=1 off=0 size=16 align=8 presence=empty
+    entry key=sso-string:ArenaString value=inline-submsg:.p2.Container.Nested size=24 align=8
+  map by_id num=2 off=16 size=16 align=8 presence=empty
+    entry key=inline-scalar:int32 value=inline-enum:.p2.Color size=8 align=4
+  field items num=5 repeated ArrayView<.p2.Container.Nested> off=32 size=16 align=8 presence=empty
+  oneof choice disc-off=56 union-off=48 union-size=8 union-align=4
+    member ci num=3 inline-scalar int32 size=4 align=4
+    member cn num=4 inline-submsg .p2.Container.Nested size=8 align=4
+message .p2.Container.Nested size=8 align=4 fixed=yes
+  field x num=1 inline-scalar int32 off=0 size=4 align=4 presence=bit0
+  mask off=4 size=1 align=1 bits=1
+    bit 0 presence x

@@ -1,0 +1,84 @@
+// Realistic benchmark schema: a dataset of records that mixes the decode paths a real payload
+// exercises -- scalars (varint/fixed/double/bool), strings, a nested message, repeated scalars
+// (packed), repeated strings, repeated sub-messages (the bulk), and a map. Decoded three ways
+// (the arena decoder, protoc + google::protobuf::Arena, the streaming decoder) over identical bytes.
+syntax = "proto3";
+
+package bench;
+
+message Address {
+  string street = 1;
+  string city = 2;
+  uint32 zip = 3;
+}
+
+message Attribute {
+  string key = 1;
+  string value = 2;
+}
+
+message Person {
+  int64 id = 1;
+  string name = 2;
+  string email = 3;
+  bool active = 4;
+  double score = 5;
+  fixed64 created = 6;
+  Address address = 7;               // nested message (pointer)
+  repeated string tags = 8;          // repeated string
+  repeated int32 history = 9;        // repeated scalar (packed)
+  repeated Attribute attributes = 10;  // repeated sub-message
+  map<string, int32> counters = 11;  // map<string,int32>
+}
+
+message Dataset {
+  string name = 1;
+  int64 version = 2;
+  repeated Person people = 3;  // the bulk: repeated sub-messages
+}
+
+// "Many small repeated fields" shape: every record carries several short repeated arrays, so the
+// arena fills with a large number of tiny allocations (stresses chunk packing / per-array overhead).
+message Wide {
+  repeated int32 a = 1;
+  repeated int32 b = 2;
+  repeated int32 c = 3;
+  repeated int32 d = 4;
+  repeated string s = 5;
+  repeated string t = 6;
+}
+
+message WideSet {
+  repeated Wide items = 1;
+}
+
+// "Few big repeated fields" shape: a record is dominated by a couple of large scalar arrays, so the
+// arena makes a few big contiguous allocations (some exceeding the chunk cap, taking their own chunk).
+message Big {
+  repeated int64 numbers = 1;
+  repeated double reals = 2;
+}
+
+message BigSet {
+  repeated Big items = 1;
+}
+
+// Fixed-size sub-message shape: an all-scalar nested message, always present. A fixed-size sub-message
+// <= the inline cutoff is inlined by value, else boxed behind a pointer; Vec3 is 24 bytes, so it is
+// the payload used to sweep that cutoff (boxed at the default 16, inlined once the cutoff reaches 24).
+message Vec3 {
+  double x = 1;
+  double y = 2;
+  double z = 3;
+}
+
+message Particle {
+  int64 id = 1;
+  Vec3 position = 2;
+  Vec3 velocity = 3;
+  fixed32 color = 4;
+}
+
+message ParticleSet {
+  repeated Particle items = 1;
+}

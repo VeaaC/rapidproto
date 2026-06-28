@@ -1,0 +1,4 @@
+by_name { key: "alpha" value { x: 11 } }
+by_name { key: "beta" value { x: 22 } }
+by_id { key: 1 value: COLOR_RED }
+by_id { key: 2 value: COLOR_NEG }

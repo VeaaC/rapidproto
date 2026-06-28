@@ -1,0 +1,13 @@
+// Mutually-referential messages: exercises out-of-line read() so each field type is complete.
+syntax = "proto3";
+
+package xr;
+
+message A {
+  B b = 1;
+  int32 id = 2;
+}
+
+message B {
+  A a = 1;
+}

@@ -1,0 +1,328 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Christian Vetter
+#pragma once
+
+// CLI helpers for rapidprotoc: shared flag parsing, the resolve -> analyze pipeline, and writing the
+// generated headers (and depfile) into the out-dir. The model-specific parts -- which decoder text to
+// emit, which runtime header(s) to drop -- live in the CLI main. Header-only, like the main that
+// includes it.
+
+#include <algorithm>
+#include <cctype>
+#include <cstddef>
+#include <filesystem>
+#include <fstream>
+#include <functional>
+#include <iostream>
+#include <optional>
+#include <sstream>
+#include <string>
+#include <string_view>
+#include <system_error>
+#include <utility>
+#include <vector>
+
+#include "rapidproto/resolve.hpp"
+#include "rapidproto/resolver.hpp"
+#include "rapidproto/result.hpp"
+#include "rapidproto/source.hpp"
+
+namespace rapidproto::cli {
+
+// A --namespace-prefix is empty (no prefix) or a dot-separated list of C++ identifiers
+// (`[A-Za-z_][A-Za-z0-9_]*`). This catches CLI typos (e.g. `rp:`) up front instead of emitting
+// uncompilable generated code.
+inline bool valid_namespace_prefix(std::string_view p) {
+    if (p.empty()) {
+        return true;
+    }
+    std::size_t start = 0;
+    while (true) {
+        const std::size_t dot = p.find('.', start);
+        const std::string_view comp =
+            p.substr(start, dot == std::string_view::npos ? std::string_view::npos : dot - start);
+        if (comp.empty() ||
+            (std::isalpha(static_cast<unsigned char>(comp[0])) == 0 && comp[0] != '_')) {
+            return false;
+        }
+        for (const char ch : comp) {
+            if (std::isalnum(static_cast<unsigned char>(ch)) == 0 && ch != '_') {
+                return false;
+            }
+        }
+        if (dot == std::string_view::npos) {
+            return true;
+        }
+        start = dot + 1;
+    }
+}
+
+// The flags shared by every generator CLI.
+struct Options {
+    ResolverConfig config;         // -I include paths, --no-wellknown
+    std::string out_dir = ".";     // --out-dir
+    std::string namespace_prefix;  // --namespace-prefix (dotted, prepended to each C++ namespace)
+    std::string depfile;           // --depfile (emit a Make/Ninja depfile for incremental codegen)
+    std::vector<std::string> entries;
+};
+
+// Parse argv into Options. `extra` is invoked for an argument none of the shared flags matched
+// (a model-specific flag, e.g. the arena model's --unknown-present); it returns true if it consumed the
+// argument, else the argument is treated as a positional entry file. On any usage error prints
+// `usage` to stderr and returns nullopt (the caller should exit 2); likewise for a malformed
+// --namespace-prefix.
+inline std::optional<Options> parse_args(int argc, char** argv, std::string_view usage,
+                                         const std::function<bool(std::string_view)>& extra = {}) {
+    Options opts;
+    const std::vector<std::string> args(argv + 1, argv + argc);
+    for (std::size_t i = 0; i < args.size(); ++i) {
+        const std::string& arg = args[i];
+        if (arg == "-I") {
+            if (++i >= args.size()) {
+                std::cerr << usage;
+                return std::nullopt;
+            }
+            opts.config.include_paths.push_back(args[i]);
+        } else if (arg.rfind("-I", 0) == 0) {
+            opts.config.include_paths.push_back(arg.substr(2));
+        } else if (arg == "--out-dir") {
+            if (++i >= args.size()) {
+                std::cerr << usage;
+                return std::nullopt;
+            }
+            opts.out_dir = args[i];
+        } else if (arg.rfind("--out-dir=", 0) == 0) {
+            opts.out_dir = arg.substr(std::string_view("--out-dir=").size());
+        } else if (arg == "--no-wellknown") {
+            opts.config.use_wellknown = false;
+        } else if (arg == "--namespace-prefix") {
+            if (++i >= args.size()) {
+                std::cerr << usage;
+                return std::nullopt;
+            }
+            opts.namespace_prefix = args[i];
+        } else if (arg.rfind("--namespace-prefix=", 0) == 0) {
+            opts.namespace_prefix = arg.substr(std::string_view("--namespace-prefix=").size());
+        } else if (arg == "--depfile") {
+            if (++i >= args.size()) {
+                std::cerr << usage;
+                return std::nullopt;
+            }
+            opts.depfile = args[i];
+        } else if (arg.rfind("--depfile=", 0) == 0) {
+            opts.depfile = arg.substr(std::string_view("--depfile=").size());
+        } else if (extra && extra(arg)) {
+            // consumed by the generator-specific flag hook
+        } else {
+            opts.entries.push_back(arg);
+        }
+    }
+    if (opts.entries.empty()) {
+        std::cerr << usage;
+        return std::nullopt;
+    }
+    if (!valid_namespace_prefix(opts.namespace_prefix)) {
+        std::cerr << "error: --namespace-prefix must be dot-separated C++ identifiers, got '"
+                  << opts.namespace_prefix << "'\n";
+        return std::nullopt;
+    }
+    return opts;
+}
+
+// Resolve `entry` and its imports, then run the semantic pipeline. On error prints to stderr and
+// returns nullopt; on success returns the analyzed file set and its symbol table. (Moving the set is
+// safe for the table: its node pointers reference the set's vector storage, which survives the move.)
+inline std::optional<std::pair<ResolvedFileSet, SymbolTable>> resolve_and_analyze(
+    const std::string& entry, const ResolverConfig& config) {
+    SourceRegistry sources;
+    auto resolved = resolve(entry, config, sources);
+    if (resolved.is_err()) {
+        std::cerr << "error: " << render_error(resolved.error(), sources) << '\n';
+        return std::nullopt;
+    }
+    ResolvedFileSet set = std::move(resolved).value();
+    auto analyzed = analyze(set);
+    if (analyzed.is_err()) {
+        std::cerr << "error: " << render_error(analyzed.error(), sources) << '\n';
+        return std::nullopt;
+    }
+    return std::make_pair(std::move(set), std::move(analyzed).value());
+}
+
+// Write `content` to `path`, creating parent directories, and log "wrote <path>". Returns `path`, so
+// a caller can collect every written output (e.g. to list them as a depfile's targets).
+inline std::filesystem::path write_file(const std::filesystem::path& path,
+                                        std::string_view content) {
+    std::filesystem::create_directories(path.parent_path());
+    std::ofstream(path, std::ios::binary) << content;
+    std::cout << "wrote " << path.string() << '\n';
+    return path;
+}
+
+// Like write_file, but skips the write when `path` already holds exactly `content`. For the shared,
+// fixed-content runtime drops, which every invocation writes into a possibly shared out-dir: skipping
+// avoids truncate+rewriting the file under a concurrent reader (a GENERATOR=both target, or two targets
+// sharing an out-dir) and avoids bumping its mtime, which would force needless consumer recompiles. Do
+// NOT use for a tracked build output, whose mtime must advance each run.
+inline std::filesystem::path write_shared_file(const std::filesystem::path& path,
+                                               std::string_view content) {
+    std::error_code error;
+    if (std::filesystem::exists(path, error)) {
+        const std::ifstream in(path, std::ios::binary);
+        std::ostringstream buffer;
+        buffer << in.rdbuf();
+        const std::string current = buffer.str();
+        if (std::string_view(current) == content) {
+            return path;
+        }
+    }
+    return write_file(path, content);
+}
+
+// The output path for `file`'s generated header under `out_dir`: the file's import-relative path with
+// ".proto" swapped for `extension` (foo/bar.proto -> <out_dir>/foo/bar<ext>). The mirrored layout
+// matches the include-root the generated headers reference.
+inline std::filesystem::path header_path(const std::string& out_dir, const FileNode& file,
+                                         std::string_view extension) {
+    std::filesystem::path rel = file.filename;
+    if (rel.is_absolute()) {
+        rel = rel.filename();
+    }
+    // Strip a trailing ".proto" exactly (case-sensitively), not replace_extension() which drops any
+    // last extension -- so this agrees with the CMake helper's `.proto$` rule on names the helper must
+    // predict, e.g. `a.b.proto` (-> `a.b`) or `Foo.PROTO` (left as-is by both).
+    std::string stem = rel.generic_string();
+    static constexpr std::string_view kProto = ".proto";
+    if (stem.size() >= kProto.size() &&
+        std::string_view(stem).substr(stem.size() - kProto.size()) == kProto) {
+        stem.erase(stem.size() - kProto.size());
+    }
+    return std::filesystem::path(out_dir) / (stem + std::string(extension));
+}
+
+// Write a generated header for `file` under `out_dir` (path per header_path). Returns the path.
+inline std::filesystem::path write_header(const std::string& out_dir, const FileNode& file,
+                                          std::string_view extension, std::string_view content) {
+    return write_file(header_path(out_dir, file, extension), content);
+}
+
+// `path` made absolute (against the cwd) and lexically normalized, but WITHOUT resolving symlinks --
+// matching how CMake and Ninja canonicalize depfile paths (lexically). Produced this way, a depfile
+// entry compares equal to the same file as CMake/Ninja name it, so the dependency edge connects.
+inline std::filesystem::path lexically_absolute(const std::filesystem::path& path) {
+    std::error_code error;
+    const std::filesystem::path abs = std::filesystem::absolute(path, error);
+    return (error ? path : abs).lexically_normal();
+}
+
+// The on-disk .proto files `set` (the closure of `entry`) was built from: the entry plus every import
+// found under an include path. Well-known types loaded from the embedded definitions are not on disk,
+// so the include-path search misses them and they are correctly excluded -- unless the user shadows a
+// WKT with their own copy on an include path, in which case that copy IS a real dependency and is
+// listed. These are the depfile's prerequisites.
+inline std::vector<std::filesystem::path> disk_proto_paths(const std::string& entry,
+                                                           const ResolvedFileSet& set,
+                                                           const ResolverConfig& config) {
+    std::vector<std::filesystem::path> paths;
+    paths.push_back(entry);  // the entry is given as a disk path
+    // The entry is set.files.back() (resolve() collects post-order, root last); it is already added
+    // above from its given spelling, so skip it here to avoid listing it twice (the include-resolved
+    // spelling can differ from the given one and dedup wouldn't collapse them).
+    const std::size_t imports = set.files.empty() ? 0 : set.files.size() - 1;
+    for (std::size_t i = 0; i < imports; ++i) {
+        for (const std::string& include : config.include_paths) {
+            const std::filesystem::path full =
+                std::filesystem::path(include) / set.files[i].filename;
+            if (std::filesystem::exists(full)) {
+                paths.push_back(full);
+                break;
+            }
+        }
+    }
+    return paths;
+}
+
+// Write a Make/Ninja-style depfile -- `out1 out2 ... : in1 in2 ...` -- declaring that the outputs
+// depend on every input. add_custom_command(DEPFILE ...) reads it so codegen re-runs when any input
+// .proto changes, including transitive imports a plain DEPENDS list (outputs only) would never catch.
+//
+// Callers pass the primary (entry) header(s) as `outputs`: re-running the CLI regenerates the whole
+// closure, so the build tool's rule that the depfile target match the command's OUTPUT is met with one
+// target. That target is named relative to the CLI's working directory, which the build wrapper points
+// at the directory the build tool interprets depfile paths against (CMAKE_CURRENT_BINARY_DIR when CMake
+// transforms the depfile under CMP0116 NEW, else the top build dir) -- so an output under it gets the
+// build node's relative name. An output OUTSIDE that dir (an out-of-tree OUT_DIR) is named absolutely,
+// matching how the tool names an out-of-tree node. Prerequisites stay absolute -- the build tool only
+// stats them. Spaces, '#', '$', and backslash are escaped; duplicates collapsed.
+inline void write_depfile(const std::filesystem::path& depfile_path,
+                          std::vector<std::filesystem::path> outputs,
+                          std::vector<std::filesystem::path> prereqs) {
+    std::error_code cwd_error;
+    const std::filesystem::path base = std::filesystem::current_path(cwd_error);
+    const auto as_target = [&](const std::filesystem::path& path) {
+        const std::filesystem::path abs = lexically_absolute(path);
+        if (cwd_error || base.empty()) {
+            return abs;  // no cwd to relativize against -- absolute is the best we can do
+        }
+        const std::filesystem::path rel = abs.lexically_relative(base);
+        // Empty (unrelatable -- e.g. a different Windows drive) or escaping the build dir (a "../"
+        // prefix, i.e. OUT_DIR is outside the build tree)? Then the build tool names this out-of-tree
+        // output by its ABSOLUTE path (verified for Ninja), so emit absolute to match. Only an output
+        // UNDER the working dir gets a relative node.
+        const std::string rels = rel.generic_string();
+        if (rels.empty() || rels == ".." || rels.rfind("../", 0) == 0) {
+            return abs;
+        }
+        return rel;
+    };
+    const auto dedup = [](std::vector<std::filesystem::path>& paths) {
+        std::sort(paths.begin(), paths.end());
+        paths.erase(std::unique(paths.begin(), paths.end()), paths.end());
+    };
+    for (std::filesystem::path& path : outputs) {
+        path = as_target(path);  // build-dir-relative, matching the build tool's output node
+    }
+    for (std::filesystem::path& path : prereqs) {
+        path = lexically_absolute(path);
+    }
+    dedup(outputs);
+    dedup(prereqs);
+    // Escape per the depfile grammar GCC's -MD emits (what CMake and Ninja consume): a backslash before
+    // a space, '#', or backslash; '$' doubled. (':' is left alone -- it does not occur in POSIX paths
+    // and is the rule separator.)
+    const auto escape = [](const std::filesystem::path& path) {
+        std::string out;
+        for (const char ch : path.generic_string()) {
+            switch (ch) {
+                case ' ':
+                case '#':
+                case '\\':
+                    out.push_back('\\');
+                    out.push_back(ch);
+                    break;
+                case '$':
+                    out += "$$";
+                    break;
+                default:
+                    out.push_back(ch);
+            }
+        }
+        return out;
+    };
+    const std::filesystem::path depfile_dir = depfile_path.parent_path();
+    if (!depfile_dir
+             .empty()) {  // a bare-filename depfile (no dir) has an empty parent -- don't throw
+        std::filesystem::create_directories(depfile_dir);
+    }
+    std::ofstream depfile(depfile_path, std::ios::binary);
+    for (std::size_t i = 0; i < outputs.size(); ++i) {
+        depfile << (i == 0 ? "" : " ") << escape(outputs[i]);
+    }
+    depfile << ':';
+    for (const std::filesystem::path& prereq : prereqs) {
+        depfile << ' ' << escape(prereq);
+    }
+    depfile << '\n';
+}
+
+}  // namespace rapidproto::cli

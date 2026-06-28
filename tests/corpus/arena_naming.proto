@@ -1,0 +1,29 @@
+// Fixture for arenagen identifier dedup: every synthesized accessor/type name is forced to
+// collide with a user field/type name, so the golden must still be valid C++ (the colliding
+// synthesized name gains a `_` suffix). Covers has_<field>, <oneof>_case, the <Oneof>Case
+// enumerators, and the <Map>Entry struct.
+syntax = "proto3";
+
+package an;
+
+message Collide {
+  message FooEntry {  // user type whose name equals the map `foo`'s synthesized entry type
+    int32 a = 1;
+  }
+
+  optional int32 x = 1;        // explicit -> a synthesized has_x() accessor
+  int32 has_x = 2;             // its getter has_x() collides with the synthesized has_x()
+  map<string, int32> foo = 3;  // synthesizes a FooEntry struct -> collides with the nested FooEntry
+
+  oneof pick {  // synthesizes pick_case()
+    int32 p1 = 4;
+    int32 p2 = 5;
+  }
+  int32 pick_case = 6;  // its getter pick_case() collides with the oneof case accessor
+
+  oneof letters {  // members `a` and `A` both capitalize to the enumerator kA
+    int32 a = 7;
+    int32 A = 8;
+  }
+  int32 decode = 9;     // reserved (the decode() entry point) -> `decode_`
+}
