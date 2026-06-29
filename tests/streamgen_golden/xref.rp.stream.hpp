@@ -12,6 +12,10 @@ namespace xr::stream {
 
 struct A;
 struct B;
+struct Nested;
+struct FwdMsg;
+struct CousinA;
+struct CousinB;
 
 struct A {
   explicit A(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
@@ -29,6 +33,180 @@ struct B {
   explicit B(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
 
   struct a { using Value = ::xr::stream::A; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "a"; };
+
+  template <class... Callbacks>
+  [[nodiscard]] ::rapidproto::DecodeStatus decode(Callbacks&&... callbacks) const;
+ private:
+  ::rapidproto::ByteView m_bytes;
+};
+
+struct Nested {
+  explicit Nested(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
+
+  struct User;
+  struct Def;
+  struct P;
+  struct Q;
+  struct Def {
+    explicit Def(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
+
+    enum class Kind : std::int32_t {
+      KIND_UNKNOWN = 0,
+      KIND_A = 1,
+      rp_non_exhaustive_min = INT32_MIN,
+      rp_non_exhaustive_max = INT32_MAX,
+    };
+
+    struct Inner;
+    struct Inner {
+      explicit Inner(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
+
+      struct s { using Value = std::string_view; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "s"; };
+
+      template <class... Callbacks>
+      [[nodiscard]] ::rapidproto::DecodeStatus decode(Callbacks&&... callbacks) const;
+     private:
+      ::rapidproto::ByteView m_bytes;
+    };
+
+    struct s { using Value = std::string_view; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "s"; };
+    struct n { using Value = std::int32_t; static constexpr std::uint32_t kNumber = 2; static constexpr std::string_view kName = "n"; };
+
+    template <class... Callbacks>
+    [[nodiscard]] ::rapidproto::DecodeStatus decode(Callbacks&&... callbacks) const;
+   private:
+    ::rapidproto::ByteView m_bytes;
+  };
+
+  struct User {
+    explicit User(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
+
+    struct single { using Value = ::xr::stream::Nested::Def; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "single"; };
+    struct many { using Value = ::xr::stream::Nested::Def; static constexpr std::uint32_t kNumber = 2; static constexpr std::string_view kName = "many"; };
+    struct kind { using Value = ::xr::stream::Nested::Def::Kind; static constexpr std::uint32_t kNumber = 5; static constexpr std::string_view kName = "kind"; };
+    struct kinds { using Value = ::xr::stream::Nested::Def::Kind; static constexpr std::uint32_t kNumber = 6; static constexpr std::string_view kName = "kinds"; };
+    struct inner { using Value = ::xr::stream::Nested::Def::Inner; static constexpr std::uint32_t kNumber = 9; static constexpr std::string_view kName = "inner"; };
+    struct inners { using Value = ::xr::stream::Nested::Def::Inner; static constexpr std::uint32_t kNumber = 10; static constexpr std::string_view kName = "inners"; };
+    struct chosen { using Value = ::xr::stream::Nested::Def; static constexpr std::uint32_t kNumber = 4; static constexpr std::string_view kName = "chosen"; };
+    struct tagged { using Value = ::xr::stream::Nested::Def::Kind; static constexpr std::uint32_t kNumber = 8; static constexpr std::string_view kName = "tagged"; };
+    struct by_name { using Key = std::string_view; using Value = ::xr::stream::Nested::Def; static constexpr std::uint32_t kNumber = 3; static constexpr std::string_view kName = "by_name"; };
+    struct ranked { using Key = std::int32_t; using Value = ::xr::stream::Nested::Def::Kind; static constexpr std::uint32_t kNumber = 7; static constexpr std::string_view kName = "ranked"; };
+
+    template <class... Callbacks>
+    [[nodiscard]] ::rapidproto::DecodeStatus decode(Callbacks&&... callbacks) const;
+   private:
+    ::rapidproto::ByteView m_bytes;
+  };
+
+  struct P {
+    explicit P(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
+
+    struct q { using Value = ::xr::stream::Nested::Q; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "q"; };
+
+    template <class... Callbacks>
+    [[nodiscard]] ::rapidproto::DecodeStatus decode(Callbacks&&... callbacks) const;
+   private:
+    ::rapidproto::ByteView m_bytes;
+  };
+
+  struct Q {
+    explicit Q(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
+
+    struct p { using Value = ::xr::stream::Nested::P; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "p"; };
+
+    template <class... Callbacks>
+    [[nodiscard]] ::rapidproto::DecodeStatus decode(Callbacks&&... callbacks) const;
+   private:
+    ::rapidproto::ByteView m_bytes;
+  };
+
+  template <class... Callbacks>
+  [[nodiscard]] ::rapidproto::DecodeStatus decode(Callbacks&&... callbacks) const;
+ private:
+  ::rapidproto::ByteView m_bytes;
+};
+
+struct FwdMsg {
+  explicit FwdMsg(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
+
+  struct Ref;
+  struct Target;
+  struct Ref {
+    explicit Ref(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
+
+    struct one { using Value = ::xr::stream::FwdMsg::Target; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "one"; };
+    struct many { using Value = ::xr::stream::FwdMsg::Target; static constexpr std::uint32_t kNumber = 2; static constexpr std::string_view kName = "many"; };
+    struct chosen { using Value = ::xr::stream::FwdMsg::Target; static constexpr std::uint32_t kNumber = 4; static constexpr std::string_view kName = "chosen"; };
+    struct by_id { using Key = std::int32_t; using Value = ::xr::stream::FwdMsg::Target; static constexpr std::uint32_t kNumber = 3; static constexpr std::string_view kName = "by_id"; };
+
+    template <class... Callbacks>
+    [[nodiscard]] ::rapidproto::DecodeStatus decode(Callbacks&&... callbacks) const;
+   private:
+    ::rapidproto::ByteView m_bytes;
+  };
+
+  struct Target {
+    explicit Target(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
+
+    struct s { using Value = std::string_view; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "s"; };
+    struct n { using Value = std::int32_t; static constexpr std::uint32_t kNumber = 2; static constexpr std::string_view kName = "n"; };
+
+    template <class... Callbacks>
+    [[nodiscard]] ::rapidproto::DecodeStatus decode(Callbacks&&... callbacks) const;
+   private:
+    ::rapidproto::ByteView m_bytes;
+  };
+
+  template <class... Callbacks>
+  [[nodiscard]] ::rapidproto::DecodeStatus decode(Callbacks&&... callbacks) const;
+ private:
+  ::rapidproto::ByteView m_bytes;
+};
+
+struct CousinB {
+  explicit CousinB(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
+
+  enum class Tag : std::int32_t {
+    TAG_NONE = 0,
+    TAG_X = 1,
+    rp_non_exhaustive_min = INT32_MIN,
+    rp_non_exhaustive_max = INT32_MAX,
+  };
+
+  struct Thing;
+  struct Thing {
+    explicit Thing(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
+
+    struct s { using Value = std::string_view; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "s"; };
+
+    template <class... Callbacks>
+    [[nodiscard]] ::rapidproto::DecodeStatus decode(Callbacks&&... callbacks) const;
+   private:
+    ::rapidproto::ByteView m_bytes;
+  };
+
+  template <class... Callbacks>
+  [[nodiscard]] ::rapidproto::DecodeStatus decode(Callbacks&&... callbacks) const;
+ private:
+  ::rapidproto::ByteView m_bytes;
+};
+
+struct CousinA {
+  explicit CousinA(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
+
+  struct Use;
+  struct Use {
+    explicit Use(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
+
+    struct thing { using Value = ::xr::stream::CousinB::Thing; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "thing"; };
+    struct things { using Value = ::xr::stream::CousinB::Thing; static constexpr std::uint32_t kNumber = 2; static constexpr std::string_view kName = "things"; };
+    struct tag_ { using Value = ::xr::stream::CousinB::Tag; static constexpr std::uint32_t kNumber = 3; static constexpr std::string_view kName = "tag"; };
+
+    template <class... Callbacks>
+    [[nodiscard]] ::rapidproto::DecodeStatus decode(Callbacks&&... callbacks) const;
+   private:
+    ::rapidproto::ByteView m_bytes;
+  };
 
   template <class... Callbacks>
   [[nodiscard]] ::rapidproto::DecodeStatus decode(Callbacks&&... callbacks) const;
@@ -110,6 +288,785 @@ template <class... Callbacks>
             const auto value = reader.read_length_delimited();
             if (!value) { return ::rapidproto::DecodeStatus::from_reader(reader); }
             if (const auto status = ::rapidproto::invoke_field(dispatch, a{}, ::xr::stream::A{*value}); !status.ok()) {
+              return status;
+            }
+            continue;
+          }
+        }
+        break;
+      default:
+        if constexpr ((false || ... || ::rapidproto::specifically_handles_unknown<Callbacks>)) {
+          const auto rp_value_start = reader.position();
+          if (!reader.skip(tag->wire_type, tag->field_number)) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+          if (const auto status = ::rapidproto::invoke_unknown(dispatch, ::rapidproto::UnknownField{tag->field_number, tag->wire_type, m_bytes.substr(rp_value_start, reader.position() - rp_value_start)}); !status.ok()) {
+            return status;
+          }
+          continue;
+        }
+        break;
+    }
+    if (!reader.skip(tag->wire_type, tag->field_number)) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+  }
+  return ::rapidproto::DecodeStatus::success();
+}
+
+template <class... Callbacks>
+::rapidproto::DecodeStatus Nested::decode(Callbacks&&... callbacks) const {
+  [[maybe_unused]] auto dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(callbacks)...);
+  ::rapidproto::WireReader reader{m_bytes};
+  while (!reader.at_end()) {
+    const auto tag = reader.read_tag();
+    if (!tag) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+    switch (tag->field_number) {
+      default:
+        if constexpr ((false || ... || ::rapidproto::specifically_handles_unknown<Callbacks>)) {
+          const auto rp_value_start = reader.position();
+          if (!reader.skip(tag->wire_type, tag->field_number)) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+          if (const auto status = ::rapidproto::invoke_unknown(dispatch, ::rapidproto::UnknownField{tag->field_number, tag->wire_type, m_bytes.substr(rp_value_start, reader.position() - rp_value_start)}); !status.ok()) {
+            return status;
+          }
+          continue;
+        }
+        break;
+    }
+    if (!reader.skip(tag->wire_type, tag->field_number)) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+  }
+  return ::rapidproto::DecodeStatus::success();
+}
+
+template <class... Callbacks>
+::rapidproto::DecodeStatus Nested::User::decode(Callbacks&&... callbacks) const {
+  [[maybe_unused]] auto dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(callbacks)...);
+  ::rapidproto::WireReader reader{m_bytes};
+  while (!reader.at_end()) {
+    const auto tag = reader.read_tag();
+    if (!tag) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+    switch (tag->field_number) {
+      case single::kNumber:
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<Callbacks, single, single::Value>)) <= 1U, "field 'single' is handled by more than one callback");
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<Callbacks, single, single::Value>)) <= 1U, "field 'single' is matched by more than one catch-all callback");
+        static_assert((true && ... && !::rapidproto::is_partial_generic<Callbacks, single, single::Value>), "a callback for field 'single' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+        static_assert((true && ... && !(::rapidproto::targets<Callbacks, single, single::Value> && !::rapidproto::specifically_handles<Callbacks, single, single::Value>)), "a callback for field 'single' has the wrong value type (expected single::Value)");
+        if constexpr ((false || ... || ::rapidproto::handles_one<Callbacks, single, single::Value>)) {
+          if (tag->wire_type == ::rapidproto::WireType::Len) {
+            const auto value = reader.read_length_delimited();
+            if (!value) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+            if (const auto status = ::rapidproto::invoke_field(dispatch, single{}, ::xr::stream::Nested::Def{*value}); !status.ok()) {
+              return status;
+            }
+            continue;
+          }
+        }
+        break;
+      case many::kNumber:
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<Callbacks, many, many::Value>)) <= 1U, "field 'many' is handled by more than one callback");
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<Callbacks, many, many::Value>)) <= 1U, "field 'many' is matched by more than one catch-all callback");
+        static_assert((true && ... && !::rapidproto::is_partial_generic<Callbacks, many, many::Value>), "a callback for field 'many' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+        static_assert((true && ... && !(::rapidproto::targets<Callbacks, many, many::Value> && !::rapidproto::specifically_handles<Callbacks, many, many::Value>)), "a callback for field 'many' has the wrong value type (expected many::Value)");
+        if constexpr ((false || ... || ::rapidproto::handles_one<Callbacks, many, many::Value>)) {
+          if (tag->wire_type == ::rapidproto::WireType::Len) {
+            const auto value = reader.read_length_delimited();
+            if (!value) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+            if (const auto status = ::rapidproto::invoke_field(dispatch, many{}, ::xr::stream::Nested::Def{*value}); !status.ok()) {
+              return status;
+            }
+            continue;
+          }
+        }
+        break;
+      case kind::kNumber:
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<Callbacks, kind, kind::Value>)) <= 1U, "field 'kind' is handled by more than one callback");
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<Callbacks, kind, kind::Value>)) <= 1U, "field 'kind' is matched by more than one catch-all callback");
+        static_assert((true && ... && !::rapidproto::is_partial_generic<Callbacks, kind, kind::Value>), "a callback for field 'kind' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+        static_assert((true && ... && !(::rapidproto::targets<Callbacks, kind, kind::Value> && !::rapidproto::specifically_handles<Callbacks, kind, kind::Value>)), "a callback for field 'kind' has the wrong value type (expected kind::Value)");
+        if constexpr ((false || ... || ::rapidproto::handles_one<Callbacks, kind, kind::Value>)) {
+          if (tag->wire_type == ::rapidproto::WireType::Varint) {
+            const auto value = reader.read_varint();
+            if (!value) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+            if (const auto status = ::rapidproto::invoke_field(dispatch, kind{}, static_cast<::xr::stream::Nested::Def::Kind>(::rapidproto::varint_to_int32(*value))); !status.ok()) {
+              return status;
+            }
+            continue;
+          }
+        }
+        break;
+      case kinds::kNumber:
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<Callbacks, kinds, kinds::Value>)) <= 1U, "field 'kinds' is handled by more than one callback");
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<Callbacks, kinds, kinds::Value>)) <= 1U, "field 'kinds' is matched by more than one catch-all callback");
+        static_assert((true && ... && !::rapidproto::is_partial_generic<Callbacks, kinds, kinds::Value>), "a callback for field 'kinds' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+        static_assert((true && ... && !(::rapidproto::targets<Callbacks, kinds, kinds::Value> && !::rapidproto::specifically_handles<Callbacks, kinds, kinds::Value>)), "a callback for field 'kinds' has the wrong value type (expected kinds::Value)");
+        if constexpr ((false || ... || ::rapidproto::handles_one<Callbacks, kinds, kinds::Value>)) {
+          if (tag->wire_type == ::rapidproto::WireType::Varint) {
+            const auto value = reader.read_varint();
+            if (!value) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+            if (const auto status = ::rapidproto::invoke_field(dispatch, kinds{}, static_cast<::xr::stream::Nested::Def::Kind>(::rapidproto::varint_to_int32(*value))); !status.ok()) {
+              return status;
+            }
+            continue;
+          }
+          if (tag->wire_type == ::rapidproto::WireType::Len) {
+            const auto rp_packed = reader.read_length_delimited();
+            if (!rp_packed) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+            ::rapidproto::WireReader rp_elements{*rp_packed};
+            while (!rp_elements.at_end()) {
+              const auto value = rp_elements.read_varint();
+              if (!value) { return ::rapidproto::DecodeStatus::from_reader(rp_elements); }
+              if (const auto status = ::rapidproto::invoke_field(dispatch, kinds{}, static_cast<::xr::stream::Nested::Def::Kind>(::rapidproto::varint_to_int32(*value))); !status.ok()) {
+                return status;
+              }
+            }
+            continue;
+          }
+        }
+        break;
+      case inner::kNumber:
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<Callbacks, inner, inner::Value>)) <= 1U, "field 'inner' is handled by more than one callback");
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<Callbacks, inner, inner::Value>)) <= 1U, "field 'inner' is matched by more than one catch-all callback");
+        static_assert((true && ... && !::rapidproto::is_partial_generic<Callbacks, inner, inner::Value>), "a callback for field 'inner' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+        static_assert((true && ... && !(::rapidproto::targets<Callbacks, inner, inner::Value> && !::rapidproto::specifically_handles<Callbacks, inner, inner::Value>)), "a callback for field 'inner' has the wrong value type (expected inner::Value)");
+        if constexpr ((false || ... || ::rapidproto::handles_one<Callbacks, inner, inner::Value>)) {
+          if (tag->wire_type == ::rapidproto::WireType::Len) {
+            const auto value = reader.read_length_delimited();
+            if (!value) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+            if (const auto status = ::rapidproto::invoke_field(dispatch, inner{}, ::xr::stream::Nested::Def::Inner{*value}); !status.ok()) {
+              return status;
+            }
+            continue;
+          }
+        }
+        break;
+      case inners::kNumber:
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<Callbacks, inners, inners::Value>)) <= 1U, "field 'inners' is handled by more than one callback");
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<Callbacks, inners, inners::Value>)) <= 1U, "field 'inners' is matched by more than one catch-all callback");
+        static_assert((true && ... && !::rapidproto::is_partial_generic<Callbacks, inners, inners::Value>), "a callback for field 'inners' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+        static_assert((true && ... && !(::rapidproto::targets<Callbacks, inners, inners::Value> && !::rapidproto::specifically_handles<Callbacks, inners, inners::Value>)), "a callback for field 'inners' has the wrong value type (expected inners::Value)");
+        if constexpr ((false || ... || ::rapidproto::handles_one<Callbacks, inners, inners::Value>)) {
+          if (tag->wire_type == ::rapidproto::WireType::Len) {
+            const auto value = reader.read_length_delimited();
+            if (!value) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+            if (const auto status = ::rapidproto::invoke_field(dispatch, inners{}, ::xr::stream::Nested::Def::Inner{*value}); !status.ok()) {
+              return status;
+            }
+            continue;
+          }
+        }
+        break;
+      case chosen::kNumber:
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<Callbacks, chosen, chosen::Value>)) <= 1U, "field 'chosen' is handled by more than one callback");
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<Callbacks, chosen, chosen::Value>)) <= 1U, "field 'chosen' is matched by more than one catch-all callback");
+        static_assert((true && ... && !::rapidproto::is_partial_generic<Callbacks, chosen, chosen::Value>), "a callback for field 'chosen' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+        static_assert((true && ... && !(::rapidproto::targets<Callbacks, chosen, chosen::Value> && !::rapidproto::specifically_handles<Callbacks, chosen, chosen::Value>)), "a callback for field 'chosen' has the wrong value type (expected chosen::Value)");
+        if constexpr ((false || ... || ::rapidproto::handles_one<Callbacks, chosen, chosen::Value>)) {
+          if (tag->wire_type == ::rapidproto::WireType::Len) {
+            const auto value = reader.read_length_delimited();
+            if (!value) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+            if (const auto status = ::rapidproto::invoke_field(dispatch, chosen{}, ::xr::stream::Nested::Def{*value}); !status.ok()) {
+              return status;
+            }
+            continue;
+          }
+        }
+        break;
+      case tagged::kNumber:
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<Callbacks, tagged, tagged::Value>)) <= 1U, "field 'tagged' is handled by more than one callback");
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<Callbacks, tagged, tagged::Value>)) <= 1U, "field 'tagged' is matched by more than one catch-all callback");
+        static_assert((true && ... && !::rapidproto::is_partial_generic<Callbacks, tagged, tagged::Value>), "a callback for field 'tagged' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+        static_assert((true && ... && !(::rapidproto::targets<Callbacks, tagged, tagged::Value> && !::rapidproto::specifically_handles<Callbacks, tagged, tagged::Value>)), "a callback for field 'tagged' has the wrong value type (expected tagged::Value)");
+        if constexpr ((false || ... || ::rapidproto::handles_one<Callbacks, tagged, tagged::Value>)) {
+          if (tag->wire_type == ::rapidproto::WireType::Varint) {
+            const auto value = reader.read_varint();
+            if (!value) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+            if (const auto status = ::rapidproto::invoke_field(dispatch, tagged{}, static_cast<::xr::stream::Nested::Def::Kind>(::rapidproto::varint_to_int32(*value))); !status.ok()) {
+              return status;
+            }
+            continue;
+          }
+        }
+        break;
+      case by_name::kNumber:
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<Callbacks, by_name, by_name::Key, by_name::Value>)) <= 1U, "map field 'by_name' is handled by more than one callback");
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<Callbacks, by_name, by_name::Key, by_name::Value>)) <= 1U, "map field 'by_name' is matched by more than one catch-all callback");
+        static_assert((true && ... && !::rapidproto::is_partial_generic<Callbacks, by_name, by_name::Key, by_name::Value>), "a callback for map field 'by_name' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+        static_assert((true && ... && !(::rapidproto::targets<Callbacks, by_name, by_name::Key, by_name::Value> && !::rapidproto::specifically_handles<Callbacks, by_name, by_name::Key, by_name::Value>)), "a callback for map field 'by_name' has the wrong value type (expected by_name::Key, by_name::Value)");
+        if constexpr ((false || ... || ::rapidproto::handles_one<Callbacks, by_name, by_name::Key, by_name::Value>)) {
+          if (tag->wire_type == ::rapidproto::WireType::Len) {
+            const auto rp_entry = reader.read_length_delimited();
+            if (!rp_entry) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+            by_name::Key rp_key{};
+            by_name::Value rp_value{::rapidproto::ByteView{}};
+            ::rapidproto::WireReader rp_entry_reader{*rp_entry};
+            while (!rp_entry_reader.at_end()) {
+              const auto rp_et = rp_entry_reader.read_tag();
+              if (!rp_et) { return ::rapidproto::DecodeStatus::from_reader(rp_entry_reader); }
+              if (rp_et->field_number == 1 && rp_et->wire_type == ::rapidproto::WireType::Len) {
+                const auto rp_v = rp_entry_reader.read_length_delimited();
+                if (!rp_v) { return ::rapidproto::DecodeStatus::from_reader(rp_entry_reader); }
+                rp_key = *rp_v;
+              } else if (rp_et->field_number == 2 && rp_et->wire_type == ::rapidproto::WireType::Len) {
+                const auto rp_v = rp_entry_reader.read_length_delimited();
+                if (!rp_v) { return ::rapidproto::DecodeStatus::from_reader(rp_entry_reader); }
+                rp_value = ::xr::stream::Nested::Def{*rp_v};
+              } else if (!rp_entry_reader.skip(rp_et->wire_type, rp_et->field_number)) {
+                return ::rapidproto::DecodeStatus::from_reader(rp_entry_reader);
+              }
+            }
+            if (const auto status = ::rapidproto::invoke_field(dispatch, by_name{}, rp_key, rp_value); !status.ok()) {
+              return status;
+            }
+            continue;
+          }
+        }
+        break;
+      case ranked::kNumber:
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<Callbacks, ranked, ranked::Key, ranked::Value>)) <= 1U, "map field 'ranked' is handled by more than one callback");
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<Callbacks, ranked, ranked::Key, ranked::Value>)) <= 1U, "map field 'ranked' is matched by more than one catch-all callback");
+        static_assert((true && ... && !::rapidproto::is_partial_generic<Callbacks, ranked, ranked::Key, ranked::Value>), "a callback for map field 'ranked' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+        static_assert((true && ... && !(::rapidproto::targets<Callbacks, ranked, ranked::Key, ranked::Value> && !::rapidproto::specifically_handles<Callbacks, ranked, ranked::Key, ranked::Value>)), "a callback for map field 'ranked' has the wrong value type (expected ranked::Key, ranked::Value)");
+        if constexpr ((false || ... || ::rapidproto::handles_one<Callbacks, ranked, ranked::Key, ranked::Value>)) {
+          if (tag->wire_type == ::rapidproto::WireType::Len) {
+            const auto rp_entry = reader.read_length_delimited();
+            if (!rp_entry) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+            ranked::Key rp_key{};
+            ranked::Value rp_value{};
+            ::rapidproto::WireReader rp_entry_reader{*rp_entry};
+            while (!rp_entry_reader.at_end()) {
+              const auto rp_et = rp_entry_reader.read_tag();
+              if (!rp_et) { return ::rapidproto::DecodeStatus::from_reader(rp_entry_reader); }
+              if (rp_et->field_number == 1 && rp_et->wire_type == ::rapidproto::WireType::Varint) {
+                const auto rp_v = rp_entry_reader.read_varint();
+                if (!rp_v) { return ::rapidproto::DecodeStatus::from_reader(rp_entry_reader); }
+                rp_key = ::rapidproto::varint_to_int32(*rp_v);
+              } else if (rp_et->field_number == 2 && rp_et->wire_type == ::rapidproto::WireType::Varint) {
+                const auto rp_v = rp_entry_reader.read_varint();
+                if (!rp_v) { return ::rapidproto::DecodeStatus::from_reader(rp_entry_reader); }
+                rp_value = static_cast<::xr::stream::Nested::Def::Kind>(::rapidproto::varint_to_int32(*rp_v));
+              } else if (!rp_entry_reader.skip(rp_et->wire_type, rp_et->field_number)) {
+                return ::rapidproto::DecodeStatus::from_reader(rp_entry_reader);
+              }
+            }
+            if (const auto status = ::rapidproto::invoke_field(dispatch, ranked{}, rp_key, rp_value); !status.ok()) {
+              return status;
+            }
+            continue;
+          }
+        }
+        break;
+      default:
+        if constexpr ((false || ... || ::rapidproto::specifically_handles_unknown<Callbacks>)) {
+          const auto rp_value_start = reader.position();
+          if (!reader.skip(tag->wire_type, tag->field_number)) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+          if (const auto status = ::rapidproto::invoke_unknown(dispatch, ::rapidproto::UnknownField{tag->field_number, tag->wire_type, m_bytes.substr(rp_value_start, reader.position() - rp_value_start)}); !status.ok()) {
+            return status;
+          }
+          continue;
+        }
+        break;
+    }
+    if (!reader.skip(tag->wire_type, tag->field_number)) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+  }
+  return ::rapidproto::DecodeStatus::success();
+}
+
+template <class... Callbacks>
+::rapidproto::DecodeStatus Nested::Def::decode(Callbacks&&... callbacks) const {
+  [[maybe_unused]] auto dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(callbacks)...);
+  ::rapidproto::WireReader reader{m_bytes};
+  while (!reader.at_end()) {
+    const auto tag = reader.read_tag();
+    if (!tag) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+    switch (tag->field_number) {
+      case s::kNumber:
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<Callbacks, s, s::Value>)) <= 1U, "field 's' is handled by more than one callback");
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<Callbacks, s, s::Value>)) <= 1U, "field 's' is matched by more than one catch-all callback");
+        static_assert((true && ... && !::rapidproto::is_partial_generic<Callbacks, s, s::Value>), "a callback for field 's' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+        static_assert((true && ... && !(::rapidproto::targets<Callbacks, s, s::Value> && !::rapidproto::specifically_handles<Callbacks, s, s::Value>)), "a callback for field 's' has the wrong value type (expected s::Value)");
+        if constexpr ((false || ... || ::rapidproto::handles_one<Callbacks, s, s::Value>)) {
+          if (tag->wire_type == ::rapidproto::WireType::Len) {
+            const auto value = reader.read_length_delimited();
+            if (!value) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+            if (const auto status = ::rapidproto::invoke_field(dispatch, s{}, *value); !status.ok()) {
+              return status;
+            }
+            continue;
+          }
+        }
+        break;
+      case n::kNumber:
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<Callbacks, n, n::Value>)) <= 1U, "field 'n' is handled by more than one callback");
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<Callbacks, n, n::Value>)) <= 1U, "field 'n' is matched by more than one catch-all callback");
+        static_assert((true && ... && !::rapidproto::is_partial_generic<Callbacks, n, n::Value>), "a callback for field 'n' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+        static_assert((true && ... && !(::rapidproto::targets<Callbacks, n, n::Value> && !::rapidproto::specifically_handles<Callbacks, n, n::Value>)), "a callback for field 'n' has the wrong value type (expected n::Value)");
+        if constexpr ((false || ... || ::rapidproto::handles_one<Callbacks, n, n::Value>)) {
+          if (tag->wire_type == ::rapidproto::WireType::Varint) {
+            const auto value = reader.read_varint();
+            if (!value) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+            if (const auto status = ::rapidproto::invoke_field(dispatch, n{}, ::rapidproto::varint_to_int32(*value)); !status.ok()) {
+              return status;
+            }
+            continue;
+          }
+        }
+        break;
+      default:
+        if constexpr ((false || ... || ::rapidproto::specifically_handles_unknown<Callbacks>)) {
+          const auto rp_value_start = reader.position();
+          if (!reader.skip(tag->wire_type, tag->field_number)) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+          if (const auto status = ::rapidproto::invoke_unknown(dispatch, ::rapidproto::UnknownField{tag->field_number, tag->wire_type, m_bytes.substr(rp_value_start, reader.position() - rp_value_start)}); !status.ok()) {
+            return status;
+          }
+          continue;
+        }
+        break;
+    }
+    if (!reader.skip(tag->wire_type, tag->field_number)) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+  }
+  return ::rapidproto::DecodeStatus::success();
+}
+
+template <class... Callbacks>
+::rapidproto::DecodeStatus Nested::Def::Inner::decode(Callbacks&&... callbacks) const {
+  [[maybe_unused]] auto dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(callbacks)...);
+  ::rapidproto::WireReader reader{m_bytes};
+  while (!reader.at_end()) {
+    const auto tag = reader.read_tag();
+    if (!tag) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+    switch (tag->field_number) {
+      case s::kNumber:
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<Callbacks, s, s::Value>)) <= 1U, "field 's' is handled by more than one callback");
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<Callbacks, s, s::Value>)) <= 1U, "field 's' is matched by more than one catch-all callback");
+        static_assert((true && ... && !::rapidproto::is_partial_generic<Callbacks, s, s::Value>), "a callback for field 's' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+        static_assert((true && ... && !(::rapidproto::targets<Callbacks, s, s::Value> && !::rapidproto::specifically_handles<Callbacks, s, s::Value>)), "a callback for field 's' has the wrong value type (expected s::Value)");
+        if constexpr ((false || ... || ::rapidproto::handles_one<Callbacks, s, s::Value>)) {
+          if (tag->wire_type == ::rapidproto::WireType::Len) {
+            const auto value = reader.read_length_delimited();
+            if (!value) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+            if (const auto status = ::rapidproto::invoke_field(dispatch, s{}, *value); !status.ok()) {
+              return status;
+            }
+            continue;
+          }
+        }
+        break;
+      default:
+        if constexpr ((false || ... || ::rapidproto::specifically_handles_unknown<Callbacks>)) {
+          const auto rp_value_start = reader.position();
+          if (!reader.skip(tag->wire_type, tag->field_number)) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+          if (const auto status = ::rapidproto::invoke_unknown(dispatch, ::rapidproto::UnknownField{tag->field_number, tag->wire_type, m_bytes.substr(rp_value_start, reader.position() - rp_value_start)}); !status.ok()) {
+            return status;
+          }
+          continue;
+        }
+        break;
+    }
+    if (!reader.skip(tag->wire_type, tag->field_number)) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+  }
+  return ::rapidproto::DecodeStatus::success();
+}
+
+template <class... Callbacks>
+::rapidproto::DecodeStatus Nested::P::decode(Callbacks&&... callbacks) const {
+  [[maybe_unused]] auto dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(callbacks)...);
+  ::rapidproto::WireReader reader{m_bytes};
+  while (!reader.at_end()) {
+    const auto tag = reader.read_tag();
+    if (!tag) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+    switch (tag->field_number) {
+      case q::kNumber:
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<Callbacks, q, q::Value>)) <= 1U, "field 'q' is handled by more than one callback");
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<Callbacks, q, q::Value>)) <= 1U, "field 'q' is matched by more than one catch-all callback");
+        static_assert((true && ... && !::rapidproto::is_partial_generic<Callbacks, q, q::Value>), "a callback for field 'q' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+        static_assert((true && ... && !(::rapidproto::targets<Callbacks, q, q::Value> && !::rapidproto::specifically_handles<Callbacks, q, q::Value>)), "a callback for field 'q' has the wrong value type (expected q::Value)");
+        if constexpr ((false || ... || ::rapidproto::handles_one<Callbacks, q, q::Value>)) {
+          if (tag->wire_type == ::rapidproto::WireType::Len) {
+            const auto value = reader.read_length_delimited();
+            if (!value) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+            if (const auto status = ::rapidproto::invoke_field(dispatch, q{}, ::xr::stream::Nested::Q{*value}); !status.ok()) {
+              return status;
+            }
+            continue;
+          }
+        }
+        break;
+      default:
+        if constexpr ((false || ... || ::rapidproto::specifically_handles_unknown<Callbacks>)) {
+          const auto rp_value_start = reader.position();
+          if (!reader.skip(tag->wire_type, tag->field_number)) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+          if (const auto status = ::rapidproto::invoke_unknown(dispatch, ::rapidproto::UnknownField{tag->field_number, tag->wire_type, m_bytes.substr(rp_value_start, reader.position() - rp_value_start)}); !status.ok()) {
+            return status;
+          }
+          continue;
+        }
+        break;
+    }
+    if (!reader.skip(tag->wire_type, tag->field_number)) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+  }
+  return ::rapidproto::DecodeStatus::success();
+}
+
+template <class... Callbacks>
+::rapidproto::DecodeStatus Nested::Q::decode(Callbacks&&... callbacks) const {
+  [[maybe_unused]] auto dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(callbacks)...);
+  ::rapidproto::WireReader reader{m_bytes};
+  while (!reader.at_end()) {
+    const auto tag = reader.read_tag();
+    if (!tag) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+    switch (tag->field_number) {
+      case p::kNumber:
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<Callbacks, p, p::Value>)) <= 1U, "field 'p' is handled by more than one callback");
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<Callbacks, p, p::Value>)) <= 1U, "field 'p' is matched by more than one catch-all callback");
+        static_assert((true && ... && !::rapidproto::is_partial_generic<Callbacks, p, p::Value>), "a callback for field 'p' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+        static_assert((true && ... && !(::rapidproto::targets<Callbacks, p, p::Value> && !::rapidproto::specifically_handles<Callbacks, p, p::Value>)), "a callback for field 'p' has the wrong value type (expected p::Value)");
+        if constexpr ((false || ... || ::rapidproto::handles_one<Callbacks, p, p::Value>)) {
+          if (tag->wire_type == ::rapidproto::WireType::Len) {
+            const auto value = reader.read_length_delimited();
+            if (!value) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+            if (const auto status = ::rapidproto::invoke_field(dispatch, p{}, ::xr::stream::Nested::P{*value}); !status.ok()) {
+              return status;
+            }
+            continue;
+          }
+        }
+        break;
+      default:
+        if constexpr ((false || ... || ::rapidproto::specifically_handles_unknown<Callbacks>)) {
+          const auto rp_value_start = reader.position();
+          if (!reader.skip(tag->wire_type, tag->field_number)) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+          if (const auto status = ::rapidproto::invoke_unknown(dispatch, ::rapidproto::UnknownField{tag->field_number, tag->wire_type, m_bytes.substr(rp_value_start, reader.position() - rp_value_start)}); !status.ok()) {
+            return status;
+          }
+          continue;
+        }
+        break;
+    }
+    if (!reader.skip(tag->wire_type, tag->field_number)) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+  }
+  return ::rapidproto::DecodeStatus::success();
+}
+
+template <class... Callbacks>
+::rapidproto::DecodeStatus FwdMsg::decode(Callbacks&&... callbacks) const {
+  [[maybe_unused]] auto dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(callbacks)...);
+  ::rapidproto::WireReader reader{m_bytes};
+  while (!reader.at_end()) {
+    const auto tag = reader.read_tag();
+    if (!tag) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+    switch (tag->field_number) {
+      default:
+        if constexpr ((false || ... || ::rapidproto::specifically_handles_unknown<Callbacks>)) {
+          const auto rp_value_start = reader.position();
+          if (!reader.skip(tag->wire_type, tag->field_number)) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+          if (const auto status = ::rapidproto::invoke_unknown(dispatch, ::rapidproto::UnknownField{tag->field_number, tag->wire_type, m_bytes.substr(rp_value_start, reader.position() - rp_value_start)}); !status.ok()) {
+            return status;
+          }
+          continue;
+        }
+        break;
+    }
+    if (!reader.skip(tag->wire_type, tag->field_number)) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+  }
+  return ::rapidproto::DecodeStatus::success();
+}
+
+template <class... Callbacks>
+::rapidproto::DecodeStatus FwdMsg::Ref::decode(Callbacks&&... callbacks) const {
+  [[maybe_unused]] auto dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(callbacks)...);
+  ::rapidproto::WireReader reader{m_bytes};
+  while (!reader.at_end()) {
+    const auto tag = reader.read_tag();
+    if (!tag) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+    switch (tag->field_number) {
+      case one::kNumber:
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<Callbacks, one, one::Value>)) <= 1U, "field 'one' is handled by more than one callback");
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<Callbacks, one, one::Value>)) <= 1U, "field 'one' is matched by more than one catch-all callback");
+        static_assert((true && ... && !::rapidproto::is_partial_generic<Callbacks, one, one::Value>), "a callback for field 'one' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+        static_assert((true && ... && !(::rapidproto::targets<Callbacks, one, one::Value> && !::rapidproto::specifically_handles<Callbacks, one, one::Value>)), "a callback for field 'one' has the wrong value type (expected one::Value)");
+        if constexpr ((false || ... || ::rapidproto::handles_one<Callbacks, one, one::Value>)) {
+          if (tag->wire_type == ::rapidproto::WireType::Len) {
+            const auto value = reader.read_length_delimited();
+            if (!value) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+            if (const auto status = ::rapidproto::invoke_field(dispatch, one{}, ::xr::stream::FwdMsg::Target{*value}); !status.ok()) {
+              return status;
+            }
+            continue;
+          }
+        }
+        break;
+      case many::kNumber:
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<Callbacks, many, many::Value>)) <= 1U, "field 'many' is handled by more than one callback");
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<Callbacks, many, many::Value>)) <= 1U, "field 'many' is matched by more than one catch-all callback");
+        static_assert((true && ... && !::rapidproto::is_partial_generic<Callbacks, many, many::Value>), "a callback for field 'many' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+        static_assert((true && ... && !(::rapidproto::targets<Callbacks, many, many::Value> && !::rapidproto::specifically_handles<Callbacks, many, many::Value>)), "a callback for field 'many' has the wrong value type (expected many::Value)");
+        if constexpr ((false || ... || ::rapidproto::handles_one<Callbacks, many, many::Value>)) {
+          if (tag->wire_type == ::rapidproto::WireType::Len) {
+            const auto value = reader.read_length_delimited();
+            if (!value) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+            if (const auto status = ::rapidproto::invoke_field(dispatch, many{}, ::xr::stream::FwdMsg::Target{*value}); !status.ok()) {
+              return status;
+            }
+            continue;
+          }
+        }
+        break;
+      case chosen::kNumber:
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<Callbacks, chosen, chosen::Value>)) <= 1U, "field 'chosen' is handled by more than one callback");
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<Callbacks, chosen, chosen::Value>)) <= 1U, "field 'chosen' is matched by more than one catch-all callback");
+        static_assert((true && ... && !::rapidproto::is_partial_generic<Callbacks, chosen, chosen::Value>), "a callback for field 'chosen' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+        static_assert((true && ... && !(::rapidproto::targets<Callbacks, chosen, chosen::Value> && !::rapidproto::specifically_handles<Callbacks, chosen, chosen::Value>)), "a callback for field 'chosen' has the wrong value type (expected chosen::Value)");
+        if constexpr ((false || ... || ::rapidproto::handles_one<Callbacks, chosen, chosen::Value>)) {
+          if (tag->wire_type == ::rapidproto::WireType::Len) {
+            const auto value = reader.read_length_delimited();
+            if (!value) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+            if (const auto status = ::rapidproto::invoke_field(dispatch, chosen{}, ::xr::stream::FwdMsg::Target{*value}); !status.ok()) {
+              return status;
+            }
+            continue;
+          }
+        }
+        break;
+      case by_id::kNumber:
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<Callbacks, by_id, by_id::Key, by_id::Value>)) <= 1U, "map field 'by_id' is handled by more than one callback");
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<Callbacks, by_id, by_id::Key, by_id::Value>)) <= 1U, "map field 'by_id' is matched by more than one catch-all callback");
+        static_assert((true && ... && !::rapidproto::is_partial_generic<Callbacks, by_id, by_id::Key, by_id::Value>), "a callback for map field 'by_id' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+        static_assert((true && ... && !(::rapidproto::targets<Callbacks, by_id, by_id::Key, by_id::Value> && !::rapidproto::specifically_handles<Callbacks, by_id, by_id::Key, by_id::Value>)), "a callback for map field 'by_id' has the wrong value type (expected by_id::Key, by_id::Value)");
+        if constexpr ((false || ... || ::rapidproto::handles_one<Callbacks, by_id, by_id::Key, by_id::Value>)) {
+          if (tag->wire_type == ::rapidproto::WireType::Len) {
+            const auto rp_entry = reader.read_length_delimited();
+            if (!rp_entry) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+            by_id::Key rp_key{};
+            by_id::Value rp_value{::rapidproto::ByteView{}};
+            ::rapidproto::WireReader rp_entry_reader{*rp_entry};
+            while (!rp_entry_reader.at_end()) {
+              const auto rp_et = rp_entry_reader.read_tag();
+              if (!rp_et) { return ::rapidproto::DecodeStatus::from_reader(rp_entry_reader); }
+              if (rp_et->field_number == 1 && rp_et->wire_type == ::rapidproto::WireType::Varint) {
+                const auto rp_v = rp_entry_reader.read_varint();
+                if (!rp_v) { return ::rapidproto::DecodeStatus::from_reader(rp_entry_reader); }
+                rp_key = ::rapidproto::varint_to_int32(*rp_v);
+              } else if (rp_et->field_number == 2 && rp_et->wire_type == ::rapidproto::WireType::Len) {
+                const auto rp_v = rp_entry_reader.read_length_delimited();
+                if (!rp_v) { return ::rapidproto::DecodeStatus::from_reader(rp_entry_reader); }
+                rp_value = ::xr::stream::FwdMsg::Target{*rp_v};
+              } else if (!rp_entry_reader.skip(rp_et->wire_type, rp_et->field_number)) {
+                return ::rapidproto::DecodeStatus::from_reader(rp_entry_reader);
+              }
+            }
+            if (const auto status = ::rapidproto::invoke_field(dispatch, by_id{}, rp_key, rp_value); !status.ok()) {
+              return status;
+            }
+            continue;
+          }
+        }
+        break;
+      default:
+        if constexpr ((false || ... || ::rapidproto::specifically_handles_unknown<Callbacks>)) {
+          const auto rp_value_start = reader.position();
+          if (!reader.skip(tag->wire_type, tag->field_number)) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+          if (const auto status = ::rapidproto::invoke_unknown(dispatch, ::rapidproto::UnknownField{tag->field_number, tag->wire_type, m_bytes.substr(rp_value_start, reader.position() - rp_value_start)}); !status.ok()) {
+            return status;
+          }
+          continue;
+        }
+        break;
+    }
+    if (!reader.skip(tag->wire_type, tag->field_number)) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+  }
+  return ::rapidproto::DecodeStatus::success();
+}
+
+template <class... Callbacks>
+::rapidproto::DecodeStatus FwdMsg::Target::decode(Callbacks&&... callbacks) const {
+  [[maybe_unused]] auto dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(callbacks)...);
+  ::rapidproto::WireReader reader{m_bytes};
+  while (!reader.at_end()) {
+    const auto tag = reader.read_tag();
+    if (!tag) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+    switch (tag->field_number) {
+      case s::kNumber:
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<Callbacks, s, s::Value>)) <= 1U, "field 's' is handled by more than one callback");
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<Callbacks, s, s::Value>)) <= 1U, "field 's' is matched by more than one catch-all callback");
+        static_assert((true && ... && !::rapidproto::is_partial_generic<Callbacks, s, s::Value>), "a callback for field 's' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+        static_assert((true && ... && !(::rapidproto::targets<Callbacks, s, s::Value> && !::rapidproto::specifically_handles<Callbacks, s, s::Value>)), "a callback for field 's' has the wrong value type (expected s::Value)");
+        if constexpr ((false || ... || ::rapidproto::handles_one<Callbacks, s, s::Value>)) {
+          if (tag->wire_type == ::rapidproto::WireType::Len) {
+            const auto value = reader.read_length_delimited();
+            if (!value) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+            if (const auto status = ::rapidproto::invoke_field(dispatch, s{}, *value); !status.ok()) {
+              return status;
+            }
+            continue;
+          }
+        }
+        break;
+      case n::kNumber:
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<Callbacks, n, n::Value>)) <= 1U, "field 'n' is handled by more than one callback");
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<Callbacks, n, n::Value>)) <= 1U, "field 'n' is matched by more than one catch-all callback");
+        static_assert((true && ... && !::rapidproto::is_partial_generic<Callbacks, n, n::Value>), "a callback for field 'n' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+        static_assert((true && ... && !(::rapidproto::targets<Callbacks, n, n::Value> && !::rapidproto::specifically_handles<Callbacks, n, n::Value>)), "a callback for field 'n' has the wrong value type (expected n::Value)");
+        if constexpr ((false || ... || ::rapidproto::handles_one<Callbacks, n, n::Value>)) {
+          if (tag->wire_type == ::rapidproto::WireType::Varint) {
+            const auto value = reader.read_varint();
+            if (!value) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+            if (const auto status = ::rapidproto::invoke_field(dispatch, n{}, ::rapidproto::varint_to_int32(*value)); !status.ok()) {
+              return status;
+            }
+            continue;
+          }
+        }
+        break;
+      default:
+        if constexpr ((false || ... || ::rapidproto::specifically_handles_unknown<Callbacks>)) {
+          const auto rp_value_start = reader.position();
+          if (!reader.skip(tag->wire_type, tag->field_number)) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+          if (const auto status = ::rapidproto::invoke_unknown(dispatch, ::rapidproto::UnknownField{tag->field_number, tag->wire_type, m_bytes.substr(rp_value_start, reader.position() - rp_value_start)}); !status.ok()) {
+            return status;
+          }
+          continue;
+        }
+        break;
+    }
+    if (!reader.skip(tag->wire_type, tag->field_number)) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+  }
+  return ::rapidproto::DecodeStatus::success();
+}
+
+template <class... Callbacks>
+::rapidproto::DecodeStatus CousinA::decode(Callbacks&&... callbacks) const {
+  [[maybe_unused]] auto dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(callbacks)...);
+  ::rapidproto::WireReader reader{m_bytes};
+  while (!reader.at_end()) {
+    const auto tag = reader.read_tag();
+    if (!tag) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+    switch (tag->field_number) {
+      default:
+        if constexpr ((false || ... || ::rapidproto::specifically_handles_unknown<Callbacks>)) {
+          const auto rp_value_start = reader.position();
+          if (!reader.skip(tag->wire_type, tag->field_number)) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+          if (const auto status = ::rapidproto::invoke_unknown(dispatch, ::rapidproto::UnknownField{tag->field_number, tag->wire_type, m_bytes.substr(rp_value_start, reader.position() - rp_value_start)}); !status.ok()) {
+            return status;
+          }
+          continue;
+        }
+        break;
+    }
+    if (!reader.skip(tag->wire_type, tag->field_number)) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+  }
+  return ::rapidproto::DecodeStatus::success();
+}
+
+template <class... Callbacks>
+::rapidproto::DecodeStatus CousinA::Use::decode(Callbacks&&... callbacks) const {
+  [[maybe_unused]] auto dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(callbacks)...);
+  ::rapidproto::WireReader reader{m_bytes};
+  while (!reader.at_end()) {
+    const auto tag = reader.read_tag();
+    if (!tag) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+    switch (tag->field_number) {
+      case thing::kNumber:
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<Callbacks, thing, thing::Value>)) <= 1U, "field 'thing' is handled by more than one callback");
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<Callbacks, thing, thing::Value>)) <= 1U, "field 'thing' is matched by more than one catch-all callback");
+        static_assert((true && ... && !::rapidproto::is_partial_generic<Callbacks, thing, thing::Value>), "a callback for field 'thing' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+        static_assert((true && ... && !(::rapidproto::targets<Callbacks, thing, thing::Value> && !::rapidproto::specifically_handles<Callbacks, thing, thing::Value>)), "a callback for field 'thing' has the wrong value type (expected thing::Value)");
+        if constexpr ((false || ... || ::rapidproto::handles_one<Callbacks, thing, thing::Value>)) {
+          if (tag->wire_type == ::rapidproto::WireType::Len) {
+            const auto value = reader.read_length_delimited();
+            if (!value) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+            if (const auto status = ::rapidproto::invoke_field(dispatch, thing{}, ::xr::stream::CousinB::Thing{*value}); !status.ok()) {
+              return status;
+            }
+            continue;
+          }
+        }
+        break;
+      case things::kNumber:
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<Callbacks, things, things::Value>)) <= 1U, "field 'things' is handled by more than one callback");
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<Callbacks, things, things::Value>)) <= 1U, "field 'things' is matched by more than one catch-all callback");
+        static_assert((true && ... && !::rapidproto::is_partial_generic<Callbacks, things, things::Value>), "a callback for field 'things' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+        static_assert((true && ... && !(::rapidproto::targets<Callbacks, things, things::Value> && !::rapidproto::specifically_handles<Callbacks, things, things::Value>)), "a callback for field 'things' has the wrong value type (expected things::Value)");
+        if constexpr ((false || ... || ::rapidproto::handles_one<Callbacks, things, things::Value>)) {
+          if (tag->wire_type == ::rapidproto::WireType::Len) {
+            const auto value = reader.read_length_delimited();
+            if (!value) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+            if (const auto status = ::rapidproto::invoke_field(dispatch, things{}, ::xr::stream::CousinB::Thing{*value}); !status.ok()) {
+              return status;
+            }
+            continue;
+          }
+        }
+        break;
+      case tag_::kNumber:
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<Callbacks, tag_, tag_::Value>)) <= 1U, "field 'tag_' is handled by more than one callback");
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<Callbacks, tag_, tag_::Value>)) <= 1U, "field 'tag_' is matched by more than one catch-all callback");
+        static_assert((true && ... && !::rapidproto::is_partial_generic<Callbacks, tag_, tag_::Value>), "a callback for field 'tag_' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+        static_assert((true && ... && !(::rapidproto::targets<Callbacks, tag_, tag_::Value> && !::rapidproto::specifically_handles<Callbacks, tag_, tag_::Value>)), "a callback for field 'tag_' has the wrong value type (expected tag_::Value)");
+        if constexpr ((false || ... || ::rapidproto::handles_one<Callbacks, tag_, tag_::Value>)) {
+          if (tag->wire_type == ::rapidproto::WireType::Varint) {
+            const auto value = reader.read_varint();
+            if (!value) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+            if (const auto status = ::rapidproto::invoke_field(dispatch, tag_{}, static_cast<::xr::stream::CousinB::Tag>(::rapidproto::varint_to_int32(*value))); !status.ok()) {
+              return status;
+            }
+            continue;
+          }
+        }
+        break;
+      default:
+        if constexpr ((false || ... || ::rapidproto::specifically_handles_unknown<Callbacks>)) {
+          const auto rp_value_start = reader.position();
+          if (!reader.skip(tag->wire_type, tag->field_number)) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+          if (const auto status = ::rapidproto::invoke_unknown(dispatch, ::rapidproto::UnknownField{tag->field_number, tag->wire_type, m_bytes.substr(rp_value_start, reader.position() - rp_value_start)}); !status.ok()) {
+            return status;
+          }
+          continue;
+        }
+        break;
+    }
+    if (!reader.skip(tag->wire_type, tag->field_number)) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+  }
+  return ::rapidproto::DecodeStatus::success();
+}
+
+template <class... Callbacks>
+::rapidproto::DecodeStatus CousinB::decode(Callbacks&&... callbacks) const {
+  [[maybe_unused]] auto dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(callbacks)...);
+  ::rapidproto::WireReader reader{m_bytes};
+  while (!reader.at_end()) {
+    const auto tag = reader.read_tag();
+    if (!tag) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+    switch (tag->field_number) {
+      default:
+        if constexpr ((false || ... || ::rapidproto::specifically_handles_unknown<Callbacks>)) {
+          const auto rp_value_start = reader.position();
+          if (!reader.skip(tag->wire_type, tag->field_number)) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+          if (const auto status = ::rapidproto::invoke_unknown(dispatch, ::rapidproto::UnknownField{tag->field_number, tag->wire_type, m_bytes.substr(rp_value_start, reader.position() - rp_value_start)}); !status.ok()) {
+            return status;
+          }
+          continue;
+        }
+        break;
+    }
+    if (!reader.skip(tag->wire_type, tag->field_number)) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+  }
+  return ::rapidproto::DecodeStatus::success();
+}
+
+template <class... Callbacks>
+::rapidproto::DecodeStatus CousinB::Thing::decode(Callbacks&&... callbacks) const {
+  [[maybe_unused]] auto dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(callbacks)...);
+  ::rapidproto::WireReader reader{m_bytes};
+  while (!reader.at_end()) {
+    const auto tag = reader.read_tag();
+    if (!tag) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+    switch (tag->field_number) {
+      case s::kNumber:
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<Callbacks, s, s::Value>)) <= 1U, "field 's' is handled by more than one callback");
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<Callbacks, s, s::Value>)) <= 1U, "field 's' is matched by more than one catch-all callback");
+        static_assert((true && ... && !::rapidproto::is_partial_generic<Callbacks, s, s::Value>), "a callback for field 's' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+        static_assert((true && ... && !(::rapidproto::targets<Callbacks, s, s::Value> && !::rapidproto::specifically_handles<Callbacks, s, s::Value>)), "a callback for field 's' has the wrong value type (expected s::Value)");
+        if constexpr ((false || ... || ::rapidproto::handles_one<Callbacks, s, s::Value>)) {
+          if (tag->wire_type == ::rapidproto::WireType::Len) {
+            const auto value = reader.read_length_delimited();
+            if (!value) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+            if (const auto status = ::rapidproto::invoke_field(dispatch, s{}, *value); !status.ok()) {
               return status;
             }
             continue;

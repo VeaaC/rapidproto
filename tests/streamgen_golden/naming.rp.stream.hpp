@@ -17,6 +17,7 @@ struct M;
 struct M {
   explicit M(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
 
+  struct int_;
   struct int_ {
     explicit int_(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
 

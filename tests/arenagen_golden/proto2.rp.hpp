@@ -77,8 +77,10 @@ static_assert(::std::is_trivially_destructible_v<Scalars>);
 
 class WithGroup {
  public:
+  class MyGroup;
   class MyGroup {
    public:
+    class Inner;
     class Inner {
      public:
       bool has_flag() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0; }
@@ -115,6 +117,7 @@ static_assert(::std::is_trivially_destructible_v<WithGroup>);
 
 class Container {
  public:
+  class Nested;
   class Nested {
    public:
     bool has_x() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0; }

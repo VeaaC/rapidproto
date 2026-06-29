@@ -15,6 +15,7 @@ struct AllWire;
 struct AllWire {
   explicit AllWire(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
 
+  struct G;
   struct G {
     explicit G(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
 

@@ -15,6 +15,7 @@ class Collide;
 
 class Collide {
  public:
+  class FooEntry;
   class FooEntry {
    public:
     std::int32_t a() const noexcept { return m_a; }

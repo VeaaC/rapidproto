@@ -11,3 +11,72 @@ message A {
 message B {
   A a = 1;
 }
+
+// Nested cross-references. Unlike top-level messages (forward-declared at file scope), nested
+// messages can only be forward-declared inside the enclosing class, so these shapes only compile
+// because the emitters do that. Each references a sibling that is declared later or forms a cycle.
+message Nested {
+  // Forward reference in every kind: User (first) references Def (declared after it). Def has a
+  // string, so it is not fixed-size -> the singular field is a pointer, not an inlined value.
+  message User {
+    Def single = 1;
+    repeated Def many = 2;
+    map<string, Def> by_name = 3;
+    oneof pick {
+      Def chosen = 4;
+      Def.Kind tagged = 8;            // oneof member is a nested enum from a later sibling
+    }
+    Def.Kind kind = 5;               // singular: enum nested in a later sibling, needs Def emitted first
+    repeated Def.Kind kinds = 6;     // repeated nested enum
+    map<int32, Def.Kind> ranked = 7;  // map value is a nested enum
+    Def.Inner inner = 9;             // pointer to a MESSAGE nested in a later sibling: needs Def complete
+    repeated Def.Inner inners = 10;  // repeated message nested in a later sibling
+  }
+  message Def {
+    enum Kind { KIND_UNKNOWN = 0; KIND_A = 1; }
+    message Inner { string s = 1; }  // referenced by sibling User above (via Def.Inner)
+    string s = 1;
+    int32 n = 2;
+  }
+
+  // Cyclic nesting: P <-> Q, which the inline-dependency ordering cannot resolve.
+  message P {
+    Q q = 1;
+  }
+  message Q {
+    P p = 1;
+  }
+}
+
+// Message references to a later-declared sibling in every kind, with NO enum to force ordering -- so the
+// forward declarations (not reordering) are what make these compile. Target has a string, hence is not
+// fixed-size, so the singular reference is a pointer.
+message FwdMsg {
+  message Ref {
+    Target one = 1;
+    repeated Target many = 2;
+    map<int32, Target> by_id = 3;
+    oneof pick {
+      Target chosen = 4;
+    }
+  }
+  message Target {
+    string s = 1;
+    int32 n = 2;
+  }
+}
+
+// Cross-top-level "cousin": a message nested in one top-level message references a message AND an enum
+// nested in a DIFFERENT top-level message, exercising the top-level ordering by a nested target. CousinA
+// is declared before CousinB, so without ordering its references would precede CousinB's definition.
+message CousinA {
+  message Use {
+    CousinB.Thing thing = 1;       // message nested in another top-level message
+    repeated CousinB.Thing things = 2;
+    CousinB.Tag tag = 3;           // enum nested in another top-level message
+  }
+}
+message CousinB {
+  message Thing { string s = 1; }
+  enum Tag { TAG_NONE = 0; TAG_X = 1; }
+}

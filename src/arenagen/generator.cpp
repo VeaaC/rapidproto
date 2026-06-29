@@ -357,9 +357,10 @@ void emit_field_accessor(const Emit& emit, const MessageLayout& layout, const Me
         case FieldKind::Repeated:
             if (repeated_elem_type(emit, *m.field) == "::rapidproto::ArenaString") {
                 // Storage is ArrayView<ArenaString> (SSO); expose std::string_view, not the storage type.
-                p.print("::rapidproto::StringArrayView $id$() const noexcept {"
-                        " return ::rapidproto::StringArrayView(m_$id$); }\n",
-                        {{"id", id}});
+                p.print(
+                    "::rapidproto::StringArrayView $id$() const noexcept {"
+                    " return ::rapidproto::StringArrayView(m_$id$); }\n",
+                    {{"id", id}});
             } else {
                 p.print("$T$ $id$() const noexcept { return m_$id$; }\n",
                         {{"T", storage_type(emit, m)}, {"id", id}});
@@ -417,46 +418,73 @@ void emit_storage(const Emit& emit, const MessageLayout& layout) {
 
 // ── message ──────────────────────────────────────────────────────────────────────────────────────
 
-// All sub-message FQNs that `message`'s subtree inlines by value (so they must be complete first).
-void collect_inlined(const Emit& emit, const MessageNode& message,
-                     std::unordered_set<std::string>& out) {
+// Types that must be visible before `message`'s subtree is emitted, split by HOW visible they must be:
+//  - `complete`: a sub-message inlined by value (or a bool-wrapper returned by value) -- the exact type
+//    must already be DEFINED.
+//  - `enclosing`: a pointer / repeated / map / oneof sub-message, or any referenced enum -- the type
+//    only needs to be NAMEABLE. A direct sibling is named through its forward declaration, but a type
+//    NESTED inside a sibling (`Sibling::Inner`) can only be named once that sibling is COMPLETE. So an
+//    `enclosing` entry forces ordering only when nested under a sibling, never for a direct-sibling
+//    target -- which is what keeps mutually-referential siblings compiling via their forward decls.
+void collect_must_precede(const Emit& emit, const MessageNode& message,
+                          std::unordered_set<std::string>& complete,
+                          std::unordered_set<std::string>& enclosing) {
     const MessageLayout& layout = *emit.layouts.find(message.fqn);
-    for (const MemberPlan& m : layout.members) {
-        if (m.kind == FieldKind::InlineFixedSubMsg) {
-            out.insert(m.target_fqn);
+    const auto classify = [&](FieldKind kind, const std::string& fqn) {
+        if (fqn.empty()) {
+            return;
         }
-        if (m.kind == FieldKind::Map && m.entry.has_value() &&
-            m.entry->value_kind == FieldKind::InlineFixedSubMsg) {
-            out.insert(m.entry->value_fqn);
+        switch (kind) {
+            case FieldKind::InlineFixedSubMsg:
+            case FieldKind::BoolWrapperBits:  // accessor returns the wrapper by value
+                complete.insert(fqn);
+                break;
+            case FieldKind::PointerSubMsg:
+            case FieldKind::Repeated:    // ArrayView<T>: T (message or enum) must be nameable
+            case FieldKind::InlineEnum:  // a nested enum needs its enclosing message complete
+                enclosing.insert(fqn);
+                break;
+            default:
+                break;
+        }
+    };
+    for (const MemberPlan& m : layout.members) {
+        classify(m.kind, m.target_fqn);
+        if (m.kind == FieldKind::Map && m.entry.has_value()) {
+            classify(m.entry->value_kind, m.entry->value_fqn);  // map key is always scalar
         }
     }
     for (const OneofPlan& o : layout.oneofs) {
         for (const OneofMemberPlan& member : o.members) {
-            if (member.kind == FieldKind::InlineFixedSubMsg) {
-                out.insert(member.target_fqn);
-            }
+            classify(member.kind, member.target_fqn);
         }
     }
     for (const MessageNode& nested : message.nested_messages) {
-        collect_inlined(emit, nested, out);
+        collect_must_precede(emit, nested, complete, enclosing);
     }
 }
 
-// Order sibling messages so an inlined-by-value target is defined before its user (a DAG, since
-// fixed-size types are acyclic). DFS post-order over the "A inlines a type in B's subtree" edges.
+// Order sibling messages so every type that must be visible here is emitted first. Acyclic for valid
+// schemas; the active-set guard breaks any cycle, which only an inherently-uncompilable schema can form
+// (two siblings each naming a type nested in the other). DFS post-order over the "B must precede A" edges.
 std::vector<const MessageNode*> ordered_siblings(const Emit& emit,
                                                  const std::vector<MessageNode>& siblings) {
-    std::vector<std::unordered_set<std::string>> inlined(siblings.size());
+    std::vector<std::unordered_set<std::string>> complete(siblings.size());
+    std::vector<std::unordered_set<std::string>> enclosing(siblings.size());
     for (std::size_t i = 0; i < siblings.size(); ++i) {
-        collect_inlined(emit, siblings[i], inlined[i]);
+        collect_must_precede(emit, siblings[i], complete[i], enclosing[i]);
     }
-    const auto depends_on = [&](std::size_t a, std::size_t b) {  // does A inline something in B?
+    const auto depends_on = [&](std::size_t a, std::size_t b) {  // must B precede A?
         const std::string& root = siblings[b].fqn;
-        // A inlines B iff some type A inlines is B itself or a type nested under B (a `B.` prefix).
-        return std::any_of(inlined[a].begin(), inlined[a].end(), [&](const std::string& t) {
-            return t == root || (t.size() > root.size() && t.compare(0, root.size(), root) == 0 &&
-                                 t[root.size()] == '.');
-        });
+        const auto under = [&](const std::string& t) {  // t is strictly nested under B
+            return t.size() > root.size() && t.compare(0, root.size(), root) == 0 &&
+                   t[root.size()] == '.';
+        };
+        // A by-value target needs B whether it IS B or is nested under it; a nameable target needs B
+        // only when nested under it (a direct-sibling target is covered by B's forward declaration).
+        return std::any_of(complete[a].begin(), complete[a].end(),
+                           [&](const std::string& t) { return t == root || under(t); }) ||
+               std::any_of(enclosing[a].begin(), enclosing[a].end(), under);
     };
     std::vector<const MessageNode*> order;
     std::vector<bool> done(siblings.size(), false);
@@ -505,6 +533,14 @@ void emit_message_body(const Emit& emit, const MessageNode& message) {
 
     for (const EnumNode& nested : message.enums) {
         codegen::emit_enum(emit.printer, emit.names, nested, false);
+    }
+    // Forward-declare nested messages first, so any sibling cross-reference -- a pointer, repeated, map
+    // value, or oneof member, and even a cycle -- names a declared type regardless of definition order.
+    // Nested types can only be forward-declared here, inside the enclosing class (top-level messages get
+    // file-scope forward declarations instead). Inline-by-value members still need the full definition
+    // first, which ordered_siblings provides.
+    for (const MessageNode& nested : message.nested_messages) {
+        p.print("class $N$;\n", {{"N", emit.names.local.at(&nested)}});
     }
     for (const MessageNode* nested : ordered_siblings(emit, message.nested_messages)) {
         emit_message(emit, *nested);

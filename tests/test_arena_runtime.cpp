@@ -246,30 +246,31 @@ TEST_CASE("ArrayView: read-only contiguous view", "[arena][arrayview]") {
     CHECK(ArrayView<int>{}.empty());
 }
 
-TEST_CASE("StringArrayView: repeated string/bytes accessor yields std::string_view", "[arena][string]") {
+TEST_CASE("StringArrayView: indexing yields std::string_view, not ArenaString", "[arena][string]") {
     Arena arena;
     const std::string big(40, 'x');  // > kInlineCap: forces a heap (arena-copied) ArenaString
-    const ArenaString strings[] = {
-        ArenaString::make("hi", arena),         // inline
-        ArenaString::make(big, arena),          // heap
-        ArenaString::make(ByteView{}, arena),   // empty
-    };
+    const ArenaString strings[] = {ArenaString::make("hi", arena), ArenaString::make(big, arena),
+                                   ArenaString::make(ByteView{}, arena)};
     const StringArrayView v(ArrayView<ArenaString>(strings, 3));
 
+    const std::string_view first = v[0];  // operator[] returns std::string_view, not ArenaString
     CHECK(v.size() == 3);
-    CHECK_FALSE(v.empty());
-
-    const std::string_view first = v[0];  // operator[] returns std::string_view (not ArenaString)
-    CHECK(first == "hi");
-    CHECK(v[1] == big);
-    CHECK(v[2].empty());
-
-    std::size_t total = 0;
-    for (const std::string_view s : v) {  // range-for yields std::string_view
-        total += s.size();
-    }
-    CHECK(total == 2 + big.size());
+    CHECK(first == "hi");  // inline element
+    CHECK(v[1] == big);    // heap element
+    CHECK(v[2].empty());   // empty element
     CHECK(StringArrayView{}.empty());
+}
+
+TEST_CASE("StringArrayView: range-for yields std::string_view", "[arena][string]") {
+    Arena arena;
+    const ArenaString strings[] = {ArenaString::make("ab", arena), ArenaString::make("cde", arena)};
+    const StringArrayView v(ArrayView<ArenaString>(strings, 2));
+
+    std::string joined;
+    for (const std::string_view s : v) {  // the iterator dereferences to std::string_view
+        joined += s;
+    }
+    CHECK(joined == "abcde");
 }
 
 namespace {

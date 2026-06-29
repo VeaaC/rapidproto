@@ -1,9 +1,13 @@
 #include "rapidproto/streamgen/generator.hpp"
 
+#include <algorithm>
 #include <cassert>
+#include <cstddef>
+#include <functional>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -245,6 +249,73 @@ void emit_map_arm(Printer& printer, const CppNameTable& symbols, const MapFieldN
     printer.outdent();
 }
 
+// Every message or enum `message`'s subtree references, by FQN. Each appears in a field tag's
+// `using Value = <type>`. Naming a type NESTED inside a sibling needs that sibling complete (a nested
+// type has no out-of-class forward declaration), so the sibling must be emitted first; a direct-sibling
+// reference needs only the forward declaration, so depends_on only orders on a strictly-nested target.
+void collect_referenced_types(const MessageNode& message, std::unordered_set<std::string>& out) {
+    for (const auto& field : message.fields) {
+        if (field.is_message_type || field.is_enum_type) {
+            out.insert(field.resolved_type_fqn);
+        }
+    }
+    for (const auto& oneof : message.oneofs) {
+        for (const auto& field : oneof.fields) {
+            if (field.is_message_type || field.is_enum_type) {
+                out.insert(field.resolved_type_fqn);
+            }
+        }
+    }
+    for (const auto& map : message.map_fields) {
+        if (!map.resolved_value_type_fqn.empty()) {  // a message or enum map value
+            out.insert(map.resolved_value_type_fqn);
+        }
+    }
+    for (const auto& nested : message.nested_messages) {
+        collect_referenced_types(nested, out);
+    }
+}
+
+// Order sibling messages so a sibling enclosing a referenced type is emitted first. Only a type NESTED
+// under a sibling forces ordering (it needs that sibling complete to be named); a direct sibling is
+// covered by its forward declaration, cycles included. Acyclic except for inherently-uncompilable
+// schemas (two siblings each naming a type nested in the other), which the active-set guard breaks.
+std::vector<const MessageNode*> ordered_siblings(const std::vector<MessageNode>& siblings) {
+    std::vector<std::unordered_set<std::string>> refs(siblings.size());
+    for (std::size_t i = 0; i < siblings.size(); ++i) {
+        collect_referenced_types(siblings[i], refs[i]);
+    }
+    const auto depends_on = [&](std::size_t a, std::size_t b) {  // must B precede A?
+        const std::string& root =
+            siblings[b].fqn;  // true iff A names a type strictly nested under B
+        return std::any_of(refs[a].begin(), refs[a].end(), [&](const std::string& t) {
+            return t.size() > root.size() && t.compare(0, root.size(), root) == 0 &&
+                   t[root.size()] == '.';
+        });
+    };
+    std::vector<const MessageNode*> order;
+    std::vector<bool> done(siblings.size(), false);
+    std::vector<bool> active(siblings.size(), false);
+    std::function<void(std::size_t)> visit = [&](std::size_t i) {
+        if (done[i] || active[i]) {
+            return;
+        }
+        active[i] = true;
+        for (std::size_t j = 0; j < siblings.size(); ++j) {
+            if (j != i && depends_on(i, j)) {
+                visit(j);
+            }
+        }
+        active[i] = false;
+        done[i] = true;
+        order.push_back(&siblings[i]);
+    };
+    for (std::size_t i = 0; i < siblings.size(); ++i) {
+        visit(i);
+    }
+    return order;
+}
+
 // Emit the struct shell: constructor, nested enums/messages, field tags, the decode() DECLARATION,
 // and the byte-view member. decode() is defined out-of-line (see emit_decode_def) so that field types
 // referencing other messages are complete by the time the body is compiled.
@@ -258,8 +329,14 @@ void emit_message(Printer& printer, const CppNameTable& symbols, const MessageNo
     for (const auto& nested_enum : message.enums) {
         codegen::emit_enum(printer, symbols, nested_enum, true);
     }
+    // Forward-declare nested messages first: a field tag's `using Value` and any sibling cross-reference
+    // (including a cycle) must name a nested type that may be defined later. Nested types can only be
+    // forward-declared here, inside the enclosing struct (top-level messages get file-scope ones).
     for (const auto& nested : message.nested_messages) {
-        emit_message(printer, symbols, nested);
+        printer.print("struct $T$;\n", {{"T", symbols.local.at(&nested)}});
+    }
+    for (const MessageNode* nested : ordered_siblings(message.nested_messages)) {
+        emit_message(printer, symbols, *nested);
     }
 
     const auto fields = collect_fields(symbols, message);
@@ -481,8 +558,9 @@ std::string generate_header(const FileNode& file, const CppNameTable& symbols) {
     if (!file.messages.empty()) {
         printer.print("\n");
     }
-    for (const auto& message : file.messages) {  // struct shells (tags + read declaration)
-        emit_message(printer, symbols, message);
+    for (const MessageNode* message :
+         ordered_siblings(file.messages)) {  // shells, ordered by enum deps
+        emit_message(printer, symbols, *message);
     }
     for (const auto& message :
          file.messages) {  // out-of-line decode() definitions (types complete)

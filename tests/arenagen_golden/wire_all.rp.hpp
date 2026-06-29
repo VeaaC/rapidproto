@@ -15,6 +15,7 @@ class AllWire;
 
 class AllWire {
  public:
+  class G;
   class G {
    public:
     bool has_a() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0; }

@@ -47,9 +47,11 @@ struct Scalars {
 struct WithGroup {
   explicit WithGroup(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
 
+  struct MyGroup;
   struct MyGroup {
     explicit MyGroup(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
 
+    struct Inner;
     struct Inner {
       explicit Inner(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
 
@@ -81,6 +83,7 @@ struct WithGroup {
 struct Container {
   explicit Container(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
 
+  struct Nested;
   struct Nested {
     explicit Nested(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
 
