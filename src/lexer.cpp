@@ -24,7 +24,7 @@
 // "/*"), so a later failure (missing close quote, bad escape, missing "*/") becomes
 // a precise, propagating error instead of a silent backtrack.
 //
-// Everything that is NOT grammar -- filtering whitespace/comments, classifying an
+// Everything that is not grammar -- filtering whitespace/comments, classifying an
 // identifier as a keyword, classifying a numeric token as int vs float, decoding
 // string escape values, merging adjacent string literals -- is plain code in a
 // post-pass over the raw token stream (build_tokens), rather than combinator grammar.
@@ -556,7 +556,7 @@ Result<std::vector<Token>> build_tokens(const std::vector<RawToken>& raws, std::
                 ++i;
                 break;
             case Cat::Symbol: {
-                // Cat::Symbol was matched via is_symbol_char(sv[0]), which IS
+                // Cat::Symbol was matched via is_symbol_char(sv[0]), which is
                 // symbol_kind(sv[0]).has_value(), so the lookup is always engaged here; assert the
                 // invariant rather than suppress the unchecked-access check.
                 const std::optional<TokenKind> kind = symbol_kind(sv[0]);

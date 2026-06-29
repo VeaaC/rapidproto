@@ -1,19 +1,19 @@
-// Isolated decode micro-benchmark -- built as the standalone `rapidproto_bench` executable at
+// Isolated decode micro-benchmark, built as the standalone `rapidproto_bench` executable at
 // -O3 -DNDEBUG, NOT linked into the Catch2 test binary. Why standalone: measuring decoders inside
-// the large (3.5MB+) test binary makes results layout-sensitive -- an unrelated code change can
+// the large (3.5MB+) test binary makes results layout-sensitive; an unrelated code change can
 // swing even protozero's (unchanged) numbers by 30%+. A small dedicated binary is layout-stable and
 // fast to rebuild while iterating on the wire layer.
 //
 // RUN PINNED to one performance core, or hybrid-core scheduling adds 30%+ noise:
 //   taskset -c 0 ./build/gcc/rapidproto_bench
 //
-// Each scenario decodes a large buffer that stresses ONE decode path (focused) or several at once
-// (mixed), comparing three decoders over the SAME bytes:
-//   generated -- the rapidproto-generated decoder (p2::stream::Scalars; the product)
-//   wire      -- a hand loop on the WireReader primitives, feature-equivalent (dispatch + validate)
-//   protozero -- mapbox protozero, an established minimal-overhead pull parser (yardstick; its
+// Each scenario decodes a large buffer that stresses one decode path (focused) or several at once
+// (mixed), comparing three decoders over the same bytes:
+//   generated: the rapidproto-generated decoder (p2::stream::Scalars; the product)
+//   wire:      a hand loop on the WireReader primitives, feature-equivalent (dispatch + validate)
+//   protozero: mapbox protozero, an established minimal-overhead pull parser (yardstick; its
 //                wire-type checks are protozero_assert()s compiled out under NDEBUG, so it validates
-//                marginally LESS than we do).
+//                marginally less than we do).
 // Methodology: warm up, best-of-N per decoder, rotated measurement order. All decoders must agree on
 // a checksum (guards correctness and stops the loops being optimized away); a mismatch is reported
 // and makes the process exit non-zero.
@@ -527,7 +527,7 @@ int scenario_skip_heavy() {
     for (int i = 0; i < kN; ++i) {
         put_tag(buf, 1, 0);
         put_varint(buf, static_cast<std::uint64_t>(i));
-        put_tag(buf, 11, 0);  // field 11 (bool) -- no callback -> skipped
+        put_tag(buf, 11, 0);  // field 11 (bool), no callback so it gets skipped
         put_varint(buf, static_cast<std::uint64_t>(i) & 1U);
     }
     const Arm arms[] = {
@@ -884,7 +884,7 @@ int scenario_groups() {
     return run("groups", ByteView(buf), arms);
 }
 
-// --- sparse: each record has one handled field (i32) + three unhandled fields of DIFFERENT wire
+// --- sparse: each record has one handled field (i32) + three unhandled fields of different wire
 // types (varint, fixed64, len), so the skip dispatch over wire types is genuinely hot. -----------
 int scenario_sparse() {
     std::string buf;

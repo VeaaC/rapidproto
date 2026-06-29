@@ -2,8 +2,8 @@
 // Copyright 2026 Christian Vetter
 #pragma once
 
-// rapidproto runtime: the single, std-library-only header that GENERATED streaming decoders depend
-// on. It amalgamates the wire-format reader and the decode-dispatch machinery into ONE
+// rapidproto runtime: the single, std-library-only header that generated streaming decoders depend
+// on. It amalgamates the wire-format reader and the decode-dispatch machinery into one
 // self-contained file with no rapidproto-internal includes, so the generator can drop a copy beside
 // its output (<out-dir>/rapidproto/runtime.hpp) and every generated header just does
 // `#include "rapidproto/runtime.hpp"`. This is also the runtime the schema library and its tests
@@ -12,16 +12,16 @@
 //
 // ── Wire reader ────────────────────────────────────────────────────────────────────────────────
 // Type-agnostic protobuf binary wire-format reader: it reads the ordered (field_number, wire_type,
-// raw_value) records straight from a byte buffer with NO dependency on the schema/AST. Interpreting
+// raw_value) records straight from a byte buffer with no dependency on the schema/AST. Interpreting
 // a value as a particular protobuf type (zigzag, float bit-cast, packed-array splitting) is the
-// caller's job, via the free helpers below. Wire input is UNTRUSTED, so the reader is FULLY
-// VALIDATING: every varint-overflow, truncation, length-overrun, reserved-wire-type, and
+// caller's job, via the free helpers below. Wire input is UNTRUSTED, so the reader is fully
+// validating: every varint-overflow, truncation, length-overrun, reserved-wire-type, and
 // group-mismatch case is detected (see WireError). The pull-style primitives (read_tag +
 // read_varint/read_fixed*/...) are the hot path: inline, allocation-free, returning
 // std::optional<T>; failure records a WireError code + byte offset on the reader. The reader holds
 // three raw const std::uint8_t* pointers: the hot cursor pair (m_cur/m_end) kept in registers across
 // the decode loop, plus m_begin, which anchors position()/fail offsets. The input ByteView's char
-// bytes are read through a uint8_t* -- well-defined because uint8_t is unsigned char
+// bytes are read through a uint8_t*, well-defined because uint8_t is unsigned char
 // (the static_assert below pins it).
 //
 // ── Decode dispatch ────────────────────────────────────────────────────────────────────────────
@@ -32,13 +32,13 @@
 //                                        handles_one / specifically_handles below) -- decode the
 //                                        value and rapidproto::invoke_field(d, Tag{}, v);
 //                                        else  reader.skip(...)   // no matching callback -> skip
-//   - a field number NOT in the schema goes to an explicit [](UnknownField){} handler if one was
+//   - a field number not in the schema goes to an explicit [](UnknownField){} handler if one was
 //     passed (see specifically_handles_unknown / invoke_unknown below), otherwise it is skipped.
-//   - a callback with the WRONG value type, or a duplicate, is a compile error (not a silent skip).
+//   - a callback with the wrong value type, or a duplicate, is a compile error (not a silent skip).
 //   - propagate the first non-ok DecodeStatus (wire error or callback abort).
 // Callbacks fire in wire order as fields decode, repeated/packed fields once per element. On a
-// non-ok status mid-stream, callbacks already fired for earlier fields/elements are NOT rolled back
-// -- check the returned status and discard partial results on failure.
+// non-ok status mid-stream, callbacks already fired for earlier fields/elements are not
+// rolled back; check the returned status and discard partial results on failure.
 
 #include <cstddef>
 #include <cstdint>
@@ -95,7 +95,7 @@ enum class WireError : std::uint8_t {
 
 // One structural record. The payload variant is keyed by wire type:
 //   Varint -> uint64_t (raw)        I64 -> uint64_t (raw bits)   I32 -> uint32_t (raw bits)
-//   Len    -> ByteView (opaque)     SGroup -> ByteView (the group BODY span)
+//   Len    -> ByteView (opaque)     SGroup -> ByteView (the group body span)
 struct WireField {
     std::uint32_t field_number;
     WireType wire_type;
@@ -289,9 +289,8 @@ inline std::optional<ByteView> WireReader::read_length_delimited() noexcept {
         return std::nullopt;
     }
     // 32-bit hosts only: a length beyond size_t can't be addressed. This branch is `if
-    // constexpr`-ed out on a 64-bit host (a too-large length is caught by the buffer check below),
-    // so it is unreachable -- and therefore untested -- on the 64-bit CI; it exists for 32-bit
-    // correctness.
+    // constexpr`-ed out on a 64-bit host, so it is unreachable (and therefore untested) on the
+    // 64-bit CI; it exists for 32-bit correctness.
     if constexpr (sizeof(std::size_t) < sizeof(std::uint64_t)) {
         if (*len > std::numeric_limits<std::size_t>::max()) {
             fail(WireError::LengthTooLarge, start);
@@ -482,30 +481,30 @@ constexpr overloaded<std::decay_t<Fs>...> combine(Fs&&... fs) {
 }
 
 // The callback dispatch gate (compile-time only). A callback claims a field only when its parameter
-// types are EXACTLY the field's (Tag, Value...) — not merely convertible.
+// types are exactly the field's (Tag, Value...) — not merely convertible.
 // `is_invocable`-with-probes would accept any convertible parameter (a `(Tag, float)` lambda
 // silently narrowing a `double` field, or a `(Tag, std::optional<int32_t>)` lambda wrapping an
 // int32 field), so instead the gate compares the callback's actual parameter types against the
 // expected ones. A generic `[](auto, auto)` catch-all (a templated operator()) has no fixed
 // parameter list and matches every field.
 //
-// A callback must be EITHER fully concrete `(Tag, Value...)` OR a fully generic `(auto, auto...)`
+// A callback must be either fully concrete `(Tag, Value...)` or a fully generic `(auto, auto...)`
 // catch-all. A partially-generic callback (`(auto, int32_t)` or `(Foo::id, auto)`) is rejected by a
 // generated static_assert (it would silently convert or pin a value); only those two shapes reach
 // this gate.
 
-// The value-slot probe: `generic_probe` converts to NO protobuf value type, so only a generic
+// The value-slot probe: `generic_probe` converts to no protobuf value type, so only a generic
 // (templated) value parameter accepts it. This distinguishes a true catch-all (`(auto, auto)`, which
-// accepts it) from a partially-generic callback (`(auto, int32_t)`, which does not) -- a distinction
-// a permissive "convertible to anything" probe could not make.
+// accepts it) from a partially-generic callback (`(auto, int32_t)`, which does not). That is a
+// distinction a permissive "convertible to anything" probe could not make.
 struct generic_probe {};
 template <class>
 using as_generic_probe = generic_probe;  // map each value slot to a probe (preserves arity)
 
 // The tag-slot probe: a stand-in for a generated field tag that mirrors its compile-time identity
 // surface (kNumber / kName). A fixed-arity catch-all may read these off its `auto tag` parameter (the
-// documented `tag.kName` / `tag.kNumber` logging pattern); probing the tag slot with a tag-SHAPED
-// type -- rather than the empty generic_probe -- lets such a catch-all instantiate cleanly during
+// documented `tag.kName` / `tag.kNumber` logging pattern); probing the tag slot with a tag-shaped
+// type (rather than the empty generic_probe) lets such a catch-all instantiate cleanly during
 // classification, so it is recognized as a catch-all instead of being mis-flagged partially-generic.
 // It declares no value conversions, so value-slot strictness (partial-generic rejection) is intact.
 struct tag_probe {
@@ -514,7 +513,7 @@ struct tag_probe {
 };
 
 // Supported callback forms: a lambda, or a functor with a single, non-ref-qualified operator()
-// (const or mutable). A functor with a ref-qualified or OVERLOADED operator() cannot be
+// (const or mutable). A functor with a ref-qualified or overloaded operator() cannot be
 // introspected (call_params falls back to generic_params) and is reported as partially-generic --
 // use separate lambdas instead. The catch-all/partial distinction also assumes a field Value type
 // is not implicitly constructible from an unrelated empty struct (generic_probe); every generated
@@ -549,7 +548,7 @@ struct call_params<F, std::void_t<decltype(param_tuple_of(&F::operator()))>> {
     using type = decltype(param_tuple_of(&F::operator()));
 };
 
-// True when a single callback `Cb` SPECIFICALLY accepts (Tag, Vs...): its parameter types decay to
+// True when a single callback `Cb` specifically accepts (Tag, Vs...): its parameter types decay to
 // exactly (Tag, Vs...). Folded over the callback pack to count specific handlers, so duplicates are
 // a compile error — and a `(Tag, std::optional<V>)`-style wrapper is NOT counted as handling.
 template <class Cb, class Tag, class... Vs>
@@ -559,7 +558,7 @@ inline constexpr bool specifically_handles =
 // True when `Cb` is a generic catch-all at the right arity: a templated operator() that accepts a
 // generic argument in every position. The tag slot is probed with `tag_probe` (so a catch-all may
 // introspect the tag's kName/kNumber), each value slot with the empty `generic_probe` (so a callback
-// that pins a value type -- a partial generic -- is rejected). A callback that pins the TAG is
+// that pins a value type — a partial generic — is rejected). A callback that pins the tag is
 // concrete there, so its operator() is not a template and it never reaches this trait (call_params
 // extracts a real tuple, routing it through specifically_handles / targets instead).
 template <class Cb, class Tag, class... Vs>
@@ -576,7 +575,7 @@ inline constexpr bool handles_one =
 // True when `Cb` is a partially-generic callback that applies to this field: a templated operator()
 // invocable with the field's (Tag, Vs...) but NOT a full catch-all (it pins the tag or a value
 // type, e.g. `(auto, int32_t)` or `(Foo::id, auto)`). Folded per callback into a generated
-// static_assert -- such a callback would silently convert or pin a value, so it is a compile error.
+// static_assert. Such a callback would silently convert or pin a value, so it is a compile error.
 // The invocability check covers both prvalue and lvalue value arguments, so a generic callback with
 // a non-const lvalue-ref value (`(auto, auto&)`, which a catch-all probe rejects because the
 // decoded value is a prvalue) is reported here rather than silently skipped.
@@ -597,9 +596,9 @@ struct first_param<std::tuple<First, Rest...>> {
     using type = First;
 };
 
-// True when a single callback `Cb` NAMES this Tag — its first parameter is exactly the Tag,
+// True when a single callback `Cb` names this Tag — its first parameter is exactly the Tag,
 // whatever the value parameters. Folded over the pack: a field named by a callback that does not
-// HANDLE it (wrong value type OR wrong arity, e.g. a map callback missing its value) becomes a
+// handle it (wrong value type or wrong arity, e.g. a map callback missing its value) becomes a
 // compile error instead of a silent skip. Per-callback (not a check on the combined dispatcher).
 template <class Cb, class Tag, class... Vs>
 inline constexpr bool targets =
@@ -620,30 +619,28 @@ constexpr DecodeStatus invoke_field(D& dispatcher, Tag tag, Vs&&... vs) {
     }
 }
 
-// A field whose number is NOT in the schema (it hit the generated switch's `default`). If `decode()`
-// is given a callback that takes a single UnknownField -- a concrete
-// `[](rapidproto::UnknownField){}` or a 1-arg generic `[](auto){}` -- each such field is delivered
-// to it (otherwise it is skipped). A generic field catch-all does NOT receive unknown fields; it
-// handles known schema fields only. `bytes` is the raw value bytes after the tag, exactly as they
-// appear on the wire: for a LEN field that INCLUDES the length prefix, and for a group it is the
+// A field whose number is not in the schema (it hit the generated switch's `default`). If `decode()`
+// is given a callback that takes a single UnknownField (a concrete
+// `[](rapidproto::UnknownField){}` or a 1-arg generic `[](auto){}`), each such field is delivered
+// to it (otherwise it is skipped). `bytes` is the raw value bytes after the tag, exactly as they
+// appear on the wire: for a LEN field that includes the length prefix, and for a group it is the
 // body plus the trailing EGROUP marker; the tag is `varint((field_number << 3) | wire_type)`. (See
 // README.md for the re-serialize / logging patterns.) Known schema fields you simply did not give a
-// callback for are NOT "unknown" -- use a generic `[](auto, auto)` catch-all to receive those,
-// typed.
+// callback for are NOT "unknown"; use a generic `[](auto, auto)` catch-all to receive those, typed.
 struct UnknownField {
     std::uint32_t field_number;
     WireType wire_type;
     ByteView bytes;
 };
 
-// True when a single callback `Cb` is SPECIFICALLY an unknown-field handler: invocable with one
+// True when a single callback `Cb` is specifically an unknown-field handler: invocable with one
 // UnknownField but NOT as a (Tag, Value...) field handler. A generic field catch-all
-// (`(auto, auto)` / `(auto, auto&&...)`) also accepts a lone UnknownField, but it is a FIELD
-// handler (known fields only) and is excluded here -- so unknown fields require an explicit
+// (`(auto, auto)` / `(auto, auto&&...)`) also accepts a lone UnknownField, but it is a field
+// handler (known fields only) and is excluded here, so unknown fields require an explicit
 // `[](UnknownField)` (or 1-arg generic) handler. Folded over the callback pack by the generated
-// `default` arm. std::conjunction SHORT-CIRCUITS: the second probe is not instantiated unless the
+// `default` arm. std::conjunction short-circuits: the second probe is not instantiated unless the
 // callback accepts a lone UnknownField, so a fixed-arity field catch-all (which does not) is never
-// instantiated against UnknownField -- which matters when its body introspects the tag (UnknownField
+// instantiated against UnknownField, which matters when its body introspects the tag (UnknownField
 // has no kName/kNumber).
 template <class Cb>
 inline constexpr bool specifically_handles_unknown = std::conjunction_v<

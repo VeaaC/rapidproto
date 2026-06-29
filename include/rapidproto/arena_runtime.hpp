@@ -2,9 +2,9 @@
 // Copyright 2026 Christian Vetter
 #pragma once
 
-// rapidproto arena runtime: the std-library-only support that GENERATED arena decoders depend on. An
+// rapidproto arena runtime: the std-library-only support that generated arena decoders depend on. An
 // arena decoder materializes a protobuf message into a fully-allocated, READ-ONLY object tree whose
-// every node lives in a bump Arena -- nothing is allocated outside it, and the input buffer is
+// every node lives in a bump Arena. Nothing is allocated outside it, and the input buffer is
 // freeable after the decode (all variable-length data is copied in). This header amalgamates:
 //   - Arena       : a growable bump allocator (chunked); the only allocator the tree uses.
 //   - ArenaString : a small-string-optimized read-only string (inline when small, arena-copied else).
@@ -12,14 +12,15 @@
 //   - ArenaDecodeError : the failure detail a decode() reports.
 // It builds on the wire reader (runtime.hpp: WireReader, WireError, ByteView, the value helpers).
 //
-// INVARIANT: only TRIVIALLY-DESTRUCTIBLE objects are placed in the Arena (ArenaString's big buffer is
-// itself arena-owned), so no destructor ever runs -- reset() is a pointer rewind, and dropping the
+// INVARIANT: only trivially-destructible objects are placed in the Arena (ArenaString's big buffer is
+// itself arena-owned), so no destructor ever runs: reset() is a pointer rewind, and dropping the
 // Arena frees everything at once.
 
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <iterator>
 #include <memory>
 #include <new>
 #include <string_view>
@@ -42,7 +43,7 @@ class Arena {
 public:
     Arena() noexcept = default;
     // Seed with a caller-owned initial buffer (NOT freed by the Arena): zero-malloc until exceeded.
-    // The whole buffer is usable -- the chunk descriptor lives inline in the Arena, not in the buffer.
+    // The whole buffer is usable; the chunk descriptor lives inline in the Arena, not the buffer.
     Arena(void* buffer, std::size_t size) noexcept {
         if (buffer != nullptr && size > kMaxAlign) {
             adopt_buffer(buffer, size);
@@ -139,7 +140,7 @@ private:
     static constexpr std::size_t kMaxAlign = alignof(std::max_align_t);
     static constexpr std::size_t kDefaultChunk = 4096;
     // Geometric chunk growth stops doubling here. Each chunk wastes at most its own unfilled tail, and
-    // an UNcapped schedule makes the final chunk the largest one (it doubled the whole way up) and on
+    // an uncapped schedule makes the final chunk the largest one (it doubled the whole way up) and on
     // average half empty -- so the held-vs-used gap grows with the arena. Capping the chunk size caps
     // that tail at a constant; it is the dominant held-memory lever (roughly halved the gap on the
     // benchmark). Kept under glibc's 128 KiB default mmap threshold so cold-arena chunks stay on the
@@ -254,7 +255,7 @@ private:
 // Layout (byte 15 is the discriminator): inline => [0,15) data, [15] = length (0..15); heap => [0,8)
 // const char* ptr, [8,12) uint32 length, [15] = kHeapTag (0xFF, which no inline length can be).
 // The 16-byte size (15 inline) is benchmark-tuned by recompiling at 16/24/32 bytes: a wider SSO inlines
-// more medium strings but widens EVERY string field, which loses on realistic mostly-short-string
+// more medium strings but widens every string field, which loses on realistic mostly-short-string
 // payloads (see the knob-tuning note in tests/bench_arena.cpp). If retuned, update arenagen's
 // kStringSize to match (a static_assert there enforces it).
 class ArenaString {
@@ -264,7 +265,7 @@ public:
     ArenaString() noexcept { m_bytes[kTagPos] = 0; }  // empty inline
 
     // Build from bytes; copies into the arena iff it does not fit inline. Yields an empty string on
-    // failure -- the Arena was out of memory, or the value exceeds the 4 GiB a heap ArenaString can
+    // failure: the Arena was out of memory, or the value exceeds the 4 GiB a heap ArenaString can
     // address (its length is 32-bit). A >4 GiB value is rejected up front (no copy, never truncated);
     // the caller turns the empty result into a decode failure via rp_fail_string (StringTooLong vs OOM).
     static ArenaString make(ByteView s, Arena& arena) noexcept {
@@ -336,6 +337,55 @@ public:
 private:
     const T* m_data = nullptr;
     std::size_t m_size = 0;
+};
+
+// ── StringArrayView ────────────────────────────────────────────────────────────────────────────────
+// A read-only view over an arena array of ArenaString that yields std::string_view per element. A
+// repeated string/bytes accessor returns this, so consumers see std::string_view and never the internal
+// ArenaString storage type; the underlying SSO storage is unchanged.
+class StringArrayView {
+public:
+    StringArrayView() noexcept = default;
+    explicit StringArrayView(ArrayView<ArenaString> strings) noexcept : m_strings(strings) {}
+
+    std::size_t size() const noexcept { return m_strings.size(); }
+    bool empty() const noexcept { return m_strings.empty(); }
+    std::string_view operator[](std::size_t i) const noexcept { return m_strings[i].view(); }
+
+    // Dereferences to a std::string_view by value, so it is an input iterator (a value proxy, not a
+    // reference). That covers range-for and single-pass use; random access is via operator[].
+    class iterator {
+    public:
+        using iterator_category = std::input_iterator_tag;
+        using value_type = std::string_view;
+        using difference_type = std::ptrdiff_t;
+        using pointer = void;
+        using reference = std::string_view;
+
+        iterator() noexcept = default;
+        explicit iterator(const ArenaString* p) noexcept : m_p(p) {}
+        std::string_view operator*() const noexcept { return m_p->view(); }
+        iterator& operator++() noexcept {
+            ++m_p;
+            return *this;
+        }
+        iterator operator++(int) noexcept {
+            iterator prev = *this;
+            ++m_p;
+            return prev;
+        }
+        bool operator==(const iterator& o) const noexcept { return m_p == o.m_p; }
+        bool operator!=(const iterator& o) const noexcept { return m_p != o.m_p; }
+
+    private:
+        const ArenaString* m_p = nullptr;
+    };
+
+    iterator begin() const noexcept { return iterator(m_strings.begin()); }
+    iterator end() const noexcept { return iterator(m_strings.end()); }
+
+private:
+    ArrayView<ArenaString> m_strings;
 };
 
 // A read-only map view over insertion-order entries (a generated `Entry` exposing `.key()`).
@@ -428,9 +478,9 @@ inline void rp_fail_repeated_singular(ArenaDecodeError* err, std::uint32_t field
 }
 
 // ── decoder reach-through (keeps the decoder off the generated public surface) ───────────────────────
-// Generated decoders live in a PRIVATE `rp_decode_into` static (and bool-wrappers in a PRIVATE `rp_wrap`
+// Generated decoders live in a private `rp_decode_into` static (and bool-wrappers in a private `rp_wrap`
 // factory); these one-line forwarders are the only callers, and every message befriends the matching
-// template. Defined ONCE here -- not per generated file -- so two same-package headers in one TU don't
+// template. Defined ONCE here, not per generated file, so two same-package headers in one TU don't
 // redefine it, and every cross-file/cross-message call is the same
 // `::rapidproto::arena_detail::decode_into(sub, ...)` regardless of the target's namespace (deduced).
 namespace arena_detail {
@@ -440,8 +490,8 @@ template <class T>
     return T::rp_decode_into(out, body, arena, depth, err);
 }
 template <class T>
-void wrap(T& out, bool value) noexcept {  // out-param so the friend declaration returns `void`
-    out = T::rp_wrap(value);              // (a keyword) -- `RpT ::ns` would parse as `RpT::ns`.
+void wrap(T& out, bool value) noexcept {  // void out-param, not a T return: on the friend decl a T
+    out = T::rp_wrap(value);              // return would mis-parse (`RpT ::ns` reads as `RpT::ns`).
 }
 }  // namespace arena_detail
 

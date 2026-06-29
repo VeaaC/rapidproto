@@ -5,7 +5,7 @@
 //
 // Regenerate the goldens after an intentional generator change with: tests/regen_goldens.sh
 // (the in-test RAPIDPROTO_REGEN_GOLDEN mode can't rebuild this binary when a change breaks the
-// checked-in headers it #includes -- the script drives the CLI directly; see it for the details).
+// checked-in headers it #includes. The script drives the CLI directly; see it for the details).
 
 #include <catch_amalgamated.hpp>
 
@@ -151,7 +151,7 @@ TEST_CASE("streamgen: namespace prefix nests the generated namespace", "[streamg
     CHECK(prefixed.find("namespace rp::dec::p3::stream {") != std::string::npos);
     CHECK(prefixed.find("::rp::dec::p3::stream::Msg") !=
           std::string::npos);  // message refs: prefixed + nested
-    // The shared enum is prefixed but NOT model-nested (it lives in the common header at package scope,
+    // The shared enum is prefixed but not model-nested (it lives in the common header at package scope,
     // aliased into the model namespace) -- the load-bearing coexistence invariant.
     CHECK(prefixed.find("::rp::dec::p3::State") != std::string::npos);
     CHECK(prefixed.find("::rp::dec::p3::stream::State") == std::string::npos);
@@ -177,14 +177,14 @@ TEST_CASE("streamgen: namespace prefix nests the generated namespace", "[streamg
         CHECK(xr_prefixed == read_file(golden));
     }
 
-    // Coexistence in ONE TU: the prefixed `rp::xr::stream::A` and the unprefixed `xr::stream::A` (both #included
+    // Coexistence in one TU: the prefixed `rp::xr::stream::A` and the unprefixed `xr::stream::A` (both #included
     // above) are distinct, usable types -- the same shape as coexisting with a protoc header.
     static_assert(!std::is_same_v<rp::xr::stream::A, xr::stream::A>);
 }
 
 // An unknown-field handler (a 1-arg `[](rapidproto::UnknownField){}`) receives fields whose number
-// is NOT in the schema. Narrow semantics: a KNOWN field the caller didn't handle is NOT delivered
-// to it (it is simply skipped) -- only truly non-schema field numbers are.
+// is not in the schema. Narrow semantics: a known field the caller didn't handle is NOT delivered
+// to it (it is simply skipped). Only truly non-schema field numbers are.
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): one buffer build + one decode
 TEST_CASE("streamgen: an unknown-field handler receives only non-schema fields", "[streamgen]") {
     const auto put_varint = [](std::string& b, std::uint32_t v) {
@@ -195,13 +195,13 @@ TEST_CASE("streamgen: an unknown-field handler receives only non-schema fields",
         b.push_back(static_cast<char>(v));
     };
     std::string buf;
-    buf.push_back('\x08');  // field 1 (implicit_i, varint) -- known, handled
+    buf.push_back('\x08');  // field 1 (implicit_i, varint): known, handled
     put_varint(buf, 7);
-    put_varint(buf, (2U << 3) | 0U);  // field 2 (explicit_i, varint) -- known, NOT handled
+    put_varint(buf, (2U << 3) | 0U);  // field 2 (explicit_i, varint), known but not handled
     put_varint(buf, 20);
-    put_varint(buf, (99U << 3) | 0U);  // field 99 (varint) -- unknown number
+    put_varint(buf, (99U << 3) | 0U);  // field 99 (varint), an unknown number
     put_varint(buf, 42);
-    put_varint(buf, (100U << 3) | 2U);  // field 100 (LEN) -- unknown number
+    put_varint(buf, (100U << 3) | 2U);  // field 100 (LEN), unknown number
     buf.push_back('\x02');
     buf += "hi";
 
@@ -223,7 +223,7 @@ TEST_CASE("streamgen: an unknown-field handler receives only non-schema fields",
 
     CHECK(s.ok());
     CHECK(known == 7);
-    // Only the non-schema numbers reach the handler -- NOT field 2 (known but unhandled).
+    // Only the non-schema numbers reach the handler -- not field 2 (known but unhandled).
     CHECK(unknown_numbers == std::vector<std::uint32_t>{99, 100});
     CHECK(unknown_len_bytes == std::string("\x02hi", 3));
 
@@ -234,7 +234,7 @@ TEST_CASE("streamgen: an unknown-field handler receives only non-schema fields",
     CHECK(aborted.aborted);
 }
 
-// A generic field catch-all is known-fields-only: it does NOT absorb unknown (non-schema)
+// A generic field catch-all is known-fields-only: it does not absorb unknown (non-schema)
 // fields; those reach only an explicit [](UnknownField) handler.
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): one buffer build + three decodes
 TEST_CASE("streamgen: a field catch-all does not receive unknown fields", "[streamgen]") {
@@ -246,13 +246,13 @@ TEST_CASE("streamgen: a field catch-all does not receive unknown fields", "[stre
         b.push_back(static_cast<char>(v));
     };
     std::string buf;
-    buf.push_back('\x08');  // field 1 (implicit_i, varint) -- known
+    buf.push_back('\x08');  // field 1 (implicit_i, varint): known
     put_varint(buf, 7);
-    put_varint(buf, (99U << 3) | 0U);  // field 99 (varint) -- unknown number
+    put_varint(buf, (99U << 3) | 0U);  // field 99 (varint): unknown number
     put_varint(buf, 42);
     const p3::stream::Msg msg{ByteView(buf)};
 
-    // Catch-all only: it sees the known field but NOT the unknown one (which is skipped).
+    // Catch-all only: it sees the known field but not the unknown one (which is skipped).
     int catchall_calls = 0;
     const DecodeStatus s1 = msg.decode([&](auto /*tag*/, auto&&... /*v*/) { ++catchall_calls; });
     CHECK(s1.ok());
@@ -281,7 +281,7 @@ TEST_CASE("streamgen: a field catch-all does not receive unknown fields", "[stre
 }
 
 // Packed FIXED-width repeated fields exercise the packed I32/I64 element path (read_fixed32/64 in
-// the packed sub-reader) -- the varint-only packed fixtures never reach it.
+// the packed sub-reader). The varint-only packed fixtures never reach it.
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): builds three packed payloads
 TEST_CASE("streamgen: packed fixed-width repeated fields decode per element", "[streamgen]") {
     std::string buf;
@@ -312,7 +312,7 @@ TEST_CASE("streamgen: packed fixed-width repeated fields decode per element", "[
 }
 
 // An editions DELIMITED message field (ed23.M.delim) uses GROUP wire format (SGROUP/EGROUP), not
-// length-prefix -- the wire form is taken from message_encoding, not is_group. The length-prefixed
+// length-prefix: the wire form is taken from message_encoding, not is_group. The length-prefixed
 // `child` and the delimited `delim` both decode their inner field.
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): builds a LEN and a group
 // sub-message
@@ -417,8 +417,8 @@ TEST_CASE("streamgen: map and group decoders report malformed input", "[streamge
     }
 }
 
-// An extension field (extend WithGroup { optional int32 ext_a = 100; }) is NOT a generated struct
-// field, so it surfaces via the UnknownField handler -- pinning that extensions are unsupported and
+// An extension field (extend WithGroup { optional int32 ext_a = 100; }) is not a generated struct
+// field, so it surfaces via the UnknownField handler, pinning that extensions are unsupported and
 // land in the unknown channel.
 TEST_CASE("streamgen: an extension field surfaces as an unknown field", "[streamgen]") {
     std::string buf;  // p2.WithGroup carrying field 100 (ext_a, varint) = 9
@@ -511,7 +511,7 @@ TEST_CASE("streamgen: well-known-type and cross-file decoders run", "[streamgen]
     }
 }
 
-// The dispatch gate is an EXACT value-type match. A correct callback still decodes; a
+// The dispatch gate is an exact value-type match. A correct callback still decodes; a
 // generic `[](auto, auto)` catch-all matches every field; and mixing a catch-all with a specific
 // callback routes each field to the most specialized handler (no spurious "duplicate" error).
 // (Wrong-value-type and duplicate-callback cases are now compile errors; the compile-fail harness
@@ -609,7 +609,7 @@ TEST_CASE("streamgen: the exact-match dispatch gate accepts and rejects the righ
     using A = p3::stream::Msg::a;
     using V = p3::stream::Msg::a::Value;  // std::int32_t
     // An exact callback handles the field; a convertible-but-wrong one and a wrapper-of-V one do
-    // NOT (they would silently narrow / silently wrap):
+    // not (they would silently narrow / silently wrap):
     static_assert(handles_one<CbExactA, A, V>);
     static_assert(!handles_one<CbWrongA, A, V>);
     static_assert(!handles_one<CbOptionalA, A, V>);
@@ -631,7 +631,7 @@ TEST_CASE("streamgen: the exact-match dispatch gate accepts and rejects the righ
     static_assert(!is_partial_generic<CbExactA, A, V>);
     static_assert(!is_partial_generic<CbCatchAll, A, V>);
     static_assert(!is_partial_generic<CbVariadicCatchAll, A, V>);
-    // The unknown handler must SPECIFICALLY take UnknownField. A field catch-all -- even a variadic
+    // The unknown handler must specifically take UnknownField. A field catch-all -- even a variadic
     // one that happens to accept a lone UnknownField -- is known-fields-only, NOT the unknown
     // handler:
     static_assert(specifically_handles_unknown<CbUnknown>);
@@ -681,7 +681,7 @@ TEST_CASE("streamgen: a generated decoder reports malformed input and callback a
 
 // The CLI generates the whole resolved closure (entry + transitive imports + well-known
 // types), so a schema using google.protobuf.* compiles standalone. This regenerates every file in
-// usewkt.proto's closure -- including the embedded WKT sources -- and golden-checks each.
+// usewkt.proto's closure (including the embedded WKT sources) and golden-checks each.
 TEST_CASE("streamgen: well-known-type closure generates self-contained headers", "[streamgen]") {
     ResolverConfig config;
     config.include_paths = {std::string(RAPIDPROTO_CORPUS_DIR)};
@@ -711,7 +711,7 @@ TEST_CASE("streamgen: well-known-type closure generates self-contained headers",
 }
 
 // Distinct proto names that sanitize alike are de-duplicated per scope (no struct/
-// enumerator redefinition), tags keep the REAL proto name in kName, and type references are
+// enumerator redefinition), tags keep the real proto name in kName, and type references are
 // absolute. These bindings are checked at compile time; reaching this body means they held.
 TEST_CASE("streamgen: colliding identifiers are de-duplicated and types bind absolutely",
           "[streamgen]") {

@@ -1,26 +1,26 @@
-// Arena benchmark -- standalone -O3 -DNDEBUG executable (layout-stable, like rapidproto_bench).
+// Arena benchmark: a standalone -O3 -DNDEBUG executable (layout-stable, like rapidproto_bench).
 // Two parts:
-//   1. A realistic bench::Dataset (2000 records) decoded THREE ways and compared apples-to-apples:
-//        arena   -- the arena decoder materializing a tree in a bump Arena (under test)
-//        protoc  -- protoc-generated C++ + google::protobuf::Arena (the baseline)
-//        stream  -- the streaming callback decoder (a zero-materialization yardstick)
+//   1. A realistic bench::Dataset (2000 records) decoded three ways and compared apples-to-apples:
+//        arena:  the arena decoder materializing a tree in a bump Arena (under test)
+//        protoc: protoc-generated C++ + google::protobuf::Arena (the baseline)
+//        stream: the streaming callback decoder (a zero-materialization yardstick)
 //      Reports parse TIME (best-of-N; arena measured "cold" = fresh arena and "warm" = reset+reuse)
 //      and peak MEMORY like-with-like: payload (arena bytes_used vs protoc SpaceUsed) and total-
 //      malloc'd (arena bytes_reserved vs protoc SpaceAllocated). All three must agree on a checksum.
-//   2. A chunk-cap sweep (arena only): three payload SHAPES -- a mixed Dataset, a many-small-arrays
-//      WideSet, and a few-big-arrays BigSet -- each grown from ~0.4 MB to ~32 MB. For each it reports
+//   2. A chunk-cap sweep (arena only): three payload shapes (a mixed Dataset, a many-small-arrays
+//      WideSet, and a few-big-arrays BigSet), each grown from ~0.4 to ~32 MB. For each it reports
 //      the held/used ratio (the arena's growth + chunk-tail waste) and cold/warm parse time, so the
 //      Arena's chunk-growth policy can be tuned against varied sizes and allocation patterns.
 //
 // Reading the Dataset numbers (interpretation lives here, not in the program's output):
-//   - The time advantage is PARTLY a feature gap: protoc validates UTF-8 on every proto3 string
+//   - The time advantage is partly a feature gap: protoc validates UTF-8 on every proto3 string
 //     (~20% of its parse); the arena does not. Discount that and the time win is ~2x, not ~2.5x.
-//   - The multiple varies with payload shape -- more strings favor the arena, more packed scalars
-//     favor protoc. This payload is a realistic mix; do not read one ratio as universal.
+//   - The multiple varies with payload shape: more strings favor the arena, more packed scalars
+//     favor protoc. This payload is a realistic mix, so do not read one ratio as universal.
 //   - The held-memory gap (total malloc'd) is the single-pass-growable repeated-array realloc waste
 //     plus the arena's chunk-tail waste; the sweep's held/used column isolates the latter by size.
 //
-// Knob tuning. The three tuned knobs are COMPILE-TIME constants, so each was validated by
+// Knob tuning. The three tuned knobs are compile-time constants, so each was validated by
 // recompiling at several values and re-running this benchmark (one binary cannot sweep them); the
 // shapes below exist to make each knob matter. The chosen values and the evidence:
 //   - Arena chunk cap (arena_runtime.hpp kMaxChunk = 96 KiB): swept none / 64 / 96 / 128 KiB. 96 KiB
@@ -29,7 +29,7 @@
 //     independent; it stays under glibc's 128 KiB mmap threshold.
 //   - SSO inline capacity (arena_runtime.hpp ArenaString = 15 chars / 16 bytes): swept a 16 / 24 /
 //     32-byte ArenaString on the Dataset shape (also bumping the planner's kStringSize to match).
-//     16 wins on BOTH memory and time -- the payload is mostly short strings already inlined, so a
+//     16 wins on both memory and time -- the payload is mostly short strings already inlined, so a
 //     wider SSO only widens every string field (used 0.68x -> 0.82x -> 1.00x for 16/24/32).
 //   - Inline-submsg cutoff (arenagen layout.hpp = 16 bytes): swept 16 / 24 / 32 on the Particle shape
 //     (24-byte Vec3, boxed at 16 and inlined at >=24). 16 wins: inlining a fixed-size sub-message of
@@ -201,7 +201,7 @@ std::uint64_t checksum_arena_dataset(const rp::bench::Dataset* d) {
         if (const rp::bench::Address* a = p.address()) {
             s += a->street().size() + a->city().size() + a->zip();
         }
-        for (const rapidproto::ArenaString& t : p.tags()) {
+        for (const std::string_view t : p.tags()) {
             s += t.size();
         }
         for (const std::int32_t h : p.history()) {
@@ -232,10 +232,10 @@ std::uint64_t checksum_arena_wide(const rp::bench::WideSet* w) {
         for (const std::int32_t v : it.d()) {
             s += static_cast<std::uint32_t>(v);
         }
-        for (const rapidproto::ArenaString& x : it.s()) {
+        for (const std::string_view x : it.s()) {
             s += x.size();
         }
-        for (const rapidproto::ArenaString& x : it.t()) {
+        for (const std::string_view x : it.t()) {
             s += x.size();
         }
     }
@@ -439,7 +439,7 @@ int main() {
     std::printf("checksum %llu (all agree)\n", static_cast<unsigned long long>(c_arena));
 
     // Chunk-cap sweep: held/used (the arena's growth + chunk-tail waste) and parse time across shapes
-    // and sizes up to ~32 MB. Arena only -- this tunes the Arena's chunk-growth policy.
+    // and sizes up to ~32 MB. Arena only; this tunes the Arena's chunk-growth policy.
     std::printf("\n=== arena chunk-cap sweep (held/use = growth + chunk-tail waste) ===\n");
     sweep_shape(
         "mixed (Dataset)", [](int n) { return make_dataset(n); },

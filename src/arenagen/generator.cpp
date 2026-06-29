@@ -89,9 +89,9 @@ std::string bit_const(const MessageLayout& layout, int bit) {
 
 // ── type-name helpers ────────────────────────────────────────────────────────────────────────────
 
-// Identifiers arenagen SYNTHESIZES from field/oneof/map names -- has_<f>(), <oneof>_case(), the
+// Identifiers arenagen synthesizes from field/oneof/map names -- has_<f>(), <oneof>_case(), the
 // <Oneof>Case enum, its k<Member> constants, and the <Map>Entry type. The shared CppNameTable
-// dedups the base names (fields/maps/nested types) against each other, but NOT these derived forms,
+// dedups the base names (fields/maps/nested types) against each other, but not these derived forms,
 // so a user field literally named `has_x` or a nested `FooEntry` could collide. Computed once per
 // message (keyed by node pointer) with a `_` suffix on collision, so the output always compiles.
 struct SynthNames {
@@ -195,7 +195,7 @@ void emit_map_entry(const Emit& emit, const MemberPlan& m, const std::string& en
     p.print("struct $N$ {\n", {{"N", emit.synth.entry_type.at(m.map_field)}});
     p.indent();
     // Read-only accessors; the key/value storage below is private, so a consumer cannot rewrite a
-    // parsed entry -- only the enclosing message's decoder (a friend) populates it.
+    // parsed entry. Only the enclosing message's decoder (a friend) populates it.
     if (e.key_kind == FieldKind::SsoString) {
         p.print("std::string_view key() const noexcept { return rp_key.view(); }\n");
     } else {
@@ -247,7 +247,7 @@ void emit_oneof_types(const Emit& emit, const OneofPlan& o) {
     // A union sized to the largest member; the no-op default ctor leaves it inactive (the decoder
     // sets the active member, accessors gate on the discriminant). Trivially destructible/copyable.
     // NOTE: the union makes the enclosing message non-trivially-default-constructible, so the decoder
-    // must VALUE-initialize it -- Arena::create<T>() does (::new (mem) T()) -- to zero the
+    // must VALUE-initialize it, which Arena::create<T>() does via (::new (mem) T()), to zero the
     // discriminant to kNotSet; default-init (::new (mem) T) would leave the case indeterminate.
     p.print("union rp_$o$_union {\n", {{"o", o.oneof->name}});
     p.indent();
@@ -355,6 +355,16 @@ void emit_field_accessor(const Emit& emit, const MessageLayout& layout, const Me
                  {"v", bit_test(layout, m.value_bit)}});
             break;
         case FieldKind::Repeated:
+            if (repeated_elem_type(emit, *m.field) == "::rapidproto::ArenaString") {
+                // Storage is ArrayView<ArenaString> (SSO); expose std::string_view, not the storage type.
+                p.print("::rapidproto::StringArrayView $id$() const noexcept {"
+                        " return ::rapidproto::StringArrayView(m_$id$); }\n",
+                        {{"id", id}});
+            } else {
+                p.print("$T$ $id$() const noexcept { return m_$id$; }\n",
+                        {{"T", storage_type(emit, m)}, {"id", id}});
+            }
+            break;
         case FieldKind::Map:
             p.print("$T$ $id$() const noexcept { return m_$id$; }\n",
                     {{"T", storage_type(emit, m)}, {"id", id}});
@@ -634,7 +644,7 @@ SynthNames build_synth_names(const CppNameTable& names, const LayoutSet& layouts
 // A scalar proto type -> the shared wire/conversion facts (wire enumerator, read method, value
 // conversion) from the codegen table (rapidproto/codegen/wire.hpp). Returns the table's view directly;
 // its string_view fields feed straight into the Printer (which binds string_view). Precondition:
-// `type` is a scalar keyword (asserted -- resolution/analysis guarantees it before codegen).
+// `type` is a scalar keyword (asserted; resolution/analysis guarantees it before codegen).
 const codegen::ScalarWire& scalar_wire(std::string_view type) {
     const codegen::ScalarWire* w = codegen::find_scalar_wire(type);
     assert(w != nullptr && "scalar_wire called on a non-scalar type");
@@ -642,7 +652,7 @@ const codegen::ScalarWire& scalar_wire(std::string_view type) {
 }
 
 // {wire enumerator, read expression} for a message field given its encoding (length-prefixed vs the
-// group/DELIMITED wire form).
+// group/delimited wire form).
 std::pair<std::string, std::string> message_wire(const FieldNode& field) {
     if (field.message_encoding == MessageEncoding::Delimited) {
         return {"SGroup", "read_group(rp_tag->field_number)"};
@@ -684,7 +694,7 @@ int req_bit_no(int index, std::size_t total) {
 }
 
 // Read one scalar/enum/string value from `reader` into the lvalue `target` (wire type already
-// matched); emits a wire-failure return. NOT for bool-as-bit or messages.
+// matched); emits a wire-failure return. Not for bool-as-bit or messages.
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): target lvalue vs reader expression
 void emit_value_read(const Emit& emit, const FieldNode& field, const std::string& target,
                      const std::string& reader) {
@@ -896,7 +906,7 @@ void emit_singular_arm(const Emit& emit, const MessageLayout& layout, const Memb
         p.outdent();
         p.print("}\n");
     } else if (m.kind == FieldKind::InlineFixedSubMsg || m.kind == FieldKind::PointerSubMsg) {
-        // A singular sub-message appearing more than once on the wire would, in protoc, MERGE. A
+        // A singular sub-message appearing more than once on the wire would, in protoc, merge. A
         // read-only arena tree does not implement merge, so rather than silently take the last (or a
         // partial merge) we reject the (exotic, concatenation-style) input. "Already present" reuses
         // existing state: a null pointer, the presence bit, or the transient required bit.
@@ -1147,13 +1157,11 @@ void emit_map_arm(const Emit& emit, const MemberPlan& m) {
     p.indent();
     p.print("const auto rp_et = rp_er.read_tag();\n");
     p.print("if (!rp_et) { ::rapidproto::rp_fail_wire(err, rp_er); return false; }\n");
-    // key = field 1
     p.print("if (rp_et->field_number == 1 && rp_et->wire_type == ::rapidproto::WireType::$kw$) {\n",
             {{"kw", kv_wire(emit, e.key_kind, map.key_type)}});
     p.indent();
     emit_kv_scalar(emit, e.key_kind, map.key_type, /*enum_fqn=*/"", "rp_slot->rp_key", "rp_er");
     p.outdent();
-    // value = field 2
     p.print(
         "} else if (rp_et->field_number == 2 && rp_et->wire_type == ::rapidproto::WireType::$vw$) "
         "{\n",

@@ -30,7 +30,7 @@
 // Number parsing never fails on a value-range issue: an integer literal that exceeds 64-bit range
 // can only be a double-typed option written in integer form, so it becomes a double; float
 // over/underflow saturates to +/-inf or 0. Genuinely malformed literals are rejected by the lexer and
-// never reach here. Out-of-range values matter only for correctness on invalid input -- the
+// never reach here. Out-of-range values matter only for correctness on invalid input; the
 // conversion is always memory-safe.
 
 namespace rapidproto {
@@ -38,7 +38,7 @@ namespace {
 
 // --- recursion-depth guard --------------------------------------------------
 // Schema parsing is recursive descent over nested messages/groups/extends and nested option-literal
-// aggregates -- both unbounded in the input. A pathologically nested hand-written schema would
+// aggregates, both unbounded in the input. A pathologically nested hand-written schema would
 // overflow the stack, so cap the recursion depth and fail cleanly instead. The safety floor is
 // unconditional: the parser must never crash, even on input protoc would reject. The cap is well
 // above any real schema (real nesting is single digits) yet kept low enough to stay within a small
@@ -82,7 +82,7 @@ bool is_keyword(TokenKind k) {
     return k >= TokenKind::KwSyntax && k <= TokenKind::KwNan;
 }
 
-// A name position accepts an identifier OR a keyword (proto allows keywords as
+// A name position accepts an identifier or a keyword (proto allows keywords as
 // names — e.g. a field named `message`).
 bool is_name_token(const Token& t) {
     return t.kind == TokenKind::Identifier || is_keyword(t.kind);
@@ -197,7 +197,7 @@ OptionValue make_float(std::string_view text, bool negative) {
     const char* last = first + text.size();
     const auto ec = std::from_chars(first, last, v).ec;
     if (ec == std::errc::result_out_of_range) {
-        // from_chars leaves v unmodified on out-of-range for BOTH extremes; classify.
+        // from_chars leaves v unmodified on out-of-range for both extremes; classify.
         v = approx_decimal_exponent(text) >= 0 ? HUGE_VAL : 0.0;
     }
     if (negative) {
@@ -388,7 +388,8 @@ Result<Parsed<ListLiteral, Token>> parse_list_literal(Range<Token> in) {
 // Interpret a (sign-stripped) integer literal as an int32 enum/field number. Like the option
 // helpers, this never fails: for valid input the literal is well-formed and in int32 range. An
 // out-of-range magnitude (beyond uint64, or outside int32 once signed) silently yields an unspecified
-// in-range value rather than erroring -- a value-range concern for invalid input only, and memory-safe.
+// in-range value rather than erroring: a value-range concern for invalid input only, and
+// memory-safe.
 std::int32_t parse_int32(std::string_view text, bool negative) {
     const auto [base, digits] = split_int_literal(text);
     std::uint64_t mag = 0;
@@ -642,7 +643,7 @@ struct overloaded : Fs... {
 template <typename... Fs>
 overloaded(Fs...) -> overloaded<Fs...>;
 
-// A group yields BOTH a synthesized message and an is_group field referencing it.
+// A group yields both a synthesized message and an is_group field referencing it.
 struct GroupDecl {
     FieldNode field;
     MessageNode message;
@@ -715,7 +716,7 @@ MessageNode assemble_message(std::string_view name, std::vector<MessageElement>&
     return node;
 }
 
-// One message body element. Keyword-led declarations come BEFORE parse_field, and group before
+// One message body element. Keyword-led declarations come before parse_field, and group before
 // field, per the alt-ordering contract (parse_field fatally commits after a leading keyword type).
 auto message_element(const ParseContext& ctx) {
     return alt(
@@ -1003,7 +1004,8 @@ Result<Parsed<FieldNode, Token>> parse_field(Range<Token> in, const ParseContext
 // MapFieldDecl = "map" "<" KeyType "," TypeName ">" ident "=" intLit [CompactOptions] ";". Each
 // punctuation token is folded into the preceding meaningful element via preceded(). KeyType is
 // parsed as an arbitrary type_name (not the spec's restricted integral/bool/string set); key-type
-// validity is checked later in analysis (resolve_map), not here -- the parser does no semantic checks.
+// validity is checked later in analysis (resolve_map), not here; the parser does no semantic
+// checks.
 Result<Parsed<MapFieldNode, Token>> parse_map_field(Range<Token> in) {
     return map(seq(preceded(seq(kind(TokenKind::KwMap), cut(kind(TokenKind::LAngle))),
                             cut(type_name())),                                   // key

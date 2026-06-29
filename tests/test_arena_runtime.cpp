@@ -246,6 +246,32 @@ TEST_CASE("ArrayView: read-only contiguous view", "[arena][arrayview]") {
     CHECK(ArrayView<int>{}.empty());
 }
 
+TEST_CASE("StringArrayView: repeated string/bytes accessor yields std::string_view", "[arena][string]") {
+    Arena arena;
+    const std::string big(40, 'x');  // > kInlineCap: forces a heap (arena-copied) ArenaString
+    const ArenaString strings[] = {
+        ArenaString::make("hi", arena),         // inline
+        ArenaString::make(big, arena),          // heap
+        ArenaString::make(ByteView{}, arena),   // empty
+    };
+    const StringArrayView v(ArrayView<ArenaString>(strings, 3));
+
+    CHECK(v.size() == 3);
+    CHECK_FALSE(v.empty());
+
+    const std::string_view first = v[0];  // operator[] returns std::string_view (not ArenaString)
+    CHECK(first == "hi");
+    CHECK(v[1] == big);
+    CHECK(v[2].empty());
+
+    std::size_t total = 0;
+    for (const std::string_view s : v) {  // range-for yields std::string_view
+        total += s.size();
+    }
+    CHECK(total == 2 + big.size());
+    CHECK(StringArrayView{}.empty());
+}
+
 namespace {
 // A minimal map entry exposing key()/value(), as a generated map Entry would.
 class Entry {

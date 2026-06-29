@@ -131,7 +131,7 @@ class Layout {
   ::al::BoolWrap flag() const noexcept { ::al::BoolWrap rp_w{}; ::rapidproto::arena_detail::wrap(rp_w, (m_rp_mask & (std::uint8_t{1} << 6)) != 0); return rp_w; }
   ::rapidproto::ArrayView<std::int32_t> nums() const noexcept { return m_nums; }
   ::rapidproto::ArrayView<::al::Point> points() const noexcept { return m_points; }
-  ::rapidproto::ArrayView<::rapidproto::ArenaString> labels() const noexcept { return m_labels; }
+  ::rapidproto::StringArrayView labels() const noexcept { return ::rapidproto::StringArrayView(m_labels); }
   ::rapidproto::MapView<CountsEntry> counts() const noexcept { return m_counts; }
   ::rapidproto::MapView<GridEntry> grid() const noexcept { return m_grid; }
   ChoiceCase choice_case() const noexcept { return static_cast<ChoiceCase>(m_rp_choice_case); }

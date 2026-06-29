@@ -1,31 +1,31 @@
 # RapidProto — fast, header-only Protobuf decoders for C++
 
 RapidProto compiles a `.proto` schema into **header-only C++ decoders**. One CLI, `rapidprotoc`, turns
-your schema into headers you `#include`; there is **nothing to link**. From one schema you get two
-decode **models**, and you pick whichever fits each use:
+your schema into headers you `#include`. Nothing to link. A single schema gives you two
+decode models, and you pick whichever fits the job:
 
-- **Arena** — `decode()` materializes the whole message into a read-only **object tree** in a bump
-  arena, which you then navigate with accessors (`person->name()`) in any order, any number of times.
-- **Streaming** — `decode()` walks the wire **once** and hands each field's typed value to a
-  **callback** you supply. Nothing is materialized; zero allocation.
+- **Arena.** `decode()` materializes the whole message into a read-only object tree in a bump
+  arena, which you navigate with accessors (`person->name()`) in any order, as many times as you like.
+- **Streaming.** `decode()` walks the wire once and hands each field's typed value to a
+  callback you supply. Nothing is materialized, and there's zero allocation.
 
-Both **decode only** — no serialization, no JSON. Both **fully validate** untrusted wire input
-(truncation, length overruns, group nesting). Both **trust the schema**: they assume it already passed
-`protoc` and do not range-check field *values*. They work for **proto2, proto3, and editions
+Both are **decode-only**: no serialization, no JSON. Both fully validate untrusted wire input
+(truncation, length overruns, group nesting), and both trust the schema — they assume `protoc` already
+accepted it, so field *values* aren't range-checked. They cover **proto2, proto3, and editions
 2023/2024**, including groups, maps, and oneofs. The arena model is built to beat `protoc` +
 `google::protobuf::Arena` on both decode time and peak memory.
 
-The two models read the same schema and can even be used **together in one translation unit** (see
+You can read the same schema with either model, and even use both **in one translation unit** (see
 [Using both models](#using-both-models)).
 
-> For internals and design rationale — the layout planner, the compile-time dispatch, the arena, the
-> coexistence design, and the benchmark methodology — see [`architecture.md`](architecture.md).
+> See [`architecture.md`](architecture.md) for the internals and design rationale: the layout planner,
+> the compile-time dispatch, the arena, the coexistence design, and the benchmark methodology.
 
 ---
 
 ## Quick start
 
-The fastest path uses the [CMake helper](#cmake-integration); here is the tool directly. Build it once:
+The [CMake helper](#cmake-integration) is the fastest path; this section drives the tool by hand. Build it once:
 
 ```sh
 cmake --preset gcc                                   # or: clang
@@ -64,7 +64,7 @@ message Address {
 ```
 
 **2. Decode.** You supply the serialized message bytes (from a file, socket, database, …) as a
-`rapidproto::ByteView` — an alias for `std::string_view`, so it is a **non-owning** view. Create an
+`rapidproto::ByteView` (an alias for `std::string_view`, so a **non-owning** view). Create an
 `Arena`, call `decode()`, then navigate the returned tree:
 
 ```cpp
@@ -75,7 +75,7 @@ std::string buf = /* the serialized Person bytes */;
 rapidproto::Arena arena;
 rapidproto::ArenaDecodeError err;
 const example::Person* p = example::Person::decode(rapidproto::ByteView(buf), arena, &err);
-if (p == nullptr) { /* malformed input — see err.code / err.wire / err.offset */ }
+if (p == nullptr) { /* malformed input: see err.code / err.wire / err.offset */ }
 
 std::uint32_t id = p->id();                        // scalar, by value
 std::string_view name = p->name();                 // string, view into the arena
@@ -85,7 +85,7 @@ if (const example::Address* a = p->address())      // sub-message: a pointer (nu
 
 > **Need test bytes?** Encode some with `protoc`: `protoc --encode=example.Person -I. person.proto < values.txt > person.bin`
 
-**3. Compile** with only the output directory on the include path — no library to link:
+**3. Compile** with only the output directory on the include path:
 
 ```sh
 g++ -std=c++17 -Iout my_consumer.cpp -o my_consumer
@@ -102,16 +102,15 @@ callback API below.
 |---|---|---|
 | What you get | a materialized object tree you read by accessor | a callback fired per field, in wire order |
 | Allocation | one bump arena (you own it) | none |
-| Random access / re-reading | yes — any field, any order, repeatedly | no — single forward pass |
+| Random access / re-reading | yes: any field, any order, repeatedly | no: a single forward pass |
 | Memory | the whole decoded tree | only what your callbacks keep |
 | `#include` | `<stem>.rp.hpp` | `<stem>.rp.stream.hpp` |
 | Best for | needing the message as a navigable object; a faster/lighter `protoc`+`Arena` | extracting a few fields, stream-processing, lowest overhead |
 
-Use **arena** when you need the decoded message as an object you navigate — random access, multiple
-passes, passing the tree around — materialized faster and in less memory than `protoc` +
-`google::protobuf::Arena`. Use **streaming** when you process each field and move on (sum a column,
-pull two fields from a big message, transcode), or want zero allocation. You can also use **both** for
-one schema in one translation unit — see [Using both models](#using-both-models).
+Use **arena** when you need the decoded message as an object to navigate — random access, multiple
+passes, passing the tree around. Use **streaming** when you handle each field and move on: summing a
+column, pulling two fields from a big message, transcoding, or anywhere you want zero allocation. You
+can use both models for one schema in one translation unit; see [Using both models](#using-both-models).
 
 ---
 
@@ -129,7 +128,7 @@ class Person {
 
   std::uint32_t id() const noexcept;                            // scalar, by value
   std::string_view name() const noexcept;                       // string/bytes, view into the arena
-  rapidproto::ArrayView<rapidproto::ArenaString> email() const noexcept;  // repeated
+  rapidproto::StringArrayView email() const noexcept;           // repeated string (string_view elems)
   const Address* address() const noexcept;                      // sub-message (null if absent)
   // proto2 explicit-presence fields also get: bool has_<field>() const noexcept;
 };
@@ -142,9 +141,9 @@ is valid for as long as the `Arena` lives. How each construct is read:
 |---|---|
 | scalar / `enum` | the value, by value (`std::int32_t`, `bool`, the generated `enum class`, …) |
 | `string` / `bytes` | `std::string_view` into the arena (valid while the arena lives) |
-| sub-message | `const Sub*` — a pointer (`nullptr` when absent) |
-| `repeated T` | `rapidproto::ArrayView<T>` — a contiguous `{data, size}` range (iterable, indexable). For `repeated string`/`bytes`, `T` is `ArenaString` (call `.view()` per element); for repeated sub-messages, `T` is the value. |
-| `map<K, V>` | `rapidproto::MapView<Entry>` — insertion-order entries with `.key()`/`.value()` and a last-wins `find(key)` |
+| sub-message | `const Sub*`, a pointer (`nullptr` when absent) |
+| `repeated T` | `rapidproto::ArrayView<T>`, a contiguous `{data, size}` range (iterable, indexable). Repeated `string`/`bytes` instead return `rapidproto::StringArrayView`, which yields `std::string_view` per element; for repeated sub-messages, `T` is the value. |
+| `map<K, V>` | `rapidproto::MapView<Entry>`: insertion-order entries with `.key()`/`.value()` and a last-wins `find(key)` |
 | `oneof o` | `o_case()` returns the generated `OCase` enum; each member accessor returns its value when set, else the default |
 | presence | `has_<field>()` for fields that track explicit presence (proto2 `optional`/`required`, editions explicit) |
 
@@ -164,7 +163,7 @@ const Foo* b = Foo::decode(buf2, arena);   // tree #2 reuses the same memory (no
   the chunks), so a steady-state server pays no allocation after the first few decodes. Pointers from a
   previous `decode()` are invalidated by `reset()`.
 - **Seed buffer (optional).** `Arena arena{buffer, size}` starts from a caller-owned buffer (e.g. a
-  stack array) and only heap-allocates if the tree outgrows it — zero heap allocation for small messages.
+  stack array) and only heap-allocates if the tree outgrows it, so small messages need no heap at all.
 - **Stats.** `arena.bytes_used()` (payload handed out) and `arena.bytes_reserved()` (memory held).
 
 ### Error handling (arena)
@@ -182,16 +181,16 @@ struct ArenaDecodeError {
 };
 ```
 
-- **Wire** — malformed wire input (truncation, length overrun, group mismatch); `wire`/`offset` locate it.
-- **MissingRequired** — a proto2 `required` field was absent (matches `protoc`); `field_number` names it.
-- **RecursionTooDeep** — message nesting exceeded the depth guard (`kMaxDecodeDepth`, 100) — protection
+- **Wire.** Malformed wire input (truncation, length overrun, group mismatch); `wire`/`offset` locate it.
+- **MissingRequired.** A proto2 `required` field was absent (matches `protoc`); `field_number` names it.
+- **RecursionTooDeep.** Message nesting exceeded the depth guard (`kMaxDecodeDepth`, 100), which protects
   against adversarial input.
-- **OutOfMemory** — the arena could not satisfy an allocation.
-- **RepeatedSingularMessage** — a singular (non-repeated) sub-message field appeared more than once
-  (an exotic merge case the arena decoder rejects rather than silently merging).
-- **StringTooLong** — a `string`/`bytes` value exceeded the arena's 4 GiB length representation.
+- **OutOfMemory.** The arena could not satisfy an allocation.
+- **RepeatedSingularMessage.** A singular (non-repeated) sub-message field appeared more than once (an
+  exotic merge case the arena decoder rejects rather than silently merging).
+- **StringTooLong.** A `string`/`bytes` value exceeded the arena's 4 GiB length representation.
 
-On any error the tree is incomplete — discard it (or `reset()` the arena) and don't read it.
+On any error the tree is incomplete; discard it (or `reset()` the arena) and don't read it.
 
 ### Unknown fields (arena)
 
@@ -203,7 +202,7 @@ exposed as `has_unknown_fields()`, when you need to *detect* (not recover) that 
 
 ## Streaming decoder
 
-A streaming decoder forwards wire data 1:1 — no aggregation, defaulting, or merging — and you decide
+A streaming decoder forwards wire data 1:1, with no aggregation, defaulting, or merging; you decide
 what to do with each value. For each message `Foo` the generator emits a `struct Foo` holding a
 non-owning `ByteView`, plus a **field-identity tag** type per field:
 
@@ -221,22 +220,22 @@ struct Person {
 };
 ```
 
-A callback is `[](Foo::field, Value v){ … }` — the **tag type** names the field (tied to its proto
-name, so referencing a removed/renamed field is a compile error), and `Value` is the field's type. Each
+A callback is `[](Foo::field, Value v){ … }`. The **tag type** names the field (tied to its proto name,
+so referencing a removed or renamed field is a compile error), and `Value` is the field's type. Each
 tag also carries `static constexpr std::uint32_t kNumber` and `std::string_view kName` (the proto
 name). Callbacks fire in **wire order**, once per occurrence (repeated/packed fire per element; maps
 per entry). The decoder never materializes the whole message.
 
-> **Absent fields fire nothing — no defaults are delivered.** If a field isn't on the wire, its
+> **Absent fields fire nothing, and no defaults are delivered.** If a field isn't on the wire, its
 > callback isn't called (and proto3 scalars equal to their default aren't on the wire at all).
 > Initialize your own destination variables.
 
 ### Three ways to consume fields
 
 All snippets decode a `Person` buffer `wire` (a `rapidproto::ByteView`). `decode()` is `[[nodiscard]]`
-and returns a `DecodeStatus` — **always check it** (see [Error handling](#error-handling-streaming)).
+and returns a `DecodeStatus`, so **always check it** (see [Error handling](#error-handling-streaming)).
 
-**1. A subset** — pass callbacks only for the fields you want; the rest are skipped in O(1):
+**1. A subset.** Pass callbacks only for the fields you want; the rest are skipped in O(1):
 
 ```cpp
 std::string name; std::uint32_t id = 0;
@@ -246,10 +245,10 @@ example::stream::Person{wire}.decode(
 // email and address are never decoded.
 ```
 
-**2. A catch-all** — a generic `[](auto tag, auto&& value)` matches every known field you didn't give a
-specific callback (logging, generic processing). The tag's `kName`/`kNumber` identify it; you can mix a
-catch-all with specific callbacks (the specific one wins). For a sub-message field, `value` is an
-undecoded sub-decoder — a catch-all does **not** recurse; call `value.decode(...)` yourself.
+**2. A catch-all.** A generic `[](auto tag, auto&& value)` matches every known field you didn't give a
+specific callback (logging, generic processing). The tag's `kName`/`kNumber` identify it, and you can
+mix a catch-all with specific callbacks (the specific one wins). For a sub-message field, `value` is an
+undecoded sub-decoder; a catch-all does **not** recurse, so call `value.decode(...)` yourself.
 
 ```cpp
 example::stream::Person{wire}.decode([&](auto tag, auto&& value) {
@@ -257,7 +256,7 @@ example::stream::Person{wire}.decode([&](auto tag, auto&& value) {
 });
 ```
 
-**3. Known fields *and* unknown ones** — give specific callbacks, and add a one-argument
+**3. Known fields *and* unknown ones.** Give specific callbacks, and add a one-argument
 `[](rapidproto::UnknownField uf)` that fires for fields whose number is **not in your schema** (a newer
 producer's field). This is the forward-compatibility pattern:
 
@@ -275,20 +274,20 @@ example::stream::Person{wire}.decode(
 
 `UnknownField` carries `{ std::uint32_t field_number; rapidproto::WireType wire_type; rapidproto::ByteView
 bytes; }` (the raw value bytes after the tag). Only field numbers *not in the schema* reach this
-handler — a known field you simply didn't handle is not "unknown" (use a catch-all for those). Proto2
+handler; a known field you simply didn't handle is not "unknown" (use a catch-all for those). Proto2
 `extend` fields are not decoded; an extension on the wire arrives here as a raw `UnknownField`.
 
 ### Field kinds
 
-- **Scalars / `string` / `bytes`** — by value; `string`/`bytes` both arrive as `std::string_view` (no
-  UTF-8 validation). The value types match the arena model's scalar mapping.
-- **`repeated`** — fires **once per element**, in wire order (packed or expanded).
-- **Sub-messages and groups** — delivered as a **sub-decoder**; recurse with its `decode(...)`. It
+- **Scalars, `string`, `bytes`.** Delivered by value; `string`/`bytes` both arrive as
+  `std::string_view` (no UTF-8 validation). The value types match the arena model's scalar mapping.
+- **`repeated`.** Fires **once per element**, in wire order (packed or expanded).
+- **Sub-messages and groups.** Delivered as a **sub-decoder**; recurse with its `decode(...)`. It
   doesn't decode until you do. Groups behave like sub-messages.
-- **`map<K, V>`** — the callback takes **`(Tag, K, V)`** and fires once per entry:
+- **`map<K, V>`.** The callback takes **`(Tag, K, V)`** and fires once per entry:
   `[&](Person::labels, std::string_view key, std::string_view value) { … }`.
-- **`oneof`** — each member is an ordinary field tag; the member present on the wire fires its callback,
-  the others don't — *the callback that fires is the discriminator*. There's no oneof-level type.
+- **`oneof`.** Each member is an ordinary field tag. The member present on the wire fires its callback
+  and the others don't, so *the callback that fires is the discriminator*. There's no oneof-level type.
 
 ### Error handling (streaming)
 
@@ -304,22 +303,23 @@ struct DecodeStatus {
 ```
 
 - **Wire errors** stop the walk; `status.wire`/`status.offset` say what and where.
-- **Partial delivery — check the status.** Callbacks fire *as the message is decoded*. If a wire error
-  or abort stops the walk part-way, the callbacks that already fired are **not** undone — so on a
-  non-ok `decode()`, discard whatever your variables hold; don't use the partial result.
-- **Aborting.** A callback may return `void` (continue) **or** `rapidproto::DecodeStatus` — mix the two
-  freely. Return `rapidproto::DecodeStatus::abort()` (or propagate a sub-decode's status) to stop early.
+- **Partial delivery is not rolled back.** Callbacks fire *as the message is decoded*; if a wire error
+  or abort stops the walk part-way, the callbacks that already fired are **not** undone. On a non-ok
+  `decode()`, discard whatever your variables hold.
+- **Aborting.** A callback may return `void` (continue) **or** `rapidproto::DecodeStatus`, and you can
+  mix the two freely. Return `rapidproto::DecodeStatus::abort()` (or propagate a sub-decode's status) to
+  stop early.
 
 ### Mistakes are compile errors
 
 Dispatch is entirely compile-time (no allocation, no `std::function`, no virtual calls), so misuse is a
 **compile error**, not a silent bug:
 
-- **Wrong value type** — `[](Person::id, std::int64_t)` for a `uint32` field → error.
-- **Wrapper type** — `[](Person::id, std::optional<std::uint32_t>)` → error.
-- **Duplicate** — two callbacks for the same field → error.
-- **Wrong arity** — `[](Person::id)`, or a map callback missing its value → error.
-- **Removed/renamed field** — referencing `Person::nonexistent` → error (the tag type doesn't exist).
+- **Wrong value type.** `[](Person::id, std::int64_t)` for a `uint32` field → error.
+- **Wrapper type.** `[](Person::id, std::optional<std::uint32_t>)` → error.
+- **Duplicate.** Two callbacks for the same field → error.
+- **Wrong arity.** `[](Person::id)`, or a map callback missing its value → error.
+- **Removed/renamed field.** Referencing `Person::nonexistent` → error (the tag type doesn't exist).
 
 ---
 
@@ -331,8 +331,8 @@ These apply to both models and affect how you write correct consumer code.
   `string_view` it hands a callback. Arena copies: the decoded tree lives in the `Arena`, so the input
   buffer is freeable after `decode()`, and accessors stay valid as long as the `Arena` does.
 - **Untrusted input is validated; values are not.** Wire input is fully checked for **wire-format
-  integrity** (structure, lengths, group nesting) — a malformed buffer fails cleanly, never UB. Field
-  *values* are not range-checked: RapidProto trusts the schema, not the bytes.
+  integrity** (structure, lengths, group nesting), so a malformed buffer fails cleanly and never
+  triggers UB. Field *values* are not range-checked: RapidProto trusts the schema, not the bytes.
 - **Defaults & presence.** Arena: an absent field reads back the schema default (proto2 `[default=X]`,
   or zero/empty); use `has_<field>()` to tell "absent" from "present and equal to the default".
   Streaming: an absent field simply fires no callback.
@@ -340,9 +340,9 @@ These apply to both models and affect how you write correct consumer code.
   std::int32_t` (e.g. `example::Status`) used by *both* decoders. An unrecognized wire value arrives as
   its raw integer cast into the enum; `INT32_MIN`/`INT32_MAX` sentinels force a `default:` arm under
   `-Wswitch`. (The generator places the enums in a shared `<stem>.rp.common.hpp` that each decoder
-  `#include`s for you — you don't include it directly.)
+  `#include`s for you, so you never include it directly.)
 - **Well-known types** (`google.protobuf.Timestamp`, etc.) decode as plain messages (their `seconds`/
-  `nanos` fields) — no special Timestamp/Duration/Any semantics.
+  `nanos` fields), with no special Timestamp/Duration/Any semantics.
 - **Thread-safety.** A streaming `decode()` is `const` and holds no mutable state, so decoders over one
   buffer run concurrently as long as the buffer isn't mutated. An arena `decode()` mutates its `Arena`,
   so give each thread its own arena; the resulting read-only tree can then be shared.
@@ -351,10 +351,10 @@ These apply to both models and affect how you write correct consumer code.
 
 ## Using both models
 
-Because the two models live in **different C++ namespaces** for the same schema — arena at `pkg::Msg`,
-streaming at `pkg::stream::Msg`, with the schema's enums a single shared type — they coexist in one
-translation unit. Generate both (`--arena --stream`, or `GENERATOR both` in CMake) and use each where
-it fits:
+The two models live in **different C++ namespaces** for the same schema: arena at `pkg::Msg`, streaming
+at `pkg::stream::Msg`, with the schema's enums as a single shared type, so they coexist in
+one translation unit. Generate both (`--arena --stream`, or `GENERATOR both` in CMake) and use each
+where it fits:
 
 ```cpp
 #include "person.rp.hpp"         // arena:     example::Person
@@ -370,10 +370,10 @@ A runnable end-to-end example (one schema, both models in one TU) is in
 
 ### Coexisting with protoc
 
-By default a proto `package a.b` maps to C++ `namespace a::b` — the same as protoc — so you cannot
-include both protoc's `.pb.h` and a RapidProto header for the same message in one TU (they'd define
-`a::b::Msg` twice). If you need both (protoc for serialization, RapidProto for fast decoding), nest the
-generated code under a prefix with `--namespace-prefix`:
+By default a proto `package a.b` maps to C++ `namespace a::b`, the same as protoc, so you can't include
+both protoc's `.pb.h` and a RapidProto header for the same message in one TU (they'd define `a::b::Msg`
+twice). If you need both (protoc for serialization, RapidProto for fast decoding), nest the generated
+code under a prefix with `--namespace-prefix`:
 
 ```sh
 rapidprotoc --namespace-prefix=rp -I. --out-dir=out person.proto
@@ -403,7 +403,7 @@ rapidprotoc [-I <dir>]... [--arena] [--stream] [--unknown-present] [--namespace-
 | `--depfile <path>` | Write a Make/Ninja depfile (the headers depend on the entry **and** every import) so a build regenerates when any input `.proto` changes. Used by the CMake helper; harmless otherwise. |
 
 One invocation emits a decoder for the entry **and** its transitive imports **and** the well-known types
-it uses, plus the shared `<stem>.rp.common.hpp` and the runtime — so the output directory is
+it uses, plus the shared `<stem>.rp.common.hpp` and the runtime, so the output directory is
 self-contained.
 
 ---
@@ -413,7 +413,7 @@ self-contained.
 RapidProto ships a `rapidproto_generate()` helper that turns a `.proto` into a linkable, header-only
 target: it runs `rapidprotoc` at build time, tracks the whole import closure for correct **incremental
 rebuilds** (a touched import re-triggers generation, via a depfile), and puts the output directory on
-your include path. Link the target, `#include` the generated header — nothing else to wire up.
+your include path. Link the target and `#include` the generated header; there's nothing else to wire up.
 
 ```cmake
 rapidproto_generate(my_schema
@@ -426,11 +426,11 @@ add_executable(app main.cpp)
 target_link_libraries(app PRIVATE my_schema)   # generates before `app` compiles, adds the include dir
 ```
 
-Then `#include "person.rp.hpp"` (arena) and/or `"person.rp.stream.hpp"` (streaming) — each entry's stem
-under its import-relative path. `GENERATOR both` writes both decoders from one `rapidprotoc` invocation,
-so a single TU can use both models for one schema (see [Using both models](#using-both-models)).
+Then `#include "person.rp.hpp"` (arena) and/or `"person.rp.stream.hpp"` (streaming); each is the
+entry's stem under its import-relative path. `GENERATOR both` writes both decoders from one `rapidprotoc`
+invocation, so a single TU can use both models for one schema (see [Using both models](#using-both-models)).
 
-Get the helper — and the `rapidproto::rapidprotoc` tool it drives — either way:
+Get the helper and the `rapidproto::rapidprotoc` tool it drives, either way:
 
 ```cmake
 # Build from source within your build:
@@ -448,9 +448,9 @@ source-agnostic.
 **CMake version.** Incremental import-tracking uses `add_custom_command(DEPFILE)`: supported on Ninja at
 any version, and on the Makefile generators with CMake ≥ 3.20 (Xcode / Visual Studio ≥ 3.21). On an
 older CMake with those generators the helper still generates correctly but won't auto-retrigger on an
-import edit (it warns) — re-run CMake or clean-build after editing an imported `.proto`.
+import edit (it warns); re-run CMake or clean-build after editing an imported `.proto`.
 
-**Cross-compiling.** `rapidprotoc` must run on the **build host**, not the target — so it must be a
+**Cross-compiling.** `rapidprotoc` must run on the **build host**, not the target, so it must be a
 **host build**. Build/install RapidProto for the host and bring that host tool in (e.g. a host-prefixed
 `find_package`). `rapidproto_generate()` rejects the in-tree (target-built) tool when
 `CMAKE_CROSSCOMPILING` is set; ensure the imported `rapidproto::rapidprotoc` it sees is a host binary.
@@ -459,24 +459,24 @@ import edit (it warns) — re-run CMake or clean-build after editing an imported
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) — building, the `./check.sh` quality gate, and how the golden
+See [CONTRIBUTING.md](CONTRIBUTING.md) for building, the `./check.sh` quality gate, and how the golden
 tests work. The design and the invariants a change must preserve are in
 [architecture.md](architecture.md).
 
 ## Security
 
-RapidProto decodes **untrusted** wire input and is built never to crash on it. To report a
-vulnerability — or read the threat model — see [SECURITY.md](SECURITY.md).
+RapidProto decodes **untrusted** wire input and is built never to crash on it. See
+[SECURITY.md](SECURITY.md) to report a vulnerability or read the threat model.
 
 ---
 
 ## License
 
-RapidProto is licensed under the **Apache License 2.0** — see [`LICENSE`](LICENSE), with attributions in
+RapidProto is licensed under the **Apache License 2.0**; see [`LICENSE`](LICENSE), with attributions in
 [`NOTICE`](NOTICE) and [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
 The vendored runtimes (`rapidproto/runtime.hpp`, `rapidproto/arena_runtime.hpp`) carry the same
 Apache-2.0 license, so the headers `rapidprotoc` drops into your out-dir are usable under those terms.
-The decoder code generated *from your schema* is your own work product — RapidProto claims no rights
+The decoder code generated *from your schema* is your own work product, and RapidProto claims no rights
 over it. The embedded Protocol Buffers well-known-type definitions are Copyright 2008 Google Inc.,
 licensed 3-Clause BSD. Catch2 and protozero are development-time dependencies and are not distributed.

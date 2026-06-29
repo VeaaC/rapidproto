@@ -3,8 +3,8 @@
 #pragma once
 
 // CLI helpers for rapidprotoc: shared flag parsing, the resolve -> analyze pipeline, and writing the
-// generated headers (and depfile) into the out-dir. The model-specific parts -- which decoder text to
-// emit, which runtime header(s) to drop -- live in the CLI main. Header-only, like the main that
+// generated headers (and depfile) into the out-dir. The model-specific parts (which decoder text
+// to emit, which runtime header(s) to drop) live in the CLI main. Header-only, like the main that
 // includes it.
 
 #include <algorithm>
@@ -189,7 +189,7 @@ inline std::filesystem::path header_path(const std::string& out_dir, const FileN
         rel = rel.filename();
     }
     // Strip a trailing ".proto" exactly (case-sensitively), not replace_extension() which drops any
-    // last extension -- so this agrees with the CMake helper's `.proto$` rule on names the helper must
+    // last extension. This agrees with the CMake helper's `.proto$` rule on names the helper must
     // predict, e.g. `a.b.proto` (-> `a.b`) or `Foo.PROTO` (left as-is by both).
     std::string stem = rel.generic_string();
     static constexpr std::string_view kProto = ".proto";
@@ -242,7 +242,7 @@ inline std::vector<std::filesystem::path> disk_proto_paths(const std::string& en
     return paths;
 }
 
-// Write a Make/Ninja-style depfile -- `out1 out2 ... : in1 in2 ...` -- declaring that the outputs
+// Write a Make/Ninja-style depfile (`out1 out2 ... : in1 in2 ...`) declaring that the outputs
 // depend on every input. add_custom_command(DEPFILE ...) reads it so codegen re-runs when any input
 // .proto changes, including transitive imports a plain DEPENDS list (outputs only) would never catch.
 //
@@ -252,7 +252,7 @@ inline std::vector<std::filesystem::path> disk_proto_paths(const std::string& en
 // at the directory the build tool interprets depfile paths against (CMAKE_CURRENT_BINARY_DIR when CMake
 // transforms the depfile under CMP0116 NEW, else the top build dir) -- so an output under it gets the
 // build node's relative name. An output OUTSIDE that dir (an out-of-tree OUT_DIR) is named absolutely,
-// matching how the tool names an out-of-tree node. Prerequisites stay absolute -- the build tool only
+// matching how the tool names an out-of-tree node. Prerequisites stay absolute; the build tool only
 // stats them. Spaces, '#', '$', and backslash are escaped; duplicates collapsed.
 inline void write_depfile(const std::filesystem::path& depfile_path,
                           std::vector<std::filesystem::path> outputs,
@@ -265,7 +265,7 @@ inline void write_depfile(const std::filesystem::path& depfile_path,
             return abs;  // no cwd to relativize against -- absolute is the best we can do
         }
         const std::filesystem::path rel = abs.lexically_relative(base);
-        // Empty (unrelatable -- e.g. a different Windows drive) or escaping the build dir (a "../"
+        // Empty (unrelatable, e.g. a different Windows drive) or escaping the build dir (a "../"
         // prefix, i.e. OUT_DIR is outside the build tree)? Then the build tool names this out-of-tree
         // output by its ABSOLUTE path (verified for Ninja), so emit absolute to match. Only an output
         // UNDER the working dir gets a relative node.
