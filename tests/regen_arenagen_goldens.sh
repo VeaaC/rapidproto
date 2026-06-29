@@ -28,6 +28,10 @@ for entry in arena_layout arena_manyreq arena_naming proto2 proto3 editions2023 
   "$BIN" --arena -Itests/corpus --out-dir="$T" "tests/corpus/$entry.proto" >/dev/null
 done
 "$BIN" --arena -Itests/wire_fixtures --out-dir="$T" tests/wire_fixtures/wire_all.proto >/dev/null
+# --unknown-present: a collapsed bool-wrapper must still carry its own has_unknown_fields() -- an extra
+# bit in the parent's mask (presence + value + wrapper-unknown). The only golden built WITH the flag, so
+# it is its own line; decoded in test_arena_decode.
+"$BIN" --arena --unknown-present -Itests/corpus --out-dir="$T" tests/corpus/arena_unknown.proto >/dev/null
 # Cross-file imports: main.proto pulls dep/pub/forward (distinct packages) into the closure -- guards
 # cross-file message-field decoding (decoding must reach an imported type's decoder).
 "$BIN" --arena -Itests/corpus/imports --out-dir="$T" tests/corpus/imports/main.proto >/dev/null

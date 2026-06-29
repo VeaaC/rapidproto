@@ -493,6 +493,11 @@ template <class T>
 void wrap(T& out, bool value) noexcept {  // void out-param, not a T return: on the friend decl a T
     out = T::rp_wrap(value);              // return would mis-parse (`RpT ::ns` reads as `RpT::ns`).
 }
+template <class T>
+void wrap(T& out, bool value,
+          bool unknown) noexcept {     // --unknown-present: also carry the wrapper's
+    out = T::rp_wrap(value, unknown);  // own "unknown fields present" flag
+}
 }  // namespace arena_detail
 
 }  // namespace rapidproto

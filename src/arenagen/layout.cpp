@@ -419,6 +419,12 @@ private:
             if (needs_value(m)) {
                 m.value_bit = next++;
             }
+            // A collapsed bool-wrapper keeps no struct, so under --unknown-present its own
+            // "unknown fields present" flag has nowhere to live -- give it a bit in this parent's mask
+            // (set during the wrapper's inline decode, fed back into the returned wrapper's mask).
+            if (m_opts.unknown_present && m.kind == FieldKind::BoolWrapperBits) {
+                m.wrapper_unknown_bit = next++;
+            }
         }
         if (m_opts.unknown_present) {
             layout.unknown_bit = next++;

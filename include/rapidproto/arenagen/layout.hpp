@@ -80,7 +80,10 @@ struct MemberPlan {
     int value_bit = -1;      // mask bit index for a bool / bool-wrapper value, or -1
     std::string repr;        // storage label for the dump (e.g. "int32", "ArenaString", ".p.Sub")
     std::string target_fqn;  // referenced message/enum FQN, else ""
-    int wrapper_field_number = 0;    // BoolWrapperBits: the wrapper's bool field number on the wire
+    int wrapper_field_number = 0;  // BoolWrapperBits: the wrapper's bool field number on the wire
+    int wrapper_unknown_bit = -1;  // BoolWrapperBits under --unknown-present: parent mask bit that
+                                   // records the collapsed wrapper saw an unknown field (so its
+                                   // has_unknown_fields() survives the collapse), or -1
     std::optional<EntryPlan> entry;  // Map only
 };
 

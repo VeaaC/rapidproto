@@ -15,6 +15,7 @@
 #include <utility>
 
 #include "arenagen_golden/arena_manyreq.rp.hpp"
+#include "arenagen_golden/arena_unknown.rp.hpp"  // --unknown-present + collapsed bool-wrapper
 #include "arenagen_golden/main.rp.hpp"  // cross-file imports (pulls dep/forward/pub): runtime decode
 #include "arenagen_golden/proto2.rp.hpp"
 #include "arenagen_golden/proto3.rp.hpp"
@@ -365,4 +366,67 @@ TEST_CASE("arena-decode: oneof keeps the last member set", "[arena-decode]") {
     REQUIRE(m != nullptr);
     CHECK(m->pick_case() == p3::Msg::PickCase::kA);  // last set member
     CHECK(m->a() == 2);
+}
+
+// A single-bool wrapper collapses to bits in its parent (no struct), so under --unknown-present its own
+// has_unknown_fields() would be lost unless the parent carries it in an extra mask bit. Build a wrapper
+// sub-message that contains an unknown field and confirm the reconstructed wrapper reports it.
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): three decode cases, flat assertions
+TEST_CASE("arena-decode: collapsed bool-wrapper keeps has_unknown_fields (--unknown-present)",
+          "[arena-decode]") {
+    const auto build_holder = [](bool wrapper_has_unknown) {
+        std::string flag;
+        put_tag(flag, 1, 0);  // Flag.value = true
+        put_varint(flag, 1);
+        if (wrapper_has_unknown) {  // a field the wrapper's schema doesn't know -> unknown-in-wrapper
+            put_tag(flag, 5, 0);
+            put_varint(flag, 99);
+        }
+        std::string buf;
+        put_len(buf, 1, flag);  // Holder.flag = <wrapper bytes>
+        put_tag(buf, 2, 0);     // Holder.n = 7
+        put_varint(buf, 7);
+        return buf;
+    };
+    Arena arena;
+
+    // (1) the wrapper carried an unknown field: the reconstructed wrapper reports it; Holder itself,
+    // whose own fields were all known, does not.
+    const std::string with = build_holder(/*wrapper_has_unknown=*/true);
+    const au::Holder* m = au::Holder::decode(ByteView(with), arena);
+    REQUIRE(m != nullptr);
+    CHECK(m->has_flag());
+    CHECK(m->flag().value());
+    CHECK(m->flag().has_unknown_fields());  // survived the bit-collapse
+    CHECK_FALSE(m->has_unknown_fields());   // the unknown was inside the wrapper, not Holder
+    CHECK(m->n() == 7);
+
+    // (2) a clean wrapper reports no unknown fields.
+    const std::string without = build_holder(/*wrapper_has_unknown=*/false);
+    const au::Holder* c = au::Holder::decode(ByteView(without), arena);
+    REQUIRE(c != nullptr);
+    CHECK(c->flag().value());
+    CHECK_FALSE(c->flag().has_unknown_fields());
+
+    // (3) an unknown field at the Holder level sets Holder's own flag (not the wrapper's).
+    std::string top;
+    put_tag(top, 9, 0);  // field 9: unknown to Holder
+    put_varint(top, 1);
+    const au::Holder* h = au::Holder::decode(ByteView(top), arena);
+    REQUIRE(h != nullptr);
+    CHECK(h->has_unknown_fields());
+    CHECK_FALSE(h->has_flag());
+
+    // (4) the wrapper's OWN field number with a WRONG wire type is a known number, not an unknown field
+    // -- it is skipped, exactly as the wrapper's standalone decoder would, so has_unknown_fields() stays
+    // false. (Guards the collapsed/oneof parity the bit exists to preserve.)
+    std::string wrong;
+    put_len(wrong, 1, std::string("\x01", 1));  // field 1 as length-delimited (bool expects varint)
+    std::string buf;
+    put_len(buf, 1, wrong);  // Holder.flag = <wrapper with field 1 mistyped>
+    const au::Holder* w = au::Holder::decode(ByteView(buf), arena);
+    REQUIRE(w != nullptr);
+    CHECK(w->has_flag());
+    CHECK_FALSE(w->flag().value());
+    CHECK_FALSE(w->flag().has_unknown_fields());
 }

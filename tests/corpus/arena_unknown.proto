@@ -1,0 +1,15 @@
+// --unknown-present + a collapsed bool-wrapper. The wrapper keeps no struct of its own, so its
+// has_unknown_fields() must be carried by an extra bit in the PARENT's mask (3 bits for the field:
+// presence, value, wrapper-unknown). Generated with --unknown-present and decoded in test_arena_decode.
+syntax = "proto3";
+
+package au;
+
+message Flag {  // single singular bool -> collapses to bits in a parent
+  bool value = 1;
+}
+
+message Holder {
+  Flag flag = 1;  // BoolWrapperBits: presence + value + wrapper-unknown bits
+  int32 n = 2;
+}

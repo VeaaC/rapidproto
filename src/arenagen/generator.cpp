@@ -347,12 +347,23 @@ void emit_field_accessor(const Emit& emit, const MessageLayout& layout, const Me
                     {{"T", cpp_type_name(emit.names, m.target_fqn)}, {"id", id}});
             break;
         case FieldKind::BoolWrapperBits:
-            p.print(
-                "$T$ $id$() const noexcept { $T$ rp_w{};"
-                " ::rapidproto::arena_detail::wrap(rp_w, $v$ != 0); return rp_w; }\n",
-                {{"T", cpp_type_name(emit.names, m.target_fqn)},
-                 {"id", id},
-                 {"v", bit_test(layout, m.value_bit)}});
+            if (m.wrapper_unknown_bit >=
+                0) {  // --unknown-present: also restore the wrapper's own flag
+                p.print(
+                    "$T$ $id$() const noexcept { $T$ rp_w{};"
+                    " ::rapidproto::arena_detail::wrap(rp_w, $v$ != 0, $u$ != 0); return rp_w; }\n",
+                    {{"T", cpp_type_name(emit.names, m.target_fqn)},
+                     {"id", id},
+                     {"v", bit_test(layout, m.value_bit)},
+                     {"u", bit_test(layout, m.wrapper_unknown_bit)}});
+            } else {
+                p.print(
+                    "$T$ $id$() const noexcept { $T$ rp_w{};"
+                    " ::rapidproto::arena_detail::wrap(rp_w, $v$ != 0); return rp_w; }\n",
+                    {{"T", cpp_type_name(emit.names, m.target_fqn)},
+                     {"id", id},
+                     {"v", bit_test(layout, m.value_bit)}});
+            }
             break;
         case FieldKind::Repeated:
             if (repeated_elem_type(emit, *m.field) == "::rapidproto::ArenaString") {
@@ -374,12 +385,26 @@ void emit_field_accessor(const Emit& emit, const MessageLayout& layout, const Me
 }
 
 // A single-bool-wrapper message exposes rp_wrap so a parent that collapsed it to bits can return the
-// wrapper by value (presence bit always set; value bit reflects the bool).
+// wrapper by value (presence bit always set; value bit reflects the bool). Under --unknown-present it
+// also takes the wrapper's "unknown fields present" flag -- which the parent tracked in its own mask
+// during the inline decode -- and restores it into the returned wrapper's own unknown bit.
 void emit_bool_wrapper_factory(const Emit& emit, const MessageLayout& layout,
                                const std::string& type) {
     const MemberPlan& only = layout.members.front();  // the single bool field
     const std::string presence =
         only.presence_bit >= 0 ? bit_const(layout, only.presence_bit) : "0";
+    if (layout.unknown_bit >= 0) {
+        emit.printer.print(
+            "static $T$ rp_wrap(bool value, bool unknown) noexcept { $T$ w{};"
+            " w.m_rp_mask = static_cast<$MT$>($P$ | (value ? $V$ : 0) | (unknown ? $U$ : 0));"
+            " return w; }\n",
+            {{"T", type},
+             {"MT", mask_word_type(layout.mask_size)},
+             {"P", presence},
+             {"V", bit_const(layout, only.value_bit)},
+             {"U", bit_const(layout, layout.unknown_bit)}});
+        return;
+    }
     emit.printer.print(
         "static $T$ rp_wrap(bool value) noexcept { $T$ w{};"
         " w.m_rp_mask = static_cast<$MT$>($P$ | (value ? $V$ : 0)); return w; }\n",
@@ -595,8 +620,11 @@ void emit_message_body(const Emit& emit, const MessageNode& message) {
     if (layout
             .is_bool_wrapper) {  // the collapsed-bool-wrapper factory, reached via arena_detail::wrap
         p.print(
-            "template <class RpT> friend void ::rapidproto::arena_detail::wrap(RpT&, bool)"
-            " noexcept;\n");
+            layout.unknown_bit >= 0  // --unknown-present: the 3-arg wrap also carries the flag
+                ? "template <class RpT> friend void ::rapidproto::arena_detail::wrap(RpT&, bool,"
+                  " bool) noexcept;\n"
+                : "template <class RpT> friend void ::rapidproto::arena_detail::wrap(RpT&, bool)"
+                  " noexcept;\n");
         emit_bool_wrapper_factory(emit, layout, type);
     }
     emit_storage(emit, layout);
@@ -1007,9 +1035,26 @@ void emit_singular_arm(const Emit& emit, const MessageLayout& layout, const Memb
         p.print("if (!rp_wv) { ::rapidproto::rp_fail_wire(err, rp_wr); return false; }\n");
         p.print("rp_w = ::rapidproto::varint_to_bool(*rp_wv);\n");
         p.outdent();
-        p.print(
-            "} else if (!rp_wr.skip(rp_wt->wire_type, rp_wt->field_number)) {"
-            " ::rapidproto::rp_fail_wire(err, rp_wr); return false; }\n");
+        if (m.wrapper_unknown_bit >= 0) {
+            // --unknown-present: mark the wrapper's unknown bit for an unknown field NUMBER only --
+            // matching the wrapper's standalone decoder, whose `default:` arm keys on field number, so a
+            // known number with a wrong wire type is skipped WITHOUT counting as unknown (else the same
+            // bytes would report differently collapsed vs. in a oneof, where the wrapper is not collapsed).
+            p.print("} else {\n");
+            p.indent();
+            p.print("if (rp_wt->field_number != $k$) { $s$ }\n",
+                    {{"k", std::to_string(m.wrapper_field_number)},
+                     {"s", set_bit_stmt(layout, m.wrapper_unknown_bit)}});
+            p.print(
+                "if (!rp_wr.skip(rp_wt->wire_type, rp_wt->field_number)) {"
+                " ::rapidproto::rp_fail_wire(err, rp_wr); return false; }\n");
+            p.outdent();
+            p.print("}\n");
+        } else {
+            p.print(
+                "} else if (!rp_wr.skip(rp_wt->wire_type, rp_wt->field_number)) {"
+                " ::rapidproto::rp_fail_wire(err, rp_wr); return false; }\n");
+        }
         p.outdent();
         p.print("}\n");
         p.print("if (rp_w) { $set$ } else { $clr$ }\n",
