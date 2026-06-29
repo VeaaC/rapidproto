@@ -18,30 +18,30 @@ struct Pub {
   struct w { using Value = std::int32_t; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "w"; };
 
   template <class... Callbacks>
-  [[nodiscard]] ::rapidproto::DecodeStatus decode(Callbacks&&... callbacks) const;
+  [[nodiscard]] ::rapidproto::DecodeStatus decode(Callbacks&&... rp_callbacks) const;
  private:
   ::rapidproto::ByteView m_bytes;
 };
 
 template <class... Callbacks>
-::rapidproto::DecodeStatus Pub::decode(Callbacks&&... callbacks) const {
-  [[maybe_unused]] auto dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(callbacks)...);
-  ::rapidproto::WireReader reader{m_bytes};
-  while (!reader.at_end()) {
-    const auto tag = reader.read_tag();
-    if (!tag) { return ::rapidproto::DecodeStatus::from_reader(reader); }
-    switch (tag->field_number) {
+::rapidproto::DecodeStatus Pub::decode(Callbacks&&... rp_callbacks) const {
+  [[maybe_unused]] auto rp_dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(rp_callbacks)...);
+  ::rapidproto::WireReader rp_reader{m_bytes};
+  while (!rp_reader.at_end()) {
+    const auto rp_tag = rp_reader.read_tag();
+    if (!rp_tag) { return ::rapidproto::DecodeStatus::from_reader(rp_reader); }
+    switch (rp_tag->field_number) {
       case w::kNumber:
         static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<Callbacks, w, w::Value>)) <= 1U, "field 'w' is handled by more than one callback");
         static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<Callbacks, w, w::Value>)) <= 1U, "field 'w' is matched by more than one catch-all callback");
         static_assert((true && ... && !::rapidproto::is_partial_generic<Callbacks, w, w::Value>), "a callback for field 'w' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
         static_assert((true && ... && !(::rapidproto::targets<Callbacks, w, w::Value> && !::rapidproto::specifically_handles<Callbacks, w, w::Value>)), "a callback for field 'w' has the wrong value type (expected w::Value)");
         if constexpr ((false || ... || ::rapidproto::handles_one<Callbacks, w, w::Value>)) {
-          if (tag->wire_type == ::rapidproto::WireType::Varint) {
-            const auto value = reader.read_varint();
-            if (!value) { return ::rapidproto::DecodeStatus::from_reader(reader); }
-            if (const auto status = ::rapidproto::invoke_field(dispatch, w{}, ::rapidproto::varint_to_int32(*value)); !status.ok()) {
-              return status;
+          if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+            const auto rp_value = rp_reader.read_varint();
+            if (!rp_value) { return ::rapidproto::DecodeStatus::from_reader(rp_reader); }
+            if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, w{}, ::rapidproto::varint_to_int32(*rp_value)); !rp_status.ok()) {
+              return rp_status;
             }
             continue;
           }
@@ -49,16 +49,16 @@ template <class... Callbacks>
         break;
       default:
         if constexpr ((false || ... || ::rapidproto::specifically_handles_unknown<Callbacks>)) {
-          const auto rp_value_start = reader.position();
-          if (!reader.skip(tag->wire_type, tag->field_number)) { return ::rapidproto::DecodeStatus::from_reader(reader); }
-          if (const auto status = ::rapidproto::invoke_unknown(dispatch, ::rapidproto::UnknownField{tag->field_number, tag->wire_type, m_bytes.substr(rp_value_start, reader.position() - rp_value_start)}); !status.ok()) {
-            return status;
+          const auto rp_value_start = rp_reader.position();
+          if (!rp_reader.skip(rp_tag->wire_type, rp_tag->field_number)) { return ::rapidproto::DecodeStatus::from_reader(rp_reader); }
+          if (const auto rp_status = ::rapidproto::invoke_unknown(rp_dispatch, ::rapidproto::UnknownField{rp_tag->field_number, rp_tag->wire_type, m_bytes.substr(rp_value_start, rp_reader.position() - rp_value_start)}); !rp_status.ok()) {
+            return rp_status;
           }
           continue;
         }
         break;
     }
-    if (!reader.skip(tag->wire_type, tag->field_number)) { return ::rapidproto::DecodeStatus::from_reader(reader); }
+    if (!rp_reader.skip(rp_tag->wire_type, rp_tag->field_number)) { return ::rapidproto::DecodeStatus::from_reader(rp_reader); }
   }
   return ::rapidproto::DecodeStatus::success();
 }

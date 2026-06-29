@@ -5,10 +5,10 @@ syntax = "proto2";
 
 package nm;
 
-// Enumerator dedup: `read` -> `read_` (keyword-ish/reserved), `read_` then collides -> `read__`.
+// Enumerator dedup: `decode` -> `decode_` (reserved), `decode_` then collides -> `decode__`.
 enum E {
-  read = 0;
-  read_ = 1;
+  decode = 0;
+  decode_ = 1;
 }
 
 message M {
@@ -19,14 +19,13 @@ message M {
     optional int32 x = 1;
   }
 
-  optional int32 read = 1;       // reserved -> `read_`
-  optional int32 read_ = 2;      // collides -> `read__`
+  optional int32 decode = 1;     // reserved (the decode() entry point) -> `decode_`
+  optional int32 decode_ = 2;    // collides -> `decode__`
   optional int int_field = 3;    // value type must reference ::nm::M::int_
   optional int32 int_ = 4;       // collides with nested type `int_` -> `int__`
   optional E e = 5;              // value type must reference ::nm::E
-  optional int32 decode = 7;     // reserved (the decode() entry point) -> `decode_`
 
   oneof pick {
-    int32 read__ = 6;            // collides with the deduped field `read_` -> `read___`
+    int32 decode__ = 6;          // collides with the deduped field `decode_` -> `decode___`
   }
 }

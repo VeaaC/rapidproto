@@ -715,20 +715,20 @@ TEST_CASE("streamgen: well-known-type closure generates self-contained headers",
 // absolute. These bindings are checked at compile time; reaching this body means they held.
 TEST_CASE("streamgen: colliding identifiers are de-duplicated and types bind absolutely",
           "[streamgen]") {
-    // Field tag `read` -> read_, sibling `read_` -> read__, oneof `read__` -> read___.
-    static_assert(nm::stream::M::read_::kNumber == 1);
-    static_assert(nm::stream::M::read__::kNumber == 2);
-    static_assert(nm::stream::M::read___::kNumber == 6);
-    CHECK(nm::stream::M::read_::kName == "read");  // identifier deduped, wire name preserved
-    CHECK(nm::stream::M::read__::kName == "read_");
-    CHECK(nm::stream::M::read___::kName == "read__");
+    // Field tag `decode` -> decode_, sibling `decode_` -> decode__, oneof `decode__` -> decode___.
+    static_assert(nm::stream::M::decode_::kNumber == 1);
+    static_assert(nm::stream::M::decode__::kNumber == 2);
+    static_assert(nm::stream::M::decode___::kNumber == 6);
+    CHECK(nm::stream::M::decode_::kName == "decode");  // identifier deduped, wire name preserved
+    CHECK(nm::stream::M::decode__::kName == "decode_");
+    CHECK(nm::stream::M::decode___::kName == "decode__");
     // Nested type `int` keeps `int_` (indexed first); field `int_` becomes `int__`.
     static_assert(std::is_same_v<nm::stream::M::int_field::Value, nm::stream::M::int_>);
     static_assert(nm::stream::M::int__::kName[0] ==
                   'i');  // the field, distinct from the nested type
-    // Enum value `read` -> read_, `read_` -> read__; type reference is fully ::-rooted.
-    static_assert(nm::stream::E::read_ == static_cast<nm::stream::E>(0));
-    static_assert(nm::stream::E::read__ == static_cast<nm::stream::E>(1));
+    // Enum value `decode` -> decode_, `decode_` -> decode__; type reference is fully ::-rooted.
+    static_assert(nm::stream::E::decode_ == static_cast<nm::stream::E>(0));
+    static_assert(nm::stream::E::decode__ == static_cast<nm::stream::E>(1));
     static_assert(std::is_same_v<nm::stream::M::e::Value, nm::stream::E>);
     SUCCEED("dedup + absolute-binding bindings compiled");
 }

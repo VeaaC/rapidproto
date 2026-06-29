@@ -7,8 +7,8 @@
 namespace nm {
 
 enum class E : std::int32_t {
-  read_ = 0,
-  read__ = 1,
+  decode_ = 0,
+  decode__ = 1,
   rp_non_exhaustive_min = INT32_MIN,
   rp_non_exhaustive_max = INT32_MAX,
 };

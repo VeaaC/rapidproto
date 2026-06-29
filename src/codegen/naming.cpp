@@ -10,11 +10,12 @@
 
 namespace rapidproto::codegen {
 
-// A C++ identifier for a proto name: append `_` if it would collide with a keyword or a
-// generated/tag-internal member. All generator-internal locals use the reserved `rp_` prefix, so a
-// single rule -- "any proto name starting with `rp_` is escaped" -- covers every current and future
-// such local without enumerating them; only the keywords and the non-`rp_` generated members
-// (struct members, the decode() method, its locals, and the template parameter) are listed.
+// A C++ identifier for a proto name: append `_` if it would collide with a keyword or one of the few
+// generated members it could clash with. Generator-internal locals all use the reserved `rp_` prefix
+// (so the single rule "any proto name starting with `rp_` is escaped" covers them without enumerating),
+// and the streaming decoder references each field tag by its message-qualified name, so a field named
+// like a decode() local no longer collides. The remaining non-keyword reservations are listed (with the
+// clash each prevents) below.
 std::string sanitize(std::string_view name) {
     static const std::unordered_set<std::string_view> kReserved = {
         "alignas",
@@ -86,22 +87,23 @@ std::string sanitize(std::string_view name) {
         "wchar_t",
         "while",
         "thread_local",
-        // generated / tag-internal members (struct members, the decode() method + its non-rp_ locals,
-        // and the template parameter); every other emitted local uses the `rp_` prefix below:
+        // Non-keyword reservations, each a real clash a field of that name would cause:
+        //  - Value/Key/kNumber/kName: a streaming tag `struct value { using Value = ...; }` etc. would
+        //    redeclare the injected-class-name.
+        //  - decode: the generated decode() method (a same-named nested tag / arena accessor clashes).
+        //  - Callbacks: the streaming decode() template parameter pack; a nested tag of that name
+        //    shadows it in the out-of-line definition.
+        //  - m_bytes: arena stores field `bytes` as member `m_bytes`, which clashes with the accessor
+        //    of a sibling field literally named `m_bytes`.
+        // Every other emitted local is `rp_`-prefixed and each streaming tag is referenced by its
+        // message-qualified name, so common field names (value, tag, status, reader, ...) stay free.
         "Value",
         "Key",
         "kNumber",
         "kName",
         "decode",
-        "read",
-        "m_bytes",
-        "dispatch",
-        "reader",
-        "tag",
-        "value",
-        "status",
-        "callbacks",
         "Callbacks",
+        "m_bytes",
     };
     std::string out(name);
     // `rp_`-prefixed: any proto name beginning with the reserved generator-internal prefix. A

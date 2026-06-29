@@ -208,7 +208,7 @@ std::uint64_t checksum_arena_dataset(const rp::bench::Dataset* d) {
             s += static_cast<std::uint32_t>(h);
         }
         for (const rp::bench::Attribute& a : p.attributes()) {
-            s += a.key().size() + a.value_().size();  // `value` is reserved -> value_()
+            s += a.key().size() + a.value().size();
         }
         for (const auto& e : p.counters()) {
             s += e.key().size() + static_cast<std::uint32_t>(e.value());
@@ -293,7 +293,7 @@ std::uint64_t checksum_stream(rapidproto::ByteView buf) {
                 [&](Person::history, std::int32_t v) { s += static_cast<std::uint32_t>(v); },
                 [&](Person::attributes, Attribute a) -> rapidproto::DecodeStatus {
                     return a.decode([&](Attribute::key, std::string_view v) { s += v.size(); },
-                                    [&](Attribute::value_, std::string_view v) { s += v.size(); });
+                                    [&](Attribute::value, std::string_view v) { s += v.size(); });
                 },
                 [&](Person::counters, std::string_view k, std::int32_t v) {
                     s += k.size() + static_cast<std::uint32_t>(v);

@@ -46,3 +46,19 @@ message .xr.CousinA.Use size=32 align=8 fixed=no
 message .xr.CousinB size=1 align=1 fixed=yes
 message .xr.CousinB.Thing size=16 align=8 fixed=no
   field s num=1 sso-string ArenaString off=0 size=16 align=8 presence=none
+message .xr.ReservedNames size=28 align=4 fixed=yes
+  field value num=1 inline-scalar int32 off=0 size=4 align=4 presence=none
+  field tag num=2 inline-scalar int32 off=4 size=4 align=4 presence=none
+  field status num=3 inline-scalar int32 off=8 size=4 align=4 presence=none
+  field reader num=4 inline-scalar int32 off=12 size=4 align=4 presence=none
+  field dispatch num=5 inline-scalar int32 off=16 size=4 align=4 presence=none
+  field callbacks num=6 inline-scalar int32 off=20 size=4 align=4 presence=none
+  field read num=7 inline-scalar int32 off=24 size=4 align=4 presence=none
+message .xr.IntWrap size=4 align=4 fixed=yes
+  field value num=1 inline-scalar int32 off=0 size=4 align=4 presence=none
+message .xr.BoolWrap size=1 align=1 fixed=yes bool-wrapper
+  field value num=1 inline-scalar bool off=- size=- align=- presence=none value=bit0
+  mask off=0 size=1 align=1 bits=1
+    bit 0 value value
+message .xr.BytesWrap size=16 align=8 fixed=no
+  field value num=1 sso-string ArenaString off=0 size=16 align=8 presence=none

@@ -114,16 +114,17 @@ TEST_CASE("generator: a package-less file still nests under the model namespace"
 
 TEST_CASE("generator: field names colliding with generated identifiers are sanitized",
           "[printer]") {
-    // `value` is a read() local; `read` is the method; `rp_value` matches the reserved generator
-    // prefix (any `rp_`-prefixed name is escaped by the single sanitize rule) — all would break the
-    // generated code.
+    // `decode` is the generated method; `rp_value` matches the reserved generator prefix (any
+    // `rp_`-prefixed name is escaped by the single sanitize rule). `value` is NOT reserved -- decode()
+    // locals are `rp_`-prefixed and each tag is referenced by its message-qualified name -- so it keeps
+    // its name; this guards against re-introducing an over-broad reservation.
     const FileNode file = parse_file_text(
-        R"(syntax = "proto3"; message M { int32 value = 1; int32 read = 2; int32 rp_value = 3; })");
+        R"(syntax = "proto3"; message M { int32 decode = 1; int32 rp_value = 2; int32 value = 3; })");
     const std::string header = rapidproto::streamgen::generate_header(file);
-    CHECK(header.find("struct value_ {") != std::string::npos);
-    CHECK(header.find("struct read_ {") != std::string::npos);
+    CHECK(header.find("struct decode_ {") != std::string::npos);
     CHECK(header.find("struct rp_value_ {") != std::string::npos);  // the `rp_` prefix rule
-    CHECK(header.find("kName = \"value\"") != std::string::npos);   // the wire name is preserved
-    CHECK(header.find("kName = \"read\"") != std::string::npos);
+    CHECK(header.find("struct value {") != std::string::npos);      // formerly reserved, now free
+    CHECK(header.find("kName = \"decode\"") != std::string::npos);  // the wire name is preserved
     CHECK(header.find("kName = \"rp_value\"") != std::string::npos);
+    CHECK(header.find("kName = \"value\"") != std::string::npos);
 }

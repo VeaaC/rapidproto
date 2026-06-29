@@ -17,6 +17,10 @@ class Nested;
 class FwdMsg;
 class CousinA;
 class CousinB;
+class ReservedNames;
+class IntWrap;
+class BoolWrap;
+class BytesWrap;
 
 class A {
  public:
@@ -241,14 +245,14 @@ class CousinA {
    public:
     const ::xr::CousinB::Thing* thing() const noexcept { return m_thing; }
     ::rapidproto::ArrayView<::xr::CousinB::Thing> things() const noexcept { return m_things; }
-    ::xr::CousinB::Tag tag_() const noexcept { return m_tag_; }
+    ::xr::CousinB::Tag tag() const noexcept { return m_tag; }
     [[nodiscard]] static const Use* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
    private:
     template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
     static bool rp_decode_into(Use& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
     ::rapidproto::ArrayView<::xr::CousinB::Thing> m_things;
     const ::xr::CousinB::Thing* m_thing;
-    ::xr::CousinB::Tag m_tag_;
+    ::xr::CousinB::Tag m_tag;
   };
   [[nodiscard]] static const CousinA* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
@@ -256,6 +260,64 @@ class CousinA {
   static bool rp_decode_into(CousinA& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
 };
 static_assert(::std::is_trivially_destructible_v<CousinA>);
+
+class ReservedNames {
+ public:
+  std::int32_t value() const noexcept { return m_value; }
+  std::int32_t tag() const noexcept { return m_tag; }
+  std::int32_t status() const noexcept { return m_status; }
+  std::int32_t reader() const noexcept { return m_reader; }
+  std::int32_t dispatch() const noexcept { return m_dispatch; }
+  std::int32_t callbacks() const noexcept { return m_callbacks; }
+  std::int32_t read() const noexcept { return m_read; }
+  [[nodiscard]] static const ReservedNames* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
+ private:
+  template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
+  static bool rp_decode_into(ReservedNames& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
+  std::int32_t m_value;
+  std::int32_t m_tag;
+  std::int32_t m_status;
+  std::int32_t m_reader;
+  std::int32_t m_dispatch;
+  std::int32_t m_callbacks;
+  std::int32_t m_read;
+};
+static_assert(::std::is_trivially_destructible_v<ReservedNames>);
+
+class IntWrap {
+ public:
+  std::int32_t value() const noexcept { return m_value; }
+  [[nodiscard]] static const IntWrap* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
+ private:
+  template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
+  static bool rp_decode_into(IntWrap& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
+  std::int32_t m_value;
+};
+static_assert(::std::is_trivially_destructible_v<IntWrap>);
+
+class BoolWrap {
+ public:
+  bool value() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0; }
+  [[nodiscard]] static const BoolWrap* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
+ private:
+  template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
+  static bool rp_decode_into(BoolWrap& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
+  template <class RpT> friend void ::rapidproto::arena_detail::wrap(RpT&, bool) noexcept;
+  static BoolWrap rp_wrap(bool value) noexcept { BoolWrap w{}; w.m_rp_mask = static_cast<std::uint8_t>(0 | (value ? (std::uint8_t{1} << 0) : 0)); return w; }
+  std::uint8_t m_rp_mask;
+};
+static_assert(::std::is_trivially_destructible_v<BoolWrap>);
+
+class BytesWrap {
+ public:
+  std::string_view value() const noexcept { return m_value.view(); }
+  [[nodiscard]] static const BytesWrap* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
+ private:
+  template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
+  static bool rp_decode_into(BytesWrap& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
+  ::rapidproto::ArenaString m_value;
+};
+static_assert(::std::is_trivially_destructible_v<BytesWrap>);
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
 inline bool A::rp_decode_into([[maybe_unused]] A& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
@@ -1052,7 +1114,7 @@ inline bool CousinA::Use::rp_decode_into([[maybe_unused]] CousinA::Use& out, ::r
         if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
-          out.m_tag_ = static_cast<::xr::CousinB::Tag>(::rapidproto::varint_to_int32(*rp_v));
+          out.m_tag = static_cast<::xr::CousinB::Tag>(::rapidproto::varint_to_int32(*rp_v));
           continue;
         }
         break;
@@ -1066,6 +1128,181 @@ inline bool CousinA::Use::rp_decode_into([[maybe_unused]] CousinA::Use& out, ::r
 }
 inline const CousinA::Use* CousinA::Use::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   CousinA::Use* const rp_root = arena.create<CousinA::Use>();
+  if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
+  if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
+  return rp_root;
+}
+
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
+inline bool ReservedNames::rp_decode_into([[maybe_unused]] ReservedNames& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+  if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
+  ::rapidproto::WireReader reader{body};
+  while (!reader.at_end()) {
+    const auto rp_tag = reader.read_tag();
+    if (!rp_tag) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+    switch (rp_tag->field_number) {
+      case 1: {
+        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+          const auto rp_v = reader.read_varint();
+          if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+          out.m_value = ::rapidproto::varint_to_int32(*rp_v);
+          continue;
+        }
+        break;
+      }
+      case 2: {
+        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+          const auto rp_v = reader.read_varint();
+          if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+          out.m_tag = ::rapidproto::varint_to_int32(*rp_v);
+          continue;
+        }
+        break;
+      }
+      case 3: {
+        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+          const auto rp_v = reader.read_varint();
+          if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+          out.m_status = ::rapidproto::varint_to_int32(*rp_v);
+          continue;
+        }
+        break;
+      }
+      case 4: {
+        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+          const auto rp_v = reader.read_varint();
+          if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+          out.m_reader = ::rapidproto::varint_to_int32(*rp_v);
+          continue;
+        }
+        break;
+      }
+      case 5: {
+        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+          const auto rp_v = reader.read_varint();
+          if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+          out.m_dispatch = ::rapidproto::varint_to_int32(*rp_v);
+          continue;
+        }
+        break;
+      }
+      case 6: {
+        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+          const auto rp_v = reader.read_varint();
+          if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+          out.m_callbacks = ::rapidproto::varint_to_int32(*rp_v);
+          continue;
+        }
+        break;
+      }
+      case 7: {
+        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+          const auto rp_v = reader.read_varint();
+          if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+          out.m_read = ::rapidproto::varint_to_int32(*rp_v);
+          continue;
+        }
+        break;
+      }
+      default: break;
+    }
+    if (!reader.skip(rp_tag->wire_type, rp_tag->field_number)) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+  }
+  return true;
+}
+inline const ReservedNames* ReservedNames::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+  ReservedNames* const rp_root = arena.create<ReservedNames>();
+  if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
+  if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
+  return rp_root;
+}
+
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
+inline bool IntWrap::rp_decode_into([[maybe_unused]] IntWrap& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+  if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
+  ::rapidproto::WireReader reader{body};
+  while (!reader.at_end()) {
+    const auto rp_tag = reader.read_tag();
+    if (!rp_tag) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+    switch (rp_tag->field_number) {
+      case 1: {
+        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+          const auto rp_v = reader.read_varint();
+          if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+          out.m_value = ::rapidproto::varint_to_int32(*rp_v);
+          continue;
+        }
+        break;
+      }
+      default: break;
+    }
+    if (!reader.skip(rp_tag->wire_type, rp_tag->field_number)) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+  }
+  return true;
+}
+inline const IntWrap* IntWrap::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+  IntWrap* const rp_root = arena.create<IntWrap>();
+  if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
+  if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
+  return rp_root;
+}
+
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
+inline bool BoolWrap::rp_decode_into([[maybe_unused]] BoolWrap& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+  if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
+  ::rapidproto::WireReader reader{body};
+  while (!reader.at_end()) {
+    const auto rp_tag = reader.read_tag();
+    if (!rp_tag) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+    switch (rp_tag->field_number) {
+      case 1: {
+        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+          const auto rp_v = reader.read_varint();
+          if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+          if (::rapidproto::varint_to_bool(*rp_v)) { out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 0)); } else { out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask & static_cast<std::uint8_t>(~(std::uint8_t{1} << 0))); }
+          continue;
+        }
+        break;
+      }
+      default: break;
+    }
+    if (!reader.skip(rp_tag->wire_type, rp_tag->field_number)) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+  }
+  return true;
+}
+inline const BoolWrap* BoolWrap::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+  BoolWrap* const rp_root = arena.create<BoolWrap>();
+  if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
+  if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
+  return rp_root;
+}
+
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
+inline bool BytesWrap::rp_decode_into([[maybe_unused]] BytesWrap& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+  if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
+  ::rapidproto::WireReader reader{body};
+  while (!reader.at_end()) {
+    const auto rp_tag = reader.read_tag();
+    if (!rp_tag) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+    switch (rp_tag->field_number) {
+      case 1: {
+        if (rp_tag->wire_type == ::rapidproto::WireType::Len) {
+          const auto rp_v = reader.read_length_delimited();
+          if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+          out.m_value = ::rapidproto::ArenaString::make(*rp_v, arena);
+          if (!rp_v->empty() && (out.m_value).empty()) { ::rapidproto::rp_fail_string(err, *rp_v); return false; }
+          continue;
+        }
+        break;
+      }
+      default: break;
+    }
+    if (!reader.skip(rp_tag->wire_type, rp_tag->field_number)) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+  }
+  return true;
+}
+inline const BytesWrap* BytesWrap::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+  BytesWrap* const rp_root = arena.create<BytesWrap>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
   return rp_root;

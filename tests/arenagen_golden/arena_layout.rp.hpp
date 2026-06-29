@@ -59,7 +59,7 @@ static_assert(::std::is_trivially_destructible_v<HasString>);
 
 class BoolWrap {
  public:
-  bool value_() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0; }
+  bool value() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0; }
   [[nodiscard]] static const BoolWrap* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;

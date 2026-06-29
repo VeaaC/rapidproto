@@ -70,7 +70,7 @@ FieldGen field_gen(const CppNameTable& symbols, const FieldNode& field) {
         // Value is the sub-decoder over the body delimited by SGROUP/EGROUP. (`is_group` only marks
         // the synthesized-nested-message structure; the wire form is decided by
         // `message_encoding`.)
-        return {cpp, "SGroup", "read_group(tag->field_number)", cpp + "{", "}"};
+        return {cpp, "SGroup", "read_group(rp_tag->field_number)", cpp + "{", "}"};
     }
     // message-typed: the Value is the sub-decoder, constructed over the LEN payload.
     return {cpp, "Len", "read_length_delimited()", cpp + "{", "}"};
@@ -192,10 +192,11 @@ void emit_map_arm(Printer& printer, const CppNameTable& symbols, const MapFieldN
         " ::rapidproto::handles_one<Callbacks, $f$, $f$::Key, $f$::Value>)) {\n",
         {{"f", fname}});
     printer.indent();
-    printer.print("if (tag->wire_type == ::rapidproto::WireType::Len) {\n");
+    printer.print("if (rp_tag->wire_type == ::rapidproto::WireType::Len) {\n");
     printer.indent();
-    printer.print("const auto rp_entry = reader.read_length_delimited();\n");
-    printer.print("if (!rp_entry) { return ::rapidproto::DecodeStatus::from_reader(reader); }\n");
+    printer.print("const auto rp_entry = rp_reader.read_length_delimited();\n");
+    printer.print(
+        "if (!rp_entry) { return ::rapidproto::DecodeStatus::from_reader(rp_reader); }\n");
     printer.print("$f$::Key rp_key{};\n", {{"f", fname}});
     printer.print("$f$::Value rp_value{$d$};\n", {{"f", fname}, {"d", value_default}});
     printer.print("::rapidproto::WireReader rp_entry_reader{*rp_entry};\n");
@@ -233,11 +234,12 @@ void emit_map_arm(Printer& printer, const CppNameTable& symbols, const MapFieldN
     printer.outdent();
     printer.print("}\n");  // while
     printer.print(
-        "if (const auto status = ::rapidproto::invoke_field(dispatch, $f${}, rp_key, rp_value);"
-        " !status.ok()) {\n",
+        "if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, $f${}, rp_key, "
+        "rp_value);"
+        " !rp_status.ok()) {\n",
         {{"f", fname}});
     printer.indent();
-    printer.print("return status;\n");
+    printer.print("return rp_status;\n");
     printer.outdent();
     printer.print("}\n");
     printer.print("continue;\n");  // entry consumed -> continue the field loop
@@ -358,7 +360,7 @@ void emit_message(Printer& printer, const CppNameTable& symbols, const MessageNo
 
     printer.print("template <class... Callbacks>\n");
     printer.print(
-        "[[nodiscard]] ::rapidproto::DecodeStatus decode(Callbacks&&... callbacks) const;\n");
+        "[[nodiscard]] ::rapidproto::DecodeStatus decode(Callbacks&&... rp_callbacks) const;\n");
 
     printer.outdent();
     printer.print(" private:\n");
@@ -372,15 +374,16 @@ void emit_message(Printer& printer, const CppNameTable& symbols, const MessageNo
 // reader the element is read from (the message reader, or a sub-reader over a packed payload).
 void emit_decode_and_invoke(Printer& printer, const std::string& fname, const FieldGen& gen,
                             std::string_view src) {
-    printer.print("const auto value = $src$.$read$;\n", {{"src", src}, {"read", gen.read_call}});
-    printer.print("if (!value) { return ::rapidproto::DecodeStatus::from_reader($src$); }\n",
+    printer.print("const auto rp_value = $src$.$read$;\n", {{"src", src}, {"read", gen.read_call}});
+    printer.print("if (!rp_value) { return ::rapidproto::DecodeStatus::from_reader($src$); }\n",
                   {{"src", src}});
     printer.print(
-        "if (const auto status = ::rapidproto::invoke_field(dispatch, $f${}, $pre$*value$post$);"
-        " !status.ok()) {\n",
+        "if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, $f${}, "
+        "$pre$*rp_value$post$);"
+        " !rp_status.ok()) {\n",
         {{"f", fname}, {"pre", gen.decode_pre}, {"post", gen.decode_post}});
     printer.indent();
-    printer.print("return status;\n");
+    printer.print("return rp_status;\n");
     printer.outdent();
     printer.print("}\n");
 }
@@ -402,20 +405,20 @@ void emit_arm(Printer& printer, const std::string& fname, const FieldGen& gen, b
     // Native wire form: a singular field, or one element of an expanded repeated field. On a match
     // the value is consumed and we `continue` the field loop; otherwise we `break` out of the
     // switch and fall through to the single shared skip after it (see emit_decode_def).
-    printer.print("if (tag->wire_type == ::rapidproto::WireType::$wt$) {\n",
+    printer.print("if (rp_tag->wire_type == ::rapidproto::WireType::$wt$) {\n",
                   {{"wt", gen.wire_type}});
     printer.indent();
-    emit_decode_and_invoke(printer, fname, gen, "reader");
+    emit_decode_and_invoke(printer, fname, gen, "rp_reader");
     printer.print("continue;\n");
     printer.outdent();
     printer.print("}\n");
 
     if (repeated && packable) {  // packed form: a LEN payload of back-to-back elements.
-        printer.print("if (tag->wire_type == ::rapidproto::WireType::Len) {\n");
+        printer.print("if (rp_tag->wire_type == ::rapidproto::WireType::Len) {\n");
         printer.indent();
-        printer.print("const auto rp_packed = reader.read_length_delimited();\n");
+        printer.print("const auto rp_packed = rp_reader.read_length_delimited();\n");
         printer.print(
-            "if (!rp_packed) { return ::rapidproto::DecodeStatus::from_reader(reader); }\n");
+            "if (!rp_packed) { return ::rapidproto::DecodeStatus::from_reader(rp_reader); }\n");
         printer.print("::rapidproto::WireReader rp_elements{*rp_packed};\n");
         printer.print("while (!rp_elements.at_end()) {\n");
         printer.indent();
@@ -440,18 +443,18 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
                      const std::string& qualifier) {
     const auto fields = collect_fields(symbols, message);
     printer.print("template <class... Callbacks>\n");
-    printer.print("::rapidproto::DecodeStatus $Q$::decode(Callbacks&&... callbacks) const {\n",
+    printer.print("::rapidproto::DecodeStatus $Q$::decode(Callbacks&&... rp_callbacks) const {\n",
                   {{"Q", qualifier}});
     printer.indent();
     printer.print(
-        "[[maybe_unused]] auto dispatch = "
-        "::rapidproto::combine(static_cast<Callbacks&&>(callbacks)...);\n");
-    printer.print("::rapidproto::WireReader reader{m_bytes};\n");
-    printer.print("while (!reader.at_end()) {\n");
+        "[[maybe_unused]] auto rp_dispatch = "
+        "::rapidproto::combine(static_cast<Callbacks&&>(rp_callbacks)...);\n");
+    printer.print("::rapidproto::WireReader rp_reader{m_bytes};\n");
+    printer.print("while (!rp_reader.at_end()) {\n");
     printer.indent();
-    printer.print("const auto tag = reader.read_tag();\n");
-    printer.print("if (!tag) { return ::rapidproto::DecodeStatus::from_reader(reader); }\n");
-    printer.print("switch (tag->field_number) {\n");
+    printer.print("const auto rp_tag = rp_reader.read_tag();\n");
+    printer.print("if (!rp_tag) { return ::rapidproto::DecodeStatus::from_reader(rp_reader); }\n");
+    printer.print("switch (rp_tag->field_number) {\n");
     printer.indent();
     for (const auto& [field, gen] : fields) {
         emit_arm(printer, symbols.local.at(field), gen, field->is_repeated);
@@ -468,17 +471,17 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
         "if constexpr ((false || ... ||"
         " ::rapidproto::specifically_handles_unknown<Callbacks>)) {\n");
     printer.indent();
-    printer.print("const auto rp_value_start = reader.position();\n");
+    printer.print("const auto rp_value_start = rp_reader.position();\n");
     printer.print(
-        "if (!reader.skip(tag->wire_type, tag->field_number)) {"
-        " return ::rapidproto::DecodeStatus::from_reader(reader); }\n");
+        "if (!rp_reader.skip(rp_tag->wire_type, rp_tag->field_number)) {"
+        " return ::rapidproto::DecodeStatus::from_reader(rp_reader); }\n");
     printer.print(
-        "if (const auto status = ::rapidproto::invoke_unknown(dispatch,"
-        " ::rapidproto::UnknownField{tag->field_number, tag->wire_type,"
-        " m_bytes.substr(rp_value_start, reader.position() - rp_value_start)});"
-        " !status.ok()) {\n");
+        "if (const auto rp_status = ::rapidproto::invoke_unknown(rp_dispatch,"
+        " ::rapidproto::UnknownField{rp_tag->field_number, rp_tag->wire_type,"
+        " m_bytes.substr(rp_value_start, rp_reader.position() - rp_value_start)});"
+        " !rp_status.ok()) {\n");
     printer.indent();
-    printer.print("return status;\n");
+    printer.print("return rp_status;\n");
     printer.outdent();
     printer.print("}\n");
     printer.print("continue;\n");
@@ -491,8 +494,8 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
     // A field that wasn't consumed by a case (a known field with no callback or a non-matching wire
     // type, or an unknown field with no unknown-handler) is skipped here -- one shared skip site.
     printer.print(
-        "if (!reader.skip(tag->wire_type, tag->field_number)) {"
-        " return ::rapidproto::DecodeStatus::from_reader(reader); }\n");
+        "if (!rp_reader.skip(rp_tag->wire_type, rp_tag->field_number)) {"
+        " return ::rapidproto::DecodeStatus::from_reader(rp_reader); }\n");
     printer.outdent();
     printer.print("}\n");  // while
     printer.print("return ::rapidproto::DecodeStatus::success();\n");

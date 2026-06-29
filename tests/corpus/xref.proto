@@ -80,3 +80,19 @@ message CousinB {
   message Thing { string s = 1; }
   enum Tag { TAG_NONE = 0; TAG_X = 1; }
 }
+
+// Formerly over-reserved identifiers, now freed: a field of any of these names keeps its name (no `_`
+// escape) and compiles in both decoders. The single-`value` messages are the wrapper shape (int / bool
+// / bytes) that the `value` reservation used to force to `value_`.
+message ReservedNames {
+  int32 value = 1;
+  int32 tag = 2;
+  int32 status = 3;
+  int32 reader = 4;
+  int32 dispatch = 5;
+  int32 callbacks = 6;
+  int32 read = 7;
+}
+message IntWrap { int32 value = 1; }
+message BoolWrap { bool value = 1; }
+message BytesWrap { bytes value = 1; }

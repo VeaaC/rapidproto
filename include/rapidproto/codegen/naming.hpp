@@ -64,10 +64,11 @@ std::string join_ns(std::string_view a, std::string_view b);
 // use the package namespace WITHOUT the model segment (the common header) -- one shared enum type.
 std::string message_namespace(const CppNameTable& names, const FileNode& file);
 
-// A proto name -> a collision-free C++ identifier: append `_` if it collides with a keyword or a
-// generator-internal name (any `rp_`-prefixed identifier, or a reserved struct member / decode()
-// local). For names not pre-assigned in the table -- e.g. enum values, which are sanitized at emit
-// time. (Members in `CppNameTable::local` are already sanitized + de-duplicated per scope.)
+// A proto name -> a collision-free C++ identifier: append `_` if it collides with a keyword, any
+// `rp_`-prefixed identifier, or one of a few generated members (the streaming tag members
+// Value/Key/kNumber/kName, decode(), the decode() template parameter Callbacks, and the arena `m_bytes`
+// storage name -- see naming.cpp). For names not pre-assigned in the table -- e.g. enum values, which
+// are sanitized at emit time. (Members in `CppNameTable::local` are already sanitized + de-duped.)
 std::string sanitize(std::string_view name);
 
 }  // namespace rapidproto::codegen
