@@ -55,8 +55,8 @@ class Nested {
   class Def {
    public:
     enum class Kind : std::int32_t {
-      KIND_UNKNOWN = 0,
-      KIND_A = 1,
+      UNKNOWN = 0,
+      A = 1,
       rp_non_exhaustive_min = INT32_MIN,
       rp_non_exhaustive_max = INT32_MAX,
     };
@@ -216,8 +216,8 @@ static_assert(::std::is_trivially_destructible_v<FwdMsg>);
 class CousinB {
  public:
   enum class Tag : std::int32_t {
-    TAG_NONE = 0,
-    TAG_X = 1,
+    NONE = 0,
+    X = 1,
     rp_non_exhaustive_min = INT32_MIN,
     rp_non_exhaustive_max = INT32_MAX,
   };

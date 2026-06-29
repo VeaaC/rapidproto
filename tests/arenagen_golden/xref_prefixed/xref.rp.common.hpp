@@ -6,4 +6,25 @@
 
 namespace rp::xr {
 
+enum class Version : std::int32_t {
+  VERSION_1 = 0,
+  VERSION_2 = 1,
+  rp_non_exhaustive_min = INT32_MIN,
+  rp_non_exhaustive_max = INT32_MAX,
+};
+
+enum class Mixed : std::int32_t {
+  MIXED_A = 0,
+  OTHER = 1,
+  rp_non_exhaustive_min = INT32_MIN,
+  rp_non_exhaustive_max = INT32_MAX,
+};
+
+enum class Stream : std::int32_t {
+  STREAM_OK = 0,
+  STREAM_EOF = 1,
+  rp_non_exhaustive_min = INT32_MIN,
+  rp_non_exhaustive_max = INT32_MAX,
+};
+
 }  // namespace rp::xr

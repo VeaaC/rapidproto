@@ -10,6 +10,10 @@
 
 namespace xr::stream {
 
+using ::xr::Version;
+using ::xr::Mixed;
+using ::xr::Stream;
+
 struct A;
 struct B;
 struct Nested;
@@ -55,8 +59,8 @@ struct Nested {
     explicit Def(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
 
     enum class Kind : std::int32_t {
-      KIND_UNKNOWN = 0,
-      KIND_A = 1,
+      UNKNOWN = 0,
+      A = 1,
       rp_non_exhaustive_min = INT32_MIN,
       rp_non_exhaustive_max = INT32_MAX,
     };
@@ -171,8 +175,8 @@ struct CousinB {
   explicit CousinB(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
 
   enum class Tag : std::int32_t {
-    TAG_NONE = 0,
-    TAG_X = 1,
+    NONE = 0,
+    X = 1,
     rp_non_exhaustive_min = INT32_MIN,
     rp_non_exhaustive_max = INT32_MAX,
   };

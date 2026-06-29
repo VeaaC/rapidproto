@@ -96,7 +96,7 @@ TEST_CASE("arena-decode: submessage, repeated, map, oneof fixture", "[arena-deco
     const p3::Msg* m = p3::Msg::decode(ByteView(bin), arena);
     REQUIRE(m != nullptr);
     CHECK(m->implicit_i() == 10);
-    CHECK(m->state() == p3::State::STATE_ON);
+    CHECK(m->state() == p3::State::ON);
     REQUIRE(m->self() != nullptr);  // sub-message via arena pointer
     CHECK(m->self()->implicit_i() == 99);
     REQUIRE(m->nums().size() == 3);  // packed repeated
@@ -125,8 +125,8 @@ TEST_CASE("arena-decode: message-value and enum-value maps fixture", "[arena-dec
     CHECK(alpha->value()->x() == 11);
     CHECK(c->by_name().find(std::string_view("beta"))->value()->x() == 22);
     REQUIRE(c->by_id().size() == 2);
-    CHECK(c->by_id().find(1)->value() == p2::Color::COLOR_RED);
-    CHECK(c->by_id().find(2)->value() == p2::Color::COLOR_NEG);  // negative enum
+    CHECK(c->by_id().find(1)->value() == p2::Color::RED);
+    CHECK(c->by_id().find(2)->value() == p2::Color::NEG);  // negative enum
 }
 
 TEST_CASE("arena-decode: group (delimited) fixture", "[arena-decode]") {
@@ -156,14 +156,14 @@ TEST_CASE("arena-decode: absent fields read their schema default", "[arena-decod
     const p2::Scalars* m = p2::Scalars::decode(ByteView(buf), arena);
     REQUIRE(m != nullptr);
     CHECK(m->i32() == 5);
-    CHECK_FALSE(m->has_i64());                  // absent
-    CHECK(m->i64() == 42);                      // ...reads [default = 42]
-    CHECK(m->b());                              // [default = true]
-    CHECK(m->fl() == Catch::Approx(1.5F));      // [default = 1.5]
-    CHECK(m->db() == Catch::Approx(-2.25));     // [default = -2.25]
-    CHECK(m->color() == p2::Color::COLOR_RED);  // [default = COLOR_RED]
-    CHECK(m->s() == "hi\n\"there\"");           // [default = "hi\n\"there\""] (escapes survive)
-    CHECK(m->u32() == 0);                       // no default -> zero
+    CHECK_FALSE(m->has_i64());               // absent
+    CHECK(m->i64() == 42);                   // ...reads [default = 42]
+    CHECK(m->b());                           // [default = true]
+    CHECK(m->fl() == Catch::Approx(1.5F));   // [default = 1.5]
+    CHECK(m->db() == Catch::Approx(-2.25));  // [default = -2.25]
+    CHECK(m->color() == p2::Color::RED);     // [default = COLOR_RED]
+    CHECK(m->s() == "hi\n\"there\"");        // [default = "hi\n\"there\""] (escapes survive)
+    CHECK(m->u32() == 0);                    // no default -> zero
 }
 
 TEST_CASE("arena-decode: a missing required field fails the parse", "[arena-decode]") {

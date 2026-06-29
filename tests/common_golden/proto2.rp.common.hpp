@@ -7,10 +7,10 @@
 namespace p2 {
 
 enum class Color : std::int32_t {
-  COLOR_UNKNOWN = 0,
-  COLOR_RED = 1,
-  COLOR_CRIMSON = 1,
-  COLOR_NEG = -2,
+  UNKNOWN = 0,
+  RED = 1,
+  CRIMSON = 1,
+  NEG = -2,
   rp_non_exhaustive_min = INT32_MIN,
   rp_non_exhaustive_max = INT32_MAX,
 };

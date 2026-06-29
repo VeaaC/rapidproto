@@ -96,3 +96,20 @@ message ReservedNames {
 message IntWrap { int32 value = 1; }
 message BoolWrap { bool value = 1; }
 message BytesWrap { bytes value = 1; }
+
+// Enum-name-prefix stripping is all-or-nothing per enum. These guard the cases where it must NOT apply:
+// a numeric remainder (VERSION_2 -> `2`, not a valid identifier) and a value missing the prefix keep
+// every value's full name. (Kind/Tag above DO strip -> Kind::UNKNOWN, Tag::NONE.)
+enum Version {
+  VERSION_1 = 0;
+  VERSION_2 = 1;
+}
+enum Mixed {
+  MIXED_A = 0;
+  OTHER = 1;
+}
+// Stripping would bare `EOF`, a C macro -> the whole enum keeps full names (STREAM_OK, STREAM_EOF).
+enum Stream {
+  STREAM_OK = 0;
+  STREAM_EOF = 1;
+}

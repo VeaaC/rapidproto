@@ -39,7 +39,7 @@ int main() {
 
     // (2) Streaming model: walk the SAME bytes with callbacks -- in the same TU as the arena types.
     std::string_view stream_name;
-    demo::Kind stream_kind = demo::Kind::KIND_UNKNOWN;
+    demo::Kind stream_kind = demo::Kind::UNKNOWN;
     const rapidproto::DecodeStatus status = demo::stream::Shape{bytes}.decode(
         [&](demo::stream::Shape::name, std::string_view v) { stream_name = v; },
         [&](demo::stream::Shape::kind, demo::Kind v) { stream_kind = v; });
@@ -51,7 +51,7 @@ int main() {
     // Both models decoded the same bytes to the same values and agree on the shared enum.
     const bool ok = shape->name() == "hi" && shape->origin() != nullptr &&
                     shape->origin()->x() == 3 && shape->origin()->y() == 4 &&
-                    shape->kind() == demo::Kind::KIND_CIRCLE && stream_name == shape->name() &&
+                    shape->kind() == demo::Kind::CIRCLE && stream_name == shape->name() &&
                     stream_kind == shape->kind();
     if (!ok) {
         std::fprintf(stderr, "consumer: arena/streaming values disagree\n");

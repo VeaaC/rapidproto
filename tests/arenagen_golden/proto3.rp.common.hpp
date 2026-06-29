@@ -7,8 +7,8 @@
 namespace p3 {
 
 enum class State : std::int32_t {
-  STATE_UNKNOWN = 0,
-  STATE_ON = 1,
+  UNKNOWN = 0,
+  ON = 1,
   rp_non_exhaustive_min = INT32_MIN,
   rp_non_exhaustive_max = INT32_MAX,
 };

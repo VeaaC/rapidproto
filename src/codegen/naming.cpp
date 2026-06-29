@@ -21,6 +21,16 @@ std::string sanitize(std::string_view name) {
         "alignas",
         "alignof",
         "and",
+        "and_eq",
+        "bitand",
+        "bitor",
+        "compl",
+        "not",
+        "not_eq",
+        "or",
+        "or_eq",
+        "xor",
+        "xor_eq",
         "asm",
         "auto",
         "bool",
@@ -104,6 +114,28 @@ std::string sanitize(std::string_view name) {
         "decode",
         "Callbacks",
         "m_bytes",
+        // Common C/C++ MACROS: a field accessor or a (prefix-stripped) bare enum value of one of these
+        // would macro-expand rather than compile (e.g. `EOF` -> `(-1)`). Not exhaustive -- a best-effort
+        // guard for the names a SCREAMING_SNAKE enum value realistically hits; enum-prefix stripping
+        // additionally refuses to strip any enum whose bare remainder is reserved here (see emit_enum).
+        "EOF",
+        "NULL",
+        "NAN",
+        "INFINITY",
+        "ERROR",
+        "TRUE",
+        "FALSE",
+        "BUFSIZ",
+        "EXIT_SUCCESS",
+        "EXIT_FAILURE",
+        "RAND_MAX",
+        "SEEK_SET",
+        "SEEK_CUR",
+        "SEEK_END",
+        "errno",
+        "stdin",
+        "stdout",
+        "stderr",
     };
     std::string out(name);
     // `rp_`-prefixed: any proto name beginning with the reserved generator-internal prefix. A

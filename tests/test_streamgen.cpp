@@ -831,7 +831,7 @@ TEST_CASE("streamgen: a generated decoder decodes enum, sub-message, and oneof f
     std::int32_t implicit_i = 0;
     std::int32_t a = 0;
     std::int32_t self_implicit = 0;
-    p3::stream::State state = p3::stream::State::STATE_UNKNOWN;
+    p3::stream::State state = p3::stream::State::UNKNOWN;
     bool saw_self = false;
     std::vector<std::int32_t> nums;         // repeated int32 (packed on the wire)
     std::vector<std::int32_t> unpacked;     // repeated int32 [packed=false] (expanded)
@@ -861,14 +861,14 @@ TEST_CASE("streamgen: a generated decoder decodes enum, sub-message, and oneof f
 
     CHECK(status.ok());
     CHECK(implicit_i == 10);
-    CHECK(state == p3::stream::State::STATE_ON);
+    CHECK(state == p3::stream::State::ON);
     CHECK(a == 7);  // the oneof member that is set
     CHECK(saw_self);
     CHECK(self_implicit == 99);  // nested message decoded through the sub-decoder
     CHECK(nums == std::vector<std::int32_t>{1, 2, 3});   // packed scalar -> per element
     CHECK(unpacked == std::vector<std::int32_t>{4, 5});  // expanded scalar -> per element
-    CHECK(states == std::vector<p3::stream::State>{p3::stream::State::STATE_ON,
-                                                   p3::stream::State::STATE_UNKNOWN});
+    CHECK(states ==
+          std::vector<p3::stream::State>{p3::stream::State::ON, p3::stream::State::UNKNOWN});
     CHECK(counts == std::vector<std::pair<std::string, std::int32_t>>{{"x", 1}, {"y", 2}});
 }
 
@@ -909,7 +909,7 @@ TEST_CASE("streamgen: a generated decoder decodes message-value and enum-value m
     CHECK(by_name ==
           std::vector<std::pair<std::string, std::int32_t>>{{"alpha", 11}, {"beta", 22}});
     CHECK(by_id == std::vector<std::pair<std::int32_t, p2::stream::Color>>{
-                       {1, p2::stream::Color::COLOR_RED}, {2, p2::stream::Color::COLOR_NEG}});
+                       {1, p2::stream::Color::RED}, {2, p2::stream::Color::NEG}});
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): one callback per field

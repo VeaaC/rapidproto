@@ -16,7 +16,7 @@ class M;
 class M {
  public:
   enum class Inner : std::int32_t {
-    INNER_ZERO = 0,
+    ZERO = 0,
     rp_non_exhaustive_min = INT32_MIN,
     rp_non_exhaustive_max = INT32_MAX,
   };
