@@ -140,7 +140,7 @@ TEST_CASE("arenagen: generated headers match the goldens", "[arenagen]") {
 TEST_CASE("arenagen: namespace prefix nests the generated namespace", "[arenagen]") {
     const std::string prefixed = generate_corpus("xref.proto", "rp");
     CHECK(prefixed.find("namespace rp::xr {") != std::string::npos);
-    CHECK(prefixed.find("const ::rp::xr::B*") != std::string::npos);  // refs are prefixed
+    CHECK(prefixed.find("MessageRef<::rp::xr::B>") != std::string::npos);  // refs are prefixed
     const std::string plain = generate_corpus("xref.proto");
     CHECK(plain.find("namespace xr {") != std::string::npos);
     CHECK(plain.find("rp::xr") == std::string::npos);
@@ -152,7 +152,7 @@ TEST_CASE("arenagen: namespace prefix nests the generated namespace", "[arenagen
     const std::string main_rp =
         generate(std::string(RAPIDPROTO_CORPUS_DIR) + "/imports", "main.proto", "rp");
     CHECK(main_rp.find("namespace rp::main {") != std::string::npos);
-    CHECK(main_rp.find("const ::rp::dep::Dep*") !=
+    CHECK(main_rp.find("MessageRef<::rp::dep::Dep>") !=
           std::string::npos);  // cross-file ref is prefixed
     CHECK(main_rp.find("::rapidproto::arena_detail::decode_into(out.m_d") != std::string::npos);
 }

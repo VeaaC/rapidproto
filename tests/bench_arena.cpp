@@ -198,7 +198,7 @@ std::uint64_t checksum_arena_dataset(const rp::bench::Dataset* d) {
     for (const rp::bench::Person& p : d->people()) {
         s += static_cast<std::uint64_t>(p.id()) + p.name().size() + p.email().size() +
              (p.active() ? 1U : 0U) + bits(p.score()) + p.created();
-        if (const rp::bench::Address* a = p.address()) {
+        if (const auto a = p.address()) {  // MessageRef: truthy when present, deref like a pointer
             s += a->street().size() + a->city().size() + a->zip();
         }
         for (const std::string_view t : p.tags()) {
@@ -259,10 +259,11 @@ std::uint64_t checksum_arena_particle(const rp::bench::ParticleSet* d) {
     std::uint64_t s = 0;
     for (const rp::bench::Particle& it : d->items()) {
         s += static_cast<std::uint64_t>(it.id()) + it.color();
-        if (const rp::bench::Vec3* p = it.position()) {
+        if (const auto p =
+                it.position()) {  // MessageRef: truthy when present, deref like a pointer
             s += bits(p->x()) + bits(p->y()) + bits(p->z());
         }
-        if (const rp::bench::Vec3* v = it.velocity()) {
+        if (const auto v = it.velocity()) {
             s += bits(v->x()) + bits(v->y()) + bits(v->z());
         }
     }

@@ -40,12 +40,11 @@ message .p2.WithGroup size=12 align=4 fixed=yes
     bit 0 presence mygroup
 message .p2.WithGroup.MyGroup size=8 align=4 fixed=yes
   field a num=2 inline-scalar int32 off=0 size=4 align=4 presence=bit0
-  field inner num=3 bool-wrapper .p2.WithGroup.MyGroup.Inner off=- size=- align=- presence=bit1 value=bit2
-  mask off=4 size=1 align=1 bits=3
+  field inner num=3 inline-submsg .p2.WithGroup.MyGroup.Inner off=4 size=1 align=1 presence=bit1
+  mask off=5 size=1 align=1 bits=2
     bit 0 presence a
     bit 1 presence inner
-    bit 2 value inner
-message .p2.WithGroup.MyGroup.Inner size=1 align=1 fixed=yes bool-wrapper
+message .p2.WithGroup.MyGroup.Inner size=1 align=1 fixed=yes
   field flag num=4 inline-scalar bool off=- size=- align=- presence=bit0 value=bit1
   mask off=0 size=1 align=1 bits=2
     bit 0 presence flag

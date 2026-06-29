@@ -5,7 +5,7 @@
 // The arena layout planner -- the "brain" of the arena generator. A pure analysis pass (no codegen)
 // that maps every message to its in-memory representation:
 //   - a FIELD KIND per field (inline scalar/enum, SSO string, inlined-fixed vs pointer sub-message,
-//     single-bool-wrapper collapse, repeated/map views, oneof),
+//     repeated/map views, oneof),
 //   - a padding-minimized MEMBER ORDER (sort by alignment desc, size desc, field number),
 //   - a bit-packed PRESENCE/VALUE mask (bools and presence flags share mask words),
 //   - a recursive, cycle-aware FIXED-SIZE analysis that drives sub-message inlining.
@@ -29,10 +29,9 @@ namespace rapidproto::arenagen {
 
 // How a field is stored in its parent message's struct.
 enum class FieldKind {
-    InlineScalar,     // numeric scalar stored inline; a `bool` instead occupies a value bit
-    InlineEnum,       // enum stored inline as its int32 underlying value
-    SsoString,        // string/bytes stored as an ArenaString (inline small, arena-copied large)
-    BoolWrapperBits,  // field whose message type is a single-bool wrapper -> presence + value bits
+    InlineScalar,       // numeric scalar stored inline; a `bool` instead occupies a value bit
+    InlineEnum,         // enum stored inline as its int32 underlying value
+    SsoString,          // string/bytes stored as an ArenaString (inline small, arena-copied large)
     InlineFixedSubMsg,  // fixed-size sub-message inlined by value
     PointerSubMsg,      // sub-message referenced by an arena pointer (null = absent)
     Repeated,           // repeated field -> ArrayView<elem>
@@ -66,8 +65,8 @@ struct EntryPlan {
     std::size_t align = 0;
 };
 
-// One field's storage decision. For bit-only fields (a `bool`, or a collapsed bool-wrapper) size and
-// align are 0 and the data lives in `value_bit`; everything else occupies `size` bytes at `offset`.
+// One field's storage decision. For a bit-only field (a `bool`) size and align are 0 and the data
+// lives in `value_bit`; everything else occupies `size` bytes at `offset`.
 struct MemberPlan {
     const FieldNode* field = nullptr;         // set for regular/repeated fields
     const MapFieldNode* map_field = nullptr;  // set instead for a Map
@@ -77,18 +76,14 @@ struct MemberPlan {
     std::size_t align = 0;   // storage alignment (0 for bit-only)
     std::size_t offset = 0;  // byte offset within the struct (set when size > 0)
     int presence_bit = -1;   // mask bit index, or -1 (Implicit/Required, pointer, repeated/map)
-    int value_bit = -1;      // mask bit index for a bool / bool-wrapper value, or -1
+    int value_bit = -1;      // mask bit index for an inline `bool` value, or -1
     std::string repr;        // storage label for the dump (e.g. "int32", "ArenaString", ".p.Sub")
     std::string target_fqn;  // referenced message/enum FQN, else ""
-    int wrapper_field_number = 0;  // BoolWrapperBits: the wrapper's bool field number on the wire
-    int wrapper_unknown_bit = -1;  // BoolWrapperBits under --unknown-present: parent mask bit that
-                                   // records the collapsed wrapper saw an unknown field (so its
-                                   // has_unknown_fields() survives the collapse), or -1
     std::optional<EntryPlan> entry;  // Map only
 };
 
 // One member of a oneof's union. Inside a union everything is byte storage (no bit-packing), so a
-// `bool` member is a 1-byte bool and a bool-wrapper message is laid out as a normal sub-message.
+// `bool` member is a 1-byte bool.
 struct OneofMemberPlan {
     const FieldNode* field = nullptr;
     FieldKind kind = FieldKind::InlineScalar;
@@ -113,10 +108,9 @@ struct OneofPlan {
 struct MessageLayout {
     const MessageNode* message = nullptr;
     std::string fqn;
-    std::size_t size = 0;          // total struct size (a multiple of `align`)
-    std::size_t align = 1;         // struct alignment
-    bool fixed_size = false;       // inline-eligible: no string/repeated/map/pointer/oneof/self-ref
-    bool is_bool_wrapper = false;  // exactly one singular `bool` field
+    std::size_t size = 0;     // total struct size (a multiple of `align`)
+    std::size_t align = 1;    // struct alignment
+    bool fixed_size = false;  // inline-eligible: no string/repeated/map/pointer/oneof/self-ref
 
     std::vector<MemberPlan>
         members;                    // byte members in memory (offset) order, then bit-only members

@@ -2,7 +2,7 @@
 // arena layout of every message, serialize it with the layout dumper, and assert it matches a
 // checked-in expected dump byte-for-byte. This pins every layout decision (field kind, padding-
 // minimized member order + offsets, the bit-packed presence/value mask, fixed-size verdict, inline-
-// vs-pointer sub-message choice, bool-wrapper collapse, oneof union) before any C++ is emitted.
+// vs-pointer sub-message choice, oneof union) before any C++ is emitted.
 // Regenerate with `RAPIDPROTO_REGEN_GOLDEN=1 ./build/gcc/rapidproto_tests "[arena-layout]"` and read
 // the diff CAREFULLY -- like the AST goldens, these have no behavioral backstop yet.
 

@@ -82,11 +82,6 @@ std::string bit_test(const MessageLayout& layout, int bit) {
            "))";
 }
 
-// A `MT{1} << bit` single-bit constant (the word type follows the mask size).
-std::string bit_const(const MessageLayout& layout, int bit) {
-    return "(" + mask_word_type(layout.mask_size) + "{1} << " + std::to_string(bit) + ")";
-}
-
 // ── type-name helpers ────────────────────────────────────────────────────────────────────────────
 
 // Identifiers arenagen synthesizes from field/oneof/map names -- has_<f>(), <oneof>_case(), the
@@ -145,8 +140,6 @@ std::string storage_type(const Emit& emit, const MemberPlan& m) {
             return "::rapidproto::ArrayView<" + repeated_elem_type(emit, *m.field) + ">";
         case FieldKind::Map:
             return "::rapidproto::MapView<" + emit.synth.entry_type.at(m.map_field) + ">";
-        case FieldKind::BoolWrapperBits:
-            return "";
     }
     return "";
 }
@@ -206,11 +199,16 @@ void emit_map_entry(const Emit& emit, const MemberPlan& m, const std::string& en
             p.print("std::string_view value() const noexcept { return rp_value.view(); }\n");
             break;
         case FieldKind::PointerSubMsg:
-            p.print("const $T$* value() const noexcept { return rp_value; }\n", {{"T", val_store}});
+            p.print(
+                "::rapidproto::MessageRef<$T$> value() const noexcept { return"
+                " ::rapidproto::MessageRef<$T$>(rp_value); }\n",
+                {{"T", val_store}});
             break;
         case FieldKind::InlineFixedSubMsg:
-            p.print("const $T$* value() const noexcept { return &rp_value; }\n",
-                    {{"T", val_store}});
+            p.print(
+                "::rapidproto::MessageRef<$T$> value() const noexcept { return"
+                " ::rapidproto::MessageRef<$T$>(&rp_value); }\n",
+                {{"T", val_store}});
             break;
         default:
             p.print("$T$ value() const noexcept { return rp_value; }\n", {{"T", val_store}});
@@ -276,8 +274,8 @@ void emit_oneof_accessors(const Emit& emit, const OneofPlan& o) {
                 {{"id", id}, {"acc", acc}, {"o", o.oneof->name}, {"g", guard}});
         } else if (member.kind == FieldKind::PointerSubMsg) {
             p.print(
-                "const $T$* $id$() const noexcept { return $acc$() == $g$ ? m_rp_$o$.$id$"
-                " : nullptr; }\n",
+                "::rapidproto::MessageRef<$T$> $id$() const noexcept { return"
+                " ::rapidproto::MessageRef<$T$>($acc$() == $g$ ? m_rp_$o$.$id$ : nullptr); }\n",
                 {{"T", cpp_type_name(emit.names, member.target_fqn)},
                  {"id", id},
                  {"acc", acc},
@@ -285,8 +283,8 @@ void emit_oneof_accessors(const Emit& emit, const OneofPlan& o) {
                  {"g", guard}});
         } else if (member.kind == FieldKind::InlineFixedSubMsg) {
             p.print(
-                "const $T$* $id$() const noexcept { return $acc$() == $g$ ? &m_rp_$o$.$id$"
-                " : nullptr; }\n",
+                "::rapidproto::MessageRef<$T$> $id$() const noexcept { return"
+                " ::rapidproto::MessageRef<$T$>($acc$() == $g$ ? &m_rp_$o$.$id$ : nullptr); }\n",
                 {{"T", cpp_type_name(emit.names, member.target_fqn)},
                  {"id", id},
                  {"acc", acc},
@@ -308,7 +306,9 @@ void emit_oneof_accessors(const Emit& emit, const OneofPlan& o) {
 void emit_field_accessor(const Emit& emit, const MessageLayout& layout, const MemberPlan& m) {
     Printer& p = emit.printer;
     const std::string id = member_id(emit, m);
-    if (m.presence_bit >= 0) {
+    // Message fields signal presence through MessageRef's operator bool, not a has_<f>() -- so the
+    // InlineFixedSubMsg case (the only message kind with a presence bit) emits no has_.
+    if (m.presence_bit >= 0 && m.kind != FieldKind::InlineFixedSubMsg) {
         p.print("bool $h$() const noexcept { return $b$ != 0; }\n",
                 {{"h", emit.synth.has_name.at(m.field)}, {"b", bit_test(layout, m.presence_bit)}});
     }
@@ -333,37 +333,23 @@ void emit_field_accessor(const Emit& emit, const MessageLayout& layout, const Me
         case FieldKind::InlineFixedSubMsg:
             if (m.presence_bit >= 0) {
                 p.print(
-                    "const $T$* $id$() const noexcept { return $b$ != 0 ? &m_$id$ : nullptr; }\n",
+                    "::rapidproto::MessageRef<$T$> $id$() const noexcept { return"
+                    " ::rapidproto::MessageRef<$T$>($b$ != 0 ? &m_$id$ : nullptr); }\n",
                     {{"T", cpp_type_name(emit.names, m.target_fqn)},
                      {"id", id},
                      {"b", bit_test(layout, m.presence_bit)}});
             } else {  // required: always present
-                p.print("const $T$* $id$() const noexcept { return &m_$id$; }\n",
-                        {{"T", cpp_type_name(emit.names, m.target_fqn)}, {"id", id}});
+                p.print(
+                    "::rapidproto::MessageRef<$T$> $id$() const noexcept { return"
+                    " ::rapidproto::MessageRef<$T$>(&m_$id$); }\n",
+                    {{"T", cpp_type_name(emit.names, m.target_fqn)}, {"id", id}});
             }
             break;
         case FieldKind::PointerSubMsg:
-            p.print("const $T$* $id$() const noexcept { return m_$id$; }\n",
-                    {{"T", cpp_type_name(emit.names, m.target_fqn)}, {"id", id}});
-            break;
-        case FieldKind::BoolWrapperBits:
-            if (m.wrapper_unknown_bit >=
-                0) {  // --unknown-present: also restore the wrapper's own flag
-                p.print(
-                    "$T$ $id$() const noexcept { $T$ rp_w{};"
-                    " ::rapidproto::arena_detail::wrap(rp_w, $v$ != 0, $u$ != 0); return rp_w; }\n",
-                    {{"T", cpp_type_name(emit.names, m.target_fqn)},
-                     {"id", id},
-                     {"v", bit_test(layout, m.value_bit)},
-                     {"u", bit_test(layout, m.wrapper_unknown_bit)}});
-            } else {
-                p.print(
-                    "$T$ $id$() const noexcept { $T$ rp_w{};"
-                    " ::rapidproto::arena_detail::wrap(rp_w, $v$ != 0); return rp_w; }\n",
-                    {{"T", cpp_type_name(emit.names, m.target_fqn)},
-                     {"id", id},
-                     {"v", bit_test(layout, m.value_bit)}});
-            }
+            p.print(
+                "::rapidproto::MessageRef<$T$> $id$() const noexcept { return"
+                " ::rapidproto::MessageRef<$T$>(m_$id$); }\n",
+                {{"T", cpp_type_name(emit.names, m.target_fqn)}, {"id", id}});
             break;
         case FieldKind::Repeated:
             if (repeated_elem_type(emit, *m.field) == "::rapidproto::ArenaString") {
@@ -382,36 +368,6 @@ void emit_field_accessor(const Emit& emit, const MessageLayout& layout, const Me
                     {{"T", storage_type(emit, m)}, {"id", id}});
             break;
     }
-}
-
-// A single-bool-wrapper message exposes rp_wrap so a parent that collapsed it to bits can return the
-// wrapper by value (presence bit always set; value bit reflects the bool). Under --unknown-present it
-// also takes the wrapper's "unknown fields present" flag -- which the parent tracked in its own mask
-// during the inline decode -- and restores it into the returned wrapper's own unknown bit.
-void emit_bool_wrapper_factory(const Emit& emit, const MessageLayout& layout,
-                               const std::string& type) {
-    const MemberPlan& only = layout.members.front();  // the single bool field
-    const std::string presence =
-        only.presence_bit >= 0 ? bit_const(layout, only.presence_bit) : "0";
-    if (layout.unknown_bit >= 0) {
-        emit.printer.print(
-            "static $T$ rp_wrap(bool value, bool unknown) noexcept { $T$ w{};"
-            " w.m_rp_mask = static_cast<$MT$>($P$ | (value ? $V$ : 0) | (unknown ? $U$ : 0));"
-            " return w; }\n",
-            {{"T", type},
-             {"MT", mask_word_type(layout.mask_size)},
-             {"P", presence},
-             {"V", bit_const(layout, only.value_bit)},
-             {"U", bit_const(layout, layout.unknown_bit)}});
-        return;
-    }
-    emit.printer.print(
-        "static $T$ rp_wrap(bool value) noexcept { $T$ w{};"
-        " w.m_rp_mask = static_cast<$MT$>($P$ | (value ? $V$ : 0)); return w; }\n",
-        {{"T", type},
-         {"MT", mask_word_type(layout.mask_size)},
-         {"P", presence},
-         {"V", bit_const(layout, only.value_bit)}});
 }
 
 // ── storage ──────────────────────────────────────────────────────────────────────────────────────
@@ -444,8 +400,7 @@ void emit_storage(const Emit& emit, const MessageLayout& layout) {
 // ── message ──────────────────────────────────────────────────────────────────────────────────────
 
 // Types that must be visible before `message`'s subtree is emitted, split by HOW visible they must be:
-//  - `complete`: a sub-message inlined by value (or a bool-wrapper returned by value) -- the exact type
-//    must already be DEFINED.
+//  - `complete`: a sub-message inlined by value -- the exact type must already be DEFINED.
 //  - `enclosing`: a pointer / repeated / map / oneof sub-message, or any referenced enum -- the type
 //    only needs to be NAMEABLE. A direct sibling is named through its forward declaration, but a type
 //    NESTED inside a sibling (`Sibling::Inner`) can only be named once that sibling is COMPLETE. So an
@@ -460,8 +415,7 @@ void collect_must_precede(const Emit& emit, const MessageNode& message,
             return;
         }
         switch (kind) {
-            case FieldKind::InlineFixedSubMsg:
-            case FieldKind::BoolWrapperBits:  // accessor returns the wrapper by value
+            case FieldKind::InlineFixedSubMsg:  // inlined by value -> the type must be complete
                 complete.insert(fqn);
                 break;
             case FieldKind::PointerSubMsg:
@@ -595,6 +549,12 @@ void emit_message_body(const Emit& emit, const MessageNode& message) {
             "bool $h$() const noexcept { return $b$ != 0; }\n",
             {{"h", emit.synth.unknown.at(&message)}, {"b", bit_test(layout, layout.unknown_bit)}});
     }
+    // The shared read-only "all absent" instance MessageRef::or_default() falls back to. Value-init
+    // zeroes the mask / nulls the pointers (true even with a oneof, whose union ctor is a member, not
+    // this class's), so every accessor reports absent. Inline + odr-used only via or_default(), so it
+    // reaches .rodata only in programs that call or_default().
+    p.print("static const $T$& rp_default() noexcept { static const $T$ rp_d{}; return rp_d; }\n",
+            {{"T", type}});
 
     // decode() materializes the whole tree in `arena`; the private rp_decode_into (the wire loop) fills
     // an already-allocated node. Both are defined out-of-line, after every class shell, so all
@@ -617,16 +577,6 @@ void emit_message_body(const Emit& emit, const MessageNode& message) {
         "arena,"
         " int depth, ::rapidproto::ArenaDecodeError* err) noexcept;\n",
         {{"T", type}});
-    if (layout
-            .is_bool_wrapper) {  // the collapsed-bool-wrapper factory, reached via arena_detail::wrap
-        p.print(
-            layout.unknown_bit >= 0  // --unknown-present: the 3-arg wrap also carries the flag
-                ? "template <class RpT> friend void ::rapidproto::arena_detail::wrap(RpT&, bool,"
-                  " bool) noexcept;\n"
-                : "template <class RpT> friend void ::rapidproto::arena_detail::wrap(RpT&, bool)"
-                  " noexcept;\n");
-        emit_bool_wrapper_factory(emit, layout, type);
-    }
     emit_storage(emit, layout);
     p.outdent();
     p.print("};\n");
@@ -667,7 +617,9 @@ void synth_for_message(const CppNameTable& names, const LayoutSet& layouts,
         return name;
     };
     for (const MemberPlan& m : layout.members) {
-        if (m.field != nullptr && m.presence_bit >= 0) {
+        if (m.field != nullptr && m.presence_bit >= 0 &&
+            m.kind !=
+                FieldKind::InlineFixedSubMsg) {  // message presence is MessageRef's operator bool
             out.has_name[m.field] = dedup("has_" + names.local.at(m.field));
         }
         if (m.kind == FieldKind::Map) {
@@ -932,7 +884,7 @@ void emit_defaults(const Emit& emit, const MessageNode& message, const MessageLa
     }
 }
 
-// A singular field's switch case (scalar/enum/string/bool/inline-or-pointer message/bool-wrapper).
+// A singular field's switch case (scalar/enum/string/bool/inline-or-pointer message).
 void emit_singular_arm(const Emit& emit, const MessageLayout& layout, const MemberPlan& m,
                        const std::unordered_map<const FieldNode*, int>& required_bit) {
     Printer& p = emit.printer;
@@ -1010,56 +962,6 @@ void emit_singular_arm(const Emit& emit, const MessageLayout& layout, const Memb
                 {{"S", sub}});
             p.print("out.m_$id$ = rp_sub;\n", {{"id", id}});
         }
-        emit_presence_set(emit, layout, m, required_bit);
-        p.print("continue;\n");
-        p.outdent();
-        p.print("}\n");
-    } else if (m.kind == FieldKind::BoolWrapperBits) {
-        const auto [wire, read] = message_wire(field);
-        p.print("if (rp_tag->wire_type == ::rapidproto::WireType::$w$) {\n", {{"w", wire}});
-        p.indent();
-        p.print("const auto rp_v = reader.$rd$;\n", {{"rd", read}});
-        p.print("if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }\n");
-        p.print("bool rp_w = false;\n");
-        p.print("::rapidproto::WireReader rp_wr{*rp_v};\n");
-        p.print("while (!rp_wr.at_end()) {\n");
-        p.indent();
-        p.print("const auto rp_wt = rp_wr.read_tag();\n");
-        p.print("if (!rp_wt) { ::rapidproto::rp_fail_wire(err, rp_wr); return false; }\n");
-        p.print(
-            "if (rp_wt->field_number == $k$ && rp_wt->wire_type == ::rapidproto::WireType::Varint) "
-            "{\n",
-            {{"k", std::to_string(m.wrapper_field_number)}});
-        p.indent();
-        p.print("const auto rp_wv = rp_wr.read_varint();\n");
-        p.print("if (!rp_wv) { ::rapidproto::rp_fail_wire(err, rp_wr); return false; }\n");
-        p.print("rp_w = ::rapidproto::varint_to_bool(*rp_wv);\n");
-        p.outdent();
-        if (m.wrapper_unknown_bit >= 0) {
-            // --unknown-present: mark the wrapper's unknown bit for an unknown field NUMBER only --
-            // matching the wrapper's standalone decoder, whose `default:` arm keys on field number, so a
-            // known number with a wrong wire type is skipped WITHOUT counting as unknown (else the same
-            // bytes would report differently collapsed vs. in a oneof, where the wrapper is not collapsed).
-            p.print("} else {\n");
-            p.indent();
-            p.print("if (rp_wt->field_number != $k$) { $s$ }\n",
-                    {{"k", std::to_string(m.wrapper_field_number)},
-                     {"s", set_bit_stmt(layout, m.wrapper_unknown_bit)}});
-            p.print(
-                "if (!rp_wr.skip(rp_wt->wire_type, rp_wt->field_number)) {"
-                " ::rapidproto::rp_fail_wire(err, rp_wr); return false; }\n");
-            p.outdent();
-            p.print("}\n");
-        } else {
-            p.print(
-                "} else if (!rp_wr.skip(rp_wt->wire_type, rp_wt->field_number)) {"
-                " ::rapidproto::rp_fail_wire(err, rp_wr); return false; }\n");
-        }
-        p.outdent();
-        p.print("}\n");
-        p.print("if (rp_w) { $set$ } else { $clr$ }\n",
-                {{"set", set_bit_stmt(layout, m.value_bit)},
-                 {"clr", clear_bit_stmt(layout, m.value_bit)}});
         emit_presence_set(emit, layout, m, required_bit);
         p.print("continue;\n");
         p.outdent();

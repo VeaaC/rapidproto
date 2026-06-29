@@ -29,25 +29,23 @@ class Main {
   };
   struct DmEntry {
     std::int32_t key() const noexcept { return rp_key; }
-    const ::dep::Dep* value() const noexcept { return &rp_value; }
+    ::rapidproto::MessageRef<::dep::Dep> value() const noexcept { return ::rapidproto::MessageRef<::dep::Dep>(&rp_value); }
     friend class Main;
    private:
     ::dep::Dep rp_value;
     std::int32_t rp_key;
   };
-  bool has_d() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0; }
-  const ::dep::Dep* d() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? &m_d : nullptr; }
-  bool has_p() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 1)) != 0; }
-  const ::pub::Pub* p() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 1)) != 0 ? &m_p : nullptr; }
-  bool has_f() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 2)) != 0; }
-  const ::fwd::Fwd* f() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 2)) != 0 ? &m_f : nullptr; }
+  ::rapidproto::MessageRef<::dep::Dep> d() const noexcept { return ::rapidproto::MessageRef<::dep::Dep>((m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? &m_d : nullptr); }
+  ::rapidproto::MessageRef<::pub::Pub> p() const noexcept { return ::rapidproto::MessageRef<::pub::Pub>((m_rp_mask & (std::uint8_t{1} << 1)) != 0 ? &m_p : nullptr); }
+  ::rapidproto::MessageRef<::fwd::Fwd> f() const noexcept { return ::rapidproto::MessageRef<::fwd::Fwd>((m_rp_mask & (std::uint8_t{1} << 2)) != 0 ? &m_f : nullptr); }
   bool has_e() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 3)) != 0; }
   ::dep::DepEnum e() const noexcept { return m_e; }
   ::rapidproto::ArrayView<::dep::Dep> ds() const noexcept { return m_ds; }
   ::rapidproto::MapView<DmEntry> dm() const noexcept { return m_dm; }
   ChoiceCase choice_case() const noexcept { return static_cast<ChoiceCase>(m_rp_choice_case); }
-  const ::dep::Dep* od() const noexcept { return choice_case() == ChoiceCase::kOd ? &m_rp_choice.od : nullptr; }
+  ::rapidproto::MessageRef<::dep::Dep> od() const noexcept { return ::rapidproto::MessageRef<::dep::Dep>(choice_case() == ChoiceCase::kOd ? &m_rp_choice.od : nullptr); }
   std::int32_t oi() const noexcept { return choice_case() == ChoiceCase::kOi ? m_rp_choice.oi : std::int32_t{}; }
+  static const Main& rp_default() noexcept { static const Main rp_d{}; return rp_d; }
   [[nodiscard]] static const Main* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;

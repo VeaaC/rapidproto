@@ -18,6 +18,7 @@ class Fwd {
  public:
   bool has_z() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0; }
   std::int32_t z() const noexcept { return m_z; }
+  static const Fwd& rp_default() noexcept { static const Fwd rp_d{}; return rp_d; }
   [[nodiscard]] static const Fwd* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;

@@ -7,7 +7,7 @@ message .al.Big size=24 align=8 fixed=yes
   field c num=3 inline-scalar fixed64 off=16 size=8 align=8 presence=none
 message .al.HasString size=16 align=8 fixed=no
   field s num=1 sso-string ArenaString off=0 size=16 align=8 presence=none
-message .al.BoolWrap size=1 align=1 fixed=yes bool-wrapper
+message .al.BoolWrap size=1 align=1 fixed=yes
   field value num=1 inline-scalar bool off=- size=- align=- presence=none value=bit0
   mask off=0 size=1 align=1 bits=1
     bit 0 value value
@@ -31,18 +31,17 @@ message .al.Layout size=176 align=8 fixed=no
   field small num=4 inline-scalar int32 off=160 size=4 align=4 presence=none
   field opt num=5 inline-scalar int32 off=164 size=4 align=4 presence=bit2
   field color num=8 inline-enum .al.Color off=168 size=4 align=4 presence=none
+  field flag num=12 inline-submsg .al.BoolWrap off=172 size=1 align=1 presence=bit5
   field b1 num=1 inline-scalar bool off=- size=- align=- presence=none value=bit0
   field b2 num=3 inline-scalar bool off=- size=- align=- presence=none value=bit1
-  field flag num=12 bool-wrapper .al.BoolWrap off=- size=- align=- presence=bit5 value=bit6
-  oneof choice disc-off=172 union-off=96 union-size=16 union-align=8
+  oneof choice disc-off=173 union-off=96 union-size=16 union-align=8
     member ci num=17 inline-scalar int32 size=4 align=4
     member cs num=18 sso-string ArenaString size=16 align=8
     member cp num=19 inline-submsg .al.Point size=8 align=4
-  mask off=173 size=1 align=1 bits=7
+  mask off=174 size=1 align=1 bits=6
     bit 0 value b1
     bit 1 value b2
     bit 2 presence opt
     bit 3 presence oname
     bit 4 presence pt
     bit 5 presence flag
-    bit 6 value flag

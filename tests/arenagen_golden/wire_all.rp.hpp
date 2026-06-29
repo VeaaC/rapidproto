@@ -20,6 +20,7 @@ class AllWire {
    public:
     bool has_a() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0; }
     std::int32_t a() const noexcept { return m_a; }
+    static const G& rp_default() noexcept { static const G rp_d{}; return rp_d; }
     [[nodiscard]] static const G* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
    private:
     template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
@@ -47,13 +48,13 @@ class AllWire {
   std::string_view s() const noexcept { return m_s.view(); }
   bool has_by() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 4)) != 0; }
   std::string_view by() const noexcept { return m_by.view(); }
-  const ::wire::AllWire* nested() const noexcept { return m_nested; }
+  ::rapidproto::MessageRef<::wire::AllWire> nested() const noexcept { return ::rapidproto::MessageRef<::wire::AllWire>(m_nested); }
   ::rapidproto::ArrayView<std::int32_t> packed() const noexcept { return m_packed; }
-  bool has_g() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 5)) != 0; }
-  const ::wire::AllWire::G* g() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 5)) != 0 ? &m_g : nullptr; }
+  ::rapidproto::MessageRef<::wire::AllWire::G> g() const noexcept { return ::rapidproto::MessageRef<::wire::AllWire::G>((m_rp_mask & (std::uint8_t{1} << 5)) != 0 ? &m_g : nullptr); }
   PickCase pick_case() const noexcept { return static_cast<PickCase>(m_rp_pick_case); }
   std::int32_t oi() const noexcept { return pick_case() == PickCase::kOi ? m_rp_pick.oi : std::int32_t{}; }
   std::string_view os() const noexcept { return pick_case() == PickCase::kOs ? m_rp_pick.os.view() : std::string_view{}; }
+  static const AllWire& rp_default() noexcept { static const AllWire rp_d{}; return rp_d; }
   [[nodiscard]] static const AllWire* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;

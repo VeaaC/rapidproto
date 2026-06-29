@@ -1,7 +1,7 @@
 // Decode tests for the generated arena decoders. Two kinds of oracle: (1) protoc-encoded wire
 // fixtures (tests/wire_fixtures/*.bin) decoded through the generated decoder, asserting accessor
 // values; (2) hand-built buffers for the behaviors fixtures don't cover -- default materialization,
-// required-field validation, the recursion guard, malformed input, the single-bool-wrapper collapse,
+// required-field validation, the recursion guard, malformed input, single-bool wrapper fields,
 // unknown-field drop, and oneof last-wins.
 
 #include <catch_amalgamated.hpp>
@@ -15,7 +15,7 @@
 #include <utility>
 
 #include "arenagen_golden/arena_manyreq.rp.hpp"
-#include "arenagen_golden/arena_unknown.rp.hpp"  // --unknown-present + collapsed bool-wrapper
+#include "arenagen_golden/arena_unknown.rp.hpp"  // --unknown-present + a bool-wrapper field
 #include "arenagen_golden/main.rp.hpp"  // cross-file imports (pulls dep/forward/pub): runtime decode
 #include "arenagen_golden/proto2.rp.hpp"
 #include "arenagen_golden/proto3.rp.hpp"
@@ -98,7 +98,7 @@ TEST_CASE("arena-decode: submessage, repeated, map, oneof fixture", "[arena-deco
     REQUIRE(m != nullptr);
     CHECK(m->implicit_i() == 10);
     CHECK(m->state() == p3::State::ON);
-    REQUIRE(m->self() != nullptr);  // sub-message via arena pointer
+    REQUIRE(m->self());  // sub-message via arena pointer
     CHECK(m->self()->implicit_i() == 99);
     REQUIRE(m->nums().size() == 3);  // packed repeated
     CHECK(m->nums()[0] == 1);
@@ -122,7 +122,7 @@ TEST_CASE("arena-decode: message-value and enum-value maps fixture", "[arena-dec
     REQUIRE(c->by_name().size() == 2);
     const auto* alpha = c->by_name().find(std::string_view("alpha"));
     REQUIRE(alpha != nullptr);
-    REQUIRE(alpha->value() != nullptr);  // map value is a sub-message
+    REQUIRE(alpha->value());  // map value is a sub-message
     CHECK(alpha->value()->x() == 11);
     CHECK(c->by_name().find(std::string_view("beta"))->value()->x() == 22);
     REQUIRE(c->by_id().size() == 2);
@@ -138,10 +138,10 @@ TEST_CASE("arena-decode: group (delimited) fixture", "[arena-decode]") {
     CHECK(m->zz() == -1234567890123LL);
     CHECK(m->fx() == 305419896U);
     CHECK(m->s() == "wire");
-    REQUIRE(m->nested() != nullptr);
+    REQUIRE(m->nested());
     CHECK(m->nested()->zz() == 7);
     REQUIRE(m->packed().size() == 3);
-    REQUIRE(m->g() != nullptr);  // a group sub-message
+    REQUIRE(m->g());  // a group sub-message
     CHECK(m->g()->a() == 99);
     CHECK(m->oi() == 5);
 }
@@ -273,7 +273,7 @@ TEST_CASE("arena-decode: imported (cross-file) sub-messages decode through the f
     const main::Main* m = main::Main::decode(ByteView(buf), arena, &err);
     REQUIRE(m != nullptr);
     CHECK(err.code == ArenaDecodeError::Code::None);
-    REQUIRE(m->d() != nullptr);
+    REQUIRE(m->d());
     CHECK(m->d()->v() == 42);  // singular cross-file
     REQUIRE(m->ds().size() == 2);
     CHECK(m->ds()[0].v() == 7);  // repeated cross-file
@@ -284,9 +284,9 @@ TEST_CASE("arena-decode: imported (cross-file) sub-messages decode through the f
     CHECK(m->od()->v() == 5);  // oneof cross-file
 }
 
-// A nested group whose message type is a single-bool wrapper collapses to presence+value bits in the
-// parent, but its accessor still returns the wrapper type.
-TEST_CASE("arena-decode: single-bool-wrapper group collapses to bits", "[arena-decode]") {
+// A nested group whose message type is a single-bool wrapper: decoded as a group, the wrapper inlined,
+// reached through MessageRef (presence via operator bool, the bool via ->).
+TEST_CASE("arena-decode: single-bool-wrapper group field", "[arena-decode]") {
     std::string inner;  // Inner { flag (field 4, varint) = true }
     put_tag(inner, 4, 0);
     put_varint(inner, 1);
@@ -304,10 +304,10 @@ TEST_CASE("arena-decode: single-bool-wrapper group collapses to bits", "[arena-d
     Arena arena;
     const p2::WithGroup* w = p2::WithGroup::decode(ByteView(buf), arena);
     REQUIRE(w != nullptr);
-    REQUIRE(w->has_mygroup());
+    REQUIRE(w->mygroup());
     CHECK(w->mygroup()->a() == 7);
-    CHECK(w->mygroup()->has_inner());     // the wrapper was present
-    CHECK(w->mygroup()->inner().flag());  // ...and its bool decoded to true
+    CHECK(w->mygroup()->inner());          // the wrapper was present
+    CHECK(w->mygroup()->inner()->flag());  // ...and its bool decoded to true
 }
 
 // >64 required fields exercise the multi-word transient required-presence mask: all present parses,
@@ -368,11 +368,11 @@ TEST_CASE("arena-decode: oneof keeps the last member set", "[arena-decode]") {
     CHECK(m->a() == 2);
 }
 
-// A single-bool wrapper collapses to bits in its parent (no struct), so under --unknown-present its own
-// has_unknown_fields() would be lost unless the parent carries it in an extra mask bit. Build a wrapper
-// sub-message that contains an unknown field and confirm the reconstructed wrapper reports it.
+// A single-bool wrapper field is a normal inlined sub-message (MessageRef), so under --unknown-present
+// it carries its own has_unknown_fields() in its own inlined mask -- like any other message field. Build
+// a wrapper sub-message that contains an unknown field and confirm the wrapper reports it.
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): three decode cases, flat assertions
-TEST_CASE("arena-decode: collapsed bool-wrapper keeps has_unknown_fields (--unknown-present)",
+TEST_CASE("arena-decode: a bool-wrapper field reports has_unknown_fields (--unknown-present)",
           "[arena-decode]") {
     const auto build_holder = [](bool wrapper_has_unknown) {
         std::string flag;
@@ -390,23 +390,23 @@ TEST_CASE("arena-decode: collapsed bool-wrapper keeps has_unknown_fields (--unkn
     };
     Arena arena;
 
-    // (1) the wrapper carried an unknown field: the reconstructed wrapper reports it; Holder itself,
+    // (1) the wrapper carried an unknown field: the wrapper reports it; Holder itself,
     // whose own fields were all known, does not.
     const std::string with = build_holder(/*wrapper_has_unknown=*/true);
     const au::Holder* m = au::Holder::decode(ByteView(with), arena);
     REQUIRE(m != nullptr);
-    CHECK(m->has_flag());
-    CHECK(m->flag().value());
-    CHECK(m->flag().has_unknown_fields());  // survived the bit-collapse
-    CHECK_FALSE(m->has_unknown_fields());   // the unknown was inside the wrapper, not Holder
+    CHECK(m->flag());
+    CHECK(m->flag()->value());
+    CHECK(m->flag()->has_unknown_fields());  // carried by the inlined wrapper's own mask
+    CHECK_FALSE(m->has_unknown_fields());    // the unknown was inside the wrapper, not Holder
     CHECK(m->n() == 7);
 
     // (2) a clean wrapper reports no unknown fields.
     const std::string without = build_holder(/*wrapper_has_unknown=*/false);
     const au::Holder* c = au::Holder::decode(ByteView(without), arena);
     REQUIRE(c != nullptr);
-    CHECK(c->flag().value());
-    CHECK_FALSE(c->flag().has_unknown_fields());
+    CHECK(c->flag()->value());
+    CHECK_FALSE(c->flag()->has_unknown_fields());
 
     // (3) an unknown field at the Holder level sets Holder's own flag (not the wrapper's).
     std::string top;
@@ -415,18 +415,44 @@ TEST_CASE("arena-decode: collapsed bool-wrapper keeps has_unknown_fields (--unkn
     const au::Holder* h = au::Holder::decode(ByteView(top), arena);
     REQUIRE(h != nullptr);
     CHECK(h->has_unknown_fields());
-    CHECK_FALSE(h->has_flag());
+    CHECK_FALSE(h->flag());
 
     // (4) the wrapper's OWN field number with a WRONG wire type is a known number, not an unknown field
-    // -- it is skipped, exactly as the wrapper's standalone decoder would, so has_unknown_fields() stays
-    // false. (Guards the collapsed/oneof parity the bit exists to preserve.)
+    // -- it is skipped (its `case` arm, not the `default:`), so has_unknown_fields() stays false.
     std::string wrong;
     put_len(wrong, 1, std::string("\x01", 1));  // field 1 as length-delimited (bool expects varint)
     std::string buf;
     put_len(buf, 1, wrong);  // Holder.flag = <wrapper with field 1 mistyped>
     const au::Holder* w = au::Holder::decode(ByteView(buf), arena);
     REQUIRE(w != nullptr);
-    CHECK(w->has_flag());
-    CHECK_FALSE(w->flag().value());
-    CHECK_FALSE(w->flag().has_unknown_fields());
+    CHECK(w->flag());
+    CHECK_FALSE(w->flag()->value());
+    CHECK_FALSE(w->flag()->has_unknown_fields());
+}
+
+// The MessageRef a singular message-field accessor returns: presence via operator bool, deref via
+// */->, and the always-valid or_default() (which materializes the type's shared default instance).
+TEST_CASE("arena-decode: MessageRef presence, deref, and or_default", "[arena-decode]") {
+    Arena arena;
+
+    // self (field 5) absent: the handle is falsy, get() is null, and or_default() yields an all-absent
+    // default whose own accessors read as defaults -- no null dereference.
+    const p3::Msg* empty = p3::Msg::decode(ByteView(std::string()), arena);
+    REQUIRE(empty != nullptr);
+    CHECK_FALSE(empty->self());
+    CHECK(empty->self().get() == nullptr);
+    CHECK(empty->self().or_default().implicit_i() == 0);
+
+    // self present (self.implicit_i = 42): truthy; *, ->, and or_default() all reach the decoded value.
+    std::string inner;
+    put_tag(inner, 1, 0);  // self.implicit_i = 42
+    put_varint(inner, 42);
+    std::string buf;
+    put_len(buf, 5, inner);  // Msg.self = inner
+    const p3::Msg* n = p3::Msg::decode(ByteView(buf), arena);
+    REQUIRE(n != nullptr);
+    REQUIRE(n->self());
+    CHECK(n->self()->implicit_i() == 42);
+    CHECK((*n->self()).implicit_i() == 42);
+    CHECK(n->self().or_default().implicit_i() == 42);
 }

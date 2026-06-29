@@ -416,6 +416,32 @@ private:
     ArrayView<Entry> m_entries;
 };
 
+// ── MessageRef ───────────────────────────────────────────────────────────────────────────────────
+// The handle a singular message-field accessor returns: an optional reference to a decoded sub-message.
+// It is just the stored `const T*` (null == the field was absent), so it is trivially copyable and as
+// cheap as a pointer. Three ways to use it:
+//   if (m.sub()) ...                 -- presence test (explicit operator bool)
+//   m.sub()->field()  /  *m.sub()    -- dereference; PRECONDITION: present, else UB, exactly like a ptr
+//   m.sub().or_default().field()     -- always valid: yields a shared read-only all-absent default when
+//                                       the field is absent (the default's own accessors recurse the
+//                                       same way), so no presence check is needed.
+// `or_default()` is the only thing that references T::rp_default(), so a type's default instance is
+// emitted (in .rodata, lazily) ONLY in programs that actually call it -- absent otherwise.
+template <class T>
+class MessageRef {
+public:
+    MessageRef() = default;
+    explicit MessageRef(const T* ptr) noexcept : m_ptr(ptr) {}
+    explicit operator bool() const noexcept { return m_ptr != nullptr; }
+    const T& operator*() const noexcept { return *m_ptr; }
+    const T* operator->() const noexcept { return m_ptr; }
+    const T* get() const noexcept { return m_ptr; }
+    const T& or_default() const noexcept { return m_ptr != nullptr ? *m_ptr : T::rp_default(); }
+
+private:
+    const T* m_ptr = nullptr;
+};
+
 // ── Decode failure ────────────────────────────────────────────────────────────────────────────────
 struct ArenaDecodeError {
     enum class Code : std::uint8_t {
@@ -478,25 +504,15 @@ inline void rp_fail_repeated_singular(ArenaDecodeError* err, std::uint32_t field
 }
 
 // ── decoder reach-through (keeps the decoder off the generated public surface) ───────────────────────
-// Generated decoders live in a private `rp_decode_into` static (and bool-wrappers in a private `rp_wrap`
-// factory); these one-line forwarders are the only callers, and every message befriends the matching
-// template. Defined ONCE here, not per generated file, so two same-package headers in one TU don't
-// redefine it, and every cross-file/cross-message call is the same
+// Generated decoders live in a private `rp_decode_into` static; this one-line forwarder is the only
+// caller, and every message befriends the template. Defined ONCE here, not per generated file, so two
+// same-package headers in one TU don't redefine it, and every cross-file/cross-message call is the same
 // `::rapidproto::arena_detail::decode_into(sub, ...)` regardless of the target's namespace (deduced).
 namespace arena_detail {
 template <class T>
 [[nodiscard]] bool decode_into(T& out, ByteView body, Arena& arena, int depth,
                                ArenaDecodeError* err) noexcept {
     return T::rp_decode_into(out, body, arena, depth, err);
-}
-template <class T>
-void wrap(T& out, bool value) noexcept {  // void out-param, not a T return: on the friend decl a T
-    out = T::rp_wrap(value);              // return would mis-parse (`RpT ::ns` reads as `RpT::ns`).
-}
-template <class T>
-void wrap(T& out, bool value,
-          bool unknown) noexcept {     // --unknown-present: also carry the wrapper's
-    out = T::rp_wrap(value, unknown);  // own "unknown fields present" flag
 }
 }  // namespace arena_detail
 

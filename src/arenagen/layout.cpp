@@ -71,17 +71,6 @@ bool is_string_field(const FieldNode& field) {
            (field.type_name == "string" || field.type_name == "bytes");
 }
 
-// A message that is exactly one singular `bool` field -> its presence + value collapse into the
-// parent's mask bits (BoolWrapperBits), no struct stored.
-bool is_bool_wrapper(const MessageNode& message) {
-    if (message.fields.size() != 1 || !message.oneofs.empty() || !message.map_fields.empty()) {
-        return false;
-    }
-    const FieldNode& only = message.fields.front();
-    return !only.is_repeated && !only.is_message_type && !only.is_enum_type &&
-           only.type_name == "bool";
-}
-
 // The element storage label for a repeated field (the array holds these by value).
 std::string elem_repr(const FieldNode& field) {
     if (field.is_message_type || field.is_enum_type) {
@@ -175,18 +164,14 @@ private:
     std::map<std::string, MessageLayout> m_memo;
     std::set<std::string> m_visiting;
 
-    // The storage decision for a message-typed field. `allow_wrapper` collapses a single-bool wrapper
-    // to bits (only valid where the parent has a mask -- not inside a union or a map entry).
+    // The storage decision for a message-typed field: inlined by value when fixed-size and small,
+    // else behind an arena pointer.
     struct Store {
         FieldKind kind;
         std::size_t size;
         std::size_t align;
     };
-    Store classify_message(const std::string& target_fqn, bool allow_wrapper) {
-        if (const auto it = m_index.messages.find(target_fqn);
-            allow_wrapper && it != m_index.messages.end() && is_bool_wrapper(*it->second)) {
-            return {FieldKind::BoolWrapperBits, 0, 0};
-        }
+    Store classify_message(const std::string& target_fqn) {
         // A target still being computed is a cycle back-edge -> pointer (and never fixed-size).
         if (m_visiting.find(target_fqn) == m_visiting.end() &&
             m_index.messages.find(target_fqn) != m_index.messages.end()) {
@@ -198,11 +183,10 @@ private:
         return {FieldKind::PointerSubMsg, kPtrSize, kPtrAlign};
     }
 
-    // Classify a oneof member as byte storage (no bit-packing or wrapper collapse inside a union),
-    // filling `member` in place.
+    // Classify a oneof member as byte storage (no bit-packing inside a union), filling `member` in place.
     void classify_byte_member(const FieldNode& field, OneofMemberPlan& member) {
         if (field.is_message_type) {
-            const Store store = classify_message(field.resolved_type_fqn, /*allow_wrapper=*/false);
+            const Store store = classify_message(field.resolved_type_fqn);
             member.kind = store.kind;
             member.size = store.size;
             member.align = store.align;
@@ -243,16 +227,12 @@ private:
             return plan;
         }
         if (field.is_message_type) {
-            const Store store = classify_message(field.resolved_type_fqn, /*allow_wrapper=*/true);
+            const Store store = classify_message(field.resolved_type_fqn);
             plan.kind = store.kind;
             plan.size = store.size;
             plan.align = store.align;
             plan.repr = field.resolved_type_fqn;
             plan.target_fqn = field.resolved_type_fqn;
-            if (store.kind == FieldKind::BoolWrapperBits) {
-                plan.wrapper_field_number =
-                    m_index.messages.at(field.resolved_type_fqn)->fields.front().number;
-            }
         } else if (field.is_enum_type) {
             plan.kind = FieldKind::InlineEnum;
             plan.size = kEnumSize;
@@ -301,8 +281,7 @@ private:
         std::size_t val_size = 0;
         std::size_t val_align = 0;
         if (map.value_is_message) {
-            const Store store =
-                classify_message(map.resolved_value_type_fqn, /*allow_wrapper=*/false);
+            const Store store = classify_message(map.resolved_value_type_fqn);
             entry.value_kind = store.kind;
             entry.value_repr = map.resolved_value_type_fqn;
             entry.value_fqn = map.resolved_value_type_fqn;
@@ -363,7 +342,6 @@ private:
             case FieldKind::InlineEnum:
             case FieldKind::SsoString:
             case FieldKind::InlineFixedSubMsg:
-            case FieldKind::BoolWrapperBits:
                 return true;
             case FieldKind::PointerSubMsg:  // null encodes absence
             case FieldKind::Repeated:       // empty view encodes absence
@@ -373,7 +351,7 @@ private:
         return false;
     }
     static bool needs_value(const MemberPlan& m) {
-        return m.is_bool || m.kind == FieldKind::BoolWrapperBits;
+        return m.is_bool;  // an InlineScalar bool occupies a value bit, not a byte
     }
 
     const MessageLayout& compute(const MessageNode& message) {
@@ -381,7 +359,6 @@ private:
         MessageLayout layout;
         layout.message = &message;
         layout.fqn = message.fqn;
-        layout.is_bool_wrapper = is_bool_wrapper(message);
 
         for (const FieldNode& field : message.fields) {
             layout.members.push_back(classify_field(field));
@@ -418,12 +395,6 @@ private:
             }
             if (needs_value(m)) {
                 m.value_bit = next++;
-            }
-            // A collapsed bool-wrapper keeps no struct, so under --unknown-present its own
-            // "unknown fields present" flag has nowhere to live -- give it a bit in this parent's mask
-            // (set during the wrapper's inline decode, fed back into the returned wrapper's mask).
-            if (m_opts.unknown_present && m.kind == FieldKind::BoolWrapperBits) {
-                m.wrapper_unknown_bit = next++;
             }
         }
         if (m_opts.unknown_present) {
@@ -494,7 +465,6 @@ private:
                 case FieldKind::InlineScalar:
                 case FieldKind::InlineEnum:
                 case FieldKind::InlineFixedSubMsg:
-                case FieldKind::BoolWrapperBits:
                     break;  // all fixed
                 case FieldKind::SsoString:
                 case FieldKind::PointerSubMsg:
@@ -524,8 +494,6 @@ const char* kind_name(FieldKind kind) {
             return "inline-enum";
         case FieldKind::SsoString:
             return "sso-string";
-        case FieldKind::BoolWrapperBits:
-            return "bool-wrapper";
         case FieldKind::InlineFixedSubMsg:
             return "inline-submsg";
         case FieldKind::PointerSubMsg:

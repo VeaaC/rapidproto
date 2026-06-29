@@ -4,7 +4,7 @@
 // diff-friendly text. Mirrors ast_dump.hpp in spirit -- two-space indentation, one node per line,
 // attributes in a fixed order -- and exists only to pin every layout decision (field kind, memory
 // order + offsets, the bit-packed presence/value mask, fixed-size verdict, inline-vs-pointer
-// sub-message choice, bool-wrapper collapse, oneof union) in a golden, before any C++ is emitted.
+// sub-message choice, oneof union) in a golden, before any C++ is emitted.
 
 #include <algorithm>
 #include <string>
@@ -92,7 +92,7 @@ private:
         if (m.size > 0) {
             head += " off=" + num(m.offset) + " size=" + num(m.size) + " align=" + num(m.align);
         } else {
-            head += " off=- size=- align=-";  // bit-only (bool / bool-wrapper)
+            head += " off=- size=- align=-";  // bit-only (an inline bool)
         }
         head += presence_str(m);
         if (m.value_bit >= 0) {
@@ -147,9 +147,6 @@ private:
         std::string head = "message " + layout.fqn + " size=" + num(layout.size) +
                            " align=" + num(layout.align) +
                            " fixed=" + (layout.fixed_size ? "yes" : "no");
-        if (layout.is_bool_wrapper) {
-            head += " bool-wrapper";
-        }
         line(head);
         const Indent indent(*this);
         for (const arenagen::MemberPlan& m : layout.members) {

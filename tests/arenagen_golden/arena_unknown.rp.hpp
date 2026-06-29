@@ -18,27 +18,27 @@ class Flag {
  public:
   bool value() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0; }
   bool has_unknown_fields() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 1)) != 0; }
+  static const Flag& rp_default() noexcept { static const Flag rp_d{}; return rp_d; }
   [[nodiscard]] static const Flag* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
   static bool rp_decode_into(Flag& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
-  template <class RpT> friend void ::rapidproto::arena_detail::wrap(RpT&, bool, bool) noexcept;
-  static Flag rp_wrap(bool value, bool unknown) noexcept { Flag w{}; w.m_rp_mask = static_cast<std::uint8_t>(0 | (value ? (std::uint8_t{1} << 0) : 0) | (unknown ? (std::uint8_t{1} << 1) : 0)); return w; }
   std::uint8_t m_rp_mask;
 };
 static_assert(::std::is_trivially_destructible_v<Flag>);
 
 class Holder {
  public:
-  bool has_flag() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0; }
-  ::au::Flag flag() const noexcept { ::au::Flag rp_w{}; ::rapidproto::arena_detail::wrap(rp_w, (m_rp_mask & (std::uint8_t{1} << 1)) != 0, (m_rp_mask & (std::uint8_t{1} << 2)) != 0); return rp_w; }
+  ::rapidproto::MessageRef<::au::Flag> flag() const noexcept { return ::rapidproto::MessageRef<::au::Flag>((m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? &m_flag : nullptr); }
   std::int32_t n() const noexcept { return m_n; }
-  bool has_unknown_fields() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 3)) != 0; }
+  bool has_unknown_fields() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 1)) != 0; }
+  static const Holder& rp_default() noexcept { static const Holder rp_d{}; return rp_d; }
   [[nodiscard]] static const Holder* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
   static bool rp_decode_into(Holder& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
   std::int32_t m_n;
+  ::au::Flag m_flag;
   std::uint8_t m_rp_mask;
 };
 static_assert(::std::is_trivially_destructible_v<Holder>);
@@ -83,23 +83,10 @@ inline bool Holder::rp_decode_into([[maybe_unused]] Holder& out, ::rapidproto::B
     switch (rp_tag->field_number) {
       case 1: {
         if (rp_tag->wire_type == ::rapidproto::WireType::Len) {
+          if ((out.m_rp_mask & (std::uint8_t{1} << 0)) != 0) { ::rapidproto::rp_fail_repeated_singular(err, 1); return false; }
           const auto rp_v = reader.read_length_delimited();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
-          bool rp_w = false;
-          ::rapidproto::WireReader rp_wr{*rp_v};
-          while (!rp_wr.at_end()) {
-            const auto rp_wt = rp_wr.read_tag();
-            if (!rp_wt) { ::rapidproto::rp_fail_wire(err, rp_wr); return false; }
-            if (rp_wt->field_number == 1 && rp_wt->wire_type == ::rapidproto::WireType::Varint) {
-              const auto rp_wv = rp_wr.read_varint();
-              if (!rp_wv) { ::rapidproto::rp_fail_wire(err, rp_wr); return false; }
-              rp_w = ::rapidproto::varint_to_bool(*rp_wv);
-            } else {
-              if (rp_wt->field_number != 1) { out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 2)); }
-              if (!rp_wr.skip(rp_wt->wire_type, rp_wt->field_number)) { ::rapidproto::rp_fail_wire(err, rp_wr); return false; }
-            }
-          }
-          if (rp_w) { out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 1)); } else { out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask & static_cast<std::uint8_t>(~(std::uint8_t{1} << 1))); }
+          if (!::rapidproto::arena_detail::decode_into(out.m_flag, *rp_v, arena, depth + 1, err)) { return false; }
           out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 0));
           continue;
         }
@@ -114,7 +101,7 @@ inline bool Holder::rp_decode_into([[maybe_unused]] Holder& out, ::rapidproto::B
         }
         break;
       }
-      default: { out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 3)); break; }
+      default: { out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 1)); break; }
     }
     if (!reader.skip(rp_tag->wire_type, rp_tag->field_number)) { ::rapidproto::rp_fail_wire(err, reader); return false; }
   }

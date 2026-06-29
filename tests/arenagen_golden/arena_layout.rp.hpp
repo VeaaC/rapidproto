@@ -22,6 +22,7 @@ class Point {
  public:
   std::int32_t x() const noexcept { return m_x; }
   std::int32_t y() const noexcept { return m_y; }
+  static const Point& rp_default() noexcept { static const Point rp_d{}; return rp_d; }
   [[nodiscard]] static const Point* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
@@ -36,6 +37,7 @@ class Big {
   std::uint64_t a() const noexcept { return m_a; }
   std::uint64_t b() const noexcept { return m_b; }
   std::uint64_t c() const noexcept { return m_c; }
+  static const Big& rp_default() noexcept { static const Big rp_d{}; return rp_d; }
   [[nodiscard]] static const Big* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
@@ -49,6 +51,7 @@ static_assert(::std::is_trivially_destructible_v<Big>);
 class HasString {
  public:
   std::string_view s() const noexcept { return m_s.view(); }
+  static const HasString& rp_default() noexcept { static const HasString rp_d{}; return rp_d; }
   [[nodiscard]] static const HasString* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
@@ -60,20 +63,20 @@ static_assert(::std::is_trivially_destructible_v<HasString>);
 class BoolWrap {
  public:
   bool value() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0; }
+  static const BoolWrap& rp_default() noexcept { static const BoolWrap rp_d{}; return rp_d; }
   [[nodiscard]] static const BoolWrap* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
   static bool rp_decode_into(BoolWrap& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
-  template <class RpT> friend void ::rapidproto::arena_detail::wrap(RpT&, bool) noexcept;
-  static BoolWrap rp_wrap(bool value) noexcept { BoolWrap w{}; w.m_rp_mask = static_cast<std::uint8_t>(0 | (value ? (std::uint8_t{1} << 0) : 0)); return w; }
   std::uint8_t m_rp_mask;
 };
 static_assert(::std::is_trivially_destructible_v<BoolWrap>);
 
 class SelfRef {
  public:
-  const ::al::SelfRef* next() const noexcept { return m_next; }
+  ::rapidproto::MessageRef<::al::SelfRef> next() const noexcept { return ::rapidproto::MessageRef<::al::SelfRef>(m_next); }
   std::int32_t v() const noexcept { return m_v; }
+  static const SelfRef& rp_default() noexcept { static const SelfRef rp_d{}; return rp_d; }
   [[nodiscard]] static const SelfRef* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
@@ -107,7 +110,7 @@ class Layout {
   };
   struct GridEntry {
     std::int32_t key() const noexcept { return rp_key; }
-    const ::al::Point* value() const noexcept { return &rp_value; }
+    ::rapidproto::MessageRef<::al::Point> value() const noexcept { return ::rapidproto::MessageRef<::al::Point>(&rp_value); }
     friend class Layout;
    private:
     ::al::Point rp_value;
@@ -123,12 +126,10 @@ class Layout {
   bool has_oname() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 3)) != 0; }
   std::string_view oname() const noexcept { return m_oname.view(); }
   ::al::Color color() const noexcept { return m_color; }
-  bool has_pt() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 4)) != 0; }
-  const ::al::Point* pt() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 4)) != 0 ? &m_pt : nullptr; }
-  const ::al::Big* bg() const noexcept { return m_bg; }
-  const ::al::HasString* hs() const noexcept { return m_hs; }
-  bool has_flag() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 5)) != 0; }
-  ::al::BoolWrap flag() const noexcept { ::al::BoolWrap rp_w{}; ::rapidproto::arena_detail::wrap(rp_w, (m_rp_mask & (std::uint8_t{1} << 6)) != 0); return rp_w; }
+  ::rapidproto::MessageRef<::al::Point> pt() const noexcept { return ::rapidproto::MessageRef<::al::Point>((m_rp_mask & (std::uint8_t{1} << 4)) != 0 ? &m_pt : nullptr); }
+  ::rapidproto::MessageRef<::al::Big> bg() const noexcept { return ::rapidproto::MessageRef<::al::Big>(m_bg); }
+  ::rapidproto::MessageRef<::al::HasString> hs() const noexcept { return ::rapidproto::MessageRef<::al::HasString>(m_hs); }
+  ::rapidproto::MessageRef<::al::BoolWrap> flag() const noexcept { return ::rapidproto::MessageRef<::al::BoolWrap>((m_rp_mask & (std::uint8_t{1} << 5)) != 0 ? &m_flag : nullptr); }
   ::rapidproto::ArrayView<std::int32_t> nums() const noexcept { return m_nums; }
   ::rapidproto::ArrayView<::al::Point> points() const noexcept { return m_points; }
   ::rapidproto::StringArrayView labels() const noexcept { return ::rapidproto::StringArrayView(m_labels); }
@@ -137,7 +138,8 @@ class Layout {
   ChoiceCase choice_case() const noexcept { return static_cast<ChoiceCase>(m_rp_choice_case); }
   std::int32_t ci() const noexcept { return choice_case() == ChoiceCase::kCi ? m_rp_choice.ci : std::int32_t{}; }
   std::string_view cs() const noexcept { return choice_case() == ChoiceCase::kCs ? m_rp_choice.cs.view() : std::string_view{}; }
-  const ::al::Point* cp() const noexcept { return choice_case() == ChoiceCase::kCp ? &m_rp_choice.cp : nullptr; }
+  ::rapidproto::MessageRef<::al::Point> cp() const noexcept { return ::rapidproto::MessageRef<::al::Point>(choice_case() == ChoiceCase::kCp ? &m_rp_choice.cp : nullptr); }
+  static const Layout& rp_default() noexcept { static const Layout rp_d{}; return rp_d; }
   [[nodiscard]] static const Layout* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
@@ -157,6 +159,7 @@ class Layout {
   std::int32_t m_small;
   std::int32_t m_opt;
   ::al::Color m_color;
+  ::al::BoolWrap m_flag;
   std::uint8_t m_rp_choice_case;
   std::uint8_t m_rp_mask;
 };
@@ -546,20 +549,10 @@ inline bool Layout::rp_decode_into([[maybe_unused]] Layout& out, ::rapidproto::B
       }
       case 12: {
         if (rp_tag->wire_type == ::rapidproto::WireType::Len) {
+          if ((out.m_rp_mask & (std::uint8_t{1} << 5)) != 0) { ::rapidproto::rp_fail_repeated_singular(err, 12); return false; }
           const auto rp_v = reader.read_length_delimited();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
-          bool rp_w = false;
-          ::rapidproto::WireReader rp_wr{*rp_v};
-          while (!rp_wr.at_end()) {
-            const auto rp_wt = rp_wr.read_tag();
-            if (!rp_wt) { ::rapidproto::rp_fail_wire(err, rp_wr); return false; }
-            if (rp_wt->field_number == 1 && rp_wt->wire_type == ::rapidproto::WireType::Varint) {
-              const auto rp_wv = rp_wr.read_varint();
-              if (!rp_wv) { ::rapidproto::rp_fail_wire(err, rp_wr); return false; }
-              rp_w = ::rapidproto::varint_to_bool(*rp_wv);
-            } else if (!rp_wr.skip(rp_wt->wire_type, rp_wt->field_number)) { ::rapidproto::rp_fail_wire(err, rp_wr); return false; }
-          }
-          if (rp_w) { out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 6)); } else { out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask & static_cast<std::uint8_t>(~(std::uint8_t{1} << 6))); }
+          if (!::rapidproto::arena_detail::decode_into(out.m_flag, *rp_v, arena, depth + 1, err)) { return false; }
           out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 5));
           continue;
         }

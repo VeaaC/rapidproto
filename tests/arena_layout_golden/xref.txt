@@ -56,7 +56,7 @@ message .xr.ReservedNames size=28 align=4 fixed=yes
   field read num=7 inline-scalar int32 off=24 size=4 align=4 presence=none
 message .xr.IntWrap size=4 align=4 fixed=yes
   field value num=1 inline-scalar int32 off=0 size=4 align=4 presence=none
-message .xr.BoolWrap size=1 align=1 fixed=yes bool-wrapper
+message .xr.BoolWrap size=1 align=1 fixed=yes
   field value num=1 inline-scalar bool off=- size=- align=- presence=none value=bit0
   mask off=0 size=1 align=1 bits=1
     bit 0 value value

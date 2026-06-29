@@ -38,7 +38,7 @@ class Msg {
   std::int32_t explicit_i() const noexcept { return m_explicit_i; }
   std::string_view name() const noexcept { return m_name.view(); }
   ::p3::State state() const noexcept { return m_state; }
-  const ::p3::Msg* self() const noexcept { return m_self; }
+  ::rapidproto::MessageRef<::p3::Msg> self() const noexcept { return ::rapidproto::MessageRef<::p3::Msg>(m_self); }
   ::rapidproto::ArrayView<std::int32_t> nums() const noexcept { return m_nums; }
   ::rapidproto::ArrayView<std::int32_t> unpacked() const noexcept { return m_unpacked; }
   ::rapidproto::ArrayView<::p3::State> states() const noexcept { return m_states; }
@@ -46,6 +46,7 @@ class Msg {
   PickCase pick_case() const noexcept { return static_cast<PickCase>(m_rp_pick_case); }
   std::int32_t a() const noexcept { return pick_case() == PickCase::kA ? m_rp_pick.a : std::int32_t{}; }
   std::string_view b() const noexcept { return pick_case() == PickCase::kB ? m_rp_pick.b.view() : std::string_view{}; }
+  static const Msg& rp_default() noexcept { static const Msg rp_d{}; return rp_d; }
   [[nodiscard]] static const Msg* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;

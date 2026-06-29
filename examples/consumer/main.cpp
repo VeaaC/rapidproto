@@ -49,10 +49,9 @@ int main() {
     }
 
     // Both models decoded the same bytes to the same values and agree on the shared enum.
-    const bool ok = shape->name() == "hi" && shape->origin() != nullptr &&
-                    shape->origin()->x() == 3 && shape->origin()->y() == 4 &&
-                    shape->kind() == demo::Kind::CIRCLE && stream_name == shape->name() &&
-                    stream_kind == shape->kind();
+    const bool ok = shape->name() == "hi" && shape->origin() && shape->origin()->x() == 3 &&
+                    shape->origin()->y() == 4 && shape->kind() == demo::Kind::CIRCLE &&
+                    stream_name == shape->name() && stream_kind == shape->kind();
     if (!ok) {
         std::fprintf(stderr, "consumer: arena/streaming values disagree\n");
         return 1;
