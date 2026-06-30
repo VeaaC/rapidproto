@@ -3,6 +3,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string_view>
 #include <type_traits>
 
@@ -16,8 +17,7 @@ class Fwd;
 
 class Fwd {
  public:
-  bool has_z() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0; }
-  std::int32_t z() const noexcept { return m_z; }
+  std::optional<std::int32_t> z() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? std::optional<std::int32_t>(m_z) : std::nullopt; }
   [[nodiscard]] static const Fwd* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;

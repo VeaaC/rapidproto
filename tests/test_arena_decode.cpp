@@ -1,8 +1,8 @@
 // Decode tests for the generated arena decoders. Two kinds of oracle: (1) protoc-encoded wire
 // fixtures (tests/wire_fixtures/*.bin) decoded through the generated decoder, asserting accessor
-// values; (2) hand-built buffers for the behaviors fixtures don't cover -- default materialization,
-// required-field validation, the recursion guard, malformed input, single-bool wrapper fields,
-// unknown-field drop, and oneof last-wins.
+// values; (2) hand-built buffers for the behaviors fixtures don't cover -- absent-field reads (implicit
+// zero defaults, explicit nullopt), required-field validation, the recursion guard, malformed input,
+// single-bool wrapper fields, unknown-field drop, and oneof last-wins.
 
 #include <catch_amalgamated.hpp>
 
@@ -82,12 +82,12 @@ TEST_CASE("arena-decode: protoc scalar fixture", "[arena-decode]") {
     CHECK(m->f64() == 0x0102030405060708ULL);
     CHECK(m->sf32() == -2);
     CHECK(m->sf64() == -3);
-    CHECK(m->b());
+    CHECK(m->b() == true);
     CHECK(m->s() == "hi");
     CHECK(m->by() == std::string("\x00\x01\xff", 3));
     CHECK(m->fl() == Catch::Approx(1.5F));
     CHECK(m->db() == Catch::Approx(-2.25));
-    CHECK(m->has_i64());  // present in the fixture
+    CHECK(m->i64().has_value());  // present in the fixture
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): a flat list of accessor assertions
@@ -146,25 +146,53 @@ TEST_CASE("arena-decode: group (delimited) fixture", "[arena-decode]") {
     CHECK(m->oi() == 5);
 }
 
-// An absent proto2 optional field with a [default = ...] reads back that default; a present field
-// overrides it. Only field 1 (required i32) is set here, so every other field is absent.
-// NOLINTNEXTLINE(readability-function-cognitive-complexity): a flat list of default-value assertions
-TEST_CASE("arena-decode: absent fields read their schema default", "[arena-decode]") {
+// An absent explicit-presence field reads as std::nullopt: the schema default (proto2 `[default=...]`)
+// is NOT read through the optional accessor -- a consumer applies it via value_or(...). Only field 1
+// (required i32) is set here, so every optional field is absent.
+TEST_CASE("arena-decode: absent explicit fields read as nullopt", "[arena-decode]") {
     std::string buf;
     put_tag(buf, 1, 0);  // i32 (required) = 5
     put_varint(buf, 5);
     Arena arena;
     const p2::Scalars* m = p2::Scalars::decode(ByteView(buf), arena);
     REQUIRE(m != nullptr);
-    CHECK(m->i32() == 5);
-    CHECK_FALSE(m->has_i64());               // absent
-    CHECK(m->i64() == 42);                   // ...reads [default = 42]
-    CHECK(m->b());                           // [default = true]
-    CHECK(m->fl() == Catch::Approx(1.5F));   // [default = 1.5]
-    CHECK(m->db() == Catch::Approx(-2.25));  // [default = -2.25]
-    CHECK(m->color() == p2::Color::RED);     // [default = COLOR_RED]
-    CHECK(m->s() == "hi\n\"there\"");        // [default = "hi\n\"there\""] (escapes survive)
-    CHECK(m->u32() == 0);                    // no default -> zero
+    CHECK(m->i32() == 5);                 // required, present
+    CHECK_FALSE(m->i64().has_value());    // absent -> nullopt (schema had [default = 42])
+    CHECK_FALSE(m->b().has_value());      // absent -> nullopt ([default = true])
+    CHECK_FALSE(m->fl().has_value());     // absent -> nullopt ([default = 1.5])
+    CHECK_FALSE(m->color().has_value());  // absent -> nullopt ([default = COLOR_RED])
+    CHECK_FALSE(m->s().has_value());      // absent -> nullopt
+    CHECK_FALSE(m->u32().has_value());    // absent -> nullopt
+}
+
+// Implicit-presence fields (proto3 without `optional`) have no presence bit: absent, they read back the
+// zero default -- 0 / "" / the first (zero) enum value -- as a bare value (no optional). Contrast the
+// explicit field, which is std::nullopt when absent.
+TEST_CASE("arena-decode: absent implicit fields read their zero default", "[arena-decode]") {
+    Arena arena;
+    const p3::Msg* m =
+        p3::Msg::decode(ByteView(std::string()), arena);  // empty message: all absent
+    REQUIRE(m != nullptr);
+    CHECK(m->implicit_i() == 0);               // implicit int32 -> 0
+    CHECK(m->name().empty());                  // implicit string -> ""
+    CHECK(m->state() == p3::State::UNKNOWN);   // implicit enum  -> first (zero) value
+    CHECK(m->nums().empty());                  // absent repeated -> empty view
+    CHECK_FALSE(m->explicit_i().has_value());  // explicit int32 -> nullopt (no zero read-through)
+}
+
+// A PRESENT explicit enum field is an engaged std::optional carrying the decoded value (the engaged arm
+// of the optional-enum accessor; the nullopt arm is covered above).
+TEST_CASE("arena-decode: present explicit enum is an engaged optional", "[arena-decode]") {
+    std::string buf;
+    put_tag(buf, 1, 0);  // i32 (required) = 1
+    put_varint(buf, 1);
+    put_tag(buf, 16, 0);  // color (optional enum) = RED (1)
+    put_varint(buf, 1);
+    Arena arena;
+    const p2::Scalars* m = p2::Scalars::decode(ByteView(buf), arena);
+    REQUIRE(m != nullptr);
+    REQUIRE(m->color().has_value());      // engaged
+    CHECK(m->color() == p2::Color::RED);  // ...with the decoded value
 }
 
 TEST_CASE("arena-decode: a missing required field fails the parse", "[arena-decode]") {

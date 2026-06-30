@@ -3,6 +3,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string_view>
 #include <type_traits>
 
@@ -115,11 +116,9 @@ class Layout {
   std::int64_t big() const noexcept { return m_big; }
   bool b2() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 1)) != 0; }
   std::int32_t small() const noexcept { return m_small; }
-  bool has_opt() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 2)) != 0; }
-  std::int32_t opt() const noexcept { return m_opt; }
+  std::optional<std::int32_t> opt() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 2)) != 0 ? std::optional<std::int32_t>(m_opt) : std::nullopt; }
   std::string_view name() const noexcept { return m_name.view(); }
-  bool has_oname() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 3)) != 0; }
-  std::string_view oname() const noexcept { return m_oname.view(); }
+  std::optional<std::string_view> oname() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 3)) != 0 ? std::optional<std::string_view>(m_oname.view()) : std::nullopt; }
   ::al::Color color() const noexcept { return m_color; }
   const ::al::Point* pt() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 4)) != 0 ? &m_pt : nullptr; }
   const ::al::Big* bg() const noexcept { return m_bg; }

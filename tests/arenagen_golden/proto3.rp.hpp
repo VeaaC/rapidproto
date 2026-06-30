@@ -3,6 +3,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string_view>
 #include <type_traits>
 
@@ -34,8 +35,7 @@ class Msg {
     std::int32_t rp_value;
   };
   std::int32_t implicit_i() const noexcept { return m_implicit_i; }
-  bool has_explicit_i() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0; }
-  std::int32_t explicit_i() const noexcept { return m_explicit_i; }
+  std::optional<std::int32_t> explicit_i() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? std::optional<std::int32_t>(m_explicit_i) : std::nullopt; }
   std::string_view name() const noexcept { return m_name.view(); }
   ::p3::State state() const noexcept { return m_state; }
   const ::p3::Msg* self() const noexcept { return m_self; }

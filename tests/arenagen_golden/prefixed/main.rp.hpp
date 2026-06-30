@@ -3,6 +3,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string_view>
 #include <type_traits>
 
@@ -38,8 +39,7 @@ class Main {
   const ::rp::dep::Dep* d() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? &m_d : nullptr; }
   const ::rp::pub::Pub* p() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 1)) != 0 ? &m_p : nullptr; }
   const ::rp::fwd::Fwd* f() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 2)) != 0 ? &m_f : nullptr; }
-  bool has_e() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 3)) != 0; }
-  ::rp::dep::DepEnum e() const noexcept { return m_e; }
+  std::optional<::rp::dep::DepEnum> e() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 3)) != 0 ? std::optional<::rp::dep::DepEnum>(m_e) : std::nullopt; }
   ::rapidproto::ArrayView<::rp::dep::Dep> ds() const noexcept { return m_ds; }
   ::rapidproto::MapView<DmEntry> dm() const noexcept { return m_dm; }
   ChoiceCase choice_case() const noexcept { return static_cast<ChoiceCase>(m_rp_choice_case); }

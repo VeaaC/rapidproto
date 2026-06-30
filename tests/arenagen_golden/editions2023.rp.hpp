@@ -3,6 +3,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string_view>
 #include <type_traits>
 
@@ -21,8 +22,7 @@ class M {
     rp_non_exhaustive_max = INT32_MAX,
   };
   std::int32_t implicit_scalar() const noexcept { return m_implicit_scalar; }
-  bool has_explicit_scalar() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0; }
-  std::int32_t explicit_scalar() const noexcept { return m_explicit_scalar; }
+  std::optional<std::int32_t> explicit_scalar() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? std::optional<std::int32_t>(m_explicit_scalar) : std::nullopt; }
   const ::ed23::M* child() const noexcept { return m_child; }
   ::rapidproto::ArrayView<std::int32_t> packed_nums() const noexcept { return m_packed_nums; }
   ::rapidproto::ArrayView<std::int32_t> expanded_nums() const noexcept { return m_expanded_nums; }

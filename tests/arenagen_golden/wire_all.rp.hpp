@@ -3,6 +3,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string_view>
 #include <type_traits>
 
@@ -18,8 +19,7 @@ class AllWire {
   class G;
   class G {
    public:
-    bool has_a() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0; }
-    std::int32_t a() const noexcept { return m_a; }
+    std::optional<std::int32_t> a() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? std::optional<std::int32_t>(m_a) : std::nullopt; }
     [[nodiscard]] static const G* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
    private:
     template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
@@ -37,16 +37,11 @@ class AllWire {
     ::rapidproto::ArenaString os;
     rp_pick_union() noexcept {}
   };
-  bool has_zz() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0; }
-  std::int64_t zz() const noexcept { return m_zz; }
-  bool has_db() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 1)) != 0; }
-  double db() const noexcept { return m_db; }
-  bool has_fx() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 2)) != 0; }
-  std::uint32_t fx() const noexcept { return m_fx; }
-  bool has_s() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 3)) != 0; }
-  std::string_view s() const noexcept { return m_s.view(); }
-  bool has_by() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 4)) != 0; }
-  std::string_view by() const noexcept { return m_by.view(); }
+  std::optional<std::int64_t> zz() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? std::optional<std::int64_t>(m_zz) : std::nullopt; }
+  std::optional<double> db() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 1)) != 0 ? std::optional<double>(m_db) : std::nullopt; }
+  std::optional<std::uint32_t> fx() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 2)) != 0 ? std::optional<std::uint32_t>(m_fx) : std::nullopt; }
+  std::optional<std::string_view> s() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 3)) != 0 ? std::optional<std::string_view>(m_s.view()) : std::nullopt; }
+  std::optional<std::string_view> by() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 4)) != 0 ? std::optional<std::string_view>(m_by.view()) : std::nullopt; }
   const ::wire::AllWire* nested() const noexcept { return m_nested; }
   ::rapidproto::ArrayView<std::int32_t> packed() const noexcept { return m_packed; }
   const ::wire::AllWire::G* g() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 5)) != 0 ? &m_g : nullptr; }

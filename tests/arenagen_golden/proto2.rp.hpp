@@ -3,6 +3,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string_view>
 #include <type_traits>
 
@@ -18,36 +19,21 @@ class Container;
 class Scalars {
  public:
   std::int32_t i32() const noexcept { return m_i32; }
-  bool has_i64() const noexcept { return (m_rp_mask & (std::uint16_t{1} << 0)) != 0; }
-  std::int64_t i64() const noexcept { return m_i64; }
-  bool has_u32() const noexcept { return (m_rp_mask & (std::uint16_t{1} << 1)) != 0; }
-  std::uint32_t u32() const noexcept { return m_u32; }
-  bool has_u64() const noexcept { return (m_rp_mask & (std::uint16_t{1} << 2)) != 0; }
-  std::uint64_t u64() const noexcept { return m_u64; }
-  bool has_s32() const noexcept { return (m_rp_mask & (std::uint16_t{1} << 3)) != 0; }
-  std::int32_t s32() const noexcept { return m_s32; }
-  bool has_s64() const noexcept { return (m_rp_mask & (std::uint16_t{1} << 4)) != 0; }
-  std::int64_t s64() const noexcept { return m_s64; }
-  bool has_f32() const noexcept { return (m_rp_mask & (std::uint16_t{1} << 5)) != 0; }
-  std::uint32_t f32() const noexcept { return m_f32; }
-  bool has_f64() const noexcept { return (m_rp_mask & (std::uint16_t{1} << 6)) != 0; }
-  std::uint64_t f64() const noexcept { return m_f64; }
-  bool has_sf32() const noexcept { return (m_rp_mask & (std::uint16_t{1} << 7)) != 0; }
-  std::int32_t sf32() const noexcept { return m_sf32; }
-  bool has_sf64() const noexcept { return (m_rp_mask & (std::uint16_t{1} << 8)) != 0; }
-  std::int64_t sf64() const noexcept { return m_sf64; }
-  bool has_b() const noexcept { return (m_rp_mask & (std::uint16_t{1} << 9)) != 0; }
-  bool b() const noexcept { return (m_rp_mask & (std::uint16_t{1} << 10)) != 0; }
-  bool has_s() const noexcept { return (m_rp_mask & (std::uint16_t{1} << 11)) != 0; }
-  std::string_view s() const noexcept { return m_s.view(); }
-  bool has_by() const noexcept { return (m_rp_mask & (std::uint16_t{1} << 12)) != 0; }
-  std::string_view by() const noexcept { return m_by.view(); }
-  bool has_fl() const noexcept { return (m_rp_mask & (std::uint16_t{1} << 13)) != 0; }
-  float fl() const noexcept { return m_fl; }
-  bool has_db() const noexcept { return (m_rp_mask & (std::uint16_t{1} << 14)) != 0; }
-  double db() const noexcept { return m_db; }
-  bool has_color() const noexcept { return (m_rp_mask & (std::uint16_t{1} << 15)) != 0; }
-  ::p2::Color color() const noexcept { return m_color; }
+  std::optional<std::int64_t> i64() const noexcept { return (m_rp_mask & (std::uint16_t{1} << 0)) != 0 ? std::optional<std::int64_t>(m_i64) : std::nullopt; }
+  std::optional<std::uint32_t> u32() const noexcept { return (m_rp_mask & (std::uint16_t{1} << 1)) != 0 ? std::optional<std::uint32_t>(m_u32) : std::nullopt; }
+  std::optional<std::uint64_t> u64() const noexcept { return (m_rp_mask & (std::uint16_t{1} << 2)) != 0 ? std::optional<std::uint64_t>(m_u64) : std::nullopt; }
+  std::optional<std::int32_t> s32() const noexcept { return (m_rp_mask & (std::uint16_t{1} << 3)) != 0 ? std::optional<std::int32_t>(m_s32) : std::nullopt; }
+  std::optional<std::int64_t> s64() const noexcept { return (m_rp_mask & (std::uint16_t{1} << 4)) != 0 ? std::optional<std::int64_t>(m_s64) : std::nullopt; }
+  std::optional<std::uint32_t> f32() const noexcept { return (m_rp_mask & (std::uint16_t{1} << 5)) != 0 ? std::optional<std::uint32_t>(m_f32) : std::nullopt; }
+  std::optional<std::uint64_t> f64() const noexcept { return (m_rp_mask & (std::uint16_t{1} << 6)) != 0 ? std::optional<std::uint64_t>(m_f64) : std::nullopt; }
+  std::optional<std::int32_t> sf32() const noexcept { return (m_rp_mask & (std::uint16_t{1} << 7)) != 0 ? std::optional<std::int32_t>(m_sf32) : std::nullopt; }
+  std::optional<std::int64_t> sf64() const noexcept { return (m_rp_mask & (std::uint16_t{1} << 8)) != 0 ? std::optional<std::int64_t>(m_sf64) : std::nullopt; }
+  std::optional<bool> b() const noexcept { return (m_rp_mask & (std::uint16_t{1} << 9)) != 0 ? std::optional<bool>((m_rp_mask & (std::uint16_t{1} << 10)) != 0) : std::nullopt; }
+  std::optional<std::string_view> s() const noexcept { return (m_rp_mask & (std::uint16_t{1} << 11)) != 0 ? std::optional<std::string_view>(m_s.view()) : std::nullopt; }
+  std::optional<std::string_view> by() const noexcept { return (m_rp_mask & (std::uint16_t{1} << 12)) != 0 ? std::optional<std::string_view>(m_by.view()) : std::nullopt; }
+  std::optional<float> fl() const noexcept { return (m_rp_mask & (std::uint16_t{1} << 13)) != 0 ? std::optional<float>(m_fl) : std::nullopt; }
+  std::optional<double> db() const noexcept { return (m_rp_mask & (std::uint16_t{1} << 14)) != 0 ? std::optional<double>(m_db) : std::nullopt; }
+  std::optional<::p2::Color> color() const noexcept { return (m_rp_mask & (std::uint16_t{1} << 15)) != 0 ? std::optional<::p2::Color>(m_color) : std::nullopt; }
   ::rapidproto::ArrayView<std::int32_t> packed_nums() const noexcept { return m_packed_nums; }
   ::rapidproto::ArrayView<std::int32_t> expanded_nums() const noexcept { return m_expanded_nums; }
   [[nodiscard]] static const Scalars* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
@@ -83,16 +69,14 @@ class WithGroup {
     class Inner;
     class Inner {
      public:
-      bool has_flag() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0; }
-      bool flag() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 1)) != 0; }
+      std::optional<bool> flag() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? std::optional<bool>((m_rp_mask & (std::uint8_t{1} << 1)) != 0) : std::nullopt; }
       [[nodiscard]] static const Inner* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
      private:
       template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
       static bool rp_decode_into(Inner& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
       std::uint8_t m_rp_mask;
     };
-    bool has_a() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0; }
-    std::int32_t a() const noexcept { return m_a; }
+    std::optional<std::int32_t> a() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? std::optional<std::int32_t>(m_a) : std::nullopt; }
     const ::p2::WithGroup::MyGroup::Inner* inner() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 1)) != 0 ? &m_inner : nullptr; }
     [[nodiscard]] static const MyGroup* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
    private:
@@ -117,8 +101,7 @@ class Container {
   class Nested;
   class Nested {
    public:
-    bool has_x() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0; }
-    std::int32_t x() const noexcept { return m_x; }
+    std::optional<std::int32_t> x() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? std::optional<std::int32_t>(m_x) : std::nullopt; }
     [[nodiscard]] static const Nested* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
    private:
     template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
@@ -173,13 +156,6 @@ static_assert(::std::is_trivially_destructible_v<Container>);
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
 inline bool Scalars::rp_decode_into([[maybe_unused]] Scalars& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
-  out.m_i64 = 42LL;
-  out.m_rp_mask = static_cast<std::uint16_t>(out.m_rp_mask | (std::uint16_t{1} << 10));
-  out.m_s = ::rapidproto::ArenaString::make(::rapidproto::ByteView("hi\012\"there\"", 10), arena);
-  out.m_by = ::rapidproto::ArenaString::make(::rapidproto::ByteView("\000\377", 2), arena);
-  out.m_fl = 1.5F;
-  out.m_db = -2.25;
-  out.m_color = static_cast<::p2::Color>(1);
   std::int32_t* rp_acc_packed_nums = nullptr;
   std::size_t rp_n_packed_nums = 0;
   std::size_t rp_cap_packed_nums = 0;

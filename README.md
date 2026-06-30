@@ -130,7 +130,8 @@ class Person {
   std::string_view name() const noexcept;                       // string/bytes, view into the arena
   rapidproto::StringArrayView email() const noexcept;           // repeated string (string_view elems)
   const Address* address() const noexcept;                      // sub-message (nullptr if absent)
-  // explicit-presence scalar/string/enum fields also get: bool has_<field>() const noexcept;
+  // a scalar/string/enum field with EXPLICIT presence instead returns std::optional<T> (std::nullopt
+  // when absent), e.g. `std::optional<std::uint32_t> id() const noexcept;` -- no separate has_<field>().
 };
 ```
 
@@ -139,13 +140,13 @@ is valid for as long as the `Arena` lives. How each construct is read:
 
 | Construct | Accessor returns |
 |---|---|
-| scalar / `enum` | the value, by value (`std::int32_t`, `bool`, the generated `enum class`, …) |
-| `string` / `bytes` | `std::string_view` into the arena (valid while the arena lives) |
+| scalar / `enum` | the value, by value (`std::int32_t`, `bool`, the generated `enum class`, …); a field with explicit presence instead returns `std::optional<T>` (`std::nullopt` when absent) |
+| `string` / `bytes` | `std::string_view` into the arena (valid while the arena lives); `std::optional<std::string_view>` if explicit-presence |
 | sub-message | `const Sub*`, a pointer (`nullptr` when absent) |
 | `repeated T` | `rapidproto::ArrayView<T>`, a contiguous `{data, size}` range (iterable, indexable). Repeated `string`/`bytes` instead return `rapidproto::StringArrayView`, which yields `std::string_view` per element; for repeated sub-messages, `T` is the value. |
 | `map<K, V>` | `rapidproto::MapView<Entry>`: insertion-order entries with `.key()`/`.value()` and a last-wins `find(key)` |
 | `oneof o` | `o_case()` returns the generated `OCase` enum; each member accessor returns its value when set, else the default |
-| presence | explicit-presence scalar/`string`/`enum` fields get `has_<field>()`; a message field's presence is its `const T*` accessor returning `nullptr` |
+| presence | explicit-presence scalar/`string`/`enum` fields carry presence in their `std::optional<T>` return (`std::nullopt` = absent); a message field's presence is its `const T*` accessor returning `nullptr` |
 
 ### The arena
 

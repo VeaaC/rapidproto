@@ -3,6 +3,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string_view>
 #include <type_traits>
 
@@ -53,8 +54,7 @@ class Collide {
     ::rapidproto::ArenaString rp_key;
     std::int32_t rp_value;
   };
-  bool has_x_() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0; }
-  std::int32_t x() const noexcept { return m_x; }
+  std::optional<std::int32_t> x() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? std::optional<std::int32_t>(m_x) : std::nullopt; }
   std::int32_t has_x() const noexcept { return m_has_x; }
   std::int32_t pick_case() const noexcept { return m_pick_case; }
   std::int32_t decode_() const noexcept { return m_decode_; }

@@ -3,20 +3,16 @@
 #include "rapidproto/arenagen/generator.hpp"
 
 #include <algorithm>
-#include <array>
 #include <cassert>
 #include <cctype>
 #include <cstddef>
-#include <cstdint>
 #include <cstdio>
 #include <functional>
 #include <string>
 #include <string_view>
-#include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
-#include <variant>
 #include <vector>
 
 #include "rapidproto/arenagen/layout.hpp"
@@ -90,7 +86,6 @@ std::string bit_test(const MessageLayout& layout, int bit) {
 // so a user field literally named `has_x` or a nested `FooEntry` could collide. Computed once per
 // message (keyed by node pointer) with a `_` suffix on collision, so the output always compiles.
 struct SynthNames {
-    std::unordered_map<const FieldNode*, std::string> has_name;       // explicit-presence fields
     std::unordered_map<const OneofNode*, std::string> case_accessor;  // <oneof>_case()
     std::unordered_map<const OneofNode*, std::string> case_enum;      // <Oneof>Case
     std::unordered_map<const MapFieldNode*, std::string> entry_type;  // <Map>Entry
@@ -301,29 +296,56 @@ void emit_oneof_accessors(const Emit& emit, const OneofPlan& o) {
 void emit_field_accessor(const Emit& emit, const MessageLayout& layout, const MemberPlan& m) {
     Printer& p = emit.printer;
     const std::string id = member_id(emit, m);
-    // Message fields signal presence through the null return of their `const T*` accessor, not a
-    // has_<f>() -- so the InlineFixedSubMsg case (the only message kind with a presence bit) emits no has_.
-    if (m.presence_bit >= 0 && m.kind != FieldKind::InlineFixedSubMsg) {
-        p.print("bool $h$() const noexcept { return $b$ != 0; }\n",
-                {{"h", emit.synth.has_name.at(m.field)}, {"b", bit_test(layout, m.presence_bit)}});
-    }
+    // A scalar/enum/string field with explicit presence returns std::optional<T> (std::nullopt when
+    // absent); an implicit-presence field returns the bare value. Message fields encode presence in their
+    // `const T*` accessor's null return. No has_<f>() is emitted -- the optional carries presence.
     switch (m.kind) {
         case FieldKind::InlineScalar:
-            if (m.is_bool) {
+            if (m.is_bool && m.presence_bit >= 0) {
+                p.print(
+                    "std::optional<bool> $id$() const noexcept { return $p$ != 0 ?"
+                    " std::optional<bool>($b$ != 0) : std::nullopt; }\n",
+                    {{"id", id},
+                     {"p", bit_test(layout, m.presence_bit)},
+                     {"b", bit_test(layout, m.value_bit)}});
+            } else if (m.is_bool) {
                 p.print("bool $id$() const noexcept { return $b$ != 0; }\n",
                         {{"id", id}, {"b", bit_test(layout, m.value_bit)}});
+            } else if (m.presence_bit >= 0) {
+                p.print(
+                    "std::optional<$T$> $id$() const noexcept { return $p$ != 0 ?"
+                    " std::optional<$T$>(m_$id$) : std::nullopt; }\n",
+                    {{"T", cpp_scalar(m.field->type_name)},
+                     {"id", id},
+                     {"p", bit_test(layout, m.presence_bit)}});
             } else {
                 p.print("$T$ $id$() const noexcept { return m_$id$; }\n",
                         {{"T", cpp_scalar(m.field->type_name)}, {"id", id}});
             }
             break;
         case FieldKind::InlineEnum:
-            p.print("$T$ $id$() const noexcept { return m_$id$; }\n",
-                    {{"T", cpp_type_name(emit.names, m.target_fqn)}, {"id", id}});
+            if (m.presence_bit >= 0) {
+                p.print(
+                    "std::optional<$T$> $id$() const noexcept { return $p$ != 0 ?"
+                    " std::optional<$T$>(m_$id$) : std::nullopt; }\n",
+                    {{"T", cpp_type_name(emit.names, m.target_fqn)},
+                     {"id", id},
+                     {"p", bit_test(layout, m.presence_bit)}});
+            } else {
+                p.print("$T$ $id$() const noexcept { return m_$id$; }\n",
+                        {{"T", cpp_type_name(emit.names, m.target_fqn)}, {"id", id}});
+            }
             break;
         case FieldKind::SsoString:
-            p.print("std::string_view $id$() const noexcept { return m_$id$.view(); }\n",
-                    {{"id", id}});
+            if (m.presence_bit >= 0) {
+                p.print(
+                    "std::optional<std::string_view> $id$() const noexcept { return $p$ != 0 ?"
+                    " std::optional<std::string_view>(m_$id$.view()) : std::nullopt; }\n",
+                    {{"id", id}, {"p", bit_test(layout, m.presence_bit)}});
+            } else {
+                p.print("std::string_view $id$() const noexcept { return m_$id$.view(); }\n",
+                        {{"id", id}});
+            }
             break;
         case FieldKind::InlineFixedSubMsg:
             if (m.presence_bit >= 0) {
@@ -601,11 +623,6 @@ void synth_for_message(const CppNameTable& names, const LayoutSet& layouts,
         return name;
     };
     for (const MemberPlan& m : layout.members) {
-        if (m.field != nullptr && m.presence_bit >= 0 &&
-            m.kind !=
-                FieldKind::InlineFixedSubMsg) {  // message presence is its accessor's null return
-            out.has_name[m.field] = dedup("has_" + names.local.at(m.field));
-        }
         if (m.kind == FieldKind::Map) {
             out.entry_type[m.map_field] = dedup(capitalize(names.local.at(m.map_field)) + "Entry");
         }
@@ -751,119 +768,6 @@ void emit_presence_set(const Emit& emit, const MessageLayout& layout, const Memb
                 "$ref$ |= std::uint64_t{1} << $b$;\n",
                 {{"ref", req_word_ref(it->second, required_bit.size())},
                  {"b", std::to_string(req_bit_no(it->second, required_bit.size()))}});
-        }
-    }
-}
-
-// A proto string/bytes default -> a C++ string-literal body (3-digit octal for non-printables, which
-// never run together ambiguously); paired with an explicit length so embedded NULs survive.
-std::string c_escape(const std::string& bytes) {
-    constexpr unsigned char kPrintableMin = 0x20;  // space
-    constexpr unsigned char kPrintableMax = 0x7e;  // tilde (the last printable ASCII)
-    std::string out;
-    for (const char raw : bytes) {
-        const auto ch = static_cast<unsigned char>(raw);
-        if (ch == '\\') {
-            out += "\\\\";
-        } else if (ch == '"') {
-            out += "\\\"";
-        } else if (ch >= kPrintableMin && ch <= kPrintableMax) {
-            out += static_cast<char>(ch);
-        } else {  // \ooo, exactly three octal digits (never extends into a following digit)
-            // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers): 3-bit octal
-            out += '\\';
-            out += static_cast<char>('0' + ((ch >> 6U) & 7U));
-            out += static_cast<char>('0' + ((ch >> 3U) & 7U));
-            out += static_cast<char>('0' + (ch & 7U));
-            // NOLINTEND(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        }
-    }
-    return out;
-}
-
-// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): enum FQN vs value name, distinct roles
-int resolve_enum_value(const Emit& emit, const std::string& enum_fqn, const std::string& name) {
-    const auto it = emit.types.enums.find(enum_fqn);
-    if (it != emit.types.enums.end()) {
-        for (const EnumValueNode& value : it->second->values) {
-            if (value.name == name) {
-                return value.number;
-            }
-        }
-    }
-    return 0;
-}
-
-// A numeric proto2 default OptionValue -> a C++ literal of the field's storage type.
-std::string numeric_default_literal(const OptionValue& value, std::string_view type) {
-    std::string digits;
-    std::visit(
-        [&](const auto& held) {
-            using T = std::decay_t<decltype(held)>;
-            if constexpr (std::is_same_v<T, std::int64_t> || std::is_same_v<T, std::uint64_t>) {
-                digits = std::to_string(held);
-            } else if constexpr (std::is_same_v<T, double>) {
-                constexpr int kDoubleChars = 40;  // ample for "%.17g"
-                std::array<char, kDoubleChars> buf{};
-                // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg): printf is the C++17 double format
-                std::snprintf(buf.data(), buf.size(), "%.17g", held);
-                digits = buf.data();
-            }
-        },
-        value.value);
-    if (type == "float") {
-        return digits + "F";
-    }
-    if (type == "double") {
-        return digits;
-    }
-    if (type == "uint32" || type == "fixed32") {
-        return digits + "U";
-    }
-    if (type == "uint64" || type == "fixed64") {
-        return digits + "ULL";
-    }
-    if (type == "int64" || type == "sint64" || type == "sfixed64") {
-        return digits + "LL";
-    }
-    return digits;  // int32 / sint32 / sfixed32
-}
-
-// Pre-seed storage with non-zero schema defaults so an absent Explicit field reads back its default
-// (zero defaults and proto3 implicit fields are already covered by value-initialization).
-void emit_defaults(const Emit& emit, const MessageNode& message, const MessageLayout& layout,
-                   const std::unordered_map<const void*, const MemberPlan*>& by_node) {
-    Printer& p = emit.printer;
-    for (const FieldNode& field : message.fields) {
-        if (field.presence != FieldPresence::Explicit || !field.default_value.has_value()) {
-            continue;
-        }
-        const MemberPlan& m = *by_node.at(&field);
-        const std::string id = emit.names.local.at(&field);
-        const OptionValue& dv = *field.default_value;
-        if (m.is_bool) {
-            if (const auto* ident = std::get_if<Identifier>(&dv.value);
-                ident != nullptr && ident->name == "true") {
-                p.print("$s$\n", {{"s", set_bit_stmt(layout, m.value_bit)}});
-            }
-        } else if (m.kind == FieldKind::InlineEnum) {
-            if (const auto* ident = std::get_if<Identifier>(&dv.value)) {
-                p.print(
-                    "out.m_$id$ = static_cast<$E$>($n$);\n",
-                    {{"id", id},
-                     {"E", cpp_type_name(emit.names, m.target_fqn)},
-                     {"n", std::to_string(resolve_enum_value(emit, m.target_fqn, ident->name))}});
-            }
-        } else if (m.kind == FieldKind::SsoString) {
-            if (const auto* s = std::get_if<std::string>(&dv.value)) {
-                p.print(
-                    "out.m_$id$ = ::rapidproto::ArenaString::make("
-                    "::rapidproto::ByteView(\"$lit$\", $len$), arena);\n",
-                    {{"id", id}, {"lit", c_escape(*s)}, {"len", std::to_string(s->size())}});
-            }
-        } else {
-            p.print("out.m_$id$ = $lit$;\n",
-                    {{"id", id}, {"lit", numeric_default_literal(dv, field.type_name)}});
         }
     }
 }
@@ -1253,7 +1157,6 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
     p.print(
         "if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err);"
         " return false; }\n");
-    emit_defaults(emit, message, layout, by_node);
     for (const FieldNode& f : message.fields) {
         if (f.is_repeated) {
             emit_repeated_setup(emit, f);
@@ -1374,6 +1277,7 @@ std::string generate_header(const FileNode& file, const CppNameTable& names,
         "// Generated from your schema; depends on rapidproto/arena_runtime.hpp (Apache-2.0).\n");
     printer.print("#pragma once\n\n");
     printer.print("#include <cstdint>\n");
+    printer.print("#include <optional>\n");  // explicit-presence accessors return std::optional<T>
     printer.print("#include <string_view>\n");
     printer.print("#include <type_traits>\n\n");
     printer.print("#include \"rapidproto/arena_runtime.hpp\"\n");
