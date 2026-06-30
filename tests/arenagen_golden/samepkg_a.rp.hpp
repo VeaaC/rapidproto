@@ -16,8 +16,7 @@ class FirstA;
 
 class FirstA {
  public:
-  ::rapidproto::MessageRef<::samepkg::SecondB> b() const noexcept { return ::rapidproto::MessageRef<::samepkg::SecondB>((m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? &m_b : nullptr); }
-  static const FirstA& rp_default() noexcept { static const FirstA rp_d{}; return rp_d; }
+  const ::samepkg::SecondB* b() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? &m_b : nullptr; }
   [[nodiscard]] static const FirstA* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;

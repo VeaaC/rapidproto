@@ -199,16 +199,11 @@ void emit_map_entry(const Emit& emit, const MemberPlan& m, const std::string& en
             p.print("std::string_view value() const noexcept { return rp_value.view(); }\n");
             break;
         case FieldKind::PointerSubMsg:
-            p.print(
-                "::rapidproto::MessageRef<$T$> value() const noexcept { return"
-                " ::rapidproto::MessageRef<$T$>(rp_value); }\n",
-                {{"T", val_store}});
+            p.print("const $T$* value() const noexcept { return rp_value; }\n", {{"T", val_store}});
             break;
         case FieldKind::InlineFixedSubMsg:
-            p.print(
-                "::rapidproto::MessageRef<$T$> value() const noexcept { return"
-                " ::rapidproto::MessageRef<$T$>(&rp_value); }\n",
-                {{"T", val_store}});
+            p.print("const $T$* value() const noexcept { return &rp_value; }\n",
+                    {{"T", val_store}});
             break;
         default:
             p.print("$T$ value() const noexcept { return rp_value; }\n", {{"T", val_store}});
@@ -274,8 +269,8 @@ void emit_oneof_accessors(const Emit& emit, const OneofPlan& o) {
                 {{"id", id}, {"acc", acc}, {"o", o.oneof->name}, {"g", guard}});
         } else if (member.kind == FieldKind::PointerSubMsg) {
             p.print(
-                "::rapidproto::MessageRef<$T$> $id$() const noexcept { return"
-                " ::rapidproto::MessageRef<$T$>($acc$() == $g$ ? m_rp_$o$.$id$ : nullptr); }\n",
+                "const $T$* $id$() const noexcept { return $acc$() == $g$ ? m_rp_$o$.$id$"
+                " : nullptr; }\n",
                 {{"T", cpp_type_name(emit.names, member.target_fqn)},
                  {"id", id},
                  {"acc", acc},
@@ -283,8 +278,8 @@ void emit_oneof_accessors(const Emit& emit, const OneofPlan& o) {
                  {"g", guard}});
         } else if (member.kind == FieldKind::InlineFixedSubMsg) {
             p.print(
-                "::rapidproto::MessageRef<$T$> $id$() const noexcept { return"
-                " ::rapidproto::MessageRef<$T$>($acc$() == $g$ ? &m_rp_$o$.$id$ : nullptr); }\n",
+                "const $T$* $id$() const noexcept { return $acc$() == $g$ ? &m_rp_$o$.$id$"
+                " : nullptr; }\n",
                 {{"T", cpp_type_name(emit.names, member.target_fqn)},
                  {"id", id},
                  {"acc", acc},
@@ -306,8 +301,8 @@ void emit_oneof_accessors(const Emit& emit, const OneofPlan& o) {
 void emit_field_accessor(const Emit& emit, const MessageLayout& layout, const MemberPlan& m) {
     Printer& p = emit.printer;
     const std::string id = member_id(emit, m);
-    // Message fields signal presence through MessageRef's operator bool, not a has_<f>() -- so the
-    // InlineFixedSubMsg case (the only message kind with a presence bit) emits no has_.
+    // Message fields signal presence through the null return of their `const T*` accessor, not a
+    // has_<f>() -- so the InlineFixedSubMsg case (the only message kind with a presence bit) emits no has_.
     if (m.presence_bit >= 0 && m.kind != FieldKind::InlineFixedSubMsg) {
         p.print("bool $h$() const noexcept { return $b$ != 0; }\n",
                 {{"h", emit.synth.has_name.at(m.field)}, {"b", bit_test(layout, m.presence_bit)}});
@@ -333,23 +328,18 @@ void emit_field_accessor(const Emit& emit, const MessageLayout& layout, const Me
         case FieldKind::InlineFixedSubMsg:
             if (m.presence_bit >= 0) {
                 p.print(
-                    "::rapidproto::MessageRef<$T$> $id$() const noexcept { return"
-                    " ::rapidproto::MessageRef<$T$>($b$ != 0 ? &m_$id$ : nullptr); }\n",
+                    "const $T$* $id$() const noexcept { return $b$ != 0 ? &m_$id$ : nullptr; }\n",
                     {{"T", cpp_type_name(emit.names, m.target_fqn)},
                      {"id", id},
                      {"b", bit_test(layout, m.presence_bit)}});
             } else {  // required: always present
-                p.print(
-                    "::rapidproto::MessageRef<$T$> $id$() const noexcept { return"
-                    " ::rapidproto::MessageRef<$T$>(&m_$id$); }\n",
-                    {{"T", cpp_type_name(emit.names, m.target_fqn)}, {"id", id}});
+                p.print("const $T$* $id$() const noexcept { return &m_$id$; }\n",
+                        {{"T", cpp_type_name(emit.names, m.target_fqn)}, {"id", id}});
             }
             break;
         case FieldKind::PointerSubMsg:
-            p.print(
-                "::rapidproto::MessageRef<$T$> $id$() const noexcept { return"
-                " ::rapidproto::MessageRef<$T$>(m_$id$); }\n",
-                {{"T", cpp_type_name(emit.names, m.target_fqn)}, {"id", id}});
+            p.print("const $T$* $id$() const noexcept { return m_$id$; }\n",
+                    {{"T", cpp_type_name(emit.names, m.target_fqn)}, {"id", id}});
             break;
         case FieldKind::Repeated:
             if (repeated_elem_type(emit, *m.field) == "::rapidproto::ArenaString") {
@@ -549,12 +539,6 @@ void emit_message_body(const Emit& emit, const MessageNode& message) {
             "bool $h$() const noexcept { return $b$ != 0; }\n",
             {{"h", emit.synth.unknown.at(&message)}, {"b", bit_test(layout, layout.unknown_bit)}});
     }
-    // The shared read-only "all absent" instance MessageRef::or_default() falls back to. Value-init
-    // zeroes the mask / nulls the pointers (true even with a oneof, whose union ctor is a member, not
-    // this class's), so every accessor reports absent. Inline + odr-used only via or_default(), so it
-    // reaches .rodata only in programs that call or_default().
-    p.print("static const $T$& rp_default() noexcept { static const $T$ rp_d{}; return rp_d; }\n",
-            {{"T", type}});
 
     // decode() materializes the whole tree in `arena`; the private rp_decode_into (the wire loop) fills
     // an already-allocated node. Both are defined out-of-line, after every class shell, so all
@@ -619,7 +603,7 @@ void synth_for_message(const CppNameTable& names, const LayoutSet& layouts,
     for (const MemberPlan& m : layout.members) {
         if (m.field != nullptr && m.presence_bit >= 0 &&
             m.kind !=
-                FieldKind::InlineFixedSubMsg) {  // message presence is MessageRef's operator bool
+                FieldKind::InlineFixedSubMsg) {  // message presence is its accessor's null return
             out.has_name[m.field] = dedup("has_" + names.local.at(m.field));
         }
         if (m.kind == FieldKind::Map) {

@@ -19,7 +19,6 @@ class Collide {
   class FooEntry {
    public:
     std::int32_t a() const noexcept { return m_a; }
-    static const FooEntry& rp_default() noexcept { static const FooEntry rp_d{}; return rp_d; }
     [[nodiscard]] static const FooEntry* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
    private:
     template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
@@ -66,7 +65,6 @@ class Collide {
   LettersCase letters_case() const noexcept { return static_cast<LettersCase>(m_rp_letters_case); }
   std::int32_t a() const noexcept { return letters_case() == LettersCase::kA ? m_rp_letters.a : std::int32_t{}; }
   std::int32_t A() const noexcept { return letters_case() == LettersCase::kA_ ? m_rp_letters.A : std::int32_t{}; }
-  static const Collide& rp_default() noexcept { static const Collide rp_d{}; return rp_d; }
   [[nodiscard]] static const Collide* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;

@@ -16,8 +16,7 @@ class WMain;
 
 class WMain {
  public:
-  ::rapidproto::MessageRef<::wd::WDep> d() const noexcept { return ::rapidproto::MessageRef<::wd::WDep>((m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? &m_d : nullptr); }
-  static const WMain& rp_default() noexcept { static const WMain rp_d{}; return rp_d; }
+  const ::wd::WDep* d() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? &m_d : nullptr; }
   [[nodiscard]] static const WMain* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;

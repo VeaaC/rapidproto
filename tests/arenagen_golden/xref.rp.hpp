@@ -24,9 +24,8 @@ class BytesWrap;
 
 class A {
  public:
-  ::rapidproto::MessageRef<::xr::B> b() const noexcept { return ::rapidproto::MessageRef<::xr::B>(m_b); }
+  const ::xr::B* b() const noexcept { return m_b; }
   std::int32_t id() const noexcept { return m_id; }
-  static const A& rp_default() noexcept { static const A rp_d{}; return rp_d; }
   [[nodiscard]] static const A* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
@@ -38,8 +37,7 @@ static_assert(::std::is_trivially_destructible_v<A>);
 
 class B {
  public:
-  ::rapidproto::MessageRef<::xr::A> a() const noexcept { return ::rapidproto::MessageRef<::xr::A>(m_a); }
-  static const B& rp_default() noexcept { static const B rp_d{}; return rp_d; }
+  const ::xr::A* a() const noexcept { return m_a; }
   [[nodiscard]] static const B* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
@@ -66,7 +64,6 @@ class Nested {
     class Inner {
      public:
       std::string_view s() const noexcept { return m_s.view(); }
-      static const Inner& rp_default() noexcept { static const Inner rp_d{}; return rp_d; }
       [[nodiscard]] static const Inner* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
      private:
       template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
@@ -75,7 +72,6 @@ class Nested {
     };
     std::string_view s() const noexcept { return m_s.view(); }
     std::int32_t n() const noexcept { return m_n; }
-    static const Def& rp_default() noexcept { static const Def rp_d{}; return rp_d; }
     [[nodiscard]] static const Def* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
    private:
     template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
@@ -97,7 +93,7 @@ class Nested {
     };
     struct By_nameEntry {
       std::string_view key() const noexcept { return rp_key.view(); }
-      ::rapidproto::MessageRef<::xr::Nested::Def> value() const noexcept { return ::rapidproto::MessageRef<::xr::Nested::Def>(rp_value); }
+      const ::xr::Nested::Def* value() const noexcept { return rp_value; }
       friend class User;
      private:
       ::rapidproto::ArenaString rp_key;
@@ -111,18 +107,17 @@ class Nested {
       std::int32_t rp_key;
       ::xr::Nested::Def::Kind rp_value;
     };
-    ::rapidproto::MessageRef<::xr::Nested::Def> single() const noexcept { return ::rapidproto::MessageRef<::xr::Nested::Def>(m_single); }
+    const ::xr::Nested::Def* single() const noexcept { return m_single; }
     ::rapidproto::ArrayView<::xr::Nested::Def> many() const noexcept { return m_many; }
     ::xr::Nested::Def::Kind kind() const noexcept { return m_kind; }
     ::rapidproto::ArrayView<::xr::Nested::Def::Kind> kinds() const noexcept { return m_kinds; }
-    ::rapidproto::MessageRef<::xr::Nested::Def::Inner> inner() const noexcept { return ::rapidproto::MessageRef<::xr::Nested::Def::Inner>(m_inner); }
+    const ::xr::Nested::Def::Inner* inner() const noexcept { return m_inner; }
     ::rapidproto::ArrayView<::xr::Nested::Def::Inner> inners() const noexcept { return m_inners; }
     ::rapidproto::MapView<By_nameEntry> by_name() const noexcept { return m_by_name; }
     ::rapidproto::MapView<RankedEntry> ranked() const noexcept { return m_ranked; }
     PickCase pick_case() const noexcept { return static_cast<PickCase>(m_rp_pick_case); }
-    ::rapidproto::MessageRef<::xr::Nested::Def> chosen() const noexcept { return ::rapidproto::MessageRef<::xr::Nested::Def>(pick_case() == PickCase::kChosen ? m_rp_pick.chosen : nullptr); }
+    const ::xr::Nested::Def* chosen() const noexcept { return pick_case() == PickCase::kChosen ? m_rp_pick.chosen : nullptr; }
     ::xr::Nested::Def::Kind tagged() const noexcept { return pick_case() == PickCase::kTagged ? m_rp_pick.tagged : ::xr::Nested::Def::Kind{}; }
-    static const User& rp_default() noexcept { static const User rp_d{}; return rp_d; }
     [[nodiscard]] static const User* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
    private:
     template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
@@ -140,8 +135,7 @@ class Nested {
   };
   class P {
    public:
-    ::rapidproto::MessageRef<::xr::Nested::Q> q() const noexcept { return ::rapidproto::MessageRef<::xr::Nested::Q>(m_q); }
-    static const P& rp_default() noexcept { static const P rp_d{}; return rp_d; }
+    const ::xr::Nested::Q* q() const noexcept { return m_q; }
     [[nodiscard]] static const P* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
    private:
     template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
@@ -150,15 +144,13 @@ class Nested {
   };
   class Q {
    public:
-    ::rapidproto::MessageRef<::xr::Nested::P> p() const noexcept { return ::rapidproto::MessageRef<::xr::Nested::P>(m_p); }
-    static const Q& rp_default() noexcept { static const Q rp_d{}; return rp_d; }
+    const ::xr::Nested::P* p() const noexcept { return m_p; }
     [[nodiscard]] static const Q* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
    private:
     template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
     static bool rp_decode_into(Q& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
     const ::xr::Nested::P* m_p;
   };
-  static const Nested& rp_default() noexcept { static const Nested rp_d{}; return rp_d; }
   [[nodiscard]] static const Nested* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
@@ -182,18 +174,17 @@ class FwdMsg {
     };
     struct By_idEntry {
       std::int32_t key() const noexcept { return rp_key; }
-      ::rapidproto::MessageRef<::xr::FwdMsg::Target> value() const noexcept { return ::rapidproto::MessageRef<::xr::FwdMsg::Target>(rp_value); }
+      const ::xr::FwdMsg::Target* value() const noexcept { return rp_value; }
       friend class Ref;
      private:
       const ::xr::FwdMsg::Target* rp_value;
       std::int32_t rp_key;
     };
-    ::rapidproto::MessageRef<::xr::FwdMsg::Target> one() const noexcept { return ::rapidproto::MessageRef<::xr::FwdMsg::Target>(m_one); }
+    const ::xr::FwdMsg::Target* one() const noexcept { return m_one; }
     ::rapidproto::ArrayView<::xr::FwdMsg::Target> many() const noexcept { return m_many; }
     ::rapidproto::MapView<By_idEntry> by_id() const noexcept { return m_by_id; }
     PickCase pick_case() const noexcept { return static_cast<PickCase>(m_rp_pick_case); }
-    ::rapidproto::MessageRef<::xr::FwdMsg::Target> chosen() const noexcept { return ::rapidproto::MessageRef<::xr::FwdMsg::Target>(pick_case() == PickCase::kChosen ? m_rp_pick.chosen : nullptr); }
-    static const Ref& rp_default() noexcept { static const Ref rp_d{}; return rp_d; }
+    const ::xr::FwdMsg::Target* chosen() const noexcept { return pick_case() == PickCase::kChosen ? m_rp_pick.chosen : nullptr; }
     [[nodiscard]] static const Ref* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
    private:
     template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
@@ -208,7 +199,6 @@ class FwdMsg {
    public:
     std::string_view s() const noexcept { return m_s.view(); }
     std::int32_t n() const noexcept { return m_n; }
-    static const Target& rp_default() noexcept { static const Target rp_d{}; return rp_d; }
     [[nodiscard]] static const Target* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
    private:
     template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
@@ -216,7 +206,6 @@ class FwdMsg {
     ::rapidproto::ArenaString m_s;
     std::int32_t m_n;
   };
-  static const FwdMsg& rp_default() noexcept { static const FwdMsg rp_d{}; return rp_d; }
   [[nodiscard]] static const FwdMsg* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
@@ -236,14 +225,12 @@ class CousinB {
   class Thing {
    public:
     std::string_view s() const noexcept { return m_s.view(); }
-    static const Thing& rp_default() noexcept { static const Thing rp_d{}; return rp_d; }
     [[nodiscard]] static const Thing* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
    private:
     template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
     static bool rp_decode_into(Thing& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
     ::rapidproto::ArenaString m_s;
   };
-  static const CousinB& rp_default() noexcept { static const CousinB rp_d{}; return rp_d; }
   [[nodiscard]] static const CousinB* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
@@ -256,10 +243,9 @@ class CousinA {
   class Use;
   class Use {
    public:
-    ::rapidproto::MessageRef<::xr::CousinB::Thing> thing() const noexcept { return ::rapidproto::MessageRef<::xr::CousinB::Thing>(m_thing); }
+    const ::xr::CousinB::Thing* thing() const noexcept { return m_thing; }
     ::rapidproto::ArrayView<::xr::CousinB::Thing> things() const noexcept { return m_things; }
     ::xr::CousinB::Tag tag() const noexcept { return m_tag; }
-    static const Use& rp_default() noexcept { static const Use rp_d{}; return rp_d; }
     [[nodiscard]] static const Use* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
    private:
     template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
@@ -268,7 +254,6 @@ class CousinA {
     const ::xr::CousinB::Thing* m_thing;
     ::xr::CousinB::Tag m_tag;
   };
-  static const CousinA& rp_default() noexcept { static const CousinA rp_d{}; return rp_d; }
   [[nodiscard]] static const CousinA* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
@@ -285,7 +270,6 @@ class ReservedNames {
   std::int32_t dispatch() const noexcept { return m_dispatch; }
   std::int32_t callbacks() const noexcept { return m_callbacks; }
   std::int32_t read() const noexcept { return m_read; }
-  static const ReservedNames& rp_default() noexcept { static const ReservedNames rp_d{}; return rp_d; }
   [[nodiscard]] static const ReservedNames* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
@@ -303,7 +287,6 @@ static_assert(::std::is_trivially_destructible_v<ReservedNames>);
 class IntWrap {
  public:
   std::int32_t value() const noexcept { return m_value; }
-  static const IntWrap& rp_default() noexcept { static const IntWrap rp_d{}; return rp_d; }
   [[nodiscard]] static const IntWrap* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
@@ -315,7 +298,6 @@ static_assert(::std::is_trivially_destructible_v<IntWrap>);
 class BoolWrap {
  public:
   bool value() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0; }
-  static const BoolWrap& rp_default() noexcept { static const BoolWrap rp_d{}; return rp_d; }
   [[nodiscard]] static const BoolWrap* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
@@ -327,7 +309,6 @@ static_assert(::std::is_trivially_destructible_v<BoolWrap>);
 class BytesWrap {
  public:
   std::string_view value() const noexcept { return m_value.view(); }
-  static const BytesWrap& rp_default() noexcept { static const BytesWrap rp_d{}; return rp_d; }
   [[nodiscard]] static const BytesWrap* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;

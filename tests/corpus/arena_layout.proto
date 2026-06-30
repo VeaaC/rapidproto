@@ -49,7 +49,7 @@ message Layout {
   Point pt = 9;              // inline-fixed 8/8 + presence bit (message presence is explicit)
   Big bg = 10;               // pointer (exceeds cutoff)
   HasString hs = 11;         // pointer (not fixed-size)
-  BoolWrap flag = 12;        // single-bool wrapper -> inlined sub-message + presence bit (MessageRef)
+  BoolWrap flag = 12;        // single-bool wrapper -> inlined sub-message + presence bit (const T*)
   repeated int32 nums = 13;     // ArrayView<int32>
   repeated Point points = 14;   // ArrayView<.al.Point>
   repeated string labels = 20;  // ArrayView<ArenaString> (repeated string)

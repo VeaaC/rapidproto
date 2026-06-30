@@ -23,11 +23,10 @@ class M {
   std::int32_t implicit_scalar() const noexcept { return m_implicit_scalar; }
   bool has_explicit_scalar() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0; }
   std::int32_t explicit_scalar() const noexcept { return m_explicit_scalar; }
-  ::rapidproto::MessageRef<::ed23::M> child() const noexcept { return ::rapidproto::MessageRef<::ed23::M>(m_child); }
+  const ::ed23::M* child() const noexcept { return m_child; }
   ::rapidproto::ArrayView<std::int32_t> packed_nums() const noexcept { return m_packed_nums; }
   ::rapidproto::ArrayView<std::int32_t> expanded_nums() const noexcept { return m_expanded_nums; }
-  ::rapidproto::MessageRef<::ed23::M> delim() const noexcept { return ::rapidproto::MessageRef<::ed23::M>(m_delim); }
-  static const M& rp_default() noexcept { static const M rp_d{}; return rp_d; }
+  const ::ed23::M* delim() const noexcept { return m_delim; }
   [[nodiscard]] static const M* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;

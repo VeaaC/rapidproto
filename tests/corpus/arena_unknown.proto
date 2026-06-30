@@ -10,6 +10,6 @@ message Flag {  // a single singular bool
 }
 
 message Holder {
-  Flag flag = 1;  // a single-bool wrapper field -> inlined, accessor returns MessageRef<Flag>
+  Flag flag = 1;  // a single-bool wrapper field -> inlined, accessor returns const Flag*
   int32 n = 2;
 }

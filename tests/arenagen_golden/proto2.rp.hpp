@@ -50,7 +50,6 @@ class Scalars {
   ::p2::Color color() const noexcept { return m_color; }
   ::rapidproto::ArrayView<std::int32_t> packed_nums() const noexcept { return m_packed_nums; }
   ::rapidproto::ArrayView<std::int32_t> expanded_nums() const noexcept { return m_expanded_nums; }
-  static const Scalars& rp_default() noexcept { static const Scalars rp_d{}; return rp_d; }
   [[nodiscard]] static const Scalars* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
@@ -86,7 +85,6 @@ class WithGroup {
      public:
       bool has_flag() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0; }
       bool flag() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 1)) != 0; }
-      static const Inner& rp_default() noexcept { static const Inner rp_d{}; return rp_d; }
       [[nodiscard]] static const Inner* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
      private:
       template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
@@ -95,8 +93,7 @@ class WithGroup {
     };
     bool has_a() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0; }
     std::int32_t a() const noexcept { return m_a; }
-    ::rapidproto::MessageRef<::p2::WithGroup::MyGroup::Inner> inner() const noexcept { return ::rapidproto::MessageRef<::p2::WithGroup::MyGroup::Inner>((m_rp_mask & (std::uint8_t{1} << 1)) != 0 ? &m_inner : nullptr); }
-    static const MyGroup& rp_default() noexcept { static const MyGroup rp_d{}; return rp_d; }
+    const ::p2::WithGroup::MyGroup::Inner* inner() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 1)) != 0 ? &m_inner : nullptr; }
     [[nodiscard]] static const MyGroup* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
    private:
     template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
@@ -105,8 +102,7 @@ class WithGroup {
     ::p2::WithGroup::MyGroup::Inner m_inner;
     std::uint8_t m_rp_mask;
   };
-  ::rapidproto::MessageRef<::p2::WithGroup::MyGroup> mygroup() const noexcept { return ::rapidproto::MessageRef<::p2::WithGroup::MyGroup>((m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? &m_mygroup : nullptr); }
-  static const WithGroup& rp_default() noexcept { static const WithGroup rp_d{}; return rp_d; }
+  const ::p2::WithGroup::MyGroup* mygroup() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? &m_mygroup : nullptr; }
   [[nodiscard]] static const WithGroup* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
@@ -123,7 +119,6 @@ class Container {
    public:
     bool has_x() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0; }
     std::int32_t x() const noexcept { return m_x; }
-    static const Nested& rp_default() noexcept { static const Nested rp_d{}; return rp_d; }
     [[nodiscard]] static const Nested* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
    private:
     template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
@@ -143,7 +138,7 @@ class Container {
   };
   struct By_nameEntry {
     std::string_view key() const noexcept { return rp_key.view(); }
-    ::rapidproto::MessageRef<::p2::Container::Nested> value() const noexcept { return ::rapidproto::MessageRef<::p2::Container::Nested>(&rp_value); }
+    const ::p2::Container::Nested* value() const noexcept { return &rp_value; }
     friend class Container;
    private:
     ::rapidproto::ArenaString rp_key;
@@ -162,8 +157,7 @@ class Container {
   ::rapidproto::MapView<By_idEntry> by_id() const noexcept { return m_by_id; }
   ChoiceCase choice_case() const noexcept { return static_cast<ChoiceCase>(m_rp_choice_case); }
   std::int32_t ci() const noexcept { return choice_case() == ChoiceCase::kCi ? m_rp_choice.ci : std::int32_t{}; }
-  ::rapidproto::MessageRef<::p2::Container::Nested> cn() const noexcept { return ::rapidproto::MessageRef<::p2::Container::Nested>(choice_case() == ChoiceCase::kCn ? &m_rp_choice.cn : nullptr); }
-  static const Container& rp_default() noexcept { static const Container rp_d{}; return rp_d; }
+  const ::p2::Container::Nested* cn() const noexcept { return choice_case() == ChoiceCase::kCn ? &m_rp_choice.cn : nullptr; }
   [[nodiscard]] static const Container* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;

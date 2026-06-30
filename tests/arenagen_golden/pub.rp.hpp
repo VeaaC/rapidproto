@@ -17,7 +17,6 @@ class Pub {
  public:
   bool has_w() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0; }
   std::int32_t w() const noexcept { return m_w; }
-  static const Pub& rp_default() noexcept { static const Pub rp_d{}; return rp_d; }
   [[nodiscard]] static const Pub* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;

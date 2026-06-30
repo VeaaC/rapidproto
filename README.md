@@ -79,10 +79,8 @@ if (p == nullptr) { /* malformed input: see err.code / err.wire / err.offset */ 
 
 std::uint32_t id = p->id();                        // scalar, by value
 std::string_view name = p->name();                 // string, view into the arena
-if (const auto a = p->address()) {                 // sub-message: a MessageRef (truthy if present)
-    std::string_view city = a->city();             // deref like a pointer ...
-    std::string_view def = p->address().or_default().city();  // ... or read a default when absent
-}
+if (const example::Address* a = p->address())      // sub-message: a pointer (nullptr if absent)
+    std::string_view city = a->city();
 ```
 
 > **Need test bytes?** Encode some with `protoc`: `protoc --encode=example.Person -I. person.proto < values.txt > person.bin`
@@ -131,7 +129,7 @@ class Person {
   std::uint32_t id() const noexcept;                            // scalar, by value
   std::string_view name() const noexcept;                       // string/bytes, view into the arena
   rapidproto::StringArrayView email() const noexcept;           // repeated string (string_view elems)
-  rapidproto::MessageRef<Address> address() const noexcept;     // sub-message: if(ref)/*/->/or_default()
+  const Address* address() const noexcept;                      // sub-message (nullptr if absent)
   // explicit-presence scalar/string/enum fields also get: bool has_<field>() const noexcept;
 };
 ```
@@ -143,11 +141,11 @@ is valid for as long as the `Arena` lives. How each construct is read:
 |---|---|
 | scalar / `enum` | the value, by value (`std::int32_t`, `bool`, the generated `enum class`, …) |
 | `string` / `bytes` | `std::string_view` into the arena (valid while the arena lives) |
-| sub-message | `rapidproto::MessageRef<Sub>`: `if (ref)` (presence), `ref->f()` / `*ref` (deref, like a pointer), `ref.get()` (raw `const Sub*`), `ref.or_default()` (a read-only default when absent) |
+| sub-message | `const Sub*`, a pointer (`nullptr` when absent) |
 | `repeated T` | `rapidproto::ArrayView<T>`, a contiguous `{data, size}` range (iterable, indexable). Repeated `string`/`bytes` instead return `rapidproto::StringArrayView`, which yields `std::string_view` per element; for repeated sub-messages, `T` is the value. |
 | `map<K, V>` | `rapidproto::MapView<Entry>`: insertion-order entries with `.key()`/`.value()` and a last-wins `find(key)` |
 | `oneof o` | `o_case()` returns the generated `OCase` enum; each member accessor returns its value when set, else the default |
-| presence | scalar/`string`/`enum` fields with explicit presence (proto2 `optional`/`required`, editions explicit) get `has_<field>()`; message fields signal presence through `MessageRef`'s `if (ref)` instead |
+| presence | explicit-presence scalar/`string`/`enum` fields get `has_<field>()`; a message field's presence is its `const T*` accessor returning `nullptr` |
 
 ### The arena
 

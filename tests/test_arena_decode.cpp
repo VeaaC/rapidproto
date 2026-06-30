@@ -285,7 +285,7 @@ TEST_CASE("arena-decode: imported (cross-file) sub-messages decode through the f
 }
 
 // A nested group whose message type is a single-bool wrapper: decoded as a group, the wrapper inlined,
-// reached through MessageRef (presence via operator bool, the bool via ->).
+// reached through its const T* accessor (null when absent, the bool via ->).
 TEST_CASE("arena-decode: single-bool-wrapper group field", "[arena-decode]") {
     std::string inner;  // Inner { flag (field 4, varint) = true }
     put_tag(inner, 4, 0);
@@ -368,7 +368,7 @@ TEST_CASE("arena-decode: oneof keeps the last member set", "[arena-decode]") {
     CHECK(m->a() == 2);
 }
 
-// A single-bool wrapper field is a normal inlined sub-message (MessageRef), so under --unknown-present
+// A single-bool wrapper field is a normal inlined sub-message, so under --unknown-present
 // it carries its own has_unknown_fields() in its own inlined mask -- like any other message field. Build
 // a wrapper sub-message that contains an unknown field and confirm the wrapper reports it.
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): three decode cases, flat assertions
@@ -428,31 +428,4 @@ TEST_CASE("arena-decode: a bool-wrapper field reports has_unknown_fields (--unkn
     CHECK(w->flag());
     CHECK_FALSE(w->flag()->value());
     CHECK_FALSE(w->flag()->has_unknown_fields());
-}
-
-// The MessageRef a singular message-field accessor returns: presence via operator bool, deref via
-// */->, and the always-valid or_default() (which materializes the type's shared default instance).
-TEST_CASE("arena-decode: MessageRef presence, deref, and or_default", "[arena-decode]") {
-    Arena arena;
-
-    // self (field 5) absent: the handle is falsy, get() is null, and or_default() yields an all-absent
-    // default whose own accessors read as defaults -- no null dereference.
-    const p3::Msg* empty = p3::Msg::decode(ByteView(std::string()), arena);
-    REQUIRE(empty != nullptr);
-    CHECK_FALSE(empty->self());
-    CHECK(empty->self().get() == nullptr);
-    CHECK(empty->self().or_default().implicit_i() == 0);
-
-    // self present (self.implicit_i = 42): truthy; *, ->, and or_default() all reach the decoded value.
-    std::string inner;
-    put_tag(inner, 1, 0);  // self.implicit_i = 42
-    put_varint(inner, 42);
-    std::string buf;
-    put_len(buf, 5, inner);  // Msg.self = inner
-    const p3::Msg* n = p3::Msg::decode(ByteView(buf), arena);
-    REQUIRE(n != nullptr);
-    REQUIRE(n->self());
-    CHECK(n->self()->implicit_i() == 42);
-    CHECK((*n->self()).implicit_i() == 42);
-    CHECK(n->self().or_default().implicit_i() == 42);
 }

@@ -17,7 +17,6 @@ class WDep {
  public:
   bool has_v() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0; }
   std::int32_t v() const noexcept { return m_v; }
-  static const WDep& rp_default() noexcept { static const WDep rp_d{}; return rp_d; }
   [[nodiscard]] static const WDep* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;

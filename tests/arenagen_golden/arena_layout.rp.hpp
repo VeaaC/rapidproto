@@ -22,7 +22,6 @@ class Point {
  public:
   std::int32_t x() const noexcept { return m_x; }
   std::int32_t y() const noexcept { return m_y; }
-  static const Point& rp_default() noexcept { static const Point rp_d{}; return rp_d; }
   [[nodiscard]] static const Point* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
@@ -37,7 +36,6 @@ class Big {
   std::uint64_t a() const noexcept { return m_a; }
   std::uint64_t b() const noexcept { return m_b; }
   std::uint64_t c() const noexcept { return m_c; }
-  static const Big& rp_default() noexcept { static const Big rp_d{}; return rp_d; }
   [[nodiscard]] static const Big* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
@@ -51,7 +49,6 @@ static_assert(::std::is_trivially_destructible_v<Big>);
 class HasString {
  public:
   std::string_view s() const noexcept { return m_s.view(); }
-  static const HasString& rp_default() noexcept { static const HasString rp_d{}; return rp_d; }
   [[nodiscard]] static const HasString* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
@@ -63,7 +60,6 @@ static_assert(::std::is_trivially_destructible_v<HasString>);
 class BoolWrap {
  public:
   bool value() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0; }
-  static const BoolWrap& rp_default() noexcept { static const BoolWrap rp_d{}; return rp_d; }
   [[nodiscard]] static const BoolWrap* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
@@ -74,9 +70,8 @@ static_assert(::std::is_trivially_destructible_v<BoolWrap>);
 
 class SelfRef {
  public:
-  ::rapidproto::MessageRef<::al::SelfRef> next() const noexcept { return ::rapidproto::MessageRef<::al::SelfRef>(m_next); }
+  const ::al::SelfRef* next() const noexcept { return m_next; }
   std::int32_t v() const noexcept { return m_v; }
-  static const SelfRef& rp_default() noexcept { static const SelfRef rp_d{}; return rp_d; }
   [[nodiscard]] static const SelfRef* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
@@ -110,7 +105,7 @@ class Layout {
   };
   struct GridEntry {
     std::int32_t key() const noexcept { return rp_key; }
-    ::rapidproto::MessageRef<::al::Point> value() const noexcept { return ::rapidproto::MessageRef<::al::Point>(&rp_value); }
+    const ::al::Point* value() const noexcept { return &rp_value; }
     friend class Layout;
    private:
     ::al::Point rp_value;
@@ -126,10 +121,10 @@ class Layout {
   bool has_oname() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 3)) != 0; }
   std::string_view oname() const noexcept { return m_oname.view(); }
   ::al::Color color() const noexcept { return m_color; }
-  ::rapidproto::MessageRef<::al::Point> pt() const noexcept { return ::rapidproto::MessageRef<::al::Point>((m_rp_mask & (std::uint8_t{1} << 4)) != 0 ? &m_pt : nullptr); }
-  ::rapidproto::MessageRef<::al::Big> bg() const noexcept { return ::rapidproto::MessageRef<::al::Big>(m_bg); }
-  ::rapidproto::MessageRef<::al::HasString> hs() const noexcept { return ::rapidproto::MessageRef<::al::HasString>(m_hs); }
-  ::rapidproto::MessageRef<::al::BoolWrap> flag() const noexcept { return ::rapidproto::MessageRef<::al::BoolWrap>((m_rp_mask & (std::uint8_t{1} << 5)) != 0 ? &m_flag : nullptr); }
+  const ::al::Point* pt() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 4)) != 0 ? &m_pt : nullptr; }
+  const ::al::Big* bg() const noexcept { return m_bg; }
+  const ::al::HasString* hs() const noexcept { return m_hs; }
+  const ::al::BoolWrap* flag() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 5)) != 0 ? &m_flag : nullptr; }
   ::rapidproto::ArrayView<std::int32_t> nums() const noexcept { return m_nums; }
   ::rapidproto::ArrayView<::al::Point> points() const noexcept { return m_points; }
   ::rapidproto::StringArrayView labels() const noexcept { return ::rapidproto::StringArrayView(m_labels); }
@@ -138,8 +133,7 @@ class Layout {
   ChoiceCase choice_case() const noexcept { return static_cast<ChoiceCase>(m_rp_choice_case); }
   std::int32_t ci() const noexcept { return choice_case() == ChoiceCase::kCi ? m_rp_choice.ci : std::int32_t{}; }
   std::string_view cs() const noexcept { return choice_case() == ChoiceCase::kCs ? m_rp_choice.cs.view() : std::string_view{}; }
-  ::rapidproto::MessageRef<::al::Point> cp() const noexcept { return ::rapidproto::MessageRef<::al::Point>(choice_case() == ChoiceCase::kCp ? &m_rp_choice.cp : nullptr); }
-  static const Layout& rp_default() noexcept { static const Layout rp_d{}; return rp_d; }
+  const ::al::Point* cp() const noexcept { return choice_case() == ChoiceCase::kCp ? &m_rp_choice.cp : nullptr; }
   [[nodiscard]] static const Layout* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;

@@ -18,7 +18,6 @@ class Flag {
  public:
   bool value() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0; }
   bool has_unknown_fields() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 1)) != 0; }
-  static const Flag& rp_default() noexcept { static const Flag rp_d{}; return rp_d; }
   [[nodiscard]] static const Flag* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
@@ -29,10 +28,9 @@ static_assert(::std::is_trivially_destructible_v<Flag>);
 
 class Holder {
  public:
-  ::rapidproto::MessageRef<::au::Flag> flag() const noexcept { return ::rapidproto::MessageRef<::au::Flag>((m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? &m_flag : nullptr); }
+  const ::au::Flag* flag() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? &m_flag : nullptr; }
   std::int32_t n() const noexcept { return m_n; }
   bool has_unknown_fields() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 1)) != 0; }
-  static const Holder& rp_default() noexcept { static const Holder rp_d{}; return rp_d; }
   [[nodiscard]] static const Holder* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
