@@ -13,7 +13,7 @@
 #                     # paths. Slow (three instrumented builds). Override: FUZZ_TIME=120 COV_FLOOR=88.
 #
 # The independent stages (format, gcc build+test, clang build+test, compile-fail,
-# clang-tidy) run concurrently; each build is a parallel build and clang-tidy is
+# fuzz-compile, clang-tidy) run concurrently; each build is a parallel build and clang-tidy is
 # parallelized across files. Per-stage output is captured and printed in a fixed
 # order so nothing interleaves. Exits non-zero if anything is not clean.
 
@@ -218,6 +218,25 @@ job_compile_fail() {
   return "$rc"
 }
 
+# Compile-check the fuzz harnesses (tests/fuzz/*.cpp). The cmake build never compiles them -- they are
+# LINKED only in the deep tier (they need the libFuzzer driver) -- so an API break in a harness would
+# slip past the default gate and surface only in CI's fuzz job. A syntax-only compile here (no fuzzer,
+# no sanitizer, no link) is enough to catch it. The benches and example consumers ARE built by the
+# cmake build above, so they need no separate check.
+job_fuzz_compile() {
+  local cxx=clang++-20 rc=0 out
+  command -v "$cxx" >/dev/null 2>&1 || cxx=c++
+  for f in tests/fuzz/*.cpp; do
+    if ! out=$("$cxx" -std=c++17 -Iinclude -Itests -fsyntax-only "$f" 2>&1); then
+      echo ">> $f does not compile:"
+      head -15 <<<"$out"
+      rc=1
+    fi
+  done
+  [[ $rc -eq 0 ]] && echo "fuzz harnesses compile"
+  return "$rc"
+}
+
 # Run clang-tidy on one file; on diagnostics, write them to a per-file log under $TIDY_D.
 tidy_one() {
   local f=$1 out
@@ -251,12 +270,14 @@ job_format       >"$LOG/format" 2>&1 & p_format=$!
 job_build_test gcc   >"$LOG/gcc"   2>&1 & p_gcc=$!
 job_build_test clang >"$LOG/clang" 2>&1 & p_clang=$!
 job_compile_fail >"$LOG/cf"     2>&1 & p_cf=$!
+job_fuzz_compile >"$LOG/fuzz"   2>&1 & p_fuzz=$!
 job_tidy         >"$LOG/tidy"   2>&1 & p_tidy=$!
 
 wait "$p_format"; rc_format=$?
 wait "$p_gcc";    rc_gcc=$?
 wait "$p_clang";  rc_clang=$?
 wait "$p_cf";     rc_cf=$?
+wait "$p_fuzz";   rc_fuzz=$?
 wait "$p_tidy";   rc_tidy=$?
 
 # --- print each stage's output in a fixed order (already captured, so never interleaved) ----------
@@ -265,10 +286,11 @@ section "clang-format (check)";                       cat "$LOG/format"
 section "build + test (gcc)";                         cat "$LOG/gcc"
 section "build + test (clang)";                       cat "$LOG/clang"
 section "compile-fail (generated decoder rejects misuse)"; cat "$LOG/cf"
+section "fuzz harness compile-check";                      cat "$LOG/fuzz"
 section "clang-tidy (library = strict, tests = relaxed)";  cat "$LOG/tidy"
 
 fail=0
-for rc in "$rc_format" "$rc_gcc" "$rc_clang" "$rc_cf" "$rc_tidy"; do
+for rc in "$rc_format" "$rc_gcc" "$rc_clang" "$rc_cf" "$rc_fuzz" "$rc_tidy"; do
   [[ "$rc" -ne 0 ]] && fail=1
 done
 

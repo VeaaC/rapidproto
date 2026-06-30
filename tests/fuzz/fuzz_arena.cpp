@@ -20,7 +20,8 @@ extern "C" int LLVMFuzzerTestOneInput(const std::uint8_t* data, std::size_t size
         for (const std::int32_t v : msg->nums()) {
             sink += static_cast<std::size_t>(v);
         }
-        if (const p3::Msg* self = msg->self()) {
+        if (const auto self =
+                msg->self()) {  // MessageRef: truthy when present, deref like a pointer
             sink += self->name().size();
         }
     }
