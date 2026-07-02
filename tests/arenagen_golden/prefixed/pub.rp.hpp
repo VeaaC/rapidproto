@@ -6,6 +6,7 @@
 #include <optional>
 #include <string_view>
 #include <type_traits>
+#include <variant>
 
 #include "rapidproto/arena_runtime.hpp"
 #include "pub.rp.common.hpp"  // IWYU pragma: export

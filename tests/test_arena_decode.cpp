@@ -2,7 +2,8 @@
 // fixtures (tests/wire_fixtures/*.bin) decoded through the generated decoder, asserting accessor
 // values; (2) hand-built buffers for the behaviors fixtures don't cover -- absent-field reads (implicit
 // zero defaults, explicit nullopt), required-field validation, the recursion guard, malformed input,
-// single-bool wrapper fields, unknown-field drop, and oneof last-wins.
+// single-bool wrapper fields, unknown-field drop, and the oneof reader (last-wins, unset,
+// ignore-unhandled, catch-all, same-typed routing).
 
 #include <catch_amalgamated.hpp>
 
@@ -13,13 +14,16 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <variant>  // std::monostate: a oneof reader's unset handler
 
 #include "arenagen_golden/arena_manyreq.rp.hpp"
+#include "arenagen_golden/arena_naming.rp.hpp"   // same-typed oneof members (letters { a; A; })
 #include "arenagen_golden/arena_unknown.rp.hpp"  // --unknown-present + a bool-wrapper field
 #include "arenagen_golden/main.rp.hpp"  // cross-file imports (pulls dep/forward/pub): runtime decode
 #include "arenagen_golden/proto2.rp.hpp"
 #include "arenagen_golden/proto3.rp.hpp"
 #include "arenagen_golden/wire_all.rp.hpp"
+#include "arenagen_golden/xref.rp.hpp"  // oneof member stored as a pointer (Def -> const-ref deref)
 #include "rapidproto/arena_runtime.hpp"
 #include "rapidproto/runtime.hpp"  // ByteView, WireError
 
@@ -106,8 +110,14 @@ TEST_CASE("arena-decode: submessage, repeated, map, oneof fixture", "[arena-deco
     REQUIRE(m->unpacked().size() == 2);  // expanded repeated
     CHECK(m->unpacked()[0] == 4);
     REQUIRE(m->states().size() == 2);  // repeated enum
-    CHECK(m->pick_case() == p3::Msg::PickCase::kA);
-    CHECK(m->a() == 7);
+    bool picked_a = false;  // oneof reader: the active member dispatches to its typed handler
+    m->pick(
+        [&](p3::Msg::Pick::a, std::int32_t v) {
+            picked_a = true;
+            CHECK(v == 7);
+        },
+        [](auto, auto) { FAIL("unexpected oneof member"); });
+    CHECK(picked_a);
     REQUIRE(m->counts().size() == 2);  // map<string,int32>
     REQUIRE(m->counts().find(std::string_view("x")) != nullptr);
     CHECK(m->counts().find(std::string_view("x"))->value() == 1);
@@ -130,6 +140,7 @@ TEST_CASE("arena-decode: message-value and enum-value maps fixture", "[arena-dec
     CHECK(c->by_id().find(2)->value() == p2::Color::NEG);  // negative enum
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): a flat list of accessor assertions
 TEST_CASE("arena-decode: group (delimited) fixture", "[arena-decode]") {
     const std::string bin = fixture("all_wire.bin");
     Arena arena;
@@ -143,7 +154,14 @@ TEST_CASE("arena-decode: group (delimited) fixture", "[arena-decode]") {
     REQUIRE(m->packed().size() == 3);
     REQUIRE(m->g());  // a group sub-message
     CHECK(m->g()->a() == 99);
-    CHECK(m->oi() == 5);
+    bool got_oi = false;
+    m->pick(
+        [&](wire::AllWire::Pick::oi, std::int32_t v) {
+            got_oi = true;
+            CHECK(v == 5);
+        },
+        [](auto, auto) { FAIL("unexpected oneof member"); });
+    CHECK(got_oi);
 }
 
 // An absent explicit-presence field reads as std::nullopt: the schema default (proto2 `[default=...]`)
@@ -308,8 +326,15 @@ TEST_CASE("arena-decode: imported (cross-file) sub-messages decode through the f
     CHECK(m->ds()[1].v() == 8);
     REQUIRE(m->dm().find(3) != nullptr);
     CHECK(m->dm().find(3)->value()->v() == 99);  // map-value cross-file
-    REQUIRE(m->choice_case() == main::Main::ChoiceCase::kOd);
-    CHECK(m->od()->v() == 5);  // oneof cross-file
+    bool chose_od =
+        false;  // oneof reader: a sub-message member arrives by const-ref (no null-check)
+    m->choice(
+        [&](main::Main::Choice::od, const dep::Dep& d) {
+            chose_od = true;
+            CHECK(d.v() == 5);
+        },
+        [](auto, auto) { FAIL("unexpected choice member"); });
+    CHECK(chose_od);
 }
 
 // A nested group whose message type is a single-bool wrapper: decoded as a group, the wrapper inlined,
@@ -392,8 +417,95 @@ TEST_CASE("arena-decode: oneof keeps the last member set", "[arena-decode]") {
     Arena arena;
     const p3::Msg* m = p3::Msg::decode(ByteView(buf), arena);
     REQUIRE(m != nullptr);
-    CHECK(m->pick_case() == p3::Msg::PickCase::kA);  // last set member
-    CHECK(m->a() == 2);
+    bool picked_a = false;  // last set member wins
+    m->pick(
+        [&](p3::Msg::Pick::a, std::int32_t v) {
+            picked_a = true;
+            CHECK(v == 2);
+        },
+        [](auto, auto) { FAIL("unexpected oneof member"); });
+    CHECK(picked_a);
+}
+
+TEST_CASE("arena-decode: oneof reader hands a pointer-stored sub-message over by const-ref",
+          "[arena-decode]") {
+    // xr.Nested.User.pick.chosen is a Def -- Def has a string, so it is not fixed-size and lands in the
+    // union as a pointer; the reader dereferences it to a const-ref (distinct from inline storage).
+    std::string def;
+    put_len(def, 1, "x");  // Def.s = "x"
+    put_tag(def, 2, 0);    // Def.n = 7
+    put_varint(def, 7);
+    std::string buf;
+    put_len(buf, 4, def);  // User.pick.chosen = Def
+    Arena arena;
+    const xr::Nested::User* m = xr::Nested::User::decode(ByteView(buf), arena);
+    REQUIRE(m != nullptr);
+    bool chose = false;
+    m->pick(
+        [&](xr::Nested::User::Pick::chosen, const xr::Nested::Def& d) {
+            chose = true;
+            CHECK(d.s() == "x");
+            CHECK(d.n() == 7);
+        },
+        [](auto, auto) { FAIL("unexpected oneof member"); });
+    CHECK(chose);
+}
+
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): three decode cases, flat assertions
+TEST_CASE("arena-decode: oneof reader -- unset, ignore-unhandled, catch-all", "[arena-decode]") {
+    Arena arena;
+
+    // Unset: no oneof member on the wire -> the std::monostate handler fires.
+    {
+        const p3::Msg* m = p3::Msg::decode(ByteView{}, arena);
+        REQUIRE(m != nullptr);
+        bool unset = false;
+        m->pick([](p3::Msg::Pick::a, std::int32_t) { FAIL("no member was set"); },
+                [&](std::monostate) { unset = true; });
+        CHECK(unset);
+    }
+
+    // Ignore-unhandled: member `a` is set but only a `b` handler is given -> nothing fires, no error.
+    {
+        std::string buf;
+        put_tag(buf, 10, 0);  // pick.a = 5
+        put_varint(buf, 5);
+        const p3::Msg* m = p3::Msg::decode(ByteView(buf), arena);
+        REQUIRE(m != nullptr);
+        bool fired = false;
+        m->pick(
+            [&](p3::Msg::Pick::b, std::string_view) { fired = true; });  // `a` omitted -> ignored
+        CHECK_FALSE(fired);
+    }
+
+    // Catch-all: an unnamed member routes to the (auto, auto) handler.
+    {
+        std::string buf;
+        put_tag(buf, 10, 0);  // pick.a = 9
+        put_varint(buf, 9);
+        const p3::Msg* m = p3::Msg::decode(ByteView(buf), arena);
+        REQUIRE(m != nullptr);
+        bool caught = false;
+        m->pick([&](auto, auto) { caught = true; });  // `a` not named -> catch-all
+        CHECK(caught);
+    }
+}
+
+TEST_CASE("arena-decode: oneof reader routes same-typed members by tag", "[arena-decode]") {
+    // an.Collide.letters { int32 a = 7; int32 A = 8; } -- same value type, distinct tags.
+    std::string buf;
+    put_tag(buf, 8, 0);  // letters.A = 42
+    put_varint(buf, 42);
+    Arena arena;
+    const an::Collide* m = an::Collide::decode(ByteView(buf), arena);
+    REQUIRE(m != nullptr);
+    bool got_upper_a = false;
+    m->letters([](an::Collide::Letters::a, std::int32_t) { FAIL("routed to lowercase a"); },
+               [&](an::Collide::Letters::A, std::int32_t v) {
+                   got_upper_a = true;
+                   CHECK(v == 42);
+               });
+    CHECK(got_upper_a);
 }
 
 // A single-bool wrapper field is a normal inlined sub-message, so under --unknown-present

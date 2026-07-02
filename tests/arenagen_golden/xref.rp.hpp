@@ -6,6 +6,7 @@
 #include <optional>
 #include <string_view>
 #include <type_traits>
+#include <variant>
 
 #include "rapidproto/arena_runtime.hpp"
 #include "xref.rp.common.hpp"  // IWYU pragma: export
@@ -82,10 +83,9 @@ class Nested {
   };
   class User {
    public:
-    enum class PickCase : std::uint8_t {
-      kNotSet = 0,
-      kChosen = 1,
-      kTagged = 2,
+    struct Pick {
+      struct chosen { using Value = ::xr::Nested::Def; };
+      struct tagged { using Value = ::xr::Nested::Def::Kind; };
     };
     union rp_pick_union {
       const ::xr::Nested::Def* chosen;
@@ -116,9 +116,36 @@ class Nested {
     ::rapidproto::ArrayView<::xr::Nested::Def::Inner> inners() const noexcept { return m_inners; }
     ::rapidproto::MapView<By_nameEntry> by_name() const noexcept { return m_by_name; }
     ::rapidproto::MapView<RankedEntry> ranked() const noexcept { return m_ranked; }
-    PickCase pick_case() const noexcept { return static_cast<PickCase>(m_rp_pick_case); }
-    const ::xr::Nested::Def* chosen() const noexcept { return pick_case() == PickCase::kChosen ? m_rp_pick.chosen : nullptr; }
-    ::xr::Nested::Def::Kind tagged() const noexcept { return pick_case() == PickCase::kTagged ? m_rp_pick.tagged : ::xr::Nested::Def::Kind{}; }
+    template <class... RpFs> void pick(RpFs&&... rp_fs) const {
+      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<RpFs, Pick::chosen, typename Pick::chosen::Value>)) <= 1U, "oneof member 'chosen' is handled by more than one callback");
+      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<RpFs, Pick::chosen, typename Pick::chosen::Value>)) <= 1U, "oneof member 'chosen' is matched by more than one catch-all callback");
+      static_assert((true && ... && !::rapidproto::is_partial_generic<RpFs, Pick::chosen, typename Pick::chosen::Value>), "a callback for oneof member 'chosen' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+      static_assert((true && ... && !(::rapidproto::targets<RpFs, Pick::chosen, typename Pick::chosen::Value> && !::rapidproto::specifically_handles<RpFs, Pick::chosen, typename Pick::chosen::Value>)), "a callback for oneof member 'chosen' has the wrong value type (expected Pick::chosen::Value)");
+      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<RpFs, Pick::tagged, typename Pick::tagged::Value>)) <= 1U, "oneof member 'tagged' is handled by more than one callback");
+      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<RpFs, Pick::tagged, typename Pick::tagged::Value>)) <= 1U, "oneof member 'tagged' is matched by more than one catch-all callback");
+      static_assert((true && ... && !::rapidproto::is_partial_generic<RpFs, Pick::tagged, typename Pick::tagged::Value>), "a callback for oneof member 'tagged' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+      static_assert((true && ... && !(::rapidproto::targets<RpFs, Pick::tagged, typename Pick::tagged::Value> && !::rapidproto::specifically_handles<RpFs, Pick::tagged, typename Pick::tagged::Value>)), "a callback for oneof member 'tagged' has the wrong value type (expected Pick::tagged::Value)");
+      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<RpFs, std::monostate>)) <= 1U, "a oneof's unset (std::monostate) state is handled by more than one callback");
+      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<RpFs, std::monostate>)) <= 1U, "a oneof's unset (std::monostate) state is matched by more than one catch-all callback");
+      auto rp_d = ::rapidproto::combine(static_cast<RpFs&&>(rp_fs)...);
+      switch (m_rp_pick_case) {
+        case 1:
+          if constexpr ((false || ... || ::rapidproto::handles_one<RpFs, Pick::chosen, typename Pick::chosen::Value>)) {
+          (void)::rapidproto::invoke_field(rp_d, Pick::chosen{}, *m_rp_pick.chosen);
+          }
+          break;
+        case 2:
+          if constexpr ((false || ... || ::rapidproto::handles_one<RpFs, Pick::tagged, typename Pick::tagged::Value>)) {
+          (void)::rapidproto::invoke_field(rp_d, Pick::tagged{}, m_rp_pick.tagged);
+          }
+          break;
+        default:
+          if constexpr ((false || ... || ::rapidproto::handles_one<RpFs, std::monostate>)) {
+          (void)::rapidproto::invoke_field(rp_d, std::monostate{});
+          }
+          break;
+      }
+    }
     [[nodiscard]] static const User* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
    private:
     template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
@@ -165,9 +192,8 @@ class FwdMsg {
   class Target;
   class Ref {
    public:
-    enum class PickCase : std::uint8_t {
-      kNotSet = 0,
-      kChosen = 1,
+    struct Pick {
+      struct chosen { using Value = ::xr::FwdMsg::Target; };
     };
     union rp_pick_union {
       const ::xr::FwdMsg::Target* chosen;
@@ -184,8 +210,27 @@ class FwdMsg {
     const ::xr::FwdMsg::Target* one() const noexcept { return m_one; }
     ::rapidproto::ArrayView<::xr::FwdMsg::Target> many() const noexcept { return m_many; }
     ::rapidproto::MapView<By_idEntry> by_id() const noexcept { return m_by_id; }
-    PickCase pick_case() const noexcept { return static_cast<PickCase>(m_rp_pick_case); }
-    const ::xr::FwdMsg::Target* chosen() const noexcept { return pick_case() == PickCase::kChosen ? m_rp_pick.chosen : nullptr; }
+    template <class... RpFs> void pick(RpFs&&... rp_fs) const {
+      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<RpFs, Pick::chosen, typename Pick::chosen::Value>)) <= 1U, "oneof member 'chosen' is handled by more than one callback");
+      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<RpFs, Pick::chosen, typename Pick::chosen::Value>)) <= 1U, "oneof member 'chosen' is matched by more than one catch-all callback");
+      static_assert((true && ... && !::rapidproto::is_partial_generic<RpFs, Pick::chosen, typename Pick::chosen::Value>), "a callback for oneof member 'chosen' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+      static_assert((true && ... && !(::rapidproto::targets<RpFs, Pick::chosen, typename Pick::chosen::Value> && !::rapidproto::specifically_handles<RpFs, Pick::chosen, typename Pick::chosen::Value>)), "a callback for oneof member 'chosen' has the wrong value type (expected Pick::chosen::Value)");
+      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<RpFs, std::monostate>)) <= 1U, "a oneof's unset (std::monostate) state is handled by more than one callback");
+      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<RpFs, std::monostate>)) <= 1U, "a oneof's unset (std::monostate) state is matched by more than one catch-all callback");
+      auto rp_d = ::rapidproto::combine(static_cast<RpFs&&>(rp_fs)...);
+      switch (m_rp_pick_case) {
+        case 1:
+          if constexpr ((false || ... || ::rapidproto::handles_one<RpFs, Pick::chosen, typename Pick::chosen::Value>)) {
+          (void)::rapidproto::invoke_field(rp_d, Pick::chosen{}, *m_rp_pick.chosen);
+          }
+          break;
+        default:
+          if constexpr ((false || ... || ::rapidproto::handles_one<RpFs, std::monostate>)) {
+          (void)::rapidproto::invoke_field(rp_d, std::monostate{});
+          }
+          break;
+      }
+    }
     [[nodiscard]] static const Ref* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
    private:
     template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;

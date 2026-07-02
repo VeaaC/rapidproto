@@ -145,8 +145,20 @@ is valid for as long as the `Arena` lives. How each construct is read:
 | sub-message | `const Sub*`, a pointer (`nullptr` when absent) |
 | `repeated T` | `rapidproto::ArrayView<T>`, a contiguous `{data, size}` range (iterable, indexable). Repeated `string`/`bytes` instead return `rapidproto::StringArrayView`, which yields `std::string_view` per element; for repeated sub-messages, `T` is the value. |
 | `map<K, V>` | `rapidproto::MapView<Entry>`: insertion-order entries with `.key()`/`.value()` and a last-wins `find(key)` |
-| `oneof o` | `o_case()` returns the generated `OCase` enum; each member accessor returns its value when set, else the default |
+| `oneof o` | a reader `o(handlers…)`: pass one typed handler per member (`[](Msg::O::member, T value){…}`); the active member is dispatched to its handler — scalars/enums by value, `string`/`bytes` as `std::string_view`, a sub-message as `const Sub&` (no null-check). Members you don't handle are ignored; a single `[](auto, auto){…}` catch-all takes the rest; `[](std::monostate){…}` handles the unset state. Same-typed members stay distinct via their tag types |
 | presence | explicit-presence scalar/`string`/`enum` fields carry presence in their `std::optional<T>` return (`std::nullopt` = absent); a message field's presence is its `const T*` accessor returning `nullptr` |
+
+A `oneof` is read with a small visitor instead of a case enum plus per-member getters, so you can't read an inactive member, and a sub-message member arrives ready to use:
+
+```cpp
+// oneof contact { string email = 1; Address work = 2; }
+person->contact(
+    [](example::Person::Contact::email, std::string_view e)      { use(e); },
+    [](example::Person::Contact::work,  const example::Address& a) { use(a.city()); },  // const&, no null-check
+    [](std::monostate)                                            { /* unset */ });      // optional
+```
+
+Handlers are matched by their tag type, so same-typed members stay distinct; members you omit are ignored, and a single `[](auto, auto){…}` catch-all takes the rest. Each handler returns `void`.
 
 ### The arena
 

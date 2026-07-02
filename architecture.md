@@ -413,16 +413,19 @@ for > 64 bits), and places the mask to fill residual padding.
 ### Generated code shape
 
 Per message: a `class` with the reordered storage + mask word(s) + inline storage / arena pointers /
-views, the `has_x()`/`x()` accessors, nested enum/oneof/map types, and a static `decode(ByteView, Arena&,
+views, the field accessors, nested enum/oneof/map types, and a static `decode(ByteView, Arena&,
 ArenaDecodeError* = nullptr) → const Msg*` (plus an out-of-line `rp_decode_into` that fills an
 already-allocated node, emitted after every class shell so forward/cyclic references are complete types).
-Accessor conventions: scalars/enums by value; `std::string_view` for string/bytes; `const Sub*` for
-sub-messages (inline or pointer alike); `ArrayView<T>` for repeated (a `StringArrayView` of
-`std::string_view` for repeated string/bytes); a `MapView` with `find()` for maps;
-an `<oneof>_case()` discriminant.
+Accessor conventions: scalars/enums by value (explicit-presence fields return `std::optional<T>`,
+`std::nullopt` when absent); `std::string_view` for string/bytes (`std::optional<std::string_view>` if
+explicit-presence); `const Sub*` for sub-messages (inline or pointer alike, `nullptr` when absent);
+`ArrayView<T>` for repeated (a `StringArrayView` of `std::string_view` for repeated string/bytes); a
+`MapView` with `find()` for maps; and a oneof *reader* `<oneof>(handlers…)` that dispatches the active
+member to its typed handler (`std::monostate` handles unset).
 
-**Presence and defaults.** An absent `Explicit`/`Implicit` field reads back the schema default (proto2
-`[default = X]` or zero). A missing proto2 `required` field makes `decode()` **fail** (`nullptr` +
+**Presence and defaults.** An absent `Implicit` field reads back its zero default (0 / "" / first enum);
+an absent `Explicit` field reads `std::nullopt` (the proto2 `[default = X]` is NOT materialized — a
+consumer applies it via `value_or`). A missing proto2 `required` field makes `decode()` **fail** (`nullptr` +
 `MissingRequired`), matching protoc — required-presence is tracked **transiently** during decode (a
 stack-local bitmask validated at each message's end), so there is no resting presence bit for required
 fields.
@@ -434,10 +437,9 @@ functions, each threaded with an `Emit` bundle — references to the `Printer`, 
 `LayoutSet`, a per-message `SynthNames`, and the `SymbolTable`. Two facts orient a first read:
 
 - **Two-layer naming.** The shared `CppNameTable` names and de-collides the schema's *own* identifiers;
-  a per-message **`SynthNames`** pass names the identifiers arenagen *invents* (`has_<f>()`,
-  `<oneof>_case()`, the `<Oneof>Case` enum and its `k<Member>` constants, the `<Map>Entry` type), which
-  `CppNameTable` cannot dedup because they don't exist until the emitter conjures them (so a user field
-  literally named `has_x` still can't collide).
+  a per-message **`SynthNames`** pass names the identifiers arenagen *invents* (the `<Oneof>` visit-tag
+  struct and the `<Map>Entry` type), which `CppNameTable` cannot dedup because they don't exist until the
+  emitter conjures them (so a user nested type literally named `FooEntry` still can't collide).
 - **Shells first, then decode bodies.** All struct shells are emitted before any out-of-line
   **`rp_decode_into`** body (for the complete-type reason given above). Each body is assembled from
   per-field *arms* (`emit_singular_arm` / `emit_repeated_arm` / `emit_map_arm` / `emit_oneof_arm`),

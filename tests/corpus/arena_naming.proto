@@ -1,7 +1,8 @@
-// Fixture for arenagen identifier dedup: every synthesized accessor/type name is forced to
-// collide with a user field/type name, so the golden must still be valid C++ (the colliding
-// synthesized name gains a `_` suffix). Covers has_<field>, <oneof>_case, the <Oneof>Case
-// enumerators, and the <Map>Entry struct.
+// Fixture for arenagen identifier dedup, reserved-name escaping, and oneof-reader naming: a
+// synthesized type name that collides with a user name gains a `_` suffix, reserved names are
+// escaped, and same-typed oneof members stay distinguishable -- so the golden must still be valid
+// C++. Covers the <Map>Entry struct, the reserved decode() entry point, a field named like a oneof's
+// reader, and same-typed oneof members routed by distinct tag types.
 syntax = "proto3";
 
 package an;
@@ -11,17 +12,17 @@ message Collide {
     int32 a = 1;
   }
 
-  optional int32 x = 1;        // explicit -> a synthesized has_x() accessor
-  int32 has_x = 2;             // its getter has_x() collides with the synthesized has_x()
+  optional int32 x = 1;        // explicit presence -> x() returns std::optional<int32> (no has_x())
+  int32 has_x = 2;             // a field literally named has_x -> plain has_x() accessor, no collision
   map<string, int32> foo = 3;  // synthesizes a FooEntry struct -> collides with the nested FooEntry
 
-  oneof pick {  // synthesizes pick_case()
+  oneof pick {  // reader: pick(...)
     int32 p1 = 4;
     int32 p2 = 5;
   }
-  int32 pick_case = 6;  // its getter pick_case() collides with the oneof case accessor
+  int32 pick_case = 6;  // a field named pick_case -> pick_case(); coexists with the pick() reader
 
-  oneof letters {  // members `a` and `A` both capitalize to the enumerator kA
+  oneof letters {  // same-typed members, distinct case-sensitive tags Letters::a / Letters::A
     int32 a = 7;
     int32 A = 8;
   }

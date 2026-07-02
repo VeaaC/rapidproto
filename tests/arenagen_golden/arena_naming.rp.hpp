@@ -6,6 +6,7 @@
 #include <optional>
 #include <string_view>
 #include <type_traits>
+#include <variant>
 
 #include "rapidproto/arena_runtime.hpp"
 #include "arena_naming.rp.common.hpp"  // IWYU pragma: export
@@ -26,20 +27,18 @@ class Collide {
     static bool rp_decode_into(FooEntry& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
     std::int32_t m_a;
   };
-  enum class PickCase : std::uint8_t {
-    kNotSet = 0,
-    kP1 = 1,
-    kP2 = 2,
+  struct Pick {
+    struct p1 { using Value = std::int32_t; };
+    struct p2 { using Value = std::int32_t; };
   };
   union rp_pick_union {
     std::int32_t p1;
     std::int32_t p2;
     rp_pick_union() noexcept {}
   };
-  enum class LettersCase : std::uint8_t {
-    kNotSet = 0,
-    kA = 1,
-    kA_ = 2,
+  struct Letters {
+    struct a { using Value = std::int32_t; };
+    struct A { using Value = std::int32_t; };
   };
   union rp_letters_union {
     std::int32_t a;
@@ -59,12 +58,66 @@ class Collide {
   std::int32_t pick_case() const noexcept { return m_pick_case; }
   std::int32_t decode_() const noexcept { return m_decode_; }
   ::rapidproto::MapView<FooEntry_> foo() const noexcept { return m_foo; }
-  PickCase pick_case_() const noexcept { return static_cast<PickCase>(m_rp_pick_case); }
-  std::int32_t p1() const noexcept { return pick_case_() == PickCase::kP1 ? m_rp_pick.p1 : std::int32_t{}; }
-  std::int32_t p2() const noexcept { return pick_case_() == PickCase::kP2 ? m_rp_pick.p2 : std::int32_t{}; }
-  LettersCase letters_case() const noexcept { return static_cast<LettersCase>(m_rp_letters_case); }
-  std::int32_t a() const noexcept { return letters_case() == LettersCase::kA ? m_rp_letters.a : std::int32_t{}; }
-  std::int32_t A() const noexcept { return letters_case() == LettersCase::kA_ ? m_rp_letters.A : std::int32_t{}; }
+  template <class... RpFs> void pick(RpFs&&... rp_fs) const {
+    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<RpFs, Pick::p1, typename Pick::p1::Value>)) <= 1U, "oneof member 'p1' is handled by more than one callback");
+    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<RpFs, Pick::p1, typename Pick::p1::Value>)) <= 1U, "oneof member 'p1' is matched by more than one catch-all callback");
+    static_assert((true && ... && !::rapidproto::is_partial_generic<RpFs, Pick::p1, typename Pick::p1::Value>), "a callback for oneof member 'p1' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+    static_assert((true && ... && !(::rapidproto::targets<RpFs, Pick::p1, typename Pick::p1::Value> && !::rapidproto::specifically_handles<RpFs, Pick::p1, typename Pick::p1::Value>)), "a callback for oneof member 'p1' has the wrong value type (expected Pick::p1::Value)");
+    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<RpFs, Pick::p2, typename Pick::p2::Value>)) <= 1U, "oneof member 'p2' is handled by more than one callback");
+    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<RpFs, Pick::p2, typename Pick::p2::Value>)) <= 1U, "oneof member 'p2' is matched by more than one catch-all callback");
+    static_assert((true && ... && !::rapidproto::is_partial_generic<RpFs, Pick::p2, typename Pick::p2::Value>), "a callback for oneof member 'p2' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+    static_assert((true && ... && !(::rapidproto::targets<RpFs, Pick::p2, typename Pick::p2::Value> && !::rapidproto::specifically_handles<RpFs, Pick::p2, typename Pick::p2::Value>)), "a callback for oneof member 'p2' has the wrong value type (expected Pick::p2::Value)");
+    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<RpFs, std::monostate>)) <= 1U, "a oneof's unset (std::monostate) state is handled by more than one callback");
+    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<RpFs, std::monostate>)) <= 1U, "a oneof's unset (std::monostate) state is matched by more than one catch-all callback");
+    auto rp_d = ::rapidproto::combine(static_cast<RpFs&&>(rp_fs)...);
+    switch (m_rp_pick_case) {
+      case 1:
+        if constexpr ((false || ... || ::rapidproto::handles_one<RpFs, Pick::p1, typename Pick::p1::Value>)) {
+        (void)::rapidproto::invoke_field(rp_d, Pick::p1{}, m_rp_pick.p1);
+        }
+        break;
+      case 2:
+        if constexpr ((false || ... || ::rapidproto::handles_one<RpFs, Pick::p2, typename Pick::p2::Value>)) {
+        (void)::rapidproto::invoke_field(rp_d, Pick::p2{}, m_rp_pick.p2);
+        }
+        break;
+      default:
+        if constexpr ((false || ... || ::rapidproto::handles_one<RpFs, std::monostate>)) {
+        (void)::rapidproto::invoke_field(rp_d, std::monostate{});
+        }
+        break;
+    }
+  }
+  template <class... RpFs> void letters(RpFs&&... rp_fs) const {
+    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<RpFs, Letters::a, typename Letters::a::Value>)) <= 1U, "oneof member 'a' is handled by more than one callback");
+    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<RpFs, Letters::a, typename Letters::a::Value>)) <= 1U, "oneof member 'a' is matched by more than one catch-all callback");
+    static_assert((true && ... && !::rapidproto::is_partial_generic<RpFs, Letters::a, typename Letters::a::Value>), "a callback for oneof member 'a' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+    static_assert((true && ... && !(::rapidproto::targets<RpFs, Letters::a, typename Letters::a::Value> && !::rapidproto::specifically_handles<RpFs, Letters::a, typename Letters::a::Value>)), "a callback for oneof member 'a' has the wrong value type (expected Letters::a::Value)");
+    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<RpFs, Letters::A, typename Letters::A::Value>)) <= 1U, "oneof member 'A' is handled by more than one callback");
+    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<RpFs, Letters::A, typename Letters::A::Value>)) <= 1U, "oneof member 'A' is matched by more than one catch-all callback");
+    static_assert((true && ... && !::rapidproto::is_partial_generic<RpFs, Letters::A, typename Letters::A::Value>), "a callback for oneof member 'A' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+    static_assert((true && ... && !(::rapidproto::targets<RpFs, Letters::A, typename Letters::A::Value> && !::rapidproto::specifically_handles<RpFs, Letters::A, typename Letters::A::Value>)), "a callback for oneof member 'A' has the wrong value type (expected Letters::A::Value)");
+    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<RpFs, std::monostate>)) <= 1U, "a oneof's unset (std::monostate) state is handled by more than one callback");
+    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<RpFs, std::monostate>)) <= 1U, "a oneof's unset (std::monostate) state is matched by more than one catch-all callback");
+    auto rp_d = ::rapidproto::combine(static_cast<RpFs&&>(rp_fs)...);
+    switch (m_rp_letters_case) {
+      case 1:
+        if constexpr ((false || ... || ::rapidproto::handles_one<RpFs, Letters::a, typename Letters::a::Value>)) {
+        (void)::rapidproto::invoke_field(rp_d, Letters::a{}, m_rp_letters.a);
+        }
+        break;
+      case 2:
+        if constexpr ((false || ... || ::rapidproto::handles_one<RpFs, Letters::A, typename Letters::A::Value>)) {
+        (void)::rapidproto::invoke_field(rp_d, Letters::A{}, m_rp_letters.A);
+        }
+        break;
+      default:
+        if constexpr ((false || ... || ::rapidproto::handles_one<RpFs, std::monostate>)) {
+        (void)::rapidproto::invoke_field(rp_d, std::monostate{});
+        }
+        break;
+    }
+  }
   [[nodiscard]] static const Collide* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;

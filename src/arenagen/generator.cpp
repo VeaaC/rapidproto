@@ -80,16 +80,14 @@ std::string bit_test(const MessageLayout& layout, int bit) {
 
 // ── type-name helpers ────────────────────────────────────────────────────────────────────────────
 
-// Identifiers arenagen synthesizes from field/oneof/map names -- has_<f>(), <oneof>_case(), the
-// <Oneof>Case enum, its k<Member> constants, and the <Map>Entry type. The shared CppNameTable
-// dedups the base names (fields/maps/nested types) against each other, but not these derived forms,
-// so a user field literally named `has_x` or a nested `FooEntry` could collide. Computed once per
-// message (keyed by node pointer) with a `_` suffix on collision, so the output always compiles.
+// Identifiers arenagen synthesizes from field/oneof/map names -- the <Oneof> visit-tag struct and the
+// <Map>Entry type. The shared CppNameTable dedups the base names (fields/maps/nested types) against
+// each other, but not these derived forms, so a user nested type literally named `FooEntry` could
+// collide. Computed once per message (keyed by node pointer) with a `_` suffix on collision, so the
+// output always compiles.
 struct SynthNames {
-    std::unordered_map<const OneofNode*, std::string> case_accessor;  // <oneof>_case()
-    std::unordered_map<const OneofNode*, std::string> case_enum;      // <Oneof>Case
+    std::unordered_map<const OneofNode*, std::string> case_tag;       // <Oneof> visit-tag struct
     std::unordered_map<const MapFieldNode*, std::string> entry_type;  // <Map>Entry
-    std::unordered_map<const FieldNode*, std::string> case_const;     // oneof member -> k<Member>
     std::unordered_map<const MessageNode*, std::string> unknown;      // has_unknown_fields()
 };
 
@@ -222,21 +220,35 @@ void emit_map_entry(const Emit& emit, const MemberPlan& m, const std::string& en
 // ── oneof ────────────────────────────────────────────────────────────────────────────────────────
 void emit_oneof_types(const Emit& emit, const OneofPlan& o) {
     Printer& p = emit.printer;
-    p.print("enum class $E$ : std::uint8_t {\n", {{"E", emit.synth.case_enum.at(o.oneof)}});
+    // Visit-tag types: one per member (named after the field), each with a Value typedef -- mirroring
+    // the streaming decoder's per-field tags, so the same combine/handles_one/invoke_field dispatch
+    // drives the oneof's <name>() reader (unhandled members ignored; a single (auto, auto) catch-all
+    // allowed). The UNSET state is std::monostate -- kept out of this struct so it can never clash with
+    // a member named e.g. `none`.
+    p.print("struct $S$ {\n", {{"S", emit.synth.case_tag.at(o.oneof)}});
     p.indent();
-    p.print("kNotSet = 0,\n");
-    int index = 1;
     for (const OneofMemberPlan& member : o.members) {
-        p.print("$K$ = $i$,\n",
-                {{"K", emit.synth.case_const.at(member.field)}, {"i", std::to_string(index++)}});
+        std::string vt;
+        if (member.kind == FieldKind::SsoString) {
+            vt = "std::string_view";
+        } else if (member.kind == FieldKind::InlineFixedSubMsg ||
+                   member.kind == FieldKind::PointerSubMsg) {
+            // Bare (decayed) type: handlers take `const <T>&` (the arena object, no copy), but the
+            // dispatch traits compare decayed parameter types, so Value must not be a reference.
+            vt = cpp_type_name(emit.names, member.target_fqn);
+        } else {
+            vt = oneof_member_storage(emit, member);  // scalar / enum
+        }
+        p.print("struct $m$ { using Value = $V$; };\n",
+                {{"m", emit.names.local.at(member.field)}, {"V", vt}});
     }
     p.outdent();
     p.print("};\n");
     // A union sized to the largest member; the no-op default ctor leaves it inactive (the decoder
-    // sets the active member, accessors gate on the discriminant). Trivially destructible/copyable.
+    // sets the active member, the reader dispatches on the discriminant). Trivially destructible/copyable.
     // NOTE: the union makes the enclosing message non-trivially-default-constructible, so the decoder
     // must VALUE-initialize it, which Arena::create<T>() does via (::new (mem) T()), to zero the
-    // discriminant to kNotSet; default-init (::new (mem) T) would leave the case indeterminate.
+    // discriminant to 0 (the unset state); default-init (::new (mem) T) would leave the case indeterminate.
     p.print("union rp_$o$_union {\n", {{"o", o.oneof->name}});
     p.indent();
     for (const OneofMemberPlan& member : o.members) {
@@ -248,48 +260,107 @@ void emit_oneof_types(const Emit& emit, const OneofPlan& o) {
     p.print("};\n");
 }
 
+// The oneof reader's compile-time misuse guards -- the arena analog of streamgen's
+// emit_dispatch_guards (over the handler pack `RpFs` instead of `Callbacks`): a member handled by
+// more than one callback, more than one catch-all, a partially-generic callback, or a callback with
+// the wrong value type are each a clear compile error rather than a silent skip. `args` is
+// `<Tag>, typename <Tag>::Value` (or just `<Tag>` for the valueless unset state).
+void emit_oneof_guards(Printer& p, const std::string& args, const std::string& what,
+                       const std::string& expected) {
+    p.print(
+        "static_assert((0U + ... + static_cast<unsigned>("
+        "::rapidproto::specifically_handles<RpFs, $A$>)) <= 1U,"
+        " \"$what$ is handled by more than one callback\");\n",
+        {{"A", args}, {"what", what}});
+    p.print(
+        "static_assert((0U + ... + static_cast<unsigned>("
+        "::rapidproto::is_catch_all<RpFs, $A$>)) <= 1U,"
+        " \"$what$ is matched by more than one catch-all callback\");\n",
+        {{"A", args}, {"what", what}});
+    if (expected.empty()) {
+        return;  // the valueless unset state: no partially-generic / wrong-value-type notion
+    }
+    p.print(
+        "static_assert((true && ... && !::rapidproto::is_partial_generic<RpFs, $A$>),"
+        " \"a callback for $what$ is partially generic; use a concrete (Tag, Value) callback or a"
+        " fully generic (auto, auto) catch-all\");\n",
+        {{"A", args}, {"what", what}});
+    p.print(
+        "static_assert((true && ... && !(::rapidproto::targets<RpFs, $A$>"
+        " && !::rapidproto::specifically_handles<RpFs, $A$>)),"
+        " \"a callback for $what$ has the wrong value type (expected $expected$)\");\n",
+        {{"A", args}, {"what", what}, {"expected", expected}});
+}
+
 void emit_oneof_accessors(const Emit& emit, const OneofPlan& o) {
     Printer& p = emit.printer;
-    const std::string ce = emit.synth.case_enum.at(o.oneof);
-    p.print("$E$ $acc$() const noexcept { return static_cast<$E$>(m_rp_$o$_case); }\n",
-            {{"E", ce}, {"acc", emit.synth.case_accessor.at(o.oneof)}, {"o", o.oneof->name}});
-    const std::string acc = emit.synth.case_accessor.at(o.oneof);
+    const std::string tag = emit.synth.case_tag.at(o.oneof);
+    // The oneof reader, named after the oneof -- sanitized like any identifier (a keyword/reserved oneof
+    // name is escaped), but NOT deduped against fields: a oneof name is already unique among the
+    // message's fields. Pass one typed handler per member (and/or a single (auto, auto) catch-all); the
+    // active member is dispatched to its handler, an unhandled member is ignored -- the same
+    // combine/handles_one/invoke_field dispatch the streaming decoder uses. A `[](std::monostate)`
+    // handler covers the unset state. Returns void (the message is already decoded -- nothing to abort).
+    p.print("template <class... RpFs> void $n$(RpFs&&... rp_fs) const {\n",
+            {{"n", codegen::sanitize(o.oneof->name)}});
+    p.indent();
     for (const OneofMemberPlan& member : o.members) {
-        const std::string id = emit.names.local.at(member.field);
-        const std::string guard = ce + "::" + emit.synth.case_const.at(member.field);
-        if (member.kind == FieldKind::SsoString) {
-            p.print(
-                "std::string_view $id$() const noexcept { return $acc$() == $g$ ?"
-                " m_rp_$o$.$id$.view() : std::string_view{}; }\n",
-                {{"id", id}, {"acc", acc}, {"o", o.oneof->name}, {"g", guard}});
-        } else if (member.kind == FieldKind::PointerSubMsg) {
-            p.print(
-                "const $T$* $id$() const noexcept { return $acc$() == $g$ ? m_rp_$o$.$id$"
-                " : nullptr; }\n",
-                {{"T", cpp_type_name(emit.names, member.target_fqn)},
-                 {"id", id},
-                 {"acc", acc},
-                 {"o", o.oneof->name},
-                 {"g", guard}});
-        } else if (member.kind == FieldKind::InlineFixedSubMsg) {
-            p.print(
-                "const $T$* $id$() const noexcept { return $acc$() == $g$ ? &m_rp_$o$.$id$"
-                " : nullptr; }\n",
-                {{"T", cpp_type_name(emit.names, member.target_fqn)},
-                 {"id", id},
-                 {"acc", acc},
-                 {"o", o.oneof->name},
-                 {"g", guard}});
-        } else {
-            p.print(
-                "$T$ $id$() const noexcept { return $acc$() == $g$ ? m_rp_$o$.$id$ : $T${}; }\n",
-                {{"T", oneof_member_storage(emit, member)},
-                 {"id", id},
-                 {"acc", acc},
-                 {"o", o.oneof->name},
-                 {"g", guard}});
-        }
+        const std::string& id = emit.names.local.at(member.field);
+        std::string tagref = tag;
+        tagref += "::";
+        tagref += id;
+        std::string args = tagref;
+        args += ", typename ";
+        args += tagref;
+        args += "::Value";
+        std::string what = "oneof member '";
+        what += id;
+        what += '\'';
+        std::string expected = tagref;
+        expected += "::Value";
+        emit_oneof_guards(p, args, what, expected);
     }
+    emit_oneof_guards(p, "std::monostate", "a oneof's unset (std::monostate) state", "");
+    p.print("auto rp_d = ::rapidproto::combine(static_cast<RpFs&&>(rp_fs)...);\n");
+    p.print("switch (m_rp_$o$_case) {\n", {{"o", o.oneof->name}});
+    p.indent();
+    int index = 1;
+    for (const OneofMemberPlan& member : o.members) {
+        const std::string& id = emit.names.local.at(member.field);
+        std::string val;
+        if (member.kind == FieldKind::PointerSubMsg) {
+            val = "*";  // stored as a pointer -> hand over a const ref
+        }
+        val += "m_rp_";
+        val += o.oneof->name;
+        val += '.';
+        val += id;
+        if (member.kind == FieldKind::SsoString) {
+            val += ".view()";
+        }
+        p.print("case $i$:\n", {{"i", std::to_string(index++)}});
+        p.indent();
+        p.print(
+            "if constexpr ((false || ... ||"
+            " ::rapidproto::handles_one<RpFs, $S$::$id$, typename $S$::$id$::Value>)) {\n",
+            {{"S", tag}, {"id", id}});
+        p.print("(void)::rapidproto::invoke_field(rp_d, $S$::$id${}, $val$);\n",
+                {{"S", tag}, {"id", id}, {"val", val}});
+        p.print("}\n");
+        p.print("break;\n");
+        p.outdent();
+    }
+    p.print("default:\n");
+    p.indent();
+    p.print("if constexpr ((false || ... || ::rapidproto::handles_one<RpFs, std::monostate>)) {\n");
+    p.print("(void)::rapidproto::invoke_field(rp_d, std::monostate{});\n");
+    p.print("}\n");
+    p.print("break;\n");
+    p.outdent();
+    p.outdent();
+    p.print("}\n");
+    p.outdent();
+    p.print("}\n");
 }
 
 // ── field accessors ──────────────────────────────────────────────────────────────────────────────
@@ -628,16 +699,7 @@ void synth_for_message(const CppNameTable& names, const LayoutSet& layouts,
         }
     }
     for (const OneofPlan& o : layout.oneofs) {
-        out.case_accessor[o.oneof] = dedup(o.oneof->name + "_case");
-        out.case_enum[o.oneof] = dedup(capitalize(o.oneof->name) + "Case");
-        std::unordered_set<std::string> enumerators = {"kNotSet"};  // separate (enum) scope
-        for (const OneofMemberPlan& member : o.members) {
-            std::string name = "k" + capitalize(names.local.at(member.field));
-            while (!enumerators.insert(name).second) {
-                name += '_';
-            }
-            out.case_const[member.field] = name;
-        }
+        out.case_tag[o.oneof] = dedup(capitalize(o.oneof->name));  // visit-tag struct, e.g. "Pick"
     }
     if (layout.unknown_bit >= 0) {
         out.unknown[&message] = dedup("has_unknown_fields");
@@ -1279,7 +1341,8 @@ std::string generate_header(const FileNode& file, const CppNameTable& names,
     printer.print("#include <cstdint>\n");
     printer.print("#include <optional>\n");  // explicit-presence accessors return std::optional<T>
     printer.print("#include <string_view>\n");
-    printer.print("#include <type_traits>\n\n");
+    printer.print("#include <type_traits>\n");
+    printer.print("#include <variant>\n\n");  // std::monostate = a oneof reader's unset state
     printer.print("#include \"rapidproto/arena_runtime.hpp\"\n");
     // The schema's top-level enums live in the shared common header (one C++ type, shared with the
     // streaming decoder); include this file's own sibling common. The IWYU export makes a TU that

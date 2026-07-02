@@ -74,6 +74,38 @@ expect_fail private-storage "m_implicit_i" '
 void f(rapidproto::ByteView b, rapidproto::Arena& a) {
   const p3::Msg* m = p3::Msg::decode(b, a); (void)m->m_implicit_i; }'
 
+# --- oneof reader misuse (mirrors the streaming decoder's dispatch guards) ---
+
+# A correct oneof reader compiles (positive control): a typed member handler + the unset handler,
+# with the other member simply omitted (ignored).
+expect_pass oneof-correct '
+#include "proto3.rp.hpp"
+void f(rapidproto::ByteView b, rapidproto::Arena& a) {
+  const p3::Msg* m = p3::Msg::decode(b, a);
+  m->pick([](p3::Msg::Pick::a, std::int32_t){}, [](std::monostate){}); }'
+
+# A handler whose value type does not match the member (int32 member, float handler) is rejected.
+expect_fail oneof-wrong-type "wrong value type" '
+#include "proto3.rp.hpp"
+void f(rapidproto::ByteView b, rapidproto::Arena& a) {
+  const p3::Msg* m = p3::Msg::decode(b, a);
+  m->pick([](p3::Msg::Pick::a, float){}); }'
+
+# Two handlers for the same member is rejected.
+expect_fail oneof-double "more than one callback" '
+#include "proto3.rp.hpp"
+void f(rapidproto::ByteView b, rapidproto::Arena& a) {
+  const p3::Msg* m = p3::Msg::decode(b, a);
+  m->pick([](p3::Msg::Pick::a, std::int32_t){}, [](p3::Msg::Pick::a, std::int32_t){}); }'
+
+# A partially-generic handler (concrete tag, `auto` value) is rejected -- use a concrete (Tag, Value)
+# handler or a fully generic (auto, auto) catch-all.
+expect_fail oneof-partial-generic "partially generic" '
+#include "proto3.rp.hpp"
+void f(rapidproto::ByteView b, rapidproto::Arena& a) {
+  const p3::Msg* m = p3::Msg::decode(b, a);
+  m->pick([](p3::Msg::Pick::a, auto){}); }'
+
 if [[ "$fail" == "0" ]]; then
   echo "arenagen compile-fail: all snippets correctly rejected"
 fi
