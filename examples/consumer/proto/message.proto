@@ -16,4 +16,5 @@ message Shape {
   string name = 1;
   Point origin = 2;
   Kind kind = 3;
+  repeated int32 sides = 4;  // navigable array (arena) / per-element callback (streaming)
 }

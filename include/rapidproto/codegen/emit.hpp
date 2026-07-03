@@ -6,9 +6,11 @@
 // the same way by each lives in one place.
 
 #include <algorithm>
+#include <cstddef>
 #include <string>
 #include <string_view>
 #include <unordered_set>
+#include <vector>
 
 #include "rapidproto/ast.hpp"
 #include "rapidproto/codegen/naming.hpp"
@@ -133,6 +135,95 @@ inline std::string emit_common_header(const FileNode& file, const CppNameTable& 
         printer.print("}  // namespace $ns$\n", {{"ns", ns}});
     }
     return printer.str();
+}
+
+// The compile-time dispatch misuse guards both emitters generate, identical up to the name of the
+// callback template-parameter pack (`pack`: streamgen's decode() uses "Callbacks", the arena oneof
+// reader "RpFs"). `args` is the trait argument list after the pack ("$f$, $f$::Value" for a field,
+// with Key inserted for a map); `what` names the case for diagnostics; `expected` describes the
+// expected value type(s). Four guards: at most one specific handler (duplicates are an error); at
+// most one catch-all; no partially-generic callback; and a callback that NAMES this case must
+// handle it exactly (per-callback, so a catch-all sibling cannot mask a mistyped callback).
+inline void emit_dispatch_guards(Printer& printer, const std::string& pack, const std::string& args,
+                                 const std::string& what, const std::string& expected) {
+    printer.print(
+        "static_assert((0U + ... + static_cast<unsigned>("
+        "::rapidproto::specifically_handles<$P$, $A$>)) <= 1U,"
+        " \"$what$ is handled by more than one callback\");\n",
+        {{"P", pack}, {"A", args}, {"what", what}});
+    printer.print(
+        "static_assert((0U + ... + static_cast<unsigned>("
+        "::rapidproto::is_catch_all<$P$, $A$>)) <= 1U,"
+        " \"$what$ is matched by more than one catch-all callback\");\n",
+        {{"P", pack}, {"A", args}, {"what", what}});
+    if (expected.empty()) {
+        // A VALUELESS case (the oneof unset state, args = just the tag): no partially-generic /
+        // wrong-value-type notion, but a callback naming the tag with extra parameters would
+        // silently never fire -- the same names-it-must-handle-it rule, phrased for the bare tag.
+        printer.print(
+            "static_assert((true && ... && !(::rapidproto::targets<$P$, $A$>"
+            " && !::rapidproto::specifically_handles<$P$, $A$>)),"
+            " \"a callback for $what$ must take exactly ($A$)\");\n",
+            {{"P", pack}, {"A", args}, {"what", what}});
+        return;
+    }
+    printer.print(
+        "static_assert((true && ... && !::rapidproto::is_partial_generic<$P$, $A$>),"
+        " \"a callback for $what$ is partially generic; use a concrete (Tag, Value) callback or a"
+        " fully generic (auto, auto) catch-all\");\n",
+        {{"P", pack}, {"A", args}, {"what", what}});
+    printer.print(
+        "static_assert((true && ... && !(::rapidproto::targets<$P$, $A$>"
+        " && !::rapidproto::specifically_handles<$P$, $A$>)),"
+        " \"a callback for $what$ has the wrong value type (expected $expected$)\");\n",
+        {{"P", pack}, {"A", args}, {"what", what}, {"expected", expected}});
+}
+
+// Order sibling messages so every type that must be visible before a sibling's definition is
+// emitted first: post-order DFS over the "B must precede A" edges `depends_on(a, b)` answers.
+// Acyclic for valid schemas; the active-set guard breaks any cycle, which only an
+// inherently-uncompilable schema can form (two siblings each naming a type nested in the other).
+// Iterative (a frame is {node, next candidate to scan}): the dependency-chain length is unbounded
+// in a protoc-valid schema, so recursing per edge could overflow the native stack.
+template <class DependsOn>
+std::vector<const MessageNode*> topo_order_siblings(const std::vector<MessageNode>& siblings,
+                                                    const DependsOn& depends_on) {
+    std::vector<const MessageNode*> order;
+    std::vector<bool> done(siblings.size(), false);
+    std::vector<bool> active(siblings.size(), false);
+    struct Frame {
+        std::size_t node;
+        std::size_t next;
+    };
+    std::vector<Frame> stack;
+    for (std::size_t root = 0; root < siblings.size(); ++root) {
+        if (done[root]) {
+            continue;
+        }
+        active[root] = true;
+        stack.push_back({root, 0});
+        while (!stack.empty()) {
+            const std::size_t i = stack.back().node;
+            std::size_t child = siblings.size();
+            while (stack.back().next < siblings.size()) {
+                const std::size_t j = stack.back().next++;
+                if (j != i && !done[j] && !active[j] && depends_on(i, j)) {
+                    child = j;
+                    break;
+                }
+            }
+            if (child != siblings.size()) {
+                active[child] = true;
+                stack.push_back({child, 0});
+            } else {
+                active[i] = false;
+                done[i] = true;
+                order.push_back(&siblings[i]);
+                stack.pop_back();
+            }
+        }
+    }
+    return order;
 }
 
 }  // namespace rapidproto::codegen

@@ -353,3 +353,26 @@ TEST_CASE("types: a duplicate extension number is rejected") {
     REQUIRE(table.is_err());
     CHECK(table.error().message.find("duplicate extension") != std::string::npos);
 }
+
+TEST_CASE("types: a duplicate type FQN is rejected") {
+    // Two definitions of one FQN (invalid input protoc rejects) would otherwise split the truth
+    // between the last-wins symbol map and the first-wins node index, surfacing later as a baffling
+    // duplicate-class error in generated code -- so analysis fails with a clear schema error.
+    ResolvedFileSet set = one(R"(
+        syntax = "proto3"; package pkg;
+        message M { int32 a = 1; }
+        message M { int32 b = 1; }
+    )");
+    auto table = resolve_types(set);
+    REQUIRE(table.is_err());
+    CHECK(table.error().message.find("duplicate type name") != std::string::npos);
+
+    // Cross-file duplicates (same package, two files) are caught by the same check.
+    ResolvedFileSet two_files = make_set({
+        {"a.proto", "syntax = \"proto3\"; package pkg; message Dup { int32 a = 1; }"},
+        {"b.proto", "syntax = \"proto3\"; package pkg; message Dup { int32 b = 1; }"},
+    });
+    auto table2 = resolve_types(two_files);
+    REQUIRE(table2.is_err());
+    CHECK(table2.error().message.find("duplicate type name") != std::string::npos);
+}

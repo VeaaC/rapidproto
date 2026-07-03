@@ -126,6 +126,9 @@ struct MessageLayout {
 // Every message's layout (top-level and nested, in declaration order), plus FQN lookup.
 struct LayoutSet {
     std::vector<MessageLayout> layouts;
+    // FQN -> index into `layouts`, so the emitter's per-message find() is O(1) instead of a scan
+    // (it is called several times per emitted message). Filled as plan_layouts walks.
+    std::unordered_map<std::string, std::size_t> by_fqn;
     [[nodiscard]] const MessageLayout* find(const std::string& fqn) const;
 };
 

@@ -218,7 +218,7 @@ void emit_map_entry(const Emit& emit, const MemberPlan& m, const std::string& en
 
 // ── enums ────────────────────────────────────────────────────────────────────────────────────────
 // ── oneof ────────────────────────────────────────────────────────────────────────────────────────
-void emit_oneof_types(const Emit& emit, const OneofPlan& o) {
+void emit_oneof_visit_tags(const Emit& emit, const OneofPlan& o) {
     Printer& p = emit.printer;
     // Visit-tag types: one per member (named after the field), each with a Value typedef -- mirroring
     // the streaming decoder's per-field tags, so the same combine/handles_one dispatch machinery
@@ -266,46 +266,6 @@ void emit_oneof_union(const Emit& emit, const OneofPlan& o) {
     p.print("};\n");
 }
 
-// The oneof reader's compile-time misuse guards -- the arena analog of streamgen's
-// emit_dispatch_guards (over the handler pack `RpFs` instead of `Callbacks`): a member handled by
-// more than one callback, more than one catch-all, a partially-generic callback, or a callback with
-// the wrong value type are each a clear compile error rather than a silent skip. `args` is
-// `<Tag>, typename <Tag>::Value` (or just `<Tag>` for the valueless unset state).
-void emit_oneof_guards(Printer& p, const std::string& args, const std::string& what,
-                       const std::string& expected) {
-    p.print(
-        "static_assert((0U + ... + static_cast<unsigned>("
-        "::rapidproto::specifically_handles<RpFs, $A$>)) <= 1U,"
-        " \"$what$ is handled by more than one callback\");\n",
-        {{"A", args}, {"what", what}});
-    p.print(
-        "static_assert((0U + ... + static_cast<unsigned>("
-        "::rapidproto::is_catch_all<RpFs, $A$>)) <= 1U,"
-        " \"$what$ is matched by more than one catch-all callback\");\n",
-        {{"A", args}, {"what", what}});
-    if (expected.empty()) {
-        // The valueless unset state has no partially-generic / wrong-value-type notion, but a
-        // callback NAMING std::monostate with extra parameters would silently never fire -- the
-        // same names-it-must-handle-it rule as a value member, phrased for the unset state.
-        p.print(
-            "static_assert((true && ... && !(::rapidproto::targets<RpFs, $A$>"
-            " && !::rapidproto::specifically_handles<RpFs, $A$>)),"
-            " \"a callback for $what$ must take exactly (std::monostate)\");\n",
-            {{"A", args}, {"what", what}});
-        return;
-    }
-    p.print(
-        "static_assert((true && ... && !::rapidproto::is_partial_generic<RpFs, $A$>),"
-        " \"a callback for $what$ is partially generic; use a concrete (Tag, Value) callback or a"
-        " fully generic (auto, auto) catch-all\");\n",
-        {{"A", args}, {"what", what}});
-    p.print(
-        "static_assert((true && ... && !(::rapidproto::targets<RpFs, $A$>"
-        " && !::rapidproto::specifically_handles<RpFs, $A$>)),"
-        " \"a callback for $what$ has the wrong value type (expected $expected$)\");\n",
-        {{"A", args}, {"what", what}, {"expected", expected}});
-}
-
 void emit_oneof_accessors(const Emit& emit, const OneofPlan& o) {
     Printer& p = emit.printer;
     const std::string tag = emit.synth.case_tag.at(o.oneof);
@@ -333,9 +293,10 @@ void emit_oneof_accessors(const Emit& emit, const OneofPlan& o) {
         what += '\'';
         std::string expected = tagref;
         expected += "::Value";
-        emit_oneof_guards(p, args, what, expected);
+        codegen::emit_dispatch_guards(p, "RpFs", args, what, expected);
     }
-    emit_oneof_guards(p, "std::monostate", "a oneof's unset (std::monostate) state", "");
+    codegen::emit_dispatch_guards(p, "RpFs", "std::monostate",
+                                  "a oneof's unset (std::monostate) state", "");
     // Per-handler stray guard: every handler must name one of THIS oneof's member tags (or
     // std::monostate, or be a catch-all). Catches a handler pasted from another oneof's reader,
     // which no per-member guard would ever see.
@@ -579,44 +540,7 @@ std::vector<const MessageNode*> ordered_siblings(const Emit& emit,
                            [&](const std::string& t) { return t == root || under(t); }) ||
                std::any_of(enclosing[a].begin(), enclosing[a].end(), under);
     };
-    std::vector<const MessageNode*> order;
-    std::vector<bool> done(siblings.size(), false);
-    std::vector<bool> active(siblings.size(), false);
-    // Iterative DFS (a frame is {node, next candidate to scan}): the dependency-chain length is
-    // unbounded in a protoc-valid schema, so recursing per edge could overflow the native stack.
-    struct Frame {
-        std::size_t node;
-        std::size_t next;
-    };
-    std::vector<Frame> stack;
-    for (std::size_t root = 0; root < siblings.size(); ++root) {
-        if (done[root]) {
-            continue;
-        }
-        active[root] = true;
-        stack.push_back({root, 0});
-        while (!stack.empty()) {
-            const std::size_t i = stack.back().node;
-            std::size_t child = siblings.size();
-            while (stack.back().next < siblings.size()) {
-                const std::size_t j = stack.back().next++;
-                if (j != i && !done[j] && !active[j] && depends_on(i, j)) {
-                    child = j;
-                    break;
-                }
-            }
-            if (child != siblings.size()) {
-                active[child] = true;
-                stack.push_back({child, 0});
-            } else {
-                active[i] = false;
-                done[i] = true;
-                order.push_back(&siblings[i]);
-                stack.pop_back();
-            }
-        }
-    }
-    return order;
+    return codegen::topo_order_siblings(siblings, depends_on);
 }
 
 void emit_message(const Emit& emit, const MessageNode& message);  // recursion
@@ -656,7 +580,7 @@ void emit_message_body(const Emit& emit, const MessageNode& message) {
         emit_message(emit, *nested);
     }
     for (const OneofPlan& o : layout.oneofs) {
-        emit_oneof_types(emit, o);
+        emit_oneof_visit_tags(emit, o);
     }
     for (const MemberPlan& m : layout.members) {
         if (m.kind == FieldKind::Map) {
@@ -823,37 +747,26 @@ int req_bit_no(int index, std::size_t total) {
     return total > kWordBits ? index % kWordBits : index;
 }
 
-// Read one scalar/enum/string value from `reader` into the lvalue `target` (wire type already
-// matched); emits a wire-failure return. Not for bool-as-bit or messages.
-// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): target lvalue vs reader expression
+// Forward declaration: the shared scalar/string/enum read lives with the map-entry emitter below.
+void emit_scalar_read(const Emit& emit, FieldKind kind, std::string_view proto_type,
+                      const std::string& enum_fqn, const std::string& target,
+                      const std::string& reader);
+
+// One field-value read into `target`: classify the FieldNode, then emit through the same
+// kind-based helper the map-entry emitter uses (the emitted read is identical either way).
 void emit_value_read(const Emit& emit, const FieldNode& field, const std::string& target,
                      const std::string& reader) {
-    Printer& p = emit.printer;
     if (!field.is_message_type && !field.is_enum_type &&
         (field.type_name == "string" || field.type_name == "bytes")) {
-        p.print("const auto rp_v = $r$.read_length_delimited();\n", {{"r", reader}});
-        p.print("if (!rp_v) { ::rapidproto::rp_fail_wire(err, $r$); return false; }\n",
-                {{"r", reader}});
-        p.print("$t$ = ::rapidproto::ArenaString::make(*rp_v, arena);\n", {{"t", target}});
-        p.print(
-            "if (!rp_v->empty() && ($t$).empty()) { "
-            "::rapidproto::rp_fail_string(err, *rp_v); return false; }\n",
-            {{"t", target}});
-        return;
+        emit_scalar_read(emit, FieldKind::SsoString, field.type_name, /*enum_fqn=*/"", target,
+                         reader);
+    } else if (field.is_enum_type) {
+        emit_scalar_read(emit, FieldKind::InlineEnum, field.type_name, field.resolved_type_fqn,
+                         target, reader);
+    } else {
+        emit_scalar_read(emit, FieldKind::InlineScalar, field.type_name, /*enum_fqn=*/"", target,
+                         reader);
     }
-    if (field.is_enum_type) {
-        p.print("const auto rp_v = $r$.read_varint();\n", {{"r", reader}});
-        p.print("if (!rp_v) { ::rapidproto::rp_fail_wire(err, $r$); return false; }\n",
-                {{"r", reader}});
-        p.print("$t$ = static_cast<$E$>(::rapidproto::varint_to_int32(*rp_v));\n",
-                {{"t", target}, {"E", cpp_type_name(emit.names, field.resolved_type_fqn)}});
-        return;
-    }
-    const codegen::ScalarWire& info = scalar_wire(field.type_name);
-    p.print("const auto rp_v = $r$.$rd$;\n", {{"r", reader}, {"rd", info.read}});
-    p.print("if (!rp_v) { ::rapidproto::rp_fail_wire(err, $r$); return false; }\n",
-            {{"r", reader}});
-    p.print("$t$ = $pre$*rp_v$post$;\n", {{"t", target}, {"pre", info.pre}, {"post", info.post}});
 }
 
 std::string elem_wire_enum(const FieldNode& field) {  // the native wire type of a repeated element
@@ -952,15 +865,14 @@ void emit_singular_arm(const Emit& emit, const MessageLayout& layout, const Memb
                 "if (!::rapidproto::arena_detail::decode_into(out.m_$id$, *rp_v, arena, depth + 1, "
                 "err)) { return "
                 "false; }\n",
-                {{"S", sub}, {"id", id}});
+                {{"id", id}});
         } else {
             p.print("$S$* const rp_sub = arena.create<$S$>();\n", {{"S", sub}});
             p.print("if (rp_sub == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }\n");
             p.print(
                 "if (!::rapidproto::arena_detail::decode_into(*rp_sub, *rp_v, arena, depth + 1, "
                 "err)) { return false; "
-                "}\n",
-                {{"S", sub}});
+                "}\n");
             p.print("out.m_$id$ = rp_sub;\n", {{"id", id}});
         }
         emit_presence_set(emit, layout, m, required_bit);
@@ -998,8 +910,7 @@ void emit_repeated_element(const Emit& emit, const FieldNode& field, const std::
         p.print("*rp_slot = $S${};\n", {{"S", sub}});
         p.print(
             "if (!::rapidproto::arena_detail::decode_into(*rp_slot, *rp_v, arena, depth + 1, err)) "
-            "{ return false; }\n",
-            {{"S", sub}});
+            "{ return false; }\n");
     } else {
         emit_value_read(emit, field, "*rp_slot", reader);
     }
@@ -1075,11 +986,13 @@ void emit_map_setup(const Emit& emit, const MemberPlan& m) {
                         emit.synth.entry_type.at(m.map_field));
 }
 
-// Read a scalar/enum/string map key or value (field 1 / 2 of the entry) into `target` from `reader`.
+// Read one scalar/enum/string value from `reader` into the lvalue `target` (wire type already
+// matched); emits a wire-failure return. Not for bool-as-bit or messages. Serves both the
+// singular-field arm (via emit_value_read's classification) and the map-entry key/value arms.
 // NOLINTBEGIN(bugprone-easily-swappable-parameters): enum FQN, target lvalue, reader -- distinct
-void emit_kv_scalar(const Emit& emit, FieldKind kind, std::string_view proto_type,
-                    const std::string& enum_fqn, const std::string& target,
-                    const std::string& reader) {
+void emit_scalar_read(const Emit& emit, FieldKind kind, std::string_view proto_type,
+                      const std::string& enum_fqn, const std::string& target,
+                      const std::string& reader) {
     // NOLINTEND(bugprone-easily-swappable-parameters)
     Printer& p = emit.printer;
     if (kind == FieldKind::SsoString) {
@@ -1107,8 +1020,7 @@ void emit_kv_scalar(const Emit& emit, FieldKind kind, std::string_view proto_typ
     }
 }
 
-std::string kv_wire(const Emit& emit, FieldKind kind, std::string_view proto_type) {
-    (void)emit;
+std::string kv_wire(FieldKind kind, std::string_view proto_type) {
     if (kind == FieldKind::SsoString || kind == FieldKind::InlineFixedSubMsg ||
         kind == FieldKind::PointerSubMsg) {
         return "Len";
@@ -1142,14 +1054,14 @@ void emit_map_arm(const Emit& emit, const MemberPlan& m) {
     p.print("const auto rp_et = rp_er.read_tag();\n");
     p.print("if (!rp_et) { ::rapidproto::rp_fail_wire(err, rp_er); return false; }\n");
     p.print("if (rp_et->field_number == 1 && rp_et->wire_type == ::rapidproto::WireType::$kw$) {\n",
-            {{"kw", kv_wire(emit, e.key_kind, map.key_type)}});
+            {{"kw", kv_wire(e.key_kind, map.key_type)}});
     p.indent();
-    emit_kv_scalar(emit, e.key_kind, map.key_type, /*enum_fqn=*/"", "rp_slot->rp_key", "rp_er");
+    emit_scalar_read(emit, e.key_kind, map.key_type, /*enum_fqn=*/"", "rp_slot->rp_key", "rp_er");
     p.outdent();
     p.print(
         "} else if (rp_et->field_number == 2 && rp_et->wire_type == ::rapidproto::WireType::$vw$) "
         "{\n",
-        {{"vw", kv_wire(emit, e.value_kind, map.value_type)}});
+        {{"vw", kv_wire(e.value_kind, map.value_type)}});
     p.indent();
     if (e.value_kind == FieldKind::InlineFixedSubMsg || e.value_kind == FieldKind::PointerSubMsg) {
         const std::string sub = cpp_type_name(emit.names, e.value_fqn);
@@ -1159,21 +1071,19 @@ void emit_map_arm(const Emit& emit, const MemberPlan& m) {
             p.print(
                 "if (!::rapidproto::arena_detail::decode_into(rp_slot->rp_value, *rp_v, arena, "
                 "depth + 1, err)) {"
-                " return false; }\n",
-                {{"S", sub}});
+                " return false; }\n");
         } else {
             p.print("$S$* const rp_mv = arena.create<$S$>();\n", {{"S", sub}});
             p.print("if (rp_mv == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }\n");
             p.print(
                 "if (!::rapidproto::arena_detail::decode_into(*rp_mv, *rp_v, arena, depth + 1, "
                 "err)) { return false; "
-                "}\n",
-                {{"S", sub}});
+                "}\n");
             p.print("rp_slot->rp_value = rp_mv;\n");
         }
     } else {
-        emit_kv_scalar(emit, e.value_kind, map.value_type, e.value_fqn, "rp_slot->rp_value",
-                       "rp_er");
+        emit_scalar_read(emit, e.value_kind, map.value_type, e.value_fqn, "rp_slot->rp_value",
+                         "rp_er");
     }
     p.outdent();
     p.print(
@@ -1230,15 +1140,14 @@ void emit_oneof_arm(const Emit& emit, const OneofPlan& o, const OneofMemberPlan&
             p.print(
                 "if (!::rapidproto::arena_detail::decode_into($of$, *rp_v, arena, depth + 1, err)) "
                 "{ return false; }\n",
-                {{"S", sub}, {"of", ofield}});
+                {{"of", ofield}});
         } else {
             p.print("$S$* const rp_sub = arena.create<$S$>();\n", {{"S", sub}});
             p.print("if (rp_sub == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }\n");
             p.print(
                 "if (!::rapidproto::arena_detail::decode_into(*rp_sub, *rp_v, arena, depth + 1, "
                 "err)) { return false; "
-                "}\n",
-                {{"S", sub}});
+                "}\n");
             p.print("$of$ = rp_sub;\n", {{"of", ofield}});
         }
     } else {

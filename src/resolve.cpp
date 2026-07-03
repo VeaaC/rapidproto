@@ -62,7 +62,9 @@ public:
     explicit TypeResolver(ResolvedFileSet& file_set) : m_files(&file_set) {}
 
     Result<SymbolTable> run() {
-        collect_symbols();
+        if (auto err = collect_symbols()) {
+            return *err;
+        }
         for (std::size_t i = 0; i < files().size(); ++i) {
             const std::unordered_set<std::size_t> visible = visible_files(i);
             FileNode& file = files()[i];
@@ -91,33 +93,55 @@ private:
 
     std::vector<FileNode>& files() { return m_files->files; }
 
-    void record(const std::string& fqn, SymbolKind kind, std::size_t file_index) {
-        m_symbols[fqn] = Sym{kind, file_index};
+    // Duplicate FQNs are invalid input protoc rejects, but silently accepting them here would split
+    // the truth (m_symbols last-wins, m_table.messages first-wins) and surface later as a baffling
+    // duplicate-class compile error in generated code -- so they fail with a clear schema error
+    // instead, like the duplicate-extension check below.
+    [[nodiscard]] std::optional<Error> record(const std::string& fqn, SymbolKind kind,
+                                              std::size_t file_index) {
+        if (!m_symbols.emplace(fqn, Sym{kind, file_index}).second) {
+            // Offset 0 (file:1:1): MessageNode/EnumNode carry no source offset yet; add one per
+            // ast.hpp's note if this diagnostic ever needs to point at the exact definition.
+            return Error{files()[file_index].source, 0, "duplicate type name '" + fqn + "'"};
+        }
         m_table.symbols[fqn] = kind;
+        return std::nullopt;
     }
 
-    void collect_message(MessageNode& message, std::size_t file_index) {
-        record(message.fqn, SymbolKind::Message, file_index);
+    std::optional<Error> collect_message(MessageNode& message, std::size_t file_index) {
+        if (auto err = record(message.fqn, SymbolKind::Message, file_index)) {
+            return err;
+        }
         m_table.messages.emplace(message.fqn, &message);
         for (auto& nested : message.nested_messages) {
-            collect_message(nested, file_index);
+            if (auto err = collect_message(nested, file_index)) {
+                return err;
+            }
         }
         for (auto& node : message.enums) {
-            record(node.fqn, SymbolKind::Enum, file_index);
+            if (auto err = record(node.fqn, SymbolKind::Enum, file_index)) {
+                return err;
+            }
             m_table.enums.emplace(node.fqn, &node);
         }
+        return std::nullopt;
     }
 
-    void collect_symbols() {
+    std::optional<Error> collect_symbols() {
         for (std::size_t i = 0; i < files().size(); ++i) {
             for (auto& message : files()[i].messages) {
-                collect_message(message, i);
+                if (auto err = collect_message(message, i)) {
+                    return err;
+                }
             }
             for (auto& node : files()[i].enums) {
-                record(node.fqn, SymbolKind::Enum, i);
+                if (auto err = record(node.fqn, SymbolKind::Enum, i)) {
+                    return err;
+                }
                 m_table.enums.emplace(node.fqn, &node);
             }
         }
+        return std::nullopt;
     }
 
     std::optional<std::size_t> import_index(const std::string& path) const {

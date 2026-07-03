@@ -137,37 +137,6 @@ void emit_map_tag(Printer& printer, const CppNameTable& symbols, const MapFieldN
          {"real", map.name}});
 }
 
-// Emit the compile-time dispatch guards shared by field and map cases. `args` is the trait argument
-// list after `Callbacks` ("$f$, $f$::Value" for a field, "$f$, $f$::Key, $f$::Value" for a map);
-// `what` names the case for diagnostics ("field 'x'" / "map field 'x'"); `expected` describes the
-// expected value type(s). Four guards: at most one specific handler (duplicates are an error);
-// at most one catch-all; no partially-generic callback; and a callback that NAMES this case must
-// handle it exactly (the wrong-type/arity check is per-callback, so a catch-all sibling cannot mask
-// a mistyped callback).
-void emit_dispatch_guards(Printer& printer, const std::string& args, const std::string& what,
-                          const std::string& expected) {
-    printer.print(
-        "static_assert((0U + ... + static_cast<unsigned>("
-        "::rapidproto::specifically_handles<Callbacks, $A$>)) <= 1U,"
-        " \"$what$ is handled by more than one callback\");\n",
-        {{"A", args}, {"what", what}});
-    printer.print(
-        "static_assert((0U + ... + static_cast<unsigned>("
-        "::rapidproto::is_catch_all<Callbacks, $A$>)) <= 1U,"
-        " \"$what$ is matched by more than one catch-all callback\");\n",
-        {{"A", args}, {"what", what}});
-    printer.print(
-        "static_assert((true && ... && !::rapidproto::is_partial_generic<Callbacks, $A$>),"
-        " \"a callback for $what$ is partially generic; use a concrete (Tag, Value) callback or a"
-        " fully generic (auto, auto) catch-all\");\n",
-        {{"A", args}, {"what", what}});
-    printer.print(
-        "static_assert((true && ... && !(::rapidproto::targets<Callbacks, $A$>"
-        " && !::rapidproto::specifically_handles<Callbacks, $A$>)),"
-        " \"a callback for $what$ has the wrong value type (expected $expected$)\");\n",
-        {{"A", args}, {"what", what}, {"expected", expected}});
-}
-
 // A map field decodes as repeated `{ key=1, value=2 }` LEN entries; the callback fires once per
 // entry as (Tag, Key, Value). Absent key/value default to their zero value.
 void emit_map_arm(Printer& printer, const CppNameTable& symbols, const MapFieldNode& map) {
@@ -185,8 +154,9 @@ void emit_map_arm(Printer& printer, const CppNameTable& symbols, const MapFieldN
 
     printer.print("case $f$::kNumber:\n", {{"f", fname}});
     printer.indent();
-    emit_dispatch_guards(printer, fname + ", " + fname + "::Key, " + fname + "::Value",
-                         "map field '" + fname + "'", fname + "::Key, " + fname + "::Value");
+    codegen::emit_dispatch_guards(
+        printer, "Callbacks", fname + ", " + fname + "::Key, " + fname + "::Value",
+        "map field '" + fname + "'", fname + "::Key, " + fname + "::Value");
     printer.print(
         "if constexpr ((false || ... ||"
         " ::rapidproto::handles_one<Callbacks, $f$, $f$::Key, $f$::Value>)) {\n",
@@ -295,44 +265,7 @@ std::vector<const MessageNode*> ordered_siblings(const std::vector<MessageNode>&
                    t[root.size()] == '.';
         });
     };
-    std::vector<const MessageNode*> order;
-    std::vector<bool> done(siblings.size(), false);
-    std::vector<bool> active(siblings.size(), false);
-    // Iterative DFS (a frame is {node, next candidate to scan}): the dependency-chain length is
-    // unbounded in a protoc-valid schema, so recursing per edge could overflow the native stack.
-    struct Frame {
-        std::size_t node;
-        std::size_t next;
-    };
-    std::vector<Frame> stack;
-    for (std::size_t root = 0; root < siblings.size(); ++root) {
-        if (done[root]) {
-            continue;
-        }
-        active[root] = true;
-        stack.push_back({root, 0});
-        while (!stack.empty()) {
-            const std::size_t i = stack.back().node;
-            std::size_t child = siblings.size();
-            while (stack.back().next < siblings.size()) {
-                const std::size_t j = stack.back().next++;
-                if (j != i && !done[j] && !active[j] && depends_on(i, j)) {
-                    child = j;
-                    break;
-                }
-            }
-            if (child != siblings.size()) {
-                active[child] = true;
-                stack.push_back({child, 0});
-            } else {
-                active[i] = false;
-                done[i] = true;
-                order.push_back(&siblings[i]);
-                stack.pop_back();
-            }
-        }
-    }
-    return order;
+    return codegen::topo_order_siblings(siblings, depends_on);
 }
 
 // Emit the struct shell: constructor, nested enums/messages, field tags, the decode() DECLARATION,
@@ -411,8 +344,8 @@ void emit_arm(Printer& printer, const std::string& fname, const FieldGen& gen, b
 
     printer.print("case $f$::kNumber:\n", {{"f", fname}});
     printer.indent();
-    emit_dispatch_guards(printer, fname + ", " + fname + "::Value", "field '" + fname + "'",
-                         fname + "::Value");
+    codegen::emit_dispatch_guards(printer, "Callbacks", fname + ", " + fname + "::Value",
+                                  "field '" + fname + "'", fname + "::Value");
     printer.print(
         "if constexpr ((false || ... ||"
         " ::rapidproto::handles_one<Callbacks, $f$, $f$::Value>)) {\n",
@@ -594,7 +527,7 @@ std::string generate_header(const FileNode& file, const CppNameTable& symbols) {
         printer.print("\n");
     }
     for (const MessageNode* message :
-         ordered_siblings(file.messages)) {  // shells, ordered by enum deps
+         ordered_siblings(file.messages)) {  // shells, in nested-type-reference order
         emit_message(printer, symbols, *message);
     }
     for (const auto& message :

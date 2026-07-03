@@ -159,7 +159,15 @@ public:
             return it->second;
         }
         const auto node = m_index.messages.find(fqn);
-        return compute(*node->second);  // precondition: fqn is a known message
+        // Precondition: fqn is a known message (every caller checks membership first, or passes an
+        // FQN collect_symbols registered). A broken invariant must not become an end()-dereference:
+        // assert in debug, and degrade to an empty (pointer-safe) layout instead of UB in release.
+        assert(node != m_index.messages.end() && "layout_for: fqn must be a registered message");
+        if (node == m_index.messages.end()) {
+            static const MessageLayout kEmpty{};
+            return kEmpty;
+        }
+        return compute(*node->second);
     }
 
 private:
@@ -270,7 +278,8 @@ private:
 
     EntryPlan build_entry(const MapFieldNode& map) {
         EntryPlan entry;
-        // Key: always a scalar (string -> ArenaString, else inline numeric); never bool/message.
+        // Key: an integral/string scalar (string -> ArenaString, else inline numeric; bool is
+        // legal and takes the scalar path); never float/message.
         std::size_t key_size = 0;
         std::size_t key_align = 0;
         if (map.key_type == "string" || map.key_type == "bytes") {
@@ -487,6 +496,7 @@ private:
 };
 
 void walk_messages(const MessageNode& message, Planner& planner, LayoutSet& out) {
+    out.by_fqn.emplace(message.fqn, out.layouts.size());
     out.layouts.push_back(planner.layout_for(message.fqn));
     for (const MessageNode& nested : message.nested_messages) {
         walk_messages(nested, planner, out);
@@ -516,12 +526,8 @@ const char* kind_name(FieldKind kind) {
 }
 
 const MessageLayout* LayoutSet::find(const std::string& fqn) const {
-    for (const MessageLayout& layout : layouts) {
-        if (layout.fqn == fqn) {
-            return &layout;
-        }
-    }
-    return nullptr;
+    const auto it = by_fqn.find(fqn);
+    return it != by_fqn.end() ? &layouts[it->second] : nullptr;
 }
 
 LayoutSet plan_layouts(const ResolvedFileSet& set, const SymbolTable& symbols,
