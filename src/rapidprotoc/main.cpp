@@ -27,17 +27,22 @@
 
 int main(int argc, char** argv) {
     const std::string usage =
-        std::string("usage: ") + argv[0] +
-        " [-I <include_path>]... [--no-wellknown] [--namespace-prefix <ns>]\n"
-        "                  [--arena] [--stream] [--unknown-present]"
-        " [--out-dir <dir>] [--depfile <file>] <entry.proto>...\n"
-        "  --arena            emit the arena object-tree decoder (<stem>.rp.hpp) [default]\n"
-        "  --stream           emit the streaming callback decoder (<stem>.rp.stream.hpp)\n"
-        "  --unknown-present  arena: reserve a per-message \"unknown fields present\" bit\n";
+        std::string("usage: ") + argv[0] + " [options] <entry.proto>...\n" +
+        "  -I <dir>                 add an import search path (repeatable)\n"
+        "  --out-dir <dir>          write the generated headers here (default: .)\n"
+        "  --arena                  emit the arena object-tree decoder (<stem>.rp.hpp) [default]\n"
+        "  --stream                 emit the streaming callback decoder (<stem>.rp.stream.hpp)\n"
+        "  --unknown-present        arena: reserve a per-message \"unknown fields present\" bit\n"
+        "  --namespace-prefix <ns>  dot-separated prefix prepended to every C++ namespace\n"
+        "  --depfile <file>         write a Make/Ninja depfile covering the entry's imports\n"
+        "  --no-wellknown           don't load the bundled well-known-type definitions\n"
+        "  -v, --verbose            log each written file\n"
+        "  -h, --help               show this help\n"
+        "  --version                print the version\n";
     bool arena = false;
     bool stream = false;
     bool unknown_present = false;
-    const auto opts = rapidproto::cli::parse_args(argc, argv, usage, [&](std::string_view arg) {
+    const auto parsed = rapidproto::cli::parse_args(argc, argv, usage, [&](std::string_view arg) {
         if (arg == "--arena") {
             arena = true;
             return true;
@@ -52,9 +57,10 @@ int main(int argc, char** argv) {
         }
         return false;
     });
-    if (!opts) {
-        return 2;
+    if (!parsed.options) {
+        return parsed.exit_code;
     }
+    const auto& opts = parsed.options;
     if (!arena && !stream) {
         arena = true;  // arena is the default model
     }
@@ -100,17 +106,19 @@ int main(int argc, char** argv) {
             // The shared common header (the schema's top-level enums) every selected decoder includes.
             if (!rapidproto::cli::write_shared_file(
                     rapidproto::cli::header_path(opts->out_dir, file, ".rp.common.hpp"),
-                    rapidproto::codegen::emit_common_header(file, names))) {
+                    rapidproto::codegen::emit_common_header(file, names), opts->verbose)) {
                 return 1;
             }
-            if (arena && !rapidproto::cli::write_header(opts->out_dir, file, ".rp.hpp",
-                                                        rapidproto::arenagen::generate_header(
-                                                            file, names, *layouts, symbols))) {
+            if (arena && !rapidproto::cli::write_header(
+                             opts->out_dir, file, ".rp.hpp",
+                             rapidproto::arenagen::generate_header(file, names, *layouts, symbols),
+                             opts->verbose)) {
                 return 1;
             }
-            if (stream && !rapidproto::cli::write_header(
-                              opts->out_dir, file, ".rp.stream.hpp",
-                              rapidproto::streamgen::generate_header(file, names_stream))) {
+            if (stream &&
+                !rapidproto::cli::write_header(
+                    opts->out_dir, file, ".rp.stream.hpp",
+                    rapidproto::streamgen::generate_header(file, names_stream), opts->verbose)) {
                 return 1;
             }
         }
@@ -137,11 +145,12 @@ int main(int argc, char** argv) {
     // runtime.hpp) only the arena decoder.
     const std::filesystem::path dir = std::filesystem::path(opts->out_dir) / "rapidproto";
     if (!rapidproto::cli::write_shared_file(dir / "runtime.hpp",
-                                            rapidproto::codegen::runtime_header())) {
+                                            rapidproto::codegen::runtime_header(), opts->verbose)) {
         return 1;
     }
-    if (arena && !rapidproto::cli::write_shared_file(
-                     dir / "arena_runtime.hpp", rapidproto::arenagen::arena_runtime_header())) {
+    if (arena && !rapidproto::cli::write_shared_file(dir / "arena_runtime.hpp",
+                                                     rapidproto::arenagen::arena_runtime_header(),
+                                                     opts->verbose)) {
         return 1;
     }
 

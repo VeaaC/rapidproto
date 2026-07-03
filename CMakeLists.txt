@@ -63,9 +63,19 @@ target_link_options(rapidproto_strict INTERFACE
   $<$<BOOL:${RAPIDPROTO_SANITIZE}>:-fsanitize=address,undefined>
   $<$<BOOL:${RAPIDPROTO_COVERAGE}>:-fprofile-instr-generate>)
 
+# The version header (rapidproto/version.hpp): generated so the CLIs' --version and the emitters'
+# generated-file banner can never drift from project(VERSION). Build-tree only; the installed
+# runtime headers don't use it. CURRENT_BINARY_DIR, not BINARY_DIR: under add_subdirectory /
+# FetchContent the latter is the CONSUMER'S build dir (pollution, and a colliding
+# generated/include there would silently win).
+configure_file(cmake/version.hpp.in
+  "${CMAKE_CURRENT_BINARY_DIR}/generated/include/rapidproto/version.hpp" @ONLY)
+
 # Public headers (Range, Result, combinators, lexer, ...).
 add_library(rapidproto INTERFACE)
-target_include_directories(rapidproto INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_include_directories(rapidproto INTERFACE
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
+  "${CMAKE_CURRENT_BINARY_DIR}/generated/include")
 target_compile_features(rapidproto INTERFACE cxx_std_17)
 
 # Installable public runtime: only the two std-library-only headers generated code includes

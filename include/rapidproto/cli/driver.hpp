@@ -26,6 +26,7 @@
 #include "rapidproto/resolver.hpp"
 #include "rapidproto/result.hpp"
 #include "rapidproto/source.hpp"
+#include "rapidproto/version.hpp"
 
 namespace rapidproto::cli {
 
@@ -63,32 +64,57 @@ struct Options {
     std::string out_dir = ".";     // --out-dir
     std::string namespace_prefix;  // --namespace-prefix (dotted, prepended to each C++ namespace)
     std::string depfile;           // --depfile (emit a Make/Ninja depfile for incremental codegen)
+    bool verbose = false;          // --verbose / -v: log each written file
     std::vector<std::string> entries;
 };
 
+// parse_args' result: `options` is engaged on a successful parse; otherwise the caller exits with
+// `exit_code` (0 after --help/--version served an informational request, 2 on a usage error --
+// everything needed was already printed).
+struct ParseResult {
+    std::optional<Options> options;
+    int exit_code = 0;
+};
+
 // Parse argv into Options. `extra` is invoked for an argument none of the shared flags matched
-// (a model-specific flag, e.g. the arena model's --unknown-present); it returns true if it consumed the
-// argument, else the argument is treated as a positional entry file. On any usage error prints
-// `usage` to stderr and returns nullopt (the caller should exit 2); likewise for a malformed
-// --namespace-prefix.
-inline std::optional<Options> parse_args(int argc, char** argv, std::string_view usage,
-                                         const std::function<bool(std::string_view)>& extra = {}) {
+// (a model-specific flag, e.g. the arena model's --unknown-present); it returns true if it consumed
+// the argument. An unconsumed argument starting with '-' is an unknown flag (usage error), so a
+// typo can't be silently treated as an entry file; anything else is a positional entry file.
+// --help/-h prints `usage` to stdout and --version prints the tool version; both yield exit 0.
+// Usage errors (a flag missing its value, no entries, a malformed --namespace-prefix) print to
+// stderr and yield exit 2.
+inline ParseResult parse_args(int argc, char** argv, std::string_view usage,
+                              const std::function<bool(std::string_view)>& extra = {}) {
+    const auto usage_error = [&] {
+        std::cerr << usage;
+        return ParseResult{std::nullopt, 2};
+    };
     Options opts;
     const std::vector<std::string> args(argv + 1, argv + argc);
     for (std::size_t i = 0; i < args.size(); ++i) {
         const std::string& arg = args[i];
+        if (arg == "--help" || arg == "-h") {
+            std::cout << usage;
+            return {std::nullopt, 0};
+        }
+        if (arg == "--version") {
+            std::string tool = std::filesystem::path(argv[0]).filename().string();
+            if (tool.empty()) {  // a pathological argv[0] (empty, or ending in '/')
+                tool = argv[0];
+            }
+            std::cout << tool << ' ' << kVersion << '\n';
+            return {std::nullopt, 0};
+        }
         if (arg == "-I") {
             if (++i >= args.size()) {
-                std::cerr << usage;
-                return std::nullopt;
+                return usage_error();
             }
             opts.config.include_paths.push_back(args[i]);
         } else if (arg.rfind("-I", 0) == 0) {
             opts.config.include_paths.push_back(arg.substr(2));
         } else if (arg == "--out-dir") {
             if (++i >= args.size()) {
-                std::cerr << usage;
-                return std::nullopt;
+                return usage_error();
             }
             opts.out_dir = args[i];
         } else if (arg.rfind("--out-dir=", 0) == 0) {
@@ -97,36 +123,38 @@ inline std::optional<Options> parse_args(int argc, char** argv, std::string_view
             opts.config.use_wellknown = false;
         } else if (arg == "--namespace-prefix") {
             if (++i >= args.size()) {
-                std::cerr << usage;
-                return std::nullopt;
+                return usage_error();
             }
             opts.namespace_prefix = args[i];
         } else if (arg.rfind("--namespace-prefix=", 0) == 0) {
             opts.namespace_prefix = arg.substr(std::string_view("--namespace-prefix=").size());
         } else if (arg == "--depfile") {
             if (++i >= args.size()) {
-                std::cerr << usage;
-                return std::nullopt;
+                return usage_error();
             }
             opts.depfile = args[i];
         } else if (arg.rfind("--depfile=", 0) == 0) {
             opts.depfile = arg.substr(std::string_view("--depfile=").size());
+        } else if (arg == "--verbose" || arg == "-v") {
+            opts.verbose = true;
         } else if (extra && extra(arg)) {
             // consumed by the generator-specific flag hook
+        } else if (!arg.empty() && arg[0] == '-') {
+            std::cerr << "error: unknown flag '" << arg << "'\n";
+            return usage_error();
         } else {
             opts.entries.push_back(arg);
         }
     }
     if (opts.entries.empty()) {
-        std::cerr << usage;
-        return std::nullopt;
+        return usage_error();
     }
     if (!valid_namespace_prefix(opts.namespace_prefix)) {
         std::cerr << "error: --namespace-prefix must be dot-separated C++ identifiers, got '"
                   << opts.namespace_prefix << "'\n";
-        return std::nullopt;
+        return {std::nullopt, 2};
     }
-    return opts;
+    return {std::move(opts), 0};
 }
 
 // Resolve `entry` and its imports, then run the semantic pipeline. On error prints to stderr and
@@ -149,11 +177,12 @@ inline std::optional<std::pair<ResolvedFileSet, SymbolTable>> resolve_and_analyz
     return std::make_pair(std::move(set), std::move(analyzed).value());
 }
 
-// Write `content` to `path`, creating parent directories, and log "wrote <path>". Returns `path` on
-// success (so a caller can collect every written output, e.g. to list them as a depfile's targets);
-// on failure prints an error to stderr and returns nullopt -- never reports a file it didn't write.
+// Write `content` to `path`, creating parent directories; `log_write` (--verbose) logs
+// "wrote <path>" to stdout. Returns `path` on success (so a caller can collect every written
+// output, e.g. to list them as a depfile's targets); on failure prints an error to stderr and
+// returns nullopt -- never reports a file it didn't write.
 [[nodiscard]] inline std::optional<std::filesystem::path> write_file(
-    const std::filesystem::path& path, std::string_view content) {
+    const std::filesystem::path& path, std::string_view content, bool log_write = false) {
     const std::filesystem::path parent = path.parent_path();
     if (!parent.empty()) {  // a bare-filename output has an empty parent -- nothing to create
         std::error_code error;
@@ -171,7 +200,9 @@ inline std::optional<std::pair<ResolvedFileSet, SymbolTable>> resolve_and_analyz
         std::cerr << "error: cannot write " << path.string() << '\n';
         return std::nullopt;
     }
-    std::cout << "wrote " << path.string() << '\n';
+    if (log_write) {
+        std::cout << "wrote " << path.string() << '\n';
+    }
     return path;
 }
 
@@ -182,7 +213,7 @@ inline std::optional<std::pair<ResolvedFileSet, SymbolTable>> resolve_and_analyz
 // sharing an out-dir) and avoids bumping its mtime, which would force needless consumer recompiles. Do
 // NOT use for a tracked build output, whose mtime must advance each run.
 [[nodiscard]] inline std::optional<std::filesystem::path> write_shared_file(
-    const std::filesystem::path& path, std::string_view content) {
+    const std::filesystem::path& path, std::string_view content, bool log_write = false) {
     std::error_code error;
     if (std::filesystem::exists(path, error)) {
         const std::ifstream in(path, std::ios::binary);
@@ -193,7 +224,7 @@ inline std::optional<std::pair<ResolvedFileSet, SymbolTable>> resolve_and_analyz
             return path;
         }
     }
-    return write_file(path, content);
+    return write_file(path, content, log_write);
 }
 
 // The output path for `file`'s generated header under `out_dir`: the file's import-relative path with
@@ -222,8 +253,9 @@ inline std::filesystem::path header_path(const std::string& out_dir, const FileN
 [[nodiscard]] inline std::optional<std::filesystem::path> write_header(const std::string& out_dir,
                                                                        const FileNode& file,
                                                                        std::string_view extension,
-                                                                       std::string_view content) {
-    return write_file(header_path(out_dir, file, extension), content);
+                                                                       std::string_view content,
+                                                                       bool log_write = false) {
+    return write_file(header_path(out_dir, file, extension), content, log_write);
 }
 
 // `path` made absolute (against the cwd) and lexically normalized, but WITHOUT resolving symlinks --

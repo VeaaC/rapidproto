@@ -17,6 +17,7 @@
 
 #include "rapidproto/cli/driver.hpp"
 #include "rapidproto/resolver.hpp"
+#include "rapidproto/version.hpp"
 #include "temp_dir.hpp"
 
 using namespace rapidproto;  // NOLINT(google-build-using-namespace): test convenience
@@ -115,4 +116,72 @@ TEST_CASE("driver: write_depfile reports an unwritable path", "[cli]") {
     tmp.write("blocker", "not a directory");
     CHECK_FALSE(cli::write_depfile(std::filesystem::path(tmp.path("blocker")) / "d" / "out.d",
                                    {tmp.path("a.hpp")}, {tmp.path("a.proto")}));
+}
+
+namespace {
+
+// Run parse_args over a fake argv (argv[0] included here) with a fixed usage string.
+cli::ParseResult parse(std::vector<const char*> args) {
+    args.insert(args.begin(), "rapidprotoc");
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast): main-style argv for the test
+    return cli::parse_args(static_cast<int>(args.size()), const_cast<char**>(args.data()),
+                           "usage: test\n");
+}
+
+}  // namespace
+
+TEST_CASE("driver: parse_args rejects an unknown flag instead of treating it as a file", "[cli]") {
+    // A typo'd flag used to fall through to the entry list and fail later with a baffling
+    // "entry file not found: --outdir=x".
+    const cli::ParseResult typo = parse({"--outdir=x", "a.proto"});
+    CHECK_FALSE(typo.options.has_value());
+    CHECK(typo.exit_code == 2);
+    // A '-'-prefixed arg the model-specific hook consumes is still fine (not an unknown flag).
+    std::vector<const char*> args = {"rapidprotoc", "--model-flag", "a.proto"};
+    const cli::ParseResult hooked = cli::parse_args(
+        static_cast<int>(args.size()),
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast): main-style argv for the test
+        const_cast<char**>(args.data()), "usage: test\n",
+        [](std::string_view arg) { return arg == "--model-flag"; });
+    REQUIRE(hooked.options.has_value());
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access): guarded by the REQUIRE above
+    CHECK(hooked.options.value().entries == std::vector<std::string>{"a.proto"});
+}
+
+TEST_CASE("driver: parse_args serves --help and --version with exit 0", "[cli]") {
+    const cli::ParseResult help = parse({"--help"});
+    CHECK_FALSE(help.options.has_value());
+    CHECK(help.exit_code == 0);
+    const cli::ParseResult h = parse({"-h"});
+    CHECK(h.exit_code == 0);
+    const cli::ParseResult version = parse({"--version"});
+    CHECK_FALSE(version.options.has_value());
+    CHECK(version.exit_code == 0);
+    // The version string is CMake-configured; pin that it looks like a version, not a placeholder.
+    CHECK(std::string_view(kVersion).find('.') != std::string_view::npos);
+}
+
+TEST_CASE("driver: parse_args --verbose / -v set verbose (quiet is the default)", "[cli]") {
+    const cli::ParseResult quiet = parse({"a.proto"});
+    REQUIRE(quiet.options.has_value());
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access): guarded by the REQUIRE above
+    CHECK_FALSE(quiet.options.value().verbose);
+    const cli::ParseResult verbose = parse({"--verbose", "a.proto"});
+    REQUIRE(verbose.options.has_value());
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access): guarded by the REQUIRE above
+    CHECK(verbose.options.value().verbose);
+    const cli::ParseResult short_form = parse({"-v", "a.proto"});
+    REQUIRE(short_form.options.has_value());
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access): guarded by the REQUIRE above
+    CHECK(short_form.options.value().verbose);
+}
+
+TEST_CASE("driver: parse_args usage errors all exit 2", "[cli]") {
+    // A flag missing its value, no entry files at all, and a malformed --namespace-prefix (which
+    // reports through its own error path, not usage_error) must all agree on exit code 2.
+    CHECK(parse({"--out-dir"}).exit_code == 2);
+    CHECK(parse({}).exit_code == 2);
+    const cli::ParseResult bad_prefix = parse({"--namespace-prefix", "not:valid", "a.proto"});
+    CHECK_FALSE(bad_prefix.options.has_value());
+    CHECK(bad_prefix.exit_code == 2);
 }
