@@ -16,6 +16,7 @@ struct M;
 
 struct M {
   explicit M(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
+  ::rapidproto::ByteView rp_bytes() const noexcept { return m_bytes; }
 
   enum class Inner : std::int32_t {
     ZERO = 0,

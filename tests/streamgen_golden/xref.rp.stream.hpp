@@ -27,6 +27,7 @@ struct BytesWrap;
 
 struct A {
   explicit A(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
+  ::rapidproto::ByteView rp_bytes() const noexcept { return m_bytes; }
 
   struct b { using Value = ::xr::stream::B; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "b"; };
   struct id { using Value = std::int32_t; static constexpr std::uint32_t kNumber = 2; static constexpr std::string_view kName = "id"; };
@@ -39,6 +40,7 @@ struct A {
 
 struct B {
   explicit B(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
+  ::rapidproto::ByteView rp_bytes() const noexcept { return m_bytes; }
 
   struct a { using Value = ::xr::stream::A; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "a"; };
 
@@ -50,6 +52,7 @@ struct B {
 
 struct Nested {
   explicit Nested(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
+  ::rapidproto::ByteView rp_bytes() const noexcept { return m_bytes; }
 
   struct User;
   struct Def;
@@ -57,6 +60,7 @@ struct Nested {
   struct Q;
   struct Def {
     explicit Def(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
+    ::rapidproto::ByteView rp_bytes() const noexcept { return m_bytes; }
 
     enum class Kind : std::int32_t {
       UNKNOWN = 0,
@@ -70,6 +74,7 @@ struct Nested {
     struct Inner;
     struct Inner {
       explicit Inner(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
+      ::rapidproto::ByteView rp_bytes() const noexcept { return m_bytes; }
 
       struct s { using Value = std::string_view; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "s"; };
 
@@ -90,6 +95,7 @@ struct Nested {
 
   struct User {
     explicit User(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
+    ::rapidproto::ByteView rp_bytes() const noexcept { return m_bytes; }
 
     struct single { using Value = ::xr::stream::Nested::Def; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "single"; };
     struct many { using Value = ::xr::stream::Nested::Def; static constexpr std::uint32_t kNumber = 2; static constexpr std::string_view kName = "many"; };
@@ -110,6 +116,7 @@ struct Nested {
 
   struct P {
     explicit P(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
+    ::rapidproto::ByteView rp_bytes() const noexcept { return m_bytes; }
 
     struct q { using Value = ::xr::stream::Nested::Q; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "q"; };
 
@@ -121,6 +128,7 @@ struct Nested {
 
   struct Q {
     explicit Q(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
+    ::rapidproto::ByteView rp_bytes() const noexcept { return m_bytes; }
 
     struct p { using Value = ::xr::stream::Nested::P; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "p"; };
 
@@ -138,11 +146,13 @@ struct Nested {
 
 struct FwdMsg {
   explicit FwdMsg(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
+  ::rapidproto::ByteView rp_bytes() const noexcept { return m_bytes; }
 
   struct Ref;
   struct Target;
   struct Ref {
     explicit Ref(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
+    ::rapidproto::ByteView rp_bytes() const noexcept { return m_bytes; }
 
     struct one { using Value = ::xr::stream::FwdMsg::Target; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "one"; };
     struct many { using Value = ::xr::stream::FwdMsg::Target; static constexpr std::uint32_t kNumber = 2; static constexpr std::string_view kName = "many"; };
@@ -157,6 +167,7 @@ struct FwdMsg {
 
   struct Target {
     explicit Target(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
+    ::rapidproto::ByteView rp_bytes() const noexcept { return m_bytes; }
 
     struct s { using Value = std::string_view; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "s"; };
     struct n { using Value = std::int32_t; static constexpr std::uint32_t kNumber = 2; static constexpr std::string_view kName = "n"; };
@@ -175,6 +186,7 @@ struct FwdMsg {
 
 struct CousinB {
   explicit CousinB(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
+  ::rapidproto::ByteView rp_bytes() const noexcept { return m_bytes; }
 
   enum class Tag : std::int32_t {
     NONE = 0,
@@ -188,6 +200,7 @@ struct CousinB {
   struct Thing;
   struct Thing {
     explicit Thing(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
+    ::rapidproto::ByteView rp_bytes() const noexcept { return m_bytes; }
 
     struct s { using Value = std::string_view; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "s"; };
 
@@ -205,10 +218,12 @@ struct CousinB {
 
 struct CousinA {
   explicit CousinA(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
+  ::rapidproto::ByteView rp_bytes() const noexcept { return m_bytes; }
 
   struct Use;
   struct Use {
     explicit Use(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
+    ::rapidproto::ByteView rp_bytes() const noexcept { return m_bytes; }
 
     struct thing { using Value = ::xr::stream::CousinB::Thing; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "thing"; };
     struct things { using Value = ::xr::stream::CousinB::Thing; static constexpr std::uint32_t kNumber = 2; static constexpr std::string_view kName = "things"; };
@@ -228,6 +243,7 @@ struct CousinA {
 
 struct ReservedNames {
   explicit ReservedNames(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
+  ::rapidproto::ByteView rp_bytes() const noexcept { return m_bytes; }
 
   struct value { using Value = std::int32_t; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "value"; };
   struct tag { using Value = std::int32_t; static constexpr std::uint32_t kNumber = 2; static constexpr std::string_view kName = "tag"; };
@@ -245,6 +261,7 @@ struct ReservedNames {
 
 struct IntWrap {
   explicit IntWrap(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
+  ::rapidproto::ByteView rp_bytes() const noexcept { return m_bytes; }
 
   struct value { using Value = std::int32_t; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "value"; };
 
@@ -256,6 +273,7 @@ struct IntWrap {
 
 struct BoolWrap {
   explicit BoolWrap(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
+  ::rapidproto::ByteView rp_bytes() const noexcept { return m_bytes; }
 
   struct value { using Value = bool; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "value"; };
 
@@ -267,6 +285,7 @@ struct BoolWrap {
 
 struct BytesWrap {
   explicit BytesWrap(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
+  ::rapidproto::ByteView rp_bytes() const noexcept { return m_bytes; }
 
   struct value { using Value = std::string_view; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "value"; };
 

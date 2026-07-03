@@ -18,6 +18,7 @@ struct Container;
 
 struct Scalars {
   explicit Scalars(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
+  ::rapidproto::ByteView rp_bytes() const noexcept { return m_bytes; }
 
   struct i32 { using Value = std::int32_t; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "i32"; };
   struct i64 { using Value = std::int64_t; static constexpr std::uint32_t kNumber = 2; static constexpr std::string_view kName = "i64"; };
@@ -46,14 +47,17 @@ struct Scalars {
 
 struct WithGroup {
   explicit WithGroup(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
+  ::rapidproto::ByteView rp_bytes() const noexcept { return m_bytes; }
 
   struct MyGroup;
   struct MyGroup {
     explicit MyGroup(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
+    ::rapidproto::ByteView rp_bytes() const noexcept { return m_bytes; }
 
     struct Inner;
     struct Inner {
       explicit Inner(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
+      ::rapidproto::ByteView rp_bytes() const noexcept { return m_bytes; }
 
       struct flag { using Value = bool; static constexpr std::uint32_t kNumber = 4; static constexpr std::string_view kName = "flag"; };
 
@@ -82,10 +86,12 @@ struct WithGroup {
 
 struct Container {
   explicit Container(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
+  ::rapidproto::ByteView rp_bytes() const noexcept { return m_bytes; }
 
   struct Nested;
   struct Nested {
     explicit Nested(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
+    ::rapidproto::ByteView rp_bytes() const noexcept { return m_bytes; }
 
     struct x { using Value = std::int32_t; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "x"; };
 

@@ -275,8 +275,15 @@ void emit_message(Printer& printer, const CppNameTable& symbols, const MessageNo
     const std::string& type = symbols.local.at(&message);
     printer.print("struct $T$ {\n", {{"T", type}});
     printer.indent();
-    printer.print("explicit $T$(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}\n\n",
+    printer.print("explicit $T$(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}\n",
                   {{"T", type}});
+    // The undecoded span this decoder walks: for a sub-decoder delivered to a callback, exactly
+    // the sub-message's field bytes (a LEN payload, or a group/DELIMITED body without its
+    // framing) -- a plain field sequence, so it feeds the ARENA model's decode() directly. That is
+    // the hybrid seam: stream the outer message, materialize chosen sub-messages, without this
+    // output ever depending on the arena runtime. rp_-prefixed like every generated non-field
+    // identifier, so it can never collide with a field tag.
+    printer.print("::rapidproto::ByteView rp_bytes() const noexcept { return m_bytes; }\n\n");
 
     for (const auto& nested_enum : message.enums) {
         codegen::emit_enum(printer, symbols, nested_enum, true);

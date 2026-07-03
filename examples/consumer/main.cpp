@@ -55,10 +55,17 @@ int main() {
     demo::Kind stream_kind = demo::Kind::UNKNOWN;
     int stream_side_sum = 0;
     unsigned unknown_seen = 0;
+    const demo::Point* hybrid_origin = nullptr;  // materialized from within the streaming walk
     const rapidproto::DecodeStatus status = demo::stream::Shape{bytes}.decode(
         [&](demo::stream::Shape::name, std::string_view v) { stream_name = v; },
         [&](demo::stream::Shape::kind, demo::Kind v) { stream_kind = v; },
         [&](demo::stream::Shape::sides, std::int32_t v) { stream_side_sum += v; },
+        // Hybrid: rp_bytes() is the sub-message's exact field bytes, so the ARENA model can
+        // materialize just this field mid-stream -- and since the arena copies, the resulting
+        // tree outlives the input buffer the streaming walk merely borrows.
+        [&](demo::stream::Shape::origin, demo::stream::Point p) {
+            hybrid_origin = demo::Point::decode(p.rp_bytes(), arena);
+        },
         [&](rapidproto::UnknownField uf) {
             unknown_seen += static_cast<unsigned>(uf.field_number == 99);
         });
@@ -83,7 +90,8 @@ int main() {
                     shape->origin()->y() == 4 && shape->kind() == demo::Kind::CIRCLE &&
                     side_sum == 12 && stream_name == shape->name() &&
                     stream_kind == shape->kind() && stream_side_sum == side_sum &&
-                    unknown_seen == 1;
+                    unknown_seen == 1 && hybrid_origin != nullptr && hybrid_origin->x() == 3 &&
+                    hybrid_origin->y() == 4;
     if (!ok) {
         std::fprintf(stderr, "consumer: arena/streaming values disagree\n");
         return 1;

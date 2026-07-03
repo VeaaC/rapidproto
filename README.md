@@ -302,7 +302,9 @@ handler; a known field you simply didn't handle is not "unknown" (use a catch-al
   `std::string_view` (no UTF-8 validation). The value types match the arena model's scalar mapping.
 - **`repeated`.** Fires **once per element**, in wire order (packed or expanded).
 - **Sub-messages and groups.** Delivered as a **sub-decoder**; recurse with its `decode(...)`. It
-  doesn't decode until you do. Groups behave like sub-messages.
+  doesn't decode until you do. Groups behave like sub-messages. `rp_bytes()` exposes the
+  sub-decoder's exact undecoded span (a group body arrives without its framing) — see
+  [Using both models](#using-both-models) for feeding it to the arena decoder.
 - **`map<K, V>`.** The callback takes **`(Tag, K, V)`** and fires once per entry:
   `[&](Person::labels, std::string_view key, std::string_view value) { … }`.
 - **`oneof`.** Each member is an ordinary field tag. The member present on the wire fires its callback
@@ -392,8 +394,27 @@ example::stream::Person{bytes}.decode( /* … */ );                       // or 
 // example::Status is the same enum type in both.
 ```
 
-A runnable end-to-end example (one schema, both models in one TU) is in
-[`examples/consumer`](examples/consumer).
+The models also combine **mid-decode**: stream a large outer message and materialize just the
+sub-messages you keep. A streaming sub-decoder's `rp_bytes()` is exactly the sub-message's field
+bytes, which the arena `decode()` accepts directly — and because the arena copies, the
+materialized tree outlives the input buffer the streaming walk borrows:
+
+```cpp
+rapidproto::Arena arena;
+example::stream::Person{wire}.decode(
+    [&](example::stream::Person::address, example::stream::Address a) {
+        const example::Address* tree = example::Address::decode(a.rp_bytes(), arena);
+        // keep `tree`; the wire buffer can be recycled after the walk
+    });
+```
+
+Every tree materialized this way accumulates in the arena until you `reset()` it. If a tree is a
+per-element **temporary** (use, then discard), reset between uses — even from inside a callback,
+mid-walk: the streaming side borrows the *input buffer*, never the arena, so rewinding it there is
+safe and keeps a long stream's memory flat.
+
+A runnable end-to-end example (one schema, both models in one TU, including the mid-decode
+hybrid) is in [`examples/consumer`](examples/consumer).
 
 ### Coexisting with protoc
 

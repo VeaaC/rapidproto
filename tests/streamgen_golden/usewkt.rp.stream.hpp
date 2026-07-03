@@ -16,6 +16,7 @@ struct Event;
 
 struct Event {
   explicit Event(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
+  ::rapidproto::ByteView rp_bytes() const noexcept { return m_bytes; }
 
   struct at { using Value = ::google::protobuf::stream::Timestamp; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "at"; };
   struct took { using Value = ::google::protobuf::stream::Duration; static constexpr std::uint32_t kNumber = 2; static constexpr std::string_view kName = "took"; };

@@ -10,6 +10,9 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
 - Every generated enum carries `rp_known_min` / `rp_known_max`: the schema's declared value range
   (negatives included, aliases collapsed), so a consumer can range-check or size against the known
   values without hand-tracking the schema.
+- Streaming decoders expose `rp_bytes()`: the exact undecoded span (a LEN payload, or a
+  group/DELIMITED body without its framing). A callback can hand a sub-decoder's span straight to
+  the arena model's `decode()` — stream the outer message, materialize chosen sub-messages.
 
 ## 0.2.0 — 2026-07-03
 

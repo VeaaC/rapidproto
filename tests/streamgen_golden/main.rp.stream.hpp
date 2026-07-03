@@ -16,6 +16,7 @@ struct Main;
 
 struct Main {
   explicit Main(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
+  ::rapidproto::ByteView rp_bytes() const noexcept { return m_bytes; }
 
   struct d { using Value = ::dep::stream::Dep; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "d"; };
   struct p { using Value = ::pub::stream::Pub; static constexpr std::uint32_t kNumber = 2; static constexpr std::string_view kName = "p"; };

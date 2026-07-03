@@ -987,3 +987,45 @@ TEST_CASE("streamgen: a long sibling dependency chain is emitted in dependency o
               header.find("struct M" + std::to_string(i) + " {"));
     }
 }
+
+TEST_CASE("streamgen: rp_bytes() exposes the exact undecoded span", "[streamgen]") {
+    // The hybrid seam (stream the outer message, arena-decode a chosen sub-message): a callback's
+    // sub-decoder must expose EXACTLY the sub-message's field bytes -- a LEN payload without its
+    // length prefix, and a group/DELIMITED body without its SGROUP/EGROUP framing -- because the
+    // arena model's decode() consumes a plain field sequence. The end-to-end handoff runs in
+    // examples/consumer; this pins the span itself.
+    std::string sub;
+    put_tag(sub, 1, 0);  // child.implicit_scalar = 42
+    put_varint(sub, 42);
+
+    std::string len_buf;  // child (field 3): LEN framing
+    put_tag(len_buf, 3, 2);
+    put_varint(len_buf, sub.size());
+    len_buf += sub;
+
+    std::string group_buf;  // delim (field 6): SGROUP body EGROUP framing
+    put_tag(group_buf, 6, 3);
+    group_buf += sub;
+    put_tag(group_buf, 6, 4);
+
+    rapidproto::ByteView len_span;
+    rapidproto::ByteView group_span;
+    REQUIRE(ed23::stream::M{rapidproto::ByteView(len_buf)}
+                .decode([&](ed23::stream::M::child, ed23::stream::M inner) {
+                    len_span = inner.rp_bytes();
+                })
+                .ok());
+    REQUIRE(ed23::stream::M{rapidproto::ByteView(group_buf)}
+                .decode([&](ed23::stream::M::delim, ed23::stream::M inner) {
+                    group_span = inner.rp_bytes();
+                })
+                .ok());
+    CHECK(len_span == rapidproto::ByteView(sub));    // payload only, no length prefix
+    CHECK(group_span == rapidproto::ByteView(sub));  // body only, framing excluded
+    // Pointer identity: the span aliases the input buffer (zero-copy), not a match elsewhere.
+    CHECK(len_span.data() == len_buf.data() + 2);      // after the 1-byte tag + 1-byte length
+    CHECK(group_span.data() == group_buf.data() + 1);  // after the 1-byte SGROUP tag
+    // The root decoder's span is the whole input.
+    CHECK(ed23::stream::M{rapidproto::ByteView(len_buf)}.rp_bytes() ==
+          rapidproto::ByteView(len_buf));
+}

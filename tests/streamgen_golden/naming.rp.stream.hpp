@@ -16,10 +16,12 @@ struct M;
 
 struct M {
   explicit M(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
+  ::rapidproto::ByteView rp_bytes() const noexcept { return m_bytes; }
 
   struct int_;
   struct int_ {
     explicit int_(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
+    ::rapidproto::ByteView rp_bytes() const noexcept { return m_bytes; }
 
     struct x { using Value = std::int32_t; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "x"; };
 

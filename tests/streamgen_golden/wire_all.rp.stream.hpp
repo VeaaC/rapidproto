@@ -14,10 +14,12 @@ struct AllWire;
 
 struct AllWire {
   explicit AllWire(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
+  ::rapidproto::ByteView rp_bytes() const noexcept { return m_bytes; }
 
   struct G;
   struct G {
     explicit G(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
+    ::rapidproto::ByteView rp_bytes() const noexcept { return m_bytes; }
 
     struct a { using Value = std::int32_t; static constexpr std::uint32_t kNumber = 9; static constexpr std::string_view kName = "a"; };
 

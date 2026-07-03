@@ -16,6 +16,7 @@ struct Msg;
 
 struct Msg {
   explicit Msg(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
+  ::rapidproto::ByteView rp_bytes() const noexcept { return m_bytes; }
 
   struct implicit_i { using Value = std::int32_t; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "implicit_i"; };
   struct explicit_i { using Value = std::int32_t; static constexpr std::uint32_t kNumber = 2; static constexpr std::string_view kName = "explicit_i"; };
