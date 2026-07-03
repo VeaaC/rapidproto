@@ -221,7 +221,7 @@ void emit_map_entry(const Emit& emit, const MemberPlan& m, const std::string& en
 void emit_oneof_types(const Emit& emit, const OneofPlan& o) {
     Printer& p = emit.printer;
     // Visit-tag types: one per member (named after the field), each with a Value typedef -- mirroring
-    // the streaming decoder's per-field tags, so the same combine/handles_one/invoke_field dispatch
+    // the streaming decoder's per-field tags, so the same combine/handles_one dispatch machinery
     // drives the oneof's <name>() reader (unhandled members ignored; a single (auto, auto) catch-all
     // allowed). The UNSET state is std::monostate -- kept out of this struct so it can never clash with
     // a member named e.g. `none`.
@@ -313,8 +313,9 @@ void emit_oneof_accessors(const Emit& emit, const OneofPlan& o) {
     // name is escaped), but NOT deduped against fields: a oneof name is already unique among the
     // message's fields. Pass one typed handler per member (and/or a single (auto, auto) catch-all); the
     // active member is dispatched to its handler, an unhandled member is ignored -- the same
-    // combine/handles_one/invoke_field dispatch the streaming decoder uses. A `[](std::monostate)`
-    // handler covers the unset state. Returns void (the message is already decoded -- nothing to abort).
+    // combine/handles_one dispatch the streaming decoder uses, but invoked via invoke_handler: a
+    // handler must return void (the message is already decoded -- nothing to abort), as does the
+    // reader itself. A `[](std::monostate)` handler covers the unset state.
     p.print("template <class... RpFs> void $n$(RpFs&&... rp_fs) const {\n",
             {{"n", codegen::sanitize(o.oneof->name)}});
     p.indent();
@@ -374,7 +375,7 @@ void emit_oneof_accessors(const Emit& emit, const OneofPlan& o) {
             "if constexpr ((false || ... ||"
             " ::rapidproto::handles_one<RpFs, $S$::$id$, typename $S$::$id$::Value>)) {\n",
             {{"S", tag}, {"id", id}});
-        p.print("(void)::rapidproto::invoke_field(rp_d, $S$::$id${}, $val$);\n",
+        p.print("::rapidproto::invoke_handler(rp_d, $S$::$id${}, $val$);\n",
                 {{"S", tag}, {"id", id}, {"val", val}});
         p.print("}\n");
         p.print("break;\n");
@@ -383,7 +384,7 @@ void emit_oneof_accessors(const Emit& emit, const OneofPlan& o) {
     p.print("default:\n");
     p.indent();
     p.print("if constexpr ((false || ... || ::rapidproto::handles_one<RpFs, std::monostate>)) {\n");
-    p.print("(void)::rapidproto::invoke_field(rp_d, std::monostate{});\n");
+    p.print("::rapidproto::invoke_handler(rp_d, std::monostate{});\n");
     p.print("}\n");
     p.print("break;\n");
     p.outdent();

@@ -55,17 +55,17 @@ class Msg {
     switch (m_rp_pick_case) {
       case 1:
         if constexpr ((false || ... || ::rapidproto::handles_one<RpFs, Pick::a, typename Pick::a::Value>)) {
-        (void)::rapidproto::invoke_field(rp_d, Pick::a{}, m_rp_pick.a);
+        ::rapidproto::invoke_handler(rp_d, Pick::a{}, m_rp_pick.a);
         }
         break;
       case 2:
         if constexpr ((false || ... || ::rapidproto::handles_one<RpFs, Pick::b, typename Pick::b::Value>)) {
-        (void)::rapidproto::invoke_field(rp_d, Pick::b{}, m_rp_pick.b.view());
+        ::rapidproto::invoke_handler(rp_d, Pick::b{}, m_rp_pick.b.view());
         }
         break;
       default:
         if constexpr ((false || ... || ::rapidproto::handles_one<RpFs, std::monostate>)) {
-        (void)::rapidproto::invoke_field(rp_d, std::monostate{});
+        ::rapidproto::invoke_handler(rp_d, std::monostate{});
         }
         break;
     }

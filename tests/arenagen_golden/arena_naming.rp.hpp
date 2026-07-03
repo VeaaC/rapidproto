@@ -65,17 +65,17 @@ class Collide {
     switch (m_rp_pick_case) {
       case 1:
         if constexpr ((false || ... || ::rapidproto::handles_one<RpFs, Pick::p1, typename Pick::p1::Value>)) {
-        (void)::rapidproto::invoke_field(rp_d, Pick::p1{}, m_rp_pick.p1);
+        ::rapidproto::invoke_handler(rp_d, Pick::p1{}, m_rp_pick.p1);
         }
         break;
       case 2:
         if constexpr ((false || ... || ::rapidproto::handles_one<RpFs, Pick::p2, typename Pick::p2::Value>)) {
-        (void)::rapidproto::invoke_field(rp_d, Pick::p2{}, m_rp_pick.p2);
+        ::rapidproto::invoke_handler(rp_d, Pick::p2{}, m_rp_pick.p2);
         }
         break;
       default:
         if constexpr ((false || ... || ::rapidproto::handles_one<RpFs, std::monostate>)) {
-        (void)::rapidproto::invoke_field(rp_d, std::monostate{});
+        ::rapidproto::invoke_handler(rp_d, std::monostate{});
         }
         break;
     }
@@ -97,17 +97,17 @@ class Collide {
     switch (m_rp_letters_case) {
       case 1:
         if constexpr ((false || ... || ::rapidproto::handles_one<RpFs, Letters::a, typename Letters::a::Value>)) {
-        (void)::rapidproto::invoke_field(rp_d, Letters::a{}, m_rp_letters.a);
+        ::rapidproto::invoke_handler(rp_d, Letters::a{}, m_rp_letters.a);
         }
         break;
       case 2:
         if constexpr ((false || ... || ::rapidproto::handles_one<RpFs, Letters::A, typename Letters::A::Value>)) {
-        (void)::rapidproto::invoke_field(rp_d, Letters::A{}, m_rp_letters.A);
+        ::rapidproto::invoke_handler(rp_d, Letters::A{}, m_rp_letters.A);
         }
         break;
       default:
         if constexpr ((false || ... || ::rapidproto::handles_one<RpFs, std::monostate>)) {
-        (void)::rapidproto::invoke_field(rp_d, std::monostate{});
+        ::rapidproto::invoke_handler(rp_d, std::monostate{});
         }
         break;
     }

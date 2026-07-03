@@ -128,17 +128,17 @@ class Nested {
       switch (m_rp_pick_case) {
         case 1:
           if constexpr ((false || ... || ::rapidproto::handles_one<RpFs, Pick::chosen, typename Pick::chosen::Value>)) {
-          (void)::rapidproto::invoke_field(rp_d, Pick::chosen{}, *m_rp_pick.chosen);
+          ::rapidproto::invoke_handler(rp_d, Pick::chosen{}, *m_rp_pick.chosen);
           }
           break;
         case 2:
           if constexpr ((false || ... || ::rapidproto::handles_one<RpFs, Pick::tagged, typename Pick::tagged::Value>)) {
-          (void)::rapidproto::invoke_field(rp_d, Pick::tagged{}, m_rp_pick.tagged);
+          ::rapidproto::invoke_handler(rp_d, Pick::tagged{}, m_rp_pick.tagged);
           }
           break;
         default:
           if constexpr ((false || ... || ::rapidproto::handles_one<RpFs, std::monostate>)) {
-          (void)::rapidproto::invoke_field(rp_d, std::monostate{});
+          ::rapidproto::invoke_handler(rp_d, std::monostate{});
           }
           break;
       }
@@ -221,12 +221,12 @@ class FwdMsg {
       switch (m_rp_pick_case) {
         case 1:
           if constexpr ((false || ... || ::rapidproto::handles_one<RpFs, Pick::chosen, typename Pick::chosen::Value>)) {
-          (void)::rapidproto::invoke_field(rp_d, Pick::chosen{}, *m_rp_pick.chosen);
+          ::rapidproto::invoke_handler(rp_d, Pick::chosen{}, *m_rp_pick.chosen);
           }
           break;
         default:
           if constexpr ((false || ... || ::rapidproto::handles_one<RpFs, std::monostate>)) {
-          (void)::rapidproto::invoke_field(rp_d, std::monostate{});
+          ::rapidproto::invoke_handler(rp_d, std::monostate{});
           }
           break;
       }

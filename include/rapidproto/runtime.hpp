@@ -625,6 +625,17 @@ constexpr DecodeStatus invoke_field(D& dispatcher, Tag tag, Vs&&... vs) {
     }
 }
 
+// Invoke the dispatcher for a decoded oneof member (the arena model's reader). Unlike a streaming
+// field callback, a oneof handler cannot abort — the message is already decoded — so a returned
+// DecodeStatus (or anything else) would be silently discarded; require void instead of discarding.
+template <class D, class Tag, class... Vs>
+constexpr void invoke_handler(D& dispatcher, Tag tag, Vs&&... vs) {
+    static_assert(std::is_void_v<std::invoke_result_t<D&, Tag, Vs...>>,
+                  "a oneof handler must return void (the message is already decoded; there is"
+                  " nothing to abort)");
+    dispatcher(tag, std::forward<Vs>(vs)...);
+}
+
 // A field whose number is not in the schema (it hit the generated switch's `default`). If `decode()`
 // is given a callback that takes a single UnknownField (a concrete
 // `[](rapidproto::UnknownField){}` or a 1-arg generic `[](auto){}`), each such field is delivered

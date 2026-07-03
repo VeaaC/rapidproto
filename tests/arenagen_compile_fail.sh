@@ -134,6 +134,14 @@ expect_fail oneof-union-private "private" '
 #include "proto3.rp.hpp"
 void f() { p3::Msg::rp_pick_union u; (void)u; }'
 
+# A oneof handler returning DecodeStatus (streaming-style) would have its status silently
+# discarded -- handlers must return void, per the reader's documented contract.
+expect_fail oneof-handler-returns-status "a oneof handler must return void" '
+#include "proto3.rp.hpp"
+void f(rapidproto::ByteView b, rapidproto::Arena& a) {
+  const p3::Msg* m = p3::Msg::decode(b, a);
+  m->pick([](p3::Msg::Pick::a, std::int32_t) { return rapidproto::DecodeStatus::success(); }); }'
+
 if [[ "$fail" == "0" ]]; then
   echo "arenagen compile-fail: all snippets correctly rejected"
 fi

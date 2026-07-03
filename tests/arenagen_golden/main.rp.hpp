@@ -54,17 +54,17 @@ class Main {
     switch (m_rp_choice_case) {
       case 1:
         if constexpr ((false || ... || ::rapidproto::handles_one<RpFs, Choice::od, typename Choice::od::Value>)) {
-        (void)::rapidproto::invoke_field(rp_d, Choice::od{}, m_rp_choice.od);
+        ::rapidproto::invoke_handler(rp_d, Choice::od{}, m_rp_choice.od);
         }
         break;
       case 2:
         if constexpr ((false || ... || ::rapidproto::handles_one<RpFs, Choice::oi, typename Choice::oi::Value>)) {
-        (void)::rapidproto::invoke_field(rp_d, Choice::oi{}, m_rp_choice.oi);
+        ::rapidproto::invoke_handler(rp_d, Choice::oi{}, m_rp_choice.oi);
         }
         break;
       default:
         if constexpr ((false || ... || ::rapidproto::handles_one<RpFs, std::monostate>)) {
-        (void)::rapidproto::invoke_field(rp_d, std::monostate{});
+        ::rapidproto::invoke_handler(rp_d, std::monostate{});
         }
         break;
     }

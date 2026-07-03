@@ -57,17 +57,17 @@ class AllWire {
     switch (m_rp_pick_case) {
       case 1:
         if constexpr ((false || ... || ::rapidproto::handles_one<RpFs, Pick::oi, typename Pick::oi::Value>)) {
-        (void)::rapidproto::invoke_field(rp_d, Pick::oi{}, m_rp_pick.oi);
+        ::rapidproto::invoke_handler(rp_d, Pick::oi{}, m_rp_pick.oi);
         }
         break;
       case 2:
         if constexpr ((false || ... || ::rapidproto::handles_one<RpFs, Pick::os, typename Pick::os::Value>)) {
-        (void)::rapidproto::invoke_field(rp_d, Pick::os{}, m_rp_pick.os.view());
+        ::rapidproto::invoke_handler(rp_d, Pick::os{}, m_rp_pick.os.view());
         }
         break;
       default:
         if constexpr ((false || ... || ::rapidproto::handles_one<RpFs, std::monostate>)) {
-        (void)::rapidproto::invoke_field(rp_d, std::monostate{});
+        ::rapidproto::invoke_handler(rp_d, std::monostate{});
         }
         break;
     }

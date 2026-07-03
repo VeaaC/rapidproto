@@ -144,22 +144,22 @@ class Layout {
     switch (m_rp_choice_case) {
       case 1:
         if constexpr ((false || ... || ::rapidproto::handles_one<RpFs, Choice::ci, typename Choice::ci::Value>)) {
-        (void)::rapidproto::invoke_field(rp_d, Choice::ci{}, m_rp_choice.ci);
+        ::rapidproto::invoke_handler(rp_d, Choice::ci{}, m_rp_choice.ci);
         }
         break;
       case 2:
         if constexpr ((false || ... || ::rapidproto::handles_one<RpFs, Choice::cs, typename Choice::cs::Value>)) {
-        (void)::rapidproto::invoke_field(rp_d, Choice::cs{}, m_rp_choice.cs.view());
+        ::rapidproto::invoke_handler(rp_d, Choice::cs{}, m_rp_choice.cs.view());
         }
         break;
       case 3:
         if constexpr ((false || ... || ::rapidproto::handles_one<RpFs, Choice::cp, typename Choice::cp::Value>)) {
-        (void)::rapidproto::invoke_field(rp_d, Choice::cp{}, m_rp_choice.cp);
+        ::rapidproto::invoke_handler(rp_d, Choice::cp{}, m_rp_choice.cp);
         }
         break;
       default:
         if constexpr ((false || ... || ::rapidproto::handles_one<RpFs, std::monostate>)) {
-        (void)::rapidproto::invoke_field(rp_d, std::monostate{});
+        ::rapidproto::invoke_handler(rp_d, std::monostate{});
         }
         break;
     }

@@ -150,17 +150,17 @@ class Container {
     switch (m_rp_choice_case) {
       case 1:
         if constexpr ((false || ... || ::rapidproto::handles_one<RpFs, Choice::ci, typename Choice::ci::Value>)) {
-        (void)::rapidproto::invoke_field(rp_d, Choice::ci{}, m_rp_choice.ci);
+        ::rapidproto::invoke_handler(rp_d, Choice::ci{}, m_rp_choice.ci);
         }
         break;
       case 2:
         if constexpr ((false || ... || ::rapidproto::handles_one<RpFs, Choice::cn, typename Choice::cn::Value>)) {
-        (void)::rapidproto::invoke_field(rp_d, Choice::cn{}, m_rp_choice.cn);
+        ::rapidproto::invoke_handler(rp_d, Choice::cn{}, m_rp_choice.cn);
         }
         break;
       default:
         if constexpr ((false || ... || ::rapidproto::handles_one<RpFs, std::monostate>)) {
-        (void)::rapidproto::invoke_field(rp_d, std::monostate{});
+        ::rapidproto::invoke_handler(rp_d, std::monostate{});
         }
         break;
     }
