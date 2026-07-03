@@ -19,6 +19,8 @@ struct M {
 
   enum class Inner : std::int32_t {
     ZERO = 0,
+    rp_known_min = 0,
+    rp_known_max = 0,
     rp_non_exhaustive_min = INT32_MIN,
     rp_non_exhaustive_max = INT32_MAX,
   };

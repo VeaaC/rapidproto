@@ -11,6 +11,8 @@ enum class Color : std::int32_t {
   RED = 1,
   CRIMSON = 1,
   NEG = -2,
+  rp_known_min = -2,
+  rp_known_max = 1,
   rp_non_exhaustive_min = INT32_MIN,
   rp_non_exhaustive_max = INT32_MAX,
 };

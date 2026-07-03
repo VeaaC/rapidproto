@@ -31,6 +31,14 @@
 
 using namespace rapidproto;  // NOLINT(google-build-using-namespace): test convenience
 
+// The schema-known enum bounds ride in the shared common header (one type for both models):
+// rp_known_min/max span the DECLARED values -- negatives included, aliases collapsed -- distinct
+// from the INT32 rp_non_exhaustive sentinels.
+static_assert(p2::Color::rp_known_min == static_cast<p2::Color>(-2));
+static_assert(p2::Color::rp_known_max == p2::Color::RED);  // CRIMSON aliases 1; max is still 1
+static_assert(p3::State::rp_known_min == p3::State::UNKNOWN);
+static_assert(p3::State::rp_known_max == p3::State::ON);
+
 namespace {
 
 std::string read_file(const std::string& path) {

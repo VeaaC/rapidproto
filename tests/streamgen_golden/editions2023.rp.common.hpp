@@ -9,6 +9,8 @@ namespace ed23 {
 enum class E : std::int32_t {
   ZERO = 0,
   ONE = 1,
+  rp_known_min = 0,
+  rp_known_max = 1,
   rp_non_exhaustive_min = INT32_MIN,
   rp_non_exhaustive_max = INT32_MAX,
 };

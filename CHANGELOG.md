@@ -3,6 +3,14 @@
 Notable, user-visible changes per release. Pre-1.0, the MINOR version is the breaking axis (the
 SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never within a patch.
 
+## Unreleased
+
+### Added
+
+- Every generated enum carries `rp_known_min` / `rp_known_max`: the schema's declared value range
+  (negatives included, aliases collapsed), so a consumer can range-check or size against the known
+  values without hand-tracking the schema.
+
 ## 0.2.0 — 2026-07-03
 
 0.1.0 predates the unified CLI and the two-model coexistence design, so 0.2.0 is effectively a new

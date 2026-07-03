@@ -362,8 +362,9 @@ These apply to both models and affect how you write correct consumer code.
 - **Enums are open** and **shared between the models.** A proto enum becomes one `enum class :
   std::int32_t` (e.g. `example::Status`) used by *both* decoders. An unrecognized wire value arrives as
   its raw integer cast into the enum; `INT32_MIN`/`INT32_MAX` sentinels force a `default:` arm under
-  `-Wswitch`. (The generator places the enums in a shared `<stem>.rp.common.hpp` that each decoder
-  `#include`s for you, so you never include it directly.) This applies to **closed** enums too
+  `-Wswitch`, and `rp_known_min`/`rp_known_max` carry the schema's declared value range (e.g.
+  `if (v <= Status::rp_known_max)`). (The generator places the enums in a shared
+  `<stem>.rp.common.hpp` that each decoder `#include`s for you, so you never include it directly.) This applies to **closed** enums too
   (proto2, or editions `enum_type = CLOSED`): RapidProto intentionally decodes every enum as open —
   where protoc would route an unrecognized closed-enum value to unknown fields, RapidProto delivers
   the raw value — so do not rely on closed-enum semantics.

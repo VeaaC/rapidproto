@@ -9,6 +9,8 @@ namespace rp::dep {
 enum class DepEnum : std::int32_t {
   DEP_ZERO = 0,
   DEP_ONE = 1,
+  rp_known_min = 0,
+  rp_known_max = 1,
   rp_non_exhaustive_min = INT32_MIN,
   rp_non_exhaustive_max = INT32_MAX,
 };

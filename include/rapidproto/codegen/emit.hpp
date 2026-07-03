@@ -67,7 +67,8 @@ inline bool enum_prefix_strippable(const EnumNode& node, std::string_view prefix
     });
 }
 
-// Emit `enum class <Name> : std::int32_t { <values>; rp_non_exhaustive_{min,max} };` for `node`.
+// Emit `enum class <Name> : std::int32_t { <values>; rp_known_{min,max};
+// rp_non_exhaustive_{min,max} };` for `node`.
 // When every value carries the conventional `<ENUMNAME>_` prefix and every bare remainder is a clean
 // identifier (see enum_prefix_strippable -- not a keyword/reserved name/macro), the prefix is stripped
 // (all-or-nothing per enum) so a conventionally-named enum reads `Status::OK`, not the redundant
@@ -85,7 +86,8 @@ inline void emit_enum(Printer& printer, const CppNameTable& names, const EnumNod
     printer.indent();
     const std::string prefix = enum_value_prefix(node.name);
     const bool strip = enum_prefix_strippable(node, prefix);
-    std::unordered_set<std::string> taken = {"rp_non_exhaustive_min", "rp_non_exhaustive_max"};
+    std::unordered_set<std::string> taken = {"rp_known_min", "rp_known_max",
+                                             "rp_non_exhaustive_min", "rp_non_exhaustive_max"};
     for (const auto& value : node.values) {
         std::string_view raw = value.name;
         if (strip) {
@@ -96,6 +98,16 @@ inline void emit_enum(Printer& printer, const CppNameTable& names, const EnumNod
             name += '_';
         }
         printer.print("$name$ = $n$,\n", {{"name", name}, {"n", std::to_string(value.number)}});
+    }
+    // The DECLARED value range (aliases collapse; unrelated to the INT32 sentinels below): the
+    // schema-known bounds a consumer can range-check or size against without hand-tracking the
+    // schema. Emitted only when the enum has values (an empty enum is invalid input anyway).
+    if (!node.values.empty()) {
+        const auto [lo, hi] = std::minmax_element(
+            node.values.begin(), node.values.end(),
+            [](const EnumValueNode& a, const EnumValueNode& b) { return a.number < b.number; });
+        printer.print("rp_known_min = $n$,\n", {{"n", std::to_string(lo->number)}});
+        printer.print("rp_known_max = $n$,\n", {{"n", std::to_string(hi->number)}});
     }
     printer.print("rp_non_exhaustive_min = INT32_MIN,\n");
     printer.print("rp_non_exhaustive_max = INT32_MAX,\n");
