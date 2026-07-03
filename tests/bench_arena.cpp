@@ -370,6 +370,10 @@ void sweep_shape(const char* name, Build build, ParseSum parse_sum,
 }  // namespace
 
 int main() {
+    // The baseline's version is half a headline ratio's meaning; print it so a reported number is
+    // never separated from the libprotobuf it was measured against. (The macro encodes MMmmmppp.)
+    std::printf("baseline: libprotobuf %d.%d.%d\n", GOOGLE_PROTOBUF_VERSION / 1000000,
+                GOOGLE_PROTOBUF_VERSION / 1000 % 1000, GOOGLE_PROTOBUF_VERSION % 1000);
     const std::string buf = make_dataset(kPeople);
     const rapidproto::ByteView view(buf);
 

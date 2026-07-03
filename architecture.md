@@ -382,7 +382,7 @@ emits the whole resolved closure (entry + imports + WKTs) plus a copy of `runtim
 
 The `arenagen` emitter (`src/arenagen/`) turns the AST into C++ headers (`<stem>.rp.hpp`) for
 **materializing decoders**: a static `decode()` reads the whole message into a fully-allocated, **read-only
-object tree inside a bump arena**, navigated by `has_x()` / `x()` accessors. The goal is to beat `protoc`
+object tree inside a bump arena**, navigated by value/optional accessors. The goal is to beat `protoc`
 + `google::protobuf::Arena` on both decode time and peak memory. All variable-length data is **copied into
 the arena**, so the input buffer is freeable after `decode()`; strings/bytes use SSO; repeated/maps are
 arena arrays. The arena holds only **trivially-destructible** objects, so freeing or `reset()`-ing it is a
@@ -557,16 +557,20 @@ Both emitters are measured with a **placement-controlled** discipline: standalon
 benchmarks, pinned to one performance core, best-of-N, with a checksum cross-check so the work can't be
 optimized away. Streaming is compared against a hand-written `WireReader` loop and mapbox/protozero
 (`tests/bench_streamgen.cpp` → `rapidproto_bench`); arena against `protoc` + `google::protobuf::Arena`
-(`tests/bench_arena.cpp` → `rapidproto_arena_bench`). Headline results (one realistic payload; treat it as a
-point, not a constant, and reproduce with the benches):
+(`tests/bench_arena.cpp` → `rapidproto_arena_bench`). Headline results — measured against
+libprotobuf 3.21 with gcc-13, pinned to one performance core; the bench prints its libprotobuf
+baseline version at startup, since the baseline's version is half a ratio's meaning. One realistic
+payload; treat each number as a point, not a constant, and reproduce with the benches:
 
 - **Streaming adds no measurable overhead** over a hand-written `WireReader` loop: the callback/dispatch
   abstraction is free (`generated` ≈ `wire` on every scenario), and it validates *more* than protozero
   (whose wire-type checks are `assert`s that compile out under `NDEBUG`; ours never do).
 - **Arena beats `protoc` on both axes:** decode time ≈ 0.4× protoc (≈ 2× like-for-like after accounting
   for protoc's per-`string` UTF-8 validation, which the arena skips), and peak memory ≈ ⅔ of protoc's —
-  the same tree in roughly two-thirds the memory. The memory ratio is deterministic (exact byte counts);
-  the time multiple varies with payload shape and machine thermal state.
+  the same tree in roughly two-thirds the memory. "Memory" is allocator-reported arena accounting
+  (`bytes_used`/`bytes_reserved` vs protobuf's `SpaceUsed`/`SpaceAllocated`), not process RSS. The
+  memory ratio is deterministic (exact byte counts); the time multiple varies with payload shape and
+  machine thermal state.
 - **No reliable codegen gap.** A gcc fixed-width slowdown vs protozero once looked like an optimization
   opportunity, but under placement-controlled isolation the generated decoder sits within the noise floor
   of a hand-written loop on **both** compilers; the bench's per-arm and cross-compiler deltas are
@@ -695,6 +699,11 @@ decode-relevant may be approximated or rejected.
   proto3, `import option` in any syntax), which is harmless under trust-protoc.
 - An editions `repeated_field_encoding` on a repeated *enum* is not reflected in `repeated_encoding` (forced
   Expanded); decoders accept both wire forms regardless.
+- **Closed enums decode as open — intentionally.** The front-end resolves `EnumOpenness` (proto2 →
+  Closed, editions `enum_type = CLOSED`), but neither emitter consumes it: an unrecognized value of a
+  *closed* enum is delivered as its raw integer cast into the enum, where `protoc` would route it to
+  unknown fields. Uniform open decoding keeps both models simple; consumers must not rely on
+  closed-enum semantics (documented in README's enum bullet).
 
 **Deferred** (worth fixing if the trust-protoc assumption is relaxed):
 

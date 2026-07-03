@@ -13,7 +13,8 @@ Both are **decode-only**: no serialization, no JSON. Both fully validate untrust
 (truncation, length overruns, group nesting), and both trust the schema — they assume `protoc` already
 accepted it, so field *values* aren't range-checked. They cover **proto2, proto3, and editions
 2023/2024**, including groups, maps, and oneofs. The arena model is built to beat `protoc` +
-`google::protobuf::Arena` on both decode time and peak memory.
+`google::protobuf::Arena` on both decode time and peak memory (arena bytes held, measured against
+protobuf's `SpaceAllocated`).
 
 You can read the same schema with either model, and even use both **in one translation unit** (see
 [Using both models](#using-both-models)).
@@ -56,16 +57,14 @@ message Address {
 `out/`:
 
 ```sh
-./build/gcc/rapidprotoc -I. --out-dir=out person.proto
-# wrote out/person.rp.common.hpp
-# wrote out/person.rp.hpp
-# wrote out/rapidproto/runtime.hpp
-# wrote out/rapidproto/arena_runtime.hpp
+./build/gcc/rapidprotoc -I. --out-dir=out person.proto   # add -v to log each written file
+# out/person.rp.hpp + out/person.rp.common.hpp + out/rapidproto/{runtime,arena_runtime}.hpp
 ```
 
 **2. Decode.** You supply the serialized message bytes (from a file, socket, database, …) as a
-`rapidproto::ByteView` (an alias for `std::string_view`, so a **non-owning** view). Create an
-`Arena`, call `decode()`, then navigate the returned tree:
+`rapidproto::ByteView` (an alias for `std::string_view`, so a **non-owning** view; for a
+`std::uint8_t` buffer, `rapidproto::byte_view(ptr, size)` builds one without a manual cast). Create
+an `Arena`, call `decode()`, then navigate the returned tree:
 
 ```cpp
 #include "person.rp.hpp"
@@ -177,6 +176,13 @@ const Foo* b = Foo::decode(buf2, arena);   // tree #2 reuses the same memory (no
   previous `decode()` are invalidated by `reset()`.
 - **Seed buffer (optional).** `Arena arena{buffer, size}` starts from a caller-owned buffer (e.g. a
   stack array) and only heap-allocates if the tree outgrows it, so small messages need no heap at all.
+  (A seed of `alignof(std::max_align_t)` bytes or fewer is too small to be usable and is silently
+  ignored.)
+- **Bounding memory on untrusted input.** `arena.set_capacity_limit(max_bytes)` caps the total memory
+  the arena will reserve; a decode that would grow past it fails cleanly with
+  `ArenaDecodeError::OutOfMemory` instead of letting adversarial input allocate without bound
+  (the decoded tree can legitimately be larger than the wire bytes). Default: unbounded. Set it
+  before decoding, at least as large as any seed buffer.
 - **Stats.** `arena.bytes_used()` (payload handed out) and `arena.bytes_reserved()` (memory held).
 
 ### Error handling (arena)
@@ -333,6 +339,8 @@ Dispatch is entirely compile-time (no allocation, no `std::function`, no virtual
 - **Duplicate.** Two callbacks for the same field → error.
 - **Wrong arity.** `[](Person::id)`, or a map callback missing its value → error.
 - **Removed/renamed field.** Referencing `Person::nonexistent` → error (the tag type doesn't exist).
+- **Another message's field.** Passing `[](Address::city, …)` to `Person`'s `decode()` (say, pasted
+  between the nesting levels of the recursion pattern above) → error — it could never fire.
 
 ---
 
@@ -346,15 +354,19 @@ These apply to both models and affect how you write correct consumer code.
 - **Untrusted input is validated; values are not.** Wire input is fully checked for **wire-format
   integrity** (structure, lengths, group nesting), so a malformed buffer fails cleanly and never
   triggers UB. Field *values* are not range-checked: RapidProto trusts the schema, not the bytes.
-- **Defaults & presence.** Arena: an absent field reads back the schema default (proto2 `[default=X]`,
-  or zero/empty); use `has_<field>()` (scalar/string/enum) or `if (msg.sub())` (sub-messages) to tell
-  "absent" from "present and equal to the default".
-  Streaming: an absent field simply fires no callback.
+- **Defaults & presence.** Arena: an *implicit*-presence field (plain proto3 scalars) reads back its
+  zero default (`0` / `""` / the first enum value) when absent; an *explicit*-presence scalar/string/
+  enum field returns `std::optional<T>` (`std::nullopt` when absent — apply a proto2 `[default=X]`
+  yourself via `value_or`); a sub-message's presence is its `const T*` accessor returning `nullptr`.
+  Streaming: an absent field simply fires no callback, and no defaults are delivered.
 - **Enums are open** and **shared between the models.** A proto enum becomes one `enum class :
   std::int32_t` (e.g. `example::Status`) used by *both* decoders. An unrecognized wire value arrives as
   its raw integer cast into the enum; `INT32_MIN`/`INT32_MAX` sentinels force a `default:` arm under
   `-Wswitch`. (The generator places the enums in a shared `<stem>.rp.common.hpp` that each decoder
-  `#include`s for you, so you never include it directly.)
+  `#include`s for you, so you never include it directly.) This applies to **closed** enums too
+  (proto2, or editions `enum_type = CLOSED`): RapidProto intentionally decodes every enum as open —
+  where protoc would route an unrecognized closed-enum value to unknown fields, RapidProto delivers
+  the raw value — so do not rely on closed-enum semantics.
 - **Well-known types** (`google.protobuf.Timestamp`, etc.) decode as plain messages (their `seconds`/
   `nanos` fields), with no special Timestamp/Duration/Any semantics.
 - **Thread-safety.** A streaming `decode()` is `const` and holds no mutable state, so decoders over one
@@ -401,8 +413,7 @@ Now `rp::example::Person` (RapidProto) and `example::Person` (protoc) coexist.
 ## The `rapidprotoc` CLI
 
 ```
-rapidprotoc [-I <dir>]... [--arena] [--stream] [--unknown-present] [--namespace-prefix <ns>]
-            [--no-wellknown] [--depfile <path>] --out-dir <dir> <entry.proto>...
+rapidprotoc [options] <entry.proto>...
 ```
 
 | Flag | Meaning |
@@ -411,10 +422,13 @@ rapidprotoc [-I <dir>]... [--arena] [--stream] [--unknown-present] [--namespace-
 | `--stream` | Emit the streaming decoder (`<stem>.rp.stream.hpp`). Combine with `--arena` to emit both. |
 | `--unknown-present` | Arena: reserve a per-message "unknown fields present" bit (`has_unknown_fields()`). |
 | `-I <dir>` | Add an import search path (repeatable). |
-| `--out-dir <dir>` | Where to write the headers (and `rapidproto/runtime.hpp`, plus `arena_runtime.hpp` for `--arena`). |
+| `--out-dir <dir>` | Where to write the headers (and `rapidproto/runtime.hpp`, plus `arena_runtime.hpp` for `--arena`). Default: the current directory. |
 | `--namespace-prefix <ns>` | Dot-separated prefix prepended to every C++ namespace (see [Coexisting with protoc](#coexisting-with-protoc)). |
 | `--no-wellknown` | Don't load the bundled well-known-type definitions. |
 | `--depfile <path>` | Write a Make/Ninja depfile (the headers depend on the entry **and** every import) so a build regenerates when any input `.proto` changes. Used by the CMake helper; harmless otherwise. |
+| `-v`, `--verbose` | Log each written file (`wrote <path>`); output is otherwise silent on success. |
+| `-h`, `--help` | Print the full flag table and exit. |
+| `--version` | Print the tool version and exit. |
 
 One invocation emits a decoder for the entry **and** its transitive imports **and** the well-known types
 it uses, plus the shared `<stem>.rp.common.hpp` and the runtime, so the output directory is

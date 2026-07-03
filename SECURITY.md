@@ -18,6 +18,11 @@ reserved wire types, and group nesting are all detected and depth-capped.
   behavior triggered by feeding untrusted bytes to a generated decoder or the runtime.
 - A way to make a decoder exceed its documented limits (e.g. the nesting-depth cap) unsafely.
 
+Note on memory bounds: the arena model materializes the decoded tree, which can legitimately be
+larger than the wire bytes; `Arena::set_capacity_limit()` is the lever that bounds it (a decode
+that would exceed the cap fails cleanly with `OutOfMemory`). A way to allocate unboundedly *past a
+configured cap* is in scope; unbounded growth with no cap configured is working as documented.
+
 ## Out of scope
 
 - **Incorrect decoded values** for input that was not produced by a conformant Protobuf encoder.

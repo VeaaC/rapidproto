@@ -5,7 +5,7 @@
 // The arena object-tree decoder code generator: emits a *.rp.hpp header whose classes materialize a
 // protobuf message into a fully-allocated, read-only tree inside a bump Arena. Each message becomes a
 // class with a padding-minimized storage layout (decided by the layout planner in layout.hpp), bit-packed
-// presence/value flags, read-only accessors (has_x()/x()), and a static decode() entry point.
+// presence/value flags, read-only value/optional accessors, and a static decode() entry point.
 // Generated code depends only on the header-only arena runtime (rapidproto/arena_runtime.hpp).
 
 #include <string>
