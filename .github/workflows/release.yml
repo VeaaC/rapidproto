@@ -1,0 +1,41 @@
+# Release: on a version tag, re-run the full quality gate against the tagged commit, build an
+# optimized rapidprotoc, and publish a GitHub Release carrying that binary (the source archive is
+# GitHub's own). Tags don't trigger ci.yml (its push filter is branch-only), so the gate here is
+# what stands between a tag and its release.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write  # gh release create
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-toolchain
+      - name: Quality gate (./check.sh)
+        run: ./check.sh
+      - name: Build the release binary
+        run: |
+          set -euxo pipefail
+          # WERROR off: this build runs on the un-pinned runner compiler, and a new compiler's
+          # warnings must not block a release the pinned-toolchain gate above already passed.
+          cmake -S . -B build/rel -DCMAKE_BUILD_TYPE=Release -DRAPIDPROTO_BUILD_TESTS=OFF \
+            -DRAPIDPROTO_WERROR=OFF
+          cmake --build build/rel -j"$(nproc)"
+          # A mis-tagged push must not ship a binary whose --version contradicts its tag.
+          test "$(./build/rel/rapidprotoc --version)" = "rapidprotoc ${GITHUB_REF_NAME#v}"
+          # Apache-2.0: the NOTICE and attributions travel with the redistributed binary.
+          tar -czf "rapidprotoc-${GITHUB_REF_NAME}-linux-x86_64.tar.gz" \
+            -C build/rel rapidprotoc -C "$GITHUB_WORKSPACE" LICENSE NOTICE THIRD_PARTY_NOTICES.md
+      - name: Publish the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" rapidprotoc-*.tar.gz \
+            --title "${GITHUB_REF_NAME}" \
+            --notes "See [CHANGELOG.md](https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_REF_NAME}/CHANGELOG.md) for what changed."

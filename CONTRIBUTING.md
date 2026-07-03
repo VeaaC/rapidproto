@@ -51,6 +51,9 @@ review the diff by hand. Never hand-edit a file under `tests/*_golden/`.
 - The scope is deliberately narrow: decode-only, no serialization, no JSON. Read "Known limitations
   and non-goals" in architecture.md before proposing a feature.
 - Keep commits small and focused, with a short, descriptive message.
+- A change that breaks the generated API or the CLI contract bumps `project(VERSION)` (the minor,
+  pre-1.0) **in the same PR**, with a CHANGELOG.md entry — `find_package` consumers pin against
+  that version, so it must never lag the surface it describes.
 
 ## Pull requests
 
