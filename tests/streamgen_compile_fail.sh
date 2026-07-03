@@ -126,6 +126,19 @@ expect_fail removed-field "no_such_field" '
 #include "proto3.rp.stream.hpp"
 void f() { p3::stream::Msg m{rapidproto::ByteView{}}; (void)m.decode([](p3::stream::Msg::no_such_field, int) {}); }'
 
+# A callback for ANOTHER message's field can never fire here; rejected instead of silently ignored.
+expect_fail cross-message-callback "matches no field" '
+#include "proto2.rp.stream.hpp"
+#include "proto3.rp.stream.hpp"
+void f() { p3::stream::Msg m{rapidproto::ByteView{}};
+           (void)m.decode([](p2::stream::Scalars::u32, std::uint32_t) {}); }'
+
+# Positive control: an UnknownField-only handler is a valid (non-stray) callback set.
+expect_pass unknown-only '
+#include "proto3.rp.stream.hpp"
+void f() { p3::stream::Msg m{rapidproto::ByteView{}};
+           (void)m.decode([](rapidproto::UnknownField) {}); }'
+
 if [[ "$fail" == "0" ]]; then
   echo "compile-fail: all snippets correctly rejected"
 fi

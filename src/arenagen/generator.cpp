@@ -278,7 +278,15 @@ void emit_oneof_guards(Printer& p, const std::string& args, const std::string& w
         " \"$what$ is matched by more than one catch-all callback\");\n",
         {{"A", args}, {"what", what}});
     if (expected.empty()) {
-        return;  // the valueless unset state: no partially-generic / wrong-value-type notion
+        // The valueless unset state has no partially-generic / wrong-value-type notion, but a
+        // callback NAMING std::monostate with extra parameters would silently never fire -- the
+        // same names-it-must-handle-it rule as a value member, phrased for the unset state.
+        p.print(
+            "static_assert((true && ... && !(::rapidproto::targets<RpFs, $A$>"
+            " && !::rapidproto::specifically_handles<RpFs, $A$>)),"
+            " \"a callback for $what$ must take exactly (std::monostate)\");\n",
+            {{"A", args}, {"what", what}});
+        return;
     }
     p.print(
         "static_assert((true && ... && !::rapidproto::is_partial_generic<RpFs, $A$>),"
@@ -321,6 +329,22 @@ void emit_oneof_accessors(const Emit& emit, const OneofPlan& o) {
         emit_oneof_guards(p, args, what, expected);
     }
     emit_oneof_guards(p, "std::monostate", "a oneof's unset (std::monostate) state", "");
+    // Per-handler stray guard: every handler must name one of THIS oneof's member tags (or
+    // std::monostate, or be a catch-all). Catches a handler pasted from another oneof's reader,
+    // which no per-member guard would ever see.
+    std::string tags;
+    for (const OneofMemberPlan& member : o.members) {
+        tags += tag;
+        tags += "::";
+        tags += emit.names.local.at(member.field);
+        tags += ", ";
+    }
+    tags += "std::monostate";
+    p.print(
+        "static_assert((true && ... && !::rapidproto::is_stray_handler<RpFs, $tags$>),"
+        " \"a callback matches no member of oneof '$o$' (and is not a catch-all or the"
+        " std::monostate unset handler)\");\n",
+        {{"tags", tags}, {"o", o.oneof->name}});
     p.print("auto rp_d = ::rapidproto::combine(static_cast<RpFs&&>(rp_fs)...);\n");
     p.print("switch (m_rp_$o$_case) {\n", {{"o", o.oneof->name}});
     p.indent();

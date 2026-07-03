@@ -149,6 +149,8 @@ class Container {
     static_assert((true && ... && !(::rapidproto::targets<RpFs, Choice::cn, typename Choice::cn::Value> && !::rapidproto::specifically_handles<RpFs, Choice::cn, typename Choice::cn::Value>)), "a callback for oneof member 'cn' has the wrong value type (expected Choice::cn::Value)");
     static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<RpFs, std::monostate>)) <= 1U, "a oneof's unset (std::monostate) state is handled by more than one callback");
     static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<RpFs, std::monostate>)) <= 1U, "a oneof's unset (std::monostate) state is matched by more than one catch-all callback");
+    static_assert((true && ... && !(::rapidproto::targets<RpFs, std::monostate> && !::rapidproto::specifically_handles<RpFs, std::monostate>)), "a callback for a oneof's unset (std::monostate) state must take exactly (std::monostate)");
+    static_assert((true && ... && !::rapidproto::is_stray_handler<RpFs, Choice::ci, Choice::cn, std::monostate>), "a callback matches no member of oneof 'choice' (and is not a catch-all or the std::monostate unset handler)");
     auto rp_d = ::rapidproto::combine(static_cast<RpFs&&>(rp_fs)...);
     switch (m_rp_choice_case) {
       case 1:

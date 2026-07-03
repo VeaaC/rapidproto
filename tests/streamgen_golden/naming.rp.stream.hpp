@@ -44,6 +44,7 @@ struct M {
 
 template <class... Callbacks>
 ::rapidproto::DecodeStatus M::decode(Callbacks&&... rp_callbacks) const {
+  static_assert((true && ... && !::rapidproto::is_stray_callback<Callbacks, decode_, decode__, int_field, int__, e, decode___>), "a callback matches no field of 'M' (and is not a catch-all or unknown-field handler)");
   [[maybe_unused]] auto rp_dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(rp_callbacks)...);
   ::rapidproto::WireReader rp_reader{m_bytes};
   while (!rp_reader.at_end()) {
@@ -164,6 +165,7 @@ template <class... Callbacks>
 
 template <class... Callbacks>
 ::rapidproto::DecodeStatus M::int_::decode(Callbacks&&... rp_callbacks) const {
+  static_assert((true && ... && !::rapidproto::is_stray_callback<Callbacks, x>), "a callback matches no field of 'M::int_' (and is not a catch-all or unknown-field handler)");
   [[maybe_unused]] auto rp_dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(rp_callbacks)...);
   ::rapidproto::WireReader rp_reader{m_bytes};
   while (!rp_reader.at_end()) {

@@ -106,6 +106,29 @@ void f(rapidproto::ByteView b, rapidproto::Arena& a) {
   const p3::Msg* m = p3::Msg::decode(b, a);
   m->pick([](p3::Msg::Pick::a, auto){}); }'
 
+# A handler for ANOTHER oneof's member can never fire here; rejected instead of silently ignored.
+expect_fail oneof-cross-handler "matches no member" '
+#include "proto2.rp.hpp"
+#include "proto3.rp.hpp"
+void f(rapidproto::ByteView b, rapidproto::Arena& a) {
+  const p3::Msg* m = p3::Msg::decode(b, a);
+  m->pick([](p2::Container::Choice::ci, std::int32_t){}); }'
+
+# A handler NAMING std::monostate with extra parameters can never fire; same names-it-must-handle-it
+# rule as a value member.
+expect_fail oneof-monostate-wrong-shape "must take exactly (std::monostate)" '
+#include "proto3.rp.hpp"
+void f(rapidproto::ByteView b, rapidproto::Arena& a) {
+  const p3::Msg* m = p3::Msg::decode(b, a);
+  m->pick([](std::monostate, int){}); }'
+
+# Positive control: a catch-all-only handler set is valid (members it does not name are ignored).
+expect_pass oneof-catchall-only '
+#include "proto3.rp.hpp"
+void f(rapidproto::ByteView b, rapidproto::Arena& a) {
+  const p3::Msg* m = p3::Msg::decode(b, a);
+  m->pick([](auto, auto){}); }'
+
 if [[ "$fail" == "0" ]]; then
   echo "arenagen compile-fail: all snippets correctly rejected"
 fi

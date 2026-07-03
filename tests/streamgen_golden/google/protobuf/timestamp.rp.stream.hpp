@@ -26,6 +26,7 @@ struct Timestamp {
 
 template <class... Callbacks>
 ::rapidproto::DecodeStatus Timestamp::decode(Callbacks&&... rp_callbacks) const {
+  static_assert((true && ... && !::rapidproto::is_stray_callback<Callbacks, seconds, nanos>), "a callback matches no field of 'Timestamp' (and is not a catch-all or unknown-field handler)");
   [[maybe_unused]] auto rp_dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(rp_callbacks)...);
   ::rapidproto::WireReader rp_reader{m_bytes};
   while (!rp_reader.at_end()) {

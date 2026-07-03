@@ -127,6 +127,8 @@ class Nested {
       static_assert((true && ... && !(::rapidproto::targets<RpFs, Pick::tagged, typename Pick::tagged::Value> && !::rapidproto::specifically_handles<RpFs, Pick::tagged, typename Pick::tagged::Value>)), "a callback for oneof member 'tagged' has the wrong value type (expected Pick::tagged::Value)");
       static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<RpFs, std::monostate>)) <= 1U, "a oneof's unset (std::monostate) state is handled by more than one callback");
       static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<RpFs, std::monostate>)) <= 1U, "a oneof's unset (std::monostate) state is matched by more than one catch-all callback");
+      static_assert((true && ... && !(::rapidproto::targets<RpFs, std::monostate> && !::rapidproto::specifically_handles<RpFs, std::monostate>)), "a callback for a oneof's unset (std::monostate) state must take exactly (std::monostate)");
+      static_assert((true && ... && !::rapidproto::is_stray_handler<RpFs, Pick::chosen, Pick::tagged, std::monostate>), "a callback matches no member of oneof 'pick' (and is not a catch-all or the std::monostate unset handler)");
       auto rp_d = ::rapidproto::combine(static_cast<RpFs&&>(rp_fs)...);
       switch (m_rp_pick_case) {
         case 1:
@@ -217,6 +219,8 @@ class FwdMsg {
       static_assert((true && ... && !(::rapidproto::targets<RpFs, Pick::chosen, typename Pick::chosen::Value> && !::rapidproto::specifically_handles<RpFs, Pick::chosen, typename Pick::chosen::Value>)), "a callback for oneof member 'chosen' has the wrong value type (expected Pick::chosen::Value)");
       static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<RpFs, std::monostate>)) <= 1U, "a oneof's unset (std::monostate) state is handled by more than one callback");
       static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<RpFs, std::monostate>)) <= 1U, "a oneof's unset (std::monostate) state is matched by more than one catch-all callback");
+      static_assert((true && ... && !(::rapidproto::targets<RpFs, std::monostate> && !::rapidproto::specifically_handles<RpFs, std::monostate>)), "a callback for a oneof's unset (std::monostate) state must take exactly (std::monostate)");
+      static_assert((true && ... && !::rapidproto::is_stray_handler<RpFs, Pick::chosen, std::monostate>), "a callback matches no member of oneof 'pick' (and is not a catch-all or the std::monostate unset handler)");
       auto rp_d = ::rapidproto::combine(static_cast<RpFs&&>(rp_fs)...);
       switch (m_rp_pick_case) {
         case 1:

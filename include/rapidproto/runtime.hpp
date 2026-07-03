@@ -548,6 +548,12 @@ struct call_params<F, std::void_t<decltype(param_tuple_of(&F::operator()))>> {
     using type = decltype(param_tuple_of(&F::operator()));
 };
 
+// True when `Cb` is a generic callback: its operator() is a template (or otherwise not
+// introspectable) — a catch-all or a partial generic, distinguished by the traits below.
+template <class Cb>
+inline constexpr bool is_generic_callback =
+    std::is_same_v<typename call_params<std::decay_t<Cb>>::type, generic_params>;
+
 // True when a single callback `Cb` specifically accepts (Tag, Vs...): its parameter types decay to
 // exactly (Tag, Vs...). Folded over the callback pack to count specific handlers, so duplicates are
 // a compile error — and a `(Tag, std::optional<V>)`-style wrapper is NOT counted as handling.
@@ -563,7 +569,7 @@ inline constexpr bool specifically_handles =
 // extracts a real tuple, routing it through specifically_handles / targets instead).
 template <class Cb, class Tag, class... Vs>
 inline constexpr bool is_catch_all =
-    std::is_same_v<typename call_params<std::decay_t<Cb>>::type, generic_params> &&
+    is_generic_callback<Cb> &&
     std::is_invocable_v<std::decay_t<Cb>&, tag_probe, as_generic_probe<Vs>...>;
 
 // True when `Cb` handles this field: exact-typed or a viable catch-all. Folded over the pack, it
@@ -581,7 +587,7 @@ inline constexpr bool handles_one =
 // decoded value is a prvalue) is reported here rather than silently skipped.
 template <class Cb, class Tag, class... Vs>
 inline constexpr bool is_partial_generic =
-    std::is_same_v<typename call_params<std::decay_t<Cb>>::type, generic_params> &&
+    is_generic_callback<Cb> &&
     (std::is_invocable_v<std::decay_t<Cb>&, Tag, Vs...> ||
      std::is_invocable_v<std::decay_t<Cb>&, Tag, std::add_lvalue_reference_t<Vs>...>) &&
     !is_catch_all<Cb, Tag, Vs...>;
@@ -646,6 +652,28 @@ template <class Cb>
 inline constexpr bool specifically_handles_unknown = std::conjunction_v<
     std::is_invocable<std::decay_t<Cb>&, UnknownField>,
     std::negation<std::is_invocable<std::decay_t<Cb>&, UnknownField, generic_probe>>>;
+
+// True when `Cb` names one of `Tags` as its first parameter, whatever the rest of its signature
+// (the per-tag guards then enforce the exact shape). False for a generic callback (no fixed first
+// parameter) and over an empty tag list.
+template <class Cb, class... Tags>
+inline constexpr bool names_some_tag =
+    (... || std::is_same_v<typename first_param<typename call_params<std::decay_t<Cb>>::type>::type,
+                           Tags>);
+
+// True when `Cb` can never fire in the arena model's oneof reader, whose tag types are `Tags` (the
+// member tags plus the std::monostate unset state): it is concrete and names none of them. Folded
+// per callback into a generated static_assert — the classic mistake is a callback pasted from
+// ANOTHER oneof's reader (that tag type exists, so no other guard fires), which would otherwise
+// compile and silently never be called.
+template <class Cb, class... Tags>
+inline constexpr bool is_stray_handler = !is_generic_callback<Cb> && !names_some_tag<Cb, Tags...>;
+
+// The streaming decode() analog: same rule, except decode() additionally accepts the unknown-field
+// handler (which names no tag).
+template <class Cb, class... Tags>
+inline constexpr bool is_stray_callback =
+    is_stray_handler<Cb, Tags...> && !specifically_handles_unknown<Cb>;
 
 // Invoke the unknown-field handler, normalizing a void or DecodeStatus return. Precondition: some
 // callback specifically_handles_unknown (the generated `default` arm checks the pack with

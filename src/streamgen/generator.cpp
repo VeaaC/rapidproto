@@ -463,6 +463,21 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
     printer.print("::rapidproto::DecodeStatus $Q$::decode(Callbacks&&... rp_callbacks) const {\n",
                   {{"Q", qualifier}});
     printer.indent();
+    // Per-callback stray guard: every callback must name one of THIS message's tags (or be a
+    // catch-all / unknown-field handler). Catches a callback pasted from another message's
+    // decode(), which no per-field guard would ever see.
+    std::string tags;
+    for (const auto& [field, gen] : fields) {
+        tags += ", " + symbols.local.at(field);
+    }
+    for (const auto& map : message.map_fields) {
+        tags += ", " + symbols.local.at(&map);
+    }
+    printer.print(
+        "static_assert((true && ... && !::rapidproto::is_stray_callback<Callbacks$tags$>),"
+        " \"a callback matches no field of '$Q$' (and is not a catch-all or unknown-field"
+        " handler)\");\n",
+        {{"tags", tags}, {"Q", qualifier}});
     printer.print(
         "[[maybe_unused]] auto rp_dispatch = "
         "::rapidproto::combine(static_cast<Callbacks&&>(rp_callbacks)...);\n");

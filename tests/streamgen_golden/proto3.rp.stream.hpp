@@ -37,6 +37,7 @@ struct Msg {
 
 template <class... Callbacks>
 ::rapidproto::DecodeStatus Msg::decode(Callbacks&&... rp_callbacks) const {
+  static_assert((true && ... && !::rapidproto::is_stray_callback<Callbacks, implicit_i, explicit_i, name, state, self, nums, unpacked, states, a, b, counts>), "a callback matches no field of 'Msg' (and is not a catch-all or unknown-field handler)");
   [[maybe_unused]] auto rp_dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(rp_callbacks)...);
   ::rapidproto::WireReader rp_reader{m_bytes};
   while (!rp_reader.at_end()) {
