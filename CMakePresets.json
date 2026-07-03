@@ -1,7 +1,29 @@
 {
   "version": 3,
-  "cmakeMinimumRequired": { "major": 3, "minor": 21, "patch": 0 },
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 21,
+    "patch": 0
+  },
   "configurePresets": [
+    {
+      "name": "default",
+      "displayName": "System compiler (Debug)",
+      "binaryDir": "${sourceDir}/build/default",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "RAPIDPROTO_WERROR": "OFF"
+      }
+    },
+    {
+      "name": "release",
+      "displayName": "System compiler (Release)",
+      "binaryDir": "${sourceDir}/build/release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "RAPIDPROTO_WERROR": "OFF"
+      }
+    },
     {
       "name": "gcc",
       "displayName": "GCC 13 (Debug, -Werror)",
@@ -26,11 +48,51 @@
     }
   ],
   "buildPresets": [
-    { "name": "gcc", "configurePreset": "gcc" },
-    { "name": "clang", "configurePreset": "clang" }
+    {
+      "name": "default",
+      "configurePreset": "default"
+    },
+    {
+      "name": "release",
+      "configurePreset": "release"
+    },
+    {
+      "name": "gcc",
+      "configurePreset": "gcc"
+    },
+    {
+      "name": "clang",
+      "configurePreset": "clang"
+    }
   ],
   "testPresets": [
-    { "name": "gcc", "configurePreset": "gcc", "output": { "outputOnFailure": true } },
-    { "name": "clang", "configurePreset": "clang", "output": { "outputOnFailure": true } }
+    {
+      "name": "default",
+      "configurePreset": "default",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "release",
+      "configurePreset": "release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "gcc",
+      "configurePreset": "gcc",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "clang",
+      "configurePreset": "clang",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
   ]
 }

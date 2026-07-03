@@ -206,9 +206,12 @@ function(rapidproto_generate target)
   endforeach()
 
   # A driver target builds all the headers; the INTERFACE library consumers link depends on it (so
-  # linking the library triggers generation) and carries OUT_DIR as a usage-requirement include dir.
+  # linking the library triggers generation) and carries OUT_DIR as a usage-requirement include dir
+  # plus the C++17 floor -- without it a consumer inherits the toolchain's default standard, and the
+  # generated headers happen to compile only where that default is >= 17.
   add_custom_target(${target}_generate DEPENDS ${_outputs})
   add_library(${target} INTERFACE)
   add_dependencies(${target} ${target}_generate)
   target_include_directories(${target} INTERFACE "${RPG_OUT_DIR}")
+  target_compile_features(${target} INTERFACE cxx_std_17)
 endfunction()

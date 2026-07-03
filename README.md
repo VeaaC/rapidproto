@@ -29,9 +29,9 @@ You can read the same schema with either model, and even use both **in one trans
 The [CMake helper](#cmake-integration) is the fastest path; this section drives the tool by hand. Build it once:
 
 ```sh
-cmake --preset gcc                                   # or: clang
-cmake --build --preset gcc --target rapidprotoc
-# binary: build/gcc/rapidprotoc
+cmake --preset release                               # system compiler, optimized
+cmake --build --preset release --target rapidprotoc
+# binary: build/release/rapidprotoc
 ```
 
 Given `person.proto`:
@@ -57,7 +57,7 @@ message Address {
 `out/`:
 
 ```sh
-./build/gcc/rapidprotoc -I. --out-dir=out person.proto   # add -v to log each written file
+./build/release/rapidprotoc -I. --out-dir=out person.proto   # add -v to log each written file
 # out/person.rp.hpp + out/person.rp.common.hpp + out/rapidproto/{runtime,arena_runtime}.hpp
 ```
 

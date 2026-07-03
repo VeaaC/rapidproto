@@ -13,15 +13,17 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include(GNUInstallDirs)
 
-# Build tests by default only as the top-level project; a consumer (add_subdirectory / FetchContent)
-# gets just the library + CLIs unless it sets RAPIDPROTO_BUILD_TESTS=ON.
+# Top-level-only defaults: a consumer (add_subdirectory / FetchContent) gets just the library +
+# CLIs — no tests, no -Werror (a new compiler's warnings must never break a downstream build), and
+# no install rules injected into ITS `cmake --install` — unless it opts in explicitly.
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
-  set(_rp_tests_default ON)
+  set(_rp_top_level ON)
 else()
-  set(_rp_tests_default OFF)
+  set(_rp_top_level OFF)
 endif()
-option(RAPIDPROTO_BUILD_TESTS "Build the test suite" ${_rp_tests_default})
-option(RAPIDPROTO_WERROR "Treat warnings as errors for our own targets" ON)
+option(RAPIDPROTO_BUILD_TESTS "Build the test suite" ${_rp_top_level})
+option(RAPIDPROTO_WERROR "Treat warnings as errors for our own targets" ${_rp_top_level})
+option(RAPIDPROTO_INSTALL "Register install/export rules" ${_rp_top_level})
 # AddressSanitizer + UndefinedBehaviorSanitizer on our OWN targets only (never vendored Catch2, which
 # links no strict target). For an untrusted-input decoder this catches runtime UB the static checks
 # can't; -fno-sanitize-recover makes a finding abort so it surfaces in the test run / gate.
@@ -112,7 +114,7 @@ target_link_libraries(rapidproto_cli PRIVATE rapidproto_lib rapidproto_strict)
 # runtime_embedded.cpp carries the text of include/rapidproto/runtime.hpp (so a CLI can drop it next
 # to its output). It is GENERATED at build time from runtime.hpp by cmake/embed_runtime.cmake --
 # regenerated automatically whenever runtime.hpp changes, so there is nothing to keep in sync by hand.
-set(RUNTIME_EMBEDDED_CPP "${CMAKE_BINARY_DIR}/generated/runtime_embedded.cpp")
+set(RUNTIME_EMBEDDED_CPP "${CMAKE_CURRENT_BINARY_DIR}/generated/runtime_embedded.cpp")
 add_custom_command(
   OUTPUT "${RUNTIME_EMBEDDED_CPP}"
   COMMAND ${CMAKE_COMMAND}
@@ -147,7 +149,7 @@ target_link_libraries(rapidproto_streamgen_lib PUBLIC rapidproto_lib rapidproto_
 # arena_runtime.hpp is embedded at build time (reusing embed_runtime.cmake with arenagen's namespace/
 # function) so the CLI can drop a self-contained copy beside its output, exactly as the codegen layer
 # does for runtime.hpp. The CLI drops BOTH headers (arena_runtime.hpp #includes runtime.hpp).
-set(ARENA_RUNTIME_EMBEDDED_CPP "${CMAKE_BINARY_DIR}/generated/arena_runtime_embedded.cpp")
+set(ARENA_RUNTIME_EMBEDDED_CPP "${CMAKE_CURRENT_BINARY_DIR}/generated/arena_runtime_embedded.cpp")
 add_custom_command(
   OUTPUT "${ARENA_RUNTIME_EMBEDDED_CPP}"
   COMMAND ${CMAKE_COMMAND}
@@ -186,40 +188,55 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/rapidproto-generate.cmake)
 # ---------------------------------------------------------------------------
 # Install + package config: `find_package(rapidproto)` provides the imported CLI
 # (rapidproto::rapidprotoc) and the runtime headers (rapidproto::runtime).
+# Gated by RAPIDPROTO_INSTALL (default: top-level only), so an add_subdirectory /
+# FetchContent consumer's own `cmake --install` doesn't receive our files.
 # ---------------------------------------------------------------------------
-include(CMakePackageConfigHelpers)
-set(RAPIDPROTO_INSTALL_CMAKEDIR ${CMAKE_INSTALL_LIBDIR}/cmake/rapidproto)
+if(RAPIDPROTO_INSTALL)
+  include(CMakePackageConfigHelpers)
+  set(RAPIDPROTO_INSTALL_CMAKEDIR ${CMAKE_INSTALL_LIBDIR}/cmake/rapidproto)
 
-# Export under a short, namespaced name (rapidproto::rapidprotoc, not ::rapidprotoc) so the installed
-# imported target matches the in-tree ALIAS -- one rapidproto_generate() works either way.
-set_target_properties(rapidprotoc PROPERTIES EXPORT_NAME rapidprotoc)
-set_target_properties(rapidproto_runtime PROPERTIES EXPORT_NAME runtime)
+  # Export under a short, namespaced name (rapidproto::rapidprotoc, not ::rapidprotoc) so the installed
+  # imported target matches the in-tree ALIAS -- one rapidproto_generate() works either way.
+  set_target_properties(rapidprotoc PROPERTIES EXPORT_NAME rapidprotoc)
+  set_target_properties(rapidproto_runtime PROPERTIES EXPORT_NAME runtime)
 
-install(TARGETS rapidprotoc rapidproto_runtime
-  EXPORT rapidprotoTargets
-  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-install(FILES
-  ${CMAKE_CURRENT_SOURCE_DIR}/include/rapidproto/runtime.hpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/include/rapidproto/arena_runtime.hpp
-  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/rapidproto)
-install(EXPORT rapidprotoTargets
-  NAMESPACE rapidproto::
-  DESTINATION ${RAPIDPROTO_INSTALL_CMAKEDIR})
+  install(TARGETS rapidprotoc rapidproto_runtime
+    EXPORT rapidprotoTargets
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+  install(FILES
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/rapidproto/runtime.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/rapidproto/arena_runtime.hpp
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/rapidproto)
+  install(EXPORT rapidprotoTargets
+    NAMESPACE rapidproto::
+    DESTINATION ${RAPIDPROTO_INSTALL_CMAKEDIR})
 
-configure_package_config_file(
-  ${CMAKE_CURRENT_SOURCE_DIR}/cmake/rapidprotoConfig.cmake.in
-  ${CMAKE_CURRENT_BINARY_DIR}/rapidprotoConfig.cmake
-  INSTALL_DESTINATION ${RAPIDPROTO_INSTALL_CMAKEDIR})
-write_basic_package_version_file(
-  ${CMAKE_CURRENT_BINARY_DIR}/rapidprotoConfigVersion.cmake
-  # Pre-1.0: each 0.x is its own compatibility bucket (the SemVer-0 convention, where the minor is the
-  # breaking axis) -- SameMajorVersion would treat all 0.x as interchangeable. Revisit at 1.0.
-  COMPATIBILITY SameMinorVersion)
-install(FILES
-  ${CMAKE_CURRENT_BINARY_DIR}/rapidprotoConfig.cmake
-  ${CMAKE_CURRENT_BINARY_DIR}/rapidprotoConfigVersion.cmake
-  ${CMAKE_CURRENT_SOURCE_DIR}/cmake/rapidproto-generate.cmake
-  DESTINATION ${RAPIDPROTO_INSTALL_CMAKEDIR})
+  configure_package_config_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/rapidprotoConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/rapidprotoConfig.cmake
+    INSTALL_DESTINATION ${RAPIDPROTO_INSTALL_CMAKEDIR})
+  write_basic_package_version_file(
+    ${CMAKE_CURRENT_BINARY_DIR}/rapidprotoConfigVersion.cmake
+    # Pre-1.0: each 0.x is its own compatibility bucket (the SemVer-0 convention, where the minor is the
+    # breaking axis) -- SameMajorVersion would treat all 0.x as interchangeable. Revisit at 1.0.
+    COMPATIBILITY SameMinorVersion
+    # The runtime is header-only and rapidprotoc is a HOST tool, so the version check must not
+    # reject a consumer with a different target pointer size (the documented cross-compile flow:
+    # a 32-bit target build importing a 64-bit host install).
+    ARCH_INDEPENDENT)
+  install(FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/rapidprotoConfig.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/rapidprotoConfigVersion.cmake
+    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/rapidproto-generate.cmake
+    DESTINATION ${RAPIDPROTO_INSTALL_CMAKEDIR})
+  # Apache-2.0 redistribution: NOTICE (and the third-party attributions) must travel with the
+  # installed prefix, not just the source tree.
+  install(FILES
+    ${CMAKE_CURRENT_SOURCE_DIR}/LICENSE
+    ${CMAKE_CURRENT_SOURCE_DIR}/NOTICE
+    ${CMAKE_CURRENT_SOURCE_DIR}/THIRD_PARTY_NOTICES.md
+    DESTINATION ${CMAKE_INSTALL_DOCDIR})
+endif()
 
 if(RAPIDPROTO_BUILD_TESTS)
   enable_testing()
@@ -304,7 +321,7 @@ if(RAPIDPROTO_BUILD_TESTS)
   if(Protobuf_FOUND)
     set(BENCH_PROTO "${CMAKE_CURRENT_SOURCE_DIR}/tests/bench/bench.proto")
     set(BENCH_PROTO_DIR "${CMAKE_CURRENT_SOURCE_DIR}/tests/bench")
-    set(BENCH_GEN "${CMAKE_BINARY_DIR}/generated/bench")
+    set(BENCH_GEN "${CMAKE_CURRENT_BINARY_DIR}/generated/bench")
     file(MAKE_DIRECTORY "${BENCH_GEN}")
     # protoc C++ codegen.
     add_custom_command(
