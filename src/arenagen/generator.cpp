@@ -244,11 +244,17 @@ void emit_oneof_types(const Emit& emit, const OneofPlan& o) {
     }
     p.outdent();
     p.print("};\n");
-    // A union sized to the largest member; the no-op default ctor leaves it inactive (the decoder
-    // sets the active member, the reader dispatches on the discriminant). Trivially destructible/copyable.
-    // NOTE: the union makes the enclosing message non-trivially-default-constructible, so the decoder
-    // must VALUE-initialize it, which Arena::create<T>() does via (::new (mem) T()), to zero the
-    // discriminant to 0 (the unset state); default-init (::new (mem) T) would leave the case indeterminate.
+}
+
+// A union sized to the largest member; the no-op default ctor leaves it inactive (the decoder
+// sets the active member, the reader dispatches on the discriminant). Trivially destructible/copyable.
+// Emitted in the PRIVATE section (unlike the visit-tag struct above): it is pure storage that no
+// accessor exposes, so it must not surface in a user's autocomplete as constructible API.
+// NOTE: the union makes the enclosing message non-trivially-default-constructible, so the decoder
+// must VALUE-initialize it, which Arena::create<T>() does via (::new (mem) T()), to zero the
+// discriminant to 0 (the unset state); default-init (::new (mem) T) would leave the case indeterminate.
+void emit_oneof_union(const Emit& emit, const OneofPlan& o) {
+    Printer& p = emit.printer;
     p.print("union rp_$o$_union {\n", {{"o", o.oneof->name}});
     p.indent();
     for (const OneofMemberPlan& member : o.members) {
@@ -695,6 +701,9 @@ void emit_message_body(const Emit& emit, const MessageNode& message) {
         "arena,"
         " int depth, ::rapidproto::ArenaDecodeError* err) noexcept;\n",
         {{"T", type}});
+    for (const OneofPlan& o : layout.oneofs) {
+        emit_oneof_union(emit, o);
+    }
     emit_storage(emit, layout);
     p.outdent();
     p.print("};\n");

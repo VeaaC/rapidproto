@@ -129,6 +129,11 @@ void f(rapidproto::ByteView b, rapidproto::Arena& a) {
   const p3::Msg* m = p3::Msg::decode(b, a);
   m->pick([](auto, auto){}); }'
 
+# The oneof storage union is an implementation detail: private, not constructible user API.
+expect_fail oneof-union-private "private" '
+#include "proto3.rp.hpp"
+void f() { p3::Msg::rp_pick_union u; (void)u; }'
+
 if [[ "$fail" == "0" ]]; then
   echo "arenagen compile-fail: all snippets correctly rejected"
 fi

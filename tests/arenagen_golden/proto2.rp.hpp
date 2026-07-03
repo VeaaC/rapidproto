@@ -114,11 +114,6 @@ class Container {
     struct ci { using Value = std::int32_t; };
     struct cn { using Value = ::p2::Container::Nested; };
   };
-  union rp_choice_union {
-    std::int32_t ci;
-    ::p2::Container::Nested cn;
-    rp_choice_union() noexcept {}
-  };
   struct By_nameEntry {
     std::string_view key() const noexcept { return rp_key.view(); }
     const ::p2::Container::Nested* value() const noexcept { return &rp_value; }
@@ -174,6 +169,11 @@ class Container {
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
   static bool rp_decode_into(Container& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
+  union rp_choice_union {
+    std::int32_t ci;
+    ::p2::Container::Nested cn;
+    rp_choice_union() noexcept {}
+  };
   ::rapidproto::MapView<By_nameEntry> m_by_name;
   ::rapidproto::MapView<By_idEntry> m_by_id;
   ::rapidproto::ArrayView<::p2::Container::Nested> m_items;

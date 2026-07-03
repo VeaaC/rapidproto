@@ -21,11 +21,6 @@ class Msg {
     struct a { using Value = std::int32_t; };
     struct b { using Value = std::string_view; };
   };
-  union rp_pick_union {
-    std::int32_t a;
-    ::rapidproto::ArenaString b;
-    rp_pick_union() noexcept {}
-  };
   struct CountsEntry {
     std::string_view key() const noexcept { return rp_key.view(); }
     std::int32_t value() const noexcept { return rp_value; }
@@ -79,6 +74,11 @@ class Msg {
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
   static bool rp_decode_into(Msg& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
+  union rp_pick_union {
+    std::int32_t a;
+    ::rapidproto::ArenaString b;
+    rp_pick_union() noexcept {}
+  };
   ::rapidproto::ArenaString m_name;
   ::rapidproto::ArrayView<std::int32_t> m_nums;
   ::rapidproto::ArrayView<std::int32_t> m_unpacked;

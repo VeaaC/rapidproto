@@ -90,12 +90,6 @@ class Layout {
     struct cs { using Value = std::string_view; };
     struct cp { using Value = ::al::Point; };
   };
-  union rp_choice_union {
-    std::int32_t ci;
-    ::rapidproto::ArenaString cs;
-    ::al::Point cp;
-    rp_choice_union() noexcept {}
-  };
   struct CountsEntry {
     std::string_view key() const noexcept { return rp_key.view(); }
     std::int32_t value() const noexcept { return rp_value; }
@@ -174,6 +168,12 @@ class Layout {
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
   static bool rp_decode_into(Layout& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
+  union rp_choice_union {
+    std::int32_t ci;
+    ::rapidproto::ArenaString cs;
+    ::al::Point cp;
+    rp_choice_union() noexcept {}
+  };
   ::rapidproto::ArenaString m_name;
   ::rapidproto::ArenaString m_oname;
   ::rapidproto::ArrayView<std::int32_t> m_nums;

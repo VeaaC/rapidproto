@@ -31,19 +31,9 @@ class Collide {
     struct p1 { using Value = std::int32_t; };
     struct p2 { using Value = std::int32_t; };
   };
-  union rp_pick_union {
-    std::int32_t p1;
-    std::int32_t p2;
-    rp_pick_union() noexcept {}
-  };
   struct Letters {
     struct a { using Value = std::int32_t; };
     struct A { using Value = std::int32_t; };
-  };
-  union rp_letters_union {
-    std::int32_t a;
-    std::int32_t A;
-    rp_letters_union() noexcept {}
   };
   struct FooEntry_ {
     std::string_view key() const noexcept { return rp_key.view(); }
@@ -126,6 +116,16 @@ class Collide {
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
   static bool rp_decode_into(Collide& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
+  union rp_pick_union {
+    std::int32_t p1;
+    std::int32_t p2;
+    rp_pick_union() noexcept {}
+  };
+  union rp_letters_union {
+    std::int32_t a;
+    std::int32_t A;
+    rp_letters_union() noexcept {}
+  };
   ::rapidproto::MapView<FooEntry_> m_foo;
   std::int32_t m_x;
   std::int32_t m_has_x;

@@ -23,11 +23,6 @@ class Main {
     struct od { using Value = ::rp::dep::Dep; };
     struct oi { using Value = std::int32_t; };
   };
-  union rp_choice_union {
-    ::rp::dep::Dep od;
-    std::int32_t oi;
-    rp_choice_union() noexcept {}
-  };
   struct DmEntry {
     std::int32_t key() const noexcept { return rp_key; }
     const ::rp::dep::Dep* value() const noexcept { return &rp_value; }
@@ -78,6 +73,11 @@ class Main {
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
   static bool rp_decode_into(Main& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
+  union rp_choice_union {
+    ::rp::dep::Dep od;
+    std::int32_t oi;
+    rp_choice_union() noexcept {}
+  };
   ::rapidproto::ArrayView<::rp::dep::Dep> m_ds;
   ::rapidproto::MapView<DmEntry> m_dm;
   ::rp::dep::Dep m_d;

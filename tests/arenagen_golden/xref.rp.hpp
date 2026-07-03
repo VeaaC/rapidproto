@@ -87,11 +87,6 @@ class Nested {
       struct chosen { using Value = ::xr::Nested::Def; };
       struct tagged { using Value = ::xr::Nested::Def::Kind; };
     };
-    union rp_pick_union {
-      const ::xr::Nested::Def* chosen;
-      ::xr::Nested::Def::Kind tagged;
-      rp_pick_union() noexcept {}
-    };
     struct By_nameEntry {
       std::string_view key() const noexcept { return rp_key.view(); }
       const ::xr::Nested::Def* value() const noexcept { return rp_value; }
@@ -152,6 +147,11 @@ class Nested {
    private:
     template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
     static bool rp_decode_into(User& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
+    union rp_pick_union {
+      const ::xr::Nested::Def* chosen;
+      ::xr::Nested::Def::Kind tagged;
+      rp_pick_union() noexcept {}
+    };
     ::rapidproto::ArrayView<::xr::Nested::Def> m_many;
     ::rapidproto::MapView<By_nameEntry> m_by_name;
     ::rapidproto::ArrayView<::xr::Nested::Def::Kind> m_kinds;
@@ -197,10 +197,6 @@ class FwdMsg {
     struct Pick {
       struct chosen { using Value = ::xr::FwdMsg::Target; };
     };
-    union rp_pick_union {
-      const ::xr::FwdMsg::Target* chosen;
-      rp_pick_union() noexcept {}
-    };
     struct By_idEntry {
       std::int32_t key() const noexcept { return rp_key; }
       const ::xr::FwdMsg::Target* value() const noexcept { return rp_value; }
@@ -239,6 +235,10 @@ class FwdMsg {
    private:
     template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
     static bool rp_decode_into(Ref& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
+    union rp_pick_union {
+      const ::xr::FwdMsg::Target* chosen;
+      rp_pick_union() noexcept {}
+    };
     ::rapidproto::ArrayView<::xr::FwdMsg::Target> m_many;
     ::rapidproto::MapView<By_idEntry> m_by_id;
     const ::xr::FwdMsg::Target* m_one;

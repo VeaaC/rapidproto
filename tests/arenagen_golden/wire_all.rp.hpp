@@ -32,11 +32,6 @@ class AllWire {
     struct oi { using Value = std::int32_t; };
     struct os { using Value = std::string_view; };
   };
-  union rp_pick_union {
-    std::int32_t oi;
-    ::rapidproto::ArenaString os;
-    rp_pick_union() noexcept {}
-  };
   std::optional<std::int64_t> zz() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? std::optional<std::int64_t>(m_zz) : std::nullopt; }
   std::optional<double> db() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 1)) != 0 ? std::optional<double>(m_db) : std::nullopt; }
   std::optional<std::uint32_t> fx() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 2)) != 0 ? std::optional<std::uint32_t>(m_fx) : std::nullopt; }
@@ -81,6 +76,11 @@ class AllWire {
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
   static bool rp_decode_into(AllWire& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
+  union rp_pick_union {
+    std::int32_t oi;
+    ::rapidproto::ArenaString os;
+    rp_pick_union() noexcept {}
+  };
   ::rapidproto::ArenaString m_s;
   ::rapidproto::ArenaString m_by;
   ::rapidproto::ArrayView<std::int32_t> m_packed;
