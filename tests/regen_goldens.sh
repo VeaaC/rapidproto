@@ -38,6 +38,7 @@ trap 'rm -rf "$T"' EXIT
 "$BIN" --stream -Itests/corpus --out-dir="$T" tests/corpus/usewkt.proto >/dev/null
 "$BIN" --stream -Itests/corpus --out-dir="$T" tests/corpus/packed.proto >/dev/null
 "$BIN" --stream -Itests/corpus --out-dir="$T" tests/corpus/editions2023.proto >/dev/null
+"$BIN" --stream -Itests/corpus --out-dir="$T" tests/corpus/editions2024.proto >/dev/null
 "$BIN" --stream -Itests/corpus/imports --out-dir="$T" tests/corpus/imports/main.proto >/dev/null
 "$BIN" --stream -Itests/corpus/imports --out-dir="$T" tests/corpus/imports/weakmain.proto >/dev/null
 "$BIN" --stream -Itests/wire_fixtures --out-dir="$T" tests/wire_fixtures/wire_all.proto >/dev/null

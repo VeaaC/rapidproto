@@ -19,6 +19,8 @@
 #include "arenagen_golden/arena_manyreq.rp.hpp"
 #include "arenagen_golden/arena_naming.rp.hpp"   // same-typed oneof members (letters { a; A; })
 #include "arenagen_golden/arena_unknown.rp.hpp"  // --unknown-present + a bool-wrapper field
+#include "arenagen_golden/editions2023.rp.hpp"  // editions features: presence + DELIMITED, at runtime
+#include "arenagen_golden/editions2024.rp.hpp"  // 2024: decode-relevant defaults match 2023
 #include "arenagen_golden/main.rp.hpp"  // cross-file imports (pulls dep/forward/pub): runtime decode
 #include "arenagen_golden/proto2.rp.hpp"
 #include "arenagen_golden/proto3.rp.hpp"
@@ -568,4 +570,102 @@ TEST_CASE("arena-decode: a bool-wrapper field reports has_unknown_fields (--unkn
     CHECK(w->flag());
     CHECK_FALSE(w->flag()->value());
     CHECK_FALSE(w->flag()->has_unknown_fields());
+}
+
+TEST_CASE("arena-decode: editions 2023 presence features and DELIMITED encoding, from real bytes",
+          "[arena-decode]") {
+    // ed23::M: file-level IMPLICIT presence, per-field EXPLICIT override on explicit_scalar, and a
+    // DELIMITED (group-framed) message field -- the editions constructs the compile-smoke alone
+    // can't prove decode correctly.
+    std::string buf;
+    put_tag(buf, 1, 0);  // implicit_scalar = 7
+    put_varint(buf, 7);
+    put_tag(buf, 6, 3);  // delim: DELIMITED framing = SGROUP body EGROUP, not LEN
+    put_tag(buf, 1, 0);  //   delim.implicit_scalar = 42
+    put_varint(buf, 42);
+    put_tag(buf, 6, 4);  // EGROUP
+    Arena arena;
+    const ed23::M* m = ed23::M::decode(ByteView(buf), arena);
+    REQUIRE(m != nullptr);
+    CHECK(m->implicit_scalar() == 7);
+    CHECK_FALSE(m->explicit_scalar().has_value());  // EXPLICIT override: absent reads nullopt
+    CHECK(m->child() == nullptr);
+    REQUIRE(m->delim() != nullptr);
+    CHECK(m->delim()->implicit_scalar() == 42);
+
+    std::string buf2;
+    put_tag(buf2, 2, 0);  // explicit_scalar = 0: present-and-zero must differ from absent
+    put_varint(buf2, 0);
+    const ed23::M* m2 = ed23::M::decode(ByteView(buf2), arena);
+    REQUIRE(m2 != nullptr);
+    CHECK(m2->implicit_scalar() == 0);
+    REQUIRE(m2->explicit_scalar().has_value());
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access): guarded by the REQUIRE above
+    CHECK(*m2->explicit_scalar() == 0);
+}
+
+TEST_CASE("arena-decode: editions 2024 defaults (EXPLICIT presence, PACKED repeated)",
+          "[arena-decode]") {
+    std::string buf;
+    put_tag(buf, 1, 0);  // a = 7 (no features written: presence comes from the 2024 defaults)
+    put_varint(buf, 7);
+    std::string packed;
+    put_varint(packed, 1);
+    put_varint(packed, 2);
+    put_varint(packed, 3);
+    put_len(buf, 2, packed);  // b, packed by default
+    Arena arena;
+    const ed24::M* m = ed24::M::decode(ByteView(buf), arena);
+    REQUIRE(m != nullptr);
+    REQUIRE(m->a().has_value());  // 2024 default presence is EXPLICIT, like 2023
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access): guarded by the REQUIRE above
+    CHECK(*m->a() == 7);
+    REQUIRE(m->b().size() == 3);
+    CHECK(m->b()[0] == 1);
+    CHECK(m->b()[2] == 3);
+    const ed24::M* empty = ed24::M::decode(ByteView(""), arena);
+    REQUIRE(empty != nullptr);
+    CHECK_FALSE(empty->a().has_value());
+}
+
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): a linear list of entry cases
+TEST_CASE("arena-decode: map entry edge cases on the wire", "[arena-decode]") {
+    // p3::Msg.counts (field 9): map<string, int32>, entry = { key = 1 (LEN), value = 2 (varint) }.
+    std::string entry_dup1;
+    put_len(entry_dup1, 1, "k");
+    put_tag(entry_dup1, 2, 0);
+    put_varint(entry_dup1, 1);
+    std::string entry_dup2;
+    put_len(entry_dup2, 1, "k");
+    put_tag(entry_dup2, 2, 0);
+    put_varint(entry_dup2, 2);
+    std::string entry_no_value;  // value absent -> zero default
+    put_len(entry_no_value, 1, "empty");
+    std::string entry_no_key;  // key absent -> "" default
+    put_tag(entry_no_key, 2, 0);
+    put_varint(entry_no_key, 9);
+    std::string entry_unknown;  // an unknown field inside the entry is skipped, entry still lands
+    put_len(entry_unknown, 1, "u");
+    put_tag(entry_unknown, 99, 0);
+    put_varint(entry_unknown, 1);
+    put_tag(entry_unknown, 2, 0);
+    put_varint(entry_unknown, 5);
+
+    std::string buf;
+    for (const std::string* e :
+         {&entry_dup1, &entry_dup2, &entry_no_value, &entry_no_key, &entry_unknown}) {
+        put_len(buf, 9, *e);
+    }
+    Arena arena;
+    const p3::Msg* m = p3::Msg::decode(ByteView(buf), arena);
+    REQUIRE(m != nullptr);
+    REQUIRE(m->counts().size() == 5);  // insertion order, duplicates kept
+    REQUIRE(m->counts().find(std::string_view("k")) != nullptr);
+    CHECK(m->counts().find(std::string_view("k"))->value() == 2);  // last wins
+    REQUIRE(m->counts().find(std::string_view("empty")) != nullptr);
+    CHECK(m->counts().find(std::string_view("empty"))->value() == 0);
+    REQUIRE(m->counts().find(std::string_view("")) != nullptr);
+    CHECK(m->counts().find(std::string_view(""))->value() == 9);
+    REQUIRE(m->counts().find(std::string_view("u")) != nullptr);
+    CHECK(m->counts().find(std::string_view("u"))->value() == 5);
 }

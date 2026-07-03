@@ -127,7 +127,7 @@ if [[ "${1:-}" == "deep" ]]; then
   for f in wire arena stream; do
     if "$CXX" -std=c++17 -O1 -g -Iinclude -Itests -fsanitize=fuzzer,address,undefined \
          "tests/fuzz/fuzz_$f.cpp" -o "build/fuzz/fuzz_$f" 2>/dev/null; then
-      if "./build/fuzz/fuzz_$f" -max_total_time="$FUZZ_TIME" -timeout=10 \
+      if "./build/fuzz/fuzz_$f" -max_total_time="$FUZZ_TIME" -timeout=10 -artifact_prefix=build/fuzz/ \
            >"build/fuzz/log_$f" 2>&1; then
         echo "fuzz_$f: clean ($(grep -oE 'cov: [0-9]+ ' "build/fuzz/log_$f" | tail -1))"
       else

@@ -43,6 +43,7 @@
 #include "streamgen_golden/wire_all.rp.stream.hpp"  // group + packed coverage
 #include "streamgen_golden/packed.rp.stream.hpp"    // packed fixed-width (I32/I64) element decode
 #include "streamgen_golden/editions2023.rp.stream.hpp"  // editions DELIMITED + presence features
+#include "streamgen_golden/editions2024.rp.stream.hpp"  // IWYU pragma: keep -- 2024 compile-smoke
 #include "streamgen_golden/dep.rp.stream.hpp"  // cross-file decode target (dep::stream::Dep; also via main)
 #include "streamgen_golden/pub.rp.stream.hpp"      // re-exported cross-file decode target
 #include "streamgen_golden/forward.rp.stream.hpp"  // public-import cross-file decode target
@@ -111,12 +112,13 @@ TEST_CASE("streamgen: generated headers match the goldens", "[streamgen]") {
     };
     const std::string imports = corpus + "/imports";
     const std::vector<Case> cases = {
-        {"proto2", corpus},      {"proto3", corpus},     {"xref", corpus},
-        {"naming", corpus},      {"dep", imports},  // cross-file: dependency, re-export, entry
-        {"pub", imports},        {"forward", imports},   {"main", imports},
+        {"proto2", corpus},       {"proto3", corpus},     {"xref", corpus},
+        {"naming", corpus},       {"dep", imports},  // cross-file: dependency, re-export, entry
+        {"pub", imports},         {"forward", imports},   {"main", imports},
         {"weakdep", imports},  // weak import: type still usable, header still included
-        {"weakmain", imports},   {"wire_all", fixtures}, {"packed", corpus},
-        {"editions2023", corpus}};  // packed fixed-width; editions features
+        {"weakmain", imports},    {"wire_all", fixtures}, {"packed", corpus},
+        {"editions2023", corpus},   // packed fixed-width; editions features
+        {"editions2024", corpus}};  // 2024 defaults (EXPLICIT presence, PACKED repeated)
 
     // NOLINTNEXTLINE(concurrency-mt-unsafe): single-threaded test, opt-in regeneration only
     const bool regen = std::getenv("RAPIDPROTO_REGEN_GOLDEN") != nullptr;

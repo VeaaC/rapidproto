@@ -28,6 +28,7 @@
 #include "arenagen_golden/arena_manyreq.rp.hpp"  // >64 required: multi-word rp_req
 #include "arenagen_golden/arena_naming.rp.hpp"   // identifier dedup: must compile
 #include "arenagen_golden/editions2023.rp.hpp"
+#include "arenagen_golden/editions2024.rp.hpp"  // 2024: decode-relevant defaults match 2023
 #include "arenagen_golden/main.rp.hpp"  // cross-file imports: transitively pulls dep/forward/pub
 #include "arenagen_golden/prefixed/main.rp.hpp"  // --namespace-prefix + imports (pulls prefixed dep/...)
 #include "arenagen_golden/proto2.rp.hpp"
@@ -112,6 +113,7 @@ TEST_CASE("arenagen: generated headers match the goldens", "[arenagen]") {
     check_golden("proto2", generate_corpus("proto2.proto"));
     check_golden("proto3", generate_corpus("proto3.proto"));
     check_golden("editions2023", generate_corpus("editions2023.proto"));
+    check_golden("editions2024", generate_corpus("editions2024.proto"));
     check_golden("xref", generate_corpus("xref.proto"));
     check_golden("xref_prefixed/xref", generate_corpus("xref.proto", "rp"));
     check_golden("wire_all", generate(RAPIDPROTO_WIRE_FIXTURE_DIR, "wire_all.proto"));
