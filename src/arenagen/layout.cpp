@@ -35,6 +35,13 @@ constexpr std::size_t kDiscAlign = 1;
 constexpr int kBitsPerByte = 8;  // mask-word sizing: bits per byte and per uint64 word
 constexpr int kBitsPerWord = 64;
 constexpr std::size_t kBytesPerWord = 8;
+// Caps the planner's native-stack recursion over message-REFERENCE chains (M2 { M1 f; } M3 { M2 f; }
+// ...), which -- unlike syntactic nesting (kMaxParseDepth) -- is unbounded in a protoc-valid schema.
+// Past the cap a sub-message conservatively degrades to pointer storage instead of recursing, the
+// same fallback as a cycle back-edge: still-correct layout, marginally less optimal. Real schemas
+// stay far below this; only a reference chain declared wrapper-first (forward references) recurses
+// at all, since a chain declared bottom-up is served memoized at depth <= 2.
+constexpr std::size_t kMaxChainDepth = 200;
 static_assert(sizeof(ArenaString) == kStringSize && alignof(ArenaString) == kStringAlign);
 static_assert(sizeof(ArrayView<int>) == kViewSize && alignof(ArrayView<int>) == kViewAlign);
 static_assert(sizeof(MapView<ArenaString>) == kViewSize &&
@@ -173,7 +180,9 @@ private:
     };
     Store classify_message(const std::string& target_fqn) {
         // A target still being computed is a cycle back-edge -> pointer (and never fixed-size).
-        if (m_visiting.find(target_fqn) == m_visiting.end() &&
+        // A reference chain at kMaxChainDepth (m_visiting holds the in-flight chain) -> pointer
+        // too, bounding the recursion; the target's own layout is computed later, memoized.
+        if (m_visiting.size() < kMaxChainDepth && m_visiting.find(target_fqn) == m_visiting.end() &&
             m_index.messages.find(target_fqn) != m_index.messages.end()) {
             const MessageLayout& target = layout_for(target_fqn);
             if (target.fixed_size && target.size <= m_opts.inline_submsg_cutoff) {

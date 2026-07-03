@@ -98,18 +98,20 @@ int main(int argc, char** argv) {
 
         for (const rapidproto::FileNode& file : set.files) {
             // The shared common header (the schema's top-level enums) every selected decoder includes.
-            rapidproto::cli::write_shared_file(
-                rapidproto::cli::header_path(opts->out_dir, file, ".rp.common.hpp"),
-                rapidproto::codegen::emit_common_header(file, names));
-            if (arena) {
-                rapidproto::cli::write_header(
-                    opts->out_dir, file, ".rp.hpp",
-                    rapidproto::arenagen::generate_header(file, names, *layouts, symbols));
+            if (!rapidproto::cli::write_shared_file(
+                    rapidproto::cli::header_path(opts->out_dir, file, ".rp.common.hpp"),
+                    rapidproto::codegen::emit_common_header(file, names))) {
+                return 1;
             }
-            if (stream) {
-                rapidproto::cli::write_header(
-                    opts->out_dir, file, ".rp.stream.hpp",
-                    rapidproto::streamgen::generate_header(file, names_stream));
+            if (arena && !rapidproto::cli::write_header(opts->out_dir, file, ".rp.hpp",
+                                                        rapidproto::arenagen::generate_header(
+                                                            file, names, *layouts, symbols))) {
+                return 1;
+            }
+            if (stream && !rapidproto::cli::write_header(
+                              opts->out_dir, file, ".rp.stream.hpp",
+                              rapidproto::streamgen::generate_header(file, names_stream))) {
+                return 1;
             }
         }
         if (!opts->depfile.empty() && !set.files.empty()) {
@@ -134,14 +136,18 @@ int main(int argc, char** argv) {
     // build-tree dependency. runtime.hpp serves both models; arena_runtime.hpp (which #includes
     // runtime.hpp) only the arena decoder.
     const std::filesystem::path dir = std::filesystem::path(opts->out_dir) / "rapidproto";
-    rapidproto::cli::write_shared_file(dir / "runtime.hpp", rapidproto::codegen::runtime_header());
-    if (arena) {
-        rapidproto::cli::write_shared_file(dir / "arena_runtime.hpp",
-                                           rapidproto::arenagen::arena_runtime_header());
+    if (!rapidproto::cli::write_shared_file(dir / "runtime.hpp",
+                                            rapidproto::codegen::runtime_header())) {
+        return 1;
+    }
+    if (arena && !rapidproto::cli::write_shared_file(
+                     dir / "arena_runtime.hpp", rapidproto::arenagen::arena_runtime_header())) {
+        return 1;
     }
 
-    if (!opts->depfile.empty()) {
-        rapidproto::cli::write_depfile(opts->depfile, targets, prereqs);
+    if (!opts->depfile.empty() &&
+        !rapidproto::cli::write_depfile(opts->depfile, targets, prereqs)) {
+        return 1;
     }
 
     return 0;

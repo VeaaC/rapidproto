@@ -21,6 +21,7 @@
 #include "rapidproto/resolve.hpp"
 #include "rapidproto/resolver.hpp"
 #include "rapidproto/result.hpp"
+#include "temp_dir.hpp"
 
 using namespace rapidproto;  // NOLINT(google-build-using-namespace): test convenience
 
@@ -99,4 +100,49 @@ TEST_CASE("arena-layout: corpus layout dumps match expectations", "[arena-layout
         INFO(first_difference(expected, actual));
         CHECK(actual == expected);
     }
+}
+
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): a linear pipeline of assertions
+TEST_CASE("arena-layout: a deep wrapper-first reference chain is planned without deep recursion",
+          "[arena-layout]") {
+    // M300 { required M299 f; } ... M2 { required M1 f; } M1 { required int32 v; }, declared
+    // wrapper-first so the planner must chase forward references (declared bottom-up, memoization
+    // keeps the chain shallow and nothing interesting happens). `required` carries no presence
+    // bit, so every link is fixed-size 4 bytes and would inline FOREVER -- the reference-chain
+    // recursion is unbounded in a protoc-valid schema. Past kMaxChainDepth the planner degrades
+    // the sub-message to pointer storage -- the cycle-back-edge fallback -- instead of recursing
+    // toward a stack overflow. Links computed later (shallow, memoized) still inline.
+    constexpr int kChainLen = 300;  // > the planner's kMaxChainDepth (200)
+    std::string schema = "syntax = \"proto2\";\npackage chain;\n";
+    for (int i = kChainLen; i >= 2; --i) {
+        schema += "message M" + std::to_string(i) + " { required M" + std::to_string(i - 1) +
+                  " f = 1; }\n";
+    }
+    schema += "message M1 { required int32 v = 1; }\n";
+    const test::TempDir dir("layout_chain");
+    dir.write("chain.proto", schema);
+
+    ResolverConfig config;
+    config.include_paths = {dir.root()};
+    auto resolved = resolve(dir.path("chain.proto"), config);
+    REQUIRE(resolved.is_ok());
+    ResolvedFileSet set = std::move(resolved).value();
+    auto analyzed = analyze(set);
+    REQUIRE(analyzed.is_ok());
+    const SymbolTable symbols = std::move(analyzed).value();
+    const arenagen::LayoutSet layouts = arenagen::plan_layouts(set, symbols);
+
+    REQUIRE(layouts.layouts.size() == kChainLen);  // every message got a plan
+    // A shallow link inlines its 4-byte fixed-size target (without the depth cap the WHOLE chain
+    // would: every link is fixed-size 4); the top of the chain, planned at capped depth, holds a
+    // pointer instead.
+    const arenagen::MessageLayout* m2 = layouts.find(".chain.M2");
+    REQUIRE(m2 != nullptr);
+    REQUIRE(m2->members.size() == 1);
+    CHECK(m2->members[0].kind == arenagen::FieldKind::InlineFixedSubMsg);
+    CHECK(m2->size == 4);
+    const arenagen::MessageLayout* top = layouts.find(".chain.M" + std::to_string(kChainLen));
+    REQUIRE(top != nullptr);
+    REQUIRE(top->members.size() == 1);
+    CHECK(top->members[0].kind == arenagen::FieldKind::PointerSubMsg);
 }

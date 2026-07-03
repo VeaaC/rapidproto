@@ -17,6 +17,7 @@
 
 #include "rapidproto/cli/driver.hpp"
 #include "rapidproto/resolver.hpp"
+#include "temp_dir.hpp"
 
 using namespace rapidproto;  // NOLINT(google-build-using-namespace): test convenience
 
@@ -76,8 +77,8 @@ TEST_CASE("driver: write_depfile emits `outputs : prereqs`", "[cli]") {
     const std::filesystem::path tmp = std::filesystem::temp_directory_path() / "rp_cli_driver_test";
     std::filesystem::create_directories(tmp);
     const std::filesystem::path depfile = tmp / "out.d";
-    cli::write_depfile(depfile, {tmp / "a.rp.stream.hpp", tmp / "b.rp.stream.hpp"},
-                       {tmp / "a.proto", tmp / "b.proto"});
+    CHECK(cli::write_depfile(depfile, {tmp / "a.rp.stream.hpp", tmp / "b.rp.stream.hpp"},
+                             {tmp / "a.proto", tmp / "b.proto"}));
     const std::string text = read_text(depfile);
     INFO("depfile: " << text);
     const auto colon = text.find(':');
@@ -88,4 +89,30 @@ TEST_CASE("driver: write_depfile emits `outputs : prereqs`", "[cli]") {
     CHECK(text.find("a.proto") > colon);
     CHECK(text.find("b.proto") > colon);
     CHECK(text.back() == '\n');
+}
+
+TEST_CASE("driver: write_file reports an unwritable path instead of crashing", "[cli]") {
+    const test::TempDir tmp("cli_write_fail");
+    tmp.write("blocker", "not a directory");
+    // The target's parent "directory" is a regular file: create_directories must fail cleanly
+    // (this used to escape as an uncaught std::filesystem_error and abort the CLI).
+    const auto under_file =
+        cli::write_file(std::filesystem::path(tmp.path("blocker")) / "sub" / "out.hpp", "content");
+    CHECK_FALSE(under_file.has_value());
+    // The target path itself is an existing directory: the stream open fails, and it must be
+    // REPORTED (this used to print "wrote ..." and succeed with nothing written).
+    std::filesystem::create_directories(tmp.path("adir"));
+    CHECK_FALSE(cli::write_file(tmp.path("adir"), "content").has_value());
+    // Success still returns the path and writes the content.
+    const auto ok = cli::write_file(tmp.path("ok/out.hpp"), "content");
+    REQUIRE(ok.has_value());
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access): guarded by the REQUIRE above
+    CHECK(read_text(*ok) == "content");
+}
+
+TEST_CASE("driver: write_depfile reports an unwritable path", "[cli]") {
+    const test::TempDir tmp("cli_depfile_fail");
+    tmp.write("blocker", "not a directory");
+    CHECK_FALSE(cli::write_depfile(std::filesystem::path(tmp.path("blocker")) / "d" / "out.d",
+                                   {tmp.path("a.hpp")}, {tmp.path("a.proto")}));
 }

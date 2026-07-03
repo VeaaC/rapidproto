@@ -398,9 +398,10 @@ std::int32_t parse_int32(std::string_view text, bool negative) {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic): from_chars needs a range
     const char* last = first + digits.size();
     std::from_chars(first, last, mag, base);
-    const std::int64_t v =
-        negative ? -static_cast<std::int64_t>(mag) : static_cast<std::int64_t>(mag);
-    return static_cast<std::int32_t>(v);
+    // Negate in the unsigned domain, where wraparound is well-defined: negating the int64 cast
+    // would be signed-overflow UB for a magnitude of exactly 2^63 (e.g. `-9223372036854775808`).
+    const std::uint64_t value = negative ? std::uint64_t{0} - mag : mag;
+    return static_cast<std::int32_t>(value);
 }
 
 template <typename T>

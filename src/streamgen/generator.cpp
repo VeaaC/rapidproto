@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
-#include <functional>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -298,22 +297,39 @@ std::vector<const MessageNode*> ordered_siblings(const std::vector<MessageNode>&
     std::vector<const MessageNode*> order;
     std::vector<bool> done(siblings.size(), false);
     std::vector<bool> active(siblings.size(), false);
-    std::function<void(std::size_t)> visit = [&](std::size_t i) {
-        if (done[i] || active[i]) {
-            return;
+    // Iterative DFS (a frame is {node, next candidate to scan}): the dependency-chain length is
+    // unbounded in a protoc-valid schema, so recursing per edge could overflow the native stack.
+    struct Frame {
+        std::size_t node;
+        std::size_t next;
+    };
+    std::vector<Frame> stack;
+    for (std::size_t root = 0; root < siblings.size(); ++root) {
+        if (done[root]) {
+            continue;
         }
-        active[i] = true;
-        for (std::size_t j = 0; j < siblings.size(); ++j) {
-            if (j != i && depends_on(i, j)) {
-                visit(j);
+        active[root] = true;
+        stack.push_back({root, 0});
+        while (!stack.empty()) {
+            const std::size_t i = stack.back().node;
+            std::size_t child = siblings.size();
+            while (stack.back().next < siblings.size()) {
+                const std::size_t j = stack.back().next++;
+                if (j != i && !done[j] && !active[j] && depends_on(i, j)) {
+                    child = j;
+                    break;
+                }
+            }
+            if (child != siblings.size()) {
+                active[child] = true;
+                stack.push_back({child, 0});
+            } else {
+                active[i] = false;
+                done[i] = true;
+                order.push_back(&siblings[i]);
+                stack.pop_back();
             }
         }
-        active[i] = false;
-        done[i] = true;
-        order.push_back(&siblings[i]);
-    };
-    for (std::size_t i = 0; i < siblings.size(); ++i) {
-        visit(i);
     }
     return order;
 }

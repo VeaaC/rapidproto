@@ -28,6 +28,8 @@
 #include "rapidproto/resolver.hpp"
 #include "rapidproto/runtime.hpp"
 #include "rapidproto/streamgen/generator.hpp"
+#include "temp_dir.hpp"
+
 #include "streamgen_golden/proto2.rp.stream.hpp"  // checked-in generated headers
 #include "streamgen_golden/proto3.rp.stream.hpp"
 // IWYU pragma: begin_keep
@@ -957,4 +959,29 @@ TEST_CASE("streamgen: a generated decoder decodes packed-repeated and group fiel
     CHECK(saw_group);
     CHECK(group_a == 99);  // recursed group body
     CHECK(oi == 5);
+}
+
+TEST_CASE("streamgen: a long sibling dependency chain is emitted in dependency order",
+          "[streamgen]") {
+    // The streamgen twin of the arenagen long-chain test: each M(k) holds a field of M(k-1).Inner,
+    // so naming the nested type requires M(k-1)'s definition first -- one long must-precede path,
+    // unbounded in a protoc-valid schema (why ordered_siblings walks it iteratively; the ordering
+    // contract is what's observable at test-friendly sizes).
+    constexpr int kChainLen = 300;
+    std::string schema = "syntax = \"proto3\";\npackage chain;\n";
+    for (int i = kChainLen; i >= 2; --i) {
+        schema += "message M" + std::to_string(i) + " { M" + std::to_string(i - 1) +
+                  ".Inner f = 1; message Inner { int32 v = 1; } }\n";
+    }
+    schema += "message M1 { message Inner { int32 v = 1; } }\n";
+    const test::TempDir dir("streamgen_chain");
+    dir.write("chain.proto", schema);
+
+    const std::string header = generate_at(dir.path("chain.proto"), dir.root());
+    // Dependencies force definition order M1 < M2 < ... despite the reversed declaration order
+    // ("struct Mx {" is exact; a missing struct fails loudly because npos < npos is false).
+    for (int i = 2; i <= kChainLen; ++i) {
+        CHECK(header.find("struct M" + std::to_string(i - 1) + " {") <
+              header.find("struct M" + std::to_string(i) + " {"));
+    }
 }

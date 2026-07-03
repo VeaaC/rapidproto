@@ -21,6 +21,7 @@
 #include "rapidproto/arenagen/generator.hpp"
 #include "rapidproto/resolve.hpp"
 #include "rapidproto/resolver.hpp"
+#include "temp_dir.hpp"
 // Checked-in generated headers (compile-smoke: they must be valid C++).
 // IWYU pragma: begin_keep
 #include "arenagen_golden/arena_layout.rp.hpp"
@@ -155,4 +156,31 @@ TEST_CASE("arenagen: namespace prefix nests the generated namespace", "[arenagen
     CHECK(main_rp.find("const ::rp::dep::Dep*") !=
           std::string::npos);  // cross-file ref is prefixed
     CHECK(main_rp.find("::rapidproto::arena_detail::decode_into(out.m_d") != std::string::npos);
+}
+
+TEST_CASE("arenagen: a long sibling dependency chain is emitted in dependency order",
+          "[arenagen]") {
+    // Each M(k) holds a field of M(k-1).Inner: naming a type NESTED under a sibling requires that
+    // sibling's definition first (a forward declaration is not enough), so the chain is one long
+    // must-precede dependency path, whose length is unbounded in a protoc-valid schema (why
+    // ordered_siblings walks it iteratively -- an overflow-provoking length is not reproducible
+    // at test-friendly sizes, so this pins the ordering contract under a long chain).
+    constexpr int kChainLen = 300;
+    std::string schema = "syntax = \"proto3\";\npackage chain;\n";
+    for (int i = kChainLen; i >= 2; --i) {
+        schema += "message M" + std::to_string(i) + " { M" + std::to_string(i - 1) +
+                  ".Inner f = 1; message Inner { int32 v = 1; } }\n";
+    }
+    schema += "message M1 { message Inner { int32 v = 1; } }\n";
+    const test::TempDir dir("arenagen_chain");
+    dir.write("chain.proto", schema);
+
+    const std::string header = generate(dir.root(), "chain.proto");
+    // Dependencies force definition order M1 < M2 < ... despite the reversed declaration order
+    // ("class Mx {" is exact: the trailing " {" keeps M1 from matching M19 etc.; a missing class
+    // fails loudly because npos < npos is false).
+    for (int i = 2; i <= kChainLen; ++i) {
+        CHECK(header.find("class M" + std::to_string(i - 1) + " {") <
+              header.find("class M" + std::to_string(i) + " {"));
+    }
 }

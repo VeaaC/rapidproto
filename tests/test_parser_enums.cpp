@@ -74,6 +74,18 @@ TEST_CASE("enum: int32 boundary and negative-hex value numbers") {
     CHECK(e.values[2].number == -16);
 }
 
+TEST_CASE("enum: an INT64_MIN-magnitude value number parses without signed overflow") {
+    // Invalid input (far outside int32), so the numbers are unspecified -- the parse must simply
+    // succeed: parse_int32 negates a 2^63 magnitude, which must happen in the unsigned domain
+    // (the signed negation would be UB; UBSan guards this).
+    const EnumNode e = parse_enum_ok(
+        "enum E { A = 0; B = -9223372036854775808; C = -0x8000000000000000; "
+        "reserved -9223372036854775808 to -1; }",
+        SyntaxLevel::Proto3);
+    CHECK(e.values.size() == 3);
+    CHECK(e.reserved.size() == 1);
+}
+
 TEST_CASE("enum: parser does not enforce allow_alias or first-value-zero (parser only)") {
     // Duplicate numbers and a nonzero proto3 first value both parse; protoc validates these.
     const EnumNode e =

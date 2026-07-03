@@ -149,23 +149,40 @@ inline std::optional<std::pair<ResolvedFileSet, SymbolTable>> resolve_and_analyz
     return std::make_pair(std::move(set), std::move(analyzed).value());
 }
 
-// Write `content` to `path`, creating parent directories, and log "wrote <path>". Returns `path`, so
-// a caller can collect every written output (e.g. to list them as a depfile's targets).
-inline std::filesystem::path write_file(const std::filesystem::path& path,
-                                        std::string_view content) {
-    std::filesystem::create_directories(path.parent_path());
-    std::ofstream(path, std::ios::binary) << content;
+// Write `content` to `path`, creating parent directories, and log "wrote <path>". Returns `path` on
+// success (so a caller can collect every written output, e.g. to list them as a depfile's targets);
+// on failure prints an error to stderr and returns nullopt -- never reports a file it didn't write.
+[[nodiscard]] inline std::optional<std::filesystem::path> write_file(
+    const std::filesystem::path& path, std::string_view content) {
+    const std::filesystem::path parent = path.parent_path();
+    if (!parent.empty()) {  // a bare-filename output has an empty parent -- nothing to create
+        std::error_code error;
+        std::filesystem::create_directories(parent, error);
+        if (error) {
+            std::cerr << "error: cannot create directory " << parent.string() << ": "
+                      << error.message() << '\n';
+            return std::nullopt;
+        }
+    }
+    std::ofstream out(path, std::ios::binary);
+    out << content;
+    out.close();  // flushes; a full-disk or unwritable-path failure surfaces in the stream state
+    if (!out) {
+        std::cerr << "error: cannot write " << path.string() << '\n';
+        return std::nullopt;
+    }
     std::cout << "wrote " << path.string() << '\n';
     return path;
 }
 
-// Like write_file, but skips the write when `path` already holds exactly `content`. For the shared,
+// Like write_file (same nullopt-after-error contract), but skips the write when `path` already
+// holds exactly `content`. For the shared,
 // fixed-content runtime drops, which every invocation writes into a possibly shared out-dir: skipping
 // avoids truncate+rewriting the file under a concurrent reader (a GENERATOR=both target, or two targets
 // sharing an out-dir) and avoids bumping its mtime, which would force needless consumer recompiles. Do
 // NOT use for a tracked build output, whose mtime must advance each run.
-inline std::filesystem::path write_shared_file(const std::filesystem::path& path,
-                                               std::string_view content) {
+[[nodiscard]] inline std::optional<std::filesystem::path> write_shared_file(
+    const std::filesystem::path& path, std::string_view content) {
     std::error_code error;
     if (std::filesystem::exists(path, error)) {
         const std::ifstream in(path, std::ios::binary);
@@ -200,9 +217,12 @@ inline std::filesystem::path header_path(const std::string& out_dir, const FileN
     return std::filesystem::path(out_dir) / (stem + std::string(extension));
 }
 
-// Write a generated header for `file` under `out_dir` (path per header_path). Returns the path.
-inline std::filesystem::path write_header(const std::string& out_dir, const FileNode& file,
-                                          std::string_view extension, std::string_view content) {
+// Write a generated header for `file` under `out_dir` (path per header_path). Returns the path, or
+// nullopt after printing an error (see write_file).
+[[nodiscard]] inline std::optional<std::filesystem::path> write_header(const std::string& out_dir,
+                                                                       const FileNode& file,
+                                                                       std::string_view extension,
+                                                                       std::string_view content) {
     return write_file(header_path(out_dir, file, extension), content);
 }
 
@@ -233,7 +253,8 @@ inline std::vector<std::filesystem::path> disk_proto_paths(const std::string& en
         for (const std::string& include : config.include_paths) {
             const std::filesystem::path full =
                 std::filesystem::path(include) / set.files[i].filename;
-            if (std::filesystem::exists(full)) {
+            std::error_code error;  // an unstattable path (e.g. EACCES) is "not found", not a throw
+            if (std::filesystem::exists(full, error)) {
                 paths.push_back(full);
                 break;
             }
@@ -254,9 +275,10 @@ inline std::vector<std::filesystem::path> disk_proto_paths(const std::string& en
 // build node's relative name. An output OUTSIDE that dir (an out-of-tree OUT_DIR) is named absolutely,
 // matching how the tool names an out-of-tree node. Prerequisites stay absolute; the build tool only
 // stats them. Spaces, '#', '$', and backslash are escaped; duplicates collapsed.
-inline void write_depfile(const std::filesystem::path& depfile_path,
-                          std::vector<std::filesystem::path> outputs,
-                          std::vector<std::filesystem::path> prereqs) {
+// Returns false after printing an error when the depfile cannot be written.
+[[nodiscard]] inline bool write_depfile(const std::filesystem::path& depfile_path,
+                                        std::vector<std::filesystem::path> outputs,
+                                        std::vector<std::filesystem::path> prereqs) {
     std::error_code cwd_error;
     const std::filesystem::path base = std::filesystem::current_path(cwd_error);
     const auto as_target = [&](const std::filesystem::path& path) {
@@ -310,9 +332,14 @@ inline void write_depfile(const std::filesystem::path& depfile_path,
         return out;
     };
     const std::filesystem::path depfile_dir = depfile_path.parent_path();
-    if (!depfile_dir
-             .empty()) {  // a bare-filename depfile (no dir) has an empty parent -- don't throw
-        std::filesystem::create_directories(depfile_dir);
+    if (!depfile_dir.empty()) {  // a bare-filename depfile (no dir) has an empty parent
+        std::error_code error;
+        std::filesystem::create_directories(depfile_dir, error);
+        if (error) {
+            std::cerr << "error: cannot create directory " << depfile_dir.string() << ": "
+                      << error.message() << '\n';
+            return false;
+        }
     }
     std::ofstream depfile(depfile_path, std::ios::binary);
     for (std::size_t i = 0; i < outputs.size(); ++i) {
@@ -323,6 +350,12 @@ inline void write_depfile(const std::filesystem::path& depfile_path,
         depfile << ' ' << escape(prereq);
     }
     depfile << '\n';
+    depfile.close();
+    if (!depfile) {
+        std::cerr << "error: cannot write " << depfile_path.string() << '\n';
+        return false;
+    }
+    return true;
 }
 
 }  // namespace rapidproto::cli
