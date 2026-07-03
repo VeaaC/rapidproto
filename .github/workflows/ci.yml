@@ -1,10 +1,13 @@
-# Continuous integration: the project's quality bar on every push and pull request. Three parallel
-# jobs -- the default gate, the heavy "deep" tier (sanitizers + coverage floor + fuzz smoke), and a
-# Release -O3 -Werror build on both compilers -- so wall-clock is the slowest job, not their sum.
+# Continuous integration: the project's quality bar on every push to the default branch and every
+# pull request. Four parallel jobs -- the default gate, the heavy "deep" tier (sanitizers +
+# coverage floor + fuzz smoke), a Release -O3 -Werror build on both compilers, and the consumer
+# job (install -> find_package -> newer-standard header compiles) -- so wall-clock is the slowest
+# job, not their sum.
 name: CI
 
 on:
   push:
+    branches: [master, main]  # feature-branch pushes are gated by their PR run, not double-run
   pull_request:
 
 # A newer push to the same ref cancels an in-progress run, so only the latest commit is gated.
@@ -30,6 +33,13 @@ jobs:
       - uses: ./.github/actions/setup-toolchain
       - name: Heavy tier (./check.sh deep)
         run: ./check.sh deep
+      - name: Upload fuzz crash reproducers + logs
+        if: failure()  # a CI-only fuzz crash is unreproducible without its input
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-artifacts
+          path: build/fuzz/
+          if-no-files-found: ignore
 
   release:
     name: release (-O3 -Werror, gcc-13 + clang-20)
@@ -45,4 +55,35 @@ jobs:
             cmake -S . -B "$dir" -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER="$cxx"
             cmake --build "$dir" -j"$(nproc)"
             "$dir/rapidproto_tests"
+          done
+
+  # The shipped surface: a tests-OFF build, `cmake --install`, and a consumer built purely from the
+  # installed prefix via find_package -- so the Config file, the imported tool, and the installed
+  # helper can't regress silently. Then the generated headers are compiled under C++20 and C++23:
+  # header-only consumers meet newer standards first, on their compiler, not ours (system gcc here,
+  # deliberately unpinned).
+  consumer:
+    name: consumer (install + find_package + C++20/23 headers)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build + install rapidproto (tests OFF, system compiler)
+        run: |
+          set -euxo pipefail
+          cmake -S . -B build/install -DCMAKE_BUILD_TYPE=Release -DRAPIDPROTO_BUILD_TESTS=OFF
+          cmake --build build/install -j"$(nproc)"
+          cmake --install build/install --prefix "$PWD/prefix"
+      - name: Build the consumer example against the installed prefix (find_package)
+        run: |
+          set -euxo pipefail
+          cmake -S examples/consumer -B build/consumer -DCMAKE_PREFIX_PATH="$PWD/prefix"
+          cmake --build build/consumer -j"$(nproc)"
+          ctest --test-dir build/consumer --output-on-failure
+      - name: Compile the generated headers under C++20 and C++23
+        run: |
+          set -euxo pipefail
+          "$PWD/prefix/bin/rapidprotoc" --arena --stream -Iexamples/consumer/proto \
+            --out-dir build/gen examples/consumer/proto/message.proto
+          for std in c++20 c++23; do
+            g++ -std="$std" -Wall -Wextra -Werror -Ibuild/gen -c examples/consumer/main.cpp -o /dev/null
           done

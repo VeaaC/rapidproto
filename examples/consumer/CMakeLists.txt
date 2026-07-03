@@ -1,7 +1,17 @@
-# Consumer example, built as part of the rapidproto build (add_subdirectory from the top-level
-# CMakeLists under RAPIDPROTO_BUILD_TESTS). It exercises rapidproto_generate() end to end: a cross-file
-# schema is code-generated, compiled into an executable, and run as a CTest that decodes a buffer. This
-# is the in-tree mirror of what a downstream find_package(rapidproto) / FetchContent consumer writes.
+# Consumer example, built two ways from this one file:
+#  - as part of the rapidproto build (add_subdirectory from the top-level CMakeLists under
+#    RAPIDPROTO_BUILD_TESTS) -- the in-tree mirror of a FetchContent consumer;
+#  - STANDALONE against an INSTALLED rapidproto (configure this directory directly with
+#    CMAKE_PREFIX_PATH at the install prefix) -- the find_package consumer, which CI builds so the
+#    installed packaging surface (Config file, imported tool, helper) can't regress silently.
+# Either way it exercises rapidproto_generate() end to end: a cross-file schema is code-generated,
+# compiled into an executable, and run as a CTest that decodes a buffer.
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+  cmake_minimum_required(VERSION 3.21)  # rapidproto_generate uses DEPFILE (3.20+ Makefiles, 3.21+ VS/Xcode)
+  project(rapidproto_consumer_example CXX)
+  enable_testing()
+  find_package(rapidproto REQUIRED)
+endif()
 
 # One call turns the schema into a linkable, header-only target. GENERATOR both emits the arena AND the
 # streaming decoder (+ the shared common header) from a SINGLE rapidprotoc invocation -- one custom
