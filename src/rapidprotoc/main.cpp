@@ -10,14 +10,20 @@
 // rapidproto/cli/driver.hpp.
 
 #include <filesystem>
+#include <fstream>
+#include <ios>
 #include <iostream>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <string_view>
+#include <system_error>  // std::error_code: the non-throwing is_regular_file overload
+#include <utility>
 #include <vector>
 
 #include "rapidproto/arenagen/generator.hpp"
 #include "rapidproto/arenagen/layout.hpp"
+#include "rapidproto/arenagen/modes.hpp"
 #include "rapidproto/arenagen/runtime_embedded.hpp"
 #include "rapidproto/cli/driver.hpp"
 #include "rapidproto/codegen/emit.hpp"
@@ -33,6 +39,11 @@ int main(int argc, char** argv) {
         "  --arena                  emit the arena object-tree decoder (<stem>.rp.hpp) [default]\n"
         "  --stream                 emit the streaming callback decoder (<stem>.rp.stream.hpp)\n"
         "  --unknown-present        arena: reserve a per-message \"unknown fields present\" bit\n"
+        "  --field-modes=<file>     arena: a decode profile (`name|drop|raw <name>` lines;"
+        " repeatable)\n"
+        "  --drop=<name>            arena: drop a field or type (no storage, no accessor)\n"
+        "  --raw=<name>             arena: keep a message field's or type's payloads for deferred"
+        " decodes\n"
         "  --namespace-prefix <ns>  dot-separated prefix prepended to every C++ namespace\n"
         "  --depfile <file>         write a Make/Ninja depfile covering the entry's imports\n"
         "  --no-wellknown           don't load the bundled well-known-type definitions\n"
@@ -42,7 +53,12 @@ int main(int argc, char** argv) {
     bool arena = false;
     bool stream = false;
     bool unknown_present = false;
+    std::vector<std::string> modes_files;
+    rapidproto::arenagen::FieldModesSpec modes_spec;  // direct --drop/--raw entries + file entries
     const auto parsed = rapidproto::cli::parse_args(argc, argv, usage, [&](std::string_view arg) {
+        constexpr std::string_view kModesFile = "--field-modes=";
+        constexpr std::string_view kDrop = "--drop=";
+        constexpr std::string_view kRaw = "--raw=";
         if (arg == "--arena") {
             arena = true;
             return true;
@@ -53,6 +69,20 @@ int main(int argc, char** argv) {
         }
         if (arg == "--unknown-present") {
             unknown_present = true;
+            return true;
+        }
+        if (arg.rfind(kModesFile, 0) == 0) {
+            modes_files.emplace_back(arg.substr(kModesFile.size()));
+            return true;
+        }
+        if (arg.rfind(kDrop, 0) == 0) {
+            modes_spec.entries.push_back({rapidproto::arenagen::FieldMode::Drop,
+                                          std::string(arg.substr(kDrop.size())), "--drop"});
+            return true;
+        }
+        if (arg.rfind(kRaw, 0) == 0) {
+            modes_spec.entries.push_back({rapidproto::arenagen::FieldMode::Raw,
+                                          std::string(arg.substr(kRaw.size())), "--raw"});
             return true;
         }
         return false;
@@ -67,6 +97,33 @@ int main(int argc, char** argv) {
     if (!opts->depfile.empty() && opts->entries.size() > 1) {
         std::cerr << "error: --depfile expects a single entry (a depfile describes one rule)\n";
         return 2;
+    }
+    const bool modes_requested = !modes_files.empty() || !modes_spec.entries.empty();
+    if (modes_requested && !arena) {
+        std::cerr << "error: field modes (--field-modes/--drop/--raw) apply to the arena decoder;"
+                     " add --arena\n";
+        return 2;
+    }
+    for (const std::string& file : modes_files) {
+        // is_regular_file: ifstream opens a DIRECTORY successfully on Linux and reads nothing --
+        // a typo'd path would silently decay into an empty (no-op) profile.
+        std::error_code ec;
+        if (!std::filesystem::is_regular_file(file, ec)) {
+            std::cerr << "error: field-modes file " << file << " is not a readable file\n";
+            return 1;
+        }
+        const std::ifstream in(file, std::ios::binary);
+        if (!in) {
+            std::cerr << "error: cannot read field-modes file " << file << '\n';
+            return 1;
+        }
+        std::ostringstream text;
+        text << in.rdbuf();
+        if (auto r = rapidproto::arenagen::parse_modes_file(text.str(), file, modes_spec);
+            r.is_err()) {
+            std::cerr << "error: " << r.error().message << '\n';
+            return 1;
+        }
     }
 
     std::vector<std::filesystem::path>
@@ -96,9 +153,19 @@ int main(int argc, char** argv) {
                 rapidproto::codegen::namespace_of(opts->namespace_prefix), "stream");
         }
         std::optional<rapidproto::arenagen::LayoutSet> layouts;
+        rapidproto::arenagen::FieldModes modes;  // inactive unless a selection resolved
         if (arena) {
+            if (modes_requested) {
+                auto resolved = rapidproto::arenagen::resolve_field_modes(modes_spec, set, symbols);
+                if (resolved.is_err()) {
+                    std::cerr << "error: " << resolved.error().message << '\n';
+                    return 1;
+                }
+                modes = std::move(resolved).value();
+            }
             rapidproto::arenagen::LayoutOptions options;
             options.unknown_present = unknown_present;
+            options.modes = &modes;
             layouts = rapidproto::arenagen::plan_layouts(set, symbols, options);
         }
 
@@ -109,10 +176,10 @@ int main(int argc, char** argv) {
                     rapidproto::codegen::emit_common_header(file, names), opts->verbose)) {
                 return 1;
             }
-            if (arena && !rapidproto::cli::write_header(
-                             opts->out_dir, file, ".rp.hpp",
-                             rapidproto::arenagen::generate_header(file, names, *layouts, symbols),
-                             opts->verbose)) {
+            if (arena && !rapidproto::cli::write_header(opts->out_dir, file, ".rp.hpp",
+                                                        rapidproto::arenagen::generate_header(
+                                                            file, names, *layouts, symbols, &modes),
+                                                        opts->verbose)) {
                 return 1;
             }
             if (stream &&
@@ -137,6 +204,9 @@ int main(int argc, char** argv) {
             const std::vector<std::filesystem::path> deps =
                 rapidproto::cli::disk_proto_paths(entry, set, opts->config);
             prereqs.insert(prereqs.end(), deps.begin(), deps.end());
+            // Editing a decode profile changes the generated shape, so profiles are prerequisites
+            // exactly like the .proto inputs.
+            prereqs.insert(prereqs.end(), modes_files.begin(), modes_files.end());
         }
     }
 

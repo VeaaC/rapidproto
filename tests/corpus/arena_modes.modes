@@ -1,0 +1,13 @@
+# THE decode profile for arena_modes.proto -- must stay in lockstep with
+# tests/arena_modes_profile.hpp (the in-test spelling of the same selection): the regen script
+# generates the goldens through THIS file, the tests re-generate them through the header, and the
+# golden comparison fails if the two ever diverge.
+name lean
+
+drop fm.Holder.debug
+drop fm.Holder.extra
+drop fm.Holder.old_ids
+
+# The type entry covers blob, blobs, and req_blob -- and silently skips the by_name map.
+raw fm.Blob
+raw fm.Holder.grp

@@ -10,13 +10,16 @@
 #include <cstdint>
 #include <fstream>
 #include <ios>
+#include <optional>  // std::nullopt: absent explicit-presence reads
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <type_traits>  // is_same_v: the inline-namespace transparency pin
 #include <utility>
 #include <variant>  // std::monostate: a oneof reader's unset handler
 
 #include "arenagen_golden/arena_manyreq.rp.hpp"
+#include "arenagen_golden/arena_modes.rp.hpp"    // field modes: raw payloads + dropped fields
 #include "arenagen_golden/arena_naming.rp.hpp"   // same-typed oneof members (letters { a; A; })
 #include "arenagen_golden/arena_unknown.rp.hpp"  // --unknown-present + a bool-wrapper field
 #include "arenagen_golden/editions2023.rp.hpp"  // editions features: presence + DELIMITED, at runtime
@@ -38,6 +41,12 @@ static_assert(p2::Color::rp_known_min == static_cast<p2::Color>(-2));
 static_assert(p2::Color::rp_known_max == p2::Color::RED);  // CRIMSON aliases 1; max is still 1
 static_assert(p3::State::rp_known_min == p3::State::UNKNOWN);
 static_assert(p3::State::rp_known_max == p3::State::ON);
+
+// A profiled header's inline namespace is transparent for qualified use (fm::Holder just works)
+// while making the profile part of the type identity -- mixed-profile TUs hold distinct types.
+// NOTE a namespace-shape change breaks this line against the stale checked-in golden BEFORE the
+// in-test regen can run: lift it temporarily, regen '[arenagen]', restore (see test_arenagen.cpp).
+static_assert(std::is_same_v<fm::Holder, fm::rp_modes_lean_4ba94f51::Holder>);
 
 namespace {
 
@@ -676,4 +685,150 @@ TEST_CASE("arena-decode: map entry edge cases on the wire", "[arena-decode]") {
     CHECK(m->counts().find(std::string_view(""))->value() == 9);
     REQUIRE(m->counts().find(std::string_view("u")) != nullptr);
     CHECK(m->counts().find(std::string_view("u"))->value() == 5);
+}
+
+// ── field modes (arena_modes golden, generated under the shared `lean` profile) ─────────────────
+// fm::Holder fields: keep=1 debug=2(drop) extra=3(drop) old_ids=4(drop) must=5(required)
+// big_num=6 blob=7(raw msg) blobs=8(raw repeated msg) samples=9 spread=10 by_name=11(map,
+// materialized -- the type entry skips maps) level=12 req_blob=13(raw required msg)
+// grp=14(raw group).
+
+namespace {
+
+// The minimal records every successful Holder decode needs: must=1 and one req_blob record.
+// Returns req_blob's PAYLOAD (the Blob message bytes) so tests can assert the stored view.
+std::string holder_base(std::string& buf) {
+    put_tag(buf, 5, 0);  // must = 1
+    put_varint(buf, 1);
+    std::string inner;  // Blob{ payload: "r" }
+    put_len(inner, 1, "r");
+    put_len(buf, 13, inner);
+    return inner;
+}
+
+}  // namespace
+
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): a linear list of payload checks
+TEST_CASE("arena-decode: raw fields hold their exact payloads, decodable directly",
+          "[arena-decode]") {
+    std::string buf;
+    const std::string req_blob_payload = holder_base(buf);
+    // blob: the singular raw message; its stored view is the Blob payload, tag/length gone.
+    std::string blob_payload;  // Blob{ payload: "bb" }
+    put_len(blob_payload, 1, "bb");
+    put_len(buf, 7, blob_payload);
+    // blobs: two elements -- one with content, one EMPTY (present zero-length payload).
+    std::string b0;  // Blob{ payload: "x" }
+    put_len(b0, 1, "x");
+    put_len(buf, 8, b0);
+    put_len(buf, 8, "");
+    // grp: the raw group; the stored view is the BARE body (no SGROUP/EGROUP framing).
+    std::string grp_body;
+    put_tag(grp_body, 1, 0);  // g = 5
+    put_varint(grp_body, 5);
+    put_tag(buf, 14, 3);
+    buf += grp_body;
+    put_tag(buf, 14, 4);
+    put_tag(buf, 2, 0);  // debug = 9: dropped -- skipped, must not disturb anything
+    put_varint(buf, 9);
+    std::string entry;  // by_name["k"] = Blob{}: the map stayed MATERIALIZED (type entry skips it)
+    put_len(entry, 1, "k");
+    put_len(entry, 2, "");
+    put_len(buf, 11, entry);
+
+    Arena arena;
+    ArenaDecodeError err{};
+    const fm::Holder* h = fm::Holder::decode(ByteView(buf), arena, &err);
+    REQUIRE(h != nullptr);
+    CHECK(h->keep() == std::nullopt);  // untouched explicit field, absent
+    REQUIRE(h->blob().has_value());
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access): guarded by the REQUIRE above
+    CHECK(*h->blob() == ByteView(blob_payload));
+    CHECK(h->req_blob() == ByteView(req_blob_payload));
+    REQUIRE(h->grp().has_value());
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access): guarded by the REQUIRE above
+    CHECK(*h->grp() == ByteView(grp_body));
+    REQUIRE(h->blobs().size() == 2);
+    CHECK(h->blobs()[0] == ByteView(b0));
+    CHECK(h->blobs()[1].empty());            // present element, empty payload
+    CHECK(h->blobs()[1].data() != nullptr);  // ...still a real (arena-backed) view
+    REQUIRE(h->by_name().find(std::string_view("k")) != nullptr);  // materialized map
+    // The point of raw: each view decodes DIRECTLY through the field type's own decoder.
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access): guarded by the REQUIRE above
+    const fm::Blob* blob = fm::Blob::decode(*h->blob(), arena);
+    REQUIRE(blob != nullptr);
+    REQUIRE(blob->payload().has_value());
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access): guarded by the REQUIRE above
+    CHECK(*blob->payload() == "bb");
+    const fm::Blob* elem = fm::Blob::decode(h->blobs()[1], arena);  // empty payload: valid Blob{}
+    REQUIRE(elem != nullptr);
+    CHECK_FALSE(elem->payload().has_value());
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access): guarded by the REQUIRE above
+    const fm::Holder::Grp* grp = fm::Holder::Grp::decode(*h->grp(), arena);
+    REQUIRE(grp != nullptr);
+    REQUIRE(grp->g().has_value());
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access): guarded by the REQUIRE above
+    CHECK(*grp->g() == 5);
+}
+
+TEST_CASE("arena-decode: raw absence and present-empty payloads are distinct", "[arena-decode]") {
+    std::string buf;
+    holder_base(buf);
+    put_len(buf, 7, "");  // blob PRESENT with an empty payload (a legitimate Blob{})
+    Arena arena;
+    const fm::Holder* h = fm::Holder::decode(ByteView(buf), arena);
+    REQUIRE(h != nullptr);
+    REQUIRE(h->blob().has_value());  // present-empty != absent (no mask bit: non-null empty view)
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access): guarded by the REQUIRE above
+    CHECK(h->blob()->empty());
+    CHECK_FALSE(h->grp().has_value());  // absent raw singular: nullopt
+    CHECK(h->blobs().empty());          // absent raw repeated: empty array
+}
+
+TEST_CASE("arena-decode: raw singular message keeps stored-field semantics", "[arena-decode]") {
+    // A second occurrence of a raw singular MESSAGE field is rejected exactly like its
+    // materialized arm would be -- raw changes the representation, never the semantics. This
+    // holds even when the FIRST record's payload was empty (present-empty is non-null "seen").
+    std::string buf;
+    holder_base(buf);
+    put_len(buf, 7, "");  // blob, first record (empty payload): fine
+    std::string inner;
+    put_len(inner, 1, "x");
+    put_len(buf, 7, inner);  // blob, second record: RepeatedSingularMessage
+    Arena arena;
+    ArenaDecodeError err{};
+    CHECK(fm::Holder::decode(ByteView(buf), arena, &err) == nullptr);
+    CHECK(err.code == ArenaDecodeError::Code::RepeatedSingularMessage);
+    CHECK(err.field_number == 7);
+    // A mismatched wire type falls to the validated skip, exactly like a materialized message
+    // arm -- it is not an occurrence.
+    std::string wrong;
+    holder_base(wrong);
+    put_tag(wrong, 7, 0);  // blob at VARINT wire type
+    put_varint(wrong, 3);
+    const fm::Holder* h = fm::Holder::decode(ByteView(wrong), arena);
+    REQUIRE(h != nullptr);
+    CHECK_FALSE(h->blob().has_value());
+}
+
+TEST_CASE("arena-decode: raw required and dropped fields keep decode guarantees",
+          "[arena-decode]") {
+    Arena arena;
+    // A raw REQUIRED field that never appears fails MissingRequired, like a stored one.
+    std::string no_req;
+    put_tag(no_req, 5, 0);  // must only
+    put_varint(no_req, 1);
+    ArenaDecodeError err{};
+    CHECK(fm::Holder::decode(ByteView(no_req), arena, &err) == nullptr);
+    CHECK(err.code == ArenaDecodeError::Code::MissingRequired);
+    CHECK(err.field_number == 13);
+    // A DROPPED field's records are still wire-validated: a truncated record fails the decode.
+    std::string bad;
+    holder_base(bad);
+    put_tag(bad, 4, 2);  // old_ids (dropped), LEN claiming 5 bytes...
+    put_varint(bad, 5);
+    bad += "ab";  // ...but only 2 present
+    ArenaDecodeError err2{};
+    CHECK(fm::Holder::decode(ByteView(bad), arena, &err2) == nullptr);
+    CHECK(err2.code == ArenaDecodeError::Code::Wire);
 }

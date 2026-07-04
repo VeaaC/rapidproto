@@ -32,6 +32,10 @@ done
 # has_unknown_fields(). The only golden built WITH the flag, so it is its own line; decoded in
 # test_arena_decode.
 "$BIN" --arena --unknown-present -Itests/corpus --out-dir="$T" tests/corpus/arena_unknown.proto >/dev/null
+# Field modes: generated under THE decode profile (tests/corpus/arena_modes.modes, which mirrors
+# tests/arena_modes_profile.hpp); the golden test regenerates the same pair in-test, so the two
+# spellings of the profile cannot drift without a byte-diff.
+"$BIN" --arena --field-modes=tests/corpus/arena_modes.modes -Itests/corpus --out-dir="$T" tests/corpus/arena_modes.proto >/dev/null
 # Cross-file imports: main.proto pulls dep/pub/forward (distinct packages) into the closure -- guards
 # cross-file message-field decoding (decoding must reach an imported type's decoder).
 "$BIN" --arena -Itests/corpus/imports --out-dir="$T" tests/corpus/imports/main.proto >/dev/null

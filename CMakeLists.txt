@@ -166,6 +166,7 @@ add_custom_command(
   VERBATIM)
 add_library(rapidproto_arenagen_lib STATIC
   src/arenagen/layout.cpp
+  src/arenagen/modes.cpp
   src/arenagen/generator.cpp
   ${ARENA_RUNTIME_EMBEDDED_CPP})
 target_link_libraries(rapidproto_arenagen_lib PUBLIC rapidproto_lib rapidproto_codegen_lib
@@ -275,6 +276,7 @@ if(RAPIDPROTO_BUILD_TESTS)
     tests/test_wire_golden.cpp
     tests/test_arena_runtime.cpp
     tests/test_arena_layout.cpp
+    tests/test_arena_modes.cpp
     tests/test_arenagen.cpp
     tests/test_arena_decode.cpp
     tests/test_decode.cpp

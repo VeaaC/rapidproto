@@ -1,0 +1,28 @@
+message .fm.Blob size=24 align=8 fixed=no
+  field payload num=1 sso-string ArenaString off=0 size=16 align=8 presence=bit0
+  mask off=16 size=1 align=1 bits=1
+    bit 0 presence payload
+message .fm.Holder size=136 align=8 fixed=no
+  field blob num=7 raw-payload ByteView off=0 size=16 align=8 presence=data
+  field blobs num=8 raw-payload ArrayView<ByteView> off=16 size=16 align=8 presence=empty
+  field samples num=9 repeated ArrayView<int32> off=32 size=16 align=8 presence=empty
+  field spread num=10 repeated ArrayView<int32> off=48 size=16 align=8 presence=empty
+  map by_name num=11 off=64 size=16 align=8 presence=empty
+    entry key=sso-string:ArenaString value=pointer-submsg:.fm.Blob size=24 align=8
+  field req_blob num=13 raw-payload ByteView off=80 size=16 align=8 presence=data required
+  field grp num=14 raw-payload ByteView off=96 size=16 align=8 presence=data
+  field keep num=1 inline-scalar int32 off=112 size=4 align=4 presence=bit0
+  field must num=5 inline-scalar int32 off=116 size=4 align=4 presence=none required
+  field big_num num=6 inline-scalar int32 off=120 size=4 align=4 presence=bit1
+  field level num=12 inline-enum .fm.Level off=124 size=4 align=4 presence=bit2
+  field debug num=2 dropped
+  field extra num=3 dropped
+  field old_ids num=4 dropped
+  mask off=128 size=1 align=1 bits=3
+    bit 0 presence keep
+    bit 1 presence big_num
+    bit 2 presence level
+message .fm.Holder.Grp size=8 align=4 fixed=yes
+  field g num=1 inline-scalar int32 off=0 size=4 align=4 presence=bit0
+  mask off=4 size=1 align=1 bits=1
+    bit 0 presence g

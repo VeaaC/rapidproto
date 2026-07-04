@@ -1,0 +1,10 @@
+# Decode profile for the lean consumer example: skip what we never read, defer what we rarely
+# read. Passed to rapidproto_generate(FIELD_MODES) -- see lean_main.cpp for the consuming side.
+name lean
+
+# sides is never read by this consumer: no storage, no accessor, records skip-validated.
+drop demo.Shape.sides
+
+# origin is read rarely: keep its payload as arena bytes and run Point::decode only on demand,
+# instead of materializing a Point in every tree.
+raw demo.Shape.origin

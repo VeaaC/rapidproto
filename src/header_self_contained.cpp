@@ -8,6 +8,7 @@
 #include "rapidproto/arena_runtime.hpp"              // IWYU pragma: keep
 #include "rapidproto/arenagen/generator.hpp"         // IWYU pragma: keep
 #include "rapidproto/arenagen/layout.hpp"            // IWYU pragma: keep
+#include "rapidproto/arenagen/modes.hpp"             // IWYU pragma: keep
 #include "rapidproto/arenagen/runtime_embedded.hpp"  // IWYU pragma: keep
 #include "rapidproto/ast.hpp"                        // IWYU pragma: keep
 #include "rapidproto/cli/driver.hpp"                 // IWYU pragma: keep

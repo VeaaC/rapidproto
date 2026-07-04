@@ -33,7 +33,7 @@ export CLANG_TIDY
 # are formatted but NOT tidied -- their argv / measurement / harness patterns trip strict checks for
 # no real-bug gain.
 HEADERS=(include/rapidproto/*.hpp include/rapidproto/streamgen/*.hpp include/rapidproto/arenagen/*.hpp include/rapidproto/codegen/*.hpp include/rapidproto/cli/*.hpp)
-LIB_SRC=(src/lexer.cpp src/interpret.cpp src/parser.cpp src/features.cpp src/resolve.cpp src/resolver.cpp src/source.cpp src/streamgen/generator.cpp src/codegen/naming.cpp src/arenagen/layout.cpp src/arenagen/generator.cpp src/header_self_contained.cpp)
+LIB_SRC=(src/lexer.cpp src/interpret.cpp src/parser.cpp src/features.cpp src/resolve.cpp src/resolver.cpp src/source.cpp src/streamgen/generator.cpp src/codegen/naming.cpp src/arenagen/layout.cpp src/arenagen/modes.cpp src/arenagen/generator.cpp src/header_self_contained.cpp)
 TEST_SRC=(tests/test_*.cpp)
 CLI_SRC=(src/main.cpp src/rapidprotoc/main.cpp)
 EXTRA_SRC=(tests/bench_streamgen.cpp tests/bench_arena.cpp tests/fuzz/*.cpp examples/*/*.cpp)
@@ -198,15 +198,29 @@ job_build_test() {  # $1 = preset; parallel build, then run the test binary
       return 1
     fi
   fi
+  if [[ -x "./build/$preset/examples/consumer/rapidproto_example_lean" ]]; then
+    if "./build/$preset/examples/consumer/rapidproto_example_lean" >/dev/null 2>&1; then
+      echo "lean consumer example: decoded OK ($preset)"
+    else
+      echo ">> lean consumer example failed ($preset)"
+      return 1
+    fi
+  fi
   # The gcc build also produced rapidprotoc; compile-check the dispatch-gate worst case
   # (a many-field x many-callback decoder builds). Timing stays manual (streamgen_compile_bench.sh).
   if [[ "$preset" == gcc ]]; then
-    local stress_out
+    local stress_out link_out
     if ! stress_out=$(tests/streamgen_compile_bench.sh --check clang++-20 2>&1); then
       echo "$stress_out"
       return 1
     fi
     tail -1 <<<"$stress_out"
+    # Field-modes ODR guard: same-profile TUs link, mixed-profile TUs must FAIL to link.
+    if ! link_out=$(tests/arena_modes_link.sh ./build/gcc/rapidprotoc clang++-20 2>&1); then
+      echo "$link_out"
+      return 1
+    fi
+    tail -1 <<<"$link_out"
   fi
 }
 

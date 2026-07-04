@@ -13,6 +13,15 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
 - Streaming decoders expose `rp_bytes()`: the exact undecoded span (a LEN payload, or a
   group/DELIMITED body without its framing). A callback can hand a sub-decoder's span straight to
   the arena model's `decode()` — stream the outer message, materialize chosen sub-messages.
+- Arena decode profiles: `--field-modes=<file>` / `--drop=<name>` / `--raw=<name>` (CMake:
+  `FIELD_MODES` / `DROP` / `RAW`) select, per field or per type, whether the arena decoder
+  materializes a field, **drops** it (no storage, no accessor — reading it is a compile error), or
+  keeps a message field **raw** (its payload as an arena-copied `ByteView` — one per element for
+  repeated fields — which the field type's own `decode()` accepts directly, deferring that decode
+  until the consumer actually wants the tree). Profiled headers carry the profile in their banner
+  and wrap the types in an `inline namespace rp_modes_<id>` keyed to a content hash, so TUs
+  generated under different profiles hold distinct types — exchanging them is a link error, never
+  a silent ODR violation.
 
 ## 0.2.0 — 2026-07-03
 

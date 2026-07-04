@@ -64,6 +64,10 @@ private:
         switch (m.kind) {
             case arenagen::FieldKind::PointerSubMsg:
                 return " presence=ptr";
+            case arenagen::FieldKind::Raw:
+                // Singular: absence is a null-DATA view (present-empty payloads stay
+                // non-null), the pointer convention. Repeated: element count, like any array.
+                return m.field->is_repeated ? " presence=empty" : " presence=data";
             case arenagen::FieldKind::Repeated:
             case arenagen::FieldKind::Map:
                 return " presence=empty";
@@ -154,6 +158,14 @@ private:
         }
         for (const arenagen::OneofPlan& o : layout.oneofs) {
             dump_oneof(o);
+        }
+        // Profile-dropped fields: no member exists, so show the omission explicitly -- a silent
+        // hole in the dump would make a profile's effect unreviewable.
+        for (const FieldNode* field : layout.dropped) {
+            line("field " + field->name + " num=" + std::to_string(field->number) + " dropped");
+        }
+        for (const MapFieldNode* map : layout.dropped_maps) {
+            line("map " + map->name + " num=" + std::to_string(map->number) + " dropped");
         }
         dump_mask(layout);
     }

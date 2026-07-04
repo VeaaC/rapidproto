@@ -318,3 +318,29 @@ TEST_CASE("ArenaDecodeError: rp_fail_string distinguishes too-long from out-of-m
         CHECK(too_long.code == ArenaDecodeError::Code::StringTooLong);
     }
 }
+
+TEST_CASE("copy_payload: arena-copies raw payloads, keeps present-empty non-null, reports OOM",
+          "[arena]") {
+    Arena arena;
+    // A copied payload is arena-owned: same bytes, different storage.
+    const std::string src = "payload bytes";
+    ByteView out;
+    REQUIRE(arena_detail::copy_payload(ByteView(src), arena, out));
+    CHECK(out == ByteView(src));
+    CHECK(out.data() != src.data());
+
+    // An EMPTY payload copies to a NON-null empty view: null data is reserved for "absent"
+    // (the singular raw member's presence encoding), present-and-empty must stay distinct.
+    ByteView empty;
+    REQUIRE(arena_detail::copy_payload(ByteView(), arena, empty));
+    CHECK(empty.empty());
+    CHECK(empty.data() != nullptr);
+
+    // A capacity-limited arena surfaces OOM (the raw arm turns this into OutOfMemory); the
+    // destination is left untouched.
+    Arena tiny;
+    tiny.set_capacity_limit(16);
+    auto untouched = ByteView(src);
+    CHECK_FALSE(arena_detail::copy_payload(ByteView(std::string(64, 'z')), tiny, untouched));
+    CHECK(untouched == ByteView(src));
+}

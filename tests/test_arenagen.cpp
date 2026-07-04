@@ -18,7 +18,12 @@
 #include <utility>
 #include <vector>
 
+#include "arena_modes_profile.hpp"
 #include "rapidproto/arenagen/generator.hpp"
+#include "rapidproto/arenagen/layout.hpp"
+#include "rapidproto/arenagen/modes.hpp"
+#include "rapidproto/codegen/emit.hpp"
+#include "rapidproto/codegen/naming.hpp"
 #include "rapidproto/resolve.hpp"
 #include "rapidproto/resolver.hpp"
 #include "temp_dir.hpp"
@@ -26,6 +31,7 @@
 // IWYU pragma: begin_keep
 #include "arenagen_golden/arena_layout.rp.hpp"
 #include "arenagen_golden/arena_manyreq.rp.hpp"  // >64 required: multi-word rp_req
+#include "arenagen_golden/arena_modes.rp.hpp"    // field modes: raw payloads + dropped fields
 #include "arenagen_golden/arena_naming.rp.hpp"   // identifier dedup: must compile
 #include "arenagen_golden/editions2023.rp.hpp"
 #include "arenagen_golden/editions2024.rp.hpp"  // 2024: decode-relevant defaults match 2023
@@ -66,6 +72,32 @@ std::string generate(const std::string& dir, const std::string& entry,
 }
 std::string generate_corpus(const std::string& entry, const std::string& prefix = {}) {
     return generate(RAPIDPROTO_CORPUS_DIR, entry, prefix);
+}
+
+// Generate arena_modes.rp.hpp + its sibling common header under the shared test profile. The
+// regen script produces the same pair through the CLI and tests/corpus/arena_modes.modes; this
+// in-process generation is the DRIFT CHECK between the two profile spellings (the golden
+// comparison fails if the .modes file and arena_modes_profile.hpp ever disagree).
+struct ModesOutput {
+    std::string header;
+    std::string common;
+};
+ModesOutput generate_modes_golden() {
+    ResolverConfig config;
+    config.include_paths = {RAPIDPROTO_CORPUS_DIR};
+    auto resolved = resolve(std::string(RAPIDPROTO_CORPUS_DIR) + "/arena_modes.proto", config);
+    REQUIRE(resolved.is_ok());
+    ResolvedFileSet set = std::move(resolved).value();
+    auto analyzed = analyze(set);
+    REQUIRE(analyzed.is_ok());
+    const SymbolTable symbols = std::move(analyzed).value();
+    const arenagen::FieldModes modes = test::arena_modes_profile(set, symbols);
+    const codegen::CppNameTable names = codegen::build_cpp_names(set.files.back(), set.files, "");
+    arenagen::LayoutOptions options;
+    options.modes = &modes;
+    const arenagen::LayoutSet layouts = arenagen::plan_layouts(set, symbols, options);
+    return {arenagen::generate_header(set.files.back(), names, layouts, symbols, &modes),
+            codegen::emit_common_header(set.files.back(), names)};
 }
 
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): expected vs actual, distinct roles
@@ -114,6 +146,22 @@ TEST_CASE("arenagen: generated headers match the goldens", "[arenagen]") {
     check_golden("proto3", generate_corpus("proto3.proto"));
     check_golden("editions2023", generate_corpus("editions2023.proto"));
     check_golden("editions2024", generate_corpus("editions2024.proto"));
+    // drop/raw under the shared profile; the sibling common is golden-checked too, so it cannot
+    // drift from emit_common_header output between regens.
+    const ModesOutput modes = generate_modes_golden();
+    check_golden("arena_modes", modes.header);
+    {
+        const std::string common =
+            std::string(RAPIDPROTO_ARENAGEN_GOLDEN_DIR) + "/arena_modes.rp.common.hpp";
+        // NOLINTNEXTLINE(concurrency-mt-unsafe): single-threaded test, opt-in regeneration only
+        if (std::getenv("RAPIDPROTO_REGEN_GOLDEN") != nullptr) {
+            std::ofstream(common, std::ios::binary) << modes.common;
+            WARN("regenerated arenagen golden: arena_modes.rp.common.hpp");
+        } else {
+            INFO(first_difference(read_file(common), modes.common));
+            CHECK(modes.common == read_file(common));
+        }
+    }
     check_golden("xref", generate_corpus("xref.proto"));
     check_golden("xref_prefixed/xref", generate_corpus("xref.proto", "rp"));
     check_golden("wire_all", generate(RAPIDPROTO_WIRE_FIXTURE_DIR, "wire_all.proto"));

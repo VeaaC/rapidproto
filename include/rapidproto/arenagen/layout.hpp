@@ -18,6 +18,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "rapidproto/arenagen/modes.hpp"
 #include "rapidproto/ast.hpp"
 
 namespace rapidproto {
@@ -36,11 +37,13 @@ enum class FieldKind {
     PointerSubMsg,      // sub-message referenced by an arena pointer (null = absent)
     Repeated,           // repeated field -> ArrayView<elem>
     Map,                // map field -> MapView<entry>
+    Raw,  // field-modes `raw`: the message field's arena-copied payload(s), decoded later
 };
 
 const char* kind_name(FieldKind kind);
 
-// Benchmark-tunable knobs (the defaults below are the benchmark-chosen values).
+// Planning options: benchmark-tunable knobs (defaults are the benchmark-chosen values) plus
+// the per-field materialization selection.
 struct LayoutOptions {
     // A fixed-size sub-message is inlined by value iff its size <= this, else stored behind an arena
     // pointer. 16 is the benchmark-chosen optimum: with single-pass-growable repeated arrays, inlining
@@ -49,6 +52,9 @@ struct LayoutOptions {
     // 16/24/32 (see the knob-tuning note in tests/bench_arena.cpp).
     std::size_t inline_submsg_cutoff = 16;
     bool unknown_present = false;  // reserve a per-message "unknown fields present" bit
+    // The resolved per-field materialization selection (see modes.hpp); null/inactive = every
+    // field materializes. Caller-owned; must outlive planning.
+    const FieldModes* modes = nullptr;
 };
 
 // A map field's synthesized entry {key, value}: its own little two-member layout (no bits; both
@@ -69,13 +75,13 @@ struct EntryPlan {
 // lives in `value_bit`; everything else occupies `size` bytes at `offset`.
 struct MemberPlan {
     const FieldNode* field = nullptr;         // set for regular/repeated fields
-    const MapFieldNode* map_field = nullptr;  // set instead for a Map
+    const MapFieldNode* map_field = nullptr;  // set instead for a Map (or a raw map)
     FieldKind kind = FieldKind::InlineScalar;
     bool is_bool = false;    // an InlineScalar `bool`: a value bit, not a byte
     std::size_t size = 0;    // storage bytes (0 for bit-only)
     std::size_t align = 0;   // storage alignment (0 for bit-only)
     std::size_t offset = 0;  // byte offset within the struct (set when size > 0)
-    int presence_bit = -1;   // mask bit index, or -1 (Implicit/Required, pointer, repeated/map)
+    int presence_bit = -1;   // mask bit index, or -1 (Implicit/Required, pointer, repeated/map/raw)
     int value_bit = -1;      // mask bit index for an inline `bool` value, or -1
     std::string repr;        // storage label for the dump (e.g. "int32", "ArenaString", ".p.Sub")
     std::string target_fqn;  // referenced message/enum FQN, else ""
@@ -115,6 +121,11 @@ struct MessageLayout {
     std::vector<MemberPlan>
         members;                    // byte members in memory (offset) order, then bit-only members
     std::vector<OneofPlan> oneofs;  // in memory order (disc/union offsets assigned)
+
+    // Fields the profile DROPPED: no member, no accessor, no decode arm -- listed here so the
+    // layout dump (the reviewable plan) shows the omission explicitly instead of silently.
+    std::vector<const FieldNode*> dropped;
+    std::vector<const MapFieldNode*> dropped_maps;
 
     int mask_bits = 0;  // total presence + value (+ unknown) bits
     std::size_t mask_offset = 0;

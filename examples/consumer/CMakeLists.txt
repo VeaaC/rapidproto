@@ -29,3 +29,18 @@ target_compile_features(rapidproto_example_consumer PRIVATE cxx_std_17)
 target_link_libraries(rapidproto_example_consumer PRIVATE rapidproto_example_schema)
 
 add_test(NAME rapidproto_example_decode COMMAND rapidproto_example_consumer)
+
+# The same schema under a decode profile (FIELD_MODES): sides dropped, origin kept raw. A separate
+# target/out-dir because the profile CHANGES the generated arena types -- they live in an inline
+# rp_modes_* namespace, so lean_main.cpp's trees could not be exchanged with main.cpp's (that
+# mismatch is a link error by design).
+rapidproto_generate(rapidproto_example_schema_lean
+  PROTOS ${CMAKE_CURRENT_SOURCE_DIR}/proto/message.proto
+  IMPORT_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/proto
+  FIELD_MODES ${CMAKE_CURRENT_SOURCE_DIR}/lean.modes)
+
+add_executable(rapidproto_example_lean lean_main.cpp)
+target_compile_features(rapidproto_example_lean PRIVATE cxx_std_17)
+target_link_libraries(rapidproto_example_lean PRIVATE rapidproto_example_schema_lean)
+
+add_test(NAME rapidproto_example_lean_decode COMMAND rapidproto_example_lean)

@@ -62,6 +62,9 @@ endfunction()
 #   [NAMESPACE_PREFIX <ns>]         # nest generated namespaces under <ns> (e.g. to coexist with protoc)
 #   [OUT_DIR <dir>]                 # where headers are written (default: a private dir under the build)
 #   [UNKNOWN_PRESENT]               # arena: reserve a per-message "unknown fields present" bit
+#   [FIELD_MODES <file>...]         # arena: decode profile files (`name|drop|raw <name>` lines)
+#   [DROP <name>...]                # arena: drop these fields/types (no storage, no accessor)
+#   [RAW <name>...]                 # arena: keep message fields'/types' payloads for deferred decodes
 #   [NO_WELLKNOWN])                 # do not supply the embedded google.protobuf well-known types
 #
 # Creates an INTERFACE library `<target>`. Linking it (target_link_libraries(app PRIVATE <target>)) both
@@ -75,7 +78,7 @@ endfunction()
 function(rapidproto_generate target)
   set(_options UNKNOWN_PRESENT NO_WELLKNOWN)
   set(_one OUT_DIR GENERATOR NAMESPACE_PREFIX)
-  set(_multi PROTOS IMPORT_DIRS)
+  set(_multi PROTOS IMPORT_DIRS FIELD_MODES DROP RAW)
   cmake_parse_arguments(RPG "${_options}" "${_one}" "${_multi}" ${ARGN})
 
   if(RPG_UNPARSED_ARGUMENTS)
@@ -155,11 +158,27 @@ function(rapidproto_generate target)
   # multi-target depfile, not two separate commands. The model flags and produced headers derive from
   # the selected jobs (arena before stream, matching the CLI's emit + depfile-target order).
   set(_model_flags "")
+  set(_modes_files_abs "")
   if("arena" IN_LIST _jobs)
     list(APPEND _model_flags "--arena")
     if(RPG_UNKNOWN_PRESENT)
       list(APPEND _model_flags "--unknown-present")
     endif()
+    foreach(_modes IN LISTS RPG_FIELD_MODES)
+      get_filename_component(_modes_abs "${_modes}" ABSOLUTE)
+      list(APPEND _modes_files_abs "${_modes_abs}")
+      list(APPEND _model_flags "--field-modes=${_modes_abs}")
+    endforeach()
+    foreach(_name IN LISTS RPG_DROP)
+      list(APPEND _model_flags "--drop=${_name}")
+    endforeach()
+    foreach(_name IN LISTS RPG_RAW)
+      list(APPEND _model_flags "--raw=${_name}")
+    endforeach()
+  elseif(RPG_FIELD_MODES OR RPG_DROP OR RPG_RAW)
+    message(FATAL_ERROR
+      "rapidproto_generate(${target}): FIELD_MODES/DROP/RAW shape the arena decoder; use "
+      "GENERATOR arena or both (got '${RPG_GENERATOR}')")
   endif()
   if("stream" IN_LIST _jobs)
     list(APPEND _model_flags "--stream")
@@ -198,7 +217,7 @@ function(rapidproto_generate target)
       OUTPUT ${_headers}
       COMMAND ${_cli} ${_common} ${_model_flags} --out-dir "${RPG_OUT_DIR}" ${_depfile_cli} "${_proto_abs}"
       ${_depfile_cmd}
-      DEPENDS "${_proto_abs}" ${_cli}
+      DEPENDS "${_proto_abs}" ${_modes_files_abs} ${_cli}
       WORKING_DIRECTORY "${_rpg_workdir}"
       COMMENT "rapidproto: ${_proto}"
       VERBATIM)

@@ -142,6 +142,23 @@ void f(rapidproto::ByteView b, rapidproto::Arena& a) {
   const p3::Msg* m = p3::Msg::decode(b, a);
   m->pick([](p3::Msg::Pick::a, std::int32_t) { return rapidproto::DecodeStatus::success(); }); }'
 
+# A field DROPPED by the field-modes profile has no accessor at all: touching it is a loud
+# compile error, not a silent default value.
+expect_fail dropped-field-no-accessor "debug" '
+#include "arena_modes.rp.hpp"
+void f(rapidproto::ByteView b, rapidproto::Arena& a) {
+  const fm::Holder* h = fm::Holder::decode(b, a);
+  (void)h->debug(); }'
+
+# Positive control: a RAW message field reads back as payload views the field type's own
+# decoder accepts directly.
+expect_pass raw-field-payload-views '
+#include "arena_modes.rp.hpp"
+void f(rapidproto::ByteView b, rapidproto::Arena& a) {
+  const fm::Holder* h = fm::Holder::decode(b, a);
+  if (h->blob()) { (void)fm::Blob::decode(*h->blob(), a); }
+  for (rapidproto::ByteView v : h->blobs()) { (void)fm::Blob::decode(v, a); } }'
+
 if [[ "$fail" == "0" ]]; then
   echo "arenagen compile-fail: all snippets correctly rejected"
 fi

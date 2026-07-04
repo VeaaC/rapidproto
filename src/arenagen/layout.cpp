@@ -13,9 +13,11 @@
 #include <vector>
 
 #include "rapidproto/arena_runtime.hpp"
+#include "rapidproto/arenagen/modes.hpp"
 #include "rapidproto/ast.hpp"
 #include "rapidproto/resolve.hpp"
 #include "rapidproto/resolver.hpp"
+#include "rapidproto/runtime.hpp"
 
 namespace rapidproto::arenagen {
 namespace {
@@ -43,6 +45,7 @@ constexpr std::size_t kBytesPerWord = 8;
 // at all, since a chain declared bottom-up is served memoized at depth <= 2.
 constexpr std::size_t kMaxChainDepth = 200;
 static_assert(sizeof(ArenaString) == kStringSize && alignof(ArenaString) == kStringAlign);
+static_assert(sizeof(ByteView) == kViewSize && alignof(ByteView) == kViewAlign);
 static_assert(sizeof(ArrayView<int>) == kViewSize && alignof(ArrayView<int>) == kViewAlign);
 static_assert(sizeof(MapView<ArenaString>) == kViewSize &&
               alignof(MapView<ArenaString>) == kViewAlign);
@@ -230,6 +233,37 @@ private:
         }
     }
 
+    [[nodiscard]] FieldMode mode_of(const FieldNode& field) const {
+        if (m_opts.modes == nullptr) {
+            return FieldMode::Materialize;
+        }
+        const auto it = m_opts.modes->fields.find(&field);
+        return it != m_opts.modes->fields.end() ? it->second : FieldMode::Materialize;
+    }
+    [[nodiscard]] FieldMode mode_of(const MapFieldNode& map) const {
+        if (m_opts.modes == nullptr) {
+            return FieldMode::Materialize;
+        }
+        const auto it = m_opts.modes->maps.find(&map);
+        return it != m_opts.modes->maps.end() ? it->second : FieldMode::Materialize;
+    }
+
+    // A `raw` member's storage: the message field's arena-copied PAYLOAD -- a ByteView when
+    // singular (null data encodes absence, like a materialized pointer; a present empty
+    // sub-message is a non-null empty view), an ArrayView<ByteView> (one payload per element)
+    // when repeated. No mask bits. target_fqn names the payload's type for the dump; the
+    // planner never recurses into it -- deferring that decode is the point.
+    static MemberPlan raw_member(const FieldNode& field) {
+        MemberPlan plan;
+        plan.field = &field;
+        plan.kind = FieldKind::Raw;
+        plan.size = kViewSize;
+        plan.align = kViewAlign;
+        plan.repr = field.is_repeated ? "ArrayView<ByteView>" : "ByteView";
+        plan.target_fqn = field.resolved_type_fqn;
+        return plan;
+    }
+
     MemberPlan classify_field(const FieldNode& field) {
         MemberPlan plan;
         plan.field = &field;
@@ -362,6 +396,8 @@ private:
             case FieldKind::InlineFixedSubMsg:
                 return true;
             case FieldKind::PointerSubMsg:  // null encodes absence
+            case FieldKind::Raw:            // null DATA encodes absence (present-empty is
+                                            // non-null: copy_payload's kEmptyPayload)
             case FieldKind::Repeated:       // empty view encodes absence
             case FieldKind::Map:
                 return false;
@@ -379,9 +415,29 @@ private:
         layout.fqn = message.fqn;
 
         for (const FieldNode& field : message.fields) {
+            switch (mode_of(field)) {
+                case FieldMode::Drop:
+                    layout.dropped.push_back(&field);
+                    continue;
+                case FieldMode::Raw:
+                    layout.members.push_back(raw_member(field));
+                    continue;
+                case FieldMode::Materialize:
+                    break;
+            }
             layout.members.push_back(classify_field(field));
         }
         for (const MapFieldNode& map : message.map_fields) {
+            switch (mode_of(map)) {
+                case FieldMode::Drop:
+                    layout.dropped_maps.push_back(&map);
+                    continue;
+                case FieldMode::Raw:
+                    assert(false && "raw maps are rejected at mode resolution");
+                    break;  // fall through to materialize: never reachable from resolve
+                case FieldMode::Materialize:
+                    break;
+            }
             MemberPlan plan;
             plan.map_field = &map;
             plan.kind = FieldKind::Map;
@@ -488,6 +544,7 @@ private:
                 case FieldKind::PointerSubMsg:
                 case FieldKind::Repeated:
                 case FieldKind::Map:
+                case FieldKind::Raw:
                     return false;  // indirection or self-reference
             }
         }
@@ -521,6 +578,8 @@ const char* kind_name(FieldKind kind) {
             return "repeated";
         case FieldKind::Map:
             return "map";
+        case FieldKind::Raw:
+            return "raw-payload";
     }
     return "?";
 }

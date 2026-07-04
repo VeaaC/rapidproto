@@ -10,6 +10,7 @@
 
 #include <cstdlib>
 #include <fstream>
+#include <initializer_list>
 #include <ios>
 #include <sstream>
 #include <string>
@@ -17,7 +18,9 @@
 #include <vector>
 
 #include "arena_layout_dump.hpp"
+#include "arena_modes_profile.hpp"
 #include "rapidproto/arenagen/layout.hpp"
+#include "rapidproto/arenagen/modes.hpp"
 #include "rapidproto/resolve.hpp"
 #include "rapidproto/resolver.hpp"
 #include "rapidproto/result.hpp"
@@ -100,6 +103,35 @@ TEST_CASE("arena-layout: corpus layout dumps match expectations", "[arena-layout
         INFO(first_difference(expected, actual));
         CHECK(actual == expected);
     }
+}
+
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): a linear pipeline of assertions
+TEST_CASE("arena-layout: field modes reshape the plan (raw members, dropped fields)",
+          "[arena-layout]") {
+    ResolverConfig config;
+    config.include_paths = {RAPIDPROTO_CORPUS_DIR};
+    auto resolved = resolve(corpus_path("arena_modes.proto"), config);
+    REQUIRE(resolved.is_ok());
+    ResolvedFileSet set = std::move(resolved).value();
+    auto analyzed = analyze(set);
+    REQUIRE(analyzed.is_ok());
+    const SymbolTable symbols = std::move(analyzed).value();
+    const arenagen::FieldModes modes = test::arena_modes_profile(set, symbols);
+    arenagen::LayoutOptions options;
+    options.modes = &modes;
+    const arenagen::LayoutSet layouts = arenagen::plan_layouts(set, symbols, options);
+    const std::string actual = arenalayoutdump::dump_layouts(layouts);
+
+    const std::string golden = std::string(RAPIDPROTO_ARENA_LAYOUT_GOLDEN_DIR) + "/arena_modes.txt";
+    // NOLINTNEXTLINE(concurrency-mt-unsafe): single-threaded test, opt-in regeneration only
+    if (std::getenv("RAPIDPROTO_REGEN_GOLDEN") != nullptr) {
+        std::ofstream(golden, std::ios::binary) << actual;
+        WARN("regenerated arena-layout golden: arena_modes");
+        return;
+    }
+    const std::string expected = read_file(golden);
+    INFO(first_difference(expected, actual));
+    CHECK(actual == expected);
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): a linear pipeline of assertions

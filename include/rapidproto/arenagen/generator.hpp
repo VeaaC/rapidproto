@@ -24,9 +24,13 @@ namespace rapidproto::arenagen {
 
 // Emit the header for `file`. `names` (build_cpp_names), `layouts` (plan_layouts), and `symbols` (the
 // table analyze() returned, whose FQN -> node maps resolve referenced types) are built ONCE for the
-// whole resolved set and shared across every file.
+// whole resolved set and shared across every file. `modes` is the resolved field-modes selection
+// the SAME layouts were planned under (or null): when active, the header carries the profile in
+// its banner and wraps the classes in an `inline namespace rp_modes_<id>` so mixed-profile TUs
+// hold distinct types (a link error at any exchange point, never a silent ODR violation).
 std::string generate_header(const FileNode& file, const codegen::CppNameTable& names,
-                            const LayoutSet& layouts, const SymbolTable& symbols);
+                            const LayoutSet& layouts, const SymbolTable& symbols,
+                            const FieldModes* modes = nullptr);
 
 // Convenience: build the name table + layouts for `set` and emit `file`. `symbols` is analyze()'s
 // table. `namespace_prefix` is the dot-separated prefix (proto convention) nesting every generated

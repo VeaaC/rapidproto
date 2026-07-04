@@ -488,6 +488,28 @@ template <class T>
                                ArenaDecodeError* err) noexcept {
     return T::rp_decode_into(out, body, arena, depth, err);
 }
+
+// A singular raw member encodes ABSENCE as a null-data view (like a materialized message
+// field's null pointer -- no mask bit spent). A PRESENT but empty payload must therefore be
+// non-null: it points here.
+inline constexpr char kEmptyPayload = 0;
+
+// Arena-copy a field-modes `raw` payload, so the stored ByteView outlives the input buffer the
+// decode merely borrowed. Returns false on OOM. The result is always non-null (empty payloads
+// view kEmptyPayload), so a null-data view stays free to mean "absent".
+[[nodiscard]] inline bool copy_payload(ByteView payload, Arena& arena, ByteView& out) noexcept {
+    if (payload.empty()) {
+        out = ByteView(&kEmptyPayload, 0);
+        return true;
+    }
+    char* const data = arena.allocate_array<char>(payload.size());
+    if (data == nullptr) {
+        return false;
+    }
+    std::memcpy(data, payload.data(), payload.size());
+    out = ByteView(data, payload.size());
+    return true;
+}
 }  // namespace arena_detail
 
 }  // namespace rapidproto

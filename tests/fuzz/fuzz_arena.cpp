@@ -1,8 +1,9 @@
 // libFuzzer harness: arena decode() over arbitrary (untrusted) bytes, into a fresh Arena, through
-// FOUR generated decoders whose arms differ most: the rich proto3 message (strings, repeated, maps,
+// FIVE generated decoders whose arms differ most: the rich proto3 message (strings, repeated, maps,
 // oneofs, recursion, the depth guard), the wire-exhaustive message (groups, fixed32/64, packed),
-// the >64-required-fields message (the multi-word transient required mask), and the
-// --unknown-present variant (the per-message unknown bit, incl. its bool-wrapper inlining). On a
+// the >64-required-fields message (the multi-word transient required mask), the
+// --unknown-present variant (the per-message unknown bit, incl. its bool-wrapper inlining), and
+// the field-modes profile (raw payload capture incl. groups, dropped-field skips). On a
 // successful decode a few accessors exercise the read side. ASan + UBSan catch any out-of-bounds /
 // overflow / leak / UB. Build:
 //   clang++-20 -std=c++17 -O1 -g -Iinclude -Itests -fsanitize=fuzzer,address,undefined \
@@ -11,6 +12,7 @@
 #include <cstdint>
 
 #include "arenagen_golden/arena_manyreq.rp.hpp"
+#include "arenagen_golden/arena_modes.rp.hpp"
 #include "arenagen_golden/arena_unknown.rp.hpp"
 #include "arenagen_golden/proto3.rp.hpp"
 #include "arenagen_golden/wire_all.rp.hpp"
@@ -51,6 +53,24 @@ extern "C" int LLVMFuzzerTestOneInput(const std::uint8_t* data, std::size_t size
         rapidproto::Arena arena;
         if (const au::Holder* h = au::Holder::decode(input, arena)) {
             sink += static_cast<std::size_t>(h->has_unknown_fields());
+        }
+    }
+    {
+        rapidproto::Arena arena;
+        if (const fm::Holder* h = fm::Holder::decode(input, arena)) {
+            sink += h->req_blob().size();  // raw required payload
+            sink += h->blobs().size();     // raw repeated payload array
+            if (const auto grp = h->grp()) {
+                sink += grp->size();  // raw group payload (bare body)
+            }
+            if (h->blob() && !h->blob()->empty()) {
+                // The deferred decode itself: raw payloads must feed the field type's decoder
+                // without UB on any input.
+                rapidproto::Arena scratch;
+                if (const fm::Blob* blob = fm::Blob::decode(*h->blob(), scratch)) {
+                    sink += blob->payload().has_value() ? 1U : 0U;
+                }
+            }
         }
     }
     return 0;

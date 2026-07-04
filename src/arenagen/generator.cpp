@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "rapidproto/arenagen/layout.hpp"
+#include "rapidproto/arenagen/modes.hpp"
 #include "rapidproto/ast.hpp"
 #include "rapidproto/codegen/emit.hpp"
 #include "rapidproto/codegen/naming.hpp"
@@ -133,6 +134,9 @@ std::string storage_type(const Emit& emit, const MemberPlan& m) {
             return "::rapidproto::ArrayView<" + repeated_elem_type(emit, *m.field) + ">";
         case FieldKind::Map:
             return "::rapidproto::MapView<" + emit.synth.entry_type.at(m.map_field) + ">";
+        case FieldKind::Raw:
+            return m.field->is_repeated ? "::rapidproto::ArrayView<::rapidproto::ByteView>"
+                                        : "::rapidproto::ByteView";
     }
     return "";
 }
@@ -442,6 +446,23 @@ void emit_field_accessor(const Emit& emit, const MessageLayout& layout, const Me
             p.print("$T$ $id$() const noexcept { return m_$id$; }\n",
                     {{"T", storage_type(emit, m)}, {"id", id}});
             break;
+        case FieldKind::Raw:
+            // The message field's arena-copied payload(s): hand a view to the field type's own
+            // decode() when (and if) the tree is wanted. Presence follows the accessor
+            // conventions -- optional for explicit presence (null data = absent; a present empty
+            // payload is non-null, so no mask bit is spent), bare for required (always present
+            // after a successful decode), element count for repeated.
+            if (m.field->presence == FieldPresence::Explicit && !m.field->is_repeated) {
+                p.print(
+                    "std::optional<::rapidproto::ByteView> $id$() const noexcept {"
+                    " return m_$id$.data() != nullptr ?"
+                    " std::optional<::rapidproto::ByteView>(m_$id$) : std::nullopt; }\n",
+                    {{"id", id}});
+            } else {
+                p.print("$T$ $id$() const noexcept { return m_$id$; }\n",
+                        {{"T", storage_type(emit, m)}, {"id", id}});
+            }
+            break;
     }
 }
 
@@ -588,13 +609,18 @@ void emit_message_body(const Emit& emit, const MessageNode& message) {
         }
     }
 
-    // Accessors in declaration order (fields, then maps, then oneofs).
+    // Accessors in declaration order (fields, then maps, then oneofs). A profile-DROPPED field
+    // has no member and gets NO accessor: touching it is a compile error, the loud failure mode.
     const std::unordered_map<const void*, const MemberPlan*> by_node = by_node_map(layout);
     for (const FieldNode& field : message.fields) {
-        emit_field_accessor(emit, layout, *by_node.at(&field));
+        if (const auto it = by_node.find(&field); it != by_node.end()) {
+            emit_field_accessor(emit, layout, *it->second);
+        }
     }
     for (const MapFieldNode& map : message.map_fields) {
-        emit_field_accessor(emit, layout, *by_node.at(&map));
+        if (const auto it = by_node.find(&map); it != by_node.end()) {
+            emit_field_accessor(emit, layout, *it->second);
+        }
     }
     for (const OneofPlan& o : layout.oneofs) {
         emit_oneof_accessors(emit, o);
@@ -954,6 +980,72 @@ void emit_repeated_finalize(const Emit& emit, const FieldNode& field) {
                        {{"id", id}, {"E", repeated_elem_type(emit, field)}});
 }
 
+// ── field-modes `raw` (see modes.hpp): store the message field's payload, decode later ──────────
+
+// Only a repeated raw member needs setup: the growable array of per-element payload views. A
+// singular raw payload writes straight into its member.
+void emit_raw_setup(const Emit& emit, const MemberPlan& m) {
+    if (m.field->is_repeated) {
+        emit_growable_setup(emit, emit.names.local.at(m.field), "::rapidproto::ByteView");
+    }
+}
+
+// The raw arm mirrors its materialized counterpart exactly -- same wire-type guard (a mismatched
+// record falls to the shared skip), same RepeatedSingularMessage rejection, same presence/required
+// bits -- but instead of decoding the payload it arena-copies it, deferring the decode to whenever
+// the consumer hands the view to the field type's own decode(). read_length_delimited/read_group
+// both yield exactly that payload (a group's body carries no SGROUP/EGROUP framing).
+void emit_raw_arm(const Emit& emit, const MessageLayout& layout, const MemberPlan& m,
+                  const std::unordered_map<const FieldNode*, int>& required_bit) {
+    Printer& p = emit.printer;
+    const FieldNode& field = *m.field;
+    const std::string id = emit.names.local.at(&field);
+    const auto [wire, read] = message_wire(field);
+    p.print("case $n$: {\n", {{"n", std::to_string(field.number)}});
+    p.indent();
+    p.print("if (rp_tag->wire_type == ::rapidproto::WireType::$w$) {\n", {{"w", wire}});
+    p.indent();
+    if (!field.is_repeated) {
+        // "Already present" is the stored view's non-null data -- the same state the accessor
+        // reads, mirroring the materialized pointer arm's null check.
+        p.print(
+            "if (out.m_$id$.data() != nullptr) {"
+            " ::rapidproto::rp_fail_repeated_singular(err, $n$); return false; }\n",
+            {{"id", id}, {"n", std::to_string(field.number)}});
+    }
+    p.print("const auto rp_v = reader.$rd$;\n", {{"rd", read}});
+    p.print("if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }\n");
+    if (field.is_repeated) {
+        p.print("::rapidproto::ByteView* const rp_slot = rp_slot_$id$();\n", {{"id", id}});
+        p.print("if (rp_slot == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }\n");
+        p.print(
+            "if (!::rapidproto::arena_detail::copy_payload(*rp_v, arena, *rp_slot)) {"
+            " ::rapidproto::rp_fail_oom(err); return false; }\n");
+    } else {
+        p.print(
+            "if (!::rapidproto::arena_detail::copy_payload(*rp_v, arena, out.m_$id$)) {"
+            " ::rapidproto::rp_fail_oom(err); return false; }\n",
+            {{"id", id}});
+    }
+    emit_presence_set(emit, layout, m, required_bit);
+    p.print("continue;\n");
+    p.outdent();
+    p.print("}\n");
+    p.print("break;\n");
+    p.outdent();
+    p.print("}\n");
+}
+
+void emit_raw_finalize(const Emit& emit, const MemberPlan& m) {
+    if (m.field->is_repeated) {
+        const std::string id = emit.names.local.at(m.field);
+        emit.printer.print(
+            "out.m_$id$ = ::rapidproto::ArrayView<::rapidproto::ByteView>(rp_acc_$id$, "
+            "rp_n_$id$);\n",
+            {{"id", id}});
+    }
+}
+
 // A growable arena array {acc, n, cap} + a grow-and-return-slot lambda (shared by repeated and map).
 void emit_growable_setup(const Emit& emit, const std::string& id, const std::string& elem) {
     Printer& p = emit.printer;
@@ -1179,13 +1271,28 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
     p.print(
         "if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err);"
         " return false; }\n");
+    // Setup, routed per plan in DECLARATION order (layout.members is memory-order; iterating it
+    // here would reorder every existing golden): a repeated raw member gets its growable array of
+    // payload views (a singular one needs none); a dropped field (absent from the plan) gets
+    // nothing; materialized repeated/maps their growable arrays.
     for (const FieldNode& f : message.fields) {
-        if (f.is_repeated) {
+        const auto it = by_node.find(&f);
+        if (it == by_node.end()) {
+            continue;  // dropped
+        }
+        if (it->second->kind == FieldKind::Raw) {
+            emit_raw_setup(emit, *it->second);
+        } else if (f.is_repeated) {
             emit_repeated_setup(emit, f);
         }
     }
     for (const MapFieldNode& mp : message.map_fields) {
-        emit_map_setup(emit, *by_node.at(&mp));
+        const auto it = by_node.find(&mp);
+        if (it == by_node.end()) {
+            continue;  // dropped
+        }
+        assert(it->second->kind == FieldKind::Map);  // raw maps are rejected at mode resolution
+        emit_map_setup(emit, *it->second);
     }
     const auto req_words = (required_fields.size() + kWordBits - 1) / kWordBits;
     if (required_fields.size() > static_cast<std::size_t>(kWordBits)) {
@@ -1201,14 +1308,30 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
     p.print("switch (rp_tag->field_number) {\n");
     p.indent();
     for (const FieldNode& f : message.fields) {
-        if (f.is_repeated) {
+        const auto it = by_node.find(&f);
+        if (it == by_node.end()) {
+            // Dropped: an explicit no-op case, NOT the default arm -- the record must fall to the
+            // shared skip (validated) without tripping the --unknown-present bit (it IS known).
+            p.print("case $n$: break;  // dropped by the field-modes profile\n",
+                    {{"n", std::to_string(f.number)}});
+            continue;
+        }
+        if (it->second->kind == FieldKind::Raw) {
+            emit_raw_arm(emit, layout, *it->second, required_bit);
+        } else if (f.is_repeated) {
             emit_repeated_arm(emit, f);
         } else {
-            emit_singular_arm(emit, layout, *by_node.at(&f), required_bit);
+            emit_singular_arm(emit, layout, *it->second, required_bit);
         }
     }
     for (const MapFieldNode& mp : message.map_fields) {
-        emit_map_arm(emit, *by_node.at(&mp));
+        const auto it = by_node.find(&mp);
+        if (it == by_node.end()) {
+            p.print("case $n$: break;  // dropped by the field-modes profile\n",
+                    {{"n", std::to_string(mp.number)}});
+            continue;
+        }
+        emit_map_arm(emit, *it->second);
     }
     for (const OneofPlan& o : layout.oneofs) {
         int index = 1;
@@ -1229,12 +1352,22 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
     p.outdent();
     p.print("}\n");  // while
     for (const FieldNode& f : message.fields) {
-        if (f.is_repeated) {
+        const auto it = by_node.find(&f);
+        if (it == by_node.end()) {
+            continue;  // dropped
+        }
+        if (it->second->kind == FieldKind::Raw) {
+            emit_raw_finalize(emit, *it->second);
+        } else if (f.is_repeated) {
             emit_repeated_finalize(emit, f);
         }
     }
     for (const MapFieldNode& mp : message.map_fields) {
-        emit_map_finalize(emit, *by_node.at(&mp));
+        const auto it = by_node.find(&mp);
+        if (it == by_node.end()) {
+            continue;  // dropped
+        }
+        emit_map_finalize(emit, *it->second);
     }
     for (const FieldNode* f : required_fields) {
         const int i = required_bit.at(f);
@@ -1290,13 +1423,25 @@ std::string import_header(std::string_view path) {
 }  // namespace
 
 std::string generate_header(const FileNode& file, const CppNameTable& names,
-                            const LayoutSet& layouts, const SymbolTable& symbols) {
+                            const LayoutSet& layouts, const SymbolTable& symbols,
+                            const FieldModes* modes) {
     Printer printer;
     const SynthNames synth = build_synth_names(names, layouts, file);
     const Emit emit{printer, names, layouts, synth, symbols};
+    const bool profiled = modes != nullptr && modes->active();
     printer.print("// Generated by rapidprotoc $v$. DO NOT EDIT.\n", {{"v", kVersion}});
     printer.print(
         "// Generated from your schema; depends on rapidproto/arena_runtime.hpp (Apache-2.0).\n");
+    if (profiled) {
+        // Which profile built this header, human-readably: the first place to look when two TUs
+        // disagree about a message's shape.
+        std::string lines;
+        for (const std::string& line : modes->normalized) {
+            lines += lines.empty() ? line : ", " + line;
+        }
+        printer.print("// field modes ($id$): $lines$\n",
+                      {{"id", modes->profile_id}, {"lines", lines}});
+    }
     printer.print("#pragma once\n\n");
     printer.print("#include <cstdint>\n");
     printer.print("#include <optional>\n");  // explicit-presence accessors return std::optional<T>
@@ -1318,7 +1463,14 @@ std::string generate_header(const FileNode& file, const CppNameTable& names,
 
     const std::string ns = join_ns(names.ns_prefix, namespace_of(file.package));
     if (!ns.empty()) {
-        printer.print("namespace $ns$ {\n\n", {{"ns", ns}});
+        printer.print(profiled ? "namespace $ns$ {\n" : "namespace $ns$ {\n\n", {{"ns", ns}});
+    }
+    if (profiled) {
+        // The profile identity as an INLINE namespace: users still write pkg::Msg, but the
+        // mangled type identity encodes the profile -- two TUs generated under different
+        // profiles hold genuinely distinct types (safe coexistence), and passing one across
+        // the boundary is a LINK error instead of a silent ODR violation.
+        printer.print("inline namespace rp_modes_$id$ {\n\n", {{"id", modes->profile_id}});
     }
     // Top-level enums are emitted by the common header above; nested enums ride with their message.
     for (const auto& message : file.messages) {  // forward-declare for pointer cross-references
@@ -1336,6 +1488,9 @@ std::string generate_header(const FileNode& file, const CppNameTable& names,
     // complete (handles forward + cyclic references).
     for (const MessageNode* message : ordered_siblings(emit, file.messages)) {
         emit_decode_def(emit, *message, names.local.at(message));
+    }
+    if (profiled) {
+        printer.print("}  // namespace rp_modes_$id$\n", {{"id", modes->profile_id}});
     }
     if (!ns.empty()) {
         printer.print("}  // namespace $ns$\n", {{"ns", ns}});

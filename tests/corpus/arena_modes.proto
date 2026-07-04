@@ -1,0 +1,36 @@
+// Field-modes coverage (proto2 for required + groups): fields the test profile DROPs (scalar,
+// message, repeated, explicit-presence), message fields it keeps RAW as deferred payloads
+// (singular + repeated + required via the Blob type entry; the group via a field entry), the
+// map the Blob type entry silently leaves materialized, and untouched fields around them. The
+// profile lives in tests/corpus/arena_modes.modes / tests/arena_modes_profile.hpp.
+syntax = "proto2";
+
+package fm;
+
+message Blob {
+  optional bytes payload = 1;
+}
+
+enum Level {
+  L_ZERO = 0;
+  L_ONE = 1;
+}
+
+message Holder {
+  optional int32 keep = 1;
+  optional int32 debug = 2;    // drop (explicit presence: its mask bit disappears)
+  optional Blob extra = 3;     // drop (message-typed)
+  repeated int32 old_ids = 4;  // drop (repeated)
+  required int32 must = 5;     // untouched required (cannot be dropped)
+  optional int32 big_num = 6;  // untouched scalar (raw would be an error: no payload)
+  optional Blob blob = 7;      // raw via the Blob type entry (payload view + presence bit)
+  repeated Blob blobs = 8;     // raw repeated: one payload view per element
+  repeated int32 samples = 9 [packed = true];  // untouched packed scalar
+  repeated int32 spread = 10;                  // untouched expanded scalar
+  map<string, Blob> by_name = 11;  // the Blob type entry silently leaves the map materialized
+  optional Level level = 12;       // untouched enum (raw on an enum is an error)
+  required Blob req_blob = 13;     // raw on required (allowed; drop is not)
+  optional group Grp = 14 {        // raw group via a field entry (payload = the bare body)
+    optional int32 g = 1;
+  }
+}

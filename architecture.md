@@ -492,6 +492,38 @@ and locked at their chosen values; each is a single constant with a rationale co
   arrays, inlining a sub-message of size S costs ≈ 2S of array memory vs ≈ 16 + S for a pointer, so
   inlining pays out exactly up to S = 16.
 
+### Decode profiles (`arenagen/modes.{hpp,cpp}`)
+
+Field modes are a **consumer property, not a schema property** — the same schema decodes differently
+per consumer, so selection lives in generation flags/profile files (`--field-modes`, `--drop`, `--raw`),
+never in the `.proto`. Resolution happens once against the resolved set (names → `FieldNode*`/
+`MapFieldNode*` maps, field entry beats type entry; unknown names, same-level conflicts, drop-required,
+oneof-member entries, and raw on anything but a message-typed field are hard errors; type-level entries
+silently leave oneof members, drop+required, and raw-on-maps materialized). The planner consumes the
+maps: `drop` removes the member (and its presence bit) from the layout entirely, recorded in
+`MessageLayout::dropped` so the layout dump still shows the omission; `raw` plans a 16-byte payload
+member — `ByteView` singular, `ArrayView<ByteView>` repeated — never fixed-size and with **no mask
+bit**: a singular payload encodes absence as null *data* (the pointer-sub-message convention), so a
+present-but-empty payload is a non-null empty view (`arena_detail::copy_payload`'s `kEmptyPayload`
+sentinel). The emitter routes per plan — dropped fields get an explicit no-op `case` arm (validated
+skip, without tripping `--unknown-present`); a raw arm is its materialized twin with the recursive
+decode swapped for an arena copy of the payload (`read_length_delimited`/`read_group` both yield
+exactly that), preserving stored-field semantics: wire-type-mismatch falls to the shared skip,
+`RepeatedSingularMessage`, `required`'s transient bit. The stored view is exactly what the field
+type's own `decode()` accepts — deferred decoding needs no new API and no streaming decoder.
+
+The ODR story: a profile changes the generated types, so profiled headers wrap everything in
+`inline namespace rp_modes_<id>` and stamp the profile into the banner. `<id>` is always
+content-derived — an FNV-1a hash of the normalized entries, prefixed by the profile's `name` when one
+is given (`rp_modes_lean_4ba94f51`) — so even two selections sharing a name hold distinct identities;
+a name is readability, never trust. Qualified use stays `pkg::Msg`; mixed-profile TUs hold distinct
+types and fail to **link** at any exchange point instead of silently violating the ODR
+(`tests/arena_modes_link.sh` pins both directions in the default gate). The common header (shared
+enums) stays outside the namespace, so a profiled arena header still coexists with the streaming
+header. A no-profile run is byte-identical to unprofiled output, and an all-excluded profile degrades
+to exactly that. Known cut, deliberately deferred: no `materialize` directive to narrow a type-level
+entry (additive when needed).
+
 ## Shared emitter infrastructure
 
 Both emitters work over the same analyzed AST, so they share (rather than duplicate) the
