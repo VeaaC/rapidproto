@@ -22,7 +22,7 @@ cd "$(dirname "$0")"
 
 CLANG_FORMAT=clang-format-20
 CLANG_TIDY=clang-tidy-20
-JOBS="$(nproc 2>/dev/null || echo 4)"
+JOBS="${JOBS:-$(nproc 2>/dev/null || echo 4)}"
 export CLANG_TIDY
 
 # Our own hand-written sources. EVERYTHING we author is clang-formatted -- formatting is mechanical, so
@@ -146,6 +146,9 @@ fi
 
 LOG="$(mktemp -d)"
 trap 'rm -rf "$LOG"' EXIT
+# A CI kill (OOM, preemption, cancellation) arrives as SIGTERM and would discard every buffered
+# stage log -- exactly when the logs matter most. Dump whatever was captured before dying.
+trap 'echo ">> check.sh: killed (SIGTERM/SIGINT) -- dumping captured stage logs"; for f in "$LOG"/*; do [[ -f "$f" ]] && { echo "--- ${f##*/} ---"; cat "$f"; }; done; exit 143' TERM INT
 
 # Configure both presets up front (each build dir once) so the concurrent build and clang-tidy jobs
 # never race on the same build directory. Configuration is cheap.
@@ -278,21 +281,36 @@ job_tidy() {
   echo "tidy clean"
 }
 
-# --- run all stages concurrently, capturing each to its own log -----------------------------------
+# --- run all stages, capturing each to its own log ------------------------------------------------
+# Concurrent by default: on a dev box, wall-clock = the slowest stage. On memory-tight runners the
+# stages' COMBINED peak OOMs the whole job (CI's private runners: 2 cores/7 GB -- reproduced locally
+# under a 7 GB cgroup: SIGTERM, no output), so under GITHUB_ACTIONS the stages run one at a time --
+# identical checks, bounded peak. Override either way with RAPIDPROTO_GATE_SERIAL=1/0.
 
-job_format       >"$LOG/format" 2>&1 & p_format=$!
-job_build_test gcc   >"$LOG/gcc"   2>&1 & p_gcc=$!
-job_build_test clang >"$LOG/clang" 2>&1 & p_clang=$!
-job_compile_fail >"$LOG/cf"     2>&1 & p_cf=$!
-job_fuzz_compile >"$LOG/fuzz"   2>&1 & p_fuzz=$!
-job_tidy         >"$LOG/tidy"   2>&1 & p_tidy=$!
+if [[ "${RAPIDPROTO_GATE_SERIAL:-${GITHUB_ACTIONS:+1}}" == "1" ]]; then
+  # Progress lines go straight to stdout (stage output stays buffered): if the runner kills the
+  # job anyway, the last line names the guilty stage.
+  echo "serial gate: format";        job_format           >"$LOG/format" 2>&1; rc_format=$?
+  echo "serial gate: build gcc";     job_build_test gcc   >"$LOG/gcc"    2>&1; rc_gcc=$?
+  echo "serial gate: build clang";   job_build_test clang >"$LOG/clang"  2>&1; rc_clang=$?
+  echo "serial gate: compile-fail";  job_compile_fail     >"$LOG/cf"     2>&1; rc_cf=$?
+  echo "serial gate: fuzz-compile";  job_fuzz_compile     >"$LOG/fuzz"   2>&1; rc_fuzz=$?
+  echo "serial gate: tidy";          job_tidy             >"$LOG/tidy"   2>&1; rc_tidy=$?
+else
+  job_format       >"$LOG/format" 2>&1 & p_format=$!
+  job_build_test gcc   >"$LOG/gcc"   2>&1 & p_gcc=$!
+  job_build_test clang >"$LOG/clang" 2>&1 & p_clang=$!
+  job_compile_fail >"$LOG/cf"     2>&1 & p_cf=$!
+  job_fuzz_compile >"$LOG/fuzz"   2>&1 & p_fuzz=$!
+  job_tidy         >"$LOG/tidy"   2>&1 & p_tidy=$!
 
-wait "$p_format"; rc_format=$?
-wait "$p_gcc";    rc_gcc=$?
-wait "$p_clang";  rc_clang=$?
-wait "$p_cf";     rc_cf=$?
-wait "$p_fuzz";   rc_fuzz=$?
-wait "$p_tidy";   rc_tidy=$?
+  wait "$p_format"; rc_format=$?
+  wait "$p_gcc";    rc_gcc=$?
+  wait "$p_clang";  rc_clang=$?
+  wait "$p_cf";     rc_cf=$?
+  wait "$p_fuzz";   rc_fuzz=$?
+  wait "$p_tidy";   rc_tidy=$?
+fi
 
 # --- print each stage's output in a fixed order (already captured, so never interleaved) ----------
 

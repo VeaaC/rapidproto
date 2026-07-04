@@ -103,6 +103,17 @@ add_library(rapidproto_lib STATIC
   src/source.cpp
   src/wellknown_generated.cpp)
 target_link_libraries(rapidproto_lib PUBLIC rapidproto PRIVATE rapidproto_strict)
+# Debug info for the combinator grammars' deeply nested template types is pathological with GCC
+# and OOM-kills CI's 7 GB runners twice over: compiling parser.cpp peaks at 12.6 GB under plain -g
+# (0.6 GB without), and even at -g1 the .o carries a 383 MB .debug_str of template names that
+# blows up every downstream bfd link (~650 MB binaries, 14 GB link peak). -g1 bounds the compile
+# (2.2 GB) and -gsplit-dwarf moves the strings into a .dwo the linker never loads (11 MB .o);
+# these two TUs keep file/line backtraces and lose only variable-level debug info -- the grammar
+# is debugged through its tests, not a debugger.
+if(CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_BUILD_TYPE STREQUAL "")
+  set_source_files_properties(src/lexer.cpp src/parser.cpp
+                              PROPERTIES COMPILE_OPTIONS "-g1;-gsplit-dwarf")
+endif()
 
 # CLI driver (thin; kept out of clang-tidy/format like a normal main, but built strict).
 add_executable(rapidproto_cli src/main.cpp)
@@ -288,6 +299,13 @@ if(RAPIDPROTO_BUILD_TESTS)
   target_link_libraries(rapidproto_tests PRIVATE rapidproto rapidproto_lib rapidproto_streamgen_lib
                                                  rapidproto_arenagen_lib rapidproto_strict
                                                  catch2_vendored)
+  # The test TUs' -g debug info (generated-header templates, catch2) makes the monolithic link
+  # pathological with bfd ld: a 683 MB binary needing a 14 GB link peak -- an OOM kill on CI's
+  # 7 GB runners. Debug fission keeps DWARF in .dwo side files the linker never loads: link peak
+  # 193 MB, binary 36 MB, debuggers unaffected (gdb reads the .dwo beside the objects).
+  if(CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_BUILD_TYPE STREQUAL "")
+    target_compile_options(rapidproto_tests PRIVATE -gsplit-dwarf)
+  endif()
   # Absolute paths to the golden-test corpus and expected dumps, so the test finds them
   # regardless of the working directory it is launched from.
   target_compile_definitions(rapidproto_tests PRIVATE
