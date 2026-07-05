@@ -205,8 +205,9 @@ auto digit_point_or_exp() {
 // numeric_literal = [ "." ] decimal_digit { digit_point_or_exp }   (the greedy munch;
 // it is then classified as int/float in the post-pass, so "0.0.0"/"1to3" are single
 // invalid tokens per the spec)
-auto numeric_literal() {
-    return recognize(seq(opt(tag(".")), one(is_decimal_digit), many(digit_point_or_exp())));
+// Function boundary, like string_literal.
+Result<Parsed<Range<char>, char>> numeric_literal(Range<char> in) {
+    return recognize(seq(opt(tag(".")), one(is_decimal_digit), many(digit_point_or_exp())))(in);
 }
 
 // simple_escape_seq  = `\` ( "a"|"b"|"f"|"n"|"r"|"t"|"v"|`\`|"'"|`"`|"?" )
@@ -250,8 +251,11 @@ auto single_quoted_string() {
     return recognize(seq(tag("'"), cut(seq(many(string_body_char('\'')), tag("'")))));
 }
 // string_literal = single_quoted_string_literal | double_quoted_string_literal
-auto string_literal() {
-    return alt(double_quoted_string(), single_quoted_string());
+// A plain function, not an `auto` combinator: token_stream()'s alt is the lexer's composition
+// hub, and a combinator-typed branch re-spells its whole escape-sequence chain into every
+// enclosing instantiation name (gigabytes of .debug_str; see the matching parser.cpp hubs).
+Result<Parsed<Range<char>, char>> string_literal(Range<char> in) {
+    return alt(double_quoted_string(), single_quoted_string())(in);
 }
 
 // line_comment = "//" { !("\n" | "\x00") }
@@ -263,8 +267,9 @@ auto line_comment() {
 auto block_comment() {
     return recognize(seq(tag("/*"), cut(seq(take_until("*/"), tag("*/")))));
 }
-auto comment() {
-    return alt(line_comment(), block_comment());
+// Function boundary, like string_literal.
+Result<Parsed<Range<char>, char>> comment(Range<char> in) {
+    return alt(line_comment(), block_comment())(in);
 }
 
 // --- numeric classification (post-pass, via the int/float grammars) ---------
@@ -311,8 +316,8 @@ auto raw(Cat cat, P parser) {
 }
 
 auto token_stream() {
-    return many(alt(raw(Cat::Whitespace, take_while1(is_whitespace)), raw(Cat::Comment, comment()),
-                    raw(Cat::StringLit, string_literal()), raw(Cat::Numeric, numeric_literal()),
+    return many(alt(raw(Cat::Whitespace, take_while1(is_whitespace)), raw(Cat::Comment, comment),
+                    raw(Cat::StringLit, string_literal), raw(Cat::Numeric, numeric_literal),
                     raw(Cat::Ident, identifier()),
                     raw(Cat::Symbol, recognize(one(is_symbol_char)))));
 }

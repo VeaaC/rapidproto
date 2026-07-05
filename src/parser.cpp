@@ -423,7 +423,9 @@ auto signed_int() {
 }
 
 // Range = ["-"] intLit [ "to" ( ["-"] intLit | "max" ) ]; `max` -> the given sentinel.
-auto reserved_range(std::int32_t max_sentinel) {
+// Function boundary: reserved_range appears twice inside both parse_reserved and
+// extension_range, so its signed_int/kind chain otherwise re-spells into every enclosing name.
+Result<Parsed<NumberRange, Token>> reserved_range(Range<Token> in, std::int32_t max_sentinel) {
     auto bound =
         alt(map(kind(TokenKind::KwMax), [max_sentinel](const Token&) { return max_sentinel; }),
             signed_int());
@@ -432,7 +434,11 @@ auto reserved_range(std::int32_t max_sentinel) {
         range.start = std::get<0>(parts);
         range.end = std::get<1>(parts).has_value() ? *std::get<1>(parts) : range.start;
         return range;
-    });
+    })(in);
+}
+// The lambda-wrapped spelling that combinator call sites consume.
+auto reserved_range(std::int32_t max_sentinel) {
+    return [max_sentinel](Range<Token> in) { return reserved_range(in, max_sentinel); };
 }
 
 // A reserved name is a string literal (proto2/proto3) or an identifier (editions).
@@ -584,7 +590,9 @@ FieldNode build_field(std::optional<Cardinality> card, std::string type, std::st
 }
 
 // One oneof field: TypeName ident "=" intLit [CompactOptions] ";" (always explicit presence).
-auto oneof_field() {
+// Function boundary: the type_name/field_number chain stays local instead of re-spelling into
+// oneof_body's alt names.
+Result<Parsed<FieldNode, Token>> oneof_field(Range<Token> in) {
     return map(seq(type_name(), name_token(), cut(kind(TokenKind::Equals)), cut(field_number()),
                    opt(parse_compact_options), cut(kind(TokenKind::Semicolon))),
                [](auto parts) {
@@ -598,7 +606,7 @@ auto oneof_field() {
                        field.options = std::move(*std::get<4>(parts));
                    }
                    return field;
-               });
+               })(in);
 }
 
 using OneofElement = std::variant<FieldNode, Option, std::monostate>;
@@ -618,7 +626,7 @@ OneofNode assemble_oneof(std::string_view name, std::vector<OneofElement>& eleme
 
 auto oneof_body() {
     return many(alt(map(parse_option_decl, [](Option o) { return OneofElement{std::move(o)}; }),
-                    map(oneof_field(), [](FieldNode f) { return OneofElement{std::move(f)}; }),
+                    map(oneof_field, [](FieldNode f) { return OneofElement{std::move(f)}; }),
                     map(kind(TokenKind::Semicolon),
                         [](const Token&) { return OneofElement{std::monostate{}}; })));
 }
@@ -657,9 +665,15 @@ struct ExtendBundle {
     std::vector<MessageNode> group_messages;
 };
 
-using MessageElement =
+// A real struct, not a `using` alias: an alias would mangle as the spelled-out variant (~1 KB)
+// inside every symbol that mentions MessageElement -- notably assemble_message's visitor lambdas,
+// whose names embed the enclosing signature. The wrapper mangles as its 14-char name; visit()
+// goes through the .v member.
+struct MessageElement {
     std::variant<FieldNode, MapFieldNode, OneofNode, EnumNode, MessageNode, ReservedNode,
-                 ExtensionRangeNode, ExtendBundle, Option, GroupDecl, std::monostate>;
+                 ExtensionRangeNode, ExtendBundle, Option, GroupDecl, std::monostate>
+        v;
+};
 
 // recursion (message body <-> nested message / group / extend)
 Result<Parsed<std::vector<MessageElement>, Token>> message_body(Range<Token> in,
@@ -668,7 +682,10 @@ Result<Parsed<GroupDecl, Token>> parse_group(Range<Token> in, const ParseContext
 Result<Parsed<ExtendBundle, Token>> parse_extend(Range<Token> in, const ParseContext& ctx);
 
 // ExtensionRangeDecl = "extensions" Range { "," Range } [CompactOptions] ";"
-auto extension_range() {
+// Function boundary: this was message_element's one combinator-typed branch, and its type chain
+// (reserved_range -> signed_int -> kind) was re-spelled into every level of the enclosing alt's
+// instantiation names.
+Result<Parsed<ExtensionRangeNode, Token>> extension_range(Range<Token> in) {
     auto ranges =
         map(seq(reserved_range(kMaxMessageFieldNumber),
                 many(preceded(kind(TokenKind::Comma), reserved_range(kMaxMessageFieldNumber)))),
@@ -684,7 +701,7 @@ auto extension_range() {
                        node.options = std::move(*std::get<1>(parts));
                    }
                    return node;
-               });
+               })(in);
 }
 
 MessageNode assemble_message(std::string_view name, std::vector<MessageElement>& elements) {
@@ -712,21 +729,24 @@ MessageNode assemble_message(std::string_view name, std::vector<MessageElement>&
                                   node.nested_messages.push_back(std::move(g.message));
                               },
                               [](std::monostate) {}},
-                   element);
+                   element.v);
     }
     return node;
 }
 
 // One message body element. Keyword-led declarations come before parse_field, and group before
 // field, per the alt-ordering contract (parse_field fatally commits after a leading keyword type).
-auto message_element(const ParseContext& ctx) {
+// A plain function, not an `auto` combinator: this is a composition HUB, and returning the alt's
+// type would re-spell the entire subtree's template name into every enclosing instantiation
+// (megabyte symbols, gigabytes of .debug_str). The function boundary erases it.
+Result<Parsed<MessageElement, Token>> message_element(Range<Token> in, const ParseContext& ctx) {
     return alt(
         map(parse_option_decl, [](Option o) { return MessageElement{std::move(o)}; }),
         map(parse_map_field, [](MapFieldNode m) { return MessageElement{std::move(m)}; }),
         map(parse_oneof, [](OneofNode o) { return MessageElement{std::move(o)}; }),
         map([](Range<Token> i) { return parse_reserved(i, kMaxMessageFieldNumber); },
             [](ReservedNode r) { return MessageElement{std::move(r)}; }),
-        map(extension_range(), [](ExtensionRangeNode x) { return MessageElement{std::move(x)}; }),
+        map(extension_range, [](ExtensionRangeNode x) { return MessageElement{std::move(x)}; }),
         map([ctx](Range<Token> i) { return parse_extend(i, ctx); },
             [](ExtendBundle b) { return MessageElement{std::move(b)}; }),
         map([ctx](Range<Token> i) { return parse_message(i, ctx); },
@@ -738,7 +758,7 @@ auto message_element(const ParseContext& ctx) {
         map([ctx](Range<Token> i) { return parse_field(i, ctx); },
             [](FieldNode f) { return MessageElement{std::move(f)}; }),
         map(kind(TokenKind::Semicolon),
-            [](const Token&) { return MessageElement{std::monostate{}}; }));
+            [](const Token&) { return MessageElement{std::monostate{}}; }))(in);
 }
 
 Result<Parsed<std::vector<MessageElement>, Token>> message_body(Range<Token> in,
@@ -747,7 +767,7 @@ Result<Parsed<std::vector<MessageElement>, Token>> message_body(Range<Token> in,
     if (!guard.within_limit()) {
         return too_deep(in);
     }
-    return many(message_element(ctx))(in);
+    return many([ctx](Range<Token> i) { return message_element(i, ctx); })(in);
 }
 
 // GroupDecl = [Cardinality] "group" Ident "=" intLit [CompactOptions] "{" { MessageElement } "}".
@@ -779,14 +799,15 @@ using ExtendElement = std::variant<FieldNode, GroupDecl, Option, std::monostate>
 
 // Deliberate super-set of the published EBNF (which lists fields/options/empty only): proto2 protoc
 // accepts group members inside `extend`, and we retain groups fully, so group is included.
-auto extend_element(const ParseContext& ctx) {
+// Function boundary for the same reason as message_element: a hub's type must not leak upward.
+Result<Parsed<ExtendElement, Token>> extend_element(Range<Token> in, const ParseContext& ctx) {
     return alt(map(parse_option_decl, [](Option o) { return ExtendElement{std::move(o)}; }),
                map([ctx](Range<Token> i) { return parse_group(i, ctx); },
                    [](GroupDecl g) { return ExtendElement{std::move(g)}; }),
                map([ctx](Range<Token> i) { return parse_field(i, ctx); },
                    [](FieldNode f) { return ExtendElement{std::move(f)}; }),
                map(kind(TokenKind::Semicolon),
-                   [](const Token&) { return ExtendElement{std::monostate{}}; }));
+                   [](const Token&) { return ExtendElement{std::monostate{}}; }))(in);
 }
 
 // ExtendDecl = "extend" TypeName "{" { FieldDecl | GroupDecl | OptionDecl | ";" } "}"
@@ -794,7 +815,8 @@ Result<Parsed<ExtendBundle, Token>> parse_extend(Range<Token> in, const ParseCon
     const std::size_t offset = in.empty() ? 0 : in.front().byte_offset;  // the `extend` keyword
     return map(
         seq(preceded(kind(TokenKind::KwExtend), cut(type_name())),
-            delimited(cut(kind(TokenKind::LBrace)), many(extend_element(ctx)),
+            delimited(cut(kind(TokenKind::LBrace)),
+                      many([ctx](Range<Token> i) { return extend_element(i, ctx); }),
                       cut(kind(TokenKind::RBrace)))),
         [offset](auto parts) {
             ExtendBundle bundle;
@@ -906,7 +928,8 @@ auto syntax_decl() {
 using FileElement = std::variant<ImportNode, PackageName, Option, MessageNode, EnumNode,
                                  ExtendBundle, std::monostate>;
 
-auto file_element(const ParseContext& ctx) {
+// Function boundary for the same reason as message_element: a hub's type must not leak upward.
+Result<Parsed<FileElement, Token>> file_element(Range<Token> in, const ParseContext& ctx) {
     return alt(map(parse_option_decl, [](Option o) { return FileElement{std::move(o)}; }),
                map(import_decl(), [](ImportNode i) { return FileElement{std::move(i)}; }),
                map(package_decl(), [](PackageName p) { return FileElement{std::move(p)}; }),
@@ -918,7 +941,7 @@ auto file_element(const ParseContext& ctx) {
                map([ctx](Range<Token> i) { return parse_enum(i, ctx); },
                    [](EnumNode e) { return FileElement{std::move(e)}; }),
                map(kind(TokenKind::Semicolon),
-                   [](const Token&) { return FileElement{std::monostate{}}; }));
+                   [](const Token&) { return FileElement{std::monostate{}}; }))(in);
 }
 
 void apply_file_element(FileNode& file, FileElement& element) {
@@ -1067,7 +1090,7 @@ Result<Parsed<FileNode, Token>> parse_file(Range<Token> in) {
         return std::move(syntax.error());  // a malformed syntax/edition declaration
     }
 
-    auto body = many(file_element(ctx))(rest);
+    auto body = many([ctx](Range<Token> i) { return file_element(i, ctx); })(rest);
     if (!body) {
         Error e = std::move(body.error());
         e.byte_offset += static_cast<std::size_t>(rest.data() - in.data());

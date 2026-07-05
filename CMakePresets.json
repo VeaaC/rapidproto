@@ -32,6 +32,7 @@
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_C_COMPILER": "gcc-13",
         "CMAKE_CXX_COMPILER": "g++-13",
+        "CMAKE_CXX_FLAGS": "-gsplit-dwarf",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
       }
     },
@@ -43,6 +44,7 @@
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_C_COMPILER": "clang-20",
         "CMAKE_CXX_COMPILER": "clang++-20",
+        "CMAKE_CXX_FLAGS": "-gsplit-dwarf",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
       }
     }

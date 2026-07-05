@@ -176,6 +176,17 @@ child offsets, so the outermost parser reports a whole-buffer offset. Toolkit: `
 - `cut` marks the point a production is unambiguously entered, converting later failures into fatal errors
   so they propagate past `alt`/`opt`/`many` instead of backtracking.
 - `many`/`many1`/`separated_list` have zero-width-progress guards (no infinite loops).
+- **A hub's combinator type must not leak into enclosing instantiation names.** A grammar hub (a
+  `many(alt(...))` over rich branches — `message_element`, `file_element`, the lexer's token
+  alternates, …) and any deep-chain branch feeding one are plain functions with the signature
+  `Range<I> -> Result<Parsed<O, I>>`, invoking their combinator expression internally (and
+  parser-internal variants like `MessageElement` are wrapper structs, not `using` aliases, so they
+  mangle by name). Passing a hub's combinator *type* upward re-spells the entire subtree into every
+  enclosing instantiation name: measured on GCC 13, parser.cpp went from 65 s / 12.6 GB peak /
+  422 MB of `.debug_str` (one instantiation name reached 34 MB of text) to 9 s / 0.9 GB / 17 MB
+  purely by adding these boundaries, and lexer.cpp from 38 s / 10.7 GB to 3 s / 0.4 GB. The
+  boundary is also why the dev presets can carry plain `-g`; they add `-gsplit-dwarf` besides
+  (faster, lighter links; the `.dwo` files live beside their objects in the build tree).
 
 ### Lexer (`lexer.hpp`, `src/lexer.cpp`)
 
