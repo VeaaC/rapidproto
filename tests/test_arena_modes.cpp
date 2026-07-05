@@ -16,6 +16,8 @@
 #include "rapidproto/resolve.hpp"
 #include "rapidproto/resolver.hpp"
 #include "rapidproto/result.hpp"
+#include "rapidproto/source.hpp"
+#include "temp_dir.hpp"
 
 using namespace rapidproto;  // NOLINT(google-build-using-namespace): test convenience
 
@@ -241,4 +243,32 @@ TEST_CASE("modes: parser handles CRLF and a missing trailing newline; identifier
     arenagen::FieldModesSpec bad;
     CHECK(arenagen::parse_modes_file("name le-an\n", "p.txt", bad).is_err());
     CHECK(arenagen::parse_modes_file("name 9x\n", "p.txt", bad).is_err());
+}
+
+TEST_CASE("modes: one profile resolves across a batch of unrelated entry files") {
+    // The global-profile workflow: entries that do NOT import each other, one profile naming
+    // fields from both. Resolution runs against the batch's union symbols, so every name lands.
+    const test::TempDir dir("modes_batch");
+    dir.write("one.proto", R"(syntax = "proto3"; package one;
+                              message Payload { bytes data = 1; }
+                              message Holder { Payload p = 1; int32 skip_me = 2; })");
+    dir.write("two.proto", R"(syntax = "proto3"; package two;
+                              message Other { string note = 1; })");
+    ResolverConfig config;
+    config.include_paths = {dir.root()};
+    SourceRegistry sources;
+    auto resolved = resolve({dir.path("one.proto"), dir.path("two.proto")}, config, sources);
+    REQUIRE(resolved.is_ok());
+    ResolvedFileSet set = std::move(resolved).value();
+    auto analyzed = analyze(set);
+    REQUIRE(analyzed.is_ok());
+    const SymbolTable symbols = std::move(analyzed).value();
+
+    const auto modes =
+        arenagen::resolve_field_modes(spec_of({{arenagen::FieldMode::Raw, "one.Payload"},
+                                               {arenagen::FieldMode::Drop, "one.Holder.skip_me"},
+                                               {arenagen::FieldMode::Drop, "two.Other.note"}}),
+                                      set, symbols);
+    REQUIRE(modes.is_ok());
+    CHECK(modes.value().fields.size() == 3);  // p (via type), skip_me, note -- across both files
 }

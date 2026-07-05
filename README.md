@@ -240,8 +240,10 @@ every field of that message type), choose:
 Profiles come from a file (one `drop <name>` / `raw <name>` per line, `#` comments, an optional
 `name <identifier>` line) via `--field-modes=<file>`, or inline via `--drop=<name>` / `--raw=<name>`. A
 field-level entry beats a type-level entry; unknown names are hard errors; field modes do not
-apply inside a oneof. The profile applies to *every* entry of the invocation, so each entry's
-schema must resolve every name — generate heterogeneous schemas in separate invocations.
+apply inside a oneof. The profile resolves against *everything* the invocation generates — the
+entries resolve as one batch — so a global profile works by listing (or `PROTOS`-listing, in
+CMake) every schema it spans in one generation; a name unknown across the whole batch is still a
+hard error.
 
 ```
 # lean.modes — this consumer never reads sides, and reads origin only on demand
@@ -503,13 +505,15 @@ rapidprotoc [options] <entry.proto>...
 | `--out-dir <dir>` | Where to write the headers (and `rapidproto/runtime.hpp`, plus `arena_runtime.hpp` for `--arena`). Default: the current directory. |
 | `--namespace-prefix <ns>` | Dot-separated prefix prepended to every C++ namespace (see [Coexisting with protoc](#coexisting-with-protoc)). |
 | `--no-wellknown` | Don't load the bundled well-known-type definitions. |
-| `--depfile <path>` | Write a Make/Ninja depfile (the headers depend on the entry **and** every import) so a build regenerates when any input `.proto` changes. Used by the CMake helper; harmless otherwise. |
+| `--depfile <path>` | Write a Make/Ninja depfile (the entries' headers depend on **every** input `.proto` and profile file) so a build regenerates when any input changes. Used by the CMake helper; harmless otherwise. |
 | `-v`, `--verbose` | Log each written file (`wrote <path>`); output is otherwise silent on success. |
 | `-h`, `--help` | Print the full flag table and exit. |
 | `--version` | Print the tool version and exit. |
 
-One invocation emits a decoder for the entry **and** its transitive imports **and** the well-known types
-it uses, plus the shared `<stem>.rp.common.hpp` and the runtime, so the output directory is
+Multiple entries resolve as **one batch**: shared imports parse once, every file in the union
+gets its decoder exactly once, and a decode profile resolves against all of them together. Each
+generated file covers the entry **and** its transitive imports **and** the well-known types it
+uses, plus the shared `<stem>.rp.common.hpp` and the runtime, so the output directory is
 self-contained.
 
 ---

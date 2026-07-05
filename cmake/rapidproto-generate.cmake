@@ -56,7 +56,7 @@ function(_rapidproto_require_host_tool tool target)
 endfunction()
 
 # rapidproto_generate(<target>
-#   PROTOS <file.proto>...          # schema entry files (each generated together with its import closure)
+#   PROTOS <file.proto>...          # schema entry files (generated as ONE batch with their imports)
 #   [GENERATOR arena|stream|both]   # which decoder(s) to emit (default: arena -- the default model)
 #   [IMPORT_DIRS <dir>...]          # -I import search roots (the root your .proto tree imports against)
 #   [NAMESPACE_PREFIX <ns>]         # nest generated namespaces under <ns> (e.g. to coexist with protoc)
@@ -153,10 +153,10 @@ function(rapidproto_generate target)
     set(_rpg_workdir "${CMAKE_BINARY_DIR}")
   endif()
 
-  # GENERATOR both is ONE rapidprotoc invocation per proto -- it parses once and writes both decoders
-  # (+ the shared common header), so the custom command lists BOTH headers as OUTPUT and uses a single
-  # multi-target depfile, not two separate commands. The model flags and produced headers derive from
-  # the selected jobs (arena before stream, matching the CLI's emit + depfile-target order).
+  # GENERATOR both rides the same single invocation: the CLI writes both decoders (+ the shared
+  # common header) per file, so the custom command lists every selected header as OUTPUT under one
+  # multi-target depfile. The model flags and produced headers derive from the selected jobs
+  # (arena before stream, matching the CLI's emit + depfile-target order).
   set(_model_flags "")
   set(_modes_files_abs "")
   if("arena" IN_LIST _jobs)
@@ -189,40 +189,44 @@ function(rapidproto_generate target)
     _rapidproto_require_host_tool(${_cli} ${target})
   endif()
 
+  # ONE rapidprotoc invocation for the whole target: the entries resolve as a batch (shared
+  # imports parse once, and a FIELD_MODES profile resolves against every proto's symbols at once,
+  # so one profile can span the target's schemas). The cost: touching any listed proto re-runs
+  # generation for the whole target.
   set(_outputs "")
+  set(_protos_abs "")
   foreach(_proto IN LISTS RPG_PROTOS)
     get_filename_component(_proto_abs "${_proto}" ABSOLUTE)
-    set(_headers "")
+    list(APPEND _protos_abs "${_proto_abs}")
     if("arena" IN_LIST _jobs)
       _rapidproto_output_header(_h "${_proto_abs}" ".rp.hpp" "${RPG_OUT_DIR}" "${_import_dirs_abs}")
-      list(APPEND _headers "${_h}")
+      list(APPEND _outputs "${_h}")
     endif()
     if("stream" IN_LIST _jobs)
       _rapidproto_output_header(_h "${_proto_abs}" ".rp.stream.hpp" "${RPG_OUT_DIR}" "${_import_dirs_abs}")
-      list(APPEND _headers "${_h}")
+      list(APPEND _outputs "${_h}")
     endif()
-    # Name the depfile off the first header; the CLI lists every produced decoder as a target in it (so
-    # each output node gets the import edges), and re-running regenerates the whole closure.
-    list(GET _headers 0 _anchor)
-    set(_depfile_cli "")
-    set(_depfile_cmd "")
-    if(_rpg_depfile)
-      set(_depfile_cli --depfile "${_anchor}.d")
-      set(_depfile_cmd DEPFILE "${_anchor}.d")
-    endif()
-    # Run from the depfile's interpretation base (see _rpg_workdir) so the targets the CLI emits --
-    # relative to its working directory -- match how the build tool names the output nodes. All CLI
-    # arguments are absolute, so the working directory does not otherwise matter.
-    add_custom_command(
-      OUTPUT ${_headers}
-      COMMAND ${_cli} ${_common} ${_model_flags} --out-dir "${RPG_OUT_DIR}" ${_depfile_cli} "${_proto_abs}"
-      ${_depfile_cmd}
-      DEPENDS "${_proto_abs}" ${_modes_files_abs} ${_cli}
-      WORKING_DIRECTORY "${_rpg_workdir}"
-      COMMENT "rapidproto: ${_proto}"
-      VERBATIM)
-    list(APPEND _outputs ${_headers})
   endforeach()
+  # Name the depfile off the first header; the CLI lists every entry's decoder header as a target
+  # in it (so each output node gets the import edges), and re-running regenerates the whole batch.
+  list(GET _outputs 0 _anchor)
+  set(_depfile_cli "")
+  set(_depfile_cmd "")
+  if(_rpg_depfile)
+    set(_depfile_cli --depfile "${_anchor}.d")
+    set(_depfile_cmd DEPFILE "${_anchor}.d")
+  endif()
+  # Run from the depfile's interpretation base (see _rpg_workdir) so the targets the CLI emits --
+  # relative to its working directory -- match how the build tool names the output nodes. All CLI
+  # arguments are absolute, so the working directory does not otherwise matter.
+  add_custom_command(
+    OUTPUT ${_outputs}
+    COMMAND ${_cli} ${_common} ${_model_flags} --out-dir "${RPG_OUT_DIR}" ${_depfile_cli} ${_protos_abs}
+    ${_depfile_cmd}
+    DEPENDS ${_protos_abs} ${_modes_files_abs} ${_cli}
+    WORKING_DIRECTORY "${_rpg_workdir}"
+    COMMENT "rapidproto: ${target}"
+    VERBATIM)
 
   # A driver target builds all the headers; the INTERFACE library consumers link depends on it (so
   # linking the library triggers generation) and carries OUT_DIR as a usage-requirement include dir

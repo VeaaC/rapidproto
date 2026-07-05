@@ -19,6 +19,7 @@
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -161,13 +162,14 @@ inline ParseResult parse_args(int argc, char** argv, std::string_view usage,
     return {std::move(opts), 0};
 }
 
-// Resolve `entry` and its imports, then run the semantic pipeline. On error prints to stderr and
-// returns nullopt; on success returns the analyzed file set and its symbol table. (Moving the set is
-// safe for the table: its node pointers reference the set's vector storage, which survives the move.)
+// Resolve `entries` (one union batch) and their imports, then run the semantic pipeline. On error
+// prints to stderr and returns nullopt; on success returns the analyzed file set and its symbol
+// table. (Moving the set is safe for the table: its node pointers reference the set's vector
+// storage, which survives the move.)
 inline std::optional<std::pair<ResolvedFileSet, SymbolTable>> resolve_and_analyze(
-    const std::string& entry, const ResolverConfig& config) {
+    const std::vector<std::string>& entries, const ResolverConfig& config) {
     SourceRegistry sources;
-    auto resolved = resolve(entry, config, sources);
+    auto resolved = resolve(entries, config, sources);
     if (resolved.is_err()) {
         std::cerr << "error: " << render_error(resolved.error(), sources) << '\n';
         return std::nullopt;
@@ -271,24 +273,29 @@ inline std::filesystem::path lexically_absolute(const std::filesystem::path& pat
     return (error ? path : abs).lexically_normal();
 }
 
-// The on-disk .proto files `set` (the closure of `entry`) was built from: the entry plus every import
-// found under an include path. Well-known types loaded from the embedded definitions are not on disk,
-// so the include-path search misses them and they are correctly excluded -- unless the user shadows a
-// WKT with their own copy on an include path, in which case that copy IS a real dependency and is
-// listed. These are the depfile's prerequisites.
-inline std::vector<std::filesystem::path> disk_proto_paths(const std::string& entry,
+// The on-disk .proto files `set` (the union closure of `entries`) was built from: each entry plus
+// every import found under an include path. Well-known types loaded from the embedded definitions
+// are not on disk, so the include-path search misses them and they are correctly excluded --
+// unless the user shadows a WKT with their own copy on an include path, in which case that copy
+// IS a real dependency and is listed. These are the depfile's prerequisites.
+inline std::vector<std::filesystem::path> disk_proto_paths(const std::vector<std::string>& entries,
                                                            const ResolvedFileSet& set,
                                                            const ResolverConfig& config) {
     std::vector<std::filesystem::path> paths;
-    paths.emplace_back(entry);  // the entry is given as a disk path
-    // The entry is set.files.back() (resolve() collects post-order, root last); it is already added
-    // above from its given spelling, so skip it here to avoid listing it twice (the include-resolved
-    // spelling can differ from the given one and dedup wouldn't collapse them).
-    const std::size_t imports = set.files.empty() ? 0 : set.files.size() - 1;
-    for (std::size_t i = 0; i < imports; ++i) {
+    // Entries are given as disk paths: list those spellings directly, and skip their canonical
+    // names below (the include-resolved spelling can differ from the given one, and dedup would
+    // not collapse the two).
+    std::unordered_set<std::string> entry_names;
+    for (const std::string& entry : entries) {
+        paths.emplace_back(entry);
+        entry_names.insert(canonical_entry_name(entry, config.include_paths));
+    }
+    for (const FileNode& file : set.files) {
+        if (entry_names.count(file.filename) != 0) {
+            continue;
+        }
         for (const std::string& include : config.include_paths) {
-            const std::filesystem::path full =
-                std::filesystem::path(include) / set.files[i].filename;
+            const std::filesystem::path full = std::filesystem::path(include) / file.filename;
             std::error_code error;  // an unstattable path (e.g. EACCES) is "not found", not a throw
             if (std::filesystem::exists(full, error)) {
                 paths.push_back(full);

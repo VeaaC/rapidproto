@@ -45,7 +45,7 @@ int main(int argc, char** argv) {
         "  --raw=<name>             arena: keep a message field's or type's payloads for deferred"
         " decodes\n"
         "  --namespace-prefix <ns>  dot-separated prefix prepended to every C++ namespace\n"
-        "  --depfile <file>         write a Make/Ninja depfile covering the entry's imports\n"
+        "  --depfile <file>         write a Make/Ninja depfile covering every input .proto\n"
         "  --no-wellknown           don't load the bundled well-known-type definitions\n"
         "  -v, --verbose            log each written file\n"
         "  -h, --help               show this help\n"
@@ -94,10 +94,6 @@ int main(int argc, char** argv) {
     if (!arena && !stream) {
         arena = true;  // arena is the default model
     }
-    if (!opts->depfile.empty() && opts->entries.size() > 1) {
-        std::cerr << "error: --depfile expects a single entry (a depfile describes one rule)\n";
-        return 2;
-    }
     const bool modes_requested = !modes_files.empty() || !modes_spec.entries.empty();
     if (modes_requested && !arena) {
         std::cerr << "error: field modes (--field-modes/--drop/--raw) apply to the arena decoder;"
@@ -126,88 +122,94 @@ int main(int argc, char** argv) {
         }
     }
 
-    std::vector<std::filesystem::path>
-        targets;  // the entry's selected decoder header(s): depfile targets
-    std::vector<std::filesystem::path> prereqs;  // every input .proto: the depfile prerequisites
-    for (const std::string& entry : opts->entries) {
-        auto analyzed = rapidproto::cli::resolve_and_analyze(entry, opts->config);
-        if (!analyzed) {
+    // The entries resolve as ONE batch: a union closure in which shared imports parse once, every
+    // file generates once, and a field-modes profile resolves against every entry's symbols at
+    // once -- so one profile can span schemas that live in different entry files.
+    auto analyzed = rapidproto::cli::resolve_and_analyze(opts->entries, opts->config);
+    if (!analyzed) {
+        return 1;
+    }
+    const rapidproto::ResolvedFileSet& set = analyzed->first;
+    const rapidproto::SymbolTable& symbols = analyzed->second;
+
+    // Build the name table(s) ONCE for the whole resolved set (identical for every file), then emit
+    // per file. `names` has NO model namespace: arena types sit at pkg::Msg and enums at pkg::State
+    // (the common header's home), so it drives both the arena decoder and the model-agnostic common.
+    // `names_stream` nests messages under pkg::stream (enums stay shared); built only when needed.
+    const rapidproto::codegen::CppNameTable names =
+        set.files.empty() ? rapidproto::codegen::CppNameTable{}
+                          : rapidproto::codegen::build_cpp_names(
+                                set.files.front(), set.files,
+                                rapidproto::codegen::namespace_of(opts->namespace_prefix));
+    rapidproto::codegen::CppNameTable names_stream;
+    if (stream && !set.files.empty()) {
+        names_stream = rapidproto::codegen::build_cpp_names(
+            set.files.front(), set.files, rapidproto::codegen::namespace_of(opts->namespace_prefix),
+            "stream");
+    }
+    std::optional<rapidproto::arenagen::LayoutSet> layouts;
+    rapidproto::arenagen::FieldModes modes;  // inactive unless a selection resolved
+    if (arena) {
+        if (modes_requested) {
+            auto resolved = rapidproto::arenagen::resolve_field_modes(modes_spec, set, symbols);
+            if (resolved.is_err()) {
+                std::cerr << "error: " << resolved.error().message << '\n';
+                return 1;
+            }
+            modes = std::move(resolved).value();
+        }
+        rapidproto::arenagen::LayoutOptions options;
+        options.unknown_present = unknown_present;
+        options.modes = &modes;
+        layouts = rapidproto::arenagen::plan_layouts(set, symbols, options);
+    }
+
+    for (const rapidproto::FileNode& file : set.files) {
+        // The shared common header (the schema's top-level enums) every selected decoder includes.
+        if (!rapidproto::cli::write_shared_file(
+                rapidproto::cli::header_path(opts->out_dir, file, ".rp.common.hpp"),
+                rapidproto::codegen::emit_common_header(file, names), opts->verbose)) {
             return 1;
         }
-        const rapidproto::ResolvedFileSet& set = analyzed->first;
-        const rapidproto::SymbolTable& symbols = analyzed->second;
-
-        // Build the name table(s) ONCE for the whole resolved set (identical for every file), then emit
-        // per file. `names` has NO model namespace: arena types sit at pkg::Msg and enums at pkg::State
-        // (the common header's home), so it drives both the arena decoder and the model-agnostic common.
-        // `names_stream` nests messages under pkg::stream (enums stay shared); built only when needed.
-        const rapidproto::codegen::CppNameTable names =
-            set.files.empty() ? rapidproto::codegen::CppNameTable{}
-                              : rapidproto::codegen::build_cpp_names(
-                                    set.files.front(), set.files,
-                                    rapidproto::codegen::namespace_of(opts->namespace_prefix));
-        rapidproto::codegen::CppNameTable names_stream;
-        if (stream && !set.files.empty()) {
-            names_stream = rapidproto::codegen::build_cpp_names(
-                set.files.front(), set.files,
-                rapidproto::codegen::namespace_of(opts->namespace_prefix), "stream");
+        if (arena && !rapidproto::cli::write_header(opts->out_dir, file, ".rp.hpp",
+                                                    rapidproto::arenagen::generate_header(
+                                                        file, names, *layouts, symbols, &modes),
+                                                    opts->verbose)) {
+            return 1;
         }
-        std::optional<rapidproto::arenagen::LayoutSet> layouts;
-        rapidproto::arenagen::FieldModes modes;  // inactive unless a selection resolved
-        if (arena) {
-            if (modes_requested) {
-                auto resolved = rapidproto::arenagen::resolve_field_modes(modes_spec, set, symbols);
-                if (resolved.is_err()) {
-                    std::cerr << "error: " << resolved.error().message << '\n';
-                    return 1;
-                }
-                modes = std::move(resolved).value();
-            }
-            rapidproto::arenagen::LayoutOptions options;
-            options.unknown_present = unknown_present;
-            options.modes = &modes;
-            layouts = rapidproto::arenagen::plan_layouts(set, symbols, options);
+        if (stream &&
+            !rapidproto::cli::write_header(
+                opts->out_dir, file, ".rp.stream.hpp",
+                rapidproto::streamgen::generate_header(file, names_stream), opts->verbose)) {
+            return 1;
         }
-
-        for (const rapidproto::FileNode& file : set.files) {
-            // The shared common header (the schema's top-level enums) every selected decoder includes.
-            if (!rapidproto::cli::write_shared_file(
-                    rapidproto::cli::header_path(opts->out_dir, file, ".rp.common.hpp"),
-                    rapidproto::codegen::emit_common_header(file, names), opts->verbose)) {
-                return 1;
+    }
+    std::vector<std::filesystem::path> targets;  // entry decoder headers: the depfile's targets
+    std::vector<std::filesystem::path> prereqs;  // every input .proto (+ profiles): prerequisites
+    if (!opts->depfile.empty() && !set.files.empty()) {
+        // The depfile's targets are the ENTRIES' selected decoder headers (one batch = one rule
+        // producing them all); imports' headers regenerate with them, so their staleness rides on
+        // the entry targets, mirroring what the CMake helper declares as the command's OUTPUT.
+        for (const std::string& entry : opts->entries) {
+            const std::string name =
+                rapidproto::canonical_entry_name(entry, opts->config.include_paths);
+            const auto it = set.file_index.find(name);
+            if (it == set.file_index.end()) {
+                continue;  // unreachable: every entry resolves into the set
             }
-            if (arena && !rapidproto::cli::write_header(opts->out_dir, file, ".rp.hpp",
-                                                        rapidproto::arenagen::generate_header(
-                                                            file, names, *layouts, symbols, &modes),
-                                                        opts->verbose)) {
-                return 1;
-            }
-            if (stream &&
-                !rapidproto::cli::write_header(
-                    opts->out_dir, file, ".rp.stream.hpp",
-                    rapidproto::streamgen::generate_header(file, names_stream), opts->verbose)) {
-                return 1;
-            }
-        }
-        if (!opts->depfile.empty() && !set.files.empty()) {
-            // The depfile's targets are the entry's own selected decoder header(s) (set.files.back());
-            // re-running the CLI regenerates the whole closure, so their staleness gates the rebuild.
-            // --depfile is rejected above for >1 entry, so this rule has the one entry's targets.
+            const rapidproto::FileNode& file = set.files[it->second];
             if (arena) {
-                targets.push_back(
-                    rapidproto::cli::header_path(opts->out_dir, set.files.back(), ".rp.hpp"));
+                targets.push_back(rapidproto::cli::header_path(opts->out_dir, file, ".rp.hpp"));
             }
             if (stream) {
-                targets.push_back(rapidproto::cli::header_path(opts->out_dir, set.files.back(),
-                                                               ".rp.stream.hpp"));
+                targets.push_back(
+                    rapidproto::cli::header_path(opts->out_dir, file, ".rp.stream.hpp"));
             }
-            const std::vector<std::filesystem::path> deps =
-                rapidproto::cli::disk_proto_paths(entry, set, opts->config);
-            prereqs.insert(prereqs.end(), deps.begin(), deps.end());
-            // Editing a decode profile changes the generated shape, so profiles are prerequisites
-            // exactly like the .proto inputs.
-            prereqs.insert(prereqs.end(), modes_files.begin(), modes_files.end());
         }
+        prereqs = rapidproto::cli::disk_proto_paths(opts->entries, set, opts->config);
+        // Editing a decode profile changes the generated shape, so profiles are prerequisites
+        // exactly like the .proto inputs.
+        prereqs.insert(prereqs.end(), modes_files.begin(), modes_files.end());
     }
 
     // Drop the self-contained runtime headers so the generated #includes resolve with no rapidproto

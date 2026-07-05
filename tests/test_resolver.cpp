@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "rapidproto/ast.hpp"
 #include "rapidproto/resolve.hpp"
@@ -268,4 +269,66 @@ TEST_CASE("resolver: use_wellknown=false disables the embedded fallback") {
 
     REQUIRE(result.is_err());
     CHECK(result.error().message.find("import not found") != std::string::npos);
+}
+
+TEST_CASE("resolver: a batch resolves shared imports once, in one topological order") {
+    const TempDir dir("batch");
+    dir.write("a.proto", R"(syntax = "proto3"; import "shared.proto"; message A {})");
+    dir.write("b.proto", R"(syntax = "proto3"; import "shared.proto"; message B {})");
+    dir.write("shared.proto", R"(syntax = "proto3"; message S {})");
+
+    ResolverConfig config;
+    config.include_paths = {dir.root()};
+    SourceRegistry sources;
+    auto result = resolve({dir.path("a.proto"), dir.path("b.proto")}, config, sources);
+
+    REQUIRE(result.is_ok());
+    const ResolvedFileSet& set = result.value();
+    REQUIRE(set.files.size() == 3);  // shared.proto once, not per entry
+    CHECK(set.file_index.at("shared.proto") < set.file_index.at("a.proto"));
+    CHECK(set.file_index.at("shared.proto") < set.file_index.at("b.proto"));
+}
+
+TEST_CASE("resolver: an entry that another entry imports resolves once, in either order") {
+    const TempDir dir("batch_entryimport");
+    dir.write("a.proto", R"(syntax = "proto3"; import "b.proto"; message A {})");
+    dir.write("b.proto", R"(syntax = "proto3"; message B {})");
+
+    ResolverConfig config;
+    config.include_paths = {dir.root()};
+    for (const auto& entries :
+         {std::vector<std::string>{dir.path("a.proto"), dir.path("b.proto")},
+          std::vector<std::string>{dir.path("b.proto"), dir.path("a.proto")},
+          // b spelled as a DISK PATH entry while a's import says "b.proto":
+          // the canonical-name identity must collapse the two spellings.
+          std::vector<std::string>{dir.root() + "/b.proto", dir.path("a.proto")}}) {
+        SourceRegistry sources;
+        auto result = resolve(entries, config, sources);
+        REQUIRE(result.is_ok());
+        const ResolvedFileSet& set = result.value();
+        REQUIRE(set.files.size() == 2);  // b once: entry and import are the same file
+        CHECK(set.file_index.at("b.proto") < set.file_index.at("a.proto"));
+    }
+}
+
+TEST_CASE("resolver: a batch spans nested folders with cross-folder imports") {
+    const TempDir dir("batch_nested");
+    dir.write("top.proto", R"(syntax = "proto3"; import "sub/inner.proto"; message T {})");
+    dir.write("sub/inner.proto", R"(syntax = "proto3"; import "sub/deep/leaf.proto";
+                                    message I {})");
+    dir.write("sub/deep/leaf.proto", R"(syntax = "proto3"; message L {})");
+
+    ResolverConfig config;
+    config.include_paths = {dir.root()};
+    SourceRegistry sources;
+    // The nested files are BOTH entries and imports; each must key to its import-relative name.
+    auto result = resolve(
+        {dir.path("top.proto"), dir.path("sub/inner.proto"), dir.path("sub/deep/leaf.proto")},
+        config, sources);
+
+    REQUIRE(result.is_ok());
+    const ResolvedFileSet& set = result.value();
+    REQUIRE(set.files.size() == 3);
+    CHECK(set.file_index.at("sub/deep/leaf.proto") < set.file_index.at("sub/inner.proto"));
+    CHECK(set.file_index.at("sub/inner.proto") < set.file_index.at("top.proto"));
 }

@@ -247,7 +247,11 @@ message-literal/list ↔ field, nested message/group/extend bodies). `parse_file
 ### Import resolver (`resolver.hpp`, `src/resolver.cpp`)
 
 `resolve(entry_file, config)` does a DFS over the import graph, returning `ResolvedFileSet { files
-(topological), file_index (canonical name → index) }`.
+(topological), file_index (canonical name → index) }`. The multi-entry overload unions several
+entries into ONE set — a file reached twice (listed twice, or listed and also imported) resolves
+once, keyed by its canonical name — which is what makes a `rapidprotoc` invocation a batch: one
+parse per file, one topological order, and one field-modes resolution across everything generated
+together.
 
 - **Cycle detection** uses white/gray/black tri-coloring (gray = on the DFS stack); a back-edge to gray is
   reported with the full cycle path. Post-order collection gives topological order.

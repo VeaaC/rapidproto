@@ -3,6 +3,16 @@
 Notable, user-visible changes per release. Pre-1.0, the MINOR version is the breaking axis (the
 SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never within a patch.
 
+## Unreleased
+
+### Changed
+
+- Multiple `rapidprotoc` entries (and a CMake target's `PROTOS`) now generate as **one batch**:
+  shared imports parse once, every file generates exactly once, `--depfile` covers the whole
+  batch in one rule, and a `--field-modes` profile resolves against the union of all entries'
+  schemas — one global profile can span schemas living in different entry files, while a name
+  unknown across the whole batch is still a hard error.
+
 ## 0.2.1 — 2026-07-04
 
 ### Added

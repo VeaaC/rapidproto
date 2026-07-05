@@ -42,34 +42,6 @@ std::optional<std::string> read_file_contents(const std::filesystem::path& path)
     return contents.str();
 }
 
-// The canonical key for a file is its proto-path-relative import path. The entry is
-// given as a disk path, so derive its relative name if it lies under an include path
-// (so a file importing the entry back maps to the same key); otherwise key it as-is.
-std::string canonical_entry_name(const std::string& entry,
-                                 const std::vector<std::string>& include_paths) {
-    std::error_code ec;
-    const std::filesystem::path abs_entry = std::filesystem::weakly_canonical(entry, ec);
-    if (ec) {
-        return entry;
-    }
-    for (const auto& include : include_paths) {
-        const std::filesystem::path abs_include = std::filesystem::weakly_canonical(include, ec);
-        if (ec) {
-            continue;
-        }
-        const std::filesystem::path relative =
-            std::filesystem::relative(abs_entry, abs_include, ec);
-        if (ec || relative.empty()) {
-            continue;
-        }
-        const std::string name = relative.generic_string();
-        if (name.rfind("..", 0) != 0) {  // entry is under this include path
-            return name;
-        }
-    }
-    return entry;
-}
-
 // Lex + parse one source into a FileNode (filename set), tagging any lex/parse error with `id` and
 // a source byte offset, so it renders as file:line:col.
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): filename vs source, distinct roles
@@ -116,14 +88,23 @@ public:
     Resolver(ResolverConfig config, SourceRegistry& sources)
         : m_config(std::move(config)), m_sources(sources) {}
 
-    Result<ResolvedFileSet> run(const std::string& entry_file) {
-        auto source = read_file_contents(entry_file);
-        if (!source) {
-            return Error{0, "entry file not found: " + entry_file};
-        }
-        const std::string entry_name = canonical_entry_name(entry_file, m_config.include_paths);
-        if (auto error = visit(entry_name, std::move(*source))) {
-            return *error;
+    // Resolve every entry into ONE union set. Entries visit in argument order; a file reached
+    // twice -- listed twice, or listed AND imported by an earlier entry -- resolves once (the
+    // canonical name is the identity), so the union stays a set and the topological order holds
+    // across entries.
+    Result<ResolvedFileSet> run(const std::vector<std::string>& entry_files) {
+        for (const std::string& entry_file : entry_files) {
+            const std::string entry_name = canonical_entry_name(entry_file, m_config.include_paths);
+            if (m_parsed.count(entry_name) != 0) {
+                continue;  // already resolved via an earlier entry (as it, or as its import)
+            }
+            auto source = read_file_contents(entry_file);
+            if (!source) {
+                return Error{0, "entry file not found: " + entry_file};
+            }
+            if (auto error = visit(entry_name, std::move(*source))) {
+                return *error;
+            }
         }
 
         ResolvedFileSet set;
@@ -245,14 +226,44 @@ std::string canonical_import_path(const std::string& import_path) {
     return std::filesystem::path(import_path).lexically_normal().generic_string();
 }
 
+std::string canonical_entry_name(const std::string& entry,
+                                 const std::vector<std::string>& include_paths) {
+    std::error_code ec;
+    const std::filesystem::path abs_entry = std::filesystem::weakly_canonical(entry, ec);
+    if (ec) {
+        return entry;
+    }
+    for (const auto& include : include_paths) {
+        const std::filesystem::path abs_include = std::filesystem::weakly_canonical(include, ec);
+        if (ec) {
+            continue;
+        }
+        const std::filesystem::path relative =
+            std::filesystem::relative(abs_entry, abs_include, ec);
+        if (ec || relative.empty()) {
+            continue;
+        }
+        const std::string name = relative.generic_string();
+        if (name.rfind("..", 0) != 0) {  // entry is under this include path
+            return name;
+        }
+    }
+    return entry;
+}
+
 Result<ResolvedFileSet> resolve(const std::string& entry_file, const ResolverConfig& config,
                                 SourceRegistry& sources) {
-    return Resolver(config, sources).run(entry_file);
+    return Resolver(config, sources).run({entry_file});
 }
 
 Result<ResolvedFileSet> resolve(const std::string& entry_file, const ResolverConfig& config) {
     SourceRegistry discard;  // callers using this overload do not render with line:col
-    return Resolver(config, discard).run(entry_file);
+    return Resolver(config, discard).run({entry_file});
+}
+
+Result<ResolvedFileSet> resolve(const std::vector<std::string>& entry_files,
+                                const ResolverConfig& config, SourceRegistry& sources) {
+    return Resolver(config, sources).run(entry_files);
 }
 
 }  // namespace rapidproto

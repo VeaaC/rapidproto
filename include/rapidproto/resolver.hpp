@@ -39,9 +39,22 @@ Result<ResolvedFileSet> resolve(const std::string& entry_file, const ResolverCon
 // discarded). Errors still carry their message; only the file:line:col rendering is unavailable.
 Result<ResolvedFileSet> resolve(const std::string& entry_file, const ResolverConfig& config);
 
+// Resolve MANY entries into ONE union set (a batch generation): entries visit in argument order,
+// and a file reached twice -- listed twice, or listed and also imported by another entry --
+// resolves once (canonical-name identity), so shared imports parse once and the whole batch
+// shares one topological order. A one-entry batch is identical to the single-entry overloads.
+Result<ResolvedFileSet> resolve(const std::vector<std::string>& entry_files,
+                                const ResolverConfig& config, SourceRegistry& sources);
+
 // Normalize an import path to a stable canonical key (collapses "./" and "x/../"), so the same file
 // imported via different spellings maps to one entry. Used by the resolver and the type resolver's
 // visibility lookup so both agree on file identity.
 std::string canonical_import_path(const std::string& import_path);
+
+// The canonical key for an ENTRY given as a disk path: its import path relative to the first
+// include path containing it (so an entry that is also imported maps to the same key), else the
+// path as given. The CLI uses it to match entries against a batch's resolved files.
+std::string canonical_entry_name(const std::string& entry,
+                                 const std::vector<std::string>& include_paths);
 
 }  // namespace rapidproto

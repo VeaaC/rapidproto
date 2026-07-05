@@ -43,7 +43,7 @@ std::vector<std::filesystem::path> deps_of(const std::string& dir, const std::st
     auto resolved = resolve(path, config);
     REQUIRE(resolved.is_ok());
     const ResolvedFileSet set = std::move(resolved).value();
-    return cli::disk_proto_paths(path, set, config);
+    return cli::disk_proto_paths({path}, set, config);
 }
 
 std::string read_text(const std::filesystem::path& path) {
