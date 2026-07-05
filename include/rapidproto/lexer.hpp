@@ -10,6 +10,7 @@
 // allows keywords as names), so this is purely lexical classification.
 
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -19,7 +20,7 @@
 
 namespace rapidproto {
 
-enum class TokenKind {
+enum class TokenKind : std::uint8_t {
     // Literals / names
     Identifier,
     IntLiteral,

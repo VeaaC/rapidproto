@@ -19,8 +19,8 @@ public:
     constexpr SourceId() noexcept = default;
     explicit constexpr SourceId(std::uint32_t index) noexcept : m_index(index) {}
 
-    constexpr bool valid() const noexcept { return m_index != kInvalid; }
-    constexpr std::uint32_t index() const noexcept { return m_index; }
+    [[nodiscard]] constexpr bool valid() const noexcept { return m_index != kInvalid; }
+    [[nodiscard]] constexpr std::uint32_t index() const noexcept { return m_index; }
 
     static constexpr SourceId invalid() noexcept { return SourceId{}; }
 
@@ -30,7 +30,7 @@ public:
     friend constexpr bool operator!=(SourceId a, SourceId b) noexcept { return !(a == b); }
 
 private:
-    static constexpr std::uint32_t kInvalid = 0xFFFF'FFFFu;
+    static constexpr std::uint32_t kInvalid = 0xFFFF'FFFFU;
     std::uint32_t m_index = kInvalid;
 };
 

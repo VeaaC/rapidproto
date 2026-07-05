@@ -43,8 +43,8 @@ public:
     [[nodiscard]] const std::string& str() const noexcept { return m_out; }
 
 private:
-    std::string substitute(std::string_view text,
-                           std::initializer_list<Binding> inline_vars) const {
+    [[nodiscard]] std::string substitute(std::string_view text,
+                                         std::initializer_list<Binding> inline_vars) const {
         std::string out;
         std::size_t i = 0;
         while (i < text.size()) {
@@ -73,8 +73,8 @@ private:
     }
 
     // Inline-binding and persistent-var values both outlive the print() call, so a view is safe.
-    std::optional<std::string_view> lookup(std::string_view name,
-                                           std::initializer_list<Binding> inline_vars) const {
+    [[nodiscard]] std::optional<std::string_view> lookup(
+        std::string_view name, std::initializer_list<Binding> inline_vars) const {
         for (const auto& [key, value] : inline_vars) {
             if (key == name) {
                 return value;

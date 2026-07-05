@@ -111,14 +111,19 @@ inline constexpr int kMaxGroupDepth = 100;
 // later reads also fail; query with failed()/error_code()/fail_offset().
 class WireReader {
 public:
+    // data() is immediately re-bounded by size(): begin/end are exactly the view's own extent,
+    // never a C string.
     explicit WireReader(ByteView input) noexcept
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic, bugprone-suspicious-stringview-data-usage)
         : m_begin(as_bytes(input.data())), m_cur(m_begin), m_end(m_begin + input.size()) {}
 
-    bool at_end() const noexcept { return m_cur >= m_end; }
-    std::size_t position() const noexcept { return static_cast<std::size_t>(m_cur - m_begin); }
-    bool failed() const noexcept { return m_error != WireError::None; }
-    WireError error_code() const noexcept { return m_error; }
-    std::size_t fail_offset() const noexcept { return m_fail_offset; }
+    [[nodiscard]] bool at_end() const noexcept { return m_cur >= m_end; }
+    [[nodiscard]] std::size_t position() const noexcept {
+        return static_cast<std::size_t>(m_cur - m_begin);
+    }
+    [[nodiscard]] bool failed() const noexcept { return m_error != WireError::None; }
+    [[nodiscard]] WireError error_code() const noexcept { return m_error; }
+    [[nodiscard]] std::size_t fail_offset() const noexcept { return m_fail_offset; }
 
     // Hot primitives: inline, allocation-free. nullopt => failed (code/offset on the reader).
     std::optional<std::uint64_t> read_varint() noexcept;  // <=10 bytes, 1-byte fast path
@@ -169,7 +174,7 @@ inline std::optional<std::vector<WireField>> read_message(ByteView input,
 // Build a ByteView from a raw byte array (for tests/embedders holding uint8_t buffers).
 inline ByteView byte_view(const std::uint8_t* data, std::size_t size) noexcept {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast): bytes -> char view, no aliasing
-    return ByteView(reinterpret_cast<const char*>(data), size);
+    return {reinterpret_cast<const char*>(data), size};
 }
 
 // --- caller-applied interpretation helpers (cannot fail; pure bit ops) ------
@@ -201,6 +206,10 @@ constexpr std::int64_t varint_to_int64(std::uint64_t v) noexcept {
 }
 
 // --- inline hot primitives --------------------------------------------------
+// NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic, cppcoreguidelines-avoid-magic-numbers,
+// readability-magic-numbers): the reader IS cursor arithmetic over a byte range (bounds-checked at
+// every step), and the numeric literals ARE the wire grammar -- 0x80 continuation bit, 0x7F payload
+// mask, 7-bit groups, little-endian byte assembly. Naming them would add indirection, not meaning.
 
 inline std::optional<std::uint64_t> WireReader::read_varint() noexcept {
     const std::uint8_t* const start = m_cur;
@@ -237,7 +246,7 @@ inline std::optional<Tag> WireReader::read_tag() noexcept {
         return std::nullopt;
     }
     const std::uint64_t value = *raw;
-    const std::uint32_t wire = static_cast<std::uint32_t>(value & 0x07U);
+    const auto wire = static_cast<std::uint32_t>(value & 0x07U);
     const std::uint64_t field = value >> 3U;
     if (field == 0) {
         fail(WireError::InvalidFieldNumber, start);
@@ -297,12 +306,12 @@ inline std::optional<ByteView> WireReader::read_length_delimited() noexcept {
             return std::nullopt;
         }
     }
-    const std::uint64_t avail = static_cast<std::uint64_t>(m_end - m_cur);
+    const auto avail = static_cast<std::uint64_t>(m_end - m_cur);
     if (*len > avail) {
         fail(WireError::LengthExceedsBuffer, start);
         return std::nullopt;
     }
-    const std::size_t n = static_cast<std::size_t>(*len);
+    const auto n = static_cast<std::size_t>(*len);
     const ByteView span = byte_view(m_cur, n);
     m_cur += n;
     return span;
@@ -430,6 +439,8 @@ inline std::optional<ByteView> WireReader::read_group_body(std::uint32_t field_n
     }
     return byte_view(m_begin + body_start, *end_tag - body_start);
 }
+// NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic, cppcoreguidelines-avoid-magic-numbers,
+// readability-magic-numbers)
 
 inline std::optional<std::vector<WireField>> read_message(ByteView input, WireError* out_error) {
     WireReader reader(input);
@@ -458,7 +469,7 @@ struct [[nodiscard]] DecodeStatus {
     bool aborted = false;              // a callback returned an error
     std::size_t offset = 0;            // byte offset of a wire-level failure
 
-    constexpr bool ok() const noexcept { return wire == WireError::None && !aborted; }
+    [[nodiscard]] constexpr bool ok() const noexcept { return wire == WireError::None && !aborted; }
     explicit constexpr operator bool() const noexcept { return ok(); }
 
     static constexpr DecodeStatus success() noexcept { return {}; }

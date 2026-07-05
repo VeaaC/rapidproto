@@ -19,6 +19,7 @@
 // generator bakes into an inline namespace, so mixing profiles across TUs is a link error
 // instead of a silent ODR violation.
 
+#include <cstdint>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -35,7 +36,7 @@ struct SymbolTable;      // rapidproto/resolve.hpp
 
 namespace rapidproto::arenagen {
 
-enum class FieldMode { Materialize, Raw, Drop };
+enum class FieldMode : std::uint8_t { Materialize, Raw, Drop };
 
 // One requested selection, before resolution. `name` is a dotted FQN as the user wrote it (a
 // field `pkg.Msg.field` or a type `pkg.Type`; field-vs-type is auto-detected -- the two share one

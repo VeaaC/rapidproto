@@ -13,6 +13,7 @@
 // dump, so every decision is reviewable as text before any C++ is generated.
 
 #include <cstddef>
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -29,7 +30,7 @@ struct SymbolTable;      // rapidproto/resolve.hpp (carries the FQN -> node type
 namespace rapidproto::arenagen {
 
 // How a field is stored in its parent message's struct.
-enum class FieldKind {
+enum class FieldKind : std::uint8_t {
     InlineScalar,       // numeric scalar stored inline; a `bool` instead occupies a value bit
     InlineEnum,         // enum stored inline as its int32 underlying value
     SsoString,          // string/bytes stored as an ArenaString (inline small, arena-copied large)
@@ -50,6 +51,8 @@ struct LayoutOptions {
     // a sub-message of size S into a parent costs ~2S of array memory (struct + its realloc copy)
     // while a pointer costs ~16+S, so inlining wins exactly up to S = 16. Confirmed by recompiling at
     // 16/24/32 (see the knob-tuning note in tests/bench_arena.cpp).
+    // The benchmark-chosen default derived by the comment above; a name would just restate it.
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
     std::size_t inline_submsg_cutoff = 16;
     bool unknown_present = false;  // reserve a per-message "unknown fields present" bit
     // The resolved per-field materialization selection (see modes.hpp); null/inactive = every

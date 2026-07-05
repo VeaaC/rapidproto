@@ -83,6 +83,7 @@ struct ParseResult {
 // --help/-h prints `usage` to stdout and --version prints the tool version; both yield exit 0.
 // Usage errors (a flag missing its value, no entries, a malformed --namespace-prefix) print to
 // stderr and yield exit 2.
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): a flat flag-by-flag dispatch chain
 inline ParseResult parse_args(int argc, char** argv, std::string_view usage,
                               const std::function<bool(std::string_view)>& extra = {}) {
     const auto usage_error = [&] {
@@ -90,6 +91,7 @@ inline ParseResult parse_args(int argc, char** argv, std::string_view usage,
         return ParseResult{std::nullopt, 2};
     };
     Options opts;
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic): argv is C's contract
     const std::vector<std::string> args(argv + 1, argv + argc);
     for (std::size_t i = 0; i < args.size(); ++i) {
         const std::string& arg = args[i];
@@ -98,10 +100,12 @@ inline ParseResult parse_args(int argc, char** argv, std::string_view usage,
             return {std::nullopt, 0};
         }
         if (arg == "--version") {
+            // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic): argv is C's contract
             std::string tool = std::filesystem::path(argv[0]).filename().string();
             if (tool.empty()) {  // a pathological argv[0] (empty, or ending in '/')
                 tool = argv[0];
             }
+            // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
             std::cout << tool << ' ' << kVersion << '\n';
             return {std::nullopt, 0};
         }
@@ -276,7 +280,7 @@ inline std::vector<std::filesystem::path> disk_proto_paths(const std::string& en
                                                            const ResolvedFileSet& set,
                                                            const ResolverConfig& config) {
     std::vector<std::filesystem::path> paths;
-    paths.push_back(entry);  // the entry is given as a disk path
+    paths.emplace_back(entry);  // the entry is given as a disk path
     // The entry is set.files.back() (resolve() collects post-order, root last); it is already added
     // above from its given spelling, so skip it here to avoid listing it twice (the include-resolved
     // spelling can differ from the given one and dedup wouldn't collapse them).
@@ -314,11 +318,12 @@ inline std::vector<std::filesystem::path> disk_proto_paths(const std::string& en
     std::error_code cwd_error;
     const std::filesystem::path base = std::filesystem::current_path(cwd_error);
     const auto as_target = [&](const std::filesystem::path& path) {
-        const std::filesystem::path abs = lexically_absolute(path);
+        // abs/rel deliberately non-const: they are returned, and const would block the move.
+        std::filesystem::path abs = lexically_absolute(path);
         if (cwd_error || base.empty()) {
             return abs;  // no cwd to relativize against -- absolute is the best we can do
         }
-        const std::filesystem::path rel = abs.lexically_relative(base);
+        std::filesystem::path rel = abs.lexically_relative(base);
         // Empty (unrelatable, e.g. a different Windows drive) or escaping the build dir (a "../"
         // prefix, i.e. OUT_DIR is outside the build tree)? Then the build tool names this out-of-tree
         // output by its ABSOLUTE path (verified for Ninja), so emit absolute to match. Only an output

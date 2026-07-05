@@ -32,7 +32,9 @@ public:
     // From a C array. Matches std::span semantics: extent is N, so for a string
     // literal this INCLUDES the trailing '\0'. Prefer the string/string_view
     // constructors when you want character-exact bounds.
+    // The C-array reference parameter is the point: how a span deduces a literal's extent.
     template <std::size_t N>
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays, modernize-avoid-c-arrays)
     constexpr Range(const T (&arr)[N]) noexcept : m_data(arr), m_size(N) {}
 
     Range(const std::vector<T>& vec) noexcept : m_data(vec.data()), m_size(vec.size()) {}
@@ -55,24 +57,26 @@ public:
     template <typename U = T, std::enable_if_t<std::is_same_v<U, char>, int> = 0>
     Range(std::string&&) = delete;
 
-    constexpr const_iterator begin() const noexcept { return m_data; }
-    constexpr const_iterator end() const noexcept { return m_data + m_size; }
-    constexpr std::size_t size() const noexcept { return m_size; }
-    constexpr bool empty() const noexcept { return m_size == 0; }
-    constexpr const T* data() const noexcept { return m_data; }
+    // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic): Range IS the bounds-checked
+    // span abstraction the guideline says to reach for -- pointer math is its implementation.
+    [[nodiscard]] constexpr const_iterator begin() const noexcept { return m_data; }
+    [[nodiscard]] constexpr const_iterator end() const noexcept { return m_data + m_size; }
+    [[nodiscard]] constexpr std::size_t size() const noexcept { return m_size; }
+    [[nodiscard]] constexpr bool empty() const noexcept { return m_size == 0; }
+    [[nodiscard]] constexpr const T* data() const noexcept { return m_data; }
 
     // Precondition: i < size(). front() requires !empty().
     constexpr const T& operator[](std::size_t i) const noexcept { return m_data[i]; }
-    constexpr const T& front() const noexcept { return m_data[0]; }
+    [[nodiscard]] constexpr const T& front() const noexcept { return m_data[0]; }
 
     // Both subspans clamp to bounds (never read past end), so an over-long
     // offset/count yields a shorter or empty Range rather than UB.
-    constexpr Range subspan(std::size_t offset) const noexcept {
+    [[nodiscard]] constexpr Range subspan(std::size_t offset) const noexcept {
         offset = offset < m_size ? offset : m_size;
         return Range(m_data + offset, m_size - offset);
     }
 
-    constexpr Range subspan(std::size_t offset, std::size_t count) const noexcept {
+    [[nodiscard]] constexpr Range subspan(std::size_t offset, std::size_t count) const noexcept {
         offset = offset < m_size ? offset : m_size;
         const std::size_t avail = m_size - offset;
         count = count < avail ? count : avail;
@@ -80,7 +84,7 @@ public:
     }
 
     template <typename U = T, std::enable_if_t<std::is_same_v<U, char>, int> = 0>
-    constexpr std::string_view to_string_view() const noexcept {
+    [[nodiscard]] constexpr std::string_view to_string_view() const noexcept {
         return std::string_view(m_data, m_size);
     }
 
@@ -96,6 +100,7 @@ public:
         return true;
     }
     friend constexpr bool operator!=(const Range& a, const Range& b) { return !(a == b); }
+    // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 
 private:
     const T* m_data = nullptr;

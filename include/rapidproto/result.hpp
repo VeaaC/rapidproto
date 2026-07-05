@@ -55,18 +55,18 @@ public:
     Result(T value) : m_data(std::move(value)) {}
     Result(Error error) : m_data(std::move(error)) {}
 
-    bool is_ok() const noexcept { return std::holds_alternative<T>(m_data); }
-    bool is_err() const noexcept { return std::holds_alternative<Error>(m_data); }
+    [[nodiscard]] bool is_ok() const noexcept { return std::holds_alternative<T>(m_data); }
+    [[nodiscard]] bool is_err() const noexcept { return std::holds_alternative<Error>(m_data); }
     explicit operator bool() const noexcept { return is_ok(); }
 
     // Precondition: is_ok(). Accessing value() on an error throws std::bad_variant_access.
     T& value() & { return std::get<T>(m_data); }
-    const T& value() const& { return std::get<T>(m_data); }
+    [[nodiscard]] const T& value() const& { return std::get<T>(m_data); }
     T&& value() && { return std::get<T>(std::move(m_data)); }
 
     // Precondition: is_err().
     Error& error() & { return std::get<Error>(m_data); }
-    const Error& error() const& { return std::get<Error>(m_data); }
+    [[nodiscard]] const Error& error() const& { return std::get<Error>(m_data); }
     Error&& error() && { return std::get<Error>(std::move(m_data)); }
 
 private:
@@ -91,6 +91,9 @@ struct Parsed {
 // is __COUNTER__ (not __LINE__) so two RP_TRYs on the same physical line don't
 // collide. __COUNTER__ is captured once via the IMPL indirection so all three
 // pastes share the same value.
+// NOLINTBEGIN(cppcoreguidelines-macro-usage, bugprone-macro-parentheses): these MUST be macros --
+// a function cannot early-return from its caller, which is RP_TRY's whole purpose -- and TARGET
+// cannot be parenthesized: it is a declaration's name, not an expression.
 #define RP_CONCAT_(a, b) a##b
 #define RP_CONCAT(a, b) RP_CONCAT_(a, b)
 
@@ -103,3 +106,4 @@ struct Parsed {
     }                                                                              \
     auto& TARGET = RP_CONCAT(rp_try_tmp_, ID).value()
 // clang-format on
+// NOLINTEND(cppcoreguidelines-macro-usage, bugprone-macro-parentheses)

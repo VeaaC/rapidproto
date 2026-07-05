@@ -5,7 +5,7 @@
 #   clang-tidy-20 -p build/clang src/header_self_contained.cpp   # strict, library
 #   clang-tidy-20 -p build/clang tests/test_range.cpp            # relaxed, tests
 #
-# Three checks are disabled globally:
+# Four checks are disabled globally:
 #   readability-identifier-length      — short conventional names (i, x, a, b, r)
 #   modernize-use-trailing-return-type — pure style (auto f() -> T); polarizing
 #   misc-no-recursion                  — the AST / type-resolution / layout / parse / codegen walks are
@@ -13,6 +13,18 @@
 #                                        intentional, cycle-guarded tree walk, so the check only ever
 #                                        flagged design, never a bug. (It flags that recursion EXISTS,
 #                                        not unbounded depth, so disabling loses no stack-safety signal.)
+#   misc-non-private-member-variables-in-classes — the AST / layout / modes types are INTERNAL open
+#                                        data structs by design: public members plus the occasional
+#                                        convenience method (an active() predicate, a find()). Pure
+#                                        aggregates are exempt from the check anyway; it only ever
+#                                        flagged that deliberate mixed shape, never a bug.
+#
+# HeaderFilterRegex notes: (1) clang-tidy < 20.1.8 ignores this file's HeaderFilterRegex (header
+# diagnostics silently vanish); check.sh passes --header-filter on the command line so the gate
+# lints headers identically on every toolchain point release. (2) The regex is anchored to
+# include/rapidproto -- the library's hand-written API surface. A bare 'rapidproto/.*' would match
+# the REPOSITORY directory name and drag in the vendored Catch2 amalgam and the generated golden
+# headers, whose style is the generator's concern, not tidy's.
 Checks: >
   -*,
   bugprone-*,
@@ -24,7 +36,8 @@ Checks: >
   portability-*,
   readability-*,
   -misc-no-recursion,
+  -misc-non-private-member-variables-in-classes,
   -modernize-use-trailing-return-type,
   -readability-identifier-length
-HeaderFilterRegex: 'rapidproto/.*'
+HeaderFilterRegex: 'include/rapidproto/.*'
 WarningsAsErrors: ''

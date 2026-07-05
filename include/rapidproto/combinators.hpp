@@ -57,7 +57,7 @@ using output_t = typename parse_traits<std::invoke_result_t<P, In>>::output;
 // translate any child error offset to be relative to the original input.
 // R is the (fixed) final result type Result<Parsed<tuple<...>, I>>.
 template <typename R, typename I, typename Acc, typename P0, typename... Ps>
-R seq_run(Range<I> rest, std::size_t base, Acc acc, P0 p0, Ps... ps) {
+R seq_run(Range<I> rest, std::size_t base, Acc acc, const P0& p0, const Ps&... ps) {
     auto r = p0(rest);
     if (!r) {
         Error e = std::move(r.error());
@@ -70,7 +70,7 @@ R seq_run(Range<I> rest, std::size_t base, Acc acc, P0 p0, Ps... ps) {
     if constexpr (sizeof...(Ps) == 0) {
         return R(Parsed<decltype(next), I>{ok.remaining, std::move(next)});
     } else {
-        return seq_run<R>(ok.remaining, base + adv, std::move(next), std::move(ps)...);
+        return seq_run<R>(ok.remaining, base + adv, std::move(next), ps...);
     }
 }
 
@@ -78,7 +78,7 @@ R seq_run(Range<I> rest, std::size_t base, Acc acc, P0 p0, Ps... ps) {
 // (largest byte_offset). All branches see the same input, so offsets compare
 // directly; ties favor the earlier branch (its message is usually the "primary").
 template <typename R, typename I, typename P0, typename... Ps>
-R alt_run(Range<I> in, P0 p0, Ps... ps) {
+R alt_run(Range<I> in, const P0& p0, const Ps&... ps) {
     R r = p0(in);
     if (r) {
         return r;
@@ -90,7 +90,7 @@ R alt_run(Range<I> in, P0 p0, Ps... ps) {
         return r;  // sole remaining branch failed; its error is the farthest so far
     } else {
         Error first_err = std::move(r.error());
-        R rest = alt_run<R>(in, std::move(ps)...);
+        R rest = alt_run<R>(in, ps...);
         if (rest) {
             return rest;  // a later branch succeeded
         }
@@ -260,7 +260,7 @@ auto opt(P p) {
 // 0+ repetitions; produces a vector<O>. Guards against a sub-parser that succeeds
 // without consuming input (which would loop forever).
 template <typename P>
-auto many(P p) {
+auto many(const P& p) {
     return [p](auto in) {
         using I = typename decltype(in)::value_type;
         using O = detail::output_t<P, Range<I>>;
@@ -338,7 +338,7 @@ auto many1(P p) {
 
 // Transform a parser's output with `f`.
 template <typename P, typename F>
-auto map(P p, F f) {
+auto map(const P& p, F f) {
     return [p, f](auto in) {
         using I = typename decltype(in)::value_type;
         using O = detail::output_t<P, Range<I>>;
@@ -385,7 +385,7 @@ auto all_consuming(P p) {
 
 // Run pre, mid, suf in sequence; produce mid's value.
 template <typename Pre, typename Mid, typename Suf>
-auto delimited(Pre pre, Mid mid, Suf suf) {
+auto delimited(Pre pre, const Mid& mid, Suf suf) {
     return [pre, mid, suf](auto in) {
         using I = typename decltype(in)::value_type;
         using O = detail::output_t<Mid, Range<I>>;

@@ -1,8 +1,9 @@
 # Continuous integration: the project's quality bar on every push to the default branch and every
-# pull request. Four parallel jobs -- the default gate, the heavy "deep" tier (sanitizers +
-# coverage floor + fuzz smoke), a Release -O3 -Werror build on both compilers, and the consumer
-# job (install -> find_package -> newer-standard header compiles) -- so wall-clock is the slowest
-# job, not their sum.
+# pull request. Parallel jobs -- the default gate's build/test stages, its clang-tidy stage as a
+# three-shard matrix (tidy is ~80% of the gate's CPU, so it gets its own runners), the heavy
+# "deep" tier (sanitizers + coverage floor + fuzz smoke), a Release -O3 -Werror build on both
+# compilers, and the consumer job (install -> find_package -> newer-standard header compiles) --
+# so wall-clock is the slowest runner, not the sum.
 name: CI
 
 on:
@@ -17,13 +18,28 @@ concurrency:
 
 jobs:
   gate:
-    name: gate (format + dual-compiler build/test + tidy)
+    name: gate (format + dual-compiler build/test)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-toolchain
-      - name: Quality gate (./check.sh)
-        run: ./check.sh
+      - name: Quality gate minus tidy (./check.sh)
+        run: RAPIDPROTO_GATE_STAGES='format gcc clang cf fuzz' ./check.sh
+
+  tidy:
+    name: tidy (shard ${{ matrix.shard }} of 3)
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-toolchain
+      - name: clang-tidy shard
+        run: >
+          RAPIDPROTO_GATE_STAGES='tidy'
+          RAPIDPROTO_TIDY_SHARD='${{ matrix.shard }}/3'
+          ./check.sh
 
   deep:
     name: deep (ASan/UBSan + coverage + fuzz smoke)

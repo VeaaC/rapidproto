@@ -28,13 +28,16 @@ namespace rapidproto {
 
 // --- normalized semantic enums ---------------------------------------------
 
-enum class SyntaxLevel { Proto2, Proto3, Edition };
-enum class FieldPresence { Explicit, Implicit, Required };
-enum class EnumOpenness { Open, Closed };
-enum class RepeatedEncoding { Packed, Expanded };
-enum class MessageEncoding { LengthPrefixed, Delimited };  // Delimited = group wire format
-enum class ImportKind { Standard, Public, Weak, Option };
-enum class Visibility { Default, Export, Local };
+enum class SyntaxLevel : std::uint8_t { Proto2, Proto3, Edition };
+enum class FieldPresence : std::uint8_t { Explicit, Implicit, Required };
+enum class EnumOpenness : std::uint8_t { Open, Closed };
+enum class RepeatedEncoding : std::uint8_t { Packed, Expanded };
+enum class MessageEncoding : std::uint8_t {
+    LengthPrefixed,
+    Delimited
+};  // Delimited = group wire format
+enum class ImportKind : std::uint8_t { Standard, Public, Weak, Option };
+enum class Visibility : std::uint8_t { Default, Export, Local };
 
 // `to max` resolves to a different sentinel depending on context. kMaxMessageFieldNumber mirrors
 // runtime.hpp's kMaxFieldNumber (same 2^29-1 value), kept separate so the AST has no wire-layer
@@ -75,7 +78,7 @@ struct OptionValue {
 
 // A message-literal field name is a simple name, an extension `[a.b.c]`, or an
 // Any type-URL `[domain/type]`.
-enum class MessageFieldNameKind { Simple, Extension, AnyTypeUrl };
+enum class MessageFieldNameKind : std::uint8_t { Simple, Extension, AnyTypeUrl };
 struct MessageLiteralField {
     MessageFieldNameKind name_kind = MessageFieldNameKind::Simple;
     std::string name;  // Simple: field name; Extension: the [qualified.name]; AnyTypeUrl: domain

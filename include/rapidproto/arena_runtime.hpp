@@ -16,6 +16,7 @@
 // itself arena-owned), so no destructor ever runs: reset() is a pointer rewind, and dropping the
 // Arena frees everything at once.
 
+#include <algorithm>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -62,6 +63,7 @@ public:
         // Size comparison, never `p + bytes`: forming that pointer is UB on an empty arena (p is null)
         // or when `bytes` is a huge untrusted value (it overflows past the end of the object).
         if (m_cur != nullptr && p <= m_limit && bytes <= static_cast<std::size_t>(m_limit - p)) {
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic): the bump allocation
             m_cur = p + bytes;  // fits in the current chunk; p + bytes is now in-bounds
             m_used += bytes;
             return p;
@@ -80,7 +82,9 @@ public:
         return reinterpret_cast<T*>(allocate(n * sizeof(T), alignof(T)));
     }
 
-    // Construct one T in the arena (trivially destructible only). Returns nullptr on OOM.
+    // Construct one T in the arena (trivially destructible only). Returns nullptr on OOM. The
+    // arena owns every object it places; the returned pointer is a borrow into the chunk, never
+    // individually freed.
     template <class T, class... Args>
     T* create(Args&&... args) noexcept {
         static_assert(std::is_trivially_destructible_v<T>, "arena objects are never destructed");
@@ -88,7 +92,8 @@ public:
         if (mem == nullptr) {
             return nullptr;
         }
-        return ::new (mem) T(static_cast<Args&&>(args)...);
+        // NOLINTNEXTLINE(cppcoreguidelines-owning-memory): arena-owned, see above
+        return ::new (mem) T(std::forward<Args>(args)...);
     }
 
     // Copy bytes into the arena; returns a view of the copy (empty view on empty input). nullptr data
@@ -103,7 +108,7 @@ public:
         }
         std::memcpy(mem, src.data(), src.size());
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast): bytes view over the copy
-        return ByteView(reinterpret_cast<const char*>(mem), src.size());
+        return {reinterpret_cast<const char*>(mem), src.size()};
     }
 
     // Rewind to the first chunk for reuse; keeps all chunks allocated (no malloc on the next decode).
@@ -119,8 +124,12 @@ public:
         }
     }
 
-    std::size_t bytes_used() const noexcept { return m_used; }          // useful payload handed out
-    std::size_t bytes_reserved() const noexcept { return m_reserved; }  // total host memory held
+    [[nodiscard]] std::size_t bytes_used() const noexcept {
+        return m_used;
+    }  // useful payload handed out
+    [[nodiscard]] std::size_t bytes_reserved() const noexcept {
+        return m_reserved;
+    }  // total host memory held
 
     // Cap the total host memory the arena reserves; a grow past it fails as if on host OOM, so the
     // decode returns ArenaDecodeError::OutOfMemory. Default: unbounded. Bounds arena memory for untrusted
@@ -128,6 +137,10 @@ public:
     void set_capacity_limit(std::size_t max_reserved_bytes) noexcept { m_cap = max_reserved_bytes; }
 
 private:
+    // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic, cppcoreguidelines-avoid-c-arrays,
+    // modernize-avoid-c-arrays): a bump allocator IS bounds-checked pointer arithmetic over raw
+    // byte chunks, and unique_ptr<char[]> is the idiomatic owning form of an untyped heap buffer
+    // (std::array cannot size at runtime; vector<char> value-initializes, touching every page).
     // One memory block. `storage` owns it (freed by the Arena's implicit destructor); for a
     // caller-seeded buffer `storage` is null so the buffer is left alone. `data`/`limit` bound the
     // usable region (data is kMaxAlign-aligned). Movable, never copied.
@@ -145,8 +158,10 @@ private:
     // that tail at a constant; it is the dominant held-memory lever (roughly halved the gap on the
     // benchmark). Kept under glibc's 128 KiB default mmap threshold so cold-arena chunks stay on the
     // heap (a chunk that crosses the threshold becomes an mmap/munmap syscall pair).
-    static constexpr std::size_t kMaxChunk = 96 * 1024;
+    static constexpr std::size_t kMaxChunk = std::size_t{96} * 1024;
 
+    // NOLINTNEXTLINE(readability-non-const-parameter): the result aliases p's WRITABLE buffer; a
+    // const char* parameter would just launder the const back off through the integer round-trip.
     static char* align_up(char* p, std::size_t align) noexcept {
         const auto addr = reinterpret_cast<std::uintptr_t>(p);  // NOLINT(*-reinterpret-cast)
         const auto aligned = (addr + (align - 1)) & ~(static_cast<std::uintptr_t>(align) - 1);
@@ -157,8 +172,12 @@ private:
     // Chunks are addressed by index: 0 is the inline head (seed or first grown), 1..N live in m_more.
     // Keeping the head inline means a seeded arena that never grows performs zero heap allocations.
     Chunk& chunk(std::size_t i) noexcept { return i == 0 ? m_head : m_more[i - 1]; }
-    const Chunk& chunk(std::size_t i) const noexcept { return i == 0 ? m_head : m_more[i - 1]; }
-    std::size_t chunk_count() const noexcept { return m_live ? 1 + m_more.size() : 0; }
+    [[nodiscard]] const Chunk& chunk(std::size_t i) const noexcept {
+        return i == 0 ? m_head : m_more[i - 1];
+    }
+    [[nodiscard]] std::size_t chunk_count() const noexcept {
+        return m_live ? 1 + m_more.size() : 0;
+    }
 
     void adopt_buffer(void* buffer, std::size_t size) noexcept {
         char* const base = static_cast<char*>(buffer);
@@ -183,6 +202,7 @@ private:
         return p;
     }
 
+    // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): bytes then align, as in allocate()
     static bool fits(const Chunk& c, std::size_t bytes, std::size_t align) noexcept {
         char* const p =
             align_up(c.data, align);  // size comparison, never `p + bytes` (see allocate)
@@ -230,9 +250,7 @@ private:
         advance_to(m_cursor);
         if (m_next_chunk < kMaxChunk) {
             m_next_chunk <<= 1U;  // geometric until kMaxChunk, then constant
-            if (m_next_chunk > kMaxChunk) {
-                m_next_chunk = kMaxChunk;
-            }
+            m_next_chunk = std::min(m_next_chunk, kMaxChunk);
         }
         return true;
     }
@@ -247,6 +265,8 @@ private:
     std::size_t m_reserved = 0;
     std::size_t m_next_chunk = kDefaultChunk;
     std::size_t m_cap = SIZE_MAX;  // capacity cap on m_reserved; SIZE_MAX = unbounded (the default)
+    // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic, cppcoreguidelines-avoid-c-arrays,
+    // modernize-avoid-c-arrays)
 };
 
 // ── ArenaString ──────────────────────────────────────────────────────────────────────────────────
@@ -258,6 +278,13 @@ private:
 // more medium strings but widens every string field, which loses on realistic mostly-short-string
 // payloads (see the knob-tuning note in tests/bench_arena.cpp). If retuned, update arenagen's
 // kStringSize to match (a static_assert there enforces it).
+// NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic,
+// cppcoreguidelines-pro-bounds-array-to-pointer-decay, cppcoreguidelines-avoid-c-arrays,
+// modernize-avoid-c-arrays, cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers,
+// bugprone-multi-level-implicit-pointer-conversion): the class IS a hand-laid-out 16-byte cell --
+// a raw char[16] whose bytes are addressed by documented offsets, with the heap {ptr,len} form
+// type-punned through memcpy (the sanctioned way). The layout comment above is the source of
+// truth the literals mirror.
 class ArenaString {
 public:
     static constexpr std::size_t kInlineCap = 15;
@@ -292,7 +319,7 @@ public:
         return out;
     }
 
-    std::string_view view() const noexcept {
+    [[nodiscard]] std::string_view view() const noexcept {
         if (static_cast<unsigned char>(m_bytes[kTagPos]) == kHeapByte) {
             const char* ptr = nullptr;
             std::uint32_t len = 0;
@@ -302,8 +329,8 @@ public:
         }
         return {m_bytes, static_cast<std::size_t>(m_bytes[kTagPos])};
     }
-    std::size_t size() const noexcept { return view().size(); }
-    bool empty() const noexcept { return size() == 0; }
+    [[nodiscard]] std::size_t size() const noexcept { return view().size(); }
+    [[nodiscard]] bool empty() const noexcept { return size() == 0; }
 
 private:
     static constexpr std::size_t kTagPos = 15;
@@ -314,6 +341,11 @@ private:
 
     alignas(const char*) char m_bytes[16] = {};
 };
+// NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic,
+// cppcoreguidelines-pro-bounds-array-to-pointer-decay, cppcoreguidelines-avoid-c-arrays,
+// modernize-avoid-c-arrays, cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers,
+// bugprone-multi-level-implicit-pointer-conversion)
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 static_assert(sizeof(ArenaString) == 16 && std::is_trivially_destructible_v<ArenaString>);
 
 // ── ArrayView / MapView ──────────────────────────────────────────────────────────────────────────
@@ -327,12 +359,14 @@ public:
     ArrayView() noexcept = default;
     ArrayView(const T* data, std::size_t size) noexcept : m_data(data), m_size(size) {}
 
-    const T* data() const noexcept { return m_data; }
-    std::size_t size() const noexcept { return m_size; }
-    bool empty() const noexcept { return m_size == 0; }
+    [[nodiscard]] const T* data() const noexcept { return m_data; }
+    [[nodiscard]] std::size_t size() const noexcept { return m_size; }
+    [[nodiscard]] bool empty() const noexcept { return m_size == 0; }
+    // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic): the span abstraction itself
     const T& operator[](std::size_t i) const noexcept { return m_data[i]; }
-    const T* begin() const noexcept { return m_data; }
-    const T* end() const noexcept { return m_data + m_size; }
+    [[nodiscard]] const T* begin() const noexcept { return m_data; }
+    [[nodiscard]] const T* end() const noexcept { return m_data + m_size; }
+    // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 
 private:
     const T* m_data = nullptr;
@@ -348,8 +382,8 @@ public:
     StringArrayView() noexcept = default;
     explicit StringArrayView(ArrayView<ArenaString> strings) noexcept : m_strings(strings) {}
 
-    std::size_t size() const noexcept { return m_strings.size(); }
-    bool empty() const noexcept { return m_strings.empty(); }
+    [[nodiscard]] std::size_t size() const noexcept { return m_strings.size(); }
+    [[nodiscard]] bool empty() const noexcept { return m_strings.empty(); }
     std::string_view operator[](std::size_t i) const noexcept { return m_strings[i].view(); }
 
     // Dereferences to a std::string_view by value, so it is an input iterator (a value proxy, not a
@@ -365,6 +399,7 @@ public:
         iterator() noexcept = default;
         explicit iterator(const ArenaString* p) noexcept : m_p(p) {}
         std::string_view operator*() const noexcept { return m_p->view(); }
+        // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic): an iterator's advance
         iterator& operator++() noexcept {
             ++m_p;
             return *this;
@@ -374,6 +409,7 @@ public:
             ++m_p;
             return prev;
         }
+        // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         bool operator==(const iterator& o) const noexcept { return m_p == o.m_p; }
         bool operator!=(const iterator& o) const noexcept { return m_p != o.m_p; }
 
@@ -381,8 +417,8 @@ public:
         const ArenaString* m_p = nullptr;
     };
 
-    iterator begin() const noexcept { return iterator(m_strings.begin()); }
-    iterator end() const noexcept { return iterator(m_strings.end()); }
+    [[nodiscard]] iterator begin() const noexcept { return iterator(m_strings.begin()); }
+    [[nodiscard]] iterator end() const noexcept { return iterator(m_strings.end()); }
 
 private:
     ArrayView<ArenaString> m_strings;
@@ -396,13 +432,13 @@ public:
     MapView() noexcept = default;
     explicit MapView(ArrayView<Entry> entries) noexcept : m_entries(entries) {}
 
-    std::size_t size() const noexcept { return m_entries.size(); }
-    bool empty() const noexcept { return m_entries.empty(); }
-    const Entry* begin() const noexcept { return m_entries.begin(); }
-    const Entry* end() const noexcept { return m_entries.end(); }
+    [[nodiscard]] std::size_t size() const noexcept { return m_entries.size(); }
+    [[nodiscard]] bool empty() const noexcept { return m_entries.empty(); }
+    [[nodiscard]] const Entry* begin() const noexcept { return m_entries.begin(); }
+    [[nodiscard]] const Entry* end() const noexcept { return m_entries.end(); }
 
     template <class Key>
-    const Entry* find(const Key& key) const noexcept {
+    [[nodiscard]] const Entry* find(const Key& key) const noexcept {
         const Entry* hit = nullptr;
         for (const Entry& e : m_entries) {
             if (e.key() == key) {
@@ -433,7 +469,7 @@ struct ArenaDecodeError {
     std::size_t offset = 0;            // byte offset of a wire failure
     std::uint32_t field_number = 0;    // the missing field, when code == MissingRequired
 
-    constexpr bool ok() const noexcept { return code == Code::None; }
+    [[nodiscard]] constexpr bool ok() const noexcept { return code == Code::None; }
 };
 
 // ── decode-support helpers (used by generated decoders) ──────────────────────────────────────────────
@@ -499,6 +535,8 @@ inline constexpr char kEmptyPayload = 0;
 // view kEmptyPayload), so a null-data view stays free to mean "absent".
 [[nodiscard]] inline bool copy_payload(ByteView payload, Arena& arena, ByteView& out) noexcept {
     if (payload.empty()) {
+        // A deliberately empty, deliberately NON-NULL view -- null data is the absence encoding.
+        // NOLINTNEXTLINE(bugprone-string-constructor)
         out = ByteView(&kEmptyPayload, 0);
         return true;
     }

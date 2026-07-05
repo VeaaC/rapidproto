@@ -22,7 +22,7 @@ public:
     SourceId add(std::string filename, std::string text);
 
     // The registered filename for `id`, or "" if `id` is invalid / not registered.
-    const std::string& filename(SourceId id) const;
+    [[nodiscard]] const std::string& filename(SourceId id) const;
 
     struct LineCol {
         std::size_t line = 1;    // 1-based
@@ -31,7 +31,7 @@ public:
 
     // The 1-based line:col of `byte_offset` within source `id`. An offset past the end clamps to
     // the end; an unknown `id` yields {1, 1}.
-    LineCol line_col(SourceId id, std::size_t byte_offset) const;
+    [[nodiscard]] LineCol line_col(SourceId id, std::size_t byte_offset) const;
 
 private:
     struct Source {

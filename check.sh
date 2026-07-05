@@ -257,7 +257,12 @@ job_fuzz_compile() {
 # Run clang-tidy on one file; on diagnostics, write them to a per-file log under $TIDY_D.
 tidy_one() {
   local f=$1 out
-  out=$("$CLANG_TIDY" -p build/clang --quiet "$f" 2>/dev/null | grep -E 'warning:|error:')
+  # --header-filter on the COMMAND LINE, not (only) the config file: clang-tidy < 20.1.8 ignores
+  # the config's HeaderFilterRegex, silently skipping all header diagnostics -- the gate must
+  # lint headers identically on every toolchain point release. Anchored to include/rapidproto
+  # (see .clang-tidy for why a bare 'rapidproto/.*' is wrong).
+  out=$("$CLANG_TIDY" -p build/clang --quiet --header-filter='include/rapidproto/.*' "$f" 2>/dev/null \
+    | grep -E 'warning:|error:')
   if [[ -n "$out" ]]; then
     { printf '>> %s\n' "$f"; head -20 <<<"$out"; } >"$TIDY_D/$(tr / _ <<<"$f")"
   fi
@@ -270,15 +275,37 @@ job_tidy() {
     return 1
   fi
   TIDY_D="$LOG/tidy.d"; mkdir -p "$TIDY_D"; export TIDY_D
-  # Lint every TU in parallel (each writes its own log), then aggregate.
-  printf '%s\n' "${LIB_SRC[@]}" "${TEST_SRC[@]}" \
-    | xargs -P"$JOBS" -I{} bash -c 'tidy_one "$@"' _ {}
+  # Lint every TU in parallel (each writes its own log), then aggregate. RAPIDPROTO_TIDY_SHARD=i/N
+  # keeps every Nth TU (1-based): tidy dominates the gate's CPU, so CI fans it out across runner
+  # jobs; unset (the local default) lints everything.
+  local shard="${RAPIDPROTO_TIDY_SHARD:-1/1}" tu_index=0 tu
+  local shard_index="${shard%/*}" shard_count="${shard#*/}"
+  local tus=()
+  for tu in "${LIB_SRC[@]}" "${TEST_SRC[@]}"; do
+    tu_index=$((tu_index + 1))
+    [[ $((tu_index % shard_count)) -eq $((shard_index % shard_count)) ]] && tus+=("$tu")
+  done
+  printf '%s\n' "${tus[@]}" | xargs -P"$JOBS" -I{} bash -c 'tidy_one "$@"' _ {}
   if compgen -G "$TIDY_D/*" >/dev/null; then
     cat "$TIDY_D"/*
     echo ">> clang-tidy diagnostics above"
     return 1
   fi
-  echo "tidy clean"
+  echo "tidy clean (${#tus[@]} TUs, shard $shard)"
+}
+
+# Which of the six gate stages run (default: all). CI splits them across runner jobs -- the
+# build/test stages in one, tidy shards in a matrix -- so wall-clock is the slowest runner.
+stage_enabled() {
+  [[ " ${RAPIDPROTO_GATE_STAGES:-format gcc clang cf fuzz tidy} " == *" $1 "* ]]
+}
+run_stage() {  # $1 stage key, $2 log name, rest: the job command
+  local key=$1 log=$2; shift 2
+  if stage_enabled "$key"; then
+    "$@" >"$LOG/$log" 2>&1
+  else
+    echo "stage skipped (RAPIDPROTO_GATE_STAGES)" >"$LOG/$log"
+  fi
 }
 
 # --- run all stages, capturing each to its own log ------------------------------------------------
@@ -290,19 +317,19 @@ job_tidy() {
 if [[ "${RAPIDPROTO_GATE_SERIAL:-${GITHUB_ACTIONS:+1}}" == "1" ]]; then
   # Progress lines go straight to stdout (stage output stays buffered): if the runner kills the
   # job anyway, the last line names the guilty stage.
-  echo "serial gate: format";        job_format           >"$LOG/format" 2>&1; rc_format=$?
-  echo "serial gate: build gcc";     job_build_test gcc   >"$LOG/gcc"    2>&1; rc_gcc=$?
-  echo "serial gate: build clang";   job_build_test clang >"$LOG/clang"  2>&1; rc_clang=$?
-  echo "serial gate: compile-fail";  job_compile_fail     >"$LOG/cf"     2>&1; rc_cf=$?
-  echo "serial gate: fuzz-compile";  job_fuzz_compile     >"$LOG/fuzz"   2>&1; rc_fuzz=$?
-  echo "serial gate: tidy";          job_tidy             >"$LOG/tidy"   2>&1; rc_tidy=$?
+  echo "serial gate: format";        run_stage format "format" job_format;         rc_format=$?
+  echo "serial gate: build gcc";     run_stage gcc    "gcc"    job_build_test gcc; rc_gcc=$?
+  echo "serial gate: build clang";   run_stage clang  "clang"  job_build_test clang; rc_clang=$?
+  echo "serial gate: compile-fail";  run_stage cf     "cf"     job_compile_fail;   rc_cf=$?
+  echo "serial gate: fuzz-compile";  run_stage fuzz   "fuzz"   job_fuzz_compile;   rc_fuzz=$?
+  echo "serial gate: tidy";          run_stage tidy   "tidy"   job_tidy;           rc_tidy=$?
 else
-  job_format       >"$LOG/format" 2>&1 & p_format=$!
-  job_build_test gcc   >"$LOG/gcc"   2>&1 & p_gcc=$!
-  job_build_test clang >"$LOG/clang" 2>&1 & p_clang=$!
-  job_compile_fail >"$LOG/cf"     2>&1 & p_cf=$!
-  job_fuzz_compile >"$LOG/fuzz"   2>&1 & p_fuzz=$!
-  job_tidy         >"$LOG/tidy"   2>&1 & p_tidy=$!
+  run_stage format "format" job_format         & p_format=$!
+  run_stage gcc    "gcc"    job_build_test gcc & p_gcc=$!
+  run_stage clang  "clang"  job_build_test clang & p_clang=$!
+  run_stage cf     "cf"     job_compile_fail   & p_cf=$!
+  run_stage fuzz   "fuzz"   job_fuzz_compile   & p_fuzz=$!
+  run_stage tidy   "tidy"   job_tidy           & p_tidy=$!
 
   wait "$p_format"; rc_format=$?
   wait "$p_gcc";    rc_gcc=$?
