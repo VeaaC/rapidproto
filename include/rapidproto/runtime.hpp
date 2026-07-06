@@ -128,6 +128,11 @@ public:
     // Hot primitives: inline, allocation-free. nullopt => failed (code/offset on the reader).
     std::optional<std::uint64_t> read_varint() noexcept;  // <=10 bytes, 1-byte fast path
     std::optional<Tag> read_tag() noexcept;
+    // Fused end-or-tag read for the decode loop: one bounds check distinguishes a clean end, a tag,
+    // and a malformed tag, so the loop drops the separate at_end() that read_tag would then re-test.
+    // The generated decoders drive their loops with this; read_tag stays for standalone tag reads.
+    enum class TagOrEnd : std::uint8_t { Tag, End, Error };
+    TagOrEnd read_tag_or_end(Tag& out) noexcept;
     std::optional<std::uint32_t> read_fixed32() noexcept;
     std::optional<std::uint64_t> read_fixed64() noexcept;
     std::optional<ByteView> read_length_delimited() noexcept;
@@ -275,6 +280,31 @@ inline std::optional<Tag> WireReader::read_tag() noexcept {
         return std::nullopt;
     }
     return Tag{static_cast<std::uint32_t>(field), static_cast<WireType>(wire)};
+}
+
+// One bounds check distinguishes clean end / tag / error, so the decode loop drops the separate
+// at_end() (whose m_cur>=m_end test the old read_tag then re-negated -- a redundant compare per
+// field). The fused 1-byte-tag fast path mirrors read_tag; a multi-byte or invalid tag defers to it.
+inline WireReader::TagOrEnd WireReader::read_tag_or_end(Tag& out) noexcept {
+    if (m_cur >= m_end) {
+        return TagOrEnd::End;
+    }
+    if ((*m_cur & 0x80U) == 0U) {  // fused 1-byte tag
+        const std::uint32_t byte = *m_cur;
+        const std::uint32_t field = byte >> 3U;
+        const std::uint32_t wire = byte & 0x07U;
+        if (field != 0U && wire != 6U && wire != 7U) {
+            ++m_cur;
+            out = Tag{field, static_cast<WireType>(wire)};
+            return TagOrEnd::Tag;
+        }
+    }
+    const std::optional<Tag> t = read_tag();  // rare: multi-byte or invalid
+    if (!t) {
+        return TagOrEnd::Error;
+    }
+    out = *t;
+    return TagOrEnd::Tag;
 }
 
 inline std::optional<std::uint32_t> WireReader::read_fixed32() noexcept {

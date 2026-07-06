@@ -31,12 +31,14 @@ static_assert(::std::is_trivially_destructible_v<SecondB>);
 inline bool SecondB::rp_decode_into([[maybe_unused]] SecondB& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   ::rapidproto::WireReader reader{body};
-  while (!reader.at_end()) {
-    const auto rp_tag = reader.read_tag();
-    if (!rp_tag) { ::rapidproto::rp_fail_wire(err, reader); return false; }
-    switch (rp_tag->field_number) {
+  ::rapidproto::Tag rp_tag;
+  for (;;) {
+    const auto rp_state = reader.read_tag_or_end(rp_tag);
+    if (rp_state == ::rapidproto::WireReader::TagOrEnd::End) { break; }
+    if (rp_state == ::rapidproto::WireReader::TagOrEnd::Error) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+    switch (rp_tag.field_number) {
       case 1: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_v = ::rapidproto::varint_to_int32(*rp_v);
@@ -47,7 +49,7 @@ inline bool SecondB::rp_decode_into([[maybe_unused]] SecondB& out, ::rapidproto:
       }
       default: break;
     }
-    if (!reader.skip(rp_tag->wire_type, rp_tag->field_number)) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+    if (!reader.skip(rp_tag.wire_type, rp_tag.field_number)) { ::rapidproto::rp_fail_wire(err, reader); return false; }
   }
   return true;
 }

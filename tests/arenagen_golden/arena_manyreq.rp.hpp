@@ -159,12 +159,14 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   std::uint64_t rp_req[2] = {};
   ::rapidproto::WireReader reader{body};
-  while (!reader.at_end()) {
-    const auto rp_tag = reader.read_tag();
-    if (!rp_tag) { ::rapidproto::rp_fail_wire(err, reader); return false; }
-    switch (rp_tag->field_number) {
+  ::rapidproto::Tag rp_tag;
+  for (;;) {
+    const auto rp_state = reader.read_tag_or_end(rp_tag);
+    if (rp_state == ::rapidproto::WireReader::TagOrEnd::End) { break; }
+    if (rp_state == ::rapidproto::WireReader::TagOrEnd::Error) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+    switch (rp_tag.field_number) {
       case 1: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f1 = ::rapidproto::varint_to_int32(*rp_v);
@@ -174,7 +176,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 2: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f2 = ::rapidproto::varint_to_int32(*rp_v);
@@ -184,7 +186,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 3: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f3 = ::rapidproto::varint_to_int32(*rp_v);
@@ -194,7 +196,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 4: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f4 = ::rapidproto::varint_to_int32(*rp_v);
@@ -204,7 +206,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 5: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f5 = ::rapidproto::varint_to_int32(*rp_v);
@@ -214,7 +216,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 6: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f6 = ::rapidproto::varint_to_int32(*rp_v);
@@ -224,7 +226,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 7: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f7 = ::rapidproto::varint_to_int32(*rp_v);
@@ -234,7 +236,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 8: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f8 = ::rapidproto::varint_to_int32(*rp_v);
@@ -244,7 +246,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 9: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f9 = ::rapidproto::varint_to_int32(*rp_v);
@@ -254,7 +256,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 10: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f10 = ::rapidproto::varint_to_int32(*rp_v);
@@ -264,7 +266,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 11: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f11 = ::rapidproto::varint_to_int32(*rp_v);
@@ -274,7 +276,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 12: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f12 = ::rapidproto::varint_to_int32(*rp_v);
@@ -284,7 +286,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 13: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f13 = ::rapidproto::varint_to_int32(*rp_v);
@@ -294,7 +296,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 14: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f14 = ::rapidproto::varint_to_int32(*rp_v);
@@ -304,7 +306,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 15: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f15 = ::rapidproto::varint_to_int32(*rp_v);
@@ -314,7 +316,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 16: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f16 = ::rapidproto::varint_to_int32(*rp_v);
@@ -324,7 +326,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 17: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f17 = ::rapidproto::varint_to_int32(*rp_v);
@@ -334,7 +336,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 18: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f18 = ::rapidproto::varint_to_int32(*rp_v);
@@ -344,7 +346,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 19: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f19 = ::rapidproto::varint_to_int32(*rp_v);
@@ -354,7 +356,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 20: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f20 = ::rapidproto::varint_to_int32(*rp_v);
@@ -364,7 +366,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 21: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f21 = ::rapidproto::varint_to_int32(*rp_v);
@@ -374,7 +376,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 22: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f22 = ::rapidproto::varint_to_int32(*rp_v);
@@ -384,7 +386,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 23: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f23 = ::rapidproto::varint_to_int32(*rp_v);
@@ -394,7 +396,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 24: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f24 = ::rapidproto::varint_to_int32(*rp_v);
@@ -404,7 +406,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 25: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f25 = ::rapidproto::varint_to_int32(*rp_v);
@@ -414,7 +416,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 26: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f26 = ::rapidproto::varint_to_int32(*rp_v);
@@ -424,7 +426,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 27: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f27 = ::rapidproto::varint_to_int32(*rp_v);
@@ -434,7 +436,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 28: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f28 = ::rapidproto::varint_to_int32(*rp_v);
@@ -444,7 +446,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 29: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f29 = ::rapidproto::varint_to_int32(*rp_v);
@@ -454,7 +456,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 30: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f30 = ::rapidproto::varint_to_int32(*rp_v);
@@ -464,7 +466,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 31: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f31 = ::rapidproto::varint_to_int32(*rp_v);
@@ -474,7 +476,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 32: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f32 = ::rapidproto::varint_to_int32(*rp_v);
@@ -484,7 +486,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 33: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f33 = ::rapidproto::varint_to_int32(*rp_v);
@@ -494,7 +496,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 34: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f34 = ::rapidproto::varint_to_int32(*rp_v);
@@ -504,7 +506,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 35: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f35 = ::rapidproto::varint_to_int32(*rp_v);
@@ -514,7 +516,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 36: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f36 = ::rapidproto::varint_to_int32(*rp_v);
@@ -524,7 +526,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 37: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f37 = ::rapidproto::varint_to_int32(*rp_v);
@@ -534,7 +536,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 38: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f38 = ::rapidproto::varint_to_int32(*rp_v);
@@ -544,7 +546,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 39: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f39 = ::rapidproto::varint_to_int32(*rp_v);
@@ -554,7 +556,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 40: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f40 = ::rapidproto::varint_to_int32(*rp_v);
@@ -564,7 +566,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 41: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f41 = ::rapidproto::varint_to_int32(*rp_v);
@@ -574,7 +576,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 42: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f42 = ::rapidproto::varint_to_int32(*rp_v);
@@ -584,7 +586,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 43: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f43 = ::rapidproto::varint_to_int32(*rp_v);
@@ -594,7 +596,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 44: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f44 = ::rapidproto::varint_to_int32(*rp_v);
@@ -604,7 +606,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 45: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f45 = ::rapidproto::varint_to_int32(*rp_v);
@@ -614,7 +616,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 46: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f46 = ::rapidproto::varint_to_int32(*rp_v);
@@ -624,7 +626,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 47: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f47 = ::rapidproto::varint_to_int32(*rp_v);
@@ -634,7 +636,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 48: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f48 = ::rapidproto::varint_to_int32(*rp_v);
@@ -644,7 +646,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 49: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f49 = ::rapidproto::varint_to_int32(*rp_v);
@@ -654,7 +656,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 50: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f50 = ::rapidproto::varint_to_int32(*rp_v);
@@ -664,7 +666,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 51: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f51 = ::rapidproto::varint_to_int32(*rp_v);
@@ -674,7 +676,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 52: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f52 = ::rapidproto::varint_to_int32(*rp_v);
@@ -684,7 +686,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 53: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f53 = ::rapidproto::varint_to_int32(*rp_v);
@@ -694,7 +696,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 54: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f54 = ::rapidproto::varint_to_int32(*rp_v);
@@ -704,7 +706,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 55: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f55 = ::rapidproto::varint_to_int32(*rp_v);
@@ -714,7 +716,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 56: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f56 = ::rapidproto::varint_to_int32(*rp_v);
@@ -724,7 +726,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 57: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f57 = ::rapidproto::varint_to_int32(*rp_v);
@@ -734,7 +736,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 58: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f58 = ::rapidproto::varint_to_int32(*rp_v);
@@ -744,7 +746,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 59: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f59 = ::rapidproto::varint_to_int32(*rp_v);
@@ -754,7 +756,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 60: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f60 = ::rapidproto::varint_to_int32(*rp_v);
@@ -764,7 +766,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 61: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f61 = ::rapidproto::varint_to_int32(*rp_v);
@@ -774,7 +776,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 62: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f62 = ::rapidproto::varint_to_int32(*rp_v);
@@ -784,7 +786,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 63: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f63 = ::rapidproto::varint_to_int32(*rp_v);
@@ -794,7 +796,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 64: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f64 = ::rapidproto::varint_to_int32(*rp_v);
@@ -804,7 +806,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
         break;
       }
       case 65: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_f65 = ::rapidproto::varint_to_int32(*rp_v);
@@ -815,7 +817,7 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
       }
       default: break;
     }
-    if (!reader.skip(rp_tag->wire_type, rp_tag->field_number)) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+    if (!reader.skip(rp_tag.wire_type, rp_tag.field_number)) { ::rapidproto::rp_fail_wire(err, reader); return false; }
   }
   if ((rp_req[0] & (std::uint64_t{1} << 0)) == 0) { ::rapidproto::rp_fail_missing_required(err, 1); return false; }
   if ((rp_req[0] & (std::uint64_t{1} << 1)) == 0) { ::rapidproto::rp_fail_missing_required(err, 2); return false; }

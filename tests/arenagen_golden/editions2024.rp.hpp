@@ -47,12 +47,14 @@ inline bool M::rp_decode_into([[maybe_unused]] M& out, ::rapidproto::ByteView bo
     return &rp_acc_b[rp_n_b++];
   };
   ::rapidproto::WireReader reader{body};
-  while (!reader.at_end()) {
-    const auto rp_tag = reader.read_tag();
-    if (!rp_tag) { ::rapidproto::rp_fail_wire(err, reader); return false; }
-    switch (rp_tag->field_number) {
+  ::rapidproto::Tag rp_tag;
+  for (;;) {
+    const auto rp_state = reader.read_tag_or_end(rp_tag);
+    if (rp_state == ::rapidproto::WireReader::TagOrEnd::End) { break; }
+    if (rp_state == ::rapidproto::WireReader::TagOrEnd::Error) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+    switch (rp_tag.field_number) {
       case 1: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           out.m_a = ::rapidproto::varint_to_int32(*rp_v);
@@ -62,7 +64,7 @@ inline bool M::rp_decode_into([[maybe_unused]] M& out, ::rapidproto::ByteView bo
         break;
       }
       case 2: {
-        if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           std::int32_t* const rp_slot = rp_slot_b();
           if (rp_slot == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }
           const auto rp_v = reader.read_varint();
@@ -70,7 +72,7 @@ inline bool M::rp_decode_into([[maybe_unused]] M& out, ::rapidproto::ByteView bo
           *rp_slot = ::rapidproto::varint_to_int32(*rp_v);
           continue;
         }
-        if (rp_tag->wire_type == ::rapidproto::WireType::Len) {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Len) {
           const auto rp_p = reader.read_length_delimited();
           if (!rp_p) { ::rapidproto::rp_fail_wire(err, reader); return false; }
           ::rapidproto::WireReader rp_pr{*rp_p};
@@ -87,7 +89,7 @@ inline bool M::rp_decode_into([[maybe_unused]] M& out, ::rapidproto::ByteView bo
       }
       default: break;
     }
-    if (!reader.skip(rp_tag->wire_type, rp_tag->field_number)) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+    if (!reader.skip(rp_tag.wire_type, rp_tag.field_number)) { ::rapidproto::rp_fail_wire(err, reader); return false; }
   }
   out.m_b = ::rapidproto::ArrayView<std::int32_t>(rp_acc_b, rp_n_b);
   return true;

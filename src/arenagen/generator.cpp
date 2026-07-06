@@ -735,7 +735,7 @@ const codegen::ScalarWire& scalar_wire(std::string_view type) {
 // group/delimited wire form).
 std::pair<std::string, std::string> message_wire(const FieldNode& field) {
     if (field.message_encoding == MessageEncoding::Delimited) {
-        return {"SGroup", "read_group(rp_tag->field_number)"};
+        return {"SGroup", "read_group(rp_tag.field_number)"};
     }
     return {"Len", "read_length_delimited()"};
 }
@@ -833,7 +833,7 @@ void emit_singular_arm(const Emit& emit, const MessageLayout& layout, const Memb
     p.print("case $n$: {\n", {{"n", std::to_string(field.number)}});
     p.indent();
     if (m.kind == FieldKind::InlineScalar && m.is_bool) {
-        p.print("if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {\n");
+        p.print("if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {\n");
         p.indent();
         p.print("const auto rp_v = reader.read_varint();\n");
         p.print("if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }\n");
@@ -854,7 +854,7 @@ void emit_singular_arm(const Emit& emit, const MessageLayout& layout, const Memb
         } else {
             wire = scalar_wire(field.type_name).wire;
         }
-        p.print("if (rp_tag->wire_type == ::rapidproto::WireType::$w$) {\n", {{"w", wire}});
+        p.print("if (rp_tag.wire_type == ::rapidproto::WireType::$w$) {\n", {{"w", wire}});
         p.indent();
         emit_value_read(emit, field, "out.m_" + id, "reader");
         emit_presence_set(emit, layout, m, required_bit);
@@ -879,7 +879,7 @@ void emit_singular_arm(const Emit& emit, const MessageLayout& layout, const Memb
         }
         const auto [wire, read] = message_wire(field);
         const std::string sub = cpp_type_name(emit.names, m.target_fqn);
-        p.print("if (rp_tag->wire_type == ::rapidproto::WireType::$w$) {\n", {{"w", wire}});
+        p.print("if (rp_tag.wire_type == ::rapidproto::WireType::$w$) {\n", {{"w", wire}});
         p.indent();
         p.print(
             "if ($seen$) { ::rapidproto::rp_fail_repeated_singular(err, $n$); return false; }\n",
@@ -948,14 +948,14 @@ void emit_repeated_arm(const Emit& emit, const FieldNode& field) {
     const bool packable = codegen::is_packable_wire(elem_wire);
     p.print("case $n$: {\n", {{"n", std::to_string(field.number)}});
     p.indent();
-    p.print("if (rp_tag->wire_type == ::rapidproto::WireType::$w$) {\n", {{"w", elem_wire}});
+    p.print("if (rp_tag.wire_type == ::rapidproto::WireType::$w$) {\n", {{"w", elem_wire}});
     p.indent();
     emit_repeated_element(emit, field, "reader");
     p.print("continue;\n");
     p.outdent();
     p.print("}\n");
     if (packable) {
-        p.print("if (rp_tag->wire_type == ::rapidproto::WireType::Len) {\n");
+        p.print("if (rp_tag.wire_type == ::rapidproto::WireType::Len) {\n");
         p.indent();
         p.print("const auto rp_p = reader.read_length_delimited();\n");
         p.print("if (!rp_p) { ::rapidproto::rp_fail_wire(err, reader); return false; }\n");
@@ -1003,7 +1003,7 @@ void emit_raw_arm(const Emit& emit, const MessageLayout& layout, const MemberPla
     const auto [wire, read] = message_wire(field);
     p.print("case $n$: {\n", {{"n", std::to_string(field.number)}});
     p.indent();
-    p.print("if (rp_tag->wire_type == ::rapidproto::WireType::$w$) {\n", {{"w", wire}});
+    p.print("if (rp_tag.wire_type == ::rapidproto::WireType::$w$) {\n", {{"w", wire}});
     p.indent();
     if (!field.is_repeated) {
         // "Already present" is the stored view's non-null data -- the same state the accessor
@@ -1133,7 +1133,7 @@ void emit_map_arm(const Emit& emit, const MemberPlan& m) {
     const std::string et = emit.synth.entry_type.at(&map);
     p.print("case $n$: {\n", {{"n", std::to_string(map.number)}});
     p.indent();
-    p.print("if (rp_tag->wire_type == ::rapidproto::WireType::Len) {\n");
+    p.print("if (rp_tag.wire_type == ::rapidproto::WireType::Len) {\n");
     p.indent();
     p.print("const auto rp_ent = reader.read_length_delimited();\n");
     p.print("if (!rp_ent) { ::rapidproto::rp_fail_wire(err, reader); return false; }\n");
@@ -1141,17 +1141,21 @@ void emit_map_arm(const Emit& emit, const MemberPlan& m) {
     p.print("if (rp_slot == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }\n");
     p.print("*rp_slot = $ET${};\n", {{"ET", et}});
     p.print("::rapidproto::WireReader rp_er{*rp_ent};\n");
-    p.print("while (!rp_er.at_end()) {\n");
+    p.print("::rapidproto::Tag rp_et;\n");
+    p.print("for (;;) {\n");
     p.indent();
-    p.print("const auto rp_et = rp_er.read_tag();\n");
-    p.print("if (!rp_et) { ::rapidproto::rp_fail_wire(err, rp_er); return false; }\n");
-    p.print("if (rp_et->field_number == 1 && rp_et->wire_type == ::rapidproto::WireType::$kw$) {\n",
+    p.print("const auto rp_estate = rp_er.read_tag_or_end(rp_et);\n");
+    p.print("if (rp_estate == ::rapidproto::WireReader::TagOrEnd::End) { break; }\n");
+    p.print(
+        "if (rp_estate == ::rapidproto::WireReader::TagOrEnd::Error) {"
+        " ::rapidproto::rp_fail_wire(err, rp_er); return false; }\n");
+    p.print("if (rp_et.field_number == 1 && rp_et.wire_type == ::rapidproto::WireType::$kw$) {\n",
             {{"kw", kv_wire(e.key_kind, map.key_type)}});
     p.indent();
     emit_scalar_read(emit, e.key_kind, map.key_type, /*enum_fqn=*/"", "rp_slot->rp_key", "rp_er");
     p.outdent();
     p.print(
-        "} else if (rp_et->field_number == 2 && rp_et->wire_type == ::rapidproto::WireType::$vw$) "
+        "} else if (rp_et.field_number == 2 && rp_et.wire_type == ::rapidproto::WireType::$vw$) "
         "{\n",
         {{"vw", kv_wire(e.value_kind, map.value_type)}});
     p.indent();
@@ -1179,10 +1183,10 @@ void emit_map_arm(const Emit& emit, const MemberPlan& m) {
     }
     p.outdent();
     p.print(
-        "} else if (!rp_er.skip(rp_et->wire_type, rp_et->field_number)) {"
+        "} else if (!rp_er.skip(rp_et.wire_type, rp_et.field_number)) {"
         " ::rapidproto::rp_fail_wire(err, rp_er); return false; }\n");
     p.outdent();
-    p.print("}\n");  // while entry
+    p.print("}\n");  // for (;;) map entry
     p.print("continue;\n");
     p.outdent();
     p.print("}\n");  // if Len
@@ -1219,7 +1223,7 @@ void emit_oneof_arm(const Emit& emit, const OneofPlan& o, const OneofMemberPlan&
     }
     p.print("case $n$: {\n", {{"n", std::to_string(field.number)}});
     p.indent();
-    p.print("if (rp_tag->wire_type == ::rapidproto::WireType::$w$) {\n", {{"w", wire}});
+    p.print("if (rp_tag.wire_type == ::rapidproto::WireType::$w$) {\n", {{"w", wire}});
     p.indent();
     if (member.kind == FieldKind::InlineFixedSubMsg || member.kind == FieldKind::PointerSubMsg) {
         const std::string sub = cpp_type_name(emit.names, member.target_fqn);
@@ -1301,11 +1305,17 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
         p.print("std::uint64_t rp_req = 0;\n");
     }
     p.print("::rapidproto::WireReader reader{body};\n");
-    p.print("while (!reader.at_end()) {\n");
+    p.print("::rapidproto::Tag rp_tag;\n");
+    p.print("for (;;) {\n");
     p.indent();
-    p.print("const auto rp_tag = reader.read_tag();\n");
-    p.print("if (!rp_tag) { ::rapidproto::rp_fail_wire(err, reader); return false; }\n");
-    p.print("switch (rp_tag->field_number) {\n");
+    // Fused end-or-tag read: one bounds check drives the loop (see WireReader::read_tag_or_end).
+    // End breaks out so the post-loop required-field checks still run.
+    p.print("const auto rp_state = reader.read_tag_or_end(rp_tag);\n");
+    p.print("if (rp_state == ::rapidproto::WireReader::TagOrEnd::End) { break; }\n");
+    p.print(
+        "if (rp_state == ::rapidproto::WireReader::TagOrEnd::Error) {"
+        " ::rapidproto::rp_fail_wire(err, reader); return false; }\n");
+    p.print("switch (rp_tag.field_number) {\n");
     p.indent();
     for (const FieldNode& f : message.fields) {
         const auto it = by_node.find(&f);
@@ -1347,10 +1357,10 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
     p.outdent();
     p.print("}\n");  // switch
     p.print(
-        "if (!reader.skip(rp_tag->wire_type, rp_tag->field_number)) {"
+        "if (!reader.skip(rp_tag.wire_type, rp_tag.field_number)) {"
         " ::rapidproto::rp_fail_wire(err, reader); return false; }\n");
     p.outdent();
-    p.print("}\n");  // while
+    p.print("}\n");  // for (;;)
     for (const FieldNode& f : message.fields) {
         const auto it = by_node.find(&f);
         if (it == by_node.end()) {

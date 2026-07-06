@@ -70,7 +70,7 @@ FieldGen field_gen(const CppNameTable& symbols, const FieldNode& field) {
         // Value is the sub-decoder over the body delimited by SGROUP/EGROUP. (`is_group` only marks
         // the synthesized-nested-message structure; the wire form is decided by
         // `message_encoding`.)
-        return {cpp, "SGroup", "read_group(rp_tag->field_number)", cpp + "{", "}"};
+        return {cpp, "SGroup", "read_group(rp_tag.field_number)", cpp + "{", "}"};
     }
     // message-typed: the Value is the sub-decoder, constructed over the LEN payload.
     return {cpp, "Len", "read_length_delimited()", cpp + "{", "}"};
@@ -162,7 +162,7 @@ void emit_map_arm(Printer& printer, const CppNameTable& symbols, const MapFieldN
         " ::rapidproto::handles_one<Callbacks, $f$, $f$::Key, $f$::Value>)) {\n",
         {{"f", fname}});
     printer.indent();
-    printer.print("if (rp_tag->wire_type == ::rapidproto::WireType::Len) {\n");
+    printer.print("if (rp_tag.wire_type == ::rapidproto::WireType::Len) {\n");
     printer.indent();
     printer.print("const auto rp_entry = rp_reader.read_length_delimited();\n");
     printer.print(
@@ -170,13 +170,16 @@ void emit_map_arm(Printer& printer, const CppNameTable& symbols, const MapFieldN
     printer.print("$f$::Key rp_key{};\n", {{"f", fname}});
     printer.print("$f$::Value rp_value{$d$};\n", {{"f", fname}, {"d", value_default}});
     printer.print("::rapidproto::WireReader rp_entry_reader{*rp_entry};\n");
-    printer.print("while (!rp_entry_reader.at_end()) {\n");
+    printer.print("::rapidproto::Tag rp_et;\n");
+    printer.print("for (;;) {\n");
     printer.indent();
-    printer.print("const auto rp_et = rp_entry_reader.read_tag();\n");
+    printer.print("const auto rp_es = rp_entry_reader.read_tag_or_end(rp_et);\n");
+    printer.print("if (rp_es == ::rapidproto::WireReader::TagOrEnd::End) { break; }\n");
     printer.print(
-        "if (!rp_et) { return ::rapidproto::DecodeStatus::from_reader(rp_entry_reader); }\n");
+        "if (rp_es == ::rapidproto::WireReader::TagOrEnd::Error) {"
+        " return ::rapidproto::DecodeStatus::from_reader(rp_entry_reader); }\n");
     printer.print(
-        "if (rp_et->field_number == 1 && rp_et->wire_type == ::rapidproto::WireType::$kw$) {\n",
+        "if (rp_et.field_number == 1 && rp_et.wire_type == ::rapidproto::WireType::$kw$) {\n",
         {{"kw", key.wire_type}});
     printer.indent();
     printer.print("const auto rp_v = rp_entry_reader.$kr$;\n", {{"kr", key.read_call}});
@@ -186,8 +189,8 @@ void emit_map_arm(Printer& printer, const CppNameTable& symbols, const MapFieldN
                   {{"pre", key.decode_pre}, {"post", key.decode_post}});
     printer.outdent();
     printer.print(
-        "} else if (rp_et->field_number == 2 &&"
-        " rp_et->wire_type == ::rapidproto::WireType::$vw$) {\n",
+        "} else if (rp_et.field_number == 2 &&"
+        " rp_et.wire_type == ::rapidproto::WireType::$vw$) {\n",
         {{"vw", value.wire_type}});
     printer.indent();
     printer.print("const auto rp_v = rp_entry_reader.$vr$;\n", {{"vr", value.read_call}});
@@ -196,13 +199,13 @@ void emit_map_arm(Printer& printer, const CppNameTable& symbols, const MapFieldN
     printer.print("rp_value = $pre$*rp_v$post$;\n",
                   {{"pre", value.decode_pre}, {"post", value.decode_post}});
     printer.outdent();
-    printer.print("} else if (!rp_entry_reader.skip(rp_et->wire_type, rp_et->field_number)) {\n");
+    printer.print("} else if (!rp_entry_reader.skip(rp_et.wire_type, rp_et.field_number)) {\n");
     printer.indent();
     printer.print("return ::rapidproto::DecodeStatus::from_reader(rp_entry_reader);\n");
     printer.outdent();
     printer.print("}\n");
     printer.outdent();
-    printer.print("}\n");  // while
+    printer.print("}\n");  // for (;;) map entry
     printer.print(
         "if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, $f${}, rp_key, "
         "rp_value);"
@@ -362,7 +365,7 @@ void emit_arm(Printer& printer, const std::string& fname, const FieldGen& gen, b
     // Native wire form: a singular field, or one element of an expanded repeated field. On a match
     // the value is consumed and we `continue` the field loop; otherwise we `break` out of the
     // switch and fall through to the single shared skip after it (see emit_decode_def).
-    printer.print("if (rp_tag->wire_type == ::rapidproto::WireType::$wt$) {\n",
+    printer.print("if (rp_tag.wire_type == ::rapidproto::WireType::$wt$) {\n",
                   {{"wt", gen.wire_type}});
     printer.indent();
     emit_decode_and_invoke(printer, fname, gen, "rp_reader");
@@ -371,7 +374,7 @@ void emit_arm(Printer& printer, const std::string& fname, const FieldGen& gen, b
     printer.print("}\n");
 
     if (repeated && packable) {  // packed form: a LEN payload of back-to-back elements.
-        printer.print("if (rp_tag->wire_type == ::rapidproto::WireType::Len) {\n");
+        printer.print("if (rp_tag.wire_type == ::rapidproto::WireType::Len) {\n");
         printer.indent();
         printer.print("const auto rp_packed = rp_reader.read_length_delimited();\n");
         printer.print(
@@ -422,11 +425,18 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
         "[[maybe_unused]] auto rp_dispatch = "
         "::rapidproto::combine(static_cast<Callbacks&&>(rp_callbacks)...);\n");
     printer.print("::rapidproto::WireReader rp_reader{m_bytes};\n");
-    printer.print("while (!rp_reader.at_end()) {\n");
+    printer.print("::rapidproto::Tag rp_tag;\n");
+    printer.print("for (;;) {\n");
     printer.indent();
-    printer.print("const auto rp_tag = rp_reader.read_tag();\n");
-    printer.print("if (!rp_tag) { return ::rapidproto::DecodeStatus::from_reader(rp_reader); }\n");
-    printer.print("switch (rp_tag->field_number) {\n");
+    // Fused end-or-tag read: one bounds check drives the loop (see WireReader::read_tag_or_end).
+    printer.print("const auto rp_state = rp_reader.read_tag_or_end(rp_tag);\n");
+    printer.print(
+        "if (rp_state == ::rapidproto::WireReader::TagOrEnd::End) {"
+        " return ::rapidproto::DecodeStatus::success(); }\n");
+    printer.print(
+        "if (rp_state == ::rapidproto::WireReader::TagOrEnd::Error) {"
+        " return ::rapidproto::DecodeStatus::from_reader(rp_reader); }\n");
+    printer.print("switch (rp_tag.field_number) {\n");
     printer.indent();
     for (const auto& [field, gen] : fields) {
         emit_arm(printer, symbols.local.at(field), gen, field->is_repeated);
@@ -445,11 +455,11 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
     printer.indent();
     printer.print("const auto rp_value_start = rp_reader.position();\n");
     printer.print(
-        "if (!rp_reader.skip(rp_tag->wire_type, rp_tag->field_number)) {"
+        "if (!rp_reader.skip(rp_tag.wire_type, rp_tag.field_number)) {"
         " return ::rapidproto::DecodeStatus::from_reader(rp_reader); }\n");
     printer.print(
         "if (const auto rp_status = ::rapidproto::invoke_unknown(rp_dispatch,"
-        " ::rapidproto::UnknownField{rp_tag->field_number, rp_tag->wire_type,"
+        " ::rapidproto::UnknownField{rp_tag.field_number, rp_tag.wire_type,"
         " m_bytes.substr(rp_value_start, rp_reader.position() - rp_value_start)});"
         " !rp_status.ok()) {\n");
     printer.indent();
@@ -466,11 +476,10 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
     // A field that wasn't consumed by a case (a known field with no callback or a non-matching wire
     // type, or an unknown field with no unknown-handler) is skipped here -- one shared skip site.
     printer.print(
-        "if (!rp_reader.skip(rp_tag->wire_type, rp_tag->field_number)) {"
+        "if (!rp_reader.skip(rp_tag.wire_type, rp_tag.field_number)) {"
         " return ::rapidproto::DecodeStatus::from_reader(rp_reader); }\n");
     printer.outdent();
-    printer.print("}\n");  // while
-    printer.print("return ::rapidproto::DecodeStatus::success();\n");
+    printer.print("}\n");  // for (;;) -- exits only via return (End / Error / a field abort)
     printer.outdent();
     printer.print("}\n\n");
 

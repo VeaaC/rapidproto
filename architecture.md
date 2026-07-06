@@ -601,27 +601,38 @@ extra prefix (`ns::pkg::Msg`), keeping RapidProto's types clear of protoc's `pkg
 ## Decoder performance
 
 Both emitters are measured with a **placement-controlled** discipline: standalone `-O3 -DNDEBUG`
-benchmarks, pinned to one performance core, best-of-N, with a checksum cross-check so the work can't be
-optimized away. Streaming is compared against a hand-written `WireReader` loop and mapbox/protozero
-(`tests/bench_streamgen.cpp` → `rapidproto_bench`); arena against `protoc` + `google::protobuf::Arena`
-(`tests/bench_arena.cpp` → `rapidproto_arena_bench`). Headline results — measured against
-libprotobuf 3.21 with gcc-13, pinned to one performance core; the bench prints its libprotobuf
-baseline version at startup, since the baseline's version is half a ratio's meaning. One realistic
-payload; treat each number as a point, not a constant, and reproduce with the benches:
+benchmarks, pinned to one performance core, with a checksum cross-check so the work can't be optimized
+away. Candidates run in **one binary** and are compared as cycles-per-byte ratios taken at one
+instantaneous frequency, sampled adaptively until each ratio's significance is settled
+(`tests/bench_harness.hpp`) — so a real few-percent win is separable from placement noise. Streaming is
+compared against a hand-written `WireReader` loop and mapbox/protozero (`tests/bench_streamgen.cpp` →
+`rapidproto_bench`); arena against `protoc` + `google::protobuf::Arena` (`tests/bench_arena.cpp` →
+`rapidproto_arena_bench`). Headline results — measured against libprotobuf 3.21 with gcc-13/clang-20,
+pinned to one performance core; the bench prints its libprotobuf baseline version at startup, since the
+baseline's version is half a ratio's meaning. One realistic payload; treat each number as a point, not a
+constant, and reproduce with the benches:
 
-- **Streaming adds no measurable overhead** over a hand-written `WireReader` loop: the callback/dispatch
-  abstraction is free (`generated` ≈ `wire` on every scenario), and it validates *more* than protozero
-  (whose wire-type checks are `assert`s that compile out under `NDEBUG`; ours never do).
+- **Streaming is at or below a hand-written `WireReader` loop, and near protozero.** The callback/dispatch
+  abstraction is free, and on nested/message-heavy payloads the generated decoder actually *beats* a naive
+  hand loop, because its loop is driven by a fused end-or-tag read (one bounds check per field, tag kept as
+  a value) that a straightforward `while (!at_end()) { read_tag(); … }` does not use. It also validates
+  *more* than protozero (whose wire-type checks are `assert`s that compile out under `NDEBUG`; ours never
+  do). After the fused-loop work the generated streaming decoder is at or above protozero on nested-message
+  decode on clang, and within ~15% on gcc.
 - **Arena beats `protoc` on both axes:** decode time ≈ 0.4× protoc (≈ 2× like-for-like after accounting
   for protoc's per-`string` UTF-8 validation, which the arena skips), and peak memory ≈ ⅔ of protoc's —
   the same tree in roughly two-thirds the memory. "Memory" is allocator-reported arena accounting
   (`bytes_used`/`bytes_reserved` vs protobuf's `SpaceUsed`/`SpaceAllocated`), not process RSS. The
   memory ratio is deterministic (exact byte counts); the time multiple varies with payload shape and
   machine thermal state.
-- **No reliable codegen gap.** A gcc fixed-width slowdown vs protozero once looked like an optimization
-  opportunity, but under placement-controlled isolation the generated decoder sits within the noise floor
-  of a hand-written loop on **both** compilers; the bench's per-arm and cross-compiler deltas are
-  placement artifacts (see below), not codegen quality. (A `memcpy`-based fixed read was tried; no effect.)
+- **Real codegen wins, surfaced by same-binary A/B.** Cross-binary comparison buries genuine opportunities
+  in placement noise; the cycles-per-byte harness above separates them. Two shipped: a fused 1-byte-tag
+  fast path in `read_tag` (~10% on both compilers), and driving both decode loops with a fused
+  `read_tag_or_end` (one bounds check instead of `at_end()` + `read_tag()`, tag held as a value not
+  `std::optional`), which closed most of the protozero gap on nested/message-heavy decode (≈2× nested-message
+  throughput on gcc; at or above protozero on clang). An earlier `memcpy`-based fixed-width read, by
+  contrast, showed no effect under the same control — the discipline is what tells a real win from a
+  placement artifact.
 
 **The benchmarking caveat that matters most.** Decode hot loops run at ~1–8 GB/s
 (1–2 ns/field), so throughput is dominated by **code placement**: which address a function lands at and
@@ -629,10 +640,10 @@ the resulting alignment / branch-predictor behavior. Two **byte-for-byte identic
 one binary measure ~10% apart, purely from placement. Consequences for anyone profiling this code:
 
 - **Compare structures at controlled placement.** A reliable A/B puts both variants in *one* binary,
-  adjacent, measured in both orders. Comparing across binaries, or a generated function against a
-  hand-written one, measures placement, not the code. Several plausible wins (an if-chain dispatch vs the
-  `switch`, various reader restructurings) proved to be placement artifacts under this control and were
-  *not* adopted.
+  measured in both orders. Comparing across binaries, or a generated function against a hand-written one,
+  measures placement, not the code. Under this control some plausible wins proved to be placement artifacts
+  and were *not* adopted (an if-chain dispatch vs the `switch`, a `memcpy`-based fixed-width read); others
+  reproduced on both compilers and *were* shipped (the fused `read_tag` / `read_tag_or_end` above).
 - **Identical-function variance (~10%) is your noise floor.** A change whose effect falls within it is not
   a reliable win, however stable it looks in one binary.
 - **Pin to one performance core** (`taskset -c <core> …`); unpinned hybrid-core runs swing 30%+, and even

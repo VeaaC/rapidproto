@@ -31,17 +31,19 @@ template <class... Callbacks>
   static_assert((true && ... && !::rapidproto::is_stray_callback<Callbacks, v>), "a callback matches no field of 'Dep' (and is not a catch-all or unknown-field handler)");
   [[maybe_unused]] auto rp_dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(rp_callbacks)...);
   ::rapidproto::WireReader rp_reader{m_bytes};
-  while (!rp_reader.at_end()) {
-    const auto rp_tag = rp_reader.read_tag();
-    if (!rp_tag) { return ::rapidproto::DecodeStatus::from_reader(rp_reader); }
-    switch (rp_tag->field_number) {
+  ::rapidproto::Tag rp_tag;
+  for (;;) {
+    const auto rp_state = rp_reader.read_tag_or_end(rp_tag);
+    if (rp_state == ::rapidproto::WireReader::TagOrEnd::End) { return ::rapidproto::DecodeStatus::success(); }
+    if (rp_state == ::rapidproto::WireReader::TagOrEnd::Error) { return ::rapidproto::DecodeStatus::from_reader(rp_reader); }
+    switch (rp_tag.field_number) {
       case v::kNumber:
         static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<Callbacks, v, v::Value>)) <= 1U, "field 'v' is handled by more than one callback");
         static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<Callbacks, v, v::Value>)) <= 1U, "field 'v' is matched by more than one catch-all callback");
         static_assert((true && ... && !::rapidproto::is_partial_generic<Callbacks, v, v::Value>), "a callback for field 'v' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
         static_assert((true && ... && !(::rapidproto::targets<Callbacks, v, v::Value> && !::rapidproto::specifically_handles<Callbacks, v, v::Value>)), "a callback for field 'v' has the wrong value type (expected v::Value)");
         if constexpr ((false || ... || ::rapidproto::handles_one<Callbacks, v, v::Value>)) {
-          if (rp_tag->wire_type == ::rapidproto::WireType::Varint) {
+          if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
             const auto rp_value = rp_reader.read_varint();
             if (!rp_value) { return ::rapidproto::DecodeStatus::from_reader(rp_reader); }
             if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, v{}, ::rapidproto::varint_to_int32(*rp_value)); !rp_status.ok()) {
@@ -54,17 +56,16 @@ template <class... Callbacks>
       default:
         if constexpr ((false || ... || ::rapidproto::specifically_handles_unknown<Callbacks>)) {
           const auto rp_value_start = rp_reader.position();
-          if (!rp_reader.skip(rp_tag->wire_type, rp_tag->field_number)) { return ::rapidproto::DecodeStatus::from_reader(rp_reader); }
-          if (const auto rp_status = ::rapidproto::invoke_unknown(rp_dispatch, ::rapidproto::UnknownField{rp_tag->field_number, rp_tag->wire_type, m_bytes.substr(rp_value_start, rp_reader.position() - rp_value_start)}); !rp_status.ok()) {
+          if (!rp_reader.skip(rp_tag.wire_type, rp_tag.field_number)) { return ::rapidproto::DecodeStatus::from_reader(rp_reader); }
+          if (const auto rp_status = ::rapidproto::invoke_unknown(rp_dispatch, ::rapidproto::UnknownField{rp_tag.field_number, rp_tag.wire_type, m_bytes.substr(rp_value_start, rp_reader.position() - rp_value_start)}); !rp_status.ok()) {
             return rp_status;
           }
           continue;
         }
         break;
     }
-    if (!rp_reader.skip(rp_tag->wire_type, rp_tag->field_number)) { return ::rapidproto::DecodeStatus::from_reader(rp_reader); }
+    if (!rp_reader.skip(rp_tag.wire_type, rp_tag.field_number)) { return ::rapidproto::DecodeStatus::from_reader(rp_reader); }
   }
-  return ::rapidproto::DecodeStatus::success();
 }
 
 }  // namespace dep::stream

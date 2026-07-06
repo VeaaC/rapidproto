@@ -3,6 +3,19 @@
 Notable, user-visible changes per release. Pre-1.0, the MINOR version is the breaking axis (the
 SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never within a patch.
 
+## 0.2.3 — unreleased
+
+### Changed
+
+- **Faster generated decode, no API change.** The wire reader's `read_tag` gained a fused
+  1-byte-tag fast path (tags are the most frequent varint), and both generated decoders (arena +
+  streaming) now drive their decode loops with a fused `read_tag_or_end`: one bounds check per
+  field instead of `at_end()` + `read_tag()`, with the tag held as a value rather than
+  `std::optional`. Together these close most of the throughput gap to mapbox/protozero on nested
+  and message-heavy payloads (≈2× faster nested-message streaming decode on gcc; at or above
+  protozero on clang), and speed the arena decoder comparably. Regenerate to pick it up; decoded
+  results and the generated API are unchanged.
+
 ## 0.2.2 — 2026-07-05
 
 ### Changed
