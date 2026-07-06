@@ -1,12 +1,14 @@
 // Arena benchmark: a standalone -O3 -DNDEBUG executable (layout-stable, like rapidproto_bench).
 // Two parts:
-//   1. A realistic bench::Dataset (2000 records) decoded three ways and compared apples-to-apples:
-//        arena:  the arena decoder materializing a tree in a bump Arena (under test)
-//        protoc: protoc-generated C++ + google::protobuf::Arena (the baseline)
-//        stream: the streaming callback decoder (a zero-materialization yardstick)
+//   1. A realistic bench::Dataset (2000 records) decoded four ways and compared apples-to-apples:
+//        arena:     the arena decoder materializing a read-only tree in a bump Arena (under test)
+//        protoc:    protoc-generated C++ + google::protobuf::Arena (a materializing baseline)
+//        stream:    our streaming callback decoder (zero-materialization)
+//        protozero: mapbox pbf_reader (zero-materialization yardstick; absent -> that row is skipped)
 //      Reports parse TIME (best-of-N; arena measured "cold" = fresh arena and "warm" = reset+reuse)
-//      and peak MEMORY like-with-like: payload (arena bytes_used vs protoc SpaceUsed) and total-
-//      malloc'd (arena bytes_reserved vs protoc SpaceAllocated). All three must agree on a checksum.
+//      and peak MEMORY for the two MATERIALIZERS like-with-like: payload (arena bytes_used vs protoc
+//      SpaceUsed) and total-malloc'd (arena bytes_reserved vs protoc SpaceAllocated). All four decoders
+//      must agree on a checksum.
 //   2. A chunk-cap sweep (arena only): three payload shapes (a mixed Dataset, a many-small-arrays
 //      WideSet, and a few-big-arrays BigSet), each grown from ~0.4 to ~32 MB. For each it reports
 //      the held/used ratio (the arena's growth + chunk-tail waste) and cold/warm parse time, so the
@@ -57,6 +59,11 @@
 #include "bench.rp.stream.hpp"  // streamgen: rp::bench::stream::Dataset
 #include "rapidproto/arena_runtime.hpp"
 #include "rapidproto/runtime.hpp"
+
+#if __has_include(<protozero/pbf_reader.hpp>)
+#include <protozero/pbf_reader.hpp>
+#define RAPIDPROTO_HAVE_PROTOZERO 1
+#endif
 
 namespace {
 
@@ -302,6 +309,122 @@ std::uint64_t checksum_stream(rapidproto::ByteView buf) {
     return st.ok() ? s : 0;
 }
 
+#ifdef RAPIDPROTO_HAVE_PROTOZERO
+// protozero (mapbox pbf_reader) yardstick: a zero-materialization pull parse of the SAME Dataset,
+// summed identically to checksum_stream so the cross-check holds. get_view() is the zero-copy
+// string path (matches the streaming decoder's string_view). protozero's wire-type checks are
+// protozero_assert()s compiled out under NDEBUG, so it validates marginally less than we do.
+std::uint64_t checksum_protozero(rapidproto::ByteView buf) {
+    std::uint64_t s = 0;
+    protozero::pbf_reader ds{buf.data(), buf.size()};
+    while (ds.next()) {
+        switch (ds.tag()) {
+            case 1:
+                s += ds.get_view().size();  // Dataset.name
+                break;
+            case 2:
+                s += static_cast<std::uint64_t>(ds.get_int64());  // Dataset.version
+                break;
+            case 3: {  // Dataset.people (repeated Person)
+                protozero::pbf_reader p = ds.get_message();
+                while (p.next()) {
+                    switch (p.tag()) {
+                        case 1:
+                            s += static_cast<std::uint64_t>(p.get_int64());  // id
+                            break;
+                        case 2:
+                            s += p.get_view().size();  // name
+                            break;
+                        case 3:
+                            s += p.get_view().size();  // email
+                            break;
+                        case 4:
+                            s += p.get_bool() ? 1U : 0U;  // active
+                            break;
+                        case 5:
+                            s += bits(p.get_double());  // score
+                            break;
+                        case 6:
+                            s += p.get_fixed64();  // created
+                            break;
+                        case 7: {  // address (nested)
+                            protozero::pbf_reader a = p.get_message();
+                            while (a.next()) {
+                                switch (a.tag()) {
+                                    case 1:
+                                        s += a.get_view().size();  // street
+                                        break;
+                                    case 2:
+                                        s += a.get_view().size();  // city
+                                        break;
+                                    case 3:
+                                        s += a.get_uint32();  // zip
+                                        break;
+                                    default:
+                                        a.skip();
+                                }
+                            }
+                            break;
+                        }
+                        case 8:
+                            s += p.get_view().size();  // tags (repeated string)
+                            break;
+                        case 9: {  // history (packed int32)
+                            const auto packed = p.get_packed_int32();
+                            for (const auto v : packed) {
+                                s += static_cast<std::uint32_t>(v);
+                            }
+                            break;
+                        }
+                        case 10: {  // attributes (repeated Attribute)
+                            protozero::pbf_reader a = p.get_message();
+                            while (a.next()) {
+                                switch (a.tag()) {
+                                    case 1:
+                                        s += a.get_view().size();  // key
+                                        break;
+                                    case 2:
+                                        s += a.get_view().size();  // value
+                                        break;
+                                    default:
+                                        a.skip();
+                                }
+                            }
+                            break;
+                        }
+                        case 11: {  // counters (map<string,int32> == repeated {key=1,value=2})
+                            protozero::pbf_reader e = p.get_message();
+                            std::size_t klen = 0;
+                            std::int32_t val = 0;
+                            while (e.next()) {
+                                switch (e.tag()) {
+                                    case 1:
+                                        klen = e.get_view().size();
+                                        break;
+                                    case 2:
+                                        val = e.get_int32();
+                                        break;
+                                    default:
+                                        e.skip();
+                                }
+                            }
+                            s += klen + static_cast<std::uint32_t>(val);
+                            break;
+                        }
+                        default:
+                            p.skip();
+                    }
+                }
+                break;
+            }
+            default:
+                ds.skip();
+        }
+    }
+    return s;
+}
+#endif
+
 // ── timing ────────────────────────────────────────────────────────────────────────────────────────
 
 volatile std::uint64_t g_sink = 0;
@@ -386,7 +509,12 @@ int main() {
     const std::uint64_t c_arena = checksum_arena_dataset(adoc);
     const std::uint64_t c_protoc = checksum_protoc(*pdoc);
     const std::uint64_t c_stream = checksum_stream(view);
-    if (c_arena != c_protoc || c_arena != c_stream) {
+    bool mismatch = c_arena != c_protoc || c_arena != c_stream;
+#ifdef RAPIDPROTO_HAVE_PROTOZERO
+    const std::uint64_t c_pz = checksum_protozero(view);
+    mismatch = mismatch || c_arena != c_pz;
+#endif
+    if (mismatch) {
         std::fprintf(stderr, "CHECKSUM MISMATCH arena=%llu protoc=%llu stream=%llu\n",
                      static_cast<unsigned long long>(c_arena),
                      static_cast<unsigned long long>(c_protoc),
@@ -418,6 +546,9 @@ int main() {
         },
         kReps, kInner);
     const double t_stream = best_ns([&]() { return checksum_stream(view); }, kReps, kInner);
+#ifdef RAPIDPROTO_HAVE_PROTOZERO
+    const double t_pz = best_ns([&]() { return checksum_protozero(view); }, kReps, kInner);
+#endif
 
     rapidproto::Arena mem_arena;
     (void)rp::bench::Dataset::decode(view, mem_arena);
@@ -429,12 +560,24 @@ int main() {
     const auto mem_p_used = static_cast<std::size_t>(mem_pa.SpaceUsed());
     const auto mem_p_held = static_cast<std::size_t>(mem_pa.SpaceAllocated());
 
+    const auto sz = static_cast<double>(buf.size());
+    const auto row = [&](const char* name, const char* kind, double ns) {
+        std::printf("  %-13s %-14s %9.0f   %5.2f     %.2fx\n", name, kind, ns, sz / ns,
+                    t_protoc / ns);
+    };
     std::printf("bench: Dataset with %d people, wire = %zu bytes\n", kPeople, buf.size());
-    std::printf("\nparse time (ns/op, best of %d):\n", kReps);
-    std::printf("  arena (cold)  %9.0f  (%.2fx protoc)\n", t_arena_cold, t_arena_cold / t_protoc);
-    std::printf("  arena (warm)  %9.0f  (%.2fx protoc)\n", t_arena_warm, t_arena_warm / t_protoc);
-    std::printf("  protoc+Arena  %9.0f  (1.00x)\n", t_protoc);
-    std::printf("  streamgen     %9.0f  (%.2fx protoc)\n", t_stream, t_stream / t_protoc);
+    std::printf("\nparse time (best of %d):\n", kReps);
+    std::printf("  %-13s %-14s %9s   %5s   %7s\n", "decoder", "materializes?", "ns/op", "GB/s",
+                "xprotoc");
+    row("arena (cold)", "read-only tree", t_arena_cold);
+    row("arena (warm)", "read-only tree", t_arena_warm);
+    row("protoc+Arena", "mutable tree", t_protoc);
+    row("streamgen", "no (callbacks)", t_stream);
+#ifdef RAPIDPROTO_HAVE_PROTOZERO
+    row("protozero", "no (pull)", t_pz);
+#else
+    std::puts("  protozero     (absent: <protozero/pbf_reader.hpp> not found)");
+#endif
     std::printf("\npeak memory (bytes, one parse; each metric compares like-with-like):\n");
     std::printf("  used (payload):   arena %9zu  protoc %9zu  (%.2fx)\n", mem_a_used, mem_p_used,
                 static_cast<double>(mem_a_used) / static_cast<double>(mem_p_used));

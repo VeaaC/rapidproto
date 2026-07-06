@@ -316,9 +316,10 @@ if(RAPIDPROTO_BUILD_TESTS)
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/streamgen_golden)
   target_compile_options(rapidproto_bench PRIVATE -O3 -DNDEBUG)
 
-  # Arena benchmark: decode the SAME realistic buffer three ways -- the arenagen decoder, protoc +
-  # google::protobuf::Arena, and the streamgen decoder -- comparing parse time + peak memory. Built
-  # only when protobuf is available (the apples-to-apples baseline); a normal build doesn't need it.
+  # Arena benchmark: decode the SAME realistic buffer up to four ways -- the arenagen decoder, protoc +
+  # google::protobuf::Arena, the streamgen decoder, and (if <protozero/pbf_reader.hpp> is present)
+  # protozero -- comparing parse time + peak memory. Built only when protobuf is available (the
+  # apples-to-apples baseline); a normal build doesn't need it.
   find_package(Protobuf QUIET)
   if(Protobuf_FOUND)
     set(BENCH_PROTO "${CMAKE_CURRENT_SOURCE_DIR}/tests/bench/bench.proto")
