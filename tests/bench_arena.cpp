@@ -10,7 +10,10 @@
 //      and peak MEMORY for the two MATERIALIZERS like-with-like: payload (arena bytes_used vs protoc
 //      SpaceUsed) and total-malloc'd (arena bytes_reserved vs protoc SpaceAllocated). All four decoders
 //      must agree on a checksum.
-//   2. A chunk-cap sweep (arena only): three payload shapes (a mixed Dataset, a many-small-arrays
+//   2. Repeated / packed-array shapes (arena-warm vs protoc): packed varint vs fixed-width elements
+//      (same element count) and many-messages-few-elements vs few-messages-many (same element count),
+//      isolating the arena's repeated-field decode cost across the axes that stress it.
+//   3. A chunk-cap sweep (arena only): three payload shapes (a mixed Dataset, a many-small-arrays
 //      WideSet, and a few-big-arrays BigSet), each grown from ~0.4 to ~32 MB. For each it reports
 //      the held/used ratio (the arena's growth + chunk-tail waste) and cold/warm parse time, so the
 //      Arena's chunk-growth policy can be tuned against varied sizes and allocation patterns.
@@ -153,6 +156,34 @@ std::string make_big(int items, int per) {
     return out;
 }
 
+// Packed-scalar shapes for the varint-vs-fixed decode comparison: same element count and structure,
+// one all-int64 (varint) and one all-double (fixed-width), so the two runs isolate the per-kind
+// packed decode cost (a variable-length varint element vs a constant-width one).
+std::string make_big_varint(int items, int per) {
+    bench::BigSet bs;
+    for (int i = 0; i < items; ++i) {
+        bench::Big* b = bs.add_items();
+        for (int k = 0; k < per; ++k) {
+            b->add_numbers(static_cast<std::int64_t>(i) * per + k);
+        }
+    }
+    std::string out;
+    bs.SerializeToString(&out);
+    return out;
+}
+std::string make_big_fixed(int items, int per) {
+    bench::BigSet bs;
+    for (int i = 0; i < items; ++i) {
+        bench::Big* b = bs.add_items();
+        for (int k = 0; k < per; ++k) {
+            b->add_reals(static_cast<double>(k) * 1.5);
+        }
+    }
+    std::string out;
+    bs.SerializeToString(&out);
+    return out;
+}
+
 // Fixed-size sub-messages, always present: each record carries two 24-byte Vec3s. At the default
 // cutoff (16) a 24-byte Vec3 is boxed behind a pointer; recompiling with the cutoff >= 24 inlines it,
 // which is how the cutoff was tuned (see the knob-tuning note at the top of this file).
@@ -259,6 +290,45 @@ std::uint64_t checksum_arena_big(const rp::bench::BigSet* b) {
         }
         for (const double r : it.reals()) {
             s += bits(r);
+        }
+    }
+    return s;
+}
+
+// protoc-side mirrors of checksum_arena_big / checksum_arena_wide, for the repeated-shape runs' protoc
+// arm (each run's arena and protoc arms decode the same bytes, so their checksums must agree).
+std::uint64_t checksum_protoc_big(const bench::BigSet& b) {
+    std::uint64_t s = 0;
+    for (const bench::Big& it : b.items()) {
+        for (const std::int64_t v : it.numbers()) {
+            s += static_cast<std::uint64_t>(v);
+        }
+        for (const double r : it.reals()) {
+            s += bits(r);
+        }
+    }
+    return s;
+}
+std::uint64_t checksum_protoc_wide(const bench::WideSet& w) {
+    std::uint64_t s = 0;
+    for (const bench::Wide& it : w.items()) {
+        for (const std::int32_t v : it.a()) {
+            s += static_cast<std::uint32_t>(v);
+        }
+        for (const std::int32_t v : it.b()) {
+            s += static_cast<std::uint32_t>(v);
+        }
+        for (const std::int32_t v : it.c()) {
+            s += static_cast<std::uint32_t>(v);
+        }
+        for (const std::int32_t v : it.d()) {
+            s += static_cast<std::uint32_t>(v);
+        }
+        for (const auto& x : it.s()) {
+            s += x.size();
+        }
+        for (const auto& x : it.t()) {
+            s += x.size();
         }
     }
     return s;
@@ -571,6 +641,54 @@ int main() {
     std::printf("  held (malloc'd):  arena %9zu  protoc %9zu  (%.2fx)\n", mem_a_held, mem_p_held,
                 static_cast<double>(mem_a_held) / static_cast<double>(mem_p_held));
     std::printf("checksum %llu (all agree)\n", static_cast<unsigned long long>(c_arena));
+
+    // Repeated / packed-array shapes: the axes that stress the arena's repeated-field path -- packed
+    // varint vs fixed-width elements (same element count), and many-messages-few-elements vs
+    // few-messages-many-elements (same element count). Arena (warm) against protoc; the arena cyc/B
+    // across these runs is the signal for repeated-field decode work.
+    std::printf("\nrepeated / packed-array shapes (arena-warm vs protoc):\n");
+    const auto bench_bigset = [](const char* name, const std::string& b) {
+        rapidproto::ByteView v(b);
+        rapidproto::Arena w;
+        std::vector<rpbench::Arm> a = {
+            {"protoc",
+             [&]() {
+                 google::protobuf::Arena pa;
+                 auto* m = google::protobuf::Arena::CreateMessage<bench::BigSet>(&pa);
+                 m->ParseFromString(b);
+                 return checksum_protoc_big(*m);
+             }},
+            {"arena-warm",
+             [&]() {
+                 w.reset();
+                 return checksum_arena_big(rp::bench::BigSet::decode(v, w));
+             }},
+        };
+        (void)rpbench::run(name, static_cast<double>(b.size()), a);
+    };
+    bench_bigset("packed int64(varint)", make_big_varint(200, 1000));  // 200k varint elements
+    bench_bigset("packed double(fixed)", make_big_fixed(200, 1000));   // 200k fixed-width elements
+    bench_bigset("few msgs, big arrays", make_big(30, 10000));         // 30 msgs x 20k elements
+    {
+        const std::string wbuf = make_wide(50000);  // 50k msgs x tiny arrays -- same ~600k elements
+        rapidproto::ByteView v(wbuf);
+        rapidproto::Arena w;
+        std::vector<rpbench::Arm> a = {
+            {"protoc",
+             [&]() {
+                 google::protobuf::Arena pa;
+                 auto* m = google::protobuf::Arena::CreateMessage<bench::WideSet>(&pa);
+                 m->ParseFromString(wbuf);
+                 return checksum_protoc_wide(*m);
+             }},
+            {"arena-warm",
+             [&]() {
+                 w.reset();
+                 return checksum_arena_wide(rp::bench::WideSet::decode(v, w));
+             }},
+        };
+        (void)rpbench::run("many msgs, tiny arrays", static_cast<double>(wbuf.size()), a);
+    }
 
     // Chunk-cap sweep: held/used (the arena's growth + chunk-tail waste) and parse time across shapes
     // and sizes up to ~32 MB. Arena only; this tunes the Arena's chunk-growth policy.
