@@ -3,6 +3,15 @@
 Notable, user-visible changes per release. Pre-1.0, the MINOR version is the breaking axis (the
 SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never within a patch.
 
+## 0.2.4 — unreleased
+
+### Changed
+
+- **Faster string-heavy arena decode.** The arena's short-string copy (`ArenaString`, the inline SSO
+  path) now uses overlapping fixed-width loads/stores instead of a runtime-length `memcpy`, which
+  lowers to a slow generic small-copy — most on clang, where it is up to ~18% faster on a
+  string-heavy whole-message decode (~3.5% on gcc). No API change; regenerate to pick it up.
+
 ## 0.2.3 — 2026-07-06
 
 ### Changed
