@@ -601,14 +601,24 @@ inline bool Nested::User::rp_decode_into([[maybe_unused]] Nested::User& out, ::r
         if (rp_tag.wire_type == ::rapidproto::WireType::Len) {
           const auto rp_p = reader.read_length_delimited();
           if (!rp_p) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+          const std::size_t rp_ub = rp_p->size();
+          if (rp_ub != 0 && rp_cap_kinds < rp_n_kinds + rp_ub) {
+            const std::size_t rp_nc = rp_n_kinds + rp_ub;
+            ::rp::xr::Nested::Def::Kind* const rp_nb = arena.allocate_array<::rp::xr::Nested::Def::Kind>(rp_nc);
+            if (rp_nb == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }
+            for (std::size_t rp_i = 0; rp_i < rp_n_kinds; ++rp_i) { rp_nb[rp_i] = rp_acc_kinds[rp_i]; }
+            rp_acc_kinds = rp_nb;
+            rp_cap_kinds = rp_nc;
+          }
           ::rapidproto::WireReader rp_pr{*rp_p};
           while (!rp_pr.at_end()) {
-            ::rp::xr::Nested::Def::Kind* const rp_slot = rp_slot_kinds();
-            if (rp_slot == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }
             const auto rp_v = rp_pr.read_varint();
             if (!rp_v) { ::rapidproto::rp_fail_wire(err, rp_pr); return false; }
-            *rp_slot = static_cast<::rp::xr::Nested::Def::Kind>(::rapidproto::varint_to_int32(*rp_v));
+            rp_acc_kinds[rp_n_kinds] = static_cast<::rp::xr::Nested::Def::Kind>(::rapidproto::varint_to_int32(*rp_v));
+            ++rp_n_kinds;
           }
+          arena.shrink_last(rp_acc_kinds, rp_cap_kinds * sizeof(::rp::xr::Nested::Def::Kind), rp_n_kinds * sizeof(::rp::xr::Nested::Def::Kind));
+          rp_cap_kinds = rp_n_kinds;
           continue;
         }
         break;

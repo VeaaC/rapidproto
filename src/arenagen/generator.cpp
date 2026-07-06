@@ -942,6 +942,56 @@ void emit_repeated_element(const Emit& emit, const FieldNode& field, const std::
     }
 }
 
+// Packed scalar fill: reserve the element count up front from the packed span -- exact for fixed-
+// width elements (span.size()/width), an upper bound for varints (>=1 byte each, so span.size()) --
+// then fill without a per-element capacity check or geometric grow (which the shared growable
+// accumulator does on the expanded path). For the varint upper-bound case the array is trimmed to
+// its exact length afterward: the fill allocates nothing, so it is still the arena's last allocation
+// (Arena::shrink_last), and rp_cap is reset so a later occurrence of the same field re-grows. `rp_p`
+// (the packed span) is already read by the caller.
+void emit_packed_fill(const Emit& emit, const FieldNode& field) {
+    Printer& p = emit.printer;
+    const std::string id = emit.names.local.at(&field);
+    const std::string elem = repeated_elem_type(emit, field);
+    const std::string wire = elem_wire_enum(field);  // Varint / I32 / I64
+    const bool varint = wire == "Varint";
+    // Element-count bound from the packed byte length: exact for fixed-width (span/width), an upper
+    // bound for varints (>=1 byte each, so span.size()).
+    const char* div = "";  // varint: span.size() elements (upper bound)
+    if (wire == "I32") {
+        div = " / 4";
+    } else if (wire == "I64") {
+        div = " / 8";
+    }
+    p.print("const std::size_t rp_ub = rp_p->size()$d$;\n", {{"d", div}});
+    p.print("if (rp_ub != 0 && rp_cap_$id$ < rp_n_$id$ + rp_ub) {\n", {{"id", id}});
+    p.indent();
+    p.print("const std::size_t rp_nc = rp_n_$id$ + rp_ub;\n", {{"id", id}});
+    p.print("$E$* const rp_nb = arena.allocate_array<$E$>(rp_nc);\n", {{"E", elem}});
+    p.print("if (rp_nb == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }\n");
+    p.print(
+        "for (std::size_t rp_i = 0; rp_i < rp_n_$id$; ++rp_i) { rp_nb[rp_i] = rp_acc_$id$[rp_i]; "
+        "}\n",
+        {{"id", id}});
+    p.print("rp_acc_$id$ = rp_nb;\n", {{"id", id}});
+    p.print("rp_cap_$id$ = rp_nc;\n", {{"id", id}});
+    p.outdent();
+    p.print("}\n");
+    p.print("::rapidproto::WireReader rp_pr{*rp_p};\n");
+    p.print("while (!rp_pr.at_end()) {\n");
+    p.indent();
+    emit_value_read(emit, field, "rp_acc_" + id + "[rp_n_" + id + "]", "rp_pr");
+    p.print("++rp_n_$id$;\n", {{"id", id}});
+    p.outdent();
+    p.print("}\n");
+    if (varint) {
+        p.print(
+            "arena.shrink_last(rp_acc_$id$, rp_cap_$id$ * sizeof($E$), rp_n_$id$ * sizeof($E$));\n",
+            {{"id", id}, {"E", elem}});
+        p.print("rp_cap_$id$ = rp_n_$id$;\n", {{"id", id}});
+    }
+}
+
 void emit_repeated_arm(const Emit& emit, const FieldNode& field) {
     Printer& p = emit.printer;
     const std::string elem_wire = elem_wire_enum(field);
@@ -959,12 +1009,7 @@ void emit_repeated_arm(const Emit& emit, const FieldNode& field) {
         p.indent();
         p.print("const auto rp_p = reader.read_length_delimited();\n");
         p.print("if (!rp_p) { ::rapidproto::rp_fail_wire(err, reader); return false; }\n");
-        p.print("::rapidproto::WireReader rp_pr{*rp_p};\n");
-        p.print("while (!rp_pr.at_end()) {\n");
-        p.indent();
-        emit_repeated_element(emit, field, "rp_pr");
-        p.outdent();
-        p.print("}\n");
+        emit_packed_fill(emit, field);
         p.print("continue;\n");
         p.outdent();
         p.print("}\n");

@@ -196,14 +196,24 @@ inline bool AllWire::rp_decode_into([[maybe_unused]] AllWire& out, ::rapidproto:
         if (rp_tag.wire_type == ::rapidproto::WireType::Len) {
           const auto rp_p = reader.read_length_delimited();
           if (!rp_p) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+          const std::size_t rp_ub = rp_p->size();
+          if (rp_ub != 0 && rp_cap_packed < rp_n_packed + rp_ub) {
+            const std::size_t rp_nc = rp_n_packed + rp_ub;
+            std::int32_t* const rp_nb = arena.allocate_array<std::int32_t>(rp_nc);
+            if (rp_nb == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }
+            for (std::size_t rp_i = 0; rp_i < rp_n_packed; ++rp_i) { rp_nb[rp_i] = rp_acc_packed[rp_i]; }
+            rp_acc_packed = rp_nb;
+            rp_cap_packed = rp_nc;
+          }
           ::rapidproto::WireReader rp_pr{*rp_p};
           while (!rp_pr.at_end()) {
-            std::int32_t* const rp_slot = rp_slot_packed();
-            if (rp_slot == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }
             const auto rp_v = rp_pr.read_varint();
             if (!rp_v) { ::rapidproto::rp_fail_wire(err, rp_pr); return false; }
-            *rp_slot = ::rapidproto::varint_to_int32(*rp_v);
+            rp_acc_packed[rp_n_packed] = ::rapidproto::varint_to_int32(*rp_v);
+            ++rp_n_packed;
           }
+          arena.shrink_last(rp_acc_packed, rp_cap_packed * sizeof(std::int32_t), rp_n_packed * sizeof(std::int32_t));
+          rp_cap_packed = rp_n_packed;
           continue;
         }
         break;

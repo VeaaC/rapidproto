@@ -111,6 +111,24 @@ public:
         return {reinterpret_cast<const char*>(mem), src.size()};
     }
 
+    // Return the unused tail of the MOST-RECENT allocation, shrinking it from `old_bytes` to
+    // `new_bytes`. A no-op unless `ptr`'s end is exactly the current bump cursor -- i.e. it is only
+    // effective when nothing has been allocated since. The packed-array decode uses this: it
+    // pre-sizes a scalar array to an upper bound, fills it (allocating nothing in between), then
+    // trims the over-estimate back to the exact element count.
+    void shrink_last(void* ptr, std::size_t old_bytes, std::size_t new_bytes) noexcept {
+        if (ptr == nullptr || new_bytes > old_bytes) {
+            return;
+        }
+        // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic): tail check/trim, last block
+        char* const base = static_cast<char*>(ptr);
+        if (base + old_bytes == m_cur) {  // still the last allocation -> reclaim the unused tail
+            m_cur = base + new_bytes;
+            m_used -= (old_bytes - new_bytes);
+        }
+        // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    }
+
     // Rewind to the first chunk for reuse; keeps all chunks allocated (no malloc on the next decode).
     void reset() noexcept {
         m_used = 0;
@@ -134,6 +152,9 @@ public:
     // Cap the total host memory the arena reserves; a grow past it fails as if on host OOM, so the
     // decode returns ArenaDecodeError::OutOfMemory. Default: unbounded. Bounds arena memory for untrusted
     // input, and makes the OOM path exercisable in tests. Set before parsing; should be >= any seed.
+    // Note: a packed *varint* scalar array is pre-sized to its byte length (an upper bound on the
+    // element count) and trimmed after (shrink_last), so its TRANSIENT peak can briefly reach a few
+    // times the field's payload for multi-byte-value fields; size the cap for that peak, not the tree.
     void set_capacity_limit(std::size_t max_reserved_bytes) noexcept { m_cap = max_reserved_bytes; }
 
 private:
