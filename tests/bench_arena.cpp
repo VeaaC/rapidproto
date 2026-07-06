@@ -5,7 +5,8 @@
 //        protoc:    protoc-generated C++ + google::protobuf::Arena (a materializing baseline)
 //        stream:    our streaming callback decoder (zero-materialization)
 //        protozero: mapbox pbf_reader (zero-materialization yardstick; absent -> that row is skipped)
-//      Reports parse TIME (best-of-N; arena measured "cold" = fresh arena and "warm" = reset+reuse)
+//      Reports parse TIME on the shared harness (bench_harness.hpp: drift-invariant ratios vs the
+//      protoc baseline + cycles/byte; arena measured "cold" = fresh arena and "warm" = reset+reuse)
 //      and peak MEMORY for the two MATERIALIZERS like-with-like: payload (arena bytes_used vs protoc
 //      SpaceUsed) and total-malloc'd (arena bytes_reserved vs protoc SpaceAllocated). All four decoders
 //      must agree on a checksum.
@@ -57,6 +58,7 @@
 #include "bench.pb.h"           // protoc: bench::Dataset / WideSet / BigSet
 #include "bench.rp.hpp"         // arenagen: rp::bench::Dataset / WideSet / BigSet
 #include "bench.rp.stream.hpp"  // streamgen: rp::bench::stream::Dataset
+#include "bench_harness.hpp"  // rpbench: the shared measurement harness (also used by rapidproto_bench)
 #include "rapidproto/arena_runtime.hpp"
 #include "rapidproto/runtime.hpp"
 
@@ -522,33 +524,36 @@ int main() {
         return 1;
     }
 
-    constexpr int kReps = 50;
-    constexpr int kInner = 200;
-    const double t_arena_cold = best_ns(
-        [&]() {
-            rapidproto::Arena a;
-            return checksum_arena_dataset(rp::bench::Dataset::decode(view, a));
-        },
-        kReps, kInner);
+    // Headline parse-time comparison on the shared harness (bench_harness.hpp): frequency-invariant
+    // cycles/byte + drift-invariant ratios vs the protoc baseline, with a significance verdict.
+    // '+X%' = the decoder out-throughputs protoc (so +53% == 1.53x). protoc is arm 0 (the baseline);
+    // arena is measured "cold" (fresh Arena) and "warm" (reset+reuse).
     rapidproto::Arena warm;
-    const double t_arena_warm = best_ns(
-        [&]() {
-            warm.reset();
-            return checksum_arena_dataset(rp::bench::Dataset::decode(view, warm));
-        },
-        kReps, kInner);
-    const double t_protoc = best_ns(
-        [&]() {
-            google::protobuf::Arena pa;
-            auto* m = google::protobuf::Arena::CreateMessage<bench::Dataset>(&pa);
-            m->ParseFromString(buf);
-            return checksum_protoc(*m);
-        },
-        kReps, kInner);
-    const double t_stream = best_ns([&]() { return checksum_stream(view); }, kReps, kInner);
+    std::printf("bench: Dataset with %d people, wire = %zu bytes\n\n", kPeople, buf.size());
+    std::vector<rpbench::Arm> arms = {
+        {"protoc",
+         [&]() {
+             google::protobuf::Arena pa;
+             auto* m = google::protobuf::Arena::CreateMessage<bench::Dataset>(&pa);
+             m->ParseFromString(buf);
+             return checksum_protoc(*m);
+         }},
+        {"arena-cold",
+         [&]() {
+             rapidproto::Arena a;
+             return checksum_arena_dataset(rp::bench::Dataset::decode(view, a));
+         }},
+        {"arena-warm",
+         [&]() {
+             warm.reset();
+             return checksum_arena_dataset(rp::bench::Dataset::decode(view, warm));
+         }},
+        {"streamgen", [&]() { return checksum_stream(view); }},
+    };
 #ifdef RAPIDPROTO_HAVE_PROTOZERO
-    const double t_pz = best_ns([&]() { return checksum_protozero(view); }, kReps, kInner);
+    arms.push_back({"protozero", [&]() { return checksum_protozero(view); }});
 #endif
+    (void)rpbench::run("Dataset", static_cast<double>(buf.size()), arms);
 
     rapidproto::Arena mem_arena;
     (void)rp::bench::Dataset::decode(view, mem_arena);
@@ -560,25 +565,7 @@ int main() {
     const auto mem_p_used = static_cast<std::size_t>(mem_pa.SpaceUsed());
     const auto mem_p_held = static_cast<std::size_t>(mem_pa.SpaceAllocated());
 
-    const auto sz = static_cast<double>(buf.size());
-    const auto row = [&](const char* name, const char* kind, double ns) {
-        std::printf("  %-13s %-14s %9.0f   %5.2f     %.2fx\n", name, kind, ns, sz / ns,
-                    t_protoc / ns);
-    };
-    std::printf("bench: Dataset with %d people, wire = %zu bytes\n", kPeople, buf.size());
-    std::printf("\nparse time (best of %d):\n", kReps);
-    std::printf("  %-13s %-14s %9s   %5s   %7s\n", "decoder", "materializes?", "ns/op", "GB/s",
-                "xprotoc");
-    row("arena (cold)", "read-only tree", t_arena_cold);
-    row("arena (warm)", "read-only tree", t_arena_warm);
-    row("protoc+Arena", "mutable tree", t_protoc);
-    row("streamgen", "no (callbacks)", t_stream);
-#ifdef RAPIDPROTO_HAVE_PROTOZERO
-    row("protozero", "no (pull)", t_pz);
-#else
-    std::puts("  protozero     (absent: <protozero/pbf_reader.hpp> not found)");
-#endif
-    std::printf("\npeak memory (bytes, one parse; each metric compares like-with-like):\n");
+    std::printf("\npeak memory of the two materializers (bytes, one parse, like-with-like):\n");
     std::printf("  used (payload):   arena %9zu  protoc %9zu  (%.2fx)\n", mem_a_used, mem_p_used,
                 static_cast<double>(mem_a_used) / static_cast<double>(mem_p_used));
     std::printf("  held (malloc'd):  arena %9zu  protoc %9zu  (%.2fx)\n", mem_a_held, mem_p_held,

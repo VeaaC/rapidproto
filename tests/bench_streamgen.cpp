@@ -15,32 +15,20 @@
 //   protozero: mapbox protozero, an established minimal-overhead pull parser (yardstick; its
 //                wire-type checks are protozero_assert()s compiled out under NDEBUG, so it validates
 //                marginally less than we do).
-// Methodology (see the run() comment): each arm is measured against the baseline (arm 0) as a
-// frequency-drift-invariant cost ratio, sampled adaptively until the ratio's 95% CI is tight, and
-// reported with a significance verdict; cycles/byte is used where the kernel permits it. All
+// Methodology lives in bench_harness.hpp: each arm is measured against the baseline (arm 0) as a
+// frequency-drift-invariant cost ratio, sampled adaptively, and reported with a three-way
+// significance verdict; cycles/byte where the kernel permits it. All
 // decoders must agree on a checksum (guards correctness and stops the loops being optimized away);
 // a mismatch is reported and makes the process exit non-zero.
 
-#include <algorithm>
-#include <array>
-#include <chrono>
-#include <cmath>
 #include <cstdint>
 #include <cstdio>
-#include <cstdlib>
 #include <cstring>
 #include <string>
 #include <string_view>
 #include <vector>
 
-#if defined(__linux__)
-#include <linux/perf_event.h>
-#include <sched.h>
-#include <sys/ioctl.h>
-#include <sys/syscall.h>
-#include <unistd.h>
-#endif
-
+#include "bench_harness.hpp"  // rpbench: the shared measurement harness (also used by the arena bench)
 #include "proto2.rp.stream.hpp"  // generated p2::stream::Scalars; -Itests/streamgen_golden (pulls runtime.hpp)
 #include "rapidproto/runtime.hpp"
 
@@ -94,226 +82,16 @@ std::uint64_t float_bits(float f) {
     return b;
 }
 
-// Measurement harness. The decode loops differ by a few percent, but two environmental effects
-// swamp that signal in naive wall-clock timing: code PLACEMENT (a rebuild relayouts everything,
-// +-20-30%) and CPU FREQUENCY (governor / turbo / thermal, unfixable without root). We defeat both:
-//   * All candidates run in ONE binary, and each round measures every arm back-to-back, so arm k's
-//     cost RATIO to the baseline (arm 0) is taken at one instantaneous frequency -- turbo drift
-//     cancels in the ratio (verified: a real -57% delta reads identically idle and under 3 saturated
-//     cores). The ratio + its significance, not the absolute rate, is the trustworthy verdict.
-//   * Measurement order rotates each round, so first-/second-slot bias cancels (else a null A-vs-A
-//     comparison falsely reads ~0.3% "significant").
-//   * Sampling is ADAPTIVE: rounds accumulate until every ratio's verdict is confident -- the effect
-//     is clearly non-zero, or its CI is tight enough to call it a wash -- or a wall-time budget
-//     elapses (then it warns that a ratio stayed ambiguous). The reported verdict is three-way:
-//     noise (CI spans zero) / flat (real but < 0.5%) / SIG (real and meaningful).
-//   * Where the kernel permits unprivileged self-monitoring (perf_event_paranoid <= 2) we count CPU
-//     cycles and report frequency-invariant cycles/byte; otherwise we fall back to wall time.
-//   * We self-pin to the current core (RAPIDPROTO_BENCH_NO_PIN opts out) and spin to steady-state
-//     frequency before measuring.
-
-using Clock = std::chrono::steady_clock;
-double ns_since(Clock::time_point t) {
-    return std::chrono::duration<double, std::nano>(Clock::now() - t).count();
-}
-
-// One-time (no root): pin to the current core so we are not migrated mid-measurement, then spin to
-// a steady-state frequency so we do not measure the turbo ramp.
-void bench_prepare_env() {
-#if defined(__linux__)
-    if (std::getenv("RAPIDPROTO_BENCH_NO_PIN") == nullptr) {
-        const int cpu = sched_getcpu();
-        if (cpu >= 0) {
-            cpu_set_t set;
-            CPU_ZERO(&set);
-            CPU_SET(cpu, &set);
-            sched_setaffinity(0, sizeof set, &set);
-        }
-    }
-#endif
-    const auto t0 = Clock::now();
-    volatile std::uint64_t x = 0;
-    while (ns_since(t0) < 300e6) {
-        ++x;  // ~300 ms: reach sustained frequency before timing anything
-    }
-}
-
-// Opportunistic per-process CPU-cycle counter, if the kernel allows unprivileged self-monitoring.
-// Returns a perf fd, or -1 to fall back to wall time.
-int bench_open_cycles() {
-#if defined(__linux__)
-    perf_event_attr attr;
-    std::memset(&attr, 0, sizeof attr);
-    attr.type = PERF_TYPE_HARDWARE;
-    attr.size = sizeof attr;
-    attr.config = PERF_COUNT_HW_CPU_CYCLES;
-    attr.disabled = 1;
-    attr.exclude_kernel = 1;
-    attr.exclude_hv = 1;
-    return static_cast<int>(syscall(SYS_perf_event_open, &attr, 0, -1, -1, 0UL));
-#else
-    return -1;
-#endif
-}
-
-// Prepared once, shared by every run<N> instantiation (a template-local static would re-run per N).
-int bench_metric_fd() {
-    static const int fd = (bench_prepare_env(), bench_open_cycles());
-    return fd;
-}
-
-struct Cost {
-    double ns;
-    double cyc;  // -1 when no perf counter
-};
-Cost bench_sample(int fd, Fn f, ByteView b, std::uint64_t& out) {
-#if defined(__linux__)
-    if (fd >= 0) {
-        ioctl(fd, PERF_EVENT_IOC_RESET, 0);
-        ioctl(fd, PERF_EVENT_IOC_ENABLE, 0);
-        const auto t0 = Clock::now();
-        out = f(b);
-        const double ns = ns_since(t0);
-        ioctl(fd, PERF_EVENT_IOC_DISABLE, 0);
-        long long c = 0;
-        if (read(fd, &c, sizeof c) != static_cast<ssize_t>(sizeof c)) {
-            c = 0;
-        }
-        return {ns, static_cast<double>(c)};
-    }
-#endif
-    (void)fd;
-    const auto t0 = Clock::now();
-    out = f(b);
-    return {ns_since(t0), -1.0};
-}
-
-struct Stat {
-    double mean;
-    double median;
-    double ci_half;  // 95% half-width of the mean
-};
-Stat bench_stat(std::vector<double> v) {
-    const auto n = static_cast<double>(v.size());
-    double mean = 0;
-    for (const double x : v) {
-        mean += x;
-    }
-    mean /= n;
-    double var = 0;
-    for (const double x : v) {
-        var += (x - mean) * (x - mean);
-    }
-    var /= (v.size() > 1 ? n - 1 : 1);
-    std::sort(v.begin(), v.end());
-    return {mean, v[v.size() / 2], 1.96 * std::sqrt(var / n)};
-}
-
-// Measure every arm over `bytes` and print a table. Arm 0 is the BASELINE; each other arm is
-// reported as an absolute rate AND as a drift-invariant cost ratio to the baseline with a
-// significance verdict. Returns the count of arms whose checksum disagreed with arm 0.
+// Adapter: the scenarios below build arms as pure Fn(ByteView); the shared harness takes nullary
+// closures (so it can also drive stateful decoders, e.g. the arena bench). Bind the buffer here.
 template <std::size_t N>
 int run(const char* scenario, ByteView bytes, const Arm (&arms)[N]) {
-    const int fd = bench_metric_fd();
-    const bool cyc = fd >= 0;
-    constexpr std::size_t kMinRounds =
-        30;  // floor; a null (wash) result self-extends for tighter CI
-    constexpr double kBudgetNs = 3.0e9;
-    // A ratio's verdict is CONFIDENT once the effect is clearly non-zero (|mean-1| > 3 CI, so the
-    // sign and rough size are settled) OR the CI is tight enough to confidently call it a wash. We
-    // sample until every arm is confident, then stop; we only warn "noisy" if the budget runs out
-    // while some arm is still ambiguous. (Chasing an absolute CI floor over-samples clear wins and
-    // false-flags them as noisy.)
-    constexpr double kNullTol = 0.003;  // CI half-width under 0.3% => confidently a wash
-    const auto confident = [](const Stat& sr) {
-        return std::fabs(sr.mean - 1.0) > 3.0 * sr.ci_half || sr.ci_half / sr.mean < kNullTol;
-    };
-
-    std::array<std::vector<double>, N> ns_s;   // per-arm wall-time samples (one per round)
-    std::array<std::vector<double>, N> cyc_s;  // per-arm cycle samples
-    std::array<std::vector<double>, N> ratio;  // per-round primary-metric ratio arm[k]/arm[0]
-    std::array<std::uint64_t, N> sums{};
-
-    std::uint64_t junk = 0;
-    for (int w = 0; w < 5; ++w) {  // warm caches / predictors for every arm
-        for (const auto& a : arms) {
-            bench_sample(fd, a.fn, bytes, junk);
-        }
+    std::vector<rpbench::Arm> wrapped;
+    wrapped.reserve(N);
+    for (const auto& a : arms) {
+        wrapped.push_back({a.label, [fn = a.fn, bytes]() { return fn(bytes); }});
     }
-
-    const auto start = Clock::now();
-    bool converged = false;
-    for (std::size_t round = 0; !converged; ++round) {
-        std::array<double, N> prim{};  // this round's primary cost per arm
-        for (std::size_t j = 0; j < N; ++j) {
-            const std::size_t k = (j + round) % N;  // rotate start each round: cancels slot bias
-            std::uint64_t s = 0;
-            const Cost cost = bench_sample(fd, arms[k].fn, bytes, s);
-            sums[k] = s;
-            ns_s[k].push_back(cost.ns);
-            if (cyc) {
-                cyc_s[k].push_back(cost.cyc);
-            }
-            prim[k] = cyc ? cost.cyc : cost.ns;
-        }
-        for (std::size_t k = 1; k < N; ++k) {
-            if (prim[0] > 0) {
-                ratio[k].push_back(prim[k] / prim[0]);
-            }
-        }
-        if (round + 1 >= kMinRounds && round % 8 == 0) {
-            converged = true;
-            for (std::size_t k = 1; k < N; ++k) {
-                converged = converged && confident(bench_stat(ratio[k]));
-            }
-        }
-        if (ns_since(start) > kBudgetNs) {
-            break;
-        }
-    }
-
-    (void)converged;
-    const auto sz = static_cast<double>(bytes.size());
-    int bad = 0;
-    bool ambiguous = false;
-    for (std::size_t k = 0; k < N; ++k) {
-        const bool ok = sums[k] == sums[0];
-        bad += ok ? 0 : 1;
-        const Stat sns = bench_stat(ns_s[k]);
-        char rate[48];
-        if (cyc) {
-            std::snprintf(rate, sizeof rate, "%6.3f GB/s %5.2f cyc/B", sz / sns.median,
-                          bench_stat(cyc_s[k]).median / sz);
-        } else {
-            std::snprintf(rate, sizeof rate, "%6.3f GB/s", sz / sns.median);
-        }
-        char cmp[80];
-        if (k == 0) {
-            std::snprintf(cmp, sizeof cmp, "(baseline)");
-        } else {
-            const Stat sr = bench_stat(ratio[k]);
-            const double faster = (1.0 / sr.mean - 1.0) * 100.0;  // + => arm k out-throughputs base
-            const double band = (sr.ci_half / sr.mean) * 100.0;
-            ambiguous = ambiguous || !confident(sr);
-            // Three-way verdict: "noise" = the CI spans zero (indistinguishable); "flat" = real but
-            // under 0.5% (statistically settled, practically nil -- not worth shipping); "SIG" = a
-            // real, meaningful difference. A bare statistical test would stamp a 0.1% delta "SIG".
-            const char* verdict =
-                std::fabs(faster) <= band ? "noise" : (std::fabs(faster) < 0.5 ? "flat" : "SIG");
-            std::snprintf(cmp, sizeof cmp, "vs %s %+6.1f%% +-%.1f%% [%s]", arms[0].label, faster,
-                          band, verdict);
-        }
-        std::printf("  %-16s %-10s %-26s %-34s%s\n", scenario, arms[k].label, rate, cmp,
-                    ok ? "" : "  !! CHECKSUM MISMATCH");
-    }
-    if (ambiguous) {
-        std::printf(
-            "  %-16s (!) noisy: a ratio stayed ambiguous after %.0fs. Close background load;"
-            " on a laptop use AC power + let it cool; optionally pin governor=performance /"
-            " disable turbo (root).\n",
-            scenario, kBudgetNs / 1e9);
-    }
-    return bad;
+    return rpbench::run(scenario, static_cast<double>(bytes.size()), wrapped);
 }
 
 constexpr int kN = 2'000'000;
@@ -1148,7 +926,8 @@ int scenario_sparse() {
 }  // namespace
 
 int main() {
-    const int fd = bench_metric_fd();  // pin + steady-state warmup + open the cycle counter, once
+    const int fd =
+        rpbench::metric_fd();  // pin + steady-state warmup + open the cycle counter, once
 #ifdef RAPIDPROTO_HAVE_PROTOZERO
     std::puts("rapidproto decode bench (generated / wire / protozero). Each arm vs the baseline:");
 #else
