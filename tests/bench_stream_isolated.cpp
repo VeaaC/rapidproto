@@ -8,5 +8,6 @@
 
 #include "bench_two_tier.hpp"
 
-// The generated symbol the large-TU bench compares against.
+// The generated symbols the large-TU bench compares against.
 RP_BENCH_DEFINE_SCALARS_DECODE(rp_bench_decode_scalars_micro)
+RP_BENCH_DEFINE_MBTAG_DECODE(rp_bench_decode_mbtag_micro)

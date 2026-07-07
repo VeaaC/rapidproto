@@ -41,6 +41,20 @@
         return sum;                                                                  \
     }
 
+// A multi-byte-tag-heavy decode: every record is field 18 (tag 0x90 0x01, a 2-byte tag) + a 1-byte
+// varint. This is the worst case for the tag path -- it exercises read_tag_or_end's multi-byte
+// fallback (read_tag) on every record. Used to isolate, in one binary, whether inlining read_varint
+// helps or HURTS the tag path (micro=inlined vs large=out-of-line).
+#define RP_BENCH_DEFINE_MBTAG_DECODE(fn)                                \
+    std::uint64_t fn(::rapidproto::ByteView bytes) {                    \
+        std::uint64_t sum = 0;                                          \
+        (void)::p2::stream::Scalars{bytes}.decode(                      \
+            [&](::p2::stream::Scalars::expanded_nums, std::int32_t v) { \
+                sum += static_cast<std::uint32_t>(v);                   \
+            });                                                         \
+        return sum;                                                     \
+    }
+
 // Build a buffer matching the decode above: a few varint scalars, a large packed_nums array, a string.
 inline std::string rp_bench_scalars_buffer(int packed_count) {
     const auto put_varint = [](std::string& b, std::uint64_t v) {
@@ -71,5 +85,23 @@ inline std::string rp_bench_scalars_buffer(int packed_count) {
     const std::string str = "the quick brown fox jumps over the lazy dog";
     put_varint(buf, str.size());
     buf += str;
+    return buf;
+}
+
+// Build a buffer for RP_BENCH_DEFINE_MBTAG_DECODE: `count` records of {2-byte tag, 1-byte varint}.
+inline std::string rp_bench_mbtag_buffer(int count) {
+    const auto put_varint = [](std::string& b, std::uint64_t v) {
+        while (v >= 0x80U) {
+            b.push_back(static_cast<char>(0x80U | (v & 0x7FU)));
+            v >>= 7U;
+        }
+        b.push_back(static_cast<char>(v));
+    };
+    std::string buf;
+    for (int i = 0; i < count; ++i) {
+        put_varint(buf,
+                   (static_cast<std::uint64_t>(18) << 3U) | 0U);  // field 18, Varint: 0x90 0x01
+        put_varint(buf, static_cast<std::uint64_t>(i) & 0x7FU);
+    }
     return buf;
 }

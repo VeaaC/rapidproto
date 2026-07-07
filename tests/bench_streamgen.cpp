@@ -930,26 +930,37 @@ int scenario_sparse() {
 // so the compiler keeps read_varint & co. out-of-line and calls them per element. The identical
 // decode compiled ALONE (rp_bench_decode_scalars_micro, bench_stream_isolated.cpp) inlines them.
 RP_BENCH_DEFINE_SCALARS_DECODE(rp_bench_decode_scalars_ctx)
-extern std::uint64_t rp_bench_decode_scalars_micro(rapidproto::ByteView);  // the isolated-TU twin
+RP_BENCH_DEFINE_MBTAG_DECODE(rp_bench_decode_mbtag_ctx)
+extern std::uint64_t rp_bench_decode_scalars_micro(rapidproto::ByteView);  // the isolated-TU twins
+extern std::uint64_t rp_bench_decode_mbtag_micro(rapidproto::ByteView);
 
 namespace {
 
 // Two-tier: the SAME generated decode, isolated (micro, primitives inlined) vs in-context (large TU,
 // primitives out-of-line). The ratio is the out-of-line-primitive penalty a real large program pays.
 int scenario_two_tier() {
+    int bad = 0;
     const std::string buf = rp_bench_scalars_buffer(kN);
     const Arm arms[] = {
         {"micro (own TU)", [](ByteView b) { return rp_bench_decode_scalars_micro(b); }},
         {"large TU", [](ByteView b) { return rp_bench_decode_scalars_ctx(b); }},
     };
-    return run("two-tier", ByteView(buf), arms);
+    bad += run("two-tier", ByteView(buf), arms);
+    // Same tiers for the multi-byte-tag path: does inlining the primitives help or hurt the tag read?
+    const std::string mbuf = rp_bench_mbtag_buffer(kN);
+    const Arm marms[] = {
+        {"micro (own TU)", [](ByteView b) { return rp_bench_decode_mbtag_micro(b); }},
+        {"large TU", [](ByteView b) { return rp_bench_decode_mbtag_ctx(b); }},
+    };
+    bad += run("two-tier-mbtag", ByteView(mbuf), marms);
+    return bad;
 }
 
 }  // namespace
 
 int main() {
-    const int fd =
-        rpbench::metric_fd();  // pin + steady-state warmup + open the cycle counter, once
+    // pin + steady-state warmup + open the cycle/instruction counters, once
+    const bool perf = rpbench::metric_fds().cyc >= 0;
 #ifdef RAPIDPROTO_HAVE_PROTOZERO
     std::puts("rapidproto decode bench (generated / wire / protozero). Each arm vs the baseline:");
 #else
@@ -958,9 +969,10 @@ int main() {
 #endif
     std::printf(
         "  metric: %s; adaptive, self-pinned. '+X%%' = arm out-throughputs baseline;"
-        " verdict SIG=real&>=0.5%% / flat=real&<0.5%% / noise=CI spans 0.\n",
-        fd >= 0 ? "wall-clock GB/s + CPU cycles/byte (perf)"
-                : "wall-clock GB/s (perf unavailable: kernel.perf_event_paranoid > 2)");
+        " verdict SIG=real&>=0.5%% / flat=real&<0.5%% / noise=CI spans 0."
+        " ins/B is placement-invariant: differs => real code change.\n",
+        perf ? "wall-clock GB/s + CPU cycles/byte + retired instructions/byte (perf)"
+             : "wall-clock GB/s (perf unavailable: kernel.perf_event_paranoid > 2)");
     int bad = 0;
     bad += scenario_varint_1byte();
     bad += scenario_varint_multibyte();

@@ -82,54 +82,75 @@ inline void prepare_env() {
     }
 }
 
-// Opportunistic per-process CPU-cycle counter, if the kernel allows unprivileged self-monitoring.
-// Returns a perf fd, or -1 to fall back to wall time.
-inline int open_cycles() {
+// Opportunistic per-process hardware counter (cycles or instructions), if the kernel allows
+// unprivileged self-monitoring. Returns a perf fd, or -1 to fall back / omit.
+inline int open_counter(std::uint64_t config) {
 #if defined(__linux__)
     perf_event_attr attr;
     std::memset(&attr, 0, sizeof attr);
     attr.type = PERF_TYPE_HARDWARE;
     attr.size = sizeof attr;
-    attr.config = PERF_COUNT_HW_CPU_CYCLES;
+    attr.config = config;
     attr.disabled = 1;
     attr.exclude_kernel = 1;
     attr.exclude_hv = 1;
     return static_cast<int>(syscall(SYS_perf_event_open, &attr, 0, -1, -1, 0UL));
 #else
+    (void)config;
     return -1;
 #endif
 }
 
+// Cycles are frequency-invariant but NOT placement-invariant (a function's cyc/B shifts with its
+// address/alignment across builds). Retired INSTRUCTIONS are deterministic and placement-invariant:
+// if two arms differ in ins/B the code genuinely differs; if only cyc/B differs, suspect placement.
+struct Counters {
+    int cyc = -1;
+    int instr = -1;
+};
 // Prepared once (function-local static), shared by every run() call in the process.
-inline int metric_fd() {
-    static const int fd = (prepare_env(), open_cycles());
-    return fd;
+inline Counters metric_fds() {
+    static const Counters c = [] {
+        prepare_env();
+        return Counters{open_counter(PERF_COUNT_HW_CPU_CYCLES),
+                        open_counter(PERF_COUNT_HW_INSTRUCTIONS)};
+    }();
+    return c;
 }
 
 struct Cost {
     double ns;
-    double cyc;  // -1 when no perf counter
+    double cyc;    // -1 when no perf counter
+    double instr;  // -1 when no instructions counter
 };
-inline Cost sample(int fd, const Work& f, std::uint64_t& out) {
+inline Cost sample(Counters cnt, const Work& f, std::uint64_t& out) {
 #if defined(__linux__)
-    if (fd >= 0) {
-        ioctl(fd, PERF_EVENT_IOC_RESET, 0);
-        ioctl(fd, PERF_EVENT_IOC_ENABLE, 0);
+    if (cnt.cyc >= 0) {
+        ioctl(cnt.cyc, PERF_EVENT_IOC_RESET, 0);
+        ioctl(cnt.instr, PERF_EVENT_IOC_RESET, 0);  // ioctl on -1 is a harmless no-op (EBADF)
+        ioctl(cnt.cyc, PERF_EVENT_IOC_ENABLE, 0);
+        ioctl(cnt.instr, PERF_EVENT_IOC_ENABLE, 0);
         const auto t0 = Clock::now();
         out = f();
         const double ns = ns_since(t0);
-        ioctl(fd, PERF_EVENT_IOC_DISABLE, 0);
+        ioctl(cnt.cyc, PERF_EVENT_IOC_DISABLE, 0);
+        ioctl(cnt.instr, PERF_EVENT_IOC_DISABLE, 0);
         long long c = 0;
-        if (read(fd, &c, sizeof c) != static_cast<ssize_t>(sizeof c)) {
+        if (read(cnt.cyc, &c, sizeof c) != static_cast<ssize_t>(sizeof c)) {
             c = 0;
         }
-        return {ns, static_cast<double>(c)};
+        long long ins = 0;
+        if (cnt.instr < 0 ||
+            read(cnt.instr, &ins, sizeof ins) != static_cast<ssize_t>(sizeof ins)) {
+            ins = -1;
+        }
+        return {ns, static_cast<double>(c), static_cast<double>(ins)};
     }
 #endif
-    (void)fd;
+    (void)cnt;
     const auto t0 = Clock::now();
     out = f();
-    return {ns_since(t0), -1.0};
+    return {ns_since(t0), -1.0, -1.0};
 }
 
 struct Stat {
@@ -158,8 +179,9 @@ inline Stat stat(std::vector<double> v) {
 // a significance verdict. Returns the count of arms whose checksum disagreed with arm 0.
 inline int run(const char* scenario, double byte_size, const std::vector<Arm>& arms) {
     const std::size_t n = arms.size();
-    const int fd = metric_fd();
-    const bool cyc = fd >= 0;
+    const Counters cnt = metric_fds();
+    const bool cyc = cnt.cyc >= 0;
+    const bool ins = cnt.instr >= 0;
     constexpr std::size_t kMinRounds =
         30;  // floor; a null (wash) result self-extends for tighter CI
     constexpr double kBudgetNs = 3.0e9;
@@ -173,13 +195,13 @@ inline int run(const char* scenario, double byte_size, const std::vector<Arm>& a
         return std::fabs(sr.mean - 1.0) > 3.0 * sr.ci_half || sr.ci_half / sr.mean < kNullTol;
     };
 
-    std::vector<std::vector<double>> ns_s(n), cyc_s(n), ratio(n);
+    std::vector<std::vector<double>> ns_s(n), cyc_s(n), instr_s(n), ratio(n);
     std::vector<std::uint64_t> sums(n, 0);
 
     std::uint64_t junk = 0;
     for (int w = 0; w < 5; ++w) {  // warm caches / predictors for every arm
         for (const auto& a : arms) {
-            sample(fd, a.fn, junk);
+            sample(cnt, a.fn, junk);
         }
     }
 
@@ -190,11 +212,14 @@ inline int run(const char* scenario, double byte_size, const std::vector<Arm>& a
         for (std::size_t j = 0; j < n; ++j) {
             const std::size_t k = (j + round) % n;  // rotate start each round: cancels slot bias
             std::uint64_t s = 0;
-            const Cost cost = sample(fd, arms[k].fn, s);
+            const Cost cost = sample(cnt, arms[k].fn, s);
             sums[k] = s;
             ns_s[k].push_back(cost.ns);
             if (cyc) {
                 cyc_s[k].push_back(cost.cyc);
+            }
+            if (ins) {
+                instr_s[k].push_back(cost.instr);
             }
             prim[k] = cyc ? cost.cyc : cost.ns;
         }
@@ -220,8 +245,12 @@ inline int run(const char* scenario, double byte_size, const std::vector<Arm>& a
         const bool ok = sums[k] == sums[0];
         bad += ok ? 0 : 1;
         const Stat sns = stat(ns_s[k]);
-        char rate[48];
-        if (cyc) {
+        char rate[72];
+        if (cyc && ins) {
+            std::snprintf(rate, sizeof rate, "%6.3f GB/s %5.2f cyc/B %6.1f ins/B",
+                          byte_size / sns.median, stat(cyc_s[k]).median / byte_size,
+                          stat(instr_s[k]).median / byte_size);
+        } else if (cyc) {
             std::snprintf(rate, sizeof rate, "%6.3f GB/s %5.2f cyc/B", byte_size / sns.median,
                           stat(cyc_s[k]).median / byte_size);
         } else {
@@ -243,7 +272,7 @@ inline int run(const char* scenario, double byte_size, const std::vector<Arm>& a
             std::snprintf(cmp, sizeof cmp, "vs %s %+6.1f%% +-%.1f%% [%s]", arms[0].label, faster,
                           band, verdict);
         }
-        std::printf("  %-16s %-11s %-26s %-34s%s\n", scenario, arms[k].label, rate, cmp,
+        std::printf("  %-16s %-11s %-37s %-34s%s\n", scenario, arms[k].label, rate, cmp,
                     ok ? "" : "  !! CHECKSUM MISMATCH");
     }
     if (ambiguous) {
