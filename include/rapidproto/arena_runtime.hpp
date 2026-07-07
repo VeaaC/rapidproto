@@ -571,6 +571,21 @@ template <class T>
     return T::rp_decode_into(out, body, arena, depth, err);
 }
 
+// True when this platform's byte order matches protobuf's fixed32/64 wire encoding (little-endian),
+// so a packed fixed-width array's wire bytes ARE its in-memory image and the decoder can bulk-copy
+// the span in one memcpy instead of reading each element. On a big-endian (or unknown-endian)
+// target this is false and the decoder falls back to the byte-swapping per-element read. C++17 has
+// no std::endian; __BYTE_ORDER__ is defined by every supported compiler, Windows is always
+// little-endian, and anything else conservatively takes the safe per-element path.
+#if defined(__BYTE_ORDER__) && defined(__ORDER_LITTLE_ENDIAN__)
+// NOLINTNEXTLINE(misc-redundant-expression): the two macros are equal on a LE build -- that IS the test
+inline constexpr bool kFixedIsNativeLE = __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__;
+#elif defined(_WIN32)
+inline constexpr bool kFixedIsNativeLE = true;
+#else
+inline constexpr bool kFixedIsNativeLE = false;
+#endif
+
 // A singular raw member encodes ABSENCE as a null-data view (like a materialized message
 // field's null pointer -- no mask bit spent). A PRESENT but empty payload must therefore be
 // non-null: it points here.

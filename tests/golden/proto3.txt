@@ -14,6 +14,8 @@ file proto3.proto
     field unpacked num=7 presence=explicit repeated=expanded type=int32
       option packed = id:false
     field states num=8 presence=explicit repeated=expanded type=State -> .p3.State enum
+    field reals num=12 presence=explicit repeated=packed type=double
+    field codes num=13 presence=explicit repeated=packed type=fixed32
     map counts num=9 key=string value=int32
     oneof pick
       field a num=10 presence=explicit type=int32

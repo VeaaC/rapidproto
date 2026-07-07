@@ -8,6 +8,7 @@
 #include <catch_amalgamated.hpp>
 
 #include <cstdint>
+#include <cstring>  // std::memcpy: build little-endian fixed-width packed test bytes
 #include <fstream>
 #include <ios>
 #include <optional>  // std::nullopt: absent explicit-presence reads
@@ -141,6 +142,54 @@ TEST_CASE("arena-decode: submessage, repeated, map, oneof fixture", "[arena-deco
     REQUIRE(m->counts().find(std::string_view("x")) != nullptr);
     CHECK(m->counts().find(std::string_view("x"))->value() == 1);
     CHECK(m->counts().find(std::string_view("y"))->value() == 2);
+}
+
+// Packed fixed-width scalars (double = I64, fixed32 = I32) exercise the decoder's bulk-copy path
+// (the wire span is the array's little-endian byte image, filled in one memcpy) and its rejection of
+// a malformed span whose length is not a whole multiple of the element width.
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): a flat list of accessor assertions
+TEST_CASE("arena-decode: packed fixed-width scalars (bulk-copy path)", "[arena-decode]") {
+    // append the low `width` bytes of `value`, little-endian
+    // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): a local test byte-emitter
+    const auto le = [](std::string& b, std::uint64_t value, int width) {
+        for (int i = 0; i < width; ++i) {
+            b.push_back(static_cast<char>((value >> (8U * static_cast<unsigned>(i))) & 0xFFU));
+        }
+    };
+    std::string reals;  // three doubles, exactly representable so == is safe
+    for (const double d : {1.5, -2.0, 3.25}) {
+        std::uint64_t bitpat = 0;
+        std::memcpy(&bitpat, &d, sizeof bitpat);
+        le(reals, bitpat, 8);
+    }
+    std::string codes;  // four fixed32
+    for (const std::uint32_t c : {10U, 20U, 30U, 40U}) {
+        le(codes, c, 4);
+    }
+    std::string buf;
+    put_len(buf, 12, reals);  // Msg.reals (packed double)
+    put_len(buf, 13, codes);  // Msg.codes (packed fixed32)
+    Arena arena;
+    const p3::Msg* m = p3::Msg::decode(ByteView(buf), arena);
+    REQUIRE(m != nullptr);
+    const auto bits = [](double d) {
+        std::uint64_t b = 0;
+        std::memcpy(&b, &d, sizeof b);
+        return b;
+    };
+    REQUIRE(m->reals().size() == 3);
+    CHECK(bits(m->reals()[0]) == bits(1.5));  // exact byte image (avoids -Wfloat-equal)
+    CHECK(bits(m->reals()[1]) == bits(-2.0));
+    CHECK(bits(m->reals()[2]) == bits(3.25));
+    REQUIRE(m->codes().size() == 4);
+    CHECK(m->codes()[0] == 10);
+    CHECK(m->codes()[3] == 40);
+
+    // A packed fixed span whose length is not a multiple of the element width is malformed -> rejected.
+    std::string bad;
+    put_len(bad, 13, std::string_view("\x0a\x00\x00\x00\x63", 5));  // 5 bytes, not a multiple of 4
+    Arena bad_arena;
+    CHECK(p3::Msg::decode(ByteView(bad), bad_arena) == nullptr);
 }
 
 TEST_CASE("arena-decode: message-value and enum-value maps fixture", "[arena-decode]") {

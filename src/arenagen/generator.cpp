@@ -977,6 +977,27 @@ void emit_packed_fill(const Emit& emit, const FieldNode& field) {
     p.print("rp_cap_$id$ = rp_nc;\n", {{"id", id}});
     p.outdent();
     p.print("}\n");
+    if (!varint) {
+        // Fixed-width elements are little-endian on the wire, so on a little-endian host the packed
+        // span IS the array's byte image: fill it in one memcpy (protoc does the same) instead of a
+        // per-element read. Only for a whole-multiple span; a trailing partial (malformed packed)
+        // falls through to the per-element loop, which reports the exact truncation error. A
+        // big-endian host also takes the per-element (byte-swapping) path.
+        p.print("if constexpr (::rapidproto::arena_detail::kFixedIsNativeLE) {\n");
+        p.indent();
+        p.print("if (rp_p->size() % sizeof($E$) == 0) {\n", {{"E", elem}});
+        p.indent();
+        p.print(
+            "if (rp_ub != 0) { std::memcpy(rp_acc_$id$ + rp_n_$id$, rp_p->data(), rp_p->size()); "
+            "}\n",
+            {{"id", id}});
+        p.print("rp_n_$id$ += rp_ub;\n", {{"id", id}});
+        p.print("continue;\n");
+        p.outdent();
+        p.print("}\n");
+        p.outdent();
+        p.print("}\n");
+    }
     p.print("::rapidproto::WireReader rp_pr{*rp_p};\n");
     p.print("while (!rp_pr.at_end()) {\n");
     p.indent();

@@ -24,4 +24,6 @@ message Msg {
     int32 a = 10;
     string b = 11;
   }
+  repeated double reals = 12;   // packed fixed-width (I64): exercises the bulk-copy path
+  repeated fixed32 codes = 13;  // packed fixed-width (I32): exercises the bulk-copy path
 }

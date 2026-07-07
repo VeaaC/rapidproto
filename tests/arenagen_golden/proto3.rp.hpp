@@ -37,6 +37,8 @@ class Msg {
   ::rapidproto::ArrayView<std::int32_t> nums() const noexcept { return m_nums; }
   ::rapidproto::ArrayView<std::int32_t> unpacked() const noexcept { return m_unpacked; }
   ::rapidproto::ArrayView<::p3::State> states() const noexcept { return m_states; }
+  ::rapidproto::ArrayView<double> reals() const noexcept { return m_reals; }
+  ::rapidproto::ArrayView<std::uint32_t> codes() const noexcept { return m_codes; }
   ::rapidproto::MapView<CountsEntry> counts() const noexcept { return m_counts; }
   template <class... RpFs> void pick(RpFs&&... rp_fs) const {
     static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<RpFs, Pick::a, typename Pick::a::Value>)) <= 1U, "oneof member 'a' is handled by more than one callback");
@@ -85,6 +87,8 @@ class Msg {
   ::rapidproto::ArrayView<::p3::State> m_states;
   ::rapidproto::MapView<CountsEntry> m_counts;
   rp_pick_union m_rp_pick;
+  ::rapidproto::ArrayView<double> m_reals;
+  ::rapidproto::ArrayView<std::uint32_t> m_codes;
   const ::p3::Msg* m_self;
   std::int32_t m_implicit_i;
   std::int32_t m_explicit_i;
@@ -138,6 +142,34 @@ inline bool Msg::rp_decode_into([[maybe_unused]] Msg& out, ::rapidproto::ByteVie
       rp_cap_states = rp_nc;
     }
     return &rp_acc_states[rp_n_states++];
+  };
+  double* rp_acc_reals = nullptr;
+  std::size_t rp_n_reals = 0;
+  std::size_t rp_cap_reals = 0;
+  const auto rp_slot_reals = [&]() noexcept -> double* {
+    if (rp_n_reals == rp_cap_reals) {
+      const std::size_t rp_nc = rp_cap_reals == 0 ? std::size_t{4} : rp_cap_reals * 2;
+      double* const rp_nb = arena.allocate_array<double>(rp_nc);
+      if (rp_nb == nullptr) { return nullptr; }
+      for (std::size_t rp_i = 0; rp_i < rp_n_reals; ++rp_i) { rp_nb[rp_i] = rp_acc_reals[rp_i]; }
+      rp_acc_reals = rp_nb;
+      rp_cap_reals = rp_nc;
+    }
+    return &rp_acc_reals[rp_n_reals++];
+  };
+  std::uint32_t* rp_acc_codes = nullptr;
+  std::size_t rp_n_codes = 0;
+  std::size_t rp_cap_codes = 0;
+  const auto rp_slot_codes = [&]() noexcept -> std::uint32_t* {
+    if (rp_n_codes == rp_cap_codes) {
+      const std::size_t rp_nc = rp_cap_codes == 0 ? std::size_t{4} : rp_cap_codes * 2;
+      std::uint32_t* const rp_nb = arena.allocate_array<std::uint32_t>(rp_nc);
+      if (rp_nb == nullptr) { return nullptr; }
+      for (std::size_t rp_i = 0; rp_i < rp_n_codes; ++rp_i) { rp_nb[rp_i] = rp_acc_codes[rp_i]; }
+      rp_acc_codes = rp_nb;
+      rp_cap_codes = rp_nc;
+    }
+    return &rp_acc_codes[rp_n_codes++];
   };
   CountsEntry* rp_acc_counts = nullptr;
   std::size_t rp_n_counts = 0;
@@ -313,6 +345,84 @@ inline bool Msg::rp_decode_into([[maybe_unused]] Msg& out, ::rapidproto::ByteVie
         }
         break;
       }
+      case 12: {
+        if (rp_tag.wire_type == ::rapidproto::WireType::I64) {
+          double* const rp_slot = rp_slot_reals();
+          if (rp_slot == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }
+          const auto rp_v = reader.read_fixed64();
+          if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+          *rp_slot = ::rapidproto::bit_cast_double(*rp_v);
+          continue;
+        }
+        if (rp_tag.wire_type == ::rapidproto::WireType::Len) {
+          const auto rp_p = reader.read_length_delimited();
+          if (!rp_p) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+          const std::size_t rp_ub = rp_p->size() / 8;
+          if (rp_ub != 0 && rp_cap_reals < rp_n_reals + rp_ub) {
+            const std::size_t rp_nc = rp_n_reals + rp_ub;
+            double* const rp_nb = arena.allocate_array<double>(rp_nc);
+            if (rp_nb == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }
+            for (std::size_t rp_i = 0; rp_i < rp_n_reals; ++rp_i) { rp_nb[rp_i] = rp_acc_reals[rp_i]; }
+            rp_acc_reals = rp_nb;
+            rp_cap_reals = rp_nc;
+          }
+          if constexpr (::rapidproto::arena_detail::kFixedIsNativeLE) {
+            if (rp_p->size() % sizeof(double) == 0) {
+              if (rp_ub != 0) { std::memcpy(rp_acc_reals + rp_n_reals, rp_p->data(), rp_p->size()); }
+              rp_n_reals += rp_ub;
+              continue;
+            }
+          }
+          ::rapidproto::WireReader rp_pr{*rp_p};
+          while (!rp_pr.at_end()) {
+            const auto rp_v = rp_pr.read_fixed64();
+            if (!rp_v) { ::rapidproto::rp_fail_wire(err, rp_pr); return false; }
+            rp_acc_reals[rp_n_reals] = ::rapidproto::bit_cast_double(*rp_v);
+            ++rp_n_reals;
+          }
+          continue;
+        }
+        break;
+      }
+      case 13: {
+        if (rp_tag.wire_type == ::rapidproto::WireType::I32) {
+          std::uint32_t* const rp_slot = rp_slot_codes();
+          if (rp_slot == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }
+          const auto rp_v = reader.read_fixed32();
+          if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+          *rp_slot = *rp_v;
+          continue;
+        }
+        if (rp_tag.wire_type == ::rapidproto::WireType::Len) {
+          const auto rp_p = reader.read_length_delimited();
+          if (!rp_p) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+          const std::size_t rp_ub = rp_p->size() / 4;
+          if (rp_ub != 0 && rp_cap_codes < rp_n_codes + rp_ub) {
+            const std::size_t rp_nc = rp_n_codes + rp_ub;
+            std::uint32_t* const rp_nb = arena.allocate_array<std::uint32_t>(rp_nc);
+            if (rp_nb == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }
+            for (std::size_t rp_i = 0; rp_i < rp_n_codes; ++rp_i) { rp_nb[rp_i] = rp_acc_codes[rp_i]; }
+            rp_acc_codes = rp_nb;
+            rp_cap_codes = rp_nc;
+          }
+          if constexpr (::rapidproto::arena_detail::kFixedIsNativeLE) {
+            if (rp_p->size() % sizeof(std::uint32_t) == 0) {
+              if (rp_ub != 0) { std::memcpy(rp_acc_codes + rp_n_codes, rp_p->data(), rp_p->size()); }
+              rp_n_codes += rp_ub;
+              continue;
+            }
+          }
+          ::rapidproto::WireReader rp_pr{*rp_p};
+          while (!rp_pr.at_end()) {
+            const auto rp_v = rp_pr.read_fixed32();
+            if (!rp_v) { ::rapidproto::rp_fail_wire(err, rp_pr); return false; }
+            rp_acc_codes[rp_n_codes] = *rp_v;
+            ++rp_n_codes;
+          }
+          continue;
+        }
+        break;
+      }
       case 9: {
         if (rp_tag.wire_type == ::rapidproto::WireType::Len) {
           const auto rp_ent = reader.read_length_delimited();
@@ -369,6 +479,8 @@ inline bool Msg::rp_decode_into([[maybe_unused]] Msg& out, ::rapidproto::ByteVie
   out.m_nums = ::rapidproto::ArrayView<std::int32_t>(rp_acc_nums, rp_n_nums);
   out.m_unpacked = ::rapidproto::ArrayView<std::int32_t>(rp_acc_unpacked, rp_n_unpacked);
   out.m_states = ::rapidproto::ArrayView<::p3::State>(rp_acc_states, rp_n_states);
+  out.m_reals = ::rapidproto::ArrayView<double>(rp_acc_reals, rp_n_reals);
+  out.m_codes = ::rapidproto::ArrayView<std::uint32_t>(rp_acc_codes, rp_n_codes);
   out.m_counts = ::rapidproto::MapView<CountsEntry>(::rapidproto::ArrayView<CountsEntry>(rp_acc_counts, rp_n_counts));
   return true;
 }
