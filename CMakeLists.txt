@@ -310,7 +310,7 @@ if(RAPIDPROTO_BUILD_TESTS)
   # inside the large test binary makes results layout-sensitive (see tests/bench_streamgen.cpp).
   # Built at -O3 -DNDEBUG even under the Debug preset so its numbers are meaningful; no -Werror
   # (it is not linked against rapidproto_strict). Run pinned: taskset -c 0 ./rapidproto_bench
-  add_executable(rapidproto_bench tests/bench_streamgen.cpp)
+  add_executable(rapidproto_bench tests/bench_streamgen.cpp tests/bench_stream_isolated.cpp)
   target_link_libraries(rapidproto_bench PRIVATE rapidproto)
   target_include_directories(rapidproto_bench PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/streamgen_golden)

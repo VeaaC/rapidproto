@@ -29,6 +29,7 @@
 #include <vector>
 
 #include "bench_harness.hpp"  // rpbench: the shared measurement harness (also used by the arena bench)
+#include "bench_two_tier.hpp"  // micro-vs-large-TU decode (out-of-line-primitive penalty)
 #include "proto2.rp.stream.hpp"  // generated p2::stream::Scalars; -Itests/streamgen_golden (pulls runtime.hpp)
 #include "rapidproto/runtime.hpp"
 
@@ -925,6 +926,27 @@ int scenario_sparse() {
 
 }  // namespace
 
+// The comprehensive Scalars decode compiled IN CONTEXT -- amid this large bench TU's many decoders,
+// so the compiler keeps read_varint & co. out-of-line and calls them per element. The identical
+// decode compiled ALONE (rp_bench_decode_scalars_micro, bench_stream_isolated.cpp) inlines them.
+RP_BENCH_DEFINE_SCALARS_DECODE(rp_bench_decode_scalars_ctx)
+extern std::uint64_t rp_bench_decode_scalars_micro(rapidproto::ByteView);  // the isolated-TU twin
+
+namespace {
+
+// Two-tier: the SAME generated decode, isolated (micro, primitives inlined) vs in-context (large TU,
+// primitives out-of-line). The ratio is the out-of-line-primitive penalty a real large program pays.
+int scenario_two_tier() {
+    const std::string buf = rp_bench_scalars_buffer(kN);
+    const Arm arms[] = {
+        {"micro (own TU)", [](ByteView b) { return rp_bench_decode_scalars_micro(b); }},
+        {"large TU", [](ByteView b) { return rp_bench_decode_scalars_ctx(b); }},
+    };
+    return run("two-tier", ByteView(buf), arms);
+}
+
+}  // namespace
+
 int main() {
     const int fd =
         rpbench::metric_fd();  // pin + steady-state warmup + open the cycle counter, once
@@ -953,6 +975,7 @@ int main() {
     bad += scenario_nested();
     bad += scenario_groups();
     bad += scenario_sparse();
+    bad += scenario_two_tier();
     if (bad != 0) {
         std::printf("\nFAIL: %d checksum mismatch(es)\n", bad);
         return 1;
