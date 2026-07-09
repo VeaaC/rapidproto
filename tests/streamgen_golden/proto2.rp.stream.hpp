@@ -114,7 +114,7 @@ struct Container {
 };
 
 template <class... Callbacks>
-::rapidproto::DecodeStatus Scalars::decode(Callbacks&&... rp_callbacks) const {
+RP_FLATTEN ::rapidproto::DecodeStatus Scalars::decode(Callbacks&&... rp_callbacks) const {
   static_assert((true && ... && !::rapidproto::is_stray_callback<Callbacks, i32, i64, u32, u64, s32, s64, f32, f64, sf32, sf64, b, s, by, fl, db, color, packed_nums, expanded_nums>), "a callback matches no field of 'Scalars' (and is not a catch-all or unknown-field handler)");
   [[maybe_unused]] auto rp_dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(rp_callbacks)...);
   ::rapidproto::WireReader rp_reader{m_bytes};
@@ -403,7 +403,7 @@ template <class... Callbacks>
             if (!rp_packed) { return ::rapidproto::DecodeStatus::from_reader(rp_reader); }
             ::rapidproto::WireReader rp_elements{*rp_packed};
             while (!rp_elements.at_end()) {
-              const auto rp_value = rp_elements.read_varint_inline();
+              const auto rp_value = rp_elements.read_varint();
               if (!rp_value) { return ::rapidproto::DecodeStatus::from_reader(rp_elements); }
               if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, packed_nums{}, ::rapidproto::varint_to_int32(*rp_value)); !rp_status.ok()) {
                 return rp_status;
@@ -432,7 +432,7 @@ template <class... Callbacks>
             if (!rp_packed) { return ::rapidproto::DecodeStatus::from_reader(rp_reader); }
             ::rapidproto::WireReader rp_elements{*rp_packed};
             while (!rp_elements.at_end()) {
-              const auto rp_value = rp_elements.read_varint_inline();
+              const auto rp_value = rp_elements.read_varint();
               if (!rp_value) { return ::rapidproto::DecodeStatus::from_reader(rp_elements); }
               if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, expanded_nums{}, ::rapidproto::varint_to_int32(*rp_value)); !rp_status.ok()) {
                 return rp_status;
@@ -458,7 +458,7 @@ template <class... Callbacks>
 }
 
 template <class... Callbacks>
-::rapidproto::DecodeStatus WithGroup::decode(Callbacks&&... rp_callbacks) const {
+RP_FLATTEN ::rapidproto::DecodeStatus WithGroup::decode(Callbacks&&... rp_callbacks) const {
   static_assert((true && ... && !::rapidproto::is_stray_callback<Callbacks, mygroup>), "a callback matches no field of 'WithGroup' (and is not a catch-all or unknown-field handler)");
   [[maybe_unused]] auto rp_dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(rp_callbacks)...);
   ::rapidproto::WireReader rp_reader{m_bytes};
@@ -500,7 +500,7 @@ template <class... Callbacks>
 }
 
 template <class... Callbacks>
-::rapidproto::DecodeStatus WithGroup::MyGroup::decode(Callbacks&&... rp_callbacks) const {
+RP_FLATTEN ::rapidproto::DecodeStatus WithGroup::MyGroup::decode(Callbacks&&... rp_callbacks) const {
   static_assert((true && ... && !::rapidproto::is_stray_callback<Callbacks, a, inner>), "a callback matches no field of 'WithGroup::MyGroup' (and is not a catch-all or unknown-field handler)");
   [[maybe_unused]] auto rp_dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(rp_callbacks)...);
   ::rapidproto::WireReader rp_reader{m_bytes};
@@ -562,7 +562,7 @@ template <class... Callbacks>
 }
 
 template <class... Callbacks>
-::rapidproto::DecodeStatus WithGroup::MyGroup::Inner::decode(Callbacks&&... rp_callbacks) const {
+RP_FLATTEN ::rapidproto::DecodeStatus WithGroup::MyGroup::Inner::decode(Callbacks&&... rp_callbacks) const {
   static_assert((true && ... && !::rapidproto::is_stray_callback<Callbacks, flag>), "a callback matches no field of 'WithGroup::MyGroup::Inner' (and is not a catch-all or unknown-field handler)");
   [[maybe_unused]] auto rp_dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(rp_callbacks)...);
   ::rapidproto::WireReader rp_reader{m_bytes};
@@ -608,7 +608,7 @@ template <class... Callbacks>
 }
 
 template <class... Callbacks>
-::rapidproto::DecodeStatus Container::decode(Callbacks&&... rp_callbacks) const {
+RP_FLATTEN ::rapidproto::DecodeStatus Container::decode(Callbacks&&... rp_callbacks) const {
   static_assert((true && ... && !::rapidproto::is_stray_callback<Callbacks, items, ci, cn, by_name, by_id>), "a callback matches no field of 'Container' (and is not a catch-all or unknown-field handler)");
   [[maybe_unused]] auto rp_dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(rp_callbacks)...);
   ::rapidproto::WireReader rp_reader{m_bytes};
@@ -758,7 +758,7 @@ template <class... Callbacks>
 }
 
 template <class... Callbacks>
-::rapidproto::DecodeStatus Container::Nested::decode(Callbacks&&... rp_callbacks) const {
+RP_FLATTEN ::rapidproto::DecodeStatus Container::Nested::decode(Callbacks&&... rp_callbacks) const {
   static_assert((true && ... && !::rapidproto::is_stray_callback<Callbacks, x>), "a callback matches no field of 'Container::Nested' (and is not a catch-all or unknown-field handler)");
   [[maybe_unused]] auto rp_dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(rp_callbacks)...);
   ::rapidproto::WireReader rp_reader{m_bytes};

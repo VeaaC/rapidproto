@@ -91,7 +91,7 @@ class Main {
 static_assert(::std::is_trivially_destructible_v<Main>);
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-inline bool Main::rp_decode_into([[maybe_unused]] Main& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN inline bool Main::rp_decode_into([[maybe_unused]] Main& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   ::rp::dep::Dep* rp_acc_ds = nullptr;
   std::size_t rp_n_ds = 0;

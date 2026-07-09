@@ -82,7 +82,7 @@ class Holder {
 static_assert(::std::is_trivially_destructible_v<Holder>);
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-inline bool Blob::rp_decode_into([[maybe_unused]] Blob& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN inline bool Blob::rp_decode_into([[maybe_unused]] Blob& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   ::rapidproto::WireReader reader{body};
   ::rapidproto::Tag rp_tag;
@@ -119,7 +119,7 @@ inline const Blob* Blob::decode(::rapidproto::ByteView input, ::rapidproto::Aren
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-inline bool Holder::rp_decode_into([[maybe_unused]] Holder& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN inline bool Holder::rp_decode_into([[maybe_unused]] Holder& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   ::rapidproto::ByteView* rp_acc_blobs = nullptr;
   std::size_t rp_n_blobs = 0;
@@ -231,7 +231,7 @@ inline bool Holder::rp_decode_into([[maybe_unused]] Holder& out, ::rapidproto::B
         }
         ::rapidproto::WireReader rp_pr{*rp_p};
         while (!rp_pr.at_end()) {
-          const auto rp_v = rp_pr.read_varint_inline();
+          const auto rp_v = rp_pr.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, rp_pr); return false; }
           rp_acc_samples[rp_n_samples] = ::rapidproto::varint_to_int32(*rp_v);
           ++rp_n_samples;
@@ -264,7 +264,7 @@ inline bool Holder::rp_decode_into([[maybe_unused]] Holder& out, ::rapidproto::B
         }
         ::rapidproto::WireReader rp_pr{*rp_p};
         while (!rp_pr.at_end()) {
-          const auto rp_v = rp_pr.read_varint_inline();
+          const auto rp_v = rp_pr.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, rp_pr); return false; }
           rp_acc_spread[rp_n_spread] = ::rapidproto::varint_to_int32(*rp_v);
           ++rp_n_spread;
@@ -389,7 +389,7 @@ inline const Holder* Holder::decode(::rapidproto::ByteView input, ::rapidproto::
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-inline bool Holder::Grp::rp_decode_into([[maybe_unused]] Holder::Grp& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN inline bool Holder::Grp::rp_decode_into([[maybe_unused]] Holder::Grp& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   ::rapidproto::WireReader reader{body};
   ::rapidproto::Tag rp_tag;

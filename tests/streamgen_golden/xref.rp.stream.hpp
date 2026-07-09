@@ -296,7 +296,7 @@ struct BytesWrap {
 };
 
 template <class... Callbacks>
-::rapidproto::DecodeStatus A::decode(Callbacks&&... rp_callbacks) const {
+RP_FLATTEN ::rapidproto::DecodeStatus A::decode(Callbacks&&... rp_callbacks) const {
   static_assert((true && ... && !::rapidproto::is_stray_callback<Callbacks, b, id>), "a callback matches no field of 'A' (and is not a catch-all or unknown-field handler)");
   [[maybe_unused]] auto rp_dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(rp_callbacks)...);
   ::rapidproto::WireReader rp_reader{m_bytes};
@@ -358,7 +358,7 @@ template <class... Callbacks>
 }
 
 template <class... Callbacks>
-::rapidproto::DecodeStatus B::decode(Callbacks&&... rp_callbacks) const {
+RP_FLATTEN ::rapidproto::DecodeStatus B::decode(Callbacks&&... rp_callbacks) const {
   static_assert((true && ... && !::rapidproto::is_stray_callback<Callbacks, a>), "a callback matches no field of 'B' (and is not a catch-all or unknown-field handler)");
   [[maybe_unused]] auto rp_dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(rp_callbacks)...);
   ::rapidproto::WireReader rp_reader{m_bytes};
@@ -404,7 +404,7 @@ template <class... Callbacks>
 }
 
 template <class... Callbacks>
-::rapidproto::DecodeStatus Nested::decode(Callbacks&&... rp_callbacks) const {
+RP_FLATTEN ::rapidproto::DecodeStatus Nested::decode(Callbacks&&... rp_callbacks) const {
   static_assert((true && ... && !::rapidproto::is_stray_callback<Callbacks>), "a callback matches no field of 'Nested' (and is not a catch-all or unknown-field handler)");
   [[maybe_unused]] auto rp_dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(rp_callbacks)...);
   ::rapidproto::WireReader rp_reader{m_bytes};
@@ -430,7 +430,7 @@ template <class... Callbacks>
 }
 
 template <class... Callbacks>
-::rapidproto::DecodeStatus Nested::User::decode(Callbacks&&... rp_callbacks) const {
+RP_FLATTEN ::rapidproto::DecodeStatus Nested::User::decode(Callbacks&&... rp_callbacks) const {
   static_assert((true && ... && !::rapidproto::is_stray_callback<Callbacks, single, many, kind, kinds, inner, inners, chosen, tagged, by_name, ranked>), "a callback matches no field of 'Nested::User' (and is not a catch-all or unknown-field handler)");
   [[maybe_unused]] auto rp_dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(rp_callbacks)...);
   ::rapidproto::WireReader rp_reader{m_bytes};
@@ -505,7 +505,7 @@ template <class... Callbacks>
           if (!rp_packed) { return ::rapidproto::DecodeStatus::from_reader(rp_reader); }
           ::rapidproto::WireReader rp_elements{*rp_packed};
           while (!rp_elements.at_end()) {
-            const auto rp_value = rp_elements.read_varint_inline();
+            const auto rp_value = rp_elements.read_varint();
             if (!rp_value) { return ::rapidproto::DecodeStatus::from_reader(rp_elements); }
             if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, kinds{}, static_cast<::xr::stream::Nested::Def::Kind>(::rapidproto::varint_to_int32(*rp_value))); !rp_status.ok()) {
               return rp_status;
@@ -676,7 +676,7 @@ template <class... Callbacks>
 }
 
 template <class... Callbacks>
-::rapidproto::DecodeStatus Nested::Def::decode(Callbacks&&... rp_callbacks) const {
+RP_FLATTEN ::rapidproto::DecodeStatus Nested::Def::decode(Callbacks&&... rp_callbacks) const {
   static_assert((true && ... && !::rapidproto::is_stray_callback<Callbacks, s, n>), "a callback matches no field of 'Nested::Def' (and is not a catch-all or unknown-field handler)");
   [[maybe_unused]] auto rp_dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(rp_callbacks)...);
   ::rapidproto::WireReader rp_reader{m_bytes};
@@ -738,7 +738,7 @@ template <class... Callbacks>
 }
 
 template <class... Callbacks>
-::rapidproto::DecodeStatus Nested::Def::Inner::decode(Callbacks&&... rp_callbacks) const {
+RP_FLATTEN ::rapidproto::DecodeStatus Nested::Def::Inner::decode(Callbacks&&... rp_callbacks) const {
   static_assert((true && ... && !::rapidproto::is_stray_callback<Callbacks, s>), "a callback matches no field of 'Nested::Def::Inner' (and is not a catch-all or unknown-field handler)");
   [[maybe_unused]] auto rp_dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(rp_callbacks)...);
   ::rapidproto::WireReader rp_reader{m_bytes};
@@ -784,7 +784,7 @@ template <class... Callbacks>
 }
 
 template <class... Callbacks>
-::rapidproto::DecodeStatus Nested::P::decode(Callbacks&&... rp_callbacks) const {
+RP_FLATTEN ::rapidproto::DecodeStatus Nested::P::decode(Callbacks&&... rp_callbacks) const {
   static_assert((true && ... && !::rapidproto::is_stray_callback<Callbacks, q>), "a callback matches no field of 'Nested::P' (and is not a catch-all or unknown-field handler)");
   [[maybe_unused]] auto rp_dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(rp_callbacks)...);
   ::rapidproto::WireReader rp_reader{m_bytes};
@@ -830,7 +830,7 @@ template <class... Callbacks>
 }
 
 template <class... Callbacks>
-::rapidproto::DecodeStatus Nested::Q::decode(Callbacks&&... rp_callbacks) const {
+RP_FLATTEN ::rapidproto::DecodeStatus Nested::Q::decode(Callbacks&&... rp_callbacks) const {
   static_assert((true && ... && !::rapidproto::is_stray_callback<Callbacks, p>), "a callback matches no field of 'Nested::Q' (and is not a catch-all or unknown-field handler)");
   [[maybe_unused]] auto rp_dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(rp_callbacks)...);
   ::rapidproto::WireReader rp_reader{m_bytes};
@@ -876,7 +876,7 @@ template <class... Callbacks>
 }
 
 template <class... Callbacks>
-::rapidproto::DecodeStatus FwdMsg::decode(Callbacks&&... rp_callbacks) const {
+RP_FLATTEN ::rapidproto::DecodeStatus FwdMsg::decode(Callbacks&&... rp_callbacks) const {
   static_assert((true && ... && !::rapidproto::is_stray_callback<Callbacks>), "a callback matches no field of 'FwdMsg' (and is not a catch-all or unknown-field handler)");
   [[maybe_unused]] auto rp_dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(rp_callbacks)...);
   ::rapidproto::WireReader rp_reader{m_bytes};
@@ -902,7 +902,7 @@ template <class... Callbacks>
 }
 
 template <class... Callbacks>
-::rapidproto::DecodeStatus FwdMsg::Ref::decode(Callbacks&&... rp_callbacks) const {
+RP_FLATTEN ::rapidproto::DecodeStatus FwdMsg::Ref::decode(Callbacks&&... rp_callbacks) const {
   static_assert((true && ... && !::rapidproto::is_stray_callback<Callbacks, one, many, chosen, by_id>), "a callback matches no field of 'FwdMsg::Ref' (and is not a catch-all or unknown-field handler)");
   [[maybe_unused]] auto rp_dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(rp_callbacks)...);
   ::rapidproto::WireReader rp_reader{m_bytes};
@@ -1016,7 +1016,7 @@ template <class... Callbacks>
 }
 
 template <class... Callbacks>
-::rapidproto::DecodeStatus FwdMsg::Target::decode(Callbacks&&... rp_callbacks) const {
+RP_FLATTEN ::rapidproto::DecodeStatus FwdMsg::Target::decode(Callbacks&&... rp_callbacks) const {
   static_assert((true && ... && !::rapidproto::is_stray_callback<Callbacks, s, n>), "a callback matches no field of 'FwdMsg::Target' (and is not a catch-all or unknown-field handler)");
   [[maybe_unused]] auto rp_dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(rp_callbacks)...);
   ::rapidproto::WireReader rp_reader{m_bytes};
@@ -1078,7 +1078,7 @@ template <class... Callbacks>
 }
 
 template <class... Callbacks>
-::rapidproto::DecodeStatus CousinA::decode(Callbacks&&... rp_callbacks) const {
+RP_FLATTEN ::rapidproto::DecodeStatus CousinA::decode(Callbacks&&... rp_callbacks) const {
   static_assert((true && ... && !::rapidproto::is_stray_callback<Callbacks>), "a callback matches no field of 'CousinA' (and is not a catch-all or unknown-field handler)");
   [[maybe_unused]] auto rp_dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(rp_callbacks)...);
   ::rapidproto::WireReader rp_reader{m_bytes};
@@ -1104,7 +1104,7 @@ template <class... Callbacks>
 }
 
 template <class... Callbacks>
-::rapidproto::DecodeStatus CousinA::Use::decode(Callbacks&&... rp_callbacks) const {
+RP_FLATTEN ::rapidproto::DecodeStatus CousinA::Use::decode(Callbacks&&... rp_callbacks) const {
   static_assert((true && ... && !::rapidproto::is_stray_callback<Callbacks, thing, things, tag>), "a callback matches no field of 'CousinA::Use' (and is not a catch-all or unknown-field handler)");
   [[maybe_unused]] auto rp_dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(rp_callbacks)...);
   ::rapidproto::WireReader rp_reader{m_bytes};
@@ -1182,7 +1182,7 @@ template <class... Callbacks>
 }
 
 template <class... Callbacks>
-::rapidproto::DecodeStatus CousinB::decode(Callbacks&&... rp_callbacks) const {
+RP_FLATTEN ::rapidproto::DecodeStatus CousinB::decode(Callbacks&&... rp_callbacks) const {
   static_assert((true && ... && !::rapidproto::is_stray_callback<Callbacks>), "a callback matches no field of 'CousinB' (and is not a catch-all or unknown-field handler)");
   [[maybe_unused]] auto rp_dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(rp_callbacks)...);
   ::rapidproto::WireReader rp_reader{m_bytes};
@@ -1208,7 +1208,7 @@ template <class... Callbacks>
 }
 
 template <class... Callbacks>
-::rapidproto::DecodeStatus CousinB::Thing::decode(Callbacks&&... rp_callbacks) const {
+RP_FLATTEN ::rapidproto::DecodeStatus CousinB::Thing::decode(Callbacks&&... rp_callbacks) const {
   static_assert((true && ... && !::rapidproto::is_stray_callback<Callbacks, s>), "a callback matches no field of 'CousinB::Thing' (and is not a catch-all or unknown-field handler)");
   [[maybe_unused]] auto rp_dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(rp_callbacks)...);
   ::rapidproto::WireReader rp_reader{m_bytes};
@@ -1254,7 +1254,7 @@ template <class... Callbacks>
 }
 
 template <class... Callbacks>
-::rapidproto::DecodeStatus ReservedNames::decode(Callbacks&&... rp_callbacks) const {
+RP_FLATTEN ::rapidproto::DecodeStatus ReservedNames::decode(Callbacks&&... rp_callbacks) const {
   static_assert((true && ... && !::rapidproto::is_stray_callback<Callbacks, value, tag, status, reader, dispatch, callbacks, read>), "a callback matches no field of 'ReservedNames' (and is not a catch-all or unknown-field handler)");
   [[maybe_unused]] auto rp_dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(rp_callbacks)...);
   ::rapidproto::WireReader rp_reader{m_bytes};
@@ -1396,7 +1396,7 @@ template <class... Callbacks>
 }
 
 template <class... Callbacks>
-::rapidproto::DecodeStatus IntWrap::decode(Callbacks&&... rp_callbacks) const {
+RP_FLATTEN ::rapidproto::DecodeStatus IntWrap::decode(Callbacks&&... rp_callbacks) const {
   static_assert((true && ... && !::rapidproto::is_stray_callback<Callbacks, value>), "a callback matches no field of 'IntWrap' (and is not a catch-all or unknown-field handler)");
   [[maybe_unused]] auto rp_dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(rp_callbacks)...);
   ::rapidproto::WireReader rp_reader{m_bytes};
@@ -1442,7 +1442,7 @@ template <class... Callbacks>
 }
 
 template <class... Callbacks>
-::rapidproto::DecodeStatus BoolWrap::decode(Callbacks&&... rp_callbacks) const {
+RP_FLATTEN ::rapidproto::DecodeStatus BoolWrap::decode(Callbacks&&... rp_callbacks) const {
   static_assert((true && ... && !::rapidproto::is_stray_callback<Callbacks, value>), "a callback matches no field of 'BoolWrap' (and is not a catch-all or unknown-field handler)");
   [[maybe_unused]] auto rp_dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(rp_callbacks)...);
   ::rapidproto::WireReader rp_reader{m_bytes};
@@ -1488,7 +1488,7 @@ template <class... Callbacks>
 }
 
 template <class... Callbacks>
-::rapidproto::DecodeStatus BytesWrap::decode(Callbacks&&... rp_callbacks) const {
+RP_FLATTEN ::rapidproto::DecodeStatus BytesWrap::decode(Callbacks&&... rp_callbacks) const {
   static_assert((true && ... && !::rapidproto::is_stray_callback<Callbacks, value>), "a callback matches no field of 'BytesWrap' (and is not a catch-all or unknown-field handler)");
   [[maybe_unused]] auto rp_dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(rp_callbacks)...);
   ::rapidproto::WireReader rp_reader{m_bytes};

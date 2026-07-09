@@ -29,7 +29,7 @@ class WMain {
 static_assert(::std::is_trivially_destructible_v<WMain>);
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-inline bool WMain::rp_decode_into([[maybe_unused]] WMain& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN inline bool WMain::rp_decode_into([[maybe_unused]] WMain& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   ::rapidproto::WireReader reader{body};
   ::rapidproto::Tag rp_tag;

@@ -45,7 +45,7 @@ class M {
 static_assert(::std::is_trivially_destructible_v<M>);
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-inline bool M::rp_decode_into([[maybe_unused]] M& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN inline bool M::rp_decode_into([[maybe_unused]] M& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   std::int32_t* rp_acc_packed_nums = nullptr;
   std::size_t rp_n_packed_nums = 0;
@@ -119,7 +119,7 @@ inline bool M::rp_decode_into([[maybe_unused]] M& out, ::rapidproto::ByteView bo
         }
         ::rapidproto::WireReader rp_pr{*rp_p};
         while (!rp_pr.at_end()) {
-          const auto rp_v = rp_pr.read_varint_inline();
+          const auto rp_v = rp_pr.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, rp_pr); return false; }
           rp_acc_packed_nums[rp_n_packed_nums] = ::rapidproto::varint_to_int32(*rp_v);
           ++rp_n_packed_nums;
@@ -152,7 +152,7 @@ inline bool M::rp_decode_into([[maybe_unused]] M& out, ::rapidproto::ByteView bo
         }
         ::rapidproto::WireReader rp_pr{*rp_p};
         while (!rp_pr.at_end()) {
-          const auto rp_v = rp_pr.read_varint_inline();
+          const auto rp_v = rp_pr.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, rp_pr); return false; }
           rp_acc_expanded_nums[rp_n_expanded_nums] = ::rapidproto::varint_to_int32(*rp_v);
           ++rp_n_expanded_nums;

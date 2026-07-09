@@ -155,7 +155,7 @@ class ManyRequired {
 static_assert(::std::is_trivially_destructible_v<ManyRequired>);
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   std::uint64_t rp_req[2] = {};
   ::rapidproto::WireReader reader{body};

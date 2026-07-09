@@ -183,7 +183,7 @@ class Container {
 static_assert(::std::is_trivially_destructible_v<Container>);
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-inline bool Scalars::rp_decode_into([[maybe_unused]] Scalars& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN inline bool Scalars::rp_decode_into([[maybe_unused]] Scalars& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   std::int32_t* rp_acc_packed_nums = nullptr;
   std::size_t rp_n_packed_nums = 0;
@@ -395,7 +395,7 @@ inline bool Scalars::rp_decode_into([[maybe_unused]] Scalars& out, ::rapidproto:
           }
           ::rapidproto::WireReader rp_pr{*rp_p};
           while (!rp_pr.at_end()) {
-            const auto rp_v = rp_pr.read_varint_inline();
+            const auto rp_v = rp_pr.read_varint();
             if (!rp_v) { ::rapidproto::rp_fail_wire(err, rp_pr); return false; }
             rp_acc_packed_nums[rp_n_packed_nums] = ::rapidproto::varint_to_int32(*rp_v);
             ++rp_n_packed_nums;
@@ -429,7 +429,7 @@ inline bool Scalars::rp_decode_into([[maybe_unused]] Scalars& out, ::rapidproto:
           }
           ::rapidproto::WireReader rp_pr{*rp_p};
           while (!rp_pr.at_end()) {
-            const auto rp_v = rp_pr.read_varint_inline();
+            const auto rp_v = rp_pr.read_varint();
             if (!rp_v) { ::rapidproto::rp_fail_wire(err, rp_pr); return false; }
             rp_acc_expanded_nums[rp_n_expanded_nums] = ::rapidproto::varint_to_int32(*rp_v);
             ++rp_n_expanded_nums;
@@ -457,7 +457,7 @@ inline const Scalars* Scalars::decode(::rapidproto::ByteView input, ::rapidproto
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-inline bool WithGroup::rp_decode_into([[maybe_unused]] WithGroup& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN inline bool WithGroup::rp_decode_into([[maybe_unused]] WithGroup& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   ::rapidproto::WireReader reader{body};
   ::rapidproto::Tag rp_tag;
@@ -491,7 +491,7 @@ inline const WithGroup* WithGroup::decode(::rapidproto::ByteView input, ::rapidp
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-inline bool WithGroup::MyGroup::rp_decode_into([[maybe_unused]] WithGroup::MyGroup& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN inline bool WithGroup::MyGroup::rp_decode_into([[maybe_unused]] WithGroup::MyGroup& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   ::rapidproto::WireReader reader{body};
   ::rapidproto::Tag rp_tag;
@@ -538,7 +538,7 @@ inline const WithGroup::MyGroup* WithGroup::MyGroup::decode(::rapidproto::ByteVi
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-inline bool WithGroup::MyGroup::Inner::rp_decode_into([[maybe_unused]] WithGroup::MyGroup::Inner& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN inline bool WithGroup::MyGroup::Inner::rp_decode_into([[maybe_unused]] WithGroup::MyGroup::Inner& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   ::rapidproto::WireReader reader{body};
   ::rapidproto::Tag rp_tag;
@@ -574,7 +574,7 @@ inline const WithGroup::MyGroup::Inner* WithGroup::MyGroup::Inner::decode(::rapi
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-inline bool Container::rp_decode_into([[maybe_unused]] Container& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN inline bool Container::rp_decode_into([[maybe_unused]] Container& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   ::p2::Container::Nested* rp_acc_items = nullptr;
   std::size_t rp_n_items = 0;
@@ -733,7 +733,7 @@ inline const Container* Container::decode(::rapidproto::ByteView input, ::rapidp
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-inline bool Container::Nested::rp_decode_into([[maybe_unused]] Container::Nested& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN inline bool Container::Nested::rp_decode_into([[maybe_unused]] Container::Nested& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   ::rapidproto::WireReader reader{body};
   ::rapidproto::Tag rp_tag;

@@ -111,36 +111,6 @@ TEST_CASE("wire: varint errors set the code and offset", "[wire]") {
     }
 }
 
-// read_varint_inline is a force-inlined byte-copy of read_varint used only in packed-array loops; it
-// MUST decode and fail bit-identically. Pin that invariant directly -- the deterministic decode tests
-// otherwise reach the inline copy only via packed decoders fed VALID varints, leaving its overflow /
-// truncation branches unguarded (so a future edit to one body and not the other would slip through).
-TEST_CASE("wire: read_varint_inline is bit-identical to read_varint", "[wire]") {
-    const std::vector<Bytes> inputs = {
-        {},  // empty -> truncated
-        {0x00},
-        {0x01},
-        {0x7f},
-        {0xac, 0x02},                                                  // 300
-        {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x01},  // UINT64_MAX
-        {0x80},                                                        // truncated
-        {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},  // overflow (11th cont. byte)
-        {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-         0x02},  // overflow (10th byte > bit 63)
-    };
-    for (std::size_t i = 0; i < inputs.size(); ++i) {
-        CAPTURE(i);
-        WireReader ra(view(inputs[i]));
-        WireReader rb(view(inputs[i]));
-        const std::optional<std::uint64_t> va = ra.read_varint();
-        const std::optional<std::uint64_t> vb = rb.read_varint_inline();
-        CHECK(va == vb);                              // same value + same has_value
-        CHECK(ra.error_code() == rb.error_code());    // same error
-        CHECK(ra.fail_offset() == rb.fail_offset());  // same fail offset
-        CHECK(ra.position() == rb.position());        // same cursor advance
-    }
-}
-
 TEST_CASE("wire: a failed read parks the cursor", "[wire]") {
     const Bytes data = {0x80};  // truncated varint
     WireReader reader(view(data));

@@ -331,25 +331,11 @@ void emit_message(Printer& printer, const CppNameTable& symbols, const MessageNo
     printer.print("};\n\n");
 }
 
-// At a HOT per-element read (a packed payload or an expanded repeated element), a varint value is
-// read once per element, so the out-of-line call-per-element dominates on a large TU; force it inline
-// there. A singular field is read once per message, so it stays on the out-of-line read_varint (many
-// such sites -> inlining them all would bloat the decoder). Only varint has an inline variant; fixed
-// reads are already a branch + load.
-std::string element_read(const FieldGen& gen, bool hot) {
-    if (hot && gen.read_call == "read_varint()") {
-        return "read_varint_inline()";
-    }
-    return std::string(gen.read_call);
-}
-
 // Emit "decode one value from $src$ and invoke the callback, propagating errors". $src$ is the
-// reader the element is read from (the message reader, or a sub-reader over a packed payload). `hot`
-// marks a per-element read (packed / expanded repeated) -> use the force-inlined varint read.
+// reader the element is read from (the message reader, or a sub-reader over a packed payload).
 void emit_decode_and_invoke(Printer& printer, const std::string& fname, const FieldGen& gen,
-                            std::string_view src, bool hot = false) {
-    printer.print("const auto rp_value = $src$.$read$;\n",
-                  {{"src", src}, {"read", element_read(gen, hot)}});
+                            std::string_view src) {
+    printer.print("const auto rp_value = $src$.$read$;\n", {{"src", src}, {"read", gen.read_call}});
     printer.print("if (!rp_value) { return ::rapidproto::DecodeStatus::from_reader($src$); }\n",
                   {{"src", src}});
     printer.print(
@@ -397,7 +383,7 @@ void emit_arm(Printer& printer, const std::string& fname, const FieldGen& gen, b
         printer.print("::rapidproto::WireReader rp_elements{*rp_packed};\n");
         printer.print("while (!rp_elements.at_end()) {\n");
         printer.indent();
-        emit_decode_and_invoke(printer, fname, gen, "rp_elements", true);
+        emit_decode_and_invoke(printer, fname, gen, "rp_elements");
         printer.outdent();
         printer.print("}\n");
         printer.print("continue;\n");
@@ -463,7 +449,7 @@ void emit_fast_arm(Printer& printer, const std::string& fname, const FieldGen& g
         printer.print("::rapidproto::WireReader rp_elements{*rp_packed};\n");
         printer.print("while (!rp_elements.at_end()) {\n");
         printer.indent();
-        emit_decode_and_invoke(printer, fname, gen, "rp_elements", true);
+        emit_decode_and_invoke(printer, fname, gen, "rp_elements");
         printer.outdent();
         printer.print("}\n");
         printer.print("continue;\n");
@@ -481,8 +467,11 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
                      const std::string& qualifier) {
     const auto fields = collect_fields(symbols, message);
     printer.print("template <class... Callbacks>\n");
-    printer.print("::rapidproto::DecodeStatus $Q$::decode(Callbacks&&... rp_callbacks) const {\n",
-                  {{"Q", qualifier}});
+    // RP_FLATTEN: inline the wire primitives / dispatch / sub-decodes into this one function. GCC's
+    // large-TU inliner is otherwise far more conservative than Clang's, leaving them out-of-line.
+    printer.print(
+        "RP_FLATTEN ::rapidproto::DecodeStatus $Q$::decode(Callbacks&&... rp_callbacks) const {\n",
+        {{"Q", qualifier}});
     printer.indent();
     // Per-callback stray guard: every callback must name one of THIS message's tags (or be a
     // catch-all / unknown-field handler). Catches a callback pasted from another message's

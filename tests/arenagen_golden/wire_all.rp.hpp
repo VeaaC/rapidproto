@@ -96,7 +96,7 @@ class AllWire {
 static_assert(::std::is_trivially_destructible_v<AllWire>);
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-inline bool AllWire::rp_decode_into([[maybe_unused]] AllWire& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN inline bool AllWire::rp_decode_into([[maybe_unused]] AllWire& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   std::int32_t* rp_acc_packed = nullptr;
   std::size_t rp_n_packed = 0;
@@ -183,7 +183,7 @@ inline bool AllWire::rp_decode_into([[maybe_unused]] AllWire& out, ::rapidproto:
         }
         ::rapidproto::WireReader rp_pr{*rp_p};
         while (!rp_pr.at_end()) {
-          const auto rp_v = rp_pr.read_varint_inline();
+          const auto rp_v = rp_pr.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, rp_pr); return false; }
           rp_acc_packed[rp_n_packed] = ::rapidproto::varint_to_int32(*rp_v);
           ++rp_n_packed;
@@ -264,7 +264,7 @@ inline const AllWire* AllWire::decode(::rapidproto::ByteView input, ::rapidproto
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-inline bool AllWire::G::rp_decode_into([[maybe_unused]] AllWire::G& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN inline bool AllWire::G::rp_decode_into([[maybe_unused]] AllWire::G& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   ::rapidproto::WireReader reader{body};
   ::rapidproto::Tag rp_tag;

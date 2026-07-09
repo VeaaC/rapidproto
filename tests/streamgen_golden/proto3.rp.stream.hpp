@@ -39,7 +39,7 @@ struct Msg {
 };
 
 template <class... Callbacks>
-::rapidproto::DecodeStatus Msg::decode(Callbacks&&... rp_callbacks) const {
+RP_FLATTEN ::rapidproto::DecodeStatus Msg::decode(Callbacks&&... rp_callbacks) const {
   static_assert((true && ... && !::rapidproto::is_stray_callback<Callbacks, implicit_i, explicit_i, name, state, self, nums, unpacked, states, reals, codes, a, b, counts>), "a callback matches no field of 'Msg' (and is not a catch-all or unknown-field handler)");
   [[maybe_unused]] auto rp_dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(rp_callbacks)...);
   ::rapidproto::WireReader rp_reader{m_bytes};
@@ -144,7 +144,7 @@ template <class... Callbacks>
           if (!rp_packed) { return ::rapidproto::DecodeStatus::from_reader(rp_reader); }
           ::rapidproto::WireReader rp_elements{*rp_packed};
           while (!rp_elements.at_end()) {
-            const auto rp_value = rp_elements.read_varint_inline();
+            const auto rp_value = rp_elements.read_varint();
             if (!rp_value) { return ::rapidproto::DecodeStatus::from_reader(rp_elements); }
             if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, nums{}, ::rapidproto::varint_to_int32(*rp_value)); !rp_status.ok()) {
               return rp_status;
@@ -175,7 +175,7 @@ template <class... Callbacks>
           if (!rp_packed) { return ::rapidproto::DecodeStatus::from_reader(rp_reader); }
           ::rapidproto::WireReader rp_elements{*rp_packed};
           while (!rp_elements.at_end()) {
-            const auto rp_value = rp_elements.read_varint_inline();
+            const auto rp_value = rp_elements.read_varint();
             if (!rp_value) { return ::rapidproto::DecodeStatus::from_reader(rp_elements); }
             if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, unpacked{}, ::rapidproto::varint_to_int32(*rp_value)); !rp_status.ok()) {
               return rp_status;
@@ -206,7 +206,7 @@ template <class... Callbacks>
           if (!rp_packed) { return ::rapidproto::DecodeStatus::from_reader(rp_reader); }
           ::rapidproto::WireReader rp_elements{*rp_packed};
           while (!rp_elements.at_end()) {
-            const auto rp_value = rp_elements.read_varint_inline();
+            const auto rp_value = rp_elements.read_varint();
             if (!rp_value) { return ::rapidproto::DecodeStatus::from_reader(rp_elements); }
             if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, states{}, static_cast<::p3::State>(::rapidproto::varint_to_int32(*rp_value))); !rp_status.ok()) {
               return rp_status;

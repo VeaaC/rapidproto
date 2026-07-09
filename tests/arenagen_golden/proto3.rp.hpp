@@ -99,7 +99,7 @@ class Msg {
 static_assert(::std::is_trivially_destructible_v<Msg>);
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-inline bool Msg::rp_decode_into([[maybe_unused]] Msg& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN inline bool Msg::rp_decode_into([[maybe_unused]] Msg& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   std::int32_t* rp_acc_nums = nullptr;
   std::size_t rp_n_nums = 0;
@@ -244,7 +244,7 @@ inline bool Msg::rp_decode_into([[maybe_unused]] Msg& out, ::rapidproto::ByteVie
         }
         ::rapidproto::WireReader rp_pr{*rp_p};
         while (!rp_pr.at_end()) {
-          const auto rp_v = rp_pr.read_varint_inline();
+          const auto rp_v = rp_pr.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, rp_pr); return false; }
           rp_acc_nums[rp_n_nums] = ::rapidproto::varint_to_int32(*rp_v);
           ++rp_n_nums;
@@ -277,7 +277,7 @@ inline bool Msg::rp_decode_into([[maybe_unused]] Msg& out, ::rapidproto::ByteVie
         }
         ::rapidproto::WireReader rp_pr{*rp_p};
         while (!rp_pr.at_end()) {
-          const auto rp_v = rp_pr.read_varint_inline();
+          const auto rp_v = rp_pr.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, rp_pr); return false; }
           rp_acc_unpacked[rp_n_unpacked] = ::rapidproto::varint_to_int32(*rp_v);
           ++rp_n_unpacked;
@@ -310,7 +310,7 @@ inline bool Msg::rp_decode_into([[maybe_unused]] Msg& out, ::rapidproto::ByteVie
         }
         ::rapidproto::WireReader rp_pr{*rp_p};
         while (!rp_pr.at_end()) {
-          const auto rp_v = rp_pr.read_varint_inline();
+          const auto rp_v = rp_pr.read_varint();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, rp_pr); return false; }
           rp_acc_states[rp_n_states] = static_cast<::p3::State>(::rapidproto::varint_to_int32(*rp_v));
           ++rp_n_states;
