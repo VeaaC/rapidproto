@@ -634,6 +634,26 @@ constant, and reproduce with the benches:
   contrast, showed no effect under the same control — the discipline is what tells a real win from a
   placement artifact.
 
+**The `protoc` baseline version matters — and is selectable without vendoring protobuf.** The arena
+bench's `protoc` arm is whatever `find_package(Protobuf)` resolves; libprotobuf's own decoder has sped
+up markedly across releases (measured here, **3.21 → 25.3 is ~10–40% fewer cycles/byte** on these
+shapes, most on many-small-messages), so an old baseline flatters the arena. To benchmark against a
+specific version, build it (plus **Abseil**, required by protobuf 22+) into a local prefix — nothing is
+committed to the tree — and point CMake at it:
+
+```sh
+git clone --depth 1 --recurse-submodules -b v25.3 https://github.com/protocolbuffers/protobuf
+cmake -S protobuf -B protobuf/_b -DCMAKE_BUILD_TYPE=Release -Dprotobuf_BUILD_TESTS=OFF \
+      -Dprotobuf_ABSL_PROVIDER=module -DCMAKE_INSTALL_PREFIX="$PWD/pb-25"
+cmake --build protobuf/_b -j && cmake --install protobuf/_b
+cmake --preset gcc -DCMAKE_PREFIX_PATH="$PWD/pb-25"    # find_package(Protobuf CONFIG) picks it up
+```
+
+The bench CMake prefers the protobuf **CONFIG** package (whose `protobuf::libprotobuf` target carries
+the Abseil link deps 22+ needs) and falls back to the **FindProtobuf module** for a system 3.x install;
+`protoc` and `libprotobuf` come matched from the same prefix. Against a current `protoc` (25.3) the
+arena still wins on every shape and both compilers, by a smaller margin than against 3.21.
+
 **The benchmarking caveat that matters most.** Decode hot loops run at ~1–8 GB/s
 (1–2 ns/field), so throughput is dominated by **code placement**: which address a function lands at and
 the resulting alignment / branch-predictor behavior. Two **byte-for-byte identical** decode functions in

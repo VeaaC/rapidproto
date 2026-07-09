@@ -320,8 +320,20 @@ if(RAPIDPROTO_BUILD_TESTS)
   # google::protobuf::Arena, the streamgen decoder, and (if <protozero/pbf_reader.hpp> is present)
   # protozero -- comparing parse time + peak memory. Built only when protobuf is available (the
   # apples-to-apples baseline); a normal build doesn't need it.
-  find_package(Protobuf QUIET)
+  # Prefer the protobuf CONFIG package: protobuf 22+ ships one, and its protobuf::libprotobuf target
+  # carries the transitive Abseil link deps that the legacy ${Protobuf_LIBRARIES} variable omits. Fall
+  # back to CMake's FindProtobuf module for older system installs (e.g. 3.x). To benchmark a specific
+  # protobuf version WITHOUT vendoring it, point CMAKE_PREFIX_PATH at that install prefix.
+  find_package(Protobuf CONFIG QUIET)
+  if(NOT Protobuf_FOUND)
+    find_package(Protobuf MODULE QUIET)
+  endif()
   if(Protobuf_FOUND)
+    # The module sets Protobuf_PROTOC_EXECUTABLE (a path); the config package exposes an imported
+    # protobuf::protoc executable instead. Use whichever is available -- and matched to libprotobuf.
+    if(NOT Protobuf_PROTOC_EXECUTABLE AND TARGET protobuf::protoc)
+      set(Protobuf_PROTOC_EXECUTABLE "$<TARGET_FILE:protobuf::protoc>")
+    endif()
     set(BENCH_PROTO "${CMAKE_CURRENT_SOURCE_DIR}/tests/bench/bench.proto")
     set(BENCH_PROTO_DIR "${CMAKE_CURRENT_SOURCE_DIR}/tests/bench")
     set(BENCH_GEN "${CMAKE_CURRENT_BINARY_DIR}/generated/bench")
@@ -347,9 +359,9 @@ if(RAPIDPROTO_BUILD_TESTS)
       "${BENCH_GEN}/bench.pb.cc"
       "${BENCH_GEN}/bench.rp.hpp"
       "${BENCH_GEN}/bench.rp.stream.hpp")
-    target_link_libraries(rapidproto_arena_bench PRIVATE rapidproto ${Protobuf_LIBRARIES})
-    target_include_directories(rapidproto_arena_bench PRIVATE
-      "${BENCH_GEN}" ${Protobuf_INCLUDE_DIRS})
+    # protobuf::libprotobuf carries protobuf's include dirs and (on 22+) its Abseil deps transitively.
+    target_link_libraries(rapidproto_arena_bench PRIVATE rapidproto protobuf::libprotobuf)
+    target_include_directories(rapidproto_arena_bench PRIVATE "${BENCH_GEN}")
     # -O3 for the measured code; protobuf's generated headers trip our strict warnings, so the bench
     # is NOT linked against rapidproto_strict (it is a standalone measurement, like rapidproto_bench).
     target_compile_options(rapidproto_arena_bench PRIVATE -O3 -DNDEBUG)
