@@ -395,7 +395,7 @@ inline bool Scalars::rp_decode_into([[maybe_unused]] Scalars& out, ::rapidproto:
           }
           ::rapidproto::WireReader rp_pr{*rp_p};
           while (!rp_pr.at_end()) {
-            const auto rp_v = rp_pr.read_varint();
+            const auto rp_v = rp_pr.read_varint_inline();
             if (!rp_v) { ::rapidproto::rp_fail_wire(err, rp_pr); return false; }
             rp_acc_packed_nums[rp_n_packed_nums] = ::rapidproto::varint_to_int32(*rp_v);
             ++rp_n_packed_nums;
@@ -429,7 +429,7 @@ inline bool Scalars::rp_decode_into([[maybe_unused]] Scalars& out, ::rapidproto:
           }
           ::rapidproto::WireReader rp_pr{*rp_p};
           while (!rp_pr.at_end()) {
-            const auto rp_v = rp_pr.read_varint();
+            const auto rp_v = rp_pr.read_varint_inline();
             if (!rp_v) { ::rapidproto::rp_fail_wire(err, rp_pr); return false; }
             rp_acc_expanded_nums[rp_n_expanded_nums] = ::rapidproto::varint_to_int32(*rp_v);
             ++rp_n_expanded_nums;

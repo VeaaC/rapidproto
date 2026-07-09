@@ -167,7 +167,7 @@ template <class... Callbacks>
           if (!rp_packed) { return ::rapidproto::DecodeStatus::from_reader(rp_reader); }
           ::rapidproto::WireReader rp_elements{*rp_packed};
           while (!rp_elements.at_end()) {
-            const auto rp_value = rp_elements.read_varint();
+            const auto rp_value = rp_elements.read_varint_inline();
             if (!rp_value) { return ::rapidproto::DecodeStatus::from_reader(rp_elements); }
             if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, packed{}, ::rapidproto::varint_to_int32(*rp_value)); !rp_status.ok()) {
               return rp_status;

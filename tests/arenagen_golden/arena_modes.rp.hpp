@@ -231,7 +231,7 @@ inline bool Holder::rp_decode_into([[maybe_unused]] Holder& out, ::rapidproto::B
         }
         ::rapidproto::WireReader rp_pr{*rp_p};
         while (!rp_pr.at_end()) {
-          const auto rp_v = rp_pr.read_varint();
+          const auto rp_v = rp_pr.read_varint_inline();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, rp_pr); return false; }
           rp_acc_samples[rp_n_samples] = ::rapidproto::varint_to_int32(*rp_v);
           ++rp_n_samples;
@@ -264,7 +264,7 @@ inline bool Holder::rp_decode_into([[maybe_unused]] Holder& out, ::rapidproto::B
         }
         ::rapidproto::WireReader rp_pr{*rp_p};
         while (!rp_pr.at_end()) {
-          const auto rp_v = rp_pr.read_varint();
+          const auto rp_v = rp_pr.read_varint_inline();
           if (!rp_v) { ::rapidproto::rp_fail_wire(err, rp_pr); return false; }
           rp_acc_spread[rp_n_spread] = ::rapidproto::varint_to_int32(*rp_v);
           ++rp_n_spread;

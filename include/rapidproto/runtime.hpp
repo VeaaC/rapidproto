@@ -52,6 +52,20 @@
 #include <variant>
 #include <vector>
 
+// Force inlining of a wire primitive, portably. In a large TU the compiler keeps read_varint
+// out-of-line (one shared copy) and calls it per element -- fine for a once-per-message field read,
+// but on a packed/expanded array that call-per-element dominates. read_varint_inline (below) forces
+// the same decode inline at those hot per-element sites without inlining it at every single-field
+// site (which bloats). Recognized compilers get their force-inline; others fall back to plain inline
+// (still correct). Undefined at the end of this header so nothing leaks into includers.
+#if defined(__GNUC__) || defined(__clang__)
+#define RP_ALWAYS_INLINE inline __attribute__((always_inline))
+#elif defined(_MSC_VER)
+#define RP_ALWAYS_INLINE __forceinline
+#else
+#define RP_ALWAYS_INLINE inline
+#endif
+
 namespace rapidproto {
 
 // Borrowed raw bytes (not text); the caller owns the underlying buffer's lifetime.
@@ -134,6 +148,10 @@ public:
 
     // Hot primitives: inline, allocation-free. nullopt => failed (code/offset on the reader).
     std::optional<std::uint64_t> read_varint() noexcept;  // <=10 bytes, 1-byte fast path
+    // Same decode as read_varint, force-inlined. Generated decoders use this at hot per-element sites
+    // (packed / expanded repeated loops) where the out-of-line call-per-element is the dominant cost;
+    // read_varint stays out-of-line for the many once-per-field sites so those do not bloat.
+    std::optional<std::uint64_t> read_varint_inline() noexcept;
     std::optional<Tag> read_tag() noexcept;
     // Fused end-or-tag read for the decode loop: one bounds check distinguishes a clean end, a tag,
     // and a malformed tag, so the loop drops the separate at_end() that read_tag would then re-test.
@@ -256,6 +274,38 @@ inline std::optional<std::uint64_t> WireReader::read_varint() noexcept {
         }
     }
     fail(WireError::VarintOverflow, start);  // continuation bit still set after 10 bytes
+    return std::nullopt;
+}
+
+// A byte-for-byte copy of read_varint, force-inlined. It is a SEPARATE body on purpose: `always_inline`
+// lets the compiler unroll the decode straight-line at the call site -- a win in a tight packed-array
+// loop, but it would bloat read_varint's out-of-line body (~17 -> ~130 instrs), which is kept compact
+// for its many once-per-field callers. Generated decoders use this ONLY in packed-payload loops. MUST
+// stay in sync with read_varint above (same wire semantics + errors) -- a differential unit test
+// ("read_varint_inline is bit-identical to read_varint") pins that, incl. the overflow/truncation paths.
+RP_ALWAYS_INLINE std::optional<std::uint64_t> WireReader::read_varint_inline() noexcept {
+    const std::uint8_t* const start = m_cur;
+    if (m_cur < m_end && (*m_cur & 0x80U) == 0U) {  // 1-byte fast path
+        return static_cast<std::uint64_t>(*m_cur++);
+    }
+    std::uint64_t result = 0;
+    for (unsigned shift = 0; shift < 64U; shift += 7U) {
+        if (m_cur >= m_end) {
+            fail(WireError::TruncatedVarint, start);
+            return std::nullopt;
+        }
+        const std::uint8_t b = *m_cur;
+        if (shift == 63U && b > 1U) {
+            fail(WireError::VarintOverflow, start);
+            return std::nullopt;
+        }
+        ++m_cur;
+        result |= static_cast<std::uint64_t>(b & 0x7FU) << shift;
+        if ((b & 0x80U) == 0U) {
+            return result;
+        }
+    }
+    fail(WireError::VarintOverflow, start);
     return std::nullopt;
 }
 
@@ -776,3 +826,6 @@ constexpr DecodeStatus invoke_unknown(D& dispatcher, UnknownField field) {
 }
 
 }  // namespace rapidproto
+
+// Do not leak the inline-control macro into includers (this header ships beside generated output).
+#undef RP_ALWAYS_INLINE

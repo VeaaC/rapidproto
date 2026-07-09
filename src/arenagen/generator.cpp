@@ -775,24 +775,31 @@ int req_bit_no(int index, std::size_t total) {
 }
 
 // Forward declaration: the shared scalar/string/enum read lives with the map-entry emitter below.
+// At a HOT per-element read (a packed-payload loop), a varint value is read once per element, so the
+// out-of-line call-per-element dominates on a large TU; force it inline there (read_varint_inline).
+// A once-per-field read stays on the out-of-line read_varint (inlining every such site would bloat).
+std::string hot_read(std::string_view read, bool hot) {
+    return (hot && read == "read_varint()") ? "read_varint_inline()" : std::string(read);
+}
+
 void emit_scalar_read(const Emit& emit, FieldKind kind, std::string_view proto_type,
                       const std::string& enum_fqn, const std::string& target,
-                      const std::string& reader);
+                      const std::string& reader, bool hot = false);
 
 // One field-value read into `target`: classify the FieldNode, then emit through the same
 // kind-based helper the map-entry emitter uses (the emitted read is identical either way).
 void emit_value_read(const Emit& emit, const FieldNode& field, const std::string& target,
-                     const std::string& reader) {
+                     const std::string& reader, bool hot = false) {
     if (!field.is_message_type && !field.is_enum_type &&
         (field.type_name == "string" || field.type_name == "bytes")) {
         emit_scalar_read(emit, FieldKind::SsoString, field.type_name, /*enum_fqn=*/"", target,
-                         reader);
+                         reader, hot);
     } else if (field.is_enum_type) {
         emit_scalar_read(emit, FieldKind::InlineEnum, field.type_name, field.resolved_type_fqn,
-                         target, reader);
+                         target, reader, hot);
     } else {
         emit_scalar_read(emit, FieldKind::InlineScalar, field.type_name, /*enum_fqn=*/"", target,
-                         reader);
+                         reader, hot);
     }
 }
 
@@ -1002,7 +1009,7 @@ void emit_packed_fill(const Emit& emit, const FieldNode& field) {
     p.print("::rapidproto::WireReader rp_pr{*rp_p};\n");
     p.print("while (!rp_pr.at_end()) {\n");
     p.indent();
-    emit_value_read(emit, field, "rp_acc_" + id + "[rp_n_" + id + "]", "rp_pr");
+    emit_value_read(emit, field, "rp_acc_" + id + "[rp_n_" + id + "]", "rp_pr", /*hot=*/true);
     p.print("++rp_n_$id$;\n", {{"id", id}});
     p.outdent();
     p.print("}\n");
@@ -1151,7 +1158,7 @@ void emit_map_setup(const Emit& emit, const MemberPlan& m) {
 // NOLINTBEGIN(bugprone-easily-swappable-parameters): enum FQN, target lvalue, reader -- distinct
 void emit_scalar_read(const Emit& emit, FieldKind kind, std::string_view proto_type,
                       const std::string& enum_fqn, const std::string& target,
-                      const std::string& reader) {
+                      const std::string& reader, bool hot) {
     // NOLINTEND(bugprone-easily-swappable-parameters)
     Printer& p = emit.printer;
     if (kind == FieldKind::SsoString) {
@@ -1164,14 +1171,15 @@ void emit_scalar_read(const Emit& emit, FieldKind kind, std::string_view proto_t
             "::rapidproto::rp_fail_string(err, *rp_v); return false; }\n",
             {{"t", target}});
     } else if (kind == FieldKind::InlineEnum) {
-        p.print("const auto rp_v = $r$.read_varint();\n", {{"r", reader}});
+        p.print("const auto rp_v = $r$.$rd$;\n",
+                {{"r", reader}, {"rd", hot_read("read_varint()", hot)}});
         p.print("if (!rp_v) { ::rapidproto::rp_fail_wire(err, $r$); return false; }\n",
                 {{"r", reader}});
         p.print("$t$ = static_cast<$E$>(::rapidproto::varint_to_int32(*rp_v));\n",
                 {{"t", target}, {"E", cpp_type_name(emit.names, enum_fqn)}});
     } else {
         const codegen::ScalarWire& info = scalar_wire(proto_type);
-        p.print("const auto rp_v = $r$.$rd$;\n", {{"r", reader}, {"rd", info.read}});
+        p.print("const auto rp_v = $r$.$rd$;\n", {{"r", reader}, {"rd", hot_read(info.read, hot)}});
         p.print("if (!rp_v) { ::rapidproto::rp_fail_wire(err, $r$); return false; }\n",
                 {{"r", reader}});
         p.print("$t$ = $pre$*rp_v$post$;\n",
