@@ -87,21 +87,24 @@ inline bool Blob::rp_decode_into([[maybe_unused]] Blob& out, ::rapidproto::ByteV
   ::rapidproto::WireReader reader{body};
   ::rapidproto::Tag rp_tag;
   for (;;) {
+    if (reader.at_end()) { break; }
+    switch (reader.peek_byte()) {
+      case ::rapidproto::raw_tag(1, ::rapidproto::WireType::Len): {
+        reader.consume_tag_byte();
+        const auto rp_v = reader.read_length_delimited();
+        if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+        out.m_payload = ::rapidproto::ArenaString::make(*rp_v, arena);
+        if (!rp_v->empty() && (out.m_payload).empty()) { ::rapidproto::rp_fail_string(err, *rp_v); return false; }
+        out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 0));
+        continue;
+      }
+      default: break;
+    }
     const auto rp_state = reader.read_tag_or_end(rp_tag);
     if (rp_state == ::rapidproto::WireReader::TagOrEnd::End) { break; }
     if (rp_state == ::rapidproto::WireReader::TagOrEnd::Error) { ::rapidproto::rp_fail_wire(err, reader); return false; }
     switch (rp_tag.field_number) {
-      case 1: {
-        if (rp_tag.wire_type == ::rapidproto::WireType::Len) {
-          const auto rp_v = reader.read_length_delimited();
-          if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
-          out.m_payload = ::rapidproto::ArenaString::make(*rp_v, arena);
-          if (!rp_v->empty() && (out.m_payload).empty()) { ::rapidproto::rp_fail_string(err, *rp_v); return false; }
-          out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 0));
-          continue;
-        }
-        break;
-      }
+      case 1: break;
       default: break;
     }
     if (!reader.skip(rp_tag.wire_type, rp_tag.field_number)) { ::rapidproto::rp_fail_wire(err, reader); return false; }
@@ -178,43 +181,118 @@ inline bool Holder::rp_decode_into([[maybe_unused]] Holder& out, ::rapidproto::B
   ::rapidproto::WireReader reader{body};
   ::rapidproto::Tag rp_tag;
   for (;;) {
+    if (reader.at_end()) { break; }
+    switch (reader.peek_byte()) {
+      case ::rapidproto::raw_tag(1, ::rapidproto::WireType::Varint): {
+        reader.consume_tag_byte();
+        const auto rp_v = reader.read_varint();
+        if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+        out.m_keep = ::rapidproto::varint_to_int32(*rp_v);
+        out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 0));
+        continue;
+      }
+      case ::rapidproto::raw_tag(5, ::rapidproto::WireType::Varint): {
+        reader.consume_tag_byte();
+        const auto rp_v = reader.read_varint();
+        if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+        out.m_must = ::rapidproto::varint_to_int32(*rp_v);
+        rp_req |= std::uint64_t{1} << 0;
+        continue;
+      }
+      case ::rapidproto::raw_tag(6, ::rapidproto::WireType::Varint): {
+        reader.consume_tag_byte();
+        const auto rp_v = reader.read_varint();
+        if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+        out.m_big_num = ::rapidproto::varint_to_int32(*rp_v);
+        out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 1));
+        continue;
+      }
+      case ::rapidproto::raw_tag(9, ::rapidproto::WireType::Varint): {
+        reader.consume_tag_byte();
+        std::int32_t* const rp_slot = rp_slot_samples();
+        if (rp_slot == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }
+        const auto rp_v = reader.read_varint();
+        if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+        *rp_slot = ::rapidproto::varint_to_int32(*rp_v);
+        continue;
+      }
+      case ::rapidproto::raw_tag(9, ::rapidproto::WireType::Len): {
+        reader.consume_tag_byte();
+        const auto rp_p = reader.read_length_delimited();
+        if (!rp_p) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+        const std::size_t rp_ub = rp_p->size();
+        if (rp_ub != 0 && rp_cap_samples < rp_n_samples + rp_ub) {
+          const std::size_t rp_nc = rp_n_samples + rp_ub;
+          std::int32_t* const rp_nb = arena.allocate_array<std::int32_t>(rp_nc);
+          if (rp_nb == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }
+          for (std::size_t rp_i = 0; rp_i < rp_n_samples; ++rp_i) { rp_nb[rp_i] = rp_acc_samples[rp_i]; }
+          rp_acc_samples = rp_nb;
+          rp_cap_samples = rp_nc;
+        }
+        ::rapidproto::WireReader rp_pr{*rp_p};
+        while (!rp_pr.at_end()) {
+          const auto rp_v = rp_pr.read_varint();
+          if (!rp_v) { ::rapidproto::rp_fail_wire(err, rp_pr); return false; }
+          rp_acc_samples[rp_n_samples] = ::rapidproto::varint_to_int32(*rp_v);
+          ++rp_n_samples;
+        }
+        arena.shrink_last(rp_acc_samples, rp_cap_samples * sizeof(std::int32_t), rp_n_samples * sizeof(std::int32_t));
+        rp_cap_samples = rp_n_samples;
+        continue;
+      }
+      case ::rapidproto::raw_tag(10, ::rapidproto::WireType::Varint): {
+        reader.consume_tag_byte();
+        std::int32_t* const rp_slot = rp_slot_spread();
+        if (rp_slot == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }
+        const auto rp_v = reader.read_varint();
+        if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+        *rp_slot = ::rapidproto::varint_to_int32(*rp_v);
+        continue;
+      }
+      case ::rapidproto::raw_tag(10, ::rapidproto::WireType::Len): {
+        reader.consume_tag_byte();
+        const auto rp_p = reader.read_length_delimited();
+        if (!rp_p) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+        const std::size_t rp_ub = rp_p->size();
+        if (rp_ub != 0 && rp_cap_spread < rp_n_spread + rp_ub) {
+          const std::size_t rp_nc = rp_n_spread + rp_ub;
+          std::int32_t* const rp_nb = arena.allocate_array<std::int32_t>(rp_nc);
+          if (rp_nb == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }
+          for (std::size_t rp_i = 0; rp_i < rp_n_spread; ++rp_i) { rp_nb[rp_i] = rp_acc_spread[rp_i]; }
+          rp_acc_spread = rp_nb;
+          rp_cap_spread = rp_nc;
+        }
+        ::rapidproto::WireReader rp_pr{*rp_p};
+        while (!rp_pr.at_end()) {
+          const auto rp_v = rp_pr.read_varint();
+          if (!rp_v) { ::rapidproto::rp_fail_wire(err, rp_pr); return false; }
+          rp_acc_spread[rp_n_spread] = ::rapidproto::varint_to_int32(*rp_v);
+          ++rp_n_spread;
+        }
+        arena.shrink_last(rp_acc_spread, rp_cap_spread * sizeof(std::int32_t), rp_n_spread * sizeof(std::int32_t));
+        rp_cap_spread = rp_n_spread;
+        continue;
+      }
+      case ::rapidproto::raw_tag(12, ::rapidproto::WireType::Varint): {
+        reader.consume_tag_byte();
+        const auto rp_v = reader.read_varint();
+        if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+        out.m_level = static_cast<::fm::Level>(::rapidproto::varint_to_int32(*rp_v));
+        out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 2));
+        continue;
+      }
+      default: break;
+    }
     const auto rp_state = reader.read_tag_or_end(rp_tag);
     if (rp_state == ::rapidproto::WireReader::TagOrEnd::End) { break; }
     if (rp_state == ::rapidproto::WireReader::TagOrEnd::Error) { ::rapidproto::rp_fail_wire(err, reader); return false; }
     switch (rp_tag.field_number) {
-      case 1: {
-        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
-          const auto rp_v = reader.read_varint();
-          if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
-          out.m_keep = ::rapidproto::varint_to_int32(*rp_v);
-          out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 0));
-          continue;
-        }
-        break;
-      }
+      case 1: break;
       case 2: break;  // dropped by the field-modes profile
       case 3: break;  // dropped by the field-modes profile
       case 4: break;  // dropped by the field-modes profile
-      case 5: {
-        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
-          const auto rp_v = reader.read_varint();
-          if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
-          out.m_must = ::rapidproto::varint_to_int32(*rp_v);
-          rp_req |= std::uint64_t{1} << 0;
-          continue;
-        }
-        break;
-      }
-      case 6: {
-        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
-          const auto rp_v = reader.read_varint();
-          if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
-          out.m_big_num = ::rapidproto::varint_to_int32(*rp_v);
-          out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 1));
-          continue;
-        }
-        break;
-      }
+      case 5: break;
+      case 6: break;
       case 7: {
         if (rp_tag.wire_type == ::rapidproto::WireType::Len) {
           if (out.m_blob.data() != nullptr) { ::rapidproto::rp_fail_repeated_singular(err, 7); return false; }
@@ -236,84 +314,9 @@ inline bool Holder::rp_decode_into([[maybe_unused]] Holder& out, ::rapidproto::B
         }
         break;
       }
-      case 9: {
-        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
-          std::int32_t* const rp_slot = rp_slot_samples();
-          if (rp_slot == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }
-          const auto rp_v = reader.read_varint();
-          if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
-          *rp_slot = ::rapidproto::varint_to_int32(*rp_v);
-          continue;
-        }
-        if (rp_tag.wire_type == ::rapidproto::WireType::Len) {
-          const auto rp_p = reader.read_length_delimited();
-          if (!rp_p) { ::rapidproto::rp_fail_wire(err, reader); return false; }
-          const std::size_t rp_ub = rp_p->size();
-          if (rp_ub != 0 && rp_cap_samples < rp_n_samples + rp_ub) {
-            const std::size_t rp_nc = rp_n_samples + rp_ub;
-            std::int32_t* const rp_nb = arena.allocate_array<std::int32_t>(rp_nc);
-            if (rp_nb == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }
-            for (std::size_t rp_i = 0; rp_i < rp_n_samples; ++rp_i) { rp_nb[rp_i] = rp_acc_samples[rp_i]; }
-            rp_acc_samples = rp_nb;
-            rp_cap_samples = rp_nc;
-          }
-          ::rapidproto::WireReader rp_pr{*rp_p};
-          while (!rp_pr.at_end()) {
-            const auto rp_v = rp_pr.read_varint();
-            if (!rp_v) { ::rapidproto::rp_fail_wire(err, rp_pr); return false; }
-            rp_acc_samples[rp_n_samples] = ::rapidproto::varint_to_int32(*rp_v);
-            ++rp_n_samples;
-          }
-          arena.shrink_last(rp_acc_samples, rp_cap_samples * sizeof(std::int32_t), rp_n_samples * sizeof(std::int32_t));
-          rp_cap_samples = rp_n_samples;
-          continue;
-        }
-        break;
-      }
-      case 10: {
-        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
-          std::int32_t* const rp_slot = rp_slot_spread();
-          if (rp_slot == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }
-          const auto rp_v = reader.read_varint();
-          if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
-          *rp_slot = ::rapidproto::varint_to_int32(*rp_v);
-          continue;
-        }
-        if (rp_tag.wire_type == ::rapidproto::WireType::Len) {
-          const auto rp_p = reader.read_length_delimited();
-          if (!rp_p) { ::rapidproto::rp_fail_wire(err, reader); return false; }
-          const std::size_t rp_ub = rp_p->size();
-          if (rp_ub != 0 && rp_cap_spread < rp_n_spread + rp_ub) {
-            const std::size_t rp_nc = rp_n_spread + rp_ub;
-            std::int32_t* const rp_nb = arena.allocate_array<std::int32_t>(rp_nc);
-            if (rp_nb == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }
-            for (std::size_t rp_i = 0; rp_i < rp_n_spread; ++rp_i) { rp_nb[rp_i] = rp_acc_spread[rp_i]; }
-            rp_acc_spread = rp_nb;
-            rp_cap_spread = rp_nc;
-          }
-          ::rapidproto::WireReader rp_pr{*rp_p};
-          while (!rp_pr.at_end()) {
-            const auto rp_v = rp_pr.read_varint();
-            if (!rp_v) { ::rapidproto::rp_fail_wire(err, rp_pr); return false; }
-            rp_acc_spread[rp_n_spread] = ::rapidproto::varint_to_int32(*rp_v);
-            ++rp_n_spread;
-          }
-          arena.shrink_last(rp_acc_spread, rp_cap_spread * sizeof(std::int32_t), rp_n_spread * sizeof(std::int32_t));
-          rp_cap_spread = rp_n_spread;
-          continue;
-        }
-        break;
-      }
-      case 12: {
-        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
-          const auto rp_v = reader.read_varint();
-          if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
-          out.m_level = static_cast<::fm::Level>(::rapidproto::varint_to_int32(*rp_v));
-          out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 2));
-          continue;
-        }
-        break;
-      }
+      case 9: break;
+      case 10: break;
+      case 12: break;
       case 13: {
         if (rp_tag.wire_type == ::rapidproto::WireType::Len) {
           if (out.m_req_blob.data() != nullptr) { ::rapidproto::rp_fail_repeated_singular(err, 13); return false; }
@@ -391,20 +394,23 @@ inline bool Holder::Grp::rp_decode_into([[maybe_unused]] Holder::Grp& out, ::rap
   ::rapidproto::WireReader reader{body};
   ::rapidproto::Tag rp_tag;
   for (;;) {
+    if (reader.at_end()) { break; }
+    switch (reader.peek_byte()) {
+      case ::rapidproto::raw_tag(1, ::rapidproto::WireType::Varint): {
+        reader.consume_tag_byte();
+        const auto rp_v = reader.read_varint();
+        if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+        out.m_g = ::rapidproto::varint_to_int32(*rp_v);
+        out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 0));
+        continue;
+      }
+      default: break;
+    }
     const auto rp_state = reader.read_tag_or_end(rp_tag);
     if (rp_state == ::rapidproto::WireReader::TagOrEnd::End) { break; }
     if (rp_state == ::rapidproto::WireReader::TagOrEnd::Error) { ::rapidproto::rp_fail_wire(err, reader); return false; }
     switch (rp_tag.field_number) {
-      case 1: {
-        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
-          const auto rp_v = reader.read_varint();
-          if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
-          out.m_g = ::rapidproto::varint_to_int32(*rp_v);
-          out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 0));
-          continue;
-        }
-        break;
-      }
+      case 1: break;
       default: break;
     }
     if (!reader.skip(rp_tag.wire_type, rp_tag.field_number)) { ::rapidproto::rp_fail_wire(err, reader); return false; }

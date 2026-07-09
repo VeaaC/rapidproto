@@ -114,6 +114,101 @@ TEST_CASE("arena-decode: protoc scalar fixture", "[arena-decode]") {
     CHECK(m->i64().has_value());  // present in the fixture
 }
 
+// The single-byte-tag fast path (fields 1..15) must behave identically to the general path (16+) on
+// the boundary and on malformed input. Scalars spans it: i64=2 (fast) and color=16 / packed_nums=17.
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): four independent buffers in one case
+TEST_CASE("arena-decode: raw-byte fast path matches the general path across the 15/16 boundary",
+          "[arena-decode]") {
+    const auto pv = [](std::string& b, std::uint64_t v) {
+        while (v >= 0x80U) {
+            b.push_back(static_cast<char>(0x80U | (v & 0x7FU)));
+            v >>= 7U;
+        }
+        b.push_back(static_cast<char>(v));
+    };
+    const auto tag = [](std::uint32_t f, std::uint32_t w) {
+        return (static_cast<std::uint64_t>(f) << 3U) | w;
+    };
+    const auto with_req = [&](const std::string& extra) {  // valid required i32 (field 1) prefix
+        std::string b;
+        pv(b, tag(1, 0));
+        pv(b, 7);
+        b += extra;
+        return b;
+    };
+
+    // (1) Boundary: i64 (field 2, <=15, fast) + packed_nums (field 17, >=16, general) both decode.
+    {
+        std::string e;
+        pv(e, tag(2, 0));
+        pv(e, 99);
+        pv(e, tag(17, 2));
+        pv(e, 2);
+        pv(e, 5);
+        pv(e, 6);  // packed_nums = [5, 6]
+        const std::string buf = with_req(e);
+        Arena arena;
+        const p2::Scalars* m = p2::Scalars::decode(ByteView(buf), arena);
+        REQUIRE(m != nullptr);
+        CHECK(m->i32() == 7);
+        CHECK(m->i64() == 99);  // optional == value: present and equal (no deref)
+        REQUIRE(m->packed_nums().size() == 2);
+        CHECK(m->packed_nums()[0] == 5);
+        CHECK(m->packed_nums()[1] == 6);
+    }
+
+    // (2) A known field with the wrong wire type is skipped -- consistently for the fast field (i64)
+    //     and the general field (color) -- and is not an error (i32 required still satisfied).
+    {
+        std::string e;
+        pv(e, tag(2, 2));  // i64 (fast) as LEN -- wrong wire
+        pv(e, 1);
+        e += "x";
+        pv(e, tag(16, 2));  // color (general) as LEN -- wrong wire
+        pv(e, 1);
+        e += "y";
+        const std::string buf = with_req(e);
+        Arena arena;
+        const p2::Scalars* m = p2::Scalars::decode(ByteView(buf), arena);
+        REQUIRE(m != nullptr);
+        CHECK_FALSE(m->i64().has_value());
+        CHECK_FALSE(m->color().has_value());
+    }
+
+    // (3) A reserved wire type (6) is rejected identically whether encoded as a 1-byte (<=15) or a
+    //     2-byte (>=16) tag -- both miss the fast path and fail in the validating general read. The
+    //     valid required-i32 prefix (a control that decodes on its own) ensures the nullptr comes from
+    //     the wire rejection, not a missing required field.
+    {
+        Arena ctrl;
+        REQUIRE(p2::Scalars::decode(ByteView(with_req("")), ctrl) != nullptr);  // baseline succeeds
+        std::string one_e;
+        pv(one_e, tag(2, 6));  // 1-byte reserved-wire tag
+        std::string two_e;
+        pv(two_e, tag(16, 6));  // 2-byte reserved-wire tag
+        const std::string one = with_req(one_e);
+        const std::string two = with_req(two_e);
+        Arena a1;
+        Arena a2;
+        CHECK(p2::Scalars::decode(ByteView(one), a1) == nullptr);
+        CHECK(p2::Scalars::decode(ByteView(two), a2) == nullptr);
+    }
+
+    // (4) A non-canonical (over-long) tag of a low field is skipped, not decoded (no conformant
+    //     encoder emits one; the decode never crashes). field 2 (i64, varint) as 0x90 0x00 (== 16).
+    {
+        std::string e;
+        e.push_back('\x90');
+        e.push_back('\x00');  // over-long tag: field 2, Varint
+        pv(e, 123);           // the value a canonical tag would have decoded
+        const std::string buf = with_req(e);
+        Arena arena;
+        const p2::Scalars* m = p2::Scalars::decode(ByteView(buf), arena);
+        REQUIRE(m != nullptr);
+        CHECK_FALSE(m->i64().has_value());  // skipped, not decoded
+    }
+}
+
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): a flat list of accessor assertions
 TEST_CASE("arena-decode: submessage, repeated, map, oneof fixture", "[arena-decode]") {
     const std::string bin = fixture("msg.bin");

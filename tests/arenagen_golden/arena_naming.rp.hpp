@@ -159,47 +159,47 @@ inline bool Collide::rp_decode_into([[maybe_unused]] Collide& out, ::rapidproto:
   ::rapidproto::WireReader reader{body};
   ::rapidproto::Tag rp_tag;
   for (;;) {
+    if (reader.at_end()) { break; }
+    switch (reader.peek_byte()) {
+      case ::rapidproto::raw_tag(1, ::rapidproto::WireType::Varint): {
+        reader.consume_tag_byte();
+        const auto rp_v = reader.read_varint();
+        if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+        out.m_x = ::rapidproto::varint_to_int32(*rp_v);
+        out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 0));
+        continue;
+      }
+      case ::rapidproto::raw_tag(2, ::rapidproto::WireType::Varint): {
+        reader.consume_tag_byte();
+        const auto rp_v = reader.read_varint();
+        if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+        out.m_has_x = ::rapidproto::varint_to_int32(*rp_v);
+        continue;
+      }
+      case ::rapidproto::raw_tag(6, ::rapidproto::WireType::Varint): {
+        reader.consume_tag_byte();
+        const auto rp_v = reader.read_varint();
+        if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+        out.m_pick_case = ::rapidproto::varint_to_int32(*rp_v);
+        continue;
+      }
+      case ::rapidproto::raw_tag(9, ::rapidproto::WireType::Varint): {
+        reader.consume_tag_byte();
+        const auto rp_v = reader.read_varint();
+        if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+        out.m_decode_ = ::rapidproto::varint_to_int32(*rp_v);
+        continue;
+      }
+      default: break;
+    }
     const auto rp_state = reader.read_tag_or_end(rp_tag);
     if (rp_state == ::rapidproto::WireReader::TagOrEnd::End) { break; }
     if (rp_state == ::rapidproto::WireReader::TagOrEnd::Error) { ::rapidproto::rp_fail_wire(err, reader); return false; }
     switch (rp_tag.field_number) {
-      case 1: {
-        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
-          const auto rp_v = reader.read_varint();
-          if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
-          out.m_x = ::rapidproto::varint_to_int32(*rp_v);
-          out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 0));
-          continue;
-        }
-        break;
-      }
-      case 2: {
-        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
-          const auto rp_v = reader.read_varint();
-          if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
-          out.m_has_x = ::rapidproto::varint_to_int32(*rp_v);
-          continue;
-        }
-        break;
-      }
-      case 6: {
-        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
-          const auto rp_v = reader.read_varint();
-          if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
-          out.m_pick_case = ::rapidproto::varint_to_int32(*rp_v);
-          continue;
-        }
-        break;
-      }
-      case 9: {
-        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
-          const auto rp_v = reader.read_varint();
-          if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
-          out.m_decode_ = ::rapidproto::varint_to_int32(*rp_v);
-          continue;
-        }
-        break;
-      }
+      case 1: break;
+      case 2: break;
+      case 6: break;
+      case 9: break;
       case 3: {
         if (rp_tag.wire_type == ::rapidproto::WireType::Len) {
           const auto rp_ent = reader.read_length_delimited();
@@ -288,19 +288,22 @@ inline bool Collide::FooEntry::rp_decode_into([[maybe_unused]] Collide::FooEntry
   ::rapidproto::WireReader reader{body};
   ::rapidproto::Tag rp_tag;
   for (;;) {
+    if (reader.at_end()) { break; }
+    switch (reader.peek_byte()) {
+      case ::rapidproto::raw_tag(1, ::rapidproto::WireType::Varint): {
+        reader.consume_tag_byte();
+        const auto rp_v = reader.read_varint();
+        if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+        out.m_a = ::rapidproto::varint_to_int32(*rp_v);
+        continue;
+      }
+      default: break;
+    }
     const auto rp_state = reader.read_tag_or_end(rp_tag);
     if (rp_state == ::rapidproto::WireReader::TagOrEnd::End) { break; }
     if (rp_state == ::rapidproto::WireReader::TagOrEnd::Error) { ::rapidproto::rp_fail_wire(err, reader); return false; }
     switch (rp_tag.field_number) {
-      case 1: {
-        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
-          const auto rp_v = reader.read_varint();
-          if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
-          out.m_a = ::rapidproto::varint_to_int32(*rp_v);
-          continue;
-        }
-        break;
-      }
+      case 1: break;
       default: break;
     }
     if (!reader.skip(rp_tag.wire_type, rp_tag.field_number)) { ::rapidproto::rp_fail_wire(err, reader); return false; }

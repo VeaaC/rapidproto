@@ -6,6 +6,7 @@
 #include <cassert>
 #include <cctype>
 #include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <string>
 #include <string_view>
@@ -1324,6 +1325,86 @@ void emit_oneof_arm(const Emit& emit, const OneofPlan& o, const OneofMemberPlan&
     p.print("}\n");
 }
 
+// A field whose whole tag is a single byte -- number 1..15 ((15 << 3) | 7 == 127 < 128) -- and that
+// the raw-byte fast path handles: a singular scalar/enum/string (not a sub-message or group) or a
+// non-group repeated field. Everything else (messages, groups, raw, maps, oneofs, field 16+) stays on
+// the general path. Kept as one predicate so the fast switch and the general switch partition alike.
+constexpr std::int32_t kMaxOneByteTagField = 15;
+bool is_fast_arena_field(const MemberPlan& m, const FieldNode& field) {
+    if (field.number > kMaxOneByteTagField) {
+        return false;
+    }
+    if (field.is_repeated) {
+        return elem_wire_enum(field) != "SGroup";  // repeated non-group
+    }
+    return m.kind == FieldKind::InlineScalar || m.kind == FieldKind::InlineEnum ||
+           m.kind == FieldKind::SsoString;  // singular scalar/enum/string/bool (not message)
+}
+
+// Fast-path arm for a singular scalar/enum/string field with a single-byte tag: a
+// `case raw_tag(N, wire):` over reader.peek_byte() that consumes the tag byte and decodes, folding
+// the wire-type check into the label. Mirrors the scalar branches of emit_singular_arm; the general
+// switch keeps only a `case N: break;` for this field (see emit_decode_into_body).
+void emit_fast_singular_arm(const Emit& emit, const MessageLayout& layout, const MemberPlan& m,
+                            const std::unordered_map<const FieldNode*, int>& required_bit) {
+    Printer& p = emit.printer;
+    const FieldNode& field = *m.field;
+    const std::string id = emit.names.local.at(&field);
+    std::string wire;
+    if (m.kind == FieldKind::SsoString) {
+        wire = "Len";
+    } else if (m.kind == FieldKind::InlineEnum) {
+        wire = "Varint";
+    } else {
+        wire = scalar_wire(field.type_name).wire;  // InlineScalar, incl. bool -> Varint
+    }
+    p.print("case ::rapidproto::raw_tag($n$, ::rapidproto::WireType::$w$): {\n",
+            {{"n", std::to_string(field.number)}, {"w", wire}});
+    p.indent();
+    p.print("reader.consume_tag_byte();\n");
+    if (m.kind == FieldKind::InlineScalar && m.is_bool) {
+        p.print("const auto rp_v = reader.read_varint();\n");
+        p.print("if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }\n");
+        p.print("if (::rapidproto::varint_to_bool(*rp_v)) { $set$ } else { $clr$ }\n",
+                {{"set", set_bit_stmt(layout, m.value_bit)},
+                 {"clr", clear_bit_stmt(layout, m.value_bit)}});
+    } else {
+        emit_value_read(emit, field, "out.m_" + id, "reader");
+    }
+    emit_presence_set(emit, layout, m, required_bit);
+    p.print("continue;\n");
+    p.outdent();
+    p.print("}\n");
+}
+
+// Fast-path arm for a non-group repeated field with a single-byte tag: the native-element case, plus a
+// Len case for the packed form of packable elements. Mirrors emit_repeated_arm.
+void emit_fast_repeated_arm(const Emit& emit, const FieldNode& field) {
+    Printer& p = emit.printer;
+    const std::string elem_wire = elem_wire_enum(field);
+    const bool packable = codegen::is_packable_wire(elem_wire);
+    p.print("case ::rapidproto::raw_tag($n$, ::rapidproto::WireType::$w$): {\n",
+            {{"n", std::to_string(field.number)}, {"w", elem_wire}});
+    p.indent();
+    p.print("reader.consume_tag_byte();\n");
+    emit_repeated_element(emit, field, "reader");
+    p.print("continue;\n");
+    p.outdent();
+    p.print("}\n");
+    if (packable) {
+        p.print("case ::rapidproto::raw_tag($n$, ::rapidproto::WireType::Len): {\n",
+                {{"n", std::to_string(field.number)}});
+        p.indent();
+        p.print("reader.consume_tag_byte();\n");
+        p.print("const auto rp_p = reader.read_length_delimited();\n");
+        p.print("if (!rp_p) { ::rapidproto::rp_fail_wire(err, reader); return false; }\n");
+        emit_packed_fill(emit, field);
+        p.print("continue;\n");
+        p.outdent();
+        p.print("}\n");
+    }
+}
+
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): assembles the per-field wire dispatch
 void emit_decode_into_body(const Emit& emit, const MessageNode& message,
                            const MessageLayout& layout) {
@@ -1374,6 +1455,37 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
     p.print("::rapidproto::Tag rp_tag;\n");
     p.print("for (;;) {\n");
     p.indent();
+    // Fast path: a raw-byte switch dispatches single-byte-tag fields (is_fast_arena_field) without
+    // splitting field/wire (see emit_fast_singular_arm / emit_fast_repeated_arm). A miss (multi-byte
+    // tag, unknown field, wrong wire type) breaks to the general path below. Each fast field's decode
+    // body is emitted ONLY here; the general switch keeps a bare `case N: break;` for it, so a wrong-
+    // wire/non-canonical encoding skips as a >15 field would, with no body duplication. End must break
+    // (not return) so the post-loop required-field checks still run.
+    std::vector<const MemberPlan*> fast;
+    for (const FieldNode& f : message.fields) {
+        const auto it = by_node.find(&f);
+        if (it != by_node.end() && it->second->kind != FieldKind::Raw &&
+            is_fast_arena_field(*it->second, f)) {
+            fast.push_back(it->second);
+        }
+    }
+    if (!fast.empty()) {
+        p.print("if (reader.at_end()) { break; }\n");
+        p.print("switch (reader.peek_byte()) {\n");
+        p.indent();
+        for (const MemberPlan* m : fast) {
+            if (m->field->is_repeated) {
+                emit_fast_repeated_arm(emit, *m->field);
+            } else {
+                emit_fast_singular_arm(emit, layout, *m, required_bit);
+            }
+        }
+        p.print("default: break;\n");
+        p.outdent();
+        p.print("}\n");
+    }
+    // General path: multi-byte tags, unknown fields, wrong wire types, groups, messages, raw, maps,
+    // oneofs, and the bare skip-cases for the fast fields above.
     // Fused end-or-tag read: one bounds check drives the loop (see WireReader::read_tag_or_end).
     // End breaks out so the post-loop required-field checks still run.
     p.print("const auto rp_state = reader.read_tag_or_end(rp_tag);\n");
@@ -1392,7 +1504,14 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
                     {{"n", std::to_string(f.number)}});
             continue;
         }
-        if (it->second->kind == FieldKind::Raw) {
+        if (it->second->kind != FieldKind::Raw && is_fast_arena_field(*it->second, f)) {
+            // Decoded on the fast path above; here only to skip a wrong-wire/non-canonical encoding
+            // that missed it (a canonical 1-byte tag never reaches here) -- no body, no duplication.
+            // Note: a non-canonical (over-long) tag of a REQUIRED low field is thus skipped, so its
+            // required-field check then fails -- a stricter rejection of malformed input than before
+            // (protoc never emits such a tag; still no crash/UB).
+            p.print("case $n$: break;\n", {{"n", std::to_string(f.number)}});
+        } else if (it->second->kind == FieldKind::Raw) {
             emit_raw_arm(emit, layout, *it->second, required_bit);
         } else if (f.is_repeated) {
             emit_repeated_arm(emit, f);

@@ -161,160 +161,149 @@ inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::r
   ::rapidproto::WireReader reader{body};
   ::rapidproto::Tag rp_tag;
   for (;;) {
+    if (reader.at_end()) { break; }
+    switch (reader.peek_byte()) {
+      case ::rapidproto::raw_tag(1, ::rapidproto::WireType::Varint): {
+        reader.consume_tag_byte();
+        const auto rp_v = reader.read_varint();
+        if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+        out.m_f1 = ::rapidproto::varint_to_int32(*rp_v);
+        rp_req[0] |= std::uint64_t{1} << 0;
+        continue;
+      }
+      case ::rapidproto::raw_tag(2, ::rapidproto::WireType::Varint): {
+        reader.consume_tag_byte();
+        const auto rp_v = reader.read_varint();
+        if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+        out.m_f2 = ::rapidproto::varint_to_int32(*rp_v);
+        rp_req[0] |= std::uint64_t{1} << 1;
+        continue;
+      }
+      case ::rapidproto::raw_tag(3, ::rapidproto::WireType::Varint): {
+        reader.consume_tag_byte();
+        const auto rp_v = reader.read_varint();
+        if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+        out.m_f3 = ::rapidproto::varint_to_int32(*rp_v);
+        rp_req[0] |= std::uint64_t{1} << 2;
+        continue;
+      }
+      case ::rapidproto::raw_tag(4, ::rapidproto::WireType::Varint): {
+        reader.consume_tag_byte();
+        const auto rp_v = reader.read_varint();
+        if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+        out.m_f4 = ::rapidproto::varint_to_int32(*rp_v);
+        rp_req[0] |= std::uint64_t{1} << 3;
+        continue;
+      }
+      case ::rapidproto::raw_tag(5, ::rapidproto::WireType::Varint): {
+        reader.consume_tag_byte();
+        const auto rp_v = reader.read_varint();
+        if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+        out.m_f5 = ::rapidproto::varint_to_int32(*rp_v);
+        rp_req[0] |= std::uint64_t{1} << 4;
+        continue;
+      }
+      case ::rapidproto::raw_tag(6, ::rapidproto::WireType::Varint): {
+        reader.consume_tag_byte();
+        const auto rp_v = reader.read_varint();
+        if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+        out.m_f6 = ::rapidproto::varint_to_int32(*rp_v);
+        rp_req[0] |= std::uint64_t{1} << 5;
+        continue;
+      }
+      case ::rapidproto::raw_tag(7, ::rapidproto::WireType::Varint): {
+        reader.consume_tag_byte();
+        const auto rp_v = reader.read_varint();
+        if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+        out.m_f7 = ::rapidproto::varint_to_int32(*rp_v);
+        rp_req[0] |= std::uint64_t{1} << 6;
+        continue;
+      }
+      case ::rapidproto::raw_tag(8, ::rapidproto::WireType::Varint): {
+        reader.consume_tag_byte();
+        const auto rp_v = reader.read_varint();
+        if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+        out.m_f8 = ::rapidproto::varint_to_int32(*rp_v);
+        rp_req[0] |= std::uint64_t{1} << 7;
+        continue;
+      }
+      case ::rapidproto::raw_tag(9, ::rapidproto::WireType::Varint): {
+        reader.consume_tag_byte();
+        const auto rp_v = reader.read_varint();
+        if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+        out.m_f9 = ::rapidproto::varint_to_int32(*rp_v);
+        rp_req[0] |= std::uint64_t{1} << 8;
+        continue;
+      }
+      case ::rapidproto::raw_tag(10, ::rapidproto::WireType::Varint): {
+        reader.consume_tag_byte();
+        const auto rp_v = reader.read_varint();
+        if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+        out.m_f10 = ::rapidproto::varint_to_int32(*rp_v);
+        rp_req[0] |= std::uint64_t{1} << 9;
+        continue;
+      }
+      case ::rapidproto::raw_tag(11, ::rapidproto::WireType::Varint): {
+        reader.consume_tag_byte();
+        const auto rp_v = reader.read_varint();
+        if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+        out.m_f11 = ::rapidproto::varint_to_int32(*rp_v);
+        rp_req[0] |= std::uint64_t{1} << 10;
+        continue;
+      }
+      case ::rapidproto::raw_tag(12, ::rapidproto::WireType::Varint): {
+        reader.consume_tag_byte();
+        const auto rp_v = reader.read_varint();
+        if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+        out.m_f12 = ::rapidproto::varint_to_int32(*rp_v);
+        rp_req[0] |= std::uint64_t{1} << 11;
+        continue;
+      }
+      case ::rapidproto::raw_tag(13, ::rapidproto::WireType::Varint): {
+        reader.consume_tag_byte();
+        const auto rp_v = reader.read_varint();
+        if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+        out.m_f13 = ::rapidproto::varint_to_int32(*rp_v);
+        rp_req[0] |= std::uint64_t{1} << 12;
+        continue;
+      }
+      case ::rapidproto::raw_tag(14, ::rapidproto::WireType::Varint): {
+        reader.consume_tag_byte();
+        const auto rp_v = reader.read_varint();
+        if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+        out.m_f14 = ::rapidproto::varint_to_int32(*rp_v);
+        rp_req[0] |= std::uint64_t{1} << 13;
+        continue;
+      }
+      case ::rapidproto::raw_tag(15, ::rapidproto::WireType::Varint): {
+        reader.consume_tag_byte();
+        const auto rp_v = reader.read_varint();
+        if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+        out.m_f15 = ::rapidproto::varint_to_int32(*rp_v);
+        rp_req[0] |= std::uint64_t{1} << 14;
+        continue;
+      }
+      default: break;
+    }
     const auto rp_state = reader.read_tag_or_end(rp_tag);
     if (rp_state == ::rapidproto::WireReader::TagOrEnd::End) { break; }
     if (rp_state == ::rapidproto::WireReader::TagOrEnd::Error) { ::rapidproto::rp_fail_wire(err, reader); return false; }
     switch (rp_tag.field_number) {
-      case 1: {
-        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
-          const auto rp_v = reader.read_varint();
-          if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
-          out.m_f1 = ::rapidproto::varint_to_int32(*rp_v);
-          rp_req[0] |= std::uint64_t{1} << 0;
-          continue;
-        }
-        break;
-      }
-      case 2: {
-        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
-          const auto rp_v = reader.read_varint();
-          if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
-          out.m_f2 = ::rapidproto::varint_to_int32(*rp_v);
-          rp_req[0] |= std::uint64_t{1} << 1;
-          continue;
-        }
-        break;
-      }
-      case 3: {
-        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
-          const auto rp_v = reader.read_varint();
-          if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
-          out.m_f3 = ::rapidproto::varint_to_int32(*rp_v);
-          rp_req[0] |= std::uint64_t{1} << 2;
-          continue;
-        }
-        break;
-      }
-      case 4: {
-        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
-          const auto rp_v = reader.read_varint();
-          if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
-          out.m_f4 = ::rapidproto::varint_to_int32(*rp_v);
-          rp_req[0] |= std::uint64_t{1} << 3;
-          continue;
-        }
-        break;
-      }
-      case 5: {
-        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
-          const auto rp_v = reader.read_varint();
-          if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
-          out.m_f5 = ::rapidproto::varint_to_int32(*rp_v);
-          rp_req[0] |= std::uint64_t{1} << 4;
-          continue;
-        }
-        break;
-      }
-      case 6: {
-        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
-          const auto rp_v = reader.read_varint();
-          if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
-          out.m_f6 = ::rapidproto::varint_to_int32(*rp_v);
-          rp_req[0] |= std::uint64_t{1} << 5;
-          continue;
-        }
-        break;
-      }
-      case 7: {
-        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
-          const auto rp_v = reader.read_varint();
-          if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
-          out.m_f7 = ::rapidproto::varint_to_int32(*rp_v);
-          rp_req[0] |= std::uint64_t{1} << 6;
-          continue;
-        }
-        break;
-      }
-      case 8: {
-        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
-          const auto rp_v = reader.read_varint();
-          if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
-          out.m_f8 = ::rapidproto::varint_to_int32(*rp_v);
-          rp_req[0] |= std::uint64_t{1} << 7;
-          continue;
-        }
-        break;
-      }
-      case 9: {
-        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
-          const auto rp_v = reader.read_varint();
-          if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
-          out.m_f9 = ::rapidproto::varint_to_int32(*rp_v);
-          rp_req[0] |= std::uint64_t{1} << 8;
-          continue;
-        }
-        break;
-      }
-      case 10: {
-        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
-          const auto rp_v = reader.read_varint();
-          if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
-          out.m_f10 = ::rapidproto::varint_to_int32(*rp_v);
-          rp_req[0] |= std::uint64_t{1} << 9;
-          continue;
-        }
-        break;
-      }
-      case 11: {
-        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
-          const auto rp_v = reader.read_varint();
-          if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
-          out.m_f11 = ::rapidproto::varint_to_int32(*rp_v);
-          rp_req[0] |= std::uint64_t{1} << 10;
-          continue;
-        }
-        break;
-      }
-      case 12: {
-        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
-          const auto rp_v = reader.read_varint();
-          if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
-          out.m_f12 = ::rapidproto::varint_to_int32(*rp_v);
-          rp_req[0] |= std::uint64_t{1} << 11;
-          continue;
-        }
-        break;
-      }
-      case 13: {
-        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
-          const auto rp_v = reader.read_varint();
-          if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
-          out.m_f13 = ::rapidproto::varint_to_int32(*rp_v);
-          rp_req[0] |= std::uint64_t{1} << 12;
-          continue;
-        }
-        break;
-      }
-      case 14: {
-        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
-          const auto rp_v = reader.read_varint();
-          if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
-          out.m_f14 = ::rapidproto::varint_to_int32(*rp_v);
-          rp_req[0] |= std::uint64_t{1} << 13;
-          continue;
-        }
-        break;
-      }
-      case 15: {
-        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
-          const auto rp_v = reader.read_varint();
-          if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
-          out.m_f15 = ::rapidproto::varint_to_int32(*rp_v);
-          rp_req[0] |= std::uint64_t{1} << 14;
-          continue;
-        }
-        break;
-      }
+      case 1: break;
+      case 2: break;
+      case 3: break;
+      case 4: break;
+      case 5: break;
+      case 6: break;
+      case 7: break;
+      case 8: break;
+      case 9: break;
+      case 10: break;
+      case 11: break;
+      case 12: break;
+      case 13: break;
+      case 14: break;
+      case 15: break;
       case 16: {
         if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           const auto rp_v = reader.read_varint();

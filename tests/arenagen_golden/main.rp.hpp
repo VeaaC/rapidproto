@@ -124,6 +124,28 @@ inline bool Main::rp_decode_into([[maybe_unused]] Main& out, ::rapidproto::ByteV
   ::rapidproto::WireReader reader{body};
   ::rapidproto::Tag rp_tag;
   for (;;) {
+    if (reader.at_end()) { break; }
+    switch (reader.peek_byte()) {
+      case ::rapidproto::raw_tag(4, ::rapidproto::WireType::Varint): {
+        reader.consume_tag_byte();
+        const auto rp_v = reader.read_varint();
+        if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+        out.m_e = static_cast<::dep::DepEnum>(::rapidproto::varint_to_int32(*rp_v));
+        out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 3));
+        continue;
+      }
+      case ::rapidproto::raw_tag(5, ::rapidproto::WireType::Len): {
+        reader.consume_tag_byte();
+        ::dep::Dep* const rp_slot = rp_slot_ds();
+        if (rp_slot == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }
+        const auto rp_v = reader.read_length_delimited();
+        if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
+        *rp_slot = ::dep::Dep{};
+        if (!::rapidproto::arena_detail::decode_into(*rp_slot, *rp_v, arena, depth + 1, err)) { return false; }
+        continue;
+      }
+      default: break;
+    }
     const auto rp_state = reader.read_tag_or_end(rp_tag);
     if (rp_state == ::rapidproto::WireReader::TagOrEnd::End) { break; }
     if (rp_state == ::rapidproto::WireReader::TagOrEnd::Error) { ::rapidproto::rp_fail_wire(err, reader); return false; }
@@ -161,28 +183,8 @@ inline bool Main::rp_decode_into([[maybe_unused]] Main& out, ::rapidproto::ByteV
         }
         break;
       }
-      case 4: {
-        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
-          const auto rp_v = reader.read_varint();
-          if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
-          out.m_e = static_cast<::dep::DepEnum>(::rapidproto::varint_to_int32(*rp_v));
-          out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 3));
-          continue;
-        }
-        break;
-      }
-      case 5: {
-        if (rp_tag.wire_type == ::rapidproto::WireType::Len) {
-          ::dep::Dep* const rp_slot = rp_slot_ds();
-          if (rp_slot == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }
-          const auto rp_v = reader.read_length_delimited();
-          if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }
-          *rp_slot = ::dep::Dep{};
-          if (!::rapidproto::arena_detail::decode_into(*rp_slot, *rp_v, arena, depth + 1, err)) { return false; }
-          continue;
-        }
-        break;
-      }
+      case 4: break;
+      case 5: break;
       case 6: {
         if (rp_tag.wire_type == ::rapidproto::WireType::Len) {
           const auto rp_ent = reader.read_length_delimited();
