@@ -102,6 +102,13 @@ struct WireField {
     std::variant<std::uint64_t, std::uint32_t, ByteView> payload;
 };
 
+// The whole wire tag for a (field, wire type) as one integer: (field_number << 3) | wire_type. For
+// field numbers 1..15 this is a single byte, so generated decoders use it as a switch case label over
+// WireReader::peek_byte() to dispatch the common 1-byte-tag fields without splitting field/wire.
+constexpr std::uint32_t raw_tag(std::uint32_t field_number, WireType wire_type) noexcept {
+    return (field_number << 3U) | static_cast<std::uint32_t>(wire_type);
+}
+
 // Largest field number (2^29 - 1) and the cap on group nesting depth for untrusted input.
 inline constexpr std::uint32_t kMaxFieldNumber = (std::uint32_t{1} << 29U) - 1U;
 inline constexpr int kMaxGroupDepth = 100;
@@ -147,6 +154,16 @@ public:
 
     // Skip the value of a field whose tag (wire_type + field_number) was already read.
     bool skip(WireType wire_type, std::uint32_t field_number) noexcept;
+
+    // Raw-byte tag dispatch support (generated switch-on-tag decoders). peek_byte returns the next
+    // byte WITHOUT consuming it, for a switch whose case labels are the whole 1-byte tags
+    // (raw_tag(field, wire), all field numbers 1..15). A matched case calls consume_tag_byte() to
+    // drop the tag, then reads the value. Any byte with the continuation bit set (a multi-byte tag,
+    // field >= 16) or an unmatched byte (unknown field / wrong wire type) hits the switch default and
+    // falls through to the validating general path (read_tag_or_end + skip). Precondition: !at_end().
+    [[nodiscard]] std::uint8_t peek_byte() const noexcept { return *m_cur; }
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic): drop the peeked 1-byte tag
+    void consume_tag_byte() noexcept { ++m_cur; }
 
 private:
     // ByteView holds const char*; the cursor reads bytes through const std::uint8_t* (sound: the

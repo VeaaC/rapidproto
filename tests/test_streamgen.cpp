@@ -823,6 +823,100 @@ TEST_CASE("streamgen: a generated decoder decodes a wire fixture", "[streamgen]"
     CHECK(db == Catch::Approx(-2.25));
 }
 
+// The single-byte-tag fast path (fields 1..15) must behave identically to the general path (fields
+// >=16) on the boundary and on malformed input. Scalars spans it: i32=1 (fast) and color=16 (general).
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): three independent buffers in one case
+TEST_CASE("streamgen: raw-byte fast path matches the general path across the 15/16 boundary",
+          "[streamgen]") {
+    const auto pv = [](std::string& b, std::uint64_t v) {
+        while (v >= 0x80U) {
+            b.push_back(static_cast<char>(0x80U | (v & 0x7FU)));
+            v >>= 7U;
+        }
+        b.push_back(static_cast<char>(v));
+    };
+    const auto tag = [](std::uint32_t f, std::uint32_t w) {
+        return (static_cast<std::uint64_t>(f) << 3U) | w;
+    };
+
+    // (1) Boundary: a <=15 field (i32, 1-byte tag, fast path) and a >=16 field (color, 2-byte tag,
+    //     general path) both decode in one message.
+    {
+        std::string buf;
+        pv(buf, tag(1, 0));
+        pv(buf, 123);  // i32
+        pv(buf, tag(16, 0));
+        pv(buf, 2);  // color (enum), 2-byte tag 0x80 0x01
+        std::int32_t i32 = 0;
+        int color = -1;
+        const DecodeStatus s = p2::stream::Scalars{ByteView(buf)}.decode(
+            [&](p2::stream::Scalars::i32, std::int32_t v) { i32 = v; },
+            [&](p2::stream::Scalars::color, ::p2::Color v) { color = static_cast<int>(v); });
+        CHECK(s.ok());
+        CHECK(i32 == 123);
+        CHECK(color == 2);
+    }
+
+    // (2) A KNOWN field with the wrong wire type is skipped -- consistently for the fast field (i32)
+    //     and the general field (color) -- and NEVER delivered to an unknown-field handler (which is
+    //     for non-schema numbers only). This is the fast-miss -> general -> `case N: break;` path.
+    {
+        std::string buf;
+        pv(buf, tag(1, 2));  // i32 (fast) as LEN -- wrong wire
+        pv(buf, 1);
+        buf += "x";
+        pv(buf, tag(16, 2));  // color (general) as LEN -- wrong wire
+        pv(buf, 1);
+        buf += "y";
+        std::int32_t i32 = -1;
+        int color = -1;
+        std::vector<std::uint32_t> unknown;
+        const DecodeStatus s = p2::stream::Scalars{ByteView(buf)}.decode(
+            [&](p2::stream::Scalars::i32, std::int32_t v) { i32 = v; },
+            [&](p2::stream::Scalars::color, ::p2::Color v) { color = static_cast<int>(v); },
+            [&](UnknownField uf) { unknown.push_back(uf.field_number); });
+        CHECK(s.ok());
+        CHECK(i32 == -1);        // wrong-wire fast field skipped, callback not fired
+        CHECK(color == -1);      // wrong-wire general field skipped, callback not fired
+        CHECK(unknown.empty());  // neither known field leaked to the unknown handler
+    }
+
+    // (3) An invalid tag is rejected identically whether encoded in one byte (fast-path range) or two
+    //     (general): a reserved wire type (6) never matches a fast case, so both go through the same
+    //     validating read_tag_or_end and fail.
+    {
+        std::string one;
+        pv(one, tag(1, 6));  // 1-byte reserved-wire tag
+        std::string two;
+        pv(two, tag(16, 6));  // 2-byte reserved-wire tag
+        const DecodeStatus s1 = p2::stream::Scalars{ByteView(one)}.decode(
+            [](p2::stream::Scalars::i32, std::int32_t) {});
+        const DecodeStatus s2 = p2::stream::Scalars{ByteView(two)}.decode(
+            [](p2::stream::Scalars::i32, std::int32_t) {});
+        CHECK_FALSE(s1.ok());
+        CHECK_FALSE(s2.ok());
+    }
+
+    // (4) A NON-CANONICAL (over-long) tag of a low field is a valid varint that protoc never emits.
+    //     It misses the 1-byte fast path (continuation bit set) and takes general -> `case N: break;`,
+    //     so it is intentionally SKIPPED, not decoded. No conformant encoder produces this, and the
+    //     decode never crashes. field 1 (i32, varint) as 0x88 0x00 (== 8, non-minimal), + a value.
+    {
+        std::string buf;
+        buf.push_back('\x88');
+        buf.push_back('\x00');  // over-long tag: field 1, Varint
+        pv(buf, 55);            // the value that a canonical tag would have decoded
+        std::int32_t i32 = -1;
+        std::vector<std::uint32_t> unknown;
+        const DecodeStatus s = p2::stream::Scalars{ByteView(buf)}.decode(
+            [&](p2::stream::Scalars::i32, std::int32_t v) { i32 = v; },
+            [&](UnknownField uf) { unknown.push_back(uf.field_number); });
+        CHECK(s.ok());
+        CHECK(i32 == -1);        // skipped, not decoded
+        CHECK(unknown.empty());  // and not surfaced as unknown (it is a known field number)
+    }
+}
+
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): one callback per field
 TEST_CASE("streamgen: a generated decoder decodes enum, sub-message, and oneof fields",
           "[streamgen]") {

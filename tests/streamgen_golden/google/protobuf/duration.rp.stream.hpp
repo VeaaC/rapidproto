@@ -32,42 +32,46 @@ template <class... Callbacks>
   ::rapidproto::WireReader rp_reader{m_bytes};
   ::rapidproto::Tag rp_tag;
   for (;;) {
-    const auto rp_state = rp_reader.read_tag_or_end(rp_tag);
-    if (rp_state == ::rapidproto::WireReader::TagOrEnd::End) { return ::rapidproto::DecodeStatus::success(); }
-    if (rp_state == ::rapidproto::WireReader::TagOrEnd::Error) { return ::rapidproto::DecodeStatus::from_reader(rp_reader); }
-    switch (rp_tag.field_number) {
-      case seconds::kNumber:
+    if (rp_reader.at_end()) { return ::rapidproto::DecodeStatus::success(); }
+    switch (rp_reader.peek_byte()) {
+      case ::rapidproto::raw_tag(seconds::kNumber, ::rapidproto::WireType::Varint):
         static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<Callbacks, seconds, seconds::Value>)) <= 1U, "field 'seconds' is handled by more than one callback");
         static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<Callbacks, seconds, seconds::Value>)) <= 1U, "field 'seconds' is matched by more than one catch-all callback");
         static_assert((true && ... && !::rapidproto::is_partial_generic<Callbacks, seconds, seconds::Value>), "a callback for field 'seconds' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
         static_assert((true && ... && !(::rapidproto::targets<Callbacks, seconds, seconds::Value> && !::rapidproto::specifically_handles<Callbacks, seconds, seconds::Value>)), "a callback for field 'seconds' has the wrong value type (expected seconds::Value)");
         if constexpr ((false || ... || ::rapidproto::handles_one<Callbacks, seconds, seconds::Value>)) {
-          if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
-            const auto rp_value = rp_reader.read_varint();
-            if (!rp_value) { return ::rapidproto::DecodeStatus::from_reader(rp_reader); }
-            if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, seconds{}, ::rapidproto::varint_to_int64(*rp_value)); !rp_status.ok()) {
-              return rp_status;
-            }
-            continue;
+          rp_reader.consume_tag_byte();
+          const auto rp_value = rp_reader.read_varint();
+          if (!rp_value) { return ::rapidproto::DecodeStatus::from_reader(rp_reader); }
+          if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, seconds{}, ::rapidproto::varint_to_int64(*rp_value)); !rp_status.ok()) {
+            return rp_status;
           }
+          continue;
         }
         break;
-      case nanos::kNumber:
+      case ::rapidproto::raw_tag(nanos::kNumber, ::rapidproto::WireType::Varint):
         static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<Callbacks, nanos, nanos::Value>)) <= 1U, "field 'nanos' is handled by more than one callback");
         static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<Callbacks, nanos, nanos::Value>)) <= 1U, "field 'nanos' is matched by more than one catch-all callback");
         static_assert((true && ... && !::rapidproto::is_partial_generic<Callbacks, nanos, nanos::Value>), "a callback for field 'nanos' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
         static_assert((true && ... && !(::rapidproto::targets<Callbacks, nanos, nanos::Value> && !::rapidproto::specifically_handles<Callbacks, nanos, nanos::Value>)), "a callback for field 'nanos' has the wrong value type (expected nanos::Value)");
         if constexpr ((false || ... || ::rapidproto::handles_one<Callbacks, nanos, nanos::Value>)) {
-          if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
-            const auto rp_value = rp_reader.read_varint();
-            if (!rp_value) { return ::rapidproto::DecodeStatus::from_reader(rp_reader); }
-            if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, nanos{}, ::rapidproto::varint_to_int32(*rp_value)); !rp_status.ok()) {
-              return rp_status;
-            }
-            continue;
+          rp_reader.consume_tag_byte();
+          const auto rp_value = rp_reader.read_varint();
+          if (!rp_value) { return ::rapidproto::DecodeStatus::from_reader(rp_reader); }
+          if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, nanos{}, ::rapidproto::varint_to_int32(*rp_value)); !rp_status.ok()) {
+            return rp_status;
           }
+          continue;
         }
         break;
+      default: break;
+    }
+    const auto rp_state = rp_reader.read_tag_or_end(rp_tag);
+    if (rp_state == ::rapidproto::WireReader::TagOrEnd::End) { return ::rapidproto::DecodeStatus::success(); }
+    if (rp_state == ::rapidproto::WireReader::TagOrEnd::Error) { return ::rapidproto::DecodeStatus::from_reader(rp_reader); }
+    switch (rp_tag.field_number) {
+      case seconds::kNumber: break;
+      case nanos::kNumber: break;
       default:
         if constexpr ((false || ... || ::rapidproto::specifically_handles_unknown<Callbacks>)) {
           const auto rp_value_start = rp_reader.position();

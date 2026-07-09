@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -396,6 +397,69 @@ void emit_arm(Printer& printer, const std::string& fname, const FieldGen& gen, b
     printer.outdent();
 }
 
+// A field whose whole tag is a single byte -- number 1..15 ((15 << 3) | 7 == 127 < 128; field 16+
+// needs two bytes) and not a group (a group's read needs the field number the fast path does not
+// materialize). These are dispatched by the raw-byte fast-path switch; every other field stays on the
+// general path. Kept as one predicate so the fast switch and the general switch partition identically.
+constexpr std::int32_t kMaxOneByteTagField = 15;
+bool is_fast_tag_field(const FieldNode& field, const FieldGen& gen) {
+    return field.number <= kMaxOneByteTagField && gen.wire_type != "SGroup";
+}
+
+// Fast-path arm for the raw-byte tag switch (see emit_decode_def). A field whose whole tag fits in
+// one byte (number 1..15) becomes a `case raw_tag(number, wire):` over WireReader::peek_byte() -- the
+// wire-type check is folded into the case label, and the common tag is dispatched without splitting
+// field/wire. A matched, handled field consumes the tag byte and decodes; if the field has no
+// callback, `break` drops to the general path below, which skips it (so behavior is unchanged). A
+// repeated packable field also gets a Len case for its packed form. Group fields are left to the
+// general path (their read_group needs the field number the fast path does not materialize).
+void emit_fast_arm(Printer& printer, const std::string& fname, const FieldGen& gen, bool repeated) {
+    const bool packable = codegen::is_packable_wire(gen.wire_type);
+    const char* const guard =
+        "if constexpr ((false || ... ||"
+        " ::rapidproto::handles_one<Callbacks, $f$, $f$::Value>)) {\n";
+
+    printer.print("case ::rapidproto::raw_tag($f$::kNumber, ::rapidproto::WireType::$wt$):\n",
+                  {{"f", fname}, {"wt", gen.wire_type}});
+    printer.indent();
+    // Same per-callback guards as the general arm, emitted before invoke_field so a callback misuse
+    // (e.g. two catch-alls) reports the intended static_assert rather than a downstream ambiguity.
+    codegen::emit_dispatch_guards(printer, "Callbacks", fname + ", " + fname + "::Value",
+                                  "field '" + fname + "'", fname + "::Value");
+    printer.print(guard, {{"f", fname}});
+    printer.indent();
+    printer.print("rp_reader.consume_tag_byte();\n");
+    emit_decode_and_invoke(printer, fname, gen, "rp_reader");
+    printer.print("continue;\n");
+    printer.outdent();
+    printer.print("}\n");
+    printer.print("break;\n");  // no callback -> fall to the general path, which skips it
+    printer.outdent();
+
+    if (repeated && packable) {  // packed form: a LEN payload of back-to-back elements.
+        printer.print("case ::rapidproto::raw_tag($f$::kNumber, ::rapidproto::WireType::Len):\n",
+                      {{"f", fname}});
+        printer.indent();
+        printer.print(guard, {{"f", fname}});
+        printer.indent();
+        printer.print("rp_reader.consume_tag_byte();\n");
+        printer.print("const auto rp_packed = rp_reader.read_length_delimited();\n");
+        printer.print(
+            "if (!rp_packed) { return ::rapidproto::DecodeStatus::from_reader(rp_reader); }\n");
+        printer.print("::rapidproto::WireReader rp_elements{*rp_packed};\n");
+        printer.print("while (!rp_elements.at_end()) {\n");
+        printer.indent();
+        emit_decode_and_invoke(printer, fname, gen, "rp_elements");
+        printer.outdent();
+        printer.print("}\n");
+        printer.print("continue;\n");
+        printer.outdent();
+        printer.print("}\n");
+        printer.print("break;\n");
+        printer.outdent();
+    }
+}
+
 // Out-of-line decode() definition for `message` (whose C++ name, qualified within the namespace, is
 // `qualifier`), plus its nested messages. Emitted after all struct shells so every field type is a
 // complete type here (handles forward and cyclic message references).
@@ -428,6 +492,30 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
     printer.print("::rapidproto::Tag rp_tag;\n");
     printer.print("for (;;) {\n");
     printer.indent();
+    // Fast path: a raw-byte switch dispatches single-byte-tag fields (is_fast_tag_field) without
+    // splitting field/wire (see emit_fast_arm). A miss (multi-byte tag, unknown field, or wrong wire
+    // type) breaks to the general path below. Each fast field's decode body is emitted ONLY here; the
+    // general switch keeps just a trivial `case N: break;` for it, so a wrong-wire encoding of a fast
+    // field skips exactly as a >15 field would (consistent) without duplicating the body.
+    std::vector<std::pair<const FieldNode*, FieldGen>> fast;
+    for (const auto& [field, gen] : fields) {
+        if (is_fast_tag_field(*field, gen)) {
+            fast.emplace_back(field, gen);
+        }
+    }
+    if (!fast.empty()) {
+        printer.print(
+            "if (rp_reader.at_end()) { return ::rapidproto::DecodeStatus::success(); }\n");
+        printer.print("switch (rp_reader.peek_byte()) {\n");
+        printer.indent();
+        for (const auto& [field, gen] : fast) {
+            emit_fast_arm(printer, symbols.local.at(field), gen, field->is_repeated);
+        }
+        printer.print("default: break;\n");
+        printer.outdent();
+        printer.print("}\n");
+    }
+    // General path: multi-byte tags, unknown fields, wrong wire types, groups, maps.
     // Fused end-or-tag read: one bounds check drives the loop (see WireReader::read_tag_or_end).
     printer.print("const auto rp_state = rp_reader.read_tag_or_end(rp_tag);\n");
     printer.print(
@@ -439,7 +527,17 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
     printer.print("switch (rp_tag.field_number) {\n");
     printer.indent();
     for (const auto& [field, gen] : fields) {
-        emit_arm(printer, symbols.local.at(field), gen, field->is_repeated);
+        if (is_fast_tag_field(*field, gen)) {
+            // The decode body lives in the fast switch; this bare case only SKIPS a malformed
+            // encoding of the field that missed the fast path -- a wrong wire type, or a
+            // non-canonical (over-long) tag. A canonical 1-byte tag always hits the fast path, so
+            // only malformed input reaches here (protoc emits neither); skipping it never crashes,
+            // and its output is unspecified anyway. (No body here -> the fast field's decode is
+            // emitted once.)
+            printer.print("case $f$::kNumber: break;\n", {{"f", symbols.local.at(field)}});
+        } else {
+            emit_arm(printer, symbols.local.at(field), gen, field->is_repeated);
+        }
     }
     for (const auto& map : message.map_fields) {
         emit_map_arm(printer, symbols, map);
