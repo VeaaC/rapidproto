@@ -961,18 +961,21 @@ int scenario_two_tier() {
 int main() {
     // pin + steady-state warmup + open the cycle/instruction counters, once
     const bool perf = rpbench::metric_fds().cyc >= 0;
+    if (!rpbench::json_mode()) {  // human legend; JSON mode emits only NDJSON (tests/bench.py)
 #ifdef RAPIDPROTO_HAVE_PROTOZERO
-    std::puts("rapidproto decode bench (generated / wire / protozero). Each arm vs the baseline:");
+        std::puts(
+            "rapidproto decode bench (generated / wire / protozero). Each arm vs the baseline:");
 #else
-    std::puts(
-        "rapidproto decode bench (generated / wire; protozero ABSENT). Each arm vs baseline:");
+        std::puts(
+            "rapidproto decode bench (generated / wire; protozero ABSENT). Each arm vs baseline:");
 #endif
-    std::printf(
-        "  metric: %s; adaptive, self-pinned. '+X%%' = arm out-throughputs baseline;"
-        " verdict SIG=real&>=0.5%% / flat=real&<0.5%% / noise=CI spans 0."
-        " ins/B is placement-invariant: differs => real code change.\n",
-        perf ? "wall-clock GB/s + CPU cycles/byte + retired instructions/byte (perf)"
-             : "wall-clock GB/s (perf unavailable: kernel.perf_event_paranoid > 2)");
+        std::printf(
+            "  metric: %s; adaptive, self-pinned. '+X%%' = arm out-throughputs baseline;"
+            " verdict SIG=real&>=0.5%% / flat=real&<0.5%% / noise=CI spans 0."
+            " ins/B is placement-invariant: differs => real code change.\n",
+            perf ? "wall-clock GB/s + CPU cycles/byte + retired instructions/byte (perf)"
+                 : "wall-clock GB/s (perf unavailable: kernel.perf_event_paranoid > 2)");
+    }
     int bad = 0;
     bad += scenario_varint_1byte();
     bad += scenario_varint_multibyte();
@@ -989,9 +992,14 @@ int main() {
     bad += scenario_sparse();
     bad += scenario_two_tier();
     if (bad != 0) {
-        std::printf("\nFAIL: %d checksum mismatch(es)\n", bad);
+        // A mismatch is also carried per-arm as "ok":false in JSON mode; keep the exit code either way.
+        if (!rpbench::json_mode()) {
+            std::printf("\nFAIL: %d checksum mismatch(es)\n", bad);
+        }
         return 1;
     }
-    std::puts("\nall checksums agree.");
+    if (!rpbench::json_mode()) {
+        std::puts("\nall checksums agree.");
+    }
     return 0;
 }

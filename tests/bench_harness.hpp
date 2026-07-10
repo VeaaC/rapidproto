@@ -118,6 +118,13 @@ inline Counters metric_fds() {
     return c;
 }
 
+// RAPIDPROTO_BENCH_JSON=1 makes run() emit one NDJSON record per (scenario, arm) instead of the pretty
+// table (for tooling: tests/bench.py). The bench mains suppress their human legend in this mode.
+inline bool json_mode() {
+    static const bool on = std::getenv("RAPIDPROTO_BENCH_JSON") != nullptr;
+    return on;
+}
+
 struct Cost {
     double ns;
     double cyc;    // -1 when no perf counter
@@ -245,37 +252,63 @@ inline int run(const char* scenario, double byte_size, const std::vector<Arm>& a
         const bool ok = sums[k] == sums[0];
         bad += ok ? 0 : 1;
         const Stat sns = stat(ns_s[k]);
+        const double gb_s = byte_size / sns.median;
+        const double cyc_b = cyc ? stat(cyc_s[k]).median / byte_size : -1.0;
+        const double ins_b = ins ? stat(instr_s[k]).median / byte_size : -1.0;
+        // For arm 0 (baseline) there is no ratio; for k>0, `vs_base` is the throughput gain over it.
+        double vs_base = 0.0;
+        double band = 0.0;
+        const char* verdict = "baseline";
+        if (k != 0) {
+            const Stat sr = stat(ratio[k]);
+            vs_base = (1.0 / sr.mean - 1.0) * 100.0;  // + => arm k out-throughputs the baseline
+            band = (sr.ci_half / sr.mean) * 100.0;
+            ambiguous = ambiguous || !confident(sr);
+            // Three-way verdict: "noise" = CI spans zero (indistinguishable); "flat" = real but under
+            // 0.5% (settled, practically nil); "SIG" = real and meaningful. A bare statistical test
+            // would stamp a 0.1% delta "SIG".
+            verdict =
+                std::fabs(vs_base) <= band ? "noise" : (std::fabs(vs_base) < 0.5 ? "flat" : "SIG");
+        }
+        if (json_mode()) {
+            std::printf(
+                R"({"rec":"arm","scenario":"%s","arm":"%s","bytes":%.0f,"baseline":%s,"gb_s":%.5f,)",
+                scenario, arms[k].label, byte_size, k == 0 ? "true" : "false", gb_s);
+            if (cyc) {
+                std::printf(R"("cyc_b":%.5f,)", cyc_b);
+            } else {
+                std::printf(R"("cyc_b":null,)");
+            }
+            if (ins) {
+                std::printf(R"("ins_b":%.5f,)", ins_b);
+            } else {
+                std::printf(R"("ins_b":null,)");
+            }
+            std::printf(R"("vs_base_pct":%.3f,"ci_pct":%.3f,"verdict":"%s","ok":%s})"
+                        "\n",
+                        vs_base, band, verdict, ok ? "true" : "false");
+            continue;
+        }
         char rate[72];
         if (cyc && ins) {
-            std::snprintf(rate, sizeof rate, "%6.3f GB/s %5.2f cyc/B %6.1f ins/B",
-                          byte_size / sns.median, stat(cyc_s[k]).median / byte_size,
-                          stat(instr_s[k]).median / byte_size);
+            std::snprintf(rate, sizeof rate, "%6.3f GB/s %5.2f cyc/B %6.1f ins/B", gb_s, cyc_b,
+                          ins_b);
         } else if (cyc) {
-            std::snprintf(rate, sizeof rate, "%6.3f GB/s %5.2f cyc/B", byte_size / sns.median,
-                          stat(cyc_s[k]).median / byte_size);
+            std::snprintf(rate, sizeof rate, "%6.3f GB/s %5.2f cyc/B", gb_s, cyc_b);
         } else {
-            std::snprintf(rate, sizeof rate, "%6.3f GB/s", byte_size / sns.median);
+            std::snprintf(rate, sizeof rate, "%6.3f GB/s", gb_s);
         }
         char cmp[80];
         if (k == 0) {
             std::snprintf(cmp, sizeof cmp, "(baseline)");
         } else {
-            const Stat sr = stat(ratio[k]);
-            const double faster = (1.0 / sr.mean - 1.0) * 100.0;  // + => arm k out-throughputs base
-            const double band = (sr.ci_half / sr.mean) * 100.0;
-            ambiguous = ambiguous || !confident(sr);
-            // Three-way verdict: "noise" = the CI spans zero (indistinguishable); "flat" = real but
-            // under 0.5% (statistically settled, practically nil -- not worth shipping); "SIG" = a
-            // real, meaningful difference. A bare statistical test would stamp a 0.1% delta "SIG".
-            const char* verdict =
-                std::fabs(faster) <= band ? "noise" : (std::fabs(faster) < 0.5 ? "flat" : "SIG");
-            std::snprintf(cmp, sizeof cmp, "vs %s %+6.1f%% +-%.1f%% [%s]", arms[0].label, faster,
+            std::snprintf(cmp, sizeof cmp, "vs %s %+6.1f%% +-%.1f%% [%s]", arms[0].label, vs_base,
                           band, verdict);
         }
         std::printf("  %-16s %-11s %-37s %-34s%s\n", scenario, arms[k].label, rate, cmp,
                     ok ? "" : "  !! CHECKSUM MISMATCH");
     }
-    if (ambiguous) {
+    if (ambiguous && !json_mode()) {
         std::printf(
             "  %-16s (!) noisy: a ratio stayed ambiguous after %.0fs. Close background load;"
             " on a laptop use AC power + let it cool; optionally pin governor=performance /"

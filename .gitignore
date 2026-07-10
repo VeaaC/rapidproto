@@ -1,2 +1,5 @@
 # CMake build tree (also holds the local schema/ test corpus, which stays untracked)
 /build/
+
+# Benchmark snapshots emitted by tests/bench.py (carry same-machine cyc/B; not portable, kept local)
+/bench_snapshots/

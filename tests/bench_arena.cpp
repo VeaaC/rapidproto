@@ -565,12 +565,20 @@ void sweep_shape(const char* name, Build build, ParseSum parse_sum,
 }  // namespace
 
 int main() {
-    // The baseline's version is half a headline ratio's meaning; print it so a reported number is
-    // never separated from the libprotobuf it was measured against. (The macro encodes MMmmmppp.)
-    std::printf("baseline: libprotobuf %d.%d.%d\n", GOOGLE_PROTOBUF_VERSION / 1000000,
-                GOOGLE_PROTOBUF_VERSION / 1000 % 1000, GOOGLE_PROTOBUF_VERSION % 1000);
+    // The baseline's version is half a headline ratio's meaning; report it so a number is never
+    // separated from the libprotobuf it was measured against. (The macro encodes MMmmmppp.)
     const std::string buf = make_dataset(kPeople);
     const rapidproto::ByteView view(buf);
+    if (rpbench::json_mode()) {
+        std::printf(
+            R"({"rec":"meta","protobuf_version":"%d.%d.%d","dataset_people":%d,"wire_bytes":%zu})"
+            "\n",
+            GOOGLE_PROTOBUF_VERSION / 1000000, GOOGLE_PROTOBUF_VERSION / 1000 % 1000,
+            GOOGLE_PROTOBUF_VERSION % 1000, kPeople, buf.size());
+    } else {
+        std::printf("baseline: libprotobuf %d.%d.%d\n", GOOGLE_PROTOBUF_VERSION / 1000000,
+                    GOOGLE_PROTOBUF_VERSION / 1000 % 1000, GOOGLE_PROTOBUF_VERSION % 1000);
+    }
 
     // Cross-check correctness first (Dataset, all three decoders).
     rapidproto::Arena setup_arena;
@@ -599,7 +607,9 @@ int main() {
     // '+X%' = the decoder out-throughputs protoc (so +53% == 1.53x). protoc is arm 0 (the baseline);
     // arena is measured "cold" (fresh Arena) and "warm" (reset+reuse).
     rapidproto::Arena warm;
-    std::printf("bench: Dataset with %d people, wire = %zu bytes\n\n", kPeople, buf.size());
+    if (!rpbench::json_mode()) {
+        std::printf("bench: Dataset with %d people, wire = %zu bytes\n\n", kPeople, buf.size());
+    }
     std::vector<rpbench::Arm> arms = {
         {"protoc",
          [&]() {
@@ -635,18 +645,27 @@ int main() {
     const auto mem_p_used = static_cast<std::size_t>(mem_pa.SpaceUsed());
     const auto mem_p_held = static_cast<std::size_t>(mem_pa.SpaceAllocated());
 
-    std::printf("\npeak memory of the two materializers (bytes, one parse, like-with-like):\n");
-    std::printf("  used (payload):   arena %9zu  protoc %9zu  (%.2fx)\n", mem_a_used, mem_p_used,
-                static_cast<double>(mem_a_used) / static_cast<double>(mem_p_used));
-    std::printf("  held (malloc'd):  arena %9zu  protoc %9zu  (%.2fx)\n", mem_a_held, mem_p_held,
-                static_cast<double>(mem_a_held) / static_cast<double>(mem_p_held));
-    std::printf("checksum %llu (all agree)\n", static_cast<unsigned long long>(c_arena));
+    if (rpbench::json_mode()) {
+        std::printf(R"({"rec":"mem","shape":"Dataset","arena_used":%zu,"arena_held":%zu,)"
+                    R"("protoc_used":%zu,"protoc_held":%zu})"
+                    "\n",
+                    mem_a_used, mem_a_held, mem_p_used, mem_p_held);
+    } else {
+        std::printf("\npeak memory of the two materializers (bytes, one parse, like-with-like):\n");
+        std::printf("  used (payload):   arena %9zu  protoc %9zu  (%.2fx)\n", mem_a_used,
+                    mem_p_used, static_cast<double>(mem_a_used) / static_cast<double>(mem_p_used));
+        std::printf("  held (malloc'd):  arena %9zu  protoc %9zu  (%.2fx)\n", mem_a_held,
+                    mem_p_held, static_cast<double>(mem_a_held) / static_cast<double>(mem_p_held));
+        std::printf("checksum %llu (all agree)\n", static_cast<unsigned long long>(c_arena));
+    }
 
     // Repeated / packed-array shapes: the axes that stress the arena's repeated-field path -- packed
     // varint vs fixed-width elements (same element count), and many-messages-few-elements vs
     // few-messages-many-elements (same element count). Arena (warm) against protoc; the arena cyc/B
     // across these runs is the signal for repeated-field decode work.
-    std::printf("\nrepeated / packed-array shapes (arena-warm vs protoc):\n");
+    if (!rpbench::json_mode()) {
+        std::printf("\nrepeated / packed-array shapes (arena-warm vs protoc):\n");
+    }
     const auto bench_bigset = [](const char* name, const std::string& b) {
         rapidproto::ByteView v(b);
         rapidproto::Arena w;
@@ -691,7 +710,11 @@ int main() {
     }
 
     // Chunk-cap sweep: held/used (the arena's growth + chunk-tail waste) and parse time across shapes
-    // and sizes up to ~32 MB. Arena only; this tunes the Arena's chunk-growth policy.
+    // and sizes up to ~32 MB. Arena only; this tunes the Arena's chunk-growth policy. It is deep
+    // analysis, not part of the machine-readable comparison, so JSON mode skips it entirely.
+    if (rpbench::json_mode()) {
+        return 0;  // the sweep (which feeds g_sink) is skipped; harness checksums guard the arms
+    }
     std::printf("\n=== arena chunk-cap sweep (held/use = growth + chunk-tail waste) ===\n");
     sweep_shape(
         "mixed (Dataset)", [](int n) { return make_dataset(n); },
