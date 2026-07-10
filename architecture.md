@@ -376,8 +376,9 @@ Key properties:
   those.
 - **Exact-match, hard-to-misuse dispatch.** A callback claims a field only when its value type is *exactly*
   the field's `Value`; a wrong-but-convertible type or a duplicate is a **compile error**. The whole
-  dispatch is compile-time: a `switch` on field number, an `if constexpr` filter, and `static_assert`s
-  that evaporate. There is no allocation, no `std::function`, and no virtual calls.
+  dispatch is compile-time: a `switch` (over the whole 1-byte tag for the common fields 1–15, else the
+  field number), an `if constexpr` filter, and `static_assert`s that evaporate. There is no allocation, no
+  `std::function`, and no virtual calls.
 - **Open enums.** `enum class : std::int32_t` with `INT32_MIN`/`INT32_MAX` sentinels, forcing a `default:`
   in any consumer `switch`.
 - **`decode()` is out-of-line.** The templated definition follows all struct shells, so a message-typed
@@ -483,8 +484,9 @@ A header-only, std-only support library the generated decoders depend on (vendor
 
 ### Decode emission
 
-The emitted `rp_decode_into` runs the `WireReader` loop once: read tag → dispatch on field number → decode
-the value into the node, set presence/value bits, recurse into sub-messages. Strings are SSO'd /
+The emitted `rp_decode_into` runs the `WireReader` loop once: dispatch the field (a raw-byte peek switch
+for single-byte tags, else the validating tag read + field-number switch) → decode the value into the
+node, set presence/value bits, recurse into sub-messages. Strings are SSO'd /
 arena-copied; **repeated fields accumulate single-pass into a growable arena array** (the benchmark-chosen
 strategy, below); maps append (last-wins on read); groups use `read_group`; unknown fields are skipped
 (with an opt-in per-message "unknown present" bit under `--unknown-present`). Malformed input → `nullptr`
@@ -626,13 +628,20 @@ constant, and reproduce with the benches:
   memory ratio is deterministic (exact byte counts); the time multiple varies with payload shape and
   machine thermal state.
 - **Real codegen wins, surfaced by same-binary A/B.** Cross-binary comparison buries genuine opportunities
-  in placement noise; the cycles-per-byte harness above separates them. Two shipped: a fused 1-byte-tag
-  fast path in `read_tag` (~10% on both compilers), and driving both decode loops with a fused
-  `read_tag_or_end` (one bounds check instead of `at_end()` + `read_tag()`, tag held as a value not
-  `std::optional`), which closed most of the protozero gap on nested/message-heavy decode (≈2× nested-message
-  throughput on gcc; at or above protozero on clang). An earlier `memcpy`-based fixed-width read, by
-  contrast, showed no effect under the same control — the discipline is what tells a real win from a
-  placement artifact.
+  in placement noise; the harness above separates them, and retired **instructions/byte** — deterministic
+  and machine-independent — is the cross-build signal that a change is genuine (cycles/byte stays a
+  same-binary measure). Shipped so far: a fused 1-byte-tag fast path in `read_tag` (~10% on both compilers);
+  driving both decode loops with a fused `read_tag_or_end` (one bounds check instead of `at_end()` +
+  `read_tag()`, tag held as a value not `std::optional`), which closed most of the protozero gap on
+  nested/message-heavy decode (≈2× nested-message throughput on gcc, at or above protozero on clang); a
+  raw-byte peek switch that dispatches single-byte tags (fields 1–15) without splitting field from wire;
+  `RP_FLATTEN` on generated `decode()`, which recovers the inlining GCC leaves on the table in a large
+  translation unit (~30% more retired instructions on message/skip-heavy shapes, where Clang was already
+  inlining); and, for the arena's packed scalars, pre-sizing the array from the wire length plus a single
+  bulk copy of a packed **fixed-width** array on little-endian (≈2–2.5× packed varint, ≈5× packed fixed,
+  ahead of protoc). That bulk copy moves a whole packed *array* in one `memcpy`; an earlier attempt to
+  `memcpy` a *single* fixed-width field, by contrast, showed no effect under the same control — the
+  discipline is what tells a real win from a placement artifact.
 
 **The `protoc` baseline version matters — and is selectable without vendoring protobuf.** The arena
 bench's `protoc` arm is whatever `find_package(Protobuf)` resolves; libprotobuf's own decoder has sped
@@ -662,8 +671,9 @@ one binary measure ~10% apart, purely from placement. Consequences for anyone pr
 - **Compare structures at controlled placement.** A reliable A/B puts both variants in *one* binary,
   measured in both orders. Comparing across binaries, or a generated function against a hand-written one,
   measures placement, not the code. Under this control some plausible wins proved to be placement artifacts
-  and were *not* adopted (an if-chain dispatch vs the `switch`, a `memcpy`-based fixed-width read); others
-  reproduced on both compilers and *were* shipped (the fused `read_tag` / `read_tag_or_end` above).
+  and were *not* adopted (an if-chain dispatch vs the `switch`, a `memcpy` of a *single* fixed-width field);
+  others reproduced on both compilers and *were* shipped (the fused `read_tag` / `read_tag_or_end`, the
+  peek-switch dispatch, and the packed-array bulk copy above).
 - **Identical-function variance (~10%) is your noise floor.** A change whose effect falls within it is not
   a reliable win, however stable it looks in one binary.
 - **Pin to one performance core** (`taskset -c <core> …`); unpinned hybrid-core runs swing 30%+, and even

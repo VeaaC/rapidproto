@@ -182,7 +182,9 @@ const Foo* b = Foo::decode(buf2, arena);   // tree #2 reuses the same memory (no
   the arena will reserve; a decode that would grow past it fails cleanly with
   `ArenaDecodeError::OutOfMemory` instead of letting adversarial input allocate without bound
   (the decoded tree can legitimately be larger than the wire bytes). Default: unbounded. Set it
-  before decoding, at least as large as any seed buffer.
+  before decoding, at least as large as any seed buffer. A packed *varint* array is pre-sized to its
+  wire length (an upper bound on its element count) and then trimmed, so the transient peak can briefly
+  reach a few times that field's payload; size the limit for that peak, not just the final tree.
 - **Stats.** `arena.bytes_used()` (payload handed out) and `arena.bytes_reserved()` (memory held).
 
 ### Error handling (arena)

@@ -59,11 +59,14 @@
 // closes that gap (and Clang, already inlining, is ~neutral). Recognized compilers get the attribute;
 // others get nothing (their default inlining, still correct). Generated decoders use RP_FLATTEN, so
 // (unlike a purely-internal macro) it stays defined after this header -- an RP_-prefixed part of the
-// runtime's surface, not undefined at end.
+// runtime's surface, not undefined at end. The #ifndef lets a consumer TU pre-define RP_FLATTEN (e.g.
+// to empty, or to a stronger attribute) without a redefinition error when it later includes a header.
+#ifndef RP_FLATTEN
 #if defined(__GNUC__) || defined(__clang__)
 #define RP_FLATTEN __attribute__((flatten))
 #else
 #define RP_FLATTEN
+#endif
 #endif
 
 namespace rapidproto {

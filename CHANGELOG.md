@@ -7,10 +7,29 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
 
 ### Changed
 
+- **Faster field dispatch in both generated decoders, no API change.** Fields 1–15 (whose whole tag
+  is a single byte) now dispatch through a raw-byte peek switch, with the field/wire split and the
+  wire-type check folded into the case label; everything else falls back to the unchanged validating
+  path. Generated `decode()` is also flattened (`RP_FLATTEN`), so GCC inlines the wire primitives and
+  sub-decodes in a large translation unit the way Clang already did (it had been leaving ~30% more
+  retired instructions on message- and skip-heavy shapes). Regenerate to pick both up. Decoded
+  results are unchanged for protoc-produced input; one wire-acceptance detail changes — a
+  non-canonical over-long encoding of a low field number's tag (which no conformant encoder emits) is
+  now skipped rather than decoded.
+
+- **Much faster packed scalar arrays (arena).** Packed repeated scalars are pre-sized from the field's
+  wire length instead of grown one element at a time (about 2–2.5× on packed varint), and packed
+  fixed-width arrays are filled with a single bulk copy on little-endian targets (about 5× on packed
+  fixed); both are now ahead of protoc + `Arena`. Regenerate to pick it up. Note for capacity-limited
+  consumers: a packed *varint* array is pre-sized to its byte length (an upper bound on the element
+  count) and then trimmed, so its transient arena peak can briefly reach a few times the field's
+  payload — size a tight `set_capacity_limit()` for that peak.
+
 - **Faster string-heavy arena decode.** The arena's short-string copy (`ArenaString`, the inline SSO
   path) now uses overlapping fixed-width loads/stores instead of a runtime-length `memcpy`, which
   lowers to a slow generic small-copy — most on clang, where it is up to ~18% faster on a
-  string-heavy whole-message decode (~3.5% on gcc). No API change; regenerate to pick it up.
+  string-heavy whole-message decode (~3.5% on gcc). No API change; picked up by upgrading the runtime
+  headers (no regeneration needed).
 
 ## 0.2.3 — 2026-07-06
 
