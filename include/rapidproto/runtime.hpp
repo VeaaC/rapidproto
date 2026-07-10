@@ -238,8 +238,24 @@ inline const std::uint8_t* read_tag_or_end(const std::uint8_t* p, const std::uin
             *state = TagState::Tag;
             return p + 1;
         }
+    } else if (static_cast<std::size_t>(end - p) >= 2U &&
+               static_cast<std::uint8_t>(p[1] - 1U) < 0x7FU) {
+        // Fused 2-byte tag (field 16..2047, the common >15-field case). Reached via `else`, so p[0]
+        // continues; p[1]-1 < 0x7F means the second byte terminates and is nonzero (p[1] in 1..127 ->
+        // value >= 128 -> field 16..2047, never 0 and within kMaxFieldNumber). Decoding it here, inline
+        // in the loop driver, avoids the read_tag path clang compiles poorly for multibyte tags
+        // (measured -31% on a >15-field decode). Only a reserved wire type can still reject; a 3+ byte,
+        // non-canonical, or invalid tag falls through to the general read_tag below.
+        const std::uint32_t value =
+            (static_cast<std::uint32_t>(p[0]) & 0x7FU) | (static_cast<std::uint32_t>(p[1]) << 7U);
+        const std::uint32_t wire = value & 0x07U;
+        if (wire != 6U && wire != 7U) {
+            *out = Tag{value >> 3U, static_cast<WireType>(wire)};
+            *state = TagState::Tag;
+            return p + 2;
+        }
     }
-    const std::uint8_t* const np = read_tag(p, end, out, err);  // rare: multi-byte or invalid
+    const std::uint8_t* const np = read_tag(p, end, out, err);  // rare: 3+ byte or invalid
     if (np == nullptr) {
         *state = TagState::Error;
         return p;
