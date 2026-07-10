@@ -8,6 +8,7 @@ into one snapshot and renders a unified table. Two subcommands:
 
   bench.py run   [--build-dir D] [--core N] [--out FILE]   build both, run both pinned, write a snapshot
   bench.py table SNAPSHOT [SNAPSHOT ...]                    render one snapshot, or compare several
+  bench.py diff  OLD NEW [--threshold PCT]                  ins/B regression check (exit 1 on regression)
 
 A snapshot is NDJSON: one `{"rec":"snapshot",...}` header (compiler / protobuf / git rev) then every
 bench record, each tagged with `"decoder":"stream"|"arena"`. ins/B is the deterministic signal (retired
@@ -209,6 +210,56 @@ def table(args):
         render_compare(args.snapshots)
 
 
+def diff(args):
+    """Regression check between two snapshots (old -> new), keyed on (decoder, scenario, arm). Gates on
+    ins/B ONLY: it is deterministic (same binary + input -> same value on any machine), so a change is a
+    real codegen difference, not noise -- unlike GB/s, which is same-machine and placement-sensitive and
+    so is not comparable across two builds. Exits 1 if any arm's ins/B rose by more than --threshold."""
+    if args.threshold < 0:  # a negative threshold would make the regression/improvement sets overlap
+        sys.exit("diff: --threshold must be >= 0")
+    (ho, ao, _), (hn, an, _) = load(args.old), load(args.new)
+    ho, hn = ho or {}, hn or {}
+    tag = lambda h: f"{h.get('compiler', '?')} rev {h.get('git_rev', '?')}"
+    print(f"diff: {tag(ho)}  ->  {tag(hn)}   (threshold {args.threshold:.1f}% ins/B)")
+    if ho.get("compiler") != hn.get("compiler"):
+        print("  note: compilers differ -- this is a codegen comparison, not a same-compiler regression check")
+
+    by_key = lambda arms: {(a["decoder"], a["scenario"], a["arm"]): a for a in arms}
+    old_i, new_i = by_key(ao), by_key(an)
+
+    rows = []  # (delta_pct, decoder, scenario, arm, old_ins, new_ins) for arms in BOTH with valid ins/B
+    for k, a in new_i.items():
+        oi = (old_i.get(k) or {}).get("ins_b")
+        ni = a.get("ins_b")
+        if oi is None or ni is None or oi < 0 or ni < 0 or not oi:
+            continue
+        rows.append(((ni - oi) / oi * 100, k[0], k[1], k[2], oi, ni))
+    added = [k for k in new_i if k not in old_i]
+    removed = [k for k in old_i if k not in new_i]
+
+    t = args.threshold
+    regr = sorted((r for r in rows if r[0] > t), key=lambda r: -r[0])
+    impr = sorted((r for r in rows if r[0] < -t), key=lambda r: r[0])
+
+    def show(title, group):
+        if not group:
+            return
+        print(f"\n{title}")
+        print(f"  {'decoder':<8}{'scenario':<24}{'arm':<14}{'old':>9}{'new':>9}{'delta':>9}")
+        for dpct, dec, scen, arm, oi, ni in group:
+            print(f"  {dec:<8}{scen:<24}{arm:<14}{oi:>9.2f}{ni:>9.2f}{dpct:>+8.1f}%")
+
+    show(f"regressions (ins/B up > {t:.1f}%)", regr)
+    show(f"improvements (ins/B down > {t:.1f}%)", impr)
+
+    extra = f"; {len(added)} added, {len(removed)} removed" if (added or removed) else ""
+    print(f"\n{len(rows) - len(regr) - len(impr)} arms unchanged (|delta| <= {t:.1f}%){extra}")
+    if regr:
+        print(f"\nFAIL: {len(regr)} ins/B regression(s) exceed {t:.1f}%")
+        sys.exit(1)
+    print(f"\nOK: no ins/B regression beyond {t:.1f}%")
+
+
 # ── cli ─────────────────────────────────────────────────────────────────────────────────────────
 
 def main():
@@ -224,6 +275,12 @@ def main():
     t = sub.add_parser("table", help="render one snapshot, or compare several")
     t.add_argument("snapshots", nargs="+")
     t.set_defaults(func=table)
+
+    d = sub.add_parser("diff", help="ins/B regression check between two snapshots (exit 1 on regression)")
+    d.add_argument("old")
+    d.add_argument("new")
+    d.add_argument("--threshold", type=float, default=1.0, help="regression threshold in %% ins/B (default 1.0)")
+    d.set_defaults(func=diff)
 
     args = ap.parse_args()
     args.func(args)
