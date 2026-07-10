@@ -54,9 +54,9 @@ struct LayoutOptions {
     // The benchmark-chosen default derived by the comment above; a name would just restate it.
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
     std::size_t inline_submsg_cutoff = 16;
-    bool unknown_present = false;  // reserve a per-message "unknown fields present" bit
-    // The resolved per-field materialization selection (see modes.hpp); null/inactive = every
-    // field materializes. Caller-owned; must outlive planning.
+    // The resolved decode profile (see modes.hpp); null/inactive = every field materializes and no
+    // message reserves the unknown-fields bit. The profile also drives which messages get that bit
+    // (`--unknown-present` resolves to "every message"). Caller-owned; must outlive planning.
     const FieldModes* modes = nullptr;
 };
 

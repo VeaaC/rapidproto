@@ -265,7 +265,12 @@ void apply_to_message(const Selection& sel, const MessageNode& message, FieldMod
     }
 }
 
-void apply_selection(const Selection& sel, const ResolvedFileSet& set, FieldModes& out) {
+// Visit every message in the set -- top-level and (recursively) nested -- in an unspecified but
+// deterministic order. The single traversal shared by the type-mode fan-out and the global
+// `--unknown-present` walk. `fn` is by value (copied once, then invoked per message): a callable
+// called N times, so NOT a forwarding reference.
+template <class Fn>
+void for_each_message(const ResolvedFileSet& set, Fn fn) {
     for (const FileNode& file : set.files) {
         std::vector<const MessageNode*> stack;
         stack.reserve(file.messages.size());
@@ -278,9 +283,52 @@ void apply_selection(const Selection& sel, const ResolvedFileSet& set, FieldMode
             for (const MessageNode& nested : message.nested_messages) {
                 stack.push_back(&nested);
             }
-            apply_to_message(sel, message, out);
+            fn(message);
         }
     }
+}
+
+void apply_selection(const Selection& sel, const ResolvedFileSet& set, FieldModes& out) {
+    for_each_message(set, [&](const MessageNode& message) { apply_to_message(sel, message, out); });
+}
+
+// Resolve one `unknown-fields <msg>` entry: it must name a MESSAGE (unknown-field detection reserves
+// that message's has_unknown_fields() bit). Records the message and, if newly seen, appends its
+// canonical line to `lines`; nullopt on success.
+std::optional<Error> apply_unknown_entry(const UnknownEntry& entry, const SymbolTable& symbols,
+                                         FieldModes& out, std::vector<std::string>& lines) {
+    if (entry.name.empty()) {
+        return Error{0, entry.origin + ": empty name"};
+    }
+    const std::string fqn = normalize_name(entry.name);
+    const auto it = symbols.messages.find(fqn);
+    if (it == symbols.messages.end()) {
+        if (symbols.enums.count(fqn) != 0) {
+            return Error{0, entry.origin + ": '" + entry.name +
+                                "' is an enum; unknown-fields applies to a message (it reserves "
+                                "that message's has_unknown_fields() bit)"};
+        }
+        // An existing FIELD name? Say so, rather than claiming the whole name is unknown -- the fix
+        // is to name its parent message instead. (Mirrors apply_entry's parent-split resolution.)
+        const std::size_t dot = fqn.rfind('.');
+        const std::string parent = dot == 0 ? std::string{} : fqn.substr(0, dot);
+        const auto parent_it = symbols.messages.find(parent);
+        const FieldHit hit =
+            parent_it != symbols.messages.end()
+                ? find_field(*parent_it->second, std::string_view(fqn).substr(dot + 1))
+                : FieldHit{};
+        if (hit.field != nullptr || hit.map_field != nullptr) {
+            return Error{0, entry.origin + ": '" + entry.name +
+                                "' is a field; unknown-fields names the message whose "
+                                "has_unknown_fields() bit to reserve, not one of its fields"};
+        }
+        return Error{0, entry.origin + ": unknown message '" + entry.name +
+                            "' (unknown-fields names a message)"};
+    }
+    if (out.unknown_messages.insert(it->second).second) {
+        lines.push_back("unknown " + fqn);
+    }
+    return std::nullopt;
 }
 
 }  // namespace
@@ -304,8 +352,9 @@ Result<std::monostate> parse_modes_file(std::string_view text, const std::string
         std::string_view arg;
         const std::string_view directive = first_word(line, arg);
         if (arg.empty() || arg.find_first_of(" \t") != std::string_view::npos) {
-            return Error{0, origin + ": expected `name|drop|raw <single-argument>`, got '" +
-                                std::string(line) + "'"};
+            return Error{
+                0, origin + ": expected `name|drop|raw|unknown-fields <single-argument>`, got '" +
+                       std::string(line) + "'"};
         }
         if (directive == "name") {
             if (!is_identifier(arg)) {
@@ -320,9 +369,11 @@ Result<std::monostate> parse_modes_file(std::string_view text, const std::string
             spec.entries.push_back({FieldMode::Drop, std::string(arg), origin});
         } else if (directive == "raw") {
             spec.entries.push_back({FieldMode::Raw, std::string(arg), origin});
+        } else if (directive == "unknown-fields") {
+            spec.unknowns.push_back({std::string(arg), origin});
         } else {
             return Error{0, origin + ": unknown directive '" + std::string(directive) +
-                                "' (expected name, drop, or raw)"};
+                                "' (expected name, drop, raw, or unknown-fields)"};
         }
     }
     return std::monostate{};
@@ -338,6 +389,26 @@ Result<FieldModes> resolve_field_modes(const FieldModesSpec& spec, const Resolve
         }
     }
     apply_selection(sel, set, out);
+
+    // Unknown-fields entries resolve independently of drop/raw. Explicit entries are validated even
+    // under --unknown-present (so a typo'd name still errors), but the global flag then subsumes them
+    // with a single stable `unknown *` id line -- so the flag's identity never shifts as the schema
+    // gains messages, and `--unknown-present --unknown=X` yields the same id as `--unknown-present`.
+    std::vector<std::string> unknown_lines;
+    for (const UnknownEntry& entry : spec.unknowns) {
+        if (auto err = apply_unknown_entry(entry, symbols, out, unknown_lines)) {
+            return *err;
+        }
+    }
+    if (spec.unknown_all) {
+        for_each_message(
+            set, [&](const MessageNode& message) { out.unknown_messages.insert(&message); });
+        unknown_lines.assign(1, "unknown *");
+    }
+    for (std::string& line : unknown_lines) {
+        sel.normalized.push_back(std::move(line));
+    }
+
     if (!out.active()) {
         return out;  // incl. a no-op profile: default output, no identity, no inline namespace
     }

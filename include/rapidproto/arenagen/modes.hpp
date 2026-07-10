@@ -23,6 +23,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <unordered_set>
 #include <variant>
 #include <vector>
 
@@ -48,15 +49,27 @@ struct ModeEntry {
     std::string origin;
 };
 
+// One requested unknown-fields selection: a message whose "unknown fields present" bit + accessor
+// to reserve. `name` is a dotted FQN as the user wrote it (a message type only; unknown-field
+// detection is a message-level property, so an enum or a field name is an error). `origin` labels
+// errors like ModeEntry.
+struct UnknownEntry {
+    std::string name;
+    std::string origin;
+};
+
 // The parsed, unresolved selection: every entry from every file and direct flag, in order.
 struct FieldModesSpec {
     std::string profile_name;  // optional `name` directive (else the profile id is a hash)
     std::vector<ModeEntry> entries;
+    std::vector<UnknownEntry> unknowns;  // `unknown-fields <msg>` / `--unknown=<msg>` selections
+    bool unknown_all = false;  // `--unknown-present`: the unknown bit on EVERY message (folds into
+                               // the profile id as one stable `unknown *` line -- see resolve)
 };
 
 // Parse one profile file's text into `spec` (appending): `#` comments, blank lines, and one
-// directive per line -- `name <identifier>`, `drop <dotted-name>`, `raw <dotted-name>`.
-// `filename` labels errors and entry origins.
+// directive per line -- `name <identifier>`, `drop <dotted-name>`, `raw <dotted-name>`,
+// `unknown-fields <dotted-message>`. `filename` labels errors and entry origins.
 [[nodiscard]] Result<std::monostate> parse_modes_file(std::string_view text,
                                                       const std::string& filename,
                                                       FieldModesSpec& spec);
@@ -65,17 +78,27 @@ struct FieldModesSpec {
 struct FieldModes {
     std::unordered_map<const FieldNode*, FieldMode> fields;
     std::unordered_map<const MapFieldNode*, FieldMode> maps;
+    // Messages whose "unknown fields present" bit + has_unknown_fields() accessor to reserve
+    // (`unknown-fields <msg>`, or every message for `--unknown-present`). A message property, not
+    // a field one, so it is kept separately from `fields`/`maps`.
+    std::unordered_set<const MessageNode*> unknown_messages;
     // Profile identity: `<name>_<8 hex>` when the `name` directive is present, else 16 hex chars
     // -- the hex always an FNV-1a-64 over `normalized`, so the id verifies CONTENT even when
     // named (two selections sharing a name must not link). Non-empty iff active(): a profile
-    // whose entries match no field (a no-op) produces fully default output -- no identity, no
+    // whose entries match nothing (a no-op) produces fully default output -- no identity, no
     // inline namespace.
     std::string profile_id;
-    // Canonical "drop .pkg.M.f" / "raw .pkg.T" lines, sorted and deduplicated -- the hash input
-    // and the generated banner's content.
+    // Canonical "drop .pkg.M.f" / "raw .pkg.T" / "unknown .pkg.M" (or "unknown *") lines, sorted
+    // and deduplicated -- the hash input and the generated banner's content.
     std::vector<std::string> normalized;
 
-    [[nodiscard]] bool active() const noexcept { return !fields.empty() || !maps.empty(); }
+    [[nodiscard]] bool active() const noexcept {
+        return !fields.empty() || !maps.empty() || !unknown_messages.empty();
+    }
+    // Whether `message` should reserve the unknown-fields bit + accessor.
+    [[nodiscard]] bool wants_unknown(const MessageNode* message) const noexcept {
+        return unknown_messages.count(message) != 0;
+    }
 };
 
 // Resolve and validate `spec` against an analyzed file set. Errors (each naming the entry's
@@ -90,6 +113,13 @@ struct FieldModes {
 // there would make type-level selection unusable on such schemas. (Naming such a field
 // EXPLICITLY is still the hard error above -- the silent exclusion is a type-entry courtesy,
 // not an override path.)
+//
+// `unknown-fields` entries resolve independently: each names a MESSAGE (an enum or a field name is
+// an error -- unknown-field detection is a message property), and `spec.unknown_all` reserves the
+// bit on every message. Explicit per-message entries contribute one `unknown .pkg.M` line each to
+// the profile id; `unknown_all` instead contributes a single stable `unknown *` line AND subsumes any
+// explicit per-message lines (they are redundant once every message is flagged), so the global flag's
+// id is one value that does not shift as the schema gains messages.
 [[nodiscard]] Result<FieldModes> resolve_field_modes(const FieldModesSpec& spec,
                                                      const ResolvedFileSet& set,
                                                      const SymbolTable& symbols);

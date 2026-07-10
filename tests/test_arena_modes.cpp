@@ -234,6 +234,61 @@ TEST_CASE("modes: profile identity is stable, order-independent, and name-overri
     CHECK(empty.value().profile_id.empty());
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): a linear list of assertions
+TEST_CASE("modes: unknown-fields selects per message, folds into the id, and validates") {
+    const Analyzed a = analyze_schema();
+    const MessageNode* msg = a.symbols.messages.at(".m.Msg");
+    const MessageNode* blob = a.symbols.messages.at(".m.Blob");
+    const MessageNode* nested = a.symbols.messages.at(".m.Msg.Nested");
+
+    // The file parser accepts the directive into spec.unknowns.
+    arenagen::FieldModesSpec parsed;
+    REQUIRE(arenagen::parse_modes_file("unknown-fields m.Msg\n", "p.txt", parsed).is_ok());
+    REQUIRE(parsed.unknowns.size() == 1);
+    CHECK(parsed.unknowns[0].name == "m.Msg");
+
+    // Per-message: exactly the named message wants the bit; a profile with only unknowns is active.
+    const auto one = arenagen::resolve_field_modes(parsed, a.set, a.symbols);
+    REQUIRE(one.is_ok());
+    CHECK(one.value().active());
+    CHECK(one.value().wants_unknown(msg));
+    CHECK_FALSE(one.value().wants_unknown(blob));
+
+    // --unknown-present (unknown_all) flags every message, including nested ones.
+    arenagen::FieldModesSpec all_spec;
+    all_spec.unknown_all = true;
+    const auto all = arenagen::resolve_field_modes(all_spec, a.set, a.symbols);
+    REQUIRE(all.is_ok());
+    CHECK(all.value().wants_unknown(msg));
+    CHECK(all.value().wants_unknown(blob));
+    CHECK(all.value().wants_unknown(nested));
+    CHECK(all.value().normalized == std::vector<std::string>{"unknown *"});
+
+    // Subsumption + id stability: --unknown-present collapses any explicit per-message entries to
+    // the single stable `unknown *` line, so the flag's identity is one value regardless of extras.
+    arenagen::FieldModesSpec all_plus;
+    all_plus.unknown_all = true;
+    all_plus.unknowns.push_back({"m.Blob", "test"});
+    const auto plus = arenagen::resolve_field_modes(all_plus, a.set, a.symbols);
+    REQUIRE(plus.is_ok());
+    CHECK(plus.value().profile_id == all.value().profile_id);
+    // A per-message selection is a DIFFERENT identity from the global one.
+    CHECK(one.value().profile_id != all.value().profile_id);
+
+    // Validation: unknown-fields names a message -- an enum, a field, or a typo is a hard error.
+    const auto err_of = [&](const char* name) {
+        arenagen::FieldModesSpec spec;
+        spec.unknowns.push_back({name, "test"});
+        auto r = arenagen::resolve_field_modes(spec, a.set, a.symbols);
+        REQUIRE(r.is_err());
+        return r.error().message;
+    };
+    CHECK(err_of("m.Hue").find("enum") != std::string::npos);
+    CHECK(err_of("m.Msg.debug").find("is a field") !=
+          std::string::npos);  // a real field, not a typo
+    CHECK(err_of("m.Nope").find("unknown message") != std::string::npos);
+}
+
 TEST_CASE("modes: parser handles CRLF and a missing trailing newline; identifiers enforced") {
     arenagen::FieldModesSpec spec;
     REQUIRE(arenagen::parse_modes_file("drop m.Msg.debug\r\nraw m.Blob", "p.txt", spec).is_ok());

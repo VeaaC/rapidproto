@@ -471,7 +471,7 @@ private:
                 m.value_bit = next++;
             }
         }
-        if (m_opts.unknown_present) {
+        if (m_opts.modes != nullptr && m_opts.modes->wants_unknown(layout.message)) {
             layout.unknown_bit = next++;
         }
         layout.mask_bits = next;

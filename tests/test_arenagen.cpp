@@ -100,6 +100,31 @@ ModesOutput generate_modes_golden() {
             codegen::emit_common_header(set.files.back(), names)};
 }
 
+// Generate arena_unknown.rp.hpp under --unknown-present (unknown_all): every message reserves its
+// has_unknown_fields() bit, and the flag folds into the profile identity (an inline rp_modes_<id>
+// namespace). Byte-pinning this golden guards the fold -- the banner id and the inline namespace must
+// not drift silently, since a mismatch is exactly the ODR hazard the fold closes.
+std::string generate_unknown_present_golden() {
+    ResolverConfig config;
+    config.include_paths = {RAPIDPROTO_CORPUS_DIR};
+    auto resolved = resolve(std::string(RAPIDPROTO_CORPUS_DIR) + "/arena_unknown.proto", config);
+    REQUIRE(resolved.is_ok());
+    ResolvedFileSet set = std::move(resolved).value();
+    auto analyzed = analyze(set);
+    REQUIRE(analyzed.is_ok());
+    const SymbolTable symbols = std::move(analyzed).value();
+    arenagen::FieldModesSpec spec;
+    spec.unknown_all = true;
+    auto resolved_modes = arenagen::resolve_field_modes(spec, set, symbols);
+    REQUIRE(resolved_modes.is_ok());
+    const arenagen::FieldModes modes = std::move(resolved_modes).value();
+    const codegen::CppNameTable names = codegen::build_cpp_names(set.files.back(), set.files, "");
+    arenagen::LayoutOptions options;
+    options.modes = &modes;
+    const arenagen::LayoutSet layouts = arenagen::plan_layouts(set, symbols, options);
+    return arenagen::generate_header(set.files.back(), names, layouts, symbols, &modes);
+}
+
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): expected vs actual, distinct roles
 std::string first_difference(const std::string& expected, const std::string& actual) {
     std::istringstream exp(expected);
@@ -162,6 +187,9 @@ TEST_CASE("arenagen: generated headers match the goldens", "[arenagen]") {
             CHECK(modes.common == read_file(common));
         }
     }
+    // --unknown-present: every message gets has_unknown_fields(), and the flag folds into the
+    // profile identity (inline rp_modes_<id>). Byte-pinned so that fold cannot drift silently.
+    check_golden("arena_unknown", generate_unknown_present_golden());
     check_golden("xref", generate_corpus("xref.proto"));
     check_golden("xref_prefixed/xref", generate_corpus("xref.proto", "rp"));
     check_golden("wire_all", generate(RAPIDPROTO_WIRE_FIXTURE_DIR, "wire_all.proto"));

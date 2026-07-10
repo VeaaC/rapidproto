@@ -490,7 +490,8 @@ for single-byte tags, else the validating tag read + field-number switch) → de
 node, set presence/value bits, recurse into sub-messages. Strings are SSO'd /
 arena-copied; **repeated fields accumulate single-pass into a growable arena array** (the benchmark-chosen
 strategy, below); maps append (last-wins on read); groups use `read_group`; unknown fields are skipped
-(with an opt-in per-message "unknown present" bit under `--unknown-present`). Malformed input → `nullptr`
+(with an opt-in "unknown present" bit under `--unknown-present`, or per message via
+`--unknown=`/`unknown-fields`). Malformed input → `nullptr`
 + the error.
 
 ### Tuning (benchmark-driven knobs)
@@ -534,9 +535,14 @@ The ODR story: a profile changes the generated types, so profiled headers wrap e
 `inline namespace rp_modes_<id>` and stamp the profile into the banner. `<id>` is always
 content-derived — an FNV-1a hash of the normalized entries, prefixed by the profile's `name` when one
 is given (`rp_modes_lean_4ba94f51`) — so even two selections sharing a name hold distinct identities;
-a name is readability, never trust. Qualified use stays `pkg::Msg`; mixed-profile TUs hold distinct
-types and fail to **link** at any exchange point instead of silently violating the ODR
-(`tests/arena_modes_link.sh` pins both directions in the default gate). The common header (shared
+a name is readability, never trust. The unknown-fields selection folds into the SAME identity: each
+`unknown-fields <msg>` / `--unknown=<msg>` contributes an `unknown .pkg.M` normalized line, and
+`--unknown-present` contributes one stable `unknown *` line (so its id doesn't shift as the schema
+gains messages, and it subsumes any redundant per-message entries) — closing the ODR gap for a flag
+that changes a message's struct but used to leave its type name untouched. Qualified use stays
+`pkg::Msg`; mixed-profile TUs hold distinct types and fail to **link** at any exchange point instead of
+silently violating the ODR (`tests/arena_modes_link.sh` pins every direction in the default gate,
+including `--unknown-present` with-vs-without). The common header (shared
 enums) stays outside the namespace, so a profiled arena header still coexists with the streaming
 header. A no-profile run is byte-identical to unprofiled output, and an all-excluded profile degrades
 to exactly that. Known cut, deliberately deferred: no `materialize` directive to narrow a type-level
@@ -778,7 +784,8 @@ decode-relevant may be approximated or rejected.
   non-goal. The **decoders** over untrusted *wire* input are bounded: the wire reader caps group nesting
   (`kMaxGroupDepth`) and the arena decoder caps sub-message nesting (`kMaxDecodeDepth`).
 - The arena decoder **drops unknown fields** (no per-field channel like streamgen's); `--unknown-present`
-  reserves only a single per-message "saw an unknown" flag.
+  (every message) or `--unknown=<msg>` / `unknown-fields <msg>` (per message) reserves only a single
+  "saw an unknown" flag, and the selection folds into the decode-profile identity.
 - The arena decoder **rejects a singular sub-message that occurs more than once** (`RepeatedSingularMessage`)
   instead of protobuf's last-one-wins merge, an exotic case excluded for now (a clear error, not a silent
   mis-merge).
