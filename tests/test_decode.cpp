@@ -7,6 +7,7 @@
 
 #include <catch_amalgamated.hpp>
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -50,66 +51,93 @@ struct Demo {
     // NOLINTNEXTLINE(readability-function-cognitive-complexity): mirrors generated dispatch
     [[nodiscard]] DecodeStatus decode(Cbs&&... cbs) const {
         auto dispatch = combine(std::forward<Cbs>(cbs)...);
-        WireReader reader{m_bytes};
-        while (!reader.at_end()) {
-            const auto tag = reader.read_tag();
-            if (!tag) {
-                return DecodeStatus::from_reader(reader);
+        // Value-thread the cursor through the wire:: free readers, exactly as the generator emits.
+        const std::uint8_t* p = wire::byte_ptr(m_bytes);
+        const std::uint8_t* const begin = p;
+        const std::uint8_t* const end = p + m_bytes.size();
+        WireError we = WireError::None;
+        while (true) {
+            Tag tag{};
+            wire::TagState state = wire::TagState::End;
+            p = wire::read_tag_or_end(p, end, &tag, &we, &state);
+            if (state == wire::TagState::End) {
+                return DecodeStatus::success();
             }
-            switch (tag->field_number) {
+            if (state == wire::TagState::Error) {
+                return DecodeStatus{we, false, static_cast<std::size_t>(p - begin)};
+            }
+            switch (tag.field_number) {
                 case id::kNumber:
                     if constexpr ((false || ... || handles_one<Cbs, id, id::Value>)) {
-                        const auto raw = reader.read_varint();
-                        if (!raw) {
-                            return DecodeStatus::from_reader(reader);
+                        std::uint64_t raw = 0;
+                        const std::uint8_t* const np = wire::read_varint(p, end, &raw, &we);
+                        if (np == nullptr) {
+                            return DecodeStatus{we, false, static_cast<std::size_t>(p - begin)};
                         }
-                        if (const auto s = invoke_field(dispatch, id{}, varint_to_int32(*raw));
+                        p = np;
+                        if (const auto s = invoke_field(dispatch, id{}, varint_to_int32(raw));
                             !s.ok()) {
                             return s;
                         }
-                    } else if (!reader.skip(tag->wire_type, tag->field_number)) {
-                        return DecodeStatus::from_reader(reader);
+                    } else if (const auto s = skip(p, end, begin, tag, we); !s.ok()) {
+                        return s;
                     }
                     break;
                 case name::kNumber:
                     if constexpr ((false || ... || handles_one<Cbs, name, name::Value>)) {
-                        const auto payload = reader.read_length_delimited();
-                        if (!payload) {
-                            return DecodeStatus::from_reader(reader);
+                        ByteView payload;
+                        const std::uint8_t* const np =
+                            wire::read_length_delimited(p, end, &payload, &we);
+                        if (np == nullptr) {
+                            return DecodeStatus{we, false, static_cast<std::size_t>(p - begin)};
                         }
-                        if (const auto s = invoke_field(dispatch, name{}, *payload); !s.ok()) {
+                        p = np;
+                        if (const auto s = invoke_field(dispatch, name{}, payload); !s.ok()) {
                             return s;
                         }
-                    } else if (!reader.skip(tag->wire_type, tag->field_number)) {
-                        return DecodeStatus::from_reader(reader);
+                    } else if (const auto s = skip(p, end, begin, tag, we); !s.ok()) {
+                        return s;
                     }
                     break;
                 case nums::kNumber:
                     if constexpr ((false || ... || handles_one<Cbs, nums, nums::Value>)) {
-                        const auto raw = reader.read_varint();
-                        if (!raw) {
-                            return DecodeStatus::from_reader(reader);
+                        std::uint64_t raw = 0;
+                        const std::uint8_t* const np = wire::read_varint(p, end, &raw, &we);
+                        if (np == nullptr) {
+                            return DecodeStatus{we, false, static_cast<std::size_t>(p - begin)};
                         }
-                        if (const auto s = invoke_field(dispatch, nums{}, varint_to_int32(*raw));
+                        p = np;
+                        if (const auto s = invoke_field(dispatch, nums{}, varint_to_int32(raw));
                             !s.ok()) {
                             return s;
                         }
-                    } else if (!reader.skip(tag->wire_type, tag->field_number)) {
-                        return DecodeStatus::from_reader(reader);
+                    } else if (const auto s = skip(p, end, begin, tag, we); !s.ok()) {
+                        return s;
                     }
                     break;
                 default:
-                    if (!reader.skip(tag->wire_type, tag->field_number)) {
-                        return DecodeStatus::from_reader(reader);
+                    if (const auto s = skip(p, end, begin, tag, we); !s.ok()) {
+                        return s;
                     }
                     break;
             }
         }
-        return DecodeStatus::success();
     }
 
 private:
     ByteView m_bytes;
+
+    // Skip a field's value, advancing the cursor `p`; on a wire error returns a non-ok DecodeStatus.
+    static DecodeStatus skip(const std::uint8_t*& p, const std::uint8_t* end,
+                             const std::uint8_t* begin, Tag tag, WireError& we) {
+        std::size_t fail_off = 0;
+        const std::uint8_t* const np = wire::skip_value(p, end, begin, tag, 0, &we, &fail_off);
+        if (np == nullptr) {
+            return DecodeStatus{we, false, fail_off};
+        }
+        p = np;
+        return DecodeStatus::success();
+    }
 };
 
 // Demo { id=42, name="hi", nums=[7, 8] } plus an unknown field 5 (varint 99).

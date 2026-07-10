@@ -1574,7 +1574,7 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
     } else if (!required_fields.empty()) {
         p.print("std::uint64_t rp_req = 0;\n");
     }
-    // Value-threaded wire loop: the cursor (rp_c) is threaded by value through the vt_ reader/skip free
+    // Value-threaded wire loop: the cursor (rp_c) is threaded by value through the rapidproto::wire:: reader/skip free
     // functions and stays in registers -- no WireReader member whose address escapes to memory. Fail
     // offsets are anchored at byte_ptr(body); rp_we is the shared error slot used by every arm/sub-loop.
     p.print("const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(body);\n");

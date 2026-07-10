@@ -315,30 +315,31 @@ caller, with **no AST dependency**. Its defining constraint is the inverse of th
 input is untrusted**, so it is **fully validating** (every overflow, truncation, length overrun, reserved
 wire type, and group mismatch → a `WireError`).
 
-**Performance-shaped API.** Wire decoding is the hottest path in a decoder, so primitives avoid the
-heavyweight `Result`/`Error`:
+**Performance-shaped API.** Wire decoding is the hottest path in a decoder, so the primitives avoid the
+heavyweight `Result`/`Error` and any stateful reader object:
 
-- Primitives return `std::optional<T>` (~16 bytes, register-returned; `nullopt` = failed). A payload-free
-  `WireError` code + fail offset are recorded on the reader (one cold-path store), queryable via
-  `failed()` / `error_code()` / `fail_offset()`. On failure the cursor parks at end so loops terminate.
-- The public view type is `std::string_view` (`ByteView`); internally the cursor is a raw `const uint8_t*`
-  triple (`m_begin`/`m_cur`/`m_end`) kept in registers across the loop. Byte reads go through a `uint8_t*`
-  retyped from the view's `char` bytes, which is well-defined because `uint8_t` is `unsigned char` (a
+- The wire primitives are **value-threaded free functions** in the `rapidproto::wire` namespace
+  (`read_varint` with a 1-byte fast path, `read_tag`, `read_tag_or_end`, `read_fixed32/64`,
+  `read_length_delimited`, `skip_value`, `scan_group_end`, `read_group`). Each takes the byte cursor as a
+  `(cur, end, begin)` pointer triple **by value** and returns the advanced cursor (`nullptr` = failed),
+  writing the decoded value and a payload-free `WireError` code + fail offset to caller-owned out-params.
+  Because the cursor is passed and returned by value it stays in registers across the whole decode loop —
+  no reader member whose address escapes to memory (measurably fewer retired instructions than a stateful
+  cursor, most on GCC).
+- The public view type is `std::string_view` (`ByteView`); the cursor is a raw `const uint8_t*` retyped
+  from the view's `char` bytes, which is well-defined because `uint8_t` is `unsigned char` (a
   `static_assert` pins it).
-- Header-only: hot primitives and cold paths (error recording, the group walk, `read_message`), along with
-  the decode-dispatch machinery, are all `inline`, so a generated decoder can vendor the whole runtime as
-  that single file.
+- Header-only: the primitives (including the cold group walk) and the decode-dispatch machinery are all
+  `inline`, so a generated decoder can vendor the whole runtime as that single file.
 
-**API layers:** *pull primitives* (`WireReader`: `read_varint` with a 1-byte fast path, `read_tag`,
-`read_fixed32/64`, `read_length_delimited`, `read_field`, `skip`); *convenience* (`WireField` with a
-`variant<uint64_t, uint32_t, ByteView>` payload, and `read_message(input)` collecting a buffer's fields in
-order); *interpretation helpers* (caller-applied, infallible: `zigzag_decode_32/64`, `bit_cast_float/
-double` via `memcpy`, `varint_to_bool/int32/int64`).
+**API layers:** *wire primitives* (the `rapidproto::wire::read_*` / `skip_value` / `read_group` free
+functions above); *interpretation helpers* (caller-applied, infallible: `zigzag_decode_32/64`,
+`bit_cast_float/double` via `memcpy`, `varint_to_bool/int32/int64`).
 
-**Single-level decode.** `read_field`/`read_message` decode one level: a LEN payload (string/bytes/
-sub-message/packed array — indistinguishable without type info) and a group body are returned as opaque
-`ByteView` spans the caller re-parses. The only internal recursion is finding a group's matching `EGROUP`,
-bounded by `kMaxGroupDepth`. Inline-hot-path throughput is ~1.7 GB/s (≈570 M fields/s, `-O3`).
+**Single-level decode.** A LEN payload (string/bytes/sub-message/packed array — indistinguishable without
+type info) and a group body (`read_group`) are returned as opaque `ByteView` spans the caller re-parses.
+The only internal recursion is finding a group's matching `EGROUP`, bounded by `kMaxGroupDepth`.
+Inline-hot-path throughput is ~1.7 GB/s (≈570 M fields/s, `-O3`).
 
 ---
 
@@ -484,7 +485,7 @@ A header-only, std-only support library the generated decoders depend on (vendor
 
 ### Decode emission
 
-The emitted `rp_decode_into` runs the `WireReader` loop once: dispatch the field (a raw-byte peek switch
+The emitted `rp_decode_into` runs the value-threaded decode loop once: dispatch the field (a raw-byte peek switch
 for single-byte tags, else the validating tag read + field-number switch) → decode the value into the
 node, set presence/value bits, recurse into sub-messages. Strings are SSO'd /
 arena-copied; **repeated fields accumulate single-pass into a growable arena array** (the benchmark-chosen
@@ -524,7 +525,7 @@ bit**: a singular payload encodes absence as null *data* (the pointer-sub-messag
 present-but-empty payload is a non-null empty view (`arena_detail::copy_payload`'s `kEmptyPayload`
 sentinel). The emitter routes per plan — dropped fields get an explicit no-op `case` arm (validated
 skip, without tripping `--unknown-present`); a raw arm is its materialized twin with the recursive
-decode swapped for an arena copy of the payload (`read_length_delimited`/`read_group` both yield
+decode swapped for an arena copy of the payload (`wire::read_length_delimited`/`wire::read_group` both yield
 exactly that), preserving stored-field semantics: wire-type-mismatch falls to the shared skip,
 `RepeatedSingularMessage`, `required`'s transient bit. The stored view is exactly what the field
 type's own `decode()` accepts — deferred decoding needs no new API and no streaming decoder.
@@ -607,14 +608,14 @@ benchmarks, pinned to one performance core, with a checksum cross-check so the w
 away. Candidates run in **one binary** and are compared as cycles-per-byte ratios taken at one
 instantaneous frequency, sampled adaptively until each ratio's significance is settled
 (`tests/bench_harness.hpp`) — so a real few-percent win is separable from placement noise. Streaming is
-compared against a hand-written `WireReader` loop and mapbox/protozero (`tests/bench_streamgen.cpp` →
+compared against a hand-written value-threaded loop and mapbox/protozero (`tests/bench_streamgen.cpp` →
 `rapidproto_bench`); arena against `protoc` + `google::protobuf::Arena` (`tests/bench_arena.cpp` →
 `rapidproto_arena_bench`). Headline results — measured against libprotobuf 3.21 with gcc-13/clang-20,
 pinned to one performance core; the bench prints its libprotobuf baseline version at startup, since the
 baseline's version is half a ratio's meaning. One realistic payload; treat each number as a point, not a
 constant, and reproduce with the benches:
 
-- **Streaming is at or below a hand-written `WireReader` loop, and near protozero.** The callback/dispatch
+- **Streaming is at or below a hand-written value-threaded loop, and near protozero.** The callback/dispatch
   abstraction is free, and on nested/message-heavy payloads the generated decoder actually *beats* a naive
   hand loop, because its loop is driven by a fused end-or-tag read (one bounds check per field, tag kept as
   a value) that a straightforward `while (!at_end()) { read_tag(); … }` does not use. It also validates
@@ -747,7 +748,7 @@ reflected (a documented simplification; decoders accept both wire forms).
     protoc fixtures, asserting accessor values and the required/depth/malformed failure modes).
 - **Decode benchmarks:** two standalone micro-benchmarks, built at `-O3 -DNDEBUG` and kept **out** of the
   test binary on purpose (measuring decoders inside the large binary is placement-sensitive). Run pinned:
-  - `rapidproto_bench` (`bench_streamgen.cpp`): streaming decoder vs a hand-written `WireReader` loop vs
+  - `rapidproto_bench` (`bench_streamgen.cpp`): streaming decoder vs a hand-written value-threaded loop vs
     mapbox protozero across ~13 wire-path scenarios.
   - `rapidproto_arena_bench` (`bench_arena.cpp`, built only when `protobuf` is found): arena vs `protoc` +
     `Arena` vs streaming on a realistic payload, plus the chunk-cap shape/size sweep.

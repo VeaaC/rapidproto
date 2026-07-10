@@ -3,6 +3,27 @@
 Notable, user-visible changes per release. Pre-1.0, the MINOR version is the breaking axis (the
 SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never within a patch.
 
+## Unreleased
+
+### Removed
+
+- **`WireReader` and the schema-less `read_message` / `read_field` pull API are removed (breaking).**
+  The wire-format primitives are now free functions in the `rapidproto::wire` namespace —
+  `read_varint`, `read_tag`, `read_tag_or_end`, `read_fixed32`, `read_fixed64`,
+  `read_length_delimited`, `skip_value`, and `read_group` — each threading the byte cursor as a
+  `(cur, end, begin)` pointer triple and returning the advanced cursor (`nullptr` on a wire error,
+  with the `WireError` written to a caller-owned slot). The generated decoders already decode through
+  these; the stateful `WireReader` class, the `WireField` record, the `read_message` collector, and
+  `DecodeStatus::from_reader` were used only by test/dev code and are gone. Code that walked wire bytes
+  by hand through `WireReader` should switch to the `rapidproto::wire` free functions.
+
+### Changed
+
+- **Generated decoders reference `::rapidproto::wire::` wire readers.** The value-threaded readers the
+  generated arena and streaming decoders call moved into the `rapidproto::wire` namespace (previously
+  free functions prefixed `vt_`). Regenerate and upgrade the runtime header together — a decoder
+  emitted against the old runtime will not compile against the new one and vice versa.
+
 ## 0.2.4 — 2026-07-10
 
 ### Changed

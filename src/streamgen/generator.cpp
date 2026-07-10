@@ -117,7 +117,7 @@ std::vector<std::pair<const FieldNode*, FieldGen>> collect_fields(const CppNameT
 }
 
 // Value-threaded read emitters (defined below, with the general field arms). The map arm here uses
-// them, so forward-declare. Each threads the wire cursor by value through the vt_ free functions
+// them, so forward-declare. Each threads the wire cursor by value through the rapidproto::wire:: free functions
 // (runtime.hpp) instead of a WireReader member, keeping it in registers across the decode loop.
 std::string emit_vt_read(Printer& printer, const FieldGen& gen, const std::string& cur,
                          const std::string& end, const std::string& beg);
@@ -373,7 +373,7 @@ std::string emit_vt_read(Printer& printer, const FieldGen& gen, const std::strin
         return gen.decode_pre + "rp_val" + gen.decode_post;
     }
     if (gen.wire_type == "SGroup") {
-        // Group body up to the matching EGROUP; vt_read_group writes the deep fail offset itself.
+        // Group body up to the matching EGROUP; wire::read_group writes the deep fail offset itself.
         printer.print("::rapidproto::ByteView rp_val;\n");
         printer.print("std::size_t rp_gfo = 0;\n");
         printer.print(
@@ -588,7 +588,7 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
     printer.print(
         "[[maybe_unused]] auto rp_dispatch = "
         "::rapidproto::combine(static_cast<Callbacks&&>(rp_callbacks)...);\n");
-    // Value-threaded wire loop: the cursor (rp_c) is threaded by value through the vt_ reader/skip free
+    // Value-threaded wire loop: the cursor (rp_c) is threaded by value through the rapidproto::wire:: reader/skip free
     // functions and stays in registers -- no WireReader member whose address escapes to memory. Fail
     // offsets are anchored at byte_ptr(m_bytes); rp_we is the shared error slot used by every arm.
     printer.print("const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(m_bytes);\n");
