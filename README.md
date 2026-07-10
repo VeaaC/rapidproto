@@ -24,6 +24,38 @@ You can read the same schema with either model, and even use both **in one trans
 
 ---
 
+## Why RapidProto
+
+RapidProto does one thing: decode Protobuf fast in C++, for the common case where you never serialize.
+`protoc`'s C++ runtime is a linked library that builds a full mutable message object per decode;
+zero-copy pull parsers like protozero drop that allocation but leave you to hand-write the read loop.
+RapidProto generates the decoder — specialized to your schema at compile time, header-only — and gives
+you both shapes.
+
+- **Faster decode.** On a realistic mixed payload the arena decoder materializes a full object tree
+  **~3.3× faster than `protoc` + `google::protobuf::Arena`**, and the streaming decoder — materializing
+  nothing — is faster still and beats `protozero`, the zero-copy yardstick, on every shape measured.
+  See [Benchmarks](#benchmarks).
+- **Less memory.** The arena tree holds **~⅓ less** than protoc's (both payload bytes and total
+  allocation): it's a read-only bump-allocated tree with no per-field object overhead.
+- **Header-only, nothing to link.** One CLI turns your `.proto` into headers you `#include` — no runtime
+  library, no `libprotobuf` on your link line.
+- **Two models, one schema.** Materialize a navigable tree (arena) *or* stream each field to a typed
+  callback with zero allocation — chosen per call site, even in one translation unit.
+- **Safe on untrusted input.** Both models fully validate wire structure (truncation, length overruns,
+  group nesting) and are built never to crash on malformed bytes; only field *values* are trusted to the
+  schema.
+- **Compile-time typed.** Dispatch is entirely compile-time — no `std::function`, no virtual calls — so
+  misuse (wrong value type, renamed field) is a compile error, not a silent bug.
+
+Know the trade-offs: RapidProto is **decode-only** (no serialization, no JSON, no
+reflection), the arena tree is **read-only** (you navigate it, you don't build or mutate messages), it
+decodes enums as **open** even when the schema declares them closed, and it does not validate string
+UTF-8 (it accepts `string` bytes `protoc` would reject). If you also need to *produce* or mutate
+messages, keep `protoc` for that side and use RapidProto for the hot decode path.
+
+---
+
 ## Quick start
 
 The [CMake helper](#cmake-integration) is the fastest path; this section drives the tool by hand. Build it once:
@@ -567,6 +599,36 @@ import edit (it warns); re-run CMake or clean-build after editing an imported `.
 **host build**. Build/install RapidProto for the host and bring that host tool in (e.g. a host-prefixed
 `find_package`). `rapidproto_generate()` rejects the in-tree (target-built) tool when
 `CMAKE_CROSSCOMPILING` is set; ensure the imported `rapidproto::rapidprotoc` it sees is a host binary.
+
+---
+
+## Benchmarks
+
+The numbers below come from the in-repo harness (`tests/bench.py`), decoding a realistic `Dataset`
+payload — 2000 mixed records with strings, nested and repeated messages, and packed scalar arrays —
+that `protoc` serializes and every decoder then parses. Built `-O3 -DNDEBUG` and measured on **g++-13**
+and **clang++-20** against **protobuf 4.25.3**. Reproduce with `python3 tests/bench.py run` (the full
+methodology is in [architecture.md](architecture.md)).
+
+**Arena vs `protoc` + `google::protobuf::Arena`.** Both materialize a full object tree, so this is a
+like-for-like comparison of decode speed and peak arena memory:
+
+| Metric | RapidProto arena | protoc + Arena |
+|---|---|---|
+| Decode throughput | **~3.3× faster** | baseline |
+| Peak memory, payload (arena `bytes_used` vs protoc `SpaceUsed`) | **0.67×** | 1× |
+| Peak memory, total held (arena `bytes_reserved` vs protoc `SpaceAllocated`) | **0.68×** | 1× |
+
+**Streaming vs `protozero`.** Both are zero-materialization pull parsers. On the same `Dataset` the
+streaming decoder runs **~1.2–1.7× faster than protozero**, and across the per-field microbenchmarks
+(varint, zigzag, fixed32/64, strings, packed, skip-heavy, multibyte tags, nested messages) it beats
+protozero on **every** shape with a protozero equivalent. Against `protoc` + `Arena` it's
+**~7–9× faster**, since it materializes nothing.
+
+Speedups vary with payload shape, and part of the arena/protoc gap is a feature gap — protoc validates
+UTF-8 on every proto3 string and RapidProto does not. The harness ships every scenario (and a memory
+report, and a chunk-cap/SSO tuning sweep), so measure your own payloads rather than trusting one ratio
+as universal.
 
 ---
 
