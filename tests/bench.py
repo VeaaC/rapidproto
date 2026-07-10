@@ -295,13 +295,22 @@ def experiment(args):
         sys.exit("experiment: working tree is dirty -- commit or stash first (this checks out refs and "
                  "always restores, but refuses to risk uncommitted work)")
 
-    variant_ref = args.variant or current_ref()
     original = current_ref()
     snapdir = os.path.join(REPO, "bench_snapshots")
 
-    def snapshot_ref(ref, name):
-        print(f"\n=== {name}: {ref} ===", file=sys.stderr)
-        subprocess.check_call(["git", "-C", REPO, "checkout", "-q", ref])
+    def resolve(ref):  # pin to an immutable sha BEFORE any checkout -- HEAD-relative refs (HEAD, HEAD^)
+        try:  # would otherwise shift as we move HEAD, silently comparing a ref against itself
+            return subprocess.check_output(
+                ["git", "-C", REPO, "rev-parse", "--verify", "-q", f"{ref}^{{commit}}"], text=True).strip()
+        except subprocess.CalledProcessError:
+            sys.exit(f"experiment: '{ref}' is not a valid git ref")
+
+    baseline_sha = resolve(args.baseline)
+    variant_sha = resolve(args.variant or "HEAD")
+
+    def snapshot_ref(sha, ref, name):
+        print(f"\n=== {name}: {ref} ({sha[:9]}) ===", file=sys.stderr)
+        subprocess.check_call(["git", "-C", REPO, "checkout", "-q", sha])
         records, pv = build_and_run(args.build_dir, args.core)
         if not any(r.get("rec") == "arm" for r in records):
             sys.exit(f"experiment: ref '{ref}' emitted no NDJSON arm records -- it likely predates the "
@@ -310,8 +319,8 @@ def experiment(args):
                               os.path.join(snapdir, f"exp-{name}.ndjson"))
 
     try:
-        base_snap = snapshot_ref(args.baseline, "baseline")
-        var_snap = snapshot_ref(variant_ref, "variant")
+        base_snap = snapshot_ref(baseline_sha, args.baseline, "baseline")
+        var_snap = snapshot_ref(variant_sha, args.variant or "HEAD", "variant")
     finally:
         try:
             subprocess.check_call(["git", "-C", REPO, "checkout", "-q", original])
