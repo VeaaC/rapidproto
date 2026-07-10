@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <cstring>  // std::memcpy: build little-endian fixed-width packed test bytes
 #include <fstream>
+#include <initializer_list>  // packed({...}) test-vector helper
 #include <ios>
 #include <optional>  // std::nullopt: absent explicit-presence reads
 #include <sstream>
@@ -285,6 +286,56 @@ TEST_CASE("arena-decode: packed fixed-width scalars (bulk-copy path)", "[arena-d
     put_len(bad, 13, std::string_view("\x0a\x00\x00\x00\x63", 5));  // 5 bytes, not a multiple of 4
     Arena bad_arena;
     CHECK(p3::Msg::decode(ByteView(bad), bad_arena) == nullptr);
+}
+
+// Packed VARINT arrays take the pre-size-from-wire-length + trim (shrink_last) path, an upper-bound
+// reserve because a varint element is 1..10 bytes. These pin its value output across the trim, a
+// re-grow on a second occurrence of the field, and the two wire forms a proto3 packed field accepts.
+// Field 6 (Msg.nums) is packed int32.
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): a flat list of accessor assertions
+TEST_CASE("arena-decode: packed-varint fill (pre-size / trim / re-grow / mixed forms)",
+          "[arena-decode]") {
+    const auto packed = [](std::initializer_list<std::uint64_t> vs) {
+        std::string p;
+        for (const std::uint64_t v : vs) {
+            put_varint(p, v);
+        }
+        return p;
+    };
+
+    SECTION("empty packed span decodes to an empty array") {
+        std::string buf;
+        put_len(buf, 6, std::string_view{});  // nums: a zero-length LEN payload
+        Arena arena;
+        const p3::Msg* m = p3::Msg::decode(ByteView(buf), arena);
+        REQUIRE(m != nullptr);
+        CHECK(m->nums().empty());
+    }
+
+    SECTION("two packed occurrences re-grow the array after the first trim") {
+        std::string buf;
+        put_len(buf, 6, packed({1, 2}));
+        put_len(buf, 6, packed({3, 4, 5}));
+        Arena arena;
+        const p3::Msg* m = p3::Msg::decode(ByteView(buf), arena);
+        REQUIRE(m != nullptr);
+        REQUIRE(m->nums().size() == 5);
+        CHECK(m->nums()[0] == 1);
+        CHECK(m->nums()[4] == 5);
+    }
+
+    SECTION("packed then expanded elements of the same field accumulate") {
+        std::string buf;
+        put_len(buf, 6, packed({7, 8}));  // packed form (LEN)
+        put_tag(buf, 6, 0);               // then an expanded element (wire type varint)
+        put_varint(buf, 9);
+        Arena arena;
+        const p3::Msg* m = p3::Msg::decode(ByteView(buf), arena);
+        REQUIRE(m != nullptr);
+        REQUIRE(m->nums().size() == 3);
+        CHECK(m->nums()[0] == 7);
+        CHECK(m->nums()[2] == 9);
+    }
 }
 
 TEST_CASE("arena-decode: message-value and enum-value maps fixture", "[arena-decode]") {

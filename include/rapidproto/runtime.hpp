@@ -40,6 +40,7 @@
 // non-ok status mid-stream, callbacks already fired for earlier fields/elements are not
 // rolled back; check the returned status and discard partial results on failure.
 
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -177,8 +178,12 @@ public:
     // (raw_tag(field, wire), all field numbers 1..15). A matched case calls consume_tag_byte() to
     // drop the tag, then reads the value. Any byte with the continuation bit set (a multi-byte tag,
     // field >= 16) or an unmatched byte (unknown field / wrong wire type) hits the switch default and
-    // falls through to the validating general path (read_tag_or_end + skip). Precondition: !at_end().
-    [[nodiscard]] std::uint8_t peek_byte() const noexcept { return *m_cur; }
+    // falls through to the validating general path (read_tag_or_end + skip). Precondition: !at_end()
+    // (asserted in debug; the generated loop tests at_end() at the top of each iteration).
+    [[nodiscard]] std::uint8_t peek_byte() const noexcept {
+        assert(!at_end() && "peek_byte requires !at_end()");
+        return *m_cur;
+    }
     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic): drop the peeked 1-byte tag
     void consume_tag_byte() noexcept { ++m_cur; }
 

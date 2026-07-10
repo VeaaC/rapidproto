@@ -12,7 +12,10 @@ The quality gate pins specific versions, so install:
 - **gcc-13** and the **clang-20** suite (`clang-20`, `clang-format-20`, `clang-tidy-20`,
   `llvm-cov-20`). Both compilers are required; the gate builds and tests on each.
 - **CMake ≥ 3.21** (for the presets) and a build tool (Ninja or Make).
-- For the benchmarks: `libprotobuf-dev` + `protozero`.
+- For the benchmarks: `libprotobuf-dev` + `protozero`. Drive them with `tests/bench.py` (`run` to
+  snapshot both decoders, `table` to render, `diff`/`experiment` to compare); read the
+  [Decoder performance](architecture.md#decoder-performance) section first for how to read the numbers
+  (placement noise, cyc/B vs the placement-invariant ins/B, pinning to one core).
 
 ## Building
 

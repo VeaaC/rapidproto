@@ -213,6 +213,23 @@ TEST_CASE("ArenaString: inline small values, copy big into the arena", "[arena][
         CHECK(arena.bytes_used() >= 64);
         CHECK(s.view().data() != src.data());
     }
+
+    SECTION("every inline length round-trips with DISTINCT bytes") {
+        // The inline SSO copy has three size branches (n in [1,3], [4,7], [8,15]); the uniform-fill
+        // sections above would not notice a byte landing in the wrong slot. Distinct bytes per index
+        // pin each branch exactly, and mutating the source after the copy proves independence.
+        for (std::size_t n = 0; n <= ArenaString::kInlineCap; ++n) {
+            std::string src;
+            for (std::size_t i = 0; i < n; ++i) {
+                src.push_back(static_cast<char>('a' + i));  // a, b, c, ... all distinct
+            }
+            const std::string expect = src;
+            const auto s = ArenaString::make(src, arena);
+            src.assign(n, '!');  // clobber the source; the inline copy must be independent
+            CHECK(s.size() == n);
+            CHECK(s.view() == expect);
+        }
+    }
 }
 
 TEST_CASE("ArenaString: a value larger than the 32-bit length is rejected, not truncated",

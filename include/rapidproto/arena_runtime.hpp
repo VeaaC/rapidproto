@@ -116,6 +116,11 @@ public:
     // effective when nothing has been allocated since. The packed-array decode uses this: it
     // pre-sizes a scalar array to an upper bound, fills it (allocating nothing in between), then
     // trims the over-estimate back to the exact element count.
+    //
+    // Decoder-internal, like allocate_array/create: this is the Arena surface the GENERATED code
+    // targets, not a general-purpose API. It trusts the caller to pass the exact byte size of the
+    // most-recent allocation; a wrong `old_bytes` that happened to equal the cursor offset would
+    // rewind into live data (generated callers always pass the true size -- see the emit site).
     void shrink_last(void* ptr, std::size_t old_bytes, std::size_t new_bytes) noexcept {
         if (ptr == nullptr || new_bytes > old_bytes) {
             return;
