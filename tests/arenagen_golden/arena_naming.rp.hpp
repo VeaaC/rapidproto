@@ -156,7 +156,7 @@ RP_FLATTEN inline bool Collide::rp_decode_into([[maybe_unused]] Collide& out, ::
     }
     return &rp_acc_foo[rp_n_foo++];
   };
-  const std::uint8_t* rp_c = ::rapidproto::byte_ptr(body);
+  const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(body);
   const std::uint8_t* const rp_cend = rp_c + body.size();
   ::rapidproto::Tag rp_tag{};
   ::rapidproto::WireError rp_we = ::rapidproto::WireError::None;
@@ -166,8 +166,8 @@ RP_FLATTEN inline bool Collide::rp_decode_into([[maybe_unused]] Collide& out, ::
       case ::rapidproto::raw_tag(1, ::rapidproto::WireType::Varint): {
         ++rp_c;  // consume the peeked 1-byte tag
         std::uint64_t rp_raw = 0;
-        const std::uint8_t* const rp_np = ::rapidproto::vt_read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-        if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::byte_ptr(body))); return false; }
+        const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
+        if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
         rp_c = rp_np;
         out.m_x = ::rapidproto::varint_to_int32(rp_raw);
         out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 0));
@@ -176,8 +176,8 @@ RP_FLATTEN inline bool Collide::rp_decode_into([[maybe_unused]] Collide& out, ::
       case ::rapidproto::raw_tag(2, ::rapidproto::WireType::Varint): {
         ++rp_c;  // consume the peeked 1-byte tag
         std::uint64_t rp_raw = 0;
-        const std::uint8_t* const rp_np = ::rapidproto::vt_read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-        if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::byte_ptr(body))); return false; }
+        const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
+        if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
         rp_c = rp_np;
         out.m_has_x = ::rapidproto::varint_to_int32(rp_raw);
         continue;
@@ -185,8 +185,8 @@ RP_FLATTEN inline bool Collide::rp_decode_into([[maybe_unused]] Collide& out, ::
       case ::rapidproto::raw_tag(6, ::rapidproto::WireType::Varint): {
         ++rp_c;  // consume the peeked 1-byte tag
         std::uint64_t rp_raw = 0;
-        const std::uint8_t* const rp_np = ::rapidproto::vt_read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-        if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::byte_ptr(body))); return false; }
+        const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
+        if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
         rp_c = rp_np;
         out.m_pick_case = ::rapidproto::varint_to_int32(rp_raw);
         continue;
@@ -194,18 +194,18 @@ RP_FLATTEN inline bool Collide::rp_decode_into([[maybe_unused]] Collide& out, ::
       case ::rapidproto::raw_tag(9, ::rapidproto::WireType::Varint): {
         ++rp_c;  // consume the peeked 1-byte tag
         std::uint64_t rp_raw = 0;
-        const std::uint8_t* const rp_np = ::rapidproto::vt_read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-        if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::byte_ptr(body))); return false; }
+        const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
+        if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
         rp_c = rp_np;
         out.m_decode_ = ::rapidproto::varint_to_int32(rp_raw);
         continue;
       }
       default: break;
     }
-    ::rapidproto::VtTagState rp_state = ::rapidproto::VtTagState::End;
-    const std::uint8_t* const rp_tp = ::rapidproto::vt_read_tag_or_end(rp_c, rp_cend, &rp_tag, &rp_we, &rp_state);
-    if (rp_state == ::rapidproto::VtTagState::End) { break; }
-    if (rp_state == ::rapidproto::VtTagState::Error) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::byte_ptr(body))); return false; }
+    ::rapidproto::wire::TagState rp_state = ::rapidproto::wire::TagState::End;
+    const std::uint8_t* const rp_tp = ::rapidproto::wire::read_tag_or_end(rp_c, rp_cend, &rp_tag, &rp_we, &rp_state);
+    if (rp_state == ::rapidproto::wire::TagState::End) { break; }
+    if (rp_state == ::rapidproto::wire::TagState::Error) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
     rp_c = rp_tp;
     switch (rp_tag.field_number) {
       case 1: break;
@@ -215,35 +215,35 @@ RP_FLATTEN inline bool Collide::rp_decode_into([[maybe_unused]] Collide& out, ::
       case 3: {
         if (rp_tag.wire_type == ::rapidproto::WireType::Len) {
           ::rapidproto::ByteView rp_ent;
-          { const std::uint8_t* const rp_np = ::rapidproto::vt_read_length_delimited(rp_c, rp_cend, &rp_ent, &rp_we); if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::byte_ptr(body))); return false; } rp_c = rp_np; }
+          { const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_ent, &rp_we); if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; } rp_c = rp_np; }
           FooEntry_* const rp_slot = rp_slot_foo();
           if (rp_slot == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }
           *rp_slot = FooEntry_{};
-          const std::uint8_t* rp_ec = ::rapidproto::byte_ptr(rp_ent);
+          const std::uint8_t* rp_ec = ::rapidproto::wire::byte_ptr(rp_ent);
           const std::uint8_t* const rp_ee = rp_ec + rp_ent.size();
           ::rapidproto::Tag rp_et{};
           for (;;) {
-            ::rapidproto::VtTagState rp_st = ::rapidproto::VtTagState::End;
-            const std::uint8_t* const rp_etp = ::rapidproto::vt_read_tag_or_end(rp_ec, rp_ee, &rp_et, &rp_we, &rp_st);
-            if (rp_st == ::rapidproto::VtTagState::End) { break; }
-            if (rp_st == ::rapidproto::VtTagState::Error) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_ec - ::rapidproto::byte_ptr(rp_ent))); return false; }
+            ::rapidproto::wire::TagState rp_st = ::rapidproto::wire::TagState::End;
+            const std::uint8_t* const rp_etp = ::rapidproto::wire::read_tag_or_end(rp_ec, rp_ee, &rp_et, &rp_we, &rp_st);
+            if (rp_st == ::rapidproto::wire::TagState::End) { break; }
+            if (rp_st == ::rapidproto::wire::TagState::Error) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_ec - ::rapidproto::wire::byte_ptr(rp_ent))); return false; }
             rp_ec = rp_etp;
             if (rp_et.field_number == 1 && rp_et.wire_type == ::rapidproto::WireType::Len) {
               ::rapidproto::ByteView rp_v;
-              const std::uint8_t* const rp_np = ::rapidproto::vt_read_length_delimited(rp_ec, rp_ee, &rp_v, &rp_we);
-              if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_ec - ::rapidproto::byte_ptr(rp_ent))); return false; }
+              const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_ec, rp_ee, &rp_v, &rp_we);
+              if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_ec - ::rapidproto::wire::byte_ptr(rp_ent))); return false; }
               rp_ec = rp_np;
               rp_slot->rp_key = ::rapidproto::ArenaString::make(rp_v, arena);
               if (!rp_v.empty() && (rp_slot->rp_key).empty()) { ::rapidproto::rp_fail_string(err, rp_v); return false; }
             } else if (rp_et.field_number == 2 && rp_et.wire_type == ::rapidproto::WireType::Varint) {
               std::uint64_t rp_raw = 0;
-              const std::uint8_t* const rp_np = ::rapidproto::vt_read_varint(rp_ec, rp_ee, &rp_raw, &rp_we);
-              if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_ec - ::rapidproto::byte_ptr(rp_ent))); return false; }
+              const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_ec, rp_ee, &rp_raw, &rp_we);
+              if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_ec - ::rapidproto::wire::byte_ptr(rp_ent))); return false; }
               rp_ec = rp_np;
               rp_slot->rp_value = ::rapidproto::varint_to_int32(rp_raw);
             } else {
               std::size_t rp_fo = 0;
-              const std::uint8_t* const rp_sp = ::rapidproto::vt_skip_value(rp_ec, rp_ee, ::rapidproto::byte_ptr(rp_ent), rp_et, 0, &rp_we, &rp_fo);
+              const std::uint8_t* const rp_sp = ::rapidproto::wire::skip_value(rp_ec, rp_ee, ::rapidproto::wire::byte_ptr(rp_ent), rp_et, 0, &rp_we, &rp_fo);
               if (rp_sp == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo); return false; }
               rp_ec = rp_sp;
             }
@@ -255,8 +255,8 @@ RP_FLATTEN inline bool Collide::rp_decode_into([[maybe_unused]] Collide& out, ::
       case 4: {
         if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           std::uint64_t rp_raw = 0;
-          const std::uint8_t* const rp_np = ::rapidproto::vt_read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-          if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::byte_ptr(body))); return false; }
+          const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
+          if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
           rp_c = rp_np;
           out.m_rp_pick.p1 = ::rapidproto::varint_to_int32(rp_raw);
           out.m_rp_pick_case = 1;
@@ -267,8 +267,8 @@ RP_FLATTEN inline bool Collide::rp_decode_into([[maybe_unused]] Collide& out, ::
       case 5: {
         if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           std::uint64_t rp_raw = 0;
-          const std::uint8_t* const rp_np = ::rapidproto::vt_read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-          if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::byte_ptr(body))); return false; }
+          const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
+          if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
           rp_c = rp_np;
           out.m_rp_pick.p2 = ::rapidproto::varint_to_int32(rp_raw);
           out.m_rp_pick_case = 2;
@@ -279,8 +279,8 @@ RP_FLATTEN inline bool Collide::rp_decode_into([[maybe_unused]] Collide& out, ::
       case 7: {
         if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           std::uint64_t rp_raw = 0;
-          const std::uint8_t* const rp_np = ::rapidproto::vt_read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-          if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::byte_ptr(body))); return false; }
+          const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
+          if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
           rp_c = rp_np;
           out.m_rp_letters.a = ::rapidproto::varint_to_int32(rp_raw);
           out.m_rp_letters_case = 1;
@@ -291,8 +291,8 @@ RP_FLATTEN inline bool Collide::rp_decode_into([[maybe_unused]] Collide& out, ::
       case 8: {
         if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           std::uint64_t rp_raw = 0;
-          const std::uint8_t* const rp_np = ::rapidproto::vt_read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-          if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::byte_ptr(body))); return false; }
+          const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
+          if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
           rp_c = rp_np;
           out.m_rp_letters.A = ::rapidproto::varint_to_int32(rp_raw);
           out.m_rp_letters_case = 2;
@@ -303,7 +303,7 @@ RP_FLATTEN inline bool Collide::rp_decode_into([[maybe_unused]] Collide& out, ::
       default: break;
     }
     std::size_t rp_fo = 0;
-    const std::uint8_t* const rp_sp = ::rapidproto::vt_skip_value(rp_c, rp_cend, ::rapidproto::byte_ptr(body), rp_tag, 0, &rp_we, &rp_fo);
+    const std::uint8_t* const rp_sp = ::rapidproto::wire::skip_value(rp_c, rp_cend, ::rapidproto::wire::byte_ptr(body), rp_tag, 0, &rp_we, &rp_fo);
     if (rp_sp == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo); return false; }
     rp_c = rp_sp;
   }
@@ -320,7 +320,7 @@ inline const Collide* Collide::decode(::rapidproto::ByteView input, ::rapidproto
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
 RP_FLATTEN inline bool Collide::FooEntry::rp_decode_into([[maybe_unused]] Collide::FooEntry& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
-  const std::uint8_t* rp_c = ::rapidproto::byte_ptr(body);
+  const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(body);
   const std::uint8_t* const rp_cend = rp_c + body.size();
   ::rapidproto::Tag rp_tag{};
   ::rapidproto::WireError rp_we = ::rapidproto::WireError::None;
@@ -330,25 +330,25 @@ RP_FLATTEN inline bool Collide::FooEntry::rp_decode_into([[maybe_unused]] Collid
       case ::rapidproto::raw_tag(1, ::rapidproto::WireType::Varint): {
         ++rp_c;  // consume the peeked 1-byte tag
         std::uint64_t rp_raw = 0;
-        const std::uint8_t* const rp_np = ::rapidproto::vt_read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-        if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::byte_ptr(body))); return false; }
+        const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
+        if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
         rp_c = rp_np;
         out.m_a = ::rapidproto::varint_to_int32(rp_raw);
         continue;
       }
       default: break;
     }
-    ::rapidproto::VtTagState rp_state = ::rapidproto::VtTagState::End;
-    const std::uint8_t* const rp_tp = ::rapidproto::vt_read_tag_or_end(rp_c, rp_cend, &rp_tag, &rp_we, &rp_state);
-    if (rp_state == ::rapidproto::VtTagState::End) { break; }
-    if (rp_state == ::rapidproto::VtTagState::Error) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::byte_ptr(body))); return false; }
+    ::rapidproto::wire::TagState rp_state = ::rapidproto::wire::TagState::End;
+    const std::uint8_t* const rp_tp = ::rapidproto::wire::read_tag_or_end(rp_c, rp_cend, &rp_tag, &rp_we, &rp_state);
+    if (rp_state == ::rapidproto::wire::TagState::End) { break; }
+    if (rp_state == ::rapidproto::wire::TagState::Error) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
     rp_c = rp_tp;
     switch (rp_tag.field_number) {
       case 1: break;
       default: break;
     }
     std::size_t rp_fo = 0;
-    const std::uint8_t* const rp_sp = ::rapidproto::vt_skip_value(rp_c, rp_cend, ::rapidproto::byte_ptr(body), rp_tag, 0, &rp_we, &rp_fo);
+    const std::uint8_t* const rp_sp = ::rapidproto::wire::skip_value(rp_c, rp_cend, ::rapidproto::wire::byte_ptr(body), rp_tag, 0, &rp_we, &rp_fo);
     if (rp_sp == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo); return false; }
     rp_c = rp_sp;
   }

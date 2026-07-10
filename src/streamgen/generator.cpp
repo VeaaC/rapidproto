@@ -177,19 +177,20 @@ void emit_map_arm(Printer& printer, const CppNameTable& symbols, const MapFieldN
     // Offsets are entry-payload-relative; rp_we is the decode()'s shared wire-error slot. The offset
     // base equals byte_ptr(rp_entry) (rp_ec's initial value); recompute it on the cold fail paths
     // rather than hold it live across the hot loop (a free reinterpret_cast off rp_entry).
-    printer.print("const std::uint8_t* rp_ec = ::rapidproto::byte_ptr(rp_entry);\n");
+    printer.print("const std::uint8_t* rp_ec = ::rapidproto::wire::byte_ptr(rp_entry);\n");
     printer.print("const std::uint8_t* const rp_ee = rp_ec + rp_entry.size();\n");
-    const std::string ebeg = "::rapidproto::byte_ptr(rp_entry)";
+    const std::string ebeg = "::rapidproto::wire::byte_ptr(rp_entry)";
     printer.print("::rapidproto::Tag rp_et{};\n");
     printer.print("for (;;) {\n");
     printer.indent();
-    printer.print("::rapidproto::VtTagState rp_es = ::rapidproto::VtTagState::End;\n");
+    printer.print("::rapidproto::wire::TagState rp_es = ::rapidproto::wire::TagState::End;\n");
     printer.print(
         "const std::uint8_t* const rp_etp ="  // entry-loop tag ptr (distinct from the outer rp_tp)
-        " ::rapidproto::vt_read_tag_or_end(rp_ec, rp_ee, &rp_et, &rp_we, &rp_es);\n");
-    printer.print("if (rp_es == ::rapidproto::VtTagState::End) { break; }\n");
+        " ::rapidproto::wire::read_tag_or_end(rp_ec, rp_ee, &rp_et, &rp_we, &rp_es);\n");
+    printer.print("if (rp_es == ::rapidproto::wire::TagState::End) { break; }\n");
     printer.print(
-        "if (rp_es == ::rapidproto::VtTagState::Error) { return ::rapidproto::DecodeStatus{rp_we,"
+        "if (rp_es == ::rapidproto::wire::TagState::Error) { return "
+        "::rapidproto::DecodeStatus{rp_we,"
         " false, static_cast<std::size_t>(rp_ec - " +
         ebeg + ")}; }\n");
     printer.print("rp_ec = rp_etp;\n");
@@ -211,7 +212,7 @@ void emit_map_arm(Printer& printer, const CppNameTable& symbols, const MapFieldN
     printer.print("std::size_t rp_efo = 0;\n");
     printer.print(
         "const std::uint8_t* const rp_esp ="
-        " ::rapidproto::vt_skip_value(rp_ec, rp_ee, " +
+        " ::rapidproto::wire::skip_value(rp_ec, rp_ee, " +
         ebeg + ", rp_et, 0, &rp_we, &rp_efo);\n");
     printer.print(
         "if (rp_esp == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, rp_efo}; }\n");
@@ -365,7 +366,7 @@ std::string emit_vt_read(Printer& printer, const FieldGen& gen, const std::strin
         printer.print("::rapidproto::ByteView rp_val;\n");
         printer.print(
             "const std::uint8_t* const rp_np ="
-            " ::rapidproto::vt_read_length_delimited($c$, $e$, &rp_val, &rp_we);\n",
+            " ::rapidproto::wire::read_length_delimited($c$, $e$, &rp_val, &rp_we);\n",
             {{"c", cur}, {"e", end}});
         printer.print(fail);
         printer.print("$c$ = rp_np;\n", {{"c", cur}});
@@ -376,7 +377,7 @@ std::string emit_vt_read(Printer& printer, const FieldGen& gen, const std::strin
         printer.print("::rapidproto::ByteView rp_val;\n");
         printer.print("std::size_t rp_gfo = 0;\n");
         printer.print(
-            "const std::uint8_t* const rp_np = ::rapidproto::vt_read_group($c$, $e$, $b$,"
+            "const std::uint8_t* const rp_np = ::rapidproto::wire::read_group($c$, $e$, $b$,"
             " rp_tag.field_number, &rp_val, &rp_we, &rp_gfo);\n",
             {{"c", cur}, {"e", end}, {"b", beg}});
         printer.print(
@@ -385,18 +386,18 @@ std::string emit_vt_read(Printer& printer, const FieldGen& gen, const std::strin
         return gen.decode_pre + "rp_val" + gen.decode_post;
     }
     // Varint / I32 / I64: a numeric-or-enum read into a raw integer.
-    std::string vt = "vt_read_varint";
+    std::string vt = "read_varint";
     std::string rawty = "std::uint64_t";
     if (gen.wire_type == "I32") {
-        vt = "vt_read_fixed32";
+        vt = "read_fixed32";
         rawty = "std::uint32_t";
     } else if (gen.wire_type == "I64") {
-        vt = "vt_read_fixed64";
+        vt = "read_fixed64";
         rawty = "std::uint64_t";
     }
     printer.print("$R$ rp_raw = 0;\n", {{"R", rawty}});
     printer.print(
-        "const std::uint8_t* const rp_np = ::rapidproto::$vt$($c$, $e$, &rp_raw, &rp_we);\n",
+        "const std::uint8_t* const rp_np = ::rapidproto::wire::$vt$($c$, $e$, &rp_raw, &rp_we);\n",
         {{"vt", vt}, {"c", cur}, {"e", end}});
     printer.print(fail);
     printer.print("$c$ = rp_np;\n", {{"c", cur}});
@@ -409,9 +410,10 @@ void emit_vt_len_read(Printer& printer, const std::string& view) {
     printer.print(
         "::rapidproto::ByteView $v$;\n"
         "{ const std::uint8_t* const rp_np ="
-        " ::rapidproto::vt_read_length_delimited(rp_c, rp_cend, &$v$, &rp_we);"
+        " ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &$v$, &rp_we);"
         " if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false,"
-        " static_cast<std::size_t>(rp_c - ::rapidproto::byte_ptr(m_bytes))}; } rp_c = rp_np; }\n",
+        " static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(m_bytes))}; } rp_c = rp_np; "
+        "}\n",
         {{"v", view}});
 }
 
@@ -462,7 +464,7 @@ void emit_arm(Printer& printer, const std::string& fname, const FieldGen& gen, b
                   {{"wt", gen.wire_type}});
     printer.indent();
     emit_decode_and_invoke(printer, fname, gen, "rp_c", "rp_cend",
-                           "::rapidproto::byte_ptr(m_bytes)");
+                           "::rapidproto::wire::byte_ptr(m_bytes)");
     printer.print("continue;\n");
     printer.outdent();
     printer.print("}\n");
@@ -472,7 +474,7 @@ void emit_arm(Printer& printer, const std::string& fname, const FieldGen& gen, b
         printer.indent();
         emit_vt_len_read(printer, "rp_packed");
         // Value-threaded sub-cursor over the packed span; offsets are span-relative (rp_pbeg).
-        printer.print("const std::uint8_t* rp_pc = ::rapidproto::byte_ptr(rp_packed);\n");
+        printer.print("const std::uint8_t* rp_pc = ::rapidproto::wire::byte_ptr(rp_packed);\n");
         printer.print("const std::uint8_t* const rp_pbeg = rp_pc;\n");
         printer.print("const std::uint8_t* const rp_pe = rp_pc + rp_packed.size();\n");
         printer.print("while (rp_pc < rp_pe) {\n");
@@ -524,7 +526,7 @@ void emit_fast_arm(Printer& printer, const std::string& fname, const FieldGen& g
     printer.indent();
     printer.print("++rp_c;  // consume the peeked 1-byte tag\n");
     emit_decode_and_invoke(printer, fname, gen, "rp_c", "rp_cend",
-                           "::rapidproto::byte_ptr(m_bytes)");
+                           "::rapidproto::wire::byte_ptr(m_bytes)");
     printer.print("continue;\n");
     printer.outdent();
     printer.print("}\n");
@@ -539,7 +541,7 @@ void emit_fast_arm(Printer& printer, const std::string& fname, const FieldGen& g
         printer.indent();
         printer.print("++rp_c;  // consume the peeked 1-byte tag\n");
         emit_vt_len_read(printer, "rp_packed");
-        printer.print("const std::uint8_t* rp_pc = ::rapidproto::byte_ptr(rp_packed);\n");
+        printer.print("const std::uint8_t* rp_pc = ::rapidproto::wire::byte_ptr(rp_packed);\n");
         printer.print("const std::uint8_t* const rp_pbeg = rp_pc;\n");
         printer.print("const std::uint8_t* const rp_pe = rp_pc + rp_packed.size();\n");
         printer.print("while (rp_pc < rp_pe) {\n");
@@ -589,7 +591,7 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
     // Value-threaded wire loop: the cursor (rp_c) is threaded by value through the vt_ reader/skip free
     // functions and stays in registers -- no WireReader member whose address escapes to memory. Fail
     // offsets are anchored at byte_ptr(m_bytes); rp_we is the shared error slot used by every arm.
-    printer.print("const std::uint8_t* rp_c = ::rapidproto::byte_ptr(m_bytes);\n");
+    printer.print("const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(m_bytes);\n");
     printer.print("const std::uint8_t* const rp_cend = rp_c + m_bytes.size();\n");
     printer.print("::rapidproto::Tag rp_tag{};\n");
     printer.print("::rapidproto::WireError rp_we = ::rapidproto::WireError::None;\n");
@@ -619,17 +621,17 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
     }
     // General path: multi-byte tags, unknown fields, wrong wire types, groups, maps.
     // Fused end-or-tag read: one bounds check drives the loop (see WireReader::read_tag_or_end).
-    printer.print("::rapidproto::VtTagState rp_state = ::rapidproto::VtTagState::End;\n");
+    printer.print("::rapidproto::wire::TagState rp_state = ::rapidproto::wire::TagState::End;\n");
     printer.print(
         "const std::uint8_t* const rp_tp ="
-        " ::rapidproto::vt_read_tag_or_end(rp_c, rp_cend, &rp_tag, &rp_we, &rp_state);\n");
+        " ::rapidproto::wire::read_tag_or_end(rp_c, rp_cend, &rp_tag, &rp_we, &rp_state);\n");
     printer.print(
-        "if (rp_state == ::rapidproto::VtTagState::End) {"
+        "if (rp_state == ::rapidproto::wire::TagState::End) {"
         " return ::rapidproto::DecodeStatus::success(); }\n");
     printer.print(
-        "if (rp_state == ::rapidproto::VtTagState::Error) { return "
+        "if (rp_state == ::rapidproto::wire::TagState::Error) { return "
         "::rapidproto::DecodeStatus{rp_we,"
-        " false, static_cast<std::size_t>(rp_c - ::rapidproto::byte_ptr(m_bytes))}; }\n");
+        " false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(m_bytes))}; }\n");
     printer.print("rp_c = rp_tp;\n");
     printer.print("switch (rp_tag.field_number) {\n");
     printer.indent();
@@ -660,11 +662,11 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
     printer.indent();
     printer.print(
         "const std::size_t rp_value_start ="
-        " static_cast<std::size_t>(rp_c - ::rapidproto::byte_ptr(m_bytes));\n");
+        " static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(m_bytes));\n");
     printer.print("std::size_t rp_ufo = 0;\n");
     printer.print(
-        "const std::uint8_t* const rp_usp = ::rapidproto::vt_skip_value(rp_c, rp_cend,"
-        " ::rapidproto::byte_ptr(m_bytes), rp_tag, 0, &rp_we, &rp_ufo);\n");
+        "const std::uint8_t* const rp_usp = ::rapidproto::wire::skip_value(rp_c, rp_cend,"
+        " ::rapidproto::wire::byte_ptr(m_bytes), rp_tag, 0, &rp_we, &rp_ufo);\n");
     printer.print(
         "if (rp_usp == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, rp_ufo}; }\n");
     printer.print("rp_c = rp_usp;\n");
@@ -672,7 +674,8 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
         "if (const auto rp_status = ::rapidproto::invoke_unknown(rp_dispatch,"
         " ::rapidproto::UnknownField{rp_tag.field_number, rp_tag.wire_type,"
         " m_bytes.substr(rp_value_start,"
-        " static_cast<std::size_t>(rp_c - ::rapidproto::byte_ptr(m_bytes)) - rp_value_start)});"
+        " static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(m_bytes)) - "
+        "rp_value_start)});"
         " !rp_status.ok()) {\n");
     printer.indent();
     printer.print("return rp_status;\n");
@@ -689,8 +692,8 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
     // type, or an unknown field with no unknown-handler) is skipped here -- one shared skip site.
     printer.print("std::size_t rp_fo = 0;\n");
     printer.print(
-        "const std::uint8_t* const rp_sp = ::rapidproto::vt_skip_value(rp_c, rp_cend,"
-        " ::rapidproto::byte_ptr(m_bytes), rp_tag, 0, &rp_we, &rp_fo);\n");
+        "const std::uint8_t* const rp_sp = ::rapidproto::wire::skip_value(rp_c, rp_cend,"
+        " ::rapidproto::wire::byte_ptr(m_bytes), rp_tag, 0, &rp_we, &rp_fo);\n");
     printer.print(
         "if (rp_sp == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, rp_fo}; }\n");
     printer.print("rp_c = rp_sp;\n");

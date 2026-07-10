@@ -825,11 +825,12 @@ void emit_singular_arm(const Emit& emit, const MessageLayout& layout, const Memb
         p.indent();
         p.print("std::uint64_t rp_raw = 0;\n");
         p.print(
-            "const std::uint8_t* const rp_np = ::rapidproto::vt_read_varint(rp_c, rp_cend,"
+            "const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend,"
             " &rp_raw, &rp_we);\n");
         p.print(
             "if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we,"
-            " static_cast<std::size_t>(rp_c - ::rapidproto::byte_ptr(body))); return false; } rp_c "
+            " static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; "
+            "} rp_c "
             "= rp_np;\n");
         p.print("if (::rapidproto::varint_to_bool(rp_raw)) { $set$ } else { $clr$ }\n",
                 {{"set", set_bit_stmt(layout, m.value_bit)},
@@ -851,7 +852,7 @@ void emit_singular_arm(const Emit& emit, const MessageLayout& layout, const Memb
         p.print("if (rp_tag.wire_type == ::rapidproto::WireType::$w$) {\n", {{"w", wire}});
         p.indent();
         emit_vt_value_read(emit, field, "out.m_" + id, "rp_c", "rp_cend",
-                           "::rapidproto::byte_ptr(body)");
+                           "::rapidproto::wire::byte_ptr(body)");
         emit_presence_set(emit, layout, m, required_bit);
         p.print("continue;\n");
         p.outdent();
@@ -927,7 +928,7 @@ void emit_repeated_element(const Emit& emit, const FieldNode& field) {
             "{ return false; }\n");
     } else {
         emit_vt_value_read(emit, field, "*rp_slot", "rp_c", "rp_cend",
-                           "::rapidproto::byte_ptr(body)");
+                           "::rapidproto::wire::byte_ptr(body)");
     }
 }
 
@@ -992,7 +993,7 @@ void emit_packed_fill(const Emit& emit, const FieldNode& field) {
         // value, so it stays in a register across each read instead of spilling through a WireReader
         // member. Same accept/reject + offset semantics as the reader loop below.
         const codegen::ScalarWire& info = scalar_wire(field.type_name);
-        p.print("const std::uint8_t* rp_vp = ::rapidproto::byte_ptr(rp_p);\n");
+        p.print("const std::uint8_t* rp_vp = ::rapidproto::wire::byte_ptr(rp_p);\n");
         p.print("const std::uint8_t* const rp_vbeg = rp_vp;\n");
         p.print("const std::uint8_t* const rp_ve = rp_vp + rp_p.size();\n");
         p.print("while (rp_vp < rp_ve) {\n");
@@ -1000,7 +1001,7 @@ void emit_packed_fill(const Emit& emit, const FieldNode& field) {
         p.print("std::uint64_t rp_raw = 0;\n");
         p.print(
             "const std::uint8_t* const rp_np ="
-            " ::rapidproto::vt_read_varint(rp_vp, rp_ve, &rp_raw, &rp_we);\n");
+            " ::rapidproto::wire::read_varint(rp_vp, rp_ve, &rp_raw, &rp_we);\n");
         p.print(
             "if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we,"
             " static_cast<std::size_t>(rp_vp - rp_vbeg)); return false; }\n");
@@ -1013,7 +1014,7 @@ void emit_packed_fill(const Emit& emit, const FieldNode& field) {
     } else {
         // Packed fixed (big-endian host / partial-span fallback) or packed enum: per-element read from
         // the span, cursor threaded by value.
-        p.print("const std::uint8_t* rp_vp = ::rapidproto::byte_ptr(rp_p);\n");
+        p.print("const std::uint8_t* rp_vp = ::rapidproto::wire::byte_ptr(rp_p);\n");
         p.print("const std::uint8_t* const rp_vbeg = rp_vp;\n");
         p.print("const std::uint8_t* const rp_ve = rp_vp + rp_p.size();\n");
         p.print("while (rp_vp < rp_ve) {\n");
@@ -1181,7 +1182,7 @@ void emit_vt_scalar_read(const Emit& emit, FieldKind kind, std::string_view prot
         p.print("::rapidproto::ByteView rp_v;\n");
         p.print(
             "const std::uint8_t* const rp_np ="
-            " ::rapidproto::vt_read_length_delimited($c$, $e$, &rp_v, &rp_we);\n",
+            " ::rapidproto::wire::read_length_delimited($c$, $e$, &rp_v, &rp_we);\n",
             {{"c", cur}, {"e", end}});
         p.print(fail);
         p.print("$c$ = rp_np;\n", {{"c", cur}});
@@ -1193,7 +1194,7 @@ void emit_vt_scalar_read(const Emit& emit, FieldKind kind, std::string_view prot
     } else if (kind == FieldKind::InlineEnum) {
         p.print("std::uint64_t rp_raw = 0;\n");
         p.print(
-            "const std::uint8_t* const rp_np = ::rapidproto::vt_read_varint($c$, $e$, &rp_raw,"
+            "const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint($c$, $e$, &rp_raw,"
             " &rp_we);\n",
             {{"c", cur}, {"e", end}});
         p.print(fail);
@@ -1202,18 +1203,19 @@ void emit_vt_scalar_read(const Emit& emit, FieldKind kind, std::string_view prot
                 {{"t", target}, {"E", cpp_type_name(emit.names, enum_fqn)}});
     } else {
         const codegen::ScalarWire& info = scalar_wire(proto_type);
-        std::string vt = "vt_read_varint";
+        std::string vt = "read_varint";
         std::string rawty = "std::uint64_t";
         if (info.wire == "I32") {
-            vt = "vt_read_fixed32";
+            vt = "read_fixed32";
             rawty = "std::uint32_t";
         } else if (info.wire == "I64") {
-            vt = "vt_read_fixed64";
+            vt = "read_fixed64";
             rawty = "std::uint64_t";
         }
         p.print("$R$ rp_raw = 0;\n", {{"R", rawty}});
         p.print(
-            "const std::uint8_t* const rp_np = ::rapidproto::$vt$($c$, $e$, &rp_raw, &rp_we);\n",
+            "const std::uint8_t* const rp_np = ::rapidproto::wire::$vt$($c$, $e$, &rp_raw, "
+            "&rp_we);\n",
             {{"vt", vt}, {"c", cur}, {"e", end}});
         p.print(fail);
         p.print("$c$ = rp_np;\n", {{"c", cur}});
@@ -1246,9 +1248,10 @@ void emit_vt_len_read(const Emit& emit, const std::string& view) {
     emit.printer.print(
         "::rapidproto::ByteView $v$;\n"
         "{ const std::uint8_t* const rp_np ="
-        " ::rapidproto::vt_read_length_delimited(rp_c, rp_cend, &$v$, &rp_we);"
+        " ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &$v$, &rp_we);"
         " if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we,"
-        " static_cast<std::size_t>(rp_c - ::rapidproto::byte_ptr(body))); return false; } rp_c = "
+        " static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; } "
+        "rp_c = "
         "rp_np; }\n",
         {{"v", view}});
 }
@@ -1263,7 +1266,7 @@ void emit_vt_message_read(const Emit& emit, const FieldNode& field, const std::s
     emit.printer.print(
         "::rapidproto::ByteView $v$;\n"
         "{ std::size_t rp_fo = 0; const std::uint8_t* const rp_np ="
-        " ::rapidproto::vt_read_group(rp_c, rp_cend, ::rapidproto::byte_ptr(body), "
+        " ::rapidproto::wire::read_group(rp_c, rp_cend, ::rapidproto::wire::byte_ptr(body), "
         "rp_tag.field_number, &$v$, &rp_we,"
         " &rp_fo); if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo);"
         " return false; } rp_c = rp_np; }\n",
@@ -1299,21 +1302,22 @@ void emit_map_arm(const Emit& emit, const MemberPlan& m) {
     p.print("*rp_slot = $ET${};\n", {{"ET", et}});
     // Value-threaded entry loop: thread a byte cursor over the entry payload (stays in registers).
     // Offsets are entry-payload-relative (rp_we is the main loop's shared error slot).
-    p.print("const std::uint8_t* rp_ec = ::rapidproto::byte_ptr(rp_ent);\n");
+    p.print("const std::uint8_t* rp_ec = ::rapidproto::wire::byte_ptr(rp_ent);\n");
     p.print("const std::uint8_t* const rp_ee = rp_ec + rp_ent.size();\n");
     // The offset base equals byte_ptr(rp_ent) (rp_ec's initial value); recompute it on the cold fail
     // paths rather than holding it live across the hot loop (a free reinterpret_cast off rp_ent).
-    const std::string beg = "::rapidproto::byte_ptr(rp_ent)";
+    const std::string beg = "::rapidproto::wire::byte_ptr(rp_ent)";
     p.print("::rapidproto::Tag rp_et{};\n");
     p.print("for (;;) {\n");
     p.indent();
-    p.print("::rapidproto::VtTagState rp_st = ::rapidproto::VtTagState::End;\n");
+    p.print("::rapidproto::wire::TagState rp_st = ::rapidproto::wire::TagState::End;\n");
     p.print(
         "const std::uint8_t* const rp_etp ="  // entry-loop tag ptr (distinct from the outer rp_tp)
-        " ::rapidproto::vt_read_tag_or_end(rp_ec, rp_ee, &rp_et, &rp_we, &rp_st);\n");
-    p.print("if (rp_st == ::rapidproto::VtTagState::End) { break; }\n");
+        " ::rapidproto::wire::read_tag_or_end(rp_ec, rp_ee, &rp_et, &rp_we, &rp_st);\n");
+    p.print("if (rp_st == ::rapidproto::wire::TagState::End) { break; }\n");
     p.print(
-        "if (rp_st == ::rapidproto::VtTagState::Error) { ::rapidproto::rp_fail_wire_at(err, rp_we,"
+        "if (rp_st == ::rapidproto::wire::TagState::Error) { ::rapidproto::rp_fail_wire_at(err, "
+        "rp_we,"
         " static_cast<std::size_t>(rp_ec - " +
         beg + ")); return false; }\n");
     p.print("rp_ec = rp_etp;\n");
@@ -1333,7 +1337,7 @@ void emit_map_arm(const Emit& emit, const MemberPlan& m) {
         p.print("::rapidproto::ByteView rp_v;\n");
         p.print(
             "{ const std::uint8_t* const rp_np ="
-            " ::rapidproto::vt_read_length_delimited(rp_ec, rp_ee, &rp_v, &rp_we);"
+            " ::rapidproto::wire::read_length_delimited(rp_ec, rp_ee, &rp_v, &rp_we);"
             " if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we,"
             " static_cast<std::size_t>(rp_ec - " +
             beg + ")); return false; } rp_ec = rp_np; }\n");
@@ -1359,7 +1363,7 @@ void emit_map_arm(const Emit& emit, const MemberPlan& m) {
     p.print("std::size_t rp_fo = 0;\n");
     p.print(
         "const std::uint8_t* const rp_sp ="
-        " ::rapidproto::vt_skip_value(rp_ec, rp_ee, " +
+        " ::rapidproto::wire::skip_value(rp_ec, rp_ee, " +
         beg + ", rp_et, 0, &rp_we, &rp_fo);\n");
     p.print(
         "if (rp_sp == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo); return false; "
@@ -1425,7 +1429,8 @@ void emit_oneof_arm(const Emit& emit, const OneofPlan& o, const OneofMemberPlan&
             p.print("$of$ = rp_sub;\n", {{"of", ofield}});
         }
     } else {
-        emit_vt_value_read(emit, field, ofield, "rp_c", "rp_cend", "::rapidproto::byte_ptr(body)");
+        emit_vt_value_read(emit, field, ofield, "rp_c", "rp_cend",
+                           "::rapidproto::wire::byte_ptr(body)");
     }
     p.print("out.m_rp_$o$_case = $i$;\n", {{"o", o.oneof->name}, {"i", std::to_string(index)}});
     p.print("continue;\n");
@@ -1476,18 +1481,19 @@ void emit_fast_singular_arm(const Emit& emit, const MessageLayout& layout, const
     if (m.kind == FieldKind::InlineScalar && m.is_bool) {
         p.print("std::uint64_t rp_raw = 0;\n");
         p.print(
-            "const std::uint8_t* const rp_np = ::rapidproto::vt_read_varint(rp_c, rp_cend,"
+            "const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend,"
             " &rp_raw, &rp_we);\n");
         p.print(
             "if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we,"
-            " static_cast<std::size_t>(rp_c - ::rapidproto::byte_ptr(body))); return false; } rp_c "
+            " static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; "
+            "} rp_c "
             "= rp_np;\n");
         p.print("if (::rapidproto::varint_to_bool(rp_raw)) { $set$ } else { $clr$ }\n",
                 {{"set", set_bit_stmt(layout, m.value_bit)},
                  {"clr", clear_bit_stmt(layout, m.value_bit)}});
     } else {
         emit_vt_value_read(emit, field, "out.m_" + id, "rp_c", "rp_cend",
-                           "::rapidproto::byte_ptr(body)");
+                           "::rapidproto::wire::byte_ptr(body)");
     }
     emit_presence_set(emit, layout, m, required_bit);
     p.print("continue;\n");
@@ -1571,7 +1577,7 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
     // Value-threaded wire loop: the cursor (rp_c) is threaded by value through the vt_ reader/skip free
     // functions and stays in registers -- no WireReader member whose address escapes to memory. Fail
     // offsets are anchored at byte_ptr(body); rp_we is the shared error slot used by every arm/sub-loop.
-    p.print("const std::uint8_t* rp_c = ::rapidproto::byte_ptr(body);\n");
+    p.print("const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(body);\n");
     p.print("const std::uint8_t* const rp_cend = rp_c + body.size();\n");
     p.print("::rapidproto::Tag rp_tag{};\n");
     p.print("::rapidproto::WireError rp_we = ::rapidproto::WireError::None;\n");
@@ -1610,15 +1616,15 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
     // oneofs, and the bare skip-cases for the fast fields above.
     // Fused end-or-tag read: one bounds check drives the loop (see WireReader::read_tag_or_end).
     // End breaks out so the post-loop required-field checks still run.
-    p.print("::rapidproto::VtTagState rp_state = ::rapidproto::VtTagState::End;\n");
+    p.print("::rapidproto::wire::TagState rp_state = ::rapidproto::wire::TagState::End;\n");
     p.print(
         "const std::uint8_t* const rp_tp ="
-        " ::rapidproto::vt_read_tag_or_end(rp_c, rp_cend, &rp_tag, &rp_we, &rp_state);\n");
-    p.print("if (rp_state == ::rapidproto::VtTagState::End) { break; }\n");
+        " ::rapidproto::wire::read_tag_or_end(rp_c, rp_cend, &rp_tag, &rp_we, &rp_state);\n");
+    p.print("if (rp_state == ::rapidproto::wire::TagState::End) { break; }\n");
     p.print(
-        "if (rp_state == ::rapidproto::VtTagState::Error) { ::rapidproto::rp_fail_wire_at(err, "
+        "if (rp_state == ::rapidproto::wire::TagState::Error) { ::rapidproto::rp_fail_wire_at(err, "
         "rp_we,"
-        " static_cast<std::size_t>(rp_c - ::rapidproto::byte_ptr(body))); return false; }\n");
+        " static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }\n");
     p.print("rp_c = rp_tp;\n");
     p.print("switch (rp_tag.field_number) {\n");
     p.indent();
@@ -1671,7 +1677,8 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
     p.print("std::size_t rp_fo = 0;\n");
     p.print(
         "const std::uint8_t* const rp_sp ="
-        " ::rapidproto::vt_skip_value(rp_c, rp_cend, ::rapidproto::byte_ptr(body), rp_tag, 0, "
+        " ::rapidproto::wire::skip_value(rp_c, rp_cend, ::rapidproto::wire::byte_ptr(body), "
+        "rp_tag, 0, "
         "&rp_we, &rp_fo);\n");
     p.print(
         "if (rp_sp == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo); return false; "
