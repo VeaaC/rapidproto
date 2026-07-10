@@ -38,9 +38,11 @@ int main(int argc, char** argv) {
         "  --out-dir <dir>          write the generated headers here (default: .)\n"
         "  --arena                  emit the arena object-tree decoder (<stem>.rp.hpp) [default]\n"
         "  --stream                 emit the streaming callback decoder (<stem>.rp.stream.hpp)\n"
-        "  --unknown-present        arena: reserve a per-message \"unknown fields present\" bit\n"
-        "  --field-modes=<file>     arena: a decode profile (`name|drop|raw <name>` lines;"
-        " repeatable)\n"
+        "  --unknown-present        arena: reserve the \"unknown fields present\" bit on every"
+        " message\n"
+        "  --unknown=<msg>          arena: reserve that bit on one message (repeatable)\n"
+        "  --field-modes=<file>     arena: a decode profile"
+        " (`name|drop|raw|unknown-fields <name>` lines; repeatable)\n"
         "  --drop=<name>            arena: drop a field or type (no storage, no accessor)\n"
         "  --raw=<name>             arena: keep a message field's or type's payloads for deferred"
         " decodes\n"
@@ -52,13 +54,14 @@ int main(int argc, char** argv) {
         "  --version                print the version\n";
     bool arena = false;
     bool stream = false;
-    bool unknown_present = false;
     std::vector<std::string> modes_files;
-    rapidproto::arenagen::FieldModesSpec modes_spec;  // direct --drop/--raw entries + file entries
+    rapidproto::arenagen::FieldModesSpec
+        modes_spec;  // direct --drop/--raw/--unknown + file entries
     const auto parsed = rapidproto::cli::parse_args(argc, argv, usage, [&](std::string_view arg) {
         constexpr std::string_view kModesFile = "--field-modes=";
         constexpr std::string_view kDrop = "--drop=";
         constexpr std::string_view kRaw = "--raw=";
+        constexpr std::string_view kUnknown = "--unknown=";
         if (arg == "--arena") {
             arena = true;
             return true;
@@ -68,7 +71,7 @@ int main(int argc, char** argv) {
             return true;
         }
         if (arg == "--unknown-present") {
-            unknown_present = true;
+            modes_spec.unknown_all = true;  // the unknown bit on every message (folds into the id)
             return true;
         }
         if (arg.rfind(kModesFile, 0) == 0) {
@@ -85,6 +88,10 @@ int main(int argc, char** argv) {
                                           std::string(arg.substr(kRaw.size())), "--raw"});
             return true;
         }
+        if (arg.rfind(kUnknown, 0) == 0) {
+            modes_spec.unknowns.push_back({std::string(arg.substr(kUnknown.size())), "--unknown"});
+            return true;
+        }
         return false;
     });
     if (!parsed.options) {
@@ -94,10 +101,11 @@ int main(int argc, char** argv) {
     if (!arena && !stream) {
         arena = true;  // arena is the default model
     }
-    const bool modes_requested = !modes_files.empty() || !modes_spec.entries.empty();
+    const bool modes_requested = !modes_files.empty() || !modes_spec.entries.empty() ||
+                                 !modes_spec.unknowns.empty() || modes_spec.unknown_all;
     if (modes_requested && !arena) {
-        std::cerr << "error: field modes (--field-modes/--drop/--raw) apply to the arena decoder;"
-                     " add --arena\n";
+        std::cerr << "error: field modes (--field-modes/--drop/--raw/--unknown[-present]) apply to"
+                     " the arena decoder; add --arena\n";
         return 2;
     }
     for (const std::string& file : modes_files) {
@@ -159,7 +167,6 @@ int main(int argc, char** argv) {
             modes = std::move(resolved).value();
         }
         rapidproto::arenagen::LayoutOptions options;
-        options.unknown_present = unknown_present;
         options.modes = &modes;
         layouts = rapidproto::arenagen::plan_layouts(set, symbols, options);
     }

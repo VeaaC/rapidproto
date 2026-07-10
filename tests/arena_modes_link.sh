@@ -70,6 +70,52 @@ else
   echo "ok   [mixed-profile link fails on the exchanged symbol]"
 fi
 
+# --unknown-present now folds into the profile identity as well: a TU generated WITH the flag and one
+# WITHOUT hold distinct au::Holder types (the flag changes the struct, and now the type name too), so
+# exchanging one across the boundary is a link error instead of the former silent ODR violation.
+"$BIN" --arena --unknown-present \
+  -I"$ROOT/tests/corpus" --out-dir="$T/uk_on" "$ROOT/tests/corpus/arena_unknown.proto" >/dev/null
+"$BIN" --arena \
+  -I"$ROOT/tests/corpus" --out-dir="$T/uk_off" "$ROOT/tests/corpus/arena_unknown.proto" >/dev/null
+cat >"$T/uk_provider.cpp" <<'EOF'
+#include "arena_unknown.rp.hpp"
+int holder_n(const au::Holder* h) { return h != nullptr ? h->n() : -1; }
+EOF
+cat >"$T/uk_consumer.cpp" <<'EOF'
+#include "arena_unknown.rp.hpp"
+int holder_n(const au::Holder* h);
+int main() { return holder_n(nullptr) == -1 ? 0 : 1; }
+EOF
+"$CXX" "${FLAGS[@]}" -I"$T/uk_on" -c "$T/uk_provider.cpp" -o "$T/uk_provider.o"
+"$CXX" "${FLAGS[@]}" -I"$T/uk_off" -c "$T/uk_consumer.cpp" -o "$T/uk_consumer.o"
+if "$CXX" "$T/uk_provider.o" "$T/uk_consumer.o" -o "$T/uk_mixed" 2>"$T/uk.err"; then
+  echo "FAIL [unknown-present fold]: expected a link error, but it linked"
+  fail=1
+elif ! grep -q 'holder_n' "$T/uk.err"; then
+  echo "FAIL [unknown-present fold]: link failed but not on the exchanged symbol"
+  head -3 "$T/uk.err"
+  fail=1
+else
+  echo "ok   [unknown-present fold: with-vs-without links fail on the exchanged symbol]"
+fi
+
+# The per-message --unknown=<msg> flag yields its own distinct identity: exchanging an au::Holder
+# between a --unknown=au.Holder TU and the plain TU is a link error too (exercises the CLI --unknown
+# path, which no other test drives, and confirms per-message != global identity).
+"$BIN" --arena '--unknown=au.Holder' \
+  -I"$ROOT/tests/corpus" --out-dir="$T/uk_one" "$ROOT/tests/corpus/arena_unknown.proto" >/dev/null
+"$CXX" "${FLAGS[@]}" -I"$T/uk_one" -c "$T/uk_provider.cpp" -o "$T/uk_one_provider.o"
+if "$CXX" "$T/uk_one_provider.o" "$T/uk_consumer.o" -o "$T/uk_one_mixed" 2>"$T/uk_one.err"; then
+  echo "FAIL [unknown= per-message]: expected a link error, but it linked"
+  fail=1
+elif ! grep -q 'holder_n' "$T/uk_one.err"; then
+  echo "FAIL [unknown= per-message]: link failed but not on the exchanged symbol"
+  head -3 "$T/uk_one.err"
+  fail=1
+else
+  echo "ok   [unknown= per-message: distinct identity fails to link vs plain]"
+fi
+
 if [[ "$fail" == "0" ]]; then
   echo "arena modes link: profile identity enforced at link time"
 fi

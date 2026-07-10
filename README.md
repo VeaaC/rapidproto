@@ -248,18 +248,29 @@ On any error the tree is incomplete; discard it (or `reset()` the arena) and don
 ### Unknown fields (arena)
 
 By default, fields not in your schema (a newer producer's field, or a proto2 extension) are **skipped
-and dropped**. Pass `--unknown-present` to reserve a single per-message "saw an unknown field" flag,
-exposed as `has_unknown_fields()`, when you need to *detect* (not recover) that unknowns were present.
+and dropped**. To *detect* (not recover) that unknowns were present, reserve a per-message "saw an
+unknown field" flag, exposed as `has_unknown_fields()`:
 
-### Decode profiles: `drop` and `raw` fields (arena)
+- `--unknown-present` reserves it on **every** message.
+- `--unknown=<pkg.Msg>` (repeatable), or an `unknown-fields <pkg.Msg>` line in a decode profile,
+  reserves it on **one** message — so you pay the bit only where you check it.
+
+The selection is part of the [decode profile](#decode-profiles-drop-raw-and-unknown-fields-arena): it
+folds into the profile identity, so two TUs that disagree about which messages carry the flag **fail to
+link** rather than silently holding mismatched layouts of the same type.
+
+### Decode profiles: `drop`, `raw`, and `unknown-fields` (arena)
 
 The schema says what *can* be on the wire; a **decode profile** says what *this consumer* does with
-it — without touching the schema. Per field (`pkg.Msg.field`) or per type (`pkg.Msg`, covering
-every field of that message type), choose:
+it — without touching the schema. Choose, per field (`pkg.Msg.field`), per type (`pkg.Msg`, covering
+every field of that message type), or per message (for `unknown-fields`):
 
 - **`drop`** — no storage, no accessor, no decode work beyond wire-validated skipping. Reading a
   dropped field is a **compile error**, not a silent default. (Dropping a `required` field is
   rejected.)
+- **`unknown-fields`** — reserve that **message**'s `has_unknown_fields()` bit (see
+  [Unknown fields](#unknown-fields-arena)). Unlike `drop`/`raw` it names a message directly, not a
+  field or a field's type; an enum or a field name is an error.
 - **`raw`** (message-typed fields, groups included) — the sub-message's **payload** lands as an
   arena-copied `ByteView` instead of a materialized tree; repeated fields become an
   `ArrayView<ByteView>`, one payload per element. Each view is exactly what the field type's own
@@ -271,8 +282,9 @@ every field of that message type), choose:
   type is generated internals). To defer a huge *packed scalar* array, wrap it in a sub-message
   schema-side, or walk it with the streaming decoder.
 
-Profiles come from a file (one `drop <name>` / `raw <name>` per line, `#` comments, an optional
-`name <identifier>` line) via `--field-modes=<file>`, or inline via `--drop=<name>` / `--raw=<name>`. A
+Profiles come from a file (one `drop <name>` / `raw <name>` / `unknown-fields <message>` per line, `#`
+comments, an optional `name <identifier>` line) via `--field-modes=<file>`, or inline via
+`--drop=<name>` / `--raw=<name>` / `--unknown=<message>` (and `--unknown-present` for every message). A
 field-level entry beats a type-level entry; unknown names are hard errors; field modes do not
 apply inside a oneof. The profile resolves against *everything* the invocation generates — the
 entries resolve as one batch — so a global profile works by listing (or `PROTOS`-listing, in
@@ -299,7 +311,10 @@ live in an `inline namespace rp_modes_<id>`, where `<id>` is a content hash of t
 entries (prefixed with its `name`, if given, for readability) — the id verifies the *selection*,
 so even two profiles sharing a name can't impersonate each other. You still write `demo::Shape`,
 but two TUs generated under different profiles hold distinct types, and exchanging them **fails
-to link** rather than silently corrupting. The profile is also stamped into the generated banner.
+to link** rather than silently corrupting. Reserving an unknown-fields bit counts as a profile too
+(`--unknown-present`, `--unknown=`, or `unknown-fields`), so it likewise gets an `rp_modes_<id>`
+identity — closing the same ODR gap for a flag that also changes the generated struct. The profile
+is also stamped into the generated banner.
 See `examples/consumer/lean_main.cpp` for the full pattern. Two consequences of the namespace:
 don't forward-declare generated types yourself (`namespace demo { class Shape; }` declares a
 *different* class under a profile), and a profile whose entries select no field in the end — a
@@ -531,8 +546,9 @@ rapidprotoc [options] <entry.proto>...
 |---|---|
 | `--arena` | Emit the arena decoder (`<stem>.rp.hpp`). **The default** if neither model flag is given. |
 | `--stream` | Emit the streaming decoder (`<stem>.rp.stream.hpp`). Combine with `--arena` to emit both. |
-| `--unknown-present` | Arena: reserve a per-message "unknown fields present" bit (`has_unknown_fields()`). |
-| `--field-modes=<file>` | Arena: apply a decode profile file (repeatable; see [Decode profiles](#decode-profiles-drop-and-raw-fields-arena)). |
+| `--unknown-present` | Arena: reserve the "unknown fields present" bit (`has_unknown_fields()`) on **every** message. |
+| `--unknown=<message>` | Arena: reserve that bit on **one** message (repeatable; a one-line `unknown-fields` profile entry). |
+| `--field-modes=<file>` | Arena: apply a decode profile file (repeatable; see [Decode profiles](#decode-profiles-drop-raw-and-unknown-fields-arena)). |
 | `--drop=<name>` | Arena: drop one field or type inline (as a one-line profile entry). |
 | `--raw=<name>` | Arena: keep a message field's or type's payloads for deferred `decode()`s, inline. |
 | `-I <dir>` | Add an import search path (repeatable). |
@@ -565,7 +581,7 @@ rapidproto_generate(my_schema
   PROTOS      proto/person.proto    # one or more entry .proto files
   IMPORT_DIRS proto)                # -I roots your schema imports against
   # also: NAMESPACE_PREFIX <ns>, OUT_DIR <dir>, UNKNOWN_PRESENT (arena), NO_WELLKNOWN,
-  #       FIELD_MODES <file>... / DROP <name>... / RAW <name>...  (arena decode profiles)
+  #       FIELD_MODES <file>... / DROP <name>... / RAW <name>... / UNKNOWN <message>...  (arena profiles)
 
 add_executable(app main.cpp)
 target_link_libraries(app PRIVATE my_schema)   # generates before `app` compiles, adds the include dir

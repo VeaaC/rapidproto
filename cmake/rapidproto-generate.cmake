@@ -61,8 +61,9 @@ endfunction()
 #   [IMPORT_DIRS <dir>...]          # -I import search roots (the root your .proto tree imports against)
 #   [NAMESPACE_PREFIX <ns>]         # nest generated namespaces under <ns> (e.g. to coexist with protoc)
 #   [OUT_DIR <dir>]                 # where headers are written (default: a private dir under the build)
-#   [UNKNOWN_PRESENT]               # arena: reserve a per-message "unknown fields present" bit
-#   [FIELD_MODES <file>...]         # arena: decode profile files (`name|drop|raw <name>` lines)
+#   [UNKNOWN_PRESENT]               # arena: reserve the "unknown fields present" bit on every message
+#   [UNKNOWN <message>...]          # arena: reserve that bit on these messages only
+#   [FIELD_MODES <file>...]         # arena: decode profile files (`name|drop|raw|unknown-fields <name>`)
 #   [DROP <name>...]                # arena: drop these fields/types (no storage, no accessor)
 #   [RAW <name>...]                 # arena: keep message fields'/types' payloads for deferred decodes
 #   [NO_WELLKNOWN])                 # do not supply the embedded google.protobuf well-known types
@@ -78,7 +79,7 @@ endfunction()
 function(rapidproto_generate target)
   set(_options UNKNOWN_PRESENT NO_WELLKNOWN)
   set(_one OUT_DIR GENERATOR NAMESPACE_PREFIX)
-  set(_multi PROTOS IMPORT_DIRS FIELD_MODES DROP RAW)
+  set(_multi PROTOS IMPORT_DIRS FIELD_MODES DROP RAW UNKNOWN)
   cmake_parse_arguments(RPG "${_options}" "${_one}" "${_multi}" ${ARGN})
 
   if(RPG_UNPARSED_ARGUMENTS)
@@ -175,10 +176,13 @@ function(rapidproto_generate target)
     foreach(_name IN LISTS RPG_RAW)
       list(APPEND _model_flags "--raw=${_name}")
     endforeach()
-  elseif(RPG_FIELD_MODES OR RPG_DROP OR RPG_RAW)
+    foreach(_name IN LISTS RPG_UNKNOWN)
+      list(APPEND _model_flags "--unknown=${_name}")
+    endforeach()
+  elseif(RPG_FIELD_MODES OR RPG_DROP OR RPG_RAW OR RPG_UNKNOWN OR RPG_UNKNOWN_PRESENT)
     message(FATAL_ERROR
-      "rapidproto_generate(${target}): FIELD_MODES/DROP/RAW shape the arena decoder; use "
-      "GENERATOR arena or both (got '${RPG_GENERATOR}')")
+      "rapidproto_generate(${target}): FIELD_MODES/DROP/RAW/UNKNOWN/UNKNOWN_PRESENT shape the arena "
+      "decoder; use GENERATOR arena or both (got '${RPG_GENERATOR}')")
   endif()
   if("stream" IN_LIST _jobs)
     list(APPEND _model_flags "--stream")
