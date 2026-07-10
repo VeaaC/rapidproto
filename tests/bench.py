@@ -4,11 +4,12 @@
 """Driver for the two decode benchmarks (rapidproto_bench = streaming, rapidproto_arena_bench = arena).
 
 The benches emit NDJSON when RAPIDPROTO_BENCH_JSON=1 (see tests/bench_harness.hpp); this collects both
-into one snapshot and renders a unified table. Two subcommands:
+into one snapshot and renders a unified table. Four subcommands:
 
   bench.py run   [--build-dir D] [--core N] [--out FILE]   build both, run both pinned, write a snapshot
   bench.py table SNAPSHOT [SNAPSHOT ...]                    render one snapshot, or compare several
   bench.py diff  OLD NEW [--threshold PCT]                  ins/B regression check (exit 1 on regression)
+  bench.py experiment BASELINE_REF [VARIANT_REF]           build+snapshot two git refs, then diff them
 
 A snapshot is NDJSON: one `{"rec":"snapshot",...}` header (compiler / protobuf / git rev) then every
 bench record, each tagged with `"decoder":"stream"|"arena"`. ins/B is the deterministic signal (retired
@@ -49,19 +50,20 @@ def git_rev():
         return "unknown"
 
 
-def run(args):
+def build_and_run(build_dir, core):
+    """Build both bench targets in build_dir and run each pinned (core='none'/'' skips pinning),
+    returning (records, protobuf_version) with every record tagged by its decoder."""
     targets = [t for _, t in BENCHES]
-    print(f"building {', '.join(targets)} in {args.build_dir} ...", file=sys.stderr)
-    subprocess.check_call(["cmake", "--build", args.build_dir, "--target", *targets])
+    print(f"building {', '.join(targets)} in {build_dir} ...", file=sys.stderr)
+    subprocess.check_call(["cmake", "--build", build_dir, "--target", *targets])
 
     env = dict(os.environ, RAPIDPROTO_BENCH_JSON="1")
-    no_pin = args.core.lower() in ("", "none")
-    pin = [] if no_pin else ["taskset", "-c", args.core]
-    records = []
-    protobuf_version = None
+    no_pin = str(core).lower() in ("", "none")
+    pin = [] if no_pin else ["taskset", "-c", str(core)]
+    records, protobuf_version = [], None
     for decoder, target in BENCHES:
-        binary = os.path.join(args.build_dir, target)
-        where = "unpinned" if no_pin else f"pinned to core {args.core}"
+        binary = os.path.join(build_dir, target)
+        where = "unpinned" if no_pin else f"pinned to core {core}"
         print(f"running {decoder} ({binary}) {where} ...", file=sys.stderr)
         out = subprocess.check_output([*pin, binary], env=env, text=True)
         for line in out.splitlines():
@@ -72,16 +74,20 @@ def run(args):
             if rec.get("rec") == "meta" and "protobuf_version" in rec:
                 protobuf_version = rec["protobuf_version"]
             records.append(rec)
+    return records, protobuf_version
 
+
+def write_snapshot(records, protobuf_version, build_dir, core, out_path):
+    """Write a snapshot (header + records) to out_path (defaulted from compiler+rev), returning it."""
     header = {
         "rec": "snapshot",
-        "compiler": compiler_label(args.build_dir),
+        "compiler": compiler_label(build_dir),
         "protobuf_version": protobuf_version,
-        "git_rev": git_rev(),
-        "build_dir": os.path.relpath(args.build_dir, REPO),
-        "core": args.core,
+        "git_rev": git_rev(),  # after a checkout this reports the checked-out ref's rev
+        "build_dir": os.path.relpath(build_dir, REPO),
+        "core": core,
     }
-    out_path = args.out or os.path.join(
+    out_path = out_path or os.path.join(
         REPO, "bench_snapshots", f"{header['compiler']}-{header['git_rev']}.ndjson")
     os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
     with open(out_path, "w") as f:
@@ -89,6 +95,12 @@ def run(args):
         for rec in records:
             f.write(json.dumps(rec) + "\n")
     print(f"wrote {len(records)} records -> {out_path}", file=sys.stderr)
+    return out_path
+
+
+def run(args):
+    records, pv = build_and_run(args.build_dir, args.core)
+    write_snapshot(records, pv, args.build_dir, args.core, args.out)
 
 
 # ── table: render / compare ───────────────────────────────────────────────────────────────────────
@@ -260,6 +272,58 @@ def diff(args):
     print(f"\nOK: no ins/B regression beyond {t:.1f}%")
 
 
+def current_ref():
+    """The branch name if on one, else the detached-HEAD commit sha -- what to restore to afterwards."""
+    try:
+        branch = subprocess.check_output(
+            ["git", "-C", REPO, "symbolic-ref", "-q", "--short", "HEAD"], text=True).strip()
+        if branch:
+            return branch
+    except subprocess.CalledProcessError:
+        pass  # detached HEAD -> symbolic-ref exits non-zero; fall back to the sha
+    return subprocess.check_output(["git", "-C", REPO, "rev-parse", "HEAD"], text=True).strip()
+
+
+def experiment(args):
+    """Build+snapshot two git refs (baseline, then variant) in the same build dir and diff them. The
+    two are independent builds with different code placement, so it diffs on ins/B (deterministic) via
+    diff() -- cyc/B and GB/s are not comparable across builds. Refuses to run on a dirty working tree
+    (it checks out refs) and always restores the original ref, even if a build fails."""
+    if args.threshold < 0:
+        sys.exit("experiment: --threshold must be >= 0")
+    if subprocess.check_output(["git", "-C", REPO, "status", "--porcelain"], text=True).strip():
+        sys.exit("experiment: working tree is dirty -- commit or stash first (this checks out refs and "
+                 "always restores, but refuses to risk uncommitted work)")
+
+    variant_ref = args.variant or current_ref()
+    original = current_ref()
+    snapdir = os.path.join(REPO, "bench_snapshots")
+
+    def snapshot_ref(ref, name):
+        print(f"\n=== {name}: {ref} ===", file=sys.stderr)
+        subprocess.check_call(["git", "-C", REPO, "checkout", "-q", ref])
+        records, pv = build_and_run(args.build_dir, args.core)
+        if not any(r.get("rec") == "arm" for r in records):
+            sys.exit(f"experiment: ref '{ref}' emitted no NDJSON arm records -- it likely predates the "
+                     "machine-readable bench harness; both refs must be able to emit NDJSON")
+        return write_snapshot(records, pv, args.build_dir, args.core,
+                              os.path.join(snapdir, f"exp-{name}.ndjson"))
+
+    try:
+        base_snap = snapshot_ref(args.baseline, "baseline")
+        var_snap = snapshot_ref(variant_ref, "variant")
+    finally:
+        try:
+            subprocess.check_call(["git", "-C", REPO, "checkout", "-q", original])
+            print(f"restored {original}", file=sys.stderr)
+        except subprocess.CalledProcessError:  # make a stranded checkout loud, not a raw traceback
+            print(f"WARNING: failed to restore {original}; recover with: git checkout {original}",
+                  file=sys.stderr)
+
+    print()
+    diff(argparse.Namespace(old=base_snap, new=var_snap, threshold=args.threshold))
+
+
 # ── cli ─────────────────────────────────────────────────────────────────────────────────────────
 
 def main():
@@ -281,6 +345,14 @@ def main():
     d.add_argument("new")
     d.add_argument("--threshold", type=float, default=1.0, help="regression threshold in %% ins/B (default 1.0)")
     d.set_defaults(func=diff)
+
+    e = sub.add_parser("experiment", help="build+snapshot two git refs and diff them on ins/B")
+    e.add_argument("baseline", help="git ref for the baseline (built and snapshotted first)")
+    e.add_argument("variant", nargs="?", default=None, help="git ref for the variant (default: current HEAD)")
+    e.add_argument("--build-dir", default=os.path.join(REPO, "build", "gcc-pb25"))
+    e.add_argument("--core", default="2", help="taskset core, or 'none' to skip pinning (default 2)")
+    e.add_argument("--threshold", type=float, default=1.0, help="regression threshold in %% ins/B (default 1.0)")
+    e.set_defaults(func=experiment)
 
     args = ap.parse_args()
     args.func(args)
