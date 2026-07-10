@@ -31,21 +31,25 @@ template <class... Callbacks>
 RP_FLATTEN ::rapidproto::DecodeStatus Event::decode(Callbacks&&... rp_callbacks) const {
   static_assert((true && ... && !::rapidproto::is_stray_callback<Callbacks, at, took>), "a callback matches no field of 'Event' (and is not a catch-all or unknown-field handler)");
   [[maybe_unused]] auto rp_dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(rp_callbacks)...);
-  ::rapidproto::WireReader rp_reader{m_bytes};
-  ::rapidproto::Tag rp_tag;
+  const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(m_bytes);
+  const std::uint8_t* const rp_cend = rp_c + m_bytes.size();
+  ::rapidproto::Tag rp_tag{};
+  ::rapidproto::WireError rp_we = ::rapidproto::WireError::None;
   for (;;) {
-    if (rp_reader.at_end()) { return ::rapidproto::DecodeStatus::success(); }
-    switch (rp_reader.peek_byte()) {
+    if (rp_c >= rp_cend) { return ::rapidproto::DecodeStatus::success(); }
+    switch (*rp_c) {  // peek the 1-byte tag without consuming
       case ::rapidproto::raw_tag(at::kNumber, ::rapidproto::WireType::Len):
         static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<Callbacks, at, at::Value>)) <= 1U, "field 'at' is handled by more than one callback");
         static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<Callbacks, at, at::Value>)) <= 1U, "field 'at' is matched by more than one catch-all callback");
         static_assert((true && ... && !::rapidproto::is_partial_generic<Callbacks, at, at::Value>), "a callback for field 'at' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
         static_assert((true && ... && !(::rapidproto::targets<Callbacks, at, at::Value> && !::rapidproto::specifically_handles<Callbacks, at, at::Value>)), "a callback for field 'at' has the wrong value type (expected at::Value)");
         if constexpr ((false || ... || ::rapidproto::handles_one<Callbacks, at, at::Value>)) {
-          rp_reader.consume_tag_byte();
-          const auto rp_value = rp_reader.read_length_delimited();
-          if (!rp_value) { return ::rapidproto::DecodeStatus::from_reader(rp_reader); }
-          if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, at{}, ::google::protobuf::stream::Timestamp{*rp_value}); !rp_status.ok()) {
+          ++rp_c;  // consume the peeked 1-byte tag
+          ::rapidproto::ByteView rp_val;
+          const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_val, &rp_we);
+          if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(m_bytes))}; }
+          rp_c = rp_np;
+          if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, at{}, ::google::protobuf::stream::Timestamp{rp_val}); !rp_status.ok()) {
             return rp_status;
           }
           continue;
@@ -57,10 +61,12 @@ RP_FLATTEN ::rapidproto::DecodeStatus Event::decode(Callbacks&&... rp_callbacks)
         static_assert((true && ... && !::rapidproto::is_partial_generic<Callbacks, took, took::Value>), "a callback for field 'took' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
         static_assert((true && ... && !(::rapidproto::targets<Callbacks, took, took::Value> && !::rapidproto::specifically_handles<Callbacks, took, took::Value>)), "a callback for field 'took' has the wrong value type (expected took::Value)");
         if constexpr ((false || ... || ::rapidproto::handles_one<Callbacks, took, took::Value>)) {
-          rp_reader.consume_tag_byte();
-          const auto rp_value = rp_reader.read_length_delimited();
-          if (!rp_value) { return ::rapidproto::DecodeStatus::from_reader(rp_reader); }
-          if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, took{}, ::google::protobuf::stream::Duration{*rp_value}); !rp_status.ok()) {
+          ++rp_c;  // consume the peeked 1-byte tag
+          ::rapidproto::ByteView rp_val;
+          const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_val, &rp_we);
+          if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(m_bytes))}; }
+          rp_c = rp_np;
+          if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, took{}, ::google::protobuf::stream::Duration{rp_val}); !rp_status.ok()) {
             return rp_status;
           }
           continue;
@@ -68,24 +74,32 @@ RP_FLATTEN ::rapidproto::DecodeStatus Event::decode(Callbacks&&... rp_callbacks)
         break;
       default: break;
     }
-    const auto rp_state = rp_reader.read_tag_or_end(rp_tag);
-    if (rp_state == ::rapidproto::WireReader::TagOrEnd::End) { return ::rapidproto::DecodeStatus::success(); }
-    if (rp_state == ::rapidproto::WireReader::TagOrEnd::Error) { return ::rapidproto::DecodeStatus::from_reader(rp_reader); }
+    ::rapidproto::wire::TagState rp_state = ::rapidproto::wire::TagState::End;
+    const std::uint8_t* const rp_tp = ::rapidproto::wire::read_tag_or_end(rp_c, rp_cend, &rp_tag, &rp_we, &rp_state);
+    if (rp_state == ::rapidproto::wire::TagState::End) { return ::rapidproto::DecodeStatus::success(); }
+    if (rp_state == ::rapidproto::wire::TagState::Error) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(m_bytes))}; }
+    rp_c = rp_tp;
     switch (rp_tag.field_number) {
       case at::kNumber: break;
       case took::kNumber: break;
       default:
         if constexpr ((false || ... || ::rapidproto::specifically_handles_unknown<Callbacks>)) {
-          const auto rp_value_start = rp_reader.position();
-          if (!rp_reader.skip(rp_tag.wire_type, rp_tag.field_number)) { return ::rapidproto::DecodeStatus::from_reader(rp_reader); }
-          if (const auto rp_status = ::rapidproto::invoke_unknown(rp_dispatch, ::rapidproto::UnknownField{rp_tag.field_number, rp_tag.wire_type, m_bytes.substr(rp_value_start, rp_reader.position() - rp_value_start)}); !rp_status.ok()) {
+          const std::size_t rp_value_start = static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(m_bytes));
+          std::size_t rp_ufo = 0;
+          const std::uint8_t* const rp_usp = ::rapidproto::wire::skip_value(rp_c, rp_cend, ::rapidproto::wire::byte_ptr(m_bytes), rp_tag, 0, &rp_we, &rp_ufo);
+          if (rp_usp == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, rp_ufo}; }
+          rp_c = rp_usp;
+          if (const auto rp_status = ::rapidproto::invoke_unknown(rp_dispatch, ::rapidproto::UnknownField{rp_tag.field_number, rp_tag.wire_type, m_bytes.substr(rp_value_start, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(m_bytes)) - rp_value_start)}); !rp_status.ok()) {
             return rp_status;
           }
           continue;
         }
         break;
     }
-    if (!rp_reader.skip(rp_tag.wire_type, rp_tag.field_number)) { return ::rapidproto::DecodeStatus::from_reader(rp_reader); }
+    std::size_t rp_fo = 0;
+    const std::uint8_t* const rp_sp = ::rapidproto::wire::skip_value(rp_c, rp_cend, ::rapidproto::wire::byte_ptr(m_bytes), rp_tag, 0, &rp_we, &rp_fo);
+    if (rp_sp == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, rp_fo}; }
+    rp_c = rp_sp;
   }
 }
 

@@ -774,27 +774,14 @@ int req_bit_no(int index, std::size_t total) {
     return total > kWordBits ? index % kWordBits : index;
 }
 
-// Forward declaration: the shared scalar/string/enum read lives with the map-entry emitter below.
-void emit_scalar_read(const Emit& emit, FieldKind kind, std::string_view proto_type,
-                      const std::string& enum_fqn, const std::string& target,
-                      const std::string& reader);
-
-// One field-value read into `target`: classify the FieldNode, then emit through the same
-// kind-based helper the map-entry emitter uses (the emitted read is identical either way).
-void emit_value_read(const Emit& emit, const FieldNode& field, const std::string& target,
-                     const std::string& reader) {
-    if (!field.is_message_type && !field.is_enum_type &&
-        (field.type_name == "string" || field.type_name == "bytes")) {
-        emit_scalar_read(emit, FieldKind::SsoString, field.type_name, /*enum_fqn=*/"", target,
-                         reader);
-    } else if (field.is_enum_type) {
-        emit_scalar_read(emit, FieldKind::InlineEnum, field.type_name, field.resolved_type_fqn,
-                         target, reader);
-    } else {
-        emit_scalar_read(emit, FieldKind::InlineScalar, field.type_name, /*enum_fqn=*/"", target,
-                         reader);
-    }
-}
+// Forward declarations: the value-threaded read emitters live with the map-entry emitter below.
+void emit_vt_scalar_read(const Emit& emit, FieldKind kind, std::string_view proto_type,
+                         const std::string& enum_fqn, const std::string& target,
+                         const std::string& cur, const std::string& end, const std::string& beg);
+void emit_vt_value_read(const Emit& emit, const FieldNode& field, const std::string& target,
+                        const std::string& cur, const std::string& end, const std::string& beg);
+void emit_vt_len_read(const Emit& emit, const std::string& view);
+void emit_vt_message_read(const Emit& emit, const FieldNode& field, const std::string& view);
 
 std::string elem_wire_enum(const FieldNode& field) {  // the native wire type of a repeated element
     if (field.is_message_type) {
@@ -836,9 +823,16 @@ void emit_singular_arm(const Emit& emit, const MessageLayout& layout, const Memb
     if (m.kind == FieldKind::InlineScalar && m.is_bool) {
         p.print("if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {\n");
         p.indent();
-        p.print("const auto rp_v = reader.read_varint();\n");
-        p.print("if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }\n");
-        p.print("if (::rapidproto::varint_to_bool(*rp_v)) { $set$ } else { $clr$ }\n",
+        p.print("std::uint64_t rp_raw = 0;\n");
+        p.print(
+            "const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend,"
+            " &rp_raw, &rp_we);\n");
+        p.print(
+            "if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we,"
+            " static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; "
+            "} rp_c "
+            "= rp_np;\n");
+        p.print("if (::rapidproto::varint_to_bool(rp_raw)) { $set$ } else { $clr$ }\n",
                 {{"set", set_bit_stmt(layout, m.value_bit)},
                  {"clr", clear_bit_stmt(layout, m.value_bit)}});
         emit_presence_set(emit, layout, m, required_bit);
@@ -857,7 +851,8 @@ void emit_singular_arm(const Emit& emit, const MessageLayout& layout, const Memb
         }
         p.print("if (rp_tag.wire_type == ::rapidproto::WireType::$w$) {\n", {{"w", wire}});
         p.indent();
-        emit_value_read(emit, field, "out.m_" + id, "reader");
+        emit_vt_value_read(emit, field, "out.m_" + id, "rp_c", "rp_cend",
+                           "::rapidproto::wire::byte_ptr(body)");
         emit_presence_set(emit, layout, m, required_bit);
         p.print("continue;\n");
         p.outdent();
@@ -878,28 +873,25 @@ void emit_singular_arm(const Emit& emit, const MessageLayout& layout, const Memb
             seen = "(" + req_word_ref(ri, required_bit.size()) + " & (std::uint64_t{1} << " +
                    std::to_string(req_bit_no(ri, required_bit.size())) + ")) != 0";
         }
-        const auto [wire, read] = message_wire(field);
+        const std::string wire = message_wire(field).first;
         const std::string sub = cpp_type_name(emit.names, m.target_fqn);
         p.print("if (rp_tag.wire_type == ::rapidproto::WireType::$w$) {\n", {{"w", wire}});
         p.indent();
         p.print(
             "if ($seen$) { ::rapidproto::rp_fail_repeated_singular(err, $n$); return false; }\n",
             {{"seen", seen}, {"n", std::to_string(field.number)}});
-        p.print("const auto rp_v = reader.$rd$;\n", {{"rd", read}});
-        p.print("if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }\n");
+        emit_vt_message_read(emit, field, "rp_v");
         if (m.kind == FieldKind::InlineFixedSubMsg) {
             p.print(
-                "if (!::rapidproto::arena_detail::decode_into(out.m_$id$, *rp_v, arena, depth + 1, "
-                "err)) { return "
-                "false; }\n",
+                "if (!::rapidproto::arena_detail::decode_into(out.m_$id$, rp_v, arena, depth + 1, "
+                "err)) { return false; }\n",
                 {{"id", id}});
         } else {
             p.print("$S$* const rp_sub = arena.create<$S$>();\n", {{"S", sub}});
             p.print("if (rp_sub == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }\n");
             p.print(
-                "if (!::rapidproto::arena_detail::decode_into(*rp_sub, *rp_v, arena, depth + 1, "
-                "err)) { return false; "
-                "}\n");
+                "if (!::rapidproto::arena_detail::decode_into(*rp_sub, rp_v, arena, depth + 1, "
+                "err)) { return false; }\n");
             p.print("out.m_$id$ = rp_sub;\n", {{"id", id}});
         }
         emit_presence_set(emit, layout, m, required_bit);
@@ -921,7 +913,7 @@ void emit_repeated_setup(const Emit& emit, const FieldNode& field) {
 }
 
 // Read one element (from `reader`) and append it to the field's accumulator.
-void emit_repeated_element(const Emit& emit, const FieldNode& field, const std::string& reader) {
+void emit_repeated_element(const Emit& emit, const FieldNode& field) {
     Printer& p = emit.printer;
     const std::string id = emit.names.local.at(&field);
     p.print("$E$* const rp_slot = rp_slot_$id$();\n",
@@ -929,17 +921,14 @@ void emit_repeated_element(const Emit& emit, const FieldNode& field, const std::
     p.print("if (rp_slot == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }\n");
     if (field.is_message_type) {
         const std::string sub = cpp_type_name(emit.names, field.resolved_type_fqn);
-        const auto [wire, read] = message_wire(field);
-        (void)wire;
-        p.print("const auto rp_v = $r$.$rd$;\n", {{"r", reader}, {"rd", read}});
-        p.print("if (!rp_v) { ::rapidproto::rp_fail_wire(err, $r$); return false; }\n",
-                {{"r", reader}});
+        emit_vt_message_read(emit, field, "rp_v");
         p.print("*rp_slot = $S${};\n", {{"S", sub}});
         p.print(
-            "if (!::rapidproto::arena_detail::decode_into(*rp_slot, *rp_v, arena, depth + 1, err)) "
+            "if (!::rapidproto::arena_detail::decode_into(*rp_slot, rp_v, arena, depth + 1, err)) "
             "{ return false; }\n");
     } else {
-        emit_value_read(emit, field, "*rp_slot", reader);
+        emit_vt_value_read(emit, field, "*rp_slot", "rp_c", "rp_cend",
+                           "::rapidproto::wire::byte_ptr(body)");
     }
 }
 
@@ -964,7 +953,7 @@ void emit_packed_fill(const Emit& emit, const FieldNode& field) {
     } else if (wire == "I64") {
         div = " / 8";
     }
-    p.print("const std::size_t rp_ub = rp_p->size()$d$;\n", {{"d", div}});
+    p.print("const std::size_t rp_ub = rp_p.size()$d$;\n", {{"d", div}});
     p.print("if (rp_ub != 0 && rp_cap_$id$ < rp_n_$id$ + rp_ub) {\n", {{"id", id}});
     p.indent();
     p.print("const std::size_t rp_nc = rp_n_$id$ + rp_ub;\n", {{"id", id}});
@@ -986,10 +975,10 @@ void emit_packed_fill(const Emit& emit, const FieldNode& field) {
         // big-endian host also takes the per-element (byte-swapping) path.
         p.print("if constexpr (::rapidproto::arena_detail::kFixedIsNativeLE) {\n");
         p.indent();
-        p.print("if (rp_p->size() % sizeof($E$) == 0) {\n", {{"E", elem}});
+        p.print("if (rp_p.size() % sizeof($E$) == 0) {\n", {{"E", elem}});
         p.indent();
         p.print(
-            "if (rp_ub != 0) { std::memcpy(rp_acc_$id$ + rp_n_$id$, rp_p->data(), rp_p->size()); "
+            "if (rp_ub != 0) { std::memcpy(rp_acc_$id$ + rp_n_$id$, rp_p.data(), rp_p.size()); "
             "}\n",
             {{"id", id}});
         p.print("rp_n_$id$ += rp_ub;\n", {{"id", id}});
@@ -999,13 +988,43 @@ void emit_packed_fill(const Emit& emit, const FieldNode& field) {
         p.outdent();
         p.print("}\n");
     }
-    p.print("::rapidproto::WireReader rp_pr{*rp_p};\n");
-    p.print("while (!rp_pr.at_end()) {\n");
-    p.indent();
-    emit_value_read(emit, field, "rp_acc_" + id + "[rp_n_" + id + "]", "rp_pr");
-    p.print("++rp_n_$id$;\n", {{"id", id}});
-    p.outdent();
-    p.print("}\n");
+    if (varint && !field.is_enum_type) {
+        // Value-threaded fill (pilot): decode the packed varints from a raw byte cursor threaded by
+        // value, so it stays in a register across each read instead of spilling through a WireReader
+        // member. Same accept/reject + offset semantics as the reader loop below.
+        const codegen::ScalarWire& info = scalar_wire(field.type_name);
+        p.print("const std::uint8_t* rp_vp = ::rapidproto::wire::byte_ptr(rp_p);\n");
+        p.print("const std::uint8_t* const rp_vbeg = rp_vp;\n");
+        p.print("const std::uint8_t* const rp_ve = rp_vp + rp_p.size();\n");
+        p.print("while (rp_vp < rp_ve) {\n");
+        p.indent();
+        p.print("std::uint64_t rp_raw = 0;\n");
+        p.print(
+            "const std::uint8_t* const rp_np ="
+            " ::rapidproto::wire::read_varint(rp_vp, rp_ve, &rp_raw, &rp_we);\n");
+        p.print(
+            "if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we,"
+            " static_cast<std::size_t>(rp_vp - rp_vbeg)); return false; }\n");
+        p.print("rp_acc_$id$[rp_n_$id$] = $pre$rp_raw$post$;\n",
+                {{"id", id}, {"pre", info.pre}, {"post", info.post}});
+        p.print("++rp_n_$id$;\n", {{"id", id}});
+        p.print("rp_vp = rp_np;\n");
+        p.outdent();
+        p.print("}\n");
+    } else {
+        // Packed fixed (big-endian host / partial-span fallback) or packed enum: per-element read from
+        // the span, cursor threaded by value.
+        p.print("const std::uint8_t* rp_vp = ::rapidproto::wire::byte_ptr(rp_p);\n");
+        p.print("const std::uint8_t* const rp_vbeg = rp_vp;\n");
+        p.print("const std::uint8_t* const rp_ve = rp_vp + rp_p.size();\n");
+        p.print("while (rp_vp < rp_ve) {\n");
+        p.indent();
+        emit_vt_value_read(emit, field, "rp_acc_" + id + "[rp_n_" + id + "]", "rp_vp", "rp_ve",
+                           "rp_vbeg");
+        p.print("++rp_n_$id$;\n", {{"id", id}});
+        p.outdent();
+        p.print("}\n");
+    }
     if (varint) {
         p.print(
             "arena.shrink_last(rp_acc_$id$, rp_cap_$id$ * sizeof($E$), rp_n_$id$ * sizeof($E$));\n",
@@ -1022,15 +1041,14 @@ void emit_repeated_arm(const Emit& emit, const FieldNode& field) {
     p.indent();
     p.print("if (rp_tag.wire_type == ::rapidproto::WireType::$w$) {\n", {{"w", elem_wire}});
     p.indent();
-    emit_repeated_element(emit, field, "reader");
+    emit_repeated_element(emit, field);
     p.print("continue;\n");
     p.outdent();
     p.print("}\n");
     if (packable) {
         p.print("if (rp_tag.wire_type == ::rapidproto::WireType::Len) {\n");
         p.indent();
-        p.print("const auto rp_p = reader.read_length_delimited();\n");
-        p.print("if (!rp_p) { ::rapidproto::rp_fail_wire(err, reader); return false; }\n");
+        emit_vt_len_read(emit, "rp_p");
         emit_packed_fill(emit, field);
         p.print("continue;\n");
         p.outdent();
@@ -1067,7 +1085,7 @@ void emit_raw_arm(const Emit& emit, const MessageLayout& layout, const MemberPla
     Printer& p = emit.printer;
     const FieldNode& field = *m.field;
     const std::string id = emit.names.local.at(&field);
-    const auto [wire, read] = message_wire(field);
+    const std::string wire = message_wire(field).first;
     p.print("case $n$: {\n", {{"n", std::to_string(field.number)}});
     p.indent();
     p.print("if (rp_tag.wire_type == ::rapidproto::WireType::$w$) {\n", {{"w", wire}});
@@ -1080,17 +1098,16 @@ void emit_raw_arm(const Emit& emit, const MessageLayout& layout, const MemberPla
             " ::rapidproto::rp_fail_repeated_singular(err, $n$); return false; }\n",
             {{"id", id}, {"n", std::to_string(field.number)}});
     }
-    p.print("const auto rp_v = reader.$rd$;\n", {{"rd", read}});
-    p.print("if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }\n");
+    emit_vt_message_read(emit, field, "rp_v");
     if (field.is_repeated) {
         p.print("::rapidproto::ByteView* const rp_slot = rp_slot_$id$();\n", {{"id", id}});
         p.print("if (rp_slot == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }\n");
         p.print(
-            "if (!::rapidproto::arena_detail::copy_payload(*rp_v, arena, *rp_slot)) {"
+            "if (!::rapidproto::arena_detail::copy_payload(rp_v, arena, *rp_slot)) {"
             " ::rapidproto::rp_fail_oom(err); return false; }\n");
     } else {
         p.print(
-            "if (!::rapidproto::arena_detail::copy_payload(*rp_v, arena, out.m_$id$)) {"
+            "if (!::rapidproto::arena_detail::copy_payload(rp_v, arena, out.m_$id$)) {"
             " ::rapidproto::rp_fail_oom(err); return false; }\n",
             {{"id", id}});
     }
@@ -1145,38 +1162,115 @@ void emit_map_setup(const Emit& emit, const MemberPlan& m) {
                         emit.synth.entry_type.at(m.map_field));
 }
 
-// Read one scalar/enum/string value from `reader` into the lvalue `target` (wire type already
-// matched); emits a wire-failure return. Not for bool-as-bit or messages. Serves both the
-// singular-field arm (via emit_value_read's classification) and the map-entry key/value arms.
-// NOLINTBEGIN(bugprone-easily-swappable-parameters): enum FQN, target lvalue, reader -- distinct
-void emit_scalar_read(const Emit& emit, FieldKind kind, std::string_view proto_type,
-                      const std::string& enum_fqn, const std::string& target,
-                      const std::string& reader) {
+// Value-threaded scalar/enum/string read: reads one value from a raw byte cursor threaded by
+// value (`cur`/`end` stay in registers) instead of a WireReader member. On failure reports the wire
+// error at (cur - beg) -- the same offset the reader path records, since a leaf read fails at its entry
+// cursor. `cur` is advanced to the returned cursor only on success. Emitted inside a scope of its own
+// (an if/else-if arm), so the rp_raw/rp_v/rp_np temporaries do not collide across reads.
+// NOLINTBEGIN(bugprone-easily-swappable-parameters): enum FQN, target lvalue, and the cursor triple
+// cur/end/beg are distinct string operands of the emitted read.
+void emit_vt_scalar_read(const Emit& emit, FieldKind kind, std::string_view proto_type,
+                         const std::string& enum_fqn, const std::string& target,
+                         const std::string& cur, const std::string& end, const std::string& beg) {
     // NOLINTEND(bugprone-easily-swappable-parameters)
     Printer& p = emit.printer;
+    const std::string fail =
+        "if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we,"
+        " static_cast<std::size_t>(" +
+        cur + " - " + beg + ")); return false; }\n";
     if (kind == FieldKind::SsoString) {
-        p.print("const auto rp_v = $r$.read_length_delimited();\n", {{"r", reader}});
-        p.print("if (!rp_v) { ::rapidproto::rp_fail_wire(err, $r$); return false; }\n",
-                {{"r", reader}});
-        p.print("$t$ = ::rapidproto::ArenaString::make(*rp_v, arena);\n", {{"t", target}});
+        p.print("::rapidproto::ByteView rp_v;\n");
         p.print(
-            "if (!rp_v->empty() && ($t$).empty()) { "
-            "::rapidproto::rp_fail_string(err, *rp_v); return false; }\n",
+            "const std::uint8_t* const rp_np ="
+            " ::rapidproto::wire::read_length_delimited($c$, $e$, &rp_v, &rp_we);\n",
+            {{"c", cur}, {"e", end}});
+        p.print(fail);
+        p.print("$c$ = rp_np;\n", {{"c", cur}});
+        p.print("$t$ = ::rapidproto::ArenaString::make(rp_v, arena);\n", {{"t", target}});
+        p.print(
+            "if (!rp_v.empty() && ($t$).empty()) {"
+            " ::rapidproto::rp_fail_string(err, rp_v); return false; }\n",
             {{"t", target}});
     } else if (kind == FieldKind::InlineEnum) {
-        p.print("const auto rp_v = $r$.$rd$;\n", {{"r", reader}, {"rd", "read_varint()"}});
-        p.print("if (!rp_v) { ::rapidproto::rp_fail_wire(err, $r$); return false; }\n",
-                {{"r", reader}});
-        p.print("$t$ = static_cast<$E$>(::rapidproto::varint_to_int32(*rp_v));\n",
+        p.print("std::uint64_t rp_raw = 0;\n");
+        p.print(
+            "const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint($c$, $e$, &rp_raw,"
+            " &rp_we);\n",
+            {{"c", cur}, {"e", end}});
+        p.print(fail);
+        p.print("$c$ = rp_np;\n", {{"c", cur}});
+        p.print("$t$ = static_cast<$E$>(::rapidproto::varint_to_int32(rp_raw));\n",
                 {{"t", target}, {"E", cpp_type_name(emit.names, enum_fqn)}});
     } else {
         const codegen::ScalarWire& info = scalar_wire(proto_type);
-        p.print("const auto rp_v = $r$.$rd$;\n", {{"r", reader}, {"rd", info.read}});
-        p.print("if (!rp_v) { ::rapidproto::rp_fail_wire(err, $r$); return false; }\n",
-                {{"r", reader}});
-        p.print("$t$ = $pre$*rp_v$post$;\n",
+        std::string vt = "read_varint";
+        std::string rawty = "std::uint64_t";
+        if (info.wire == "I32") {
+            vt = "read_fixed32";
+            rawty = "std::uint32_t";
+        } else if (info.wire == "I64") {
+            vt = "read_fixed64";
+            rawty = "std::uint64_t";
+        }
+        p.print("$R$ rp_raw = 0;\n", {{"R", rawty}});
+        p.print(
+            "const std::uint8_t* const rp_np = ::rapidproto::wire::$vt$($c$, $e$, &rp_raw, "
+            "&rp_we);\n",
+            {{"vt", vt}, {"c", cur}, {"e", end}});
+        p.print(fail);
+        p.print("$c$ = rp_np;\n", {{"c", cur}});
+        p.print("$t$ = $pre$rp_raw$post$;\n",
                 {{"t", target}, {"pre", info.pre}, {"post", info.post}});
     }
+}
+
+// Dispatches a value-threaded scalar/enum/string read against the cursor names cur/end/beg -- the main
+// loop's rp_c/rp_cend/byte_ptr(body), or a packed sub-span's cursor.
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): target lvalue + cursor triple, distinct roles
+void emit_vt_value_read(const Emit& emit, const FieldNode& field, const std::string& target,
+                        const std::string& cur, const std::string& end, const std::string& beg) {
+    if (!field.is_message_type && !field.is_enum_type &&
+        (field.type_name == "string" || field.type_name == "bytes")) {
+        emit_vt_scalar_read(emit, FieldKind::SsoString, field.type_name, /*enum_fqn=*/"", target,
+                            cur, end, beg);
+    } else if (field.is_enum_type) {
+        emit_vt_scalar_read(emit, FieldKind::InlineEnum, field.type_name, field.resolved_type_fqn,
+                            target, cur, end, beg);
+    } else {
+        emit_vt_scalar_read(emit, FieldKind::InlineScalar, field.type_name, /*enum_fqn=*/"", target,
+                            cur, end, beg);
+    }
+}
+
+// Value-threaded LEN read into a fresh ByteView `view`, advancing rp_c. Mirrors
+// reader.read_length_delimited(); used for LEN message payloads, packed spans, and map entries.
+void emit_vt_len_read(const Emit& emit, const std::string& view) {
+    emit.printer.print(
+        "::rapidproto::ByteView $v$;\n"
+        "{ const std::uint8_t* const rp_np ="
+        " ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &$v$, &rp_we);"
+        " if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we,"
+        " static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; } "
+        "rp_c = "
+        "rp_np; }\n",
+        {{"v", view}});
+}
+
+// Value-threaded message-payload read into a fresh ByteView `view` (the LEN payload, or a group body up
+// to its EGROUP), advancing rp_c. Mirrors reader.read_length_delimited() / reader.read_group().
+void emit_vt_message_read(const Emit& emit, const FieldNode& field, const std::string& view) {
+    if (message_wire(field).first != "SGroup") {
+        emit_vt_len_read(emit, view);
+        return;
+    }
+    emit.printer.print(
+        "::rapidproto::ByteView $v$;\n"
+        "{ std::size_t rp_fo = 0; const std::uint8_t* const rp_np ="
+        " ::rapidproto::wire::read_group(rp_c, rp_cend, ::rapidproto::wire::byte_ptr(body), "
+        "rp_tag.field_number, &$v$, &rp_we,"
+        " &rp_fo); if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo);"
+        " return false; } rp_c = rp_np; }\n",
+        {{"v", view}});
 }
 
 std::string kv_wire(FieldKind kind, std::string_view proto_type) {
@@ -1202,24 +1296,36 @@ void emit_map_arm(const Emit& emit, const MemberPlan& m) {
     p.indent();
     p.print("if (rp_tag.wire_type == ::rapidproto::WireType::Len) {\n");
     p.indent();
-    p.print("const auto rp_ent = reader.read_length_delimited();\n");
-    p.print("if (!rp_ent) { ::rapidproto::rp_fail_wire(err, reader); return false; }\n");
+    emit_vt_len_read(emit, "rp_ent");  // the entry payload, read from the main cursor rp_c
     p.print("$ET$* const rp_slot = rp_slot_$id$();\n", {{"ET", et}, {"id", id}});
     p.print("if (rp_slot == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }\n");
     p.print("*rp_slot = $ET${};\n", {{"ET", et}});
-    p.print("::rapidproto::WireReader rp_er{*rp_ent};\n");
-    p.print("::rapidproto::Tag rp_et;\n");
+    // Value-threaded entry loop: thread a byte cursor over the entry payload (stays in registers).
+    // Offsets are entry-payload-relative (rp_we is the main loop's shared error slot).
+    p.print("const std::uint8_t* rp_ec = ::rapidproto::wire::byte_ptr(rp_ent);\n");
+    p.print("const std::uint8_t* const rp_ee = rp_ec + rp_ent.size();\n");
+    // The offset base equals byte_ptr(rp_ent) (rp_ec's initial value); recompute it on the cold fail
+    // paths rather than holding it live across the hot loop (a free reinterpret_cast off rp_ent).
+    const std::string beg = "::rapidproto::wire::byte_ptr(rp_ent)";
+    p.print("::rapidproto::Tag rp_et{};\n");
     p.print("for (;;) {\n");
     p.indent();
-    p.print("const auto rp_estate = rp_er.read_tag_or_end(rp_et);\n");
-    p.print("if (rp_estate == ::rapidproto::WireReader::TagOrEnd::End) { break; }\n");
+    p.print("::rapidproto::wire::TagState rp_st = ::rapidproto::wire::TagState::End;\n");
     p.print(
-        "if (rp_estate == ::rapidproto::WireReader::TagOrEnd::Error) {"
-        " ::rapidproto::rp_fail_wire(err, rp_er); return false; }\n");
+        "const std::uint8_t* const rp_etp ="  // entry-loop tag ptr (distinct from the outer rp_tp)
+        " ::rapidproto::wire::read_tag_or_end(rp_ec, rp_ee, &rp_et, &rp_we, &rp_st);\n");
+    p.print("if (rp_st == ::rapidproto::wire::TagState::End) { break; }\n");
+    p.print(
+        "if (rp_st == ::rapidproto::wire::TagState::Error) { ::rapidproto::rp_fail_wire_at(err, "
+        "rp_we,"
+        " static_cast<std::size_t>(rp_ec - " +
+        beg + ")); return false; }\n");
+    p.print("rp_ec = rp_etp;\n");
     p.print("if (rp_et.field_number == 1 && rp_et.wire_type == ::rapidproto::WireType::$kw$) {\n",
             {{"kw", kv_wire(e.key_kind, map.key_type)}});
     p.indent();
-    emit_scalar_read(emit, e.key_kind, map.key_type, /*enum_fqn=*/"", "rp_slot->rp_key", "rp_er");
+    emit_vt_scalar_read(emit, e.key_kind, map.key_type, /*enum_fqn=*/"", "rp_slot->rp_key", "rp_ec",
+                        "rp_ee", beg);
     p.outdent();
     p.print(
         "} else if (rp_et.field_number == 2 && rp_et.wire_type == ::rapidproto::WireType::$vw$) "
@@ -1228,30 +1334,43 @@ void emit_map_arm(const Emit& emit, const MemberPlan& m) {
     p.indent();
     if (e.value_kind == FieldKind::InlineFixedSubMsg || e.value_kind == FieldKind::PointerSubMsg) {
         const std::string sub = cpp_type_name(emit.names, e.value_fqn);
-        p.print("const auto rp_v = rp_er.read_length_delimited();\n");
-        p.print("if (!rp_v) { ::rapidproto::rp_fail_wire(err, rp_er); return false; }\n");
+        p.print("::rapidproto::ByteView rp_v;\n");
+        p.print(
+            "{ const std::uint8_t* const rp_np ="
+            " ::rapidproto::wire::read_length_delimited(rp_ec, rp_ee, &rp_v, &rp_we);"
+            " if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we,"
+            " static_cast<std::size_t>(rp_ec - " +
+            beg + ")); return false; } rp_ec = rp_np; }\n");
         if (e.value_kind == FieldKind::InlineFixedSubMsg) {
             p.print(
-                "if (!::rapidproto::arena_detail::decode_into(rp_slot->rp_value, *rp_v, arena, "
-                "depth + 1, err)) {"
-                " return false; }\n");
+                "if (!::rapidproto::arena_detail::decode_into(rp_slot->rp_value, rp_v, arena, "
+                "depth + 1, err)) { return false; }\n");
         } else {
             p.print("$S$* const rp_mv = arena.create<$S$>();\n", {{"S", sub}});
             p.print("if (rp_mv == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }\n");
             p.print(
-                "if (!::rapidproto::arena_detail::decode_into(*rp_mv, *rp_v, arena, depth + 1, "
-                "err)) { return false; "
-                "}\n");
+                "if (!::rapidproto::arena_detail::decode_into(*rp_mv, rp_v, arena, depth + 1, "
+                "err)) { return false; }\n");
             p.print("rp_slot->rp_value = rp_mv;\n");
         }
     } else {
-        emit_scalar_read(emit, e.value_kind, map.value_type, e.value_fqn, "rp_slot->rp_value",
-                         "rp_er");
+        emit_vt_scalar_read(emit, e.value_kind, map.value_type, e.value_fqn, "rp_slot->rp_value",
+                            "rp_ec", "rp_ee", beg);
     }
     p.outdent();
+    p.print("} else {\n");
+    p.indent();
+    p.print("std::size_t rp_fo = 0;\n");
     p.print(
-        "} else if (!rp_er.skip(rp_et.wire_type, rp_et.field_number)) {"
-        " ::rapidproto::rp_fail_wire(err, rp_er); return false; }\n");
+        "const std::uint8_t* const rp_sp ="
+        " ::rapidproto::wire::skip_value(rp_ec, rp_ee, " +
+        beg + ", rp_et, 0, &rp_we, &rp_fo);\n");
+    p.print(
+        "if (rp_sp == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo); return false; "
+        "}\n");
+    p.print("rp_ec = rp_sp;\n");
+    p.outdent();
+    p.print("}\n");
     p.outdent();
     p.print("}\n");  // for (;;) map entry
     p.print("continue;\n");
@@ -1294,27 +1413,24 @@ void emit_oneof_arm(const Emit& emit, const OneofPlan& o, const OneofMemberPlan&
     p.indent();
     if (member.kind == FieldKind::InlineFixedSubMsg || member.kind == FieldKind::PointerSubMsg) {
         const std::string sub = cpp_type_name(emit.names, member.target_fqn);
-        const auto [mw, read] = message_wire(field);
-        (void)mw;
-        p.print("const auto rp_v = reader.$rd$;\n", {{"rd", read}});
-        p.print("if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }\n");
+        emit_vt_message_read(emit, field, "rp_v");
         if (member.kind == FieldKind::InlineFixedSubMsg) {
             p.print("$of$ = $S${};\n", {{"of", ofield}, {"S", sub}});
             p.print(
-                "if (!::rapidproto::arena_detail::decode_into($of$, *rp_v, arena, depth + 1, err)) "
+                "if (!::rapidproto::arena_detail::decode_into($of$, rp_v, arena, depth + 1, err)) "
                 "{ return false; }\n",
                 {{"of", ofield}});
         } else {
             p.print("$S$* const rp_sub = arena.create<$S$>();\n", {{"S", sub}});
             p.print("if (rp_sub == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }\n");
             p.print(
-                "if (!::rapidproto::arena_detail::decode_into(*rp_sub, *rp_v, arena, depth + 1, "
-                "err)) { return false; "
-                "}\n");
+                "if (!::rapidproto::arena_detail::decode_into(*rp_sub, rp_v, arena, depth + 1, "
+                "err)) { return false; }\n");
             p.print("$of$ = rp_sub;\n", {{"of", ofield}});
         }
     } else {
-        emit_value_read(emit, field, ofield, "reader");
+        emit_vt_value_read(emit, field, ofield, "rp_c", "rp_cend",
+                           "::rapidproto::wire::byte_ptr(body)");
     }
     p.print("out.m_rp_$o$_case = $i$;\n", {{"o", o.oneof->name}, {"i", std::to_string(index)}});
     p.print("continue;\n");
@@ -1361,15 +1477,23 @@ void emit_fast_singular_arm(const Emit& emit, const MessageLayout& layout, const
     p.print("case ::rapidproto::raw_tag($n$, ::rapidproto::WireType::$w$): {\n",
             {{"n", std::to_string(field.number)}, {"w", wire}});
     p.indent();
-    p.print("reader.consume_tag_byte();\n");
+    p.print("++rp_c;  // consume the peeked 1-byte tag\n");
     if (m.kind == FieldKind::InlineScalar && m.is_bool) {
-        p.print("const auto rp_v = reader.read_varint();\n");
-        p.print("if (!rp_v) { ::rapidproto::rp_fail_wire(err, reader); return false; }\n");
-        p.print("if (::rapidproto::varint_to_bool(*rp_v)) { $set$ } else { $clr$ }\n",
+        p.print("std::uint64_t rp_raw = 0;\n");
+        p.print(
+            "const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend,"
+            " &rp_raw, &rp_we);\n");
+        p.print(
+            "if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we,"
+            " static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; "
+            "} rp_c "
+            "= rp_np;\n");
+        p.print("if (::rapidproto::varint_to_bool(rp_raw)) { $set$ } else { $clr$ }\n",
                 {{"set", set_bit_stmt(layout, m.value_bit)},
                  {"clr", clear_bit_stmt(layout, m.value_bit)}});
     } else {
-        emit_value_read(emit, field, "out.m_" + id, "reader");
+        emit_vt_value_read(emit, field, "out.m_" + id, "rp_c", "rp_cend",
+                           "::rapidproto::wire::byte_ptr(body)");
     }
     emit_presence_set(emit, layout, m, required_bit);
     p.print("continue;\n");
@@ -1386,8 +1510,8 @@ void emit_fast_repeated_arm(const Emit& emit, const FieldNode& field) {
     p.print("case ::rapidproto::raw_tag($n$, ::rapidproto::WireType::$w$): {\n",
             {{"n", std::to_string(field.number)}, {"w", elem_wire}});
     p.indent();
-    p.print("reader.consume_tag_byte();\n");
-    emit_repeated_element(emit, field, "reader");
+    p.print("++rp_c;  // consume the peeked 1-byte tag\n");
+    emit_repeated_element(emit, field);
     p.print("continue;\n");
     p.outdent();
     p.print("}\n");
@@ -1395,9 +1519,8 @@ void emit_fast_repeated_arm(const Emit& emit, const FieldNode& field) {
         p.print("case ::rapidproto::raw_tag($n$, ::rapidproto::WireType::Len): {\n",
                 {{"n", std::to_string(field.number)}});
         p.indent();
-        p.print("reader.consume_tag_byte();\n");
-        p.print("const auto rp_p = reader.read_length_delimited();\n");
-        p.print("if (!rp_p) { ::rapidproto::rp_fail_wire(err, reader); return false; }\n");
+        p.print("++rp_c;  // consume the peeked 1-byte tag\n");
+        emit_vt_len_read(emit, "rp_p");
         emit_packed_fill(emit, field);
         p.print("continue;\n");
         p.outdent();
@@ -1451,8 +1574,13 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
     } else if (!required_fields.empty()) {
         p.print("std::uint64_t rp_req = 0;\n");
     }
-    p.print("::rapidproto::WireReader reader{body};\n");
-    p.print("::rapidproto::Tag rp_tag;\n");
+    // Value-threaded wire loop: the cursor (rp_c) is threaded by value through the rapidproto::wire:: reader/skip free
+    // functions and stays in registers -- no WireReader member whose address escapes to memory. Fail
+    // offsets are anchored at byte_ptr(body); rp_we is the shared error slot used by every arm/sub-loop.
+    p.print("const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(body);\n");
+    p.print("const std::uint8_t* const rp_cend = rp_c + body.size();\n");
+    p.print("::rapidproto::Tag rp_tag{};\n");
+    p.print("::rapidproto::WireError rp_we = ::rapidproto::WireError::None;\n");
     p.print("for (;;) {\n");
     p.indent();
     // Fast path: a raw-byte switch dispatches single-byte-tag fields (is_fast_arena_field) without
@@ -1470,8 +1598,8 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
         }
     }
     if (!fast.empty()) {
-        p.print("if (reader.at_end()) { break; }\n");
-        p.print("switch (reader.peek_byte()) {\n");
+        p.print("if (rp_c >= rp_cend) { break; }\n");
+        p.print("switch (*rp_c) {  // peek the 1-byte tag without consuming\n");
         p.indent();
         for (const MemberPlan* m : fast) {
             if (m->field->is_repeated) {
@@ -1488,11 +1616,16 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
     // oneofs, and the bare skip-cases for the fast fields above.
     // Fused end-or-tag read: one bounds check drives the loop (see WireReader::read_tag_or_end).
     // End breaks out so the post-loop required-field checks still run.
-    p.print("const auto rp_state = reader.read_tag_or_end(rp_tag);\n");
-    p.print("if (rp_state == ::rapidproto::WireReader::TagOrEnd::End) { break; }\n");
+    p.print("::rapidproto::wire::TagState rp_state = ::rapidproto::wire::TagState::End;\n");
     p.print(
-        "if (rp_state == ::rapidproto::WireReader::TagOrEnd::Error) {"
-        " ::rapidproto::rp_fail_wire(err, reader); return false; }\n");
+        "const std::uint8_t* const rp_tp ="
+        " ::rapidproto::wire::read_tag_or_end(rp_c, rp_cend, &rp_tag, &rp_we, &rp_state);\n");
+    p.print("if (rp_state == ::rapidproto::wire::TagState::End) { break; }\n");
+    p.print(
+        "if (rp_state == ::rapidproto::wire::TagState::Error) { ::rapidproto::rp_fail_wire_at(err, "
+        "rp_we,"
+        " static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }\n");
+    p.print("rp_c = rp_tp;\n");
     p.print("switch (rp_tag.field_number) {\n");
     p.indent();
     for (const FieldNode& f : message.fields) {
@@ -1541,9 +1674,16 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
     }
     p.outdent();
     p.print("}\n");  // switch
+    p.print("std::size_t rp_fo = 0;\n");
     p.print(
-        "if (!reader.skip(rp_tag.wire_type, rp_tag.field_number)) {"
-        " ::rapidproto::rp_fail_wire(err, reader); return false; }\n");
+        "const std::uint8_t* const rp_sp ="
+        " ::rapidproto::wire::skip_value(rp_c, rp_cend, ::rapidproto::wire::byte_ptr(body), "
+        "rp_tag, 0, "
+        "&rp_we, &rp_fo);\n");
+    p.print(
+        "if (rp_sp == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo); return false; "
+        "}\n");
+    p.print("rp_c = rp_sp;\n");
     p.outdent();
     p.print("}\n");  // for (;;)
     for (const FieldNode& f : message.fields) {

@@ -358,7 +358,7 @@ TEST_CASE("arena-decode: message-value and enum-value maps fixture", "[arena-dec
 TEST_CASE("arena-decode: group (delimited) fixture", "[arena-decode]") {
     const std::string bin = fixture("all_wire.bin");
     Arena arena;
-    const wire::AllWire* m = wire::AllWire::decode(ByteView(bin), arena);
+    const ::wire::AllWire* m = ::wire::AllWire::decode(ByteView(bin), arena);
     REQUIRE(m != nullptr);
     CHECK(m->zz() == -1234567890123LL);
     CHECK(m->fx() == 305419896U);
@@ -370,7 +370,7 @@ TEST_CASE("arena-decode: group (delimited) fixture", "[arena-decode]") {
     CHECK(m->g()->a() == 99);
     bool got_oi = false;
     m->pick(
-        [&](wire::AllWire::Pick::oi, std::int32_t v) {
+        [&](::wire::AllWire::Pick::oi, std::int32_t v) {
             got_oi = true;
             CHECK(v == 5);
         },

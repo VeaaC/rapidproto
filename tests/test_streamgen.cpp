@@ -1028,23 +1028,23 @@ TEST_CASE("streamgen: a generated decoder decodes packed-repeated and group fiel
     std::vector<std::int32_t> packed;
     bool saw_group = false;
 
-    const wire::stream::AllWire all{ByteView(bin)};
+    const ::wire::stream::AllWire all{ByteView(bin)};
     const DecodeStatus status = all.decode(
-        [&](wire::stream::AllWire::zz, std::int64_t v) { zz = v; },  // sint64 (zigzag)
-        [&](wire::stream::AllWire::fx, std::uint32_t v) { fx = v; },
-        [&](wire::stream::AllWire::s, std::string_view v) { s = std::string(v); },
-        [&](wire::stream::AllWire::nested, wire::stream::AllWire sub) -> DecodeStatus {
-            return sub.decode([&](wire::stream::AllWire::zz, std::int64_t v) { nested_zz = v; });
+        [&](::wire::stream::AllWire::zz, std::int64_t v) { zz = v; },  // sint64 (zigzag)
+        [&](::wire::stream::AllWire::fx, std::uint32_t v) { fx = v; },
+        [&](::wire::stream::AllWire::s, std::string_view v) { s = std::string(v); },
+        [&](::wire::stream::AllWire::nested, ::wire::stream::AllWire sub) -> DecodeStatus {
+            return sub.decode([&](::wire::stream::AllWire::zz, std::int64_t v) { nested_zz = v; });
         },
-        [&](wire::stream::AllWire::packed, std::int32_t v) {
+        [&](::wire::stream::AllWire::packed, std::int32_t v) {
             packed.push_back(v);
         },  // packed repeated
-        [&](wire::stream::AllWire::g,
-            wire::stream::AllWire::G grp) -> DecodeStatus {  // group sub-decoder
+        [&](::wire::stream::AllWire::g,
+            ::wire::stream::AllWire::G grp) -> DecodeStatus {  // group sub-decoder
             saw_group = true;
-            return grp.decode([&](wire::stream::AllWire::G::a, std::int32_t v) { group_a = v; });
+            return grp.decode([&](::wire::stream::AllWire::G::a, std::int32_t v) { group_a = v; });
         },
-        [&](wire::stream::AllWire::oi, std::int32_t v) { oi = v; });
+        [&](::wire::stream::AllWire::oi, std::int32_t v) { oi = v; });
 
     CHECK(status.ok());
     CHECK(zz == -1234567890123);

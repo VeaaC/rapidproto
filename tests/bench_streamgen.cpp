@@ -11,7 +11,7 @@
 // Each scenario decodes a large buffer that stresses one decode path (focused) or several at once
 // (mixed), comparing three decoders over the same bytes:
 //   generated: the rapidproto-generated decoder (p2::stream::Scalars; the product)
-//   wire:      a hand loop on the WireReader primitives, feature-equivalent (dispatch + validate)
+//   wire:      a hand loop on the rapidproto::wire primitives, feature-equivalent (dispatch + validate)
 //   protozero: mapbox protozero, an established minimal-overhead pull parser (yardstick; its
 //                wire-type checks are protozero_assert()s compiled out under NDEBUG, so it validates
 //                marginally less than we do).
@@ -118,20 +118,30 @@ int scenario_varint_1byte() {
         {"wire",
          [](ByteView b) -> std::uint64_t {
              std::uint64_t s = 0;
-             WireReader r{b};
-             while (!r.at_end()) {
-                 const auto t = r.read_tag();
-                 if (!t) {
+             const std::uint8_t* p = wire::byte_ptr(b);
+             const std::uint8_t* const beg = p;
+             const std::uint8_t* const end = p + b.size();
+             WireError we = WireError::None;
+             while (true) {
+                 Tag t{};
+                 wire::TagState st = wire::TagState::End;
+                 p = wire::read_tag_or_end(p, end, &t, &we, &st);
+                 if (st != wire::TagState::Tag) {
                      break;
                  }
-                 if (t->field_number == 1 && t->wire_type == WireType::Varint) {
-                     const auto v = r.read_varint();
-                     if (!v) {
+                 if (t.field_number == 1 && t.wire_type == WireType::Varint) {
+                     std::uint64_t v = 0;
+                     p = wire::read_varint(p, end, &v, &we);
+                     if (p == nullptr) {
                          break;
                      }
-                     s += static_cast<std::uint32_t>(varint_to_int32(*v));
-                 } else if (!r.skip(t->wire_type, t->field_number)) {
-                     break;
+                     s += static_cast<std::uint32_t>(varint_to_int32(v));
+                 } else {
+                     std::size_t fo = 0;
+                     p = wire::skip_value(p, end, beg, t, 0, &we, &fo);
+                     if (p == nullptr) {
+                         break;
+                     }
                  }
              }
              return s;
@@ -173,20 +183,30 @@ int scenario_varint_multibyte() {
         {"wire",
          [](ByteView b) -> std::uint64_t {
              std::uint64_t s = 0;
-             WireReader r{b};
-             while (!r.at_end()) {
-                 const auto t = r.read_tag();
-                 if (!t) {
+             const std::uint8_t* p = wire::byte_ptr(b);
+             const std::uint8_t* const beg = p;
+             const std::uint8_t* const end = p + b.size();
+             WireError we = WireError::None;
+             while (true) {
+                 Tag t{};
+                 wire::TagState st = wire::TagState::End;
+                 p = wire::read_tag_or_end(p, end, &t, &we, &st);
+                 if (st != wire::TagState::Tag) {
                      break;
                  }
-                 if (t->field_number == 1 && t->wire_type == WireType::Varint) {
-                     const auto v = r.read_varint();
-                     if (!v) {
+                 if (t.field_number == 1 && t.wire_type == WireType::Varint) {
+                     std::uint64_t v = 0;
+                     p = wire::read_varint(p, end, &v, &we);
+                     if (p == nullptr) {
                          break;
                      }
-                     s += static_cast<std::uint32_t>(varint_to_int32(*v));
-                 } else if (!r.skip(t->wire_type, t->field_number)) {
-                     break;
+                     s += static_cast<std::uint32_t>(varint_to_int32(v));
+                 } else {
+                     std::size_t fo = 0;
+                     p = wire::skip_value(p, end, beg, t, 0, &we, &fo);
+                     if (p == nullptr) {
+                         break;
+                     }
                  }
              }
              return s;
@@ -229,20 +249,30 @@ int scenario_zigzag() {
         {"wire",
          [](ByteView b) -> std::uint64_t {
              std::uint64_t s = 0;
-             WireReader r{b};
-             while (!r.at_end()) {
-                 const auto t = r.read_tag();
-                 if (!t) {
+             const std::uint8_t* p = wire::byte_ptr(b);
+             const std::uint8_t* const beg = p;
+             const std::uint8_t* const end = p + b.size();
+             WireError we = WireError::None;
+             while (true) {
+                 Tag t{};
+                 wire::TagState st = wire::TagState::End;
+                 p = wire::read_tag_or_end(p, end, &t, &we, &st);
+                 if (st != wire::TagState::Tag) {
                      break;
                  }
-                 if (t->field_number == 6 && t->wire_type == WireType::Varint) {
-                     const auto v = r.read_varint();
-                     if (!v) {
+                 if (t.field_number == 6 && t.wire_type == WireType::Varint) {
+                     std::uint64_t v = 0;
+                     p = wire::read_varint(p, end, &v, &we);
+                     if (p == nullptr) {
                          break;
                      }
-                     s += static_cast<std::uint64_t>(zigzag_decode_64(*v));
-                 } else if (!r.skip(t->wire_type, t->field_number)) {
-                     break;
+                     s += static_cast<std::uint64_t>(zigzag_decode_64(v));
+                 } else {
+                     std::size_t fo = 0;
+                     p = wire::skip_value(p, end, beg, t, 0, &we, &fo);
+                     if (p == nullptr) {
+                         break;
+                     }
                  }
              }
              return s;
@@ -283,20 +313,30 @@ int scenario_fixed32() {
         {"wire",
          [](ByteView b) -> std::uint64_t {
              std::uint64_t s = 0;
-             WireReader r{b};
-             while (!r.at_end()) {
-                 const auto t = r.read_tag();
-                 if (!t) {
+             const std::uint8_t* p = wire::byte_ptr(b);
+             const std::uint8_t* const beg = p;
+             const std::uint8_t* const end = p + b.size();
+             WireError we = WireError::None;
+             while (true) {
+                 Tag t{};
+                 wire::TagState st = wire::TagState::End;
+                 p = wire::read_tag_or_end(p, end, &t, &we, &st);
+                 if (st != wire::TagState::Tag) {
                      break;
                  }
-                 if (t->field_number == 14 && t->wire_type == WireType::I32) {
-                     const auto v = r.read_fixed32();
-                     if (!v) {
+                 if (t.field_number == 14 && t.wire_type == WireType::I32) {
+                     std::uint32_t v = 0;
+                     p = wire::read_fixed32(p, end, &v, &we);
+                     if (p == nullptr) {
                          break;
                      }
-                     s += *v;
-                 } else if (!r.skip(t->wire_type, t->field_number)) {
-                     break;
+                     s += v;
+                 } else {
+                     std::size_t fo = 0;
+                     p = wire::skip_value(p, end, beg, t, 0, &we, &fo);
+                     if (p == nullptr) {
+                         break;
+                     }
                  }
              }
              return s;
@@ -337,20 +377,30 @@ int scenario_fixed64() {
         {"wire",
          [](ByteView b) -> std::uint64_t {
              std::uint64_t s = 0;
-             WireReader r{b};
-             while (!r.at_end()) {
-                 const auto t = r.read_tag();
-                 if (!t) {
+             const std::uint8_t* p = wire::byte_ptr(b);
+             const std::uint8_t* const beg = p;
+             const std::uint8_t* const end = p + b.size();
+             WireError we = WireError::None;
+             while (true) {
+                 Tag t{};
+                 wire::TagState st = wire::TagState::End;
+                 p = wire::read_tag_or_end(p, end, &t, &we, &st);
+                 if (st != wire::TagState::Tag) {
                      break;
                  }
-                 if (t->field_number == 15 && t->wire_type == WireType::I64) {
-                     const auto v = r.read_fixed64();
-                     if (!v) {
+                 if (t.field_number == 15 && t.wire_type == WireType::I64) {
+                     std::uint64_t v = 0;
+                     p = wire::read_fixed64(p, end, &v, &we);
+                     if (p == nullptr) {
                          break;
                      }
-                     s += *v;
-                 } else if (!r.skip(t->wire_type, t->field_number)) {
-                     break;
+                     s += v;
+                 } else {
+                     std::size_t fo = 0;
+                     p = wire::skip_value(p, end, beg, t, 0, &we, &fo);
+                     if (p == nullptr) {
+                         break;
+                     }
                  }
              }
              return s;
@@ -392,20 +442,30 @@ int scenario_string() {
         {"wire",
          [](ByteView b) -> std::uint64_t {
              std::uint64_t s = 0;
-             WireReader r{b};
-             while (!r.at_end()) {
-                 const auto t = r.read_tag();
-                 if (!t) {
+             const std::uint8_t* p = wire::byte_ptr(b);
+             const std::uint8_t* const beg = p;
+             const std::uint8_t* const end = p + b.size();
+             WireError we = WireError::None;
+             while (true) {
+                 Tag t{};
+                 wire::TagState st = wire::TagState::End;
+                 p = wire::read_tag_or_end(p, end, &t, &we, &st);
+                 if (st != wire::TagState::Tag) {
                      break;
                  }
-                 if (t->field_number == 12 && t->wire_type == WireType::Len) {
-                     const auto v = r.read_length_delimited();
-                     if (!v) {
+                 if (t.field_number == 12 && t.wire_type == WireType::Len) {
+                     ByteView v;
+                     p = wire::read_length_delimited(p, end, &v, &we);
+                     if (p == nullptr) {
                          break;
                      }
-                     s += v->size();
-                 } else if (!r.skip(t->wire_type, t->field_number)) {
-                     break;
+                     s += v.size();
+                 } else {
+                     std::size_t fo = 0;
+                     p = wire::skip_value(p, end, beg, t, 0, &we, &fo);
+                     if (p == nullptr) {
+                         break;
+                     }
                  }
              }
              return s;
@@ -451,27 +511,39 @@ int scenario_packed() {
         {"wire",
          [](ByteView b) -> std::uint64_t {
              std::uint64_t s = 0;
-             WireReader r{b};
-             while (!r.at_end()) {
-                 const auto t = r.read_tag();
-                 if (!t) {
+             const std::uint8_t* p = wire::byte_ptr(b);
+             const std::uint8_t* const beg = p;
+             const std::uint8_t* const end = p + b.size();
+             WireError we = WireError::None;
+             while (true) {
+                 Tag t{};
+                 wire::TagState st = wire::TagState::End;
+                 p = wire::read_tag_or_end(p, end, &t, &we, &st);
+                 if (st != wire::TagState::Tag) {
                      break;
                  }
-                 if (t->field_number == 17 && t->wire_type == WireType::Len) {
-                     const auto span = r.read_length_delimited();
-                     if (!span) {
+                 if (t.field_number == 17 && t.wire_type == WireType::Len) {
+                     ByteView span;
+                     p = wire::read_length_delimited(p, end, &span, &we);
+                     if (p == nullptr) {
                          break;
                      }
-                     WireReader inner{*span};
-                     while (!inner.at_end()) {
-                         const auto v = inner.read_varint();
-                         if (!v) {
+                     const std::uint8_t* ip = wire::byte_ptr(span);
+                     const std::uint8_t* const iend = ip + span.size();
+                     while (ip < iend) {
+                         std::uint64_t v = 0;
+                         ip = wire::read_varint(ip, iend, &v, &we);
+                         if (ip == nullptr) {
                              break;
                          }
-                         s += static_cast<std::uint32_t>(varint_to_int32(*v));
+                         s += static_cast<std::uint32_t>(varint_to_int32(v));
                      }
-                 } else if (!r.skip(t->wire_type, t->field_number)) {
-                     break;
+                 } else {
+                     std::size_t fo = 0;
+                     p = wire::skip_value(p, end, beg, t, 0, &we, &fo);
+                     if (p == nullptr) {
+                         break;
+                     }
                  }
              }
              return s;
@@ -518,20 +590,30 @@ int scenario_skip_heavy() {
         {"wire",
          [](ByteView b) -> std::uint64_t {
              std::uint64_t s = 0;
-             WireReader r{b};
-             while (!r.at_end()) {
-                 const auto t = r.read_tag();
-                 if (!t) {
+             const std::uint8_t* p = wire::byte_ptr(b);
+             const std::uint8_t* const beg = p;
+             const std::uint8_t* const end = p + b.size();
+             WireError we = WireError::None;
+             while (true) {
+                 Tag t{};
+                 wire::TagState st = wire::TagState::End;
+                 p = wire::read_tag_or_end(p, end, &t, &we, &st);
+                 if (st != wire::TagState::Tag) {
                      break;
                  }
-                 if (t->field_number == 1 && t->wire_type == WireType::Varint) {
-                     const auto v = r.read_varint();
-                     if (!v) {
+                 if (t.field_number == 1 && t.wire_type == WireType::Varint) {
+                     std::uint64_t v = 0;
+                     p = wire::read_varint(p, end, &v, &we);
+                     if (p == nullptr) {
                          break;
                      }
-                     s += static_cast<std::uint32_t>(varint_to_int32(*v));
-                 } else if (!r.skip(t->wire_type, t->field_number)) {
-                     break;
+                     s += static_cast<std::uint32_t>(varint_to_int32(v));
+                 } else {
+                     std::size_t fo = 0;
+                     p = wire::skip_value(p, end, beg, t, 0, &we, &fo);
+                     if (p == nullptr) {
+                         break;
+                     }
                  }
              }
              return s;
@@ -586,38 +668,51 @@ int scenario_mixed() {
         {"wire",
          [](ByteView b) -> std::uint64_t {
              std::uint64_t s = 0;
-             WireReader r{b};
-             while (!r.at_end()) {
-                 const auto t = r.read_tag();
-                 if (!t) {
+             const std::uint8_t* p = wire::byte_ptr(b);
+             const std::uint8_t* const beg = p;
+             const std::uint8_t* const end = p + b.size();
+             WireError we = WireError::None;
+             while (true) {
+                 Tag t{};
+                 wire::TagState st = wire::TagState::End;
+                 p = wire::read_tag_or_end(p, end, &t, &we, &st);
+                 if (st != wire::TagState::Tag) {
                      break;
                  }
-                 if (t->field_number == 1 && t->wire_type == WireType::Varint) {
-                     const auto v = r.read_varint();
-                     if (!v) {
+                 if (t.field_number == 1 && t.wire_type == WireType::Varint) {
+                     std::uint64_t v = 0;
+                     p = wire::read_varint(p, end, &v, &we);
+                     if (p == nullptr) {
                          break;
                      }
-                     s += static_cast<std::uint32_t>(varint_to_int32(*v));
-                 } else if (t->field_number == 6 && t->wire_type == WireType::Varint) {
-                     const auto v = r.read_varint();
-                     if (!v) {
+                     s += static_cast<std::uint32_t>(varint_to_int32(v));
+                 } else if (t.field_number == 6 && t.wire_type == WireType::Varint) {
+                     std::uint64_t v = 0;
+                     p = wire::read_varint(p, end, &v, &we);
+                     if (p == nullptr) {
                          break;
                      }
-                     s += static_cast<std::uint64_t>(zigzag_decode_64(*v));
-                 } else if (t->field_number == 15 && t->wire_type == WireType::I64) {
-                     const auto v = r.read_fixed64();
-                     if (!v) {
+                     s += static_cast<std::uint64_t>(zigzag_decode_64(v));
+                 } else if (t.field_number == 15 && t.wire_type == WireType::I64) {
+                     std::uint64_t v = 0;
+                     p = wire::read_fixed64(p, end, &v, &we);
+                     if (p == nullptr) {
                          break;
                      }
-                     s += *v;
-                 } else if (t->field_number == 12 && t->wire_type == WireType::Len) {
-                     const auto v = r.read_length_delimited();
-                     if (!v) {
+                     s += v;
+                 } else if (t.field_number == 12 && t.wire_type == WireType::Len) {
+                     ByteView v;
+                     p = wire::read_length_delimited(p, end, &v, &we);
+                     if (p == nullptr) {
                          break;
                      }
-                     s += v->size();
-                 } else if (!r.skip(t->wire_type, t->field_number)) {
-                     break;
+                     s += v.size();
+                 } else {
+                     std::size_t fo = 0;
+                     p = wire::skip_value(p, end, beg, t, 0, &we, &fo);
+                     if (p == nullptr) {
+                         break;
+                     }
                  }
              }
              return s;
@@ -674,20 +769,30 @@ int scenario_multibyte_tag() {
         {"wire",
          [](ByteView b) -> std::uint64_t {
              std::uint64_t s = 0;
-             WireReader r{b};
-             while (!r.at_end()) {
-                 const auto t = r.read_tag();
-                 if (!t) {
+             const std::uint8_t* p = wire::byte_ptr(b);
+             const std::uint8_t* const beg = p;
+             const std::uint8_t* const end = p + b.size();
+             WireError we = WireError::None;
+             while (true) {
+                 Tag t{};
+                 wire::TagState st = wire::TagState::End;
+                 p = wire::read_tag_or_end(p, end, &t, &we, &st);
+                 if (st != wire::TagState::Tag) {
                      break;
                  }
-                 if (t->field_number == 18 && t->wire_type == WireType::Varint) {
-                     const auto v = r.read_varint();
-                     if (!v) {
+                 if (t.field_number == 18 && t.wire_type == WireType::Varint) {
+                     std::uint64_t v = 0;
+                     p = wire::read_varint(p, end, &v, &we);
+                     if (p == nullptr) {
                          break;
                      }
-                     s += static_cast<std::uint32_t>(varint_to_int32(*v));
-                 } else if (!r.skip(t->wire_type, t->field_number)) {
-                     break;
+                     s += static_cast<std::uint32_t>(varint_to_int32(v));
+                 } else {
+                     std::size_t fo = 0;
+                     p = wire::skip_value(p, end, beg, t, 0, &we, &fo);
+                     if (p == nullptr) {
+                         break;
+                     }
                  }
              }
              return s;
@@ -738,35 +843,54 @@ int scenario_nested() {
         {"wire",
          [](ByteView b) -> std::uint64_t {
              std::uint64_t s = 0;
-             WireReader r{b};
-             while (!r.at_end()) {
-                 const auto t = r.read_tag();
-                 if (!t) {
+             const std::uint8_t* p = wire::byte_ptr(b);
+             const std::uint8_t* const beg = p;
+             const std::uint8_t* const end = p + b.size();
+             WireError we = WireError::None;
+             while (true) {
+                 Tag t{};
+                 wire::TagState st0 = wire::TagState::End;
+                 p = wire::read_tag_or_end(p, end, &t, &we, &st0);
+                 if (st0 != wire::TagState::Tag) {
                      break;
                  }
-                 if (t->field_number == 5 && t->wire_type == WireType::Len) {
-                     const auto span = r.read_length_delimited();
-                     if (!span) {
+                 if (t.field_number == 5 && t.wire_type == WireType::Len) {
+                     ByteView span;
+                     p = wire::read_length_delimited(p, end, &span, &we);
+                     if (p == nullptr) {
                          break;
                      }
-                     WireReader sub{*span};
-                     while (!sub.at_end()) {
-                         const auto st = sub.read_tag();
-                         if (!st) {
+                     const std::uint8_t* sp = wire::byte_ptr(span);
+                     const std::uint8_t* const sbeg = sp;
+                     const std::uint8_t* const send = sp + span.size();
+                     while (true) {
+                         Tag t2{};
+                         wire::TagState st = wire::TagState::End;
+                         sp = wire::read_tag_or_end(sp, send, &t2, &we, &st);
+                         if (st != wire::TagState::Tag) {
                              break;
                          }
-                         if (st->field_number == 1 && st->wire_type == WireType::Varint) {
-                             const auto v = sub.read_varint();
-                             if (!v) {
+                         if (t2.field_number == 1 && t2.wire_type == WireType::Varint) {
+                             std::uint64_t v = 0;
+                             sp = wire::read_varint(sp, send, &v, &we);
+                             if (sp == nullptr) {
                                  break;
                              }
-                             s += static_cast<std::uint32_t>(varint_to_int32(*v));
-                         } else if (!sub.skip(st->wire_type, st->field_number)) {
-                             break;
+                             s += static_cast<std::uint32_t>(varint_to_int32(v));
+                         } else {
+                             std::size_t fo = 0;
+                             sp = wire::skip_value(sp, send, sbeg, t2, 0, &we, &fo);
+                             if (sp == nullptr) {
+                                 break;
+                             }
                          }
                      }
-                 } else if (!r.skip(t->wire_type, t->field_number)) {
-                     break;
+                 } else {
+                     std::size_t fo = 0;
+                     p = wire::skip_value(p, end, beg, t, 0, &we, &fo);
+                     if (p == nullptr) {
+                         break;
+                     }
                  }
              }
              return s;
@@ -823,35 +947,55 @@ int scenario_groups() {
         {"wire",
          [](ByteView b) -> std::uint64_t {
              std::uint64_t s = 0;
-             WireReader r{b};
-             while (!r.at_end()) {
-                 const auto t = r.read_tag();
-                 if (!t) {
+             const std::uint8_t* p = wire::byte_ptr(b);
+             const std::uint8_t* const beg = p;
+             const std::uint8_t* const end = p + b.size();
+             WireError we = WireError::None;
+             while (true) {
+                 Tag t{};
+                 wire::TagState st0 = wire::TagState::End;
+                 p = wire::read_tag_or_end(p, end, &t, &we, &st0);
+                 if (st0 != wire::TagState::Tag) {
                      break;
                  }
-                 if (t->field_number == 1 && t->wire_type == WireType::SGroup) {
-                     const auto body = r.read_group(t->field_number);
-                     if (!body) {
+                 if (t.field_number == 1 && t.wire_type == WireType::SGroup) {
+                     ByteView body;
+                     std::size_t gfo = 0;
+                     p = wire::read_group(p, end, beg, t.field_number, &body, &we, &gfo);
+                     if (p == nullptr) {
                          break;
                      }
-                     WireReader sub{*body};
-                     while (!sub.at_end()) {
-                         const auto st = sub.read_tag();
-                         if (!st) {
+                     const std::uint8_t* sp = wire::byte_ptr(body);
+                     const std::uint8_t* const sbeg = sp;
+                     const std::uint8_t* const send = sp + body.size();
+                     while (true) {
+                         Tag t2{};
+                         wire::TagState st = wire::TagState::End;
+                         sp = wire::read_tag_or_end(sp, send, &t2, &we, &st);
+                         if (st != wire::TagState::Tag) {
                              break;
                          }
-                         if (st->field_number == 2 && st->wire_type == WireType::Varint) {
-                             const auto v = sub.read_varint();
-                             if (!v) {
+                         if (t2.field_number == 2 && t2.wire_type == WireType::Varint) {
+                             std::uint64_t v = 0;
+                             sp = wire::read_varint(sp, send, &v, &we);
+                             if (sp == nullptr) {
                                  break;
                              }
-                             s += static_cast<std::uint32_t>(varint_to_int32(*v));
-                         } else if (!sub.skip(st->wire_type, st->field_number)) {
-                             break;
+                             s += static_cast<std::uint32_t>(varint_to_int32(v));
+                         } else {
+                             std::size_t fo = 0;
+                             sp = wire::skip_value(sp, send, sbeg, t2, 0, &we, &fo);
+                             if (sp == nullptr) {
+                                 break;
+                             }
                          }
                      }
-                 } else if (!r.skip(t->wire_type, t->field_number)) {
-                     break;
+                 } else {
+                     std::size_t fo = 0;
+                     p = wire::skip_value(p, end, beg, t, 0, &we, &fo);
+                     if (p == nullptr) {
+                         break;
+                     }
                  }
              }
              return s;
@@ -887,20 +1031,30 @@ int scenario_sparse() {
         {"wire",
          [](ByteView b) -> std::uint64_t {
              std::uint64_t s = 0;
-             WireReader r{b};
-             while (!r.at_end()) {
-                 const auto t = r.read_tag();
-                 if (!t) {
+             const std::uint8_t* p = wire::byte_ptr(b);
+             const std::uint8_t* const beg = p;
+             const std::uint8_t* const end = p + b.size();
+             WireError we = WireError::None;
+             while (true) {
+                 Tag t{};
+                 wire::TagState st = wire::TagState::End;
+                 p = wire::read_tag_or_end(p, end, &t, &we, &st);
+                 if (st != wire::TagState::Tag) {
                      break;
                  }
-                 if (t->field_number == 1 && t->wire_type == WireType::Varint) {
-                     const auto v = r.read_varint();
-                     if (!v) {
+                 if (t.field_number == 1 && t.wire_type == WireType::Varint) {
+                     std::uint64_t v = 0;
+                     p = wire::read_varint(p, end, &v, &we);
+                     if (p == nullptr) {
                          break;
                      }
-                     s += static_cast<std::uint32_t>(varint_to_int32(*v));
-                 } else if (!r.skip(t->wire_type, t->field_number)) {
-                     break;
+                     s += static_cast<std::uint32_t>(varint_to_int32(v));
+                 } else {
+                     std::size_t fo = 0;
+                     p = wire::skip_value(p, end, beg, t, 0, &we, &fo);
+                     if (p == nullptr) {
+                         break;
+                     }
                  }
              }
              return s;

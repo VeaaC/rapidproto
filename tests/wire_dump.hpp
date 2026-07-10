@@ -21,6 +21,98 @@
 
 namespace rapidproto::wiredump {
 
+// One structural record, mirroring the old WireReader::WireField (which the runtime no longer ships).
+// The payload variant is keyed by wire type: Varint -> uint64_t, I64 -> uint64_t, I32 -> uint32_t,
+// Len -> ByteView (payload span), SGroup -> ByteView (the group body span).
+struct DumpField {
+    std::uint32_t field_number;
+    WireType wire_type;
+    std::variant<std::uint64_t, std::uint32_t, ByteView> payload;
+};
+
+// Collect a whole buffer's fields in declared order via the wire:: free readers -- the exact
+// accept/reject and value semantics of the removed read_message/WireReader::read_field pull API
+// (drive read_tag_or_end, then read the value per wire type). On the first wire error returns nullopt
+// and, if out_error is non-null, writes the WireError (offsets are irrelevant to the dump).
+inline std::optional<std::vector<DumpField>> collect_fields(ByteView input, WireError* out_error) {
+    const std::uint8_t* p = wire::byte_ptr(input);
+    const std::uint8_t* const begin = p;
+    const std::uint8_t* const end = p + input.size();
+    std::vector<DumpField> fields;
+    std::size_t fail_off = 0;  // unused by the dump; the readers still want a slot
+    while (true) {
+        Tag tag{};
+        WireError err = WireError::None;
+        wire::TagState state = wire::TagState::End;
+        p = wire::read_tag_or_end(p, end, &tag, &err, &state);
+        if (state == wire::TagState::End) {
+            return fields;
+        }
+        if (state == wire::TagState::Error) {
+            if (out_error != nullptr) {
+                *out_error = err;
+            }
+            return std::nullopt;
+        }
+        switch (tag.wire_type) {
+            case WireType::Varint: {
+                std::uint64_t value = 0;
+                p = wire::read_varint(p, end, &value, &err);
+                if (p == nullptr) {
+                    break;
+                }
+                fields.push_back({tag.field_number, tag.wire_type, value});
+                continue;
+            }
+            case WireType::I64: {
+                std::uint64_t value = 0;
+                p = wire::read_fixed64(p, end, &value, &err);
+                if (p == nullptr) {
+                    break;
+                }
+                fields.push_back({tag.field_number, tag.wire_type, value});
+                continue;
+            }
+            case WireType::I32: {
+                std::uint32_t value = 0;
+                p = wire::read_fixed32(p, end, &value, &err);
+                if (p == nullptr) {
+                    break;
+                }
+                fields.push_back({tag.field_number, tag.wire_type, value});
+                continue;
+            }
+            case WireType::Len: {
+                ByteView span;
+                p = wire::read_length_delimited(p, end, &span, &err);
+                if (p == nullptr) {
+                    break;
+                }
+                fields.push_back({tag.field_number, tag.wire_type, span});
+                continue;
+            }
+            case WireType::SGroup: {
+                ByteView body;
+                p = wire::read_group(p, end, begin, tag.field_number, &body, &err, &fail_off);
+                if (p == nullptr) {
+                    break;
+                }
+                fields.push_back({tag.field_number, tag.wire_type, body});
+                continue;
+            }
+            case WireType::EGroup:
+                err =
+                    WireError::UnexpectedEndGroup;  // matches read_field's top-level EGROUP reject
+                break;
+        }
+        // A value read failed (or a stray EGROUP): report the first error and stop.
+        if (out_error != nullptr) {
+            *out_error = err;
+        }
+        return std::nullopt;
+    }
+}
+
 class WireDumper {
 public:
     std::string dump(ByteView input) {
@@ -93,17 +185,17 @@ private:
 
     void dump_message(ByteView input) {
         WireError error = WireError::None;
-        const std::optional<std::vector<WireField>> fields = read_message(input, &error);
+        const std::optional<std::vector<DumpField>> fields = collect_fields(input, &error);
         if (!fields) {
             line("decode-error code=" + std::to_string(static_cast<int>(error)));
             return;
         }
-        for (const WireField& field : *fields) {
+        for (const DumpField& field : *fields) {
             dump_field(field);
         }
     }
 
-    void dump_field(const WireField& field) {
+    void dump_field(const DumpField& field) {
         const std::string head = "field=" + std::to_string(field.field_number) + " wire=";
         switch (field.wire_type) {
             case WireType::Varint: {
@@ -131,11 +223,11 @@ private:
                 const Indent indent(*this);
                 line("as-bytes \"" + escape(span) + "\"");
                 WireError sub_error = WireError::None;
-                const std::optional<std::vector<WireField>> sub = read_message(span, &sub_error);
+                const std::optional<std::vector<DumpField>> sub = collect_fields(span, &sub_error);
                 if (sub && !sub->empty()) {
                     line("as-message");
                     const Indent inner(*this);
-                    for (const WireField& nested : *sub) {
+                    for (const DumpField& nested : *sub) {
                         dump_field(nested);
                     }
                 }

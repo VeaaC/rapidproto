@@ -10,7 +10,8 @@
 //   - ArenaString : a small-string-optimized read-only string (inline when small, arena-copied else).
 //   - ArrayView / MapView : read-only views the generated accessors return for repeated and maps.
 //   - ArenaDecodeError : the failure detail a decode() reports.
-// It builds on the wire reader (runtime.hpp: WireReader, WireError, ByteView, the value helpers).
+// It builds on the wire reader (runtime.hpp: the rapidproto::wire readers, WireError, ByteView, the
+// value helpers).
 //
 // INVARIANT: only trivially-destructible objects are placed in the Arena (ArenaString's big buffer is
 // itself arena-owned), so no destructor ever runs: reset() is a pointer rewind, and dropping the
@@ -526,11 +527,13 @@ struct ArenaDecodeError {
 // ── decode-support helpers (used by generated decoders) ──────────────────────────────────────────────
 // Each records a failure into `err` (if non-null) and is meant to be followed by `return false`/
 // `nullptr` at the call site. A null `err` is the "I don't care why it failed" fast path.
-inline void rp_fail_wire(ArenaDecodeError* err, const WireReader& reader) noexcept {
+// Record a wire failure from an explicit (code, offset) -- the value-threaded decode loops read from a
+// raw cursor and compute the offset from the cursor they passed in.
+inline void rp_fail_wire_at(ArenaDecodeError* err, WireError code, std::size_t offset) noexcept {
     if (err != nullptr) {
         err->code = ArenaDecodeError::Code::Wire;
-        err->wire = reader.error_code();
-        err->offset = reader.fail_offset();
+        err->wire = code;
+        err->offset = offset;
     }
 }
 inline void rp_fail_oom(ArenaDecodeError* err) noexcept {
