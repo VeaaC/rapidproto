@@ -533,6 +533,15 @@ inline void rp_fail_wire(ArenaDecodeError* err, const WireReader& reader) noexce
         err->offset = reader.fail_offset();
     }
 }
+// As rp_fail_wire, but from an explicit (code, offset) -- for value-threaded loops that decode from a
+// raw cursor rather than a WireReader (the loop computes the offset from the cursor it passed in).
+inline void rp_fail_wire_at(ArenaDecodeError* err, WireError code, std::size_t offset) noexcept {
+    if (err != nullptr) {
+        err->code = ArenaDecodeError::Code::Wire;
+        err->wire = code;
+        err->offset = offset;
+    }
+}
 inline void rp_fail_oom(ArenaDecodeError* err) noexcept {
     if (err != nullptr) {
         err->code = ArenaDecodeError::Code::OutOfMemory;

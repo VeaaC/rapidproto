@@ -16,12 +16,18 @@
 // a value as a particular protobuf type (zigzag, float bit-cast, packed-array splitting) is the
 // caller's job, via the free helpers below. Wire input is UNTRUSTED, so the reader is fully
 // validating: every varint-overflow, truncation, length-overrun, reserved-wire-type, and
-// group-mismatch case is detected (see WireError). The pull-style primitives (read_tag +
-// read_varint/read_fixed*/...) are the hot path: inline, allocation-free, returning
-// std::optional<T>; failure records a WireError code + byte offset on the reader. The reader holds
-// three raw const std::uint8_t* pointers: the hot cursor pair (m_cur/m_end) kept in registers across
-// the decode loop, plus m_begin, which anchors position()/fail offsets. The input ByteView's char
-// bytes are read through a uint8_t*, well-defined because uint8_t is unsigned char
+// group-mismatch case is detected (see WireError). This validation logic has two reader forms that
+// share the same accept/reject and fail-offset semantics: (1) WireReader, a STATEFUL pull cursor
+// (member m_cur/m_end/m_begin) returning std::optional<T> -- used by the streaming decoders,
+// read_message, and the tests; and (2) the VALUE-THREADED `vt_*` free functions below
+// (read_varint/read_tag/read_fixed*/read_length_delimited/skip_value/...), which take the cursor as a
+// (cur, end, begin) pointer triple and return the advanced cursor, so it stays in registers with no
+// escaping `this` -- these are the hot path for the GENERATED ARENA decoders (measurably fewer retired
+// instructions where the member cursor would otherwise spill). Both are inline and allocation-free;
+// WireReader records a WireError + offset on itself, the vt_* readers write them to caller-owned slots.
+// WireReader holds three raw const std::uint8_t* pointers: the hot cursor pair (m_cur/m_end) kept in
+// registers across the decode loop, plus m_begin, which anchors position()/fail offsets. The input
+// ByteView's char bytes are read through a uint8_t*, well-defined because uint8_t is unsigned char
 // (the static_assert below pins it).
 //
 // ── Decode dispatch ────────────────────────────────────────────────────────────────────────────
@@ -220,6 +226,294 @@ inline ByteView byte_view(const std::uint8_t* data, std::size_t size) noexcept {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast): bytes -> char view, no aliasing
     return {reinterpret_cast<const char*>(data), size};
 }
+
+// The byte cursor over a ByteView's storage (the char* read through a uint8_t*, sound because uint8_t
+// is unsigned char -- the static_assert above pins it). For generated hot loops that thread the cursor
+// as a value rather than through a WireReader member (keeps it in a register across reads).
+inline const std::uint8_t* byte_ptr(ByteView v) noexcept {
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast): char view -> byte cursor, no aliasing
+    return reinterpret_cast<const std::uint8_t*>(v.data());
+}
+
+// NOLINTBEGIN(bugprone-easily-swappable-parameters, cppcoreguidelines-avoid-magic-numbers,
+// readability-magic-numbers, cppcoreguidelines-pro-bounds-pointer-arithmetic): every vt_ reader takes
+// the wire-reading triple (cursor, end, begin) then typed out-params (a fixed, deliberate convention),
+// and reads the byte buffer with the same wire-format masks/shifts + cursor arithmetic as WireReader.
+// Value-threaded varint read for generated hot loops: the cursor is passed in and returned BY VALUE
+// (stays in a register across the call -- no WireReader member whose address escapes and forces it to
+// memory). Writes the raw varint to *out and returns the advanced cursor; on a truncated or overflowing
+// varint returns nullptr and writes the WireError to *err. Same accept/reject + value semantics as
+// WireReader::read_varint (the caller derives the fail offset from the cursor it passed in).
+inline const std::uint8_t* vt_read_varint(const std::uint8_t* p, const std::uint8_t* end,
+                                          std::uint64_t* out, WireError* err) noexcept {
+    if (p < end && (*p & 0x80U) == 0U) {  // 1-byte fast path
+        *out = *p;
+        return p + 1;
+    }
+    std::uint64_t result = 0;
+    for (unsigned shift = 0; shift < 64U; shift += 7U) {
+        if (p >= end) {
+            *err = WireError::TruncatedVarint;
+            return nullptr;
+        }
+        const std::uint8_t b = *p;
+        if (shift == 63U && b > 1U) {  // 10th byte may only contribute bit 63
+            *err = WireError::VarintOverflow;
+            return nullptr;
+        }
+        ++p;
+        result |= static_cast<std::uint64_t>(b & 0x7FU) << shift;
+        if ((b & 0x80U) == 0U) {
+            *out = result;
+            return p;
+        }
+    }
+    *err = WireError::VarintOverflow;  // continuation bit still set after 10 bytes
+    return nullptr;
+}
+
+// Value-threaded tag read (mirrors WireReader::read_tag: same fused 1-byte fast path, same
+// InvalidFieldNumber / FieldNumberRange / ReservedWireType rejects). Returns the advanced cursor and
+// writes *out; on a malformed tag returns nullptr and writes *err. The fail position is the passed-in
+// cursor, so the caller reports offset = (entry cursor - buffer begin) -- matching read_tag's `start`.
+inline const std::uint8_t* vt_read_tag(const std::uint8_t* p, const std::uint8_t* end, Tag* out,
+                                       WireError* err) noexcept {
+    if (p < end && (*p & 0x80U) == 0U) {  // fused 1-byte tag
+        const std::uint32_t byte = *p;
+        const std::uint32_t field = byte >> 3U;
+        const std::uint32_t wire = byte & 0x07U;
+        if (field != 0U && wire != 6U && wire != 7U) {
+            *out = Tag{field, static_cast<WireType>(wire)};
+            return p + 1;
+        }
+    }
+    std::uint64_t raw =
+        0;  // multi-byte: read the full 64-bit varint so over-range reports FieldNumberRange
+    const std::uint8_t* const np = vt_read_varint(p, end, &raw, err);
+    if (np == nullptr) {
+        return nullptr;
+    }
+    const auto wire = static_cast<std::uint32_t>(raw & 0x07U);
+    const std::uint64_t field = raw >> 3U;
+    if (field == 0) {
+        *err = WireError::InvalidFieldNumber;
+        return nullptr;
+    }
+    if (field > kMaxFieldNumber) {
+        *err = WireError::FieldNumberRange;
+        return nullptr;
+    }
+    if (wire == 6U || wire == 7U) {
+        *err = WireError::ReservedWireType;
+        return nullptr;
+    }
+    *out = Tag{static_cast<std::uint32_t>(field), static_cast<WireType>(wire)};
+    return np;
+}
+
+// Outcome of vt_read_tag_or_end: a decoded tag, a clean end-of-buffer, or a malformed tag.
+enum class VtTagState : std::uint8_t { Tag, End, Error };
+
+// Value-threaded fused tag/end read (mirrors WireReader::read_tag_or_end): ONE bounds check
+// distinguishes clean end / tag / error, so a value-threaded decode loop drops the separate `p < end`
+// the loop condition would otherwise duplicate against read_tag's own fast-path check. Writes *state;
+// on Tag returns the advanced cursor (and writes *out), otherwise returns the passed-in cursor.
+inline const std::uint8_t* vt_read_tag_or_end(const std::uint8_t* p, const std::uint8_t* end,
+                                              Tag* out, WireError* err,
+                                              VtTagState* state) noexcept {
+    if (p >= end) {
+        *state = VtTagState::End;
+        return p;
+    }
+    if ((*p & 0x80U) == 0U) {  // fused 1-byte tag
+        const std::uint32_t byte = *p;
+        const std::uint32_t field = byte >> 3U;
+        const std::uint32_t wire = byte & 0x07U;
+        if (field != 0U && wire != 6U && wire != 7U) {
+            *out = Tag{field, static_cast<WireType>(wire)};
+            *state = VtTagState::Tag;
+            return p + 1;
+        }
+    }
+    const std::uint8_t* const np = vt_read_tag(p, end, out, err);  // rare: multi-byte or invalid
+    if (np == nullptr) {
+        *state = VtTagState::Error;
+        return p;
+    }
+    *state = VtTagState::Tag;
+    return np;
+}
+
+// Value-threaded fixed32/fixed64 (mirror WireReader::read_fixed32/64: little-endian load, truncation
+// reject). Fail position is the passed-in cursor.
+inline const std::uint8_t* vt_read_fixed32(const std::uint8_t* p, const std::uint8_t* end,
+                                           std::uint32_t* out, WireError* err) noexcept {
+    if (static_cast<std::size_t>(end - p) < 4U) {
+        *err = WireError::TruncatedI32;
+        return nullptr;
+    }
+    *out = static_cast<std::uint32_t>(p[0]) | (static_cast<std::uint32_t>(p[1]) << 8U) |
+           (static_cast<std::uint32_t>(p[2]) << 16U) | (static_cast<std::uint32_t>(p[3]) << 24U);
+    return p + 4;
+}
+inline const std::uint8_t* vt_read_fixed64(const std::uint8_t* p, const std::uint8_t* end,
+                                           std::uint64_t* out, WireError* err) noexcept {
+    if (static_cast<std::size_t>(end - p) < 8U) {
+        *err = WireError::TruncatedI64;
+        return nullptr;
+    }
+    std::uint64_t v = 0;
+    for (unsigned i = 0; i < 8U; ++i) {
+        v |= static_cast<std::uint64_t>(p[i]) << (i * 8U);
+    }
+    *out = v;
+    return p + 8;
+}
+
+// Value-threaded length-delimited read (mirrors WireReader::read_length_delimited): reads the length
+// varint, bounds-checks the payload, returns the payload span in *out and the cursor past it. Fail
+// position is the passed-in cursor (the length varint start), matching read_length_delimited's `start`.
+inline const std::uint8_t* vt_read_length_delimited(const std::uint8_t* p, const std::uint8_t* end,
+                                                    ByteView* out, WireError* err) noexcept {
+    std::uint64_t len = 0;
+    const std::uint8_t* const np = vt_read_varint(p, end, &len, err);
+    if (np == nullptr) {
+        return nullptr;
+    }
+    if constexpr (sizeof(std::size_t) <
+                  sizeof(std::uint64_t)) {  // 32-bit hosts only (see read_length_delimited)
+        if (len > std::numeric_limits<std::size_t>::max()) {
+            *err = WireError::LengthTooLarge;
+            return nullptr;
+        }
+    }
+    const auto avail = static_cast<std::uint64_t>(end - np);
+    if (len > avail) {
+        *err = WireError::LengthExceedsBuffer;
+        return nullptr;
+    }
+    const auto n = static_cast<std::size_t>(len);
+    *out = byte_view(np, n);
+    return np + n;
+}
+
+// Value-threaded field skip (mirrors WireReader::skip_value / scan_group_end). `begin` is the buffer
+// start: leaf failures happen at the passed-in cursor, but a nested group walk fails deep inside the
+// recursion, so on ANY failure these write the absolute fail offset (fail position - begin) to *fail_off
+// -- exactly what WireReader::fail() records -- and the caller reports (*err, *fail_off). Cold path
+// (unknown/group fields); the extra params never touch the hot cursor.
+inline const std::uint8_t* vt_scan_group_end(const std::uint8_t* p, const std::uint8_t* end,
+                                             const std::uint8_t* begin, std::uint32_t field_number,
+                                             int depth, WireError* err, std::size_t* fail_off,
+                                             const std::uint8_t** egroup_tag = nullptr) noexcept;
+
+inline const std::uint8_t* vt_skip_value(const std::uint8_t* p, const std::uint8_t* end,
+                                         const std::uint8_t* begin, Tag tag, int depth,
+                                         WireError* err, std::size_t* fail_off) noexcept {
+    switch (tag.wire_type) {
+        case WireType::Varint: {
+            std::uint64_t discard = 0;
+            const std::uint8_t* const np = vt_read_varint(p, end, &discard, err);
+            if (np == nullptr) {
+                *fail_off = static_cast<std::size_t>(p - begin);
+            }
+            return np;
+        }
+        case WireType::I64: {
+            std::uint64_t discard = 0;
+            const std::uint8_t* const np = vt_read_fixed64(p, end, &discard, err);
+            if (np == nullptr) {
+                *fail_off = static_cast<std::size_t>(p - begin);
+            }
+            return np;
+        }
+        case WireType::I32: {
+            std::uint32_t discard = 0;
+            const std::uint8_t* const np = vt_read_fixed32(p, end, &discard, err);
+            if (np == nullptr) {
+                *fail_off = static_cast<std::size_t>(p - begin);
+            }
+            return np;
+        }
+        case WireType::Len: {
+            ByteView discard;
+            const std::uint8_t* const np = vt_read_length_delimited(p, end, &discard, err);
+            if (np == nullptr) {
+                *fail_off = static_cast<std::size_t>(p - begin);
+            }
+            return np;
+        }
+        case WireType::SGroup:
+            return vt_scan_group_end(p, end, begin, tag.field_number, depth + 1, err, fail_off);
+        case WireType::EGroup:
+            *err = WireError::UnexpectedEndGroup;
+            *fail_off = static_cast<std::size_t>(p - begin);
+            return nullptr;
+    }
+    return nullptr;  // unreachable: wire_type came from a validated tag
+}
+
+inline const std::uint8_t* vt_scan_group_end(const std::uint8_t* p, const std::uint8_t* end,
+                                             const std::uint8_t* begin, std::uint32_t field_number,
+                                             int depth, WireError* err, std::size_t* fail_off,
+                                             const std::uint8_t** egroup_tag) noexcept {
+    if (depth > kMaxGroupDepth) {
+        *err = WireError::GroupTooDeep;
+        *fail_off = static_cast<std::size_t>(p - begin);
+        return nullptr;
+    }
+    while (true) {
+        const std::uint8_t* const tag_start = p;
+        if (p >= end) {
+            *err = WireError::UnterminatedGroup;
+            *fail_off = static_cast<std::size_t>(tag_start - begin);
+            return nullptr;
+        }
+        Tag tag{};
+        const std::uint8_t* const np = vt_read_tag(p, end, &tag, err);
+        if (np == nullptr) {
+            *fail_off = static_cast<std::size_t>(tag_start - begin);  // read_tag fails at its start
+            return nullptr;
+        }
+        p = np;
+        if (tag.wire_type == WireType::EGroup) {
+            if (tag.field_number != field_number) {
+                *err = WireError::EndGroupMismatch;
+                *fail_off = static_cast<std::size_t>(tag_start - begin);
+                return nullptr;
+            }
+            if (egroup_tag != nullptr) {
+                *egroup_tag = tag_start;  // caller bounds the group body at the EGROUP tag
+            }
+            return p;  // cursor just past the matching EGROUP tag
+        }
+        const std::uint8_t* const sp = vt_skip_value(p, end, begin, tag, depth, err, fail_off);
+        if (sp == nullptr) {
+            return nullptr;  // vt_skip_value already set *fail_off
+        }
+        p = sp;
+    }
+}
+
+// Value-threaded group-body read (mirrors WireReader::read_group / read_group_body): the SGROUP tag is
+// already consumed; returns the body span (bytes up to the matching EGROUP tag, exclusive) in *body and
+// the cursor just past the EGROUP. On a malformed/unterminated group returns nullptr and writes
+// (*err, *fail_off) at the deep failure position.
+inline const std::uint8_t* vt_read_group(const std::uint8_t* p, const std::uint8_t* end,
+                                         const std::uint8_t* begin, std::uint32_t field_number,
+                                         ByteView* body, WireError* err,
+                                         std::size_t* fail_off) noexcept {
+    const std::uint8_t* egroup_tag = nullptr;
+    const std::uint8_t* const np =
+        vt_scan_group_end(p, end, begin, field_number, 1, err, fail_off, &egroup_tag);
+    if (np == nullptr) {
+        return nullptr;
+    }
+    *body = byte_view(p, static_cast<std::size_t>(egroup_tag - p));
+    return np;
+}
+// NOLINTEND(bugprone-easily-swappable-parameters, cppcoreguidelines-avoid-magic-numbers,
+// readability-magic-numbers, cppcoreguidelines-pro-bounds-pointer-arithmetic)
 
 // --- caller-applied interpretation helpers (cannot fail; pure bit ops) ------
 
