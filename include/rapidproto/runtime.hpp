@@ -186,12 +186,22 @@ namespace swar_detail {
 inline constexpr std::uint64_t kMSB = 0x8080808080808080ULL;   // MSB of each byte
 inline constexpr std::uint64_t kLow7 = 0x7F7F7F7F7F7F7F7FULL;  // low 7 bits of each byte
 
-// 8 bytes as a uint64 in little-endian logical order (byte i in bits 8i..8i+7).
+// 8 bytes as a uint64 in little-endian logical order (byte i in bits 8i..8i+7). memcpy is a single
+// aligned-agnostic load; on a big-endian host it is byte-reversed back to that logical order. The
+// reverse prefers the compiler intrinsic (gcc/clang -> a `rev`/`bswap` instruction) but falls back to
+// portable shifts for any other compiler, so no supported build is left without a definition.
 inline std::uint64_t load64(const std::uint8_t* p) noexcept {
     std::uint64_t w = 0;
     std::memcpy(&w, p, sizeof w);
 #if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+#if defined(__GNUC__) || defined(__clang__)
     w = __builtin_bswap64(w);
+#else
+    w = ((w & 0xFF00000000000000ULL) >> 56U) | ((w & 0x00FF000000000000ULL) >> 40U) |
+        ((w & 0x0000FF0000000000ULL) >> 24U) | ((w & 0x000000FF00000000ULL) >> 8U) |
+        ((w & 0x00000000FF000000ULL) << 8U) | ((w & 0x0000000000FF0000ULL) << 24U) |
+        ((w & 0x000000000000FF00ULL) << 40U) | ((w & 0x00000000000000FFULL) << 56U);
+#endif
 #endif
     return w;
 }
