@@ -427,46 +427,40 @@ RP_FLATTEN inline std::size_t decode_packed_varints(const std::uint8_t* p, const
                 break;
         }
     } else if (kern == PackedKernel::Struct) {
-        // Narrow-mixed: one stopmask per 64-byte block finds every terminator, then each element is an
-        // independent compact7 (no per-element stop compute). The 8-byte load past byte `start` needs
-        // slack, so process while >= 72 in-span bytes remain; the byte-loop tail finishes the rest and
-        // handles any block containing a > 8-byte varint (bailed on below).
-        int stops[64];
+        // Narrow-mixed: one stopmask per 64-byte block finds every terminator, then each varint is an
+        // independent compact7 (no per-element stop compute) in a single fused pass over the mask. The
+        // 8-byte load past byte `start` needs slack, so process while >= 72 in-span bytes remain (the
+        // byte-loop tail finishes the last < 72). A > 8-byte varint in the block is decoded in place by
+        // the scalar reader -- NOT bailed on -- so a lone outlier can't drop the whole span to the tail.
         while (static_cast<std::size_t>(end - q) >= 72) {
-            const std::uint64_t sm = swar_detail::stopmask64(q);
-            if (sm == 0U) {
-                break;  // all-continuation -> byte-loop tail
-            }
-            const int cnt = swar_detail::popcount64(sm);
-            std::uint64_t t = sm;
-            for (int k = 0; k < cnt; ++k) {
-                stops[k] = swar_detail::ctz64(t);
-                t &= t - 1U;
+            std::uint64_t t = swar_detail::stopmask64(q);
+            if (t == 0U) {
+                break;  // all-continuation (a varint spanning the block) -> byte-loop tail
             }
             int start = 0;
-            bool longv = false;
-            for (int k = 0; k < cnt; ++k) {
-                if (stops[k] - start + 1 > 8) {
-                    longv = true;
-                    break;
+            do {
+                const int b = swar_detail::ctz64(t);
+                t &= t - 1U;
+                const int len = b - start + 1;
+                if (len <= 8) {
+                    const std::uint64_t lenmask =
+                        (len >= 8) ? ~std::uint64_t{0}
+                                   : ((std::uint64_t{1} << (8U * static_cast<unsigned>(len))) - 1U);
+                    out[n++] = conv(swar_detail::compact7(swar_detail::load64(q + start) & lenmask &
+                                                          swar_detail::kLow7));
+                } else {  // 9/10-byte varint: > 1 word, so decode (and validate) with the scalar reader
+                    std::uint64_t raw = 0;
+                    const std::uint8_t* const np = read_varint_packed(q + start, end, &raw, err);
+                    if (np == nullptr) {
+                        *fail_off = static_cast<std::size_t>((q + start) - begin);
+                        return SIZE_MAX;
+                    }
+                    out[n++] = conv(raw);
                 }
-                start = stops[k] + 1;
-            }
-            if (longv) {
-                break;  // a > 8-byte varint (can't compact7 in one word) -> byte-loop tail
-            }
-            start = 0;
-            for (int k = 0; k < cnt; ++k) {
-                const int len = stops[k] - start + 1;
-                const std::uint64_t lenmask =
-                    (len >= 8) ? ~std::uint64_t{0}
-                               : ((std::uint64_t{1} << (8U * static_cast<unsigned>(len))) - 1U);
-                out[n + static_cast<std::size_t>(k)] = conv(swar_detail::compact7(
-                    swar_detail::load64(q + start) & lenmask & swar_detail::kLow7));
-                start = stops[k] + 1;
-            }
-            n += static_cast<std::size_t>(cnt);
-            q += static_cast<std::size_t>(stops[cnt - 1] + 1);
+                start = b + 1;
+            } while (t != 0U);
+            q += static_cast<std::size_t>(
+                start);  // start = one past the last terminator in the block
         }
     } else if (kern == PackedKernel::Swar) {
         while (static_cast<std::size_t>(end - q) >= 8) {

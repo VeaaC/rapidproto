@@ -47,7 +47,7 @@ struct VarintDist {
 // of delta-encoded sequences, small ids/indices, enum arrays and counts.
 inline std::vector<VarintDist> varint_dists() {
     std::vector<VarintDist> out;
-    out.reserve(14);
+    out.reserve(15);
     for (int w = 1; w <= 10; ++w) {
         out.push_back({"fx" + std::to_string(w), w});
     }
@@ -55,6 +55,8 @@ inline std::vector<VarintDist> varint_dists() {
     out.push_back({"skew", -1});
     out.push_back({"mix12", -2});  // uniform 1..2 byte
     out.push_back({"mix13", -3});  // uniform 1..3 byte
+    out.push_back(
+        {"mix13out", -4});  // 1..3 byte with a 1% 10-byte outlier (a resync/sentinel value)
     return out;
 }
 
@@ -90,6 +92,7 @@ inline std::vector<std::int64_t> varint_values(const VarintDist& dist, int count
     std::uniform_int_distribution<int> width12(1, 2);
     std::uniform_int_distribution<int> width13(1, 3);
     std::uniform_int_distribution<int> tenth(0, 9);
+    std::uniform_int_distribution<int> hundredth(0, 99);
     for (int i = 0; i < count; ++i) {
         int width = 0;
         if (dist.mode > 0) {
@@ -100,8 +103,10 @@ inline std::vector<std::int64_t> varint_values(const VarintDist& dist, int count
             width = (tenth(rng) == 0) ? any_width(rng) : 1;  // 90% 1-byte, 10% uniform 1..10
         } else if (dist.mode == -2) {
             width = width12(rng);  // uniform 1..2
-        } else {
+        } else if (dist.mode == -3) {
             width = width13(rng);  // uniform 1..3
+        } else {
+            width = (hundredth(rng) == 0) ? 10 : width13(rng);  // 1..3 byte + 1% 10-byte outlier
         }
         out.push_back(varint_of_width(width, rng()));
     }
