@@ -28,8 +28,10 @@
 #include <string_view>
 #include <vector>
 
+#include "bench.rp.stream.hpp"  // generated rp::bench::stream::Big (int64 numbers); -I<BENCH_GEN>
 #include "bench_harness.hpp"  // rpbench: the shared measurement harness (also used by the arena bench)
 #include "bench_two_tier.hpp"  // micro-vs-large-TU decode (out-of-line-primitive penalty)
+#include "bench_varint.hpp"    // repeated-varint sweep builders (shared with the arena bench)
 #include "proto2.rp.stream.hpp"  // generated p2::stream::Scalars; -Itests/streamgen_golden (pulls runtime.hpp)
 #include "rapidproto/runtime.hpp"
 
@@ -568,6 +570,90 @@ int scenario_packed() {
 #endif
     };
     return run("packed-int32", ByteView(buf), arms);
+}
+
+// Repeated-varint sweep: the packed int64 decode path (rp::bench::stream::Big.numbers, field 1) across
+// element byte width (fixed 1..10, uniform, 90/10 skew) x element count (10 .. 1,000,000). The arena
+// bench sweeps the SAME shapes; together they map the packed-varint decode surface for both decoders.
+int scenario_repeated_varint() {
+    int bad = 0;
+    for (const auto& dist : rpbench::varint_dists()) {
+        for (const int count : rpbench::varint_lengths()) {
+            const std::string buf = rpbench::make_packed_i64(rpbench::varint_values(dist, count));
+            const std::string name = "rv " + dist.label + " " + rpbench::length_tag(count);
+            const Arm arms[] = {
+                {"generated",
+                 [](ByteView b) -> std::uint64_t {
+                     std::uint64_t s = 0;
+                     (void)rp::bench::stream::Big{b}.decode(
+                         [&](rp::bench::stream::Big::numbers, std::int64_t v) {
+                             s += static_cast<std::uint64_t>(v);
+                         });
+                     return s;
+                 }},
+                {"wire",
+                 [](ByteView b) -> std::uint64_t {
+                     std::uint64_t s = 0;
+                     const std::uint8_t* p = wire::byte_ptr(b);
+                     const std::uint8_t* const beg = p;
+                     const std::uint8_t* const end = p + b.size();
+                     WireError we = WireError::None;
+                     while (true) {
+                         Tag t{};
+                         wire::TagState st = wire::TagState::End;
+                         p = wire::read_tag_or_end(p, end, &t, &we, &st);
+                         if (st != wire::TagState::Tag) {
+                             break;
+                         }
+                         if (t.field_number == 1 && t.wire_type == WireType::Len) {
+                             ByteView span;
+                             p = wire::read_length_delimited(p, end, &span, &we);
+                             if (p == nullptr) {
+                                 break;
+                             }
+                             const std::uint8_t* ip = wire::byte_ptr(span);
+                             const std::uint8_t* const iend = ip + span.size();
+                             while (ip < iend) {
+                                 std::uint64_t v = 0;
+                                 ip = wire::read_varint(ip, iend, &v, &we);
+                                 if (ip == nullptr) {
+                                     break;
+                                 }
+                                 s += static_cast<std::uint64_t>(varint_to_int64(v));
+                             }
+                         } else {
+                             std::size_t fo = 0;
+                             p = wire::skip_value(p, end, beg, t, 0, &we, &fo);
+                             if (p == nullptr) {
+                                 break;
+                             }
+                         }
+                     }
+                     return s;
+                 }},
+#ifdef RAPIDPROTO_HAVE_PROTOZERO
+                {"protozero",
+                 [](ByteView b) -> std::uint64_t {
+                     std::uint64_t s = 0;
+                     protozero::pbf_reader r{b.data(), b.size()};
+                     while (r.next()) {
+                         if (r.tag() == 1) {
+                             auto packed = r.get_packed_int64();
+                             for (auto v : packed) {
+                                 s += static_cast<std::uint64_t>(v);
+                             }
+                         } else {
+                             r.skip();
+                         }
+                     }
+                     return s;
+                 }},
+#endif
+            };
+            bad += run(name.c_str(), ByteView(buf), arms);
+        }
+    }
+    return bad;
 }
 
 int scenario_skip_heavy() {
@@ -1138,6 +1224,7 @@ int main() {
     bad += scenario_fixed64();
     bad += scenario_string();
     bad += scenario_packed();
+    bad += scenario_repeated_varint();
     bad += scenario_skip_heavy();
     bad += scenario_mixed();
     bad += scenario_multibyte_tag();

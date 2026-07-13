@@ -8,13 +8,20 @@ into one snapshot and renders a unified table. Four subcommands:
 
   bench.py run   [--build-dir D] [--core N] [--out FILE]   build both, run both pinned, write a snapshot
   bench.py table SNAPSHOT [SNAPSHOT ...]                    render one snapshot, or compare several
-  bench.py diff  OLD NEW [--threshold PCT]                  ins/B regression check (exit 1 on regression)
+  bench.py diff  OLD NEW [--threshold PCT]                  GB/s regression check (exit 1 on regression)
   bench.py experiment BASELINE_REF [VARIANT_REF]           build+snapshot two git refs, then diff them
 
 A snapshot is NDJSON: one `{"rec":"snapshot",...}` header (compiler / protobuf / git rev) then every
-bench record, each tagged with `"decoder":"stream"|"arena"`. ins/B is the deterministic signal (retired
-instructions per byte -- identical across machines for a given binary + input), so it is what the
-multi-snapshot compare keys on; cyc/B and GB/s are same-machine-only and shown for context.
+bench record, each tagged with `"decoder":"stream"|"arena"`. GB/s (measured decode throughput) is the
+PRIMARY signal -- it is what a reader actually cares about and, unlike ins/B, it reflects everything the
+CPU pays for (branch mispredictions, cache/memory stalls), so it is what the compare and the regression
+gate key on. Caveat: across independent builds GB/s carries code-PLACEMENT noise -- byte-identical
+functions measure ~10% apart from address/alignment alone (architecture.md), plus frequency drift -- so
+the gate's floor is ~10% and sub-floor cross-build deltas are not reliable (pin a core, quiesce the box).
+cyc/B and ins/B are kept as diagnostics: cyc/B is frequency-invariant timing (why is throughput low --
+mispredicts show here, not in ins/B), and ins/B is deterministic retired-work (identical across machines
+for one binary+input, so it resolves a real sub-floor codegen change GB/s cannot -- but it is a rough
+proxy for work, blind to the stalls above, not a substitute for measured time).
 """
 import argparse
 import json
@@ -163,10 +170,11 @@ def render_one(path):
 
 
 def render_compare(paths):
-    """Multiple snapshots side by side, keyed on (decoder, scenario, arm). ins/B is deterministic, so
-    its cross-snapshot delta is a genuine codegen difference (lower is better -> a winner is named, and
-    for two snapshots a signed Δ% is computed). GB/s is same-machine and placement-sensitive, so it is
-    shown as raw context columns with NO delta -- a cross-build GB/s delta would fold in layout noise."""
+    """Multiple snapshots side by side, keyed on (decoder, scenario, arm). GB/s is the primary metric --
+    measured decode throughput -- so its cross-snapshot delta (and winner) is computed: this IS the
+    cross-compiler / cross-backend comparison (higher is better). GB/s is same-machine and carries some
+    placement/frequency noise, so read small deltas with care. ins/B is shown below as deterministic
+    context (lower = less retired work; a rough proxy, not measured time)."""
     snaps = [load(p) for p in paths]
     labels = [(h or {}).get("compiler", os.path.basename(p)) for (h, _, _), p in zip(snaps, paths)]
     for lab, p in zip(labels, paths):
@@ -181,7 +189,7 @@ def render_compare(paths):
                 keys.append(k)
             index[k][si] = a
 
-    def print_rows(metric, delta):
+    def print_rows(metric, delta, higher_better):
         head = f"  {'decoder':<8}{'scenario':<24}{'arm':<14}"
         head += "".join(f"{lab[:10]:>11}" for lab in labels)
         if delta:
@@ -199,8 +207,8 @@ def render_compare(paths):
             tail = ""
             if delta:
                 present = [(si, v) for si, v in enumerate(vals) if v is not None and v >= 0]
-                if len(present) >= 2:  # lower ins/B is better -> the smallest wins
-                    best_si, _ = min(present, key=lambda t: t[1])
+                if len(present) >= 2:  # GB/s: highest wins; ins/B: lowest wins
+                    best_si, _ = (max if higher_better else min)(present, key=lambda t: t[1])
                     win = labels[best_si][:10]
                     if len(snaps) == 2 and all(v is not None and v >= 0 for v in vals) and vals[0]:
                         dpct = (vals[1] - vals[0]) / vals[0] * 100
@@ -209,10 +217,10 @@ def render_compare(paths):
                         tail = f"{'':>9}  {win}"  # >2 snapshots: name the winner, skip the ambiguous Δ
             print(f"  {d:<8}{s:<24}{arm:<14}{cells}{tail}")
 
-    print("\nins/B  (deterministic, cross-machine; lower is better, delta = 2nd vs 1st)")
-    print_rows("ins_b", delta=True)
-    print("\nGB/s  (same-machine only, placement-sensitive -- no delta computed on purpose)")
-    print_rows("gb_s", delta=False)
+    print("\nGB/s  (measured throughput; PRIMARY. delta = 2nd vs 1st, higher is better)")
+    print_rows("gb_s", delta=True, higher_better=True)
+    print("\nins/B  (deterministic context; lower = less retired work, a rough proxy -- not time)")
+    print_rows("ins_b", delta=True, higher_better=False)
 
 
 def table(args):
@@ -222,54 +230,84 @@ def table(args):
         render_compare(args.snapshots)
 
 
+def overhead_dominated(scenario):
+    """The repeated-varint sweep's tiniest rows (n<=100 -> tens to hundreds of bytes) are dominated by
+    per-op call/alloc/timer overhead, not decode, so their GB/s swings far more than the placement floor
+    and is meaningless to gate. Excluded from pass/fail (still shown in the report); the deterministic
+    ins/B column still compares them fine. Only the sweep uses this `rv <dist> <count>` naming."""
+    return scenario.startswith("rv ") and scenario.rsplit(" ", 1)[-1] in ("10", "100")
+
+
 def diff(args):
     """Regression check between two snapshots (old -> new), keyed on (decoder, scenario, arm). Gates on
-    ins/B ONLY: it is deterministic (same binary + input -> same value on any machine), so a change is a
-    real codegen difference, not noise -- unlike GB/s, which is same-machine and placement-sensitive and
-    so is not comparable across two builds. Exits 1 if any arm's ins/B rose by more than --threshold."""
+    GB/s -- measured decode throughput, the real-performance signal (it catches what ins/B cannot: branch
+    mispredictions, cache/memory stalls). Exits 1 if any arm's GB/s DROPPED by more than --threshold.
+
+    Reliability caveat: across two INDEPENDENT builds, GB/s carries code-PLACEMENT noise -- byte-identical
+    functions measure ~10% apart from address/alignment alone (architecture.md), on top of frequency
+    drift. So the default threshold is ~10% (the noise floor): the gate catches gross regressions, and the
+    2-9% band is below the floor -- for a change there, read the deterministic ins/B column (printed as
+    context) or the within-run `vs <baseline>` verdict in the PRETTY (non-JSON) bench output, which is
+    placement-robust because it ratios arms back-to-back in one binary. Run both snapshots pinned to a
+    quiesced core. The sweep's n<=100 rows are excluded from pass/fail (too small to time meaningfully)."""
     if args.threshold < 0:  # a negative threshold would make the regression/improvement sets overlap
         sys.exit("diff: --threshold must be >= 0")
     (ho, ao, _), (hn, an, _) = load(args.old), load(args.new)
     ho, hn = ho or {}, hn or {}
     tag = lambda h: f"{h.get('compiler', '?')} rev {h.get('git_rev', '?')}"
-    print(f"diff: {tag(ho)}  ->  {tag(hn)}   (threshold {args.threshold:.1f}% ins/B)")
+    print(f"diff: {tag(ho)}  ->  {tag(hn)}   (threshold {args.threshold:.1f}% GB/s)")
     if ho.get("compiler") != hn.get("compiler"):
-        print("  note: compilers differ -- this is a codegen comparison, not a same-compiler regression check")
+        print("  note: compilers differ -- this is a throughput comparison, not a same-compiler regression check")
 
     by_key = lambda arms: {(a["decoder"], a["scenario"], a["arm"]): a for a in arms}
     old_i, new_i = by_key(ao), by_key(an)
 
-    rows = []  # (delta_pct, decoder, scenario, arm, old_ins, new_ins) for arms in BOTH with valid ins/B
+    # (gb_s delta%, decoder, scenario, arm, old_gb, new_gb, old_ins, new_ins). Delta is signed as a
+    # PERFORMANCE change: positive = faster (GB/s up), negative = slower (a regression).
+    rows = []
+    excluded = 0
     for k, a in new_i.items():
+        if overhead_dominated(k[1]):
+            excluded += 1
+            continue
+        og = (old_i.get(k) or {}).get("gb_s")
+        ng = a.get("gb_s")
+        if og is None or ng is None or og <= 0 or ng <= 0:
+            continue
         oi = (old_i.get(k) or {}).get("ins_b")
         ni = a.get("ins_b")
-        if oi is None or ni is None or oi < 0 or ni < 0 or not oi:
-            continue
-        rows.append(((ni - oi) / oi * 100, k[0], k[1], k[2], oi, ni))
+        rows.append(((ng - og) / og * 100, k[0], k[1], k[2], og, ng, oi, ni))
     added = [k for k in new_i if k not in old_i]
     removed = [k for k in old_i if k not in new_i]
 
     t = args.threshold
-    regr = sorted((r for r in rows if r[0] > t), key=lambda r: -r[0])
-    impr = sorted((r for r in rows if r[0] < -t), key=lambda r: r[0])
+    regr = sorted((r for r in rows if r[0] < -t), key=lambda r: r[0])   # slower: GB/s dropped
+    impr = sorted((r for r in rows if r[0] > t), key=lambda r: -r[0])   # faster: GB/s rose
+
+    def ins_delta(oi, ni):
+        if oi is None or ni is None or oi < 0 or ni < 0 or not oi:
+            return "     n/a"
+        return f"{(ni - oi) / oi * 100:>+7.1f}%"
 
     def show(title, group):
         if not group:
             return
         print(f"\n{title}")
-        print(f"  {'decoder':<8}{'scenario':<24}{'arm':<14}{'old':>9}{'new':>9}{'delta':>9}")
-        for dpct, dec, scen, arm, oi, ni in group:
-            print(f"  {dec:<8}{scen:<24}{arm:<14}{oi:>9.2f}{ni:>9.2f}{dpct:>+8.1f}%")
+        print(f"  {'decoder':<8}{'scenario':<24}{'arm':<14}{'old GB/s':>9}{'new GB/s':>9}"
+              f"{'delta':>9}{'ins/B':>9}")
+        for dpct, dec, scen, arm, og, ng, oi, ni in group:
+            print(f"  {dec:<8}{scen:<24}{arm:<14}{og:>9.2f}{ng:>9.2f}{dpct:>+8.1f}%{ins_delta(oi, ni):>9}")
 
-    show(f"regressions (ins/B up > {t:.1f}%)", regr)
-    show(f"improvements (ins/B down > {t:.1f}%)", impr)
+    show(f"regressions (GB/s down > {t:.1f}%)", regr)
+    show(f"improvements (GB/s up > {t:.1f}%)", impr)
 
+    ex = f"; {excluded} tiny-buffer sweep rows excluded from the gate" if excluded else ""
     extra = f"; {len(added)} added, {len(removed)} removed" if (added or removed) else ""
-    print(f"\n{len(rows) - len(regr) - len(impr)} arms unchanged (|delta| <= {t:.1f}%){extra}")
+    print(f"\n{len(rows) - len(regr) - len(impr)} arms unchanged (|delta| <= {t:.1f}%){ex}{extra}")
     if regr:
-        print(f"\nFAIL: {len(regr)} ins/B regression(s) exceed {t:.1f}%")
+        print(f"\nFAIL: {len(regr)} GB/s regression(s) exceed {t:.1f}%")
         sys.exit(1)
-    print(f"\nOK: no ins/B regression beyond {t:.1f}%")
+    print(f"\nOK: no GB/s regression beyond {t:.1f}%")
 
 
 def current_ref():
@@ -285,10 +323,12 @@ def current_ref():
 
 
 def experiment(args):
-    """Build+snapshot two git refs (baseline, then variant) in the same build dir and diff them. The
-    two are independent builds with different code placement, so it diffs on ins/B (deterministic) via
-    diff() -- cyc/B and GB/s are not comparable across builds. Refuses to run on a dirty working tree
-    (it checks out refs) and always restores the original ref, even if a build fails."""
+    """Build+snapshot two git refs (baseline, then variant) in the same build dir and diff them on GB/s
+    via diff() -- measured throughput, the real-performance signal. The two are independent builds with
+    different code placement, so a sub-~10% GB/s delta can be layout/frequency noise (the diff threshold
+    defaults to that floor); keep the box quiesced and pinned, and for a change in the 2-9% band read the
+    deterministic ins/B column or re-run the PRETTY bench and read its within-run `vs <baseline>` verdict.
+    Refuses to run on a dirty working tree (it checks out refs) and always restores the original ref."""
     if args.threshold < 0:
         sys.exit("experiment: --threshold must be >= 0")
     if subprocess.check_output(["git", "-C", REPO, "status", "--porcelain"], text=True).strip():
@@ -349,18 +389,21 @@ def main():
     t.add_argument("snapshots", nargs="+")
     t.set_defaults(func=table)
 
-    d = sub.add_parser("diff", help="ins/B regression check between two snapshots (exit 1 on regression)")
+    d = sub.add_parser("diff", help="GB/s regression check between two snapshots (exit 1 on regression)")
     d.add_argument("old")
     d.add_argument("new")
-    d.add_argument("--threshold", type=float, default=1.0, help="regression threshold in %% ins/B (default 1.0)")
+    d.add_argument("--threshold", type=float, default=10.0,
+                   help="regression threshold in %% GB/s (default 10.0 = the cross-build placement-noise "
+                        "floor; sub-floor changes are not reliably gateable -- see ins/B / the pretty verdict)")
     d.set_defaults(func=diff)
 
-    e = sub.add_parser("experiment", help="build+snapshot two git refs and diff them on ins/B")
+    e = sub.add_parser("experiment", help="build+snapshot two git refs and diff them on GB/s")
     e.add_argument("baseline", help="git ref for the baseline (built and snapshotted first)")
     e.add_argument("variant", nargs="?", default=None, help="git ref for the variant (default: current HEAD)")
     e.add_argument("--build-dir", default=os.path.join(REPO, "build", "gcc-pb25"))
     e.add_argument("--core", default="2", help="taskset core, or 'none' to skip pinning (default 2)")
-    e.add_argument("--threshold", type=float, default=1.0, help="regression threshold in %% ins/B (default 1.0)")
+    e.add_argument("--threshold", type=float, default=10.0,
+                   help="regression threshold in %% GB/s (default 10.0 = the cross-build placement-noise floor)")
     e.set_defaults(func=experiment)
 
     args = ap.parse_args()
