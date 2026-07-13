@@ -328,21 +328,24 @@ inline PackedKernel packed_strategy(const std::uint8_t* p, std::size_t span, int
 // is bounded to `>= its width` in-span bytes, so it never reads past the span (and thus never past the
 // buffer, since the span is a sub-view of it).
 // Fixed-stride decode of homogeneous W-byte varints (W a COMPILE-TIME constant, so the mask/stride/
-// guard specialize). Guards each element (last byte terminates, second-to-last continues => exactly W)
-// and stops on the first width change, leaving the rest to the caller's byte-loop tail. Advances `*np`.
+// guard specialize). Guards each element with a FULL W-byte continuation-pattern compare -- bytes 0..W-2
+// must all continue and byte W-1 must terminate (i.e. EXACTLY one W-byte varint); checking only the last
+// two bytes would accept a shorter varint followed by others merged into the window. Stops on the first
+// width change, leaving the rest to the caller's byte-loop tail. Advances `*np`.
 template <int W, class Elem, class Conv>
 inline const std::uint8_t* fixed_fill(const std::uint8_t* q, const std::uint8_t* end, Elem* out,
                                       std::size_t* np, Conv conv) noexcept {
     constexpr std::uint64_t kLenMask =
         (W >= 8) ? ~std::uint64_t{0} : ((std::uint64_t{1} << (8U * static_cast<unsigned>(W))) - 1U);
+    constexpr std::uint64_t kMsbW = swar_detail::kMSB & kLenMask;  // MSB of each of the low W bytes
+    // The one accepted pattern: bytes 0..W-2 continue (MSB set), byte W-1 terminates (MSB clear).
+    constexpr std::uint64_t kOneVarint =
+        kMsbW ^ (std::uint64_t{0x80} << (8U * static_cast<unsigned>(W - 1)));
     std::size_t n = *np;
     while (static_cast<std::size_t>(end - q) >= 8) {
         const std::uint64_t w = swar_detail::load64(q);
-        if (((w >> (8U * static_cast<unsigned>(W - 1))) & 0x80U) != 0U) {
-            break;  // last byte continues -> wider than W
-        }
-        if (((w >> (8U * static_cast<unsigned>(W - 2))) & 0x80U) == 0U) {
-            break;  // second-to-last byte terminates -> narrower than W
+        if ((w & kMsbW) != kOneVarint) {
+            break;  // not exactly one W-byte varint (wider, narrower, or an interior terminator)
         }
         out[n++] = conv(swar_detail::compact7(w & kLenMask & swar_detail::kLow7));
         q += W;
