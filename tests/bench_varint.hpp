@@ -75,6 +75,8 @@ inline std::string length_tag(int count) {
 inline std::vector<std::int64_t> varint_values(const VarintDist& dist, int count) {
     std::vector<std::int64_t> out;
     out.reserve(static_cast<std::size_t>(count));
+    // Seed = the golden-ratio mixer XOR the mode; `+ 32` biases mode (range -1..10) to a positive,
+    // collision-free per-distribution offset so each distribution gets its own reproducible stream.
     std::mt19937_64 rng(0x9E3779B97F4A7C15ULL ^ static_cast<std::uint64_t>(dist.mode + 32));
     std::uniform_int_distribution<int> any_width(1, 10);
     std::uniform_int_distribution<int> tenth(0, 9);
