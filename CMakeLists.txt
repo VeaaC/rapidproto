@@ -310,10 +310,28 @@ if(RAPIDPROTO_BUILD_TESTS)
   # inside the large test binary makes results layout-sensitive (see tests/bench_streamgen.cpp).
   # Built at -O3 -DNDEBUG even under the Debug preset so its numbers are meaningful; no -Werror
   # (it is not linked against rapidproto_strict). Run pinned: taskset -c 0 ./rapidproto_bench
-  add_executable(rapidproto_bench tests/bench_streamgen.cpp tests/bench_stream_isolated.cpp)
+  # The bench schema's decoders (arena + streaming, under the `rp` prefix), shared by BOTH benches so
+  # they decode the same shapes. Generating it needs only rapidprotoc (no protobuf), so it is emitted
+  # unconditionally -- the streaming bench uses rp::bench::stream::Big for the repeated-varint sweep.
+  set(BENCH_PROTO "${CMAKE_CURRENT_SOURCE_DIR}/tests/bench/bench.proto")
+  set(BENCH_PROTO_DIR "${CMAKE_CURRENT_SOURCE_DIR}/tests/bench")
+  set(BENCH_GEN "${CMAKE_CURRENT_BINARY_DIR}/generated/bench")
+  file(MAKE_DIRECTORY "${BENCH_GEN}")
+  # One rapidprotoc invocation emits BOTH decoders under the `rp` prefix, sharing ONE common header
+  # (rp::bench): arena at rp::bench::Dataset, streaming at rp::bench::stream::Dataset, both distinct
+  # from protoc's bench::Dataset -- all three Dataset types coexist in one translation unit.
+  add_custom_command(
+    OUTPUT "${BENCH_GEN}/bench.rp.hpp" "${BENCH_GEN}/bench.rp.stream.hpp"
+    COMMAND rapidprotoc --arena --stream -I${BENCH_PROTO_DIR} --namespace-prefix=rp
+            --out-dir=${BENCH_GEN} ${BENCH_PROTO}
+    DEPENDS rapidprotoc ${BENCH_PROTO}
+    COMMENT "rapidprotoc --arena --stream bench.proto -> bench.rp.{hpp,stream.hpp}" VERBATIM)
+
+  add_executable(rapidproto_bench tests/bench_streamgen.cpp tests/bench_stream_isolated.cpp
+    "${BENCH_GEN}/bench.rp.stream.hpp")
   target_link_libraries(rapidproto_bench PRIVATE rapidproto)
   target_include_directories(rapidproto_bench PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/tests/streamgen_golden)
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/streamgen_golden "${BENCH_GEN}")
   target_compile_options(rapidproto_bench PRIVATE -O3 -DNDEBUG)
 
   # Arena benchmark: decode the SAME realistic buffer up to four ways -- the arenagen decoder, protoc +
@@ -334,25 +352,13 @@ if(RAPIDPROTO_BUILD_TESTS)
     if(NOT Protobuf_PROTOC_EXECUTABLE AND TARGET protobuf::protoc)
       set(Protobuf_PROTOC_EXECUTABLE "$<TARGET_FILE:protobuf::protoc>")
     endif()
-    set(BENCH_PROTO "${CMAKE_CURRENT_SOURCE_DIR}/tests/bench/bench.proto")
-    set(BENCH_PROTO_DIR "${CMAKE_CURRENT_SOURCE_DIR}/tests/bench")
-    set(BENCH_GEN "${CMAKE_CURRENT_BINARY_DIR}/generated/bench")
-    file(MAKE_DIRECTORY "${BENCH_GEN}")
-    # protoc C++ codegen.
+    # protoc C++ codegen for the arena bench's materializing baseline (the rapidproto decoders come
+    # from the unconditional BENCH_GEN generation above).
     add_custom_command(
       OUTPUT "${BENCH_GEN}/bench.pb.cc" "${BENCH_GEN}/bench.pb.h"
       COMMAND ${Protobuf_PROTOC_EXECUTABLE} --cpp_out=${BENCH_GEN} -I${BENCH_PROTO_DIR} ${BENCH_PROTO}
       DEPENDS ${BENCH_PROTO}
       COMMENT "protoc bench.proto -> bench.pb.{h,cc}" VERBATIM)
-    # One rapidprotoc invocation emits BOTH decoders under the `rp` prefix, sharing ONE common header
-    # (rp::bench): arena at rp::bench::Dataset, streaming at rp::bench::stream::Dataset, both distinct
-    # from protoc's bench::Dataset -- all three Dataset types coexist in one translation unit.
-    add_custom_command(
-      OUTPUT "${BENCH_GEN}/bench.rp.hpp" "${BENCH_GEN}/bench.rp.stream.hpp"
-      COMMAND rapidprotoc --arena --stream -I${BENCH_PROTO_DIR} --namespace-prefix=rp
-              --out-dir=${BENCH_GEN} ${BENCH_PROTO}
-      DEPENDS rapidprotoc ${BENCH_PROTO}
-      COMMENT "rapidprotoc --arena --stream bench.proto -> bench.rp.{hpp,stream.hpp}" VERBATIM)
 
     add_executable(rapidproto_arena_bench
       tests/bench_arena.cpp

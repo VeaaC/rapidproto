@@ -62,6 +62,7 @@
 #include "bench.rp.hpp"         // arenagen: rp::bench::Dataset / WideSet / BigSet
 #include "bench.rp.stream.hpp"  // streamgen: rp::bench::stream::Dataset
 #include "bench_harness.hpp"  // rpbench: the shared measurement harness (also used by rapidproto_bench)
+#include "bench_varint.hpp"  // repeated-varint sweep builders (shared with the streaming bench)
 #include "rapidproto/arena_runtime.hpp"
 #include "rapidproto/runtime.hpp"
 
@@ -562,6 +563,75 @@ void sweep_shape(const char* name, Build build, ParseSum parse_sum,
     }
 }
 
+// ── repeated-varint sweep ───────────────────────────────────────────────────────────────────────
+// Bare-Big checksums (a message carrying only packed int64 `numbers`, field 1) for the sweep arms.
+std::uint64_t checksum_big_arena(const rp::bench::Big* b) {
+    std::uint64_t s = 0;
+    if (b != nullptr) {
+        for (const std::int64_t v : b->numbers()) {
+            s += static_cast<std::uint64_t>(v);
+        }
+    }
+    return s;
+}
+std::uint64_t checksum_big_protoc(const bench::Big& b) {
+    std::uint64_t s = 0;
+    for (const std::int64_t v : b.numbers()) {
+        s += static_cast<std::uint64_t>(v);
+    }
+    return s;
+}
+#ifdef RAPIDPROTO_HAVE_PROTOZERO
+std::uint64_t checksum_big_protozero(rapidproto::ByteView buf) {
+    std::uint64_t s = 0;
+    protozero::pbf_reader r{buf.data(), buf.size()};
+    while (r.next()) {
+        if (r.tag() == 1) {
+            auto packed = r.get_packed_int64();
+            for (const auto v : packed) {
+                s += static_cast<std::uint64_t>(v);
+            }
+        } else {
+            r.skip();
+        }
+    }
+    return s;
+}
+#endif
+
+// The packed int64 fill (rp::bench::Big.numbers) across element byte width (fixed 1..10, uniform, 90/10
+// skew) x element count (10 .. 1,000,000): arena-warm vs protoc (and protozero as a raw-parse
+// yardstick). The streaming bench sweeps the SAME shapes, so the two map the packed-varint decode
+// surface for both decoders.
+void sweep_repeated_varint() {
+    for (const auto& dist : rpbench::varint_dists()) {
+        for (const int count : rpbench::varint_lengths()) {
+            const std::string buf = rpbench::make_packed_i64(rpbench::varint_values(dist, count));
+            const rapidproto::ByteView view(buf);
+            const std::string name = "rv " + dist.label + " " + rpbench::length_tag(count);
+            rapidproto::Arena warm;
+            std::vector<rpbench::Arm> arms = {
+                {"protoc",
+                 [&]() {
+                     google::protobuf::Arena pa;
+                     auto* m = google::protobuf::Arena::CreateMessage<bench::Big>(&pa);
+                     m->ParseFromString(buf);
+                     return checksum_big_protoc(*m);
+                 }},
+                {"arena-warm",
+                 [&]() {
+                     warm.reset();
+                     return checksum_big_arena(rp::bench::Big::decode(view, warm));
+                 }},
+#ifdef RAPIDPROTO_HAVE_PROTOZERO
+                {"protozero", [&]() { return checksum_big_protozero(view); }},
+#endif
+            };
+            (void)rpbench::run(name.c_str(), static_cast<double>(buf.size()), arms);
+        }
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -708,6 +778,10 @@ int main() {
         };
         (void)rpbench::run("many msgs, tiny arrays", static_cast<double>(wbuf.size()), a);
     }
+
+    // Repeated-varint sweep: the packed int64 decode surface across element byte width x count. Part of
+    // the machine-readable comparison (runs in JSON mode too), so it precedes the early return below.
+    sweep_repeated_varint();
 
     // Chunk-cap sweep: held/used (the arena's growth + chunk-tail waste) and parse time across shapes
     // and sizes up to ~32 MB. Arena only; this tunes the Arena's chunk-growth policy. It is deep
