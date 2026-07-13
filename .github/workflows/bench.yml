@@ -1,0 +1,66 @@
+# On-demand benchmark snapshot -- NOT a gate. GitHub-hosted runners are shared, frequency-uncontrolled
+# VMs, so the GB/s numbers are a ROUGH sanity signal (are we beating protoc/protozero, did a change
+# swing things a lot), not the pinned-P-core measurement tests/bench.py's methodology needs -- treat a
+# CI number as +/- tens of percent. Its value is (1) seeing arm64 numbers you have no other way to get,
+# and (2) a quick before/after eyeball. Correctness is already gated on arm64 by the CI build/test job;
+# this run's checksums are a bonus. Trigger it by hand from the Actions tab; results upload as
+# artifacts (per arch x compiler) and a compact summary prints to the log.
+name: Benchmark (on-demand)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  bench:
+    name: bench (${{ matrix.arch }} / ${{ matrix.cc }})
+    runs-on: ${{ matrix.runs-on }}
+    strategy:
+      fail-fast: false  # one arch/compiler failing must not cancel the others' numbers
+      matrix:
+        include:
+          - { arch: x86_64, runs-on: ubuntu-24.04,     cxx: g++-13,     cc: gcc }
+          - { arch: x86_64, runs-on: ubuntu-24.04,     cxx: clang++-20, cc: clang }
+          - { arch: arm64,  runs-on: ubuntu-24.04-arm, cxx: g++-13,     cc: gcc }
+          - { arch: arm64,  runs-on: ubuntu-24.04-arm, cxx: clang++-20, cc: clang }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-toolchain
+      - name: Build the benchmarks
+        run: |
+          set -euxo pipefail
+          cmake -S . -B build/bench -DCMAKE_CXX_COMPILER='${{ matrix.cxx }}'
+          cmake --build build/bench --target rapidproto_arena_bench rapidproto_bench -j"$(nproc)"
+      - name: Run + summarize (informational)
+        run: |
+          set -uxo pipefail
+          mkdir -p bench-out
+          tag='${{ matrix.arch }}-${{ matrix.cc }}'
+          for b in rapidproto_arena_bench rapidproto_bench; do
+            [ -x "build/bench/$b" ] || continue
+            # Pin to a core + JSON mode (the human mode adds a slow chunk-cap sweep). The harness spins
+            # to a steady frequency itself; a shared runner still can't be trusted for tight deltas.
+            RAPIDPROTO_BENCH_JSON=1 taskset -c 0 "build/bench/$b" > "bench-out/$b.$tag.ndjson" || true
+          done
+          python3 - "$tag" bench-out/*.ndjson <<'PY'
+          import json, sys
+          tag, files = sys.argv[1], sys.argv[2:]
+          rows = [json.loads(l) for f in files for l in open(f) if json.loads(l).get('rec') == 'arm']
+          idx = {(a['decoder'], a['scenario'], a['arm']): a for a in rows}
+          print(f"\n=== {tag}: packed-varint decode GB/s @1M (informational, noisy CI) ===")
+          print(f"  {'regime':<9}{'arena':>8}{'xprotoc':>9}{'stream':>9}{'xprotoz':>9}")
+          for d in ('fx1', 'fx2', 'fx8', 'unif', 'skew', 'mix12', 'mix13'):
+              aw = idx.get(('arena', f'rv {d} 1M', 'arena-warm'))
+              pc = idx.get(('arena', f'rv {d} 1M', 'protoc'))
+              gn = idx.get(('stream', f'rv {d} 1M', 'generated'))
+              pz = idx.get(('stream', f'rv {d} 1M', 'protozero'))
+              def g(x): return x['gb_s'] if x else 0.0
+              xpc = g(aw) / g(pc) if pc and g(pc) else 0.0
+              xpz = g(gn) / g(pz) if pz and g(pz) else 0.0
+              print(f"  {d:<9}{g(aw):>8.2f}{xpc:>8.1f}x{g(gn):>9.2f}{xpz:>8.1f}x")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bench-${{ matrix.arch }}-${{ matrix.cc }}
+          path: bench-out/
+          if-no-files-found: ignore
