@@ -42,15 +42,19 @@ struct VarintDist {
     int mode;
 };
 
-// The 12 distributions the sweep covers: fixed 1..10, uniform, and the 90/10 skew.
+// The distributions the sweep covers: fixed 1..10, uniform(1..10), the 90/10 skew, and the two common
+// NARROW-mixed shapes -- uniform 1..2 byte (values <= 16383) and uniform 1..3 byte (<= ~2M), the shape
+// of delta-encoded sequences, small ids/indices, enum arrays and counts.
 inline std::vector<VarintDist> varint_dists() {
     std::vector<VarintDist> out;
-    out.reserve(12);
+    out.reserve(14);
     for (int w = 1; w <= 10; ++w) {
         out.push_back({"fx" + std::to_string(w), w});
     }
     out.push_back({"unif", 0});
     out.push_back({"skew", -1});
+    out.push_back({"mix12", -2});  // uniform 1..2 byte
+    out.push_back({"mix13", -3});  // uniform 1..3 byte
     return out;
 }
 
@@ -79,6 +83,8 @@ inline std::vector<std::int64_t> varint_values(const VarintDist& dist, int count
     // collision-free per-distribution offset so each distribution gets its own reproducible stream.
     std::mt19937_64 rng(0x9E3779B97F4A7C15ULL ^ static_cast<std::uint64_t>(dist.mode + 32));
     std::uniform_int_distribution<int> any_width(1, 10);
+    std::uniform_int_distribution<int> width12(1, 2);
+    std::uniform_int_distribution<int> width13(1, 3);
     std::uniform_int_distribution<int> tenth(0, 9);
     for (int i = 0; i < count; ++i) {
         int width = 0;
@@ -86,8 +92,12 @@ inline std::vector<std::int64_t> varint_values(const VarintDist& dist, int count
             width = dist.mode;  // fixed
         } else if (dist.mode == 0) {
             width = any_width(rng);  // uniform 1..10
-        } else {
+        } else if (dist.mode == -1) {
             width = (tenth(rng) == 0) ? any_width(rng) : 1;  // 90% 1-byte, 10% uniform 1..10
+        } else if (dist.mode == -2) {
+            width = width12(rng);  // uniform 1..2
+        } else {
+            width = width13(rng);  // uniform 1..3
         }
         out.push_back(varint_of_width(width, rng()));
     }

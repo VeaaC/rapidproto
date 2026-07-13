@@ -219,6 +219,26 @@ inline std::uint64_t compact7(std::uint64_t x) noexcept {
 inline std::uint64_t bytemask8(std::uint64_t w) noexcept {
     return ((w & kMSB) * 0x0002040810204081ULL) >> 56U;
 }
+inline int popcount64(std::uint64_t x) noexcept {
+#if defined(__GNUC__) || defined(__clang__)
+    return __builtin_popcountll(x);
+#else
+    int n = 0;
+    while (x != 0U) {
+        x &= x - 1U;
+        ++n;
+    }
+    return n;
+#endif
+}
+// 64-bit terminator mask over the 64 bytes at p (bit i set = byte i terminates a varint). Reads 64 bytes.
+inline std::uint64_t stopmask64(const std::uint8_t* p) noexcept {
+    std::uint64_t m = 0;
+    for (int j = 0; j < 8; ++j) {
+        m |= bytemask8(~load64(p + (8 * j))) << (8U * static_cast<unsigned>(j));
+    }
+    return m;
+}
 }  // namespace swar_detail
 
 // Defined below; declared here so the packed-varint decoder (a template) can name it.
@@ -229,41 +249,63 @@ inline const std::uint8_t* read_varint_packed(const std::uint8_t* p, const std::
 // window; a wrong guess is only slower, never incorrect (every kernel decodes identically).
 enum class PackedKernel : std::uint8_t {
     ByteLoop,  // wide/predictable widths, or a small span: the branch-predicted scalar loop wins
-    Swar,      // MIXED widths: branchless word-at-a-time, so the continuation branch can't mispredict
+    Swar,      // wide-mixed / 1-byte-dominant: branchless word-at-a-time (its 1-byte fast path wins)
+    Struct,    // NARROW-mixed (max width <= 5): one stopmask per block, then independent compact7s
     Bulk1,     // homogeneous 1-byte: widen 64 bytes at once (auto-vectorizes)
     Bulk2,     // homogeneous 2-byte: four varints per 8-byte word
+    Fixed,     // homogeneous 3..8-byte: fixed-stride decode, no boundary find (beats the byte loop)
 };
 
-// Classify the width regime from the first 64-byte window. Precondition: >= 64 readable bytes at p when
-// span >= 64. Homogeneous width == equal gaps between terminators == a predictable branch.
-inline PackedKernel packed_strategy(const std::uint8_t* p, std::size_t span) noexcept {
-    if (span < 64) {
-        return PackedKernel::ByteLoop;  // too small to profile / amortize a kernel switch
+// Classify the width regime from the first 64-byte window. Reads 64 bytes at p, so is only entered when
+// span is comfortably above that. Homogeneous width == equal gaps between terminators. For a Fixed
+// (homogeneous 3..8-byte) result, `*width` is that width; it is unspecified otherwise.
+inline PackedKernel packed_strategy(const std::uint8_t* p, std::size_t span, int* width) noexcept {
+    if (span < 512) {
+        // Below ~512 bytes a trained byte loop beats any kernel: the switch/window overhead isn't
+        // amortized and the whole array is cache- and predictor-resident. Skipping the classify here also
+        // avoids paying its scan on tiny arrays that would fall back to the byte loop anyway.
+        return PackedKernel::ByteLoop;
     }
-    std::uint64_t stop = 0;  // bit i set = byte i terminates a varint (MSB clear)
-    for (int j = 0; j < 8; ++j) {
-        stop |= swar_detail::bytemask8(~swar_detail::load64(p + (8 * j)))
-                << (8U * static_cast<unsigned>(j));
-    }
+    const std::uint64_t stop = swar_detail::stopmask64(p);  // bit i set = byte i terminates a varint
     if (stop == 0) {
         return PackedKernel::ByteLoop;  // all-continuation (9/10-byte varints)
     }
-    // Scan EVERY terminator in the window: a skewed array is mostly 1-byte with an occasional wide
-    // value, so a short scan would miss the width change and wrongly call it homogeneous.
+    // Scan EVERY terminator: track the first varint's width (for the homogeneity test) and the MAX
+    // width. A skewed array is mostly 1-byte with an occasional wide value, so a short scan would miss
+    // the width change; and the max width separates narrow-mixed (Struct) from wide-mixed (Swar).
     std::uint64_t m = stop;
-    int prev = swar_detail::ctz64(m);
-    m &= m - 1U;
+    int last = -1;  // previous terminator position (-1 => this varint starts at byte 0)
     int g0 = -1;
+    int maxw = 0;
+    bool homo = true;
     while (m != 0U) {
         const int b = swar_detail::ctz64(m);
         m &= m - 1U;
-        const int g = b - prev;
-        prev = b;
-        if (g0 < 0) {
-            g0 = g;
-        } else if (g != g0) {
-            return PackedKernel::Swar;  // widths differ -> mixed
+        const int w = b - last;  // this varint's width (bytes last+1 .. b)
+        last = b;
+        if (w > maxw) {
+            maxw = w;
         }
+        if (g0 < 0) {
+            g0 = w;
+        } else if (w != g0) {
+            homo = false;
+        }
+    }
+    if (!homo) {
+        // The mixed-width kernels earn their keep by removing the continuation-bit mispredict -- but that
+        // only pays once the element count exceeds the branch predictor's capacity to memorize the width
+        // sequence. Below that a trained byte loop is faster, and the array stays cache-resident (hiding
+        // the very mispredict cost the kernels remove). Estimate the count from the first window's
+        // terminator density (elements per 64 bytes) and fall back to the byte loop when it's small.
+        const std::uint64_t density = static_cast<std::uint64_t>(swar_detail::popcount64(stop));
+        if (static_cast<std::uint64_t>(span) * density < std::uint64_t{64} * 4096U) {
+            return PackedKernel::ByteLoop;  // est. count < ~4096: predictor-resident -> byte loop wins
+        }
+        // Narrow-mixed (small, dense widths) amortizes one stopmask over the whole block; wide-mixed or
+        // 1-byte-dominant is better served by per-element SWAR (its scalar 1-byte fast path). The <= 5
+        // boundary is where the structural kernel stops beating SWAR (measured).
+        return (maxw <= 5) ? PackedKernel::Struct : PackedKernel::Swar;
     }
     if (g0 == 1) {
         return PackedKernel::Bulk1;  // homogeneous 1-byte
@@ -271,7 +313,11 @@ inline PackedKernel packed_strategy(const std::uint8_t* p, std::size_t span) noe
     if (g0 == 2) {
         return PackedKernel::Bulk2;  // homogeneous 2-byte
     }
-    return PackedKernel::ByteLoop;  // homogeneous wide (3+ bytes): predicted, and bulk can't help
+    if (g0 >= 3 && g0 <= 8) {
+        *width = g0;
+        return PackedKernel::Fixed;  // homogeneous 3..8-byte: fixed stride beats the byte loop
+    }
+    return PackedKernel::ByteLoop;  // homogeneous 9/10-byte: needs > 1 word per element -> byte loop
 }
 
 // Decode a whole packed-varint span into `out`, applying `conv` (raw varint -> element) to each. One
@@ -281,6 +327,30 @@ inline PackedKernel packed_strategy(const std::uint8_t* p, std::size_t span) noe
 // varint (with *err set and *fail_off = offset from `begin`). Safe on untrusted input: every word load
 // is bounded to `>= its width` in-span bytes, so it never reads past the span (and thus never past the
 // buffer, since the span is a sub-view of it).
+// Fixed-stride decode of homogeneous W-byte varints (W a COMPILE-TIME constant, so the mask/stride/
+// guard specialize). Guards each element (last byte terminates, second-to-last continues => exactly W)
+// and stops on the first width change, leaving the rest to the caller's byte-loop tail. Advances `*np`.
+template <int W, class Elem, class Conv>
+inline const std::uint8_t* fixed_fill(const std::uint8_t* q, const std::uint8_t* end, Elem* out,
+                                      std::size_t* np, Conv conv) noexcept {
+    constexpr std::uint64_t kLenMask =
+        (W >= 8) ? ~std::uint64_t{0} : ((std::uint64_t{1} << (8U * static_cast<unsigned>(W))) - 1U);
+    std::size_t n = *np;
+    while (static_cast<std::size_t>(end - q) >= 8) {
+        const std::uint64_t w = swar_detail::load64(q);
+        if (((w >> (8U * static_cast<unsigned>(W - 1))) & 0x80U) != 0U) {
+            break;  // last byte continues -> wider than W
+        }
+        if (((w >> (8U * static_cast<unsigned>(W - 2))) & 0x80U) == 0U) {
+            break;  // second-to-last byte terminates -> narrower than W
+        }
+        out[n++] = conv(swar_detail::compact7(w & kLenMask & swar_detail::kLow7));
+        q += W;
+    }
+    *np = n;
+    return q;
+}
+
 template <class Elem, class Conv>
 RP_FLATTEN inline std::size_t decode_packed_varints(const std::uint8_t* p, const std::uint8_t* end,
                                                     Elem* out, const std::uint8_t* begin,
@@ -288,7 +358,8 @@ RP_FLATTEN inline std::size_t decode_packed_varints(const std::uint8_t* p, const
                                                     Conv conv) noexcept {
     std::size_t n = 0;
     const std::uint8_t* q = p;
-    const PackedKernel kern = packed_strategy(p, static_cast<std::size_t>(end - p));
+    int width = 0;
+    const PackedKernel kern = packed_strategy(p, static_cast<std::size_t>(end - p), &width);
     const auto swar_one = [&]() -> bool {  // one element via SWAR; precondition >= 8 in-span bytes
         std::uint64_t raw = 0;
         const std::uint8_t* const np = read_varint_packed(q, end, &raw, err);
@@ -332,6 +403,60 @@ RP_FLATTEN inline std::size_t decode_packed_varints(const std::uint8_t* p, const
             } else {
                 break;  // not four 2-byte varints (unrepresentative first window) -> byte-loop tail
             }
+        }
+    } else if (kern == PackedKernel::Fixed) {
+        // Homogeneous 3..8-byte: fixed stride, no per-element boundary find. Dispatched on a COMPILE-TIME
+        // width so the mask/shifts specialize (a runtime width was much slower for the narrow cases).
+        // The guard bails to the byte-loop tail on any width change, so it is correct on any data.
+        switch (width) {
+            case 3: q = fixed_fill<3>(q, end, out, &n, conv); break;
+            case 4: q = fixed_fill<4>(q, end, out, &n, conv); break;
+            case 5: q = fixed_fill<5>(q, end, out, &n, conv); break;
+            case 6: q = fixed_fill<6>(q, end, out, &n, conv); break;
+            case 7: q = fixed_fill<7>(q, end, out, &n, conv); break;
+            default: q = fixed_fill<8>(q, end, out, &n, conv); break;
+        }
+    } else if (kern == PackedKernel::Struct) {
+        // Narrow-mixed: one stopmask per 64-byte block finds every terminator, then each element is an
+        // independent compact7 (no per-element stop compute). The 8-byte load past byte `start` needs
+        // slack, so process while >= 72 in-span bytes remain; the byte-loop tail finishes the rest and
+        // handles any block containing a > 8-byte varint (bailed on below).
+        int stops[64];
+        while (static_cast<std::size_t>(end - q) >= 72) {
+            const std::uint64_t sm = swar_detail::stopmask64(q);
+            if (sm == 0U) {
+                break;  // all-continuation -> byte-loop tail
+            }
+            const int cnt = swar_detail::popcount64(sm);
+            std::uint64_t t = sm;
+            for (int k = 0; k < cnt; ++k) {
+                stops[k] = swar_detail::ctz64(t);
+                t &= t - 1U;
+            }
+            int start = 0;
+            bool longv = false;
+            for (int k = 0; k < cnt; ++k) {
+                if (stops[k] - start + 1 > 8) {
+                    longv = true;
+                    break;
+                }
+                start = stops[k] + 1;
+            }
+            if (longv) {
+                break;  // a > 8-byte varint (can't compact7 in one word) -> byte-loop tail
+            }
+            start = 0;
+            for (int k = 0; k < cnt; ++k) {
+                const int len = stops[k] - start + 1;
+                const std::uint64_t lenmask =
+                    (len >= 8) ? ~std::uint64_t{0}
+                               : ((std::uint64_t{1} << (8U * static_cast<unsigned>(len))) - 1U);
+                out[n + static_cast<std::size_t>(k)] = conv(
+                    swar_detail::compact7(swar_detail::load64(q + start) & lenmask & swar_detail::kLow7));
+                start = stops[k] + 1;
+            }
+            n += static_cast<std::size_t>(cnt);
+            q += static_cast<std::size_t>(stops[cnt - 1] + 1);
         }
     } else if (kern == PackedKernel::Swar) {
         while (static_cast<std::size_t>(end - q) >= 8) {
