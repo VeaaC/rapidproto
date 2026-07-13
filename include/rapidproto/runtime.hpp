@@ -789,6 +789,42 @@ constexpr std::int64_t varint_to_int64(std::uint64_t v) noexcept {
     return static_cast<std::int64_t>(v);
 }
 
+namespace wire {
+
+// Named per-proto-type conversions for the packed-varint decode. decode_packed_varints is templated on
+// the raw-varint -> element conversion; passing a NAMED functor type (one of these) instead of a fresh
+// per-field lambda means the template -- and the whole kernel set it flattens in -- instantiates ONCE
+// per proto scalar type, shared across every field of that type and de-duplicated across translation
+// units (COMDAT-folded), rather than once per packed field. The generator selects one via
+// codegen::ScalarWire::packed_conv.
+struct conv_int32 {
+    std::int32_t operator()(std::uint64_t r) const noexcept { return varint_to_int32(r); }
+};
+struct conv_int64 {
+    std::int64_t operator()(std::uint64_t r) const noexcept { return varint_to_int64(r); }
+};
+struct conv_uint32 {
+    std::uint32_t operator()(std::uint64_t r) const noexcept {
+        return static_cast<std::uint32_t>(r);
+    }
+};
+struct conv_uint64 {
+    std::uint64_t operator()(std::uint64_t r) const noexcept { return r; }
+};
+struct conv_sint32 {
+    std::int32_t operator()(std::uint64_t r) const noexcept {
+        return zigzag_decode_32(static_cast<std::uint32_t>(r));
+    }
+};
+struct conv_sint64 {
+    std::int64_t operator()(std::uint64_t r) const noexcept { return zigzag_decode_64(r); }
+};
+struct conv_bool {
+    bool operator()(std::uint64_t r) const noexcept { return varint_to_bool(r); }
+};
+
+}  // namespace wire
+
 // === Decode dispatch =======================================================
 
 // Outcome of a decode. Default-constructed == success. Lean: a WireError + offset for a wire-level

@@ -994,16 +994,16 @@ void emit_packed_fill(const Emit& emit, const FieldNode& field) {
         // continuation branch can't mispredict, the dominant cost on real mixed-width arrays), and the
         // byte loop (wide/predictable, where SWAR would only add overhead). Same accept/reject + offset
         // (offset within the packed span) semantics as the scalar reader. The per-element conversion is
-        // a captureless lambda inlined into the chosen kernel.
+        // a NAMED functor (ScalarWire::packed_conv), so the template instantiates once per proto type
+        // (shared across fields and TUs) rather than once per field's unique lambda type.
         const codegen::ScalarWire& info = scalar_wire(field.type_name);
         p.print("const std::uint8_t* const rp_vp = ::rapidproto::wire::byte_ptr(rp_p);\n");
         p.print("const std::uint8_t* const rp_ve = rp_vp + rp_p.size();\n");
         p.print("std::size_t rp_fo = 0;\n");
         p.print(
             "const std::size_t rp_dc = ::rapidproto::wire::decode_packed_varints<$E$>(rp_vp, rp_ve,"
-            " rp_acc_$id$ + rp_n_$id$, rp_vp, &rp_we, &rp_fo,"
-            " [](std::uint64_t rp_raw) -> $E$ { return $pre$rp_raw$post$; });\n",
-            {{"E", elem}, {"id", id}, {"pre", info.pre}, {"post", info.post}});
+            " rp_acc_$id$ + rp_n_$id$, rp_vp, &rp_we, &rp_fo, $conv${});\n",
+            {{"E", elem}, {"id", id}, {"conv", info.packed_conv}});
         p.print(
             "if (rp_dc == static_cast<std::size_t>(-1)) { ::rapidproto::rp_fail_wire_at(err, rp_we,"
             " rp_fo); return false; }\n");
