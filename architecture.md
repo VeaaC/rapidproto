@@ -634,10 +634,14 @@ constant, and reproduce with the benches:
   (`bytes_used`/`bytes_reserved` vs protobuf's `SpaceUsed`/`SpaceAllocated`), not process RSS. The
   memory ratio is deterministic (exact byte counts); the time multiple varies with payload shape and
   machine thermal state.
-- **Real codegen wins, surfaced by same-binary A/B.** Cross-binary comparison buries genuine opportunities
-  in placement noise; the harness above separates them, and retired **instructions/byte** — deterministic
-  and machine-independent — is the cross-build signal that a change is genuine (cycles/byte stays a
-  same-binary measure). Shipped so far: a fused 1-byte-tag fast path in `read_tag` (~10% on both compilers);
+- **Real codegen wins, surfaced by same-binary A/B.** The headline metric is **GB/s** — measured decode
+  throughput, which unlike retired instructions reflects everything the CPU pays for (branch
+  mispredictions, cache/memory stalls; e.g. random-width packed varints run ~4× slower than fixed-width
+  at *identical* ins/B, pure branch-mispredict cost). Cross-binary comparison buries genuine opportunities
+  in placement noise, so the harness measures every arm back-to-back in one binary: its GB/s and
+  cycle-ratio verdict are a real-time comparison at one placement. Across two separate *builds*, retired
+  **instructions/byte** — deterministic and machine-independent — stays the cross-check that a change is
+  genuine rather than a layout artifact (cycles/byte and GB/s are same-binary measures). Shipped so far: a fused 1-byte-tag fast path in `read_tag` (~10% on both compilers);
   driving both decode loops with a fused `read_tag_or_end` (one bounds check instead of `at_end()` +
   `read_tag()`, tag held as a value not `std::optional`), which closed most of the protozero gap on
   nested/message-heavy decode (≈2× nested-message throughput on gcc, at or above protozero on clang); a
