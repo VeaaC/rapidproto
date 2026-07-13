@@ -606,28 +606,56 @@ std::uint64_t checksum_big_protozero(rapidproto::ByteView buf) {
 void sweep_repeated_varint() {
     for (const auto& dist : rpbench::varint_dists()) {
         for (const int count : rpbench::varint_lengths()) {
-            const std::string buf = rpbench::make_packed_i64(rpbench::varint_values(dist, count));
-            const rapidproto::ByteView view(buf);
+            // Build a POOL of distinct-seed buffers with the same shape and rotate over it, so no arm
+            // replays a single memorized width sequence. Pool size: ~64 MB budget, >= 8 buffers (defeat
+            // the predictor at small counts), <= 64 (bound setup). Each element is <= 10 bytes, so
+            // count*10 over-estimates a buffer; that only makes the pool smaller, never unsafe.
+            const long est = static_cast<long>(count) * 10 + 16;
+            const int pool_n =
+                static_cast<int>(std::min<long>(64, std::max<long>(8, (64L << 20) / est)));
+            std::vector<std::string> pool;
+            std::vector<rapidproto::ByteView> views;
+            pool.reserve(static_cast<std::size_t>(pool_n));
+            views.reserve(static_cast<std::size_t>(pool_n));
+            double total_bytes = 0;
+            for (int s = 0; s < pool_n; ++s) {
+                pool.push_back(rpbench::make_packed_i64(
+                    rpbench::varint_values(dist, count, static_cast<std::uint64_t>(s) + 1)));
+                total_bytes += static_cast<double>(pool.back().size());
+            }
+            for (const auto& b : pool) {
+                views.emplace_back(b);  // pool strings are stable (reserved, no realloc)
+            }
+            const double avg_bytes = total_bytes / static_cast<double>(pool_n);
             const std::string name = "rv " + dist.label + " " + rpbench::length_tag(count);
             rapidproto::Arena warm;
+            // Each arm keeps its own rotation index; the harness calls every arm the same number of
+            // times, so all indices stay in lockstep and the per-round checksum cross-check still holds.
             std::vector<rpbench::Arm> arms = {
                 {"protoc",
-                 [&]() {
+                 [&, i = 0]() mutable {
+                     const std::string& buf = pool[static_cast<std::size_t>(i++) % pool.size()];
                      google::protobuf::Arena pa;
                      auto* m = google::protobuf::Arena::CreateMessage<bench::Big>(&pa);
                      m->ParseFromString(buf);
                      return checksum_big_protoc(*m);
                  }},
                 {"arena-warm",
-                 [&]() {
+                 [&, i = 0]() mutable {
+                     const rapidproto::ByteView& view =
+                         views[static_cast<std::size_t>(i++) % views.size()];
                      warm.reset();
                      return checksum_big_arena(rp::bench::Big::decode(view, warm));
                  }},
 #ifdef RAPIDPROTO_HAVE_PROTOZERO
-                {"protozero", [&]() { return checksum_big_protozero(view); }},
+                {"protozero",
+                 [&, i = 0]() mutable {
+                     return checksum_big_protozero(
+                         views[static_cast<std::size_t>(i++) % views.size()]);
+                 }},
 #endif
             };
-            (void)rpbench::run(name.c_str(), static_cast<double>(buf.size()), arms);
+            (void)rpbench::run(name.c_str(), avg_bytes, arms);
         }
     }
 }

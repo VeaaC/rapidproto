@@ -249,24 +249,26 @@ inline const std::uint8_t* read_varint_packed(const std::uint8_t* p, const std::
 // window; a wrong guess is only slower, never incorrect (every kernel decodes identically).
 enum class PackedKernel : std::uint8_t {
     ByteLoop,  // wide/predictable widths, or a small span: the branch-predicted scalar loop wins
-    Swar,      // wide-mixed / 1-byte-dominant: branchless word-at-a-time (its 1-byte fast path wins)
-    Struct,    // NARROW-mixed (max width <= 5): one stopmask per block, then independent compact7s
-    Bulk1,     // homogeneous 1-byte: widen 64 bytes at once (auto-vectorizes)
-    Bulk2,     // homogeneous 2-byte: four varints per 8-byte word
-    Fixed,     // homogeneous 3..8-byte: fixed-stride decode, no boundary find (beats the byte loop)
+    Swar,    // wide-mixed / 1-byte-dominant: branchless word-at-a-time (its 1-byte fast path wins)
+    Struct,  // NARROW-mixed (max width <= 5): one stopmask per block, then independent compact7s
+    Bulk1,   // homogeneous 1-byte: widen 64 bytes at once (auto-vectorizes)
+    Bulk2,   // homogeneous 2-byte: four varints per 8-byte word
+    Fixed,   // homogeneous 3..8-byte: fixed-stride decode, no boundary find (beats the byte loop)
 };
 
 // Classify the width regime from the first 64-byte window. Reads 64 bytes at p, so is only entered when
 // span is comfortably above that. Homogeneous width == equal gaps between terminators. For a Fixed
 // (homogeneous 3..8-byte) result, `*width` is that width; it is unspecified otherwise.
 inline PackedKernel packed_strategy(const std::uint8_t* p, std::size_t span, int* width) noexcept {
-    if (span < 512) {
-        // Below ~512 bytes a trained byte loop beats any kernel: the switch/window overhead isn't
-        // amortized and the whole array is cache- and predictor-resident. Skipping the classify here also
-        // avoids paying its scan on tiny arrays that would fall back to the byte loop anyway.
+    if (span < 256) {
+        // Only tiny spans skip the kernels: below this the classify scan and kernel-switch aren't
+        // amortized. (This floor is about dispatch cost, NOT branch prediction -- a real decode sees each
+        // buffer once, so the byte loop mispredicts at its steady-state rate at any element count; the
+        // kernels' branch-free win therefore holds down to very small arrays, per the multi-seed probe.)
         return PackedKernel::ByteLoop;
     }
-    const std::uint64_t stop = swar_detail::stopmask64(p);  // bit i set = byte i terminates a varint
+    const std::uint64_t stop =
+        swar_detail::stopmask64(p);  // bit i set = byte i terminates a varint
     if (stop == 0) {
         return PackedKernel::ByteLoop;  // all-continuation (9/10-byte varints)
     }
@@ -293,18 +295,10 @@ inline PackedKernel packed_strategy(const std::uint8_t* p, std::size_t span, int
         }
     }
     if (!homo) {
-        // The mixed-width kernels earn their keep by removing the continuation-bit mispredict -- but that
-        // only pays once the element count exceeds the branch predictor's capacity to memorize the width
-        // sequence. Below that a trained byte loop is faster, and the array stays cache-resident (hiding
-        // the very mispredict cost the kernels remove). Estimate the count from the first window's
-        // terminator density (elements per 64 bytes) and fall back to the byte loop when it's small.
-        const std::uint64_t density = static_cast<std::uint64_t>(swar_detail::popcount64(stop));
-        if (static_cast<std::uint64_t>(span) * density < std::uint64_t{64} * 4096U) {
-            return PackedKernel::ByteLoop;  // est. count < ~4096: predictor-resident -> byte loop wins
-        }
         // Narrow-mixed (small, dense widths) amortizes one stopmask over the whole block; wide-mixed or
         // 1-byte-dominant is better served by per-element SWAR (its scalar 1-byte fast path). The <= 5
-        // boundary is where the structural kernel stops beating SWAR (measured).
+        // boundary is where the structural kernel stops beating SWAR (measured). Both beat the byte loop
+        // at every element count on fresh data -- there is no count gate; see the span floor above.
         return (maxw <= 5) ? PackedKernel::Struct : PackedKernel::Swar;
     }
     if (g0 == 1) {
@@ -317,7 +311,8 @@ inline PackedKernel packed_strategy(const std::uint8_t* p, std::size_t span, int
         *width = g0;
         return PackedKernel::Fixed;  // homogeneous 3..8-byte: fixed stride beats the byte loop
     }
-    return PackedKernel::ByteLoop;  // homogeneous 9/10-byte: needs > 1 word per element -> byte loop
+    return PackedKernel::
+        ByteLoop;  // homogeneous 9/10-byte: needs > 1 word per element -> byte loop
 }
 
 // Decode a whole packed-varint span into `out`, applying `conv` (raw varint -> element) to each. One
@@ -412,12 +407,24 @@ RP_FLATTEN inline std::size_t decode_packed_varints(const std::uint8_t* p, const
         // width so the mask/shifts specialize (a runtime width was much slower for the narrow cases).
         // The guard bails to the byte-loop tail on any width change, so it is correct on any data.
         switch (width) {
-            case 3: q = fixed_fill<3>(q, end, out, &n, conv); break;
-            case 4: q = fixed_fill<4>(q, end, out, &n, conv); break;
-            case 5: q = fixed_fill<5>(q, end, out, &n, conv); break;
-            case 6: q = fixed_fill<6>(q, end, out, &n, conv); break;
-            case 7: q = fixed_fill<7>(q, end, out, &n, conv); break;
-            default: q = fixed_fill<8>(q, end, out, &n, conv); break;
+            case 3:
+                q = fixed_fill<3>(q, end, out, &n, conv);
+                break;
+            case 4:
+                q = fixed_fill<4>(q, end, out, &n, conv);
+                break;
+            case 5:
+                q = fixed_fill<5>(q, end, out, &n, conv);
+                break;
+            case 6:
+                q = fixed_fill<6>(q, end, out, &n, conv);
+                break;
+            case 7:
+                q = fixed_fill<7>(q, end, out, &n, conv);
+                break;
+            default:
+                q = fixed_fill<8>(q, end, out, &n, conv);
+                break;
         }
     } else if (kern == PackedKernel::Struct) {
         // Narrow-mixed: one stopmask per 64-byte block finds every terminator, then each element is an
@@ -454,8 +461,8 @@ RP_FLATTEN inline std::size_t decode_packed_varints(const std::uint8_t* p, const
                 const std::uint64_t lenmask =
                     (len >= 8) ? ~std::uint64_t{0}
                                : ((std::uint64_t{1} << (8U * static_cast<unsigned>(len))) - 1U);
-                out[n + static_cast<std::size_t>(k)] = conv(
-                    swar_detail::compact7(swar_detail::load64(q + start) & lenmask & swar_detail::kLow7));
+                out[n + static_cast<std::size_t>(k)] = conv(swar_detail::compact7(
+                    swar_detail::load64(q + start) & lenmask & swar_detail::kLow7));
                 start = stops[k] + 1;
             }
             n += static_cast<std::size_t>(cnt);
@@ -497,7 +504,8 @@ inline const std::uint8_t* read_varint_packed(const std::uint8_t* p, const std::
         return read_varint(p, end, out, err);
     }
     const int len = (swar_detail::ctz64(stop) >> 3U) + 1;
-    const std::uint64_t mask = stop ^ (stop - 1U);  // low bits up to & including the first terminator
+    const std::uint64_t mask =
+        stop ^ (stop - 1U);  // low bits up to & including the first terminator
     *out = swar_detail::compact7(w & mask & swar_detail::kLow7);
     return p + len;
 }

@@ -74,14 +74,18 @@ inline std::string length_tag(int count) {
     return std::to_string(count);
 }
 
-// `count` int64 element values under `dist`, deterministic (seeded from the mode, so a given
-// distribution always yields the same sequence; a longer count extends the same prefix).
-inline std::vector<std::int64_t> varint_values(const VarintDist& dist, int count) {
+// `count` int64 element values under `dist`, deterministic (seeded from the mode and `seed`). `seed`
+// selects an independent buffer with the SAME distribution but a different width/value SEQUENCE -- the
+// bench rotates over many seeds so the branch predictor can't memorize one sequence (which would make a
+// replayed byte loop look artificially fast, since production decodes each buffer once on fresh data).
+inline std::vector<std::int64_t> varint_values(const VarintDist& dist, int count,
+                                               std::uint64_t seed = 0) {
     std::vector<std::int64_t> out;
     out.reserve(static_cast<std::size_t>(count));
-    // Seed = the golden-ratio mixer XOR the mode; `+ 32` biases mode (range -1..10) to a positive,
-    // collision-free per-distribution offset so each distribution gets its own reproducible stream.
-    std::mt19937_64 rng(0x9E3779B97F4A7C15ULL ^ static_cast<std::uint64_t>(dist.mode + 32));
+    // Seed = the golden-ratio mixer XOR the mode XOR a per-buffer mix; `+ 32` biases mode (range -1..10)
+    // to a positive, collision-free per-distribution offset so each (distribution, seed) is reproducible.
+    std::mt19937_64 rng(0x9E3779B97F4A7C15ULL ^ static_cast<std::uint64_t>(dist.mode + 32) ^
+                        (seed * 0xD1B54A32D192ED03ULL));
     std::uniform_int_distribution<int> any_width(1, 10);
     std::uniform_int_distribution<int> width12(1, 2);
     std::uniform_int_distribution<int> width13(1, 3);
