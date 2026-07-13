@@ -177,6 +177,203 @@ inline const std::uint8_t* read_varint(const std::uint8_t* p, const std::uint8_t
     return nullptr;
 }
 
+// ── SWAR packed-varint decode (word-at-a-time, branchless) ─────────────────────────────────────────
+// Decodes one varint by inspecting a whole 8-byte word at once, so the per-byte continuation-bit branch
+// that mispredicts on mixed-width data does not exist. Portable: no PEXT/SIMD -- the byte-mask is a
+// multiply, the 7-bit gather is shift/mask. Used ONLY for packed repeated varints, where a bounded span
+// makes an 8-byte over-read safe (the caller guarantees >= 8 in-span bytes and scalar-decodes the tail).
+namespace swar_detail {
+inline constexpr std::uint64_t kMSB = 0x8080808080808080ULL;   // MSB of each byte
+inline constexpr std::uint64_t kLow7 = 0x7F7F7F7F7F7F7F7FULL;  // low 7 bits of each byte
+
+// 8 bytes as a uint64 in little-endian logical order (byte i in bits 8i..8i+7).
+inline std::uint64_t load64(const std::uint8_t* p) noexcept {
+    std::uint64_t w = 0;
+    std::memcpy(&w, p, sizeof w);
+#if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+    w = __builtin_bswap64(w);
+#endif
+    return w;
+}
+// Count trailing zero bits; precondition x != 0.
+inline int ctz64(std::uint64_t x) noexcept {
+#if defined(__GNUC__) || defined(__clang__)
+    return __builtin_ctzll(x);
+#else
+    int n = 0;
+    while ((x & 1U) == 0U) {
+        x >>= 1U;
+        ++n;
+    }
+    return n;
+#endif
+}
+// Gather the low 7 bits of each byte into a contiguous value: three SWAR compaction rounds.
+inline std::uint64_t compact7(std::uint64_t x) noexcept {
+    x = ((x & 0x7F007F007F007F00ULL) >> 1U) | (x & 0x007F007F007F007FULL);
+    x = ((x & 0x3FFF00003FFF0000ULL) >> 2U) | (x & 0x00003FFF00003FFFULL);
+    x = ((x & 0x0FFFFFFF00000000ULL) >> 4U) | (x & 0x000000000FFFFFFFULL);
+    return x;
+}
+// movemask without SIMD: gather the MSB of each byte into 8 bits (bit i = MSB of byte i).
+inline std::uint64_t bytemask8(std::uint64_t w) noexcept {
+    return ((w & kMSB) * 0x0002040810204081ULL) >> 56U;
+}
+}  // namespace swar_detail
+
+// Defined below; declared here so the packed-varint decoder (a template) can name it.
+inline const std::uint8_t* read_varint_packed(const std::uint8_t* p, const std::uint8_t* end,
+                                              std::uint64_t* out, WireError* err) noexcept;
+
+// Which kernel to decode a packed-varint span with. Chosen once per field from the first 64-byte
+// window; a wrong guess is only slower, never incorrect (every kernel decodes identically).
+enum class PackedKernel : std::uint8_t {
+    ByteLoop,  // wide/predictable widths, or a small span: the branch-predicted scalar loop wins
+    Swar,      // MIXED widths: branchless word-at-a-time, so the continuation branch can't mispredict
+    Bulk1,     // homogeneous 1-byte: widen 64 bytes at once (auto-vectorizes)
+    Bulk2,     // homogeneous 2-byte: four varints per 8-byte word
+};
+
+// Classify the width regime from the first 64-byte window. Precondition: >= 64 readable bytes at p when
+// span >= 64. Homogeneous width == equal gaps between terminators == a predictable branch.
+inline PackedKernel packed_strategy(const std::uint8_t* p, std::size_t span) noexcept {
+    if (span < 64) {
+        return PackedKernel::ByteLoop;  // too small to profile / amortize a kernel switch
+    }
+    std::uint64_t stop = 0;  // bit i set = byte i terminates a varint (MSB clear)
+    for (int j = 0; j < 8; ++j) {
+        stop |= swar_detail::bytemask8(~swar_detail::load64(p + (8 * j)))
+                << (8U * static_cast<unsigned>(j));
+    }
+    if (stop == 0) {
+        return PackedKernel::ByteLoop;  // all-continuation (9/10-byte varints)
+    }
+    // Scan EVERY terminator in the window: a skewed array is mostly 1-byte with an occasional wide
+    // value, so a short scan would miss the width change and wrongly call it homogeneous.
+    std::uint64_t m = stop;
+    int prev = swar_detail::ctz64(m);
+    m &= m - 1U;
+    int g0 = -1;
+    while (m != 0U) {
+        const int b = swar_detail::ctz64(m);
+        m &= m - 1U;
+        const int g = b - prev;
+        prev = b;
+        if (g0 < 0) {
+            g0 = g;
+        } else if (g != g0) {
+            return PackedKernel::Swar;  // widths differ -> mixed
+        }
+    }
+    if (g0 == 1) {
+        return PackedKernel::Bulk1;  // homogeneous 1-byte
+    }
+    if (g0 == 2) {
+        return PackedKernel::Bulk2;  // homogeneous 2-byte
+    }
+    return PackedKernel::ByteLoop;  // homogeneous wide (3+ bytes): predicted, and bulk can't help
+}
+
+// Decode a whole packed-varint span into `out`, applying `conv` (raw varint -> element) to each. One
+// classifier pick per field routes to a bulk widen (homogeneous narrow), branchless SWAR (mixed), or
+// the byte loop (wide/predictable); a validating scalar tail finishes the last < kernel-width bytes and
+// handles 9/10-byte / truncation / overflow. Returns the element count, or SIZE_MAX on a malformed
+// varint (with *err set and *fail_off = offset from `begin`). Safe on untrusted input: every word load
+// is bounded to `>= its width` in-span bytes, so it never reads past the span (and thus never past the
+// buffer, since the span is a sub-view of it).
+template <class Elem, class Conv>
+RP_FLATTEN inline std::size_t decode_packed_varints(const std::uint8_t* p, const std::uint8_t* end,
+                                                    Elem* out, const std::uint8_t* begin,
+                                                    WireError* err, std::size_t* fail_off,
+                                                    Conv conv) noexcept {
+    std::size_t n = 0;
+    const std::uint8_t* q = p;
+    const PackedKernel kern = packed_strategy(p, static_cast<std::size_t>(end - p));
+    const auto swar_one = [&]() -> bool {  // one element via SWAR; precondition >= 8 in-span bytes
+        std::uint64_t raw = 0;
+        const std::uint8_t* const np = read_varint_packed(q, end, &raw, err);
+        if (np == nullptr) {
+            *fail_off = static_cast<std::size_t>(q - begin);
+            return false;
+        }
+        out[n++] = conv(raw);
+        q = np;
+        return true;
+    };
+    if (kern == PackedKernel::Bulk1) {
+        while (static_cast<std::size_t>(end - q) >= 64) {
+            std::uint64_t any = 0;
+            for (int j = 0; j < 8; ++j) {
+                any |= swar_detail::load64(q + (8 * j)) & swar_detail::kMSB;
+            }
+            if (any == 0) {  // all 64 bytes are 1-byte varints -> plain widen (vectorizes)
+                for (int i = 0; i < 64; ++i) {
+                    out[n + static_cast<std::size_t>(i)] = conv(q[i]);
+                }
+                q += 64;
+                n += 64;
+            } else {
+                break;  // not all 1-byte after all (unrepresentative first window) -> byte-loop tail
+            }
+        }
+    } else if (kern == PackedKernel::Bulk2) {
+        while (static_cast<std::size_t>(end - q) >= 8) {
+            const std::uint64_t w = swar_detail::load64(q);
+            if ((w & swar_detail::kMSB) == 0x0080008000800080ULL) {  // exactly four 2-byte varints
+                const std::uint64_t x = w & swar_detail::kLow7;
+                const std::uint64_t y =
+                    (x & 0x007F007F007F007FULL) | ((x & 0x7F007F007F007F00ULL) >> 1U);
+                out[n + 0] = conv(static_cast<std::uint16_t>(y));
+                out[n + 1] = conv(static_cast<std::uint16_t>(y >> 16U));
+                out[n + 2] = conv(static_cast<std::uint16_t>(y >> 32U));
+                out[n + 3] = conv(static_cast<std::uint16_t>(y >> 48U));
+                q += 8;
+                n += 4;
+            } else {
+                break;  // not four 2-byte varints (unrepresentative first window) -> byte-loop tail
+            }
+        }
+    } else if (kern == PackedKernel::Swar) {
+        while (static_cast<std::size_t>(end - q) >= 8) {
+            if (!swar_one()) {
+                return SIZE_MAX;
+            }
+        }
+    }
+    while (q < end) {  // validating scalar tail (the whole span for ByteLoop)
+        std::uint64_t raw = 0;
+        const std::uint8_t* const np = read_varint(q, end, &raw, err);
+        if (np == nullptr) {
+            *fail_off = static_cast<std::size_t>(q - begin);
+            return SIZE_MAX;
+        }
+        out[n++] = conv(raw);
+        q = np;
+    }
+    return n;
+}
+
+// One packed-varint element via SWAR. PRECONDITION: >= 8 readable bytes at `p` (packed-span caller
+// guarantees it). A 1-byte value takes a straight-line fast path; a 2..8-byte value is decoded
+// branchlessly; a 9/10-byte value (all 8 low bytes continue) falls to the validating byte reader --
+// which also anchors overflow/truncation checks, so a <=8-byte value here never needs them.
+inline const std::uint8_t* read_varint_packed(const std::uint8_t* p, const std::uint8_t* end,
+                                              std::uint64_t* out, WireError* err) noexcept {
+    if (*p < 0x80U) {  // 1-byte fast path (the common case)
+        *out = *p;
+        return p + 1;
+    }
+    const std::uint64_t w = swar_detail::load64(p);
+    const std::uint64_t stop = ~w & swar_detail::kMSB;  // MSB set at each terminator byte
+    if (stop == 0U) {                                   // 9/10-byte: terminator past this word
+        return read_varint(p, end, out, err);
+    }
+    const int len = (swar_detail::ctz64(stop) >> 3U) + 1;
+    const std::uint64_t mask = stop ^ (stop - 1U);  // low bits up to & including the first terminator
+    *out = swar_detail::compact7(w & mask & swar_detail::kLow7);
+    return p + len;
+}
+
 // Tag read: fused 1-byte fast path, with InvalidFieldNumber / FieldNumberRange / ReservedWireType
 // rejects. Returns the advanced cursor and writes *out; on a malformed tag returns nullptr and writes
 // *err. The fail position is the passed-in cursor, so the caller reports offset = (entry cursor -

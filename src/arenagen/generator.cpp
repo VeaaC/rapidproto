@@ -989,28 +989,25 @@ void emit_packed_fill(const Emit& emit, const FieldNode& field) {
         p.print("}\n");
     }
     if (varint && !field.is_enum_type) {
-        // Value-threaded fill (pilot): decode the packed varints from a raw byte cursor threaded by
-        // value, so it stays in a register across each read instead of spilling through a WireReader
-        // member. Same accept/reject + offset semantics as the reader loop below.
+        // Whole-span packed-varint decode: a runtime classifier picks per field between a bulk widen
+        // (homogeneous narrow widths), branchless word-at-a-time SWAR (MIXED widths -- so the per-byte
+        // continuation branch can't mispredict, the dominant cost on real mixed-width arrays), and the
+        // byte loop (wide/predictable, where SWAR would only add overhead). Same accept/reject + offset
+        // (offset within the packed span) semantics as the scalar reader. The per-element conversion is
+        // a captureless lambda inlined into the chosen kernel.
         const codegen::ScalarWire& info = scalar_wire(field.type_name);
-        p.print("const std::uint8_t* rp_vp = ::rapidproto::wire::byte_ptr(rp_p);\n");
-        p.print("const std::uint8_t* const rp_vbeg = rp_vp;\n");
+        p.print("const std::uint8_t* const rp_vp = ::rapidproto::wire::byte_ptr(rp_p);\n");
         p.print("const std::uint8_t* const rp_ve = rp_vp + rp_p.size();\n");
-        p.print("while (rp_vp < rp_ve) {\n");
-        p.indent();
-        p.print("std::uint64_t rp_raw = 0;\n");
+        p.print("std::size_t rp_fo = 0;\n");
         p.print(
-            "const std::uint8_t* const rp_np ="
-            " ::rapidproto::wire::read_varint(rp_vp, rp_ve, &rp_raw, &rp_we);\n");
+            "const std::size_t rp_dc = ::rapidproto::wire::decode_packed_varints<$E$>(rp_vp, rp_ve,"
+            " rp_acc_$id$ + rp_n_$id$, rp_vp, &rp_we, &rp_fo,"
+            " [](std::uint64_t rp_raw) -> $E$ { return $pre$rp_raw$post$; });\n",
+            {{"E", elem}, {"id", id}, {"pre", info.pre}, {"post", info.post}});
         p.print(
-            "if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we,"
-            " static_cast<std::size_t>(rp_vp - rp_vbeg)); return false; }\n");
-        p.print("rp_acc_$id$[rp_n_$id$] = $pre$rp_raw$post$;\n",
-                {{"id", id}, {"pre", info.pre}, {"post", info.post}});
-        p.print("++rp_n_$id$;\n", {{"id", id}});
-        p.print("rp_vp = rp_np;\n");
-        p.outdent();
-        p.print("}\n");
+            "if (rp_dc == static_cast<std::size_t>(-1)) { ::rapidproto::rp_fail_wire_at(err, rp_we,"
+            " rp_fo); return false; }\n");
+        p.print("rp_n_$id$ += rp_dc;\n", {{"id", id}});
     } else {
         // Packed fixed (big-endian host / partial-span fallback) or packed enum: per-element read from
         // the span, cursor threaded by value.
