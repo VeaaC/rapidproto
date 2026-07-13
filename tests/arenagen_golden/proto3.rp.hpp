@@ -322,17 +322,12 @@ RP_FLATTEN inline bool Msg::rp_decode_into([[maybe_unused]] Msg& out, ::rapidpro
           rp_acc_states = rp_nb;
           rp_cap_states = rp_nc;
         }
-        const std::uint8_t* rp_vp = ::rapidproto::wire::byte_ptr(rp_p);
-        const std::uint8_t* const rp_vbeg = rp_vp;
+        const std::uint8_t* const rp_vp = ::rapidproto::wire::byte_ptr(rp_p);
         const std::uint8_t* const rp_ve = rp_vp + rp_p.size();
-        while (rp_vp < rp_ve) {
-          std::uint64_t rp_raw = 0;
-          const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_vp, rp_ve, &rp_raw, &rp_we);
-          if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_vp - rp_vbeg)); return false; }
-          rp_vp = rp_np;
-          rp_acc_states[rp_n_states] = static_cast<::p3::State>(::rapidproto::varint_to_int32(rp_raw));
-          ++rp_n_states;
-        }
+        std::size_t rp_fo = 0;
+        const std::size_t rp_dc = ::rapidproto::wire::decode_packed_varints<::p3::State>(rp_vp, rp_ve, rp_acc_states + rp_n_states, rp_vp, &rp_we, &rp_fo, ::rapidproto::wire::conv_enum<::p3::State>{});
+        if (rp_dc == static_cast<std::size_t>(-1)) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo); return false; }
+        rp_n_states += rp_dc;
         arena.shrink_last(rp_acc_states, rp_cap_states * sizeof(::p3::State), rp_n_states * sizeof(::p3::State));
         rp_cap_states = rp_n_states;
         continue;

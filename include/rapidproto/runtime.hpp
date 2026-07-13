@@ -822,6 +822,13 @@ struct conv_sint64 {
 struct conv_bool {
     bool operator()(std::uint64_t r) const noexcept { return varint_to_bool(r); }
 };
+// Packed enum element: cast the raw varint (low 32 bits) to the generated enum type, matching the
+// per-element read. Open-enum semantics -- every int32 value is stored as-is, no filtering. Templated
+// on the enum type, so decode_packed_varints instantiates once per enum type (shared across its fields).
+template <class E>
+struct conv_enum {
+    E operator()(std::uint64_t r) const noexcept { return static_cast<E>(varint_to_int32(r)); }
+};
 
 }  // namespace wire
 
