@@ -42,9 +42,10 @@ struct VarintDist {
     int mode;
 };
 
-// The distributions the sweep covers: fixed 1..10, uniform(1..10), the 90/10 skew, and the two common
+// The distributions the sweep covers: fixed 1..10, uniform(1..10), the 90/10 skew, the common
 // NARROW-mixed shapes -- uniform 1..2 byte (values <= 16383) and uniform 1..3 byte (<= ~2M), the shape
-// of delta-encoded sequences, small ids/indices, enum arrays and counts.
+// of delta-encoded sequences, small ids/indices, enum arrays and counts -- and mix13out (1..3 byte with
+// a 1% 10-byte outlier, a resync/sentinel value) to exercise the Struct kernel's no-cliff bail.
 inline std::vector<VarintDist> varint_dists() {
     std::vector<VarintDist> out;
     out.reserve(15);

@@ -180,8 +180,9 @@ inline const std::uint8_t* read_varint(const std::uint8_t* p, const std::uint8_t
 // ── SWAR packed-varint decode (word-at-a-time, branchless) ─────────────────────────────────────────
 // Decodes one varint by inspecting a whole 8-byte word at once, so the per-byte continuation-bit branch
 // that mispredicts on mixed-width data does not exist. Portable: no PEXT/SIMD -- the byte-mask is a
-// multiply, the 7-bit gather is shift/mask. Used ONLY for packed repeated varints, where a bounded span
-// makes an 8-byte over-read safe (the caller guarantees >= 8 in-span bytes and scalar-decodes the tail).
+// multiply, the 7-bit gather is shift/mask. Used ONLY for packed repeated varints: the 8-byte word read
+// is issued only with >= 8 in-span bytes remaining, so the load stays INSIDE the span (never past `end`);
+// the caller scalar-decodes the last < 8 bytes. There is no reliance on readable slack past the span.
 namespace swar_detail {
 inline constexpr std::uint64_t kMSB = 0x8080808080808080ULL;   // MSB of each byte
 inline constexpr std::uint64_t kLow7 = 0x7F7F7F7F7F7F7F7FULL;  // low 7 bits of each byte
@@ -263,13 +264,15 @@ enum class PackedKernel : std::uint8_t {
     Struct,  // NARROW-mixed (max width <= 5): one stopmask per block, then independent compact7s
     Bulk1,   // homogeneous 1-byte: widen 64 bytes at once (auto-vectorizes)
     Bulk2,   // homogeneous 2-byte: four varints per 8-byte word
-    Fixed,   // homogeneous 3..8-byte: fixed-stride decode, no boundary find (beats the byte loop)
+    Fixed,   // homogeneous 3..10-byte: fixed-stride decode, no boundary find (beats the byte loop)
 };
 
 // Classify the width regime from the first 64-byte window. Reads 64 bytes at p, so is only entered when
 // span is comfortably above that. Homogeneous width == equal gaps between terminators. For a Fixed
-// (homogeneous 3..8-byte) result, `*width` is that width; it is unspecified otherwise.
+// (homogeneous 3..10-byte) result, `*width` is that width; it is unspecified otherwise.
 inline PackedKernel packed_strategy(const std::uint8_t* p, std::size_t span, int* width) noexcept {
+    *width =
+        0;  // defined for every return; only a Fixed result overwrites it (localizes the contract)
     if (span < 256) {
         // Only tiny spans skip the kernels: below this the classify scan and kernel-switch aren't
         // amortized. (This floor is about dispatch cost, NOT branch prediction -- a real decode sees each
@@ -280,7 +283,9 @@ inline PackedKernel packed_strategy(const std::uint8_t* p, std::size_t span, int
     const std::uint64_t stop =
         swar_detail::stopmask64(p);  // bit i set = byte i terminates a varint
     if (stop == 0) {
-        return PackedKernel::ByteLoop;  // all-continuation (9/10-byte varints)
+        // No terminator in 64 bytes: a single varint longer than the window (malformed/overlong, since a
+        // valid varint is <= 10 bytes) -> the validating byte loop rejects it.
+        return PackedKernel::ByteLoop;
     }
     // Scan EVERY terminator: track the first varint's width (for the homogeneity test) and the MAX
     // width. A skewed array is mostly 1-byte with an occasional wide value, so a short scan would miss
@@ -325,13 +330,6 @@ inline PackedKernel packed_strategy(const std::uint8_t* p, std::size_t span, int
         ByteLoop;  // g0 > 10: an overlong (malformed) varint -> the validating byte loop
 }
 
-// Decode a whole packed-varint span into `out`, applying `conv` (raw varint -> element) to each. One
-// classifier pick per field routes to a bulk widen (homogeneous narrow), branchless SWAR (mixed), or
-// the byte loop (wide/predictable); a validating scalar tail finishes the last < kernel-width bytes and
-// handles 9/10-byte / truncation / overflow. Returns the element count, or SIZE_MAX on a malformed
-// varint (with *err set and *fail_off = offset from `begin`). Safe on untrusted input: every word load
-// is bounded to `>= its width` in-span bytes, so it never reads past the span (and thus never past the
-// buffer, since the span is a sub-view of it).
 // ── Packed-varint output sinks ──────────────────────────────────────────────────────────────────
 // decode_packed_varints is templated on a SINK so BOTH generated decoders share one implementation:
 // the arena decoder's sink stores conv(raw) into its pre-allocated array; the streaming decoder's
