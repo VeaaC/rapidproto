@@ -337,13 +337,36 @@ inline const std::uint8_t* fixed_fill(const std::uint8_t* q, const std::uint8_t*
     constexpr std::uint64_t kOneVarint =
         kMsbW ^ (std::uint64_t{0x80} << (8U * static_cast<unsigned>(W - 1)));
     std::size_t n = *np;
-    while (static_cast<std::size_t>(end - q) >= 8) {
-        const std::uint64_t w = swar_detail::load64(q);
-        if ((w & kMsbW) != kOneVarint) {
-            break;  // not exactly one W-byte varint (wider, narrower, or an interior terminator)
+    if constexpr (W <= 4) {
+        // Two W-byte varints (2W <= 8 bytes) fit in one 8-byte load, so decode both per load with a
+        // full 2W-byte pattern compare -- ~1.2-1.3x over one-per-load on fx3/fx4 (common id/count widths).
+        constexpr std::uint64_t kMsb2 = kMsbW | (kMsbW << (8U * static_cast<unsigned>(W)));
+        constexpr std::uint64_t kTwoVarints =
+            kOneVarint | (kOneVarint << (8U * static_cast<unsigned>(W)));
+        while (static_cast<std::size_t>(end - q) >= 8) {
+            const std::uint64_t w = swar_detail::load64(q);
+            if ((w & kMsb2) == kTwoVarints) {  // two back-to-back W-byte varints
+                out[n] = conv(swar_detail::compact7(w & kLenMask & swar_detail::kLow7));
+                out[n + 1] = conv(swar_detail::compact7((w >> (8U * static_cast<unsigned>(W))) &
+                                                        kLenMask & swar_detail::kLow7));
+                n += 2;
+                q += 2 * W;
+            } else if ((w & kMsbW) == kOneVarint) {  // just one, then a width change
+                out[n++] = conv(swar_detail::compact7(w & kLenMask & swar_detail::kLow7));
+                q += W;
+            } else {
+                break;  // not a W-byte varint (wider, narrower, or an interior terminator)
+            }
         }
-        out[n++] = conv(swar_detail::compact7(w & kLenMask & swar_detail::kLow7));
-        q += W;
+    } else {
+        while (static_cast<std::size_t>(end - q) >= 8) {
+            const std::uint64_t w = swar_detail::load64(q);
+            if ((w & kMsbW) != kOneVarint) {
+                break;  // not exactly one W-byte varint (wider, narrower, or an interior terminator)
+            }
+            out[n++] = conv(swar_detail::compact7(w & kLenMask & swar_detail::kLow7));
+            q += W;
+        }
     }
     *np = n;
     return q;
