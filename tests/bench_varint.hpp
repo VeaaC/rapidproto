@@ -113,10 +113,11 @@ inline std::vector<std::int64_t> varint_values(const VarintDist& dist, int count
     return out;
 }
 
-// The wire bytes of a message carrying only `numbers` (packed repeated int64, field 1) with these
-// values -- exactly what bench.Big / rp::bench::Big serialises, so protoc, the arena decoder, the
-// streaming decoder, and protozero all decode the identical buffer.
-inline std::string make_packed_i64(const std::vector<std::int64_t>& values) {
+// The wire bytes of a message carrying one packed varint field (`field_number`, wire type 2) with these
+// values as raw varints -- field 1 is bench.Big.numbers (int64); passing field 3 (sint64 `zz`) or 4
+// (enum `kinds`) reuses the IDENTICAL payload bytes to measure the zigzag / enum-cast conversion cost
+// against int64. protoc, both rapidproto decoders, and protozero all decode the identical buffer.
+inline std::string make_packed_i64(const std::vector<std::int64_t>& values, int field_number = 1) {
     const auto put_varint = [](std::string& b, std::uint64_t v) {
         while (v >= 0x80U) {
             b.push_back(static_cast<char>(0x80U | (v & 0x7FU)));
@@ -129,7 +130,8 @@ inline std::string make_packed_i64(const std::vector<std::int64_t>& values) {
         put_varint(payload, static_cast<std::uint64_t>(v));
     }
     std::string buf;
-    put_varint(buf, (std::uint64_t{1} << 3U) | 2U);  // tag: field 1, wire type 2 (LEN)
+    put_varint(buf,
+               (static_cast<std::uint64_t>(field_number) << 3U) | 2U);  // tag: field, wire type LEN
     put_varint(buf, payload.size());
     buf += payload;
     return buf;

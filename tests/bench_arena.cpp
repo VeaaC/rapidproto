@@ -599,6 +599,73 @@ std::uint64_t checksum_big_protozero(rapidproto::ByteView buf) {
 }
 #endif
 
+// Same shape for the packed sint64 `zz` (field 3) and enum `kinds` (field 4) type-comparison arms: the
+// wire is identical packed varints, so the only difference from `numbers` is the zigzag / enum-cast conv.
+std::uint64_t checksum_big_arena_zz(const rp::bench::Big* b) {
+    std::uint64_t s = 0;
+    if (b != nullptr) {
+        for (const std::int64_t v : b->zz()) {
+            s += static_cast<std::uint64_t>(v);
+        }
+    }
+    return s;
+}
+std::uint64_t checksum_big_protoc_zz(const bench::Big& b) {
+    std::uint64_t s = 0;
+    for (const std::int64_t v : b.zz()) {
+        s += static_cast<std::uint64_t>(v);
+    }
+    return s;
+}
+std::uint64_t checksum_big_arena_kinds(const rp::bench::Big* b) {
+    std::uint64_t s = 0;
+    if (b != nullptr) {
+        for (const auto k : b->kinds()) {
+            s += static_cast<std::uint64_t>(static_cast<std::int32_t>(k));
+        }
+    }
+    return s;
+}
+std::uint64_t checksum_big_protoc_kinds(const bench::Big& b) {
+    std::uint64_t s = 0;
+    for (const int k : b.kinds()) {
+        s += static_cast<std::uint64_t>(static_cast<std::int32_t>(k));
+    }
+    return s;
+}
+#ifdef RAPIDPROTO_HAVE_PROTOZERO
+std::uint64_t checksum_big_protozero_zz(rapidproto::ByteView buf) {
+    std::uint64_t s = 0;
+    protozero::pbf_reader r{buf.data(), buf.size()};
+    while (r.next()) {
+        if (r.tag() == 3) {
+            auto packed = r.get_packed_sint64();
+            for (const auto v : packed) {
+                s += static_cast<std::uint64_t>(v);
+            }
+        } else {
+            r.skip();
+        }
+    }
+    return s;
+}
+std::uint64_t checksum_big_protozero_kinds(rapidproto::ByteView buf) {
+    std::uint64_t s = 0;
+    protozero::pbf_reader r{buf.data(), buf.size()};
+    while (r.next()) {
+        if (r.tag() == 4) {
+            auto packed = r.get_packed_enum();
+            for (const auto v : packed) {
+                s += static_cast<std::uint64_t>(static_cast<std::int32_t>(v));
+            }
+        } else {
+            r.skip();
+        }
+    }
+    return s;
+}
+#endif
+
 // The packed int64 fill (rp::bench::Big.numbers) across element byte width (fixed 1..10, uniform, 90/10
 // skew) x element count (10 .. 1,000,000): arena-warm vs protoc (and protozero as a raw-parse
 // yardstick). The streaming bench sweeps the SAME shapes, so the two map the packed-varint decode
@@ -656,6 +723,79 @@ void sweep_repeated_varint() {
 #endif
             };
             (void)rpbench::run(name.c_str(), avg_bytes, arms);
+        }
+    }
+}
+
+// Packed sint64 (`zz`, field 3) and packed enum (`kinds`, field 4) carry the SAME packed-varint wire as
+// `numbers`, so they run the SAME classifier + kernels; only the per-element conversion differs (zigzag
+// for sint64, an int32 cast for enum, vs ~identity for int64). This focused sweep decodes those two at
+// 1M elements so the conv cost is directly comparable to the "rv <dist> 1M" int64 rows. sint64 covers
+// every width; enum stays on the int32-safe narrow widths (a >4-byte value would truncate, and protoc
+// vs our decoders could then disagree -- and real enums are small anyway).
+void sweep_repeated_varint_types() {
+    constexpr int kCount = 1'000'000;
+    const auto run_type = [&](const rpbench::VarintDist& dist, int field_number, const char* tag,
+                              auto arena_sum, auto protoc_sum, auto protozero_sum) {
+        const long est = static_cast<long>(kCount) * 10 + 16;
+        const int pool_n =
+            static_cast<int>(std::min<long>(64, std::max<long>(8, (64L << 20) / est)));
+        std::vector<std::string> pool;
+        std::vector<rapidproto::ByteView> views;
+        pool.reserve(static_cast<std::size_t>(pool_n));
+        views.reserve(static_cast<std::size_t>(pool_n));
+        double total_bytes = 0;
+        for (int s = 0; s < pool_n; ++s) {
+            pool.push_back(rpbench::make_packed_i64(
+                rpbench::varint_values(dist, kCount, static_cast<std::uint64_t>(s) + 1),
+                field_number));
+            total_bytes += static_cast<double>(pool.back().size());
+        }
+        for (const auto& b : pool) {
+            views.emplace_back(b);
+        }
+        const double avg_bytes = total_bytes / static_cast<double>(pool_n);
+        const std::string name = std::string("rv-") + tag + " " + dist.label + " 1M";
+        rapidproto::Arena warm;
+        std::vector<rpbench::Arm> arms = {
+            {"protoc",
+             [&, i = 0]() mutable {
+                 const std::string& buf = pool[static_cast<std::size_t>(i++) % pool.size()];
+                 google::protobuf::Arena pa;
+                 auto* m = google::protobuf::Arena::CreateMessage<bench::Big>(&pa);
+                 m->ParseFromString(buf);
+                 return protoc_sum(*m);
+             }},
+            {"arena-warm",
+             [&, i = 0]() mutable {
+                 const rapidproto::ByteView& view =
+                     views[static_cast<std::size_t>(i++) % views.size()];
+                 warm.reset();
+                 return arena_sum(rp::bench::Big::decode(view, warm));
+             }},
+#ifdef RAPIDPROTO_HAVE_PROTOZERO
+            {"protozero",
+             [&, i = 0]() mutable {
+                 return protozero_sum(views[static_cast<std::size_t>(i++) % views.size()]);
+             }},
+#endif
+        };
+        (void)rpbench::run(name.c_str(), avg_bytes, arms);
+    };
+#ifdef RAPIDPROTO_HAVE_PROTOZERO
+    const auto zz_pz = checksum_big_protozero_zz;
+    const auto kinds_pz = checksum_big_protozero_kinds;
+#else
+    const auto zz_pz = [](rapidproto::ByteView) { return std::uint64_t{0}; };
+    const auto kinds_pz = [](rapidproto::ByteView) { return std::uint64_t{0}; };
+#endif
+    for (const auto& dist : rpbench::varint_dists()) {
+        run_type(dist, 3, "zz", checksum_big_arena_zz, checksum_big_protoc_zz, zz_pz);
+        const bool narrow = dist.label == "fx1" || dist.label == "fx2" || dist.label == "fx3" ||
+                            dist.label == "mix12" || dist.label == "mix13";
+        if (narrow) {
+            run_type(dist, 4, "enum", checksum_big_arena_kinds, checksum_big_protoc_kinds,
+                     kinds_pz);
         }
     }
 }
@@ -810,6 +950,8 @@ int main() {
     // Repeated-varint sweep: the packed int64 decode surface across element byte width x count. Part of
     // the machine-readable comparison (runs in JSON mode too), so it precedes the early return below.
     sweep_repeated_varint();
+    // Packed sint64 / enum at 1M: same wire+kernels, measuring the zigzag / enum-cast conversion cost.
+    sweep_repeated_varint_types();
 
     // Chunk-cap sweep: held/used (the arena's growth + chunk-tail waste) and parse time across shapes
     // and sizes up to ~32 MB. Arena only; this tunes the Arena's chunk-growth policy. It is deep
