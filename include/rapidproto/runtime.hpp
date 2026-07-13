@@ -307,12 +307,12 @@ inline PackedKernel packed_strategy(const std::uint8_t* p, std::size_t span, int
     if (g0 == 2) {
         return PackedKernel::Bulk2;  // homogeneous 2-byte
     }
-    if (g0 >= 3 && g0 <= 8) {
+    if (g0 >= 3 && g0 <= 10) {
         *width = g0;
-        return PackedKernel::Fixed;  // homogeneous 3..8-byte: fixed stride beats the byte loop
+        return PackedKernel::Fixed;  // homogeneous 3..10-byte: fixed stride beats the byte loop
     }
     return PackedKernel::
-        ByteLoop;  // homogeneous 9/10-byte: needs > 1 word per element -> byte loop
+        ByteLoop;  // g0 > 10: an overlong (malformed) varint -> the validating byte loop
 }
 
 // Decode a whole packed-varint span into `out`, applying `conv` (raw varint -> element) to each. One
@@ -343,6 +343,47 @@ inline const std::uint8_t* fixed_fill(const std::uint8_t* q, const std::uint8_t*
             break;  // not exactly one W-byte varint (wider, narrower, or an interior terminator)
         }
         out[n++] = conv(swar_detail::compact7(w & kLenMask & swar_detail::kLow7));
+        q += W;
+    }
+    *np = n;
+    return q;
+}
+
+// Fixed-stride decode of homogeneous 9/10-byte varints (W a COMPILE-TIME 9 or 10). These span more than
+// one word, so the value is assembled in two parts: compact7 of the low 8 bytes (bits 0..55) plus the
+// high byte(s). Matches read_varint's overflow rule -- a 10-byte varint's last byte may only be 0 or 1
+// (bit 63) -- by bailing anything else to the validating byte-loop tail, which reports the overflow.
+// Guards each element's exact width and stops on the first width change (rest -> caller's tail).
+template <int W, class Elem, class Conv>
+inline const std::uint8_t* fixed_fill_wide(const std::uint8_t* q, const std::uint8_t* end,
+                                           Elem* out, std::size_t* np, Conv conv) noexcept {
+    static_assert(W == 9 || W == 10, "fixed_fill_wide handles only 9/10-byte varints");
+    std::size_t n = *np;
+    while (static_cast<std::size_t>(end - q) >= W) {
+        const std::uint64_t w0 =
+            swar_detail::load64(q);  // bytes 0..7 (all continue for a >= 9-byte one)
+        if ((w0 & swar_detail::kMSB) != swar_detail::kMSB) {
+            break;  // a byte in 0..7 terminates -> narrower than W
+        }
+        std::uint64_t value = swar_detail::compact7(w0 & swar_detail::kLow7);  // bits 0..55
+        const std::uint8_t b8 = q[8];
+        if constexpr (W == 9) {
+            if ((b8 & 0x80U) != 0U) {
+                break;  // byte 8 continues -> wider than 9
+            }
+            value |= static_cast<std::uint64_t>(b8 & 0x7FU) << 56U;  // bits 56..62
+        } else {                                                     // W == 10
+            const std::uint8_t b9 = q[9];
+            if ((b8 & 0x80U) == 0U || (b9 & 0x80U) != 0U) {
+                break;  // not exactly 10 bytes (byte 8 must continue, byte 9 must terminate)
+            }
+            if (b9 > 1U) {
+                break;  // 10th byte > 1 encodes bits above 63 -> overflow; let the tail report it
+            }
+            value |= static_cast<std::uint64_t>(b8 & 0x7FU) << 56U;  // bits 56..62
+            value |= static_cast<std::uint64_t>(b9) << 63U;          // bit 63
+        }
+        out[n++] = conv(value);
         q += W;
     }
     *np = n;
@@ -403,9 +444,10 @@ RP_FLATTEN inline std::size_t decode_packed_varints(const std::uint8_t* p, const
             }
         }
     } else if (kern == PackedKernel::Fixed) {
-        // Homogeneous 3..8-byte: fixed stride, no per-element boundary find. Dispatched on a COMPILE-TIME
-        // width so the mask/shifts specialize (a runtime width was much slower for the narrow cases).
-        // The guard bails to the byte-loop tail on any width change, so it is correct on any data.
+        // Homogeneous 3..10-byte: fixed stride, no per-element boundary find. Dispatched on a COMPILE-TIME
+        // width so the mask/shifts specialize (a runtime width was much slower for the narrow cases). 9/10
+        // byte varints span > 1 word (fixed_fill_wide). The guard bails to the byte-loop tail on any width
+        // change, so it is correct on any data.
         switch (width) {
             case 3:
                 q = fixed_fill<3>(q, end, out, &n, conv);
@@ -422,8 +464,14 @@ RP_FLATTEN inline std::size_t decode_packed_varints(const std::uint8_t* p, const
             case 7:
                 q = fixed_fill<7>(q, end, out, &n, conv);
                 break;
-            default:
+            case 8:
                 q = fixed_fill<8>(q, end, out, &n, conv);
+                break;
+            case 9:
+                q = fixed_fill_wide<9>(q, end, out, &n, conv);
+                break;
+            default:  // width == 10 (classifier guarantees 3..10)
+                q = fixed_fill_wide<10>(q, end, out, &n, conv);
                 break;
         }
     } else if (kern == PackedKernel::Struct) {
