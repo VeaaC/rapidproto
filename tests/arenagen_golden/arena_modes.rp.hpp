@@ -251,7 +251,7 @@ RP_FLATTEN inline bool Holder::rp_decode_into([[maybe_unused]] Holder& out, ::ra
         const std::uint8_t* const rp_vp = ::rapidproto::wire::byte_ptr(rp_p);
         const std::uint8_t* const rp_ve = rp_vp + rp_p.size();
         std::size_t rp_fo = 0;
-        const std::size_t rp_dc = ::rapidproto::wire::decode_packed_varints<std::int32_t>(rp_vp, rp_ve, rp_acc_samples + rp_n_samples, rp_vp, &rp_we, &rp_fo, ::rapidproto::wire::conv_int32{});
+        const std::size_t rp_dc = ::rapidproto::wire::decode_packed_varints(rp_vp, rp_ve, rp_vp, &rp_we, &rp_fo, ::rapidproto::wire::array_sink<std::int32_t, ::rapidproto::wire::conv_int32>{rp_acc_samples + rp_n_samples});
         if (rp_dc == static_cast<std::size_t>(-1)) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo); return false; }
         rp_n_samples += rp_dc;
         arena.shrink_last(rp_acc_samples, rp_cap_samples * sizeof(std::int32_t), rp_n_samples * sizeof(std::int32_t));
@@ -285,7 +285,7 @@ RP_FLATTEN inline bool Holder::rp_decode_into([[maybe_unused]] Holder& out, ::ra
         const std::uint8_t* const rp_vp = ::rapidproto::wire::byte_ptr(rp_p);
         const std::uint8_t* const rp_ve = rp_vp + rp_p.size();
         std::size_t rp_fo = 0;
-        const std::size_t rp_dc = ::rapidproto::wire::decode_packed_varints<std::int32_t>(rp_vp, rp_ve, rp_acc_spread + rp_n_spread, rp_vp, &rp_we, &rp_fo, ::rapidproto::wire::conv_int32{});
+        const std::size_t rp_dc = ::rapidproto::wire::decode_packed_varints(rp_vp, rp_ve, rp_vp, &rp_we, &rp_fo, ::rapidproto::wire::array_sink<std::int32_t, ::rapidproto::wire::conv_int32>{rp_acc_spread + rp_n_spread});
         if (rp_dc == static_cast<std::size_t>(-1)) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo); return false; }
         rp_n_spread += rp_dc;
         arena.shrink_last(rp_acc_spread, rp_cap_spread * sizeof(std::int32_t), rp_n_spread * sizeof(std::int32_t));

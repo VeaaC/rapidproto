@@ -1004,8 +1004,10 @@ void emit_packed_fill(const Emit& emit, const FieldNode& field) {
         p.print("const std::uint8_t* const rp_ve = rp_vp + rp_p.size();\n");
         p.print("std::size_t rp_fo = 0;\n");
         p.print(
-            "const std::size_t rp_dc = ::rapidproto::wire::decode_packed_varints<$E$>(rp_vp, rp_ve,"
-            " rp_acc_$id$ + rp_n_$id$, rp_vp, &rp_we, &rp_fo, $conv${});\n",
+            "const std::size_t rp_dc = ::rapidproto::wire::decode_packed_varints(rp_vp, rp_ve, "
+            "rp_vp,"
+            " &rp_we, &rp_fo,"
+            " ::rapidproto::wire::array_sink<$E$, $conv$>{rp_acc_$id$ + rp_n_$id$});\n",
             {{"E", elem}, {"id", id}, {"conv", conv}});
         p.print(
             "if (rp_dc == static_cast<std::size_t>(-1)) { ::rapidproto::rp_fail_wire_at(err, rp_we,"

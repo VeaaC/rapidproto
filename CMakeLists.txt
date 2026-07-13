@@ -129,6 +129,10 @@ add_custom_command(
     ${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_runtime.cmake
   COMMENT "Embedding runtime.hpp -> runtime_embedded.cpp"
   VERBATIM)
+# The embedded runtime is one raw string literal exceeding the 65536-char minimum the standard requires
+# (both compilers accept it; clang's pedantic -Woverlength-strings would flag it under -Werror). Suppress
+# it for this generated, internal-only TU.
+set_source_files_properties(${RUNTIME_EMBEDDED_CPP} PROPERTIES COMPILE_OPTIONS "-Wno-overlength-strings")
 add_library(rapidproto_codegen_lib STATIC
   src/codegen/naming.cpp
   ${RUNTIME_EMBEDDED_CPP})
@@ -164,6 +168,8 @@ add_custom_command(
     ${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_runtime.cmake
   COMMENT "Embedding arena_runtime.hpp -> arena_runtime_embedded.cpp"
   VERBATIM)
+set_source_files_properties(${ARENA_RUNTIME_EMBEDDED_CPP}
+  PROPERTIES COMPILE_OPTIONS "-Wno-overlength-strings")  # same over-length embed literal as above
 add_library(rapidproto_arenagen_lib STATIC
   src/arenagen/layout.cpp
   src/arenagen/modes.cpp

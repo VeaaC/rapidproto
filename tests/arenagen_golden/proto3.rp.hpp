@@ -257,7 +257,7 @@ RP_FLATTEN inline bool Msg::rp_decode_into([[maybe_unused]] Msg& out, ::rapidpro
         const std::uint8_t* const rp_vp = ::rapidproto::wire::byte_ptr(rp_p);
         const std::uint8_t* const rp_ve = rp_vp + rp_p.size();
         std::size_t rp_fo = 0;
-        const std::size_t rp_dc = ::rapidproto::wire::decode_packed_varints<std::int32_t>(rp_vp, rp_ve, rp_acc_nums + rp_n_nums, rp_vp, &rp_we, &rp_fo, ::rapidproto::wire::conv_int32{});
+        const std::size_t rp_dc = ::rapidproto::wire::decode_packed_varints(rp_vp, rp_ve, rp_vp, &rp_we, &rp_fo, ::rapidproto::wire::array_sink<std::int32_t, ::rapidproto::wire::conv_int32>{rp_acc_nums + rp_n_nums});
         if (rp_dc == static_cast<std::size_t>(-1)) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo); return false; }
         rp_n_nums += rp_dc;
         arena.shrink_last(rp_acc_nums, rp_cap_nums * sizeof(std::int32_t), rp_n_nums * sizeof(std::int32_t));
@@ -291,7 +291,7 @@ RP_FLATTEN inline bool Msg::rp_decode_into([[maybe_unused]] Msg& out, ::rapidpro
         const std::uint8_t* const rp_vp = ::rapidproto::wire::byte_ptr(rp_p);
         const std::uint8_t* const rp_ve = rp_vp + rp_p.size();
         std::size_t rp_fo = 0;
-        const std::size_t rp_dc = ::rapidproto::wire::decode_packed_varints<std::int32_t>(rp_vp, rp_ve, rp_acc_unpacked + rp_n_unpacked, rp_vp, &rp_we, &rp_fo, ::rapidproto::wire::conv_int32{});
+        const std::size_t rp_dc = ::rapidproto::wire::decode_packed_varints(rp_vp, rp_ve, rp_vp, &rp_we, &rp_fo, ::rapidproto::wire::array_sink<std::int32_t, ::rapidproto::wire::conv_int32>{rp_acc_unpacked + rp_n_unpacked});
         if (rp_dc == static_cast<std::size_t>(-1)) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo); return false; }
         rp_n_unpacked += rp_dc;
         arena.shrink_last(rp_acc_unpacked, rp_cap_unpacked * sizeof(std::int32_t), rp_n_unpacked * sizeof(std::int32_t));
@@ -325,7 +325,7 @@ RP_FLATTEN inline bool Msg::rp_decode_into([[maybe_unused]] Msg& out, ::rapidpro
         const std::uint8_t* const rp_vp = ::rapidproto::wire::byte_ptr(rp_p);
         const std::uint8_t* const rp_ve = rp_vp + rp_p.size();
         std::size_t rp_fo = 0;
-        const std::size_t rp_dc = ::rapidproto::wire::decode_packed_varints<::p3::State>(rp_vp, rp_ve, rp_acc_states + rp_n_states, rp_vp, &rp_we, &rp_fo, ::rapidproto::wire::conv_enum<::p3::State>{});
+        const std::size_t rp_dc = ::rapidproto::wire::decode_packed_varints(rp_vp, rp_ve, rp_vp, &rp_we, &rp_fo, ::rapidproto::wire::array_sink<::p3::State, ::rapidproto::wire::conv_enum<::p3::State>>{rp_acc_states + rp_n_states});
         if (rp_dc == static_cast<std::size_t>(-1)) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo); return false; }
         rp_n_states += rp_dc;
         arena.shrink_last(rp_acc_states, rp_cap_states * sizeof(::p3::State), rp_n_states * sizeof(::p3::State));

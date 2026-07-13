@@ -38,6 +38,10 @@ struct FieldGen {
     std::string_view wire_type;  // WireType enumerator
     std::string decode_pre;      // wraps the raw read value -> Value
     std::string decode_post;
+    // For a Varint-wire field: the NAMED rapidproto::wire:: conversion functor the packed kernel is
+    // templated on (so the whole packed span is decoded by the shared decode_packed_varints; see
+    // runtime.hpp). Empty for non-Varint fields (their packed path stays per-element).
+    std::string packed_conv;
 };
 
 std::optional<FieldGen> scalar_gen(std::string_view type) {
@@ -51,7 +55,8 @@ std::optional<FieldGen> scalar_gen(std::string_view type) {
     const bool is_str = type == "string" || type == "bytes";
     std::string value_type =
         is_str ? "std::string_view" : std::string(codegen::cpp_numeric_type(type));
-    return FieldGen{std::move(value_type), w->wire, std::string(w->pre), std::string(w->post)};
+    return FieldGen{std::move(value_type), w->wire, std::string(w->pre), std::string(w->post),
+                    std::string(w->packed_conv)};
 }
 
 // How to decode one scalar / enum / message / group field (the Value the callback receives).
@@ -61,17 +66,18 @@ FieldGen field_gen(const CppNameTable& symbols, const FieldNode& field) {
     }
     const std::string cpp = cpp_type_name(symbols, field.resolved_type_fqn);
     if (field.is_enum_type) {
-        return {cpp, "Varint", "static_cast<" + cpp + ">(::rapidproto::varint_to_int32(", "))"};
+        return {cpp, "Varint", "static_cast<" + cpp + ">(::rapidproto::varint_to_int32(", "))",
+                "::rapidproto::wire::conv_enum<" + cpp + ">"};
     }
     if (field.message_encoding == MessageEncoding::Delimited) {
         // Delimited wire format (a proto2 `group` or an editions DELIMITED message field): the
         // Value is the sub-decoder over the body delimited by SGROUP/EGROUP. (`is_group` only marks
         // the synthesized-nested-message structure; the wire form is decided by
         // `message_encoding`.)
-        return {cpp, "SGroup", cpp + "{", "}"};
+        return {cpp, "SGroup", cpp + "{", "}", ""};
     }
     // message-typed: the Value is the sub-decoder, constructed over the LEN payload.
-    return {cpp, "Len", cpp + "{", "}"};
+    return {cpp, "Len", cpp + "{", "}", ""};
 }
 
 // How to decode a map field's value (scalar / enum / message). The key is a scalar (analyze checks).
@@ -81,9 +87,9 @@ FieldGen map_value_gen(const CppNameTable& symbols, const MapFieldNode& map) {
     }
     const std::string cpp = cpp_type_name(symbols, map.resolved_value_type_fqn);
     if (map.value_is_enum) {
-        return {cpp, "Varint", "static_cast<" + cpp + ">(::rapidproto::varint_to_int32(", "))"};
+        return {cpp, "Varint", "static_cast<" + cpp + ">(::rapidproto::varint_to_int32(", "))", ""};
     }
-    return {cpp, "Len", cpp + "{", "}"};  // message value
+    return {cpp, "Len", cpp + "{", "}", ""};  // message value
 }
 
 // A scalar / enum / message / group field (singular or repeated). Maps live in map_fields and are
@@ -443,6 +449,40 @@ void emit_decode_and_invoke(Printer& printer, const std::string& fname, const Fi
     printer.print("}\n");
 }
 
+// Emit the body of a packed (LEN) arm for a repeated packable field: `rp_packed` is already read.
+// Varint elements go through the SHARED whole-span kernel (decode_packed_varints + a callback sink,
+// the same classifier/kernels the arena decoder uses); fixed32/64 stay on the per-element loop. Offsets
+// are span-relative (the span start is passed as the offset base), matching the per-element path.
+void emit_packed_body(Printer& printer, const std::string& fname, const FieldGen& gen) {
+    emit_vt_len_read(printer, "rp_packed");
+    if (gen.wire_type == "Varint") {
+        printer.print(
+            "const std::uint8_t* const rp_pc = ::rapidproto::wire::byte_ptr(rp_packed);\n");
+        printer.print("::rapidproto::DecodeStatus rp_ab{};\n");
+        printer.print("std::size_t rp_pfo = 0;\n");
+        printer.print(
+            "const std::size_t rp_pdc = ::rapidproto::wire::decode_packed_varints(rp_pc,"
+            " rp_pc + rp_packed.size(), rp_pc, &rp_we, &rp_pfo,"
+            " ::rapidproto::callback_sink<std::decay_t<decltype(rp_dispatch)>, $f$, $conv$>{"
+            "&rp_dispatch, &rp_ab});\n",
+            {{"f", fname}, {"conv", gen.packed_conv}});
+        printer.print(
+            "if (rp_pdc == static_cast<std::size_t>(-1)) { return ::rapidproto::DecodeStatus{rp_we,"
+            " false, rp_pfo}; }\n");
+        printer.print("if (!rp_ab.ok()) { return rp_ab; }\n");
+    } else {
+        // fixed32/fixed64 packed: per-element read (no varint kernel applies).
+        printer.print("const std::uint8_t* rp_pc = ::rapidproto::wire::byte_ptr(rp_packed);\n");
+        printer.print("const std::uint8_t* const rp_pbeg = rp_pc;\n");
+        printer.print("const std::uint8_t* const rp_pe = rp_pc + rp_packed.size();\n");
+        printer.print("while (rp_pc < rp_pe) {\n");
+        printer.indent();
+        emit_decode_and_invoke(printer, fname, gen, "rp_pc", "rp_pe", "rp_pbeg");
+        printer.outdent();
+        printer.print("}\n");
+    }
+}
+
 void emit_arm(Printer& printer, const std::string& fname, const FieldGen& gen, bool repeated) {
     // Packable element types (numeric scalars + enums) may also arrive packed in a single LEN.
     const bool packable = codegen::is_packable_wire(gen.wire_type);
@@ -472,16 +512,7 @@ void emit_arm(Printer& printer, const std::string& fname, const FieldGen& gen, b
     if (repeated && packable) {  // packed form: a LEN payload of back-to-back elements.
         printer.print("if (rp_tag.wire_type == ::rapidproto::WireType::Len) {\n");
         printer.indent();
-        emit_vt_len_read(printer, "rp_packed");
-        // Value-threaded sub-cursor over the packed span; offsets are span-relative (rp_pbeg).
-        printer.print("const std::uint8_t* rp_pc = ::rapidproto::wire::byte_ptr(rp_packed);\n");
-        printer.print("const std::uint8_t* const rp_pbeg = rp_pc;\n");
-        printer.print("const std::uint8_t* const rp_pe = rp_pc + rp_packed.size();\n");
-        printer.print("while (rp_pc < rp_pe) {\n");
-        printer.indent();
-        emit_decode_and_invoke(printer, fname, gen, "rp_pc", "rp_pe", "rp_pbeg");
-        printer.outdent();
-        printer.print("}\n");
+        emit_packed_body(printer, fname, gen);
         printer.print("continue;\n");
         printer.outdent();
         printer.print("}\n");
@@ -540,15 +571,7 @@ void emit_fast_arm(Printer& printer, const std::string& fname, const FieldGen& g
         printer.print(guard, {{"f", fname}});
         printer.indent();
         printer.print("++rp_c;  // consume the peeked 1-byte tag\n");
-        emit_vt_len_read(printer, "rp_packed");
-        printer.print("const std::uint8_t* rp_pc = ::rapidproto::wire::byte_ptr(rp_packed);\n");
-        printer.print("const std::uint8_t* const rp_pbeg = rp_pc;\n");
-        printer.print("const std::uint8_t* const rp_pe = rp_pc + rp_packed.size();\n");
-        printer.print("while (rp_pc < rp_pe) {\n");
-        printer.indent();
-        emit_decode_and_invoke(printer, fname, gen, "rp_pc", "rp_pe", "rp_pbeg");
-        printer.outdent();
-        printer.print("}\n");
+        emit_packed_body(printer, fname, gen);
         printer.print("continue;\n");
         printer.outdent();
         printer.print("}\n");
