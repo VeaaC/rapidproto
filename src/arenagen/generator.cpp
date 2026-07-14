@@ -947,7 +947,67 @@ void emit_packed_fill(const Emit& emit, const FieldNode& field) {
     const bool varint = wire == "Varint";
     // Element-count bound from the packed byte length: exact for fixed-width (span/width), an upper
     // bound for varints (>=1 byte each, so span.size()).
-    const char* div = "";  // varint: span.size() elements (upper bound)
+    if (varint) {
+        // Packed varint fill. The array grow, the SMALL-span byte-loop (the common repeated-field case),
+        // and the trim stay INLINE here; only the ~2k-instruction SWAR kernel for a LARGE span is a
+        // shared out-of-line call (arena_detail::decode_packed_varints_large). That split keeps decode()
+        // from carrying a kernel copy per packed field -- code size and gcc register pressure no longer
+        // grow with the field count -- yet tiny arrays pay no call and no kernel-setup overhead. `acc`'s
+        // address never escapes (the kernel takes `acc + n` by value), so neither compiler spills it. The
+        // per-element conversion is a NAMED functor so the template instantiates once per proto type
+        // (shared across fields and TUs), not once per field; enums use conv_enum<TheEnum> (a cast --
+        // open-enum semantics, any value stored as-is, identical to the per-element read). 256 is
+        // decode_packed_varints's own kernel-vs-byte-loop threshold, so the kernels always engage in the
+        // out-of-line arm (a sub-256 span would only run the byte-loop tail, done inline below).
+        const std::string conv = field.is_enum_type
+                                     ? "::rapidproto::wire::conv_enum<" + elem + ">"
+                                     : std::string(scalar_wire(field.type_name).packed_conv);
+        // Grow the array to fit the span's element upper bound (>=1 byte/element, so span.size()).
+        p.print("const std::size_t rp_ub = rp_p.size();\n");
+        p.print("if (rp_ub != 0 && rp_cap_$id$ < rp_n_$id$ + rp_ub) {\n", {{"id", id}});
+        p.indent();
+        p.print("const std::size_t rp_nc = rp_n_$id$ + rp_ub;\n", {{"id", id}});
+        p.print("$E$* const rp_nb = arena.allocate_array<$E$>(rp_nc);\n", {{"E", elem}});
+        p.print("if (rp_nb == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }\n");
+        p.print(
+            "for (std::size_t rp_i = 0; rp_i < rp_n_$id$; ++rp_i) { rp_nb[rp_i] = "
+            "rp_acc_$id$[rp_i]; "
+            "}\n",
+            {{"id", id}});
+        p.print("rp_acc_$id$ = rp_nb;\n", {{"id", id}});
+        p.print("rp_cap_$id$ = rp_nc;\n", {{"id", id}});
+        p.outdent();
+        p.print("}\n");
+        p.print("const std::uint8_t* rp_vp = ::rapidproto::wire::byte_ptr(rp_p);\n");
+        p.print("const std::uint8_t* const rp_ve = rp_vp + rp_p.size();\n");
+        p.print("if (rp_p.size() >= 256) {\n");
+        p.indent();
+        p.print(
+            "const std::size_t rp_dc = ::rapidproto::arena_detail::decode_packed_varints_large<$E$,"
+            " $conv$>(rp_vp, rp_ve, rp_acc_$id$ + rp_n_$id$, err);\n",
+            {{"E", elem}, {"id", id}, {"conv", conv}});
+        p.print("if (rp_dc == static_cast<std::size_t>(-1)) { return false; }\n");
+        p.print("rp_n_$id$ += rp_dc;\n", {{"id", id}});
+        p.outdent();
+        p.print("} else {\n");
+        p.indent();
+        // Small span: the tuned byte-loop tail (no kernel), inlined -- the common repeated-field shape.
+        p.print(
+            "const std::size_t rp_dc = ::rapidproto::arena_detail::decode_packed_varints_small<$E$,"
+            " $conv$>(rp_vp, rp_ve, rp_acc_$id$ + rp_n_$id$, err);\n",
+            {{"E", elem}, {"id", id}, {"conv", conv}});
+        p.print("if (rp_dc == static_cast<std::size_t>(-1)) { return false; }\n");
+        p.print("rp_n_$id$ += rp_dc;\n", {{"id", id}});
+        p.outdent();
+        p.print("}\n");
+        p.print(
+            "arena.shrink_last(rp_acc_$id$, rp_cap_$id$ * sizeof($E$), rp_n_$id$ * sizeof($E$));\n",
+            {{"id", id}, {"E", elem}});
+        p.print("rp_cap_$id$ = rp_n_$id$;\n", {{"id", id}});
+        return;
+    }
+    // Element-count bound from the packed byte length: exact for fixed-width (span/width).
+    const char* div = "";
     if (wire == "I32") {
         div = " / 4";
     } else if (wire == "I64") {
@@ -967,72 +1027,37 @@ void emit_packed_fill(const Emit& emit, const FieldNode& field) {
     p.print("rp_cap_$id$ = rp_nc;\n", {{"id", id}});
     p.outdent();
     p.print("}\n");
-    if (!varint) {
-        // Fixed-width elements are little-endian on the wire, so on a little-endian host the packed
-        // span IS the array's byte image: fill it in one memcpy (protoc does the same) instead of a
-        // per-element read. Only for a whole-multiple span; a trailing partial (malformed packed)
-        // falls through to the per-element loop, which reports the exact truncation error. A
-        // big-endian host also takes the per-element (byte-swapping) path.
-        p.print("if constexpr (::rapidproto::arena_detail::kFixedIsNativeLE) {\n");
-        p.indent();
-        p.print("if (rp_p.size() % sizeof($E$) == 0) {\n", {{"E", elem}});
-        p.indent();
-        p.print(
-            "if (rp_ub != 0) { std::memcpy(rp_acc_$id$ + rp_n_$id$, rp_p.data(), rp_p.size()); "
-            "}\n",
-            {{"id", id}});
-        p.print("rp_n_$id$ += rp_ub;\n", {{"id", id}});
-        p.print("continue;\n");
-        p.outdent();
-        p.print("}\n");
-        p.outdent();
-        p.print("}\n");
-    }
-    if (varint) {
-        // Whole-span packed-varint decode: a runtime classifier picks per field between a bulk widen
-        // (homogeneous narrow widths), branchless word-at-a-time SWAR (MIXED widths -- so the per-byte
-        // continuation branch can't mispredict, the dominant cost on real mixed-width arrays), and the
-        // byte loop (wide/predictable, where SWAR would only add overhead). Same accept/reject + offset
-        // (offset within the packed span) semantics as the scalar reader. The per-element conversion is
-        // a NAMED functor, so the template instantiates once per proto type (shared across fields and
-        // TUs) rather than once per field's unique lambda type. Enums use conv_enum<TheEnum> (a cast, so
-        // open-enum semantics -- any value stored as-is, identical to the per-element read).
-        const std::string conv = field.is_enum_type
-                                     ? "::rapidproto::wire::conv_enum<" + elem + ">"
-                                     : std::string(scalar_wire(field.type_name).packed_conv);
-        p.print("const std::uint8_t* const rp_vp = ::rapidproto::wire::byte_ptr(rp_p);\n");
-        p.print("const std::uint8_t* const rp_ve = rp_vp + rp_p.size();\n");
-        p.print("std::size_t rp_fo = 0;\n");
-        p.print(
-            "const std::size_t rp_dc = ::rapidproto::wire::decode_packed_varints(rp_vp, rp_ve, "
-            "rp_vp,"
-            " &rp_we, &rp_fo,"
-            " ::rapidproto::wire::array_sink<$E$, $conv$>{rp_acc_$id$ + rp_n_$id$});\n",
-            {{"E", elem}, {"id", id}, {"conv", conv}});
-        p.print(
-            "if (rp_dc == static_cast<std::size_t>(-1)) { ::rapidproto::rp_fail_wire_at(err, rp_we,"
-            " rp_fo); return false; }\n");
-        p.print("rp_n_$id$ += rp_dc;\n", {{"id", id}});
-    } else {
-        // Packed fixed (big-endian host / partial-span fallback): per-element read from the span,
-        // cursor threaded by value.
-        p.print("const std::uint8_t* rp_vp = ::rapidproto::wire::byte_ptr(rp_p);\n");
-        p.print("const std::uint8_t* const rp_vbeg = rp_vp;\n");
-        p.print("const std::uint8_t* const rp_ve = rp_vp + rp_p.size();\n");
-        p.print("while (rp_vp < rp_ve) {\n");
-        p.indent();
-        emit_vt_value_read(emit, field, "rp_acc_" + id + "[rp_n_" + id + "]", "rp_vp", "rp_ve",
-                           "rp_vbeg");
-        p.print("++rp_n_$id$;\n", {{"id", id}});
-        p.outdent();
-        p.print("}\n");
-    }
-    if (varint) {
-        p.print(
-            "arena.shrink_last(rp_acc_$id$, rp_cap_$id$ * sizeof($E$), rp_n_$id$ * sizeof($E$));\n",
-            {{"id", id}, {"E", elem}});
-        p.print("rp_cap_$id$ = rp_n_$id$;\n", {{"id", id}});
-    }
+    // Fixed-width elements are little-endian on the wire, so on a little-endian host the packed span IS
+    // the array's byte image: fill it in one memcpy (protoc does the same) instead of a per-element read.
+    // Only for a whole-multiple span; a trailing partial (malformed packed) falls through to the
+    // per-element loop, which reports the exact truncation error. A big-endian host also takes the
+    // per-element (byte-swapping) path.
+    p.print("if constexpr (::rapidproto::arena_detail::kFixedIsNativeLE) {\n");
+    p.indent();
+    p.print("if (rp_p.size() % sizeof($E$) == 0) {\n", {{"E", elem}});
+    p.indent();
+    p.print(
+        "if (rp_ub != 0) { std::memcpy(rp_acc_$id$ + rp_n_$id$, rp_p.data(), rp_p.size()); "
+        "}\n",
+        {{"id", id}});
+    p.print("rp_n_$id$ += rp_ub;\n", {{"id", id}});
+    p.print("continue;\n");
+    p.outdent();
+    p.print("}\n");
+    p.outdent();
+    p.print("}\n");
+    // Packed fixed (big-endian host / partial-span fallback): per-element read from the span, cursor
+    // threaded by value.
+    p.print("const std::uint8_t* rp_vp = ::rapidproto::wire::byte_ptr(rp_p);\n");
+    p.print("const std::uint8_t* const rp_vbeg = rp_vp;\n");
+    p.print("const std::uint8_t* const rp_ve = rp_vp + rp_p.size();\n");
+    p.print("while (rp_vp < rp_ve) {\n");
+    p.indent();
+    emit_vt_value_read(emit, field, "rp_acc_" + id + "[rp_n_" + id + "]", "rp_vp", "rp_ve",
+                       "rp_vbeg");
+    p.print("++rp_n_$id$;\n", {{"id", id}});
+    p.outdent();
+    p.print("}\n");
 }
 
 void emit_repeated_arm(const Emit& emit, const FieldNode& field) {

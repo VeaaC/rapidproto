@@ -617,6 +617,59 @@ inline constexpr char kEmptyPayload = 0;
     out = ByteView(data, payload.size());
     return true;
 }
+
+// The SWAR-kernel packed-varint decode for a LARGE span, pulled OUT of line -- shared across every
+// `repeated <varint-type>` field of this element type (and across messages/TUs, since the instantiation
+// is keyed only on <Elem, Conv>). RP_NOINLINE is the point: the generated decode() is flattened, so an
+// inline copy of this ~2k-instruction kernel would be duplicated at every packed field -- code that grows
+// linearly with the field count (a large schema's decode() balloons) and, on gcc, degrades register
+// allocation of the adjacent tail. One out-of-line copy, one call per large-span field, keeps decode()
+// small. Only the kernel is out-of-lined: the generated caller keeps the array grow, the SMALL-span tail
+// (the common repeated-field case), and the trim inline, so tiny arrays pay no call. The array is already
+// grown to fit; this decodes into `dst` (= acc + n) and returns the element count, or SIZE_MAX on a
+// malformed varint (`err` set). `dst` is passed by value (no caller address escapes -> no spill). Guarded
+// to spans >= 256 by the caller, which is also decode_packed_varints's own kernel-vs-byte-loop threshold,
+// so the kernels always engage here (a sub-256 span would only run the byte-loop tail, done inline).
+template <class Elem, class Conv>
+RP_NOINLINE std::size_t decode_packed_varints_large(const std::uint8_t* vp, const std::uint8_t* ve,
+                                                    Elem* dst, ArenaDecodeError* err) noexcept {
+    WireError we = WireError::None;
+    std::size_t fo = 0;
+    const std::size_t dc =
+        wire::decode_packed_varints(vp, ve, vp, &we, &fo, wire::array_sink<Elem, Conv>{dst});
+    if (dc == static_cast<std::size_t>(-1)) {
+        rp_fail_wire_at(err, we, fo);
+    }
+    return dc;
+}
+
+// The validating byte-loop for a SMALL packed-varint span (< 256 bytes, below decode_packed_varints's
+// kernel threshold -- a large-span kernel would never engage). RP_FLATTEN so it INLINES into the
+// generated decode(): a small array is the common repeated-field shape, and inlining keeps its decode a
+// handful of instructions with no call and no kernel-dispatch setup. This is byte-for-byte
+// decode_packed_varints's own tail (same array_sink read/convert/store, same span-relative fail offset),
+// just without the kernel scaffold a sub-256 span can't use. Decodes into `dst`; returns the element
+// count or SIZE_MAX on a malformed varint (`err` set).
+template <class Elem, class Conv>
+RP_FLATTEN std::size_t decode_packed_varints_small(const std::uint8_t* vp, const std::uint8_t* ve,
+                                                   Elem* dst, ArenaDecodeError* err) noexcept {
+    const wire::array_sink<Elem, Conv> sink{dst};
+    const std::uint8_t* const begin = vp;
+    std::size_t n = 0;
+    while (vp < ve) {
+        std::uint64_t raw = 0;
+        WireError we = WireError::None;
+        const std::uint8_t* const np = wire::read_varint(vp, ve, &raw, &we);
+        if (np == nullptr) {
+            rp_fail_wire_at(err, we, static_cast<std::size_t>(vp - begin));
+            return static_cast<std::size_t>(-1);
+        }
+        vp = np;
+        wire::sink_put(sink, n, raw);
+        ++n;
+    }
+    return n;
+}
 }  // namespace arena_detail
 
 }  // namespace rapidproto

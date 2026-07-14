@@ -624,12 +624,17 @@ RP_FLATTEN inline bool Nested::User::rp_decode_into([[maybe_unused]] Nested::Use
           rp_acc_kinds = rp_nb;
           rp_cap_kinds = rp_nc;
         }
-        const std::uint8_t* const rp_vp = ::rapidproto::wire::byte_ptr(rp_p);
+        const std::uint8_t* rp_vp = ::rapidproto::wire::byte_ptr(rp_p);
         const std::uint8_t* const rp_ve = rp_vp + rp_p.size();
-        std::size_t rp_fo = 0;
-        const std::size_t rp_dc = ::rapidproto::wire::decode_packed_varints(rp_vp, rp_ve, rp_vp, &rp_we, &rp_fo, ::rapidproto::wire::array_sink<::xr::Nested::Def::Kind, ::rapidproto::wire::conv_enum<::xr::Nested::Def::Kind>>{rp_acc_kinds + rp_n_kinds});
-        if (rp_dc == static_cast<std::size_t>(-1)) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo); return false; }
-        rp_n_kinds += rp_dc;
+        if (rp_p.size() >= 256) {
+          const std::size_t rp_dc = ::rapidproto::arena_detail::decode_packed_varints_large<::xr::Nested::Def::Kind, ::rapidproto::wire::conv_enum<::xr::Nested::Def::Kind>>(rp_vp, rp_ve, rp_acc_kinds + rp_n_kinds, err);
+          if (rp_dc == static_cast<std::size_t>(-1)) { return false; }
+          rp_n_kinds += rp_dc;
+        } else {
+          const std::size_t rp_dc = ::rapidproto::arena_detail::decode_packed_varints_small<::xr::Nested::Def::Kind, ::rapidproto::wire::conv_enum<::xr::Nested::Def::Kind>>(rp_vp, rp_ve, rp_acc_kinds + rp_n_kinds, err);
+          if (rp_dc == static_cast<std::size_t>(-1)) { return false; }
+          rp_n_kinds += rp_dc;
+        }
         arena.shrink_last(rp_acc_kinds, rp_cap_kinds * sizeof(::xr::Nested::Def::Kind), rp_n_kinds * sizeof(::xr::Nested::Def::Kind));
         rp_cap_kinds = rp_n_kinds;
         continue;

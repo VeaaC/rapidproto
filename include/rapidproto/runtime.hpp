@@ -70,6 +70,23 @@
 #endif
 #endif
 
+// Force a function OUT of line -- the deliberate counterpart to RP_FLATTEN. Because the generated
+// decode() is RP_FLATTEN (which overrides the compiler's inlining heuristics and pulls in every callee
+// transitively, regardless of size), a large packed-varint SWAR kernel called from decode() would be
+// duplicated at every packed field: code that grows linearly with the field count (a large schema's
+// decode() balloons) and, on gcc, degrades register allocation of the surrounding tail. RP_NOINLINE is
+// the "flatten everything EXCEPT this" carve-out, so the kernel stays one shared out-of-line copy. gcc's
+// flatten obeys it (without it decode() re-inlines the kernel); clang's flatten spares the big callee on
+// its own, so there it is belt-and-suspenders. Uniform on both compilers, so it is not compiler-gating.
+// Same #ifndef/consumer-override rationale as RP_FLATTEN above.
+#ifndef RP_NOINLINE
+#if defined(__GNUC__) || defined(__clang__)
+#define RP_NOINLINE __attribute__((noinline))
+#else
+#define RP_NOINLINE
+#endif
+#endif
+
 namespace rapidproto {
 
 // Borrowed raw bytes (not text); the caller owns the underlying buffer's lifetime.
