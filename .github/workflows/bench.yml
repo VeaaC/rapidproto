@@ -29,23 +29,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-toolchain
-      - name: Build the benchmarks
-        run: |
-          set -euxo pipefail
-          cmake -S . -B build/bench -DCMAKE_CXX_COMPILER='${{ matrix.cxx }}'
-          cmake --build build/bench --target rapidproto_arena_bench rapidproto_bench -j"$(nproc)"
-      - name: Run + summarize (informational)
+      - name: Configure
+        run: cmake -S . -B build/bench -DCMAKE_CXX_COMPILER='${{ matrix.cxx }}'
+      - name: Benchmark + summarize (informational)
         run: |
           set -uxo pipefail
           mkdir -p bench-out
           tag='${{ matrix.arch }}-${{ matrix.cc }}'
-          for b in rapidproto_arena_bench rapidproto_bench; do
-            [ -x "build/bench/$b" ] || continue
-            # Pin to a core + JSON mode (the human mode adds a slow chunk-cap sweep). The harness spins
-            # to a steady frequency itself; a shared runner still can't be trusted for tight deltas.
-            RAPIDPROTO_BENCH_JSON=1 taskset -c 0 "build/bench/$b" > "bench-out/$b.$tag.ndjson" || true
-          done
-          python3 - "$tag" bench-out/*.ndjson <<'PY'
+          out="bench-out/bench.$tag.ndjson"
+          # bench.py builds both bench binaries, pins them (taskset -c 0), runs each, tags every record
+          # with its decoder (arena|stream), and merges to one snapshot. A shared runner spins to a
+          # steady frequency but still can't be trusted for tight deltas -- read these as rough.
+          python3 tests/bench.py run --build-dir build/bench --core 0 --out "$out" || true
+          [ -s "$out" ] || { echo "no benchmark output produced"; exit 0; }
+          python3 - "$tag" "$out" <<'PY'
           import json, sys
           tag, files = sys.argv[1], sys.argv[2:]
           rows = [json.loads(l) for f in files for l in open(f) if json.loads(l).get('rec') == 'arm']
