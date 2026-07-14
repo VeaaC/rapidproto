@@ -9,6 +9,10 @@ name: Benchmark (on-demand)
 
 on:
   workflow_dispatch:
+  # TEMPORARY (remove before merge): preview x86 + arm64 numbers on this branch's PR. workflow_dispatch
+  # is invisible until this file is on the default branch, so a branch-scoped push trigger runs it now.
+  push:
+    branches: [perf-swar-packed-varint]
 
 jobs:
   bench:
