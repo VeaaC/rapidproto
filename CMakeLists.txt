@@ -286,6 +286,7 @@ if(RAPIDPROTO_BUILD_TESTS)
     tests/test_arenagen.cpp
     tests/test_arena_decode.cpp
     tests/test_decode.cpp
+    tests/test_packed_kernels.cpp
     tests/test_printer.cpp
     tests/test_streamgen.cpp
     tests/test_cli_driver.cpp
