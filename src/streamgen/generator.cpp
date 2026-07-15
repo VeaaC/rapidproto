@@ -456,16 +456,32 @@ void emit_decode_and_invoke(Printer& printer, const std::string& fname, const Fi
 void emit_packed_body(Printer& printer, const std::string& fname, const FieldGen& gen) {
     emit_vt_len_read(printer, "rp_packed");
     if (gen.wire_type == "Varint") {
+        // A small span stays fully inline (decode_packed_varints_small -- the byte-loop tail), and a
+        // large span goes through decode_packed_varints_buffered, which decodes windows with the ONE
+        // shared field-agnostic kernel and forwards them to the callback -- so the flattened decode()
+        // carries a thin per-field wrapper, not a kernel copy. 256 is the kernel-vs-byte-loop threshold.
         printer.print(
             "const std::uint8_t* const rp_pc = ::rapidproto::wire::byte_ptr(rp_packed);\n");
         printer.print("::rapidproto::DecodeStatus rp_ab{};\n");
         printer.print("std::size_t rp_pfo = 0;\n");
         printer.print(
-            "const std::size_t rp_pdc = ::rapidproto::wire::decode_packed_varints(rp_pc,"
-            " rp_pc + rp_packed.size(), rp_pc, &rp_we, &rp_pfo,"
-            " ::rapidproto::callback_sink<std::decay_t<decltype(rp_dispatch)>, $f$, $conv$>{"
-            "&rp_dispatch, &rp_ab});\n",
+            "const ::rapidproto::callback_sink<std::decay_t<decltype(rp_dispatch)>, $f$, $conv$>"
+            " rp_psink{&rp_dispatch, &rp_ab};\n",
             {{"f", fname}, {"conv", gen.packed_conv}});
+        printer.print("std::size_t rp_pdc = 0;\n");
+        printer.print("if (rp_packed.size() >= 256) {\n");
+        printer.indent();
+        printer.print(
+            "rp_pdc = ::rapidproto::wire::decode_packed_varints_buffered(rp_pc,"
+            " rp_pc + rp_packed.size(), rp_pc, &rp_we, &rp_pfo, rp_psink);\n");
+        printer.outdent();
+        printer.print("} else {\n");
+        printer.indent();
+        printer.print(
+            "rp_pdc = ::rapidproto::wire::decode_packed_varints_small(rp_pc,"
+            " rp_pc + rp_packed.size(), rp_pc, &rp_we, &rp_pfo, rp_psink);\n");
+        printer.outdent();
+        printer.print("}\n");
         printer.print(
             "if (rp_pdc == static_cast<std::size_t>(-1)) { return ::rapidproto::DecodeStatus{rp_we,"
             " false, rp_pfo}; }\n");

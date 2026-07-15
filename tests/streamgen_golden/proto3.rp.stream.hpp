@@ -159,7 +159,13 @@ RP_FLATTEN ::rapidproto::DecodeStatus Msg::decode(Callbacks&&... rp_callbacks) c
           const std::uint8_t* const rp_pc = ::rapidproto::wire::byte_ptr(rp_packed);
           ::rapidproto::DecodeStatus rp_ab{};
           std::size_t rp_pfo = 0;
-          const std::size_t rp_pdc = ::rapidproto::wire::decode_packed_varints(rp_pc, rp_pc + rp_packed.size(), rp_pc, &rp_we, &rp_pfo, ::rapidproto::callback_sink<std::decay_t<decltype(rp_dispatch)>, nums, ::rapidproto::wire::conv_int32>{&rp_dispatch, &rp_ab});
+          const ::rapidproto::callback_sink<std::decay_t<decltype(rp_dispatch)>, nums, ::rapidproto::wire::conv_int32> rp_psink{&rp_dispatch, &rp_ab};
+          std::size_t rp_pdc = 0;
+          if (rp_packed.size() >= 256) {
+            rp_pdc = ::rapidproto::wire::decode_packed_varints_buffered(rp_pc, rp_pc + rp_packed.size(), rp_pc, &rp_we, &rp_pfo, rp_psink);
+          } else {
+            rp_pdc = ::rapidproto::wire::decode_packed_varints_small(rp_pc, rp_pc + rp_packed.size(), rp_pc, &rp_we, &rp_pfo, rp_psink);
+          }
           if (rp_pdc == static_cast<std::size_t>(-1)) { return ::rapidproto::DecodeStatus{rp_we, false, rp_pfo}; }
           if (!rp_ab.ok()) { return rp_ab; }
           continue;
@@ -190,7 +196,13 @@ RP_FLATTEN ::rapidproto::DecodeStatus Msg::decode(Callbacks&&... rp_callbacks) c
           const std::uint8_t* const rp_pc = ::rapidproto::wire::byte_ptr(rp_packed);
           ::rapidproto::DecodeStatus rp_ab{};
           std::size_t rp_pfo = 0;
-          const std::size_t rp_pdc = ::rapidproto::wire::decode_packed_varints(rp_pc, rp_pc + rp_packed.size(), rp_pc, &rp_we, &rp_pfo, ::rapidproto::callback_sink<std::decay_t<decltype(rp_dispatch)>, unpacked, ::rapidproto::wire::conv_int32>{&rp_dispatch, &rp_ab});
+          const ::rapidproto::callback_sink<std::decay_t<decltype(rp_dispatch)>, unpacked, ::rapidproto::wire::conv_int32> rp_psink{&rp_dispatch, &rp_ab};
+          std::size_t rp_pdc = 0;
+          if (rp_packed.size() >= 256) {
+            rp_pdc = ::rapidproto::wire::decode_packed_varints_buffered(rp_pc, rp_pc + rp_packed.size(), rp_pc, &rp_we, &rp_pfo, rp_psink);
+          } else {
+            rp_pdc = ::rapidproto::wire::decode_packed_varints_small(rp_pc, rp_pc + rp_packed.size(), rp_pc, &rp_we, &rp_pfo, rp_psink);
+          }
           if (rp_pdc == static_cast<std::size_t>(-1)) { return ::rapidproto::DecodeStatus{rp_we, false, rp_pfo}; }
           if (!rp_ab.ok()) { return rp_ab; }
           continue;
@@ -221,7 +233,13 @@ RP_FLATTEN ::rapidproto::DecodeStatus Msg::decode(Callbacks&&... rp_callbacks) c
           const std::uint8_t* const rp_pc = ::rapidproto::wire::byte_ptr(rp_packed);
           ::rapidproto::DecodeStatus rp_ab{};
           std::size_t rp_pfo = 0;
-          const std::size_t rp_pdc = ::rapidproto::wire::decode_packed_varints(rp_pc, rp_pc + rp_packed.size(), rp_pc, &rp_we, &rp_pfo, ::rapidproto::callback_sink<std::decay_t<decltype(rp_dispatch)>, states, ::rapidproto::wire::conv_enum<::p3::State>>{&rp_dispatch, &rp_ab});
+          const ::rapidproto::callback_sink<std::decay_t<decltype(rp_dispatch)>, states, ::rapidproto::wire::conv_enum<::p3::State>> rp_psink{&rp_dispatch, &rp_ab};
+          std::size_t rp_pdc = 0;
+          if (rp_packed.size() >= 256) {
+            rp_pdc = ::rapidproto::wire::decode_packed_varints_buffered(rp_pc, rp_pc + rp_packed.size(), rp_pc, &rp_we, &rp_pfo, rp_psink);
+          } else {
+            rp_pdc = ::rapidproto::wire::decode_packed_varints_small(rp_pc, rp_pc + rp_packed.size(), rp_pc, &rp_we, &rp_pfo, rp_psink);
+          }
           if (rp_pdc == static_cast<std::size_t>(-1)) { return ::rapidproto::DecodeStatus{rp_we, false, rp_pfo}; }
           if (!rp_ab.ok()) { return rp_ab; }
           continue;

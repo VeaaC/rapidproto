@@ -681,6 +681,120 @@ RP_FLATTEN inline std::size_t decode_packed_varints(const std::uint8_t* p, const
     return n;
 }
 
+// ── Streaming packed-varint decode ───────────────────────────────────────────────────────────────────
+// The generated streaming decode() is RP_FLATTEN, so whatever it calls inline is duplicated per packed
+// field. The SWAR packed kernel below (decode_packed_varints) is ~2k instructions and its callback sink is
+// keyed on the field (callback_sink<Dispatch, FieldTag, Conv>), so inlining it makes decode() grow with
+// the packed-field count -- a problem for large schemas. The fix keeps the kernel out of decode() AND
+// shared across every field:
+//   - a small span (< 256 bytes, below the kernel's own engagement threshold) decodes inline via the
+//     byte-loop tail (decode_packed_varints_small) -- the common short-array case, no call;
+//   - a large span goes through decode_packed_varints_buffered, which decodes bounded windows with the ONE
+//     shared, field-agnostic decode_packed_window (raw values into a scratch buffer) and then converts +
+//     forwards each window to the callback in a thin inline loop.
+// The heavy kernel therefore exists once in the whole program. Trade-off vs inlining it: the scratch
+// buffer costs a store+load per element -- negligible on slow mixed-width decode, but a real GB/s hit on
+// fast homogeneous arrays (which decode near memcpy speed; there the arena decoder's materialization is
+// the ceiling anyway). In exchange, streaming decode() no longer scales with the packed-field count.
+
+// Small span: only the validating byte-loop tail (no kernel), cheap to inline into the caller.
+template <class Sink>
+RP_FLATTEN inline std::size_t decode_packed_varints_small(const std::uint8_t* p,
+                                                          const std::uint8_t* end,
+                                                          const std::uint8_t* begin, WireError* err,
+                                                          std::size_t* fail_off,
+                                                          Sink sink) noexcept {
+    std::size_t n = 0;
+    const std::uint8_t* q = p;
+    while (q < end) {
+        std::uint64_t raw = 0;
+        const std::uint8_t* const np = read_varint(q, end, &raw, err);
+        if (np == nullptr) {
+            *fail_off = static_cast<std::size_t>(q - begin);
+            return SIZE_MAX;
+        }
+        q = np;
+        if (!sink_put(sink, n, raw)) {
+            return n;
+        }
+        ++n;
+    }
+    return n;
+}
+
+// A sink that just stores raw varints into a caller buffer (no callback, no conversion). Void put/put2 so
+// the abort checks fold away and the stores vectorize -- the point is a callback-free, dispatch-free fill.
+struct packed_raw_buffer {
+    std::uint64_t* buf;
+    void put(std::size_t i, std::uint64_t raw) const noexcept { buf[i] = raw; }
+    void put2(std::size_t i, std::uint64_t a, std::uint64_t b) const noexcept {
+        buf[i] = a;
+        buf[i + 1] = b;
+    }
+};
+
+// Out-of-line: decode one window [p, end) into `buf` as raw varints (the full SWAR kernel), returning the
+// count or SIZE_MAX (err/fail_off set, fail_off relative to p). Shared across ALL streaming packed fields
+// (and both element types) -- it is keyed on nothing (no Conv, no field tag), because conversion + the
+// callback happen later, inline in the caller. This is the ONE copy of the ~2k-instruction kernel.
+RP_NOINLINE inline std::size_t decode_packed_window(const std::uint8_t* p, const std::uint8_t* end,
+                                                    std::uint64_t* buf, WireError* err,
+                                                    std::size_t* fail_off) noexcept {
+    return decode_packed_varints(p, end, p, err, fail_off, packed_raw_buffer{buf});
+}
+
+// One streaming packed-varint field, large span. Decodes in bounded windows through the shared
+// decode_packed_window (raw values into a stack scratch buffer), then converts + forwards each window to
+// the callback in the inline loop below. This thin wrapper (a window loop + a forward loop) is the ONLY
+// per-field code; the heavy kernel is neither inlined into decode() nor duplicated per field. RP_NOINLINE
+// is deliberate: it keeps the scratch buffer in THIS frame instead of the (group-recursively-called)
+// decode()'s, so stack use is one buffer rather than one-per-nesting-level -- and it is GB/s-neutral (even
+// a touch faster) since the buffer already broke the per-element fusion that inlining would preserve.
+// kWindow trades stack for throughput: it MUST be >= 256 (decode_packed_window's kernel-engagement
+// threshold, below which it runs the scalar tail and homogeneous arrays never vectorize), a larger window
+// amortizes the per-window call better, and it costs kWindow*8 bytes of stack. `wend` is nudged to the end
+// of a straddling varint so no element crosses a window; the buffer holds at most kWindow (+ <=9) elements.
+// The fail offset is made span-relative; sink indices are 0-based per window (the callback sink ignores
+// them). One behavior note, all on MALFORMED input (outside the "correct output" contract, and always
+// still a reject): a window is decoded eagerly to raw before any callback runs, so if a wire error and a
+// callback-abort both fall in the same window, the wire error wins here whereas a per-element decode would
+// have surfaced the earlier abort. Accepted deliberately -- keeping decode_packed_window callback-free is
+// what lets it be the one shared, vectorizing kernel; valid input is byte-for-byte identical either way.
+template <class Sink>
+RP_NOINLINE inline std::size_t decode_packed_varints_buffered(const std::uint8_t* p,
+                                                              const std::uint8_t* end,
+                                                              const std::uint8_t* begin,
+                                                              WireError* err, std::size_t* fail_off,
+                                                              Sink sink) noexcept {
+    std::size_t n = 0;
+    const std::uint8_t* q = p;
+    constexpr std::size_t kWindow = 1024;  // >= 256 (kernel gate); 8 KiB of scratch on this frame
+    std::uint64_t buf[kWindow + 16];       // +16: room for a varint straddling the window boundary
+    while (q < end) {
+        const std::uint8_t* wend =
+            (static_cast<std::size_t>(end - q) > kWindow) ? q + kWindow : end;
+        while (wend < end && (wend[-1] & 0x80U) != 0) {  // extend to the end of a straddling varint
+            ++wend;
+        }
+        std::size_t wfo = 0;
+        WireError we = WireError::None;
+        const std::size_t k = decode_packed_window(q, wend, buf, &we, &wfo);
+        if (k == SIZE_MAX) {
+            *err = we;
+            *fail_off = wfo + static_cast<std::size_t>(q - begin);
+            return SIZE_MAX;
+        }
+        for (std::size_t i = 0; i < k; ++i) {
+            if (!sink_put(sink, n + i, buf[i])) {
+                return n + i;
+            }
+        }
+        n += k;
+        q = wend;
+    }
+    return n;
+}
+
 // One packed-varint element via SWAR. PRECONDITION: >= 8 readable bytes at `p` (packed-span caller
 // guarantees it). A 1-byte value takes a straight-line fast path; a 2..8-byte value is decoded
 // branchlessly; a 9/10-byte value (all 8 low bytes continue) falls to the validating byte reader --
