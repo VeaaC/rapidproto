@@ -184,6 +184,36 @@ std::string make_big_fixed(int items, int per) {
     bs.SerializeToString(&out);
     return out;
 }
+// OSM-DenseNodes / vector-tile shape: repeated sub-messages, each carrying a packed sint64 DELTA run
+// (small signed values -> zigzag encodes to 1-2 bytes, the narrow-mixed regime the Struct/Bulk kernels
+// target) plus a packed small-enum run. Unlike the synthetic single-field/single-width `rv` sweep, this
+// exercises the kernels the way real packed-heavy formats do: many messages, realistic span sizes, a
+// delta+enum value MIX, and per-message framing overhead between the packed spans -- an honest witness
+// for the packed-varint wins. Deterministic xorshift so the bytes are reproducible.
+std::string make_big_osm(int items, int per) {
+    bench::BigSet bs;
+    std::uint64_t rng = 0x9E3779B97F4A7C15ULL;
+    const auto next = [&]() {
+        rng ^= rng << 13U;
+        rng ^= rng >> 7U;
+        rng ^= rng << 17U;
+        return rng;
+    };
+    for (int i = 0; i < items; ++i) {
+        bench::Big* b = bs.add_items();
+        for (int k = 0; k < per; ++k) {
+            // 1-in-16 a larger jump (~3-byte zigzag), else a small delta (~1-2 byte zigzag).
+            const std::int64_t delta = ((next() % 16U) == 0U)
+                                           ? static_cast<std::int64_t>(next() % 200000U) - 100000
+                                           : static_cast<std::int64_t>(next() % 256U) - 128;
+            b->add_zz(delta);
+            b->add_kinds((next() & 1U) != 0U ? bench::KIND_ONE : bench::KIND_UNSPECIFIED);
+        }
+    }
+    std::string out;
+    bs.SerializeToString(&out);
+    return out;
+}
 
 // Fixed-size sub-messages, always present: each record carries two 24-byte Vec3s. At the default
 // cutoff (16) a 24-byte Vec3 is boxed behind a pointer; recompiling with the cutoff >= 24 inlines it,
@@ -292,6 +322,12 @@ std::uint64_t checksum_arena_big(const rp::bench::BigSet* b) {
         for (const double r : it.reals()) {
             s += bits(r);
         }
+        for (const std::int64_t v : it.zz()) {  // sint64 (zigzag) -- the OSM-delta shape
+            s += static_cast<std::uint64_t>(v);
+        }
+        for (const rp::bench::Kind k : it.kinds()) {
+            s += static_cast<std::uint64_t>(k);
+        }
     }
     return s;
 }
@@ -306,6 +342,12 @@ std::uint64_t checksum_protoc_big(const bench::BigSet& b) {
         }
         for (const double r : it.reals()) {
             s += bits(r);
+        }
+        for (const std::int64_t v : it.zz()) {
+            s += static_cast<std::uint64_t>(v);
+        }
+        for (const int k : it.kinds()) {
+            s += static_cast<std::uint64_t>(k);
         }
     }
     return s;
@@ -925,7 +967,8 @@ int main() {
     };
     bench_bigset("packed int64(varint)", make_big_varint(200, 1000));  // 200k varint elements
     bench_bigset("packed double(fixed)", make_big_fixed(200, 1000));   // 200k fixed-width elements
-    bench_bigset("few msgs, big arrays", make_big(30, 10000));         // 30 msgs x 20k elements
+    bench_bigset("osm: sint64 deltas + enum", make_big_osm(200, 1000));  // realistic packed witness
+    bench_bigset("few msgs, big arrays", make_big(30, 10000));           // 30 msgs x 20k elements
     {
         const std::string wbuf = make_wide(50000);  // 50k msgs x tiny arrays -- same ~600k elements
         rapidproto::ByteView v(wbuf);
