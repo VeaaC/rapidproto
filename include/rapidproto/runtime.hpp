@@ -689,13 +689,16 @@ RP_FLATTEN inline std::size_t decode_packed_varints(const std::uint8_t* p, const
 // shared across every field:
 //   - a small span (< 256 bytes, below the kernel's own engagement threshold) decodes inline via the
 //     byte-loop tail (decode_packed_varints_small) -- the common short-array case, no call;
-//   - a large span goes through decode_packed_varints_buffered, which decodes bounded windows with the ONE
-//     shared, field-agnostic decode_packed_window (raw values into a scratch buffer) and then converts +
-//     forwards each window to the callback in a thin inline loop.
+//   - a large span goes through decode_packed_varints_buffered, which FIRST peels the homogeneous narrow
+//     (all-1-byte / all-2-byte) runs with the callback inline, then decodes the remainder in bounded
+//     windows with the ONE shared, field-agnostic decode_packed_window (raw values into a scratch buffer)
+//     and converts + forwards each window to the callback in a thin inline loop.
 // The heavy kernel therefore exists once in the whole program. Trade-off vs inlining it: the scratch
-// buffer costs a store+load per element -- negligible on slow mixed-width decode, but a real GB/s hit on
-// fast homogeneous arrays (which decode near memcpy speed; there the arena decoder's materialization is
-// the ceiling anyway). In exchange, streaming decode() no longer scales with the packed-field count.
+// buffer costs a store+load per element. The narrow-homogeneous regimes, where that hurts most (they
+// decode near memcpy speed), are peeled inline so they never touch the buffer; the wider Fixed<3..8>
+// homogeneous runs still round-trip, so a small GB/s gap to a fully-inline kernel remains there (and the
+// arena decoder's materialization is the ceiling anyway). In exchange, streaming decode() no longer scales
+// with the packed-field count.
 
 // Small span: only the validating byte-loop tail (no kernel), cheap to inline into the caller.
 template <class Sink>
@@ -775,7 +778,9 @@ RP_NOINLINE inline std::size_t decode_packed_varints_buffered(const std::uint8_t
     // 1-/2-byte array is consumed entirely here and never touches the scratch buffer, recovering it to
     // ~byte-loop speed instead of the ~40%-below-a-byte-loop the plain windowed path gives. Mixed/wide
     // data peels nothing and falls straight through to the shared window kernel below. Bodies mirror
-    // decode_packed_varints's Bulk1/Bulk2 exactly; sink indices are 0-based (the callback sink ignores).
+    // decode_packed_varints's Bulk1/Bulk2 (guard inverted to an early break); sink indices are 0-based (the
+    // callback sink ignores them). Each peel fully validates its byte pattern before consuming, so running
+    // unconditionally -- without the classifier that gates the kernel arms -- stays correct.
     while (static_cast<std::size_t>(end - q) >= 64) {
         std::uint64_t any = 0;
         for (int j = 0; j < 8; ++j) {

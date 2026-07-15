@@ -27,6 +27,7 @@ namespace {
 // values in [2^(7*(width-1)), 2^(7*width)-1]; width 10 needs the 64th bit (a negative int64, sign-extended
 // to 10 bytes). `salt` varies the value inside the band. (Local copy so this strict -Werror TU need not
 // pull in the non-strict bench_varint.hpp.)
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): width and salt are unrelated by name and use.
 std::int64_t varint_of_width(int width, std::uint64_t salt) {
     if (width <= 1) {
         return static_cast<std::int64_t>(salt % 128U);
@@ -57,7 +58,7 @@ std::vector<std::uint8_t> encode_packed(const std::vector<std::int64_t>& vals) {
 
 // Streaming-shape sink: bool put (aborts once `out` reaches `abort_at`); mirrors callback_sink's contract.
 struct collect_sink {
-    std::vector<std::int64_t>* out;
+    std::vector<std::int64_t>* out = nullptr;
     std::size_t abort_at = SIZE_MAX;
     [[nodiscard]] bool put(std::size_t /*i*/, std::uint64_t raw) const {
         if (out->size() >= abort_at) {
@@ -114,7 +115,36 @@ void require_all_paths_decode(const std::vector<std::uint8_t>& bytes,
     }
 }
 
+// Require all three entry points REJECT `bytes` with `expect_code` and the same span-relative offset --
+// the point being that inline (small), kernel, and windowed decode agree on malformed input.
+void require_all_paths_reject(const std::vector<std::uint8_t>& bytes, WireError expect_code) {
+    const std::uint8_t* const p = bytes.data();
+    const std::uint8_t* const end = p + bytes.size();
+    std::vector<std::int64_t> arena_out(bytes.size() + 8, 0);
+    std::vector<std::int64_t> stream_out;
+    WireError we1 = WireError::None;
+    WireError we2 = WireError::None;
+    WireError we3 = WireError::None;
+    std::size_t fo1 = 0;
+    std::size_t fo2 = 0;
+    std::size_t fo3 = 0;
+    const std::size_t n1 = wire::decode_packed_varints(
+        p, end, p, &we1, &fo1, wire::array_sink<std::int64_t, wire::conv_int64>{arena_out.data()});
+    const std::size_t n2 =
+        wire::decode_packed_varints_small(p, end, p, &we2, &fo2, collect_sink{&stream_out});
+    stream_out.clear();
+    const std::size_t n3 =
+        wire::decode_packed_varints_buffered(p, end, p, &we3, &fo3, collect_sink{&stream_out});
+    CHECK(n1 == static_cast<std::size_t>(-1));
+    CHECK(n2 == static_cast<std::size_t>(-1));
+    CHECK(n3 == static_cast<std::size_t>(-1));
+    CHECK(we1 == expect_code);
+    CHECK(we2 == expect_code);
+    CHECK(we3 == expect_code);  // the same error, whether decoded inline or through a window
+}
+
 // `count` int64 values each encoding to exactly `width` bytes (deterministic salt).
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): width and count are unrelated by name and use.
 std::vector<std::int64_t> fixed_width_values(int width, int count) {
     std::vector<std::int64_t> v;
     v.reserve(static_cast<std::size_t>(count));
@@ -123,6 +153,64 @@ std::vector<std::int64_t> fixed_width_values(int width, int count) {
             varint_of_width(width, static_cast<std::uint64_t>(i) * std::uint64_t{2654435761}));
     }
     return v;
+}
+
+// A width-3 run of 1023 bytes (not peeled), then a 10-byte varint at bytes 1023..1032 straddling the
+// 1024-byte window edge, then a width-3 tail. Exercises the window loop's straddle-extension.
+std::vector<std::int64_t> straddle_span() {
+    std::vector<std::int64_t> v;
+    v.reserve(842);
+    for (int i = 0; i < 341; ++i) {
+        v.push_back(varint_of_width(3, static_cast<std::uint64_t>(i)));
+    }
+    v.push_back(varint_of_width(10, 7));
+    for (int i = 0; i < 500; ++i) {
+        v.push_back(varint_of_width(3, static_cast<std::uint64_t>(i)));
+    }
+    return v;
+}
+
+// Exactly one 64-byte Bulk1 peel block (all-1-byte) then mixed wide values -- the peel->window handoff.
+std::vector<std::int64_t> handoff_span() {
+    std::vector<std::int64_t> v;
+    v.reserve(464);
+    for (int i = 0; i < 64; ++i) {
+        v.push_back(varint_of_width(1, static_cast<std::uint64_t>(i)));
+    }
+    for (int i = 0; i < 400; ++i) {
+        v.push_back(varint_of_width(i % 3 == 0 ? 7 : 4, static_cast<std::uint64_t>(i)));
+    }
+    return v;
+}
+
+// A homogeneous-3-byte run interrupted by a 1- and a 2-byte value: the P0 merged-varint shape.
+std::vector<std::int64_t> merged_guard_span() {
+    std::vector<std::int64_t> v;
+    v.reserve(402);
+    for (int i = 0; i < 200; ++i) {
+        v.push_back(varint_of_width(3, static_cast<std::uint64_t>(i)));
+    }
+    v.push_back(varint_of_width(1, 5));  // a 1-byte value amid 3-byte ones
+    v.push_back(varint_of_width(2, 9));
+    for (int i = 0; i < 200; ++i) {
+        v.push_back(varint_of_width(3, static_cast<std::uint64_t>(i) + 1000U));
+    }
+    return v;
+}
+
+// Assert an abort-after-k sink stops the buffered path cleanly: reports k, delivers exactly the first k.
+void check_abort_at(const std::vector<std::uint8_t>& bytes, const std::vector<std::int64_t>& vals,
+                    std::size_t k) {
+    std::vector<std::int64_t> out;
+    WireError we = WireError::None;
+    std::size_t fo = 0;
+    const std::size_t n = wire::decode_packed_varints_buffered(
+        bytes.data(), bytes.data() + bytes.size(), bytes.data(), &we, &fo, collect_sink{&out, k});
+    CHECK(n == k);
+    CHECK(out.size() == k);
+    for (std::size_t i = 0; i < k; ++i) {
+        CHECK(out[i] == vals[i]);
+    }
 }
 
 }  // namespace
@@ -151,6 +239,7 @@ TEST_CASE("packed-kernels: mixed-width distributions above threshold", "[packed-
                          Dist{"uniform-1-10", 1, 10}, Dist{"wide-6-10", 6, 10}}) {
         std::uniform_int_distribution<int> width(d.lo, d.hi);
         std::vector<std::int64_t> vals;
+        vals.reserve(400);
         for (int i = 0; i < 400; ++i) {
             vals.push_back(varint_of_width(width(rng), rng()));
         }
@@ -162,6 +251,7 @@ TEST_CASE("packed-kernels: mixed-width distributions above threshold", "[packed-
         std::uniform_int_distribution<int> tenth(0, 9);
         std::uniform_int_distribution<int> any(1, 10);
         std::vector<std::int64_t> vals;
+        vals.reserve(2000);
         for (int i = 0; i < 2000; ++i) {
             const int w = (tenth(rng) == 0) ? any(rng) : 1;
             vals.push_back(varint_of_width(w, rng()));
@@ -173,7 +263,7 @@ TEST_CASE("packed-kernels: mixed-width distributions above threshold", "[packed-
 TEST_CASE("packed-kernels: 256-byte engagement boundary", "[packed-kernels]") {
     // Spans of exactly 255 / 256 / 257 bytes must decode identically whether the kernel engages (>=256)
     // or the byte-loop tail handles it (<256). Build with 1-byte values so byte count == element count.
-    for (int nbytes : {255, 256, 257}) {
+    for (const int nbytes : {255, 256, 257}) {
         const std::vector<std::int64_t> vals = fixed_width_values(1, nbytes);
         const std::vector<std::uint8_t> bytes = encode_packed(vals);
         REQUIRE(bytes.size() == static_cast<std::size_t>(nbytes));
@@ -183,27 +273,28 @@ TEST_CASE("packed-kernels: 256-byte engagement boundary", "[packed-kernels]") {
 }
 
 TEST_CASE("packed-kernels: streaming window boundary + straddling varint", "[packed-kernels]") {
-    // decode_packed_varints_buffered decodes 1024-byte windows; a varint must never split across two.
-    // Element counts that put a window edge mid-array, and a 10-byte varint placed to straddle byte 1024.
-    for (int count : {1023, 1024, 1025, 2048, 5000}) {
-        const std::vector<std::int64_t> vals =
-            fixed_width_values(1, count);  // 1 byte each => byte==count
-        CAPTURE(count);
-        require_all_paths_decode(encode_packed(vals), vals);
-    }
-    SECTION("10-byte varint straddling the 1024-byte window boundary") {
-        std::vector<std::int64_t> vals;
-        // ~1020 one-byte values, then a 10-byte varint (bytes 1020..1029 straddle the 1024 edge), then more.
-        for (int i = 0; i < 1020; ++i) {
-            vals.push_back(varint_of_width(1, static_cast<std::uint64_t>(i)));
-        }
-        vals.push_back(varint_of_width(10, 7));
-        for (int i = 0; i < 500; ++i) {
-            vals.push_back(varint_of_width(3, static_cast<std::uint64_t>(i)));
-        }
+    // decode_packed_varints_buffered decodes the POST-PEEL remainder in 1024-byte windows; a varint must
+    // never split across two. Use WIDTH-3 values: the Bulk1/Bulk2 peel does not touch them, so the whole
+    // span reaches the window loop, and 3 not dividing 1024 makes an element straddle every window edge
+    // (exercising the straddle-extension). (Homogeneous 1-/2-byte spans are covered by the peel path in the
+    // homogeneous-widths case above; here we want the window loop itself.)
+    for (const int count :
+         {342, 400, 683, 1000, 2000}) {  // 1026..6000 bytes: cross 1..5 window edges
+        const std::vector<std::int64_t> vals = fixed_width_values(3, count);
         const std::vector<std::uint8_t> bytes = encode_packed(vals);
         REQUIRE(bytes.size() > 1024U);
+        CAPTURE(count, bytes.size());
         require_all_paths_decode(bytes, vals);
+    }
+    SECTION("10-byte varint straddling the 1024-byte window boundary") {
+        const std::vector<std::int64_t> vals = straddle_span();
+        const std::vector<std::uint8_t> bytes = encode_packed(vals);
+        REQUIRE(bytes.size() > 1032U);
+        require_all_paths_decode(bytes, vals);
+    }
+    SECTION("peel -> window handoff at a 64-byte peel-block boundary") {
+        const std::vector<std::int64_t> vals = handoff_span();
+        require_all_paths_decode(encode_packed(vals), vals);
     }
 }
 
@@ -214,89 +305,53 @@ TEST_CASE("packed-kernels: P0 merged-varint guard (fixed_fill must not merge)",
     // interrupted by a shorter varint must decode each element correctly (bailing to the tail), not merge.
     // Build a mostly-3-byte run with a stray 1-byte and 2-byte value in the middle; differential decode
     // catches any mis-merge (wrong value or wrong count).
-    std::vector<std::int64_t> vals;
-    for (int i = 0; i < 200; ++i) {
-        vals.push_back(varint_of_width(3, static_cast<std::uint64_t>(i)));
-    }
-    vals.push_back(varint_of_width(1, 5));  // a 1-byte value amid 3-byte ones
-    vals.push_back(varint_of_width(2, 9));
-    for (int i = 0; i < 200; ++i) {
-        vals.push_back(varint_of_width(3, static_cast<std::uint64_t>(i + 1000)));
-    }
+    const std::vector<std::int64_t> vals = merged_guard_span();
     require_all_paths_decode(encode_packed(vals), vals);
 }
 
 TEST_CASE("packed-kernels: malformed input rejected on every path", "[packed-kernels]") {
-    const auto reject = [](const std::vector<std::uint8_t>& bytes, WireError expect_code) {
-        const std::uint8_t* const p = bytes.data();
-        const std::uint8_t* const end = p + bytes.size();
-        std::vector<std::int64_t> arena_out(bytes.size() + 8, 0);
-        std::vector<std::int64_t> stream_out;
-        WireError we1 = WireError::None, we2 = WireError::None, we3 = WireError::None;
-        std::size_t fo1 = 0, fo2 = 0, fo3 = 0;
-        const std::size_t n1 = wire::decode_packed_varints(
-            p, end, p, &we1, &fo1,
-            wire::array_sink<std::int64_t, wire::conv_int64>{arena_out.data()});
-        const std::size_t n2 =
-            wire::decode_packed_varints_small(p, end, p, &we2, &fo2, collect_sink{&stream_out});
-        stream_out.clear();
-        const std::size_t n3 =
-            wire::decode_packed_varints_buffered(p, end, p, &we3, &fo3, collect_sink{&stream_out});
-        CHECK(n1 == static_cast<std::size_t>(-1));
-        CHECK(n2 == static_cast<std::size_t>(-1));
-        CHECK(n3 == static_cast<std::size_t>(-1));
-        CHECK(we1 == expect_code);
-        CHECK(we2 == expect_code);
-        CHECK(we3 == expect_code);  // the same error, whether decoded inline or through a window
-    };
-
-    SECTION("truncated final varint (large span, error inside a later window)") {
-        std::vector<std::int64_t> vals = fixed_width_values(1, 1500);
+    SECTION("truncated final varint, error inside a later window") {
+        // Width-3 (not peeled) so the span goes through the window loop and the error lands in a window.
+        std::vector<std::int64_t> vals =
+            fixed_width_values(3, 1500);        // 4500 bytes, several windows
         vals.push_back(varint_of_width(5, 3));  // a multi-byte value to truncate
         std::vector<std::uint8_t> bytes = encode_packed(vals);
         bytes.pop_back();  // drop its terminator -> truncated
-        reject(bytes, WireError::TruncatedVarint);
+        require_all_paths_reject(bytes, WireError::TruncatedVarint);
     }
     SECTION("truncated varint straddling a window boundary") {
-        std::vector<std::int64_t> vals;
-        for (int i = 0; i < 1022; ++i) {
-            vals.push_back(varint_of_width(1, static_cast<std::uint64_t>(i)));
-        }
-        vals.push_back(varint_of_width(10, 1));  // straddles 1024
-        std::vector<std::uint8_t> bytes = encode_packed(vals);
-        bytes.pop_back();  // truncate the straddling varint
-        reject(bytes, WireError::TruncatedVarint);
+        // straddle_span() ends its straddling 10-byte varint's continuation across the 1024 edge; drop the
+        // whole tail after it so the straddler itself is left truncated at the window boundary.
+        std::vector<std::uint8_t> bytes = encode_packed(straddle_span());
+        bytes.resize(1030);  // mid the 10-byte varint that straddles 1024 (bytes 1023..1032)
+        require_all_paths_reject(bytes, WireError::TruncatedVarint);
     }
     SECTION("overlong varint (11 continuation bytes) -> overflow") {
-        std::vector<std::int64_t> vals = fixed_width_values(1, 300);
-        std::vector<std::uint8_t> bytes = encode_packed(vals);
-        for (int i = 0; i < 11; ++i) {
-            bytes.push_back(0x80U);  // 11 continuation bytes, never terminating
-        }
+        std::vector<std::uint8_t> bytes = encode_packed(fixed_width_values(1, 300));
+        bytes.insert(bytes.end(), 11, 0x80U);  // 11 continuation bytes, never terminating
         bytes.push_back(0x00U);
-        reject(bytes, WireError::VarintOverflow);
+        require_all_paths_reject(bytes, WireError::VarintOverflow);
     }
 }
 
-TEST_CASE("packed-kernels: callback abort mid-window stops cleanly", "[packed-kernels]") {
-    // A streaming sink that aborts after K elements: the buffered path must stop and report K, without
-    // running past the abort (and without OOB on the partially-consumed window).
-    const std::vector<std::int64_t> vals =
-        fixed_width_values(2, 2000);  // ~4000 bytes, several windows
-    const std::vector<std::uint8_t> bytes = encode_packed(vals);
-    const std::uint8_t* const p = bytes.data();
-    const std::uint8_t* const end = p + bytes.size();
-    for (std::size_t k : {std::size_t{0}, std::size_t{1}, std::size_t{100}, std::size_t{1500}}) {
-        std::vector<std::int64_t> out;
-        WireError we = WireError::None;
-        std::size_t fo = 0;
-        const std::size_t n =
-            wire::decode_packed_varints_buffered(p, end, p, &we, &fo, collect_sink{&out, k});
-        CAPTURE(k);
-        CHECK(n == k);           // count-so-far on abort
-        CHECK(out.size() == k);  // exactly k delivered
-        for (std::size_t i = 0; i < k; ++i) {
-            CHECK(out[i] == vals[i]);
+TEST_CASE("packed-kernels: callback abort stops cleanly (peel + window)", "[packed-kernels]") {
+    // A streaming sink that aborts after K elements: the buffered path must stop, report K, deliver exactly
+    // K, and neither run past the abort nor OOB. Cover the abort landing in each consumer -- the Bulk1 peel
+    // (width 1), the Bulk2 peel (width 2), and the window forward loop (width 3, not peeled) -- with K
+    // spanning a 64-byte Bulk1 block boundary (63/64/65) among others.
+    struct AbortCase {
+        int width;
+        const char* where;
+    };
+    for (const AbortCase c :
+         {AbortCase{1, "bulk1-peel"}, AbortCase{2, "bulk2-peel"}, AbortCase{3, "window"}}) {
+        const std::vector<std::int64_t> vals = fixed_width_values(c.width, 2000);
+        const std::vector<std::uint8_t> bytes = encode_packed(vals);
+        for (const std::size_t k :
+             {std::size_t{0}, std::size_t{1}, std::size_t{63}, std::size_t{64}, std::size_t{65},
+              std::size_t{100}, std::size_t{1500}}) {
+            CAPTURE(c.where, c.width, k);
+            check_abort_at(bytes, vals, k);
         }
     }
 }
