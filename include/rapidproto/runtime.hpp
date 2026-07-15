@@ -743,13 +743,14 @@ RP_NOINLINE inline std::size_t decode_packed_window(const std::uint8_t* p, const
     return decode_packed_varints(p, end, p, err, fail_off, packed_raw_buffer{buf});
 }
 
-// One streaming packed-varint field, large span. Decodes in bounded windows through the shared
+// One streaming packed-varint field, large span. First peels the homogeneous narrow runs (Bulk1/Bulk2)
+// with the callback inline (see below); the remainder decodes in bounded windows through the shared
 // decode_packed_window (raw values into a stack scratch buffer), then converts + forwards each window to
-// the callback in the inline loop below. This thin wrapper (a window loop + a forward loop) is the ONLY
-// per-field code; the heavy kernel is neither inlined into decode() nor duplicated per field. RP_NOINLINE
-// is deliberate: it keeps the scratch buffer in THIS frame instead of the (group-recursively-called)
-// decode()'s, so stack use is one buffer rather than one-per-nesting-level -- and it is GB/s-neutral (even
-// a touch faster) since the buffer already broke the per-element fusion that inlining would preserve.
+// the callback in the inline loop below. This per-field wrapper (two peel loops + a window loop + a
+// forward loop) is small; the heavy classifier/kernel is neither inlined into decode() nor duplicated per
+// field -- it is the one shared decode_packed_window. RP_NOINLINE is deliberate: it keeps the scratch
+// buffer in THIS frame instead of the (group-recursively-called) decode()'s, so stack use is one buffer
+// rather than one-per-nesting-level -- and it is GB/s-neutral to a touch faster.
 // kWindow trades stack for throughput: it MUST be >= 256 (decode_packed_window's kernel-engagement
 // threshold, below which it runs the scalar tail and homogeneous arrays never vectorize), a larger window
 // amortizes the per-window call better, and it costs kWindow*8 bytes of stack. `wend` is nudged to the end
@@ -768,6 +769,51 @@ RP_NOINLINE inline std::size_t decode_packed_varints_buffered(const std::uint8_t
                                                               Sink sink) noexcept {
     std::size_t n = 0;
     const std::uint8_t* q = p;
+    // Peel the homogeneous narrow runs (Bulk1 = all-1-byte, Bulk2 = all-2-byte) with the callback INLINE,
+    // before the buffered window loop. These are the regimes where the buffer round-trip costs the most
+    // (near-memcpy decode), and an inline peel -- even without vectorization -- beats it: a homogeneous
+    // 1-/2-byte array is consumed entirely here and never touches the scratch buffer, recovering it to
+    // ~byte-loop speed instead of the ~40%-below-a-byte-loop the plain windowed path gives. Mixed/wide
+    // data peels nothing and falls straight through to the shared window kernel below. Bodies mirror
+    // decode_packed_varints's Bulk1/Bulk2 exactly; sink indices are 0-based (the callback sink ignores).
+    while (static_cast<std::size_t>(end - q) >= 64) {
+        std::uint64_t any = 0;
+        for (int j = 0; j < 8; ++j) {
+            any |= swar_detail::load64(q + (8 * j)) & swar_detail::kMSB;
+        }
+        if (any != 0) {
+            break;
+        }
+        for (int i = 0; i < 64; ++i) {
+            if (!sink_put(sink, n + static_cast<std::size_t>(i), q[i])) {
+                return n + static_cast<std::size_t>(i);
+            }
+        }
+        q += 64;
+        n += 64;
+    }
+    while (static_cast<std::size_t>(end - q) >= 8) {
+        const std::uint64_t w = swar_detail::load64(q);
+        if ((w & swar_detail::kMSB) != 0x0080008000800080ULL) {
+            break;
+        }
+        const std::uint64_t x = w & swar_detail::kLow7;
+        const std::uint64_t y = (x & 0x007F007F007F007FULL) | ((x & 0x7F007F007F007F00ULL) >> 1U);
+        if (!sink_put(sink, n + 0, static_cast<std::uint16_t>(y))) {
+            return n + 0;
+        }
+        if (!sink_put(sink, n + 1, static_cast<std::uint16_t>(y >> 16U))) {
+            return n + 1;
+        }
+        if (!sink_put(sink, n + 2, static_cast<std::uint16_t>(y >> 32U))) {
+            return n + 2;
+        }
+        if (!sink_put(sink, n + 3, static_cast<std::uint16_t>(y >> 48U))) {
+            return n + 3;
+        }
+        q += 8;
+        n += 4;
+    }
     constexpr std::size_t kWindow = 1024;  // >= 256 (kernel gate); 8 KiB of scratch on this frame
     std::uint64_t buf[kWindow + 16];       // +16: room for a varint straddling the window boundary
     while (q < end) {
