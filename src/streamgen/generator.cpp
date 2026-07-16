@@ -443,6 +443,24 @@ void emit_decode_and_invoke(Printer& printer, const std::string& fname, const Fi
     printer.print("}\n");
 }
 
+// Emit the body of a packed (LEN) arm for a repeated packable field: `rp_packed` is already read.
+// A packed LEN payload decodes element-by-element, inline in decode(). The SWAR packed kernels are
+// deliberately arena-only: the streaming callback model can't vectorize a per-element store (unlike the
+// arena's array_sink, which materializes into its own array), so the kernel only helps wide-value packed
+// data and loses to this inline loop on 1-byte-dominant fields (packed repeated enums / small ints) -- a
+// common shape. See the README Benchmarks section. Offsets are span-relative (rp_pbeg is the offset base).
+void emit_packed_body(Printer& printer, const std::string& fname, const FieldGen& gen) {
+    emit_vt_len_read(printer, "rp_packed");
+    printer.print("const std::uint8_t* rp_pc = ::rapidproto::wire::byte_ptr(rp_packed);\n");
+    printer.print("const std::uint8_t* const rp_pbeg = rp_pc;\n");
+    printer.print("const std::uint8_t* const rp_pe = rp_pc + rp_packed.size();\n");
+    printer.print("while (rp_pc < rp_pe) {\n");
+    printer.indent();
+    emit_decode_and_invoke(printer, fname, gen, "rp_pc", "rp_pe", "rp_pbeg");
+    printer.outdent();
+    printer.print("}\n");
+}
+
 void emit_arm(Printer& printer, const std::string& fname, const FieldGen& gen, bool repeated) {
     // Packable element types (numeric scalars + enums) may also arrive packed in a single LEN.
     const bool packable = codegen::is_packable_wire(gen.wire_type);
@@ -472,16 +490,7 @@ void emit_arm(Printer& printer, const std::string& fname, const FieldGen& gen, b
     if (repeated && packable) {  // packed form: a LEN payload of back-to-back elements.
         printer.print("if (rp_tag.wire_type == ::rapidproto::WireType::Len) {\n");
         printer.indent();
-        emit_vt_len_read(printer, "rp_packed");
-        // Value-threaded sub-cursor over the packed span; offsets are span-relative (rp_pbeg).
-        printer.print("const std::uint8_t* rp_pc = ::rapidproto::wire::byte_ptr(rp_packed);\n");
-        printer.print("const std::uint8_t* const rp_pbeg = rp_pc;\n");
-        printer.print("const std::uint8_t* const rp_pe = rp_pc + rp_packed.size();\n");
-        printer.print("while (rp_pc < rp_pe) {\n");
-        printer.indent();
-        emit_decode_and_invoke(printer, fname, gen, "rp_pc", "rp_pe", "rp_pbeg");
-        printer.outdent();
-        printer.print("}\n");
+        emit_packed_body(printer, fname, gen);
         printer.print("continue;\n");
         printer.outdent();
         printer.print("}\n");
@@ -540,15 +549,7 @@ void emit_fast_arm(Printer& printer, const std::string& fname, const FieldGen& g
         printer.print(guard, {{"f", fname}});
         printer.indent();
         printer.print("++rp_c;  // consume the peeked 1-byte tag\n");
-        emit_vt_len_read(printer, "rp_packed");
-        printer.print("const std::uint8_t* rp_pc = ::rapidproto::wire::byte_ptr(rp_packed);\n");
-        printer.print("const std::uint8_t* const rp_pbeg = rp_pc;\n");
-        printer.print("const std::uint8_t* const rp_pe = rp_pc + rp_packed.size();\n");
-        printer.print("while (rp_pc < rp_pe) {\n");
-        printer.indent();
-        emit_decode_and_invoke(printer, fname, gen, "rp_pc", "rp_pe", "rp_pbeg");
-        printer.outdent();
-        printer.print("}\n");
+        emit_packed_body(printer, fname, gen);
         printer.print("continue;\n");
         printer.outdent();
         printer.print("}\n");

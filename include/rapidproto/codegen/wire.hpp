@@ -24,26 +24,36 @@ struct ScalarWire {
                // the matching rapidproto::wire::read_* call)
     std::string_view pre;   // conversion prefix wrapping the raw read
     std::string_view post;  // conversion suffix
+    // For the Varint scalar types: the NAMED rapidproto::wire:: conversion functor the packed-varint
+    // kernel is templated on (so decode_packed_varints instantiates once per type, not per field --
+    // see runtime.hpp). Empty for non-Varint types (their packed paths don't use the kernel).
+    std::string_view packed_conv;
 };
 
 // The wire/conversion facts for a scalar proto type, or nullptr if `type` is not a scalar keyword.
 inline const ScalarWire* find_scalar_wire(std::string_view type) {
     static const std::unordered_map<std::string_view, ScalarWire> kTable = {
-        {"int32", {"Varint", "::rapidproto::varint_to_int32(", ")"}},
-        {"int64", {"Varint", "::rapidproto::varint_to_int64(", ")"}},
-        {"uint32", {"Varint", "static_cast<std::uint32_t>(", ")"}},
-        {"uint64", {"Varint", "", ""}},
-        {"sint32", {"Varint", "::rapidproto::zigzag_decode_32(static_cast<std::uint32_t>(", "))"}},
-        {"sint64", {"Varint", "::rapidproto::zigzag_decode_64(", ")"}},
-        {"bool", {"Varint", "::rapidproto::varint_to_bool(", ")"}},
-        {"fixed32", {"I32", "", ""}},
-        {"sfixed32", {"I32", "static_cast<std::int32_t>(", ")"}},
-        {"float", {"I32", "::rapidproto::bit_cast_float(", ")"}},
-        {"fixed64", {"I64", "", ""}},
-        {"sfixed64", {"I64", "static_cast<std::int64_t>(", ")"}},
-        {"double", {"I64", "::rapidproto::bit_cast_double(", ")"}},
-        {"string", {"Len", "", ""}},
-        {"bytes", {"Len", "", ""}},
+        {"int32",
+         {"Varint", "::rapidproto::varint_to_int32(", ")", "::rapidproto::wire::conv_int32"}},
+        {"int64",
+         {"Varint", "::rapidproto::varint_to_int64(", ")", "::rapidproto::wire::conv_int64"}},
+        {"uint32",
+         {"Varint", "static_cast<std::uint32_t>(", ")", "::rapidproto::wire::conv_uint32"}},
+        {"uint64", {"Varint", "", "", "::rapidproto::wire::conv_uint64"}},
+        {"sint32",
+         {"Varint", "::rapidproto::zigzag_decode_32(static_cast<std::uint32_t>(", "))",
+          "::rapidproto::wire::conv_sint32"}},
+        {"sint64",
+         {"Varint", "::rapidproto::zigzag_decode_64(", ")", "::rapidproto::wire::conv_sint64"}},
+        {"bool", {"Varint", "::rapidproto::varint_to_bool(", ")", "::rapidproto::wire::conv_bool"}},
+        {"fixed32", {"I32", "", "", ""}},
+        {"sfixed32", {"I32", "static_cast<std::int32_t>(", ")", ""}},
+        {"float", {"I32", "::rapidproto::bit_cast_float(", ")", ""}},
+        {"fixed64", {"I64", "", "", ""}},
+        {"sfixed64", {"I64", "static_cast<std::int64_t>(", ")", ""}},
+        {"double", {"I64", "::rapidproto::bit_cast_double(", ")", ""}},
+        {"string", {"Len", "", "", ""}},
+        {"bytes", {"Len", "", "", ""}},
     };
     const auto it = kTable.find(type);
     return it != kTable.end() ? &it->second : nullptr;
