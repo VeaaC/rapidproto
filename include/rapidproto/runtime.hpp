@@ -339,36 +339,16 @@ inline PackedKernel packed_strategy(const std::uint8_t* p, std::size_t span, int
 }
 
 // ── Packed-varint output sinks ──────────────────────────────────────────────────────────────────
-// decode_packed_varints is the SWAR packed-varint kernel, templated on a SINK. The arena decoder drives
-// it with array_sink, which stores conv(raw) into its pre-allocated array (the streaming decoder does NOT
-// use the kernel -- a streaming callback can't vectorize its per-element store, so SWAR is arena-only; see
-// the README Benchmarks section). A sink exposes put(index, raw)
-// for one element and put2(index, r0, r1) for two adjacent ones (the fixed 2-per-load kernel -- its own
-// method so the two array stores fold to a base+offset pair, which they don't through two separate put()
-// calls). A void-returning put never aborts (array_sink is void, so the abort checks below fold away); the
-// bool-returning form is retained for generality (a sink that stops when put returns false). These two
-// helpers hide that void/bool distinction: they always return "keep going".
-template <class Sink>
-inline bool sink_put(Sink& sink, std::size_t i, std::uint64_t raw) {
-    if constexpr (std::is_void_v<decltype(sink.put(i, raw))>) {
-        sink.put(i, raw);
-        return true;
-    } else {
-        return sink.put(i, raw);
-    }
-}
-template <class Sink>
-inline bool sink_put2(Sink& sink, std::size_t i, std::uint64_t r0, std::uint64_t r1) {
-    if constexpr (std::is_void_v<decltype(sink.put2(i, r0, r1))>) {
-        sink.put2(i, r0, r1);
-        return true;
-    } else {
-        return sink.put2(i, r0, r1);
-    }
-}
+// decode_packed_varints is the SWAR packed-varint kernel, templated on a SINK. The arena decoder drives it
+// with array_sink, which stores conv(raw) into its pre-allocated array (the streaming decoder does NOT use
+// the kernel -- a streaming callback can't vectorize its per-element store, so SWAR is arena-only; see the
+// README Benchmarks section). A sink exposes put(index, raw) for one element and put2(index, r0, r1) for
+// two adjacent ones (the fixed 2-per-load kernel -- its own method so the two array stores fold to a
+// base+offset pair, which they don't through two separate put() calls). Both are void: the kernel never
+// aborts mid-span, so the bulk stores stay vectorizable / fused.
 
-// Arena sink: store conv(raw) into a pre-allocated array (base `out`). Never aborts (void put), so the
-// generic kernels' abort checks fold away and the bulk stores stay vectorizable / fused.
+// Arena sink: store conv(raw) into a pre-allocated array (base `out`). void put (never aborts), so the
+// bulk stores stay vectorizable / fused.
 template <class Elem, class Conv>
 struct array_sink {
     Elem* out;
@@ -383,10 +363,10 @@ struct array_sink {
 // guard specialize). Guards each element with a FULL W-byte continuation-pattern compare -- bytes 0..W-2
 // must all continue and byte W-1 must terminate (i.e. EXACTLY one W-byte varint); checking only the last
 // two bytes would accept a shorter varint followed by others merged into the window. Stops on the first
-// width change (or a sink abort), leaving the rest to the caller's byte-loop tail. Advances `*np`.
+// width change, leaving the rest to the caller's byte-loop tail. Advances `*np`.
 template <int W, class Sink>
 inline const std::uint8_t* fixed_fill(const std::uint8_t* q, const std::uint8_t* end,
-                                      std::size_t* np, bool* aborted, Sink& sink) noexcept {
+                                      std::size_t* np, Sink& sink) noexcept {
     constexpr std::uint64_t kLenMask =
         (W >= 8) ? ~std::uint64_t{0} : ((std::uint64_t{1} << (8U * static_cast<unsigned>(W))) - 1U);
     constexpr std::uint64_t kMsbW = swar_detail::kMSB & kLenMask;  // MSB of each of the low W bytes
@@ -403,21 +383,13 @@ inline const std::uint8_t* fixed_fill(const std::uint8_t* q, const std::uint8_t*
         while (static_cast<std::size_t>(end - q) >= 8) {
             const std::uint64_t w = swar_detail::load64(q);
             if ((w & kMsb2) == kTwoVarints) {  // two back-to-back W-byte varints
-                if (!sink_put2(sink, n, swar_detail::compact7(w & kLenMask & swar_detail::kLow7),
-                               swar_detail::compact7((w >> (8U * static_cast<unsigned>(W))) &
-                                                     kLenMask & swar_detail::kLow7))) {
-                    *aborted = true;
-                    *np = n;
-                    return q;
-                }
+                sink.put2(n, swar_detail::compact7(w & kLenMask & swar_detail::kLow7),
+                          swar_detail::compact7((w >> (8U * static_cast<unsigned>(W))) & kLenMask &
+                                                swar_detail::kLow7));
                 n += 2;
                 q += 2 * W;
             } else if ((w & kMsbW) == kOneVarint) {  // just one, then a width change
-                if (!sink_put(sink, n, swar_detail::compact7(w & kLenMask & swar_detail::kLow7))) {
-                    *aborted = true;
-                    *np = n;
-                    return q;
-                }
+                sink.put(n, swar_detail::compact7(w & kLenMask & swar_detail::kLow7));
                 ++n;
                 q += W;
             } else {
@@ -430,11 +402,7 @@ inline const std::uint8_t* fixed_fill(const std::uint8_t* q, const std::uint8_t*
             if ((w & kMsbW) != kOneVarint) {
                 break;  // not exactly one W-byte varint (wider, narrower, or an interior terminator)
             }
-            if (!sink_put(sink, n, swar_detail::compact7(w & kLenMask & swar_detail::kLow7))) {
-                *aborted = true;
-                *np = n;
-                return q;
-            }
+            sink.put(n, swar_detail::compact7(w & kLenMask & swar_detail::kLow7));
             ++n;
             q += W;
         }
@@ -450,7 +418,7 @@ inline const std::uint8_t* fixed_fill(const std::uint8_t* q, const std::uint8_t*
 // Guards each element's exact width and stops on the first width change (rest -> caller's tail).
 template <int W, class Sink>
 inline const std::uint8_t* fixed_fill_wide(const std::uint8_t* q, const std::uint8_t* end,
-                                           std::size_t* np, bool* aborted, Sink& sink) noexcept {
+                                           std::size_t* np, Sink& sink) noexcept {
     static_assert(W == 9 || W == 10, "fixed_fill_wide handles only 9/10-byte varints");
     std::size_t n = *np;
     while (static_cast<std::size_t>(end - q) >= W) {
@@ -477,11 +445,7 @@ inline const std::uint8_t* fixed_fill_wide(const std::uint8_t* q, const std::uin
             value |= static_cast<std::uint64_t>(b8 & 0x7FU) << 56U;  // bits 56..62
             value |= static_cast<std::uint64_t>(b9) << 63U;          // bit 63
         }
-        if (!sink_put(sink, n, value)) {
-            *aborted = true;
-            *np = n;
-            return q;
-        }
+        sink.put(n, value);
         ++n;
         q += W;
     }
@@ -490,10 +454,9 @@ inline const std::uint8_t* fixed_fill_wide(const std::uint8_t* q, const std::uin
 }
 
 // Decode a whole packed-varint span, delivering each element to `sink` (see the sink docs above:
-// array_sink stores to the arena array). Returns the element count; SIZE_MAX on a MALFORMED varint (with
-// *err/*fail_off set); or the count decoded so far if a bool-returning sink aborted (the sink records what
-// to report). A void-returning sink never aborts, so its abort machinery folds away and the kernels keep
-// their vectorized/fused stores.
+// array_sink stores to the arena array). Returns the element count, or SIZE_MAX on a MALFORMED varint
+// (with *err/*fail_off set). The sink's put is void -- the kernel never aborts mid-span -- so the bulk
+// stores stay vectorizable / fused.
 template <class Sink>
 RP_FLATTEN inline std::size_t decode_packed_varints(const std::uint8_t* p, const std::uint8_t* end,
                                                     const std::uint8_t* begin, WireError* err,
@@ -517,9 +480,7 @@ RP_FLATTEN inline std::size_t decode_packed_varints(const std::uint8_t* p, const
                     }
                     if (any == 0) {  // all 64 bytes are 1-byte varints -> plain widen (vectorizes)
                         for (int i = 0; i < 64; ++i) {
-                            if (!sink_put(sink, n + static_cast<std::size_t>(i), q[i])) {
-                                return n + static_cast<std::size_t>(i);
-                            }
+                            sink.put(n + static_cast<std::size_t>(i), q[i]);
                         }
                         q += 64;
                         n += 64;
@@ -535,18 +496,10 @@ RP_FLATTEN inline std::size_t decode_packed_varints(const std::uint8_t* p, const
                         const std::uint64_t x = w & swar_detail::kLow7;
                         const std::uint64_t y =
                             (x & 0x007F007F007F007FULL) | ((x & 0x7F007F007F007F00ULL) >> 1U);
-                        if (!sink_put(sink, n + 0, static_cast<std::uint16_t>(y))) {
-                            return n + 0;
-                        }
-                        if (!sink_put(sink, n + 1, static_cast<std::uint16_t>(y >> 16U))) {
-                            return n + 1;
-                        }
-                        if (!sink_put(sink, n + 2, static_cast<std::uint16_t>(y >> 32U))) {
-                            return n + 2;
-                        }
-                        if (!sink_put(sink, n + 3, static_cast<std::uint16_t>(y >> 48U))) {
-                            return n + 3;
-                        }
+                        sink.put(n + 0, static_cast<std::uint16_t>(y));
+                        sink.put(n + 1, static_cast<std::uint16_t>(y >> 16U));
+                        sink.put(n + 2, static_cast<std::uint16_t>(y >> 32U));
+                        sink.put(n + 3, static_cast<std::uint16_t>(y >> 48U));
                         q += 8;
                         n += 4;
                     } else {
@@ -558,35 +511,31 @@ RP_FLATTEN inline std::size_t decode_packed_varints(const std::uint8_t* p, const
                 // width so the mask/shifts specialize (a runtime width was much slower for the narrow cases). 9/10
                 // byte varints span > 1 word (fixed_fill_wide). The guard bails to the byte-loop tail on any width
                 // change, so it is correct on any data.
-                bool aborted = false;
                 switch (width) {
                     case 3:
-                        q = fixed_fill<3>(q, end, &n, &aborted, sink);
+                        q = fixed_fill<3>(q, end, &n, sink);
                         break;
                     case 4:
-                        q = fixed_fill<4>(q, end, &n, &aborted, sink);
+                        q = fixed_fill<4>(q, end, &n, sink);
                         break;
                     case 5:
-                        q = fixed_fill<5>(q, end, &n, &aborted, sink);
+                        q = fixed_fill<5>(q, end, &n, sink);
                         break;
                     case 6:
-                        q = fixed_fill<6>(q, end, &n, &aborted, sink);
+                        q = fixed_fill<6>(q, end, &n, sink);
                         break;
                     case 7:
-                        q = fixed_fill<7>(q, end, &n, &aborted, sink);
+                        q = fixed_fill<7>(q, end, &n, sink);
                         break;
                     case 8:
-                        q = fixed_fill<8>(q, end, &n, &aborted, sink);
+                        q = fixed_fill<8>(q, end, &n, sink);
                         break;
                     case 9:
-                        q = fixed_fill_wide<9>(q, end, &n, &aborted, sink);
+                        q = fixed_fill_wide<9>(q, end, &n, sink);
                         break;
                     default:  // width == 10 (classifier guarantees 3..10)
-                        q = fixed_fill_wide<10>(q, end, &n, &aborted, sink);
+                        q = fixed_fill_wide<10>(q, end, &n, sink);
                         break;
-                }
-                if (aborted) {
-                    return n;  // sink aborted mid-fixed-run; never taken for the void arena sink
                 }
             } else if (kern == PackedKernel::Struct) {
                 // Narrow-mixed: one stopmask per 64-byte block finds every terminator, then each varint is an
@@ -610,11 +559,8 @@ RP_FLATTEN inline std::size_t decode_packed_varints(const std::uint8_t* p, const
                                     ? ~std::uint64_t{0}
                                     : ((std::uint64_t{1} << (8U * static_cast<unsigned>(len))) -
                                        1U);
-                            if (!sink_put(sink, n,
-                                          swar_detail::compact7(swar_detail::load64(q + start) &
-                                                                lenmask & swar_detail::kLow7))) {
-                                return n;
-                            }
+                            sink.put(n, swar_detail::compact7(swar_detail::load64(q + start) &
+                                                              lenmask & swar_detail::kLow7));
                             ++n;
                         } else {  // 9/10-byte varint: > 1 word, so decode (and validate) with the scalar reader
                             std::uint64_t raw = 0;
@@ -624,9 +570,7 @@ RP_FLATTEN inline std::size_t decode_packed_varints(const std::uint8_t* p, const
                                 *fail_off = static_cast<std::size_t>((q + start) - begin);
                                 return SIZE_MAX;
                             }
-                            if (!sink_put(sink, n, raw)) {
-                                return n;
-                            }
+                            sink.put(n, raw);
                             ++n;
                         }
                         start = b + 1;
@@ -643,9 +587,7 @@ RP_FLATTEN inline std::size_t decode_packed_varints(const std::uint8_t* p, const
                         return SIZE_MAX;
                     }
                     q = np;
-                    if (!sink_put(sink, n, raw)) {
-                        return n;
-                    }
+                    sink.put(n, raw);
                     ++n;
                 }
             }
@@ -666,9 +608,7 @@ RP_FLATTEN inline std::size_t decode_packed_varints(const std::uint8_t* p, const
             return SIZE_MAX;
         }
         q = np;
-        if (!sink_put(sink, n, raw)) {
-            return n;
-        }
+        sink.put(n, raw);
         ++n;
     }
     return n;

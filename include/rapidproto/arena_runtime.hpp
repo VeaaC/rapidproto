@@ -665,7 +665,7 @@ RP_FLATTEN std::size_t decode_packed_varints_small(const std::uint8_t* vp, const
             return static_cast<std::size_t>(-1);
         }
         vp = np;
-        wire::sink_put(sink, n, raw);
+        sink.put(n, raw);
         ++n;
     }
     return n;
