@@ -339,13 +339,15 @@ inline PackedKernel packed_strategy(const std::uint8_t* p, std::size_t span, int
 }
 
 // ── Packed-varint output sinks ──────────────────────────────────────────────────────────────────
-// decode_packed_varints is templated on a SINK so BOTH generated decoders share one implementation:
-// the arena decoder's sink stores conv(raw) into its pre-allocated array; the streaming decoder's
-// invokes the field callback. A sink exposes put(index, raw) for one element and put2(index, r0, r1)
-// for two adjacent ones (the fixed 2-per-load kernel -- its own method so the two array stores fold to
-// a base+offset pair, which they don't through two separate put() calls). A void-returning put never
-// aborts (arena); a bool-returning put stops decoding when it returns false (a callback abort). These
-// two helpers hide that void/bool distinction: they always return "keep going".
+// decode_packed_varints is the SWAR packed-varint kernel, templated on a SINK. The arena decoder drives
+// it with array_sink, which stores conv(raw) into its pre-allocated array (the streaming decoder does NOT
+// use the kernel -- a streaming callback can't vectorize its per-element store, so SWAR is arena-only; see
+// the README Benchmarks section). A sink exposes put(index, raw)
+// for one element and put2(index, r0, r1) for two adjacent ones (the fixed 2-per-load kernel -- its own
+// method so the two array stores fold to a base+offset pair, which they don't through two separate put()
+// calls). A void-returning put never aborts (array_sink is void, so the abort checks below fold away); the
+// bool-returning form is retained for generality (a sink that stops when put returns false). These two
+// helpers hide that void/bool distinction: they always return "keep going".
 template <class Sink>
 inline bool sink_put(Sink& sink, std::size_t i, std::uint64_t raw) {
     if constexpr (std::is_void_v<decltype(sink.put(i, raw))>) {
@@ -488,10 +490,10 @@ inline const std::uint8_t* fixed_fill_wide(const std::uint8_t* q, const std::uin
 }
 
 // Decode a whole packed-varint span, delivering each element to `sink` (see the sink docs above:
-// array_sink stores to the arena array, a callback sink invokes a streaming field callback). Returns
-// the element count; SIZE_MAX on a MALFORMED varint (with *err/*fail_off set); or the count decoded so
-// far if a bool-returning sink aborted (the sink records what to report). A void-returning sink never
-// aborts, so its abort machinery folds away and the kernels keep their vectorized/fused stores.
+// array_sink stores to the arena array). Returns the element count; SIZE_MAX on a MALFORMED varint (with
+// *err/*fail_off set); or the count decoded so far if a bool-returning sink aborted (the sink records what
+// to report). A void-returning sink never aborts, so its abort machinery folds away and the kernels keep
+// their vectorized/fused stores.
 template <class Sink>
 RP_FLATTEN inline std::size_t decode_packed_varints(const std::uint8_t* p, const std::uint8_t* end,
                                                     const std::uint8_t* begin, WireError* err,
@@ -584,7 +586,7 @@ RP_FLATTEN inline std::size_t decode_packed_varints(const std::uint8_t* p, const
                         break;
                 }
                 if (aborted) {
-                    return n;  // sink aborted mid-fixed-run (streaming); never taken for a void arena sink
+                    return n;  // sink aborted mid-fixed-run; never taken for the void arena sink
                 }
             } else if (kern == PackedKernel::Struct) {
                 // Narrow-mixed: one stopmask per 64-byte block finds every terminator, then each varint is an
@@ -668,171 +670,6 @@ RP_FLATTEN inline std::size_t decode_packed_varints(const std::uint8_t* p, const
             return n;
         }
         ++n;
-    }
-    return n;
-}
-
-// ── Streaming packed-varint decode ───────────────────────────────────────────────────────────────────
-// The generated streaming decode() is RP_FLATTEN, so whatever it calls inline is duplicated per packed
-// field. The SWAR packed kernel below (decode_packed_varints) is ~2k instructions and its callback sink is
-// keyed on the field (callback_sink<Dispatch, FieldTag, Conv>), so inlining it makes decode() grow with
-// the packed-field count -- a problem for large schemas. The fix keeps the kernel out of decode() AND
-// shared across every field:
-//   - a small span (< 256 bytes, below the kernel's own engagement threshold) decodes inline via the
-//     byte-loop tail (decode_packed_varints_small) -- the common short-array case, no call;
-//   - a large span goes through decode_packed_varints_buffered, which FIRST peels the homogeneous narrow
-//     (all-1-byte / all-2-byte) runs with the callback inline, then decodes the remainder in bounded
-//     windows with the ONE shared, field-agnostic decode_packed_window (raw values into a scratch buffer)
-//     and converts + forwards each window to the callback in a thin inline loop.
-// The heavy kernel therefore exists once in the whole program. Trade-off vs inlining it: the scratch
-// buffer costs a store+load per element. The narrow-homogeneous regimes, where that hurts most (they
-// decode near memcpy speed), are peeled inline so they never touch the buffer; the wider Fixed<3..8>
-// homogeneous runs still round-trip, so a small GB/s gap to a fully-inline kernel remains there (and the
-// arena decoder's materialization is the ceiling anyway). In exchange, streaming decode() no longer scales
-// with the packed-field count.
-
-// Small span: only the validating byte-loop tail (no kernel), cheap to inline into the caller.
-template <class Sink>
-RP_FLATTEN inline std::size_t decode_packed_varints_small(const std::uint8_t* p,
-                                                          const std::uint8_t* end,
-                                                          const std::uint8_t* begin, WireError* err,
-                                                          std::size_t* fail_off,
-                                                          Sink sink) noexcept {
-    std::size_t n = 0;
-    const std::uint8_t* q = p;
-    while (q < end) {
-        std::uint64_t raw = 0;
-        const std::uint8_t* const np = read_varint(q, end, &raw, err);
-        if (np == nullptr) {
-            *fail_off = static_cast<std::size_t>(q - begin);
-            return SIZE_MAX;
-        }
-        q = np;
-        if (!sink_put(sink, n, raw)) {
-            return n;
-        }
-        ++n;
-    }
-    return n;
-}
-
-// A sink that just stores raw varints into a caller buffer (no callback, no conversion). Void put/put2 so
-// the abort checks fold away and the stores vectorize -- the point is a callback-free, dispatch-free fill.
-struct packed_raw_buffer {
-    std::uint64_t* buf;
-    void put(std::size_t i, std::uint64_t raw) const noexcept { buf[i] = raw; }
-    void put2(std::size_t i, std::uint64_t a, std::uint64_t b) const noexcept {
-        buf[i] = a;
-        buf[i + 1] = b;
-    }
-};
-
-// Out-of-line: decode one window [p, end) into `buf` as raw varints (the full SWAR kernel), returning the
-// count or SIZE_MAX (err/fail_off set, fail_off relative to p). Shared across ALL streaming packed fields
-// (and both element types) -- it is keyed on nothing (no Conv, no field tag), because conversion + the
-// callback happen later, inline in the caller. This is the ONE copy of the ~2k-instruction kernel.
-RP_NOINLINE inline std::size_t decode_packed_window(const std::uint8_t* p, const std::uint8_t* end,
-                                                    std::uint64_t* buf, WireError* err,
-                                                    std::size_t* fail_off) noexcept {
-    return decode_packed_varints(p, end, p, err, fail_off, packed_raw_buffer{buf});
-}
-
-// One streaming packed-varint field, large span. First peels the homogeneous narrow runs (Bulk1/Bulk2)
-// with the callback inline (see below); the remainder decodes in bounded windows through the shared
-// decode_packed_window (raw values into a stack scratch buffer), then converts + forwards each window to
-// the callback in the inline loop below. This per-field wrapper (two peel loops + a window loop + a
-// forward loop) is small; the heavy classifier/kernel is neither inlined into decode() nor duplicated per
-// field -- it is the one shared decode_packed_window. RP_NOINLINE is deliberate: it keeps the scratch
-// buffer in THIS frame instead of the (group-recursively-called) decode()'s, so stack use is one buffer
-// rather than one-per-nesting-level -- and it is GB/s-neutral to a touch faster.
-// kWindow trades stack for throughput: it MUST be >= 256 (decode_packed_window's kernel-engagement
-// threshold, below which it runs the scalar tail and homogeneous arrays never vectorize), a larger window
-// amortizes the per-window call better, and it costs kWindow*8 bytes of stack. `wend` is nudged to the end
-// of a straddling varint so no element crosses a window; the buffer holds at most kWindow (+ <=9) elements.
-// The fail offset is made span-relative; sink indices are 0-based per window (the callback sink ignores
-// them). One behavior note, all on MALFORMED input (outside the "correct output" contract, and always
-// still a reject): a window is decoded eagerly to raw before any callback runs, so if a wire error and a
-// callback-abort both fall in the same window, the wire error wins here whereas a per-element decode would
-// have surfaced the earlier abort. Accepted deliberately -- keeping decode_packed_window callback-free is
-// what lets it be the one shared, vectorizing kernel; valid input is byte-for-byte identical either way.
-template <class Sink>
-RP_NOINLINE inline std::size_t decode_packed_varints_buffered(const std::uint8_t* p,
-                                                              const std::uint8_t* end,
-                                                              const std::uint8_t* begin,
-                                                              WireError* err, std::size_t* fail_off,
-                                                              Sink sink) noexcept {
-    std::size_t n = 0;
-    const std::uint8_t* q = p;
-    // Peel the homogeneous narrow runs (Bulk1 = all-1-byte, Bulk2 = all-2-byte) with the callback INLINE,
-    // before the buffered window loop. These are the regimes where the buffer round-trip costs the most
-    // (near-memcpy decode), and an inline peel -- even without vectorization -- beats it: a homogeneous
-    // 1-/2-byte array is consumed entirely here and never touches the scratch buffer, recovering it to
-    // ~byte-loop speed instead of the ~40%-below-a-byte-loop the plain windowed path gives. Mixed/wide
-    // data peels nothing and falls straight through to the shared window kernel below. Bodies mirror
-    // decode_packed_varints's Bulk1/Bulk2 (guard inverted to an early break); sink indices are 0-based (the
-    // callback sink ignores them). Each peel fully validates its byte pattern before consuming, so running
-    // unconditionally -- without the classifier that gates the kernel arms -- stays correct.
-    while (static_cast<std::size_t>(end - q) >= 64) {
-        std::uint64_t any = 0;
-        for (int j = 0; j < 8; ++j) {
-            any |= swar_detail::load64(q + (8 * j)) & swar_detail::kMSB;
-        }
-        if (any != 0) {
-            break;
-        }
-        for (int i = 0; i < 64; ++i) {
-            if (!sink_put(sink, n + static_cast<std::size_t>(i), q[i])) {
-                return n + static_cast<std::size_t>(i);
-            }
-        }
-        q += 64;
-        n += 64;
-    }
-    while (static_cast<std::size_t>(end - q) >= 8) {
-        const std::uint64_t w = swar_detail::load64(q);
-        if ((w & swar_detail::kMSB) != 0x0080008000800080ULL) {
-            break;
-        }
-        const std::uint64_t x = w & swar_detail::kLow7;
-        const std::uint64_t y = (x & 0x007F007F007F007FULL) | ((x & 0x7F007F007F007F00ULL) >> 1U);
-        if (!sink_put(sink, n + 0, static_cast<std::uint16_t>(y))) {
-            return n + 0;
-        }
-        if (!sink_put(sink, n + 1, static_cast<std::uint16_t>(y >> 16U))) {
-            return n + 1;
-        }
-        if (!sink_put(sink, n + 2, static_cast<std::uint16_t>(y >> 32U))) {
-            return n + 2;
-        }
-        if (!sink_put(sink, n + 3, static_cast<std::uint16_t>(y >> 48U))) {
-            return n + 3;
-        }
-        q += 8;
-        n += 4;
-    }
-    constexpr std::size_t kWindow = 1024;  // >= 256 (kernel gate); 8 KiB of scratch on this frame
-    std::uint64_t buf[kWindow + 16];       // +16: room for a varint straddling the window boundary
-    while (q < end) {
-        const std::uint8_t* wend =
-            (static_cast<std::size_t>(end - q) > kWindow) ? q + kWindow : end;
-        while (wend < end && (wend[-1] & 0x80U) != 0) {  // extend to the end of a straddling varint
-            ++wend;
-        }
-        std::size_t wfo = 0;
-        WireError we = WireError::None;
-        const std::size_t k = decode_packed_window(q, wend, buf, &we, &wfo);
-        if (k == SIZE_MAX) {
-            *err = we;
-            *fail_off = wfo + static_cast<std::size_t>(q - begin);
-            return SIZE_MAX;
-        }
-        for (std::size_t i = 0; i < k; ++i) {
-            if (!sink_put(sink, n + i, buf[i])) {
-                return n + i;
-            }
-        }
-        n += k;
-        q = wend;
     }
     return n;
 }
@@ -1361,29 +1198,6 @@ constexpr DecodeStatus invoke_field(D& dispatcher, Tag tag, Vs&&... vs) {
         return dispatcher(tag, std::forward<Vs>(vs)...);
     }
 }
-
-// Streaming packed-varint sink for wire::decode_packed_varints (the streaming decoder's element
-// consumer; the arena's is wire::array_sink). Converts each raw varint via Conv and delivers it to the
-// field callback through the combined dispatcher; a callback that returns a non-ok DecodeStatus aborts
-// the decode, recording the status in *status for the caller to return. The bool return (vs array_sink's
-// void put) keeps the kernels' abort checks live. The index argument is unused -- the callback fires in
-// wire order -- but present so the one sink interface serves both decoders.
-template <class Dispatch, class FieldTag, class Conv>
-struct callback_sink {
-    Dispatch* dispatch;
-    DecodeStatus* status;
-    [[nodiscard]] bool put(std::size_t /*i*/, std::uint64_t raw) const {
-        const DecodeStatus st = invoke_field(*dispatch, FieldTag{}, Conv{}(raw));
-        if (!st.ok()) {
-            *status = st;
-            return false;
-        }
-        return true;
-    }
-    [[nodiscard]] bool put2(std::size_t /*i*/, std::uint64_t r0, std::uint64_t r1) const {
-        return put(0, r0) && put(0, r1);
-    }
-};
 
 // Invoke the dispatcher for a decoded oneof member (the arena model's reader). Unlike a streaming
 // field callback, a oneof handler cannot abort — the message is already decoded — so a returned

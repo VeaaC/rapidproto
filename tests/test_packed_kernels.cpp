@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Christian Vetter
 //
-// Unit coverage for the packed-varint SWAR kernels (rapidproto::wire::decode_packed_varints and the two
-// streaming helpers decode_packed_varints_small / decode_packed_varints_buffered). The rest of the suite
-// only ever feeds these spans well under their 256-byte engagement threshold -- the largest packed
-// fixture is ~93 bytes -- so the classifier, Bulk1/Bulk2, Fixed<3..10>, Struct, Swar, the re-classify
-// path, and the streaming 1024-byte window / straddle logic were entirely unexercised. These tests hit
-// each kernel above threshold, the boundaries (256 gate, 1024 window), the P0 merged-varint shape, and
-// the malformed/abort paths, checking decoded VALUES against the known inputs (the kernels are the code
-// under test; the inputs are the oracle).
+// Unit coverage for the packed-varint SWAR kernel (rapidproto::wire::decode_packed_varints), which is
+// ARENA-ONLY (the streaming decoder decodes packed fields per-element -- see the README Benchmarks). The
+// rest of the suite only ever feeds these spans well under the kernel's 256-byte engagement threshold --
+// the largest packed fixture is ~93 bytes -- so the classifier, Bulk1/Bulk2, Fixed<3..10>, Struct, Swar,
+// and the re-classify path were entirely unexercised. These tests hit each kernel above threshold, the
+// 256-byte gate, the P0 merged-varint shape, and the malformed paths, checking decoded VALUES against the
+// known inputs (the kernel is the code under test; the inputs are the oracle). Exercised through the two
+// arena entry points that ship (arena_detail::decode_packed_varints_large -> the kernel; _small -> the
+// byte-loop tail) plus the kernel directly.
 
 #include <catch_amalgamated.hpp>
 
@@ -17,6 +18,7 @@
 #include <random>
 #include <vector>
 
+#include "rapidproto/arena_runtime.hpp"
 #include "rapidproto/runtime.hpp"
 
 using namespace rapidproto;  // NOLINT(google-build-using-namespace): test convenience
@@ -56,33 +58,16 @@ std::vector<std::uint8_t> encode_packed(const std::vector<std::int64_t>& vals) {
     return b;
 }
 
-// Streaming-shape sink: bool put (aborts once `out` reaches `abort_at`); mirrors callback_sink's contract.
-struct collect_sink {
-    std::vector<std::int64_t>* out = nullptr;
-    std::size_t abort_at = SIZE_MAX;
-    [[nodiscard]] bool put(std::size_t /*i*/, std::uint64_t raw) const {
-        if (out->size() >= abort_at) {
-            return false;
-        }
-        out->push_back(wire::conv_int64{}(raw));
-        return true;
-    }
-    [[nodiscard]] bool put2(std::size_t i, std::uint64_t a, std::uint64_t b) const {
-        return put(i, a) && put(i + 1, b);
-    }
-};
-
 // Decode a raw packed span three ways and require each reproduces `expect` exactly:
-//   (1) decode_packed_varints  -- the shared kernel (arena path; array_sink)
-//   (2) decode_packed_varints_small    -- the streaming small-span byte-loop tail
-//   (3) decode_packed_varints_buffered -- the streaming windowed path (only meaningful >= 256, but valid
-//                                         at any size)
+//   (1) wire::decode_packed_varints          -- the kernel directly (array_sink)
+//   (2) arena_detail::decode_packed_varints_small -- the arena small-span byte-loop tail
+//   (3) arena_detail::decode_packed_varints_large -- the arena large-span entry (-> the kernel)
 void require_all_paths_decode(const std::vector<std::uint8_t>& bytes,
                               const std::vector<std::int64_t>& expect) {
     const std::uint8_t* const p = bytes.data();
     const std::uint8_t* const end = p + bytes.size();
 
-    // (1) shared kernel via array_sink
+    // (1) kernel directly via array_sink
     {
         std::vector<std::int64_t> out(expect.size() + 8, 0);
         WireError we = WireError::None;
@@ -93,24 +78,26 @@ void require_all_paths_decode(const std::vector<std::uint8_t>& bytes,
         out.resize(n);
         CHECK(out == expect);
     }
-    // (2) streaming small tail
+    // (2) arena small tail
     {
-        std::vector<std::int64_t> out;
-        WireError we = WireError::None;
-        std::size_t fo = 0;
+        std::vector<std::int64_t> out(expect.size() + 8, 0);
+        ArenaDecodeError err{};
         const std::size_t n =
-            wire::decode_packed_varints_small(p, end, p, &we, &fo, collect_sink{&out});
+            arena_detail::decode_packed_varints_small<std::int64_t, wire::conv_int64>(
+                p, end, out.data(), &err);
         REQUIRE(n == expect.size());
+        out.resize(n);
         CHECK(out == expect);
     }
-    // (3) streaming buffered (windowed)
+    // (3) arena large entry -> kernel
     {
-        std::vector<std::int64_t> out;
-        WireError we = WireError::None;
-        std::size_t fo = 0;
+        std::vector<std::int64_t> out(expect.size() + 8, 0);
+        ArenaDecodeError err{};
         const std::size_t n =
-            wire::decode_packed_varints_buffered(p, end, p, &we, &fo, collect_sink{&out});
+            arena_detail::decode_packed_varints_large<std::int64_t, wire::conv_int64>(
+                p, end, out.data(), &err);
         REQUIRE(n == expect.size());
+        out.resize(n);
         CHECK(out == expect);
     }
 }
@@ -125,31 +112,31 @@ void expect_reject(std::size_t n, WireError code, std::size_t off, WireError exp
 }
 
 // Require all three entry points REJECT `bytes` with `expect_code` at `expect_off` (span-relative) -- so
-// inline (small), kernel, and windowed decode agree on BOTH the error and the offset on malformed input
-// (the buffered path does non-trivial window-relative -> span-relative offset arithmetic).
+// the kernel, the arena small tail, and the arena large entry agree on BOTH the error and the offset on
+// malformed input.
 void require_all_paths_reject(const std::vector<std::uint8_t>& bytes, WireError expect_code,
                               std::size_t expect_off) {
     const std::uint8_t* const p = bytes.data();
     const std::uint8_t* const end = p + bytes.size();
-    std::vector<std::int64_t> arena_out(bytes.size() + 8, 0);
-    std::vector<std::int64_t> stream_out;
+    std::vector<std::int64_t> out1(bytes.size() + 8, 0);
+    std::vector<std::int64_t> out2(bytes.size() + 8, 0);
+    std::vector<std::int64_t> out3(bytes.size() + 8, 0);
     WireError we1 = WireError::None;
-    WireError we2 = WireError::None;
-    WireError we3 = WireError::None;
     std::size_t fo1 = 0;
-    std::size_t fo2 = 0;
-    std::size_t fo3 = 0;
+    ArenaDecodeError err2{};
+    ArenaDecodeError err3{};
     const std::size_t n1 = wire::decode_packed_varints(
-        p, end, p, &we1, &fo1, wire::array_sink<std::int64_t, wire::conv_int64>{arena_out.data()});
+        p, end, p, &we1, &fo1, wire::array_sink<std::int64_t, wire::conv_int64>{out1.data()});
     const std::size_t n2 =
-        wire::decode_packed_varints_small(p, end, p, &we2, &fo2, collect_sink{&stream_out});
-    stream_out.clear();
+        arena_detail::decode_packed_varints_small<std::int64_t, wire::conv_int64>(
+            p, end, out2.data(), &err2);
     const std::size_t n3 =
-        wire::decode_packed_varints_buffered(p, end, p, &we3, &fo3, collect_sink{&stream_out});
+        arena_detail::decode_packed_varints_large<std::int64_t, wire::conv_int64>(
+            p, end, out3.data(), &err3);
     // All three paths must reject with the same (code, span-relative offset).
     expect_reject(n1, we1, fo1, expect_code, expect_off);
-    expect_reject(n2, we2, fo2, expect_code, expect_off);
-    expect_reject(n3, we3, fo3, expect_code, expect_off);
+    expect_reject(n2, err2.wire, err2.offset, expect_code, expect_off);
+    expect_reject(n3, err3.wire, err3.offset, expect_code, expect_off);
 }
 
 // `count` int64 values each encoding to exactly `width` bytes (deterministic salt).
@@ -164,8 +151,9 @@ std::vector<std::int64_t> fixed_width_values(int width, int count) {
     return v;
 }
 
-// A width-3 run of 1023 bytes (not peeled), then a 10-byte varint at bytes 1023..1032 straddling the
-// 1024-byte window edge, then a width-3 tail. Exercises the window loop's straddle-extension.
+// A width-3 run of 1023 bytes, then a 10-byte varint at bytes 1023..1032, then a width-3 tail. The wide
+// outlier forces the Fixed<3> kernel to bail to the scalar reader mid-run and resume; the byte offset
+// (1023) is also a stable, awkward reject anchor for the malformed cases below.
 std::vector<std::int64_t> straddle_span() {
     std::vector<std::int64_t> v;
     v.reserve(842);
@@ -179,7 +167,8 @@ std::vector<std::int64_t> straddle_span() {
     return v;
 }
 
-// Exactly one 64-byte Bulk1 peel block (all-1-byte) then mixed wide values -- the peel->window handoff.
+// Exactly one 64-byte Bulk1 block (all-1-byte) then mixed wide values -- the kernel's Bulk1 -> re-classify
+// transition into a Fixed/Struct arm.
 std::vector<std::int64_t> handoff_span() {
     std::vector<std::int64_t> v;
     v.reserve(464);
@@ -233,21 +222,6 @@ std::vector<std::int64_t> reclassify_span() {
         v.push_back(varint_of_width(5, static_cast<std::uint64_t>(i)));
     }
     return v;
-}
-
-// Assert an abort-after-k sink stops the buffered path cleanly: reports k, delivers exactly the first k.
-void check_abort_at(const std::vector<std::uint8_t>& bytes, const std::vector<std::int64_t>& vals,
-                    std::size_t k) {
-    std::vector<std::int64_t> out;
-    WireError we = WireError::None;
-    std::size_t fo = 0;
-    const std::size_t n = wire::decode_packed_varints_buffered(
-        bytes.data(), bytes.data() + bytes.size(), bytes.data(), &we, &fo, collect_sink{&out, k});
-    CHECK(n == k);
-    CHECK(out.size() == k);
-    for (std::size_t i = 0; i < k; ++i) {
-        CHECK(out[i] == vals[i]);
-    }
 }
 
 }  // namespace
@@ -310,27 +284,24 @@ TEST_CASE("packed-kernels: 256-byte engagement boundary", "[packed-kernels]") {
     }
 }
 
-TEST_CASE("packed-kernels: streaming window boundary + straddling varint", "[packed-kernels]") {
-    // decode_packed_varints_buffered decodes the POST-PEEL remainder in 1024-byte windows; a varint must
-    // never split across two. Use WIDTH-3 values: the Bulk1/Bulk2 peel does not touch them, so the whole
-    // span reaches the window loop, and 3 not dividing 1024 makes an element straddle every window edge
-    // (exercising the straddle-extension). (Homogeneous 1-/2-byte spans are covered by the peel path in the
-    // homogeneous-widths case above; here we want the window loop itself.)
-    for (const int count :
-         {342, 400, 683, 1000, 2000}) {  // 1026..6000 bytes: cross 1..5 window edges
+TEST_CASE("packed-kernels: large spans with embedded wide varints", "[packed-kernels]") {
+    // Multi-kilobyte spans that make the Fixed<W> kernels run long stretches and bail on width changes. Use
+    // WIDTH-3 values (a Fixed<3> run) across a range of lengths, then spans with a 10-byte outlier embedded
+    // in the run and a Bulk1->wide transition -- all differentially checked against the oracle.
+    for (const int count : {342, 400, 683, 1000, 2000}) {  // 1026..6000 bytes
         const std::vector<std::int64_t> vals = fixed_width_values(3, count);
         const std::vector<std::uint8_t> bytes = encode_packed(vals);
         REQUIRE(bytes.size() > 1024U);
         CAPTURE(count, bytes.size());
         require_all_paths_decode(bytes, vals);
     }
-    SECTION("10-byte varint straddling the 1024-byte window boundary") {
+    SECTION("10-byte varint embedded in a Fixed<3> run") {
         const std::vector<std::int64_t> vals = straddle_span();
         const std::vector<std::uint8_t> bytes = encode_packed(vals);
         REQUIRE(bytes.size() > 1032U);
         require_all_paths_decode(bytes, vals);
     }
-    SECTION("peel -> window handoff at a 64-byte peel-block boundary") {
+    SECTION("Bulk1 block -> wide-value re-classify transition") {
         const std::vector<std::int64_t> vals = handoff_span();
         require_all_paths_decode(encode_packed(vals), vals);
     }
@@ -362,23 +333,22 @@ TEST_CASE("packed-kernels: Struct 9/10-byte in-place + re-classify paths", "[pac
 }
 
 TEST_CASE("packed-kernels: malformed input rejected on every path", "[packed-kernels]") {
-    SECTION("truncated final varint, error inside a later window") {
-        // Width-3 (not peeled) so the span goes through the window loop and the error lands in a window.
+    SECTION("truncated final varint, error deep in a large span") {
         std::vector<std::int64_t> vals =
-            fixed_width_values(3, 1500);        // 4500 bytes, several windows
+            fixed_width_values(3, 1500);        // 4500 bytes, a long Fixed<3> run
         vals.push_back(varint_of_width(5, 3));  // a multi-byte value to truncate
         std::vector<std::uint8_t> bytes = encode_packed(vals);
         bytes.pop_back();  // drop its terminator -> truncated
         require_all_paths_reject(bytes, WireError::TruncatedVarint,
                                  4500);  // the 5-byte value at byte 4500
     }
-    SECTION("truncated varint straddling a window boundary") {
-        // straddle_span() ends its straddling 10-byte varint's continuation across the 1024 edge; drop the
-        // whole tail after it so the straddler itself is left truncated at the window boundary.
+    SECTION("truncated wide varint embedded mid-span") {
+        // straddle_span()'s 10-byte varint sits at bytes 1023..1032; drop the tail after it so that value
+        // itself is left truncated -- the reject offset must point at its start.
         std::vector<std::uint8_t> bytes = encode_packed(straddle_span());
-        bytes.resize(1030);  // mid the 10-byte varint that straddles 1024 (bytes 1023..1032)
+        bytes.resize(1030);  // mid the 10-byte varint at bytes 1023..1032
         require_all_paths_reject(bytes, WireError::TruncatedVarint,
-                                 1023);  // straddler starts at byte 1023
+                                 1023);  // the wide value starts at byte 1023
     }
     SECTION("overlong varint (11 continuation bytes) -> overflow") {
         std::vector<std::uint8_t> bytes = encode_packed(fixed_width_values(1, 300));
@@ -386,27 +356,5 @@ TEST_CASE("packed-kernels: malformed input rejected on every path", "[packed-ker
         bytes.push_back(0x00U);
         require_all_paths_reject(bytes, WireError::VarintOverflow,
                                  300);  // overlong starts at byte 300
-    }
-}
-
-TEST_CASE("packed-kernels: callback abort stops cleanly (peel + window)", "[packed-kernels]") {
-    // A streaming sink that aborts after K elements: the buffered path must stop, report K, deliver exactly
-    // K, and neither run past the abort nor OOB. Cover the abort landing in each consumer -- the Bulk1 peel
-    // (width 1), the Bulk2 peel (width 2), and the window forward loop (width 3, not peeled) -- with K
-    // spanning a 64-byte Bulk1 block boundary (63/64/65) among others.
-    struct AbortCase {
-        int width;
-        const char* where;
-    };
-    for (const AbortCase c :
-         {AbortCase{1, "bulk1-peel"}, AbortCase{2, "bulk2-peel"}, AbortCase{3, "window"}}) {
-        const std::vector<std::int64_t> vals = fixed_width_values(c.width, 2000);
-        const std::vector<std::uint8_t> bytes = encode_packed(vals);
-        for (const std::size_t k :
-             {std::size_t{0}, std::size_t{1}, std::size_t{63}, std::size_t{64}, std::size_t{65},
-              std::size_t{100}, std::size_t{1500}}) {
-            CAPTURE(c.where, c.width, k);
-            check_abort_at(bytes, vals, k);
-        }
     }
 }

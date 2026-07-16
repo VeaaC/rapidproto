@@ -75,18 +75,18 @@ RP_FLATTEN ::rapidproto::DecodeStatus M::decode(Callbacks&&... rp_callbacks) con
           ++rp_c;  // consume the peeked 1-byte tag
           ::rapidproto::ByteView rp_packed;
           { const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_packed, &rp_we); if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(m_bytes))}; } rp_c = rp_np; }
-          const std::uint8_t* const rp_pc = ::rapidproto::wire::byte_ptr(rp_packed);
-          ::rapidproto::DecodeStatus rp_ab{};
-          std::size_t rp_pfo = 0;
-          const ::rapidproto::callback_sink<std::decay_t<decltype(rp_dispatch)>, b, ::rapidproto::wire::conv_int32> rp_psink{&rp_dispatch, &rp_ab};
-          std::size_t rp_pdc = 0;
-          if (rp_packed.size() >= 256) {
-            rp_pdc = ::rapidproto::wire::decode_packed_varints_buffered(rp_pc, rp_pc + rp_packed.size(), rp_pc, &rp_we, &rp_pfo, rp_psink);
-          } else {
-            rp_pdc = ::rapidproto::wire::decode_packed_varints_small(rp_pc, rp_pc + rp_packed.size(), rp_pc, &rp_we, &rp_pfo, rp_psink);
+          const std::uint8_t* rp_pc = ::rapidproto::wire::byte_ptr(rp_packed);
+          const std::uint8_t* const rp_pbeg = rp_pc;
+          const std::uint8_t* const rp_pe = rp_pc + rp_packed.size();
+          while (rp_pc < rp_pe) {
+            std::uint64_t rp_raw = 0;
+            const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_pc, rp_pe, &rp_raw, &rp_we);
+            if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_pc - rp_pbeg)}; }
+            rp_pc = rp_np;
+            if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, b{}, ::rapidproto::varint_to_int32(rp_raw)); !rp_status.ok()) {
+              return rp_status;
+            }
           }
-          if (rp_pdc == static_cast<std::size_t>(-1)) { return ::rapidproto::DecodeStatus{rp_we, false, rp_pfo}; }
-          if (!rp_ab.ok()) { return rp_ab; }
           continue;
         }
         break;
