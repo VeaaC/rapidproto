@@ -115,9 +115,20 @@ void require_all_paths_decode(const std::vector<std::uint8_t>& bytes,
     }
 }
 
-// Require all three entry points REJECT `bytes` with `expect_code` and the same span-relative offset --
-// the point being that inline (small), kernel, and windowed decode agree on malformed input.
-void require_all_paths_reject(const std::vector<std::uint8_t>& bytes, WireError expect_code) {
+// One decode path's rejection: count == SIZE_MAX, and matching error code + span-relative offset.
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): positional -- result triple then expected pair.
+void expect_reject(std::size_t n, WireError code, std::size_t off, WireError expect_code,
+                   std::size_t expect_off) {
+    CHECK(n == static_cast<std::size_t>(-1));
+    CHECK(code == expect_code);
+    CHECK(off == expect_off);
+}
+
+// Require all three entry points REJECT `bytes` with `expect_code` at `expect_off` (span-relative) -- so
+// inline (small), kernel, and windowed decode agree on BOTH the error and the offset on malformed input
+// (the buffered path does non-trivial window-relative -> span-relative offset arithmetic).
+void require_all_paths_reject(const std::vector<std::uint8_t>& bytes, WireError expect_code,
+                              std::size_t expect_off) {
     const std::uint8_t* const p = bytes.data();
     const std::uint8_t* const end = p + bytes.size();
     std::vector<std::int64_t> arena_out(bytes.size() + 8, 0);
@@ -135,12 +146,10 @@ void require_all_paths_reject(const std::vector<std::uint8_t>& bytes, WireError 
     stream_out.clear();
     const std::size_t n3 =
         wire::decode_packed_varints_buffered(p, end, p, &we3, &fo3, collect_sink{&stream_out});
-    CHECK(n1 == static_cast<std::size_t>(-1));
-    CHECK(n2 == static_cast<std::size_t>(-1));
-    CHECK(n3 == static_cast<std::size_t>(-1));
-    CHECK(we1 == expect_code);
-    CHECK(we2 == expect_code);
-    CHECK(we3 == expect_code);  // the same error, whether decoded inline or through a window
+    // All three paths must reject with the same (code, span-relative offset).
+    expect_reject(n1, we1, fo1, expect_code, expect_off);
+    expect_reject(n2, we2, fo2, expect_code, expect_off);
+    expect_reject(n3, we3, fo3, expect_code, expect_off);
 }
 
 // `count` int64 values each encoding to exactly `width` bytes (deterministic salt).
@@ -198,6 +207,34 @@ std::vector<std::int64_t> merged_guard_span() {
     return v;
 }
 
+// A narrow-mixed run (widths 1-3 -> classified Struct) with a 10-byte outlier every 100 elements. The
+// Struct kernel decodes those 9/10-byte outliers IN PLACE via its scalar `len > 8` path -- a live branch
+// (incl. a malformed-reject) no other case reaches (confirmed engaged by instrumentation).
+std::vector<std::int64_t> struct_wide_outlier_span() {
+    std::vector<std::int64_t> v;
+    v.reserve(1000);
+    for (int i = 0; i < 1000; ++i) {
+        const int w = (i % 100 == 50) ? 10 : (1 + (i % 3));
+        v.push_back(varint_of_width(w, static_cast<std::uint64_t>(i) * std::uint64_t{2654435761}));
+    }
+    return v;
+}
+
+// Two long homogeneous runs of DIFFERENT widths, each > 4096 bytes: the first engages a Fixed kernel that
+// runs its full stretch, hits the width change, and the classifier RE-CLASSIFIES the remainder (via the
+// >=4096-progress / >=512-remaining gates) -- a path the mixed/skew distributions never take.
+std::vector<std::int64_t> reclassify_span() {
+    std::vector<std::int64_t> v;
+    v.reserve(4000);
+    for (int i = 0; i < 2000; ++i) {  // 6000 bytes of width-3 -> Fixed<3>
+        v.push_back(varint_of_width(3, static_cast<std::uint64_t>(i)));
+    }
+    for (int i = 0; i < 2000; ++i) {  // then 10000 bytes of width-5 -> re-classify -> Fixed<5>
+        v.push_back(varint_of_width(5, static_cast<std::uint64_t>(i)));
+    }
+    return v;
+}
+
 // Assert an abort-after-k sink stops the buffered path cleanly: reports k, delivers exactly the first k.
 void check_abort_at(const std::vector<std::uint8_t>& bytes, const std::vector<std::int64_t>& vals,
                     std::size_t k) {
@@ -246,7 +283,8 @@ TEST_CASE("packed-kernels: mixed-width distributions above threshold", "[packed-
         CAPTURE(d.name);
         require_all_paths_decode(encode_packed(vals), vals);
     }
-    // Skew: 90% 1-byte with occasional wide values (the Bulk1-with-interruptions / re-classify path).
+    // Skew: 90% 1-byte with occasional wide values -- a 1-byte-dominant mixed shape that classifies as
+    // Swar (per-element SWAR with a 1-byte fast path), the common real-world "small ids + rare big" case.
     {
         std::uniform_int_distribution<int> tenth(0, 9);
         std::uniform_int_distribution<int> any(1, 10);
@@ -309,6 +347,20 @@ TEST_CASE("packed-kernels: P0 merged-varint guard (fixed_fill must not merge)",
     require_all_paths_decode(encode_packed(vals), vals);
 }
 
+TEST_CASE("packed-kernels: Struct 9/10-byte in-place + re-classify paths", "[packed-kernels]") {
+    // Two live kernel branches the width/mixed cases above never reach (confirmed by instrumentation):
+    // the Struct kernel's in-place scalar decode of a 9/10-byte outlier, and the classifier re-classifying
+    // the remainder after a long homogeneous run changes width.
+    SECTION("Struct decodes a 9/10-byte outlier in place") {
+        const std::vector<std::int64_t> vals = struct_wide_outlier_span();
+        require_all_paths_decode(encode_packed(vals), vals);
+    }
+    SECTION("re-classify after a long homogeneous run hits a width change") {
+        const std::vector<std::int64_t> vals = reclassify_span();
+        require_all_paths_decode(encode_packed(vals), vals);
+    }
+}
+
 TEST_CASE("packed-kernels: malformed input rejected on every path", "[packed-kernels]") {
     SECTION("truncated final varint, error inside a later window") {
         // Width-3 (not peeled) so the span goes through the window loop and the error lands in a window.
@@ -317,20 +369,23 @@ TEST_CASE("packed-kernels: malformed input rejected on every path", "[packed-ker
         vals.push_back(varint_of_width(5, 3));  // a multi-byte value to truncate
         std::vector<std::uint8_t> bytes = encode_packed(vals);
         bytes.pop_back();  // drop its terminator -> truncated
-        require_all_paths_reject(bytes, WireError::TruncatedVarint);
+        require_all_paths_reject(bytes, WireError::TruncatedVarint,
+                                 4500);  // the 5-byte value at byte 4500
     }
     SECTION("truncated varint straddling a window boundary") {
         // straddle_span() ends its straddling 10-byte varint's continuation across the 1024 edge; drop the
         // whole tail after it so the straddler itself is left truncated at the window boundary.
         std::vector<std::uint8_t> bytes = encode_packed(straddle_span());
         bytes.resize(1030);  // mid the 10-byte varint that straddles 1024 (bytes 1023..1032)
-        require_all_paths_reject(bytes, WireError::TruncatedVarint);
+        require_all_paths_reject(bytes, WireError::TruncatedVarint,
+                                 1023);  // straddler starts at byte 1023
     }
     SECTION("overlong varint (11 continuation bytes) -> overflow") {
         std::vector<std::uint8_t> bytes = encode_packed(fixed_width_values(1, 300));
         bytes.insert(bytes.end(), 11, 0x80U);  // 11 continuation bytes, never terminating
         bytes.push_back(0x00U);
-        require_all_paths_reject(bytes, WireError::VarintOverflow);
+        require_all_paths_reject(bytes, WireError::VarintOverflow,
+                                 300);  // overlong starts at byte 300
     }
 }
 

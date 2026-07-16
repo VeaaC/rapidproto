@@ -209,19 +209,22 @@ inline constexpr std::uint64_t kLow7 = 0x7F7F7F7F7F7F7F7FULL;  // low 7 bits of 
 // reverse prefers the compiler intrinsic (gcc/clang -> a `rev`/`bswap` instruction) but falls back to
 // portable shifts for any other compiler, so no supported build is left without a definition.
 inline std::uint64_t load64(const std::uint8_t* p) noexcept {
+#if (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__) || defined(_WIN32)
+    // Known little-endian: the raw 8-byte load IS the logical value. One `mov` on x86/ARM64.
     std::uint64_t w = 0;
     std::memcpy(&w, p, sizeof w);
-#if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
-#if defined(__GNUC__) || defined(__clang__)
-    w = __builtin_bswap64(w);
-#else
-    w = ((w & 0xFF00000000000000ULL) >> 56U) | ((w & 0x00FF000000000000ULL) >> 40U) |
-        ((w & 0x0000FF0000000000ULL) >> 24U) | ((w & 0x000000FF00000000ULL) >> 8U) |
-        ((w & 0x00000000FF000000ULL) << 8U) | ((w & 0x0000000000FF0000ULL) << 24U) |
-        ((w & 0x000000000000FF00ULL) << 40U) | ((w & 0x00000000000000FFULL) << 56U);
-#endif
-#endif
     return w;
+#else
+    // Big-endian OR unknown endianness (a non-gcc/clang/MSVC toolchain that doesn't define __BYTE_ORDER__):
+    // assemble the little-endian value from the bytes EXPLICITLY. Correct on any host regardless of its
+    // native order -- unlike a memcpy, which would silently misread on an unknown-endianness host. gcc/clang
+    // recognize this byte-gather idiom and fold it to a single load (+ bswap on BE), so the BE fast path is
+    // unchanged; an unknown toolchain gets correct (if unoptimized) results rather than wrong ones.
+    return static_cast<std::uint64_t>(p[0]) | (static_cast<std::uint64_t>(p[1]) << 8U) |
+           (static_cast<std::uint64_t>(p[2]) << 16U) | (static_cast<std::uint64_t>(p[3]) << 24U) |
+           (static_cast<std::uint64_t>(p[4]) << 32U) | (static_cast<std::uint64_t>(p[5]) << 40U) |
+           (static_cast<std::uint64_t>(p[6]) << 48U) | (static_cast<std::uint64_t>(p[7]) << 56U);
+#endif
 }
 // Count trailing zero bits; precondition x != 0.
 inline int ctz64(std::uint64_t x) noexcept {
@@ -246,18 +249,6 @@ inline std::uint64_t compact7(std::uint64_t x) noexcept {
 // movemask without SIMD: gather the MSB of each byte into 8 bits (bit i = MSB of byte i).
 inline std::uint64_t bytemask8(std::uint64_t w) noexcept {
     return ((w & kMSB) * 0x0002040810204081ULL) >> 56U;
-}
-inline int popcount64(std::uint64_t x) noexcept {
-#if defined(__GNUC__) || defined(__clang__)
-    return __builtin_popcountll(x);
-#else
-    int n = 0;
-    while (x != 0U) {
-        x &= x - 1U;
-        ++n;
-    }
-    return n;
-#endif
 }
 // 64-bit terminator mask over the 64 bytes at p (bit i set = byte i terminates a varint). Reads 64 bytes.
 inline std::uint64_t stopmask64(const std::uint8_t* p) noexcept {
