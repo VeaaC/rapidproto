@@ -1,8 +1,9 @@
 # Continuous integration: the project's quality bar on every push to the default branch and every
 # pull request. Parallel jobs -- the default gate's build/test stages, its clang-tidy stage as a
-# three-shard matrix (tidy is ~80% of the gate's CPU, so it gets its own runners), the heavy
-# "deep" tier (sanitizers + coverage floor + fuzz smoke), a Release -O3 -Werror build on both
-# compilers, and the consumer job (install -> find_package -> newer-standard header compiles) --
+# three-shard matrix (tidy is ~80% of the gate's CPU, so it gets its own runners), an arm64
+# build/test job (the SWAR decode kernels lower to native AArch64 instructions x86 can't exercise),
+# the heavy "deep" tier (sanitizers + coverage floor + fuzz smoke), a Release -O3 -Werror build on
+# both compilers, and the consumer job (install -> find_package -> newer-standard header compiles) --
 # so wall-clock is the slowest runner, not the sum.
 name: CI
 
@@ -25,6 +26,20 @@ jobs:
       - uses: ./.github/actions/setup-toolchain
       - name: Quality gate minus tidy (./check.sh)
         run: RAPIDPROTO_GATE_STAGES='format gcc clang cf fuzz' ./check.sh
+
+  # arm64 build + test on both pinned compilers. The packed-varint SWAR kernels are the reason: on
+  # AArch64 they lower to native instructions the x86 gate never sees (ctz -> rbit+clz, popcount ->
+  # cnt, and the big-endian load64 path -> rev), and a byte loop that vectorizes on x86 may not on
+  # NEON. Format + tidy are architecture-independent, so they stay on the x86 jobs; this runs only
+  # the compiler-visible stages (build/test on gcc + clang, compile-fail, fuzz-harness compile).
+  arm64:
+    name: arm64 (build/test, gcc + clang)
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-toolchain
+      - name: Build + test on arm64 (./check.sh, arch-sensitive stages)
+        run: RAPIDPROTO_GATE_STAGES='gcc clang cf fuzz' ./check.sh
 
   tidy:
     name: tidy (shard ${{ matrix.shard }} of 3)

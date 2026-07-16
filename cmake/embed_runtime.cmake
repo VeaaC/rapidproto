@@ -29,6 +29,10 @@ if(NOT _collision EQUAL -1)
   message(FATAL_ERROR "embed_runtime: raw-string delimiter collision in ${RUNTIME_HPP}")
 endif()
 
+# Embedded as ONE raw string literal. It exceeds the 65536-char literal the C++ standard requires
+# compilers to support (both gcc and clang accept far larger; only clang's pedantic -Woverlength-strings
+# flags it), so the TUs that compile this file suppress that warning -- see CMakeLists.txt. This file is
+# internal to rapidprotoc; the runtime the CLI writes for consumers is the plain header, not this embed.
 file(WRITE "${OUTPUT_CPP}"
 "// GENERATED at build time from include/rapidproto/runtime.hpp (cmake/embed_runtime.cmake). DO NOT EDIT.
 // Carries the runtime header text so the generator can drop a self-contained copy beside its output.

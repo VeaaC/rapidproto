@@ -641,6 +641,15 @@ streaming decoder runs **~1.2–1.7× faster than protozero**, and across the pe
 protozero on **every** shape with a protozero equivalent. Against `protoc` + `Arena` it's
 **~7–9× faster**, since it materializes nothing.
 
+**Packed scalar arrays are SWAR-accelerated on the arena decoder only.** The arena decoder decodes
+packed varint arrays with a word-at-a-time (SWAR) kernel that materializes straight into its array —
+**~1.4–2.4× faster** than a per-element loop across widths, including small (1-byte) values. The
+streaming decoder decodes packed fields **per element**. This is deliberate: a streaming callback
+receives one value at a time and can't vectorize its own store, so the kernel only pays off there for
+wide-value data and would *slow* the common case of a large packed array of small values (e.g. repeated
+enums or small ints). The practical effect is narrow — only large packed scalar fields on the streaming
+decoder — but if that is your hot path, decode it with the **arena** model to get the SWAR speedup.
+
 Speedups vary with payload shape, and part of the arena/protoc gap is a feature gap — protoc validates
 UTF-8 on every proto3 string and RapidProto does not. The harness ships every scenario (and a memory
 report, and a chunk-cap/SSO tuning sweep), so measure your own payloads rather than trusting one ratio

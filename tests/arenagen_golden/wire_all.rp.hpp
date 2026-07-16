@@ -196,15 +196,15 @@ RP_FLATTEN inline bool AllWire::rp_decode_into([[maybe_unused]] AllWire& out, ::
           rp_cap_packed = rp_nc;
         }
         const std::uint8_t* rp_vp = ::rapidproto::wire::byte_ptr(rp_p);
-        const std::uint8_t* const rp_vbeg = rp_vp;
         const std::uint8_t* const rp_ve = rp_vp + rp_p.size();
-        while (rp_vp < rp_ve) {
-          std::uint64_t rp_raw = 0;
-          const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_vp, rp_ve, &rp_raw, &rp_we);
-          if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_vp - rp_vbeg)); return false; }
-          rp_acc_packed[rp_n_packed] = ::rapidproto::varint_to_int32(rp_raw);
-          ++rp_n_packed;
-          rp_vp = rp_np;
+        if (rp_p.size() >= 256) {
+          const std::size_t rp_dc = ::rapidproto::arena_detail::decode_packed_varints_large<std::int32_t, ::rapidproto::wire::conv_int32>(rp_vp, rp_ve, rp_acc_packed + rp_n_packed, err);
+          if (rp_dc == static_cast<std::size_t>(-1)) { return false; }
+          rp_n_packed += rp_dc;
+        } else {
+          const std::size_t rp_dc = ::rapidproto::arena_detail::decode_packed_varints_small<std::int32_t, ::rapidproto::wire::conv_int32>(rp_vp, rp_ve, rp_acc_packed + rp_n_packed, err);
+          if (rp_dc == static_cast<std::size_t>(-1)) { return false; }
+          rp_n_packed += rp_dc;
         }
         arena.shrink_last(rp_acc_packed, rp_cap_packed * sizeof(std::int32_t), rp_n_packed * sizeof(std::int32_t));
         rp_cap_packed = rp_n_packed;
