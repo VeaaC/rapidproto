@@ -52,11 +52,22 @@ message WideSet {
   repeated Wide items = 1;
 }
 
+// A small open enum for the packed-enum decode bench (below). Any int32 is a valid value (proto3 open
+// enum), so the decode is just a cast; the named values are only for a well-formed schema.
+enum Kind {
+  KIND_UNSPECIFIED = 0;
+  KIND_ONE = 1;
+}
+
 // "Few big repeated fields" shape: a record is dominated by a couple of large scalar arrays, so the
 // arena makes a few big contiguous allocations (some exceeding the chunk cap, taking their own chunk).
+// `zz` (packed sint64) and `kinds` (packed enum) carry the SAME packed-varint wire as `numbers`, so the
+// repeated-varint sweep can measure whether the zigzag / enum-cast conversion costs more than int64.
 message Big {
   repeated int64 numbers = 1;
   repeated double reals = 2;
+  repeated sint64 zz = 3;
+  repeated Kind kinds = 4;
 }
 
 message BigSet {

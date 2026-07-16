@@ -21,6 +21,7 @@
 // decoders must agree on a checksum (guards correctness and stops the loops being optimized away);
 // a mismatch is reported and makes the process exit non-zero.
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -95,6 +96,24 @@ int run(const char* scenario, ByteView bytes, const Arm (&arms)[N]) {
         wrapped.push_back({a.label, [fn = a.fn, bytes]() { return fn(bytes); }});
     }
     return rpbench::run(scenario, static_cast<double>(bytes.size()), wrapped);
+}
+
+// Like run(), but each arm rotates over a POOL of distinct-seed buffers (one decode per call), so no
+// arm replays a single memorized width sequence -- production decodes each buffer once on fresh data,
+// and a replayed byte loop otherwise looks artificially fast. `views` must outlive the call. Every arm
+// keeps its own index; the harness calls all arms the same number of times, so they stay in lockstep
+// and the per-round checksum cross-check still holds. `avg_bytes` is the pool's mean buffer size.
+template <std::size_t N>
+int run_pool(const char* scenario, const std::vector<ByteView>& views, double avg_bytes,
+             const Arm (&arms)[N]) {
+    std::vector<rpbench::Arm> wrapped;
+    wrapped.reserve(N);
+    for (const auto& a : arms) {
+        wrapped.push_back({a.label, [fn = a.fn, &views, i = std::size_t{0}]() mutable {
+                               return fn(views[i++ % views.size()]);
+                           }});
+    }
+    return rpbench::run(scenario, avg_bytes, wrapped);
 }
 
 constexpr int kN = 2'000'000;
@@ -579,7 +598,26 @@ int scenario_repeated_varint() {
     int bad = 0;
     for (const auto& dist : rpbench::varint_dists()) {
         for (const int count : rpbench::varint_lengths()) {
-            const std::string buf = rpbench::make_packed_i64(rpbench::varint_values(dist, count));
+            // Rotate over a pool of distinct-seed buffers (same shape) so no arm replays one memorized
+            // width sequence. Pool: ~64 MB budget, >= 8 buffers (defeat the predictor at small counts),
+            // <= 64 (bound setup). count*10 over-estimates a buffer (<= 10 bytes each), only shrinking it.
+            const long est = static_cast<long>(count) * 10 + 16;
+            const int pool_n =
+                static_cast<int>(std::min<long>(64, std::max<long>(8, (64L << 20) / est)));
+            std::vector<std::string> pool;
+            std::vector<ByteView> views;
+            pool.reserve(static_cast<std::size_t>(pool_n));
+            views.reserve(static_cast<std::size_t>(pool_n));
+            double total_bytes = 0;
+            for (int s = 0; s < pool_n; ++s) {
+                pool.push_back(rpbench::make_packed_i64(
+                    rpbench::varint_values(dist, count, static_cast<std::uint64_t>(s) + 1)));
+                total_bytes += static_cast<double>(pool.back().size());
+            }
+            for (const auto& b : pool) {
+                views.emplace_back(b);  // pool strings are stable (reserved, no realloc)
+            }
+            const double avg_bytes = total_bytes / static_cast<double>(pool_n);
             const std::string name = "rv " + dist.label + " " + rpbench::length_tag(count);
             const Arm arms[] = {
                 {"generated",
@@ -650,7 +688,7 @@ int scenario_repeated_varint() {
                  }},
 #endif
             };
-            bad += run(name.c_str(), ByteView(buf), arms);
+            bad += run_pool(name.c_str(), views, avg_bytes, arms);
         }
     }
     return bad;

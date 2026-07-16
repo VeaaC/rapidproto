@@ -42,15 +42,22 @@ struct VarintDist {
     int mode;
 };
 
-// The 12 distributions the sweep covers: fixed 1..10, uniform, and the 90/10 skew.
+// The distributions the sweep covers: fixed 1..10, uniform(1..10), the 90/10 skew, the common
+// NARROW-mixed shapes -- uniform 1..2 byte (values <= 16383) and uniform 1..3 byte (<= ~2M), the shape
+// of delta-encoded sequences, small ids/indices, enum arrays and counts -- and mix13out (1..3 byte with
+// a 1% 10-byte outlier, a resync/sentinel value) to exercise the Struct kernel's no-cliff bail.
 inline std::vector<VarintDist> varint_dists() {
     std::vector<VarintDist> out;
-    out.reserve(12);
+    out.reserve(15);
     for (int w = 1; w <= 10; ++w) {
         out.push_back({"fx" + std::to_string(w), w});
     }
     out.push_back({"unif", 0});
     out.push_back({"skew", -1});
+    out.push_back({"mix12", -2});  // uniform 1..2 byte
+    out.push_back({"mix13", -3});  // uniform 1..3 byte
+    out.push_back(
+        {"mix13out", -4});  // 1..3 byte with a 1% 10-byte outlier (a resync/sentinel value)
     return out;
 }
 
@@ -70,34 +77,48 @@ inline std::string length_tag(int count) {
     return std::to_string(count);
 }
 
-// `count` int64 element values under `dist`, deterministic (seeded from the mode, so a given
-// distribution always yields the same sequence; a longer count extends the same prefix).
-inline std::vector<std::int64_t> varint_values(const VarintDist& dist, int count) {
+// `count` int64 element values under `dist`, deterministic (seeded from the mode and `seed`). `seed`
+// selects an independent buffer with the SAME distribution but a different width/value SEQUENCE -- the
+// bench rotates over many seeds so the branch predictor can't memorize one sequence (which would make a
+// replayed byte loop look artificially fast, since production decodes each buffer once on fresh data).
+inline std::vector<std::int64_t> varint_values(const VarintDist& dist, int count,
+                                               std::uint64_t seed = 0) {
     std::vector<std::int64_t> out;
     out.reserve(static_cast<std::size_t>(count));
-    // Seed = the golden-ratio mixer XOR the mode; `+ 32` biases mode (range -1..10) to a positive,
-    // collision-free per-distribution offset so each distribution gets its own reproducible stream.
-    std::mt19937_64 rng(0x9E3779B97F4A7C15ULL ^ static_cast<std::uint64_t>(dist.mode + 32));
+    // Seed = the golden-ratio mixer XOR the mode XOR a per-buffer mix; `+ 32` biases mode (range -1..10)
+    // to a positive, collision-free per-distribution offset so each (distribution, seed) is reproducible.
+    std::mt19937_64 rng(0x9E3779B97F4A7C15ULL ^ static_cast<std::uint64_t>(dist.mode + 32) ^
+                        (seed * 0xD1B54A32D192ED03ULL));
     std::uniform_int_distribution<int> any_width(1, 10);
+    std::uniform_int_distribution<int> width12(1, 2);
+    std::uniform_int_distribution<int> width13(1, 3);
     std::uniform_int_distribution<int> tenth(0, 9);
+    std::uniform_int_distribution<int> hundredth(0, 99);
     for (int i = 0; i < count; ++i) {
         int width = 0;
         if (dist.mode > 0) {
             width = dist.mode;  // fixed
         } else if (dist.mode == 0) {
             width = any_width(rng);  // uniform 1..10
-        } else {
+        } else if (dist.mode == -1) {
             width = (tenth(rng) == 0) ? any_width(rng) : 1;  // 90% 1-byte, 10% uniform 1..10
+        } else if (dist.mode == -2) {
+            width = width12(rng);  // uniform 1..2
+        } else if (dist.mode == -3) {
+            width = width13(rng);  // uniform 1..3
+        } else {
+            width = (hundredth(rng) == 0) ? 10 : width13(rng);  // 1..3 byte + 1% 10-byte outlier
         }
         out.push_back(varint_of_width(width, rng()));
     }
     return out;
 }
 
-// The wire bytes of a message carrying only `numbers` (packed repeated int64, field 1) with these
-// values -- exactly what bench.Big / rp::bench::Big serialises, so protoc, the arena decoder, the
-// streaming decoder, and protozero all decode the identical buffer.
-inline std::string make_packed_i64(const std::vector<std::int64_t>& values) {
+// The wire bytes of a message carrying one packed varint field (`field_number`, wire type 2) with these
+// values as raw varints -- field 1 is bench.Big.numbers (int64); passing field 3 (sint64 `zz`) or 4
+// (enum `kinds`) reuses the IDENTICAL payload bytes to measure the zigzag / enum-cast conversion cost
+// against int64. protoc, both rapidproto decoders, and protozero all decode the identical buffer.
+inline std::string make_packed_i64(const std::vector<std::int64_t>& values, int field_number = 1) {
     const auto put_varint = [](std::string& b, std::uint64_t v) {
         while (v >= 0x80U) {
             b.push_back(static_cast<char>(0x80U | (v & 0x7FU)));
@@ -110,7 +131,8 @@ inline std::string make_packed_i64(const std::vector<std::int64_t>& values) {
         put_varint(payload, static_cast<std::uint64_t>(v));
     }
     std::string buf;
-    put_varint(buf, (std::uint64_t{1} << 3U) | 2U);  // tag: field 1, wire type 2 (LEN)
+    put_varint(buf,
+               (static_cast<std::uint64_t>(field_number) << 3U) | 2U);  // tag: field, wire type LEN
     put_varint(buf, payload.size());
     buf += payload;
     return buf;
