@@ -27,9 +27,10 @@
 #include "rapidproto/arenagen/runtime_embedded.hpp"
 #include "rapidproto/cli/driver.hpp"
 #include "rapidproto/codegen/emit.hpp"
-#include "rapidproto/debuggen/generator.hpp"
 #include "rapidproto/codegen/naming.hpp"
 #include "rapidproto/codegen/runtime_embedded.hpp"
+#include "rapidproto/debuggen/generator.hpp"
+#include "rapidproto/debuggen/runtime_embedded.hpp"
 #include "rapidproto/streamgen/generator.hpp"
 
 int main(int argc, char** argv) {
@@ -39,6 +40,8 @@ int main(int argc, char** argv) {
         "  --out-dir <dir>          write the generated headers here (default: .)\n"
         "  --arena                  emit the arena object-tree decoder (<stem>.rp.hpp) [default]\n"
         "  --stream                 emit the streaming callback decoder (<stem>.rp.stream.hpp)\n"
+        "  --debug                  emit a JSON-like debug dumper (<stem>.rp.debug.hpp; implies"
+        " --arena)\n"
         "  --unknown-present        arena: reserve the \"unknown fields present\" bit on every"
         " message\n"
         "  --unknown=<msg>          arena: reserve that bit on one message (repeatable)\n"
@@ -199,8 +202,9 @@ int main(int argc, char** argv) {
         }
         if (debug && !rapidproto::cli::write_header(
                          opts->out_dir, file, ".rp.debug.hpp",
-                         rapidproto::debuggen::generate_header(file, names, symbols),
+                         rapidproto::debuggen::generate_header(file, names, *layouts, symbols),
                          opts->verbose)) {
+            // --debug implies --arena, so `layouts` is always engaged here.
             return 1;
         }
     }
@@ -225,6 +229,10 @@ int main(int argc, char** argv) {
                 targets.push_back(
                     rapidproto::cli::header_path(opts->out_dir, file, ".rp.stream.hpp"));
             }
+            if (debug) {
+                targets.push_back(
+                    rapidproto::cli::header_path(opts->out_dir, file, ".rp.debug.hpp"));
+            }
         }
         prereqs = rapidproto::cli::disk_proto_paths(opts->entries, set, opts->config);
         // Editing a decode profile changes the generated shape, so profiles are prerequisites
@@ -242,6 +250,13 @@ int main(int argc, char** argv) {
     }
     if (arena && !rapidproto::cli::write_shared_file(dir / "arena_runtime.hpp",
                                                      rapidproto::arenagen::arena_runtime_header(),
+                                                     opts->verbose)) {
+        return 1;
+    }
+    // The debug dumper's own header-only runtime (the escaper/hex/Writer support), so a generated
+    // <stem>.rp.debug.hpp's #include "rapidproto/debug_runtime.hpp" resolves from the out-dir.
+    if (debug && !rapidproto::cli::write_shared_file(dir / "debug_runtime.hpp",
+                                                     rapidproto::debuggen::debug_runtime_header(),
                                                      opts->verbose)) {
         return 1;
     }

@@ -2,28 +2,37 @@
 // Copyright 2026 Christian Vetter
 #include "rapidproto/debuggen/generator.hpp"
 
+#include <cstddef>
+#include <cstdint>
 #include <string>
+#include <string_view>
 #include <unordered_set>
-#include <vector>
 
+#include "rapidproto/arenagen/generator.hpp"
+#include "rapidproto/arenagen/layout.hpp"
 #include "rapidproto/ast.hpp"
 #include "rapidproto/codegen/emit.hpp"
 #include "rapidproto/codegen/naming.hpp"
 #include "rapidproto/codegen/printer.hpp"
-#include "rapidproto/codegen/wire.hpp"
 #include "rapidproto/resolve.hpp"
 #include "rapidproto/version.hpp"
 
 namespace rapidproto::debuggen {
 namespace {
 
+using arenagen::SynthNames;
 using codegen::cpp_type_name;
 using codegen::CppNameTable;
 using codegen::Printer;
 
+// The default line-width budget the generated rp_debug_write/rp_debug_string overloads take: a group
+// renders compact (single line) if it fits this many columns, else multi-line. Emitted as the default
+// argument in the generated signatures.
+constexpr std::size_t kDefaultWidth = 120;
+
 // How the debug writer must treat a field's VALUE, derived straight from the FieldNode (mirrors the
 // arena accessor's return-type categories).
-enum class ValueKind {
+enum class ValueKind : std::uint8_t {
     Scalar,   // numeric / bool -> numeric literal (bool -> true/false)
     String,   // string -> JSON-escaped quoted
     Bytes,    // bytes -> lowercase hex quoted
@@ -33,6 +42,9 @@ enum class ValueKind {
 
 ValueKind value_kind(const FieldNode& f) {
     if (f.is_message_type) {
+        // A proto2 group is just a message field with a different wire encoding: arenagen decodes it
+        // through the IDENTICAL nested-message accessor (const T*), so it dumps as a normal Message
+        // with no special case here.
         return ValueKind::Message;
     }
     if (f.is_enum_type) {
@@ -66,20 +78,30 @@ void emit_write_value(Printer& p, ValueKind kind, const std::string& expr) {
             p.print("w.os() << $e$;\n", {{"e", expr}});
             break;
         case ValueKind::String:
-            p.print("w.os() << '\"'; ::rapidproto::debug::write_json_escaped(w.os(), $e$);"
-                    " w.os() << '\"';\n",
-                    {{"e", expr}});
+            p.print(
+                "w.os() << '\"'; ::rapidproto::debug::write_json_escaped(w.os(), $e$);"
+                " w.os() << '\"';\n",
+                {{"e", expr}});
             break;
         case ValueKind::Bytes:
-            p.print("w.os() << '\"'; ::rapidproto::debug::write_hex(w.os(), $e$); w.os() << '\"';\n",
-                    {{"e", expr}});
+            p.print(
+                "w.os() << '\"'; ::rapidproto::debug::write_hex(w.os(), $e$); w.os() << '\"';\n",
+                {{"e", expr}});
             break;
         case ValueKind::Enum:
-            p.print("w.os() << '\"' << ::rapidproto::debug::rp_debug_enum_name($e$) << '\"';\n",
-                    {{"e", expr}});
+            // rp_debug_enum_name returns the value's stripped name, or nullptr for an unknown (open-
+            // enum) value -- in which case we render UNKNOWN(<n>) straight to the stream, with no
+            // shared/thread-local buffer. Bind the value once so the accessor call isn't repeated.
+            p.print("{ const auto rp_e = $e$;\n", {{"e", expr}});
+            p.print(
+                "if (const char* rp_nm = ::rapidproto::debug::rp_debug_enum_name(rp_e)) {"
+                " w.os() << '\"' << rp_nm << '\"'; }\n");
+            p.print(
+                "else { w.os() << \"\\\"UNKNOWN(\""
+                " << static_cast<std::int32_t>(rp_e) << \")\\\"\"; } }\n");
             break;
         case ValueKind::Message:
-            p.print("rp_debug_write(w.os(), $e$, w);\n", {{"e", expr}});
+            p.print("rp_debug_write($e$, w);\n", {{"e", expr}});
             break;
     }
 }
@@ -111,8 +133,10 @@ void collect_enums(const MessageNode& m, std::unordered_set<std::string>& out) {
     }
 }
 
-// Emit `const char* rp_debug_enum_name(E)` -- a switch over the enum's known values yielding the proto
-// value name; an unknown value falls through to a static thread_local buffer holding "UNKNOWN(<n>)".
+// Emit `const char* rp_debug_enum_name(E)` -- a switch over the enum's known values returning the proto
+// value name as a string literal; an unknown value returns nullptr so the caller renders UNKNOWN(<n>)
+// itself (no shared buffer, no dangling pointer). Each returned pointer is a string literal with static
+// lifetime, so it stays valid indefinitely.
 void emit_enum_name_fn(Printer& p, const CppNameTable& names, const std::string& fqn,
                        const EnumNode& node) {
     const std::string type = cpp_type_name(names, fqn);
@@ -139,12 +163,7 @@ void emit_enum_name_fn(Printer& p, const CppNameTable& names, const std::string&
     }
     p.outdent();
     p.print("}\n");
-    // Unknown (open enum): render UNKNOWN(<n>). A thread_local buffer keeps the const char* valid
-    // past the return without a heap allocation (PoC-simple; one buffer per thread).
-    p.print("static thread_local char rp_buf[32];\n");
-    p.print("std::snprintf(rp_buf, sizeof rp_buf, \"UNKNOWN(%d)\","
-            " static_cast<int>(static_cast<std::int32_t>(rp_e)));\n");
-    p.print("return rp_buf;\n");
+    p.print("return nullptr;  // unknown (open enum): the caller renders UNKNOWN(<n>)\n");
     p.outdent();
     p.print("}\n");
 }
@@ -252,15 +271,17 @@ void emit_map_field(Printer& p, const CppNameTable& names, const MapFieldNode& m
     // The object key is always a JSON string. A string key escapes; a numeric key is streamed into
     // the quotes as its decimal form.
     if (key_is_string) {
-        p.print("w.os() << '\"'; ::rapidproto::debug::write_json_escaped(w.os(), rp_ent.key());"
-                " w.os() << \"\\\": \";\n");
+        p.print(
+            "w.os() << '\"'; ::rapidproto::debug::write_json_escaped(w.os(), rp_ent.key());"
+            " w.os() << \"\\\": \";\n");
     } else {
         p.print("w.os() << '\"' << rp_ent.key() << \"\\\": \";\n");
     }
     if (vkind == ValueKind::Message) {
         // value() is const V* for a message entry.
-        p.print("if (const auto* rp_vp = rp_ent.value()) { rp_debug_write(w.os(), *rp_vp, w); }"
-                " else { w.os() << \"null\"; }\n");
+        p.print(
+            "if (const auto* rp_vp = rp_ent.value()) { rp_debug_write(*rp_vp, w); }"
+            " else { w.os() << \"null\"; }\n");
     } else {
         emit_write_value(p, vkind, "rp_ent.value()");
     }
@@ -297,33 +318,31 @@ void emit_oneof(Printer& p, const CppNameTable& names, const OneofNode& o,
     p.print("});\n");
 }
 
-// Mirror arenagen's synthesized oneof visit-tag struct name: capitalize(oneof name). (The arena
-// emitter dedups this against the message's other members with a trailing `_`; for the PoC we assume
-// no such collision -- noted in the report.)
-std::string capitalize(std::string_view s) {
-    std::string out(s);
-    if (!out.empty() && out[0] >= 'a' && out[0] <= 'z') {
-        out[0] = static_cast<char>(out[0] - ('a' - 'A'));
-    }
-    return out;
-}
-
-void emit_message_dumper(Printer& p, const CppNameTable& names, const MessageNode& m) {
+void emit_message_dumper(Printer& p, const CppNameTable& names, const SynthNames& synth,
+                         const arenagen::LayoutSet& layouts, const MessageNode& m) {
     // Recurse into nested messages first (free functions; order only matters for name visibility,
     // which is fine since all are declared/defined at namespace scope after forward-friendly ADL --
     // we simply emit nested before parent).
     for (const MessageNode& n : m.nested_messages) {
-        emit_message_dumper(p, names, n);
+        emit_message_dumper(p, names, synth, layouts, n);
     }
     const std::string type = cpp_type_name(names, m.fqn);
-    p.print("inline void rp_debug_write(std::ostream& rp_os, const $T$& m,"
-            " ::rapidproto::debug::Writer& w) {\n",
+    p.print("inline void rp_debug_write(const $T$& m, ::rapidproto::debug::Writer& w) {\n",
             {{"T", type}});
     p.indent();
-    p.print("(void)rp_os;\n");
     p.print("w.group('{', '}', [&] {\n");
     p.indent();
     p.print("bool rp_first = true;\n");
+    // The arena message reserves a "saw an unknown field" bit (--unknown-present / --unknown <msg>)
+    // iff its layout carries an unknown_bit -- exactly how arenagen decides to emit has_unknown_fields().
+    // It is BIT-ONLY: no unknown field DATA is retained, so we can only report presence, not contents.
+    const arenagen::MessageLayout* layout = layouts.find(m.fqn);
+    if (layout != nullptr && layout->unknown_bit >= 0) {
+        p.print(
+            "if (m.$h$()) { w.entry_sep(rp_first);"
+            " w.os() << \"\\\"has_unknown_fields\\\": true\"; }\n",
+            {{"h", synth.unknown.at(&m)}});
+    }
     for (const FieldNode& f : m.fields) {
         if (f.is_repeated) {
             emit_repeated_field(p, names, f);
@@ -335,7 +354,7 @@ void emit_message_dumper(Printer& p, const CppNameTable& names, const MessageNod
         emit_map_field(p, names, mp);
     }
     for (const OneofNode& o : m.oneofs) {
-        emit_oneof(p, names, o, type + "::" + capitalize(o.name));
+        emit_oneof(p, names, o, type + "::" + synth.case_tag.at(&o));
     }
     p.print("(void)rp_first;\n");  // no fields -> unused; keeps an empty message ({}) warning-free
     p.outdent();
@@ -344,20 +363,21 @@ void emit_message_dumper(Printer& p, const CppNameTable& names, const MessageNod
     p.print("}\n\n");
 
     // A convenience overload that constructs a Writer over an ostream. `width` is the line-width budget
-    // used to decide compact (single-line) vs multi-line rendering (default 120).
-    p.print("inline void rp_debug_write(std::ostream& rp_os, const $T$& m, std::size_t rp_width = 120)"
-            " {\n",
-            {{"T", type}});
+    // used to decide compact (single-line) vs multi-line rendering.
+    p.print(
+        "inline void rp_debug_write(std::ostream& rp_os, const $T$& m,"
+        " std::size_t rp_width = $w$) {\n",
+        {{"T", type}, {"w", std::to_string(kDefaultWidth)}});
     p.indent();
     p.print("rp_os << std::boolalpha;\n");
     p.print("::rapidproto::debug::Writer w(rp_os, rp_width);\n");
-    p.print("rp_debug_write(rp_os, m, w);\n");
+    p.print("rp_debug_write(m, w);\n");
     p.outdent();
     p.print("}\n\n");
 
     // std::string convenience.
-    p.print("inline std::string rp_debug_string(const $T$& m, std::size_t rp_width = 120) {\n",
-            {{"T", type}});
+    p.print("inline std::string rp_debug_string(const $T$& m, std::size_t rp_width = $w$) {\n",
+            {{"T", type}, {"w", std::to_string(kDefaultWidth)}});
     p.indent();
     p.print("std::ostringstream rp_ss; rp_debug_write(rp_ss, m, rp_width); return rp_ss.str();\n");
     p.outdent();
@@ -367,12 +387,13 @@ void emit_message_dumper(Printer& p, const CppNameTable& names, const MessageNod
 }  // namespace
 
 std::string generate_header(const FileNode& file, const CppNameTable& names,
-                            const SymbolTable& symbols) {
+                            const arenagen::LayoutSet& layouts, const SymbolTable& symbols) {
     Printer p;
-    p.print("// Generated by rapidprotoc $v$ (PoC debug dumper). DO NOT EDIT.\n", {{"v", kVersion}});
+    const SynthNames synth = arenagen::build_synth_names(names, layouts, file);
+    p.print("// Generated by rapidprotoc $v$ (debug dumper). DO NOT EDIT.\n", {{"v", kVersion}});
     p.print("#pragma once\n\n");
     p.print("#include <cstddef>\n");
-    p.print("#include <cstdio>\n");
+    p.print("#include <cstdint>\n");  // std::int32_t: the enum-UNKNOWN(<n>) fallback
     p.print("#include <ostream>\n");
     p.print("#include <sstream>\n");
     p.print("#include <string>\n");
@@ -384,8 +405,8 @@ std::string generate_header(const FileNode& file, const CppNameTable& names,
             s = s.substr(slash + 1);
         }
         const std::string kProto = ".proto";
-        if (s.size() >= kProto.size() && s.compare(s.size() - kProto.size(), kProto.size(),
-                                                   kProto) == 0) {
+        if (s.size() >= kProto.size() &&
+            s.compare(s.size() - kProto.size(), kProto.size(), kProto) == 0) {
             s = s.substr(0, s.size() - kProto.size());
         }
         return s;
@@ -418,7 +439,7 @@ std::string generate_header(const FileNode& file, const CppNameTable& names,
         p.print("namespace $ns$ {\n\n", {{"ns", ns}});
     }
     for (const MessageNode& m : file.messages) {
-        emit_message_dumper(p, names, m);
+        emit_message_dumper(p, names, synth, layouts, m);
     }
     if (!ns.empty()) {
         p.print("}  // namespace $ns$\n", {{"ns", ns}});

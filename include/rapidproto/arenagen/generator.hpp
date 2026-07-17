@@ -9,6 +9,7 @@
 // Generated code depends only on the header-only arena runtime (rapidproto/arena_runtime.hpp).
 
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "rapidproto/arenagen/layout.hpp"
@@ -21,6 +22,24 @@ struct SymbolTable;      // rapidproto/resolve.hpp
 }  // namespace rapidproto
 
 namespace rapidproto::arenagen {
+
+// Identifiers arenagen synthesizes from field/oneof/map names -- the <Oneof> visit-tag struct, the
+// <Map>Entry type, and the has_unknown_fields() accessor. The shared CppNameTable dedups the base
+// names (fields/maps/nested types) against each other, but not these derived forms, so a user nested
+// type literally named `FooEntry` could collide. Computed once per message (keyed by node pointer)
+// with a `_` suffix on collision, so the output always compiles. Exposed so a companion emitter (the
+// debug dumper) can name the SAME deduped identifiers the arena header used and match it exactly.
+struct SynthNames {
+    std::unordered_map<const OneofNode*, std::string> case_tag;       // <Oneof> visit-tag struct
+    std::unordered_map<const MapFieldNode*, std::string> entry_type;  // <Map>Entry
+    std::unordered_map<const MessageNode*, std::string> unknown;      // has_unknown_fields()
+};
+
+// Build the synthesized-name table for every message in `file`, deduped against the already-deduped
+// field/map/nested-type names in `names` and the layout-derived members in `layouts`. The arena
+// header emits with this table; the debug dumper takes it (via generate_header) to match.
+SynthNames build_synth_names(const codegen::CppNameTable& names, const LayoutSet& layouts,
+                             const FileNode& file);
 
 // Emit the header for `file`. `names` (build_cpp_names), `layouts` (plan_layouts), and `symbols` (the
 // table analyze() returned, whose FQN -> node maps resolve referenced types) are built ONCE for the

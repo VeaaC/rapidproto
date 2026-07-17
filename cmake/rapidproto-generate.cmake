@@ -58,6 +58,7 @@ endfunction()
 # rapidproto_generate(<target>
 #   PROTOS <file.proto>...          # schema entry files (generated as ONE batch with their imports)
 #   [GENERATOR arena|stream|both]   # which decoder(s) to emit (default: arena -- the default model)
+#   [DEBUG]                         # also emit the JSON-like debug dumper (<stem>.rp.debug.hpp); needs arena
 #   [IMPORT_DIRS <dir>...]          # -I import search roots (the root your .proto tree imports against)
 #   [NAMESPACE_PREFIX <ns>]         # nest generated namespaces under <ns> (e.g. to coexist with protoc)
 #   [OUT_DIR <dir>]                 # where headers are written (default: a private dir under the build)
@@ -77,7 +78,7 @@ endfunction()
 # are ONE shared type in `<stem>.rp.common.hpp` that both #include. So a TU can use both models at once
 # (examples/consumer decodes the same bytes both ways to prove it).
 function(rapidproto_generate target)
-  set(_options UNKNOWN_PRESENT NO_WELLKNOWN)
+  set(_options UNKNOWN_PRESENT NO_WELLKNOWN DEBUG)
   set(_one OUT_DIR GENERATOR NAMESPACE_PREFIX)
   set(_multi PROTOS IMPORT_DIRS FIELD_MODES DROP RAW UNKNOWN)
   cmake_parse_arguments(RPG "${_options}" "${_one}" "${_multi}" ${ARGN})
@@ -187,6 +188,15 @@ function(rapidproto_generate target)
   if("stream" IN_LIST _jobs)
     list(APPEND _model_flags "--stream")
   endif()
+  # The debug dumper (<stem>.rp.debug.hpp) reads the arena accessors, so it needs the arena header.
+  if(RPG_DEBUG)
+    if(NOT "arena" IN_LIST _jobs)
+      message(FATAL_ERROR
+        "rapidproto_generate(${target}): DEBUG emits a dumper over the arena decoder; use GENERATOR "
+        "arena or both (got '${RPG_GENERATOR}')")
+    endif()
+    list(APPEND _model_flags "--debug")
+  endif()
 
   set(_cli rapidproto::rapidprotoc)
   if(CMAKE_CROSSCOMPILING)
@@ -208,6 +218,10 @@ function(rapidproto_generate target)
     endif()
     if("stream" IN_LIST _jobs)
       _rapidproto_output_header(_h "${_proto_abs}" ".rp.stream.hpp" "${RPG_OUT_DIR}" "${_import_dirs_abs}")
+      list(APPEND _outputs "${_h}")
+    endif()
+    if(RPG_DEBUG)
+      _rapidproto_output_header(_h "${_proto_abs}" ".rp.debug.hpp" "${RPG_OUT_DIR}" "${_import_dirs_abs}")
       list(APPEND _outputs "${_h}")
     endif()
   endforeach()

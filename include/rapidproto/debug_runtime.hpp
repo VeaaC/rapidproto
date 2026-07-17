@@ -15,10 +15,24 @@
 
 namespace rapidproto::debug {
 
+// The 16 lowercase hex digits. std::string_view (not a C array) so it is a plain object, not a
+// decayable array the strict checks flag; indexing a nibble [0,15] stays in bounds.
+inline constexpr std::string_view kHexDigits = "0123456789abcdef";
+inline constexpr unsigned kNibbleBits = 4;         // bits per hex digit
+inline constexpr unsigned kNibbleMask = 0xF;       // low nibble
+inline constexpr unsigned kFirstPrintable = 0x20;  // < this is a JSON control char needing \u00XX
+
+// The two lowercase-hex chars of one byte, high nibble first.
+inline char hex_high(unsigned char uc) noexcept {
+    return kHexDigits[(uc >> kNibbleBits) & kNibbleMask];
+}
+inline char hex_low(unsigned char uc) noexcept {
+    return kHexDigits[uc & kNibbleMask];
+}
+
 // Write `s` as a JSON string body (no surrounding quotes): escape the mandatory control/quote/backslash
 // characters, pass everything else (incl. UTF-8) through verbatim.
 inline void write_json_escaped(std::ostream& os, std::string_view s) {
-    static constexpr char kHex[] = "0123456789abcdef";
     for (const char ch : s) {
         const auto uc = static_cast<unsigned char>(ch);
         switch (ch) {
@@ -38,8 +52,8 @@ inline void write_json_escaped(std::ostream& os, std::string_view s) {
                 os << "\\t";
                 break;
             default:
-                if (uc < 0x20) {  // other control char -> \u00XX
-                    os << "\\u00" << kHex[(uc >> 4) & 0xF] << kHex[uc & 0xF];
+                if (uc < kFirstPrintable) {  // other control char -> \u00XX
+                    os << "\\u00" << hex_high(uc) << hex_low(uc);
                 } else {
                     os << ch;
                 }
@@ -49,10 +63,9 @@ inline void write_json_escaped(std::ostream& os, std::string_view s) {
 
 // Write `s` (raw bytes) as lowercase hex, two chars per byte, unbounded.
 inline void write_hex(std::ostream& os, std::string_view s) {
-    static constexpr char kHex[] = "0123456789abcdef";
     for (const char ch : s) {
         const auto uc = static_cast<unsigned char>(ch);
-        os << kHex[(uc >> 4) & 0xF] << kHex[uc & 0xF];
+        os << hex_high(uc) << hex_low(uc);
     }
 }
 
@@ -67,7 +80,9 @@ inline void write_hex(std::ostream& os, std::string_view s) {
 // loops bail the moment the buffer exceeds the budget, so a too-wide array isn't rendered in full.
 class Writer {
 public:
-    explicit Writer(std::ostream& os, std::size_t width = 120) noexcept
+    static constexpr std::size_t kDefaultWidth = 120;  // the default line-width budget
+
+    explicit Writer(std::ostream& os, std::size_t width = kDefaultWidth) noexcept
         : m_out(os), m_sink(&os), m_width(width) {}
 
     // The active sink the generated value-writers stream into: the scratch buffer during a compact
@@ -84,7 +99,7 @@ public:
     void key(std::string_view name) {
         *m_sink << '"' << name << "\": ";
         if (!m_compact) {
-            m_column += name.size() + 4;  // the two quotes, the colon, and the space
+            m_column += name.size() + kKeyPunctWidth;  // the two quotes, the colon, and the space
         }
     }
 
@@ -103,7 +118,7 @@ public:
         }
         first = false;
         newline();
-        m_column = static_cast<std::size_t>(m_indent) * 2;
+        m_column = static_cast<std::size_t>(m_indent) * kIndentWidth;
     }
 
     // Emit an object/array whose entries are produced by `body` (a re-runnable callable). Compact-first,
@@ -135,7 +150,7 @@ public:
         }
         // Too wide: re-emit multi-line. The compact form's length tells us whether the group is empty
         // (just the two brackets) so an empty group still closes on the same line.
-        const bool any = s.size() > 2;
+        const bool any = s.size() > kEmptyGroupChars;
         m_out << open_ch;
         ++m_indent;
         body();
@@ -144,7 +159,7 @@ public:
             newline();
         }
         m_out << close_ch;
-        m_column = static_cast<std::size_t>(m_indent) * 2 + 1;
+        m_column = static_cast<std::size_t>(m_indent) * kIndentWidth + 1;  // +1: the close bracket
     }
 
     void newline() {
@@ -155,8 +170,13 @@ public:
     }
 
 private:
-    std::ostream& m_out;      // the real output
-    std::ostream* m_sink;     // where os()/emit go now: &m_out, or &m_buf during a compact probe
+    static constexpr std::size_t kIndentWidth = 2;  // columns per nesting level (a 2-space indent)
+    static constexpr std::size_t kKeyPunctWidth = 4;  // a `"key": `'s two quotes + colon + space
+    static constexpr std::size_t kEmptyGroupChars =
+        2;  // an empty group's compact form is just `[]`/`{}`
+
+    std::ostream& m_out;       // the real output
+    std::ostream* m_sink;      // where os()/emit go now: &m_out, or &m_buf during a compact probe
     std::ostringstream m_buf;  // scratch for the compact probe
     std::size_t m_width;       // line-width budget
     std::size_t m_avail = 0;   // remaining width for the current compact probe

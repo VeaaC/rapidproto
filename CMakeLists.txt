@@ -174,16 +174,47 @@ add_library(rapidproto_arenagen_lib STATIC
   src/arenagen/layout.cpp
   src/arenagen/modes.cpp
   src/arenagen/generator.cpp
-  src/debuggen/generator.cpp
   ${ARENA_RUNTIME_EMBEDDED_CPP})
 target_link_libraries(rapidproto_arenagen_lib PUBLIC rapidproto_lib rapidproto_codegen_lib
                                               PRIVATE rapidproto_strict)
 
+# Debug-dumper code generator library: emits <stem>.rp.debug.hpp, a companion to the arena header that
+# prints a decoded arena tree as JSON-like text over the arena accessors (a debugging aid, not a wire /
+# JSON serializer). A first-class emitter mirroring the streamgen/arenagen split. Generated code depends
+# only on the header-only debug runtime (rapidproto/debug_runtime.hpp) plus the arena header it dumps.
+# debug_runtime.hpp is embedded at build time (reusing embed_runtime.cmake with debuggen's namespace/
+# function) so the CLI can drop a self-contained copy beside its output, exactly as the other layers do.
+set(DEBUG_RUNTIME_EMBEDDED_CPP "${CMAKE_CURRENT_BINARY_DIR}/generated/debug_runtime_embedded.cpp")
+add_custom_command(
+  OUTPUT "${DEBUG_RUNTIME_EMBEDDED_CPP}"
+  COMMAND ${CMAKE_COMMAND}
+    -DRUNTIME_HPP=${CMAKE_CURRENT_SOURCE_DIR}/include/rapidproto/debug_runtime.hpp
+    -DOUTPUT_CPP=${DEBUG_RUNTIME_EMBEDDED_CPP}
+    -DEMBED_NS=rapidproto::debuggen
+    -DEMBED_FUNC=debug_runtime_header
+    -DEMBED_DECL=rapidproto/debuggen/runtime_embedded.hpp
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_runtime.cmake
+  DEPENDS
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/rapidproto/debug_runtime.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_runtime.cmake
+  COMMENT "Embedding debug_runtime.hpp -> debug_runtime_embedded.cpp"
+  VERBATIM)
+set_source_files_properties(${DEBUG_RUNTIME_EMBEDDED_CPP}
+  PROPERTIES COMPILE_OPTIONS "-Wno-overlength-strings")  # same over-length embed literal as above
+add_library(rapidproto_debuggen_lib STATIC
+  src/debuggen/generator.cpp
+  ${DEBUG_RUNTIME_EMBEDDED_CPP})
+# PUBLIC arenagen: the debug dumper names arenagen's SynthNames (visit-tag dedup) to match the arena
+# header, and takes the arena LayoutSet, so its public API surfaces those types.
+target_link_libraries(rapidproto_debuggen_lib PUBLIC rapidproto_lib rapidproto_codegen_lib
+                                                     rapidproto_arenagen_lib
+                                              PRIVATE rapidproto_strict)
+
 # The unified code-generator CLI: one tool emitting the arena and/or streaming decoder (+ the shared
-# common header) from a single parse. Built on BOTH emitter libraries; replaces the old per-model CLIs.
+# common header) from a single parse. Built on ALL emitter libraries; replaces the old per-model CLIs.
 add_executable(rapidprotoc src/rapidprotoc/main.cpp)
 target_link_libraries(rapidprotoc
-  PRIVATE rapidproto_arenagen_lib rapidproto_streamgen_lib rapidproto_strict)
+  PRIVATE rapidproto_arenagen_lib rapidproto_streamgen_lib rapidproto_debuggen_lib rapidproto_strict)
 
 # Stable, source-agnostic handle: find_package(rapidproto) exposes the same name, so a downstream
 # rapidproto_generate() works whether the CLI is installed or built in-tree.
