@@ -78,8 +78,42 @@ RP_FLATTEN ::rapidproto::DecodeStatus Timestamp::decode(Callbacks&&... rp_callba
     if (rp_state == ::rapidproto::wire::TagState::Error) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(m_bytes))}; }
     rp_c = rp_tp;
     switch (rp_tag.field_number) {
-      case seconds::kNumber: break;
-      case nanos::kNumber: break;
+      case seconds::kNumber:
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<Callbacks, seconds, seconds::Value>)) <= 1U, "field 'seconds' is handled by more than one callback");
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<Callbacks, seconds, seconds::Value>)) <= 1U, "field 'seconds' is matched by more than one catch-all callback");
+        static_assert((true && ... && !::rapidproto::is_partial_generic<Callbacks, seconds, seconds::Value>), "a callback for field 'seconds' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+        static_assert((true && ... && !(::rapidproto::targets<Callbacks, seconds, seconds::Value> && !::rapidproto::specifically_handles<Callbacks, seconds, seconds::Value>)), "a callback for field 'seconds' has the wrong value type (expected seconds::Value)");
+        if constexpr ((false || ... || ::rapidproto::handles_one<Callbacks, seconds, seconds::Value>)) {
+          if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
+            std::uint64_t rp_raw = 0;
+            const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
+            if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(m_bytes))}; }
+            rp_c = rp_np;
+            if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, seconds{}, ::rapidproto::varint_to_int64(rp_raw)); !rp_status.ok()) {
+              return rp_status;
+            }
+            continue;
+          }
+        }
+        break;
+      case nanos::kNumber:
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<Callbacks, nanos, nanos::Value>)) <= 1U, "field 'nanos' is handled by more than one callback");
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<Callbacks, nanos, nanos::Value>)) <= 1U, "field 'nanos' is matched by more than one catch-all callback");
+        static_assert((true && ... && !::rapidproto::is_partial_generic<Callbacks, nanos, nanos::Value>), "a callback for field 'nanos' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+        static_assert((true && ... && !(::rapidproto::targets<Callbacks, nanos, nanos::Value> && !::rapidproto::specifically_handles<Callbacks, nanos, nanos::Value>)), "a callback for field 'nanos' has the wrong value type (expected nanos::Value)");
+        if constexpr ((false || ... || ::rapidproto::handles_one<Callbacks, nanos, nanos::Value>)) {
+          if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
+            std::uint64_t rp_raw = 0;
+            const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
+            if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(m_bytes))}; }
+            rp_c = rp_np;
+            if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, nanos{}, ::rapidproto::varint_to_int32(rp_raw)); !rp_status.ok()) {
+              return rp_status;
+            }
+            continue;
+          }
+        }
+        break;
       default:
         if constexpr ((false || ... || ::rapidproto::specifically_handles_unknown<Callbacks>)) {
           const std::size_t rp_value_start = static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(m_bytes));

@@ -323,21 +323,186 @@ RP_FLATTEN inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequire
     if (rp_state == ::rapidproto::wire::TagState::Error) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
     rp_c = rp_tp;
     switch (rp_tag.field_number) {
-      case 1: break;
-      case 2: break;
-      case 3: break;
-      case 4: break;
-      case 5: break;
-      case 6: break;
-      case 7: break;
-      case 8: break;
-      case 9: break;
-      case 10: break;
-      case 11: break;
-      case 12: break;
-      case 13: break;
-      case 14: break;
-      case 15: break;
+      case 1: {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
+          std::uint64_t rp_raw = 0;
+          const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
+          if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+          rp_c = rp_np;
+          out.m_f1 = ::rapidproto::varint_to_int32(rp_raw);
+          rp_req[0] |= std::uint64_t{1} << 0;
+          continue;
+        }
+        break;
+      }
+      case 2: {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
+          std::uint64_t rp_raw = 0;
+          const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
+          if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+          rp_c = rp_np;
+          out.m_f2 = ::rapidproto::varint_to_int32(rp_raw);
+          rp_req[0] |= std::uint64_t{1} << 1;
+          continue;
+        }
+        break;
+      }
+      case 3: {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
+          std::uint64_t rp_raw = 0;
+          const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
+          if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+          rp_c = rp_np;
+          out.m_f3 = ::rapidproto::varint_to_int32(rp_raw);
+          rp_req[0] |= std::uint64_t{1} << 2;
+          continue;
+        }
+        break;
+      }
+      case 4: {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
+          std::uint64_t rp_raw = 0;
+          const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
+          if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+          rp_c = rp_np;
+          out.m_f4 = ::rapidproto::varint_to_int32(rp_raw);
+          rp_req[0] |= std::uint64_t{1} << 3;
+          continue;
+        }
+        break;
+      }
+      case 5: {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
+          std::uint64_t rp_raw = 0;
+          const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
+          if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+          rp_c = rp_np;
+          out.m_f5 = ::rapidproto::varint_to_int32(rp_raw);
+          rp_req[0] |= std::uint64_t{1} << 4;
+          continue;
+        }
+        break;
+      }
+      case 6: {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
+          std::uint64_t rp_raw = 0;
+          const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
+          if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+          rp_c = rp_np;
+          out.m_f6 = ::rapidproto::varint_to_int32(rp_raw);
+          rp_req[0] |= std::uint64_t{1} << 5;
+          continue;
+        }
+        break;
+      }
+      case 7: {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
+          std::uint64_t rp_raw = 0;
+          const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
+          if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+          rp_c = rp_np;
+          out.m_f7 = ::rapidproto::varint_to_int32(rp_raw);
+          rp_req[0] |= std::uint64_t{1} << 6;
+          continue;
+        }
+        break;
+      }
+      case 8: {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
+          std::uint64_t rp_raw = 0;
+          const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
+          if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+          rp_c = rp_np;
+          out.m_f8 = ::rapidproto::varint_to_int32(rp_raw);
+          rp_req[0] |= std::uint64_t{1} << 7;
+          continue;
+        }
+        break;
+      }
+      case 9: {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
+          std::uint64_t rp_raw = 0;
+          const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
+          if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+          rp_c = rp_np;
+          out.m_f9 = ::rapidproto::varint_to_int32(rp_raw);
+          rp_req[0] |= std::uint64_t{1} << 8;
+          continue;
+        }
+        break;
+      }
+      case 10: {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
+          std::uint64_t rp_raw = 0;
+          const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
+          if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+          rp_c = rp_np;
+          out.m_f10 = ::rapidproto::varint_to_int32(rp_raw);
+          rp_req[0] |= std::uint64_t{1} << 9;
+          continue;
+        }
+        break;
+      }
+      case 11: {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
+          std::uint64_t rp_raw = 0;
+          const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
+          if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+          rp_c = rp_np;
+          out.m_f11 = ::rapidproto::varint_to_int32(rp_raw);
+          rp_req[0] |= std::uint64_t{1} << 10;
+          continue;
+        }
+        break;
+      }
+      case 12: {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
+          std::uint64_t rp_raw = 0;
+          const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
+          if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+          rp_c = rp_np;
+          out.m_f12 = ::rapidproto::varint_to_int32(rp_raw);
+          rp_req[0] |= std::uint64_t{1} << 11;
+          continue;
+        }
+        break;
+      }
+      case 13: {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
+          std::uint64_t rp_raw = 0;
+          const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
+          if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+          rp_c = rp_np;
+          out.m_f13 = ::rapidproto::varint_to_int32(rp_raw);
+          rp_req[0] |= std::uint64_t{1} << 12;
+          continue;
+        }
+        break;
+      }
+      case 14: {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
+          std::uint64_t rp_raw = 0;
+          const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
+          if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+          rp_c = rp_np;
+          out.m_f14 = ::rapidproto::varint_to_int32(rp_raw);
+          rp_req[0] |= std::uint64_t{1} << 13;
+          continue;
+        }
+        break;
+      }
+      case 15: {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
+          std::uint64_t rp_raw = 0;
+          const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
+          if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+          rp_c = rp_np;
+          out.m_f15 = ::rapidproto::varint_to_int32(rp_raw);
+          rp_req[0] |= std::uint64_t{1} << 14;
+          continue;
+        }
+        break;
+      }
       case 16: {
         if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
           std::uint64_t rp_raw = 0;

@@ -859,7 +859,8 @@ TEST_CASE("streamgen: raw-byte fast path matches the general path across the 15/
 
     // (2) A KNOWN field with the wrong wire type is skipped -- consistently for the fast field (i32)
     //     and the general field (color) -- and NEVER delivered to an unknown-field handler (which is
-    //     for non-schema numbers only). This is the fast-miss -> general -> `case N: break;` path.
+    //     for non-schema numbers only). The wrong wire type misses the fast switch and is skipped by
+    //     the field arm's wire-type guard on the general path.
     {
         std::string buf;
         pv(buf, tag(1, 2));  // i32 (fast) as LEN -- wrong wire
@@ -897,23 +898,126 @@ TEST_CASE("streamgen: raw-byte fast path matches the general path across the 15/
         CHECK_FALSE(s2.ok());
     }
 
-    // (4) A NON-CANONICAL (over-long) tag of a low field is a valid varint that protoc never emits.
-    //     It misses the 1-byte fast path (continuation bit set) and takes general -> `case N: break;`,
-    //     so it is intentionally SKIPPED, not decoded. No conformant encoder produces this, and the
-    //     decode never crashes. field 1 (i32, varint) as 0x88 0x00 (== 8, non-minimal), + a value.
+    // (4) A NON-MINIMAL (over-long) tag of a low field is valid protobuf -- the wire spec is silent on
+    //     varint minimality and the reference parsers accept it. It misses the 1-byte fast path
+    //     (continuation bit set) and takes the general path, where it DECODES (identically to a canonical
+    //     tag), delivering the value to its callback. field 1 (i32, Varint) as 0x88 0x00 (== the tag 8,
+    //     non-minimal), + value 55.
     {
         std::string buf;
         buf.push_back('\x88');
         buf.push_back('\x00');  // over-long tag: field 1, Varint
-        pv(buf, 55);            // the value that a canonical tag would have decoded
+        pv(buf, 55);
         std::int32_t i32 = -1;
         std::vector<std::uint32_t> unknown;
         const DecodeStatus s = p2::stream::Scalars{ByteView(buf)}.decode(
             [&](p2::stream::Scalars::i32, std::int32_t v) { i32 = v; },
             [&](UnknownField uf) { unknown.push_back(uf.field_number); });
         CHECK(s.ok());
-        CHECK(i32 == -1);        // skipped, not decoded
-        CHECK(unknown.empty());  // and not surfaced as unknown (it is a known field number)
+        CHECK(i32 == 55);  // value delivered on the general path
+        CHECK(unknown
+                  .empty());  // a known field -> delivered to its callback, not surfaced as unknown
+    }
+}
+
+// A non-minimal (over-long) tag must decode identically to the canonical 1-byte tag for every fast
+// field kind in the streaming decoder too -- including the string, sub-message, and oneof members that
+// are fast in streamgen (number <=15) and run the length/recursion/oneof-dispatch logic on the general
+// arm. over2() re-encodes a <=15 field's one-byte tag as a 2-byte non-minimal varint.
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): one independent parity block per kind
+TEST_CASE("streamgen: non-minimal tags decode identically across fast field kinds", "[streamgen]") {
+    const auto pv = [](std::string& b, std::uint64_t v) {
+        while (v >= 0x80U) {
+            b.push_back(static_cast<char>(0x80U | (v & 0x7FU)));
+            v >>= 7U;
+        }
+        b.push_back(static_cast<char>(v));
+    };
+    const auto tg = [](std::uint32_t f, std::uint32_t w) {
+        return (static_cast<std::uint64_t>(f) << 3U) | w;
+    };
+    const auto over2 = [&](std::string& b, std::uint32_t f, std::uint32_t w) {
+        const std::uint64_t t = tg(f, w);  // a <=15 field's canonical tag is one byte (< 128)
+        b.push_back(static_cast<char>(0x80U | (t & 0x7FU)));
+        b.push_back(static_cast<char>(t >> 7U));  // 0x00 for t < 128
+    };
+
+    // string s (Scalars field 12, wire LEN): the over-long tag delivers the same value to the callback.
+    {
+        std::string over;
+        over2(over, 12, 2);
+        pv(over, 5);
+        over += "hello";
+        std::string got_over;
+        std::vector<std::uint32_t> unknown;
+        const DecodeStatus so = p2::stream::Scalars{ByteView(over)}.decode(
+            [&](p2::stream::Scalars::s, std::string_view v) { got_over = std::string(v); },
+            [&](UnknownField uf) { unknown.push_back(uf.field_number); });
+        std::string canon;
+        pv(canon, tg(12, 2));
+        pv(canon, 5);
+        canon += "hello";
+        std::string got_canon;
+        const DecodeStatus sc = p2::stream::Scalars{ByteView(canon)}.decode(
+            [&](p2::stream::Scalars::s, std::string_view v) { got_canon = std::string(v); });
+        CHECK(so.ok());
+        CHECK(sc.ok());
+        CHECK(got_over == got_canon);
+        CHECK(got_over == "hello");
+        CHECK(unknown.empty());
+    }
+
+    // oneof sub-message cn (Container field 4, wire LEN): the general arm runs oneof dispatch + message
+    // recursion; the over-long tag fires the sub-decoder with the same nested value.
+    {
+        std::string nested;  // Nested { x = 42 }
+        pv(nested, tg(1, 0));
+        pv(nested, 42);
+        std::string over;
+        over2(over, 4, 2);
+        pv(over, nested.size());
+        over += nested;
+        std::int32_t cn_x = 0;
+        const DecodeStatus s = p2::stream::Container{ByteView(over)}.decode(
+            [&](p2::stream::Container::cn, p2::stream::Container::Nested v) -> DecodeStatus {
+                return v.decode(
+                    [&](p2::stream::Container::Nested::x, std::int32_t xv) { cn_x = xv; });
+            });
+        CHECK(s.ok());
+        CHECK(cn_x == 42);  // over-long oneof-submessage tag decoded through the sub-decoder
+    }
+
+    // repeated sub-message items (Container field 5, wire LEN): an over-long element tag fires the
+    // element callback with the same value as a canonical one, both in a single decode.
+    {
+        const auto nested = [&](std::int32_t x) {
+            std::string n;
+            pv(n, tg(1, 0));
+            pv(n, static_cast<std::uint64_t>(x));
+            return n;
+        };
+        const std::string n1 = nested(7);
+        const std::string n2 = nested(8);
+        std::string buf;
+        over2(buf, 5, 2);  // over-long element tag
+        pv(buf, n1.size());
+        buf += n1;
+        pv(buf, tg(5, 2));  // canonical element tag
+        pv(buf, n2.size());
+        buf += n2;
+        std::vector<std::int32_t> xs;
+        const DecodeStatus s = p2::stream::Container{ByteView(buf)}.decode(
+            [&](p2::stream::Container::items, p2::stream::Container::Nested v) -> DecodeStatus {
+                std::int32_t x = 0;
+                const DecodeStatus sub =
+                    v.decode([&](p2::stream::Container::Nested::x, std::int32_t xv) { x = xv; });
+                xs.push_back(x);
+                return sub;
+            });
+        CHECK(s.ok());
+        REQUIRE(xs.size() == 2);  // over-long and canonical element tags both fire the callback
+        CHECK(xs[0] == 7);
+        CHECK(xs[1] == 8);
     }
 }
 

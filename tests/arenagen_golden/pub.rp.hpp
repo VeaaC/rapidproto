@@ -55,7 +55,18 @@ RP_FLATTEN inline bool Pub::rp_decode_into([[maybe_unused]] Pub& out, ::rapidpro
     if (rp_state == ::rapidproto::wire::TagState::Error) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
     rp_c = rp_tp;
     switch (rp_tag.field_number) {
-      case 1: break;
+      case 1: {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
+          std::uint64_t rp_raw = 0;
+          const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
+          if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+          rp_c = rp_np;
+          out.m_w = ::rapidproto::varint_to_int32(rp_raw);
+          out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 0));
+          continue;
+        }
+        break;
+      }
       default: break;
     }
     std::size_t rp_fo = 0;
