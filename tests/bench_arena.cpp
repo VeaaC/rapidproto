@@ -238,6 +238,46 @@ std::string make_particles(int items) {
     return out;
 }
 
+// A RecordSet of scalar-heavy records (no strings/packed/maps), small values so per-field cost is
+// dominated by tag dispatch. Every field is set, in ascending order (protoc serializes so).
+std::string make_records(int count) {
+    bench::RecordSet rs;
+    const auto sample = [](bench::Sample* s, int base) {
+        s->set_a(base & 63);
+        s->set_b((base + 1) & 63);
+        s->set_c((base + 2) & 63);
+        s->set_d((base + 3) & 63);
+        s->set_e((base & 1) != 0);
+        s->set_f(static_cast<std::uint32_t>((base + 4) & 63));
+    };
+    for (int i = 0; i < count; ++i) {
+        bench::Record* r = rs.add_records();
+        r->set_f1(i & 63);
+        r->set_f2((i + 1) & 63);
+        r->set_f3((i + 2) & 63);
+        r->set_f4((i + 3) & 63);
+        r->set_f5(static_cast<std::uint32_t>((i + 4) & 63));
+        r->set_f6((i + 5) & 63);
+        r->set_f7((i & 1) != 0);
+        r->set_f8(static_cast<std::uint64_t>((i + 6) & 63));
+        r->set_f9((i + 7) & 63);
+        r->set_f10((i + 8) & 63);
+        r->set_f11((i + 9) & 63);
+        r->set_f12((i + 10) & 63);
+        r->set_f13((i + 11) & 63);
+        r->set_f14((i + 12) & 63);
+        r->set_f15((i + 13) & 63);
+        sample(r->mutable_s1(), i + 20);
+        sample(r->mutable_s2(), i + 30);
+        r->set_f18((i + 14) & 63);
+        r->set_f19((i + 15) & 63);
+        r->set_f20((i + 16) & 63);
+    }
+    std::string out;
+    rs.SerializeToString(&out);
+    return out;
+}
+
 // ── checksums (must agree across decoders for Dataset; guard optimize-away for the sweep shapes) ───
 
 std::uint64_t checksum_protoc(const bench::Dataset& d) {
@@ -386,6 +426,59 @@ std::uint64_t checksum_arena_particle(const rp::bench::ParticleSet* d) {
         }
         if (const rp::bench::Vec3* v = it.velocity()) {
             s += bits(v->x()) + bits(v->y()) + bits(v->z());
+        }
+    }
+    return s;
+}
+
+std::uint64_t checksum_arena_record(const rp::bench::RecordSet* d) {
+    if (d == nullptr) {
+        return 0;
+    }
+    std::uint64_t s = 0;
+    const auto sample = [&](const rp::bench::Sample* x) {
+        if (x != nullptr) {
+            s += static_cast<std::uint64_t>(x->a()) + static_cast<std::uint64_t>(x->b()) +
+                 static_cast<std::uint64_t>(x->c()) + static_cast<std::uint64_t>(x->d()) +
+                 (x->e() ? 1U : 0U) + x->f();
+        }
+    };
+    for (const rp::bench::Record& r : d->records()) {
+        s += static_cast<std::uint64_t>(r.f1()) + static_cast<std::uint64_t>(r.f2()) +
+             static_cast<std::uint64_t>(r.f3()) + static_cast<std::uint64_t>(r.f4()) + r.f5() +
+             static_cast<std::uint64_t>(r.f6()) + (r.f7() ? 1U : 0U) + r.f8() +
+             static_cast<std::uint64_t>(r.f9()) + static_cast<std::uint64_t>(r.f10()) +
+             static_cast<std::uint64_t>(r.f11()) + static_cast<std::uint64_t>(r.f12()) +
+             static_cast<std::uint64_t>(r.f13()) + static_cast<std::uint64_t>(r.f14()) +
+             static_cast<std::uint64_t>(r.f15()) + static_cast<std::uint64_t>(r.f18()) +
+             static_cast<std::uint64_t>(r.f19()) + static_cast<std::uint64_t>(r.f20());
+        sample(r.s1());
+        sample(r.s2());
+    }
+    return s;
+}
+
+std::uint64_t checksum_protoc_record(const bench::RecordSet& d) {
+    std::uint64_t s = 0;
+    const auto sample = [&](const bench::Sample& x) {
+        s += static_cast<std::uint64_t>(x.a()) + static_cast<std::uint64_t>(x.b()) +
+             static_cast<std::uint64_t>(x.c()) + static_cast<std::uint64_t>(x.d()) +
+             (x.e() ? 1U : 0U) + x.f();
+    };
+    for (const bench::Record& r : d.records()) {
+        s += static_cast<std::uint64_t>(r.f1()) + static_cast<std::uint64_t>(r.f2()) +
+             static_cast<std::uint64_t>(r.f3()) + static_cast<std::uint64_t>(r.f4()) + r.f5() +
+             static_cast<std::uint64_t>(r.f6()) + (r.f7() ? 1U : 0U) + r.f8() +
+             static_cast<std::uint64_t>(r.f9()) + static_cast<std::uint64_t>(r.f10()) +
+             static_cast<std::uint64_t>(r.f11()) + static_cast<std::uint64_t>(r.f12()) +
+             static_cast<std::uint64_t>(r.f13()) + static_cast<std::uint64_t>(r.f14()) +
+             static_cast<std::uint64_t>(r.f15()) + static_cast<std::uint64_t>(r.f18()) +
+             static_cast<std::uint64_t>(r.f19()) + static_cast<std::uint64_t>(r.f20());
+        if (r.has_s1()) {
+            sample(r.s1());
+        }
+        if (r.has_s2()) {
+            sample(r.s2());
         }
     }
     return s;
@@ -988,6 +1081,29 @@ int main() {
              }},
         };
         (void)rpbench::run("many msgs, tiny arrays", static_cast<double>(wbuf.size()), a);
+    }
+    {
+        // Scalar-heavy records (no strings/packed/maps): decode time is dominated by per-field tag
+        // dispatch, so this is the shape that isolates dispatch-shape wins (unlike the string/array-bound
+        // shapes above). 20k records x ~34 bytes.
+        const std::string rbuf = make_records(20000);
+        rapidproto::ByteView v(rbuf);
+        rapidproto::Arena w;
+        std::vector<rpbench::Arm> a = {
+            {"protoc",
+             [&]() {
+                 google::protobuf::Arena pa;
+                 auto* m = google::protobuf::Arena::CreateMessage<bench::RecordSet>(&pa);
+                 m->ParseFromString(rbuf);
+                 return checksum_protoc_record(*m);
+             }},
+            {"arena-warm",
+             [&]() {
+                 w.reset();
+                 return checksum_arena_record(rp::bench::RecordSet::decode(v, w));
+             }},
+        };
+        (void)rpbench::run("scalar records (dispatch-bound)", static_cast<double>(rbuf.size()), a);
     }
 
     // Repeated-varint sweep: the packed int64 decode surface across element byte width x count. Part of

@@ -93,3 +93,31 @@ message Particle {
 message ParticleSet {
   repeated Particle items = 1;
 }
+
+// "Scalar-heavy record" shape: many singular scalar fields + nested all-scalar sub-messages, and NO
+// strings / packed / repeated-scalar / map fields -- so decode time is dominated by per-field TAG
+// DISPATCH, not by string copying or array growth. The Dataset/Wide/Big shapes are all dominated by
+// strings/arrays/recursion, so none of them isolates dispatch cost (e.g. the field-order speculation
+// experiment); this one does. Fields span the 1-byte (1..15) and 2-byte (16..20) tag widths, including
+// two singular sub-messages at 2-byte tags.
+message Sample {
+  int32 a = 1;
+  int32 b = 2;
+  int64 c = 3;
+  sint32 d = 4;
+  bool e = 5;
+  uint32 f = 6;
+}
+
+message Record {
+  int32 f1 = 1;   int32 f2 = 2;   int32 f3 = 3;   int64 f4 = 4;   uint32 f5 = 5;
+  sint32 f6 = 6;  bool f7 = 7;    uint64 f8 = 8;  int32 f9 = 9;   int32 f10 = 10;
+  int32 f11 = 11; int32 f12 = 12; int32 f13 = 13; int32 f14 = 14; int32 f15 = 15;
+  Sample s1 = 16;  // nested scalar sub-messages (2-byte tags)
+  Sample s2 = 17;
+  int32 f18 = 18; int32 f19 = 19; int32 f20 = 20;
+}
+
+message RecordSet {
+  repeated Record records = 1;
+}
