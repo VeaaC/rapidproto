@@ -169,7 +169,19 @@ void emit_singular_field(Printer& p, const CppNameTable& names, const FieldNode&
         p.print("}\n");
         return;
     }
-    // Implicit / required: bare value, always emitted.
+    if (f.presence == FieldPresence::Implicit) {
+        // Implicit presence (proto3 singular): "unset" is indistinguishable from the default, so a
+        // default-valued field (0 / false / "" / the zero enum) is omitted -- as protobuf's own JSON
+        // does. decltype(rp_v){} is that zero default for the accessor's value type.
+        p.print("if (const auto rp_v = $c$; rp_v != decltype(rp_v){}) {\n", {{"c", call}});
+        p.indent();
+        p.print("w.entry_sep(rp_first); w.key(\"$k$\");\n", {{"k", f.name}});
+        emit_write_value(p, kind, "rp_v");
+        p.outdent();
+        p.print("}\n");
+        return;
+    }
+    // Required: always present on the wire, so always emitted (even at the default value).
     p.print("{\n");
     p.indent();
     p.print("w.entry_sep(rp_first); w.key(\"$k$\");\n", {{"k", f.name}});
@@ -181,13 +193,13 @@ void emit_singular_field(Printer& p, const CppNameTable& names, const FieldNode&
 void emit_repeated_field(Printer& p, const CppNameTable& names, const FieldNode& f) {
     const ValueKind kind = value_kind(f);
     const std::string call = accessor_call(names, f);
-    // Always emit repeated fields (empty -> []). Element type: message -> const T& ref via ptr-less
-    // range (ArrayView<T> of message yields const T&); others yield the value/string_view directly.
-    p.print("{\n");
+    // Omit an empty repeated field. Element type: message -> const T& ref via ptr-less range
+    // (ArrayView<T> of message yields const T&); others yield the value/string_view directly.
+    p.print("if (const auto& rp_r = $c$; !rp_r.empty()) {\n", {{"c", call}});
     p.indent();
     p.print("w.entry_sep(rp_first); w.key(\"$k$\"); w.open('[');\n", {{"k", f.name}});
     p.print("bool rp_efirst = true;\n");
-    p.print("for (const auto& rp_el : $c$) {\n", {{"c", call}});
+    p.print("for (const auto& rp_el : rp_r) {\n");
     p.indent();
     p.print("w.entry_sep(rp_efirst);\n");
     if (kind == ValueKind::Message) {
@@ -216,12 +228,13 @@ void emit_map_field(Printer& p, const CppNameTable& names, const MapFieldNode& m
         vkind = ValueKind::Bytes;
     }
     const bool key_is_string = mp.key_type == "string";
-    p.print("{\n");
+    // Omit an empty map.
+    p.print("if (const auto& rp_mp = m.$acc$(); !rp_mp.empty()) {\n",
+            {{"acc", names.local.at(&mp)}});
     p.indent();
-    p.print("w.entry_sep(rp_first); w.key(\"$k$\"); w.open('{');\n",
-            {{"k", mp.name}});
+    p.print("w.entry_sep(rp_first); w.key(\"$k$\"); w.open('{');\n", {{"k", mp.name}});
     p.print("bool rp_efirst = true;\n");
-    p.print("for (const auto& rp_ent : m.$acc$()) {\n", {{"acc", names.local.at(&mp)}});
+    p.print("for (const auto& rp_ent : rp_mp) {\n");
     p.indent();
     p.print("w.entry_sep(rp_efirst);\n");
     // The object key is always a JSON string. A string key escapes; a numeric key is streamed into
