@@ -9,7 +9,7 @@ decode models, and you pick whichever fits the job:
 - **Streaming.** `decode()` walks the wire once and hands each field's typed value to a
   callback you supply. Nothing is materialized, and there's zero allocation.
 
-A `--debug` flag adds a third, optional emitter: a **debug dumper** that prints a decoded arena tree
+A `--dump` flag adds a third, optional emitter: a **debug dumper** that prints a decoded arena tree
 as human-readable, JSON-*like* text — an inspection aid for logging and debugging, not a spec-compliant
 JSON codec (see [Debug dumper](#debug-dumper)).
 
@@ -458,28 +458,28 @@ Dispatch is entirely compile-time (no allocation, no `std::function`, no virtual
 
 ## Debug dumper
 
-`--debug` emits a third header, `<stem>.rp.debug.hpp`, that prints a decoded arena tree as
+`--dump` emits a third header, `<stem>.rp.dump.hpp`, that prints a decoded arena tree as
 human-readable, JSON-*like* text — a **debugging and logging aid**, not a spec-compliant JSON codec and
 not a wire serializer. It reads the arena decoder's public accessors (no reflection, no
-`descriptor.proto`), so `--debug` **implies `--arena`** and dumps whatever the arena header exposes. For
+`descriptor.proto`), so `--dump` **implies `--arena`** and dumps whatever the arena header exposes. For
 each message `Foo` in namespace `example` it emits two free functions:
 
 ```cpp
-void        example::rp_debug_write(std::ostream& os, const example::Foo& m, std::size_t width = 120);
-std::string example::rp_debug_string(const example::Foo& m, std::size_t width = 120);
+void        example::rp_dump_write(std::ostream& os, const example::Foo& m, std::size_t width = 120);
+std::string example::rp_dump_string(const example::Foo& m, std::size_t width = 120);
 ```
 
 ```sh
-./build/release/rapidprotoc --debug -I. --out-dir=out person.proto
-# out/person.rp.debug.hpp + the arena header + out/rapidproto/debug_runtime.hpp
+./build/release/rapidprotoc --dump -I. --out-dir=out person.proto
+# out/person.rp.dump.hpp + the arena header + out/rapidproto/dump_runtime.hpp
 ```
 
 ```cpp
 #include "person.rp.hpp"
-#include "person.rp.debug.hpp"
+#include "person.rp.dump.hpp"
 
 const example::Person* p = example::Person::decode(rapidproto::ByteView(buf), arena);
-std::cout << example::rp_debug_string(*p) << '\n';         // or: rp_debug_write(std::cout, *p, 120);
+std::cout << example::rp_dump_string(*p) << '\n';         // or: rp_dump_write(std::cout, *p, 120);
 ```
 
 What it renders: scalars, `string`, `bytes` (as lowercase hex), enums by their prefix-stripped name
@@ -591,14 +591,14 @@ rapidprotoc [options] <entry.proto>...
 |---|---|
 | `--arena` | Emit the arena decoder (`<stem>.rp.hpp`). **The default** if neither model flag is given. |
 | `--stream` | Emit the streaming decoder (`<stem>.rp.stream.hpp`). Combine with `--arena` to emit both. |
-| `--debug` | Emit the [debug dumper](#debug-dumper) (`<stem>.rp.debug.hpp`), a JSON-like text dumper over the arena tree. Implies `--arena`. |
+| `--dump` | Emit the [debug dumper](#debug-dumper) (`<stem>.rp.dump.hpp`), a JSON-like text dumper over the arena tree. Implies `--arena`. |
 | `--unknown-present` | Arena: reserve the "unknown fields present" bit (`has_unknown_fields()`) on **every** message. |
 | `--unknown=<message>` | Arena: reserve that bit on **one** message (repeatable; a one-line `unknown-fields` profile entry). |
 | `--field-modes=<file>` | Arena: apply a decode profile file (repeatable; see [Decode profiles](#decode-profiles-drop-raw-and-unknown-fields-arena)). |
 | `--drop=<name>` | Arena: drop one field or type inline (as a one-line profile entry). |
 | `--raw=<name>` | Arena: keep a message field's or type's payloads for deferred `decode()`s, inline. |
 | `-I <dir>` | Add an import search path (repeatable). |
-| `--out-dir <dir>` | Where to write the headers (and `rapidproto/runtime.hpp`, plus `arena_runtime.hpp` for `--arena` and `debug_runtime.hpp` for `--debug`). Default: the current directory. |
+| `--out-dir <dir>` | Where to write the headers (and `rapidproto/runtime.hpp`, plus `arena_runtime.hpp` for `--arena` and `dump_runtime.hpp` for `--dump`). Default: the current directory. |
 | `--namespace-prefix <ns>` | Dot-separated prefix prepended to every C++ namespace (see [Coexisting with protoc](#coexisting-with-protoc)). |
 | `--no-wellknown` | Don't load the bundled well-known-type definitions. |
 | `--depfile <path>` | Write a Make/Ninja depfile (the entries' headers depend on **every** input `.proto` and profile file) so a build regenerates when any input changes. Used by the CMake helper; harmless otherwise. |
@@ -733,7 +733,7 @@ RapidProto is licensed under the **Apache License 2.0**; see [`LICENSE`](LICENSE
 [`NOTICE`](NOTICE) and [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
 The vendored runtimes (`rapidproto/runtime.hpp`, `rapidproto/arena_runtime.hpp`, and
-`rapidproto/debug_runtime.hpp`) carry the same Apache-2.0 license, so the headers `rapidprotoc` drops
+`rapidproto/dump_runtime.hpp`) carry the same Apache-2.0 license, so the headers `rapidprotoc` drops
 into your out-dir are usable under those terms.
 The decoder code generated *from your schema* is your own work product, and RapidProto claims no rights
 over it. The embedded Protocol Buffers well-known-type definitions are Copyright 2008 Google Inc.,

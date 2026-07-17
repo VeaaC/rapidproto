@@ -178,43 +178,43 @@ add_library(rapidproto_arenagen_lib STATIC
 target_link_libraries(rapidproto_arenagen_lib PUBLIC rapidproto_lib rapidproto_codegen_lib
                                               PRIVATE rapidproto_strict)
 
-# Debug-dumper code generator library: emits <stem>.rp.debug.hpp, a companion to the arena header that
+# Debug-dumper code generator library: emits <stem>.rp.dump.hpp, a companion to the arena header that
 # prints a decoded arena tree as JSON-like text over the arena accessors (a debugging aid, not a wire /
 # JSON serializer). A first-class emitter mirroring the streamgen/arenagen split. Generated code depends
-# only on the header-only debug runtime (rapidproto/debug_runtime.hpp) plus the arena header it dumps.
-# debug_runtime.hpp is embedded at build time (reusing embed_runtime.cmake with debuggen's namespace/
+# only on the header-only dump runtime (rapidproto/dump_runtime.hpp) plus the arena header it dumps.
+# dump_runtime.hpp is embedded at build time (reusing embed_runtime.cmake with dumpgen's namespace/
 # function) so the CLI can drop a self-contained copy beside its output, exactly as the other layers do.
-set(DEBUG_RUNTIME_EMBEDDED_CPP "${CMAKE_CURRENT_BINARY_DIR}/generated/debug_runtime_embedded.cpp")
+set(DUMP_RUNTIME_EMBEDDED_CPP "${CMAKE_CURRENT_BINARY_DIR}/generated/dump_runtime_embedded.cpp")
 add_custom_command(
-  OUTPUT "${DEBUG_RUNTIME_EMBEDDED_CPP}"
+  OUTPUT "${DUMP_RUNTIME_EMBEDDED_CPP}"
   COMMAND ${CMAKE_COMMAND}
-    -DRUNTIME_HPP=${CMAKE_CURRENT_SOURCE_DIR}/include/rapidproto/debug_runtime.hpp
-    -DOUTPUT_CPP=${DEBUG_RUNTIME_EMBEDDED_CPP}
-    -DEMBED_NS=rapidproto::debuggen
-    -DEMBED_FUNC=debug_runtime_header
-    -DEMBED_DECL=rapidproto/debuggen/runtime_embedded.hpp
+    -DRUNTIME_HPP=${CMAKE_CURRENT_SOURCE_DIR}/include/rapidproto/dump_runtime.hpp
+    -DOUTPUT_CPP=${DUMP_RUNTIME_EMBEDDED_CPP}
+    -DEMBED_NS=rapidproto::dumpgen
+    -DEMBED_FUNC=dump_runtime_header
+    -DEMBED_DECL=rapidproto/dumpgen/runtime_embedded.hpp
     -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_runtime.cmake
   DEPENDS
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/rapidproto/debug_runtime.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/rapidproto/dump_runtime.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_runtime.cmake
-  COMMENT "Embedding debug_runtime.hpp -> debug_runtime_embedded.cpp"
+  COMMENT "Embedding dump_runtime.hpp -> dump_runtime_embedded.cpp"
   VERBATIM)
-set_source_files_properties(${DEBUG_RUNTIME_EMBEDDED_CPP}
+set_source_files_properties(${DUMP_RUNTIME_EMBEDDED_CPP}
   PROPERTIES COMPILE_OPTIONS "-Wno-overlength-strings")  # same over-length embed literal as above
-add_library(rapidproto_debuggen_lib STATIC
-  src/debuggen/generator.cpp
-  ${DEBUG_RUNTIME_EMBEDDED_CPP})
+add_library(rapidproto_dumpgen_lib STATIC
+  src/dumpgen/generator.cpp
+  ${DUMP_RUNTIME_EMBEDDED_CPP})
 # PUBLIC arenagen: the debug dumper names arenagen's SynthNames (visit-tag dedup) to match the arena
 # header, and takes the arena LayoutSet, so its public API surfaces those types.
-target_link_libraries(rapidproto_debuggen_lib PUBLIC rapidproto_lib rapidproto_codegen_lib
-                                                     rapidproto_arenagen_lib
-                                              PRIVATE rapidproto_strict)
+target_link_libraries(rapidproto_dumpgen_lib PUBLIC rapidproto_lib rapidproto_codegen_lib
+                                                    rapidproto_arenagen_lib
+                                             PRIVATE rapidproto_strict)
 
 # The unified code-generator CLI: one tool emitting the arena and/or streaming decoder (+ the shared
 # common header) from a single parse. Built on ALL emitter libraries; replaces the old per-model CLIs.
 add_executable(rapidprotoc src/rapidprotoc/main.cpp)
 target_link_libraries(rapidprotoc
-  PRIVATE rapidproto_arenagen_lib rapidproto_streamgen_lib rapidproto_debuggen_lib rapidproto_strict)
+  PRIVATE rapidproto_arenagen_lib rapidproto_streamgen_lib rapidproto_dumpgen_lib rapidproto_strict)
 
 # Stable, source-agnostic handle: find_package(rapidproto) exposes the same name, so a downstream
 # rapidproto_generate() works whether the CLI is installed or built in-tree.
@@ -317,7 +317,7 @@ if(RAPIDPROTO_BUILD_TESTS)
     tests/test_arena_modes.cpp
     tests/test_arenagen.cpp
     tests/test_arena_decode.cpp
-    tests/test_debuggen.cpp
+    tests/test_dumpgen.cpp
     tests/test_decode.cpp
     tests/test_packed_kernels.cpp
     tests/test_printer.cpp
@@ -326,7 +326,7 @@ if(RAPIDPROTO_BUILD_TESTS)
     tests/test_common_header.cpp
   )
   target_link_libraries(rapidproto_tests PRIVATE rapidproto rapidproto_lib rapidproto_streamgen_lib
-                                                 rapidproto_arenagen_lib rapidproto_debuggen_lib
+                                                 rapidproto_arenagen_lib rapidproto_dumpgen_lib
                                                  rapidproto_strict catch2_vendored)
   # Absolute paths to the golden-test corpus and expected dumps, so the test finds them
   # regardless of the working directory it is launched from.
@@ -338,7 +338,7 @@ if(RAPIDPROTO_BUILD_TESTS)
     RAPIDPROTO_STREAMGEN_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/streamgen_golden"
     RAPIDPROTO_ARENA_LAYOUT_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/arena_layout_golden"
     RAPIDPROTO_ARENAGEN_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/arenagen_golden"
-    RAPIDPROTO_DEBUGGEN_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/debuggen_golden"
+    RAPIDPROTO_DUMPGEN_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/dumpgen_golden"
     RAPIDPROTO_COMMON_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/common_golden")
 
   add_test(NAME unit COMMAND rapidproto_tests)

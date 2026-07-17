@@ -29,8 +29,8 @@
 #include "rapidproto/codegen/emit.hpp"
 #include "rapidproto/codegen/naming.hpp"
 #include "rapidproto/codegen/runtime_embedded.hpp"
-#include "rapidproto/debuggen/generator.hpp"
-#include "rapidproto/debuggen/runtime_embedded.hpp"
+#include "rapidproto/dumpgen/generator.hpp"
+#include "rapidproto/dumpgen/runtime_embedded.hpp"
 #include "rapidproto/streamgen/generator.hpp"
 
 int main(int argc, char** argv) {
@@ -40,7 +40,7 @@ int main(int argc, char** argv) {
         "  --out-dir <dir>          write the generated headers here (default: .)\n"
         "  --arena                  emit the arena object-tree decoder (<stem>.rp.hpp) [default]\n"
         "  --stream                 emit the streaming callback decoder (<stem>.rp.stream.hpp)\n"
-        "  --debug                  emit a JSON-like debug dumper (<stem>.rp.debug.hpp; implies"
+        "  --dump                   emit a JSON-like debug dumper (<stem>.rp.dump.hpp; implies"
         " --arena)\n"
         "  --unknown-present        arena: reserve the \"unknown fields present\" bit on every"
         " message\n"
@@ -58,7 +58,7 @@ int main(int argc, char** argv) {
         "  --version                print the version\n";
     bool arena = false;
     bool stream = false;
-    bool debug = false;  // emit <stem>.rp.debug.hpp alongside the arena header
+    bool dump = false;  // emit <stem>.rp.dump.hpp alongside the arena header
     std::vector<std::string> modes_files;
     rapidproto::arenagen::FieldModesSpec
         modes_spec;  // direct --drop/--raw/--unknown + file entries
@@ -75,8 +75,8 @@ int main(int argc, char** argv) {
             stream = true;
             return true;
         }
-        if (arg == "--debug") {  // debug dumper (implies --arena; needs the arena header)
-            debug = true;
+        if (arg == "--dump") {  // debug dumper (implies --arena; needs the arena header)
+            dump = true;
             arena = true;
             return true;
         }
@@ -200,11 +200,11 @@ int main(int argc, char** argv) {
                 rapidproto::streamgen::generate_header(file, names_stream), opts->verbose)) {
             return 1;
         }
-        if (debug && !rapidproto::cli::write_header(
-                         opts->out_dir, file, ".rp.debug.hpp",
-                         rapidproto::debuggen::generate_header(file, names, *layouts, symbols),
-                         opts->verbose)) {
-            // --debug implies --arena, so `layouts` is always engaged here.
+        if (dump && !rapidproto::cli::write_header(
+                        opts->out_dir, file, ".rp.dump.hpp",
+                        rapidproto::dumpgen::generate_header(file, names, *layouts, symbols),
+                        opts->verbose)) {
+            // --dump implies --arena, so `layouts` is always engaged here.
             return 1;
         }
     }
@@ -229,9 +229,9 @@ int main(int argc, char** argv) {
                 targets.push_back(
                     rapidproto::cli::header_path(opts->out_dir, file, ".rp.stream.hpp"));
             }
-            if (debug) {
+            if (dump) {
                 targets.push_back(
-                    rapidproto::cli::header_path(opts->out_dir, file, ".rp.debug.hpp"));
+                    rapidproto::cli::header_path(opts->out_dir, file, ".rp.dump.hpp"));
             }
         }
         prereqs = rapidproto::cli::disk_proto_paths(opts->entries, set, opts->config);
@@ -254,10 +254,10 @@ int main(int argc, char** argv) {
         return 1;
     }
     // The debug dumper's own header-only runtime (the escaper/hex/Writer support), so a generated
-    // <stem>.rp.debug.hpp's #include "rapidproto/debug_runtime.hpp" resolves from the out-dir.
-    if (debug && !rapidproto::cli::write_shared_file(dir / "debug_runtime.hpp",
-                                                     rapidproto::debuggen::debug_runtime_header(),
-                                                     opts->verbose)) {
+    // <stem>.rp.dump.hpp's #include "rapidproto/dump_runtime.hpp" resolves from the out-dir.
+    if (dump &&
+        !rapidproto::cli::write_shared_file(
+            dir / "dump_runtime.hpp", rapidproto::dumpgen::dump_runtime_header(), opts->verbose)) {
         return 1;
     }
 
