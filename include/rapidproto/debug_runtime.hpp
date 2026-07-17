@@ -123,8 +123,10 @@ public:
 
     // Emit an object/array whose entries are produced by `body` (a re-runnable callable). Compact-first,
     // multi-line on overflow. Nested inside an ongoing compact probe, render straight into the buffer.
+    // `body` is taken by const-ref (not a forwarding reference): it is invoked up to twice -- once for
+    // the compact probe, once for the multi-line re-emit -- so it can never be forwarded/moved-from.
     template <class Body>
-    void group(char open_ch, char close_ch, Body&& body) {
+    void group(char open_ch, char close_ch, const Body& body) {
         if (m_compact) {
             *m_sink << open_ch;
             body();
@@ -175,6 +177,9 @@ private:
     static constexpr std::size_t kEmptyGroupChars =
         2;  // an empty group's compact form is just `[]`/`{}`
 
+    // A Writer wraps a caller-owned ostream for its lifetime (like a stream manipulator); the
+    // reference is the point of the type.
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-const-or-ref-data-members)
     std::ostream& m_out;       // the real output
     std::ostream* m_sink;      // where os()/emit go now: &m_out, or &m_buf during a compact probe
     std::ostringstream m_buf;  // scratch for the compact probe

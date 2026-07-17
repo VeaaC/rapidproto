@@ -317,6 +317,7 @@ if(RAPIDPROTO_BUILD_TESTS)
     tests/test_arena_modes.cpp
     tests/test_arenagen.cpp
     tests/test_arena_decode.cpp
+    tests/test_debuggen.cpp
     tests/test_decode.cpp
     tests/test_packed_kernels.cpp
     tests/test_printer.cpp
@@ -325,8 +326,8 @@ if(RAPIDPROTO_BUILD_TESTS)
     tests/test_common_header.cpp
   )
   target_link_libraries(rapidproto_tests PRIVATE rapidproto rapidproto_lib rapidproto_streamgen_lib
-                                                 rapidproto_arenagen_lib rapidproto_strict
-                                                 catch2_vendored)
+                                                 rapidproto_arenagen_lib rapidproto_debuggen_lib
+                                                 rapidproto_strict catch2_vendored)
   # Absolute paths to the golden-test corpus and expected dumps, so the test finds them
   # regardless of the working directory it is launched from.
   target_compile_definitions(rapidproto_tests PRIVATE
@@ -337,6 +338,7 @@ if(RAPIDPROTO_BUILD_TESTS)
     RAPIDPROTO_STREAMGEN_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/streamgen_golden"
     RAPIDPROTO_ARENA_LAYOUT_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/arena_layout_golden"
     RAPIDPROTO_ARENAGEN_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/arenagen_golden"
+    RAPIDPROTO_DEBUGGEN_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/debuggen_golden"
     RAPIDPROTO_COMMON_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/common_golden")
 
   add_test(NAME unit COMMAND rapidproto_tests)

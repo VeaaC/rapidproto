@@ -14,6 +14,7 @@
 #include "rapidproto/codegen/emit.hpp"
 #include "rapidproto/codegen/naming.hpp"
 #include "rapidproto/codegen/printer.hpp"
+#include "rapidproto/codegen/wire.hpp"  // codegen::import_header: the dependency debug-header includes
 #include "rapidproto/resolve.hpp"
 #include "rapidproto/version.hpp"
 
@@ -318,11 +319,22 @@ void emit_oneof(Printer& p, const CppNameTable& names, const OneofNode& o,
     p.print("});\n");
 }
 
+// Forward-declare the core rp_debug_write(const T&, Writer&) for `m` and every nested message, so a
+// message can reference a sibling / cousin / nested type whose definition comes later in the file
+// (mutually-recursive A<->B, a parent that names a nested Def before it is defined, etc.). Without
+// these the recursive call would only see the overloads emitted so far and mis-resolve.
+void emit_message_fwd_decls(Printer& p, const CppNameTable& names, const MessageNode& m) {
+    for (const MessageNode& n : m.nested_messages) {
+        emit_message_fwd_decls(p, names, n);
+    }
+    p.print("inline void rp_debug_write(const $T$& m, ::rapidproto::debug::Writer& w);\n",
+            {{"T", cpp_type_name(names, m.fqn)}});
+}
+
 void emit_message_dumper(Printer& p, const CppNameTable& names, const SynthNames& synth,
                          const arenagen::LayoutSet& layouts, const MessageNode& m) {
-    // Recurse into nested messages first (free functions; order only matters for name visibility,
-    // which is fine since all are declared/defined at namespace scope after forward-friendly ADL --
-    // we simply emit nested before parent).
+    // Recurse into nested messages first; forward declarations (emitted for the whole file up front)
+    // let a definition reference any other message's dumper regardless of emission order.
     for (const MessageNode& n : m.nested_messages) {
         emit_message_dumper(p, names, synth, layouts, n);
     }
@@ -330,6 +342,7 @@ void emit_message_dumper(Printer& p, const CppNameTable& names, const SynthNames
     p.print("inline void rp_debug_write(const $T$& m, ::rapidproto::debug::Writer& w) {\n",
             {{"T", type}});
     p.indent();
+    p.print("(void)m;\n");  // a zero-field message never reads `m`; keeps {} warning-free
     p.print("w.group('{', '}', [&] {\n");
     p.indent();
     p.print("bool rp_first = true;\n");
@@ -411,8 +424,23 @@ std::string generate_header(const FileNode& file, const CppNameTable& names,
         }
         return s;
     }();
-    p.print("#include \"$s$.rp.hpp\"\n", {{"s", stem}});
-    p.print("#include \"rapidproto/debug_runtime.hpp\"\n\n");
+    // The debug header is the one-stop include for dumping: it pulls the arena header (the decoder +
+    // the message/enum types) so a consumer who includes only this header can decode AND dump. The
+    // IWYU export makes those arena types count as "directly provided" here.
+    p.print("#include \"$s$.rp.hpp\"  // IWYU pragma: export\n", {{"s", stem}});
+    p.print("#include \"rapidproto/debug_runtime.hpp\"\n");
+    // A field (sub-message / repeated / map-value / oneof member) may reference an imported type, whose
+    // dumper lives in the imported file's own debug header. Include each dependency's debug header so
+    // its rp_debug_write overloads are visible (ADL alone can't find an as-yet-undeclared overload
+    // when the recursive call is instantiated) -- the parallel of the arena header's cross-file
+    // includes, keeping every debug header self-contained.
+    for (const auto& import : file.imports) {
+        if (import.kind != ImportKind::Option) {
+            p.print("#include \"$h$\"\n",
+                    {{"h", codegen::import_header(import.path, ".rp.debug.hpp")}});
+        }
+    }
+    p.print("\n");
 
     // Enum name tables: emitted in namespace rapidproto::debug so the dumpers can call them by a
     // single fully-qualified name; overload resolution on the enum type picks the right one.
@@ -437,6 +465,12 @@ std::string generate_header(const FileNode& file, const CppNameTable& names,
     const std::string ns = codegen::message_namespace(names, file);
     if (!ns.empty()) {
         p.print("namespace $ns$ {\n\n", {{"ns", ns}});
+    }
+    for (const MessageNode& m : file.messages) {
+        emit_message_fwd_decls(p, names, m);
+    }
+    if (!file.messages.empty()) {
+        p.print("\n");
     }
     for (const MessageNode& m : file.messages) {
         emit_message_dumper(p, names, synth, layouts, m);
