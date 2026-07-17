@@ -95,7 +95,10 @@ directions:
 - **Distrust the wire (decoders).** Serialized message bytes are **untrusted**, so the wire reader is
   **fully validating**: every varint overflow, truncation, length overrun, reserved wire type, and group
   mismatch is detected, and adversarial nesting is depth-capped. Malformed input fails cleanly and never
-  causes UB. Field *values* are still not range-checked (that's the schema's job, which it trusts).
+  causes UB. But *valid* wire is decoded even when non-canonical: the encoding spec is silent on varint
+  minimality, so a non-minimally-encoded (over-long) tag or value is accepted and decoded like its
+  canonical form (only truncation / >10-byte overflow / reserved wire type are rejected). Field *values*
+  are still not range-checked (that's the schema's job, which it trusts).
 
 The full list of intentional non-goals and known limitations is in [Known limitations and
 non-goals](#known-limitations-and-non-goals) (Part II). The load-bearing **invariants** a contributor

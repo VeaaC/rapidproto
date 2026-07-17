@@ -504,8 +504,9 @@ void emit_arm(Printer& printer, const std::string& fname, const FieldGen& gen, b
 
 // A field whose whole tag is a single byte -- number 1..15 ((15 << 3) | 7 == 127 < 128; field 16+
 // needs two bytes) and not a group (a group's read needs the field number the fast path does not
-// materialize). These are dispatched by the raw-byte fast-path switch; every other field stays on the
-// general path. Kept as one predicate so the fast switch and the general switch partition identically.
+// materialize). These get a raw-byte fast-path arm for their canonical tag. The general switch carries
+// every field's arm regardless, so a fast field with a non-minimally-encoded tag (which misses the
+// fast switch) still decodes there.
 constexpr std::int32_t kMaxOneByteTagField = 15;
 bool is_fast_tag_field(const FieldNode& field, const FieldGen& gen) {
     return field.number <= kMaxOneByteTagField && gen.wire_type != "SGroup";
@@ -599,10 +600,9 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
     printer.print("for (;;) {\n");
     printer.indent();
     // Fast path: a raw-byte switch dispatches single-byte-tag fields (is_fast_tag_field) without
-    // splitting field/wire (see emit_fast_arm). A miss (multi-byte tag, unknown field, or wrong wire
-    // type) breaks to the general path below. Each fast field's decode body is emitted ONLY here; the
-    // general switch keeps just a trivial `case N: break;` for it, so a wrong-wire encoding of a fast
-    // field skips exactly as a >15 field would (consistent) without duplicating the body.
+    // splitting field/wire (see emit_fast_arm). A miss (multi-byte tag, unknown field, wrong wire type,
+    // or a NON-minimal encoding of a fast field's tag) breaks to the general path below, where the
+    // field's real decode arm handles it (see the general switch).
     std::vector<std::pair<const FieldNode*, FieldGen>> fast;
     for (const auto& [field, gen] : fields) {
         if (is_fast_tag_field(*field, gen)) {
@@ -637,17 +637,13 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
     printer.print("switch (rp_tag.field_number) {\n");
     printer.indent();
     for (const auto& [field, gen] : fields) {
-        if (is_fast_tag_field(*field, gen)) {
-            // The decode body lives in the fast switch; this bare case only SKIPS a malformed
-            // encoding of the field that missed the fast path -- a wrong wire type, or a
-            // non-canonical (over-long) tag. A canonical 1-byte tag always hits the fast path, so
-            // only malformed input reaches here (protoc emits neither); skipping it never crashes,
-            // and its output is unspecified anyway. (No body here -> the fast field's decode is
-            // emitted once.)
-            printer.print("case $f$::kNumber: break;\n", {{"f", symbols.local.at(field)}});
-        } else {
-            emit_arm(printer, symbols.local.at(field), gen, field->is_repeated);
-        }
+        // A fast field's canonical 1-byte tag is decoded by the peek switch above. A non-minimally
+        // encoded (over-long) varint of that same tag is equally valid protobuf -- the wire spec is
+        // silent on varint minimality and read_varint accepts any varint up to the 10-byte limit -- but
+        // its first byte is >= 0x80, so it misses the 1-byte peek switch and arrives here. This arm
+        // decodes it. The canonical path stays fast in the peek switch; this general arm carries the
+        // rare non-minimal encoding, which need not be fast.
+        emit_arm(printer, symbols.local.at(field), gen, field->is_repeated);
     }
     for (const auto& map : message.map_fields) {
         emit_map_arm(printer, symbols, map);

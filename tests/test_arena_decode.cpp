@@ -195,18 +195,203 @@ TEST_CASE("arena-decode: raw-byte fast path matches the general path across the 
         CHECK(p2::Scalars::decode(ByteView(two), a2) == nullptr);
     }
 
-    // (4) A non-canonical (over-long) tag of a low field is skipped, not decoded (no conformant
-    //     encoder emits one; the decode never crashes). field 2 (i64, varint) as 0x90 0x00 (== 16).
+    // (4) A non-minimally-encoded (over-long) tag of a low field is DECODED, identically to its
+    //     canonical form -- a non-minimal varint is valid protobuf (the wire spec is silent on
+    //     minimality; the reference parsers accept it). field 2 (i64, Varint) canonical tag 0x10, encoded
+    //     over-long as 0x90 0x00 (both == the varint 16). It misses the 1-byte peek switch and decodes on
+    //     the general path.
     {
-        std::string e;
-        e.push_back('\x90');
-        e.push_back('\x00');  // over-long tag: field 2, Varint
-        pv(e, 123);           // the value a canonical tag would have decoded
-        const std::string buf = with_req(e);
+        std::string over;
+        over.push_back('\x90');
+        over.push_back('\x00');  // over-long tag: field 2, Varint
+        pv(over, 123);
+        std::string canon;
+        pv(canon, tag(2, 0));  // canonical 1-byte tag
+        pv(canon, 123);
+        Arena a_over;
+        Arena a_canon;
+        const p2::Scalars* m_over = p2::Scalars::decode(ByteView(with_req(over)), a_over);
+        const p2::Scalars* m_canon = p2::Scalars::decode(ByteView(with_req(canon)), a_canon);
+        REQUIRE(m_over != nullptr);
+        REQUIRE(m_canon != nullptr);
+        REQUIRE(m_canon->i64().has_value());
+        CHECK(m_over->i64() == m_canon->i64());  // non-minimal tag decodes identically to canonical
+    }
+
+    // (5) A non-minimal tag of a REQUIRED field satisfies the required check: a required field carried
+    //     by an over-long tag counts as present. Only the required i32 (field 1), tagged over-long as
+    //     0x88 0x00 (== the tag 8).
+    {
+        std::string buf;
+        buf.push_back('\x88');
+        buf.push_back('\x00');  // over-long tag: field 1 (required i32), Varint
+        pv(buf, 42);
         Arena arena;
         const p2::Scalars* m = p2::Scalars::decode(ByteView(buf), arena);
+        REQUIRE(m != nullptr);  // required i32 satisfied by the non-minimal tag
+        CHECK(m->i32() == 42);
+    }
+}
+
+// A non-minimal (over-long) tag must decode identically to the canonical 1-byte tag for EVERY fast
+// field kind, not just the varint scalar covered above -- the general-path arm that catches an
+// over-long tag runs the same reader as the fast peek arm. over2() re-encodes a <=15 field's tag (a
+// single byte < 128) as a 2-byte non-minimal varint: continuation bit set on byte 0, zero high byte.
+// Each block decodes the same field two ways (over-long vs canonical tag) and asserts value parity.
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): one independent parity block per kind
+TEST_CASE("arena-decode: non-minimal tags decode identically across fast field kinds",
+          "[arena-decode]") {
+    const auto pv = [](std::string& b, std::uint64_t v) {
+        while (v >= 0x80U) {
+            b.push_back(static_cast<char>(0x80U | (v & 0x7FU)));
+            v >>= 7U;
+        }
+        b.push_back(static_cast<char>(v));
+    };
+    const auto tag = [](std::uint32_t f, std::uint32_t w) {
+        return (static_cast<std::uint64_t>(f) << 3U) | w;
+    };
+    const auto over2 = [&](std::string& b, std::uint32_t f, std::uint32_t w) {
+        const std::uint64_t t = tag(f, w);  // a <=15 field's canonical tag is one byte (< 128)
+        b.push_back(static_cast<char>(0x80U | (t & 0x7FU)));
+        b.push_back(static_cast<char>(t >> 7U));  // 0x00 for t < 128
+    };
+    // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): value bits vs byte count, distinct roles
+    const auto le = [](std::string& b, std::uint64_t bits,
+                       int bytes) {  // little-endian fixed width
+        for (int i = 0; i < bytes; ++i) {
+            b.push_back(static_cast<char>((bits >> (8U * static_cast<unsigned>(i))) & 0xFFU));
+        }
+    };
+    const auto req = [&](std::string& b) {  // valid required i32 (field 1) prefix
+        pv(b, tag(1, 0));
+        pv(b, 7);
+    };
+
+    // string s (field 12, wire LEN): the SsoString reader (length read + arena copy).
+    {
+        std::string over;
+        req(over);
+        over2(over, 12, 2);
+        pv(over, 5);
+        over += "hello";
+        std::string canon;
+        req(canon);
+        pv(canon, tag(12, 2));
+        pv(canon, 5);
+        canon += "hello";
+        Arena ao;
+        Arena ac;
+        const p2::Scalars* mo = p2::Scalars::decode(ByteView(over), ao);
+        const p2::Scalars* mc = p2::Scalars::decode(ByteView(canon), ac);
+        REQUIRE(mo != nullptr);
+        REQUIRE(mc != nullptr);
+        REQUIRE(mc->s().has_value());
+        CHECK(mo->s() == mc->s());
+        CHECK(mo->s() == "hello");
+    }
+
+    // fixed64 f64 (field 8, wire I64): the read_fixed64 reader.
+    {
+        const std::uint64_t bits = 0x0102030405060708ULL;
+        std::string over;
+        req(over);
+        over2(over, 8, 1);
+        le(over, bits, 8);
+        std::string canon;
+        req(canon);
+        pv(canon, tag(8, 1));
+        le(canon, bits, 8);
+        Arena ao;
+        Arena ac;
+        const p2::Scalars* mo = p2::Scalars::decode(ByteView(over), ao);
+        const p2::Scalars* mc = p2::Scalars::decode(ByteView(canon), ac);
+        REQUIRE(mo != nullptr);
+        REQUIRE(mc != nullptr);
+        REQUIRE(mc->f64().has_value());
+        CHECK(mo->f64() == mc->f64());
+        CHECK(mo->f64() == bits);
+    }
+
+    // bool b (field 11, wire Varint): the bool-mask set/clear codegen.
+    {
+        std::string over;
+        req(over);
+        over2(over, 11, 0);
+        pv(over, 1);
+        std::string canon;
+        req(canon);
+        pv(canon, tag(11, 0));
+        pv(canon, 1);
+        Arena ao;
+        Arena ac;
+        const p2::Scalars* mo = p2::Scalars::decode(ByteView(over), ao);
+        const p2::Scalars* mc = p2::Scalars::decode(ByteView(canon), ac);
+        REQUIRE(mo != nullptr);
+        REQUIRE(mc != nullptr);
+        REQUIRE(mc->b().has_value());
+        CHECK(mo->b() == mc->b());
+        CHECK(mo->b() == true);
+    }
+
+    // singular enum state (p3 field 4, wire Varint): the InlineEnum reader.
+    {
+        std::string over;
+        over2(over, 4, 0);
+        pv(over, 1);  // STATE_ON
+        std::string canon;
+        pv(canon, tag(4, 0));
+        pv(canon, 1);
+        Arena ao;
+        Arena ac;
+        const p3::Msg* mo = p3::Msg::decode(ByteView(over), ao);
+        const p3::Msg* mc = p3::Msg::decode(ByteView(canon), ac);
+        REQUIRE(mo != nullptr);
+        REQUIRE(mc != nullptr);
+        CHECK(mo->state() == mc->state());
+        CHECK(mo->state() == p3::State::ON);
+    }
+
+    // repeated packed nums (p3 field 6, wire LEN packed): the packed bulk-fill path.
+    {
+        std::string over;
+        over2(over, 6, 2);
+        pv(over, 3);
+        pv(over, 5);
+        pv(over, 6);
+        pv(over, 7);  // packed [5, 6, 7]
+        std::string canon;
+        pv(canon, tag(6, 2));
+        pv(canon, 3);
+        pv(canon, 5);
+        pv(canon, 6);
+        pv(canon, 7);
+        Arena ao;
+        Arena ac;
+        const p3::Msg* mo = p3::Msg::decode(ByteView(over), ao);
+        const p3::Msg* mc = p3::Msg::decode(ByteView(canon), ac);
+        REQUIRE(mo != nullptr);
+        REQUIRE(mc != nullptr);
+        REQUIRE(mo->nums().size() == mc->nums().size());
+        REQUIRE(mo->nums().size() == 3);
+        CHECK(mo->nums()[0] == 5);
+        CHECK(mo->nums()[2] == 7);
+    }
+
+    // repeated unpacked (p3 field 7, wire Varint element): the append-per-element path. One over-long
+    // and one canonical element tag in the SAME message both append -- parity within a single decode.
+    {
+        std::string buf;
+        over2(buf, 7, 0);
+        pv(buf, 8);
+        pv(buf, tag(7, 0));  // canonical element tag
+        pv(buf, 9);
+        Arena arena;
+        const p3::Msg* m = p3::Msg::decode(ByteView(buf), arena);
         REQUIRE(m != nullptr);
-        CHECK_FALSE(m->i64().has_value());  // skipped, not decoded
+        REQUIRE(m->unpacked().size() == 2);
+        CHECK(m->unpacked()[0] == 8);
+        CHECK(m->unpacked()[1] == 9);
     }
 }
 

@@ -1487,7 +1487,8 @@ bool is_fast_arena_field(const MemberPlan& m, const FieldNode& field) {
 // Fast-path arm for a singular scalar/enum/string field with a single-byte tag: a
 // `case raw_tag(N, wire):` over reader.peek_byte() that consumes the tag byte and decodes, folding
 // the wire-type check into the label. Mirrors the scalar branches of emit_singular_arm; the general
-// switch keeps only a `case N: break;` for this field (see emit_decode_into_body).
+// switch also emits this field's real decode arm, which handles a non-minimally-encoded tag that
+// misses the peek switch (see emit_decode_into_body).
 void emit_fast_singular_arm(const Emit& emit, const MessageLayout& layout, const MemberPlan& m,
                             const std::unordered_map<const FieldNode*, int>& required_bit) {
     Printer& p = emit.printer;
@@ -1612,10 +1613,9 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
     p.indent();
     // Fast path: a raw-byte switch dispatches single-byte-tag fields (is_fast_arena_field) without
     // splitting field/wire (see emit_fast_singular_arm / emit_fast_repeated_arm). A miss (multi-byte
-    // tag, unknown field, wrong wire type) breaks to the general path below. Each fast field's decode
-    // body is emitted ONLY here; the general switch keeps a bare `case N: break;` for it, so a wrong-
-    // wire/non-canonical encoding skips as a >15 field would, with no body duplication. End must break
-    // (not return) so the post-loop required-field checks still run.
+    // tag, unknown field, wrong wire type, or a NON-minimal encoding of a fast field's tag) breaks to the
+    // general path below, where the field's real decode arm handles it (see the general switch). End must
+    // break (not return) so the post-loop required-field checks still run.
     std::vector<const MemberPlan*> fast;
     for (const FieldNode& f : message.fields) {
         const auto it = by_node.find(&f);
@@ -1640,7 +1640,7 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
         p.print("}\n");
     }
     // General path: multi-byte tags, unknown fields, wrong wire types, groups, messages, raw, maps,
-    // oneofs, and the bare skip-cases for the fast fields above.
+    // oneofs, and the non-minimal-tag arms for the fast fields above.
     // Fused end-or-tag read: one bounds check drives the loop (see WireReader::read_tag_or_end).
     // End breaks out so the post-loop required-field checks still run.
     p.print("::rapidproto::wire::TagState rp_state = ::rapidproto::wire::TagState::End;\n");
@@ -1664,14 +1664,13 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
                     {{"n", std::to_string(f.number)}});
             continue;
         }
-        if (it->second->kind != FieldKind::Raw && is_fast_arena_field(*it->second, f)) {
-            // Decoded on the fast path above; here only to skip a wrong-wire/non-canonical encoding
-            // that missed it (a canonical 1-byte tag never reaches here) -- no body, no duplication.
-            // Note: a non-canonical (over-long) tag of a REQUIRED low field is thus skipped, so its
-            // required-field check then fails -- a stricter rejection of malformed input than before
-            // (protoc never emits such a tag; still no crash/UB).
-            p.print("case $n$: break;\n", {{"n", std::to_string(f.number)}});
-        } else if (it->second->kind == FieldKind::Raw) {
+        // A fast field's canonical 1-byte tag is decoded by the peek switch above. A non-minimally
+        // encoded (over-long) varint of that same tag is equally valid protobuf -- the wire spec is
+        // silent on varint minimality and read_varint accepts any varint up to the 10-byte limit -- but
+        // its first byte is >= 0x80, so it misses the 1-byte peek switch and arrives here. This arm
+        // decodes it. The canonical path stays fast in the peek switch; this general arm carries the
+        // rare non-minimal encoding, which need not be fast.
+        if (it->second->kind == FieldKind::Raw) {
             emit_raw_arm(emit, layout, *it->second, required_bit);
         } else if (f.is_repeated) {
             emit_repeated_arm(emit, f);

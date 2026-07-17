@@ -71,7 +71,16 @@ RP_FLATTEN inline bool Flag::rp_decode_into([[maybe_unused]] Flag& out, ::rapidp
     if (rp_state == ::rapidproto::wire::TagState::Error) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
     rp_c = rp_tp;
     switch (rp_tag.field_number) {
-      case 1: break;
+      case 1: {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
+          std::uint64_t rp_raw = 0;
+          const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
+          if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; } rp_c = rp_np;
+          if (::rapidproto::varint_to_bool(rp_raw)) { out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 0)); } else { out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask & static_cast<std::uint8_t>(~(std::uint8_t{1} << 0))); }
+          continue;
+        }
+        break;
+      }
       default: { out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 1)); break; }
     }
     std::size_t rp_fo = 0;
@@ -126,7 +135,17 @@ RP_FLATTEN inline bool Holder::rp_decode_into([[maybe_unused]] Holder& out, ::ra
         }
         break;
       }
-      case 2: break;
+      case 2: {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
+          std::uint64_t rp_raw = 0;
+          const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
+          if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+          rp_c = rp_np;
+          out.m_n = ::rapidproto::varint_to_int32(rp_raw);
+          continue;
+        }
+        break;
+      }
       default: { out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 1)); break; }
     }
     std::size_t rp_fo = 0;
