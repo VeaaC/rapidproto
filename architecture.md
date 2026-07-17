@@ -10,6 +10,10 @@ two complementary decode **models**:
   bump arena, navigated by accessor. It's built to beat `protoc` + `google::protobuf::Arena` on decode
   time and memory. Types live at `pkg::Msg`.
 
+A third, optional emitter — the **debug dumper** (`debuggen`, gated on `--debug`) — rides on the arena
+model: it prints a decoded arena tree as human-readable, JSON-*like* text over the arena decoder's
+public accessors. It's an inspection aid, not a decode model. See [Debug dumper emitter](#debug-dumper-emitter).
+
 ```
                  lex()          parse_file()       resolve()/analyze()
   .proto text  ────────► tokens ───────────► FileNode ──────────────► ResolvedFileSet + SymbolTable
@@ -20,9 +24,11 @@ two complementary decode **models**:
                           ▼            (+ shared <stem>.rp.common.hpp for the schema's enums) ▼
 ```
 
-Both models **decode only** (no serialization, no JSON), **fully validate** untrusted wire input, and
-**trust the schema** (assumed to have passed `protoc`; field *values* are not range-checked). The output
-is header-only, so a consumer adds `-I<out-dir>` and links nothing.
+Both models **decode only** (no serialization, no JSON codec), **fully validate** untrusted wire input,
+and **trust the schema** (assumed to have passed `protoc`; field *values* are not range-checked). The
+`debuggen` dumper is a deliberate, scoped exception to the no-output rule — a debugging aid emitting
+JSON-*like* text, not a serializer or a spec JSON codec — layered on the arena accessors, so the core
+identity stays decode-only. The output is header-only, so a consumer adds `-I<out-dir>` and links nothing.
 
 > **How to read this doc.** **Part I — Overview** is the onboarding path: read it top to bottom (~10
 > minutes) to get the mental model, find the code, build it, and learn the constraints. **Part II —
@@ -44,13 +50,17 @@ Naming is kept consistent across the code and docs:
   on every generated type is `decode(...)`, never "parse" or "read".
 - **model.** One of the two decode strategies emitted from a schema: **arena** or **streaming**.
 - **emitter.** The library that generates a model's code: `streamgen` (→ the streaming model) and
-  `arenagen` (→ the arena model). Both are driven by the single CLI, **`rapidprotoc`**.
+  `arenagen` (→ the arena model), plus **`debuggen`** (→ the arena debug dumper). All are driven by the
+  single CLI, **`rapidprotoc`**.
+- **debug dumper.** The `debuggen` emitter's output (`<stem>.rp.debug.hpp`): per arena message, free
+  functions that print the decoded tree as JSON-*like* text for human inspection. A debugging aid, not a
+  serializer or a spec JSON codec.
 - **decoder.** The generated type a user calls (`pkg::Msg` arena, `pkg::stream::Msg` streaming).
   "Parser" is reserved for the schema front-end.
 - **common header.** `<stem>.rp.common.hpp`: the schema's top-level enums as one shared C++ type both
   models include.
-- file extensions: **`.rp.hpp`** (arena), **`.rp.stream.hpp`** (streaming), **`.rp.common.hpp`** (the
-  shared enums).
+- file extensions: **`.rp.hpp`** (arena), **`.rp.stream.hpp`** (streaming), **`.rp.debug.hpp`** (the
+  debug dumper), **`.rp.common.hpp`** (the shared enums).
 
 ## Orientation
 
@@ -59,9 +69,10 @@ include/rapidproto/   public headers: range, result, source_id, source, combinat
                       parser, resolver, resolve, features, interpret, wellknown, runtime (wire reader +
                       streaming dispatch), arena_runtime; codegen/ (printer, naming, wire, the shared
                       codegen layer, incl. emit.hpp); streamgen/ + arenagen/ (the two emitters; arenagen also has the
-                      layout planner); cli/driver.hpp (shared CLI driver)
+                      layout planner); debuggen/ (the debug dumper emitter) + debug_runtime.hpp (its runtime);
+                      cli/driver.hpp (shared CLI driver)
 src/                  implementations + main.cpp (schema-inspection CLI) + wellknown_generated.cpp
-                      (generated); codegen/; streamgen/; arenagen/; rapidprotoc/main.cpp (the CLI)
+                      (generated); codegen/; streamgen/; arenagen/; debuggen/; rapidprotoc/main.cpp (the CLI)
 cmake/                embed_runtime.cmake (build-time: embeds each emitter's runtime header into the CLI)
 wellknown/            vendored WKT .proto sources + embed_wellknown.py
 tests/                Catch2 unit tests + the golden harnesses (AST, wire, streamgen, arenagen, arena
@@ -136,6 +147,9 @@ coexistence glue. Each has a reference section in Part II:
   dispatch and zero runtime overhead. See [Streaming emitter](#streaming-emitter).
 - **Arena emitter** (`src/arenagen/`). Emits materializing decoders (`.rp.hpp`); a layout planner packs
   each message into a read-only arena tree. See [Arena emitter](#arena-emitter).
+- **Debug dumper emitter** (`src/debuggen/`). Emits `<stem>.rp.debug.hpp`, JSON-*like* text dumpers over
+  the arena accessors — a debugging aid, gated on `--debug` (implies `--arena`). See
+  [Debug dumper emitter](#debug-dumper-emitter).
 - **Coexistence.** Model namespacing plus a shared common header let both decoders for one schema compile
   in one TU. See [Coexistence design](#coexistence-design).
 - **Shared codegen layer** (`codegen/`). The `Printer`, the C++ naming table, and the scalar/wire facts
@@ -556,6 +570,40 @@ header. A no-profile run is byte-identical to unprofiled output, and an all-excl
 to exactly that. Known cut, deliberately deferred: no `materialize` directive to narrow a type-level
 entry (additive when needed).
 
+## Debug dumper emitter
+
+The `debuggen` emitter (`src/debuggen/`) turns the AST into `<stem>.rp.debug.hpp`: per arena message
+`Foo` in namespace `pkg`, a pair of free functions that print a decoded arena tree as human-readable,
+JSON-*like* text — `pkg::rp_debug_write(std::ostream&, const Foo&, std::size_t width = 120)` and
+`pkg::rp_debug_string(const Foo&, ...)`. It's a **debugging aid**, explicitly not a spec-compliant JSON
+codec and not a wire serializer; `--debug` implies `--arena`, since the dumper reads the arena header.
+
+- **Accessors, not reflection.** The dumper walks the arena decoder's **public accessors** — no
+  reflection, no `descriptor.proto` dependency. It reuses the arena's own `CppNameTable` (so accessor
+  and type names match the arena header exactly) and derives arenagen's per-message **`SynthNames`** from
+  the same `LayoutSet` the arena header was planned under — so the oneof visit-tag structs and the
+  `has_unknown_fields()` accessor it references are exactly the identifiers arenagen declared, deduped the
+  same way (a colliding schema can't spell a name the arena header didn't). Its inputs are therefore the
+  arena's `CppNameTable`, `LayoutSet`, and the `SymbolTable` (for enum value → name).
+- **What it renders.** Scalars; `string`; `bytes` as lowercase hex; enums by their prefix-stripped name
+  (matching the generated `enum class`, `UNKNOWN(<n>)` for an open-enum value outside the schema's
+  declared range); nested sub-messages; repeated fields as arrays; maps as objects; the active member of
+  a oneof. Groups dump through the identical nested-message accessor. Default-valued implicit (proto3
+  singular) fields and empty repeated/maps are omitted; explicit-presence fields print when set;
+  `required` always prints. A message that reserves the unknown-fields bit prints
+  `"has_unknown_fields": true` when set — a bit only, as the arena retains no unknown-field *data*.
+- **Width-adaptive layout.** The runtime `Writer` renders each object/array compact (one line) if it fits
+  a column budget (`width`, default 120), else one entry per line; a group goes multi-line only when it
+  or a descendant doesn't fit, which forces its ancestors multi-line while siblings stay compact. It
+  probes compact-first into a scratch buffer and splices it verbatim when it fits, so cost stays ~linear.
+- **Own library, embedded runtime.** `debuggen` is a first-class emitter library
+  (`rapidproto_debuggen_lib`), a peer of `streamgen`/`arenagen`. Its runtime header
+  `rapidproto/debug_runtime.hpp` (the JSON-string escaper, the hex encoder, and the `Writer`) is embedded
+  into the CLI at build (`cmake/embed_runtime.cmake`, so it can't drift) and dropped into the out-dir
+  beside the arena runtime on a `--debug` invocation, so a generated `<stem>.rp.debug.hpp` resolves its
+  `#include` standalone. The dumpers live in the message's own namespace, so the recursive
+  `rp_debug_write` and ADL both resolve.
+
 ## Shared emitter infrastructure
 
 Both emitters work over the same analyzed AST, so they share (rather than duplicate) the
@@ -594,11 +642,13 @@ body is emitted once, as its label, rather than duplicated across separate hub a
 generated decoder stays compact (the arena bench `.text` is about 11% smaller than the duplicated form).
 
 **Targets.** `rapidproto_lib` (front-end + wire reader) underlies everything; `rapidproto_codegen_lib`
-(the shared layer + the embedded `runtime.hpp` text) builds on it; `rapidproto_streamgen_lib` and
-`rapidproto_arenagen_lib` are the two emitter libraries; the one `rapidprotoc` CLI links both, each
-linking `rapidproto_codegen_lib`, neither depending on the other. Each emitter's runtime header is embedded
-into the CLI at build time (`cmake/embed_runtime.cmake`) so it can never drift, and dropped into the
-out-dir on each invocation.
+(the shared layer + the embedded `runtime.hpp` text) builds on it; `rapidproto_streamgen_lib`,
+`rapidproto_arenagen_lib`, and `rapidproto_debuggen_lib` are the emitter libraries (`debuggen` links
+`arenagen` publicly, since its API surfaces arenagen's `SynthNames` and `LayoutSet` to match the arena
+header); the one `rapidprotoc` CLI links all three, each linking `rapidproto_codegen_lib`. Each
+emitter's runtime header (`runtime.hpp`, `arena_runtime.hpp`, `debug_runtime.hpp`) is embedded into the
+CLI at build time (`cmake/embed_runtime.cmake`) so it can never drift, and dropped into the out-dir on
+each invocation.
 
 ---
 
@@ -793,6 +843,13 @@ reflected (a documented simplification; decoders accept both wire forms).
     golden-checked against `tests/arena_layout_golden/`; plus arena **runtime** unit tests
     (`test_arena_runtime.cpp`) and **decode** tests (`test_arena_decode.cpp`: real buffers incl. the
     protoc fixtures, asserting accessor values and the required/depth/malformed failure modes).
+  - **Debuggen goldens + output tests** (`test_debuggen.cpp`): the generated `.rp.debug.hpp` for each
+    corpus entry is checked in under `tests/debuggen_golden/` and byte-matched, regenerated by
+    `tests/regen_debuggen_goldens.sh` (wired into `tests/regen_goldens.sh`) over the same corpus the
+    arena goldens use (`--namespace-prefix` and import cases included); plus **runtime-output** tests
+    that decode the protoc wire fixtures and assert the exact dumped text (scalars/bytes-hex/enums,
+    nested/repeated/map/oneof with default-omission, width-adaptive layout, `{}`, and the
+    `has_unknown_fields` marker).
 - **Decode benchmarks:** two standalone micro-benchmarks, built at `-O3 -DNDEBUG` and kept **out** of the
   test binary on purpose (measuring decoders inside the large binary is placement-sensitive). Run pinned:
   - `rapidproto_bench` (`bench_streamgen.cpp`): streaming decoder vs a hand-written value-threaded loop vs
@@ -811,7 +868,14 @@ decode-relevant may be approximated or rejected.
 
 **Intentional non-goals:**
 
-- No semantic validation, no serialization, no JSON (`json_format`/`json_name` are never interpreted).
+- No semantic validation, no serialization, no JSON codec (`json_format`/`json_name` are never
+  interpreted). The `debuggen` dumper is a deliberate, scoped exception: it emits JSON-*like* inspection
+  text over the arena accessors, not spec JSON and not a wire encoding.
+- **The debug dumper prints well-known types as their nested fields** (`Timestamp` as `seconds`/`nanos`,
+  etc.), with no special JSON form (no RFC-3339 string, no `Any` unpacking) — a known non-goal for now.
+- **The debug dumper cannot show unknown-field data.** A message that reserves the bit dumps
+  `"has_unknown_fields": true`, but the arena retains no unknown-field payload to print (arena drops the
+  bytes; see the arena unknown-fields non-goal below).
 - **gRPC is out of scope.** `service`/`rpc` are parsed past and dropped (no `ServiceNode`; a file's
   messages still decode).
 - **`extend` / extension fields are retained but not emitted.** The AST keeps the extension registry (for a
