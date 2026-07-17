@@ -7,6 +7,8 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
+#include <functional>
 #include <string>
 #include <string_view>
 #include <unordered_set>
@@ -16,6 +18,7 @@
 #include "rapidproto/codegen/naming.hpp"
 #include "rapidproto/codegen/printer.hpp"
 #include "rapidproto/codegen/wire.hpp"
+#include "rapidproto/runtime.hpp"  // WireType, for composing 2-byte tag bytes at codegen time
 #include "rapidproto/version.hpp"
 
 namespace rapidproto::codegen {
@@ -236,6 +239,209 @@ std::vector<const MessageNode*> topo_order_siblings(const std::vector<MessageNod
         }
     }
     return order;
+}
+
+// ---------------------------------------------------------------------------
+// Field-order threading: the shared decode-loop SHAPE.
+//
+// Both decoder emitters (arenagen + streamgen) build the same threaded wire loop: a hub `switch(*rp_c)`
+// that peeks the 1-byte tag and jumps to a tag-consumed label `rp_do_<n>`, one label per threaded
+// field (each decoding one value, then a depth-2 constant-tag successor probe / repeated self-loop),
+// and a wire-guarded `goto` from the general `switch(field_number)` for non-minimal / 2-byte tags.
+// Only the per-field label BODY and the loop scaffolding (return type, maps/oneofs, setup/finalize)
+// differ between the two -- the SHAPE (hub, labels, probes, general-case routing) is identical. That
+// identical part lives here; the caller supplies the body via hooks and drives its own general switch.
+// This layer has NO knowledge of arena vs streaming, MemberPlan vs FieldGen, or return types.
+// ---------------------------------------------------------------------------
+
+// A field number whose whole tag fits in a single varint byte -- number 1..15 ((15 << 3) | 7 == 127 <
+// 128). These appear in the 1-byte-peek hub.
+inline constexpr std::int32_t kMaxOneByteTagField = 15;
+// Field numbers 16..2047 carry a 2-byte tag (read_tag_or_end's fused 2-byte path). Above that, 3+
+// bytes -- never threaded.
+inline constexpr std::int32_t kMaxTwoByteTagField = 2047;
+
+// Wire-tag varint encoding constants (see raw_tag / the base-128 varint format), for composing a
+// 2-byte tag's two bytes at codegen time: tag = (field_number << kTagFieldShift) | wire.
+inline constexpr int kTagFieldShift = 3;      // low 3 bits of a tag are the wire type
+inline constexpr int kVarintShift = 7;        // each varint byte carries 7 payload bits
+inline constexpr int kVarintPayload = 0x7F;   // low 7 bits of a varint byte
+inline constexpr int kVarintContinue = 0x80;  // high bit set == "more bytes follow"
+
+// The numeric WireType value for a wire enumerator name (to compose a raw 2-byte tag's bytes). Uses
+// the runtime enum's own values, so it can never drift from WireType.
+inline int wire_enum_num(const std::string& w) {
+    if (w == "I64") {
+        return static_cast<int>(::rapidproto::WireType::I64);
+    }
+    if (w == "Len") {
+        return static_cast<int>(::rapidproto::WireType::Len);
+    }
+    if (w == "I32") {
+        return static_cast<int>(::rapidproto::WireType::I32);
+    }
+    // Varint (and any non-2-byte-threaded wire, unused here)
+    return static_cast<int>(::rapidproto::WireType::Varint);
+}
+
+// A threaded field, generator-agnostic: the shape generator needs only the routing facts (number,
+// repeated-ness, whether a packed LEN label is also emitted, and the tag it threads on). All value
+// emission is the caller's, via ThreadedLoopHooks.
+struct ThreadField {
+    int number;
+    bool repeated;
+    bool packable;            // repeated packable => also a rp_do_<n>_p packed label
+    std::string thread_wire;  // WireType enumerator: singular field's canonical wire, or repeated
+                              // element wire
+};
+
+// Hooks the caller supplies for the per-field label bodies. Each emits at the current indent,
+// TAG-CONSUMED (the tag has already been consumed on entry to the label), with NO `case`, NO probe,
+// NO `continue` -- the shape generator wraps those around the body.
+struct ThreadedLoopHooks {
+    std::function<void(const ThreadField&)>
+        emit_body;  // rp_do_<n>: singular value / repeated native element
+    std::function<void(const ThreadField&)>
+        emit_packed_body;  // rp_do_<n>_p: packed fill (only called if packable)
+};
+
+namespace detail {
+
+// The depth-2 constant-tag successor probes emitted at the tail of a threaded label: from field i,
+// try the next / next-but-one threaded field's THREAD tag, consuming the tag bytes before the goto
+// (labels are tag-consumed). 1-byte successor: compare the single tag byte, `++rp_c`. 2-byte
+// successor: compare both tag bytes, `rp_c += 2`. Ascending order puts the 1-byte fields first, so
+// the cheaper 1-byte probes carry the hot run.
+inline void emit_thread_probes(Printer& p, const std::vector<ThreadField>& threaded,
+                               std::size_t i) {
+    for (std::size_t d = 1; d <= 2 && i + d < threaded.size(); ++d) {
+        const ThreadField& s = threaded[i + d];
+        const std::string n = std::to_string(s.number);
+        if (s.number <= kMaxOneByteTagField) {
+            p.print(
+                "if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag($n$,"
+                " ::rapidproto::WireType::$w$)) { ++rp_c; goto rp_do_$n$; }\n",
+                {{"n", n}, {"w", s.thread_wire}});
+        } else {
+            const int v = (s.number << kTagFieldShift) | wire_enum_num(s.thread_wire);
+            p.print(
+                "if (rp_c + 1 < rp_cend && rp_c[0] == $b0$ && rp_c[1] == $b1$)"
+                " { rp_c += 2; goto rp_do_$n$; }\n",
+                {{"n", n},
+                 {"b0", std::to_string((v & kVarintPayload) | kVarintContinue)},
+                 {"b1", std::to_string(v >> kVarintShift)}});
+        }
+    }
+}
+
+}  // namespace detail
+
+// Emit the hub `switch(*rp_c)` and the tag-consumed labels for `threaded` (declaration order,
+// ascending by number so probes thread that order). Emits, at the current indent:
+//   * `if (rp_c >= rp_cend) { <on_end> }`  -- the caller's end action (arena: "break;");
+//   * the hub `switch(*rp_c)`: each 1-byte-tag threaded field -> `case raw_tag(n,W): ++rp_c; goto
+//     rp_do_n;` (a repeated packable field also gets a Len case -> rp_do_n_p); `default: break;`;
+//   * `goto rp_field_general;`;
+//   * one tag-consumed label per threaded field: singular -> body + probes + continue; repeated
+//     native -> body + element self-loop + probes + continue; packed (rp_do_n_p) -> packed body +
+//     probes + continue;
+//   * `rp_field_general:;`.
+// When `threaded` is empty, emits nothing (the caller's general path stands alone).
+inline void emit_hub_and_labels(Printer& p, const std::vector<ThreadField>& threaded,
+                                const ThreadedLoopHooks& hooks, const std::string& on_end) {
+    if (threaded.empty()) {
+        return;
+    }
+    // Hub: a 1-byte peek switch. Only 1-byte-tag threaded fields appear (a 2-byte-tag field enters
+    // via the general path). Each case consumes the peeked byte, then jumps to the tag-consumed
+    // label. A miss (multi-byte tag, unknown field, wrong wire type, or a non-minimal encoding of a
+    // threaded field's tag) falls to the general path.
+    p.print("if (rp_c >= rp_cend) { $e$ }\n", {{"e", on_end}});
+    p.print("switch (*rp_c) {  // peek the 1-byte tag; threaded fields jump to their label\n");
+    p.indent();
+    for (const ThreadField& tf : threaded) {
+        if (tf.number > kMaxOneByteTagField) {
+            continue;  // 2-byte tag: entered via the general path / a 2-byte probe, not the hub
+        }
+        const std::string n = std::to_string(tf.number);
+        p.print(
+            "case ::rapidproto::raw_tag($n$, ::rapidproto::WireType::$w$): ++rp_c; goto "
+            "rp_do_$n$;\n",
+            {{"n", n}, {"w", tf.thread_wire}});
+        if (tf.repeated && tf.packable) {
+            p.print(
+                "case ::rapidproto::raw_tag($n$, ::rapidproto::WireType::Len): ++rp_c; "
+                "goto "
+                "rp_do_$n$_p;\n",
+                {{"n", n}});
+        }
+    }
+    p.print("default: break;\n");
+    p.outdent();
+    p.print("}\n");
+    p.print("goto rp_field_general;\n");
+    // Tag-consumed labels, one per threaded field (declaration order). Each decodes its value, then
+    // runs the successor probe (and, for repeated, a self-loop) before falling to `continue`.
+    for (std::size_t i = 0; i < threaded.size(); ++i) {
+        const ThreadField& tf = threaded[i];
+        const std::string n = std::to_string(tf.number);
+        if (!tf.repeated) {
+            p.print("rp_do_$n$: {\n", {{"n", n}});
+            p.indent();
+            hooks.emit_body(tf);
+            detail::emit_thread_probes(p, threaded, i);
+            p.print("continue;\n");
+            p.outdent();
+            p.print("}\n");
+            continue;
+        }
+        // Repeated: the native-element label self-loops on its own element tag (consuming it), then
+        // probes successors. The packed form gets its own tag-consumed label rp_do_<n>_p.
+        p.print("rp_do_$n$: {\n", {{"n", n}});
+        p.indent();
+        hooks.emit_body(tf);
+        p.print(
+            "if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag($n$, "
+            "::rapidproto::WireType::$w$"
+            ")) { ++rp_c; goto rp_do_$n$; }  // another element of the same field\n",
+            {{"n", n}, {"w", tf.thread_wire}});
+        detail::emit_thread_probes(p, threaded, i);
+        p.print("continue;\n");
+        p.outdent();
+        p.print("}\n");
+        if (tf.packable) {
+            p.print("rp_do_$n$_p: {\n", {{"n", n}});
+            p.indent();
+            hooks.emit_packed_body(tf);
+            detail::emit_thread_probes(p, threaded, i);
+            p.print("continue;\n");
+            p.outdent();
+            p.print("}\n");
+        }
+    }
+    p.print("rp_field_general:;\n");
+}
+
+// Emit the general-switch routing case for ONE threaded field: a wire-guarded goto into its (shared)
+// tag-consumed label, NOT a full arm and NOT a bare skip. read_tag_or_end has already consumed the
+// tag (possibly a multi-byte / non-minimal encoding that missed the 1-byte hub), so on the expected
+// wire type jump straight to the label; a wrong wire type `break`s to the shared skip. Carries both
+// 2-byte-tag threaded fields (never in the hub) and the rare non-minimally-encoded tag of a 1-byte
+// threaded field -- with zero body duplication, and no silent drop.
+inline void emit_threaded_general_case(Printer& p, const ThreadField& tf) {
+    const std::string n = std::to_string(tf.number);
+    if (tf.repeated && tf.packable) {
+        p.print(
+            "case $n$: { if (rp_tag.wire_type == ::rapidproto::WireType::$w$)"
+            " { goto rp_do_$n$; } if (rp_tag.wire_type == ::rapidproto::WireType::Len)"
+            " { goto rp_do_$n$_p; } break; }\n",
+            {{"n", n}, {"w", tf.thread_wire}});
+    } else {
+        p.print(
+            "case $n$: { if (rp_tag.wire_type == ::rapidproto::WireType::$w$)"
+            " { goto rp_do_$n$; } break; }\n",
+            {{"n", n}, {"w", tf.thread_wire}});
+    }
 }
 
 }  // namespace rapidproto::codegen

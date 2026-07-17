@@ -6,7 +6,6 @@
 #include <cassert>
 #include <cctype>
 #include <cstddef>
-#include <cstdint>
 #include <cstdio>
 #include <string>
 #include <string_view>
@@ -24,7 +23,6 @@
 #include "rapidproto/codegen/wire.hpp"
 #include "rapidproto/resolve.hpp"
 #include "rapidproto/resolver.hpp"
-#include "rapidproto/runtime.hpp"  // WireType, for composing 2-byte tag bytes at codegen time
 #include "rapidproto/version.hpp"
 
 namespace rapidproto::arenagen {
@@ -1483,9 +1481,8 @@ void emit_oneof_arm(const Emit& emit, const OneofPlan& o, const OneofMemberPlan&
 // the raw-byte fast path handles: a singular scalar/enum/string (not a sub-message or group) or a
 // non-group repeated field. Everything else (messages, groups, raw, maps, oneofs, field 16+) stays on
 // the general path. Kept as one predicate so the fast switch and the general switch partition alike.
-constexpr std::int32_t kMaxOneByteTagField = 15;
 bool is_fast_arena_field(const MemberPlan& m, const FieldNode& field) {
-    if (field.number > kMaxOneByteTagField) {
+    if (field.number > codegen::kMaxOneByteTagField) {
         return false;
     }
     if (field.is_repeated) {
@@ -1499,20 +1496,17 @@ bool is_fast_arena_field(const MemberPlan& m, const FieldNode& field) {
 // but THREADED -- it gets a tag-consumed rp_do_<n> label. Groups (delimited) are excluded: their
 // scan-based decode is not a simple peek-and-consume.
 bool is_threadable_message(const MemberPlan& m, const FieldNode& field) {
-    return field.number <= kMaxOneByteTagField && !field.is_repeated &&
+    return field.number <= codegen::kMaxOneByteTagField && !field.is_repeated &&
            (m.kind == FieldKind::InlineFixedSubMsg || m.kind == FieldKind::PointerSubMsg) &&
            field.message_encoding != MessageEncoding::Delimited;
 }
-
-// Field numbers 16..2047 carry a 2-byte tag (read_tag_or_end's fused 2-byte path). Above that, 3+ bytes.
-constexpr std::int32_t kMaxTwoByteTagField = 2047;
 
 // A SINGULAR scalar/enum/string/LEN-message field with a 2-byte tag: threaded (it gets a rp_do_<n>
 // label), but the 1-byte hub can't see it -- it is reached via the general path (a wire-guarded goto)
 // or a 2-byte successor probe. Repeated 2-byte fields and groups stay on the general path (not threaded).
 bool is_threadable_2byte(const MemberPlan& m, const FieldNode& field) {
-    if (field.number <= kMaxOneByteTagField || field.number > kMaxTwoByteTagField ||
-        field.is_repeated) {
+    if (field.number <= codegen::kMaxOneByteTagField ||
+        field.number > codegen::kMaxTwoByteTagField || field.is_repeated) {
         return false;
     }
     const bool scalar = m.kind == FieldKind::InlineScalar || m.kind == FieldKind::InlineEnum ||
@@ -1528,29 +1522,6 @@ bool is_threadable_2byte(const MemberPlan& m, const FieldNode& field) {
 bool is_threaded(const MemberPlan& m, const FieldNode& field) {
     return is_fast_arena_field(m, field) || is_threadable_message(m, field) ||
            is_threadable_2byte(m, field);
-}
-
-// Wire-tag varint encoding constants (see raw_tag / the base-128 varint format), for composing a
-// 2-byte tag's two bytes at codegen time: tag = (field_number << kTagFieldShift) | wire.
-constexpr int kTagFieldShift = 3;      // low 3 bits of a tag are the wire type
-constexpr int kVarintShift = 7;        // each varint byte carries 7 payload bits
-constexpr int kVarintPayload = 0x7F;   // low 7 bits of a varint byte
-constexpr int kVarintContinue = 0x80;  // high bit set == "more bytes follow"
-
-// The numeric WireType value for a wire enumerator name (to compose a raw 2-byte tag's bytes). Uses
-// the runtime enum's own values, so it can never drift from WireType.
-int wire_enum_num(const std::string& w) {
-    if (w == "I64") {
-        return static_cast<int>(::rapidproto::WireType::I64);
-    }
-    if (w == "Len") {
-        return static_cast<int>(::rapidproto::WireType::Len);
-    }
-    if (w == "I32") {
-        return static_cast<int>(::rapidproto::WireType::I32);
-    }
-    // Varint (and any non-2-byte-threaded wire, unused here)
-    return static_cast<int>(::rapidproto::WireType::Varint);
 }
 
 // The WireType enumerator name a fast singular field's 1-byte tag carries.
@@ -1672,127 +1643,48 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
     // removes body duplication AND correctly decodes a non-minimally-encoded tag (hub miss -> general
     // -> wire guard -> label). A wrong-wire tag `break`s to the shared skip, exactly as an untouched
     // field would. End must break (not return) so the post-loop required-field checks still run.
-    std::vector<const MemberPlan*>
-        threadable;  // declaration order (ascending), so probes thread order
+    // The threaded fields in declaration order (ascending), so probes thread that order. Kept
+    // alongside a parallel MemberPlan lookup so the body hooks can recover the arena-specific plan
+    // from the generator-agnostic codegen::ThreadField the shape generator hands back.
+    std::vector<codegen::ThreadField> threaded;
+    std::unordered_map<int, const MemberPlan*> threaded_plan;
     for (const FieldNode& f : message.fields) {
         const auto it = by_node.find(&f);
-        if (it != by_node.end() && it->second->kind != FieldKind::Raw &&
-            is_threaded(*it->second, f)) {
-            threadable.push_back(it->second);
+        if (it == by_node.end() || it->second->kind == FieldKind::Raw ||
+            !is_threaded(*it->second, f)) {
+            continue;
         }
+        const MemberPlan* m = it->second;
+        const std::string tw = primary_fast_wire(*m);  // singular canonical / repeated element wire
+        const bool packable = f.is_repeated && codegen::is_packable_wire(tw);
+        threaded.push_back({f.number, f.is_repeated, packable, tw});
+        threaded_plan.emplace(f.number, m);
     }
     const auto is_msg_kind = [](const MemberPlan& m) {
         return m.kind == FieldKind::InlineFixedSubMsg || m.kind == FieldKind::PointerSubMsg;
     };
-    if (!threadable.empty()) {
-        // Depth-2 successor probe: from threadable[i], try the next / next-but-one field's THREAD tag,
-        // consuming the tag before the goto (the labels are tag-consumed). 1-byte successor: compare the
-        // single tag byte, `++rp_c`. 2-byte successor: compare both tag bytes, `rp_c += 2`. Ascending
-        // order puts the 1-byte fields first, so the cheaper 1-byte probes carry the hot run.
-        const auto emit_probes = [&](std::size_t i) {
-            for (std::size_t d = 1; d <= 2 && i + d < threadable.size(); ++d) {
-                const MemberPlan* s = threadable[i + d];
-                const std::string n = std::to_string(s->field->number);
-                if (s->field->number <= kMaxOneByteTagField) {
-                    p.print(
-                        "if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag($n$,"
-                        " ::rapidproto::WireType::$w$)) { ++rp_c; goto rp_do_$n$; }\n",
-                        {{"n", n}, {"w", primary_fast_wire(*s)}});
-                } else {
-                    const int v =
-                        (s->field->number << kTagFieldShift) | wire_enum_num(primary_fast_wire(*s));
-                    p.print(
-                        "if (rp_c + 1 < rp_cend && rp_c[0] == $b0$ && rp_c[1] == $b1$)"
-                        " { rp_c += 2; goto rp_do_$n$; }\n",
-                        {{"n", n},
-                         {"b0", std::to_string((v & kVarintPayload) | kVarintContinue)},
-                         {"b1", std::to_string(v >> kVarintShift)}});
-                }
-            }
-        };
-        // Hub: a 1-byte peek switch. Only 1-byte-tag threaded fields appear (a 2-byte-tag field enters
-        // via the general path). Each case consumes the peeked byte, then jumps to the tag-consumed
-        // label. A miss (multi-byte tag, unknown field, wrong wire type, or a non-minimal encoding of a
-        // threaded field's tag) falls to the general path.
-        p.print("if (rp_c >= rp_cend) { break; }\n");
-        p.print("switch (*rp_c) {  // peek the 1-byte tag; threaded fields jump to their label\n");
-        p.indent();
-        for (const MemberPlan* m : threadable) {
-            if (m->field->number > kMaxOneByteTagField) {
-                continue;  // 2-byte tag: entered via the general path / a 2-byte probe, not the hub
-            }
-            const std::string n = std::to_string(m->field->number);
-            if (m->field->is_repeated) {
-                const std::string ew = elem_wire_enum(*m->field);
-                p.print(
-                    "case ::rapidproto::raw_tag($n$, ::rapidproto::WireType::$w$): ++rp_c; goto "
-                    "rp_do_$n$;\n",
-                    {{"n", n}, {"w", ew}});
-                if (codegen::is_packable_wire(ew)) {
-                    p.print(
-                        "case ::rapidproto::raw_tag($n$, ::rapidproto::WireType::Len): ++rp_c; "
-                        "goto "
-                        "rp_do_$n$_p;\n",
-                        {{"n", n}});
-                }
+    // The identical decode-loop SHAPE (hub, tag-consumed labels, depth-2 probes, general-case routing)
+    // is shared with streamgen via codegen::emit_hub_and_labels; only the per-field label BODY differs,
+    // supplied here as arena body emitters. End must break (not return) so the post-loop required-field
+    // checks still run.
+    codegen::ThreadedLoopHooks hooks;
+    hooks.emit_body = [&](const codegen::ThreadField& tf) {
+        const MemberPlan* m = threaded_plan.at(tf.number);
+        if (!tf.repeated) {
+            if (is_msg_kind(*m)) {
+                emit_message_decode_body(emit, layout, *m, required_bit);
             } else {
-                p.print(
-                    "case ::rapidproto::raw_tag($n$, ::rapidproto::WireType::$w$): ++rp_c; goto "
-                    "rp_do_$n$;\n",
-                    {{"n", n}, {"w", primary_fast_wire(*m)}});
+                emit_fast_singular_value(emit, layout, *m, required_bit);
             }
-        }
-        p.print("default: break;\n");
-        p.outdent();
-        p.print("}\n");
-        p.print("goto rp_field_general;\n");
-        // Tag-consumed labels, one per threaded field (declaration order). Each decodes its value, then
-        // runs the successor probe (and, for repeated, a self-loop) before falling to `continue`.
-        for (std::size_t i = 0; i < threadable.size(); ++i) {
-            const MemberPlan* m = threadable[i];
-            const std::string n = std::to_string(m->field->number);
-            if (!m->field->is_repeated) {
-                p.print("rp_do_$n$: {\n", {{"n", n}});
-                p.indent();
-                if (is_msg_kind(*m)) {
-                    emit_message_decode_body(emit, layout, *m, required_bit);
-                } else {
-                    emit_fast_singular_value(emit, layout, *m, required_bit);
-                }
-                emit_probes(i);
-                p.print("continue;\n");
-                p.outdent();
-                p.print("}\n");
-                continue;
-            }
-            // Repeated: the native-element label self-loops on its own element tag (consuming it), then
-            // probes successors. The packed form gets its own tag-consumed label rp_do_<n>_p.
-            const std::string ew = elem_wire_enum(*m->field);
-            p.print("rp_do_$n$: {\n", {{"n", n}});
-            p.indent();
+        } else {
             emit_repeated_element(emit, *m->field);
-            p.print(
-                "if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag($n$, "
-                "::rapidproto::WireType::$w$"
-                ")) { ++rp_c; goto rp_do_$n$; }  // another element of the same field\n",
-                {{"n", n}, {"w", ew}});
-            emit_probes(i);
-            p.print("continue;\n");
-            p.outdent();
-            p.print("}\n");
-            if (codegen::is_packable_wire(ew)) {
-                p.print("rp_do_$n$_p: {\n", {{"n", n}});
-                p.indent();
-                emit_vt_len_read(emit, "rp_p");
-                emit_packed_fill(emit, *m->field);
-                emit_probes(i);
-                p.print("continue;\n");
-                p.outdent();
-                p.print("}\n");
-            }
         }
-        p.print("rp_field_general:;\n");
-    }
+    };
+    hooks.emit_packed_body = [&](const codegen::ThreadField& tf) {
+        emit_vt_len_read(emit, "rp_p");
+        emit_packed_fill(emit, *threaded_plan.at(tf.number)->field);
+    };
+    codegen::emit_hub_and_labels(p, threaded, hooks, "break;");
     // General path: multi-byte tags, unknown fields, wrong wire types, groups, messages, raw, maps,
     // oneofs, and the wire-guarded-goto routing for the threaded fields above.
     // Fused end-or-tag read: one bounds check drives the loop (see WireReader::read_tag_or_end).
@@ -1825,28 +1717,9 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
         // 2-byte-tag threaded fields (never in the hub) and the rare non-minimally-encoded tag of a
         // 1-byte threaded field -- with zero body duplication, and no silent drop.
         if (it->second->kind != FieldKind::Raw && is_threaded(*it->second, f)) {
-            const MemberPlan& m = *it->second;
-            const std::string n = std::to_string(f.number);
-            if (f.is_repeated) {
-                const std::string ew = elem_wire_enum(f);
-                if (codegen::is_packable_wire(ew)) {
-                    p.print(
-                        "case $n$: { if (rp_tag.wire_type == ::rapidproto::WireType::$w$)"
-                        " { goto rp_do_$n$; } if (rp_tag.wire_type == ::rapidproto::WireType::Len)"
-                        " { goto rp_do_$n$_p; } break; }\n",
-                        {{"n", n}, {"w", ew}});
-                } else {
-                    p.print(
-                        "case $n$: { if (rp_tag.wire_type == ::rapidproto::WireType::$w$)"
-                        " { goto rp_do_$n$; } break; }\n",
-                        {{"n", n}, {"w", ew}});
-                }
-            } else {
-                p.print(
-                    "case $n$: { if (rp_tag.wire_type == ::rapidproto::WireType::$w$)"
-                    " { goto rp_do_$n$; } break; }\n",
-                    {{"n", n}, {"w", primary_fast_wire(m)}});
-            }
+            const std::string tw = primary_fast_wire(*it->second);
+            codegen::emit_threaded_general_case(
+                p, {f.number, f.is_repeated, f.is_repeated && codegen::is_packable_wire(tw), tw});
         } else if (it->second->kind == FieldKind::Raw) {
             emit_raw_arm(emit, layout, *it->second, required_bit);
         } else if (f.is_repeated) {
