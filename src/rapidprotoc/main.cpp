@@ -27,6 +27,7 @@
 #include "rapidproto/arenagen/runtime_embedded.hpp"
 #include "rapidproto/cli/driver.hpp"
 #include "rapidproto/codegen/emit.hpp"
+#include "rapidproto/debuggen/generator.hpp"
 #include "rapidproto/codegen/naming.hpp"
 #include "rapidproto/codegen/runtime_embedded.hpp"
 #include "rapidproto/streamgen/generator.hpp"
@@ -54,6 +55,7 @@ int main(int argc, char** argv) {
         "  --version                print the version\n";
     bool arena = false;
     bool stream = false;
+    bool debug = false;  // PoC: emit <stem>.rp.debug.hpp alongside the arena header
     std::vector<std::string> modes_files;
     rapidproto::arenagen::FieldModesSpec
         modes_spec;  // direct --drop/--raw/--unknown + file entries
@@ -68,6 +70,11 @@ int main(int argc, char** argv) {
         }
         if (arg == "--stream") {
             stream = true;
+            return true;
+        }
+        if (arg == "--debug") {  // PoC debug dumper (implies --arena; needs the arena header)
+            debug = true;
+            arena = true;
             return true;
         }
         if (arg == "--unknown-present") {
@@ -188,6 +195,12 @@ int main(int argc, char** argv) {
             !rapidproto::cli::write_header(
                 opts->out_dir, file, ".rp.stream.hpp",
                 rapidproto::streamgen::generate_header(file, names_stream), opts->verbose)) {
+            return 1;
+        }
+        if (debug && !rapidproto::cli::write_header(
+                         opts->out_dir, file, ".rp.debug.hpp",
+                         rapidproto::debuggen::generate_header(file, names, symbols),
+                         opts->verbose)) {
             return 1;
         }
     }

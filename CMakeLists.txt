@@ -174,6 +174,7 @@ add_library(rapidproto_arenagen_lib STATIC
   src/arenagen/layout.cpp
   src/arenagen/modes.cpp
   src/arenagen/generator.cpp
+  src/debuggen/generator.cpp
   ${ARENA_RUNTIME_EMBEDDED_CPP})
 target_link_libraries(rapidproto_arenagen_lib PUBLIC rapidproto_lib rapidproto_codegen_lib
                                               PRIVATE rapidproto_strict)
