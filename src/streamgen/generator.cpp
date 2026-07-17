@@ -7,6 +7,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -502,61 +503,56 @@ void emit_arm(Printer& printer, const std::string& fname, const FieldGen& gen, b
     printer.outdent();
 }
 
-// A field whose whole tag is a single byte -- number 1..15 ((15 << 3) | 7 == 127 < 128; field 16+
-// needs two bytes) and not a group (a group's read needs the field number the fast path does not
-// materialize). These get a raw-byte fast-path arm for their canonical tag. The general switch carries
-// every field's arm regardless, so a fast field with a non-minimally-encoded tag (which misses the
-// fast switch) still decodes there.
-constexpr std::int32_t kMaxOneByteTagField = 15;
-bool is_fast_tag_field(const FieldNode& field, const FieldGen& gen) {
-    return field.number <= kMaxOneByteTagField && gen.wire_type != "SGroup";
+// Emit a skip of ONE value whose wire type is a COMPILE-TIME constant `wire` (a threaded field's
+// thread_wire, or Len for a packed payload) from the main cursor rp_c. Unlike the shared skip_value
+// site -- which re-dispatches on the runtime tag's wire type -- this threads no Tag and emits the
+// single matching reader inline, so the hot sparse-extract path (skip the fields with no callback) has
+// no per-value wire switch. On a malformed read, `return`s the wire-error DecodeStatus (offset rp_c -
+// begin, the reader's own fail cursor). `wire` is only ever Varint / Len / I32 / I64 here (a threaded
+// field is never a group).
+void emit_vt_skip(Printer& printer, std::string_view wire) {
+    const std::string fail =
+        "if (rp_sp == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false,"
+        " static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(m_bytes))}; }\n";
+    if (wire == "Len") {
+        printer.print("::rapidproto::ByteView rp_skipview;\n");
+        printer.print(
+            "const std::uint8_t* const rp_sp ="
+            " ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_skipview, &rp_we);\n");
+    } else if (wire == "I32") {
+        printer.print("std::uint32_t rp_skip = 0;\n");
+        printer.print(
+            "const std::uint8_t* const rp_sp ="
+            " ::rapidproto::wire::read_fixed32(rp_c, rp_cend, &rp_skip, &rp_we);\n");
+    } else if (wire == "I64") {
+        printer.print("std::uint64_t rp_skip = 0;\n");
+        printer.print(
+            "const std::uint8_t* const rp_sp ="
+            " ::rapidproto::wire::read_fixed64(rp_c, rp_cend, &rp_skip, &rp_we);\n");
+    } else {  // Varint
+        printer.print("std::uint64_t rp_skip = 0;\n");
+        printer.print(
+            "const std::uint8_t* const rp_sp ="
+            " ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_skip, &rp_we);\n");
+    }
+    printer.print(fail);
+    printer.print("rp_c = rp_sp;\n");
 }
 
-// Fast-path arm for the raw-byte tag switch (see emit_decode_def). A field whose whole tag fits in
-// one byte (number 1..15) becomes a `case raw_tag(number, wire):` over WireReader::peek_byte() -- the
-// wire-type check is folded into the case label, and the common tag is dispatched without splitting
-// field/wire. A matched, handled field consumes the tag byte and decodes; if the field has no
-// callback, `break` drops to the general path below, which skips it (so behavior is unchanged). A
-// repeated packable field also gets a Len case for its packed form. Group fields are left to the
-// general path (their read_group needs the field number the fast path does not materialize).
-void emit_fast_arm(Printer& printer, const std::string& fname, const FieldGen& gen, bool repeated) {
-    const bool packable = codegen::is_packable_wire(gen.wire_type);
-    const char* const guard =
-        "if constexpr ((false || ... ||"
-        " ::rapidproto::handles_one<Callbacks, $f$, $f$::Value>)) {\n";
-
-    printer.print("case ::rapidproto::raw_tag($f$::kNumber, ::rapidproto::WireType::$wt$):\n",
-                  {{"f", fname}, {"wt", gen.wire_type}});
-    printer.indent();
-    // Same per-callback guards as the general arm, emitted before invoke_field so a callback misuse
-    // (e.g. two catch-alls) reports the intended static_assert rather than a downstream ambiguity.
-    codegen::emit_dispatch_guards(printer, "Callbacks", fname + ", " + fname + "::Value",
-                                  "field '" + fname + "'", fname + "::Value");
-    printer.print(guard, {{"f", fname}});
-    printer.indent();
-    printer.print("++rp_c;  // consume the peeked 1-byte tag\n");
-    emit_decode_and_invoke(printer, fname, gen, "rp_c", "rp_cend",
-                           "::rapidproto::wire::byte_ptr(m_bytes)");
-    printer.print("continue;\n");
-    printer.outdent();
-    printer.print("}\n");
-    printer.print("break;\n");  // no callback -> fall to the general path, which skips it
-    printer.outdent();
-
-    if (repeated && packable) {  // packed form: a LEN payload of back-to-back elements.
-        printer.print("case ::rapidproto::raw_tag($f$::kNumber, ::rapidproto::WireType::Len):\n",
-                      {{"f", fname}});
-        printer.indent();
-        printer.print(guard, {{"f", fname}});
-        printer.indent();
-        printer.print("++rp_c;  // consume the peeked 1-byte tag\n");
-        emit_packed_body(printer, fname, gen);
-        printer.print("continue;\n");
-        printer.outdent();
-        printer.print("}\n");
-        printer.print("break;\n");
-        printer.outdent();
+// A field is THREADED (gets a tag-consumed rp_do_<n> label routed by field-order threading) iff it is
+// not a group (SGroup wire; a group's scan-based decode is not a simple peek-and-consume) AND either
+// singular with a 1- or 2-byte tag (number 1..kMaxTwoByteTagField) or repeated with a 1-byte tag
+// (number 1..kMaxOneByteTagField). Repeated 2-byte fields and groups keep their general-path arm.
+// Mirrors the arena generator's threadable set. The general switch carries every threaded field a
+// wire-guarded goto regardless, so a non-minimally-encoded tag (which misses the 1-byte hub) still
+// decodes.
+bool is_threaded_field(const FieldNode& field, const FieldGen& gen) {
+    if (gen.wire_type == "SGroup") {
+        return false;
     }
+    const std::int32_t max =
+        field.is_repeated ? codegen::kMaxOneByteTagField : codegen::kMaxTwoByteTagField;
+    return field.number >= 1 && field.number <= max;
 }
 
 // Out-of-line decode() definition for `message` (whose C++ name, qualified within the namespace, is
@@ -599,27 +595,74 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
     printer.print("::rapidproto::WireError rp_we = ::rapidproto::WireError::None;\n");
     printer.print("for (;;) {\n");
     printer.indent();
-    // Fast path: a raw-byte switch dispatches single-byte-tag fields (is_fast_tag_field) without
-    // splitting field/wire (see emit_fast_arm). A miss (multi-byte tag, unknown field, wrong wire type,
-    // or a NON-minimal encoding of a fast field's tag) breaks to the general path below, where the
-    // field's real decode arm handles it (see the general switch).
-    std::vector<std::pair<const FieldNode*, FieldGen>> fast;
+    // Field-order threading (always on): each threaded field (is_threaded_field) gets ONE tag-consumed
+    // label rp_do_<n>: the tag is consumed on entry, the body decodes-or-skips the value (no `case`, no
+    // wire guard, no tag `++rp_c`). Entries reach a label three ways, all consuming the tag FIRST:
+    //   - the hub (a 1-byte peek `switch(*rp_c)`) for 1-byte-tag fields: `++rp_c; goto rp_do_n;`;
+    //   - the general switch (a wire-guarded goto) for a non-minimal (over-long) or 2-byte tag, after
+    //     read_tag_or_end already consumed the tag;
+    //   - a depth-2 constant-tag successor probe / repeated self-loop at the end of each label.
+    // Unlike the arena decoder, a streaming label's body is gated on whether THIS instantiation supplies
+    // a callback for the field (handles_one): handled -> decode+invoke; else -> skip the value (a
+    // compile-time-wire skip, no runtime dispatch). A threaded label is a goto target with NO rp_tag set
+    // and a statically-known wire, so it must skip the value itself when unhandled.
+    // The threaded fields in declaration order (ascending), so probes thread that order; a parallel
+    // number->(field,gen) map recovers the streaming decode facts inside the body hooks.
+    std::vector<codegen::ThreadField> threaded;
+    std::unordered_map<int, std::pair<const FieldNode*, FieldGen>> threaded_gen;
     for (const auto& [field, gen] : fields) {
-        if (is_fast_tag_field(*field, gen)) {
-            fast.emplace_back(field, gen);
+        if (!is_threaded_field(*field, gen)) {
+            continue;
         }
+        const bool packable = field->is_repeated && codegen::is_packable_wire(gen.wire_type);
+        threaded.push_back(
+            {field->number, field->is_repeated, packable, std::string(gen.wire_type)});
+        threaded_gen.emplace(field->number, std::make_pair(field, gen));
     }
-    if (!fast.empty()) {
-        printer.print("if (rp_c >= rp_cend) { return ::rapidproto::DecodeStatus::success(); }\n");
-        printer.print("switch (*rp_c) {  // peek the 1-byte tag without consuming\n");
+    // The identical decode-loop SHAPE (hub, tag-consumed labels, depth-2 probes, general-case routing)
+    // is shared with arenagen via codegen::emit_hub_and_labels; only the per-field label BODY differs,
+    // supplied here as streaming body emitters (the handles_one gate + native decode / value skip).
+    codegen::ThreadedLoopHooks hooks;
+    hooks.emit_body = [&](const codegen::ThreadField& tf) {
+        const auto& [field, gen] = threaded_gen.at(tf.number);
+        const std::string fname = symbols.local.at(field);
+        // The stray-callback / wrong-wire guards, emitted once per field: a threaded field has no
+        // general-switch arm, so this label body is the sole site for them.
+        codegen::emit_dispatch_guards(printer, "Callbacks", fname + ", " + fname + "::Value",
+                                      "field '" + fname + "'", fname + "::Value");
+        printer.print(
+            "if constexpr ((false || ... ||"
+            " ::rapidproto::handles_one<Callbacks, $f$, $f$::Value>)) {\n",
+            {{"f", fname}});
         printer.indent();
-        for (const auto& [field, gen] : fast) {
-            emit_fast_arm(printer, symbols.local.at(field), gen, field->is_repeated);
-        }
-        printer.print("default: break;\n");
+        emit_decode_and_invoke(printer, fname, gen, "rp_c", "rp_cend",
+                               "::rapidproto::wire::byte_ptr(m_bytes)");
+        printer.outdent();
+        printer.print(
+            "} else {  // no callback for this field -> skip its value (compile-time wire)\n");
+        printer.indent();
+        emit_vt_skip(printer, tf.thread_wire);
         printer.outdent();
         printer.print("}\n");
-    }
+    };
+    hooks.emit_packed_body = [&](const codegen::ThreadField& tf) {
+        const auto& [field, gen] = threaded_gen.at(tf.number);
+        const std::string fname = symbols.local.at(field);
+        printer.print(
+            "if constexpr ((false || ... ||"
+            " ::rapidproto::handles_one<Callbacks, $f$, $f$::Value>)) {\n",
+            {{"f", fname}});
+        printer.indent();
+        emit_packed_body(printer, fname, gen);
+        printer.outdent();
+        printer.print("} else {  // no callback -> skip the packed LEN payload\n");
+        printer.indent();
+        emit_vt_skip(printer, "Len");
+        printer.outdent();
+        printer.print("}\n");
+    };
+    codegen::emit_hub_and_labels(printer, threaded, hooks,
+                                 "return ::rapidproto::DecodeStatus::success();");
     // General path: multi-byte tags, unknown fields, wrong wire types, groups, maps.
     // Fused end-or-tag read: one bounds check drives the loop (see WireReader::read_tag_or_end).
     printer.print("::rapidproto::wire::TagState rp_state = ::rapidproto::wire::TagState::End;\n");
@@ -637,13 +680,20 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
     printer.print("switch (rp_tag.field_number) {\n");
     printer.indent();
     for (const auto& [field, gen] : fields) {
-        // A fast field's canonical 1-byte tag is decoded by the peek switch above. A non-minimally
-        // encoded (over-long) varint of that same tag is equally valid protobuf -- the wire spec is
-        // silent on varint minimality and read_varint accepts any varint up to the 10-byte limit -- but
-        // its first byte is >= 0x80, so it misses the 1-byte peek switch and arrives here. This arm
-        // decodes it. The canonical path stays fast in the peek switch; this general arm carries the
-        // rare non-minimal encoding, which need not be fast.
-        emit_arm(printer, symbols.local.at(field), gen, field->is_repeated);
+        // A THREADED field's case here is a wire-guarded goto into its (shared) tag-consumed label, NOT
+        // a full arm and NOT a bare skip. read_tag_or_end has already consumed the tag (possibly a
+        // multi-byte / non-minimal encoding that missed the 1-byte hub), so on the expected wire type
+        // jump straight to the label; a wrong wire type `break`s to the shared skip. This carries both
+        // 2-byte-tag threaded fields (never in the hub) and the rare non-minimally-encoded tag of a
+        // 1-byte threaded field -- with zero body duplication, and no silent drop. Non-threaded fields
+        // (groups, repeated 2-byte) keep their full general arm.
+        if (is_threaded_field(*field, gen)) {
+            const bool packable = field->is_repeated && codegen::is_packable_wire(gen.wire_type);
+            codegen::emit_threaded_general_case(
+                printer, {field->number, field->is_repeated, packable, std::string(gen.wire_type)});
+        } else {
+            emit_arm(printer, symbols.local.at(field), gen, field->is_repeated);
+        }
     }
     for (const auto& map : message.map_fields) {
         emit_map_arm(printer, symbols, map);

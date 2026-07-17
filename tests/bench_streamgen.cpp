@@ -1202,6 +1202,357 @@ int scenario_sparse() {
     return run("sparse-skip", ByteView(buf), arms);
 }
 
+// --- dense vs sparse record dispatch: a RecordSet of scalar-heavy Records (mirrors the arena bench's
+// `scalar records (dispatch-bound)` scenario, bench_arena.cpp make_records/checksum_*_record). Every
+// field is small so per-field cost is dominated by tag DISPATCH, isolating the streaming decoder's
+// dense-materialize (handle every field) vs sparse-extract (handle three, skip the rest) split. -----
+
+// Hand-build the wire for a RecordSet of `count` scalar-heavy Records, identical bytes to protoc's
+// SerializeToString of bench::RecordSet (ascending field order, every field set). Values match
+// bench_arena.cpp make_records so the checksums are directly comparable.
+std::string make_records(int count) {
+    const auto sample = [](std::string& r, int base) {
+        put_tag(r, 1, 0);
+        put_varint(r, static_cast<std::uint64_t>(base & 63));  // a int32
+        put_tag(r, 2, 0);
+        put_varint(r, static_cast<std::uint64_t>((base + 1) & 63));  // b int32
+        put_tag(r, 3, 0);
+        put_varint(r, static_cast<std::uint64_t>((base + 2) & 63));  // c int64
+        put_tag(r, 4, 0);
+        put_varint(r, zigzag64((base + 3) & 63));  // d sint32
+        put_tag(r, 5, 0);
+        put_varint(r, static_cast<std::uint64_t>((base & 1) != 0 ? 1U : 0U));  // e bool
+        put_tag(r, 6, 0);
+        put_varint(r, static_cast<std::uint64_t>((base + 4) & 63));  // f uint32
+    };
+    std::string buf;
+    for (int i = 0; i < count; ++i) {
+        std::string rec;
+        put_tag(rec, 1, 0);
+        put_varint(rec, static_cast<std::uint64_t>(i & 63));  // f1 int32
+        put_tag(rec, 2, 0);
+        put_varint(rec, static_cast<std::uint64_t>((i + 1) & 63));  // f2
+        put_tag(rec, 3, 0);
+        put_varint(rec, static_cast<std::uint64_t>((i + 2) & 63));  // f3
+        put_tag(rec, 4, 0);
+        put_varint(rec, static_cast<std::uint64_t>((i + 3) & 63));  // f4 int64
+        put_tag(rec, 5, 0);
+        put_varint(rec, static_cast<std::uint64_t>((i + 4) & 63));  // f5 uint32
+        put_tag(rec, 6, 0);
+        put_varint(rec, zigzag64((i + 5) & 63));  // f6 sint32
+        put_tag(rec, 7, 0);
+        put_varint(rec, static_cast<std::uint64_t>((i & 1) != 0 ? 1U : 0U));  // f7 bool
+        put_tag(rec, 8, 0);
+        put_varint(rec, static_cast<std::uint64_t>((i + 6) & 63));  // f8 uint64
+        put_tag(rec, 9, 0);
+        put_varint(rec, static_cast<std::uint64_t>((i + 7) & 63));  // f9
+        put_tag(rec, 10, 0);
+        put_varint(rec, static_cast<std::uint64_t>((i + 8) & 63));  // f10
+        put_tag(rec, 11, 0);
+        put_varint(rec, static_cast<std::uint64_t>((i + 9) & 63));  // f11
+        put_tag(rec, 12, 0);
+        put_varint(rec, static_cast<std::uint64_t>((i + 10) & 63));  // f12
+        put_tag(rec, 13, 0);
+        put_varint(rec, static_cast<std::uint64_t>((i + 11) & 63));  // f13
+        put_tag(rec, 14, 0);
+        put_varint(rec, static_cast<std::uint64_t>((i + 12) & 63));  // f14
+        put_tag(rec, 15, 0);
+        put_varint(rec, static_cast<std::uint64_t>((i + 13) & 63));  // f15
+        std::string s1;
+        sample(s1, i + 20);
+        put_tag(rec, 16, 2);  // s1 Sample (LEN)
+        put_varint(rec, s1.size());
+        rec += s1;
+        std::string s2;
+        sample(s2, i + 30);
+        put_tag(rec, 17, 2);  // s2 Sample (LEN)
+        put_varint(rec, s2.size());
+        rec += s2;
+        put_tag(rec, 18, 0);
+        put_varint(rec, static_cast<std::uint64_t>((i + 14) & 63));  // f18
+        put_tag(rec, 19, 0);
+        put_varint(rec, static_cast<std::uint64_t>((i + 15) & 63));  // f19
+        put_tag(rec, 20, 0);
+        put_varint(rec, static_cast<std::uint64_t>((i + 16) & 63));  // f20
+        put_tag(buf, 1, 2);                                          // RecordSet::records (LEN)
+        put_varint(buf, rec.size());
+        buf += rec;
+    }
+    return buf;
+}
+
+// Sum every Sample field into the checksum, mirroring checksum_arena_record's `sample` lambda.
+std::uint64_t wire_sample_sum(ByteView span) {
+    std::uint64_t s = 0;
+    const std::uint8_t* p = wire::byte_ptr(span);
+    const std::uint8_t* const beg = p;
+    const std::uint8_t* const end = p + span.size();
+    WireError we = WireError::None;
+    while (true) {
+        Tag t{};
+        wire::TagState st = wire::TagState::End;
+        p = wire::read_tag_or_end(p, end, &t, &we, &st);
+        if (st != wire::TagState::Tag) {
+            break;
+        }
+        if (t.wire_type == WireType::Varint) {
+            std::uint64_t v = 0;
+            p = wire::read_varint(p, end, &v, &we);
+            if (p == nullptr) {
+                break;
+            }
+            switch (t.field_number) {
+                case 1:  // a int32
+                case 2:  // b int32
+                    s += static_cast<std::uint64_t>(varint_to_int32(v));
+                    break;
+                case 3:  // c int64
+                    s += static_cast<std::uint64_t>(varint_to_int64(v));
+                    break;
+                case 4:  // d sint32
+                    s +=
+                        static_cast<std::uint64_t>(zigzag_decode_32(static_cast<std::uint32_t>(v)));
+                    break;
+                case 5:  // e bool
+                    s += (v != 0) ? 1U : 0U;
+                    break;
+                case 6:  // f uint32
+                    s += static_cast<std::uint32_t>(v);
+                    break;
+                default:
+                    break;
+            }
+        } else {
+            std::size_t fo = 0;
+            p = wire::skip_value(p, end, beg, t, 0, &we, &fo);
+            if (p == nullptr) {
+                break;
+            }
+        }
+    }
+    return s;
+}
+
+// Sum every Record field (f1..f15, f18..f20) plus both nested Samples, mirroring
+// checksum_arena_record / checksum_protoc_record's widening exactly.
+std::uint64_t wire_record_sum_dense(ByteView span) {
+    std::uint64_t s = 0;
+    const std::uint8_t* p = wire::byte_ptr(span);
+    const std::uint8_t* const beg = p;
+    const std::uint8_t* const end = p + span.size();
+    WireError we = WireError::None;
+    while (true) {
+        Tag t{};
+        wire::TagState st = wire::TagState::End;
+        p = wire::read_tag_or_end(p, end, &t, &we, &st);
+        if (st != wire::TagState::Tag) {
+            break;
+        }
+        if (t.wire_type == WireType::Varint) {
+            std::uint64_t v = 0;
+            p = wire::read_varint(p, end, &v, &we);
+            if (p == nullptr) {
+                break;
+            }
+            switch (t.field_number) {
+                case 6:  // f6 sint32
+                    s +=
+                        static_cast<std::uint64_t>(zigzag_decode_32(static_cast<std::uint32_t>(v)));
+                    break;
+                case 7:  // f7 bool
+                    s += (v != 0) ? 1U : 0U;
+                    break;
+                case 5:  // f5 uint32
+                    s += static_cast<std::uint32_t>(v);
+                    break;
+                case 8:  // f8 uint64
+                    s += v;
+                    break;
+                case 4:  // f4 int64
+                    s += static_cast<std::uint64_t>(varint_to_int64(v));
+                    break;
+                default:  // f1..f3, f9..f15, f18..f20 int32
+                    s += static_cast<std::uint64_t>(varint_to_int32(v));
+                    break;
+            }
+        } else if (t.wire_type == WireType::Len &&
+                   (t.field_number == 16 || t.field_number == 17)) {  // s1 / s2 Sample
+            ByteView sub;
+            p = wire::read_length_delimited(p, end, &sub, &we);
+            if (p == nullptr) {
+                break;
+            }
+            s += wire_sample_sum(sub);
+        } else {
+            std::size_t fo = 0;
+            p = wire::skip_value(p, end, beg, t, 0, &we, &fo);
+            if (p == nullptr) {
+                break;
+            }
+        }
+    }
+    return s;
+}
+
+// dense-materialize: the generated decoder handles EVERY Record field and both nested Samples.
+int scenario_records_dense() {
+    const std::string buf = make_records(20000);
+    const Arm arms[] = {
+        {"generated",
+         [](ByteView b) -> std::uint64_t {
+             using rp::bench::stream::Record;
+             using rp::bench::stream::RecordSet;
+             using rp::bench::stream::Sample;
+             std::uint64_t s = 0;
+             const auto sample = [&](Sample sub) {
+                 (void)sub.decode(
+                     [&](Sample::a, std::int32_t v) { s += static_cast<std::uint64_t>(v); },
+                     [&](Sample::b, std::int32_t v) { s += static_cast<std::uint64_t>(v); },
+                     [&](Sample::c, std::int64_t v) { s += static_cast<std::uint64_t>(v); },
+                     [&](Sample::d, std::int32_t v) { s += static_cast<std::uint64_t>(v); },
+                     [&](Sample::e, bool v) { s += v ? 1U : 0U; },
+                     [&](Sample::f, std::uint32_t v) { s += v; });
+             };
+             (void)RecordSet{b}.decode([&](RecordSet::records, Record r) {
+                 (void)r.decode(
+                     [&](Record::f1, std::int32_t v) { s += static_cast<std::uint64_t>(v); },
+                     [&](Record::f2, std::int32_t v) { s += static_cast<std::uint64_t>(v); },
+                     [&](Record::f3, std::int32_t v) { s += static_cast<std::uint64_t>(v); },
+                     [&](Record::f4, std::int64_t v) { s += static_cast<std::uint64_t>(v); },
+                     [&](Record::f5, std::uint32_t v) { s += v; },
+                     [&](Record::f6, std::int32_t v) { s += static_cast<std::uint64_t>(v); },
+                     [&](Record::f7, bool v) { s += v ? 1U : 0U; },
+                     [&](Record::f8, std::uint64_t v) { s += v; },
+                     [&](Record::f9, std::int32_t v) { s += static_cast<std::uint64_t>(v); },
+                     [&](Record::f10, std::int32_t v) { s += static_cast<std::uint64_t>(v); },
+                     [&](Record::f11, std::int32_t v) { s += static_cast<std::uint64_t>(v); },
+                     [&](Record::f12, std::int32_t v) { s += static_cast<std::uint64_t>(v); },
+                     [&](Record::f13, std::int32_t v) { s += static_cast<std::uint64_t>(v); },
+                     [&](Record::f14, std::int32_t v) { s += static_cast<std::uint64_t>(v); },
+                     [&](Record::f15, std::int32_t v) { s += static_cast<std::uint64_t>(v); },
+                     [&](Record::s1, Sample sub) { sample(sub); },
+                     [&](Record::s2, Sample sub) { sample(sub); },
+                     [&](Record::f18, std::int32_t v) { s += static_cast<std::uint64_t>(v); },
+                     [&](Record::f19, std::int32_t v) { s += static_cast<std::uint64_t>(v); },
+                     [&](Record::f20, std::int32_t v) { s += static_cast<std::uint64_t>(v); });
+             });
+             return s;
+         }},
+        {"wire",
+         [](ByteView b) -> std::uint64_t {
+             std::uint64_t s = 0;
+             const std::uint8_t* p = wire::byte_ptr(b);
+             const std::uint8_t* const beg = p;
+             const std::uint8_t* const end = p + b.size();
+             WireError we = WireError::None;
+             while (true) {
+                 Tag t{};
+                 wire::TagState st = wire::TagState::End;
+                 p = wire::read_tag_or_end(p, end, &t, &we, &st);
+                 if (st != wire::TagState::Tag) {
+                     break;
+                 }
+                 if (t.field_number == 1 && t.wire_type == WireType::Len) {  // records
+                     ByteView rec;
+                     p = wire::read_length_delimited(p, end, &rec, &we);
+                     if (p == nullptr) {
+                         break;
+                     }
+                     s += wire_record_sum_dense(rec);
+                 } else {
+                     std::size_t fo = 0;
+                     p = wire::skip_value(p, end, beg, t, 0, &we, &fo);
+                     if (p == nullptr) {
+                         break;
+                     }
+                 }
+             }
+             return s;
+         }},
+    };
+    return run("records dense (stream)", ByteView(buf), arms);
+}
+
+// sparse-extract: the generated decoder handles ONLY f1, f10, f20; it gives no callbacks for the
+// other ~17 Record fields and never descends into s1/s2 -- the decoder's per-wire skip handles the
+// rest. This is the case where most fields are skipped.
+int scenario_records_sparse() {
+    const std::string buf = make_records(20000);
+    const Arm arms[] = {
+        {"generated",
+         [](ByteView b) -> std::uint64_t {
+             using rp::bench::stream::Record;
+             using rp::bench::stream::RecordSet;
+             std::uint64_t s = 0;
+             (void)RecordSet{b}.decode([&](RecordSet::records, Record r) {
+                 (void)r.decode(
+                     [&](Record::f1, std::int32_t v) { s += static_cast<std::uint64_t>(v); },
+                     [&](Record::f10, std::int32_t v) { s += static_cast<std::uint64_t>(v); },
+                     [&](Record::f20, std::int32_t v) { s += static_cast<std::uint64_t>(v); });
+             });
+             return s;
+         }},
+        {"wire",
+         [](ByteView b) -> std::uint64_t {
+             std::uint64_t s = 0;
+             const std::uint8_t* p = wire::byte_ptr(b);
+             const std::uint8_t* const beg = p;
+             const std::uint8_t* const end = p + b.size();
+             WireError we = WireError::None;
+             while (true) {
+                 Tag t{};
+                 wire::TagState st = wire::TagState::End;
+                 p = wire::read_tag_or_end(p, end, &t, &we, &st);
+                 if (st != wire::TagState::Tag) {
+                     break;
+                 }
+                 if (t.field_number == 1 && t.wire_type == WireType::Len) {  // records
+                     ByteView rec;
+                     p = wire::read_length_delimited(p, end, &rec, &we);
+                     if (p == nullptr) {
+                         break;
+                     }
+                     const std::uint8_t* rp = wire::byte_ptr(rec);
+                     const std::uint8_t* const rbeg = rp;
+                     const std::uint8_t* const rend = rp + rec.size();
+                     while (true) {
+                         Tag rt{};
+                         wire::TagState rst = wire::TagState::End;
+                         rp = wire::read_tag_or_end(rp, rend, &rt, &we, &rst);
+                         if (rst != wire::TagState::Tag) {
+                             break;
+                         }
+                         if ((rt.field_number == 1 || rt.field_number == 10 ||
+                              rt.field_number == 20) &&
+                             rt.wire_type == WireType::Varint) {
+                             std::uint64_t v = 0;
+                             rp = wire::read_varint(rp, rend, &v, &we);
+                             if (rp == nullptr) {
+                                 break;
+                             }
+                             s += static_cast<std::uint64_t>(varint_to_int32(v));
+                         } else {
+                             std::size_t fo = 0;
+                             rp = wire::skip_value(rp, rend, rbeg, rt, 0, &we, &fo);
+                             if (rp == nullptr) {
+                                 break;
+                             }
+                         }
+                     }
+                 } else {
+                     std::size_t fo = 0;
+                     p = wire::skip_value(p, end, beg, t, 0, &we, &fo);
+                     if (p == nullptr) {
+                         break;
+                     }
+                 }
+             }
+             return s;
+         }},
+    };
+    return run("records sparse (stream)", ByteView(buf), arms);
+}
+
 }  // namespace
 
 // The comprehensive Scalars decode compiled IN CONTEXT -- amid this large bench TU's many decoders,
@@ -1269,6 +1620,8 @@ int main() {
     bad += scenario_nested();
     bad += scenario_groups();
     bad += scenario_sparse();
+    bad += scenario_records_dense();
+    bad += scenario_records_sparse();
     bad += scenario_two_tier();
     if (bad != 0) {
         // A mismatch is also carried per-arm as "ok":false in JSON mode; keep the exit code either way.

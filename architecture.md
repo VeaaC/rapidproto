@@ -377,12 +377,15 @@ Key properties:
 - **Subset + catch-all.** Only fields you pass a callback for are delivered (rest skipped O(1)); a generic
   `[](auto, auto){}` catch-all matches every *known* field you didn't name. A one-arg
   `[](UnknownField){}` receives fields *not in the schema* (forward compat); the catch-all does not see
-  those.
+  those. A field with no callback is skipped through a dedicated compile-time-wire skip keyed off its
+  wire type, so a sparse-extract consumer (handling a few of many fields) pays almost nothing on the
+  skipped majority.
 - **Exact-match, hard-to-misuse dispatch.** A callback claims a field only when its value type is *exactly*
   the field's `Value`; a wrong-but-convertible type or a duplicate is a **compile error**. The whole
-  dispatch is compile-time: a `switch` (over the whole 1-byte tag for the common fields 1–15, else the
-  field number), an `if constexpr` filter, and `static_assert`s that evaporate. There is no allocation, no
-  `std::function`, and no virtual calls.
+  dispatch is compile-time: a hub `switch` (over the whole 1-byte tag for the common fields 1–15, else the
+  field number) enters a **field-order-threaded** label chain, an `if constexpr` filter, and
+  `static_assert`s that evaporate. There is no allocation, no `std::function`, and no virtual calls. See
+  [Field-order threading](#field-order-threading) for the loop shape both models share.
 - **Open enums.** `enum class : std::int32_t` with `INT32_MIN`/`INT32_MAX` sentinels, forcing a `default:`
   in any consumer `switch`.
 - **`decode()` is out-of-line.** The templated definition follows all struct shells, so a message-typed
@@ -488,8 +491,10 @@ A header-only, std-only support library the generated decoders depend on (vendor
 
 ### Decode emission
 
-The emitted `rp_decode_into` runs the value-threaded decode loop once: dispatch the field (a raw-byte peek switch
-for single-byte tags, else the validating tag read + field-number switch) → decode the value into the
+The emitted `rp_decode_into` runs the value-threaded, **field-order-threaded** decode loop once (the shape
+both models share; see [Field-order threading](#field-order-threading)): a hub `switch` on the first tag
+byte enters the field's decode, and after each field a small constant-tag probe jumps straight to the
+next expected field's decode → decode the value into the
 node, set presence/value bits, recurse into sub-messages. Strings are SSO'd /
 arena-copied; **repeated fields accumulate single-pass into a growable arena array** (the benchmark-chosen
 strategy, below); maps append (last-wins on read); groups use `read_group`; unknown fields are skipped
@@ -567,6 +572,26 @@ generator-agnostic pieces (the `codegen/` module; neither emitter depends on the
   neither emitter re-walks the AST to resolve a referenced type.
 - **The CLI driver** (`cli/driver.hpp`): flag parsing (with a hook for model-specific flags like the arena
   model's `--unknown-present`), the resolve → analyze step, and header writing, shared by the CLI main.
+- **The field-order-threaded loop shape** (`codegen::`): a single shape generator emits the threaded decode
+  loop both models run (see [Field-order threading](#field-order-threading)); each emitter supplies only its
+  per-field body (materialize into the node, or fire the callback / skip).
+
+### Field-order threading
+
+Both decoders run a **field-order-threaded** decode loop. Instead of returning to an N-way dispatch (an
+indirect jump or a field-number switch) for every field, after decoding a field the generated code runs a
+small depth-2 constant-tag probe that jumps **straight to the next (or next-but-one) expected field's
+decode** via a `goto` label. When fields arrive in ascending wire order — how `protoc` and most encoders
+serialize — this turns the per-field N-way indirect dispatch into a predictable 2-way direct branch. A hub
+`switch` on the first tag byte enters the label chain; a general path handles out-of-order, unknown,
+wrong-wire, and non-minimal tags. Threading is always on — no flag, no field-count cutoff.
+
+A single `rapidproto::codegen::` shape generator emits the loop for both models; each emitter fills in only
+the per-field body — the arena emitter materializes the value into the node, the streaming emitter fires the
+callback (and, for a field with no callback, takes a dedicated compile-time-wire skip keyed off the field's
+wire type, so the skipped majority of a sparse-extract consumer's fields stay cheap). Each field's decode
+body is emitted once, as its label, rather than duplicated across separate hub and general-path arms — so the
+generated decoder stays compact (the arena bench `.text` is about 11% smaller than the duplicated form).
 
 **Targets.** `rapidproto_lib` (front-end + wire reader) underlies everything; `rapidproto_codegen_lib`
 (the shared layer + the embedded `runtime.hpp` text) builds on it; `rapidproto_streamgen_lib` and
@@ -645,7 +670,15 @@ constant, and reproduce with the benches:
   back-to-back in one binary, where its GB/s and cycle-ratio verdict compare at one placement; the
   cross-build regression gate then keys on GB/s only past that ~10% floor. A genuine *sub*-floor codegen
   change is confirmed instead by retired **instructions/byte**, deterministic and placement-invariant
-  (a rough proxy for work, blind to the stalls above). Shipped so far: a fused 1-byte-tag fast path in `read_tag` (~10% on both compilers);
+  (a rough proxy for work, blind to the stalls above). Shipped so far: **field-order threading** of both
+  decode loops (see [Field-order threading](#field-order-threading)) — after each field a depth-2
+  constant-tag probe jumps straight to the next expected field, converting per-field N-way dispatch into a
+  predictable 2-way branch for the common ascending-order wire, and giving on gcc ≈2× throughput on
+  scalar-heavy dispatch-bound arena records (ins/B 15.2 → 11.3), +16% on the mixed `Dataset`
+  (ins/B 11.4 → 9.7), ≈2× on a dense streaming consumer (ins/B 12.7 → 7.8), and ≈2.3× on a sparse-extract
+  streaming consumer (ins/B 10.6 → 4.1, the biggest winner, since the dedicated per-wire skip makes the
+  skipped majority cheap) — at about −11% arena bench `.text` (the threaded label is emitted once per
+  field); a fused 1-byte-tag fast path in `read_tag` (~10% on both compilers);
   driving both decode loops with a fused `read_tag_or_end` (one bounds check instead of `at_end()` +
   `read_tag()`, tag held as a value not `std::optional`), which closed most of the protozero gap on
   nested/message-heavy decode (≈2× nested-message throughput on gcc, at or above protozero on clang); a
