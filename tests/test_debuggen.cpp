@@ -33,7 +33,8 @@
 // IWYU pragma: begin_keep
 #include "debuggen_golden/arena_layout.rp.debug.hpp"
 #include "debuggen_golden/arena_manyreq.rp.debug.hpp"  // >64 required
-#include "debuggen_golden/arena_naming.rp.debug.hpp"   // identifier dedup: must compile
+#include "debuggen_golden/arena_modes.rp.debug.hpp"  // field modes: dropped fields gone, raw as hex
+#include "debuggen_golden/arena_naming.rp.debug.hpp"  // identifier dedup: must compile
 #include "debuggen_golden/arena_unknown.rp.debug.hpp"  // --unknown-present: has_unknown_fields marker
 #include "debuggen_golden/editions2023.rp.debug.hpp"
 #include "debuggen_golden/editions2024.rp.debug.hpp"
@@ -336,6 +337,77 @@ TEST_CASE("debuggen: a message with no set fields dumps as an empty object", "[d
     const p3::Msg* m = p3::Msg::decode(ByteView(std::string()), arena);
     REQUIRE(m != nullptr);
     CHECK(p3::rp_debug_string(*m) == "{}");
+}
+
+TEST_CASE("debuggen: an open-enum value outside the schema dumps as UNKNOWN(<n>)", "[debuggen]") {
+    // A hand-built p3::Msg with its open enum field `state` (field 4) set to 99, a value no
+    // enumerator carries: rp_debug_enum_name returns nullptr, so the dumper renders the numeric
+    // fallback UNKNOWN(99) rather than a name.
+    std::string buf;
+    put_tag(buf, 4, 0);  // state: Varint
+    put_varint(buf, 99);
+    Arena arena;
+    const p3::Msg* m = p3::Msg::decode(ByteView(buf), arena);
+    REQUIRE(m != nullptr);
+    const std::string dump = p3::rp_debug_string(*m);
+    CHECK(dump.find("\"UNKNOWN(99)\"") != std::string::npos);
+    CHECK(dump == R"j({"state": "UNKNOWN(99)"})j");
+}
+
+TEST_CASE("debuggen: a string field escapes JSON control/quote/backslash characters",
+          "[debuggen]") {
+    // A hand-built p3::Msg whose `name` (field 3) carries a quote, backslash, newline, tab, and a
+    // raw 0x01 control byte: the dumper escapes each per JSON -- the named escapes, and \u0001 for
+    // the otherwise-unnamed control byte -- passing nothing through raw.
+    std::string raw = "q\"b\\";  // q, quote, b, backslash
+    raw += '\n';                 // newline -> \n
+    raw += '\t';                 // tab -> \t
+    raw += '\x01';               // control byte -> \u0001
+    std::string buf;
+    put_tag(buf, 3, 2);  // name: Len
+    put_varint(buf, raw.size());
+    buf += raw;
+    Arena arena;
+    const p3::Msg* m = p3::Msg::decode(ByteView(buf), arena);
+    REQUIRE(m != nullptr);
+    const std::string dump = p3::rp_debug_string(*m);
+    CHECK(dump == R"({"name": "q\"b\\\n\t\u0001"})");
+}
+
+TEST_CASE("debuggen: field-modes dump omits dropped fields and renders raw payloads as hex",
+          "[debuggen]") {
+    // A hand-built fm::Holder decoded under the `lean` profile: the dropped field `debug` (field 2)
+    // must not appear, and the raw message fields `blob` (7) / `req_blob` (13) surface as the hex of
+    // their arena-copied payloads (the sub-message body bytes), never as nested objects.
+    const std::string body = [] {
+        std::string b;
+        put_tag(b, 1, 2);  // Blob.payload: Len
+        const std::string p = "\x01\x02\xff";
+        put_varint(b, p.size());
+        b += p;
+        return b;
+    }();  // 0a 03 01 02 ff
+    std::string buf;
+    put_tag(buf, 1, 0);  // keep
+    put_varint(buf, 7);
+    put_tag(buf, 2, 0);  // debug: DROPPED by the profile
+    put_varint(buf, 123);
+    put_tag(buf, 5, 0);  // must (required)
+    put_varint(buf, 9);
+    put_tag(buf, 7, 2);  // blob (raw, singular optional): Len
+    put_varint(buf, body.size());
+    buf += body;
+    put_tag(buf, 13, 2);  // req_blob (raw, required): Len
+    put_varint(buf, body.size());
+    buf += body;
+    Arena arena;
+    const fm::Holder* h = fm::Holder::decode(ByteView(buf), arena);
+    REQUIRE(h != nullptr);
+    const std::string dump = fm::rp_debug_string(*h);
+    // The dropped field is absent; keep/must are materialized; raw payloads are the body's hex
+    // (0a 03 01 02 ff = tag(1,Len) len=3 <01 02 ff>).
+    CHECK(dump.find("\"debug\"") == std::string::npos);
+    CHECK(dump == R"({"keep": 7, "must": 9, "blob": "0a030102ff", "req_blob": "0a030102ff"})");
 }
 
 TEST_CASE("debuggen: --unknown-present message reports has_unknown_fields", "[debuggen]") {

@@ -58,7 +58,7 @@ int main(int argc, char** argv) {
         "  --version                print the version\n";
     bool arena = false;
     bool stream = false;
-    bool debug = false;  // PoC: emit <stem>.rp.debug.hpp alongside the arena header
+    bool debug = false;  // emit <stem>.rp.debug.hpp alongside the arena header
     std::vector<std::string> modes_files;
     rapidproto::arenagen::FieldModesSpec
         modes_spec;  // direct --drop/--raw/--unknown + file entries
@@ -75,7 +75,7 @@ int main(int argc, char** argv) {
             stream = true;
             return true;
         }
-        if (arg == "--debug") {  // PoC debug dumper (implies --arena; needs the arena header)
+        if (arg == "--debug") {  // debug dumper (implies --arena; needs the arena header)
             debug = true;
             arena = true;
             return true;

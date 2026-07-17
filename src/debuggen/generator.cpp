@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <unordered_set>
 
 #include "rapidproto/arenagen/generator.hpp"
@@ -25,6 +26,10 @@ using arenagen::SynthNames;
 using codegen::cpp_type_name;
 using codegen::CppNameTable;
 using codegen::Printer;
+
+// A sentinel address distinguishing "field is DROPPED by the profile" (skip it) from "no plan to
+// consult, emit as declared" (nullptr) in the member lookup below. Never dereferenced.
+const arenagen::MemberPlan kDropped;
 
 // The default line-width budget the generated rp_debug_write/rp_debug_string overloads take: a group
 // renders compact (single line) if it fits this many columns, else multi-line. Emitted as the default
@@ -176,8 +181,11 @@ std::string accessor_call(const CppNameTable& names, const FieldNode& f) {
     return "m." + names.local.at(&f) + "()";
 }
 
-void emit_singular_field(Printer& p, const CppNameTable& names, const FieldNode& f) {
-    const ValueKind kind = value_kind(f);
+// `kind` is normally value_kind(f), but a field-modes `raw` message field overrides it to Bytes: its
+// arena accessor stores the payload as a ByteView (optional/bare/ArrayView by presence), so the dumper
+// renders it as lowercase hex, never as a nested object.
+void emit_singular_field(Printer& p, const CppNameTable& names, const FieldNode& f,
+                         ValueKind kind) {
     const std::string call = accessor_call(names, f);
     if (kind == ValueKind::Message) {
         // const T* accessor: skip when null, else emit the key + recurse.
@@ -220,8 +228,8 @@ void emit_singular_field(Printer& p, const CppNameTable& names, const FieldNode&
     p.print("}\n");
 }
 
-void emit_repeated_field(Printer& p, const CppNameTable& names, const FieldNode& f) {
-    const ValueKind kind = value_kind(f);
+void emit_repeated_field(Printer& p, const CppNameTable& names, const FieldNode& f,
+                         ValueKind kind) {
     const std::string call = accessor_call(names, f);
     // Omit an empty repeated field. Element type: message -> const T& ref via ptr-less range
     // (ArrayView<T> of message yields const T&); others yield the value/string_view directly.
@@ -302,6 +310,10 @@ void emit_oneof(Printer& p, const CppNameTable& names, const OneofNode& o,
     // decoded value. We recover the member NAME by comparing the tag type against each synthesized
     // member tag (<Oneof>::<member>), then render that member as a normal field. The unset
     // std::monostate state is simply not handled -> the oneof contributes nothing (skipped).
+    //
+    // No drop/raw handling here: mode resolution (arenagen/modes.cpp field_entry_error) rejects a
+    // field-modes entry naming a oneof member, so a oneof member is always materialized as its
+    // declared type -- the plan never drops or rawifies it.
     p.print("m.$o$([&](auto rp_tag, const auto& rp_v) {\n", {{"o", codegen::sanitize(o.name)}});
     p.indent();
     p.print("using RpTag = std::decay_t<decltype(rp_tag)>;\n");
@@ -331,6 +343,49 @@ void emit_message_fwd_decls(Printer& p, const CppNameTable& names, const Message
             {{"T", cpp_type_name(names, m.fqn)}});
 }
 
+// Emit the singular/repeated fields and maps of one message, consulting its arena plan so the decode
+// profile is honored: a field/map ABSENT from the plan's members was DROPPED (no accessor exists ->
+// skip it), and a `raw` message field materializes as a ByteView payload (render as bytes/hex, not as
+// a nested object). A null `layout` means no plan to consult (every field emitted as declared).
+void emit_fields_and_maps(Printer& p, const CppNameTable& names, const MessageNode& m,
+                          const arenagen::MessageLayout* layout) {
+    std::unordered_map<const void*, const arenagen::MemberPlan*> by_node;
+    if (layout != nullptr) {
+        for (const arenagen::MemberPlan& member : layout->members) {
+            by_node.emplace(member.field != nullptr ? static_cast<const void*>(member.field)
+                                                    : static_cast<const void*>(member.map_field),
+                            &member);
+        }
+    }
+    // nullptr = emit as declared (no plan); &kDropped = the profile dropped it (skip); else the plan.
+    const auto member_for = [&](const void* node) -> const arenagen::MemberPlan* {
+        if (layout == nullptr) {
+            return nullptr;
+        }
+        const auto it = by_node.find(node);
+        return it != by_node.end() ? it->second : &kDropped;
+    };
+    for (const FieldNode& f : m.fields) {
+        const arenagen::MemberPlan* member = member_for(&f);
+        if (member == &kDropped) {
+            continue;  // dropped by the profile: no accessor exists
+        }
+        const bool raw = member != nullptr && member->kind == arenagen::FieldKind::Raw;
+        const ValueKind kind = raw ? ValueKind::Bytes : value_kind(f);
+        if (f.is_repeated) {
+            emit_repeated_field(p, names, f, kind);
+        } else {
+            emit_singular_field(p, names, f, kind);
+        }
+    }
+    for (const MapFieldNode& mp : m.map_fields) {
+        if (member_for(&mp) == &kDropped) {
+            continue;  // dropped by the profile (raw never applies to a map -> it is materialized)
+        }
+        emit_map_field(p, names, mp);
+    }
+}
+
 void emit_message_dumper(Printer& p, const CppNameTable& names, const SynthNames& synth,
                          const arenagen::LayoutSet& layouts, const MessageNode& m) {
     // Recurse into nested messages first; forward declarations (emitted for the whole file up front)
@@ -356,16 +411,7 @@ void emit_message_dumper(Printer& p, const CppNameTable& names, const SynthNames
             " w.os() << \"\\\"has_unknown_fields\\\": true\"; }\n",
             {{"h", synth.unknown.at(&m)}});
     }
-    for (const FieldNode& f : m.fields) {
-        if (f.is_repeated) {
-            emit_repeated_field(p, names, f);
-        } else {
-            emit_singular_field(p, names, f);
-        }
-    }
-    for (const MapFieldNode& mp : m.map_fields) {
-        emit_map_field(p, names, mp);
-    }
+    emit_fields_and_maps(p, names, m, layout);
     for (const OneofNode& o : m.oneofs) {
         emit_oneof(p, names, o, type + "::" + synth.case_tag.at(&o));
     }

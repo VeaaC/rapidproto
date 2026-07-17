@@ -81,25 +81,6 @@ inline void rp_debug_write(const ::fm::Holder& m, ::rapidproto::debug::Writer& w
       w.entry_sep(rp_first); w.key("keep");
       w.os() << *rp_v;
     }
-    if (const auto rp_v = m.debug()) {
-      w.entry_sep(rp_first); w.key("debug");
-      w.os() << *rp_v;
-    }
-    if (const auto* rp_p = m.extra()) {
-      w.entry_sep(rp_first); w.key("extra");
-      rp_debug_write(*rp_p, w);
-    }
-    if (const auto& rp_r = m.old_ids(); !rp_r.empty()) {
-      w.entry_sep(rp_first); w.key("old_ids");
-      w.group('[', ']', [&] {
-        bool rp_efirst = true;
-        for (const auto& rp_el : rp_r) {
-          w.entry_sep(rp_efirst);
-          w.os() << rp_el;
-          if (w.overflowed()) { break; }
-        }
-      });
-    }
     {
       w.entry_sep(rp_first); w.key("must");
       w.os() << m.must();
@@ -108,9 +89,9 @@ inline void rp_debug_write(const ::fm::Holder& m, ::rapidproto::debug::Writer& w
       w.entry_sep(rp_first); w.key("big_num");
       w.os() << *rp_v;
     }
-    if (const auto* rp_p = m.blob()) {
+    if (const auto rp_v = m.blob()) {
       w.entry_sep(rp_first); w.key("blob");
-      rp_debug_write(*rp_p, w);
+      w.os() << '"'; ::rapidproto::debug::write_hex(w.os(), *rp_v); w.os() << '"';
     }
     if (const auto& rp_r = m.blobs(); !rp_r.empty()) {
       w.entry_sep(rp_first); w.key("blobs");
@@ -118,7 +99,7 @@ inline void rp_debug_write(const ::fm::Holder& m, ::rapidproto::debug::Writer& w
         bool rp_efirst = true;
         for (const auto& rp_el : rp_r) {
           w.entry_sep(rp_efirst);
-          rp_debug_write(rp_el, w);
+          w.os() << '"'; ::rapidproto::debug::write_hex(w.os(), rp_el); w.os() << '"';
           if (w.overflowed()) { break; }
         }
       });
@@ -151,13 +132,13 @@ inline void rp_debug_write(const ::fm::Holder& m, ::rapidproto::debug::Writer& w
       if (const char* rp_nm = ::rapidproto::debug::rp_debug_enum_name(rp_e)) { w.os() << '"' << rp_nm << '"'; }
       else { w.os() << "\"UNKNOWN(" << static_cast<std::int32_t>(rp_e) << ")\""; } }
     }
-    if (const auto* rp_p = m.req_blob()) {
+    {
       w.entry_sep(rp_first); w.key("req_blob");
-      rp_debug_write(*rp_p, w);
+      w.os() << '"'; ::rapidproto::debug::write_hex(w.os(), m.req_blob()); w.os() << '"';
     }
-    if (const auto* rp_p = m.grp()) {
+    if (const auto rp_v = m.grp()) {
       w.entry_sep(rp_first); w.key("grp");
-      rp_debug_write(*rp_p, w);
+      w.os() << '"'; ::rapidproto::debug::write_hex(w.os(), *rp_v); w.os() << '"';
     }
     if (const auto& rp_mp = m.by_name(); !rp_mp.empty()) {
       w.entry_sep(rp_first); w.key("by_name");

@@ -81,10 +81,9 @@ std::string bit_test(const MessageLayout& layout, int bit) {
 
 // ── type-name helpers ────────────────────────────────────────────────────────────────────────────
 
-// SynthNames (the deduped <Oneof> visit-tag / <Map>Entry / has_unknown_fields identifiers) is now a
-// public type in rapidproto/arenagen/generator.hpp -- exposed so the debug dumper can name the SAME
-// deduped identifiers this header emitted. build_synth_names() (its definition, below) is likewise
-// public; synth_for_message() stays file-local.
+// SynthNames (the deduped <Oneof> visit-tag / <Map>Entry / has_unknown_fields identifiers) is declared
+// in rapidproto/arenagen/generator.hpp so the debug dumper names the SAME deduped identifiers this
+// header emits. build_synth_names() is defined below; synth_for_message() stays file-local.
 
 // Refs to long-lived inputs; Emit is a short-lived, non-copied bundle threaded through emission.
 struct Emit {
