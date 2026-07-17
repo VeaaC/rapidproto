@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "rapidproto/ast.hpp"
+#include "rapidproto/codegen/emit.hpp"
 #include "rapidproto/codegen/naming.hpp"
 #include "rapidproto/codegen/printer.hpp"
 #include "rapidproto/codegen/wire.hpp"
@@ -119,13 +120,22 @@ void emit_enum_name_fn(Printer& p, const CppNameTable& names, const std::string&
     p.indent();
     p.print("switch (static_cast<std::int32_t>(rp_e)) {\n");
     p.indent();
+    // Display each value with its prefix stripped the same way the generated `enum class` strips it
+    // (STATE_ON -> ON), so the debug name matches the C++ enumerator. If the enum isn't strippable
+    // (a value missing the prefix, a keyword/macro remainder, etc.) the full proto names are kept.
+    const std::string prefix = codegen::enum_value_prefix(node.name);
+    const bool strip = codegen::enum_prefix_strippable(node, prefix);
     std::unordered_set<std::int32_t> seen;  // an alias enum (allow_alias) repeats a number
     for (const EnumValueNode& v : node.values) {
         if (!seen.insert(v.number).second) {
             continue;
         }
+        std::string_view raw = v.name;
+        if (strip) {
+            raw.remove_prefix(prefix.size());
+        }
         p.print("case $n$: return \"$name$\";\n",
-                {{"n", std::to_string(v.number)}, {"name", v.name}});
+                {{"n", std::to_string(v.number)}, {"name", codegen::sanitize(raw)}});
     }
     p.outdent();
     p.print("}\n");
