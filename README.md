@@ -358,7 +358,8 @@ per entry). The decoder never materializes the whole message.
 All snippets decode a `Person` buffer `wire` (a `rapidproto::ByteView`). `decode()` is `[[nodiscard]]`
 and returns a `DecodeStatus`, so **always check it** (see [Error handling](#error-handling-streaming)).
 
-**1. A subset.** Pass callbacks only for the fields you want; the rest are skipped in O(1):
+**1. A subset.** Pass callbacks only for the fields you want; the rest are skipped in O(1) through a
+per-wire-type skip, so extracting a few fields from a large message stays cheap:
 
 ```cpp
 std::string name; std::uint32_t id = 0;
@@ -640,6 +641,17 @@ streaming decoder runs **~1.2–1.7× faster than protozero**, and across the pe
 (varint, zigzag, fixed32/64, strings, packed, skip-heavy, multibyte tags, nested messages) it beats
 protozero on **every** shape with a protozero equivalent. Against `protoc` + `Arena` it's
 **~7–9× faster**, since it materializes nothing.
+
+**Field-order threading (both decoders).** Both decode loops are *field-order threaded*: after decoding a
+field the generated code jumps straight to the next expected field's decode with a small constant-tag
+probe, so when fields arrive in the usual ascending wire order — how `protoc` and most encoders serialize —
+per-field N-way dispatch collapses into predictable 2-way branches. On g++ (throughput vs an unthreaded
+loop, cross-checked with retired-instructions-per-byte): the arena decoder runs **~2×** faster on
+scalar-heavy dispatch-bound records (ins/B 15.2 → 11.3) and **+16%** on the mixed `Dataset`
+(ins/B 11.4 → 9.7); the streaming decoder runs **~2×** for a dense consumer that handles every field
+(ins/B 12.7 → 7.8) and **~2.3×** for a sparse-extract consumer handling a few of many fields
+(ins/B 10.6 → 4.1) — the biggest win, because a dedicated per-wire skip makes the skipped majority cheap.
+Threading is always on, with no flag and no field-count cutoff.
 
 **Packed scalar arrays are SWAR-accelerated on the arena decoder only.** The arena decoder decodes
 packed varint arrays with a word-at-a-time (SWAR) kernel that materializes straight into its array —

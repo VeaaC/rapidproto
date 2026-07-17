@@ -1477,10 +1477,10 @@ void emit_oneof_arm(const Emit& emit, const OneofPlan& o, const OneofMemberPlan&
     p.print("}\n");
 }
 
-// A field whose whole tag is a single byte -- number 1..15 ((15 << 3) | 7 == 127 < 128) -- and that
-// the raw-byte fast path handles: a singular scalar/enum/string (not a sub-message or group) or a
-// non-group repeated field. Everything else (messages, groups, raw, maps, oneofs, field 16+) stays on
-// the general path. Kept as one predicate so the fast switch and the general switch partition alike.
+// A single-byte-tag field -- number 1..15 ((15 << 3) | 7 == 127 < 128) -- that is a singular
+// scalar/enum/string (not a sub-message or group) or a non-group repeated field: the 1-byte-tag
+// scalar/repeated slice of the threaded set. is_threaded folds this together with the singular
+// sub-message and 2-byte-tag slices; messages/groups/raw/maps/oneofs/field 16+ are covered there.
 bool is_fast_arena_field(const MemberPlan& m, const FieldNode& field) {
     if (field.number > codegen::kMaxOneByteTagField) {
         return false;
@@ -1524,7 +1524,7 @@ bool is_threaded(const MemberPlan& m, const FieldNode& field) {
            is_threadable_2byte(m, field);
 }
 
-// The WireType enumerator name a fast singular field's 1-byte tag carries.
+// The WireType enumerator a singular scalar/enum/string field's tag carries.
 std::string fast_singular_wire(const MemberPlan& m) {
     if (m.kind == FieldKind::SsoString) {
         return "Len";

@@ -626,8 +626,8 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
     hooks.emit_body = [&](const codegen::ThreadField& tf) {
         const auto& [field, gen] = threaded_gen.at(tf.number);
         const std::string fname = symbols.local.at(field);
-        // The stray-callback / wrong-wire guards, once per field (formerly in emit_fast_arm/emit_arm;
-        // the threaded field has no general arm now, so it must be emitted here exactly once).
+        // The stray-callback / wrong-wire guards, emitted once per field: a threaded field has no
+        // general-switch arm, so this label body is the sole site for them.
         codegen::emit_dispatch_guards(printer, "Callbacks", fname + ", " + fname + "::Value",
                                       "field '" + fname + "'", fname + "::Value");
         printer.print(
