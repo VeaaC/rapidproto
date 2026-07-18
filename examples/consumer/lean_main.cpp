@@ -1,7 +1,7 @@
 // Consumer smoke test for rapidproto_generate(FIELD_MODES): the SAME schema as main.cpp, decoded
 // through the `lean` profile (examples/consumer/lean.modes) -- demo.Shape.sides is DROPPED (no
 // storage, no accessor: reading it would not compile) and demo.Shape.origin is RAW (the
-// sub-message's payload lands as an arena-copied ByteView instead of a materialized Point). The
+// sub-message's payload is borrowed as a ByteView into the input instead of a materialized Point). The
 // view is exactly what Point::decode() accepts, so the tree is built only when -- and if -- the
 // consumer asks: the deferred-decode pattern the profile exists for. The profile also stamps the
 // generated header: the types live in an inline rp_modes_* namespace (reachable as demo::Shape),

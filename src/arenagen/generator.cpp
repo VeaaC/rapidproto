@@ -117,7 +117,7 @@ std::string storage_type(const Emit& emit, const MemberPlan& m) {
             return cpp_scalar(m.field->type_name);
         case FieldKind::InlineEnum:
             return cpp_type_name(emit.names, m.target_fqn);
-        case FieldKind::SsoString:
+        case FieldKind::BorrowString:
             return "::rapidproto::ArenaString";
         case FieldKind::InlineFixedSubMsg:
             return cpp_type_name(emit.names, m.target_fqn);
@@ -128,8 +128,8 @@ std::string storage_type(const Emit& emit, const MemberPlan& m) {
         case FieldKind::Map:
             return "::rapidproto::MapView<" + emit.synth.entry_type.at(m.map_field) + ">";
         case FieldKind::Raw:
-            return m.field->is_repeated ? "::rapidproto::ArrayView<::rapidproto::ByteView>"
-                                        : "::rapidproto::ByteView";
+            return m.field->is_repeated ? "::rapidproto::ArrayView<::rapidproto::ArenaString>"
+                                        : "::rapidproto::ArenaString";
     }
     return "";
 }
@@ -138,7 +138,7 @@ std::string oneof_member_storage(const Emit& emit, const OneofMemberPlan& m) {
     switch (m.kind) {
         case FieldKind::InlineEnum:
             return cpp_type_name(emit.names, m.target_fqn);
-        case FieldKind::SsoString:
+        case FieldKind::BorrowString:
             return "::rapidproto::ArenaString";
         case FieldKind::InlineFixedSubMsg:
             return cpp_type_name(emit.names, m.target_fqn);
@@ -154,12 +154,12 @@ void emit_map_entry(const Emit& emit, const MemberPlan& m, const std::string& en
     Printer& p = emit.printer;
     assert(m.entry.has_value());
     const EntryPlan& e = *m.entry;
-    const std::string key_store = e.key_kind == FieldKind::SsoString
+    const std::string key_store = e.key_kind == FieldKind::BorrowString
                                       ? "::rapidproto::ArenaString"
                                       : cpp_scalar(m.map_field->key_type);
     std::string val_store;
     switch (e.value_kind) {
-        case FieldKind::SsoString:
+        case FieldKind::BorrowString:
             val_store = "::rapidproto::ArenaString";
             break;
         case FieldKind::InlineEnum:
@@ -179,13 +179,13 @@ void emit_map_entry(const Emit& emit, const MemberPlan& m, const std::string& en
     p.indent();
     // Read-only accessors; the key/value storage below is private, so a consumer cannot rewrite a
     // parsed entry. Only the enclosing message's decoder (a friend) populates it.
-    if (e.key_kind == FieldKind::SsoString) {
+    if (e.key_kind == FieldKind::BorrowString) {
         p.print("std::string_view key() const noexcept { return rp_key.view(); }\n");
     } else {
         p.print("$T$ key() const noexcept { return rp_key; }\n", {{"T", key_store}});
     }
     switch (e.value_kind) {
-        case FieldKind::SsoString:
+        case FieldKind::BorrowString:
             p.print("std::string_view value() const noexcept { return rp_value.view(); }\n");
             break;
         case FieldKind::PointerSubMsg:
@@ -226,7 +226,7 @@ void emit_oneof_visit_tags(const Emit& emit, const OneofPlan& o) {
     p.indent();
     for (const OneofMemberPlan& member : o.members) {
         std::string vt;
-        if (member.kind == FieldKind::SsoString) {
+        if (member.kind == FieldKind::BorrowString) {
             vt = "std::string_view";
         } else if (member.kind == FieldKind::InlineFixedSubMsg ||
                    member.kind == FieldKind::PointerSubMsg) {
@@ -324,7 +324,7 @@ void emit_oneof_accessors(const Emit& emit, const OneofPlan& o) {
         val += o.oneof->name;
         val += '.';
         val += id;
-        if (member.kind == FieldKind::SsoString) {
+        if (member.kind == FieldKind::BorrowString) {
             val += ".view()";
         }
         p.print("case $i$:\n", {{"i", std::to_string(index++)}});
@@ -396,7 +396,7 @@ void emit_field_accessor(const Emit& emit, const MessageLayout& layout, const Me
                         {{"T", cpp_type_name(emit.names, m.target_fqn)}, {"id", id}});
             }
             break;
-        case FieldKind::SsoString:
+        case FieldKind::BorrowString:
             if (m.presence_bit >= 0) {
                 p.print(
                     "std::optional<std::string_view> $id$() const noexcept { return $p$ != 0 ?"
@@ -425,7 +425,7 @@ void emit_field_accessor(const Emit& emit, const MessageLayout& layout, const Me
             break;
         case FieldKind::Repeated:
             if (repeated_elem_type(emit, *m.field) == "::rapidproto::ArenaString") {
-                // Storage is ArrayView<ArenaString> (SSO); expose std::string_view, not the storage type.
+                // Storage is ArrayView<ArenaString> (borrowed views); expose std::string_view, not the storage type.
                 p.print(
                     "::rapidproto::StringArrayView $id$() const noexcept {"
                     " return ::rapidproto::StringArrayView(m_$id$); }\n",
@@ -440,20 +440,25 @@ void emit_field_accessor(const Emit& emit, const MessageLayout& layout, const Me
                     {{"T", storage_type(emit, m)}, {"id", id}});
             break;
         case FieldKind::Raw:
-            // The message field's arena-copied payload(s): hand a view to the field type's own
-            // decode() when (and if) the tree is wanted. Presence follows the accessor
-            // conventions -- optional for explicit presence (null data = absent; a present empty
-            // payload is non-null, so no mask bit is spent), bare for required (always present
-            // after a successful decode), element count for repeated.
-            if (m.field->presence == FieldPresence::Explicit && !m.field->is_repeated) {
+            // The message field's borrowed payload(s): hand a view to the field type's own decode()
+            // when (and if) the tree is wanted. Presence follows the accessor conventions -- a
+            // StringArrayView of payloads for repeated, optional<ByteView> for explicit presence (null
+            // data = absent; a present empty payload borrows a non-null pointer, so no mask bit is
+            // spent), and a bare ByteView for required (always present after a successful decode).
+            if (m.field->is_repeated) {
+                p.print(
+                    "::rapidproto::StringArrayView $id$() const noexcept {"
+                    " return ::rapidproto::StringArrayView(m_$id$); }\n",
+                    {{"id", id}});
+            } else if (m.field->presence == FieldPresence::Explicit) {
                 p.print(
                     "std::optional<::rapidproto::ByteView> $id$() const noexcept {"
                     " return m_$id$.data() != nullptr ?"
-                    " std::optional<::rapidproto::ByteView>(m_$id$) : std::nullopt; }\n",
+                    " std::optional<::rapidproto::ByteView>(m_$id$.view()) : std::nullopt; }\n",
                     {{"id", id}});
             } else {
-                p.print("$T$ $id$() const noexcept { return m_$id$; }\n",
-                        {{"T", storage_type(emit, m)}, {"id", id}});
+                p.print("::rapidproto::ByteView $id$() const noexcept { return m_$id$.view(); }\n",
+                        {{"id", id}});
             }
             break;
     }
@@ -866,9 +871,9 @@ void emit_singular_arm(const Emit& emit, const MessageLayout& layout, const Memb
         p.outdent();
         p.print("}\n");
     } else if (m.kind == FieldKind::InlineScalar || m.kind == FieldKind::InlineEnum ||
-               m.kind == FieldKind::SsoString) {
+               m.kind == FieldKind::BorrowString) {
         std::string wire;  // scalar_wire is only valid for an actual scalar keyword
-        if (m.kind == FieldKind::SsoString) {
+        if (m.kind == FieldKind::BorrowString) {
             wire = "Len";
         } else if (m.kind == FieldKind::InlineEnum) {
             wire = "Varint";
@@ -1091,15 +1096,16 @@ void emit_repeated_finalize(const Emit& emit, const FieldNode& field) {
 // singular raw payload writes straight into its member.
 void emit_raw_setup(const Emit& emit, const MemberPlan& m) {
     if (m.field->is_repeated) {
-        emit_growable_setup(emit, emit.names.local.at(m.field), "::rapidproto::ByteView");
+        emit_growable_setup(emit, emit.names.local.at(m.field), "::rapidproto::ArenaString");
     }
 }
 
 // The raw arm mirrors its materialized counterpart exactly -- same wire-type guard (a mismatched
 // record falls to the shared skip), same RepeatedSingularMessage rejection, same presence/required
-// bits -- but instead of decoding the payload it arena-copies it, deferring the decode to whenever
-// the consumer hands the view to the field type's own decode(). read_length_delimited/read_group
-// both yield exactly that payload (a group's body carries no SGROUP/EGROUP framing).
+// bits -- but instead of decoding the payload it BORROWS a view of it (an ArenaString, exactly like a
+// string/bytes field), deferring the decode to whenever the consumer hands the view to the field
+// type's own decode(). read_length_delimited/read_group both yield exactly that payload (a group's
+// body carries no SGROUP/EGROUP framing), which points into the input, so the borrow is in-bounds.
 void emit_raw_arm(const Emit& emit, const MessageLayout& layout, const MemberPlan& m,
                   const std::unordered_map<const FieldNode*, int>& required_bit) {
     Printer& p = emit.printer;
@@ -1120,16 +1126,11 @@ void emit_raw_arm(const Emit& emit, const MessageLayout& layout, const MemberPla
     }
     emit_vt_message_read(emit, field, "rp_v");
     if (field.is_repeated) {
-        p.print("::rapidproto::ByteView* const rp_slot = rp_slot_$id$();\n", {{"id", id}});
+        p.print("::rapidproto::ArenaString* const rp_slot = rp_slot_$id$();\n", {{"id", id}});
         p.print("if (rp_slot == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }\n");
-        p.print(
-            "if (!::rapidproto::arena_detail::copy_payload(rp_v, arena, *rp_slot)) {"
-            " ::rapidproto::rp_fail_oom(err); return false; }\n");
+        p.print("*rp_slot = ::rapidproto::ArenaString::make(rp_v, arena);\n");
     } else {
-        p.print(
-            "if (!::rapidproto::arena_detail::copy_payload(rp_v, arena, out.m_$id$)) {"
-            " ::rapidproto::rp_fail_oom(err); return false; }\n",
-            {{"id", id}});
+        p.print("out.m_$id$ = ::rapidproto::ArenaString::make(rp_v, arena);\n", {{"id", id}});
     }
     emit_presence_set(emit, layout, m, required_bit);
     p.print("continue;\n");
@@ -1144,7 +1145,7 @@ void emit_raw_finalize(const Emit& emit, const MemberPlan& m) {
     if (m.field->is_repeated) {
         const std::string id = emit.names.local.at(m.field);
         emit.printer.print(
-            "out.m_$id$ = ::rapidproto::ArrayView<::rapidproto::ByteView>(rp_acc_$id$, "
+            "out.m_$id$ = ::rapidproto::ArrayView<::rapidproto::ArenaString>(rp_acc_$id$, "
             "rp_n_$id$);\n",
             {{"id", id}});
     }
@@ -1198,7 +1199,7 @@ void emit_vt_scalar_read(const Emit& emit, FieldKind kind, std::string_view prot
         "if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we,"
         " static_cast<std::size_t>(" +
         cur + " - " + beg + ")); return false; }\n";
-    if (kind == FieldKind::SsoString) {
+    if (kind == FieldKind::BorrowString) {
         p.print("::rapidproto::ByteView rp_v;\n");
         p.print(
             "const std::uint8_t* const rp_np ="
@@ -1206,11 +1207,9 @@ void emit_vt_scalar_read(const Emit& emit, FieldKind kind, std::string_view prot
             {{"c", cur}, {"e", end}});
         p.print(fail);
         p.print("$c$ = rp_np;\n", {{"c", cur}});
+        // Borrow a {ptr,len} view into the input -- never fails post the top-level input-size guard, so
+        // no failure check follows (the value always fits the 32-bit length; nothing is allocated).
         p.print("$t$ = ::rapidproto::ArenaString::make(rp_v, arena);\n", {{"t", target}});
-        p.print(
-            "if (!rp_v.empty() && ($t$).empty()) {"
-            " ::rapidproto::rp_fail_string(err, rp_v); return false; }\n",
-            {{"t", target}});
     } else if (kind == FieldKind::InlineEnum) {
         p.print("std::uint64_t rp_raw = 0;\n");
         p.print(
@@ -1251,7 +1250,7 @@ void emit_vt_value_read(const Emit& emit, const FieldNode& field, const std::str
                         const std::string& cur, const std::string& end, const std::string& beg) {
     if (!field.is_message_type && !field.is_enum_type &&
         (field.type_name == "string" || field.type_name == "bytes")) {
-        emit_vt_scalar_read(emit, FieldKind::SsoString, field.type_name, /*enum_fqn=*/"", target,
+        emit_vt_scalar_read(emit, FieldKind::BorrowString, field.type_name, /*enum_fqn=*/"", target,
                             cur, end, beg);
     } else if (field.is_enum_type) {
         emit_vt_scalar_read(emit, FieldKind::InlineEnum, field.type_name, field.resolved_type_fqn,
@@ -1294,7 +1293,7 @@ void emit_vt_message_read(const Emit& emit, const FieldNode& field, const std::s
 }
 
 std::string kv_wire(FieldKind kind, std::string_view proto_type) {
-    if (kind == FieldKind::SsoString || kind == FieldKind::InlineFixedSubMsg ||
+    if (kind == FieldKind::BorrowString || kind == FieldKind::InlineFixedSubMsg ||
         kind == FieldKind::PointerSubMsg) {
         return "Len";
     }
@@ -1417,7 +1416,7 @@ void emit_oneof_arm(const Emit& emit, const OneofPlan& o, const OneofMemberPlan&
     const std::string id = emit.names.local.at(&field);
     const std::string ofield = "out.m_rp_" + o.oneof->name + "." + id;
     std::string wire;
-    if (member.kind == FieldKind::SsoString) {
+    if (member.kind == FieldKind::BorrowString) {
         wire = "Len";
     } else if (member.kind == FieldKind::InlineEnum) {
         wire = "Varint";
@@ -1473,7 +1472,7 @@ bool is_fast_arena_field(const MemberPlan& m, const FieldNode& field) {
         return elem_wire_enum(field) != "SGroup";  // repeated non-group
     }
     return m.kind == FieldKind::InlineScalar || m.kind == FieldKind::InlineEnum ||
-           m.kind == FieldKind::SsoString;  // singular scalar/enum/string/bool (not message)
+           m.kind == FieldKind::BorrowString;  // singular scalar/enum/string/bool (not message)
 }
 
 // A singular non-delimited LEN sub-message with a 1-byte tag: not in the default fast (scalar) set,
@@ -1494,7 +1493,7 @@ bool is_threadable_2byte(const MemberPlan& m, const FieldNode& field) {
         return false;
     }
     const bool scalar = m.kind == FieldKind::InlineScalar || m.kind == FieldKind::InlineEnum ||
-                        m.kind == FieldKind::SsoString;
+                        m.kind == FieldKind::BorrowString;
     const bool msg =
         (m.kind == FieldKind::InlineFixedSubMsg || m.kind == FieldKind::PointerSubMsg) &&
         field.message_encoding != MessageEncoding::Delimited;
@@ -1510,7 +1509,7 @@ bool is_threaded(const MemberPlan& m, const FieldNode& field) {
 
 // The WireType enumerator a singular scalar/enum/string field's tag carries.
 std::string fast_singular_wire(const MemberPlan& m) {
-    if (m.kind == FieldKind::SsoString) {
+    if (m.kind == FieldKind::BorrowString) {
         return "Len";
     }
     if (m.kind == FieldKind::InlineEnum) {

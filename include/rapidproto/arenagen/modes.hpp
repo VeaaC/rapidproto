@@ -5,10 +5,11 @@
 // Per-field arena materialization modes: the consumer-side selection behind `--field-modes` /
 // `--drop` / `--raw`. A field decodes as one of
 //   - Materialize (the default): the normal arena object tree,
-//   - Raw (message-typed fields only, groups included): the field's PAYLOAD, arena-copied,
-//     exposed as a ByteView the consumer hands straight to the field type's own decode() when
-//     (and if) it wants the tree -- deferred decoding without materializing up front. Repeated
-//     raw is ArrayView<ByteView>, one payload per element. Decode semantics match a stored field
+//   - Raw (message-typed fields only, groups included): the field's PAYLOAD, borrowed as a view into
+//     the input (stored as an ArenaString, exactly like a string/bytes field), exposed as a ByteView
+//     the consumer hands straight to the field type's own decode() when (and if) it wants the tree --
+//     deferred decoding without materializing up front. Repeated raw is ArrayView<ArenaString>, one
+//     payload per element. Decode semantics match a stored field
 //     (presence, RepeatedSingularMessage, required, wire-type-mismatch skip); only the
 //     representation differs. Scalars/strings/enums are cheap to materialize (or drop) and maps'
 //     entry types are generated internals, so raw on those is a hard error,

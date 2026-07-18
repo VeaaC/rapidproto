@@ -26,22 +26,22 @@
 //   - The held-memory gap (total malloc'd) is the single-pass-growable repeated-array realloc waste
 //     plus the arena's chunk-tail waste; the sweep's held/used column isolates the latter by size.
 //
-// Knob tuning. The three tuned knobs are compile-time constants, so each was validated by
+// Knob tuning. The two tuned knobs are compile-time constants, so each was validated by
 // recompiling at several values and re-running this benchmark (one binary cannot sweep them); the
 // shapes below exist to make each knob matter. The chosen values and the evidence:
 //   - Arena chunk cap (arena_runtime.hpp kMaxChunk = 96 KiB): swept none / 64 / 96 / 128 KiB. 96 KiB
 //     holds held/used to ~1.0-1.2x across every shape and size here, vs ~1.4-1.9x uncapped (the
 //     uncapped final chunk is ~half empty, ~2x more held memory at 32 MB). Warm time is cap-
 //     independent; it stays under glibc's 128 KiB mmap threshold.
-//   - SSO inline capacity (arena_runtime.hpp ArenaString = 15 chars / 16 bytes): swept a 16 / 24 /
-//     32-byte ArenaString on the Dataset shape (also bumping the planner's kStringSize to match).
-//     16 wins on both memory and time -- the payload is mostly short strings already inlined, so a
-//     wider SSO only widens every string field (used 0.68x -> 0.82x -> 1.00x for 16/24/32).
 //   - Inline-submsg cutoff (arenagen layout.hpp = 16 bytes): swept 16 / 24 / 32 on the Particle shape
 //     (24-byte Vec3, boxed at 16 and inlined at >=24). 16 wins: inlining a fixed-size sub-message of
 //     size S into a growable-array parent costs ~2S of array memory (the struct plus its single-pass
 //     realloc copy) vs ~16+S for a pointer, so inlining only pays up to S = 16; inlining the 24-byte
 //     Vec3 raised used-memory ~16% (57.6 -> 67.1 MB at 32 MB) with no time benefit.
+//
+// Strings and bytes are not a tuned knob: they borrow a {ptr,len} view into the input (arena_runtime.hpp
+// ArenaString is a fixed 12-byte cell), so nothing is copied into the arena and there is no inline width
+// to sweep -- the win is unconditional (no per-string memcpy, no string bytes in the arena).
 //
 // RUN PINNED to one performance core (hybrid-core scheduling adds 30%+ noise); never run two pinned
 // copies on the same core at once:

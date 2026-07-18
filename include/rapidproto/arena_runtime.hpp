@@ -4,18 +4,20 @@
 
 // rapidproto arena runtime: the std-library-only support that generated arena decoders depend on. An
 // arena decoder materializes a protobuf message into a fully-allocated, READ-ONLY object tree whose
-// every node lives in a bump Arena. Nothing is allocated outside it, and the input buffer is
-// freeable after the decode (all variable-length data is copied in). This header amalgamates:
+// every node lives in a bump Arena. The tree BORROWS the input: strings and bytes are {ptr,len} views
+// into the input wire buffer (no copy), so the tree is valid only while BOTH the Arena and the input
+// outlive it. Callers who want a self-contained result use decode_owned, which bundles the input and a
+// default Arena into one owning handle. This header amalgamates:
 //   - Arena       : a growable bump allocator (chunked); the only allocator the tree uses.
-//   - ArenaString : a small-string-optimized read-only string (inline when small, arena-copied else).
+//   - ArenaString : a read-only string that borrows a {ptr,len} view into the input (no copy, no SSO).
 //   - ArrayView / MapView : read-only views the generated accessors return for repeated and maps.
 //   - ArenaDecodeError : the failure detail a decode() reports.
+//   - decode_owned : a self-contained decode returning a shared_ptr that owns the input + Arena.
 // It builds on the wire reader (runtime.hpp: the rapidproto::wire readers, WireError, ByteView, the
 // value helpers).
 //
-// INVARIANT: only trivially-destructible objects are placed in the Arena (ArenaString's big buffer is
-// itself arena-owned), so no destructor ever runs: reset() is a pointer rewind, and dropping the
-// Arena frees everything at once.
+// INVARIANT: only trivially-destructible objects are placed in the Arena, so no destructor ever runs:
+// reset() is a pointer rewind, and dropping the Arena frees everything at once.
 
 #include <algorithm>
 #include <cassert>
@@ -25,6 +27,7 @@
 #include <iterator>
 #include <memory>
 #include <new>
+#include <string>
 #include <string_view>
 #include <type_traits>
 #include <vector>
@@ -95,21 +98,6 @@ public:
         }
         // NOLINTNEXTLINE(cppcoreguidelines-owning-memory): arena-owned, see above
         return ::new (mem) T(std::forward<Args>(args)...);
-    }
-
-    // Copy bytes into the arena; returns a view of the copy (empty view on empty input). nullptr data
-    // (distinguishable only via .data()) signals OOM for a non-empty input.
-    ByteView copy_bytes(ByteView src) noexcept {
-        if (src.empty()) {
-            return {};
-        }
-        void* const mem = allocate(src.size(), 1);
-        if (mem == nullptr) {
-            return {};
-        }
-        std::memcpy(mem, src.data(), src.size());
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast): bytes view over the copy
-        return {reinterpret_cast<const char*>(mem), src.size()};
     }
 
     // Return the unused tail of the MOST-RECENT allocation, shrinking it from `old_bytes` to
@@ -297,108 +285,65 @@ private:
 };
 
 // ── ArenaString ──────────────────────────────────────────────────────────────────────────────────
-// A 16-byte read-only string with small-string optimization. <= kInlineCap bytes live inline; larger
-// values are copied into the arena and referenced as {ptr,len}. Trivially copyable/destructible.
-// Layout (byte 15 is the discriminator): inline => [0,15) data, [15] = length (0..15); heap => [0,8)
-// const char* ptr, [8,12) uint32 length, [15] = kHeapTag (0xFF, which no inline length can be).
-// The 16-byte size (15 inline) is benchmark-tuned by recompiling at 16/24/32 bytes: a wider SSO inlines
-// more medium strings but widens every string field, which loses on realistic mostly-short-string
-// payloads (see the knob-tuning note in tests/bench_arena.cpp). If retuned, update arenagen's
-// kStringSize to match (a static_assert there enforces it).
-// NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic,
-// cppcoreguidelines-pro-bounds-array-to-pointer-decay, cppcoreguidelines-avoid-c-arrays,
-// modernize-avoid-c-arrays, cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers,
-// bugprone-multi-level-implicit-pointer-conversion): the class IS a hand-laid-out 16-byte cell --
-// a raw char[16] whose bytes are addressed by documented offsets, with the heap {ptr,len} form
-// type-punned through memcpy (the sanctioned way). The layout comment above is the source of
-// truth the literals mirror.
+// A pure 12-byte read-only string that BORROWS a {ptr,len} view into the input wire buffer -- strings
+// and bytes are zero-copy. The decoded tree therefore borrows the input (on top of the arena): a
+// string_view it yields is valid only while the input outlives the tree. This trades the
+// self-contained-tree guarantee for no per-string memcpy and no string bytes in the arena; callers who
+// want a self-contained result use decode_owned (which owns the input alongside the arena).
+// Trivially copyable/destructible.
+//
+// Layout: a `char[8]` pointer (align 1) + a `uint32` length -> sizeof 12, alignof 4. Storing the
+// pointer as a byte array (read/written via memcpy) instead of a `const char*` avoids the 8-byte
+// alignment that would pad the cell back to 16; the 4-aligned 12-byte cell lets the layout planner
+// pack a string field next to other 4-byte fields with no gap. A borrow never inlines, so there is no
+// SSO. The length is 32-bit: a protobuf message never exceeds ~2 GiB (the top-level decode rejects an
+// input over UINT32_MAX bytes up front, see rp_fail_input_too_large), so no string span within it can
+// either. If the size changes, update arenagen's kStringSize to match (a static_assert there enforces
+// it).
+// NOLINTBEGIN(cppcoreguidelines-avoid-c-arrays, modernize-avoid-c-arrays,
+// bugprone-multi-level-implicit-pointer-conversion, bugprone-sizeof-expression): the pointer is a raw
+// char[8] cell, type-punned through memcpy (the sanctioned way, &ptr -> void*) to hold align 1;
+// sizeof(a pointer) is exactly what we mean.
 class ArenaString {
 public:
-    static constexpr std::size_t kInlineCap = 15;
+    ArenaString() noexcept = default;  // empty view
 
-    ArenaString() noexcept { m_bytes[kTagPos] = 0; }  // empty inline
-
-    // Build from bytes; copies into the arena iff it does not fit inline. Yields an empty string on
-    // failure: the Arena was out of memory, or the value exceeds the 4 GiB a heap ArenaString can
-    // address (its length is 32-bit). A >4 GiB value is rejected up front (no copy, never truncated);
-    // the caller turns the empty result into a decode failure via rp_fail_string (StringTooLong vs OOM).
+    // Store a {ptr,len} view into the input (no copy; `arena` is unused, kept for a uniform call
+    // shape). Yields an empty string only for a value exceeding the 32-bit length -- which the
+    // top-level >UINT32_MAX input guard already rules out, so under a real decode this never fails.
     static ArenaString make(ByteView s, Arena& arena) noexcept {
+        (void)arena;
         ArenaString out;
-        if (s.size() <= kInlineCap) {
-            // Copy the <=15 inline bytes with two size-class-bounded, overlapping loads/stores rather
-            // than a runtime-length memcpy. A memcpy with a variable small size lowers to a slow
-            // generic small-copy (a byte loop / branch ladder) -- measured ~18% faster whole-message
-            // arena decode on clang, ~3.5% on gcc, since short strings are common and clang's variable
-            // small-memcpy is especially poor. Every read stays within [0, n): no over-read past the
-            // wire buffer, safe on untrusted input. Bytes [n, 14] keep the zero-init above; view()
-            // reads only [0, n) plus the tag, so they are never observed.
-            const char* const p = s.data();
-            const std::size_t n = s.size();
-            if (n >= 8) {
-                std::uint64_t lo = 0;
-                std::uint64_t hi = 0;
-                std::memcpy(&lo, p, 8);
-                std::memcpy(&hi, p + n - 8, 8);
-                std::memcpy(out.m_bytes, &lo, 8);
-                std::memcpy(out.m_bytes + n - 8, &hi, 8);
-            } else if (n >= 4) {
-                std::uint32_t lo = 0;
-                std::uint32_t hi = 0;
-                std::memcpy(&lo, p, 4);
-                std::memcpy(&hi, p + n - 4, 4);
-                std::memcpy(out.m_bytes, &lo, 4);
-                std::memcpy(out.m_bytes + n - 4, &hi, 4);
-            } else if (n >= 1) {
-                out.m_bytes[0] = p[0];
-                out.m_bytes[n - 1] = p[n - 1];
-                out.m_bytes[n >> 1U] = p[n >> 1U];
-            }
-            out.m_bytes[kTagPos] = static_cast<char>(n);
-            return out;
-        }
         if (s.size() > UINT32_MAX) {
-            return out;  // exceeds the 32-bit heap length -> empty; the caller fails the decode
+            return out;  // exceeds the 32-bit length -> empty (unreachable under the input-size guard)
         }
-        const ByteView copy = arena.copy_bytes(s);
-        if (copy.data() == nullptr) {
-            return out;  // OOM -> empty
-        }
-        const char* const ptr = copy.data();
-        const auto len = static_cast<std::uint32_t>(copy.size());  // fits: s.size() checked above
-        std::memcpy(out.m_bytes, &ptr, sizeof ptr);
-        std::memcpy(out.m_bytes + sizeof(ptr), &len, sizeof len);
-        out.m_bytes[kTagPos] = kHeapTag;
+        const char* const p = s.data();
+        std::memcpy(out.m_ptr, &p, sizeof p);
+        out.m_len = static_cast<std::uint32_t>(s.size());
         return out;
     }
 
-    [[nodiscard]] std::string_view view() const noexcept {
-        if (static_cast<unsigned char>(m_bytes[kTagPos]) == kHeapByte) {
-            const char* ptr = nullptr;
-            std::uint32_t len = 0;
-            std::memcpy(&ptr, m_bytes, sizeof ptr);
-            std::memcpy(&len, m_bytes + sizeof(ptr), sizeof len);
-            return {ptr, len};
-        }
-        return {m_bytes, static_cast<std::size_t>(m_bytes[kTagPos])};
+    // The borrowed pointer (null only on a default/unset ArenaString). A raw message-payload field
+    // uses this for presence: a present payload borrows a non-null input pointer even when empty,
+    // while an unset field keeps the null default.
+    [[nodiscard]] const char* data() const noexcept {
+        const char* p = nullptr;
+        std::memcpy(&p, m_ptr, sizeof p);
+        return p;
     }
-    [[nodiscard]] std::size_t size() const noexcept { return view().size(); }
-    [[nodiscard]] bool empty() const noexcept { return size() == 0; }
+    [[nodiscard]] std::string_view view() const noexcept { return {data(), m_len}; }
+    [[nodiscard]] std::size_t size() const noexcept { return m_len; }
+    [[nodiscard]] bool empty() const noexcept { return m_len == 0; }
 
 private:
-    static constexpr std::size_t kTagPos = 15;
-    // The 0xFF heap-tag discriminator in two types: stored as char (kHeapTag), compared as unsigned
-    // char (kHeapByte) to avoid signed-char ambiguity. No inline length (0..15) can equal it.
-    static constexpr char kHeapTag = static_cast<char>(0xFF);
-    static constexpr unsigned char kHeapByte = 0xFFU;
-
-    alignas(const char*) char m_bytes[16] = {};
+    char m_ptr[8] = {};       // the borrowed pointer, byte-array (align 1) to keep the cell align 4
+    std::uint32_t m_len = 0;  // length; a protobuf span never exceeds ~2 GiB, so uint32 always fits
 };
-// NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic,
-// cppcoreguidelines-pro-bounds-array-to-pointer-decay, cppcoreguidelines-avoid-c-arrays,
-// modernize-avoid-c-arrays, cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers,
-// bugprone-multi-level-implicit-pointer-conversion)
+// NOLINTEND(cppcoreguidelines-avoid-c-arrays, modernize-avoid-c-arrays,
+// bugprone-multi-level-implicit-pointer-conversion, bugprone-sizeof-expression)
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
-static_assert(sizeof(ArenaString) == 16 && std::is_trivially_destructible_v<ArenaString>);
+static_assert(sizeof(ArenaString) == 12 && alignof(ArenaString) == 4 &&
+              std::is_trivially_destructible_v<ArenaString>);
 
 // ── ArrayView / MapView ──────────────────────────────────────────────────────────────────────────
 // A read-only contiguous view into the arena, returned by repeated-field accessors. This is the
@@ -450,7 +395,7 @@ static_assert(sizeof(ArrayView<int>) == 12 && alignof(ArrayView<int>) == 4 &&
 // ── StringArrayView ────────────────────────────────────────────────────────────────────────────────
 // A read-only view over an arena array of ArenaString that yields std::string_view per element. A
 // repeated string/bytes accessor returns this, so consumers see std::string_view and never the internal
-// ArenaString storage type; the underlying SSO storage is unchanged.
+// ArenaString storage type; each element borrows a {ptr,len} view into the input (no copy).
 class StringArrayView {
 public:
     StringArrayView() noexcept = default;
@@ -539,7 +484,9 @@ struct ArenaDecodeError {
         RecursionTooDeep,         // message nesting exceeded kMaxDecodeDepth
         MissingRequired,          // a proto2 `required` field was absent (see `field_number`)
         RepeatedSingularMessage,  // a singular message field occurred more than once (see field_number)
-        StringTooLong,  // a string/bytes value exceeded the 4 GiB arena representation limit
+        StringTooLong,  // reserved (unreachable): strings borrow the input (never copied) and an input
+        // over 4 GiB is rejected as InputTooLarge, so no string store fails; kept for
+        // Code-value stability
         InputTooLarge,  // input exceeds the 4 GiB (UINT32_MAX) size at which element counts / string
                         // lengths stay representable
     };
@@ -578,14 +525,6 @@ inline void rp_fail_input_too_large(ArenaDecodeError* err) noexcept {
         err->code = ArenaDecodeError::Code::InputTooLarge;
     }
 }
-// A string/bytes store failed: the value exceeds the 4 GiB an ArenaString can represent
-// (StringTooLong) or the Arena was out of memory (OutOfMemory). The payload size selects which.
-inline void rp_fail_string(ArenaDecodeError* err, ByteView payload) noexcept {
-    if (err != nullptr) {
-        err->code = payload.size() > UINT32_MAX ? ArenaDecodeError::Code::StringTooLong
-                                                : ArenaDecodeError::Code::OutOfMemory;
-    }
-}
 inline void rp_fail_recursion(ArenaDecodeError* err) noexcept {
     if (err != nullptr) {
         err->code = ArenaDecodeError::Code::RecursionTooDeep;
@@ -602,6 +541,33 @@ inline void rp_fail_repeated_singular(ArenaDecodeError* err, std::uint32_t field
         err->code = ArenaDecodeError::Code::RepeatedSingularMessage;
         err->field_number = field_number;
     }
+}
+
+// ── decode_owned: a self-contained decode ────────────────────────────────────────────────────────
+// Decode `input` into a tree that OWNS its inputs: the returned handle keeps both the moved-in input
+// bytes and a default Arena alive, so every borrowed string_view stays valid for as long as any copy
+// of the handle lives -- no external lifetime to manage. Uses shared_ptr's aliasing constructor: the
+// control block owns {input, arena}, the shared_ptr points at the decoded root. Returns an empty
+// shared_ptr on decode failure (err, if non-null, carries the reason). For a caller-managed Arena, or
+// to decode a string_view you own without moving it, use the low-level T::decode(ByteView, Arena&)
+// directly and keep the input alive yourself.
+template <class T>
+[[nodiscard]] std::shared_ptr<const T> decode_owned(std::string input,
+                                                    ArenaDecodeError* err = nullptr) {
+    struct OwnedArena {
+        std::string
+            input;  // moved-in; .data() is stable (heap-pinned in the control block, never mutated)
+        Arena arena;  // default-constructed in place; address-stable, holds the tree structure
+    };
+    auto bundle = std::make_shared<OwnedArena>();
+    bundle->input = std::move(input);
+    const T* root =
+        T::decode(ByteView{bundle->input.data(), bundle->input.size()}, bundle->arena, err);
+    if (root == nullptr) {
+        return {};  // decode failed: drop the bundle, return empty
+    }
+    return std::shared_ptr<const T>(std::move(bundle),
+                                    root);  // aliasing ctor: share bundle, expose root
 }
 
 // ── decoder reach-through (keeps the decoder off the generated public surface) ───────────────────────
@@ -630,30 +596,6 @@ inline constexpr bool kFixedIsNativeLE = true;
 #else
 inline constexpr bool kFixedIsNativeLE = false;
 #endif
-
-// A singular raw member encodes ABSENCE as a null-data view (like a materialized message
-// field's null pointer -- no mask bit spent). A PRESENT but empty payload must therefore be
-// non-null: it points here.
-inline constexpr char kEmptyPayload = 0;
-
-// Arena-copy a field-modes `raw` payload, so the stored ByteView outlives the input buffer the
-// decode merely borrowed. Returns false on OOM. The result is always non-null (empty payloads
-// view kEmptyPayload), so a null-data view stays free to mean "absent".
-[[nodiscard]] inline bool copy_payload(ByteView payload, Arena& arena, ByteView& out) noexcept {
-    if (payload.empty()) {
-        // A deliberately empty, deliberately NON-NULL view -- null data is the absence encoding.
-        // NOLINTNEXTLINE(bugprone-string-constructor)
-        out = ByteView(&kEmptyPayload, 0);
-        return true;
-    }
-    char* const data = arena.allocate_array<char>(payload.size());
-    if (data == nullptr) {
-        return false;
-    }
-    std::memcpy(data, payload.data(), payload.size());
-    out = ByteView(data, payload.size());
-    return true;
-}
 
 // The SWAR-kernel packed-varint decode for a LARGE span, pulled OUT of line -- shared across every
 // `repeated <varint-type>` field of this element type (and across messages/TUs, since the instantiation

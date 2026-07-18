@@ -1,4 +1,4 @@
-// Unit tests for the arena runtime (arena_runtime.hpp): the bump Arena, ArenaString SSO, the
+// Unit tests for the arena runtime (arena_runtime.hpp): the bump Arena, the borrowed-view ArenaString,
 // ArrayView/MapView read-only views, and ArenaDecodeError.
 
 #include <catch_amalgamated.hpp>
@@ -64,7 +64,7 @@ TEST_CASE("arena: grows across chunks without corrupting prior allocations", "[a
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): a linear list of assertions
-TEST_CASE("arena: allocate_array, create, copy_bytes", "[arena]") {
+TEST_CASE("arena: allocate_array, create", "[arena]") {
     Arena arena;
     CHECK(arena.allocate_array<int>(0) == nullptr);
     int* xs = arena.allocate_array<int>(4);
@@ -74,13 +74,6 @@ TEST_CASE("arena: allocate_array, create, copy_bytes", "[arena]") {
         xs[i] = i * 10;
     }
     CHECK(xs[3] == 30);
-
-    const std::string src = "the quick brown fox";
-    const ByteView copy = arena.copy_bytes(src);
-    CHECK(copy.size() == src.size());
-    CHECK(copy.data() != src.data());  // distinct storage
-    CHECK(copy == src);
-    CHECK(arena.copy_bytes(ByteView{}).empty());
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): a linear list of assertions
@@ -147,7 +140,6 @@ TEST_CASE("arena: a capacity limit fails allocation (the OOM path)", "[arena]") 
     CHECK(arena.allocate(128, 8) == nullptr);
     CHECK(arena.create<int>(42) == nullptr);
     CHECK(arena.allocate_array<int>(100) == nullptr);
-    CHECK(arena.copy_bytes(ByteView("hello", 5)).data() == nullptr);  // OOM => empty/null view
     CHECK(arena.bytes_reserved() == 0);  // the cap blocked every reservation
 }
 
@@ -184,7 +176,9 @@ TEST_CASE("arena: caller-provided initial buffer is used before any malloc", "[a
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): a linear list of assertions
-TEST_CASE("ArenaString: inline small values, copy big into the arena", "[arena][string]") {
+TEST_CASE("ArenaString: borrows a view of the input (no copy into the arena)", "[arena][string]") {
+    // make() stores a {ptr,len} VIEW into the input; it never copies, so the source must outlive the
+    // ArenaString and the view aliases the source bytes.
     Arena arena;
 
     SECTION("empty") {
@@ -194,47 +188,44 @@ TEST_CASE("ArenaString: inline small values, copy big into the arena", "[arena][
         CHECK(arena.bytes_used() == 0);  // no allocation
     }
 
-    SECTION("inline up to the cap (15 bytes)") {
+    SECTION("short value: a zero-copy borrow, no arena bytes") {
         const std::size_t before = arena.bytes_used();
-        std::string src(ArenaString::kInlineCap, 'z');  // exactly 15
+        const std::string src(15, 'z');
         const auto s = ArenaString::make(src, arena);
-        src.assign(ArenaString::kInlineCap, '!');  // mutate the source afterwards
-        CHECK(s.size() == ArenaString::kInlineCap);
-        CHECK(s.view() == std::string(ArenaString::kInlineCap, 'z'));  // copied, unaffected
-        CHECK(arena.bytes_used() == before);  // inline: no arena allocation
+        CHECK(s.size() == 15);
+        CHECK(s.view() == src);
+        CHECK(s.view().data() == src.data());  // borrows: aliases the source, not a copy
+        CHECK(arena.bytes_used() == before);   // borrow: no arena allocation
     }
 
-    SECTION("heap above the cap") {
-        std::string src(64, 'q');  // > 15 -> arena copy
+    SECTION("long value: still a zero-copy borrow, no arena bytes") {
+        const std::size_t before = arena.bytes_used();
+        const std::string src(64, 'q');
         const auto s = ArenaString::make(src, arena);
-        src.assign(64, '?');  // mutate the source afterwards
         CHECK(s.size() == 64);
-        CHECK(s.view() == std::string(64, 'q'));  // copied, unaffected
-        CHECK(arena.bytes_used() >= 64);
-        CHECK(s.view().data() != src.data());
+        CHECK(s.view() == src);
+        CHECK(s.view().data() == src.data());  // borrows the source directly
+        CHECK(arena.bytes_used() == before);   // no copy regardless of length
     }
 
-    SECTION("every inline length round-trips with DISTINCT bytes") {
-        // The inline SSO copy has three size branches (n in [1,3], [4,7], [8,15]); the uniform-fill
-        // sections above would not notice a byte landing in the wrong slot. Distinct bytes per index
-        // pin each branch exactly, and mutating the source after the copy proves independence.
-        for (std::size_t n = 0; n <= ArenaString::kInlineCap; ++n) {
+    SECTION("every length round-trips with DISTINCT bytes") {
+        // Distinct bytes per index pin the ptr/len round-trip exactly (a uniform fill would not notice
+        // a truncated or off-by-one length). The source outlives the view within the loop body.
+        for (std::size_t n = 0; n <= 32; ++n) {
             std::string src;
             for (std::size_t i = 0; i < n; ++i) {
-                src.push_back(static_cast<char>('a' + i));  // a, b, c, ... all distinct
+                src.push_back(static_cast<char>('a' + (i % 26)));
             }
-            const std::string expect = src;
             const auto s = ArenaString::make(src, arena);
-            src.assign(n, '!');  // clobber the source; the inline copy must be independent
             CHECK(s.size() == n);
-            CHECK(s.view() == expect);
+            CHECK(s.view() == src);
         }
     }
 }
 
 TEST_CASE("ArenaString: a value larger than the 32-bit length is rejected, not truncated",
           "[arena][string]") {
-    // A heap ArenaString stores a 32-bit length, so >4 GiB is unrepresentable -- and only reachable
+    // An ArenaString stores a 32-bit length, so >4 GiB is unrepresentable -- and only reachable
     // at 64-bit (at 32-bit a size_t cannot exceed the limit).
     if constexpr (sizeof(std::size_t) > sizeof(std::uint32_t)) {
         Arena arena;
@@ -264,15 +255,16 @@ TEST_CASE("ArrayView: read-only contiguous view", "[arena][arrayview]") {
 }
 
 TEST_CASE("view storage types have their pinned sizes", "[arena][arrayview][map]") {
-    // ArrayView/MapView are the shrunk 12-byte / 4-align views over self-contained arena storage
-    // (a memcpy'd 8-byte pointer + a uint32 count). ByteView (raw input/field type) and ArenaString
-    // (SSO string) are unchanged at 16/8. The arenagen layout planner pins these via static_assert.
+    // ArrayView/MapView and ArenaString are all 12-byte / 4-align cells (a memcpy'd 8-byte pointer +
+    // a uint32 count/length). ByteView (raw input/field type) stays 16/8. The arenagen layout planner
+    // pins these via static_assert.
     CHECK(sizeof(ArrayView<int>) == 12);
     CHECK(alignof(ArrayView<int>) == 4);
     CHECK(sizeof(MapView<ArenaString>) == 12);
     CHECK(alignof(MapView<ArenaString>) == 4);
     CHECK(sizeof(ByteView) == 16);
-    CHECK(sizeof(ArenaString) == 16);
+    CHECK(sizeof(ArenaString) == 12);
+    CHECK(alignof(ArenaString) == 4);
 
     // A normal count round-trips through the uint32 size unchanged.
     const int data[] = {2, 4, 6, 8};
@@ -285,15 +277,15 @@ TEST_CASE("view storage types have their pinned sizes", "[arena][arrayview][map]
 
 TEST_CASE("StringArrayView: indexing yields std::string_view, not ArenaString", "[arena][string]") {
     Arena arena;
-    const std::string big(40, 'x');  // > kInlineCap: forces a heap (arena-copied) ArenaString
+    const std::string big(40, 'x');  // a longer borrowed value; the source outlives the view
     const ArenaString strings[] = {ArenaString::make("hi", arena), ArenaString::make(big, arena),
                                    ArenaString::make(ByteView{}, arena)};
     const StringArrayView v(ArrayView<ArenaString>(strings, 3));
 
     const std::string_view first = v[0];  // operator[] returns std::string_view, not ArenaString
     CHECK(v.size() == 3);
-    CHECK(first == "hi");  // inline element
-    CHECK(v[1] == big);    // heap element
+    CHECK(first == "hi");  // short element
+    CHECK(v[1] == big);    // long element
     CHECK(v[2].empty());   // empty element
     CHECK(StringArrayView{}.empty());
 }
@@ -343,19 +335,6 @@ TEST_CASE("ArenaDecodeError: ok() reflects the code", "[arena]") {
     CHECK_FALSE(e.ok());
 }
 
-TEST_CASE("ArenaDecodeError: rp_fail_string distinguishes too-long from out-of-memory", "[arena]") {
-    const char backing = 'x';
-    ArenaDecodeError oom;
-    rp_fail_string(&oom, ByteView(&backing, 1));  // a small payload that failed to store => OOM
-    CHECK(oom.code == ArenaDecodeError::Code::OutOfMemory);
-    rp_fail_string(nullptr, ByteView(&backing, 1));               // a null err must be a safe no-op
-    if constexpr (sizeof(std::size_t) > sizeof(std::uint32_t)) {  // >4 GiB only reachable at 64-bit
-        ArenaDecodeError too_long;
-        rp_fail_string(&too_long, ByteView(&backing, static_cast<std::size_t>(UINT32_MAX) + 1));
-        CHECK(too_long.code == ArenaDecodeError::Code::StringTooLong);
-    }
-}
-
 TEST_CASE("ArenaDecodeError: rp_fail_input_too_large sets InputTooLarge", "[arena]") {
     // The top-level decode rejects a >UINT32_MAX input up front: every repeated/map entry costs
     // >=1 input byte, so a <=UINT32_MAX input bounds every element count to the uint32 ArrayView/
@@ -366,30 +345,4 @@ TEST_CASE("ArenaDecodeError: rp_fail_input_too_large sets InputTooLarge", "[aren
     CHECK(e.code == ArenaDecodeError::Code::InputTooLarge);
     CHECK_FALSE(e.ok());
     rp_fail_input_too_large(nullptr);  // a null err must be a safe no-op
-}
-
-TEST_CASE("copy_payload: arena-copies raw payloads, keeps present-empty non-null, reports OOM",
-          "[arena]") {
-    Arena arena;
-    // A copied payload is arena-owned: same bytes, different storage.
-    const std::string src = "payload bytes";
-    ByteView out;
-    REQUIRE(arena_detail::copy_payload(ByteView(src), arena, out));
-    CHECK(out == ByteView(src));
-    CHECK(out.data() != src.data());
-
-    // An EMPTY payload copies to a NON-null empty view: null data is reserved for "absent"
-    // (the singular raw member's presence encoding), present-and-empty must stay distinct.
-    ByteView empty;
-    REQUIRE(arena_detail::copy_payload(ByteView(), arena, empty));
-    CHECK(empty.empty());
-    CHECK(empty.data() != nullptr);
-
-    // A capacity-limited arena surfaces OOM (the raw arm turns this into OutOfMemory); the
-    // destination is left untouched.
-    Arena tiny;
-    tiny.set_capacity_limit(16);
-    auto untouched = ByteView(src);
-    CHECK_FALSE(arena_detail::copy_payload(ByteView(std::string(64, 'z')), tiny, untouched));
-    CHECK(untouched == ByteView(src));
 }

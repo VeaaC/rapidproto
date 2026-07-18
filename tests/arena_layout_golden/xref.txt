@@ -9,7 +9,7 @@ message .xr.Nested.User size=96 align=8 fixed=no
   field inner num=9 pointer-submsg .xr.Nested.Def.Inner off=16 size=8 align=8 presence=ptr
   field many num=2 repeated ArrayView<.xr.Nested.Def> off=24 size=12 align=4 presence=empty
   map by_name num=3 off=36 size=12 align=4 presence=empty
-    entry key=sso-string:ArenaString value=pointer-submsg:.xr.Nested.Def size=24 align=8
+    entry key=borrow-string:ArenaString value=pointer-submsg:.xr.Nested.Def size=24 align=8
   field kinds num=6 repeated ArrayView<.xr.Nested.Def.Kind> off=48 size=12 align=4 presence=empty
   map ranked num=7 off=60 size=12 align=4 presence=empty
     entry key=inline-scalar:int32 value=inline-enum:.xr.Nested.Def.Kind size=8 align=4
@@ -18,11 +18,11 @@ message .xr.Nested.User size=96 align=8 fixed=no
   oneof pick disc-off=88 union-off=8 union-size=8 union-align=8
     member chosen num=4 pointer-submsg .xr.Nested.Def size=8 align=8
     member tagged num=8 inline-enum .xr.Nested.Def.Kind size=4 align=4
-message .xr.Nested.Def size=24 align=8 fixed=no
-  field s num=1 sso-string ArenaString off=0 size=16 align=8 presence=none
-  field n num=2 inline-scalar int32 off=16 size=4 align=4 presence=none
-message .xr.Nested.Def.Inner size=16 align=8 fixed=no
-  field s num=1 sso-string ArenaString off=0 size=16 align=8 presence=none
+message .xr.Nested.Def size=16 align=4 fixed=no
+  field s num=1 borrow-string ArenaString off=0 size=12 align=4 presence=none
+  field n num=2 inline-scalar int32 off=12 size=4 align=4 presence=none
+message .xr.Nested.Def.Inner size=12 align=4 fixed=no
+  field s num=1 borrow-string ArenaString off=0 size=12 align=4 presence=none
 message .xr.Nested.P size=8 align=8 fixed=no
   field q num=1 pointer-submsg .xr.Nested.Q off=0 size=8 align=8 presence=ptr
 message .xr.Nested.Q size=8 align=8 fixed=no
@@ -35,17 +35,17 @@ message .xr.FwdMsg.Ref size=48 align=8 fixed=no
     entry key=inline-scalar:int32 value=pointer-submsg:.xr.FwdMsg.Target size=16 align=8
   oneof pick disc-off=40 union-off=8 union-size=8 union-align=8
     member chosen num=4 pointer-submsg .xr.FwdMsg.Target size=8 align=8
-message .xr.FwdMsg.Target size=24 align=8 fixed=no
-  field s num=1 sso-string ArenaString off=0 size=16 align=8 presence=none
-  field n num=2 inline-scalar int32 off=16 size=4 align=4 presence=none
+message .xr.FwdMsg.Target size=16 align=4 fixed=no
+  field s num=1 borrow-string ArenaString off=0 size=12 align=4 presence=none
+  field n num=2 inline-scalar int32 off=12 size=4 align=4 presence=none
 message .xr.CousinA size=1 align=1 fixed=yes
 message .xr.CousinA.Use size=24 align=8 fixed=no
   field thing num=1 pointer-submsg .xr.CousinB.Thing off=0 size=8 align=8 presence=ptr
   field things num=2 repeated ArrayView<.xr.CousinB.Thing> off=8 size=12 align=4 presence=empty
   field tag num=3 inline-enum .xr.CousinB.Tag off=20 size=4 align=4 presence=none
 message .xr.CousinB size=1 align=1 fixed=yes
-message .xr.CousinB.Thing size=16 align=8 fixed=no
-  field s num=1 sso-string ArenaString off=0 size=16 align=8 presence=none
+message .xr.CousinB.Thing size=12 align=4 fixed=no
+  field s num=1 borrow-string ArenaString off=0 size=12 align=4 presence=none
 message .xr.ReservedNames size=28 align=4 fixed=yes
   field value num=1 inline-scalar int32 off=0 size=4 align=4 presence=none
   field tag num=2 inline-scalar int32 off=4 size=4 align=4 presence=none
@@ -60,5 +60,5 @@ message .xr.BoolWrap size=1 align=1 fixed=yes
   field value num=1 inline-scalar bool off=- size=- align=- presence=none value=bit0
   mask off=0 size=1 align=1 bits=1
     bit 0 value value
-message .xr.BytesWrap size=16 align=8 fixed=no
-  field value num=1 sso-string ArenaString off=0 size=16 align=8 presence=none
+message .xr.BytesWrap size=12 align=4 fixed=no
+  field value num=1 borrow-string ArenaString off=0 size=12 align=4 presence=none

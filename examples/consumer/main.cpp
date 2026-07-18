@@ -61,8 +61,8 @@ int main() {
         [&](demo::stream::Shape::kind, demo::Kind v) { stream_kind = v; },
         [&](demo::stream::Shape::sides, std::int32_t v) { stream_side_sum += v; },
         // Hybrid: rp_bytes() is the sub-message's exact field bytes, so the ARENA model can
-        // materialize just this field mid-stream -- and since the arena copies, the resulting
-        // tree outlives the input buffer the streaming walk merely borrows.
+        // materialize just this field mid-stream. The resulting tree borrows those bytes (a slice of
+        // `bytes`), so it stays valid only while `bytes` and `arena` outlive it -- both do here.
         [&](demo::stream::Shape::origin, demo::stream::Point p) {
             hybrid_origin = demo::Point::decode(p.rp_bytes(), arena);
         },

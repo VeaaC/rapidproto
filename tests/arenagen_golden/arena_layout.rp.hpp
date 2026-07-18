@@ -174,16 +174,16 @@ class Layout {
     ::al::Point cp;
     rp_choice_union() noexcept {}
   };
-  ::rapidproto::ArenaString m_name;
-  ::rapidproto::ArenaString m_oname;
-  rp_choice_union m_rp_choice;
   std::int64_t m_big;
   const ::al::Big* m_bg;
   const ::al::HasString* m_hs;
+  ::rapidproto::ArenaString m_name;
+  ::rapidproto::ArenaString m_oname;
   ::rapidproto::ArrayView<std::int32_t> m_nums;
   ::rapidproto::ArrayView<::al::Point> m_points;
   ::rapidproto::MapView<CountsEntry> m_counts;
   ::rapidproto::MapView<GridEntry> m_grid;
+  rp_choice_union m_rp_choice;
   ::rapidproto::ArrayView<::rapidproto::ArenaString> m_labels;
   ::al::Point m_pt;
   std::int32_t m_small;
@@ -343,7 +343,6 @@ RP_FLATTEN inline bool HasString::rp_decode_into([[maybe_unused]] HasString& out
       if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
       rp_c = rp_np;
       out.m_s = ::rapidproto::ArenaString::make(rp_v, arena);
-      if (!rp_v.empty() && (out.m_s).empty()) { ::rapidproto::rp_fail_string(err, rp_v); return false; }
       continue;
     }
     rp_field_general:;
@@ -630,7 +629,6 @@ RP_FLATTEN inline bool Layout::rp_decode_into([[maybe_unused]] Layout& out, ::ra
       if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
       rp_c = rp_np;
       out.m_name = ::rapidproto::ArenaString::make(rp_v, arena);
-      if (!rp_v.empty() && (out.m_name).empty()) { ::rapidproto::rp_fail_string(err, rp_v); return false; }
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(7, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_7; }
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(8, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_8; }
       continue;
@@ -641,7 +639,6 @@ RP_FLATTEN inline bool Layout::rp_decode_into([[maybe_unused]] Layout& out, ::ra
       if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
       rp_c = rp_np;
       out.m_oname = ::rapidproto::ArenaString::make(rp_v, arena);
-      if (!rp_v.empty() && (out.m_oname).empty()) { ::rapidproto::rp_fail_string(err, rp_v); return false; }
       out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 3));
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(8, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_8; }
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(9, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_9; }
@@ -781,7 +778,6 @@ RP_FLATTEN inline bool Layout::rp_decode_into([[maybe_unused]] Layout& out, ::ra
           if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
           rp_c = rp_np;
           *rp_slot = ::rapidproto::ArenaString::make(rp_v, arena);
-          if (!rp_v.empty() && (*rp_slot).empty()) { ::rapidproto::rp_fail_string(err, rp_v); return false; }
           continue;
         }
         break;
@@ -808,7 +804,6 @@ RP_FLATTEN inline bool Layout::rp_decode_into([[maybe_unused]] Layout& out, ::ra
               if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_ec - ::rapidproto::wire::byte_ptr(rp_ent))); return false; }
               rp_ec = rp_np;
               rp_slot->rp_key = ::rapidproto::ArenaString::make(rp_v, arena);
-              if (!rp_v.empty() && (rp_slot->rp_key).empty()) { ::rapidproto::rp_fail_string(err, rp_v); return false; }
             } else if (rp_et.field_number == 2 && rp_et.wire_type == ::rapidproto::WireType::Varint) {
               std::uint64_t rp_raw = 0;
               const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_ec, rp_ee, &rp_raw, &rp_we);
@@ -882,7 +877,6 @@ RP_FLATTEN inline bool Layout::rp_decode_into([[maybe_unused]] Layout& out, ::ra
           if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
           rp_c = rp_np;
           out.m_rp_choice.cs = ::rapidproto::ArenaString::make(rp_v, arena);
-          if (!rp_v.empty() && (out.m_rp_choice.cs).empty()) { ::rapidproto::rp_fail_string(err, rp_v); return false; }
           out.m_rp_choice_case = 2;
           continue;
         }
