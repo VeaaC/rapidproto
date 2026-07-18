@@ -18,6 +18,9 @@
 #include "rapidproto/codegen/runtime_embedded.hpp"   // IWYU pragma: keep
 #include "rapidproto/codegen/wire.hpp"               // IWYU pragma: keep
 #include "rapidproto/combinators.hpp"                // IWYU pragma: keep
+#include "rapidproto/dump_runtime.hpp"               // IWYU pragma: keep
+#include "rapidproto/dumpgen/generator.hpp"          // IWYU pragma: keep
+#include "rapidproto/dumpgen/runtime_embedded.hpp"   // IWYU pragma: keep
 #include "rapidproto/features.hpp"                   // IWYU pragma: keep
 #include "rapidproto/interpret.hpp"                  // IWYU pragma: keep
 #include "rapidproto/lexer.hpp"                      // IWYU pragma: keep

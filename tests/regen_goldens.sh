@@ -72,11 +72,13 @@ while IFS= read -r c; do
   cp "$c" "$GOLDEN/$rel"
 done < <(find "$T" -name '*.rp.common.hpp')
 
-echo "[3/5] regenerating arenagen goldens via rapidprotoc --arena ..."
-# Same chicken-and-egg as streamgen (test_arenagen.cpp #includes these), so drive the CLI directly.
+echo "[3/5] regenerating arenagen + dumpgen goldens via rapidprotoc --arena / --dump ..."
+# Same chicken-and-egg as streamgen (test_arenagen.cpp / test_dumpgen.cpp #include these), so drive
+# the CLI directly.
 tests/regen_arenagen_goldens.sh >/dev/null
+tests/regen_dumpgen_goldens.sh >/dev/null
 
-echo "[4/5] building the test binary (the fresh streamgen + arenagen goldens now compile) ..."
+echo "[4/5] building the test binary (the fresh streamgen + arenagen + dumpgen goldens now compile) ..."
 cmake --build --preset gcc --target rapidproto_tests -j"$JOBS" >/dev/null
 
 echo "[5/5] regenerating AST + wire + arena-layout + common goldens via the test binary ..."

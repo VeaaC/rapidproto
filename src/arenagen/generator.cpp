@@ -81,16 +81,9 @@ std::string bit_test(const MessageLayout& layout, int bit) {
 
 // ── type-name helpers ────────────────────────────────────────────────────────────────────────────
 
-// Identifiers arenagen synthesizes from field/oneof/map names -- the <Oneof> visit-tag struct and the
-// <Map>Entry type. The shared CppNameTable dedups the base names (fields/maps/nested types) against
-// each other, but not these derived forms, so a user nested type literally named `FooEntry` could
-// collide. Computed once per message (keyed by node pointer) with a `_` suffix on collision, so the
-// output always compiles.
-struct SynthNames {
-    std::unordered_map<const OneofNode*, std::string> case_tag;       // <Oneof> visit-tag struct
-    std::unordered_map<const MapFieldNode*, std::string> entry_type;  // <Map>Entry
-    std::unordered_map<const MessageNode*, std::string> unknown;      // has_unknown_fields()
-};
+// SynthNames (the deduped <Oneof> visit-tag / <Map>Entry / has_unknown_fields identifiers) is declared
+// in rapidproto/arenagen/generator.hpp so the debug dumper names the SAME deduped identifiers this
+// header emits. build_synth_names() is defined below; synth_for_message() stays file-local.
 
 // Refs to long-lived inputs; Emit is a short-lived, non-copied bundle threaded through emission.
 struct Emit {
@@ -708,15 +701,6 @@ void synth_for_message(const CppNameTable& names, const LayoutSet& layouts,
     for (const MessageNode& n : message.nested_messages) {
         synth_for_message(names, layouts, n, out);
     }
-}
-
-SynthNames build_synth_names(const CppNameTable& names, const LayoutSet& layouts,
-                             const FileNode& file) {
-    SynthNames out;
-    for (const MessageNode& message : file.messages) {
-        synth_for_message(names, layouts, message, out);
-    }
-    return out;
 }
 
 // ── parse emission ───────────────────────────────────────────────────────────────────────────────
@@ -1834,6 +1818,15 @@ std::string import_header(std::string_view path) {
 }
 
 }  // namespace
+
+SynthNames build_synth_names(const CppNameTable& names, const LayoutSet& layouts,
+                             const FileNode& file) {
+    SynthNames out;
+    for (const MessageNode& message : file.messages) {
+        synth_for_message(names, layouts, message, out);
+    }
+    return out;
+}
 
 std::string generate_header(const FileNode& file, const CppNameTable& names,
                             const LayoutSet& layouts, const SymbolTable& symbols,
