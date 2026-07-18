@@ -26,8 +26,8 @@ namespace {
 // runtime so the planner can never drift from arena_runtime.hpp.
 constexpr std::size_t kPtrSize = 8;
 constexpr std::size_t kPtrAlign = 8;
-constexpr std::size_t kStringSize = 16;  // ArenaString
-constexpr std::size_t kStringAlign = 8;
+constexpr std::size_t kStringSize = 12;  // ArenaString (borrowed view: char[8] ptr + uint32 len)
+constexpr std::size_t kStringAlign = 4;
 constexpr std::size_t kViewSize = 12;  // ArrayView<T> / MapView<E> = {char[8] ptr, uint32 size}
 constexpr std::size_t kViewAlign = 4;
 constexpr std::size_t kByteViewSize = 16;  // ByteView = {ptr, size_t size} (raw input/field type)
@@ -57,7 +57,8 @@ std::size_t align_up(std::size_t n, std::size_t align) {
 }
 
 // proto scalar keyword -> {dump label, in-memory size, align, is bool}. string/bytes are NOT here
-// (they become an SsoString); everything else is a fixed-size numeric/bool.
+// (they become an ArenaString, a borrowed view into the input); everything else is a fixed-size
+// numeric/bool.
 struct ScalarInfo {
     std::string_view repr;
     std::size_t size;
@@ -573,7 +574,7 @@ const char* kind_name(FieldKind kind) {
         case FieldKind::InlineEnum:
             return "inline-enum";
         case FieldKind::SsoString:
-            return "sso-string";
+            return "borrow-string";
         case FieldKind::InlineFixedSubMsg:
             return "inline-submsg";
         case FieldKind::PointerSubMsg:

@@ -12,6 +12,7 @@
 #include <fstream>
 #include <initializer_list>  // packed({...}) test-vector helper
 #include <ios>
+#include <memory>    // std::shared_ptr: decode_owned's self-contained handle
 #include <optional>  // std::nullopt: absent explicit-presence reads
 #include <sstream>
 #include <string>
@@ -113,6 +114,53 @@ TEST_CASE("arena-decode: protoc scalar fixture", "[arena-decode]") {
     CHECK(m->fl() == Catch::Approx(1.5F));
     CHECK(m->db() == Catch::Approx(-2.25));
     CHECK(m->i64().has_value());  // present in the fixture
+}
+
+TEST_CASE("arena-decode: strings borrow the input buffer (no copy)", "[arena-decode]") {
+    std::string buf;
+    put_len(buf, 3, "a borrowed name");  // p3.Msg.name (field 3, string)
+    Arena arena;
+    const p3::Msg* m = p3::Msg::decode(ByteView(buf), arena);
+    REQUIRE(m != nullptr);
+    REQUIRE(m->name() == "a borrowed name");
+    // The accessor aliases the input bytes -- proof the value was borrowed, not copied into the arena.
+    const std::string_view sv = m->name();
+    CHECK(sv.data() >= buf.data());
+    CHECK(sv.data() + sv.size() <= buf.data() + buf.size());
+}
+
+TEST_CASE("arena-decode: decode_owned returns a self-contained handle", "[arena-decode]") {
+    std::string original;
+    put_len(original, 3, "owned name");  // p3.Msg.name
+
+    SECTION("the tree outlives the source buffer (move-in)") {
+        std::shared_ptr<const p3::Msg> msg;
+        {
+            std::string input = original;  // a buffer destroyed at scope end
+            msg = decode_owned<p3::Msg>(std::move(input));
+        }  // `input` is gone here -- a tree borrowing it would now dangle
+        REQUIRE(msg != nullptr);
+        CHECK(msg->name() == "owned name");  // still valid: the handle owns the moved-in bytes
+    }
+
+    SECTION("a copy of the handle keeps the tree alive") {
+        std::shared_ptr<const p3::Msg> a = decode_owned<p3::Msg>(std::string(original));
+        REQUIRE(a != nullptr);
+        const std::shared_ptr<const p3::Msg> b = a;  // share ownership
+        a.reset();                                   // drop the original handle
+        CHECK(b->name() == "owned name");            // b still owns input + arena
+    }
+
+    SECTION("a decode failure yields an empty handle") {
+        ArenaDecodeError err;
+        std::string bad;  // a truncated LEN field (claims 5 bytes, provides 1)
+        put_tag(bad, 3, 2);
+        put_varint(bad, 5);
+        bad.push_back('x');
+        const std::shared_ptr<const p3::Msg> msg = decode_owned<p3::Msg>(std::move(bad), &err);
+        CHECK(msg == nullptr);
+        CHECK(err.code != ArenaDecodeError::Code::None);
+    }
 }
 
 // The single-byte-tag fast path (fields 1..15) must behave identically to the general path (16+) on

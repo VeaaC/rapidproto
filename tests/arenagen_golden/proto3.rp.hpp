@@ -81,13 +81,13 @@ class Msg {
     ::rapidproto::ArenaString b;
     rp_pick_union() noexcept {}
   };
-  ::rapidproto::ArenaString m_name;
-  rp_pick_union m_rp_pick;
   const ::p3::Msg* m_self;
+  ::rapidproto::ArenaString m_name;
   ::rapidproto::ArrayView<std::int32_t> m_nums;
   ::rapidproto::ArrayView<std::int32_t> m_unpacked;
   ::rapidproto::ArrayView<::p3::State> m_states;
   ::rapidproto::MapView<CountsEntry> m_counts;
+  rp_pick_union m_rp_pick;
   ::rapidproto::ArrayView<double> m_reals;
   ::rapidproto::ArrayView<std::uint32_t> m_codes;
   std::int32_t m_implicit_i;
@@ -237,7 +237,6 @@ RP_FLATTEN inline bool Msg::rp_decode_into([[maybe_unused]] Msg& out, ::rapidpro
       if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
       rp_c = rp_np;
       out.m_name = ::rapidproto::ArenaString::make(rp_v, arena);
-      if (!rp_v.empty() && (out.m_name).empty()) { ::rapidproto::rp_fail_string(err, rp_v); return false; }
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(4, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_4; }
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(5, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_5; }
       continue;
@@ -517,7 +516,6 @@ RP_FLATTEN inline bool Msg::rp_decode_into([[maybe_unused]] Msg& out, ::rapidpro
               if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_ec - ::rapidproto::wire::byte_ptr(rp_ent))); return false; }
               rp_ec = rp_np;
               rp_slot->rp_key = ::rapidproto::ArenaString::make(rp_v, arena);
-              if (!rp_v.empty() && (rp_slot->rp_key).empty()) { ::rapidproto::rp_fail_string(err, rp_v); return false; }
             } else if (rp_et.field_number == 2 && rp_et.wire_type == ::rapidproto::WireType::Varint) {
               std::uint64_t rp_raw = 0;
               const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_ec, rp_ee, &rp_raw, &rp_we);
@@ -554,7 +552,6 @@ RP_FLATTEN inline bool Msg::rp_decode_into([[maybe_unused]] Msg& out, ::rapidpro
           if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
           rp_c = rp_np;
           out.m_rp_pick.b = ::rapidproto::ArenaString::make(rp_v, arena);
-          if (!rp_v.empty() && (out.m_rp_pick.b).empty()) { ::rapidproto::rp_fail_string(err, rp_v); return false; }
           out.m_rp_pick_case = 2;
           continue;
         }

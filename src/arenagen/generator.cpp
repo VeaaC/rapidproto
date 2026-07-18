@@ -425,7 +425,7 @@ void emit_field_accessor(const Emit& emit, const MessageLayout& layout, const Me
             break;
         case FieldKind::Repeated:
             if (repeated_elem_type(emit, *m.field) == "::rapidproto::ArenaString") {
-                // Storage is ArrayView<ArenaString> (SSO); expose std::string_view, not the storage type.
+                // Storage is ArrayView<ArenaString> (borrowed views); expose std::string_view, not the storage type.
                 p.print(
                     "::rapidproto::StringArrayView $id$() const noexcept {"
                     " return ::rapidproto::StringArrayView(m_$id$); }\n",
@@ -1206,11 +1206,9 @@ void emit_vt_scalar_read(const Emit& emit, FieldKind kind, std::string_view prot
             {{"c", cur}, {"e", end}});
         p.print(fail);
         p.print("$c$ = rp_np;\n", {{"c", cur}});
+        // Borrow a {ptr,len} view into the input -- never fails post the top-level input-size guard, so
+        // no failure check follows (the value always fits the 32-bit length; nothing is allocated).
         p.print("$t$ = ::rapidproto::ArenaString::make(rp_v, arena);\n", {{"t", target}});
-        p.print(
-            "if (!rp_v.empty() && ($t$).empty()) {"
-            " ::rapidproto::rp_fail_string(err, rp_v); return false; }\n",
-            {{"t", target}});
     } else if (kind == FieldKind::InlineEnum) {
         p.print("std::uint64_t rp_raw = 0;\n");
         p.print(

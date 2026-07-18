@@ -94,8 +94,8 @@ class Nested {
       const ::xr::Nested::Def* value() const noexcept { return rp_value; }
       friend class User;
      private:
-      ::rapidproto::ArenaString rp_key;
       const ::xr::Nested::Def* rp_value;
+      ::rapidproto::ArenaString rp_key;
     };
     struct RankedEntry {
       std::int32_t key() const noexcept { return rp_key; }
@@ -733,7 +733,6 @@ RP_FLATTEN inline bool Nested::User::rp_decode_into([[maybe_unused]] Nested::Use
               if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_ec - ::rapidproto::wire::byte_ptr(rp_ent))); return false; }
               rp_ec = rp_np;
               rp_slot->rp_key = ::rapidproto::ArenaString::make(rp_v, arena);
-              if (!rp_v.empty() && (rp_slot->rp_key).empty()) { ::rapidproto::rp_fail_string(err, rp_v); return false; }
             } else if (rp_et.field_number == 2 && rp_et.wire_type == ::rapidproto::WireType::Len) {
               ::rapidproto::ByteView rp_v;
               { const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_ec, rp_ee, &rp_v, &rp_we); if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_ec - ::rapidproto::wire::byte_ptr(rp_ent))); return false; } rp_ec = rp_np; }
@@ -859,7 +858,6 @@ RP_FLATTEN inline bool Nested::Def::rp_decode_into([[maybe_unused]] Nested::Def&
       if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
       rp_c = rp_np;
       out.m_s = ::rapidproto::ArenaString::make(rp_v, arena);
-      if (!rp_v.empty() && (out.m_s).empty()) { ::rapidproto::rp_fail_string(err, rp_v); return false; }
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(2, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_2; }
       continue;
     }
@@ -917,7 +915,6 @@ RP_FLATTEN inline bool Nested::Def::Inner::rp_decode_into([[maybe_unused]] Neste
       if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
       rp_c = rp_np;
       out.m_s = ::rapidproto::ArenaString::make(rp_v, arena);
-      if (!rp_v.empty() && (out.m_s).empty()) { ::rapidproto::rp_fail_string(err, rp_v); return false; }
       continue;
     }
     rp_field_general:;
@@ -1240,7 +1237,6 @@ RP_FLATTEN inline bool FwdMsg::Target::rp_decode_into([[maybe_unused]] FwdMsg::T
       if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
       rp_c = rp_np;
       out.m_s = ::rapidproto::ArenaString::make(rp_v, arena);
-      if (!rp_v.empty() && (out.m_s).empty()) { ::rapidproto::rp_fail_string(err, rp_v); return false; }
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(2, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_2; }
       continue;
     }
@@ -1329,7 +1325,6 @@ RP_FLATTEN inline bool CousinB::Thing::rp_decode_into([[maybe_unused]] CousinB::
       if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
       rp_c = rp_np;
       out.m_s = ::rapidproto::ArenaString::make(rp_v, arena);
-      if (!rp_v.empty() && (out.m_s).empty()) { ::rapidproto::rp_fail_string(err, rp_v); return false; }
       continue;
     }
     rp_field_general:;
@@ -1708,7 +1703,6 @@ RP_FLATTEN inline bool BytesWrap::rp_decode_into([[maybe_unused]] BytesWrap& out
       if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
       rp_c = rp_np;
       out.m_value = ::rapidproto::ArenaString::make(rp_v, arena);
-      if (!rp_v.empty() && (out.m_value).empty()) { ::rapidproto::rp_fail_string(err, rp_v); return false; }
       continue;
     }
     rp_field_general:;

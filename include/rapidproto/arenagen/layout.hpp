@@ -4,7 +4,7 @@
 
 // The arena layout planner -- the "brain" of the arena generator. A pure analysis pass (no codegen)
 // that maps every message to its in-memory representation:
-//   - a FIELD KIND per field (inline scalar/enum, SSO string, inlined-fixed vs pointer sub-message,
+//   - a FIELD KIND per field (inline scalar/enum, borrowed string, inlined-fixed vs pointer sub-message,
 //     repeated/map views, oneof),
 //   - a padding-minimized MEMBER ORDER (sort by alignment desc, size desc, field number),
 //   - a bit-packed PRESENCE/VALUE mask (bools and presence flags share mask words),
@@ -31,9 +31,9 @@ namespace rapidproto::arenagen {
 
 // How a field is stored in its parent message's struct.
 enum class FieldKind : std::uint8_t {
-    InlineScalar,       // numeric scalar stored inline; a `bool` instead occupies a value bit
-    InlineEnum,         // enum stored inline as its int32 underlying value
-    SsoString,          // string/bytes stored as an ArenaString (inline small, arena-copied large)
+    InlineScalar,  // numeric scalar stored inline; a `bool` instead occupies a value bit
+    InlineEnum,    // enum stored inline as its int32 underlying value
+    SsoString,     // string/bytes stored as an ArenaString (a borrowed {ptr,len} view, no copy)
     InlineFixedSubMsg,  // fixed-size sub-message inlined by value
     PointerSubMsg,      // sub-message referenced by an arena pointer (null = absent)
     Repeated,           // repeated field -> ArrayView<elem>

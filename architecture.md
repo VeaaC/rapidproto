@@ -420,10 +420,11 @@ emits the whole resolved closure (entry + imports + WKTs) plus a copy of `runtim
 The `arenagen` emitter (`src/arenagen/`) turns the AST into C++ headers (`<stem>.rp.hpp`) for
 **materializing decoders**: a static `decode()` reads the whole message into a fully-allocated, **read-only
 object tree inside a bump arena**, navigated by value/optional accessors. The goal is to beat `protoc`
-+ `google::protobuf::Arena` on both decode time and peak memory. All variable-length data is **copied into
-the arena**, so the input buffer is freeable after `decode()`; strings/bytes use SSO; repeated/maps are
-arena arrays. The arena holds only **trivially-destructible** objects, so freeing or `reset()`-ing it is a
-pointer rewind.
++ `google::protobuf::Arena` on both decode time and peak memory. Strings/bytes are **borrowed** as
+`{ptr,len}` views into the input (zero-copy — the arena holds only tree structure, not string bytes), so
+the tree borrows **both** the arena and the input and stays valid only while both live (`decode_owned`
+bundles them into one owning handle); repeated/maps are arena arrays. The arena holds only
+**trivially-destructible** objects, so freeing or `reset()`-ing it is a pointer rewind.
 
 ### The layout planner — the "brain" (`arenagen/layout.{hpp,cpp}`)
 
@@ -433,7 +434,7 @@ before any C++ is emitted. Given a `MessageNode` + the FQN → node index, it co
 **field kind** per field plus the byte layout. Field kinds:
 
 - **InlineScalar / InlineEnum:** a fixed-width value inline; an optional one gets a presence bit.
-- **SsoString:** a 16-byte `ArenaString` (≤ 15 bytes inline, else arena-copied).
+- **SsoString:** a 12-byte `ArenaString` — a borrowed `{ptr, len}` view into the input (no copy, no SSO).
 - **InlineFixedSubMsg vs PointerSubMsg:** a *fixed-size* sub-message (recursively all-scalar; no
   strings/repeated/maps; not self-referential) is **inlined by value** when ≤ 16 bytes, else stored behind
   an arena pointer. The fixed-size analysis is recursive and cycle-aware (a self-reachable type is never
@@ -493,9 +494,10 @@ A header-only, std-only support library the generated decoders depend on (vendor
   96 KiB** (`kMaxChunk`): only the last chunk carries unfilled-tail waste, so capping its size bounds that
   waste at a constant (and 96 K stays under glibc's 128 K mmap threshold, keeping cold-arena chunks on the
   heap). `bytes_used()` / `bytes_reserved()` expose the footprint.
-- **`ArenaString`:** a 16-byte SSO string (≤ 15 bytes inline; longer arena-copied as `{ptr, len}`, 32-bit
-  `len`). Trivially copyable/destructible. A value ≥ 4 GiB can't be represented, so the decode fails with
-  `StringTooLong` rather than truncating (a 64-bit-only concern).
+- **`ArenaString`:** a 12-byte borrowed `{ptr, len}` view into the input (32-bit `len`; no copy, no SSO),
+  so strings/bytes are zero-copy and the tree borrows the input. Trivially copyable/destructible. A value
+  ≥ 4 GiB can't be represented, but the top-level guard rejects an over-`UINT32_MAX` input first
+  (`InputTooLarge`), so no string span within a valid input can overflow the length.
 - **`ArrayView<T>` / `StringArrayView` / `MapView<Entry>`:** the read-only views the accessors return.
   `StringArrayView` adapts a repeated `ArenaString` array to `std::string_view` elements; the map view
   does a last-wins linear `find` (protobuf map semantics).
@@ -509,8 +511,8 @@ The emitted `rp_decode_into` runs the value-threaded, **field-order-threaded** d
 both models share; see [Field-order threading](#field-order-threading)): a hub `switch` on the first tag
 byte enters the field's decode, and after each field a small constant-tag probe jumps straight to the
 next expected field's decode → decode the value into the
-node, set presence/value bits, recurse into sub-messages. Strings are SSO'd /
-arena-copied; **repeated fields accumulate single-pass into a growable arena array** (the benchmark-chosen
+node, set presence/value bits, recurse into sub-messages. Strings/bytes are borrowed as `{ptr, len}`
+views into the input; **repeated fields accumulate single-pass into a growable arena array** (the benchmark-chosen
 strategy, below); maps append (last-wins on read); groups use `read_group`; unknown fields are skipped
 (with an opt-in "unknown present" bit under `--unknown-present`, or per message via
 `--unknown=`/`unknown-fields`). Malformed input → `nullptr`
@@ -528,10 +530,9 @@ and locked at their chosen values; each is a single constant with a rationale co
 - **Arena chunk cap = 96 KiB.** Validated across three payload shapes (mixed records, many small arrays, a
   few big arrays) up to 32 MB: held/used stays ≈ 1.0–1.2× vs ≈ 1.4–1.9× uncapped (the dominant held-memory
   lever), while warm decode time is cap-independent.
-- **SSO inline = 15 chars** and **inline-sub-message cutoff = 16 bytes.** Both measured optimal: a wider
-  SSO widens *every* string field (a net loss on mostly-short payloads), and with single-pass-growable
-  arrays, inlining a sub-message of size S costs ≈ 2S of array memory vs ≈ 16 + S for a pointer, so
-  inlining pays out exactly up to S = 16.
+- **Inline-sub-message cutoff = 16 bytes.** Measured optimal: with single-pass-growable arrays, inlining
+  a sub-message of size S costs ≈ 2S of array memory vs ≈ 16 + S for a pointer, so inlining pays out
+  exactly up to S = 16. (Strings/bytes borrow the input, so there is no string-width knob to tune.)
 
 ### Decode profiles (`arenagen/modes.{hpp,cpp}`)
 

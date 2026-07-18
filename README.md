@@ -152,9 +152,12 @@ can use both models for one schema in one translation unit; see [Using both mode
 
 ## Arena decoder
 
-`decode()` reads the whole message into a read-only object tree in a single bump **arena**; all
-variable-length data (strings, repeated, maps) is **copied into the arena**, so the input buffer is
-freeable right after `decode()`. For each message `Foo` the generator emits a `class Foo`:
+`decode()` reads the whole message into a read-only object tree in a single bump **arena**. Strings and
+bytes are **borrowed** as `std::string_view`s into the input wire buffer (zero-copy — no bytes are
+copied); the tree's structure (nodes, arrays, maps) lives in the arena. The tree therefore borrows
+**both** the arena and the input, so **both must outlive it**. For a self-contained result that owns its
+input, use [`decode_owned`](#self-contained-decode-decode_owned). For each message `Foo` the generator
+emits a `class Foo`:
 
 ```cpp
 class Person {
@@ -172,12 +175,13 @@ class Person {
 ```
 
 `decode()` returns the root `const Person*` (arena-allocated) or `nullptr` on malformed input. The tree
-is valid for as long as the `Arena` lives. How each construct is read:
+is valid for as long as **both** the `Arena` and the input buffer live (or use `decode_owned` to bundle
+them into one owning handle). How each construct is read:
 
 | Construct | Accessor returns |
 |---|---|
 | scalar / `enum` | the value, by value (`std::int32_t`, `bool`, the generated `enum class`, …); a field with explicit presence instead returns `std::optional<T>` (`std::nullopt` when absent) |
-| `string` / `bytes` | `std::string_view` into the arena (valid while the arena lives); `std::optional<std::string_view>` if explicit-presence |
+| `string` / `bytes` | `std::string_view` into the **input buffer** (borrowed, zero-copy; valid while both the input and the arena live); `std::optional<std::string_view>` if explicit-presence |
 | sub-message | `const Sub*`, a pointer (`nullptr` when absent) |
 | `repeated T` | `rapidproto::ArrayView<T>`, a contiguous `{data, size}` range (iterable, indexable). Repeated `string`/`bytes` instead return `rapidproto::StringArrayView`, which yields `std::string_view` per element; for repeated sub-messages, `T` is the value. |
 | `map<K, V>` | `rapidproto::MapView<Entry>`: insertion-order entries with `.key()`/`.value()` and a last-wins `find(key)` |
@@ -224,6 +228,26 @@ const Foo* b = Foo::decode(buf2, arena);   // tree #2 reuses the same memory (no
   reach a few times that field's payload; size the limit for that peak, not just the final tree.
 - **Stats.** `arena.bytes_used()` (payload handed out) and `arena.bytes_reserved()` (memory held).
 
+### Self-contained decode (`decode_owned`)
+
+The low-level `decode()` borrows the input, so you must keep the input buffer alive alongside the
+`Arena`. When you'd rather have a result that manages its own lifetime,
+`rapidproto::decode_owned<Foo>` takes the input **by value**, decodes into a default `Arena`, and
+returns a `std::shared_ptr<const Foo>` that owns **both** the input bytes and the arena:
+
+```cpp
+std::string bytes = read_request();                 // input you own
+std::shared_ptr<const example::Person> p =
+    rapidproto::decode_owned<example::Person>(std::move(bytes));  // move in -> no copy
+if (!p) { /* malformed input (pass &err for the reason) */ }
+use(p->name());                                     // valid while any copy of `p` lives
+```
+
+The handle is freely copyable and shareable; the input and arena are freed together when the last copy
+goes away. Reach for the low-level `decode(ByteView, Arena&)` instead when you want to supply your own
+`Arena`, or when you hold a `string_view` you'd rather not copy into a `std::string` — then you keep the
+input alive yourself.
+
 ### Error handling (arena)
 
 `decode()` returns `nullptr` on any failure and, if you pass an `ArenaDecodeError*`, fills in why:
@@ -246,7 +270,8 @@ struct ArenaDecodeError {
 - **OutOfMemory.** The arena could not satisfy an allocation.
 - **RepeatedSingularMessage.** A singular (non-repeated) sub-message field appeared more than once (an
   exotic merge case the arena decoder rejects rather than silently merging).
-- **StringTooLong.** A `string`/`bytes` value exceeded the arena's 4 GiB length representation.
+- **StringTooLong.** Reserved. Strings/bytes borrow the input (never copied) and an input over 4 GiB is
+  reported as `InputTooLarge`, so this code is no longer produced.
 - **InputTooLarge.** The input exceeded 4 GiB (`UINT32_MAX`) — the size at which a repeated/map element
   count or a string length stays representable in the 32-bit view/string fields.
 
@@ -501,9 +526,10 @@ form.
 
 These apply to both models and affect how you write correct consumer code.
 
-- **Lifetimes.** Streaming borrows: the input `ByteView` must outlive the decoder and every
-  `string_view` it hands a callback. Arena copies: the decoded tree lives in the `Arena`, so the input
-  buffer is freeable after `decode()`, and accessors stay valid as long as the `Arena` does.
+- **Lifetimes.** Both models borrow the input. Streaming: the input `ByteView` must outlive the decoder
+  and every `string_view` it hands a callback. Arena: the tree's structure lives in the `Arena`, but its
+  strings/bytes are `string_view`s into the input, so the tree stays valid only while **both** the
+  `Arena` and the input buffer live. Use `decode_owned` for a `shared_ptr` that owns both.
 - **Untrusted input is validated; values are not.** Wire input is fully checked for **wire-format
   integrity** (structure, lengths, group nesting), so a malformed buffer fails cleanly and never
   triggers UB. Field *values* are not range-checked: RapidProto trusts the schema, not the bytes.
@@ -547,15 +573,15 @@ example::stream::Person{bytes}.decode( /* … */ );                       // or 
 
 The models also combine **mid-decode**: stream a large outer message and materialize just the
 sub-messages you keep. A streaming sub-decoder's `rp_bytes()` is exactly the sub-message's field
-bytes, which the arena `decode()` accepts directly — and because the arena copies, the
-materialized tree outlives the input buffer the streaming walk borrows:
+bytes, which the arena `decode()` accepts directly. The materialized tree borrows those bytes (a slice
+of the input `wire`), so `wire` must outlive every tree you keep:
 
 ```cpp
 rapidproto::Arena arena;
 example::stream::Person{wire}.decode(
     [&](example::stream::Person::address, example::stream::Address a) {
         const example::Address* tree = example::Address::decode(a.rp_bytes(), arena);
-        // keep `tree`; the wire buffer can be recycled after the walk
+        // keep `tree` -- valid while both `wire` and `arena` live
     });
 ```
 
@@ -711,7 +737,7 @@ decoder — but if that is your hot path, decode it with the **arena** model to 
 
 Speedups vary with payload shape, and part of the arena/protoc gap is a feature gap — protoc validates
 UTF-8 on every proto3 string and RapidProto does not. The harness ships every scenario (and a memory
-report, and a chunk-cap/SSO tuning sweep), so measure your own payloads rather than trusting one ratio
+report, and a chunk-cap tuning sweep), so measure your own payloads rather than trusting one ratio
 as universal.
 
 ---
