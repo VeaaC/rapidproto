@@ -13,6 +13,14 @@
 
 namespace rapidproto::dump {
 
+inline const char* rp_dump_enum_name(::dep::DepEnum rp_e) {
+  switch (static_cast<std::int32_t>(rp_e)) {
+    case 0: return "DEP_ZERO";
+    case 1: return "DEP_ONE";
+  }
+  return nullptr;  // unknown (open enum): the caller renders UNKNOWN(<n>)
+}
+
 }  // namespace rapidproto::dump
 
 namespace dep {
@@ -26,6 +34,12 @@ inline void rp_dump_write(const ::dep::Dep& m, ::rapidproto::dump::Writer& w) {
     if (const auto rp_v = m.v()) {
       w.entry_sep(rp_first); w.key("v");
       w.os() << *rp_v;
+    }
+    if (const auto rp_v = m.de()) {
+      w.entry_sep(rp_first); w.key("de");
+      { const auto rp_e = *rp_v;
+      if (const char* rp_nm = ::rapidproto::dump::rp_dump_enum_name(rp_e)) { w.os() << '"' << rp_nm << '"'; }
+      else { w.os() << "\"UNKNOWN(" << static_cast<std::int32_t>(rp_e) << ")\""; } }
     }
     (void)rp_first;
   });

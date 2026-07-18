@@ -3,6 +3,17 @@
 Notable, user-visible changes per release. Pre-1.0, the MINOR version is the breaking axis (the
 SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never within a patch.
 
+## Unreleased
+
+### Fixed
+
+- **Debug dumper (`--dump`): multi-file schemas no longer redefine `rp_dump_enum_name`.** When two
+  generated `.rp.dump.hpp` headers both referenced an enum imported from a third file (e.g. a message and
+  one of its imports both use the same enum), including them in one translation unit failed to compile
+  with `redefinition of 'rp_dump_enum_name'`. The value-name helper is now emitted once, at the enum's
+  definition site (like the enum type itself), and referenced elsewhere through the included dependency
+  header — so cross-file dumpers compose cleanly.
+
 ## 0.3.0 — 2026-07-18
 
 ### Added

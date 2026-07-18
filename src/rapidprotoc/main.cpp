@@ -200,10 +200,10 @@ int main(int argc, char** argv) {
                 rapidproto::streamgen::generate_header(file, names_stream), opts->verbose)) {
             return 1;
         }
-        if (dump && !rapidproto::cli::write_header(
-                        opts->out_dir, file, ".rp.dump.hpp",
-                        rapidproto::dumpgen::generate_header(file, names, *layouts, symbols),
-                        opts->verbose)) {
+        if (dump &&
+            !rapidproto::cli::write_header(
+                opts->out_dir, file, ".rp.dump.hpp",
+                rapidproto::dumpgen::generate_header(file, names, *layouts), opts->verbose)) {
             // --dump implies --arena, so `layouts` is always engaged here.
             return 1;
         }

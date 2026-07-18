@@ -6,6 +6,11 @@ package dep;
 
 message Dep {
   optional int32 v = 1;
+  // dep uses its OWN enum, and main.proto references the same DepEnum cross-file. So both dep's and
+  // main's dumpers touch DepEnum -- a regression guard for the debug dumper emitting rp_dump_enum_name
+  // once (at the enum's definition site, here in dep) and never re-emitting it in main's header (which
+  // #includes dep's) where it would redefine the inline function.
+  optional DepEnum de = 2;
   extensions 100 to max;
 }
 

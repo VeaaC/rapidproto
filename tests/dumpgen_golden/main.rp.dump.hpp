@@ -15,14 +15,6 @@
 
 namespace rapidproto::dump {
 
-inline const char* rp_dump_enum_name(::dep::DepEnum rp_e) {
-  switch (static_cast<std::int32_t>(rp_e)) {
-    case 0: return "DEP_ZERO";
-    case 1: return "DEP_ONE";
-  }
-  return nullptr;  // unknown (open enum): the caller renders UNKNOWN(<n>)
-}
-
 }  // namespace rapidproto::dump
 
 namespace main {
