@@ -3,7 +3,7 @@
 Notable, user-visible changes per release. Pre-1.0, the MINOR version is the breaking axis (the
 SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never within a patch.
 
-## Unreleased
+## 0.3.0 — 2026-07-18
 
 ### Added
 

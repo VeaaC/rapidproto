@@ -15,10 +15,9 @@ JSON codec (see [Debug dumper](#debug-dumper)).
 
 Both decode models are **decode-only**: no serialization, no JSON codec. Both fully validate untrusted wire input
 (truncation, length overruns, group nesting), and both trust the schema — they assume `protoc` already
-accepted it, so field *values* aren't range-checked. They cover **proto2, proto3, and editions
-2023/2024**, including groups, maps, and oneofs. The arena model is built to beat `protoc` +
-`google::protobuf::Arena` on both decode time and peak memory (arena bytes held, measured against
-protobuf's `SpaceAllocated`).
+accepted it, so field *values* aren't range-checked. They cover **proto2, proto3, and the newer
+editions schema format (2023/2024)**, including groups, maps, and oneofs. The arena model beats `protoc` +
+`google::protobuf::Arena` on decode time and peak memory (see [Benchmarks](#benchmarks)).
 
 You can read the same schema with either model, and even use both **in one translation unit** (see
 [Using both models](#using-both-models)).
@@ -37,11 +36,12 @@ RapidProto generates the decoder — specialized to your schema at compile time,
 you both shapes.
 
 - **Faster decode.** On a realistic mixed payload the arena decoder materializes a full object tree
-  **~3.3× faster than `protoc` + `google::protobuf::Arena`**, and the streaming decoder — materializing
-  nothing — is faster still and beats `protozero`, the zero-copy yardstick, on every shape measured.
-  See [Benchmarks](#benchmarks).
-- **Less memory.** The arena tree holds **~⅓ less** than protoc's (both payload bytes and total
-  allocation): it's a read-only bump-allocated tree with no per-field object overhead.
+  **~5× faster than `protoc` + `google::protobuf::Arena`**, and the streaming decoder — materializing
+  nothing — is faster still, beating `protozero`, the zero-copy yardstick, on the realistic payload and
+  most microbenchmark shapes. See [Benchmarks](#benchmarks).
+- **Less memory.** The arena tree holds **~half** of protoc's (both payload bytes and total allocation):
+  strings, bytes, and `raw` payloads are **borrowed** as views into the input rather than copied, so the
+  arena carries only a read-only bump-allocated tree with no per-field object overhead.
 - **Header-only, nothing to link.** One CLI turns your `.proto` into headers you `#include` — no runtime
   library, no `libprotobuf` on your link line.
 - **Two models, one schema.** Materialize a navigable tree (arena) *or* stream each field to a typed
@@ -63,7 +63,10 @@ messages, keep `protoc` for that side and use RapidProto for the hot decode path
 
 ## Quick start
 
-The [CMake helper](#cmake-integration) is the fastest path; this section drives the tool by hand. Build it once:
+**Requirements:** C++17 and a recent GCC or Clang. Header-only — nothing to link.
+
+Using CMake? The [`rapidproto_generate()` helper](#cmake-integration) wires generation into your build in
+a few lines. This section drives the tool by hand so each step is visible. Build it once:
 
 ```sh
 cmake --preset release                               # system compiler, optimized
@@ -114,7 +117,7 @@ const example::Person* p = example::Person::decode(rapidproto::ByteView(buf), ar
 if (p == nullptr) { /* malformed input: see err.code / err.wire / err.offset */ }
 
 std::uint32_t id = p->id();                        // scalar, by value
-std::string_view name = p->name();                 // string, view into the arena
+std::string_view name = p->name();                 // string, a view into the input buffer
 if (const example::Address* a = p->address())      // sub-message: a pointer (nullptr if absent)
     std::string_view city = a->city();
 ```
@@ -166,17 +169,15 @@ class Person {
                                             rapidproto::ArenaDecodeError* err = nullptr) noexcept;
 
   std::uint32_t id() const noexcept;                            // scalar, by value
-  std::string_view name() const noexcept;                       // string/bytes, view into the arena
+  std::string_view name() const noexcept;                       // string/bytes, view into the input
   rapidproto::StringArrayView email() const noexcept;           // repeated string (string_view elems)
   const Address* address() const noexcept;                      // sub-message (nullptr if absent)
-  // a scalar/string/enum field with EXPLICIT presence instead returns std::optional<T> (std::nullopt
-  // when absent), e.g. `std::optional<std::uint32_t> id() const noexcept;` -- no separate has_<field>().
+  // a scalar/string/enum field with EXPLICIT presence returns std::optional<T> (std::nullopt
+  // when absent), e.g. `std::optional<std::uint32_t> id() const noexcept;` (no has_<field>() accessor).
 };
 ```
 
-`decode()` returns the root `const Person*` (arena-allocated) or `nullptr` on malformed input. The tree
-is valid for as long as **both** the `Arena` and the input buffer live (or use `decode_owned` to bundle
-them into one owning handle). How each construct is read:
+`decode()` returns the root `const Person*` or `nullptr` on malformed input. How each construct is read:
 
 | Construct | Accessor returns |
 |---|---|
@@ -185,10 +186,10 @@ them into one owning handle). How each construct is read:
 | sub-message | `const Sub*`, a pointer (`nullptr` when absent) |
 | `repeated T` | `rapidproto::ArrayView<T>`, a contiguous `{data, size}` range (iterable, indexable). Repeated `string`/`bytes` instead return `rapidproto::StringArrayView`, which yields `std::string_view` per element; for repeated sub-messages, `T` is the value. |
 | `map<K, V>` | `rapidproto::MapView<Entry>`: insertion-order entries with `.key()`/`.value()` and a last-wins `find(key)` |
-| `oneof o` | a reader `o(handlers…)`: pass one typed handler per member (`[](Msg::O::member, T value){…}`); the active member is dispatched to its handler — scalars/enums by value, `string`/`bytes` as `std::string_view`, a sub-message as `const Sub&` (no null-check). Members you don't handle are ignored; a single `[](auto, auto){…}` catch-all takes the rest; `[](std::monostate){…}` handles the unset state. Same-typed members stay distinct via their tag types |
+| `oneof o` | a reader `o(handlers…)`: one typed handler per member, with the active member dispatched to its handler (see below) |
 | presence | explicit-presence scalar/`string`/`enum` fields carry presence in their `std::optional<T>` return (`std::nullopt` = absent); a message field's presence is its `const T*` accessor returning `nullptr` |
 
-A `oneof` is read with a small visitor instead of a case enum plus per-member getters, so you can't read an inactive member, and a sub-message member arrives ready to use:
+A `oneof` is read with a small visitor, so you can't read an inactive member, and a sub-message member arrives ready to use:
 
 ```cpp
 // oneof contact { string email = 1; Address work = 2; }
@@ -223,9 +224,8 @@ const Foo* b = Foo::decode(buf2, arena);   // tree #2 reuses the same memory (no
   the arena will reserve; a decode that would grow past it fails cleanly with
   `ArenaDecodeError::OutOfMemory` instead of letting adversarial input allocate without bound
   (the decoded tree can legitimately be larger than the wire bytes). Default: unbounded. Set it
-  before decoding, at least as large as any seed buffer. A packed *varint* array is pre-sized to its
-  wire length (an upper bound on its element count) and then trimmed, so the transient peak can briefly
-  reach a few times that field's payload; size the limit for that peak, not just the final tree.
+  before decoding, at least as large as any seed buffer. Decoding can transiently reserve several times
+  a field's final size before trimming, so size the limit for that peak, not just the final tree.
 - **Stats.** `arena.bytes_used()` (payload handed out) and `arena.bytes_reserved()` (memory held).
 
 ### Self-contained decode (`decode_owned`)
@@ -268,90 +268,12 @@ struct ArenaDecodeError {
 - **RecursionTooDeep.** Message nesting exceeded the depth guard (`kMaxDecodeDepth`, 100), which protects
   against adversarial input.
 - **OutOfMemory.** The arena could not satisfy an allocation.
-- **RepeatedSingularMessage.** A singular (non-repeated) sub-message field appeared more than once (an
-  exotic merge case the arena decoder rejects rather than silently merging).
-- **StringTooLong.** Reserved. Strings/bytes borrow the input (never copied) and an input over 4 GiB is
-  reported as `InputTooLarge`, so this code is no longer produced.
-- **InputTooLarge.** The input exceeded 4 GiB (`UINT32_MAX`) — the size at which a repeated/map element
-  count or a string length stays representable in the 32-bit view/string fields.
+- **RepeatedSingularMessage.** A singular (non-repeated) sub-message field appeared more than once
+  (rejected, not merged); `field_number` names it.
+- **InputTooLarge.** The input exceeded 4 GiB (`UINT32_MAX`), the size at which a repeated/map element
+  count or a string length stays representable in the 32-bit view fields.
 
 On any error the tree is incomplete; discard it (or `reset()` the arena) and don't read it.
-
-### Unknown fields (arena)
-
-By default, fields not in your schema (a newer producer's field, or a proto2 extension) are **skipped
-and dropped**. To *detect* (not recover) that unknowns were present, reserve a per-message "saw an
-unknown field" flag, exposed as `has_unknown_fields()`:
-
-- `--unknown-present` reserves it on **every** message.
-- `--unknown=<pkg.Msg>` (repeatable), or an `unknown-fields <pkg.Msg>` line in a decode profile,
-  reserves it on **one** message — so you pay the bit only where you check it.
-
-The selection is part of the [decode profile](#decode-profiles-drop-raw-and-unknown-fields-arena): it
-folds into the profile identity, so two TUs that disagree about which messages carry the flag **fail to
-link** rather than silently holding mismatched layouts of the same type.
-
-### Decode profiles: `drop`, `raw`, and `unknown-fields` (arena)
-
-The schema says what *can* be on the wire; a **decode profile** says what *this consumer* does with
-it — without touching the schema. Choose, per field (`pkg.Msg.field`), per type (`pkg.Msg`, covering
-every field of that message type), or per message (for `unknown-fields`):
-
-- **`drop`** — no storage, no accessor, no decode work beyond wire-validated skipping. Reading a
-  dropped field is a **compile error**, not a silent default. (Dropping a `required` field is
-  rejected.)
-- **`unknown-fields`** — reserve that **message**'s `has_unknown_fields()` bit (see
-  [Unknown fields](#unknown-fields-arena)). Unlike `drop`/`raw` it names a message directly, not a
-  field or a field's type; an enum or a field name is an error.
-- **`raw`** (message-typed fields, groups included) — the sub-message's **payload** is borrowed as a
-  `ByteView` view into the input instead of a materialized tree; repeated fields become a
-  `StringArrayView`, one payload per element. Each view is exactly what the field type's own
-  `decode()` accepts, so the tree is built only when — and if — you ask: keep a huge or
-  rarely-read sub-message (or a million-element repeated field) as bytes, and decode single
-  elements on demand. Decode semantics are otherwise unchanged (presence, `required` validation,
-  duplicate-singular rejection). Scalars, strings, and enums can't go raw (no payload a later
-  `decode()` could consume — they're cheap to materialize or drop), nor can maps (their entry
-  type is generated internals). To defer a huge *packed scalar* array, wrap it in a sub-message
-  schema-side, or walk it with the streaming decoder.
-
-Profiles come from a file (one `drop <name>` / `raw <name>` / `unknown-fields <message>` per line, `#`
-comments, an optional `name <identifier>` line) via `--field-modes=<file>`, or inline via
-`--drop=<name>` / `--raw=<name>` / `--unknown=<message>` (and `--unknown-present` for every message). A
-field-level entry beats a type-level entry; unknown names are hard errors; field modes do not
-apply inside a oneof. The profile resolves against *everything* the invocation generates — the
-entries resolve as one batch — so a global profile works by listing (or `PROTOS`-listing, in
-CMake) every schema it spans in one generation; a name unknown across the whole batch is still a
-hard error.
-
-```
-# lean.modes — this consumer never reads sides, and reads origin only on demand
-name lean
-drop demo.Shape.sides
-raw  demo.Shape.origin
-```
-
-```cpp
-const demo::Shape* s = demo::Shape::decode(bytes, arena);   // s->sides() does not compile
-if (s->origin()) {                                          // the Point payload, arena-owned
-    const demo::Point* p = demo::Point::decode(*s->origin(), arena);  // deferred: only now
-}
-```
-
-A profile **changes the generated types**, so mixing differently-profiled headers for one schema
-across TUs would be an ODR trap. The generator makes it a *visible* one instead: profiled types
-live in an `inline namespace rp_modes_<id>`, where `<id>` is a content hash of the profile's
-entries (prefixed with its `name`, if given, for readability) — the id verifies the *selection*,
-so even two profiles sharing a name can't impersonate each other. You still write `demo::Shape`,
-but two TUs generated under different profiles hold distinct types, and exchanging them **fails
-to link** rather than silently corrupting. Reserving an unknown-fields bit counts as a profile too
-(`--unknown-present`, `--unknown=`, or `unknown-fields`), so it likewise gets an `rp_modes_<id>`
-identity — closing the same ODR gap for a flag that also changes the generated struct. The profile
-is also stamped into the generated banner.
-See `examples/consumer/lean_main.cpp` for the full pattern. Two consequences of the namespace:
-don't forward-declare generated types yourself (`namespace demo { class Shape; }` declares a
-*different* class under a profile), and a profile whose entries select no field in the end — a
-type used by zero fields, or entries landing in the silent type-level exclusions — generates
-plain unprofiled output: no `rp_modes_<id>` identity, even with a `name` line.
 
 ---
 
@@ -390,8 +312,8 @@ per entry). The decoder never materializes the whole message.
 All snippets decode a `Person` buffer `wire` (a `rapidproto::ByteView`). `decode()` is `[[nodiscard]]`
 and returns a `DecodeStatus`, so **always check it** (see [Error handling](#error-handling-streaming)).
 
-**1. A subset.** Pass callbacks only for the fields you want; the rest are skipped in O(1) through a
-per-wire-type skip, so extracting a few fields from a large message stays cheap:
+**1. A subset.** Pass callbacks only for the fields you want; the rest are skipped cheaply, so
+extracting a few fields from a large message stays fast:
 
 ```cpp
 std::string name; std::uint32_t id = 0;
@@ -609,6 +531,80 @@ Now `rp::example::Person` (RapidProto) and `example::Person` (protoc) coexist.
 
 ---
 
+## Advanced: decode profiles & unknown fields
+
+These arena-only features tailor decoding to what *this* consumer needs, without touching
+the schema.
+
+### Unknown fields (arena)
+
+By default, fields not in your schema (a newer producer's field, or a proto2 extension) are **skipped
+and dropped**. To *detect* (not recover) that unknowns were present, reserve a per-message "saw an
+unknown field" flag, exposed as `has_unknown_fields()`:
+
+- `--unknown-present` reserves it on **every** message.
+- `--unknown=<pkg.Msg>` (repeatable), or an `unknown-fields <pkg.Msg>` line in a decode profile,
+  reserves it on **one** message — so you pay the bit only where you check it.
+
+The selection is part of the [decode profile](#decode-profiles-drop-raw-and-unknown-fields-arena): it
+folds into the profile identity, so two TUs that disagree about which messages carry the flag **fail to
+link** rather than silently holding mismatched layouts of the same type.
+
+### Decode profiles: `drop`, `raw`, and `unknown-fields` (arena)
+
+The schema says what *can* be on the wire; a **decode profile** says what *this consumer* does with
+it — without touching the schema. Choose, per field (`pkg.Msg.field`), per type (`pkg.Msg`, covering
+every field of that message type), or per message (for `unknown-fields`):
+
+- **`drop`** — no storage, no accessor, no decode work beyond wire-validated skipping. Reading a
+  dropped field is a **compile error**, not a silent default. (Dropping a `required` field is
+  rejected.)
+- **`unknown-fields`** — reserve that **message**'s `has_unknown_fields()` bit (see
+  [Unknown fields](#unknown-fields-arena)). Unlike `drop`/`raw` it names a message directly, not a
+  field or a field's type; an enum or a field name is an error.
+- **`raw`** (message-typed fields, groups included) — the sub-message's **payload** is borrowed as a
+  `ByteView` view into the input instead of a materialized tree; repeated fields become a
+  `StringArrayView`, one payload per element. Each view is exactly what the field type's own
+  `decode()` accepts, so the tree is built only when — and if — you ask: keep a huge or
+  rarely-read sub-message (or a million-element repeated field) as bytes, and decode single
+  elements on demand. Decode semantics are otherwise unchanged (presence, `required` validation,
+  duplicate-singular rejection). Scalars, strings, and enums can't go raw (no payload a later
+  `decode()` could consume — they're cheap to materialize or drop), nor can maps (their entry
+  type is generated internals). To defer a huge *packed scalar* array, wrap it in a sub-message
+  schema-side, or walk it with the streaming decoder.
+
+Profiles come from a file (one `drop <name>` / `raw <name>` / `unknown-fields <message>` per line, `#`
+comments, an optional `name <identifier>` line) via `--field-modes=<file>`, or inline via
+`--drop=<name>` / `--raw=<name>` / `--unknown=<message>` (and `--unknown-present` for every message). A
+field-level entry beats a type-level entry; unknown names are hard errors; field modes do not
+apply inside a oneof. The profile resolves against *everything* the invocation generates — the
+entries resolve as one batch — so a global profile works by listing (or `PROTOS`-listing, in
+CMake) every schema it spans in one generation; a name unknown across the whole batch is still a
+hard error.
+
+```
+# lean.modes — this consumer never reads sides, and reads origin only on demand
+name lean
+drop demo.Shape.sides
+raw  demo.Shape.origin
+```
+
+```cpp
+const demo::Shape* s = demo::Shape::decode(bytes, arena);   // s->sides() does not compile
+if (s->origin()) {                                          // the Point payload (borrowed from the input)
+    const demo::Point* p = demo::Point::decode(*s->origin(), arena);  // deferred: only now
+}
+```
+
+A profile **changes the generated types**, so you still write `demo::Shape`, but two TUs generated
+under different profiles (including differing only in which messages reserve the unknown-fields bit)
+hold distinct types and **fail to link** rather than silently exchanging mismatched layouts. One
+practical consequence: don't forward-declare generated types yourself — under a profile, a plain
+`namespace demo { class Shape; }` declares a *different* class. See
+`examples/consumer/lean_main.cpp` for the full pattern.
+
+---
+
 ## The `rapidprotoc` CLI
 
 ```
@@ -698,47 +694,46 @@ The numbers below come from the in-repo harness (`tests/bench.py`), decoding a r
 payload — 2000 mixed records with strings, nested and repeated messages, and packed scalar arrays —
 that `protoc` serializes and every decoder then parses. Built `-O3 -DNDEBUG` and measured on **g++-13**
 and **clang++-20** against **protobuf 4.25.3**. Reproduce with `python3 tests/bench.py run` (the full
-methodology is in [architecture.md](architecture.md)).
+methodology is in [architecture.md](architecture.md)). The multipliers are decode **throughput** (GB/s)
+ratios — the number that matters, since a schema-specialized decoder wins as much from branch prediction,
+pipelining, and superscalar execution as from fewer instructions. Every decoder is measured in the same
+run under identical conditions, so the ratios are stable; treat them as a box-specific rule of thumb, not
+a cross-machine constant.
 
 **Arena vs `protoc` + `google::protobuf::Arena`.** Both materialize a full object tree, so this is a
-like-for-like comparison of decode speed and peak arena memory:
+like-for-like comparison of decode speed and peak arena memory. RapidProto **borrows** strings, bytes,
+and `raw` payloads as views into the input instead of copying them, so the arena holds only tree
+structure — which is where most of the memory win comes from:
 
 | Metric | RapidProto arena | protoc + Arena |
 |---|---|---|
-| Decode throughput | **~3.3× faster** | baseline |
-| Peak memory, payload (arena `bytes_used` vs protoc `SpaceUsed`) | **0.67×** | 1× |
-| Peak memory, total held (arena `bytes_reserved` vs protoc `SpaceAllocated`) | **0.68×** | 1× |
+| Decode throughput | **~5× faster** | baseline |
+| Peak memory, payload (arena `bytes_used` vs protoc `SpaceUsed`) | **0.49×** | 1× |
+| Peak memory, total held (arena `bytes_reserved` vs protoc `SpaceAllocated`) | **0.56×** | 1× |
 
-**Streaming vs `protozero`.** Both are zero-materialization pull parsers. On the same `Dataset` the
-streaming decoder runs **~1.2–1.7× faster than protozero**, and across the per-field microbenchmarks
-(varint, zigzag, fixed32/64, strings, packed, skip-heavy, multibyte tags, nested messages) it beats
-protozero on **every** shape with a protozero equivalent. Against `protoc` + `Arena` it's
-**~7–9× faster**, since it materializes nothing.
+That's the g++-13 figure; clang++-20 measures ~6×. The decoded tree borrows the input, so it stays valid
+only while both the input and the `Arena` outlive it (or use
+[`decode_owned`](#self-contained-decode-decode_owned) for a self-contained handle).
 
-**Field-order threading (both decoders).** Both decode loops are *field-order threaded*: after decoding a
-field the generated code jumps straight to the next expected field's decode with a small constant-tag
-probe, so when fields arrive in the usual ascending wire order — how `protoc` and most encoders serialize —
-per-field N-way dispatch collapses into predictable 2-way branches. On g++ (throughput vs an unthreaded
-loop, cross-checked with retired-instructions-per-byte): the arena decoder runs **~2×** faster on
-scalar-heavy dispatch-bound records (ins/B 15.2 → 11.3) and **+16%** on the mixed `Dataset`
-(ins/B 11.4 → 9.7); the streaming decoder runs **~2×** for a dense consumer that handles every field
-(ins/B 12.7 → 7.8) and **~2.3×** for a sparse-extract consumer handling a few of many fields
-(ins/B 10.6 → 4.1) — the biggest win, because a dedicated per-wire skip makes the skipped majority cheap.
-Threading is always on, with no flag and no field-count cutoff.
+**Streaming vs `protozero`.** Both are zero-materialization pull parsers. On the realistic `Dataset` the
+streaming decoder is **~2× faster than protozero** — and **~13× faster than `protoc` + `Arena`**, since
+it materializes nothing. Across the per-field microbenchmarks it's faster on most shapes (repeated
+fields, nested messages, skip-heavy records), about even on single fixed-width scalars, and slower only
+on large **packed** arrays, which it decodes one element per callback — decode those with the arena model
+(below).
 
-**Packed scalar arrays are SWAR-accelerated on the arena decoder only.** The arena decoder decodes
-packed varint arrays with a word-at-a-time (SWAR) kernel that materializes straight into its array —
-**~1.4–2.4× faster** than a per-element loop across widths, including small (1-byte) values. The
-streaming decoder decodes packed fields **per element**. This is deliberate: a streaming callback
-receives one value at a time and can't vectorize its own store, so the kernel only pays off there for
-wide-value data and would *slow* the common case of a large packed array of small values (e.g. repeated
-enums or small ints). The practical effect is narrow — only large packed scalar fields on the streaming
-decoder — but if that is your hot path, decode it with the **arena** model to get the SWAR speedup.
+**Arena vs streaming (the two RapidProto models).** The streaming decoder is **~2.7× faster** than the
+arena decoder on the `Dataset`, since it builds no object tree. Use the arena model when you want a
+navigable, random-access object; stream when you only extract or forward fields.
+
+**Large packed scalar arrays: prefer the arena model.** The arena decoder decodes a packed varint array
+a word at a time straight into its array, while the streaming decoder decodes it one element per callback
+(a streaming callback takes a single value and can't batch its store). So if your hot path is dominated
+by large packed scalar fields, the **arena** decoder is the faster choice.
 
 Speedups vary with payload shape, and part of the arena/protoc gap is a feature gap — protoc validates
 UTF-8 on every proto3 string and RapidProto does not. The harness ships every scenario (and a memory
-report, and a chunk-cap tuning sweep), so measure your own payloads rather than trusting one ratio
-as universal.
+report), so measure your own payloads rather than trusting one ratio as universal.
 
 ---
 
