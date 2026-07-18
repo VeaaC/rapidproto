@@ -323,11 +323,15 @@ public:
         return out;
     }
 
-    [[nodiscard]] std::string_view view() const noexcept {
+    // The borrowed pointer (null only on a default/unset ArenaString). A raw message-payload field
+    // uses this for presence: a present payload borrows a non-null input pointer even when empty,
+    // while an unset field keeps the null default.
+    [[nodiscard]] const char* data() const noexcept {
         const char* p = nullptr;
         std::memcpy(&p, m_ptr, sizeof p);
-        return {p, m_len};
+        return p;
     }
+    [[nodiscard]] std::string_view view() const noexcept { return {data(), m_len}; }
     [[nodiscard]] std::size_t size() const noexcept { return m_len; }
     [[nodiscard]] bool empty() const noexcept { return m_len == 0; }
 
@@ -592,30 +596,6 @@ inline constexpr bool kFixedIsNativeLE = true;
 #else
 inline constexpr bool kFixedIsNativeLE = false;
 #endif
-
-// A singular raw member encodes ABSENCE as a null-data view (like a materialized message
-// field's null pointer -- no mask bit spent). A PRESENT but empty payload must therefore be
-// non-null: it points here.
-inline constexpr char kEmptyPayload = 0;
-
-// Arena-copy a field-modes `raw` payload, so the stored ByteView outlives the input buffer the
-// decode merely borrowed. Returns false on OOM. The result is always non-null (empty payloads
-// view kEmptyPayload), so a null-data view stays free to mean "absent".
-[[nodiscard]] inline bool copy_payload(ByteView payload, Arena& arena, ByteView& out) noexcept {
-    if (payload.empty()) {
-        // A deliberately empty, deliberately NON-NULL view -- null data is the absence encoding.
-        // NOLINTNEXTLINE(bugprone-string-constructor)
-        out = ByteView(&kEmptyPayload, 0);
-        return true;
-    }
-    char* const data = arena.allocate_array<char>(payload.size());
-    if (data == nullptr) {
-        return false;
-    }
-    std::memcpy(data, payload.data(), payload.size());
-    out = ByteView(data, payload.size());
-    return true;
-}
 
 // The SWAR-kernel packed-varint decode for a LARGE span, pulled OUT of line -- shared across every
 // `repeated <varint-type>` field of this element type (and across messages/TUs, since the instantiation

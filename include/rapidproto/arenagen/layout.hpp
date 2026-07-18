@@ -33,12 +33,12 @@ namespace rapidproto::arenagen {
 enum class FieldKind : std::uint8_t {
     InlineScalar,  // numeric scalar stored inline; a `bool` instead occupies a value bit
     InlineEnum,    // enum stored inline as its int32 underlying value
-    SsoString,     // string/bytes stored as an ArenaString (a borrowed {ptr,len} view, no copy)
+    BorrowString,  // string/bytes stored as an ArenaString (a borrowed {ptr,len} view, no copy)
     InlineFixedSubMsg,  // fixed-size sub-message inlined by value
     PointerSubMsg,      // sub-message referenced by an arena pointer (null = absent)
     Repeated,           // repeated field -> ArrayView<elem>
     Map,                // map field -> MapView<entry>
-    Raw,  // field-modes `raw`: the message field's arena-copied payload(s), decoded later
+    Raw,  // field-modes `raw`: the message field's borrowed payload(s) (ArenaString), decoded later
 };
 
 const char* kind_name(FieldKind kind);

@@ -434,7 +434,7 @@ before any C++ is emitted. Given a `MessageNode` + the FQN → node index, it co
 **field kind** per field plus the byte layout. Field kinds:
 
 - **InlineScalar / InlineEnum:** a fixed-width value inline; an optional one gets a presence bit.
-- **SsoString:** a 12-byte `ArenaString` — a borrowed `{ptr, len}` view into the input (no copy, no SSO).
+- **BorrowString:** a 12-byte `ArenaString` — a borrowed `{ptr, len}` view into the input (no copy, no SSO).
 - **InlineFixedSubMsg vs PointerSubMsg:** a *fixed-size* sub-message (recursively all-scalar; no
   strings/repeated/maps; not self-referential) is **inlined by value** when ≤ 16 bytes, else stored behind
   an arena pointer. The fixed-size analysis is recursive and cycle-aware (a self-reachable type is never
@@ -543,13 +543,13 @@ never in the `.proto`. Resolution happens once against the resolved set (names �
 oneof-member entries, and raw on anything but a message-typed field are hard errors; type-level entries
 silently leave oneof members, drop+required, and raw-on-maps materialized). The planner consumes the
 maps: `drop` removes the member (and its presence bit) from the layout entirely, recorded in
-`MessageLayout::dropped` so the layout dump still shows the omission; `raw` plans a 16-byte payload
-member — `ByteView` singular, `ArrayView<ByteView>` repeated — never fixed-size and with **no mask
-bit**: a singular payload encodes absence as null *data* (the pointer-sub-message convention), so a
-present-but-empty payload is a non-null empty view (`arena_detail::copy_payload`'s `kEmptyPayload`
-sentinel). The emitter routes per plan — dropped fields get an explicit no-op `case` arm (validated
+`MessageLayout::dropped` so the layout dump still shows the omission; `raw` plans a borrowed payload
+member — an `ArenaString` singular, `ArrayView<ArenaString>` repeated (the same 12-byte view storage as
+a string/bytes field) — never fixed-size and with **no mask bit**: a singular payload encodes absence
+as null *data* (the pointer-sub-message convention), so a present-but-empty payload borrows a non-null
+input pointer. The emitter routes per plan — dropped fields get an explicit no-op `case` arm (validated
 skip, without tripping `--unknown-present`); a raw arm is its materialized twin with the recursive
-decode swapped for an arena copy of the payload (`wire::read_length_delimited`/`wire::read_group` both yield
+decode swapped for a borrowed view of the payload (`wire::read_length_delimited`/`wire::read_group` both yield
 exactly that), preserving stored-field semantics: wire-type-mismatch falls to the shared skip,
 `RepeatedSingularMessage`, `required`'s transient bit. The stored view is exactly what the field
 type's own `decode()` accepts — deferred decoding needs no new API and no streaming decoder.

@@ -17,7 +17,6 @@
 #include "rapidproto/ast.hpp"
 #include "rapidproto/resolve.hpp"
 #include "rapidproto/resolver.hpp"
-#include "rapidproto/runtime.hpp"
 
 namespace rapidproto::arenagen {
 namespace {
@@ -30,8 +29,6 @@ constexpr std::size_t kStringSize = 12;  // ArenaString (borrowed view: char[8] 
 constexpr std::size_t kStringAlign = 4;
 constexpr std::size_t kViewSize = 12;  // ArrayView<T> / MapView<E> = {char[8] ptr, uint32 size}
 constexpr std::size_t kViewAlign = 4;
-constexpr std::size_t kByteViewSize = 16;  // ByteView = {ptr, size_t size} (raw input/field type)
-constexpr std::size_t kByteViewAlign = 8;
 constexpr std::size_t kEnumSize = 4;  // enums stored as their int32 underlying value
 constexpr std::size_t kEnumAlign = 4;
 constexpr std::size_t kDiscSize = 1;  // oneof discriminant: a uint8 member index (0 = none)
@@ -47,7 +44,6 @@ constexpr std::size_t kBytesPerWord = 8;
 // at all, since a chain declared bottom-up is served memoized at depth <= 2.
 constexpr std::size_t kMaxChainDepth = 200;
 static_assert(sizeof(ArenaString) == kStringSize && alignof(ArenaString) == kStringAlign);
-static_assert(sizeof(ByteView) == kByteViewSize && alignof(ByteView) == kByteViewAlign);
 static_assert(sizeof(ArrayView<int>) == kViewSize && alignof(ArrayView<int>) == kViewAlign);
 static_assert(sizeof(MapView<ArenaString>) == kViewSize &&
               alignof(MapView<ArenaString>) == kViewAlign);
@@ -222,7 +218,7 @@ private:
             member.repr = field.resolved_type_fqn;
             member.target_fqn = field.resolved_type_fqn;
         } else if (is_string_field(field)) {
-            member.kind = FieldKind::SsoString;
+            member.kind = FieldKind::BorrowString;
             member.size = kStringSize;
             member.align = kStringAlign;
             member.repr = "ArenaString";
@@ -251,20 +247,22 @@ private:
         return it != m_opts.modes->maps.end() ? it->second : FieldMode::Materialize;
     }
 
-    // A `raw` member's storage: the message field's arena-copied PAYLOAD -- a ByteView when
-    // singular (null data encodes absence, like a materialized pointer; a present empty
-    // sub-message is a non-null empty view), an ArrayView<ByteView> (one payload per element)
-    // when repeated. No mask bits. target_fqn names the payload's type for the dump; the
-    // planner never recurses into it -- deferring that decode is the point.
+    // A `raw` member's storage: the message field's borrowed PAYLOAD -- an ArenaString view into the
+    // input when singular (null data encodes absence, like a materialized pointer; a present empty
+    // sub-message keeps a non-null empty view), an ArrayView<ArenaString> (one payload per element)
+    // when repeated. Same storage as a string/bytes field -- a raw payload is just a borrowed byte
+    // span handed to the field type's own decode(). No mask bits. target_fqn names the payload's type
+    // for the dump; the planner never recurses into it -- deferring that decode is the point.
     static MemberPlan raw_member(const FieldNode& field) {
         MemberPlan plan;
         plan.field = &field;
         plan.kind = FieldKind::Raw;
-        // Repeated raw is an ArrayView<ByteView> (the shrunk 12/4 view); a singular raw payload is a
-        // bare ByteView (the unchanged 16/8 raw type).
-        plan.size = field.is_repeated ? kViewSize : kByteViewSize;
-        plan.align = field.is_repeated ? kViewAlign : kByteViewAlign;
-        plan.repr = field.is_repeated ? "ArrayView<ByteView>" : "ByteView";
+        // Singular raw is a bare ArenaString; repeated raw an ArrayView<ArenaString>. The ArenaString
+        // and the ArrayView are both 12-byte / 4-align cells, so the size/align is the same either way.
+        static_assert(kStringSize == kViewSize && kStringAlign == kViewAlign);
+        plan.size = kStringSize;
+        plan.align = kStringAlign;
+        plan.repr = field.is_repeated ? "ArrayView<ArenaString>" : "ArenaString";
         plan.target_fqn = field.resolved_type_fqn;
         return plan;
     }
@@ -296,7 +294,7 @@ private:
             plan.repr = field.resolved_type_fqn;
             plan.target_fqn = field.resolved_type_fqn;
         } else if (is_string_field(field)) {
-            plan.kind = FieldKind::SsoString;
+            plan.kind = FieldKind::BorrowString;
             plan.size = kStringSize;
             plan.align = kStringAlign;
             plan.repr = "ArenaString";
@@ -322,7 +320,7 @@ private:
         std::size_t key_size = 0;
         std::size_t key_align = 0;
         if (map.key_type == "string" || map.key_type == "bytes") {
-            entry.key_kind = FieldKind::SsoString;
+            entry.key_kind = FieldKind::BorrowString;
             entry.key_repr = "ArenaString";
             key_size = kStringSize;
             key_align = kStringAlign;
@@ -351,7 +349,7 @@ private:
             val_size = kEnumSize;
             val_align = kEnumAlign;
         } else if (map.value_type == "string" || map.value_type == "bytes") {
-            entry.value_kind = FieldKind::SsoString;
+            entry.value_kind = FieldKind::BorrowString;
             entry.value_repr = "ArenaString";
             val_size = kStringSize;
             val_align = kStringAlign;
@@ -397,12 +395,12 @@ private:
         switch (m.kind) {
             case FieldKind::InlineScalar:
             case FieldKind::InlineEnum:
-            case FieldKind::SsoString:
+            case FieldKind::BorrowString:
             case FieldKind::InlineFixedSubMsg:
                 return true;
             case FieldKind::PointerSubMsg:  // null encodes absence
-            case FieldKind::Raw:            // null DATA encodes absence (present-empty is
-                                            // non-null: copy_payload's kEmptyPayload)
+            case FieldKind::Raw:            // null DATA encodes absence (a present-empty payload
+                                            // borrows a non-null input pointer)
             case FieldKind::Repeated:       // empty view encodes absence
             case FieldKind::Map:
                 return false;
@@ -545,7 +543,7 @@ private:
                 case FieldKind::InlineEnum:
                 case FieldKind::InlineFixedSubMsg:
                     break;  // all fixed
-                case FieldKind::SsoString:
+                case FieldKind::BorrowString:
                 case FieldKind::PointerSubMsg:
                 case FieldKind::Repeated:
                 case FieldKind::Map:
@@ -573,7 +571,7 @@ const char* kind_name(FieldKind kind) {
             return "inline-scalar";
         case FieldKind::InlineEnum:
             return "inline-enum";
-        case FieldKind::SsoString:
+        case FieldKind::BorrowString:
             return "borrow-string";
         case FieldKind::InlineFixedSubMsg:
             return "inline-submsg";

@@ -376,7 +376,7 @@ TEST_CASE("dumpgen: field-modes dump omits dropped fields and renders raw payloa
           "[dumpgen]") {
     // A hand-built fm::Holder decoded under the `lean` profile: the dropped field `debug` (field 2)
     // must not appear, and the raw message fields `blob` (7) / `req_blob` (13) surface as the hex of
-    // their arena-copied payloads (the sub-message body bytes), never as nested objects.
+    // their borrowed payloads (the sub-message body bytes), never as nested objects.
     const std::string body = [] {
         std::string b;
         put_tag(b, 1, 2);  // Blob.payload: Len

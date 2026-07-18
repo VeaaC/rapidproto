@@ -303,9 +303,9 @@ every field of that message type), or per message (for `unknown-fields`):
 - **`unknown-fields`** — reserve that **message**'s `has_unknown_fields()` bit (see
   [Unknown fields](#unknown-fields-arena)). Unlike `drop`/`raw` it names a message directly, not a
   field or a field's type; an enum or a field name is an error.
-- **`raw`** (message-typed fields, groups included) — the sub-message's **payload** lands as an
-  arena-copied `ByteView` instead of a materialized tree; repeated fields become an
-  `ArrayView<ByteView>`, one payload per element. Each view is exactly what the field type's own
+- **`raw`** (message-typed fields, groups included) — the sub-message's **payload** is borrowed as a
+  `ByteView` view into the input instead of a materialized tree; repeated fields become a
+  `StringArrayView`, one payload per element. Each view is exactly what the field type's own
   `decode()` accepts, so the tree is built only when — and if — you ask: keep a huge or
   rarely-read sub-message (or a million-element repeated field) as bytes, and decode single
   elements on demand. Decode semantics are otherwise unchanged (presence, `required` validation,

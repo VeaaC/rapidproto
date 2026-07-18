@@ -36,6 +36,11 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
   shrank 16→12 bytes (no more SSO), so string/map field offsets change — regenerate the headers.
   `ArenaDecodeError::StringTooLong` is now reserved and never produced (an over-4 GiB input reports as
   `InputTooLarge`).
+- **`raw` field-mode payloads are borrowed too, not arena-copied (breaking).** A `raw` field now stores
+  the same borrowed view as a string/bytes field: a singular payload shrinks from a 16-byte copied
+  `ByteView` to a 12-byte borrowed one, and a repeated `raw` accessor returns a `StringArrayView` instead
+  of `ArrayView<ByteView>` (each element is still a `ByteView`, i.e. `std::string_view`). Like every
+  borrowed value, a raw payload is valid only while the input outlives the tree.
 - **Generated decoders reference `::rapidproto::wire::` wire readers.** The value-threaded readers the
   generated arena and streaming decoders call moved into the `rapidproto::wire` namespace (previously
   free functions prefixed `vt_`). Regenerate and upgrade the runtime header together — a decoder

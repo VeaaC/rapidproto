@@ -316,7 +316,7 @@ TEST_CASE("arena-decode: non-minimal tags decode identically across fast field k
         pv(b, 7);
     };
 
-    // string s (field 12, wire LEN): the SsoString reader (length read + arena copy).
+    // string s (field 12, wire LEN): the BorrowString reader (length read + borrowed view).
     {
         std::string over;
         req(over);
@@ -1179,7 +1179,7 @@ TEST_CASE("arena-decode: raw fields hold their exact payloads, decodable directl
     REQUIRE(h->blobs().size() == 2);
     CHECK(h->blobs()[0] == ByteView(b0));
     CHECK(h->blobs()[1].empty());            // present element, empty payload
-    CHECK(h->blobs()[1].data() != nullptr);  // ...still a real (arena-backed) view
+    CHECK(h->blobs()[1].data() != nullptr);  // ...still a real (input-backed) view
     REQUIRE(h->by_name().find(std::string_view("k")) != nullptr);  // materialized map
     // The point of raw: each view decodes DIRECTLY through the field type's own decoder.
     // NOLINTNEXTLINE(bugprone-unchecked-optional-access): guarded by the REQUIRE above
