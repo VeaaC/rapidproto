@@ -263,6 +263,26 @@ TEST_CASE("ArrayView: read-only contiguous view", "[arena][arrayview]") {
     CHECK(ArrayView<int>{}.empty());
 }
 
+TEST_CASE("view storage types have their pinned sizes", "[arena][arrayview][map]") {
+    // ArrayView/MapView are the shrunk 12-byte / 4-align views over self-contained arena storage
+    // (a memcpy'd 8-byte pointer + a uint32 count). ByteView (raw input/field type) and ArenaString
+    // (SSO string) are unchanged at 16/8. The arenagen layout planner pins these via static_assert.
+    CHECK(sizeof(ArrayView<int>) == 12);
+    CHECK(alignof(ArrayView<int>) == 4);
+    CHECK(sizeof(MapView<ArenaString>) == 12);
+    CHECK(alignof(MapView<ArenaString>) == 4);
+    CHECK(sizeof(ByteView) == 16);
+    CHECK(sizeof(ArenaString) == 16);
+
+    // A normal count round-trips through the uint32 size unchanged.
+    const int data[] = {2, 4, 6, 8};
+    const ArrayView<int> s(data, 4);
+    CHECK(s.size() == 4);
+    CHECK(s.data() == data);
+    CHECK(s.begin() == data);
+    CHECK(s.end() == data + 4);
+}
+
 TEST_CASE("StringArrayView: indexing yields std::string_view, not ArenaString", "[arena][string]") {
     Arena arena;
     const std::string big(40, 'x');  // > kInlineCap: forces a heap (arena-copied) ArenaString
@@ -334,6 +354,18 @@ TEST_CASE("ArenaDecodeError: rp_fail_string distinguishes too-long from out-of-m
         rp_fail_string(&too_long, ByteView(&backing, static_cast<std::size_t>(UINT32_MAX) + 1));
         CHECK(too_long.code == ArenaDecodeError::Code::StringTooLong);
     }
+}
+
+TEST_CASE("ArenaDecodeError: rp_fail_input_too_large sets InputTooLarge", "[arena]") {
+    // The top-level decode rejects a >UINT32_MAX input up front: every repeated/map entry costs
+    // >=1 input byte, so a <=UINT32_MAX input bounds every element count to the uint32 ArrayView/
+    // MapView size (and every string length). The runtime path is a defensive guard -- a >4 GiB
+    // input can't be built with a practical test buffer, so only the failure wiring is exercised.
+    ArenaDecodeError e;
+    rp_fail_input_too_large(&e);
+    CHECK(e.code == ArenaDecodeError::Code::InputTooLarge);
+    CHECK_FALSE(e.ok());
+    rp_fail_input_too_large(nullptr);  // a null err must be a safe no-op
 }
 
 TEST_CASE("copy_payload: arena-copies raw payloads, keeps present-empty non-null, reports OOM",

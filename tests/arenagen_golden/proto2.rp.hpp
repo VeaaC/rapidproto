@@ -43,14 +43,14 @@ class Scalars {
   static bool rp_decode_into(Scalars& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
   ::rapidproto::ArenaString m_s;
   ::rapidproto::ArenaString m_by;
-  ::rapidproto::ArrayView<std::int32_t> m_packed_nums;
-  ::rapidproto::ArrayView<std::int32_t> m_expanded_nums;
   std::int64_t m_i64;
   std::uint64_t m_u64;
   std::int64_t m_s64;
   std::uint64_t m_f64;
   std::int64_t m_sf64;
   double m_db;
+  ::rapidproto::ArrayView<std::int32_t> m_packed_nums;
+  ::rapidproto::ArrayView<std::int32_t> m_expanded_nums;
   std::int32_t m_i32;
   std::uint32_t m_u32;
   std::int32_t m_s32;
@@ -529,6 +529,7 @@ RP_FLATTEN inline bool Scalars::rp_decode_into([[maybe_unused]] Scalars& out, ::
   return true;
 }
 inline const Scalars* Scalars::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+  if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
   Scalars* const rp_root = arena.create<Scalars>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
@@ -570,6 +571,7 @@ RP_FLATTEN inline bool WithGroup::rp_decode_into([[maybe_unused]] WithGroup& out
   return true;
 }
 inline const WithGroup* WithGroup::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+  if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
   WithGroup* const rp_root = arena.create<WithGroup>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
@@ -628,6 +630,7 @@ RP_FLATTEN inline bool WithGroup::MyGroup::rp_decode_into([[maybe_unused]] WithG
   return true;
 }
 inline const WithGroup::MyGroup* WithGroup::MyGroup::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+  if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
   WithGroup::MyGroup* const rp_root = arena.create<WithGroup::MyGroup>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
@@ -674,6 +677,7 @@ RP_FLATTEN inline bool WithGroup::MyGroup::Inner::rp_decode_into([[maybe_unused]
   return true;
 }
 inline const WithGroup::MyGroup::Inner* WithGroup::MyGroup::Inner::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+  if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
   WithGroup::MyGroup::Inner* const rp_root = arena.create<WithGroup::MyGroup::Inner>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
@@ -867,6 +871,7 @@ RP_FLATTEN inline bool Container::rp_decode_into([[maybe_unused]] Container& out
   return true;
 }
 inline const Container* Container::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+  if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
   Container* const rp_root = arena.create<Container>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
@@ -914,6 +919,7 @@ RP_FLATTEN inline bool Container::Nested::rp_decode_into([[maybe_unused]] Contai
   return true;
 }
 inline const Container::Nested* Container::Nested::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+  if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
   Container::Nested* const rp_root = arena.create<Container::Nested>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }

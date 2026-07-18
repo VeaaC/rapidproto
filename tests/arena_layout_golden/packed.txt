@@ -1,4 +1,4 @@
-message .pk.Packed size=48 align=8 fixed=no
-  field pd num=1 repeated ArrayView<double> off=0 size=16 align=8 presence=empty
-  field psf num=2 repeated ArrayView<sfixed32> off=16 size=16 align=8 presence=empty
-  field pf num=3 repeated ArrayView<float> off=32 size=16 align=8 presence=empty
+message .pk.Packed size=36 align=4 fixed=no
+  field pd num=1 repeated ArrayView<double> off=0 size=12 align=4 presence=empty
+  field psf num=2 repeated ArrayView<sfixed32> off=12 size=12 align=4 presence=empty
+  field pf num=3 repeated ArrayView<float> off=24 size=12 align=4 presence=empty

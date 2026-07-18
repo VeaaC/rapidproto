@@ -1801,6 +1801,11 @@ void emit_decode_def(const Emit& emit, const MessageNode& message, const std::st
         " ::rapidproto::ArenaDecodeError* err) noexcept {\n",
         {{"Q", qualifier}});
     p.indent();
+    // Every repeated/map entry costs >=1 input byte, so a <=UINT32_MAX input bounds every element
+    // count to the uint32 ArrayView/MapView size (and every string length); reject a larger input.
+    p.print(
+        "if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return "
+        "nullptr; }\n");
     p.print("$Q$* const rp_root = arena.create<$Q$>();\n", {{"Q", qualifier}});
     p.print("if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }\n");
     p.print("if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }\n");

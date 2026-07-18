@@ -231,7 +231,7 @@ const Foo* b = Foo::decode(buf2, arena);   // tree #2 reuses the same memory (no
 ```cpp
 struct ArenaDecodeError {
     enum class Code { None, Wire, OutOfMemory, RecursionTooDeep, MissingRequired,
-                      RepeatedSingularMessage, StringTooLong };
+                      RepeatedSingularMessage, StringTooLong, InputTooLarge };
     Code code;
     rapidproto::WireError wire;     // valid when code == Wire
     std::size_t offset;             // byte offset of a wire failure
@@ -247,6 +247,8 @@ struct ArenaDecodeError {
 - **RepeatedSingularMessage.** A singular (non-repeated) sub-message field appeared more than once (an
   exotic merge case the arena decoder rejects rather than silently merging).
 - **StringTooLong.** A `string`/`bytes` value exceeded the arena's 4 GiB length representation.
+- **InputTooLarge.** The input exceeded 4 GiB (`UINT32_MAX`) — the size at which a repeated/map element
+  count or a string length stays representable in the 32-bit view/string fields.
 
 On any error the tree is incomplete; discard it (or `reset()` the arena) and don't read it.
 

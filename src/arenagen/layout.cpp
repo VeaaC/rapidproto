@@ -28,8 +28,10 @@ constexpr std::size_t kPtrSize = 8;
 constexpr std::size_t kPtrAlign = 8;
 constexpr std::size_t kStringSize = 16;  // ArenaString
 constexpr std::size_t kStringAlign = 8;
-constexpr std::size_t kViewSize = 16;  // ArrayView<T> / MapView<E> = {ptr, size}
-constexpr std::size_t kViewAlign = 8;
+constexpr std::size_t kViewSize = 12;  // ArrayView<T> / MapView<E> = {char[8] ptr, uint32 size}
+constexpr std::size_t kViewAlign = 4;
+constexpr std::size_t kByteViewSize = 16;  // ByteView = {ptr, size_t size} (raw input/field type)
+constexpr std::size_t kByteViewAlign = 8;
 constexpr std::size_t kEnumSize = 4;  // enums stored as their int32 underlying value
 constexpr std::size_t kEnumAlign = 4;
 constexpr std::size_t kDiscSize = 1;  // oneof discriminant: a uint8 member index (0 = none)
@@ -45,7 +47,7 @@ constexpr std::size_t kBytesPerWord = 8;
 // at all, since a chain declared bottom-up is served memoized at depth <= 2.
 constexpr std::size_t kMaxChainDepth = 200;
 static_assert(sizeof(ArenaString) == kStringSize && alignof(ArenaString) == kStringAlign);
-static_assert(sizeof(ByteView) == kViewSize && alignof(ByteView) == kViewAlign);
+static_assert(sizeof(ByteView) == kByteViewSize && alignof(ByteView) == kByteViewAlign);
 static_assert(sizeof(ArrayView<int>) == kViewSize && alignof(ArrayView<int>) == kViewAlign);
 static_assert(sizeof(MapView<ArenaString>) == kViewSize &&
               alignof(MapView<ArenaString>) == kViewAlign);
@@ -257,8 +259,10 @@ private:
         MemberPlan plan;
         plan.field = &field;
         plan.kind = FieldKind::Raw;
-        plan.size = kViewSize;
-        plan.align = kViewAlign;
+        // Repeated raw is an ArrayView<ByteView> (the shrunk 12/4 view); a singular raw payload is a
+        // bare ByteView (the unchanged 16/8 raw type).
+        plan.size = field.is_repeated ? kViewSize : kByteViewSize;
+        plan.align = field.is_repeated ? kViewAlign : kByteViewAlign;
         plan.repr = field.is_repeated ? "ArrayView<ByteView>" : "ByteView";
         plan.target_fqn = field.resolved_type_fqn;
         return plan;

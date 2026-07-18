@@ -405,25 +405,47 @@ static_assert(sizeof(ArenaString) == 16 && std::is_trivially_destructible_v<Aren
 // runtime's own {ptr,len} view (the std::span stand-in the parser calls Range -- the two are kept
 // separate only because this header ships self-contained and cannot include the parser's range.hpp;
 // unifying them would couple this header to range.hpp and is not obviously worth it).
+//
+// A genuinely 12-byte, 4-aligned cell: an 8-byte data pointer plus a uint32 element count. The
+// pointer lives in a char[8] (memcpy'd in/out) rather than a `const T*` member on purpose -- a real
+// pointer member would force 8-byte alignment and pad the struct back to 16. The unaligned 8-byte
+// load the memcpy compiles to is fine on x86-64/ARM64, and the memcpy keeps it strict-aliasing- and
+// alignment-UB-free. The view points at self-contained ARENA storage, so shrinking it changes no
+// ownership contract; the only cost is the count narrowing to uint32 -- the top-level decode rejects
+// any input over UINT32_MAX bytes up front (see rp_fail_input_too_large), which bounds every element
+// count to uint32 (each entry costs >=1 input byte). data() is called once where it matters
+// (begin/end) so the compiler hoists the memcpy out of loops.
+// NOLINTBEGIN(cppcoreguidelines-avoid-c-arrays, modernize-avoid-c-arrays,
+// cppcoreguidelines-pro-bounds-pointer-arithmetic): the class IS a hand-laid-out 12-byte cell whose
+// pointer is type-punned through memcpy (the sanctioned way), and the span abstraction itself.
 template <class T>
 class ArrayView {
 public:
     ArrayView() noexcept = default;
-    ArrayView(const T* data, std::size_t size) noexcept : m_data(data), m_size(size) {}
+    ArrayView(const T* data, std::size_t size) noexcept : m_size(static_cast<std::uint32_t>(size)) {
+        std::memcpy(m_data, &data, sizeof data);
+    }
 
-    [[nodiscard]] const T* data() const noexcept { return m_data; }
+    [[nodiscard]] const T* data() const noexcept {
+        const T* p = nullptr;
+        std::memcpy(&p, m_data, sizeof p);
+        return p;
+    }
     [[nodiscard]] std::size_t size() const noexcept { return m_size; }
     [[nodiscard]] bool empty() const noexcept { return m_size == 0; }
-    // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic): the span abstraction itself
-    const T& operator[](std::size_t i) const noexcept { return m_data[i]; }
-    [[nodiscard]] const T* begin() const noexcept { return m_data; }
-    [[nodiscard]] const T* end() const noexcept { return m_data + m_size; }
-    // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    const T& operator[](std::size_t i) const noexcept { return data()[i]; }
+    [[nodiscard]] const T* begin() const noexcept { return data(); }
+    [[nodiscard]] const T* end() const noexcept { return data() + m_size; }
 
 private:
-    const T* m_data = nullptr;
-    std::size_t m_size = 0;
+    char m_data[8] = {};  // the data pointer, memcpy'd (see class comment); char[8] keeps align 4
+    std::uint32_t m_size = 0;
 };
+// NOLINTEND(cppcoreguidelines-avoid-c-arrays, modernize-avoid-c-arrays,
+// cppcoreguidelines-pro-bounds-pointer-arithmetic)
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
+static_assert(sizeof(ArrayView<int>) == 12 && alignof(ArrayView<int>) == 4 &&
+              std::is_trivially_destructible_v<ArrayView<int>>);
 
 // ── StringArrayView ────────────────────────────────────────────────────────────────────────────────
 // A read-only view over an arena array of ArenaString that yields std::string_view per element. A
@@ -503,6 +525,10 @@ public:
 private:
     ArrayView<Entry> m_entries;
 };
+// MapView wraps a single ArrayView, so it inherits the 12-byte / 4-align cell.
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
+static_assert(sizeof(MapView<ArenaString>) == 12 && alignof(MapView<ArenaString>) == 4 &&
+              std::is_trivially_destructible_v<MapView<ArenaString>>);
 
 // ── Decode failure ────────────────────────────────────────────────────────────────────────────────
 struct ArenaDecodeError {
@@ -514,6 +540,8 @@ struct ArenaDecodeError {
         MissingRequired,          // a proto2 `required` field was absent (see `field_number`)
         RepeatedSingularMessage,  // a singular message field occurred more than once (see field_number)
         StringTooLong,  // a string/bytes value exceeded the 4 GiB arena representation limit
+        InputTooLarge,  // input exceeds the 4 GiB (UINT32_MAX) size at which element counts / string
+                        // lengths stay representable
     };
 
     Code code = Code::None;
@@ -539,6 +567,15 @@ inline void rp_fail_wire_at(ArenaDecodeError* err, WireError code, std::size_t o
 inline void rp_fail_oom(ArenaDecodeError* err) noexcept {
     if (err != nullptr) {
         err->code = ArenaDecodeError::Code::OutOfMemory;
+    }
+}
+// The input exceeds UINT32_MAX bytes. Every repeated/map entry costs >=1 input byte, so a
+// <=UINT32_MAX input bounds every element count to the uint32 ArrayView/MapView size (and every
+// string length); the top-level decode rejects a larger input up front rather than risk a narrowing
+// truncation. Not reachable by any practical test buffer (a >4 GiB input); a defensive guard.
+inline void rp_fail_input_too_large(ArenaDecodeError* err) noexcept {
+    if (err != nullptr) {
+        err->code = ArenaDecodeError::Code::InputTooLarge;
     }
 }
 // A string/bytes store failed: the value exceeds the 4 GiB an ArenaString can represent

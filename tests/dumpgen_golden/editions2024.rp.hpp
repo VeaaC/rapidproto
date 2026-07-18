@@ -127,6 +127,7 @@ RP_FLATTEN inline bool M::rp_decode_into([[maybe_unused]] M& out, ::rapidproto::
   return true;
 }
 inline const M* M::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+  if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
   M* const rp_root = arena.create<M>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }

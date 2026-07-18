@@ -176,15 +176,15 @@ class Layout {
   };
   ::rapidproto::ArenaString m_name;
   ::rapidproto::ArenaString m_oname;
+  rp_choice_union m_rp_choice;
+  std::int64_t m_big;
+  const ::al::Big* m_bg;
+  const ::al::HasString* m_hs;
   ::rapidproto::ArrayView<std::int32_t> m_nums;
   ::rapidproto::ArrayView<::al::Point> m_points;
   ::rapidproto::MapView<CountsEntry> m_counts;
   ::rapidproto::MapView<GridEntry> m_grid;
-  rp_choice_union m_rp_choice;
   ::rapidproto::ArrayView<::rapidproto::ArenaString> m_labels;
-  std::int64_t m_big;
-  const ::al::Big* m_bg;
-  const ::al::HasString* m_hs;
   ::al::Point m_pt;
   std::int32_t m_small;
   std::int32_t m_opt;
@@ -246,6 +246,7 @@ RP_FLATTEN inline bool Point::rp_decode_into([[maybe_unused]] Point& out, ::rapi
   return true;
 }
 inline const Point* Point::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+  if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
   Point* const rp_root = arena.create<Point>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
@@ -315,6 +316,7 @@ RP_FLATTEN inline bool Big::rp_decode_into([[maybe_unused]] Big& out, ::rapidpro
   return true;
 }
 inline const Big* Big::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+  if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
   Big* const rp_root = arena.create<Big>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
@@ -362,6 +364,7 @@ RP_FLATTEN inline bool HasString::rp_decode_into([[maybe_unused]] HasString& out
   return true;
 }
 inline const HasString* HasString::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+  if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
   HasString* const rp_root = arena.create<HasString>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
@@ -407,6 +410,7 @@ RP_FLATTEN inline bool BoolWrap::rp_decode_into([[maybe_unused]] BoolWrap& out, 
   return true;
 }
 inline const BoolWrap* BoolWrap::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+  if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
   BoolWrap* const rp_root = arena.create<BoolWrap>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
@@ -466,6 +470,7 @@ RP_FLATTEN inline bool SelfRef::rp_decode_into([[maybe_unused]] SelfRef& out, ::
   return true;
 }
 inline const SelfRef* SelfRef::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+  if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
   SelfRef* const rp_root = arena.create<SelfRef>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
@@ -909,6 +914,7 @@ RP_FLATTEN inline bool Layout::rp_decode_into([[maybe_unused]] Layout& out, ::ra
   return true;
 }
 inline const Layout* Layout::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+  if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
   Layout* const rp_root = arena.create<Layout>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
