@@ -34,10 +34,10 @@ class M {
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
   static bool rp_decode_into(M& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
-  ::rapidproto::ArrayView<std::int32_t> m_packed_nums;
-  ::rapidproto::ArrayView<std::int32_t> m_expanded_nums;
   const ::ed23::M* m_child;
   const ::ed23::M* m_delim;
+  ::rapidproto::ArrayView<std::int32_t> m_packed_nums;
+  ::rapidproto::ArrayView<std::int32_t> m_expanded_nums;
   std::int32_t m_implicit_scalar;
   std::int32_t m_explicit_scalar;
   std::uint8_t m_rp_mask;
@@ -240,6 +240,7 @@ RP_FLATTEN inline bool M::rp_decode_into([[maybe_unused]] M& out, ::rapidproto::
   return true;
 }
 inline const M* M::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+  if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
   M* const rp_root = arena.create<M>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }

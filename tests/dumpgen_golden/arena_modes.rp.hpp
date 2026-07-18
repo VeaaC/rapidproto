@@ -67,12 +67,12 @@ class Holder {
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
   static bool rp_decode_into(Holder& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
   ::rapidproto::ByteView m_blob;
+  ::rapidproto::ByteView m_req_blob;
+  ::rapidproto::ByteView m_grp;
   ::rapidproto::ArrayView<::rapidproto::ByteView> m_blobs;
   ::rapidproto::ArrayView<std::int32_t> m_samples;
   ::rapidproto::ArrayView<std::int32_t> m_spread;
   ::rapidproto::MapView<By_nameEntry> m_by_name;
-  ::rapidproto::ByteView m_req_blob;
-  ::rapidproto::ByteView m_grp;
   std::int32_t m_keep;
   std::int32_t m_must;
   std::int32_t m_big_num;
@@ -123,6 +123,7 @@ RP_FLATTEN inline bool Blob::rp_decode_into([[maybe_unused]] Blob& out, ::rapidp
   return true;
 }
 inline const Blob* Blob::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+  if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
   Blob* const rp_root = arena.create<Blob>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
@@ -446,6 +447,7 @@ RP_FLATTEN inline bool Holder::rp_decode_into([[maybe_unused]] Holder& out, ::ra
   return true;
 }
 inline const Holder* Holder::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+  if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
   Holder* const rp_root = arena.create<Holder>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
@@ -493,6 +495,7 @@ RP_FLATTEN inline bool Holder::Grp::rp_decode_into([[maybe_unused]] Holder::Grp&
   return true;
 }
 inline const Holder::Grp* Holder::Grp::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+  if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
   Holder::Grp* const rp_root = arena.create<Holder::Grp>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }

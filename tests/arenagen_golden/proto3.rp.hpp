@@ -82,14 +82,14 @@ class Msg {
     rp_pick_union() noexcept {}
   };
   ::rapidproto::ArenaString m_name;
+  rp_pick_union m_rp_pick;
+  const ::p3::Msg* m_self;
   ::rapidproto::ArrayView<std::int32_t> m_nums;
   ::rapidproto::ArrayView<std::int32_t> m_unpacked;
   ::rapidproto::ArrayView<::p3::State> m_states;
   ::rapidproto::MapView<CountsEntry> m_counts;
-  rp_pick_union m_rp_pick;
   ::rapidproto::ArrayView<double> m_reals;
   ::rapidproto::ArrayView<std::uint32_t> m_codes;
-  const ::p3::Msg* m_self;
   std::int32_t m_implicit_i;
   std::int32_t m_explicit_i;
   ::p3::State m_state;
@@ -576,6 +576,7 @@ RP_FLATTEN inline bool Msg::rp_decode_into([[maybe_unused]] Msg& out, ::rapidpro
   return true;
 }
 inline const Msg* Msg::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+  if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
   Msg* const rp_root = arena.create<Msg>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }

@@ -14,31 +14,31 @@ message .al.BoolWrap size=1 align=1 fixed=yes
 message .al.SelfRef size=16 align=8 fixed=no
   field next num=1 pointer-submsg .al.SelfRef off=0 size=8 align=8 presence=ptr
   field v num=2 inline-scalar int32 off=8 size=4 align=4 presence=none
-message .al.Layout size=176 align=8 fixed=no
+message .al.Layout size=160 align=8 fixed=no
   field name num=6 sso-string ArenaString off=0 size=16 align=8 presence=none
   field oname num=7 sso-string ArenaString off=16 size=16 align=8 presence=bit3
-  field nums num=13 repeated ArrayView<int32> off=32 size=16 align=8 presence=empty
-  field points num=14 repeated ArrayView<.al.Point> off=48 size=16 align=8 presence=empty
-  map counts num=15 off=64 size=16 align=8 presence=empty
+  field big num=2 inline-scalar int64 off=48 size=8 align=8 presence=none
+  field bg num=10 pointer-submsg .al.Big off=56 size=8 align=8 presence=ptr
+  field hs num=11 pointer-submsg .al.HasString off=64 size=8 align=8 presence=ptr
+  field nums num=13 repeated ArrayView<int32> off=72 size=12 align=4 presence=empty
+  field points num=14 repeated ArrayView<.al.Point> off=84 size=12 align=4 presence=empty
+  map counts num=15 off=96 size=12 align=4 presence=empty
     entry key=sso-string:ArenaString value=inline-scalar:int32 size=24 align=8
-  map grid num=16 off=80 size=16 align=8 presence=empty
+  map grid num=16 off=108 size=12 align=4 presence=empty
     entry key=inline-scalar:int32 value=inline-submsg:.al.Point size=12 align=4
-  field labels num=20 repeated ArrayView<ArenaString> off=112 size=16 align=8 presence=empty
-  field big num=2 inline-scalar int64 off=128 size=8 align=8 presence=none
-  field bg num=10 pointer-submsg .al.Big off=136 size=8 align=8 presence=ptr
-  field hs num=11 pointer-submsg .al.HasString off=144 size=8 align=8 presence=ptr
-  field pt num=9 inline-submsg .al.Point off=152 size=8 align=4 presence=bit4
-  field small num=4 inline-scalar int32 off=160 size=4 align=4 presence=none
-  field opt num=5 inline-scalar int32 off=164 size=4 align=4 presence=bit2
-  field color num=8 inline-enum .al.Color off=168 size=4 align=4 presence=none
-  field flag num=12 inline-submsg .al.BoolWrap off=172 size=1 align=1 presence=bit5
+  field labels num=20 repeated ArrayView<ArenaString> off=120 size=12 align=4 presence=empty
+  field pt num=9 inline-submsg .al.Point off=132 size=8 align=4 presence=bit4
+  field small num=4 inline-scalar int32 off=140 size=4 align=4 presence=none
+  field opt num=5 inline-scalar int32 off=144 size=4 align=4 presence=bit2
+  field color num=8 inline-enum .al.Color off=148 size=4 align=4 presence=none
+  field flag num=12 inline-submsg .al.BoolWrap off=152 size=1 align=1 presence=bit5
   field b1 num=1 inline-scalar bool off=- size=- align=- presence=none value=bit0
   field b2 num=3 inline-scalar bool off=- size=- align=- presence=none value=bit1
-  oneof choice disc-off=173 union-off=96 union-size=16 union-align=8
+  oneof choice disc-off=153 union-off=32 union-size=16 union-align=8
     member ci num=17 inline-scalar int32 size=4 align=4
     member cs num=18 sso-string ArenaString size=16 align=8
     member cp num=19 inline-submsg .al.Point size=8 align=4
-  mask off=174 size=1 align=1 bits=6
+  mask off=154 size=1 align=1 bits=6
     bit 0 value b1
     bit 1 value b2
     bit 2 presence opt

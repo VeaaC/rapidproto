@@ -83,11 +83,11 @@ class AllWire {
   };
   ::rapidproto::ArenaString m_s;
   ::rapidproto::ArenaString m_by;
-  ::rapidproto::ArrayView<std::int32_t> m_packed;
   rp_pick_union m_rp_pick;
   std::int64_t m_zz;
   double m_db;
   const ::wire::AllWire* m_nested;
+  ::rapidproto::ArrayView<std::int32_t> m_packed;
   ::wire::AllWire::G m_g;
   std::uint32_t m_fx;
   std::uint8_t m_rp_pick_case;
@@ -297,6 +297,7 @@ RP_FLATTEN inline bool AllWire::rp_decode_into([[maybe_unused]] AllWire& out, ::
   return true;
 }
 inline const AllWire* AllWire::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+  if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
   AllWire* const rp_root = arena.create<AllWire>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
@@ -344,6 +345,7 @@ RP_FLATTEN inline bool AllWire::G::rp_decode_into([[maybe_unused]] AllWire::G& o
   return true;
 }
 inline const AllWire::G* AllWire::G::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+  if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
   AllWire::G* const rp_root = arena.create<AllWire::G>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
