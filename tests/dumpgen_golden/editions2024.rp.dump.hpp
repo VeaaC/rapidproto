@@ -24,32 +24,34 @@ inline void rp_dump_write(const ::ed24::M& m, ::rapidproto::dump::Writer& w) {
   w.group('{', '}', [&] {
     bool rp_first = true;
     if (const auto rp_v = m.a()) {
-      w.entry_sep(rp_first); w.key("a");
-      w.os() << *rp_v;
+      if (w.begin_field(rp_first, "a")) {
+        w.os() << *rp_v;
+      }
     }
     if (const auto& rp_r = m.b(); !rp_r.empty()) {
-      w.entry_sep(rp_first); w.key("b");
-      w.group('[', ']', [&] {
-        bool rp_efirst = true;
-        for (const auto& rp_el : rp_r) {
-          w.entry_sep(rp_efirst);
-          w.os() << rp_el;
-          if (w.overflowed()) { break; }
-        }
-      });
+      if (w.begin_field(rp_first, "b")) {
+        w.group('[', ']', [&] {
+          bool rp_efirst = true;
+          for (const auto& rp_el : rp_r) {
+            w.entry_sep(rp_efirst);
+            w.os() << rp_el;
+            if (w.overflowed()) { break; }
+          }
+        });
+      }
     }
     (void)rp_first;
   });
 }
 
-inline void rp_dump_write(std::ostream& rp_os, const ::ed24::M& m, std::size_t rp_width = 120) {
+inline void rp_dump_write(std::ostream& rp_os, const ::ed24::M& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   rp_os << std::boolalpha;
-  ::rapidproto::dump::Writer w(rp_os, rp_width);
+  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
   rp_dump_write(m, w);
 }
 
-inline std::string rp_dump_string(const ::ed24::M& m, std::size_t rp_width = 120) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_width); return rp_ss.str();
+inline std::string rp_dump_string(const ::ed24::M& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
 }
 
 }  // namespace ed24

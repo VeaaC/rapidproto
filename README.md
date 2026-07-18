@@ -414,8 +414,10 @@ not a wire serializer. It reads the arena decoder's public accessors (no reflect
 each message `Foo` in namespace `example` it emits two free functions:
 
 ```cpp
-void        example::rp_dump_write(std::ostream& os, const example::Foo& m, std::size_t width = 120);
-std::string example::rp_dump_string(const example::Foo& m, std::size_t width = 120);
+void        example::rp_dump_write(std::ostream& os, const example::Foo& m,
+                                   const rapidproto::dump::DumpOptions& opts = {});
+std::string example::rp_dump_string(const example::Foo& m,
+                                   const rapidproto::dump::DumpOptions& opts = {});
 ```
 
 ```sh
@@ -430,6 +432,25 @@ std::string example::rp_dump_string(const example::Foo& m, std::size_t width = 1
 const example::Person* p = example::Person::decode(rapidproto::ByteView(buf), arena);
 std::cout << example::rp_dump_string(*p) << '\n';         // or: rp_dump_write(std::cout, *p, 120);
 ```
+
+`DumpOptions` tunes a dump (all fields default, so `rp_dump_string(m, 120)` still works — an integer
+converts to a width):
+
+```cpp
+rapidproto::dump::DumpOptions opts;
+opts.width  = 100;                              // line-width budget (compact vs one-entry-per-line)
+opts.indent = 2;                                // start two nesting levels in, to nest under other output
+opts.skip   = {"email", "address.zip"};         // omit these fields by qualified path (subtree and all)
+std::cout << example::rp_dump_string(*p, opts);
+```
+
+- **`skip`** names fields by their **dotted path** from the message root (`"address.zip"`, not just
+  `"zip"`), so the same leaf name is hidden only where you mean it; naming a sub-message path
+  (`"address"`) drops its whole subtree. The field is still decoded — just not printed. Paths carry no
+  index, so a path *through* a repeated or map field applies to every element (`"orders.total"` hides
+  `total` in every order); a map's keys are not themselves path-addressable.
+- **`indent`** starts the output at a nesting level (each level = 2 columns): the opening brace stays at
+  the cursor, continuation lines indent that much deeper, and the width budget shrinks accordingly.
 
 What it renders: scalars, `string`, `bytes` (as lowercase hex), enums by their prefix-stripped name
 (`UNKNOWN(<n>)` for an open-enum value outside the schema's range), nested sub-messages, repeated fields

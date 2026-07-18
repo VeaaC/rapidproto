@@ -3,8 +3,8 @@
 #pragma once
 
 // Header-only support for the generated `*.rp.dump.hpp` dumpers: a JSON-string escaper, a lowercase
-// hex encoder for `bytes`, and a small indenting Writer wrapping an std::ostream. Dependency-light on
-// purpose (only <ostream>/<string_view>/<cstdint>) so a dump header pulls in nothing heavy.
+// hex encoder for `bytes`, a small indenting Writer wrapping an std::ostream, and a DumpOptions bag
+// (width / start-indent / skip-paths). Dependency-light so a dump header pulls in nothing heavy.
 
 #include <cstddef>
 #include <cstdint>
@@ -12,6 +12,7 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace rapidproto::dump {
 
@@ -82,8 +83,20 @@ class Writer {
 public:
     static constexpr std::size_t kDefaultWidth = 120;  // the default line-width budget
 
-    explicit Writer(std::ostream& os, std::size_t width = kDefaultWidth) noexcept
-        : m_out(os), m_sink(&os), m_width(width) {}
+    // width/indent order is stable and documented; DumpOptions (the recommended entry) names them.
+    // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
+    explicit Writer(std::ostream& os, std::size_t width = kDefaultWidth,
+                    std::size_t start_indent = 0,
+                    const std::vector<std::string_view>* skip = nullptr)
+        // A deeper start indent raises m_column, which shrinks the width budget accordingly. Clamp an
+        // absurd caller value to kMaxIndent so the size_t->int cast stays well-defined and newline()
+        // can't spin printing billions of spaces (no real dump nests anywhere near this deep).
+        : m_out(os),
+          m_sink(&os),
+          m_width(width),
+          m_skip(skip),
+          m_column((start_indent < kMaxIndent ? start_indent : kMaxIndent) * kIndentWidth),
+          m_indent(static_cast<int>(start_indent < kMaxIndent ? start_indent : kMaxIndent)) {}
 
     // The active sink the generated value-writers stream into: the scratch buffer during a compact
     // probe, the real output otherwise.
@@ -119,6 +132,56 @@ public:
         first = false;
         newline();
         m_column = static_cast<std::size_t>(m_indent) * kIndentWidth;
+    }
+
+    // ── skip support (dynamic, by qualified field path) ──────────────────────────────────────────
+    // The generated dumper calls begin_field() for every field. A field whose dotted path (e.g.
+    // "people.address.city") is in the caller's skip list is omitted entirely -- no separator, no key,
+    // no value. push_path()/pop_path() maintain the path prefix as the dumper recurses into
+    // message / repeated-message / map fields (leaf and repeated-scalar fields need no push).
+
+    // The field's full path is the current prefix + `leaf`; return true if the caller listed it to skip.
+    bool skipped(std::string_view leaf) {
+        if (m_skip == nullptr || m_skip->empty()) {
+            return false;
+        }
+        const std::size_t base = m_path.size();
+        if (base != 0) {
+            m_path.push_back('.');
+        }
+        m_path.append(leaf.data(), leaf.size());
+        bool hit = false;
+        for (const std::string_view path : *m_skip) {
+            if (path == m_path) {
+                hit = true;
+                break;
+            }
+        }
+        m_path.resize(base);  // restore the prefix; push_path() is what actually descends
+        return hit;
+    }
+
+    // Begin one object entry: skip it (return false, emit nothing) if its path is listed, else write the
+    // separator and the `"key": ` prefix and return true so the caller emits the value.
+    bool begin_field(bool& first, std::string_view name) {
+        if (skipped(name)) {
+            return false;
+        }
+        entry_sep(first);
+        key(name);
+        return true;
+    }
+
+    void push_path(std::string_view name) {
+        m_path_stack.push_back(m_path.size());
+        if (!m_path.empty()) {
+            m_path.push_back('.');
+        }
+        m_path.append(name.data(), name.size());
+    }
+    void pop_path() {
+        m_path.resize(m_path_stack.back());
+        m_path_stack.pop_back();
     }
 
     // Emit an object/array whose entries are produced by `body` (a re-runnable callable). Compact-first,
@@ -172,7 +235,8 @@ public:
     }
 
 private:
-    static constexpr std::size_t kIndentWidth = 2;  // columns per nesting level (a 2-space indent)
+    static constexpr std::size_t kIndentWidth = 2;   // columns per nesting level (a 2-space indent)
+    static constexpr std::size_t kMaxIndent = 1024;  // clamp for DumpOptions::indent (see the ctor)
     static constexpr std::size_t kKeyPunctWidth = 4;  // a `"key": `'s two quotes + colon + space
     static constexpr std::size_t kEmptyGroupChars =
         2;  // an empty group's compact form is just `[]`/`{}`
@@ -184,10 +248,28 @@ private:
     std::ostream* m_sink;      // where os()/emit go now: &m_out, or &m_buf during a compact probe
     std::ostringstream m_buf;  // scratch for the compact probe
     std::size_t m_width;       // line-width budget
-    std::size_t m_avail = 0;   // remaining width for the current compact probe
-    std::size_t m_column = 0;  // current column on the real output's line
-    int m_indent = 0;
+    const std::vector<std::string_view>*
+        m_skip;               // caller's skip paths (DumpOptions::skip), or null
+    std::size_t m_avail = 0;  // remaining width for the current compact probe
+    std::size_t m_column;  // current column on the real output's line (set from the start indent)
+    int m_indent;          // current nesting depth (starts at DumpOptions::indent)
     bool m_compact = false;
+    std::string m_path;                     // current dotted path prefix (no trailing dot)
+    std::vector<std::size_t> m_path_stack;  // saved m_path lengths, for pop_path()
+};
+
+// Options for the generated rp_dump_write / rp_dump_string. Backward-compatible: an old
+// `rp_dump_string(m, 120)` still compiles -- an integer converts to a width-only DumpOptions.
+struct DumpOptions {
+    std::size_t width = Writer::kDefaultWidth;  // line-width budget (compact vs one-entry-per-line)
+    std::size_t indent = 0;  // nesting level to start at (each level = 2 columns)
+    // Qualified field paths to omit from the dump, e.g. {"people.email", "people.address.city"}. A path
+    // names a message/container field to drop its whole subtree. Views must outlive the dump call.
+    std::vector<std::string_view> skip;
+
+    DumpOptions() = default;
+    // NOLINTNEXTLINE(google-explicit-constructor,hicpp-explicit-conversions): back-compat with `width`.
+    DumpOptions(std::size_t width_) : width(width_) {}
 };
 
 }  // namespace rapidproto::dump

@@ -25,21 +25,22 @@ inline void rp_dump_write(const ::wire::AllWire::G& m, ::rapidproto::dump::Write
   w.group('{', '}', [&] {
     bool rp_first = true;
     if (const auto rp_v = m.a()) {
-      w.entry_sep(rp_first); w.key("a");
-      w.os() << *rp_v;
+      if (w.begin_field(rp_first, "a")) {
+        w.os() << *rp_v;
+      }
     }
     (void)rp_first;
   });
 }
 
-inline void rp_dump_write(std::ostream& rp_os, const ::wire::AllWire::G& m, std::size_t rp_width = 120) {
+inline void rp_dump_write(std::ostream& rp_os, const ::wire::AllWire::G& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   rp_os << std::boolalpha;
-  ::rapidproto::dump::Writer w(rp_os, rp_width);
+  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
   rp_dump_write(m, w);
 }
 
-inline std::string rp_dump_string(const ::wire::AllWire::G& m, std::size_t rp_width = 120) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_width); return rp_ss.str();
+inline std::string rp_dump_string(const ::wire::AllWire::G& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
 }
 
 inline void rp_dump_write(const ::wire::AllWire& m, ::rapidproto::dump::Writer& w) {
@@ -47,67 +48,81 @@ inline void rp_dump_write(const ::wire::AllWire& m, ::rapidproto::dump::Writer& 
   w.group('{', '}', [&] {
     bool rp_first = true;
     if (const auto rp_v = m.zz()) {
-      w.entry_sep(rp_first); w.key("zz");
-      w.os() << *rp_v;
+      if (w.begin_field(rp_first, "zz")) {
+        w.os() << *rp_v;
+      }
     }
     if (const auto rp_v = m.db()) {
-      w.entry_sep(rp_first); w.key("db");
-      w.os() << *rp_v;
+      if (w.begin_field(rp_first, "db")) {
+        w.os() << *rp_v;
+      }
     }
     if (const auto rp_v = m.fx()) {
-      w.entry_sep(rp_first); w.key("fx");
-      w.os() << *rp_v;
+      if (w.begin_field(rp_first, "fx")) {
+        w.os() << *rp_v;
+      }
     }
     if (const auto rp_v = m.s()) {
-      w.entry_sep(rp_first); w.key("s");
-      w.os() << '"'; ::rapidproto::dump::write_json_escaped(w.os(), *rp_v); w.os() << '"';
+      if (w.begin_field(rp_first, "s")) {
+        w.os() << '"'; ::rapidproto::dump::write_json_escaped(w.os(), *rp_v); w.os() << '"';
+      }
     }
     if (const auto rp_v = m.by()) {
-      w.entry_sep(rp_first); w.key("by");
-      w.os() << '"'; ::rapidproto::dump::write_hex(w.os(), *rp_v); w.os() << '"';
+      if (w.begin_field(rp_first, "by")) {
+        w.os() << '"'; ::rapidproto::dump::write_hex(w.os(), *rp_v); w.os() << '"';
+      }
     }
     if (const auto* rp_p = m.nested()) {
-      w.entry_sep(rp_first); w.key("nested");
-      rp_dump_write(*rp_p, w);
+      if (w.begin_field(rp_first, "nested")) {
+        w.push_path("nested");
+        rp_dump_write(*rp_p, w);
+        w.pop_path();
+      }
     }
     if (const auto& rp_r = m.packed(); !rp_r.empty()) {
-      w.entry_sep(rp_first); w.key("packed");
-      w.group('[', ']', [&] {
-        bool rp_efirst = true;
-        for (const auto& rp_el : rp_r) {
-          w.entry_sep(rp_efirst);
-          w.os() << rp_el;
-          if (w.overflowed()) { break; }
-        }
-      });
+      if (w.begin_field(rp_first, "packed")) {
+        w.group('[', ']', [&] {
+          bool rp_efirst = true;
+          for (const auto& rp_el : rp_r) {
+            w.entry_sep(rp_efirst);
+            w.os() << rp_el;
+            if (w.overflowed()) { break; }
+          }
+        });
+      }
     }
     if (const auto* rp_p = m.g()) {
-      w.entry_sep(rp_first); w.key("g");
-      rp_dump_write(*rp_p, w);
+      if (w.begin_field(rp_first, "g")) {
+        w.push_path("g");
+        rp_dump_write(*rp_p, w);
+        w.pop_path();
+      }
     }
     m.pick([&](auto rp_tag, const auto& rp_v) {
       using RpTag = std::decay_t<decltype(rp_tag)>;
       if constexpr (std::is_same_v<RpTag, ::wire::AllWire::Pick::oi>) {
-        w.entry_sep(rp_first); w.key("oi");
-        w.os() << rp_v;
+        if (w.begin_field(rp_first, "oi")) {
+          w.os() << rp_v;
+        }
       }
       if constexpr (std::is_same_v<RpTag, ::wire::AllWire::Pick::os>) {
-        w.entry_sep(rp_first); w.key("os");
-        w.os() << '"'; ::rapidproto::dump::write_json_escaped(w.os(), rp_v); w.os() << '"';
+        if (w.begin_field(rp_first, "os")) {
+          w.os() << '"'; ::rapidproto::dump::write_json_escaped(w.os(), rp_v); w.os() << '"';
+        }
       }
     });
     (void)rp_first;
   });
 }
 
-inline void rp_dump_write(std::ostream& rp_os, const ::wire::AllWire& m, std::size_t rp_width = 120) {
+inline void rp_dump_write(std::ostream& rp_os, const ::wire::AllWire& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   rp_os << std::boolalpha;
-  ::rapidproto::dump::Writer w(rp_os, rp_width);
+  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
   rp_dump_write(m, w);
 }
 
-inline std::string rp_dump_string(const ::wire::AllWire& m, std::size_t rp_width = 120) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_width); return rp_ss.str();
+inline std::string rp_dump_string(const ::wire::AllWire& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
 }
 
 }  // namespace wire

@@ -37,106 +37,122 @@ inline void rp_dump_write(const ::p2::Scalars& m, ::rapidproto::dump::Writer& w)
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
-    {
-      w.entry_sep(rp_first); w.key("i32");
+    if (w.begin_field(rp_first, "i32")) {
       w.os() << m.i32();
     }
     if (const auto rp_v = m.i64()) {
-      w.entry_sep(rp_first); w.key("i64");
-      w.os() << *rp_v;
+      if (w.begin_field(rp_first, "i64")) {
+        w.os() << *rp_v;
+      }
     }
     if (const auto rp_v = m.u32()) {
-      w.entry_sep(rp_first); w.key("u32");
-      w.os() << *rp_v;
+      if (w.begin_field(rp_first, "u32")) {
+        w.os() << *rp_v;
+      }
     }
     if (const auto rp_v = m.u64()) {
-      w.entry_sep(rp_first); w.key("u64");
-      w.os() << *rp_v;
+      if (w.begin_field(rp_first, "u64")) {
+        w.os() << *rp_v;
+      }
     }
     if (const auto rp_v = m.s32()) {
-      w.entry_sep(rp_first); w.key("s32");
-      w.os() << *rp_v;
+      if (w.begin_field(rp_first, "s32")) {
+        w.os() << *rp_v;
+      }
     }
     if (const auto rp_v = m.s64()) {
-      w.entry_sep(rp_first); w.key("s64");
-      w.os() << *rp_v;
+      if (w.begin_field(rp_first, "s64")) {
+        w.os() << *rp_v;
+      }
     }
     if (const auto rp_v = m.f32()) {
-      w.entry_sep(rp_first); w.key("f32");
-      w.os() << *rp_v;
+      if (w.begin_field(rp_first, "f32")) {
+        w.os() << *rp_v;
+      }
     }
     if (const auto rp_v = m.f64()) {
-      w.entry_sep(rp_first); w.key("f64");
-      w.os() << *rp_v;
+      if (w.begin_field(rp_first, "f64")) {
+        w.os() << *rp_v;
+      }
     }
     if (const auto rp_v = m.sf32()) {
-      w.entry_sep(rp_first); w.key("sf32");
-      w.os() << *rp_v;
+      if (w.begin_field(rp_first, "sf32")) {
+        w.os() << *rp_v;
+      }
     }
     if (const auto rp_v = m.sf64()) {
-      w.entry_sep(rp_first); w.key("sf64");
-      w.os() << *rp_v;
+      if (w.begin_field(rp_first, "sf64")) {
+        w.os() << *rp_v;
+      }
     }
     if (const auto rp_v = m.b()) {
-      w.entry_sep(rp_first); w.key("b");
-      w.os() << *rp_v;
+      if (w.begin_field(rp_first, "b")) {
+        w.os() << *rp_v;
+      }
     }
     if (const auto rp_v = m.s()) {
-      w.entry_sep(rp_first); w.key("s");
-      w.os() << '"'; ::rapidproto::dump::write_json_escaped(w.os(), *rp_v); w.os() << '"';
+      if (w.begin_field(rp_first, "s")) {
+        w.os() << '"'; ::rapidproto::dump::write_json_escaped(w.os(), *rp_v); w.os() << '"';
+      }
     }
     if (const auto rp_v = m.by()) {
-      w.entry_sep(rp_first); w.key("by");
-      w.os() << '"'; ::rapidproto::dump::write_hex(w.os(), *rp_v); w.os() << '"';
+      if (w.begin_field(rp_first, "by")) {
+        w.os() << '"'; ::rapidproto::dump::write_hex(w.os(), *rp_v); w.os() << '"';
+      }
     }
     if (const auto rp_v = m.fl()) {
-      w.entry_sep(rp_first); w.key("fl");
-      w.os() << *rp_v;
+      if (w.begin_field(rp_first, "fl")) {
+        w.os() << *rp_v;
+      }
     }
     if (const auto rp_v = m.db()) {
-      w.entry_sep(rp_first); w.key("db");
-      w.os() << *rp_v;
+      if (w.begin_field(rp_first, "db")) {
+        w.os() << *rp_v;
+      }
     }
     if (const auto rp_v = m.color()) {
-      w.entry_sep(rp_first); w.key("color");
-      { const auto rp_e = *rp_v;
-      if (const char* rp_nm = ::rapidproto::dump::rp_dump_enum_name(rp_e)) { w.os() << '"' << rp_nm << '"'; }
-      else { w.os() << "\"UNKNOWN(" << static_cast<std::int32_t>(rp_e) << ")\""; } }
+      if (w.begin_field(rp_first, "color")) {
+        { const auto rp_e = *rp_v;
+        if (const char* rp_nm = ::rapidproto::dump::rp_dump_enum_name(rp_e)) { w.os() << '"' << rp_nm << '"'; }
+        else { w.os() << "\"UNKNOWN(" << static_cast<std::int32_t>(rp_e) << ")\""; } }
+      }
     }
     if (const auto& rp_r = m.packed_nums(); !rp_r.empty()) {
-      w.entry_sep(rp_first); w.key("packed_nums");
-      w.group('[', ']', [&] {
-        bool rp_efirst = true;
-        for (const auto& rp_el : rp_r) {
-          w.entry_sep(rp_efirst);
-          w.os() << rp_el;
-          if (w.overflowed()) { break; }
-        }
-      });
+      if (w.begin_field(rp_first, "packed_nums")) {
+        w.group('[', ']', [&] {
+          bool rp_efirst = true;
+          for (const auto& rp_el : rp_r) {
+            w.entry_sep(rp_efirst);
+            w.os() << rp_el;
+            if (w.overflowed()) { break; }
+          }
+        });
+      }
     }
     if (const auto& rp_r = m.expanded_nums(); !rp_r.empty()) {
-      w.entry_sep(rp_first); w.key("expanded_nums");
-      w.group('[', ']', [&] {
-        bool rp_efirst = true;
-        for (const auto& rp_el : rp_r) {
-          w.entry_sep(rp_efirst);
-          w.os() << rp_el;
-          if (w.overflowed()) { break; }
-        }
-      });
+      if (w.begin_field(rp_first, "expanded_nums")) {
+        w.group('[', ']', [&] {
+          bool rp_efirst = true;
+          for (const auto& rp_el : rp_r) {
+            w.entry_sep(rp_efirst);
+            w.os() << rp_el;
+            if (w.overflowed()) { break; }
+          }
+        });
+      }
     }
     (void)rp_first;
   });
 }
 
-inline void rp_dump_write(std::ostream& rp_os, const ::p2::Scalars& m, std::size_t rp_width = 120) {
+inline void rp_dump_write(std::ostream& rp_os, const ::p2::Scalars& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   rp_os << std::boolalpha;
-  ::rapidproto::dump::Writer w(rp_os, rp_width);
+  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
   rp_dump_write(m, w);
 }
 
-inline std::string rp_dump_string(const ::p2::Scalars& m, std::size_t rp_width = 120) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_width); return rp_ss.str();
+inline std::string rp_dump_string(const ::p2::Scalars& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
 }
 
 inline void rp_dump_write(const ::p2::WithGroup::MyGroup::Inner& m, ::rapidproto::dump::Writer& w) {
@@ -144,21 +160,22 @@ inline void rp_dump_write(const ::p2::WithGroup::MyGroup::Inner& m, ::rapidproto
   w.group('{', '}', [&] {
     bool rp_first = true;
     if (const auto rp_v = m.flag()) {
-      w.entry_sep(rp_first); w.key("flag");
-      w.os() << *rp_v;
+      if (w.begin_field(rp_first, "flag")) {
+        w.os() << *rp_v;
+      }
     }
     (void)rp_first;
   });
 }
 
-inline void rp_dump_write(std::ostream& rp_os, const ::p2::WithGroup::MyGroup::Inner& m, std::size_t rp_width = 120) {
+inline void rp_dump_write(std::ostream& rp_os, const ::p2::WithGroup::MyGroup::Inner& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   rp_os << std::boolalpha;
-  ::rapidproto::dump::Writer w(rp_os, rp_width);
+  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
   rp_dump_write(m, w);
 }
 
-inline std::string rp_dump_string(const ::p2::WithGroup::MyGroup::Inner& m, std::size_t rp_width = 120) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_width); return rp_ss.str();
+inline std::string rp_dump_string(const ::p2::WithGroup::MyGroup::Inner& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
 }
 
 inline void rp_dump_write(const ::p2::WithGroup::MyGroup& m, ::rapidproto::dump::Writer& w) {
@@ -166,25 +183,29 @@ inline void rp_dump_write(const ::p2::WithGroup::MyGroup& m, ::rapidproto::dump:
   w.group('{', '}', [&] {
     bool rp_first = true;
     if (const auto rp_v = m.a()) {
-      w.entry_sep(rp_first); w.key("a");
-      w.os() << *rp_v;
+      if (w.begin_field(rp_first, "a")) {
+        w.os() << *rp_v;
+      }
     }
     if (const auto* rp_p = m.inner()) {
-      w.entry_sep(rp_first); w.key("inner");
-      rp_dump_write(*rp_p, w);
+      if (w.begin_field(rp_first, "inner")) {
+        w.push_path("inner");
+        rp_dump_write(*rp_p, w);
+        w.pop_path();
+      }
     }
     (void)rp_first;
   });
 }
 
-inline void rp_dump_write(std::ostream& rp_os, const ::p2::WithGroup::MyGroup& m, std::size_t rp_width = 120) {
+inline void rp_dump_write(std::ostream& rp_os, const ::p2::WithGroup::MyGroup& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   rp_os << std::boolalpha;
-  ::rapidproto::dump::Writer w(rp_os, rp_width);
+  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
   rp_dump_write(m, w);
 }
 
-inline std::string rp_dump_string(const ::p2::WithGroup::MyGroup& m, std::size_t rp_width = 120) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_width); return rp_ss.str();
+inline std::string rp_dump_string(const ::p2::WithGroup::MyGroup& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
 }
 
 inline void rp_dump_write(const ::p2::WithGroup& m, ::rapidproto::dump::Writer& w) {
@@ -192,21 +213,24 @@ inline void rp_dump_write(const ::p2::WithGroup& m, ::rapidproto::dump::Writer& 
   w.group('{', '}', [&] {
     bool rp_first = true;
     if (const auto* rp_p = m.mygroup()) {
-      w.entry_sep(rp_first); w.key("mygroup");
-      rp_dump_write(*rp_p, w);
+      if (w.begin_field(rp_first, "mygroup")) {
+        w.push_path("mygroup");
+        rp_dump_write(*rp_p, w);
+        w.pop_path();
+      }
     }
     (void)rp_first;
   });
 }
 
-inline void rp_dump_write(std::ostream& rp_os, const ::p2::WithGroup& m, std::size_t rp_width = 120) {
+inline void rp_dump_write(std::ostream& rp_os, const ::p2::WithGroup& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   rp_os << std::boolalpha;
-  ::rapidproto::dump::Writer w(rp_os, rp_width);
+  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
   rp_dump_write(m, w);
 }
 
-inline std::string rp_dump_string(const ::p2::WithGroup& m, std::size_t rp_width = 120) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_width); return rp_ss.str();
+inline std::string rp_dump_string(const ::p2::WithGroup& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
 }
 
 inline void rp_dump_write(const ::p2::Container::Nested& m, ::rapidproto::dump::Writer& w) {
@@ -214,21 +238,22 @@ inline void rp_dump_write(const ::p2::Container::Nested& m, ::rapidproto::dump::
   w.group('{', '}', [&] {
     bool rp_first = true;
     if (const auto rp_v = m.x()) {
-      w.entry_sep(rp_first); w.key("x");
-      w.os() << *rp_v;
+      if (w.begin_field(rp_first, "x")) {
+        w.os() << *rp_v;
+      }
     }
     (void)rp_first;
   });
 }
 
-inline void rp_dump_write(std::ostream& rp_os, const ::p2::Container::Nested& m, std::size_t rp_width = 120) {
+inline void rp_dump_write(std::ostream& rp_os, const ::p2::Container::Nested& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   rp_os << std::boolalpha;
-  ::rapidproto::dump::Writer w(rp_os, rp_width);
+  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
   rp_dump_write(m, w);
 }
 
-inline std::string rp_dump_string(const ::p2::Container::Nested& m, std::size_t rp_width = 120) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_width); return rp_ss.str();
+inline std::string rp_dump_string(const ::p2::Container::Nested& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
 }
 
 inline void rp_dump_write(const ::p2::Container& m, ::rapidproto::dump::Writer& w) {
@@ -236,65 +261,76 @@ inline void rp_dump_write(const ::p2::Container& m, ::rapidproto::dump::Writer& 
   w.group('{', '}', [&] {
     bool rp_first = true;
     if (const auto& rp_r = m.items(); !rp_r.empty()) {
-      w.entry_sep(rp_first); w.key("items");
-      w.group('[', ']', [&] {
-        bool rp_efirst = true;
-        for (const auto& rp_el : rp_r) {
-          w.entry_sep(rp_efirst);
-          rp_dump_write(rp_el, w);
-          if (w.overflowed()) { break; }
-        }
-      });
+      if (w.begin_field(rp_first, "items")) {
+        w.push_path("items");
+        w.group('[', ']', [&] {
+          bool rp_efirst = true;
+          for (const auto& rp_el : rp_r) {
+            w.entry_sep(rp_efirst);
+            rp_dump_write(rp_el, w);
+            if (w.overflowed()) { break; }
+          }
+        });
+        w.pop_path();
+      }
     }
     if (const auto& rp_mp = m.by_name(); !rp_mp.empty()) {
-      w.entry_sep(rp_first); w.key("by_name");
-      w.group('{', '}', [&] {
-        bool rp_efirst = true;
-        for (const auto& rp_ent : rp_mp) {
-          w.entry_sep(rp_efirst);
-          w.os() << '"'; ::rapidproto::dump::write_json_escaped(w.os(), rp_ent.key()); w.os() << "\": ";
-          if (const auto* rp_vp = rp_ent.value()) { rp_dump_write(*rp_vp, w); } else { w.os() << "null"; }
-          if (w.overflowed()) { break; }
-        }
-      });
+      if (w.begin_field(rp_first, "by_name")) {
+        w.push_path("by_name");
+        w.group('{', '}', [&] {
+          bool rp_efirst = true;
+          for (const auto& rp_ent : rp_mp) {
+            w.entry_sep(rp_efirst);
+            w.os() << '"'; ::rapidproto::dump::write_json_escaped(w.os(), rp_ent.key()); w.os() << "\": ";
+            if (const auto* rp_vp = rp_ent.value()) { rp_dump_write(*rp_vp, w); } else { w.os() << "null"; }
+            if (w.overflowed()) { break; }
+          }
+        });
+        w.pop_path();
+      }
     }
     if (const auto& rp_mp = m.by_id(); !rp_mp.empty()) {
-      w.entry_sep(rp_first); w.key("by_id");
-      w.group('{', '}', [&] {
-        bool rp_efirst = true;
-        for (const auto& rp_ent : rp_mp) {
-          w.entry_sep(rp_efirst);
-          w.os() << '"' << rp_ent.key() << "\": ";
-          { const auto rp_e = rp_ent.value();
-          if (const char* rp_nm = ::rapidproto::dump::rp_dump_enum_name(rp_e)) { w.os() << '"' << rp_nm << '"'; }
-          else { w.os() << "\"UNKNOWN(" << static_cast<std::int32_t>(rp_e) << ")\""; } }
-          if (w.overflowed()) { break; }
-        }
-      });
+      if (w.begin_field(rp_first, "by_id")) {
+        w.group('{', '}', [&] {
+          bool rp_efirst = true;
+          for (const auto& rp_ent : rp_mp) {
+            w.entry_sep(rp_efirst);
+            w.os() << '"' << rp_ent.key() << "\": ";
+            { const auto rp_e = rp_ent.value();
+            if (const char* rp_nm = ::rapidproto::dump::rp_dump_enum_name(rp_e)) { w.os() << '"' << rp_nm << '"'; }
+            else { w.os() << "\"UNKNOWN(" << static_cast<std::int32_t>(rp_e) << ")\""; } }
+            if (w.overflowed()) { break; }
+          }
+        });
+      }
     }
     m.choice([&](auto rp_tag, const auto& rp_v) {
       using RpTag = std::decay_t<decltype(rp_tag)>;
       if constexpr (std::is_same_v<RpTag, ::p2::Container::Choice::ci>) {
-        w.entry_sep(rp_first); w.key("ci");
-        w.os() << rp_v;
+        if (w.begin_field(rp_first, "ci")) {
+          w.os() << rp_v;
+        }
       }
       if constexpr (std::is_same_v<RpTag, ::p2::Container::Choice::cn>) {
-        w.entry_sep(rp_first); w.key("cn");
-        rp_dump_write(rp_v, w);
+        if (w.begin_field(rp_first, "cn")) {
+          w.push_path("cn");
+          rp_dump_write(rp_v, w);
+          w.pop_path();
+        }
       }
     });
     (void)rp_first;
   });
 }
 
-inline void rp_dump_write(std::ostream& rp_os, const ::p2::Container& m, std::size_t rp_width = 120) {
+inline void rp_dump_write(std::ostream& rp_os, const ::p2::Container& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   rp_os << std::boolalpha;
-  ::rapidproto::dump::Writer w(rp_os, rp_width);
+  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
   rp_dump_write(m, w);
 }
 
-inline std::string rp_dump_string(const ::p2::Container& m, std::size_t rp_width = 120) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_width); return rp_ss.str();
+inline std::string rp_dump_string(const ::p2::Container& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
 }
 
 }  // namespace p2

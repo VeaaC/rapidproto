@@ -25,21 +25,22 @@ inline void rp_dump_write(const ::an::Collide::FooEntry& m, ::rapidproto::dump::
   w.group('{', '}', [&] {
     bool rp_first = true;
     if (const auto rp_v = m.a(); rp_v != decltype(rp_v){}) {
-      w.entry_sep(rp_first); w.key("a");
-      w.os() << rp_v;
+      if (w.begin_field(rp_first, "a")) {
+        w.os() << rp_v;
+      }
     }
     (void)rp_first;
   });
 }
 
-inline void rp_dump_write(std::ostream& rp_os, const ::an::Collide::FooEntry& m, std::size_t rp_width = 120) {
+inline void rp_dump_write(std::ostream& rp_os, const ::an::Collide::FooEntry& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   rp_os << std::boolalpha;
-  ::rapidproto::dump::Writer w(rp_os, rp_width);
+  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
   rp_dump_write(m, w);
 }
 
-inline std::string rp_dump_string(const ::an::Collide::FooEntry& m, std::size_t rp_width = 120) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_width); return rp_ss.str();
+inline std::string rp_dump_string(const ::an::Collide::FooEntry& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
 }
 
 inline void rp_dump_write(const ::an::Collide& m, ::rapidproto::dump::Writer& w) {
@@ -47,67 +48,76 @@ inline void rp_dump_write(const ::an::Collide& m, ::rapidproto::dump::Writer& w)
   w.group('{', '}', [&] {
     bool rp_first = true;
     if (const auto rp_v = m.x()) {
-      w.entry_sep(rp_first); w.key("x");
-      w.os() << *rp_v;
+      if (w.begin_field(rp_first, "x")) {
+        w.os() << *rp_v;
+      }
     }
     if (const auto rp_v = m.has_x(); rp_v != decltype(rp_v){}) {
-      w.entry_sep(rp_first); w.key("has_x");
-      w.os() << rp_v;
+      if (w.begin_field(rp_first, "has_x")) {
+        w.os() << rp_v;
+      }
     }
     if (const auto rp_v = m.pick_case(); rp_v != decltype(rp_v){}) {
-      w.entry_sep(rp_first); w.key("pick_case");
-      w.os() << rp_v;
+      if (w.begin_field(rp_first, "pick_case")) {
+        w.os() << rp_v;
+      }
     }
     if (const auto rp_v = m.decode_(); rp_v != decltype(rp_v){}) {
-      w.entry_sep(rp_first); w.key("decode");
-      w.os() << rp_v;
+      if (w.begin_field(rp_first, "decode")) {
+        w.os() << rp_v;
+      }
     }
     if (const auto& rp_mp = m.foo(); !rp_mp.empty()) {
-      w.entry_sep(rp_first); w.key("foo");
-      w.group('{', '}', [&] {
-        bool rp_efirst = true;
-        for (const auto& rp_ent : rp_mp) {
-          w.entry_sep(rp_efirst);
-          w.os() << '"'; ::rapidproto::dump::write_json_escaped(w.os(), rp_ent.key()); w.os() << "\": ";
-          w.os() << rp_ent.value();
-          if (w.overflowed()) { break; }
-        }
-      });
+      if (w.begin_field(rp_first, "foo")) {
+        w.group('{', '}', [&] {
+          bool rp_efirst = true;
+          for (const auto& rp_ent : rp_mp) {
+            w.entry_sep(rp_efirst);
+            w.os() << '"'; ::rapidproto::dump::write_json_escaped(w.os(), rp_ent.key()); w.os() << "\": ";
+            w.os() << rp_ent.value();
+            if (w.overflowed()) { break; }
+          }
+        });
+      }
     }
     m.pick([&](auto rp_tag, const auto& rp_v) {
       using RpTag = std::decay_t<decltype(rp_tag)>;
       if constexpr (std::is_same_v<RpTag, ::an::Collide::Pick::p1>) {
-        w.entry_sep(rp_first); w.key("p1");
-        w.os() << rp_v;
+        if (w.begin_field(rp_first, "p1")) {
+          w.os() << rp_v;
+        }
       }
       if constexpr (std::is_same_v<RpTag, ::an::Collide::Pick::p2>) {
-        w.entry_sep(rp_first); w.key("p2");
-        w.os() << rp_v;
+        if (w.begin_field(rp_first, "p2")) {
+          w.os() << rp_v;
+        }
       }
     });
     m.letters([&](auto rp_tag, const auto& rp_v) {
       using RpTag = std::decay_t<decltype(rp_tag)>;
       if constexpr (std::is_same_v<RpTag, ::an::Collide::Letters::a>) {
-        w.entry_sep(rp_first); w.key("a");
-        w.os() << rp_v;
+        if (w.begin_field(rp_first, "a")) {
+          w.os() << rp_v;
+        }
       }
       if constexpr (std::is_same_v<RpTag, ::an::Collide::Letters::A>) {
-        w.entry_sep(rp_first); w.key("A");
-        w.os() << rp_v;
+        if (w.begin_field(rp_first, "A")) {
+          w.os() << rp_v;
+        }
       }
     });
     (void)rp_first;
   });
 }
 
-inline void rp_dump_write(std::ostream& rp_os, const ::an::Collide& m, std::size_t rp_width = 120) {
+inline void rp_dump_write(std::ostream& rp_os, const ::an::Collide& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   rp_os << std::boolalpha;
-  ::rapidproto::dump::Writer w(rp_os, rp_width);
+  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
   rp_dump_write(m, w);
 }
 
-inline std::string rp_dump_string(const ::an::Collide& m, std::size_t rp_width = 120) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_width); return rp_ss.str();
+inline std::string rp_dump_string(const ::an::Collide& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
 }
 
 }  // namespace an

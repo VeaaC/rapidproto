@@ -330,6 +330,72 @@ TEST_CASE("dumpgen: width knob drives the adaptive nested-group layout", "[dumpg
     CHECK(p3::rp_dump_string(*m, 20) == expected);
 }
 
+TEST_CASE("dumpgen: DumpOptions.skip omits fields by qualified path", "[dumpgen]") {
+    const std::string bin = fixture("msg.bin");
+    Arena arena;
+    const p3::Msg* m = p3::Msg::decode(ByteView(bin), arena);
+    REQUIRE(m != nullptr);
+    SECTION("skip across kinds (scalar, message, repeated, map) -> the rest stays") {
+        rapidproto::dump::DumpOptions opt;
+        opt.skip = {"implicit_i", "name", "state", "self", "nums", "unpacked", "states", "counts"};
+        CHECK(p3::rp_dump_string(*m, opt) == R"({"explicit_i": 20, "a": 7})");
+    }
+    SECTION("a qualified path skips a NESTED field (self.implicit_i) -> self dumps empty") {
+        rapidproto::dump::DumpOptions opt;
+        opt.skip = {"implicit_i", "explicit_i", "name",   "state", "nums",
+                    "unpacked",   "states",     "counts", "a",     "self.implicit_i"};
+        CHECK(p3::rp_dump_string(*m, opt) == R"({"self": {}})");
+    }
+    SECTION("a leaf name skips it only at that path, not the same name nested elsewhere") {
+        // "implicit_i" (top-level) is skipped, but "self.implicit_i" is a different path and stays.
+        rapidproto::dump::DumpOptions opt;
+        opt.skip = {"implicit_i", "explicit_i", "name",   "state", "nums",
+                    "unpacked",   "states",     "counts", "a"};
+        CHECK(p3::rp_dump_string(*m, opt) == R"({"self": {"implicit_i": 99}})");
+    }
+}
+
+TEST_CASE("dumpgen: DumpOptions.indent starts the dump at a nesting level", "[dumpgen]") {
+    const std::string bin = fixture("msg.bin");
+    Arena arena;
+    const p3::Msg* m = p3::Msg::decode(ByteView(bin), arena);
+    REQUIRE(m != nullptr);
+    // Force multi-line (width 20) and start two levels deep: the opening brace sits at the caller's
+    // cursor, every continuation line indents two extra levels (4 spaces), and the closing brace aligns
+    // to the start level -- so the block drops cleanly under a surrounding `"key": ` at that indent.
+    rapidproto::dump::DumpOptions opt;
+    opt.width = 20;
+    opt.indent = 2;
+    const std::string expected = R"({
+      "implicit_i": 10,
+      "explicit_i": 20,
+      "name": "abc",
+      "state": "ON",
+      "self": {
+        "implicit_i": 99
+      },
+      "nums": [
+        1,
+        2,
+        3
+      ],
+      "unpacked": [
+        4,
+        5
+      ],
+      "states": [
+        "ON",
+        "UNKNOWN"
+      ],
+      "counts": {
+        "x": 1,
+        "y": 2
+      },
+      "a": 7
+    })";
+    CHECK(p3::rp_dump_string(*m, opt) == expected);
+}
+
 TEST_CASE("dumpgen: a message with no set fields dumps as an empty object", "[dumpgen]") {
     Arena arena;
     // An empty p3::Msg: all fields absent / at their (omitted) implicit defaults -> {}.
