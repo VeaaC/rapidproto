@@ -23,278 +23,213 @@ inline void rp_dump_write(const ::mr::ManyRequired& m, ::rapidproto::dump::Write
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
-    {
-      w.entry_sep(rp_first); w.key("f1");
+    if (w.begin_field(rp_first, "f1")) {
       w.os() << m.f1();
     }
-    {
-      w.entry_sep(rp_first); w.key("f2");
+    if (w.begin_field(rp_first, "f2")) {
       w.os() << m.f2();
     }
-    {
-      w.entry_sep(rp_first); w.key("f3");
+    if (w.begin_field(rp_first, "f3")) {
       w.os() << m.f3();
     }
-    {
-      w.entry_sep(rp_first); w.key("f4");
+    if (w.begin_field(rp_first, "f4")) {
       w.os() << m.f4();
     }
-    {
-      w.entry_sep(rp_first); w.key("f5");
+    if (w.begin_field(rp_first, "f5")) {
       w.os() << m.f5();
     }
-    {
-      w.entry_sep(rp_first); w.key("f6");
+    if (w.begin_field(rp_first, "f6")) {
       w.os() << m.f6();
     }
-    {
-      w.entry_sep(rp_first); w.key("f7");
+    if (w.begin_field(rp_first, "f7")) {
       w.os() << m.f7();
     }
-    {
-      w.entry_sep(rp_first); w.key("f8");
+    if (w.begin_field(rp_first, "f8")) {
       w.os() << m.f8();
     }
-    {
-      w.entry_sep(rp_first); w.key("f9");
+    if (w.begin_field(rp_first, "f9")) {
       w.os() << m.f9();
     }
-    {
-      w.entry_sep(rp_first); w.key("f10");
+    if (w.begin_field(rp_first, "f10")) {
       w.os() << m.f10();
     }
-    {
-      w.entry_sep(rp_first); w.key("f11");
+    if (w.begin_field(rp_first, "f11")) {
       w.os() << m.f11();
     }
-    {
-      w.entry_sep(rp_first); w.key("f12");
+    if (w.begin_field(rp_first, "f12")) {
       w.os() << m.f12();
     }
-    {
-      w.entry_sep(rp_first); w.key("f13");
+    if (w.begin_field(rp_first, "f13")) {
       w.os() << m.f13();
     }
-    {
-      w.entry_sep(rp_first); w.key("f14");
+    if (w.begin_field(rp_first, "f14")) {
       w.os() << m.f14();
     }
-    {
-      w.entry_sep(rp_first); w.key("f15");
+    if (w.begin_field(rp_first, "f15")) {
       w.os() << m.f15();
     }
-    {
-      w.entry_sep(rp_first); w.key("f16");
+    if (w.begin_field(rp_first, "f16")) {
       w.os() << m.f16();
     }
-    {
-      w.entry_sep(rp_first); w.key("f17");
+    if (w.begin_field(rp_first, "f17")) {
       w.os() << m.f17();
     }
-    {
-      w.entry_sep(rp_first); w.key("f18");
+    if (w.begin_field(rp_first, "f18")) {
       w.os() << m.f18();
     }
-    {
-      w.entry_sep(rp_first); w.key("f19");
+    if (w.begin_field(rp_first, "f19")) {
       w.os() << m.f19();
     }
-    {
-      w.entry_sep(rp_first); w.key("f20");
+    if (w.begin_field(rp_first, "f20")) {
       w.os() << m.f20();
     }
-    {
-      w.entry_sep(rp_first); w.key("f21");
+    if (w.begin_field(rp_first, "f21")) {
       w.os() << m.f21();
     }
-    {
-      w.entry_sep(rp_first); w.key("f22");
+    if (w.begin_field(rp_first, "f22")) {
       w.os() << m.f22();
     }
-    {
-      w.entry_sep(rp_first); w.key("f23");
+    if (w.begin_field(rp_first, "f23")) {
       w.os() << m.f23();
     }
-    {
-      w.entry_sep(rp_first); w.key("f24");
+    if (w.begin_field(rp_first, "f24")) {
       w.os() << m.f24();
     }
-    {
-      w.entry_sep(rp_first); w.key("f25");
+    if (w.begin_field(rp_first, "f25")) {
       w.os() << m.f25();
     }
-    {
-      w.entry_sep(rp_first); w.key("f26");
+    if (w.begin_field(rp_first, "f26")) {
       w.os() << m.f26();
     }
-    {
-      w.entry_sep(rp_first); w.key("f27");
+    if (w.begin_field(rp_first, "f27")) {
       w.os() << m.f27();
     }
-    {
-      w.entry_sep(rp_first); w.key("f28");
+    if (w.begin_field(rp_first, "f28")) {
       w.os() << m.f28();
     }
-    {
-      w.entry_sep(rp_first); w.key("f29");
+    if (w.begin_field(rp_first, "f29")) {
       w.os() << m.f29();
     }
-    {
-      w.entry_sep(rp_first); w.key("f30");
+    if (w.begin_field(rp_first, "f30")) {
       w.os() << m.f30();
     }
-    {
-      w.entry_sep(rp_first); w.key("f31");
+    if (w.begin_field(rp_first, "f31")) {
       w.os() << m.f31();
     }
-    {
-      w.entry_sep(rp_first); w.key("f32");
+    if (w.begin_field(rp_first, "f32")) {
       w.os() << m.f32();
     }
-    {
-      w.entry_sep(rp_first); w.key("f33");
+    if (w.begin_field(rp_first, "f33")) {
       w.os() << m.f33();
     }
-    {
-      w.entry_sep(rp_first); w.key("f34");
+    if (w.begin_field(rp_first, "f34")) {
       w.os() << m.f34();
     }
-    {
-      w.entry_sep(rp_first); w.key("f35");
+    if (w.begin_field(rp_first, "f35")) {
       w.os() << m.f35();
     }
-    {
-      w.entry_sep(rp_first); w.key("f36");
+    if (w.begin_field(rp_first, "f36")) {
       w.os() << m.f36();
     }
-    {
-      w.entry_sep(rp_first); w.key("f37");
+    if (w.begin_field(rp_first, "f37")) {
       w.os() << m.f37();
     }
-    {
-      w.entry_sep(rp_first); w.key("f38");
+    if (w.begin_field(rp_first, "f38")) {
       w.os() << m.f38();
     }
-    {
-      w.entry_sep(rp_first); w.key("f39");
+    if (w.begin_field(rp_first, "f39")) {
       w.os() << m.f39();
     }
-    {
-      w.entry_sep(rp_first); w.key("f40");
+    if (w.begin_field(rp_first, "f40")) {
       w.os() << m.f40();
     }
-    {
-      w.entry_sep(rp_first); w.key("f41");
+    if (w.begin_field(rp_first, "f41")) {
       w.os() << m.f41();
     }
-    {
-      w.entry_sep(rp_first); w.key("f42");
+    if (w.begin_field(rp_first, "f42")) {
       w.os() << m.f42();
     }
-    {
-      w.entry_sep(rp_first); w.key("f43");
+    if (w.begin_field(rp_first, "f43")) {
       w.os() << m.f43();
     }
-    {
-      w.entry_sep(rp_first); w.key("f44");
+    if (w.begin_field(rp_first, "f44")) {
       w.os() << m.f44();
     }
-    {
-      w.entry_sep(rp_first); w.key("f45");
+    if (w.begin_field(rp_first, "f45")) {
       w.os() << m.f45();
     }
-    {
-      w.entry_sep(rp_first); w.key("f46");
+    if (w.begin_field(rp_first, "f46")) {
       w.os() << m.f46();
     }
-    {
-      w.entry_sep(rp_first); w.key("f47");
+    if (w.begin_field(rp_first, "f47")) {
       w.os() << m.f47();
     }
-    {
-      w.entry_sep(rp_first); w.key("f48");
+    if (w.begin_field(rp_first, "f48")) {
       w.os() << m.f48();
     }
-    {
-      w.entry_sep(rp_first); w.key("f49");
+    if (w.begin_field(rp_first, "f49")) {
       w.os() << m.f49();
     }
-    {
-      w.entry_sep(rp_first); w.key("f50");
+    if (w.begin_field(rp_first, "f50")) {
       w.os() << m.f50();
     }
-    {
-      w.entry_sep(rp_first); w.key("f51");
+    if (w.begin_field(rp_first, "f51")) {
       w.os() << m.f51();
     }
-    {
-      w.entry_sep(rp_first); w.key("f52");
+    if (w.begin_field(rp_first, "f52")) {
       w.os() << m.f52();
     }
-    {
-      w.entry_sep(rp_first); w.key("f53");
+    if (w.begin_field(rp_first, "f53")) {
       w.os() << m.f53();
     }
-    {
-      w.entry_sep(rp_first); w.key("f54");
+    if (w.begin_field(rp_first, "f54")) {
       w.os() << m.f54();
     }
-    {
-      w.entry_sep(rp_first); w.key("f55");
+    if (w.begin_field(rp_first, "f55")) {
       w.os() << m.f55();
     }
-    {
-      w.entry_sep(rp_first); w.key("f56");
+    if (w.begin_field(rp_first, "f56")) {
       w.os() << m.f56();
     }
-    {
-      w.entry_sep(rp_first); w.key("f57");
+    if (w.begin_field(rp_first, "f57")) {
       w.os() << m.f57();
     }
-    {
-      w.entry_sep(rp_first); w.key("f58");
+    if (w.begin_field(rp_first, "f58")) {
       w.os() << m.f58();
     }
-    {
-      w.entry_sep(rp_first); w.key("f59");
+    if (w.begin_field(rp_first, "f59")) {
       w.os() << m.f59();
     }
-    {
-      w.entry_sep(rp_first); w.key("f60");
+    if (w.begin_field(rp_first, "f60")) {
       w.os() << m.f60();
     }
-    {
-      w.entry_sep(rp_first); w.key("f61");
+    if (w.begin_field(rp_first, "f61")) {
       w.os() << m.f61();
     }
-    {
-      w.entry_sep(rp_first); w.key("f62");
+    if (w.begin_field(rp_first, "f62")) {
       w.os() << m.f62();
     }
-    {
-      w.entry_sep(rp_first); w.key("f63");
+    if (w.begin_field(rp_first, "f63")) {
       w.os() << m.f63();
     }
-    {
-      w.entry_sep(rp_first); w.key("f64");
+    if (w.begin_field(rp_first, "f64")) {
       w.os() << m.f64();
     }
-    {
-      w.entry_sep(rp_first); w.key("f65");
+    if (w.begin_field(rp_first, "f65")) {
       w.os() << m.f65();
     }
     (void)rp_first;
   });
 }
 
-inline void rp_dump_write(std::ostream& rp_os, const ::mr::ManyRequired& m, std::size_t rp_width = 120) {
+inline void rp_dump_write(std::ostream& rp_os, const ::mr::ManyRequired& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   rp_os << std::boolalpha;
-  ::rapidproto::dump::Writer w(rp_os, rp_width);
+  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
   rp_dump_write(m, w);
 }
 
-inline std::string rp_dump_string(const ::mr::ManyRequired& m, std::size_t rp_width = 120) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_width); return rp_ss.str();
+inline std::string rp_dump_string(const ::mr::ManyRequired& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
 }
 
 }  // namespace mr

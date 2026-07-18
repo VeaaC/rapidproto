@@ -3,6 +3,18 @@
 Notable, user-visible changes per release. Pre-1.0, the MINOR version is the breaking axis (the
 SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never within a patch.
 
+## Unreleased
+
+### Added
+
+- **Debug dumper: `DumpOptions` (start indent + skip fields).** `rp_dump_write` / `rp_dump_string` now
+  take an optional `rapidproto::dump::DumpOptions { width, indent, skip }`. `indent` starts the dump at a
+  nesting level (each level = 2 columns) so it drops cleanly under surrounding output, and `skip` omits
+  fields by **qualified dotted path** (e.g. `{"people.email", "address"}` — a leaf name is hidden only at
+  that path, and a message path drops its whole subtree; the field is still decoded, just not printed).
+  Backward-compatible: the old width argument still works (an integer converts to a width-only
+  `DumpOptions`).
+
 ## 0.3.1 — 2026-07-18
 
 ### Fixed

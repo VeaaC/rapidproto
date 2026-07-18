@@ -2,7 +2,6 @@
 // Copyright 2026 Christian Vetter
 #include "rapidproto/dumpgen/generator.hpp"
 
-#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -30,11 +29,6 @@ using codegen::Printer;
 // A sentinel address distinguishing "field is DROPPED by the profile" (skip it) from "no plan to
 // consult, emit as declared" (nullptr) in the member lookup below. Never dereferenced.
 const arenagen::MemberPlan kDropped;
-
-// The default line-width budget the generated rp_dump_write/rp_dump_string overloads take: a group
-// renders compact (single line) if it fits this many columns, else multi-line. Emitted as the default
-// argument in the generated signatures.
-constexpr std::size_t kDefaultWidth = 120;
 
 // How the debug writer must treat a field's VALUE, derived straight from the FieldNode (mirrors the
 // arena accessor's return-type categories).
@@ -175,11 +169,16 @@ void emit_singular_field(Printer& p, const CppNameTable& names, const FieldNode&
                          ValueKind kind) {
     const std::string call = accessor_call(names, f);
     if (kind == ValueKind::Message) {
-        // const T* accessor: skip when null, else emit the key + recurse.
+        // const T* accessor: skip when null, else (unless its path is skipped) emit the key + recurse.
         p.print("if (const auto* rp_p = $c$) {\n", {{"c", call}});
         p.indent();
-        p.print("w.entry_sep(rp_first); w.key(\"$k$\");\n", {{"k", f.name}});
+        p.print("if (w.begin_field(rp_first, \"$k$\")) {\n", {{"k", f.name}});
+        p.indent();
+        p.print("w.push_path(\"$k$\");\n", {{"k", f.name}});
         emit_write_value(p, kind, "*rp_p");
+        p.print("w.pop_path();\n");
+        p.outdent();
+        p.print("}\n");
         p.outdent();
         p.print("}\n");
         return;
@@ -188,8 +187,11 @@ void emit_singular_field(Printer& p, const CppNameTable& names, const FieldNode&
         // std::optional<T> accessor: skip when nullopt.
         p.print("if (const auto rp_v = $c$) {\n", {{"c", call}});
         p.indent();
-        p.print("w.entry_sep(rp_first); w.key(\"$k$\");\n", {{"k", f.name}});
+        p.print("if (w.begin_field(rp_first, \"$k$\")) {\n", {{"k", f.name}});
+        p.indent();
         emit_write_value(p, kind, "*rp_v");
+        p.outdent();
+        p.print("}\n");
         p.outdent();
         p.print("}\n");
         return;
@@ -200,16 +202,18 @@ void emit_singular_field(Printer& p, const CppNameTable& names, const FieldNode&
         // does. decltype(rp_v){} is that zero default for the accessor's value type.
         p.print("if (const auto rp_v = $c$; rp_v != decltype(rp_v){}) {\n", {{"c", call}});
         p.indent();
-        p.print("w.entry_sep(rp_first); w.key(\"$k$\");\n", {{"k", f.name}});
+        p.print("if (w.begin_field(rp_first, \"$k$\")) {\n", {{"k", f.name}});
+        p.indent();
         emit_write_value(p, kind, "rp_v");
+        p.outdent();
+        p.print("}\n");
         p.outdent();
         p.print("}\n");
         return;
     }
-    // Required: always present on the wire, so always emitted (even at the default value).
-    p.print("{\n");
+    // Required: always present on the wire, so always emitted (even at the default value) unless skipped.
+    p.print("if (w.begin_field(rp_first, \"$k$\")) {\n", {{"k", f.name}});
     p.indent();
-    p.print("w.entry_sep(rp_first); w.key(\"$k$\");\n", {{"k", f.name}});
     emit_write_value(p, kind, call);
     p.outdent();
     p.print("}\n");
@@ -222,7 +226,13 @@ void emit_repeated_field(Printer& p, const CppNameTable& names, const FieldNode&
     // (ArrayView<T> of message yields const T&); others yield the value/string_view directly.
     p.print("if (const auto& rp_r = $c$; !rp_r.empty()) {\n", {{"c", call}});
     p.indent();
-    p.print("w.entry_sep(rp_first); w.key(\"$k$\");\n", {{"k", f.name}});
+    p.print("if (w.begin_field(rp_first, \"$k$\")) {\n", {{"k", f.name}});
+    p.indent();
+    // Message elements share the field's path (no index), so descendants can be skipped by e.g.
+    // "people.address.city"; repeated scalar/string elements are not path-addressable (no push).
+    if (kind == ValueKind::Message) {
+        p.print("w.push_path(\"$k$\");\n", {{"k", f.name}});
+    }
     p.print("w.group('[', ']', [&] {\n");
     p.indent();
     p.print("bool rp_efirst = true;\n");
@@ -235,6 +245,11 @@ void emit_repeated_field(Printer& p, const CppNameTable& names, const FieldNode&
     p.print("}\n");
     p.outdent();
     p.print("});\n");
+    if (kind == ValueKind::Message) {
+        p.print("w.pop_path();\n");
+    }
+    p.outdent();
+    p.print("}\n");
     p.outdent();
     p.print("}\n");
 }
@@ -257,7 +272,12 @@ void emit_map_field(Printer& p, const CppNameTable& names, const MapFieldNode& m
     p.print("if (const auto& rp_mp = m.$acc$(); !rp_mp.empty()) {\n",
             {{"acc", names.local.at(&mp)}});
     p.indent();
-    p.print("w.entry_sep(rp_first); w.key(\"$k$\");\n", {{"k", mp.name}});
+    p.print("if (w.begin_field(rp_first, \"$k$\")) {\n", {{"k", mp.name}});
+    p.indent();
+    if (vkind ==
+        ValueKind::Message) {  // message-valued entries' fields sit under the map field's path
+        p.print("w.push_path(\"$k$\");\n", {{"k", mp.name}});
+    }
     p.print("w.group('{', '}', [&] {\n");
     p.indent();
     p.print("bool rp_efirst = true;\n");
@@ -286,6 +306,11 @@ void emit_map_field(Printer& p, const CppNameTable& names, const MapFieldNode& m
     p.print("}\n");
     p.outdent();
     p.print("});\n");
+    if (vkind == ValueKind::Message) {
+        p.print("w.pop_path();\n");
+    }
+    p.outdent();
+    p.print("}\n");
     p.outdent();
     p.print("}\n");
 }
@@ -309,8 +334,17 @@ void emit_oneof(Printer& p, const CppNameTable& names, const OneofNode& o,
         const std::string member_tag = oneof_tag + "::" + names.local.at(&f);
         p.print("if constexpr (std::is_same_v<RpTag, $tag$>) {\n", {{"tag", member_tag}});
         p.indent();
-        p.print("w.entry_sep(rp_first); w.key(\"$k$\");\n", {{"k", f.name}});
+        p.print("if (w.begin_field(rp_first, \"$k$\")) {\n", {{"k", f.name}});
+        p.indent();
+        if (kind == ValueKind::Message) {
+            p.print("w.push_path(\"$k$\");\n", {{"k", f.name}});
+        }
         emit_write_value(p, kind, "rp_v");
+        if (kind == ValueKind::Message) {
+            p.print("w.pop_path();\n");
+        }
+        p.outdent();
+        p.print("}\n");
         p.outdent();
         p.print("}\n");
     }
@@ -408,24 +442,27 @@ void emit_message_dumper(Printer& p, const CppNameTable& names, const SynthNames
     p.outdent();
     p.print("}\n\n");
 
-    // A convenience overload that constructs a Writer over an ostream. `width` is the line-width budget
-    // used to decide compact (single-line) vs multi-line rendering.
+    // A convenience overload that constructs a Writer over an ostream. `opts` carries the line-width
+    // budget (compact vs multi-line), the start indent, and the skip-paths; an integer still converts
+    // (back-compat: `rp_dump_write(os, m, 120)` sets the width).
     p.print(
         "inline void rp_dump_write(std::ostream& rp_os, const $T$& m,"
-        " std::size_t rp_width = $w$) {\n",
-        {{"T", type}, {"w", std::to_string(kDefaultWidth)}});
+        " const ::rapidproto::dump::DumpOptions& rp_opts = {}) {\n",
+        {{"T", type}});
     p.indent();
     p.print("rp_os << std::boolalpha;\n");
-    p.print("::rapidproto::dump::Writer w(rp_os, rp_width);\n");
+    p.print("::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);\n");
     p.print("rp_dump_write(m, w);\n");
     p.outdent();
     p.print("}\n\n");
 
     // std::string convenience.
-    p.print("inline std::string rp_dump_string(const $T$& m, std::size_t rp_width = $w$) {\n",
-            {{"T", type}, {"w", std::to_string(kDefaultWidth)}});
+    p.print(
+        "inline std::string rp_dump_string(const $T$& m,"
+        " const ::rapidproto::dump::DumpOptions& rp_opts = {}) {\n",
+        {{"T", type}});
     p.indent();
-    p.print("std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_width); return rp_ss.str();\n");
+    p.print("std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();\n");
     p.outdent();
     p.print("}\n\n");
 }

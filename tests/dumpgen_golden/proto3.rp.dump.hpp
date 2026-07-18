@@ -32,119 +32,134 @@ inline void rp_dump_write(const ::p3::Msg& m, ::rapidproto::dump::Writer& w) {
   w.group('{', '}', [&] {
     bool rp_first = true;
     if (const auto rp_v = m.implicit_i(); rp_v != decltype(rp_v){}) {
-      w.entry_sep(rp_first); w.key("implicit_i");
-      w.os() << rp_v;
+      if (w.begin_field(rp_first, "implicit_i")) {
+        w.os() << rp_v;
+      }
     }
     if (const auto rp_v = m.explicit_i()) {
-      w.entry_sep(rp_first); w.key("explicit_i");
-      w.os() << *rp_v;
+      if (w.begin_field(rp_first, "explicit_i")) {
+        w.os() << *rp_v;
+      }
     }
     if (const auto rp_v = m.name(); rp_v != decltype(rp_v){}) {
-      w.entry_sep(rp_first); w.key("name");
-      w.os() << '"'; ::rapidproto::dump::write_json_escaped(w.os(), rp_v); w.os() << '"';
+      if (w.begin_field(rp_first, "name")) {
+        w.os() << '"'; ::rapidproto::dump::write_json_escaped(w.os(), rp_v); w.os() << '"';
+      }
     }
     if (const auto rp_v = m.state(); rp_v != decltype(rp_v){}) {
-      w.entry_sep(rp_first); w.key("state");
-      { const auto rp_e = rp_v;
-      if (const char* rp_nm = ::rapidproto::dump::rp_dump_enum_name(rp_e)) { w.os() << '"' << rp_nm << '"'; }
-      else { w.os() << "\"UNKNOWN(" << static_cast<std::int32_t>(rp_e) << ")\""; } }
+      if (w.begin_field(rp_first, "state")) {
+        { const auto rp_e = rp_v;
+        if (const char* rp_nm = ::rapidproto::dump::rp_dump_enum_name(rp_e)) { w.os() << '"' << rp_nm << '"'; }
+        else { w.os() << "\"UNKNOWN(" << static_cast<std::int32_t>(rp_e) << ")\""; } }
+      }
     }
     if (const auto* rp_p = m.self()) {
-      w.entry_sep(rp_first); w.key("self");
-      rp_dump_write(*rp_p, w);
+      if (w.begin_field(rp_first, "self")) {
+        w.push_path("self");
+        rp_dump_write(*rp_p, w);
+        w.pop_path();
+      }
     }
     if (const auto& rp_r = m.nums(); !rp_r.empty()) {
-      w.entry_sep(rp_first); w.key("nums");
-      w.group('[', ']', [&] {
-        bool rp_efirst = true;
-        for (const auto& rp_el : rp_r) {
-          w.entry_sep(rp_efirst);
-          w.os() << rp_el;
-          if (w.overflowed()) { break; }
-        }
-      });
+      if (w.begin_field(rp_first, "nums")) {
+        w.group('[', ']', [&] {
+          bool rp_efirst = true;
+          for (const auto& rp_el : rp_r) {
+            w.entry_sep(rp_efirst);
+            w.os() << rp_el;
+            if (w.overflowed()) { break; }
+          }
+        });
+      }
     }
     if (const auto& rp_r = m.unpacked(); !rp_r.empty()) {
-      w.entry_sep(rp_first); w.key("unpacked");
-      w.group('[', ']', [&] {
-        bool rp_efirst = true;
-        for (const auto& rp_el : rp_r) {
-          w.entry_sep(rp_efirst);
-          w.os() << rp_el;
-          if (w.overflowed()) { break; }
-        }
-      });
+      if (w.begin_field(rp_first, "unpacked")) {
+        w.group('[', ']', [&] {
+          bool rp_efirst = true;
+          for (const auto& rp_el : rp_r) {
+            w.entry_sep(rp_efirst);
+            w.os() << rp_el;
+            if (w.overflowed()) { break; }
+          }
+        });
+      }
     }
     if (const auto& rp_r = m.states(); !rp_r.empty()) {
-      w.entry_sep(rp_first); w.key("states");
-      w.group('[', ']', [&] {
-        bool rp_efirst = true;
-        for (const auto& rp_el : rp_r) {
-          w.entry_sep(rp_efirst);
-          { const auto rp_e = rp_el;
-          if (const char* rp_nm = ::rapidproto::dump::rp_dump_enum_name(rp_e)) { w.os() << '"' << rp_nm << '"'; }
-          else { w.os() << "\"UNKNOWN(" << static_cast<std::int32_t>(rp_e) << ")\""; } }
-          if (w.overflowed()) { break; }
-        }
-      });
+      if (w.begin_field(rp_first, "states")) {
+        w.group('[', ']', [&] {
+          bool rp_efirst = true;
+          for (const auto& rp_el : rp_r) {
+            w.entry_sep(rp_efirst);
+            { const auto rp_e = rp_el;
+            if (const char* rp_nm = ::rapidproto::dump::rp_dump_enum_name(rp_e)) { w.os() << '"' << rp_nm << '"'; }
+            else { w.os() << "\"UNKNOWN(" << static_cast<std::int32_t>(rp_e) << ")\""; } }
+            if (w.overflowed()) { break; }
+          }
+        });
+      }
     }
     if (const auto& rp_r = m.reals(); !rp_r.empty()) {
-      w.entry_sep(rp_first); w.key("reals");
-      w.group('[', ']', [&] {
-        bool rp_efirst = true;
-        for (const auto& rp_el : rp_r) {
-          w.entry_sep(rp_efirst);
-          w.os() << rp_el;
-          if (w.overflowed()) { break; }
-        }
-      });
+      if (w.begin_field(rp_first, "reals")) {
+        w.group('[', ']', [&] {
+          bool rp_efirst = true;
+          for (const auto& rp_el : rp_r) {
+            w.entry_sep(rp_efirst);
+            w.os() << rp_el;
+            if (w.overflowed()) { break; }
+          }
+        });
+      }
     }
     if (const auto& rp_r = m.codes(); !rp_r.empty()) {
-      w.entry_sep(rp_first); w.key("codes");
-      w.group('[', ']', [&] {
-        bool rp_efirst = true;
-        for (const auto& rp_el : rp_r) {
-          w.entry_sep(rp_efirst);
-          w.os() << rp_el;
-          if (w.overflowed()) { break; }
-        }
-      });
+      if (w.begin_field(rp_first, "codes")) {
+        w.group('[', ']', [&] {
+          bool rp_efirst = true;
+          for (const auto& rp_el : rp_r) {
+            w.entry_sep(rp_efirst);
+            w.os() << rp_el;
+            if (w.overflowed()) { break; }
+          }
+        });
+      }
     }
     if (const auto& rp_mp = m.counts(); !rp_mp.empty()) {
-      w.entry_sep(rp_first); w.key("counts");
-      w.group('{', '}', [&] {
-        bool rp_efirst = true;
-        for (const auto& rp_ent : rp_mp) {
-          w.entry_sep(rp_efirst);
-          w.os() << '"'; ::rapidproto::dump::write_json_escaped(w.os(), rp_ent.key()); w.os() << "\": ";
-          w.os() << rp_ent.value();
-          if (w.overflowed()) { break; }
-        }
-      });
+      if (w.begin_field(rp_first, "counts")) {
+        w.group('{', '}', [&] {
+          bool rp_efirst = true;
+          for (const auto& rp_ent : rp_mp) {
+            w.entry_sep(rp_efirst);
+            w.os() << '"'; ::rapidproto::dump::write_json_escaped(w.os(), rp_ent.key()); w.os() << "\": ";
+            w.os() << rp_ent.value();
+            if (w.overflowed()) { break; }
+          }
+        });
+      }
     }
     m.pick([&](auto rp_tag, const auto& rp_v) {
       using RpTag = std::decay_t<decltype(rp_tag)>;
       if constexpr (std::is_same_v<RpTag, ::p3::Msg::Pick::a>) {
-        w.entry_sep(rp_first); w.key("a");
-        w.os() << rp_v;
+        if (w.begin_field(rp_first, "a")) {
+          w.os() << rp_v;
+        }
       }
       if constexpr (std::is_same_v<RpTag, ::p3::Msg::Pick::b>) {
-        w.entry_sep(rp_first); w.key("b");
-        w.os() << '"'; ::rapidproto::dump::write_json_escaped(w.os(), rp_v); w.os() << '"';
+        if (w.begin_field(rp_first, "b")) {
+          w.os() << '"'; ::rapidproto::dump::write_json_escaped(w.os(), rp_v); w.os() << '"';
+        }
       }
     });
     (void)rp_first;
   });
 }
 
-inline void rp_dump_write(std::ostream& rp_os, const ::p3::Msg& m, std::size_t rp_width = 120) {
+inline void rp_dump_write(std::ostream& rp_os, const ::p3::Msg& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   rp_os << std::boolalpha;
-  ::rapidproto::dump::Writer w(rp_os, rp_width);
+  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
   rp_dump_write(m, w);
 }
 
-inline std::string rp_dump_string(const ::p3::Msg& m, std::size_t rp_width = 120) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_width); return rp_ss.str();
+inline std::string rp_dump_string(const ::p3::Msg& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
 }
 
 }  // namespace p3
