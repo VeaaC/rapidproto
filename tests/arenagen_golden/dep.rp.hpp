@@ -18,11 +18,13 @@ class Dep;
 class Dep {
  public:
   std::optional<std::int32_t> v() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? std::optional<std::int32_t>(m_v) : std::nullopt; }
+  std::optional<::dep::DepEnum> de() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 1)) != 0 ? std::optional<::dep::DepEnum>(m_de) : std::nullopt; }
   [[nodiscard]] static const Dep* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
   static bool rp_decode_into(Dep& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
   std::int32_t m_v;
+  ::dep::DepEnum m_de;
   std::uint8_t m_rp_mask;
 };
 static_assert(::std::is_trivially_destructible_v<Dep>);
@@ -38,6 +40,7 @@ RP_FLATTEN inline bool Dep::rp_decode_into([[maybe_unused]] Dep& out, ::rapidpro
     if (rp_c >= rp_cend) { break; }
     switch (*rp_c) {  // peek the 1-byte tag; threaded fields jump to their label
       case ::rapidproto::raw_tag(1, ::rapidproto::WireType::Varint): ++rp_c; goto rp_do_1;
+      case ::rapidproto::raw_tag(2, ::rapidproto::WireType::Varint): ++rp_c; goto rp_do_2;
       default: break;
     }
     goto rp_field_general;
@@ -48,6 +51,16 @@ RP_FLATTEN inline bool Dep::rp_decode_into([[maybe_unused]] Dep& out, ::rapidpro
       rp_c = rp_np;
       out.m_v = ::rapidproto::varint_to_int32(rp_raw);
       out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 0));
+      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(2, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_2; }
+      continue;
+    }
+    rp_do_2: {
+      std::uint64_t rp_raw = 0;
+      const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      rp_c = rp_np;
+      out.m_de = static_cast<::dep::DepEnum>(::rapidproto::varint_to_int32(rp_raw));
+      out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 1));
       continue;
     }
     rp_field_general:;
@@ -58,6 +71,7 @@ RP_FLATTEN inline bool Dep::rp_decode_into([[maybe_unused]] Dep& out, ::rapidpro
     rp_c = rp_tp;
     switch (rp_tag.field_number) {
       case 1: { if (rp_tag.wire_type == ::rapidproto::WireType::Varint) { goto rp_do_1; } break; }
+      case 2: { if (rp_tag.wire_type == ::rapidproto::WireType::Varint) { goto rp_do_2; } break; }
       default: break;
     }
     std::size_t rp_fo = 0;

@@ -38,7 +38,7 @@
 #include "dumpgen_golden/arena_unknown.rp.dump.hpp"  // --unknown-present: has_unknown_fields marker
 #include "dumpgen_golden/editions2023.rp.dump.hpp"
 #include "dumpgen_golden/editions2024.rp.dump.hpp"
-#include "dumpgen_golden/main.rp.dump.hpp"  // cross-file imports: transitively pulls dep/forward/pub
+#include "dumpgen_golden/main.rp.dump.hpp"  // cross-file imports + shared-enum dumper guard (see dep.proto)
 #include "dumpgen_golden/prefixed/main.rp.dump.hpp"  // --namespace-prefix + imports
 #include "dumpgen_golden/proto2.rp.dump.hpp"
 #include "dumpgen_golden/proto3.rp.dump.hpp"
@@ -82,7 +82,7 @@ std::string generate(const std::string& dir, const std::string& entry,
     arenagen::LayoutOptions options;
     options.modes = &modes;
     const arenagen::LayoutSet layouts = arenagen::plan_layouts(set, symbols, options);
-    return dumpgen::generate_header(set.files.back(), names, layouts, symbols);
+    return dumpgen::generate_header(set.files.back(), names, layouts);
 }
 std::string generate_corpus(const std::string& entry, const std::string& prefix = {}) {
     return generate(RAPIDPROTO_CORPUS_DIR, entry, prefix);
@@ -104,7 +104,7 @@ std::string generate_modes_golden() {
     arenagen::LayoutOptions options;
     options.modes = &modes;
     const arenagen::LayoutSet layouts = arenagen::plan_layouts(set, symbols, options);
-    return dumpgen::generate_header(set.files.back(), names, layouts, symbols);
+    return dumpgen::generate_header(set.files.back(), names, layouts);
 }
 
 // arena_unknown under --unknown-present: every message reserves its has_unknown_fields() bit, so the
@@ -127,7 +127,7 @@ std::string generate_unknown_present_golden() {
     arenagen::LayoutOptions options;
     options.modes = &modes;
     const arenagen::LayoutSet layouts = arenagen::plan_layouts(set, symbols, options);
-    return dumpgen::generate_header(set.files.back(), names, layouts, symbols);
+    return dumpgen::generate_header(set.files.back(), names, layouts);
 }
 
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): expected vs actual, distinct roles

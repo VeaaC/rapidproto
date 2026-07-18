@@ -7,6 +7,7 @@ file dep.proto
   message Dep [fqn=.dep.Dep]
     extension-range [100..maxfield]
     field v num=1 presence=explicit type=int32
+    field de num=2 presence=explicit type=DepEnum -> .dep.DepEnum enum
 file pub.proto
   syntax proto2
   package pub

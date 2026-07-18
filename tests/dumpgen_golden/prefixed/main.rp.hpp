@@ -78,12 +78,12 @@ class Main {
     std::int32_t oi;
     rp_choice_union() noexcept {}
   };
+  ::rp::dep::Dep m_d;
   ::rapidproto::ArrayView<::rp::dep::Dep> m_ds;
   ::rapidproto::MapView<DmEntry> m_dm;
-  ::rp::dep::Dep m_d;
+  rp_choice_union m_rp_choice;
   ::rp::pub::Pub m_p;
   ::rp::fwd::Fwd m_f;
-  rp_choice_union m_rp_choice;
   ::rp::dep::DepEnum m_e;
   std::uint8_t m_rp_choice_case;
   std::uint8_t m_rp_mask;

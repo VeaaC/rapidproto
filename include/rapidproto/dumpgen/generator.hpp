@@ -14,18 +14,14 @@
 #include "rapidproto/ast.hpp"
 #include "rapidproto/codegen/naming.hpp"
 
-namespace rapidproto {
-struct SymbolTable;  // rapidproto/resolve.hpp
-}  // namespace rapidproto
-
 namespace rapidproto::dumpgen {
 
 // Emit the debug-dumper header for `file`. `names` is the SAME table the arena header was emitted with
 // (so accessor / type names match), and `layouts` is the SAME LayoutSet the arena header was planned
 // under -- the dumper derives arenagen's deduped synthesized names (the oneof visit-tag structs and
 // the has_unknown_fields() accessor) from it so it references exactly the identifiers the arena header
-// declared. `symbols` supplies the enum value tables (for value -> name).
+// declared.
 std::string generate_header(const FileNode& file, const codegen::CppNameTable& names,
-                            const arenagen::LayoutSet& layouts, const SymbolTable& symbols);
+                            const arenagen::LayoutSet& layouts);
 
 }  // namespace rapidproto::dumpgen
