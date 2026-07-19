@@ -35,9 +35,11 @@
 // IWYU pragma: begin_keep
 #include "streamgen_golden/main.rp.stream.hpp"    // cross-file: pulls dep/forward/pub via #include
 #include "streamgen_golden/naming.rp.stream.hpp"  // identifier dedup + absolute names: must compile
+#include "streamgen_golden/nopkg.rp.stream.hpp"   // NO package: a top-level `namespace stream`
 #include "streamgen_golden/usewkt.rp.stream.hpp"  // WKT closure: pulls google/protobuf/* headers
 #include "streamgen_golden/weakmain.rp.stream.hpp"  // weak import: pulls weakdep via #include
-#include "streamgen_golden/xref.rp.stream.hpp"      // mutually-cyclic A<->B: must compile
+#include "streamgen_golden/xpkg.rp.stream.hpp"  // dotted package (pulls deep): com::example::deep
+#include "streamgen_golden/xref.rp.stream.hpp"  // mutually-cyclic A<->B: must compile
 #include "streamgen_golden/xref_prefixed/xref.rp.stream.hpp"  // --namespace-prefix=rp -> namespace rp::xr
 // IWYU pragma: end_keep
 #include "streamgen_golden/wire_all.rp.stream.hpp"  // group + packed coverage
@@ -111,14 +113,21 @@ TEST_CASE("streamgen: generated headers match the goldens", "[streamgen]") {
         std::string include;
     };
     const std::string imports = corpus + "/imports";
+    // Package shapes no other entry has: every other corpus file declares a single-component package.
+    // deep -> namespace com::example::deep::stream, nopkg -> a top-level `namespace stream` (types at
+    // global scope), xpkg -> a cross-file reference INTO a dotted package.
+    const std::string nsedge = corpus + "/nsedge";
     const std::vector<Case> cases = {
         {"proto2", corpus},       {"proto3", corpus},     {"xref", corpus},
         {"naming", corpus},       {"dep", imports},  // cross-file: dependency, re-export, entry
         {"pub", imports},         {"forward", imports},   {"main", imports},
         {"weakdep", imports},  // weak import: type still usable, header still included
         {"weakmain", imports},    {"wire_all", fixtures}, {"packed", corpus},
-        {"editions2023", corpus},   // packed fixed-width; editions features
-        {"editions2024", corpus}};  // 2024 defaults (EXPLICIT presence, PACKED repeated)
+        {"editions2023", corpus},  // packed fixed-width; editions features
+        {"editions2024", corpus},  // 2024 defaults (EXPLICIT presence, PACKED repeated)
+        {"deep", nsedge},          // dotted package
+        {"nopkg", nsedge},         // no package at all
+        {"xpkg", nsedge}};         // cross-file reference into a dotted package
 
     // NOLINTNEXTLINE(concurrency-mt-unsafe): single-threaded test, opt-in regeneration only
     const bool regen = std::getenv("RAPIDPROTO_REGEN_GOLDEN") != nullptr;

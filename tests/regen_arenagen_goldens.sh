@@ -43,6 +43,11 @@ done
 "$BIN" --arena -Itests/corpus/imports --out-dir="$T" tests/corpus/imports/samepkg_a.proto >/dev/null
 # Weak import: filtered like a standard import (the field type stays usable), as in streamgen.
 "$BIN" --arena -Itests/corpus/imports --out-dir="$T" tests/corpus/imports/weakmain.proto >/dev/null
+# Package SHAPES the rest of the corpus never exercises (every other entry has a single-component
+# package): a dotted package -> namespace com::example::deep, and NO package at all -> types at global
+# scope. xpkg pulls deep, so it also pins a cross-file reference INTO a dotted package.
+"$BIN" --arena -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/nopkg.proto >/dev/null
+"$BIN" --arena -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/xpkg.proto >/dev/null
 # --namespace-prefix + imports: the prefixed closure into a subdir, so its relative #includes resolve
 # to the prefixed siblings (not the unprefixed ones, which share the same filenames).
 "$BIN" --arena --namespace-prefix=rp -Itests/corpus/imports --out-dir="$T/prefixed" tests/corpus/imports/main.proto >/dev/null

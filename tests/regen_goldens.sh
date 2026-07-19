@@ -41,6 +41,11 @@ trap 'rm -rf "$T"' EXIT
 "$BIN" --stream -Itests/corpus --out-dir="$T" tests/corpus/editions2024.proto >/dev/null
 "$BIN" --stream -Itests/corpus/imports --out-dir="$T" tests/corpus/imports/main.proto >/dev/null
 "$BIN" --stream -Itests/corpus/imports --out-dir="$T" tests/corpus/imports/weakmain.proto >/dev/null
+# Package SHAPES the rest of the corpus never exercises (every other entry has a single-component
+# package): a dotted package -> namespace com::example::deep::stream, and NO package at all -> a
+# top-level `namespace stream`. xpkg pulls deep, pinning a cross-file reference into a dotted package.
+"$BIN" --stream -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/nopkg.proto >/dev/null
+"$BIN" --stream -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/xpkg.proto >/dev/null
 "$BIN" --stream -Itests/wire_fixtures --out-dir="$T" tests/wire_fixtures/wire_all.proto >/dev/null
 # xref under a namespace prefix -> its own subdir golden, isolating its prefixed common header (rp::xr
 # enums) from the un-prefixed xref's common of the same stem (see regen_arenagen_goldens.sh).

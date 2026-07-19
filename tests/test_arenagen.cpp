@@ -35,13 +35,15 @@
 #include "arenagen_golden/arena_naming.rp.hpp"   // identifier dedup: must compile
 #include "arenagen_golden/editions2023.rp.hpp"
 #include "arenagen_golden/editions2024.rp.hpp"  // 2024: decode-relevant defaults match 2023
-#include "arenagen_golden/main.rp.hpp"  // cross-file imports: transitively pulls dep/forward/pub
+#include "arenagen_golden/main.rp.hpp"   // cross-file imports: transitively pulls dep/forward/pub
+#include "arenagen_golden/nopkg.rp.hpp"  // NO package: types land at global scope
 #include "arenagen_golden/prefixed/main.rp.hpp"  // --namespace-prefix + imports (pulls prefixed dep/...)
 #include "arenagen_golden/proto2.rp.hpp"
 #include "arenagen_golden/proto3.rp.hpp"
 #include "arenagen_golden/samepkg_a.rp.hpp"  // same-package multi-file (pulls samepkg_b): ODR guard
 #include "arenagen_golden/weakmain.rp.hpp"  // weak import (pulls weakdep): filtered like a normal one
 #include "arenagen_golden/wire_all.rp.hpp"  // group + packed (generated from the fixtures dir)
+#include "arenagen_golden/xpkg.rp.hpp"  // dotted package (pulls deep): namespace com::example::deep
 #include "arenagen_golden/xref.rp.hpp"
 #include "arenagen_golden/xref_prefixed/xref.rp.hpp"  // --namespace-prefix=rp -> namespace rp::xr
 // IWYU pragma: end_keep
@@ -211,6 +213,14 @@ TEST_CASE("arenagen: generated headers match the goldens", "[arenagen]") {
     // compile-smoke #include) compiles -- guarding prefixed cross-file emission, not just substring checks.
     check_golden("prefixed/main", generate(imports, "main.proto", "rp"));
     check_golden("prefixed/dep", generate(imports, "dep.proto", "rp"));
+    // Package SHAPES no other entry has: every other corpus file declares a single-component package.
+    // deep -> `namespace com::example::deep`, nopkg -> types at GLOBAL scope, and xpkg -> a cross-file
+    // reference INTO a dotted package. A namespace derived from a type FQN rather than looked up
+    // breaks exactly here, so these pin the emitted namespaces.
+    const std::string nsedge = std::string(RAPIDPROTO_CORPUS_DIR) + "/nsedge";
+    check_golden("deep", generate(nsedge, "deep.proto"));
+    check_golden("nopkg", generate(nsedge, "nopkg.proto"));
+    check_golden("xpkg", generate(nsedge, "xpkg.proto"));
 }
 
 // The --namespace-prefix nests every generated namespace under the prefix, so the arena types coexist
