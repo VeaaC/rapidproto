@@ -17,6 +17,10 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
 
 ### Changed
 
+- **Debug dumper: wide arrays print as aligned columns.** An array too wide for one line used to print
+  one value per line; it now fills as many aligned columns as fit, so a long array is far shorter and
+  numeric values line up by place value. Objects are unaffected. Upgrading the runtime header is
+  enough — no regeneration needed — but dumps of wide arrays now look different.
 - **Debug dumper: generated internals moved out of the public namespaces.** A generated
   `.rp.dump.hpp` now puts only its two public entry points (`rp_dump_write(std::ostream&, ...)` and
   `rp_dump_string`) in the message's namespace; the `Writer`-threaded core they forward to moved to

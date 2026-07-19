@@ -460,8 +460,8 @@ omitted; explicit-presence fields print when set; a `required` field always prin
 reserves the [unknown-fields](#unknown-fields-arena) bit shows `"has_unknown_fields": true` when set —
 a bit only, since the arena retains no unknown-field *data*. The output is **width-adaptive**: each
 object or array renders on one line if it fits the budget (`width`, default 120 columns), otherwise one
-entry per line. Well-known types (`Timestamp`, etc.) print as their nested fields, with no special JSON
-form.
+entry per line — with a wide array filling as many aligned columns as fit. Well-known types
+(`Timestamp`, etc.) print as their nested fields, with no special JSON form.
 
 ---
 
