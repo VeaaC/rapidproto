@@ -922,6 +922,17 @@ void emit_singular_arm(const Emit& emit, const MessageLayout& layout, const Memb
 
 void emit_growable_setup(const Emit& emit, const std::string& id, const std::string& elem);
 
+// EXPERIMENTAL (arena-offset prototype) -- KNOWN BUG, see task: counting pass.
+// Geometric realloc-and-copy RELOCATES elements, which silently corrupts any self-relative offset
+// cell inside a moved element (ArenaString / ArenaArray / ArenaPtr), because the copy measures its
+// offset from a new address. That affects repeated MESSAGE, repeated string/bytes and MAP fields --
+// the element types that carry cells. Packed scalar/enum arrays are safe: they pre-size from the
+// wire length and shrink_last, so they never relocate, and their elements hold no cells.
+// Fix in progress: count occurrences in a pre-scan and allocate each affected array exactly once, so
+// elements are decoded straight into their final location. Alternatives if that proves too costly:
+// base-relative offsets (immune to relocation, but need a base at every dereference) or fixing up
+// cells after each move (needs per-type knowledge, O(elements) per regrow).
+//
 // A repeated field accumulates into a single-pass arena-growable array (geometric realloc-and-copy).
 // Shares the array + grow-and-return-slot emission with maps via emit_growable_setup.
 void emit_repeated_setup(const Emit& emit, const FieldNode& field) {
