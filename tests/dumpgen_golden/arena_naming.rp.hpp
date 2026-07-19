@@ -40,14 +40,14 @@ class Collide {
     std::int32_t value() const noexcept { return rp_value; }
     friend class Collide;
    private:
-    ::rapidproto::ArenaString rp_key;
     std::int32_t rp_value;
+    ::rapidproto::ArenaString rp_key;
   };
   std::optional<std::int32_t> x() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? std::optional<std::int32_t>(m_x) : std::nullopt; }
   std::int32_t has_x() const noexcept { return m_has_x; }
   std::int32_t pick_case() const noexcept { return m_pick_case; }
   std::int32_t decode_() const noexcept { return m_decode_; }
-  ::rapidproto::MapView<FooEntry_> foo() const noexcept { return m_foo; }
+  ::rapidproto::MapView<FooEntry_> foo() const noexcept { return ::rapidproto::MapView<FooEntry_>(m_foo.view()); }
   template <class... RpFs> void pick(RpFs&&... rp_fs) const {
     static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<RpFs, Pick::p1, typename Pick::p1::Value>)) <= 1U, "oneof member 'p1' is handled by more than one callback");
     static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<RpFs, Pick::p1, typename Pick::p1::Value>)) <= 1U, "oneof member 'p1' is matched by more than one catch-all callback");
@@ -126,13 +126,13 @@ class Collide {
     std::int32_t A;
     rp_letters_union() noexcept {}
   };
-  ::rapidproto::MapView<FooEntry_> m_foo;
   std::int32_t m_x;
   std::int32_t m_has_x;
   rp_pick_union m_rp_pick;
   std::int32_t m_pick_case;
   rp_letters_union m_rp_letters;
   std::int32_t m_decode_;
+  ::rapidproto::ArenaArray<FooEntry_> m_foo;
   std::uint8_t m_rp_pick_case;
   std::uint8_t m_rp_letters_case;
   std::uint8_t m_rp_mask;
@@ -240,7 +240,7 @@ RP_FLATTEN inline bool Collide::rp_decode_into([[maybe_unused]] Collide& out, ::
               const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_ec, rp_ee, &rp_v, &rp_we);
               if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_ec - ::rapidproto::wire::byte_ptr(rp_ent))); return false; }
               rp_ec = rp_np;
-              rp_slot->rp_key = ::rapidproto::ArenaString::make(rp_v, arena);
+              ::rapidproto::ArenaString::store(&rp_slot->rp_key, rp_v);
             } else if (rp_et.field_number == 2 && rp_et.wire_type == ::rapidproto::WireType::Varint) {
               std::uint64_t rp_raw = 0;
               const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_ec, rp_ee, &rp_raw, &rp_we);
@@ -313,11 +313,13 @@ RP_FLATTEN inline bool Collide::rp_decode_into([[maybe_unused]] Collide& out, ::
     if (rp_sp == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo); return false; }
     rp_c = rp_sp;
   }
-  out.m_foo = ::rapidproto::MapView<FooEntry_>(::rapidproto::ArrayView<FooEntry_>(rp_acc_foo, rp_n_foo));
+  ::rapidproto::ArenaArray<FooEntry_>::store(&out.m_foo, rp_acc_foo, rp_n_foo);
   return true;
 }
 inline const Collide* Collide::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
+  input = arena.adopt_input(input);
+  if (input.data() == nullptr && input.size() != 0) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   Collide* const rp_root = arena.create<Collide>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
@@ -365,6 +367,8 @@ RP_FLATTEN inline bool Collide::FooEntry::rp_decode_into([[maybe_unused]] Collid
 }
 inline const Collide::FooEntry* Collide::FooEntry::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
+  input = arena.adopt_input(input);
+  if (input.data() == nullptr && input.size() != 0) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   Collide::FooEntry* const rp_root = arena.create<Collide::FooEntry>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }

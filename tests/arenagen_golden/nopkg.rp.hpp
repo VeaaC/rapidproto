@@ -26,13 +26,13 @@ class Root {
     std::int32_t m_y;
   };
   const ::Root::Sub* sub() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? &m_sub : nullptr; }
-  const ::Root* self() const noexcept { return m_self; }
+  const ::Root* self() const noexcept { return m_self.get(); }
   [[nodiscard]] static const Root* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
   static bool rp_decode_into(Root& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
-  const ::Root* m_self;
   ::Root::Sub m_sub;
+  ::rapidproto::ArenaPtr<::Root> m_self;
   std::uint8_t m_rp_mask;
 };
 static_assert(::std::is_trivially_destructible_v<Root>);
@@ -62,13 +62,13 @@ RP_FLATTEN inline bool Root::rp_decode_into([[maybe_unused]] Root& out, ::rapidp
       continue;
     }
     rp_do_2: {
-      if (out.m_self != nullptr) { ::rapidproto::rp_fail_repeated_singular(err, 2); return false; }
+      if (out.m_self.is_set()) { ::rapidproto::rp_fail_repeated_singular(err, 2); return false; }
       ::rapidproto::ByteView rp_v;
       { const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_v, &rp_we); if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; } rp_c = rp_np; }
       ::Root* const rp_sub = arena.create<::Root>();
       if (rp_sub == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }
       if (!::rapidproto::arena_detail::decode_into(*rp_sub, rp_v, arena, depth + 1, err)) { return false; }
-      out.m_self = rp_sub;
+      ::rapidproto::ArenaPtr<::Root>::store(&out.m_self, rp_sub);
       continue;
     }
     rp_field_general:;
@@ -91,6 +91,8 @@ RP_FLATTEN inline bool Root::rp_decode_into([[maybe_unused]] Root& out, ::rapidp
 }
 inline const Root* Root::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
+  input = arena.adopt_input(input);
+  if (input.data() == nullptr && input.size() != 0) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   Root* const rp_root = arena.create<Root>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
@@ -138,6 +140,8 @@ RP_FLATTEN inline bool Root::Sub::rp_decode_into([[maybe_unused]] Root::Sub& out
 }
 inline const Root::Sub* Root::Sub::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
+  input = arena.adopt_input(input);
+  if (input.data() == nullptr && input.size() != 0) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   Root::Sub* const rp_root = arena.create<Root::Sub>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }

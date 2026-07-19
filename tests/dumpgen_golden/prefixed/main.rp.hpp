@@ -35,8 +35,8 @@ class Main {
   const ::rp::pub::Pub* p() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 1)) != 0 ? &m_p : nullptr; }
   const ::rp::fwd::Fwd* f() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 2)) != 0 ? &m_f : nullptr; }
   std::optional<::rp::dep::DepEnum> e() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 3)) != 0 ? std::optional<::rp::dep::DepEnum>(m_e) : std::nullopt; }
-  ::rapidproto::ArrayView<::rp::dep::Dep> ds() const noexcept { return m_ds; }
-  ::rapidproto::MapView<DmEntry> dm() const noexcept { return m_dm; }
+  ::rapidproto::ArrayView<::rp::dep::Dep> ds() const noexcept { return m_ds.view(); }
+  ::rapidproto::MapView<DmEntry> dm() const noexcept { return ::rapidproto::MapView<DmEntry>(m_dm.view()); }
   template <class... RpFs> void choice(RpFs&&... rp_fs) const {
     static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<RpFs, Choice::od, typename Choice::od::Value>)) <= 1U, "oneof member 'od' is handled by more than one callback");
     static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<RpFs, Choice::od, typename Choice::od::Value>)) <= 1U, "oneof member 'od' is matched by more than one catch-all callback");
@@ -79,12 +79,12 @@ class Main {
     rp_choice_union() noexcept {}
   };
   ::rp::dep::Dep m_d;
-  ::rapidproto::ArrayView<::rp::dep::Dep> m_ds;
-  ::rapidproto::MapView<DmEntry> m_dm;
   rp_choice_union m_rp_choice;
   ::rp::pub::Pub m_p;
   ::rp::fwd::Fwd m_f;
   ::rp::dep::DepEnum m_e;
+  ::rapidproto::ArenaArray<::rp::dep::Dep> m_ds;
+  ::rapidproto::ArenaArray<DmEntry> m_dm;
   std::uint8_t m_rp_choice_case;
   std::uint8_t m_rp_mask;
 };
@@ -265,12 +265,14 @@ RP_FLATTEN inline bool Main::rp_decode_into([[maybe_unused]] Main& out, ::rapidp
     if (rp_sp == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo); return false; }
     rp_c = rp_sp;
   }
-  out.m_ds = ::rapidproto::ArrayView<::rp::dep::Dep>(rp_acc_ds, rp_n_ds);
-  out.m_dm = ::rapidproto::MapView<DmEntry>(::rapidproto::ArrayView<DmEntry>(rp_acc_dm, rp_n_dm));
+  ::rapidproto::ArenaArray<::rp::dep::Dep>::store(&out.m_ds, rp_acc_ds, rp_n_ds);
+  ::rapidproto::ArenaArray<DmEntry>::store(&out.m_dm, rp_acc_dm, rp_n_dm);
   return true;
 }
 inline const Main* Main::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
+  input = arena.adopt_input(input);
+  if (input.data() == nullptr && input.size() != 0) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   Main* const rp_root = arena.create<Main>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
