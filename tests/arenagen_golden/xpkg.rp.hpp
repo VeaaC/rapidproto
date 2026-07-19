@@ -18,12 +18,12 @@ class Ref;
 
 class Ref {
  public:
-  const ::com::example::deep::Outer* target() const noexcept { return m_target; }
+  const ::com::example::deep::Outer* target() const noexcept { return m_target.get(); }
   [[nodiscard]] static const Ref* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
   static bool rp_decode_into(Ref& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
-  const ::com::example::deep::Outer* m_target;
+  ::rapidproto::ArenaPtr<::com::example::deep::Outer> m_target;
 };
 static_assert(::std::is_trivially_destructible_v<Ref>);
 
@@ -42,13 +42,13 @@ RP_FLATTEN inline bool Ref::rp_decode_into([[maybe_unused]] Ref& out, ::rapidpro
     }
     goto rp_field_general;
     rp_do_1: {
-      if (out.m_target != nullptr) { ::rapidproto::rp_fail_repeated_singular(err, 1); return false; }
+      if (out.m_target.is_set()) { ::rapidproto::rp_fail_repeated_singular(err, 1); return false; }
       ::rapidproto::ByteView rp_v;
       { const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_v, &rp_we); if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; } rp_c = rp_np; }
       ::com::example::deep::Outer* const rp_sub = arena.create<::com::example::deep::Outer>();
       if (rp_sub == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }
       if (!::rapidproto::arena_detail::decode_into(*rp_sub, rp_v, arena, depth + 1, err)) { return false; }
-      out.m_target = rp_sub;
+      ::rapidproto::ArenaPtr<::com::example::deep::Outer>::store(&out.m_target, rp_sub);
       continue;
     }
     rp_field_general:;
@@ -70,6 +70,8 @@ RP_FLATTEN inline bool Ref::rp_decode_into([[maybe_unused]] Ref& out, ::rapidpro
 }
 inline const Ref* Ref::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
+  input = arena.adopt_input(input);
+  if (input.data() == nullptr && input.size() != 0) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   Ref* const rp_root = arena.create<Ref>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }

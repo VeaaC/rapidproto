@@ -35,8 +35,8 @@ class Scalars {
   std::optional<float> fl() const noexcept { return (m_rp_mask & (std::uint16_t{1} << 13)) != 0 ? std::optional<float>(m_fl) : std::nullopt; }
   std::optional<double> db() const noexcept { return (m_rp_mask & (std::uint16_t{1} << 14)) != 0 ? std::optional<double>(m_db) : std::nullopt; }
   std::optional<::p2::Color> color() const noexcept { return (m_rp_mask & (std::uint16_t{1} << 15)) != 0 ? std::optional<::p2::Color>(m_color) : std::nullopt; }
-  ::rapidproto::ArrayView<std::int32_t> packed_nums() const noexcept { return m_packed_nums; }
-  ::rapidproto::ArrayView<std::int32_t> expanded_nums() const noexcept { return m_expanded_nums; }
+  ::rapidproto::ArrayView<std::int32_t> packed_nums() const noexcept { return m_packed_nums.view(); }
+  ::rapidproto::ArrayView<std::int32_t> expanded_nums() const noexcept { return m_expanded_nums.view(); }
   [[nodiscard]] static const Scalars* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
@@ -47,10 +47,6 @@ class Scalars {
   std::uint64_t m_f64;
   std::int64_t m_sf64;
   double m_db;
-  ::rapidproto::ArenaString m_s;
-  ::rapidproto::ArenaString m_by;
-  ::rapidproto::ArrayView<std::int32_t> m_packed_nums;
-  ::rapidproto::ArrayView<std::int32_t> m_expanded_nums;
   std::int32_t m_i32;
   std::uint32_t m_u32;
   std::int32_t m_s32;
@@ -59,6 +55,10 @@ class Scalars {
   float m_fl;
   ::p2::Color m_color;
   std::uint16_t m_rp_mask;
+  ::rapidproto::ArenaString m_s;
+  ::rapidproto::ArenaString m_by;
+  ::rapidproto::ArenaArray<std::int32_t> m_packed_nums;
+  ::rapidproto::ArenaArray<std::int32_t> m_expanded_nums;
 };
 static_assert(::std::is_trivially_destructible_v<Scalars>);
 
@@ -119,8 +119,8 @@ class Container {
     const ::p2::Container::Nested* value() const noexcept { return &rp_value; }
     friend class Container;
    private:
-    ::rapidproto::ArenaString rp_key;
     ::p2::Container::Nested rp_value;
+    ::rapidproto::ArenaString rp_key;
   };
   struct By_idEntry {
     std::int32_t key() const noexcept { return rp_key; }
@@ -130,9 +130,9 @@ class Container {
     std::int32_t rp_key;
     ::p2::Color rp_value;
   };
-  ::rapidproto::ArrayView<::p2::Container::Nested> items() const noexcept { return m_items; }
-  ::rapidproto::MapView<By_nameEntry> by_name() const noexcept { return m_by_name; }
-  ::rapidproto::MapView<By_idEntry> by_id() const noexcept { return m_by_id; }
+  ::rapidproto::ArrayView<::p2::Container::Nested> items() const noexcept { return m_items.view(); }
+  ::rapidproto::MapView<By_nameEntry> by_name() const noexcept { return ::rapidproto::MapView<By_nameEntry>(m_by_name.view()); }
+  ::rapidproto::MapView<By_idEntry> by_id() const noexcept { return ::rapidproto::MapView<By_idEntry>(m_by_id.view()); }
   template <class... RpFs> void choice(RpFs&&... rp_fs) const {
     static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<RpFs, Choice::ci, typename Choice::ci::Value>)) <= 1U, "oneof member 'ci' is handled by more than one callback");
     static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<RpFs, Choice::ci, typename Choice::ci::Value>)) <= 1U, "oneof member 'ci' is matched by more than one catch-all callback");
@@ -174,10 +174,10 @@ class Container {
     ::p2::Container::Nested cn;
     rp_choice_union() noexcept {}
   };
-  ::rapidproto::MapView<By_nameEntry> m_by_name;
-  ::rapidproto::MapView<By_idEntry> m_by_id;
-  ::rapidproto::ArrayView<::p2::Container::Nested> m_items;
   rp_choice_union m_rp_choice;
+  ::rapidproto::ArenaArray<By_nameEntry> m_by_name;
+  ::rapidproto::ArenaArray<By_idEntry> m_by_id;
+  ::rapidproto::ArenaArray<::p2::Container::Nested> m_items;
   std::uint8_t m_rp_choice_case;
 };
 static_assert(::std::is_trivially_destructible_v<Container>);
@@ -364,7 +364,7 @@ RP_FLATTEN inline bool Scalars::rp_decode_into([[maybe_unused]] Scalars& out, ::
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_v, &rp_we);
       if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
       rp_c = rp_np;
-      out.m_s = ::rapidproto::ArenaString::make(rp_v, arena);
+      ::rapidproto::ArenaString::store(&out.m_s, rp_v);
       out.m_rp_mask = static_cast<std::uint16_t>(out.m_rp_mask | (std::uint16_t{1} << 11));
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(13, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_13; }
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(14, ::rapidproto::WireType::I32)) { ++rp_c; goto rp_do_14; }
@@ -375,7 +375,7 @@ RP_FLATTEN inline bool Scalars::rp_decode_into([[maybe_unused]] Scalars& out, ::
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_v, &rp_we);
       if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
       rp_c = rp_np;
-      out.m_by = ::rapidproto::ArenaString::make(rp_v, arena);
+      ::rapidproto::ArenaString::store(&out.m_by, rp_v);
       out.m_rp_mask = static_cast<std::uint16_t>(out.m_rp_mask | (std::uint16_t{1} << 12));
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(14, ::rapidproto::WireType::I32)) { ++rp_c; goto rp_do_14; }
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(15, ::rapidproto::WireType::I64)) { ++rp_c; goto rp_do_15; }
@@ -521,13 +521,15 @@ RP_FLATTEN inline bool Scalars::rp_decode_into([[maybe_unused]] Scalars& out, ::
     if (rp_sp == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo); return false; }
     rp_c = rp_sp;
   }
-  out.m_packed_nums = ::rapidproto::ArrayView<std::int32_t>(rp_acc_packed_nums, rp_n_packed_nums);
-  out.m_expanded_nums = ::rapidproto::ArrayView<std::int32_t>(rp_acc_expanded_nums, rp_n_expanded_nums);
+  ::rapidproto::ArenaArray<std::int32_t>::store(&out.m_packed_nums, rp_acc_packed_nums, rp_n_packed_nums);
+  ::rapidproto::ArenaArray<std::int32_t>::store(&out.m_expanded_nums, rp_acc_expanded_nums, rp_n_expanded_nums);
   if ((rp_req & (std::uint64_t{1} << 0)) == 0) { ::rapidproto::rp_fail_missing_required(err, 1); return false; }
   return true;
 }
 inline const Scalars* Scalars::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
+  input = arena.adopt_input(input);
+  if (input.data() == nullptr && input.size() != 0) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   Scalars* const rp_root = arena.create<Scalars>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
@@ -570,6 +572,8 @@ RP_FLATTEN inline bool WithGroup::rp_decode_into([[maybe_unused]] WithGroup& out
 }
 inline const WithGroup* WithGroup::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
+  input = arena.adopt_input(input);
+  if (input.data() == nullptr && input.size() != 0) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   WithGroup* const rp_root = arena.create<WithGroup>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
@@ -629,6 +633,8 @@ RP_FLATTEN inline bool WithGroup::MyGroup::rp_decode_into([[maybe_unused]] WithG
 }
 inline const WithGroup::MyGroup* WithGroup::MyGroup::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
+  input = arena.adopt_input(input);
+  if (input.data() == nullptr && input.size() != 0) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   WithGroup::MyGroup* const rp_root = arena.create<WithGroup::MyGroup>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
@@ -676,6 +682,8 @@ RP_FLATTEN inline bool WithGroup::MyGroup::Inner::rp_decode_into([[maybe_unused]
 }
 inline const WithGroup::MyGroup::Inner* WithGroup::MyGroup::Inner::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
+  input = arena.adopt_input(input);
+  if (input.data() == nullptr && input.size() != 0) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   WithGroup::MyGroup::Inner* const rp_root = arena.create<WithGroup::MyGroup::Inner>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
@@ -777,7 +785,7 @@ RP_FLATTEN inline bool Container::rp_decode_into([[maybe_unused]] Container& out
               const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_ec, rp_ee, &rp_v, &rp_we);
               if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_ec - ::rapidproto::wire::byte_ptr(rp_ent))); return false; }
               rp_ec = rp_np;
-              rp_slot->rp_key = ::rapidproto::ArenaString::make(rp_v, arena);
+              ::rapidproto::ArenaString::store(&rp_slot->rp_key, rp_v);
             } else if (rp_et.field_number == 2 && rp_et.wire_type == ::rapidproto::WireType::Len) {
               ::rapidproto::ByteView rp_v;
               { const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_ec, rp_ee, &rp_v, &rp_we); if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_ec - ::rapidproto::wire::byte_ptr(rp_ent))); return false; } rp_ec = rp_np; }
@@ -862,13 +870,15 @@ RP_FLATTEN inline bool Container::rp_decode_into([[maybe_unused]] Container& out
     if (rp_sp == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo); return false; }
     rp_c = rp_sp;
   }
-  out.m_items = ::rapidproto::ArrayView<::p2::Container::Nested>(rp_acc_items, rp_n_items);
-  out.m_by_name = ::rapidproto::MapView<By_nameEntry>(::rapidproto::ArrayView<By_nameEntry>(rp_acc_by_name, rp_n_by_name));
-  out.m_by_id = ::rapidproto::MapView<By_idEntry>(::rapidproto::ArrayView<By_idEntry>(rp_acc_by_id, rp_n_by_id));
+  ::rapidproto::ArenaArray<::p2::Container::Nested>::store(&out.m_items, rp_acc_items, rp_n_items);
+  ::rapidproto::ArenaArray<By_nameEntry>::store(&out.m_by_name, rp_acc_by_name, rp_n_by_name);
+  ::rapidproto::ArenaArray<By_idEntry>::store(&out.m_by_id, rp_acc_by_id, rp_n_by_id);
   return true;
 }
 inline const Container* Container::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
+  input = arena.adopt_input(input);
+  if (input.data() == nullptr && input.size() != 0) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   Container* const rp_root = arena.create<Container>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
@@ -917,6 +927,8 @@ RP_FLATTEN inline bool Container::Nested::rp_decode_into([[maybe_unused]] Contai
 }
 inline const Container::Nested* Container::Nested::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
+  input = arena.adopt_input(input);
+  if (input.data() == nullptr && input.size() != 0) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   Container::Nested* const rp_root = arena.create<Container::Nested>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }

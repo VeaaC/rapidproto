@@ -1043,6 +1043,8 @@ RP_FLATTEN inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequire
 }
 inline const ManyRequired* ManyRequired::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
+  input = arena.adopt_input(input);
+  if (input.data() == nullptr && input.size() != 0) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   ManyRequired* const rp_root = arena.create<ManyRequired>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }

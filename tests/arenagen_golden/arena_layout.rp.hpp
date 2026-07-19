@@ -72,14 +72,14 @@ static_assert(::std::is_trivially_destructible_v<BoolWrap>);
 
 class SelfRef {
  public:
-  const ::al::SelfRef* next() const noexcept { return m_next; }
+  const ::al::SelfRef* next() const noexcept { return m_next.get(); }
   std::int32_t v() const noexcept { return m_v; }
   [[nodiscard]] static const SelfRef* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
   static bool rp_decode_into(SelfRef& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
-  const ::al::SelfRef* m_next;
   std::int32_t m_v;
+  ::rapidproto::ArenaPtr<::al::SelfRef> m_next;
 };
 static_assert(::std::is_trivially_destructible_v<SelfRef>);
 
@@ -95,8 +95,8 @@ class Layout {
     std::int32_t value() const noexcept { return rp_value; }
     friend class Layout;
    private:
-    ::rapidproto::ArenaString rp_key;
     std::int32_t rp_value;
+    ::rapidproto::ArenaString rp_key;
   };
   struct GridEntry {
     std::int32_t key() const noexcept { return rp_key; }
@@ -115,14 +115,14 @@ class Layout {
   std::optional<std::string_view> oname() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 3)) != 0 ? std::optional<std::string_view>(m_oname.view()) : std::nullopt; }
   ::al::Color color() const noexcept { return m_color; }
   const ::al::Point* pt() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 4)) != 0 ? &m_pt : nullptr; }
-  const ::al::Big* bg() const noexcept { return m_bg; }
-  const ::al::HasString* hs() const noexcept { return m_hs; }
+  const ::al::Big* bg() const noexcept { return m_bg.get(); }
+  const ::al::HasString* hs() const noexcept { return m_hs.get(); }
   const ::al::BoolWrap* flag() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 5)) != 0 ? &m_flag : nullptr; }
-  ::rapidproto::ArrayView<std::int32_t> nums() const noexcept { return m_nums; }
-  ::rapidproto::ArrayView<::al::Point> points() const noexcept { return m_points; }
-  ::rapidproto::StringArrayView labels() const noexcept { return ::rapidproto::StringArrayView(m_labels); }
-  ::rapidproto::MapView<CountsEntry> counts() const noexcept { return m_counts; }
-  ::rapidproto::MapView<GridEntry> grid() const noexcept { return m_grid; }
+  ::rapidproto::ArrayView<std::int32_t> nums() const noexcept { return m_nums.view(); }
+  ::rapidproto::ArrayView<::al::Point> points() const noexcept { return m_points.view(); }
+  ::rapidproto::StringArrayView labels() const noexcept { return ::rapidproto::StringArrayView(m_labels.view()); }
+  ::rapidproto::MapView<CountsEntry> counts() const noexcept { return ::rapidproto::MapView<CountsEntry>(m_counts.view()); }
+  ::rapidproto::MapView<GridEntry> grid() const noexcept { return ::rapidproto::MapView<GridEntry>(m_grid.view()); }
   template <class... RpFs> void choice(RpFs&&... rp_fs) const {
     static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<RpFs, Choice::ci, typename Choice::ci::Value>)) <= 1U, "oneof member 'ci' is handled by more than one callback");
     static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<RpFs, Choice::ci, typename Choice::ci::Value>)) <= 1U, "oneof member 'ci' is matched by more than one catch-all callback");
@@ -175,20 +175,20 @@ class Layout {
     rp_choice_union() noexcept {}
   };
   std::int64_t m_big;
-  const ::al::Big* m_bg;
-  const ::al::HasString* m_hs;
-  ::rapidproto::ArenaString m_name;
-  ::rapidproto::ArenaString m_oname;
-  ::rapidproto::ArrayView<std::int32_t> m_nums;
-  ::rapidproto::ArrayView<::al::Point> m_points;
-  ::rapidproto::MapView<CountsEntry> m_counts;
-  ::rapidproto::MapView<GridEntry> m_grid;
   rp_choice_union m_rp_choice;
-  ::rapidproto::ArrayView<::rapidproto::ArenaString> m_labels;
   ::al::Point m_pt;
   std::int32_t m_small;
   std::int32_t m_opt;
   ::al::Color m_color;
+  ::rapidproto::ArenaString m_name;
+  ::rapidproto::ArenaString m_oname;
+  ::rapidproto::ArenaArray<std::int32_t> m_nums;
+  ::rapidproto::ArenaArray<::al::Point> m_points;
+  ::rapidproto::ArenaArray<CountsEntry> m_counts;
+  ::rapidproto::ArenaArray<GridEntry> m_grid;
+  ::rapidproto::ArenaArray<::rapidproto::ArenaString> m_labels;
+  ::rapidproto::ArenaPtr<::al::Big> m_bg;
+  ::rapidproto::ArenaPtr<::al::HasString> m_hs;
   ::al::BoolWrap m_flag;
   std::uint8_t m_rp_choice_case;
   std::uint8_t m_rp_mask;
@@ -247,6 +247,8 @@ RP_FLATTEN inline bool Point::rp_decode_into([[maybe_unused]] Point& out, ::rapi
 }
 inline const Point* Point::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
+  input = arena.adopt_input(input);
+  if (input.data() == nullptr && input.size() != 0) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   Point* const rp_root = arena.create<Point>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
@@ -317,6 +319,8 @@ RP_FLATTEN inline bool Big::rp_decode_into([[maybe_unused]] Big& out, ::rapidpro
 }
 inline const Big* Big::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
+  input = arena.adopt_input(input);
+  if (input.data() == nullptr && input.size() != 0) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   Big* const rp_root = arena.create<Big>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
@@ -342,7 +346,7 @@ RP_FLATTEN inline bool HasString::rp_decode_into([[maybe_unused]] HasString& out
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_v, &rp_we);
       if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
       rp_c = rp_np;
-      out.m_s = ::rapidproto::ArenaString::make(rp_v, arena);
+      ::rapidproto::ArenaString::store(&out.m_s, rp_v);
       continue;
     }
     rp_field_general:;
@@ -364,6 +368,8 @@ RP_FLATTEN inline bool HasString::rp_decode_into([[maybe_unused]] HasString& out
 }
 inline const HasString* HasString::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
+  input = arena.adopt_input(input);
+  if (input.data() == nullptr && input.size() != 0) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   HasString* const rp_root = arena.create<HasString>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
@@ -410,6 +416,8 @@ RP_FLATTEN inline bool BoolWrap::rp_decode_into([[maybe_unused]] BoolWrap& out, 
 }
 inline const BoolWrap* BoolWrap::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
+  input = arena.adopt_input(input);
+  if (input.data() == nullptr && input.size() != 0) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   BoolWrap* const rp_root = arena.create<BoolWrap>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
@@ -432,13 +440,13 @@ RP_FLATTEN inline bool SelfRef::rp_decode_into([[maybe_unused]] SelfRef& out, ::
     }
     goto rp_field_general;
     rp_do_1: {
-      if (out.m_next != nullptr) { ::rapidproto::rp_fail_repeated_singular(err, 1); return false; }
+      if (out.m_next.is_set()) { ::rapidproto::rp_fail_repeated_singular(err, 1); return false; }
       ::rapidproto::ByteView rp_v;
       { const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_v, &rp_we); if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; } rp_c = rp_np; }
       ::al::SelfRef* const rp_sub = arena.create<::al::SelfRef>();
       if (rp_sub == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }
       if (!::rapidproto::arena_detail::decode_into(*rp_sub, rp_v, arena, depth + 1, err)) { return false; }
-      out.m_next = rp_sub;
+      ::rapidproto::ArenaPtr<::al::SelfRef>::store(&out.m_next, rp_sub);
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(2, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_2; }
       continue;
     }
@@ -470,6 +478,8 @@ RP_FLATTEN inline bool SelfRef::rp_decode_into([[maybe_unused]] SelfRef& out, ::
 }
 inline const SelfRef* SelfRef::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
+  input = arena.adopt_input(input);
+  if (input.data() == nullptr && input.size() != 0) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   SelfRef* const rp_root = arena.create<SelfRef>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
@@ -628,7 +638,7 @@ RP_FLATTEN inline bool Layout::rp_decode_into([[maybe_unused]] Layout& out, ::ra
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_v, &rp_we);
       if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
       rp_c = rp_np;
-      out.m_name = ::rapidproto::ArenaString::make(rp_v, arena);
+      ::rapidproto::ArenaString::store(&out.m_name, rp_v);
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(7, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_7; }
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(8, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_8; }
       continue;
@@ -638,7 +648,7 @@ RP_FLATTEN inline bool Layout::rp_decode_into([[maybe_unused]] Layout& out, ::ra
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_v, &rp_we);
       if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
       rp_c = rp_np;
-      out.m_oname = ::rapidproto::ArenaString::make(rp_v, arena);
+      ::rapidproto::ArenaString::store(&out.m_oname, rp_v);
       out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 3));
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(8, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_8; }
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(9, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_9; }
@@ -665,25 +675,25 @@ RP_FLATTEN inline bool Layout::rp_decode_into([[maybe_unused]] Layout& out, ::ra
       continue;
     }
     rp_do_10: {
-      if (out.m_bg != nullptr) { ::rapidproto::rp_fail_repeated_singular(err, 10); return false; }
+      if (out.m_bg.is_set()) { ::rapidproto::rp_fail_repeated_singular(err, 10); return false; }
       ::rapidproto::ByteView rp_v;
       { const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_v, &rp_we); if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; } rp_c = rp_np; }
       ::al::Big* const rp_sub = arena.create<::al::Big>();
       if (rp_sub == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }
       if (!::rapidproto::arena_detail::decode_into(*rp_sub, rp_v, arena, depth + 1, err)) { return false; }
-      out.m_bg = rp_sub;
+      ::rapidproto::ArenaPtr<::al::Big>::store(&out.m_bg, rp_sub);
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(11, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_11; }
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(12, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_12; }
       continue;
     }
     rp_do_11: {
-      if (out.m_hs != nullptr) { ::rapidproto::rp_fail_repeated_singular(err, 11); return false; }
+      if (out.m_hs.is_set()) { ::rapidproto::rp_fail_repeated_singular(err, 11); return false; }
       ::rapidproto::ByteView rp_v;
       { const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_v, &rp_we); if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; } rp_c = rp_np; }
       ::al::HasString* const rp_sub = arena.create<::al::HasString>();
       if (rp_sub == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }
       if (!::rapidproto::arena_detail::decode_into(*rp_sub, rp_v, arena, depth + 1, err)) { return false; }
-      out.m_hs = rp_sub;
+      ::rapidproto::ArenaPtr<::al::HasString>::store(&out.m_hs, rp_sub);
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(12, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_12; }
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(13, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_13; }
       continue;
@@ -777,7 +787,7 @@ RP_FLATTEN inline bool Layout::rp_decode_into([[maybe_unused]] Layout& out, ::ra
           const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_v, &rp_we);
           if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
           rp_c = rp_np;
-          *rp_slot = ::rapidproto::ArenaString::make(rp_v, arena);
+          ::rapidproto::ArenaString::store(&*rp_slot, rp_v);
           continue;
         }
         break;
@@ -803,7 +813,7 @@ RP_FLATTEN inline bool Layout::rp_decode_into([[maybe_unused]] Layout& out, ::ra
               const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_ec, rp_ee, &rp_v, &rp_we);
               if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_ec - ::rapidproto::wire::byte_ptr(rp_ent))); return false; }
               rp_ec = rp_np;
-              rp_slot->rp_key = ::rapidproto::ArenaString::make(rp_v, arena);
+              ::rapidproto::ArenaString::store(&rp_slot->rp_key, rp_v);
             } else if (rp_et.field_number == 2 && rp_et.wire_type == ::rapidproto::WireType::Varint) {
               std::uint64_t rp_raw = 0;
               const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_ec, rp_ee, &rp_raw, &rp_we);
@@ -876,7 +886,7 @@ RP_FLATTEN inline bool Layout::rp_decode_into([[maybe_unused]] Layout& out, ::ra
           const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_v, &rp_we);
           if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
           rp_c = rp_np;
-          out.m_rp_choice.cs = ::rapidproto::ArenaString::make(rp_v, arena);
+          ::rapidproto::ArenaString::store(&out.m_rp_choice.cs, rp_v);
           out.m_rp_choice_case = 2;
           continue;
         }
@@ -900,15 +910,17 @@ RP_FLATTEN inline bool Layout::rp_decode_into([[maybe_unused]] Layout& out, ::ra
     if (rp_sp == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo); return false; }
     rp_c = rp_sp;
   }
-  out.m_nums = ::rapidproto::ArrayView<std::int32_t>(rp_acc_nums, rp_n_nums);
-  out.m_points = ::rapidproto::ArrayView<::al::Point>(rp_acc_points, rp_n_points);
-  out.m_labels = ::rapidproto::ArrayView<::rapidproto::ArenaString>(rp_acc_labels, rp_n_labels);
-  out.m_counts = ::rapidproto::MapView<CountsEntry>(::rapidproto::ArrayView<CountsEntry>(rp_acc_counts, rp_n_counts));
-  out.m_grid = ::rapidproto::MapView<GridEntry>(::rapidproto::ArrayView<GridEntry>(rp_acc_grid, rp_n_grid));
+  ::rapidproto::ArenaArray<std::int32_t>::store(&out.m_nums, rp_acc_nums, rp_n_nums);
+  ::rapidproto::ArenaArray<::al::Point>::store(&out.m_points, rp_acc_points, rp_n_points);
+  ::rapidproto::ArenaArray<::rapidproto::ArenaString>::store(&out.m_labels, rp_acc_labels, rp_n_labels);
+  ::rapidproto::ArenaArray<CountsEntry>::store(&out.m_counts, rp_acc_counts, rp_n_counts);
+  ::rapidproto::ArenaArray<GridEntry>::store(&out.m_grid, rp_acc_grid, rp_n_grid);
   return true;
 }
 inline const Layout* Layout::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
+  input = arena.adopt_input(input);
+  if (input.data() == nullptr && input.size() != 0) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   Layout* const rp_root = arena.create<Layout>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }

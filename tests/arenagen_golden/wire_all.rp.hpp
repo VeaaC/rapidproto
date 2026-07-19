@@ -37,8 +37,8 @@ class AllWire {
   std::optional<std::uint32_t> fx() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 2)) != 0 ? std::optional<std::uint32_t>(m_fx) : std::nullopt; }
   std::optional<std::string_view> s() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 3)) != 0 ? std::optional<std::string_view>(m_s.view()) : std::nullopt; }
   std::optional<std::string_view> by() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 4)) != 0 ? std::optional<std::string_view>(m_by.view()) : std::nullopt; }
-  const ::wire::AllWire* nested() const noexcept { return m_nested; }
-  ::rapidproto::ArrayView<std::int32_t> packed() const noexcept { return m_packed; }
+  const ::wire::AllWire* nested() const noexcept { return m_nested.get(); }
+  ::rapidproto::ArrayView<std::int32_t> packed() const noexcept { return m_packed.view(); }
   const ::wire::AllWire::G* g() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 5)) != 0 ? &m_g : nullptr; }
   template <class... RpFs> void pick(RpFs&&... rp_fs) const {
     static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<RpFs, Pick::oi, typename Pick::oi::Value>)) <= 1U, "oneof member 'oi' is handled by more than one callback");
@@ -83,13 +83,13 @@ class AllWire {
   };
   std::int64_t m_zz;
   double m_db;
-  const ::wire::AllWire* m_nested;
-  ::rapidproto::ArenaString m_s;
-  ::rapidproto::ArenaString m_by;
-  ::rapidproto::ArrayView<std::int32_t> m_packed;
   rp_pick_union m_rp_pick;
   ::wire::AllWire::G m_g;
   std::uint32_t m_fx;
+  ::rapidproto::ArenaString m_s;
+  ::rapidproto::ArenaString m_by;
+  ::rapidproto::ArenaArray<std::int32_t> m_packed;
+  ::rapidproto::ArenaPtr<::wire::AllWire> m_nested;
   std::uint8_t m_rp_pick_case;
   std::uint8_t m_rp_mask;
 };
@@ -168,7 +168,7 @@ RP_FLATTEN inline bool AllWire::rp_decode_into([[maybe_unused]] AllWire& out, ::
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_v, &rp_we);
       if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
       rp_c = rp_np;
-      out.m_s = ::rapidproto::ArenaString::make(rp_v, arena);
+      ::rapidproto::ArenaString::store(&out.m_s, rp_v);
       out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 3));
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(5, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_5; }
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(6, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_6; }
@@ -179,20 +179,20 @@ RP_FLATTEN inline bool AllWire::rp_decode_into([[maybe_unused]] AllWire& out, ::
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_v, &rp_we);
       if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
       rp_c = rp_np;
-      out.m_by = ::rapidproto::ArenaString::make(rp_v, arena);
+      ::rapidproto::ArenaString::store(&out.m_by, rp_v);
       out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 4));
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(6, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_6; }
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(7, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_7; }
       continue;
     }
     rp_do_6: {
-      if (out.m_nested != nullptr) { ::rapidproto::rp_fail_repeated_singular(err, 6); return false; }
+      if (out.m_nested.is_set()) { ::rapidproto::rp_fail_repeated_singular(err, 6); return false; }
       ::rapidproto::ByteView rp_v;
       { const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_v, &rp_we); if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; } rp_c = rp_np; }
       ::wire::AllWire* const rp_sub = arena.create<::wire::AllWire>();
       if (rp_sub == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }
       if (!::rapidproto::arena_detail::decode_into(*rp_sub, rp_v, arena, depth + 1, err)) { return false; }
-      out.m_nested = rp_sub;
+      ::rapidproto::ArenaPtr<::wire::AllWire>::store(&out.m_nested, rp_sub);
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(7, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_7; }
       continue;
     }
@@ -277,7 +277,7 @@ RP_FLATTEN inline bool AllWire::rp_decode_into([[maybe_unused]] AllWire& out, ::
           const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_v, &rp_we);
           if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
           rp_c = rp_np;
-          out.m_rp_pick.os = ::rapidproto::ArenaString::make(rp_v, arena);
+          ::rapidproto::ArenaString::store(&out.m_rp_pick.os, rp_v);
           out.m_rp_pick_case = 2;
           continue;
         }
@@ -290,11 +290,13 @@ RP_FLATTEN inline bool AllWire::rp_decode_into([[maybe_unused]] AllWire& out, ::
     if (rp_sp == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo); return false; }
     rp_c = rp_sp;
   }
-  out.m_packed = ::rapidproto::ArrayView<std::int32_t>(rp_acc_packed, rp_n_packed);
+  ::rapidproto::ArenaArray<std::int32_t>::store(&out.m_packed, rp_acc_packed, rp_n_packed);
   return true;
 }
 inline const AllWire* AllWire::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
+  input = arena.adopt_input(input);
+  if (input.data() == nullptr && input.size() != 0) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   AllWire* const rp_root = arena.create<AllWire>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
@@ -343,6 +345,8 @@ RP_FLATTEN inline bool AllWire::G::rp_decode_into([[maybe_unused]] AllWire::G& o
 }
 inline const AllWire::G* AllWire::G::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
+  input = arena.adopt_input(input);
+  if (input.data() == nullptr && input.size() != 0) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   AllWire::G* const rp_root = arena.create<AllWire::G>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }

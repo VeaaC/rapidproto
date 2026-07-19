@@ -18,13 +18,13 @@ class M;
 class M {
  public:
   std::optional<std::int32_t> a() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? std::optional<std::int32_t>(m_a) : std::nullopt; }
-  ::rapidproto::ArrayView<std::int32_t> b() const noexcept { return m_b; }
+  ::rapidproto::ArrayView<std::int32_t> b() const noexcept { return m_b.view(); }
   [[nodiscard]] static const M* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
   static bool rp_decode_into(M& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
-  ::rapidproto::ArrayView<std::int32_t> m_b;
   std::int32_t m_a;
+  ::rapidproto::ArenaArray<std::int32_t> m_b;
   std::uint8_t m_rp_mask;
 };
 static_assert(::std::is_trivially_destructible_v<M>);
@@ -123,11 +123,13 @@ RP_FLATTEN inline bool M::rp_decode_into([[maybe_unused]] M& out, ::rapidproto::
     if (rp_sp == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo); return false; }
     rp_c = rp_sp;
   }
-  out.m_b = ::rapidproto::ArrayView<std::int32_t>(rp_acc_b, rp_n_b);
+  ::rapidproto::ArenaArray<std::int32_t>::store(&out.m_b, rp_acc_b, rp_n_b);
   return true;
 }
 inline const M* M::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
+  input = arena.adopt_input(input);
+  if (input.data() == nullptr && input.size() != 0) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   M* const rp_root = arena.create<M>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }

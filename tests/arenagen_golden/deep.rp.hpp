@@ -28,15 +28,15 @@ class Outer {
     std::int32_t m_x;
   };
   const ::com::example::deep::Outer::Inner* inner() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? &m_inner : nullptr; }
-  const ::com::example::deep::Outer* self() const noexcept { return m_self; }
+  const ::com::example::deep::Outer* self() const noexcept { return m_self.get(); }
   ::com::example::deep::Mode mode() const noexcept { return m_mode; }
   [[nodiscard]] static const Outer* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
   static bool rp_decode_into(Outer& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
-  const ::com::example::deep::Outer* m_self;
   ::com::example::deep::Outer::Inner m_inner;
   ::com::example::deep::Mode m_mode;
+  ::rapidproto::ArenaPtr<::com::example::deep::Outer> m_self;
   std::uint8_t m_rp_mask;
 };
 static_assert(::std::is_trivially_destructible_v<Outer>);
@@ -68,13 +68,13 @@ RP_FLATTEN inline bool Outer::rp_decode_into([[maybe_unused]] Outer& out, ::rapi
       continue;
     }
     rp_do_2: {
-      if (out.m_self != nullptr) { ::rapidproto::rp_fail_repeated_singular(err, 2); return false; }
+      if (out.m_self.is_set()) { ::rapidproto::rp_fail_repeated_singular(err, 2); return false; }
       ::rapidproto::ByteView rp_v;
       { const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_v, &rp_we); if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; } rp_c = rp_np; }
       ::com::example::deep::Outer* const rp_sub = arena.create<::com::example::deep::Outer>();
       if (rp_sub == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }
       if (!::rapidproto::arena_detail::decode_into(*rp_sub, rp_v, arena, depth + 1, err)) { return false; }
-      out.m_self = rp_sub;
+      ::rapidproto::ArenaPtr<::com::example::deep::Outer>::store(&out.m_self, rp_sub);
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(3, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_3; }
       continue;
     }
@@ -107,6 +107,8 @@ RP_FLATTEN inline bool Outer::rp_decode_into([[maybe_unused]] Outer& out, ::rapi
 }
 inline const Outer* Outer::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
+  input = arena.adopt_input(input);
+  if (input.data() == nullptr && input.size() != 0) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   Outer* const rp_root = arena.create<Outer>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
@@ -154,6 +156,8 @@ RP_FLATTEN inline bool Outer::Inner::rp_decode_into([[maybe_unused]] Outer::Inne
 }
 inline const Outer::Inner* Outer::Inner::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
+  input = arena.adopt_input(input);
+  if (input.data() == nullptr && input.size() != 0) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   Outer::Inner* const rp_root = arena.create<Outer::Inner>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
