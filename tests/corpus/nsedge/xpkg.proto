@@ -1,0 +1,10 @@
+// A cross-file reference into a MULTI-COMPONENT package: the recursive call must be qualified with
+// the callee's full namespace, which differs from this file's own.
+syntax = "proto3";
+package other;
+
+import "deep.proto";
+
+message Ref {
+  com.example.deep.Outer target = 1;
+}

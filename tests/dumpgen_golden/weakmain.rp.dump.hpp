@@ -12,11 +12,9 @@
 #include "rapidproto/dump_runtime.hpp"
 #include "weakdep.rp.dump.hpp"
 
-namespace rapidproto::dump {
-
-}  // namespace rapidproto::dump
-
 namespace wm {
+
+namespace rp_dump_detail {
 
 inline void rp_dump_write(const ::wm::WMain& m, ::rapidproto::dump::Writer& w);
 
@@ -27,7 +25,7 @@ inline void rp_dump_write(const ::wm::WMain& m, ::rapidproto::dump::Writer& w) {
     if (const auto* rp_p = m.d()) {
       if (w.begin_field(rp_first, "d")) {
         w.push_path("d");
-        rp_dump_write(*rp_p, w);
+        ::wd::rp_dump_detail::rp_dump_write(*rp_p, w);
         w.pop_path();
       }
     }
@@ -35,10 +33,12 @@ inline void rp_dump_write(const ::wm::WMain& m, ::rapidproto::dump::Writer& w) {
   });
 }
 
+}  // namespace rp_dump_detail
+
 inline void rp_dump_write(std::ostream& rp_os, const ::wm::WMain& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   rp_os << std::boolalpha;
   ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  rp_dump_write(m, w);
+  ::wm::rp_dump_detail::rp_dump_write(m, w);
 }
 
 inline std::string rp_dump_string(const ::wm::WMain& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {

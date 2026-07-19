@@ -575,9 +575,10 @@ entry (additive when needed).
 
 The `dumpgen` emitter (`src/dumpgen/`) turns the AST into `<stem>.rp.dump.hpp`: per arena message
 `Foo` in namespace `pkg`, a pair of free functions that print a decoded arena tree as human-readable,
-JSON-*like* text — `pkg::rp_dump_write(std::ostream&, const Foo&, std::size_t width = 120)` and
-`pkg::rp_dump_string(const Foo&, ...)`. It's a **debugging aid**, explicitly not a spec-compliant JSON
-codec and not a wire serializer; `--dump` implies `--arena`, since the dumper reads the arena header.
+JSON-*like* text — `pkg::rp_dump_write(std::ostream&, const Foo&, const dump::DumpOptions& = {})` and
+`pkg::rp_dump_string(const Foo&, ...)`, where `DumpOptions` carries the line-width budget, a start
+indent, and the skip-paths. It's a **debugging aid**, explicitly not a spec-compliant JSON codec and
+not a wire serializer; `--dump` implies `--arena`, since the dumper reads the arena header.
 
 - **Accessors, not reflection.** The dumper walks the arena decoder's **public accessors** — no
   reflection, no `descriptor.proto` dependency. It reuses the arena's own `CppNameTable` (so accessor
@@ -602,8 +603,15 @@ codec and not a wire serializer; `--dump` implies `--arena`, since the dumper re
   `rapidproto/dump_runtime.hpp` (the JSON-string escaper, the hex encoder, and the `Writer`) is embedded
   into the CLI at build (`cmake/embed_runtime.cmake`, so it can't drift) and dropped into the out-dir
   beside the arena runtime on a `--dump` invocation, so a generated `<stem>.rp.dump.hpp` resolves its
-  `#include` standalone. The dumpers live in the message's own namespace, so the recursive
-  `rp_dump_write` and ADL both resolve.
+  `#include` standalone.
+- **Generated internals stay out of the public namespaces.** Only the two public entry points land in
+  the message's own namespace; the `Writer`-threaded core each one forwards to lives a level down, in
+  `pkg::rp_dump_detail`, and the generated enum value-name tables go to `rapidproto::dump::detail`
+  rather than the runtime's public `rapidproto::dump` (the `arena_detail` / `swar_detail` convention).
+  Because ADL never looks inside a sub-namespace, every recursive call — including cross-file ones like
+  `::dep::rp_dump_detail::rp_dump_write` — is emitted **fully qualified** instead of relying on
+  argument-dependent lookup. The callee's namespace is derived from its resolved type FQN by stripping
+  trailing components while the remainder is still a known type; what is left is the proto package.
 
 ## Shared emitter infrastructure
 

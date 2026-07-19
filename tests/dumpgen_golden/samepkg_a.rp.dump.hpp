@@ -12,11 +12,9 @@
 #include "rapidproto/dump_runtime.hpp"
 #include "samepkg_b.rp.dump.hpp"
 
-namespace rapidproto::dump {
-
-}  // namespace rapidproto::dump
-
 namespace samepkg {
+
+namespace rp_dump_detail {
 
 inline void rp_dump_write(const ::samepkg::FirstA& m, ::rapidproto::dump::Writer& w);
 
@@ -27,7 +25,7 @@ inline void rp_dump_write(const ::samepkg::FirstA& m, ::rapidproto::dump::Writer
     if (const auto* rp_p = m.b()) {
       if (w.begin_field(rp_first, "b")) {
         w.push_path("b");
-        rp_dump_write(*rp_p, w);
+        ::samepkg::rp_dump_detail::rp_dump_write(*rp_p, w);
         w.pop_path();
       }
     }
@@ -35,10 +33,12 @@ inline void rp_dump_write(const ::samepkg::FirstA& m, ::rapidproto::dump::Writer
   });
 }
 
+}  // namespace rp_dump_detail
+
 inline void rp_dump_write(std::ostream& rp_os, const ::samepkg::FirstA& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   rp_os << std::boolalpha;
   ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  rp_dump_write(m, w);
+  ::samepkg::rp_dump_detail::rp_dump_write(m, w);
 }
 
 inline std::string rp_dump_string(const ::samepkg::FirstA& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {

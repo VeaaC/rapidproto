@@ -28,6 +28,13 @@ namespace rapidproto::codegen {
 struct CppNameTable {
     std::unordered_map<std::string, std::string> absolute;  // type fqn -> "::a::b::Local"
     std::unordered_map<const void*, std::string> local;     // member node -> unqualified C++ id
+    // MESSAGE fqn -> the C++ namespace that message is emitted in, i.e. exactly the
+    // `message_namespace()` of its defining file (a nested message is a class, so it shares its
+    // top-level parent's namespace). Recorded here because it cannot be recovered from the FQN
+    // afterwards: nothing in `a.b.C` marks where the package stops and message nesting starts. A
+    // generator emitting a cross-file QUALIFIED call needs the callee's namespace exactly -- guessing
+    // it breaks when a package segment collides with a message name.
+    std::unordered_map<std::string, std::string> type_ns;
     std::string ns_prefix;  // C++ namespace prefix prepended to every file's package namespace
     // Per-model sub-namespace for TOP-LEVEL messages (the decoders), e.g. "stream", so the streaming
     // and arena types coexist in one TU; empty (the default / arena model) keeps messages at package

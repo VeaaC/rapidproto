@@ -30,6 +30,27 @@ using codegen::Printer;
 // consult, emit as declared" (nullptr) in the member lookup below. Never dereferenced.
 const arenagen::MemberPlan kDropped;
 
+// The sub-namespace holding a file's generated INTERNALS, so the message's own namespace exposes only
+// the two public entry points (rp_dump_write(ostream, ...) / rp_dump_string). The `_detail` naming
+// follows the runtime's own `arena_detail` / `swar_detail` / `dump::detail` convention.
+constexpr std::string_view kDetailNs = "rp_dump_detail";
+
+// The namespace a message type's CORE dumper (the Writer-threaded rp_dump_write) lives in: the
+// namespace its defining file emits it in, plus kDetailNs. Every recursive call is emitted fully
+// qualified against this -- the core no longer sits in the message's own namespace, and ADL never
+// looks inside a sub-namespace, so unqualified recursion would not find it.
+//
+// The namespace is read straight off the name table (`type_ns`, recorded when the type was indexed),
+// never derived from the FQN: an FQN does not say where the package stops and message nesting starts,
+// so any reconstruction breaks when a package segment collides with a message name -- and it would
+// silently drop `model_namespace`. This lookup is exact by construction, so it can never disagree
+// with the `message_namespace()` the header actually opens.
+std::string dump_detail_ns(const CppNameTable& names, const std::string& fqn) {
+    const auto it = names.type_ns.find(fqn);
+    return "::" +
+           codegen::join_ns(it != names.type_ns.end() ? it->second : names.ns_prefix, kDetailNs);
+}
+
 // How the debug writer must treat a field's VALUE, derived straight from the FieldNode (mirrors the
 // arena accessor's return-type categories).
 enum class ValueKind : std::uint8_t {
@@ -69,8 +90,12 @@ bool is_optional_accessor(const FieldNode& f) {
 // ── value writers (emit code that writes ONE already-obtained value `expr` to the Writer) ────────────
 
 // Write the statement(s) that render a single scalar/string/bytes/enum value `expr` (of the arena
-// accessor's element type) into `w`. Enums route through rp_dump_enum_name.
-void emit_write_value(Printer& p, ValueKind kind, const std::string& expr) {
+// accessor's element type) into `w`. Enums route through rp_dump_enum_name. `detail_ns` is the
+// callee's core-dumper namespace (see dump_detail_ns): required for -- and only used by -- the
+// Message arm, whose recursive call is emitted fully qualified. Passed explicitly (never defaulted)
+// so a new Message-capable call site can't silently emit a global-scope `::rp_dump_write`.
+void emit_write_value(Printer& p, ValueKind kind, const std::string& expr,
+                      const std::string& detail_ns) {
     switch (kind) {
         case ValueKind::Scalar:
             // bool prints as true/false via std::boolalpha (set once by the caller's ostream setup);
@@ -93,14 +118,14 @@ void emit_write_value(Printer& p, ValueKind kind, const std::string& expr) {
             // shared/thread-local buffer. Bind the value once so the accessor call isn't repeated.
             p.print("{ const auto rp_e = $e$;\n", {{"e", expr}});
             p.print(
-                "if (const char* rp_nm = ::rapidproto::dump::rp_dump_enum_name(rp_e)) {"
+                "if (const char* rp_nm = ::rapidproto::dump::detail::rp_dump_enum_name(rp_e)) {"
                 " w.os() << '\"' << rp_nm << '\"'; }\n");
             p.print(
                 "else { w.os() << \"\\\"UNKNOWN(\""
                 " << static_cast<std::int32_t>(rp_e) << \")\\\"\"; } }\n");
             break;
         case ValueKind::Message:
-            p.print("rp_dump_write($e$, w);\n", {{"e", expr}});
+            p.print("$ns$::rp_dump_write($e$, w);\n", {{"ns", detail_ns}, {"e", expr}});
             break;
     }
 }
@@ -175,7 +200,7 @@ void emit_singular_field(Printer& p, const CppNameTable& names, const FieldNode&
         p.print("if (w.begin_field(rp_first, \"$k$\")) {\n", {{"k", f.name}});
         p.indent();
         p.print("w.push_path(\"$k$\");\n", {{"k", f.name}});
-        emit_write_value(p, kind, "*rp_p");
+        emit_write_value(p, kind, "*rp_p", dump_detail_ns(names, f.resolved_type_fqn));
         p.print("w.pop_path();\n");
         p.outdent();
         p.print("}\n");
@@ -189,7 +214,7 @@ void emit_singular_field(Printer& p, const CppNameTable& names, const FieldNode&
         p.indent();
         p.print("if (w.begin_field(rp_first, \"$k$\")) {\n", {{"k", f.name}});
         p.indent();
-        emit_write_value(p, kind, "*rp_v");
+        emit_write_value(p, kind, "*rp_v", {});  // never Message: handled above
         p.outdent();
         p.print("}\n");
         p.outdent();
@@ -204,7 +229,7 @@ void emit_singular_field(Printer& p, const CppNameTable& names, const FieldNode&
         p.indent();
         p.print("if (w.begin_field(rp_first, \"$k$\")) {\n", {{"k", f.name}});
         p.indent();
-        emit_write_value(p, kind, "rp_v");
+        emit_write_value(p, kind, "rp_v", {});  // never Message: handled above
         p.outdent();
         p.print("}\n");
         p.outdent();
@@ -214,7 +239,7 @@ void emit_singular_field(Printer& p, const CppNameTable& names, const FieldNode&
     // Required: always present on the wire, so always emitted (even at the default value) unless skipped.
     p.print("if (w.begin_field(rp_first, \"$k$\")) {\n", {{"k", f.name}});
     p.indent();
-    emit_write_value(p, kind, call);
+    emit_write_value(p, kind, call, {});  // never Message: handled above
     p.outdent();
     p.print("}\n");
 }
@@ -239,7 +264,10 @@ void emit_repeated_field(Printer& p, const CppNameTable& names, const FieldNode&
     p.print("for (const auto& rp_el : rp_r) {\n");
     p.indent();
     p.print("w.entry_sep(rp_efirst);\n");
-    emit_write_value(p, kind, "rp_el");  // ArrayView<T> element is a value or const T& (message)
+    // ArrayView<T> element is a value or const T& (message)
+    emit_write_value(
+        p, kind, "rp_el",
+        kind == ValueKind::Message ? dump_detail_ns(names, f.resolved_type_fqn) : std::string{});
     p.print("if (w.overflowed()) { break; }\n");
     p.outdent();
     p.print("}\n");
@@ -296,10 +324,11 @@ void emit_map_field(Printer& p, const CppNameTable& names, const MapFieldNode& m
     if (vkind == ValueKind::Message) {
         // value() is const V* for a message entry.
         p.print(
-            "if (const auto* rp_vp = rp_ent.value()) { rp_dump_write(*rp_vp, w); }"
-            " else { w.os() << \"null\"; }\n");
+            "if (const auto* rp_vp = rp_ent.value()) { $ns$::rp_dump_write(*rp_vp, w); }"
+            " else { w.os() << \"null\"; }\n",
+            {{"ns", dump_detail_ns(names, mp.resolved_value_type_fqn)}});
     } else {
-        emit_write_value(p, vkind, "rp_ent.value()");
+        emit_write_value(p, vkind, "rp_ent.value()", {});  // never Message: handled above
     }
     p.print("if (w.overflowed()) { break; }\n");
     p.outdent();
@@ -339,7 +368,9 @@ void emit_oneof(Printer& p, const CppNameTable& names, const OneofNode& o,
         if (kind == ValueKind::Message) {
             p.print("w.push_path(\"$k$\");\n", {{"k", f.name}});
         }
-        emit_write_value(p, kind, "rp_v");
+        emit_write_value(p, kind, "rp_v",
+                         kind == ValueKind::Message ? dump_detail_ns(names, f.resolved_type_fqn)
+                                                    : std::string{});
         if (kind == ValueKind::Message) {
             p.print("w.pop_path();\n");
         }
@@ -354,8 +385,9 @@ void emit_oneof(Printer& p, const CppNameTable& names, const OneofNode& o,
 
 // Forward-declare the core rp_dump_write(const T&, Writer&) for `m` and every nested message, so a
 // message can reference a sibling / cousin / nested type whose definition comes later in the file
-// (mutually-recursive A<->B, a parent that names a nested Def before it is defined, etc.). Without
-// these the recursive call would only see the overloads emitted so far and mis-resolve.
+// (mutually-recursive A<->B, a parent that names a nested Def before it is defined, etc.). Still
+// required now that recursion is emitted QUALIFIED: a qualified call needs the name already declared
+// in that namespace, so without these it is a hard "no member named rp_dump_write" error.
 void emit_message_fwd_decls(Printer& p, const CppNameTable& names, const MessageNode& m) {
     for (const MessageNode& n : m.nested_messages) {
         emit_message_fwd_decls(p, names, n);
@@ -407,12 +439,14 @@ void emit_fields_and_maps(Printer& p, const CppNameTable& names, const MessageNo
     }
 }
 
-void emit_message_dumper(Printer& p, const CppNameTable& names, const SynthNames& synth,
-                         const arenagen::LayoutSet& layouts, const MessageNode& m) {
+// The CORE dumper for one message (and, recursively, its nested messages): the Writer-threaded
+// rp_dump_write every other dumper calls. Emitted inside the file's rp_dump_detail namespace.
+void emit_message_core(Printer& p, const CppNameTable& names, const SynthNames& synth,
+                       const arenagen::LayoutSet& layouts, const MessageNode& m) {
     // Recurse into nested messages first; forward declarations (emitted for the whole file up front)
     // let a definition reference any other message's dumper regardless of emission order.
     for (const MessageNode& n : m.nested_messages) {
-        emit_message_dumper(p, names, synth, layouts, n);
+        emit_message_core(p, names, synth, layouts, n);
     }
     const std::string type = cpp_type_name(names, m.fqn);
     p.print("inline void rp_dump_write(const $T$& m, ::rapidproto::dump::Writer& w) {\n",
@@ -441,6 +475,17 @@ void emit_message_dumper(Printer& p, const CppNameTable& names, const SynthNames
     p.print("});\n");
     p.outdent();
     p.print("}\n\n");
+}
+
+// The PUBLIC entry points for one message (and, recursively, its nested messages), emitted in the
+// message's own namespace: the two convenience overloads a consumer actually calls. They forward to
+// the core dumper in rp_dump_detail, which is the only thing that ever touches a Writer.
+void emit_message_public(Printer& p, const CppNameTable& names, const MessageNode& m) {
+    for (const MessageNode& n : m.nested_messages) {
+        emit_message_public(p, names, n);
+    }
+    const std::string type = cpp_type_name(names, m.fqn);
+    const std::string detail = dump_detail_ns(names, m.fqn);
 
     // A convenience overload that constructs a Writer over an ostream. `opts` carries the line-width
     // budget (compact vs multi-line), the start indent, and the skip-paths; an integer still converts
@@ -452,7 +497,7 @@ void emit_message_dumper(Printer& p, const CppNameTable& names, const SynthNames
     p.indent();
     p.print("rp_os << std::boolalpha;\n");
     p.print("::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);\n");
-    p.print("rp_dump_write(m, w);\n");
+    p.print("$ns$::rp_dump_write(m, w);\n", {{"ns", detail}});
     p.outdent();
     p.print("}\n\n");
 
@@ -501,9 +546,10 @@ std::string generate_header(const FileNode& file, const CppNameTable& names,
     p.print("#include \"rapidproto/dump_runtime.hpp\"\n");
     // A field (sub-message / repeated / map-value / oneof member) may reference an imported type, whose
     // dumper lives in the imported file's own debug header. Include each dependency's debug header so
-    // its rp_dump_write overloads are visible (ADL alone can't find an as-yet-undeclared overload
-    // when the recursive call is instantiated) -- the parallel of the arena header's cross-file
-    // includes, keeping every debug header self-contained.
+    // its rp_dump_detail namespace is declared before we emit a qualified call into it -- these
+    // includes stayed necessary when recursion moved off ADL onto qualified lookup, which likewise
+    // needs the callee declared. The parallel of the arena header's cross-file includes, keeping every
+    // debug header self-contained.
     for (const auto& import : file.imports) {
         if (import.kind != ImportKind::Option) {
             p.print("#include \"$h$\"\n",
@@ -513,9 +559,10 @@ std::string generate_header(const FileNode& file, const CppNameTable& names,
     p.print("\n");
 
     // Enum name tables: rp_dump_enum_name(E) for each enum DEFINED in this file, in namespace
-    // rapidproto::dump so the dumpers call it by one fully-qualified name (overload resolution on the
-    // enum type picks the right one). Emitted once at the definition site -- a file that references an
-    // imported enum gets the overload via that import's included .rp.dump.hpp, never re-emitting it.
+    // rapidproto::dump::detail so the dumpers call it by one fully-qualified name (overload resolution
+    // on the enum type picks the right one) without landing in the runtime's PUBLIC namespace.
+    // Emitted once at the definition site -- a file that references an imported enum gets the overload
+    // via that import's included .rp.dump.hpp, never re-emitting it.
     std::vector<const EnumNode*> defined_enums;
     defined_enums.reserve(file.enums.size());
     for (const EnumNode& e : file.enums) {
@@ -524,27 +571,36 @@ std::string generate_header(const FileNode& file, const CppNameTable& names,
     for (const MessageNode& m : file.messages) {
         collect_defined_enums(m, defined_enums);
     }
-    p.print("namespace rapidproto::dump {\n\n");
-    for (const EnumNode* e : defined_enums) {
-        emit_enum_name_fn(p, names, e->fqn, *e);
-        p.print("\n");
+    if (!defined_enums.empty()) {
+        p.print("namespace rapidproto::dump::detail {\n\n");
+        for (const EnumNode* e : defined_enums) {
+            emit_enum_name_fn(p, names, e->fqn, *e);
+            p.print("\n");
+        }
+        p.print("}  // namespace rapidproto::dump::detail\n\n");
     }
-    p.print("}  // namespace rapidproto::dump\n\n");
 
-    // The dumpers live in the message's own namespace so unqualified rp_dump_write recursion and ADL
-    // both resolve.
+    // The public entry points live in the message's own namespace (so a consumer calls
+    // `pkg::rp_dump_string(m)`); the Writer-threaded cores they forward to live one level down, in
+    // pkg::rp_dump_detail, keeping the package namespace free of generated internals. Cross-file
+    // recursion is emitted fully qualified against that sub-namespace -- ADL would not reach into it.
     const std::string ns = codegen::message_namespace(names, file);
     if (!ns.empty()) {
         p.print("namespace $ns$ {\n\n", {{"ns", ns}});
     }
-    for (const MessageNode& m : file.messages) {
-        emit_message_fwd_decls(p, names, m);
-    }
     if (!file.messages.empty()) {
+        p.print("namespace $d$ {\n\n", {{"d", kDetailNs}});
+        for (const MessageNode& m : file.messages) {
+            emit_message_fwd_decls(p, names, m);
+        }
         p.print("\n");
-    }
-    for (const MessageNode& m : file.messages) {
-        emit_message_dumper(p, names, synth, layouts, m);
+        for (const MessageNode& m : file.messages) {
+            emit_message_core(p, names, synth, layouts, m);
+        }
+        p.print("}  // namespace $d$\n\n", {{"d", kDetailNs}});
+        for (const MessageNode& m : file.messages) {
+            emit_message_public(p, names, m);
+        }
     }
     if (!ns.empty()) {
         p.print("}  // namespace $ns$\n", {{"ns", ns}});

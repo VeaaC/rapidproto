@@ -11,11 +11,9 @@
 #include "editions2024.rp.hpp"  // IWYU pragma: export
 #include "rapidproto/dump_runtime.hpp"
 
-namespace rapidproto::dump {
-
-}  // namespace rapidproto::dump
-
 namespace ed24 {
+
+namespace rp_dump_detail {
 
 inline void rp_dump_write(const ::ed24::M& m, ::rapidproto::dump::Writer& w);
 
@@ -44,10 +42,12 @@ inline void rp_dump_write(const ::ed24::M& m, ::rapidproto::dump::Writer& w) {
   });
 }
 
+}  // namespace rp_dump_detail
+
 inline void rp_dump_write(std::ostream& rp_os, const ::ed24::M& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   rp_os << std::boolalpha;
   ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  rp_dump_write(m, w);
+  ::ed24::rp_dump_detail::rp_dump_write(m, w);
 }
 
 inline std::string rp_dump_string(const ::ed24::M& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
