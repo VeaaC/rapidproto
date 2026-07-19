@@ -88,6 +88,15 @@ public:
         if (m_base == nullptr && !reserve(estimate_region(input.size()))) {
             return {};
         }
+        // Nothing is live above the previously adopted input (fresh, or just reset()), so drop that
+        // copy instead of stacking a second one after it -- otherwise every warm re-decode of an
+        // input held OUTSIDE the region would consume another input's worth and exhaust the region
+        // after a handful of iterations.
+        if (m_cur == m_input_end) {
+            m_cur = m_base;
+            m_used = 0;
+            m_input_end = nullptr;
+        }
         void* const dst = allocate(input.size(), kMaxAlign);
         if (dst == nullptr) {
             return {};
@@ -177,7 +186,9 @@ public:
     }
 
     // Rewind for reuse, KEEPING the adopted input in place (it is the target of every string
-    // offset), so a warm re-decode of the same bytes pays no copy.
+    // offset), so a warm re-decode pays no copy -- provided the caller hands decode() the view that
+    // adopt_input returned, i.e. one already inside the region. Re-decoding from the ORIGINAL
+    // outside-the-region bytes re-copies them over this one (see adopt_input).
     void reset() noexcept {
         if (m_input_end != nullptr) {
             m_cur = m_input_end;
@@ -215,9 +226,10 @@ private:
 
     static char* align_up(char* p, std::size_t align) noexcept {
         // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic): bump-pointer alignment
-        return p == nullptr ? nullptr
-                            : reinterpret_cast<char*>(
-                                  (reinterpret_cast<std::uintptr_t>(p) + (align - 1)) & ~(align - 1));
+        return p == nullptr
+                   ? nullptr
+                   : reinterpret_cast<char*>((reinterpret_cast<std::uintptr_t>(p) + (align - 1)) &
+                                             ~(align - 1));
     }
 
     void adopt_buffer(void* buffer, std::size_t size) noexcept {
