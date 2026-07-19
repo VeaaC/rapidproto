@@ -23,12 +23,14 @@ namespace {
 
 // In-memory sizes of the runtime storage types the layout assumes. Asserted against the actual
 // runtime so the planner can never drift from arena_runtime.hpp.
-constexpr std::size_t kPtrSize = 8;
-constexpr std::size_t kPtrAlign = 8;
-constexpr std::size_t kStringSize = 12;  // ArenaString (borrowed view: char[8] ptr + uint32 len)
-constexpr std::size_t kStringAlign = 4;
-constexpr std::size_t kViewSize = 12;  // ArrayView<T> / MapView<E> = {char[8] ptr, uint32 size}
-constexpr std::size_t kViewAlign = 4;
+// EXPERIMENTAL (arena-offset prototype): every reference is a 40-bit self-relative offset, not an
+// 8-byte pointer, and each cell holds its parts as byte arrays so it is align 1 with no padding.
+constexpr std::size_t kPtrSize = 5;  // a sub-message reference: forward offset only
+constexpr std::size_t kPtrAlign = 1;
+constexpr std::size_t kStringSize = 9;  // ArenaString  = {uint40 backward offset, uint32 len}
+constexpr std::size_t kStringAlign = 1;
+constexpr std::size_t kViewSize = 9;  // ArenaArray<T> = {uint40 forward offset, uint32 count}
+constexpr std::size_t kViewAlign = 1;
 constexpr std::size_t kEnumSize = 4;  // enums stored as their int32 underlying value
 constexpr std::size_t kEnumAlign = 4;
 constexpr std::size_t kDiscSize = 1;  // oneof discriminant: a uint8 member index (0 = none)
@@ -44,9 +46,9 @@ constexpr std::size_t kBytesPerWord = 8;
 // at all, since a chain declared bottom-up is served memoized at depth <= 2.
 constexpr std::size_t kMaxChainDepth = 200;
 static_assert(sizeof(ArenaString) == kStringSize && alignof(ArenaString) == kStringAlign);
-static_assert(sizeof(ArrayView<int>) == kViewSize && alignof(ArrayView<int>) == kViewAlign);
-static_assert(sizeof(MapView<ArenaString>) == kViewSize &&
-              alignof(MapView<ArenaString>) == kViewAlign);
+static_assert(sizeof(ArenaArray<int>) == kViewSize && alignof(ArenaArray<int>) == kViewAlign);
+static_assert(sizeof(ArenaArray<ArenaString>) == kViewSize &&
+              alignof(ArenaArray<ArenaString>) == kViewAlign);
 
 std::size_t align_up(std::size_t n, std::size_t align) {
     return (n + align - 1) & ~(align - 1);  // align is always a power of two here
