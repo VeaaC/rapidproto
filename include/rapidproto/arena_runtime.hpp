@@ -214,7 +214,12 @@ private:
     static constexpr std::size_t kMinRegion = 4096;
     // A decoded tree typically costs a few times the wire bytes it came from. The region cannot grow,
     // so this errs HIGH: over-reserving costs address space, under-reserving costs a whole retry.
-    static constexpr std::size_t kExpansion = 8;
+    // 12 is the smallest multiple that decodes the whole bench suite (1-byte varints expanding into
+    // 8-byte array elements are the worst case). It is NOT a free knob to raise: because the region is
+    // eagerly allocated and first-touched, over-reserving measurably slows the array sweeps -- at 24
+    // they lose another 30-40% of throughput on top. That sensitivity is the strongest argument that a
+    // productized version must reserve ADDRESS SPACE and commit on demand rather than pick a multiple.
+    static constexpr std::size_t kExpansion = 12;
 
     static std::size_t estimate_region(std::size_t input_bytes) noexcept {
         if (input_bytes > SIZE_MAX / kExpansion) {

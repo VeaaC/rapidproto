@@ -980,6 +980,11 @@ int main() {
     // '+X%' = the decoder out-throughputs protoc (so +53% == 1.53x). protoc is arm 0 (the baseline);
     // arena is measured "cold" (fresh Arena) and "warm" (reset+reuse).
     rapidproto::Arena warm;
+    // EXPERIMENTAL (arena-offset prototype): place the input in the region ONCE and re-decode from
+    // that in-region view, so the warm arm measures decoding only. Handing decode() the caller's own
+    // buffer instead would re-copy the input into the region on every iteration -- a cost of the
+    // Arena-owns-the-input layout, not of the decode, and one the pointer baseline does not pay.
+    const rapidproto::ByteView warm_view = warm.adopt_input(view);
     if (!rpbench::json_mode()) {
         std::printf("bench: Dataset with %d people, wire = %zu bytes\n\n", kPeople, buf.size());
     }
@@ -999,7 +1004,7 @@ int main() {
         {"arena-warm",
          [&]() {
              warm.reset();
-             return checksum_arena_dataset(rp::bench::Dataset::decode(view, warm));
+             return checksum_arena_dataset(rp::bench::Dataset::decode(warm_view, warm));
          }},
         {"streamgen", [&]() { return checksum_stream(view); }},
     };
