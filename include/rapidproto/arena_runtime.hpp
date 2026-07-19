@@ -8,9 +8,10 @@
 // into the input wire buffer (no copy), so the tree is valid only while BOTH the Arena and the input
 // outlive it. Callers who want a self-contained result use decode_owned, which bundles the input and a
 // default Arena into one owning handle. This header amalgamates:
-//   - Arena       : a growable bump allocator (chunked); the only allocator the tree uses.
-//   - ArenaString : a read-only string that borrows a {ptr,len} view into the input (no copy, no SSO).
-//   - ArrayView / MapView : read-only views the generated accessors return for repeated and maps.
+//   - Arena       : a SINGLE-REGION bump allocator holding the input followed by the nodes.
+//   - ArenaString : a read-only string cell holding a 40-bit BACKWARD offset to its bytes in the input.
+//   - ArenaArray  : the in-node storage for repeated/map fields (40-bit FORWARD offset + count).
+//   - ArrayView / MapView : the ephemeral pointer views the generated accessors return.
 //   - ArenaDecodeError : the failure detail a decode() reports.
 //   - decode_owned : a self-contained decode returning a shared_ptr that owns the input + Arena.
 // It builds on the wire reader (runtime.hpp: the rapidproto::wire readers, WireError, ByteView, the
@@ -40,17 +41,23 @@ namespace rapidproto {
 inline constexpr int kMaxDecodeDepth = 100;
 
 // ── Arena ────────────────────────────────────────────────────────────────────────────────────────
-// A growable bump allocator. Hands out aligned, uninitialized memory from a sequence of chunks; on a
-// chunk overflow it appends a new (geometrically larger) chunk. reset() rewinds for reuse without
-// freeing; chunks are RAII-owned (freed when the Arena is destroyed). Single-threaded. allocate()
-// returns nullptr only on host OOM (the only failure), surfaced as ArenaDecodeError::OutOfMemory.
+// EXPERIMENTAL (arena-offset prototype). A SINGLE contiguous region laid out as
+//   [ adopted input bytes ][ bump-allocated nodes ][ >= 8 bytes tail slack ]
+// so that every reference in the tree can be a 40-bit offset relative to the cell holding it rather
+// than an 8-byte pointer (see the offset_detail block below).
+//
+// The region is reserved ONCE, sized from the input, and never grows or moves: a realloc would
+// invalidate the raw node pointers the decoder holds on its call stack. allocate() therefore returns
+// nullptr on exhaustion, surfaced as ArenaDecodeError::OutOfMemory, and the caller may retry with a
+// larger reserve(). reset() rewinds to just past the input (keeping it, since every string offset
+// targets it). Single-threaded; storage is RAII-owned unless a caller-owned seed buffer was passed.
 class Arena {
 public:
     Arena() noexcept = default;
-    // Seed with a caller-owned initial buffer (NOT freed by the Arena): zero-malloc until exceeded.
-    // The whole buffer is usable; the chunk descriptor lives inline in the Arena, not the buffer.
+    // Seed with a caller-owned buffer (NOT freed by the Arena). Under the single-region layout this
+    // IS the whole region -- input first, nodes after -- so it must be large enough for both.
     Arena(void* buffer, std::size_t size) noexcept {
-        if (buffer != nullptr && size > kMaxAlign) {
+        if (buffer != nullptr && size > kMaxAlign + kTailSlack) {
             adopt_buffer(buffer, size);
         }
     }
@@ -58,21 +65,77 @@ public:
     Arena& operator=(const Arena&) = delete;
     Arena(Arena&&) = delete;
     Arena& operator=(Arena&&) = delete;
-    ~Arena() = default;  // chunks are RAII (unique_ptr storage); nothing to free by hand
+    ~Arena() = default;
 
-    // Aligned, uninitialized bytes. `align` must be a power of two. nullptr only on OOM.
+    // EXPERIMENTAL (arena-offset prototype). Place `input` at the FRONT of the region and return the
+    // in-region view the decoder must parse. A string/bytes cell holds a BACKWARD offset to its
+    // bytes, so the input must precede every node -- bytes left in the caller's own buffer could not
+    // be reached from a node by a self-relative offset at all.
+    //
+    // The region is sized ONCE here and never grows: a realloc would move nodes that the decoder is
+    // still holding raw pointers to (each decode frame writes into a `Msg&`). On exhaustion
+    // allocate() returns nullptr, the decode reports OutOfMemory, and the caller may retry after a
+    // larger reserve() -- safe precisely because no decode is in flight at that point.
+    ByteView adopt_input(ByteView input) noexcept {
+        if (input.data() == nullptr) {
+            return {};
+        }
+        // Already inside the region (a caller that placed the bytes itself): nothing to copy.
+        if (m_base != nullptr && input.data() >= m_base && input.data() < m_limit) {
+            m_input_end = m_cur;
+            return input;
+        }
+        if (m_base == nullptr && !reserve(estimate_region(input.size()))) {
+            return {};
+        }
+        void* const dst = allocate(input.size(), kMaxAlign);
+        if (dst == nullptr) {
+            return {};
+        }
+        std::memcpy(dst, input.data(), input.size());
+        m_input_end = m_cur;
+        return ByteView{static_cast<const char*>(dst), input.size()};
+    }
+
+    // Reserve the single region up front (plus alignment and the offset-read tail slack). Returns
+    // false on host OOM or the capacity cap. Only meaningful before anything has been allocated.
+    bool reserve(std::size_t bytes) noexcept {
+        if (m_base != nullptr) {
+            return bytes <= static_cast<std::size_t>(m_limit - m_cur);
+        }
+        if (bytes > static_cast<std::size_t>(PTRDIFF_MAX) - kMaxAlign - kTailSlack) {
+            return false;  // too large to represent -> treat as OOM
+        }
+        const std::size_t raw = bytes + kMaxAlign + kTailSlack;
+        if (m_reserved >= m_cap || raw > m_cap - m_reserved) {
+            return false;  // capacity cap reached -> treat as OOM (the only injectable failure)
+        }
+        std::unique_ptr<char[]> storage(new (std::nothrow) char[raw]);  // nothrow -> null on OOM
+        if (!storage) {
+            return false;
+        }
+        m_storage = std::move(storage);
+        m_base = align_up(m_storage.get(), kMaxAlign);
+        m_cur = m_base;
+        m_limit = m_storage.get() + raw - kTailSlack;
+        m_reserved += static_cast<std::size_t>(m_limit - m_base);
+        return true;
+    }
+
+    // Aligned, uninitialized bytes. `align` must be a power of two. nullptr once the region is
+    // exhausted (the region never grows -- see adopt_input).
     void* allocate(std::size_t bytes, std::size_t align) noexcept {
         assert(align != 0 && (align & (align - 1)) == 0 && "align must be a power of two");
         char* const p = align_up(m_cur, align);
-        // Size comparison, never `p + bytes`: forming that pointer is UB on an empty arena (p is null)
-        // or when `bytes` is a huge untrusted value (it overflows past the end of the object).
+        // Size comparison, never `p + bytes`: forming that pointer is UB on an empty arena (p is
+        // null) or when `bytes` is a huge untrusted value (it overflows past the end of the object).
         if (m_cur != nullptr && p <= m_limit && bytes <= static_cast<std::size_t>(m_limit - p)) {
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic): the bump allocation
-            m_cur = p + bytes;  // fits in the current chunk; p + bytes is now in-bounds
+            m_cur = p + bytes;
             m_used += bytes;
             return p;
         }
-        return allocate_slow(bytes, align);
+        return nullptr;
     }
 
     // Uninitialized storage for `n` Ts (the generated tree is trivially destructible).
@@ -86,9 +149,7 @@ public:
         return reinterpret_cast<T*>(allocate(n * sizeof(T), alignof(T)));
     }
 
-    // Construct one T in the arena (trivially destructible only). Returns nullptr on OOM. The
-    // arena owns every object it places; the returned pointer is a borrow into the chunk, never
-    // individually freed.
+    // Construct one T in the arena (trivially destructible only). Returns nullptr on OOM.
     template <class T, class... Args>
     T* create(Args&&... args) noexcept {
         static_assert(std::is_trivially_destructible_v<T>, "arena objects are never destructed");
@@ -100,16 +161,8 @@ public:
         return ::new (mem) T(std::forward<Args>(args)...);
     }
 
-    // Return the unused tail of the MOST-RECENT allocation, shrinking it from `old_bytes` to
-    // `new_bytes`. A no-op unless `ptr`'s end is exactly the current bump cursor -- i.e. it is only
-    // effective when nothing has been allocated since. The packed-array decode uses this: it
-    // pre-sizes a scalar array to an upper bound, fills it (allocating nothing in between), then
-    // trims the over-estimate back to the exact element count.
-    //
-    // Decoder-internal, like allocate_array/create: this is the Arena surface the GENERATED code
-    // targets, not a general-purpose API. It trusts the caller to pass the exact byte size of the
-    // most-recent allocation; a wrong `old_bytes` that happened to equal the cursor offset would
-    // rewind into live data (generated callers always pass the true size -- see the emit site).
+    // Return the unused tail of the MOST-RECENT allocation (see the packed-array decode). A no-op
+    // unless `ptr`'s end is exactly the current bump cursor.
     void shrink_last(void* ptr, std::size_t old_bytes, std::size_t new_bytes) noexcept {
         if (ptr == nullptr || new_bytes > old_bytes) {
             return;
@@ -123,166 +176,118 @@ public:
         // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     }
 
-    // Rewind to the first chunk for reuse; keeps all chunks allocated (no malloc on the next decode).
+    // Rewind for reuse, KEEPING the adopted input in place (it is the target of every string
+    // offset), so a warm re-decode of the same bytes pays no copy.
     void reset() noexcept {
-        m_used = 0;
-        m_cursor = 0;
-        if (m_live) {
-            m_cur = m_head.data;
-            m_limit = m_head.limit;
+        if (m_input_end != nullptr) {
+            m_cur = m_input_end;
+            m_used = static_cast<std::size_t>(m_input_end - m_base);
         } else {
-            m_cur = nullptr;
-            m_limit = nullptr;
+            m_cur = m_base;
+            m_used = 0;
         }
     }
 
-    [[nodiscard]] std::size_t bytes_used() const noexcept {
-        return m_used;
-    }  // useful payload handed out
-    [[nodiscard]] std::size_t bytes_reserved() const noexcept {
-        return m_reserved;
-    }  // total host memory held
+    [[nodiscard]] std::size_t bytes_used() const noexcept { return m_used; }
+    [[nodiscard]] std::size_t bytes_reserved() const noexcept { return m_reserved; }
 
-    // Cap the total host memory the arena reserves; a grow past it fails as if on host OOM, so the
-    // decode returns ArenaDecodeError::OutOfMemory. Default: unbounded. Bounds arena memory for untrusted
-    // input, and makes the OOM path exercisable in tests. Set before parsing; should be >= any seed.
-    // Note: a packed *varint* scalar array is pre-sized to its byte length (an upper bound on the
-    // element count) and trimmed after (shrink_last), so its TRANSIENT peak can briefly reach a few
-    // times the field's payload for multi-byte-value fields; size the cap for that peak, not the tree.
+    // Cap the total host memory the arena reserves; a reserve past it fails as if on host OOM, so
+    // the decode returns ArenaDecodeError::OutOfMemory. Default: unbounded.
     void set_capacity_limit(std::size_t max_reserved_bytes) noexcept { m_cap = max_reserved_bytes; }
 
 private:
-    // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic, cppcoreguidelines-avoid-c-arrays,
-    // modernize-avoid-c-arrays): a bump allocator IS bounds-checked pointer arithmetic over raw
-    // byte chunks, and unique_ptr<char[]> is the idiomatic owning form of an untyped heap buffer
-    // (std::array cannot size at runtime; vector<char> value-initializes, touching every page).
-    // One memory block. `storage` owns it (freed by the Arena's implicit destructor); for a
-    // caller-seeded buffer `storage` is null so the buffer is left alone. `data`/`limit` bound the
-    // usable region (data is kMaxAlign-aligned). Movable, never copied.
-    struct Chunk {
-        std::unique_ptr<char[]> storage;  // null => caller-owned seed buffer (not freed)
-        char* data = nullptr;             // first usable byte (kMaxAlign-aligned)
-        char* limit = nullptr;            // one past the last usable byte
-    };
-
     static constexpr std::size_t kMaxAlign = alignof(std::max_align_t);
-    static constexpr std::size_t kDefaultChunk = 4096;
-    // Geometric chunk growth stops doubling here. Each chunk wastes at most its own unfilled tail, and
-    // an uncapped schedule makes the final chunk the largest one (it doubled the whole way up) and on
-    // average half empty -- so the held-vs-used gap grows with the arena. Capping the chunk size caps
-    // that tail at a constant; it is the dominant held-memory lever (roughly halved the gap on the
-    // benchmark). Kept under glibc's 128 KiB default mmap threshold so cold-arena chunks stay on the
-    // heap (a chunk that crosses the threshold becomes an mmap/munmap syscall pair).
-    static constexpr std::size_t kMaxChunk = std::size_t{96} * 1024;
+    // A 5-byte offset cell is read with ONE 8-byte load, so no allocation may come within 8 bytes of
+    // the region end -- the over-read then always stays inside the same allocation.
+    static constexpr std::size_t kTailSlack = 8;
+    static constexpr std::size_t kMinRegion = 4096;
+    // A decoded tree typically costs a few times the wire bytes it came from. The region cannot grow,
+    // so this errs HIGH: over-reserving costs address space, under-reserving costs a whole retry.
+    static constexpr std::size_t kExpansion = 8;
 
-    // NOLINTNEXTLINE(readability-non-const-parameter): the result aliases p's WRITABLE buffer; a
-    // const char* parameter would just launder the const back off through the integer round-trip.
+    static std::size_t estimate_region(std::size_t input_bytes) noexcept {
+        if (input_bytes > SIZE_MAX / kExpansion) {
+            return SIZE_MAX / kExpansion;  // absurd input -> let reserve() fail cleanly
+        }
+        const std::size_t want = input_bytes * kExpansion + kMinRegion;
+        return want < kMinRegion ? kMinRegion : want;
+    }
+
     static char* align_up(char* p, std::size_t align) noexcept {
-        const auto addr = reinterpret_cast<std::uintptr_t>(p);  // NOLINT(*-reinterpret-cast)
-        const auto aligned = (addr + (align - 1)) & ~(static_cast<std::uintptr_t>(align) - 1);
-        // NOLINTNEXTLINE(performance-no-int-to-ptr,cppcoreguidelines-pro-type-reinterpret-cast)
-        return reinterpret_cast<char*>(aligned);
-    }
-
-    // Chunks are addressed by index: 0 is the inline head (seed or first grown), 1..N live in m_more.
-    // Keeping the head inline means a seeded arena that never grows performs zero heap allocations.
-    Chunk& chunk(std::size_t i) noexcept { return i == 0 ? m_head : m_more[i - 1]; }
-    [[nodiscard]] const Chunk& chunk(std::size_t i) const noexcept {
-        return i == 0 ? m_head : m_more[i - 1];
-    }
-    [[nodiscard]] std::size_t chunk_count() const noexcept {
-        return m_live ? 1 + m_more.size() : 0;
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic): bump-pointer alignment
+        return p == nullptr ? nullptr
+                            : reinterpret_cast<char*>(
+                                  (reinterpret_cast<std::uintptr_t>(p) + (align - 1)) & ~(align - 1));
     }
 
     void adopt_buffer(void* buffer, std::size_t size) noexcept {
-        char* const base = static_cast<char*>(buffer);
-        m_head.storage = nullptr;  // caller owns it
-        m_head.data = align_up(base, kMaxAlign);
-        m_head.limit = base + size;
-        m_live = true;
-        advance_to(0);
-        m_reserved += static_cast<std::size_t>(m_head.limit - m_head.data);
+        char* const raw = static_cast<char*>(buffer);
+        m_storage = nullptr;  // caller owns it
+        m_base = align_up(raw, kMaxAlign);
+        m_cur = m_base;
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic): end of the seed buffer
+        m_limit = raw + size - kTailSlack;
+        m_reserved += static_cast<std::size_t>(m_limit - m_base);
     }
 
-    void* allocate_slow(std::size_t bytes, std::size_t align) noexcept {
-        // Reuse the next already-allocated chunk (after a reset), else grow a fresh one.
-        if (m_cursor + 1 < chunk_count() && fits(chunk(m_cursor + 1), bytes, align)) {
-            advance_to(m_cursor + 1);
-        } else if (bytes > SIZE_MAX - align || !grow(bytes + align)) {  // guard the bytes+align sum
-            return nullptr;
-        }
-        char* const p = align_up(m_cur, align);
-        m_cur = p + bytes;
-        m_used += bytes;
-        return p;
-    }
-
-    // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): bytes then align, as in allocate()
-    static bool fits(const Chunk& c, std::size_t bytes, std::size_t align) noexcept {
-        char* const p =
-            align_up(c.data, align);  // size comparison, never `p + bytes` (see allocate)
-        return p <= c.limit && bytes <= static_cast<std::size_t>(c.limit - p);
-    }
-
-    void advance_to(std::size_t i) noexcept {
-        m_cursor = i;
-        const Chunk& c = chunk(i);
-        m_cur = c.data;
-        m_limit = c.limit;
-    }
-
-    bool grow(std::size_t min_usable) noexcept {
-        const std::size_t cap = m_next_chunk < min_usable ? min_usable : m_next_chunk;
-        // +kMaxAlign so align_up of the block base can never run past the end; PTRDIFF_MAX guards
-        // against new[] throwing bad_array_new_length (which the nothrow form does not suppress).
-        if (cap > static_cast<std::size_t>(PTRDIFF_MAX) - kMaxAlign) {
-            return false;  // request too large to represent -> treat as OOM
-        }
-        const std::size_t raw = cap + kMaxAlign;
-        if (m_reserved >= m_cap || raw > m_cap - m_reserved) {
-            return false;  // capacity cap reached -> treat as OOM (the only injectable failure)
-        }
-        std::unique_ptr<char[]> storage(new (std::nothrow) char[raw]);  // nothrow -> null on OOM
-        if (!storage) {
-            return false;
-        }
-        char* const base = storage.get();
-        Chunk c;
-        c.data = align_up(base, kMaxAlign);
-        c.limit = base + raw;
-        c.storage = std::move(storage);
-        m_reserved += static_cast<std::size_t>(c.limit - c.data);
-        if (!m_live) {
-            m_head = std::move(c);
-            m_live = true;
-            m_cursor = 0;
-        } else {
-            // Insert right after the current chunk (global index m_cursor+1 == m_more[m_cursor]), so a
-            // grow after reset() preserves the existing successors after the new chunk for reuse.
-            m_more.insert(m_more.begin() + static_cast<std::ptrdiff_t>(m_cursor), std::move(c));
-            m_cursor += 1;
-        }
-        advance_to(m_cursor);
-        if (m_next_chunk < kMaxChunk) {
-            m_next_chunk <<= 1U;  // geometric until kMaxChunk, then constant
-            m_next_chunk = std::min(m_next_chunk, kMaxChunk);
-        }
-        return true;
-    }
-
-    char* m_cur = nullptr;
-    char* m_limit = nullptr;
-    Chunk m_head;               // chunk 0, inline: seed buffer or the first grown chunk
-    std::vector<Chunk> m_more;  // chunks 1..N (heap), empty until a second chunk is needed
-    std::size_t m_cursor = 0;   // index of the current chunk
-    bool m_live = false;        // is m_head initialized?
+    // NOLINTBEGIN(cppcoreguidelines-avoid-c-arrays, modernize-avoid-c-arrays)
+    std::unique_ptr<char[]> m_storage;  // null => caller-owned seed buffer (not freed)
+    // NOLINTEND(cppcoreguidelines-avoid-c-arrays, modernize-avoid-c-arrays)
+    char* m_base = nullptr;       // first usable byte (kMaxAlign-aligned)
+    char* m_cur = nullptr;        // bump cursor
+    char* m_limit = nullptr;      // last allocatable byte (region end minus kTailSlack)
+    char* m_input_end = nullptr;  // end of the adopted input; reset() rewinds here
     std::size_t m_used = 0;
     std::size_t m_reserved = 0;
-    std::size_t m_next_chunk = kDefaultChunk;
     std::size_t m_cap = SIZE_MAX;  // capacity cap on m_reserved; SIZE_MAX = unbounded (the default)
-    // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic, cppcoreguidelines-avoid-c-arrays,
-    // modernize-avoid-c-arrays)
 };
+
+// ── 40-bit self-relative offsets ─────────────────────────────────────────────────────────────────
+// EXPERIMENTAL (arena-offset prototype). The input and the arena live in ONE contiguous region, so a
+// reference can be a 40-bit offset relative to the CELL that holds it instead of an 8-byte pointer.
+//
+// Self-relative rather than base-relative: `this + off` needs no base register, so accessors keep
+// their exact signatures and the public API is unchanged. It also makes 0 a free null sentinel -- an
+// offset of 0 would point at the cell itself, which is never a valid target.
+//
+// UNSIGNED, with the direction implied by the field kind: message / array / map references always
+// point FORWARD (a parent node is allocated before its children, and a grown array reallocates
+// further forward), while string / bytes always point BACKWARD into the input region that precedes
+// the nodes. Unsigned costs one mask instead of the two shifts sign-extension needs, and doubles
+// reach to 1 TiB -- enough for a 2 GiB input expanding into a much larger arena, which a 32-bit
+// offset could not promise.
+namespace offset_detail {
+
+inline constexpr int kOffsetBits = 40;
+inline constexpr std::size_t kOffsetBytes = 5;
+inline constexpr std::uint64_t kMaxOffset = (std::uint64_t{1} << kOffsetBits) - 1;
+
+// Read the 5-byte little-endian cell with ONE 8-byte load and a mask. This over-reads 3 bytes past
+// the cell, which is why the arena guarantees >= 8 bytes of tail slack (see Arena::kTailSlack): the
+// read then stays inside the same allocation, so it is well-defined and ASan-clean. The alternative
+// (a 4-byte + 1-byte load) costs an extra load, shift and or on every dereference.
+inline std::uint64_t load(const char* cell) noexcept {
+    std::uint64_t raw = 0;
+    std::memcpy(&raw, cell, sizeof raw);
+    return raw & kMaxOffset;
+}
+inline void store(char* cell, std::uint64_t value) noexcept {
+    std::memcpy(cell, &value, kOffsetBytes);  // little-endian: the low 5 bytes
+}
+
+// The distance from `cell` forward to `target` / backward from `cell` to `target`. Both are known
+// non-negative by construction (see the direction rule above); a caller that cannot guarantee that
+// has a layout bug, not a representation choice.
+inline std::uint64_t forward(const void* cell, const void* target) noexcept {
+    return static_cast<std::uint64_t>(static_cast<const char*>(target) -
+                                      static_cast<const char*>(cell));
+}
+inline std::uint64_t backward(const void* cell, const void* target) noexcept {
+    return static_cast<std::uint64_t>(static_cast<const char*>(cell) -
+                                      static_cast<const char*>(target));
+}
+
+}  // namespace offset_detail
 
 // ── ArenaString ──────────────────────────────────────────────────────────────────────────────────
 // A pure 12-byte read-only string that BORROWS a {ptr,len} view into the input wire buffer -- strings
@@ -308,41 +313,51 @@ class ArenaString {
 public:
     ArenaString() noexcept = default;  // empty view
 
-    // Store a {ptr,len} view into the input (no copy; `arena` is unused, kept for a uniform call
-    // shape). Yields an empty string only for a value exceeding the 32-bit length -- which the
-    // top-level >UINT32_MAX input guard already rules out, so under a real decode this never fails.
-    static ArenaString make(ByteView s, Arena& arena) noexcept {
-        (void)arena;
-        ArenaString out;
-        if (s.size() > UINT32_MAX) {
-            return out;  // exceeds the 32-bit length -> empty (unreachable under the input-size guard)
+    // Written IN PLACE rather than constructed-and-copied: a self-relative offset depends on the
+    // cell's final address, which a returned temporary does not know. The generated decoder calls
+    // this with the address of the destination member.
+    //
+    // `s` points into the input region, which precedes every node, so the distance is a positive
+    // BACKWARD offset. A present-but-empty string still records its (non-zero) distance, so
+    // offset 0 continues to mean "unset" -- which the raw-payload presence check relies on.
+    static void store(ArenaString* dst, ByteView s) noexcept {
+        if (s.size() > UINT32_MAX || s.data() == nullptr) {
+            *dst = ArenaString{};  // unreachable under the input-size guard; stay defined anyway
+            return;
         }
-        const char* const p = s.data();
-        std::memcpy(out.m_ptr, &p, sizeof p);
-        out.m_len = static_cast<std::uint32_t>(s.size());
-        return out;
+        offset_detail::store(dst->m_off, offset_detail::backward(dst, s.data()));
+        const auto len = static_cast<std::uint32_t>(s.size());
+        std::memcpy(dst->m_len, &len, sizeof len);
     }
 
     // The borrowed pointer (null only on a default/unset ArenaString). A raw message-payload field
     // uses this for presence: a present payload borrows a non-null input pointer even when empty,
     // while an unset field keeps the null default.
     [[nodiscard]] const char* data() const noexcept {
-        const char* p = nullptr;
-        std::memcpy(&p, m_ptr, sizeof p);
-        return p;
+        const std::uint64_t off = offset_detail::load(m_off);
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic): the offset IS the reference
+        return off == 0 ? nullptr : reinterpret_cast<const char*>(this) - off;
     }
-    [[nodiscard]] std::string_view view() const noexcept { return {data(), m_len}; }
-    [[nodiscard]] std::size_t size() const noexcept { return m_len; }
-    [[nodiscard]] bool empty() const noexcept { return m_len == 0; }
+    [[nodiscard]] std::string_view view() const noexcept { return {data(), size()}; }
+    [[nodiscard]] std::size_t size() const noexcept {
+        std::uint32_t n = 0;
+        std::memcpy(&n, m_len, sizeof n);
+        return n;
+    }
+    [[nodiscard]] bool empty() const noexcept { return size() == 0; }
 
 private:
-    char m_ptr[8] = {};       // the borrowed pointer, byte-array (align 1) to keep the cell align 4
-    std::uint32_t m_len = 0;  // length; a protobuf span never exceeds ~2 GiB, so uint32 always fits
+    // BOTH members are byte arrays so the cell is align 1 and a genuine 9 bytes: a `std::uint32_t`
+    // member would force align 4 and pad 9 -> 12, undoing the shrink. This is the same trick the
+    // pointer version used to keep its cell at align 4, one step further. Align 1 also lets the
+    // layout planner drop a string field into any gap.
+    char m_off[offset_detail::kOffsetBytes] = {};  // backward offset to the input; 0 == unset
+    char m_len[4] = {};  // length; a protobuf span never exceeds ~2 GiB, so 32 bits always fits
 };
 // NOLINTEND(cppcoreguidelines-avoid-c-arrays, modernize-avoid-c-arrays,
 // bugprone-multi-level-implicit-pointer-conversion, bugprone-sizeof-expression)
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
-static_assert(sizeof(ArenaString) == 12 && alignof(ArenaString) == 4 &&
+static_assert(sizeof(ArenaString) == 9 && alignof(ArenaString) == 1 &&
               std::is_trivially_destructible_v<ArenaString>);
 
 // ── ArrayView / MapView ──────────────────────────────────────────────────────────────────────────
@@ -363,34 +378,106 @@ static_assert(sizeof(ArenaString) == 12 && alignof(ArenaString) == 4 &&
 // NOLINTBEGIN(cppcoreguidelines-avoid-c-arrays, modernize-avoid-c-arrays,
 // cppcoreguidelines-pro-bounds-pointer-arithmetic): the class IS a hand-laid-out 12-byte cell whose
 // pointer is type-punned through memcpy (the sanctioned way), and the span abstraction itself.
+// The in-node storage for a sub-message reference (the layout planner's PointerSubMsg): a bare
+// 40-bit FORWARD offset, 5 bytes instead of an 8-byte pointer. The target is allocated after the node
+// that refers to it, so the distance is always positive; 0 means unset.
+template <class T>
+class ArenaPtr {
+public:
+    ArenaPtr() noexcept = default;
+
+    // Written IN PLACE (see ArenaString::store): the offset depends on the cell's final address.
+    static void store(ArenaPtr* dst, const T* target) noexcept {
+        if (target == nullptr) {
+            *dst = ArenaPtr{};
+            return;
+        }
+        offset_detail::store(dst->m_off, offset_detail::forward(dst, target));
+    }
+
+    [[nodiscard]] const T* get() const noexcept {
+        const std::uint64_t off = offset_detail::load(m_off);
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic): the offset IS the reference
+        return off == 0 ? nullptr
+                        : reinterpret_cast<const T*>(reinterpret_cast<const char*>(this) + off);
+    }
+
+    // Presence WITHOUT forming the pointer. `get() != nullptr` makes the compiler prove that
+    // `this + off` can never be null before it can fold the test down to `off != 0`; this asks the
+    // question directly, which is what the decoder's duplicate-singular guard wants on the hot path.
+    [[nodiscard]] bool is_set() const noexcept { return offset_detail::load(m_off) != 0; }
+
+private:
+    char m_off[offset_detail::kOffsetBytes] = {};  // forward offset to the node; 0 == unset
+};
+
+// STORAGE vs VIEW. A self-relative cell must never be copied -- a copy sits at a different address,
+// so its offset would silently point somewhere else. ArenaArray<T> is therefore the in-node STORAGE
+// (9 bytes, self-relative, never copied), and ArrayView<T> is the ephemeral pointer-based view an
+// accessor RETURNS by value. Only the storage needs to be small; the view lives in registers.
 template <class T>
 class ArrayView {
 public:
     ArrayView() noexcept = default;
-    ArrayView(const T* data, std::size_t size) noexcept : m_size(static_cast<std::uint32_t>(size)) {
-        std::memcpy(m_data, &data, sizeof data);
+    ArrayView(const T* data, std::size_t size) noexcept : m_data(data), m_size(size) {}
+
+    [[nodiscard]] const T* data() const noexcept { return m_data; }
+    [[nodiscard]] std::size_t size() const noexcept { return m_size; }
+    [[nodiscard]] bool empty() const noexcept { return m_size == 0; }
+    const T& operator[](std::size_t i) const noexcept { return m_data[i]; }
+    [[nodiscard]] const T* begin() const noexcept { return m_data; }
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic): the span abstraction itself
+    [[nodiscard]] const T* end() const noexcept { return m_data + m_size; }
+
+private:
+    const T* m_data = nullptr;
+    std::size_t m_size = 0;
+};
+
+// The in-node array storage: a 40-bit forward offset to the elements plus a 32-bit count, both held
+// as byte arrays so the cell is align 1 and a genuine 9 bytes (see ArenaString for why).
+template <class T>
+class ArenaArray {
+public:
+    ArenaArray() noexcept = default;
+
+    // Written IN PLACE (see ArenaString::store): a self-relative offset depends on the cell's final
+    // address. The array is allocated from the arena AFTER the node holding this cell, so the
+    // distance is a positive FORWARD offset; 0 means unset.
+    static void store(ArenaArray* dst, const T* data, std::size_t size) noexcept {
+        if (data == nullptr || size == 0) {
+            *dst = ArenaArray{};
+            return;
+        }
+        offset_detail::store(dst->m_off, offset_detail::forward(dst, data));
+        const auto n = static_cast<std::uint32_t>(size);
+        std::memcpy(dst->m_size, &n, sizeof n);
     }
 
     [[nodiscard]] const T* data() const noexcept {
-        const T* p = nullptr;
-        std::memcpy(&p, m_data, sizeof p);
-        return p;
+        const std::uint64_t off = offset_detail::load(m_off);
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic): the offset IS the reference
+        return off == 0 ? nullptr
+                        : reinterpret_cast<const T*>(reinterpret_cast<const char*>(this) + off);
     }
-    [[nodiscard]] std::size_t size() const noexcept { return m_size; }
-    [[nodiscard]] bool empty() const noexcept { return m_size == 0; }
-    const T& operator[](std::size_t i) const noexcept { return data()[i]; }
-    [[nodiscard]] const T* begin() const noexcept { return data(); }
-    [[nodiscard]] const T* end() const noexcept { return data() + m_size; }
+    [[nodiscard]] std::size_t size() const noexcept {
+        std::uint32_t n = 0;
+        std::memcpy(&n, m_size, sizeof n);
+        return n;
+    }
+    [[nodiscard]] bool empty() const noexcept { return size() == 0; }
+    // The ephemeral view an accessor hands out. Reading through it never touches this cell again.
+    [[nodiscard]] ArrayView<T> view() const noexcept { return {data(), size()}; }
 
 private:
-    char m_data[8] = {};  // the data pointer, memcpy'd (see class comment); char[8] keeps align 4
-    std::uint32_t m_size = 0;
+    char m_off[offset_detail::kOffsetBytes] = {};  // forward offset to the elements; 0 == unset
+    char m_size[4] = {};
 };
 // NOLINTEND(cppcoreguidelines-avoid-c-arrays, modernize-avoid-c-arrays,
 // cppcoreguidelines-pro-bounds-pointer-arithmetic)
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
-static_assert(sizeof(ArrayView<int>) == 12 && alignof(ArrayView<int>) == 4 &&
-              std::is_trivially_destructible_v<ArrayView<int>>);
+static_assert(sizeof(ArenaArray<int>) == 9 && alignof(ArenaArray<int>) == 1 &&
+              std::is_trivially_destructible_v<ArenaArray<int>>);
 
 // ── StringArrayView ────────────────────────────────────────────────────────────────────────────────
 // A read-only view over an arena array of ArenaString that yields std::string_view per element. A
@@ -470,10 +557,12 @@ public:
 private:
     ArrayView<Entry> m_entries;
 };
-// MapView wraps a single ArrayView, so it inherits the 12-byte / 4-align cell.
+// MapView is an ephemeral VIEW (it wraps an ArrayView), so its size does not matter -- a map field's
+// in-node STORAGE is an ArenaArray<Entry>, which is the 9-byte cell the layout planner sizes against.
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
-static_assert(sizeof(MapView<ArenaString>) == 12 && alignof(MapView<ArenaString>) == 4 &&
-              std::is_trivially_destructible_v<MapView<ArenaString>>);
+static_assert(sizeof(ArenaArray<ArenaString>) == 9 && alignof(ArenaArray<ArenaString>) == 1 &&
+              std::is_trivially_destructible_v<ArenaArray<ArenaString>>);
+static_assert(std::is_trivially_destructible_v<MapView<ArenaString>>);
 
 // ── Decode failure ────────────────────────────────────────────────────────────────────────────────
 struct ArenaDecodeError {

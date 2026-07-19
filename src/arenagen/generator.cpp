@@ -122,16 +122,30 @@ std::string storage_type(const Emit& emit, const MemberPlan& m) {
         case FieldKind::InlineFixedSubMsg:
             return cpp_type_name(emit.names, m.target_fqn);
         case FieldKind::PointerSubMsg:
-            return "const " + cpp_type_name(emit.names, m.target_fqn) + "*";
+            return "::rapidproto::ArenaPtr<" + cpp_type_name(emit.names, m.target_fqn) + ">";
+        case FieldKind::Repeated:
+            return "::rapidproto::ArenaArray<" + repeated_elem_type(emit, *m.field) + ">";
+        case FieldKind::Map:
+            return "::rapidproto::ArenaArray<" + emit.synth.entry_type.at(m.map_field) + ">";
+        case FieldKind::Raw:
+            return m.field->is_repeated ? "::rapidproto::ArenaArray<::rapidproto::ArenaString>"
+                                        : "::rapidproto::ArenaString";
+    }
+    return "";
+}
+
+// The type an ACCESSOR returns for a reference-carrying member. It differs from storage_type()
+// because the stored cell holds a self-relative offset: copying it out would leave the offset
+// pointing relative to the copy's address. The view is a plain {ptr,size} pair, built on demand.
+std::string view_type(const Emit& emit, const MemberPlan& m) {
+    switch (m.kind) {
         case FieldKind::Repeated:
             return "::rapidproto::ArrayView<" + repeated_elem_type(emit, *m.field) + ">";
         case FieldKind::Map:
             return "::rapidproto::MapView<" + emit.synth.entry_type.at(m.map_field) + ">";
-        case FieldKind::Raw:
-            return m.field->is_repeated ? "::rapidproto::ArrayView<::rapidproto::ArenaString>"
-                                        : "::rapidproto::ArenaString";
+        default:
+            return storage_type(emit, m);
     }
-    return "";
 }
 
 std::string oneof_member_storage(const Emit& emit, const OneofMemberPlan& m) {
@@ -143,7 +157,7 @@ std::string oneof_member_storage(const Emit& emit, const OneofMemberPlan& m) {
         case FieldKind::InlineFixedSubMsg:
             return cpp_type_name(emit.names, m.target_fqn);
         case FieldKind::PointerSubMsg:
-            return "const " + cpp_type_name(emit.names, m.target_fqn) + "*";
+            return "::rapidproto::ArenaPtr<" + cpp_type_name(emit.names, m.target_fqn) + ">";
         default:
             return cpp_scalar(m.field->type_name);
     }
@@ -318,13 +332,15 @@ void emit_oneof_accessors(const Emit& emit, const OneofPlan& o) {
         const std::string& id = emit.names.local.at(member.field);
         std::string val;
         if (member.kind == FieldKind::PointerSubMsg) {
-            val = "*";  // stored as a pointer -> hand over a const ref
+            val = "*";  // stored as an offset cell -> deref its target, handing over a const ref
         }
         val += "m_rp_";
         val += o.oneof->name;
         val += '.';
         val += id;
-        if (member.kind == FieldKind::BorrowString) {
+        if (member.kind == FieldKind::PointerSubMsg) {
+            val += ".get()";
+        } else if (member.kind == FieldKind::BorrowString) {
             val += ".view()";
         }
         p.print("case $i$:\n", {{"i", std::to_string(index++)}});
@@ -420,24 +436,25 @@ void emit_field_accessor(const Emit& emit, const MessageLayout& layout, const Me
             }
             break;
         case FieldKind::PointerSubMsg:
-            p.print("const $T$* $id$() const noexcept { return m_$id$; }\n",
+            p.print("const $T$* $id$() const noexcept { return m_$id$.get(); }\n",
                     {{"T", cpp_type_name(emit.names, m.target_fqn)}, {"id", id}});
             break;
         case FieldKind::Repeated:
             if (repeated_elem_type(emit, *m.field) == "::rapidproto::ArenaString") {
-                // Storage is ArrayView<ArenaString> (borrowed views); expose std::string_view, not the storage type.
+                // Storage is ArenaArray<ArenaString> (borrowed views); expose std::string_view, not
+                // the storage type. Each element is read in place, so no offset cell is ever copied.
                 p.print(
                     "::rapidproto::StringArrayView $id$() const noexcept {"
-                    " return ::rapidproto::StringArrayView(m_$id$); }\n",
+                    " return ::rapidproto::StringArrayView(m_$id$.view()); }\n",
                     {{"id", id}});
             } else {
-                p.print("$T$ $id$() const noexcept { return m_$id$; }\n",
-                        {{"T", storage_type(emit, m)}, {"id", id}});
+                p.print("$T$ $id$() const noexcept { return m_$id$.view(); }\n",
+                        {{"T", view_type(emit, m)}, {"id", id}});
             }
             break;
         case FieldKind::Map:
-            p.print("$T$ $id$() const noexcept { return m_$id$; }\n",
-                    {{"T", storage_type(emit, m)}, {"id", id}});
+            p.print("$T$ $id$() const noexcept { return $T$(m_$id$.view()); }\n",
+                    {{"T", view_type(emit, m)}, {"id", id}});
             break;
         case FieldKind::Raw:
             // The message field's borrowed payload(s): hand a view to the field type's own decode()
@@ -448,7 +465,7 @@ void emit_field_accessor(const Emit& emit, const MessageLayout& layout, const Me
             if (m.field->is_repeated) {
                 p.print(
                     "::rapidproto::StringArrayView $id$() const noexcept {"
-                    " return ::rapidproto::StringArrayView(m_$id$); }\n",
+                    " return ::rapidproto::StringArrayView(m_$id$.view()); }\n",
                     {{"id", id}});
             } else if (m.field->presence == FieldPresence::Explicit) {
                 p.print(
@@ -814,7 +831,7 @@ void emit_message_decode_body(const Emit& emit, const MessageLayout& layout, con
     // concatenation-style) input rather than silently take the last (or a partial merge).
     std::string seen;
     if (m.kind == FieldKind::PointerSubMsg) {
-        seen = "out.m_" + id + " != nullptr";
+        seen = "out.m_" + id + ".is_set()";  // tests the offset directly, no pointer formed
     } else if (m.presence_bit >= 0) {
         seen = "(" + mask_word_ref(layout, m.presence_bit) + " & (" +
                mask_word_one(layout, m.presence_bit) + ")) != 0";
@@ -838,7 +855,8 @@ void emit_message_decode_body(const Emit& emit, const MessageLayout& layout, con
         p.print(
             "if (!::rapidproto::arena_detail::decode_into(*rp_sub, rp_v, arena, depth + 1, "
             "err)) { return false; }\n");
-        p.print("out.m_$id$ = rp_sub;\n", {{"id", id}});
+        p.print("::rapidproto::ArenaPtr<$T$>::store(&out.m_$id$, rp_sub);\n",
+                {{"id", id}, {"T", cpp_type_name(emit.names, m.target_fqn)}});
     }
     emit_presence_set(emit, layout, m, required_bit);
 }
@@ -1086,8 +1104,9 @@ void emit_repeated_arm(const Emit& emit, const FieldNode& field) {
 
 void emit_repeated_finalize(const Emit& emit, const FieldNode& field) {
     const std::string id = emit.names.local.at(&field);
-    emit.printer.print("out.m_$id$ = ::rapidproto::ArrayView<$E$>(rp_acc_$id$, rp_n_$id$);\n",
-                       {{"id", id}, {"E", repeated_elem_type(emit, field)}});
+    emit.printer.print(
+        "::rapidproto::ArenaArray<$E$>::store(&out.m_$id$, rp_acc_$id$, rp_n_$id$);\n",
+        {{"id", id}, {"E", repeated_elem_type(emit, field)}});
 }
 
 // ── field-modes `raw` (see modes.hpp): store the message field's payload, decode later ──────────
@@ -1128,9 +1147,9 @@ void emit_raw_arm(const Emit& emit, const MessageLayout& layout, const MemberPla
     if (field.is_repeated) {
         p.print("::rapidproto::ArenaString* const rp_slot = rp_slot_$id$();\n", {{"id", id}});
         p.print("if (rp_slot == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }\n");
-        p.print("*rp_slot = ::rapidproto::ArenaString::make(rp_v, arena);\n");
+        p.print("::rapidproto::ArenaString::store(rp_slot, rp_v);\n");
     } else {
-        p.print("out.m_$id$ = ::rapidproto::ArenaString::make(rp_v, arena);\n", {{"id", id}});
+        p.print("::rapidproto::ArenaString::store(&out.m_$id$, rp_v);\n", {{"id", id}});
     }
     emit_presence_set(emit, layout, m, required_bit);
     p.print("continue;\n");
@@ -1145,8 +1164,8 @@ void emit_raw_finalize(const Emit& emit, const MemberPlan& m) {
     if (m.field->is_repeated) {
         const std::string id = emit.names.local.at(m.field);
         emit.printer.print(
-            "out.m_$id$ = ::rapidproto::ArrayView<::rapidproto::ArenaString>(rp_acc_$id$, "
-            "rp_n_$id$);\n",
+            "::rapidproto::ArenaArray<::rapidproto::ArenaString>::store(&out.m_$id$,"
+            " rp_acc_$id$, rp_n_$id$);\n",
             {{"id", id}});
     }
 }
@@ -1209,7 +1228,7 @@ void emit_vt_scalar_read(const Emit& emit, FieldKind kind, std::string_view prot
         p.print("$c$ = rp_np;\n", {{"c", cur}});
         // Borrow a {ptr,len} view into the input -- never fails post the top-level input-size guard, so
         // no failure check follows (the value always fits the 32-bit length; nothing is allocated).
-        p.print("$t$ = ::rapidproto::ArenaString::make(rp_v, arena);\n", {{"t", target}});
+        p.print("::rapidproto::ArenaString::store(&$t$, rp_v);\n", {{"t", target}});
     } else if (kind == FieldKind::InlineEnum) {
         p.print("std::uint64_t rp_raw = 0;\n");
         p.print(
@@ -1404,8 +1423,7 @@ void emit_map_finalize(const Emit& emit, const MemberPlan& m) {
     const std::string id = emit.names.local.at(m.map_field);
     const std::string et = emit.synth.entry_type.at(m.map_field);
     emit.printer.print(
-        "out.m_$id$ = ::rapidproto::MapView<$ET$>(::rapidproto::ArrayView<$ET$>(rp_acc_$id$,"
-        " rp_n_$id$));\n",
+        "::rapidproto::ArenaArray<$ET$>::store(&out.m_$id$, rp_acc_$id$, rp_n_$id$);\n",
         {{"id", id}, {"ET", et}});
 }
 
@@ -1445,7 +1463,8 @@ void emit_oneof_arm(const Emit& emit, const OneofPlan& o, const OneofMemberPlan&
             p.print(
                 "if (!::rapidproto::arena_detail::decode_into(*rp_sub, rp_v, arena, depth + 1, "
                 "err)) { return false; }\n");
-            p.print("$of$ = rp_sub;\n", {{"of", ofield}});
+            p.print("::rapidproto::ArenaPtr<$S$>::store(&$of$, rp_sub);\n",
+                    {{"of", ofield}, {"S", sub}});
         }
     } else {
         emit_vt_value_read(emit, field, ofield, "rp_c", "rp_cend",
@@ -1805,6 +1824,15 @@ void emit_decode_def(const Emit& emit, const MessageNode& message, const std::st
     p.print(
         "if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return "
         "nullptr; }\n");
+    // EXPERIMENTAL (arena-offset prototype): place the input at the FRONT of the arena's single
+    // region and parse THAT copy. Every string/bytes cell holds a backward offset to its bytes, so
+    // the bytes must live in the same region as the nodes; a view into the caller's own buffer could
+    // not be reached by a self-relative offset. A caller that already placed the bytes in the region
+    // gets them back unchanged (no copy).
+    p.print("input = arena.adopt_input(input);\n");
+    p.print(
+        "if (input.data() == nullptr && input.size() != 0) { ::rapidproto::rp_fail_oom(err);"
+        " return nullptr; }\n");
     p.print("$Q$* const rp_root = arena.create<$Q$>();\n", {{"Q", qualifier}});
     p.print("if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }\n");
     p.print("if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }\n");
