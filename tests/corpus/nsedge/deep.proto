@@ -1,0 +1,19 @@
+// Multi-component package + nested messages: the namespace a dumper must qualify against is
+// `com::example::deep`, NOT the enclosing class of a nested type. No other corpus file has a
+// dotted package, so this is the only coverage for that shape.
+syntax = "proto3";
+package com.example.deep;
+
+enum Mode {
+  MODE_OFF = 0;
+  MODE_ON = 1;
+}
+
+message Outer {
+  message Inner {
+    int32 x = 1;
+  }
+  Inner inner = 1;
+  Outer self = 2;
+  Mode mode = 3;
+}

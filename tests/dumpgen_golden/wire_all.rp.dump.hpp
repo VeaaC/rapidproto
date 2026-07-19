@@ -11,11 +11,9 @@
 #include "wire_all.rp.hpp"  // IWYU pragma: export
 #include "rapidproto/dump_runtime.hpp"
 
-namespace rapidproto::dump {
-
-}  // namespace rapidproto::dump
-
 namespace wire {
+
+namespace rp_dump_detail {
 
 inline void rp_dump_write(const ::wire::AllWire::G& m, ::rapidproto::dump::Writer& w);
 inline void rp_dump_write(const ::wire::AllWire& m, ::rapidproto::dump::Writer& w);
@@ -31,16 +29,6 @@ inline void rp_dump_write(const ::wire::AllWire::G& m, ::rapidproto::dump::Write
     }
     (void)rp_first;
   });
-}
-
-inline void rp_dump_write(std::ostream& rp_os, const ::wire::AllWire::G& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  rp_os << std::boolalpha;
-  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  rp_dump_write(m, w);
-}
-
-inline std::string rp_dump_string(const ::wire::AllWire::G& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
 }
 
 inline void rp_dump_write(const ::wire::AllWire& m, ::rapidproto::dump::Writer& w) {
@@ -75,7 +63,7 @@ inline void rp_dump_write(const ::wire::AllWire& m, ::rapidproto::dump::Writer& 
     if (const auto* rp_p = m.nested()) {
       if (w.begin_field(rp_first, "nested")) {
         w.push_path("nested");
-        rp_dump_write(*rp_p, w);
+        ::wire::rp_dump_detail::rp_dump_write(*rp_p, w);
         w.pop_path();
       }
     }
@@ -94,7 +82,7 @@ inline void rp_dump_write(const ::wire::AllWire& m, ::rapidproto::dump::Writer& 
     if (const auto* rp_p = m.g()) {
       if (w.begin_field(rp_first, "g")) {
         w.push_path("g");
-        rp_dump_write(*rp_p, w);
+        ::wire::rp_dump_detail::rp_dump_write(*rp_p, w);
         w.pop_path();
       }
     }
@@ -115,10 +103,22 @@ inline void rp_dump_write(const ::wire::AllWire& m, ::rapidproto::dump::Writer& 
   });
 }
 
+}  // namespace rp_dump_detail
+
+inline void rp_dump_write(std::ostream& rp_os, const ::wire::AllWire::G& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+  rp_os << std::boolalpha;
+  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
+  ::wire::rp_dump_detail::rp_dump_write(m, w);
+}
+
+inline std::string rp_dump_string(const ::wire::AllWire::G& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
+}
+
 inline void rp_dump_write(std::ostream& rp_os, const ::wire::AllWire& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   rp_os << std::boolalpha;
   ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  rp_dump_write(m, w);
+  ::wire::rp_dump_detail::rp_dump_write(m, w);
 }
 
 inline std::string rp_dump_string(const ::wire::AllWire& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {

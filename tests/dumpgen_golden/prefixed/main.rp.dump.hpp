@@ -13,11 +13,9 @@
 #include "dep.rp.dump.hpp"
 #include "forward.rp.dump.hpp"
 
-namespace rapidproto::dump {
-
-}  // namespace rapidproto::dump
-
 namespace rp::main {
+
+namespace rp_dump_detail {
 
 inline void rp_dump_write(const ::rp::main::Main& m, ::rapidproto::dump::Writer& w);
 
@@ -28,28 +26,28 @@ inline void rp_dump_write(const ::rp::main::Main& m, ::rapidproto::dump::Writer&
     if (const auto* rp_p = m.d()) {
       if (w.begin_field(rp_first, "d")) {
         w.push_path("d");
-        rp_dump_write(*rp_p, w);
+        ::rp::dep::rp_dump_detail::rp_dump_write(*rp_p, w);
         w.pop_path();
       }
     }
     if (const auto* rp_p = m.p()) {
       if (w.begin_field(rp_first, "p")) {
         w.push_path("p");
-        rp_dump_write(*rp_p, w);
+        ::rp::pub::rp_dump_detail::rp_dump_write(*rp_p, w);
         w.pop_path();
       }
     }
     if (const auto* rp_p = m.f()) {
       if (w.begin_field(rp_first, "f")) {
         w.push_path("f");
-        rp_dump_write(*rp_p, w);
+        ::rp::fwd::rp_dump_detail::rp_dump_write(*rp_p, w);
         w.pop_path();
       }
     }
     if (const auto rp_v = m.e()) {
       if (w.begin_field(rp_first, "e")) {
         { const auto rp_e = *rp_v;
-        if (const char* rp_nm = ::rapidproto::dump::rp_dump_enum_name(rp_e)) { w.os() << '"' << rp_nm << '"'; }
+        if (const char* rp_nm = ::rapidproto::dump::detail::rp_dump_enum_name(rp_e)) { w.os() << '"' << rp_nm << '"'; }
         else { w.os() << "\"UNKNOWN(" << static_cast<std::int32_t>(rp_e) << ")\""; } }
       }
     }
@@ -60,7 +58,7 @@ inline void rp_dump_write(const ::rp::main::Main& m, ::rapidproto::dump::Writer&
           bool rp_efirst = true;
           for (const auto& rp_el : rp_r) {
             w.entry_sep(rp_efirst);
-            rp_dump_write(rp_el, w);
+            ::rp::dep::rp_dump_detail::rp_dump_write(rp_el, w);
             if (w.overflowed()) { break; }
           }
         });
@@ -75,7 +73,7 @@ inline void rp_dump_write(const ::rp::main::Main& m, ::rapidproto::dump::Writer&
           for (const auto& rp_ent : rp_mp) {
             w.entry_sep(rp_efirst);
             w.os() << '"' << rp_ent.key() << "\": ";
-            if (const auto* rp_vp = rp_ent.value()) { rp_dump_write(*rp_vp, w); } else { w.os() << "null"; }
+            if (const auto* rp_vp = rp_ent.value()) { ::rp::dep::rp_dump_detail::rp_dump_write(*rp_vp, w); } else { w.os() << "null"; }
             if (w.overflowed()) { break; }
           }
         });
@@ -87,7 +85,7 @@ inline void rp_dump_write(const ::rp::main::Main& m, ::rapidproto::dump::Writer&
       if constexpr (std::is_same_v<RpTag, ::rp::main::Main::Choice::od>) {
         if (w.begin_field(rp_first, "od")) {
           w.push_path("od");
-          rp_dump_write(rp_v, w);
+          ::rp::dep::rp_dump_detail::rp_dump_write(rp_v, w);
           w.pop_path();
         }
       }
@@ -101,10 +99,12 @@ inline void rp_dump_write(const ::rp::main::Main& m, ::rapidproto::dump::Writer&
   });
 }
 
+}  // namespace rp_dump_detail
+
 inline void rp_dump_write(std::ostream& rp_os, const ::rp::main::Main& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   rp_os << std::boolalpha;
   ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  rp_dump_write(m, w);
+  ::rp::main::rp_dump_detail::rp_dump_write(m, w);
 }
 
 inline std::string rp_dump_string(const ::rp::main::Main& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {

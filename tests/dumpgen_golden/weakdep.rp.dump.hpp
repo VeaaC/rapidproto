@@ -11,11 +11,9 @@
 #include "weakdep.rp.hpp"  // IWYU pragma: export
 #include "rapidproto/dump_runtime.hpp"
 
-namespace rapidproto::dump {
-
-}  // namespace rapidproto::dump
-
 namespace wd {
+
+namespace rp_dump_detail {
 
 inline void rp_dump_write(const ::wd::WDep& m, ::rapidproto::dump::Writer& w);
 
@@ -32,10 +30,12 @@ inline void rp_dump_write(const ::wd::WDep& m, ::rapidproto::dump::Writer& w) {
   });
 }
 
+}  // namespace rp_dump_detail
+
 inline void rp_dump_write(std::ostream& rp_os, const ::wd::WDep& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   rp_os << std::boolalpha;
   ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  rp_dump_write(m, w);
+  ::wd::rp_dump_detail::rp_dump_write(m, w);
 }
 
 inline std::string rp_dump_string(const ::wd::WDep& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {

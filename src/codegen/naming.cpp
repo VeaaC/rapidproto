@@ -195,7 +195,13 @@ const std::string& assign_id(CppNameTable& names, std::unordered_set<std::string
     return names.local.emplace(node, std::move(id)).first->second;
 }
 
-void index_message(CppNameTable& names, const MessageNode& message, const std::string& abs) {
+// `msg_ns` is the namespace the whole top-level scope is emitted in; a nested message is a CLASS
+// member, so it shares it verbatim (see CppNameTable::type_ns).
+// `abs` is a full `::a::b::C` type name, `msg_ns` a bare `a::b` namespace -- distinct shapes, and both
+// are internal to this file's single recursion.
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
+void index_message(CppNameTable& names, const MessageNode& message, const std::string& abs,
+                   const std::string& msg_ns) {
     std::unordered_set<std::string> taken;
     std::vector<std::pair<const MessageNode*, std::string>> children;
     for (const auto& nested_enum : message.enums) {
@@ -205,6 +211,7 @@ void index_message(CppNameTable& names, const MessageNode& message, const std::s
     for (const auto& nested : message.nested_messages) {
         std::string child_abs = abs + "::" + assign_id(names, taken, &nested, nested.name);
         names.absolute.emplace(nested.fqn, child_abs);
+        names.type_ns.emplace(nested.fqn, msg_ns);
         children.emplace_back(&nested, std::move(child_abs));
     }
     for (const auto& field : message.fields) {
@@ -219,7 +226,7 @@ void index_message(CppNameTable& names, const MessageNode& message, const std::s
         assign_id(names, taken, &map, map.name);
     }
     for (const auto& [child, child_abs] : children) {
-        index_message(names, *child, child_abs);
+        index_message(names, *child, child_abs, msg_ns);
     }
 }
 
@@ -242,10 +249,11 @@ void index_file(CppNameTable& names, const FileNode& file) {
     for (const auto& message : file.messages) {
         std::string abs = msg_root + "::" + assign_id(names, taken, &message, message.name);
         names.absolute.emplace(message.fqn, abs);
+        names.type_ns.emplace(message.fqn, msg_ns);
         tops.emplace_back(&message, std::move(abs));
     }
     for (const auto& [message, abs] : tops) {
-        index_message(names, *message, abs);
+        index_message(names, *message, abs, msg_ns);
     }
 }
 

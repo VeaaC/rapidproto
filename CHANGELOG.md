@@ -15,6 +15,17 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
   Backward-compatible: the old width argument still works (an integer converts to a width-only
   `DumpOptions`).
 
+### Changed
+
+- **Debug dumper: generated internals moved out of the public namespaces.** A generated
+  `.rp.dump.hpp` now puts only its two public entry points (`rp_dump_write(std::ostream&, ...)` and
+  `rp_dump_string`) in the message's namespace; the `Writer`-threaded core they forward to moved to
+  `pkg::rp_dump_detail`, and the generated enum value-name tables moved from the runtime's public
+  `rapidproto::dump` to `rapidproto::dump::detail`. Recursive calls are now emitted fully qualified
+  rather than resolved by ADL. **No call-site change** — `pkg::rp_dump_string(m)` is unchanged — but
+  regenerate to pick it up, and update any code that reached for the internal
+  `rp_dump_write(const T&, Writer&)` overload directly.
+
 ## 0.3.1 — 2026-07-18
 
 ### Fixed

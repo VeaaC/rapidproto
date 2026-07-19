@@ -1,0 +1,12 @@
+// No `package` at all: types land at global scope, so the dumper internals open a global-scope
+// `namespace rp_dump_detail` and qualify as `::rp_dump_detail::...`. The only corpus file without a
+// package.
+syntax = "proto3";
+
+message Root {
+  message Sub {
+    int32 y = 1;
+  }
+  Sub sub = 1;
+  Root self = 2;
+}

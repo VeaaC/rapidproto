@@ -212,6 +212,56 @@ TEST_CASE("dumpgen: generated headers match the goldens", "[dumpgen]") {
     check_golden("prefixed/dep", generate(imports, "dep.proto", "rp"));
 }
 
+// ── generated namespace layout ───────────────────────────────────────────────────────────────────
+
+// Only the two PUBLIC entry points may sit in the message's namespace; the Writer-threaded core lives
+// in <pkg>::rp_dump_detail and is reached by a FULLY QUALIFIED call (ADL cannot see into a
+// sub-namespace). The namespace is read from CppNameTable::type_ns rather than reconstructed from the
+// type FQN, so these assertions pin the shapes an FQN cannot express: a dotted package, and no package
+// at all. No corpus file outside tests/corpus/nsedge/ has either, and these have no golden -- they
+// assert on the generated TEXT, so they add no cross-generator golden churn.
+TEST_CASE("dumpgen: generated internals live in sub-namespaces, not the public ones", "[dumpgen]") {
+    const std::string nsedge = std::string(RAPIDPROTO_CORPUS_DIR) + "/nsedge";
+
+    SECTION("a multi-component package qualifies against the FULL package namespace") {
+        const std::string out = generate(nsedge, "deep.proto");
+        CHECK(out.find("namespace com::example::deep {") != std::string::npos);
+        CHECK(out.find("namespace rp_dump_detail {") != std::string::npos);
+        // The nested Inner is a CLASS member, so its dumper is still qualified with the PACKAGE
+        // namespace -- never `::com::example::deep::Outer::rp_dump_detail`.
+        CHECK(out.find("::com::example::deep::rp_dump_detail::rp_dump_write") != std::string::npos);
+        CHECK(out.find("Outer::rp_dump_detail") == std::string::npos);
+    }
+    SECTION("a file with NO package opens the detail namespace at global scope") {
+        const std::string out = generate(nsedge, "nopkg.proto");
+        CHECK(out.find("namespace rp_dump_detail {") != std::string::npos);
+        CHECK(out.find("::rp_dump_detail::rp_dump_write") != std::string::npos);
+    }
+    SECTION("a cross-file call is qualified with the CALLEE's namespace, not the caller's") {
+        const std::string out = generate(nsedge, "xpkg.proto");
+        CHECK(out.find("namespace other {") != std::string::npos);
+        CHECK(out.find("::com::example::deep::rp_dump_detail::rp_dump_write") != std::string::npos);
+    }
+    SECTION("--namespace-prefix is carried into the qualified call") {
+        const std::string out = generate(nsedge, "xpkg.proto", "rp");
+        CHECK(out.find("::rp::com::example::deep::rp_dump_detail::rp_dump_write") !=
+              std::string::npos);
+    }
+    SECTION("the public entry points stay OUT of the detail namespace") {
+        const std::string out = generate(nsedge, "deep.proto");
+        const auto detail_close = out.find("}  // namespace rp_dump_detail");
+        const auto dump_string = out.find("inline std::string rp_dump_string");
+        REQUIRE(detail_close != std::string::npos);
+        REQUIRE(dump_string != std::string::npos);
+        CHECK(detail_close < dump_string);  // rp_dump_string is emitted after the detail ns closes
+        // deep.proto defines an enum, so a name table IS emitted -- into the runtime's detail
+        // namespace, never its public one.
+        CHECK(out.find("namespace rapidproto::dump::detail {") != std::string::npos);
+        CHECK(out.find("namespace rapidproto::dump {") == std::string::npos);
+        CHECK(out.find("::rapidproto::dump::detail::rp_dump_enum_name") != std::string::npos);
+    }
+}
+
 // ── runtime output: decode a real fixture through the arena decoder, dump, assert the EXACT text ──
 
 TEST_CASE("dumpgen: scalars fixture dumps every scalar kind (bytes->hex, enum by name)",

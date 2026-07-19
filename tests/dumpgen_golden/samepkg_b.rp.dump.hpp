@@ -11,11 +11,9 @@
 #include "samepkg_b.rp.hpp"  // IWYU pragma: export
 #include "rapidproto/dump_runtime.hpp"
 
-namespace rapidproto::dump {
-
-}  // namespace rapidproto::dump
-
 namespace samepkg {
+
+namespace rp_dump_detail {
 
 inline void rp_dump_write(const ::samepkg::SecondB& m, ::rapidproto::dump::Writer& w);
 
@@ -32,10 +30,12 @@ inline void rp_dump_write(const ::samepkg::SecondB& m, ::rapidproto::dump::Write
   });
 }
 
+}  // namespace rp_dump_detail
+
 inline void rp_dump_write(std::ostream& rp_os, const ::samepkg::SecondB& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   rp_os << std::boolalpha;
   ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  rp_dump_write(m, w);
+  ::samepkg::rp_dump_detail::rp_dump_write(m, w);
 }
 
 inline std::string rp_dump_string(const ::samepkg::SecondB& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {

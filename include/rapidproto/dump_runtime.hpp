@@ -16,6 +16,10 @@
 
 namespace rapidproto::dump {
 
+// Internals of the two encoders below. Not part of the surface a generated dumper (or a consumer)
+// calls -- only write_json_escaped / write_hex / Writer / DumpOptions are.
+namespace detail {
+
 // The 16 lowercase hex digits. std::string_view (not a C array) so it is a plain object, not a
 // decayable array the strict checks flag; indexing a nibble [0,15] stays in bounds.
 inline constexpr std::string_view kHexDigits = "0123456789abcdef";
@@ -30,6 +34,8 @@ inline char hex_high(unsigned char uc) noexcept {
 inline char hex_low(unsigned char uc) noexcept {
     return kHexDigits[uc & kNibbleMask];
 }
+
+}  // namespace detail
 
 // Write `s` as a JSON string body (no surrounding quotes): escape the mandatory control/quote/backslash
 // characters, pass everything else (incl. UTF-8) through verbatim.
@@ -53,8 +59,8 @@ inline void write_json_escaped(std::ostream& os, std::string_view s) {
                 os << "\\t";
                 break;
             default:
-                if (uc < kFirstPrintable) {  // other control char -> \u00XX
-                    os << "\\u00" << hex_high(uc) << hex_low(uc);
+                if (uc < detail::kFirstPrintable) {  // other control char -> \u00XX
+                    os << "\\u00" << detail::hex_high(uc) << detail::hex_low(uc);
                 } else {
                     os << ch;
                 }
@@ -66,7 +72,7 @@ inline void write_json_escaped(std::ostream& os, std::string_view s) {
 inline void write_hex(std::ostream& os, std::string_view s) {
     for (const char ch : s) {
         const auto uc = static_cast<unsigned char>(ch);
-        os << hex_high(uc) << hex_low(uc);
+        os << detail::hex_high(uc) << detail::hex_low(uc);
     }
 }
 
