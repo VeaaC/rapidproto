@@ -10,6 +10,7 @@
 
 #include <catch_amalgamated.hpp>
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdlib>
 #include <fstream>
@@ -17,6 +18,7 @@
 #include <sstream>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "arena_modes_profile.hpp"
 #include "rapidproto/arena_runtime.hpp"  // Arena: decode the fixtures for the runtime-output tests
@@ -24,6 +26,7 @@
 #include "rapidproto/arenagen/layout.hpp"
 #include "rapidproto/arenagen/modes.hpp"
 #include "rapidproto/codegen/naming.hpp"
+#include "rapidproto/dump_runtime.hpp"  // dump::Writer / DumpOptions: driven directly below
 #include "rapidproto/dumpgen/generator.hpp"
 #include "rapidproto/resolve.hpp"
 #include "rapidproto/resolver.hpp"
@@ -165,6 +168,39 @@ void check_golden(const std::string& name, const std::string& actual) {
     INFO("golden: " << name);
     INFO(first_difference(read_file(golden), actual));
     CHECK(actual == read_file(golden));
+}
+
+// Drive the runtime Writer the way generated array code does (group + entry_sep + a raw value), so
+// the grid layout can be exercised over shapes no wire fixture supplies. `open`/`close` pick array
+// vs object framing.
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): the bracket pair is written as a literal pair
+std::string dump_entries(const std::vector<std::string>& cells, std::size_t width, char open = '[',
+                         char close = ']') {
+    std::ostringstream os;
+    rapidproto::dump::Writer w(os, width);
+    w.group(open, close, [&] {
+        bool first = true;
+        for (const std::string& cell : cells) {
+            w.entry_sep(first);
+            w.os() << cell;
+            if (w.overflowed()) {
+                break;
+            }
+        }
+    });
+    return os.str();
+}
+
+// True if any line ends in a space -- grid padding must never leave trailing whitespace.
+bool has_trailing_space(const std::string& s) {
+    std::istringstream in(s);
+    std::string line;
+    while (std::getline(in, line)) {
+        if (!line.empty() && line.back() == ' ') {
+            return true;
+        }
+    }
+    return false;
 }
 
 void put_varint(std::string& b, std::uint64_t v) {
@@ -368,8 +404,7 @@ TEST_CASE("dumpgen: width knob drives the adaptive nested-group layout", "[dumpg
   "nums": [1, 2, 3],
   "unpacked": [4, 5],
   "states": [
-    "ON",
-    "UNKNOWN"
+    "ON", "UNKNOWN"
   ],
   "counts": {
     "x": 1,
@@ -425,13 +460,10 @@ TEST_CASE("dumpgen: DumpOptions.indent starts the dump at a nesting level", "[du
         "implicit_i": 99
       },
       "nums": [
-        1,
-        2,
-        3
+        1, 2, 3
       ],
       "unpacked": [
-        4,
-        5
+        4, 5
       ],
       "states": [
         "ON",
@@ -444,6 +476,149 @@ TEST_CASE("dumpgen: DumpOptions.indent starts the dump at a nesting level", "[du
       "a": 7
     })";
     CHECK(p3::rp_dump_string(*m, opt) == expected);
+}
+
+// An array too wide for one line is laid out in as many aligned COLUMNS as fit, rather than one entry
+// per line. Columns are sized independently (each to its own widest cell), row-major so index order
+// still reads left-to-right; numeric cells right-align, everything else left-aligns.
+TEST_CASE("dumpgen: a too-wide array is laid out in aligned columns", "[dumpgen]") {
+    SECTION("numeric cells right-align, so digits line up under each other") {
+        const std::string expected = R"([
+  1,  2,  3,  4, 5, 6, 7, 8,
+  9, 10, 11, 12
+])";
+        const std::string out =
+            dump_entries({"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"}, 30);
+        CHECK(out == expected);
+        CHECK_FALSE(has_trailing_space(out));
+    }
+    SECTION("each column is sized to its OWN widest cell, not the array's") {
+        // Column 3 holds only "4444", so it is 4 wide while column 0 (1, 66) stays 2.
+        const std::string expected = R"([
+   1, 22, 333, 4444, 5,
+  66
+])";
+        CHECK(dump_entries({"1", "22", "333", "4444", "5", "66"}, 24) == expected);
+    }
+    SECTION("non-numeric cells left-align") {
+        const std::string expected = R"([
+  "al",  "bertrand", "cy",
+  "dee"
+])";
+        const std::string out =
+            dump_entries({R"("al")", R"("bertrand")", R"("cy")", R"("dee")"}, 30);
+        CHECK(out == expected);
+        CHECK_FALSE(has_trailing_space(out));
+    }
+}
+
+// The grid is only ever an improvement on one-entry-per-line: everything it cannot lay out cleanly
+// falls back to the previous behaviour, and a group that still fits on one line never reaches it.
+TEST_CASE("dumpgen: a group the column grid can't handle falls back unchanged", "[dumpgen]") {
+    SECTION("when not even two columns fit, fall back to one entry per line") {
+        const std::string expected = R"([
+  "averyverylongvalue",
+  "anotherlongvalue"
+])";
+        CHECK(dump_entries({R"("averyverylongvalue")", R"("anotherlongvalue")"}, 20) == expected);
+    }
+    SECTION("an OBJECT never grids -- packing \"key\": value cells reads worse") {
+        const std::string expected = R"({
+  "a": 1,
+  "b": 2,
+  "c": 3
+})";
+        CHECK(dump_entries({R"("a": 1)", R"("b": 2)", R"("c": 3)"}, 20, '{', '}') == expected);
+    }
+    SECTION("a single entry too wide for the budget is just printed on its own line") {
+        const std::string expected = R"([
+  "averylongsinglevalue"
+])";
+        CHECK(dump_entries({R"("averylongsinglevalue")"}, 10) == expected);
+    }
+    SECTION("a group that still fits on one line is untouched") {
+        CHECK(dump_entries({"1", "2", "3"}, 30) == "[1, 2, 3]");
+    }
+}
+
+// Paths the flat cell-list helper can't express: a cell that is itself a group (which is what
+// exercises suspending cell collection inside a nested group), a field following a grid, and the
+// collection cap that guards against materializing an enormous array.
+TEST_CASE("dumpgen: an array of objects grids them as whole cells", "[dumpgen]") {
+    {
+        std::ostringstream os;
+        rapidproto::dump::Writer w(os, 26);
+        w.group('[', ']', [&] {
+            bool first = true;
+            for (int i = 1; i <= 4; ++i) {
+                w.entry_sep(first);
+                w.group('{', '}', [&] {
+                    bool inner = true;
+                    w.entry_sep(inner);
+                    w.key("a");
+                    w.os() << i;
+                });
+            }
+        });
+        const std::string expected = R"([
+  {"a": 1}, {"a": 2},
+  {"a": 3}, {"a": 4}
+])";
+        CHECK(os.str() == expected);
+    }
+}
+
+TEST_CASE("dumpgen: a field after a column grid resumes at the enclosing indent", "[dumpgen]") {
+    {
+        std::ostringstream os;
+        rapidproto::dump::Writer w(os, 30);
+        w.group('{', '}', [&] {
+            bool first = true;
+            w.entry_sep(first);
+            w.key("nums");
+            w.group('[', ']', [&] {
+                bool inner = true;
+                for (int i = 1; i <= 12; ++i) {
+                    w.entry_sep(inner);
+                    w.os() << i;
+                }
+            });
+            w.entry_sep(first);
+            w.key("a");
+            w.os() << 7;
+        });
+        const std::string expected = R"({
+  "nums": [
+    1,  2,  3,  4, 5, 6, 7, 8,
+    9, 10, 11, 12
+  ],
+  "a": 7
+})";
+        CHECK(os.str() == expected);
+    }
+}
+
+TEST_CASE("dumpgen: an array past the cell cap falls back without dropping elements", "[dumpgen]") {
+    {
+        // The cap stops collection mid-array, so those cells are incomplete -- rendering them as a
+        // grid would silently swallow entries. It must fall back to one per line instead.
+        constexpr int kCount = 5000;
+        std::ostringstream os;
+        rapidproto::dump::Writer w(os, 200);
+        w.group('[', ']', [&] {
+            bool first = true;
+            for (int i = 0; i < kCount; ++i) {
+                w.entry_sep(first);
+                w.os() << 7;
+                if (w.overflowed()) {
+                    break;
+                }
+            }
+        });
+        const std::string out = os.str();
+        CHECK(std::count(out.begin(), out.end(), '7') == kCount);       // every element survived
+        CHECK(std::count(out.begin(), out.end(), '\n') == kCount + 1);  // one per line, not a grid
+    }
 }
 
 TEST_CASE("dumpgen: a message with no set fields dumps as an empty object", "[dumpgen]") {

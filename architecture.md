@@ -598,6 +598,15 @@ not a wire serializer; `--dump` implies `--arena`, since the dumper reads the ar
   a column budget (`width`, default 120), else one entry per line; a group goes multi-line only when it
   or a descendant doesn't fit, which forces its ancestors multi-line while siblings stay compact. It
   probes compact-first into a scratch buffer and splices it verbatim when it fits, so cost stays ~linear.
+- **Column grid for wide arrays.** An `[...]` that fails the compact probe gets one more tier before
+  one-entry-per-line: its entries are re-collected as individual cells (`entry_sep` already marks the
+  boundaries, so no generated code is involved) and laid out in as many aligned columns as fit,
+  row-major so index order still reads left-to-right. Each column is sized to its own widest cell;
+  all-numeric arrays right-align so digits line up, everything else left-aligns, and padding is only
+  ever written *before* a cell so no line gains trailing whitespace. Objects are excluded — packing
+  `"key": value` cells into columns reads worse than one per line. Collection is capped (cell count and
+  total bytes); a huge array, a multi-line cell, or a width where fewer than two columns fit all fall
+  back to one entry per line, which is safe because a group's `body` is re-runnable by contract.
 - **Own library, embedded runtime.** `dumpgen` is a first-class emitter library
   (`rapidproto_dumpgen_lib`), a peer of `streamgen`/`arenagen`. Its runtime header
   `rapidproto/dump_runtime.hpp` (the JSON-string escaper, the hex encoder, and the `Writer`) is embedded
