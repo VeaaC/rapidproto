@@ -51,6 +51,7 @@
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <string>
 #include <string_view>
@@ -79,6 +80,21 @@ std::uint64_t bits(double d) {
     std::uint64_t b = 0;
     std::memcpy(&b, &d, sizeof b);
     return b;
+}
+
+// A/B measurement mode (RAPIDPROTO_BENCH_PIN_INPUT=1). Collapses every rotating input pool to a
+// single buffer AND hands the arena decoder a view that already lives inside the Arena's region.
+// Both remove a confound that has nothing to do with the code under test:
+//   - pool rotation starts each iteration cache-cold (worth tens of percent on the array sweeps);
+//   - a view of the caller's own buffer makes decode() copy the whole input into the region first,
+//     because the Arena owns its input -- a cost proportional to payload size that lands hardest
+//     exactly where decode is cheapest per byte (packed fixed-width elements).
+// Neither exists in a pointer-based arena, so a naive cross-build comparison charges both to the
+// representation. OFF by default: the rotating pool is the honest default measurement, this mode
+// exists to isolate one variable when comparing two builds.
+bool pin_input() {
+    static const bool on = std::getenv("RAPIDPROTO_BENCH_PIN_INPUT") != nullptr;
+    return on;
 }
 
 // ── builders (protoc serializes the bytes every decoder then parses) ──────────────────────────────
@@ -828,9 +844,17 @@ void sweep_repeated_varint() {
             for (const auto& b : pool) {
                 views.emplace_back(b);  // pool strings are stable (reserved, no realloc)
             }
-            const double avg_bytes = total_bytes / static_cast<double>(pool_n);
+            if (pin_input()) {
+                pool.resize(1);  // shrink only -- the remaining string does not move
+                views.resize(1);
+                total_bytes = static_cast<double>(pool[0].size());
+            }
+            const double avg_bytes = total_bytes / static_cast<double>(pool.size());
             const std::string name = "rv " + dist.label + " " + rpbench::length_tag(count);
             rapidproto::Arena warm;
+            if (pin_input()) {
+                views[0] = warm.adopt_input(views[0]);  // decode from inside the region: no copy
+            }
             // Each arm keeps its own rotation index; the harness calls every arm the same number of
             // times, so all indices stay in lockstep and the per-round checksum cross-check still holds.
             std::vector<rpbench::Arm> arms = {
@@ -889,9 +913,17 @@ void sweep_repeated_varint_types() {
         for (const auto& b : pool) {
             views.emplace_back(b);
         }
-        const double avg_bytes = total_bytes / static_cast<double>(pool_n);
+        if (pin_input()) {
+            pool.resize(1);  // shrink only -- the remaining string does not move
+            views.resize(1);
+            total_bytes = static_cast<double>(pool[0].size());
+        }
+        const double avg_bytes = total_bytes / static_cast<double>(pool.size());
         const std::string name = std::string("rv-") + tag + " " + dist.label + " 1M";
         rapidproto::Arena warm;
+        if (pin_input()) {
+            views[0] = warm.adopt_input(views[0]);  // decode from inside the region: no copy
+        }
         std::vector<rpbench::Arm> arms = {
             {"protoc",
              [&, i = 0]() mutable {
@@ -1047,6 +1079,9 @@ int main() {
     const auto bench_bigset = [](const char* name, const std::string& b) {
         rapidproto::ByteView v(b);
         rapidproto::Arena w;
+        if (pin_input()) {
+            v = w.adopt_input(v);  // decode from inside the region: no copy (see pin_input)
+        }
         std::vector<rpbench::Arm> a = {
             {"protoc",
              [&]() {
@@ -1071,6 +1106,9 @@ int main() {
         const std::string wbuf = make_wide(50000);  // 50k msgs x tiny arrays -- same ~600k elements
         rapidproto::ByteView v(wbuf);
         rapidproto::Arena w;
+        if (pin_input()) {
+            v = w.adopt_input(v);  // decode from inside the region: no copy (see pin_input)
+        }
         std::vector<rpbench::Arm> a = {
             {"protoc",
              [&]() {
@@ -1094,6 +1132,9 @@ int main() {
         const std::string rbuf = make_records(20000);
         rapidproto::ByteView v(rbuf);
         rapidproto::Arena w;
+        if (pin_input()) {
+            v = w.adopt_input(v);  // decode from inside the region: no copy (see pin_input)
+        }
         std::vector<rpbench::Arm> a = {
             {"protoc",
              [&]() {
