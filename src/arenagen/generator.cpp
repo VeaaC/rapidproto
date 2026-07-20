@@ -920,34 +920,15 @@ void emit_singular_arm(const Emit& emit, const MessageLayout& layout, const Memb
     p.print("}\n");
 }
 
-void emit_growable_setup(const Emit& emit, const std::string& id, const std::string& elem,
-                         bool counted);
+void emit_growable_setup(const Emit& emit, const std::string& id, const std::string& elem);
 
-// True when one element of this member's array can contain a self-relative offset cell (ArenaString,
-// ArenaArray or ArenaPtr). Such an element must never be RELOCATED: a cell stores its target as a
-// distance from its own address, so copying it to a new address silently retargets it. Those arrays
-// are therefore sized by the counting pre-scan and allocated exactly once (see emit_count_prescan),
-// instead of accumulating through geometric realloc-and-copy. Cell-free elements (scalars, enums)
-// keep the cheaper growable path -- moving them is a plain byte copy.
-bool elem_has_offset_cells(const MemberPlan& m) {
-    switch (m.kind) {
-        case FieldKind::Map:  // entry key/value may be a string or a sub-message
-        case FieldKind::Raw:  // ArenaString payload views
-            return true;
-        case FieldKind::Repeated:
-            return m.field->is_message_type || m.field->type_name == "string" ||
-                   m.field->type_name == "bytes";
-        default:
-            return false;
-    }
-}
-
-// A repeated field accumulates into a single-pass arena array -- pre-counted and allocated once when
-// its elements carry offset cells, geometric realloc-and-copy otherwise.
-// Shares the array + slot emission with maps via emit_growable_setup.
+// A repeated field accumulates into a single-pass arena-growable array (geometric realloc-and-copy).
+// Relocating elements is safe under region-absolute offsets: a cell means the same thing at any
+// address inside the region, so a moved element's cells still resolve. (The self-relative prototype
+// could not do this and had to pre-count every array whose elements carried cells.)
+// Shares the array + grow-and-return-slot emission with maps via emit_growable_setup.
 void emit_repeated_setup(const Emit& emit, const MemberPlan& m) {
-    emit_growable_setup(emit, emit.names.local.at(m.field), repeated_elem_type(emit, *m.field),
-                        elem_has_offset_cells(m));
+    emit_growable_setup(emit, emit.names.local.at(m.field), repeated_elem_type(emit, *m.field));
 }
 
 // Read one element (from `reader`) and append it to the field's accumulator.
@@ -1137,8 +1118,7 @@ void emit_repeated_finalize(const Emit& emit, const FieldNode& field) {
 // singular raw payload writes straight into its member.
 void emit_raw_setup(const Emit& emit, const MemberPlan& m) {
     if (m.field->is_repeated) {
-        emit_growable_setup(emit, emit.names.local.at(m.field), "::rapidproto::ArenaString",
-                            elem_has_offset_cells(m));
+        emit_growable_setup(emit, emit.names.local.at(m.field), "::rapidproto::ArenaString");
     }
 }
 
@@ -1193,35 +1173,11 @@ void emit_raw_finalize(const Emit& emit, const MemberPlan& m) {
     }
 }
 
-// An arena array {acc, n, cap} + a return-slot lambda (shared by repeated and map).
-// `counted`: the element count is already known (rp_cnt_<id>, from the pre-scan), so the array is
-// allocated once up front and the slot lambda never grows -- elements stay put, which is what keeps
-// their self-relative offset cells valid. The count is an upper bound (a wrong-wire-type record is
-// counted here and skipped by the decode loop), so the lambda still guards against a full array
-// rather than assuming it is exact.
-void emit_growable_setup(const Emit& emit, const std::string& id, const std::string& elem,
-                         bool counted) {
+// A growable arena array {acc, n, cap} + a grow-and-return-slot lambda (shared by repeated and map).
+void emit_growable_setup(const Emit& emit, const std::string& id, const std::string& elem) {
     Printer& p = emit.printer;
     p.print("$E$* rp_acc_$id$ = nullptr;\n", {{"E", elem}, {"id", id}});
     p.print("std::size_t rp_n_$id$ = 0;\n", {{"id", id}});
-    if (counted) {
-        p.print("const std::size_t rp_cap_$id$ = rp_cnt_$id$;\n", {{"id", id}});
-        p.print("if (rp_cap_$id$ != 0) {\n", {{"id", id}});
-        p.indent();
-        p.print("rp_acc_$id$ = arena.allocate_array<$E$>(rp_cap_$id$);\n",
-                {{"E", elem}, {"id", id}});
-        p.print("if (rp_acc_$id$ == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }\n",
-                {{"id", id}});
-        p.outdent();
-        p.print("}\n");
-        p.print("const auto rp_slot_$id$ = [&]() noexcept -> $E$* {\n", {{"E", elem}, {"id", id}});
-        p.indent();
-        p.print("if (rp_n_$id$ == rp_cap_$id$) { return nullptr; }\n", {{"id", id}});
-        p.print("return &rp_acc_$id$[rp_n_$id$++];\n", {{"id", id}});
-        p.outdent();
-        p.print("};\n");
-        return;
-    }
     p.print("std::size_t rp_cap_$id$ = 0;\n", {{"id", id}});
     p.print("const auto rp_slot_$id$ = [&]() noexcept -> $E$* {\n", {{"E", elem}, {"id", id}});
     p.indent();
@@ -1246,7 +1202,7 @@ void emit_growable_setup(const Emit& emit, const std::string& id, const std::str
 
 void emit_map_setup(const Emit& emit, const MemberPlan& m) {
     emit_growable_setup(emit, emit.names.local.at(m.map_field),
-                        emit.synth.entry_type.at(m.map_field), elem_has_offset_cells(m));
+                        emit.synth.entry_type.at(m.map_field));
 }
 
 // Value-threaded scalar/enum/string read: reads one value from a raw byte cursor threaded by
@@ -1626,79 +1582,6 @@ void emit_fast_singular_value(const Emit& emit, const MessageLayout& layout, con
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): assembles the per-field wire dispatch
-// Counting pre-scan for the arrays whose elements carry self-relative offset cells (see
-// elem_has_offset_cells). Emits one `rp_cnt_<id>` per such member and a single type-agnostic
-// tag-walk over the body that increments them, so each array can then be allocated exactly once and
-// filled in place -- no realloc, no relocation, cells stay valid.
-//
-// Deliberately loose, because the count only has to be an UPPER bound:
-//   - a record with the wrong wire type is counted here and skipped by the decode loop (over-count,
-//     costs a little arena);
-//   - a malformed body stops the scan silently -- the decode loop hits the same byte and reports it
-//     with the proper offset, so duplicating the diagnostics here would be dead code.
-// Under-counting is what would be fatal (a null slot -> spurious OOM), and cannot happen: the scan
-// visits every record the decode loop can reach, by the same tag walk.
-//
-// Cost is one extra pass over the body. It touches only tags and lengths (length-delimited values
-// are skipped by pointer arithmetic), and only messages that actually have such a field emit it.
-void emit_count_prescan(const Emit& emit, const MessageNode& message,
-                        const std::unordered_map<const void*, const MemberPlan*>& by_node) {
-    Printer& p = emit.printer;
-    std::vector<std::pair<std::int32_t, std::string>> counted;  // (field number, local id)
-    for (const FieldNode& f : message.fields) {
-        const auto it = by_node.find(&f);
-        if (it != by_node.end() && elem_has_offset_cells(*it->second) &&
-            (f.is_repeated || it->second->kind == FieldKind::Raw)) {
-            counted.emplace_back(f.number, emit.names.local.at(&f));
-        }
-    }
-    for (const MapFieldNode& mp : message.map_fields) {
-        const auto it = by_node.find(&mp);
-        if (it != by_node.end() && elem_has_offset_cells(*it->second)) {
-            counted.emplace_back(mp.number, emit.names.local.at(&mp));
-        }
-    }
-    if (counted.empty()) {
-        return;
-    }
-    for (const auto& [number, id] : counted) {
-        p.print("std::size_t rp_cnt_$id$ = 0;\n", {{"id", id}});
-    }
-    p.print("{\n");
-    p.indent();
-    p.print("const std::uint8_t* rp_sc = ::rapidproto::wire::byte_ptr(body);\n");
-    p.print("const std::uint8_t* const rp_scend = rp_sc + body.size();\n");
-    p.print("::rapidproto::Tag rp_stag{};\n");
-    p.print("::rapidproto::WireError rp_swe = ::rapidproto::WireError::None;\n");
-    p.print("for (;;) {\n");
-    p.indent();
-    p.print("::rapidproto::wire::TagState rp_sstate = ::rapidproto::wire::TagState::End;\n");
-    p.print(
-        "const std::uint8_t* const rp_stp ="
-        " ::rapidproto::wire::read_tag_or_end(rp_sc, rp_scend, &rp_stag, &rp_swe, &rp_sstate);\n");
-    p.print("if (rp_sstate != ::rapidproto::wire::TagState::Tag) { break; }\n");
-    p.print("rp_sc = rp_stp;\n");
-    p.print("switch (rp_stag.field_number) {\n");
-    p.indent();
-    for (const auto& [number, id] : counted) {
-        p.print("case $n$: ++rp_cnt_$id$; break;\n", {{"n", std::to_string(number)}, {"id", id}});
-    }
-    p.print("default: break;\n");
-    p.outdent();
-    p.print("}\n");
-    p.print("std::size_t rp_sfo = 0;\n");
-    p.print(
-        "const std::uint8_t* const rp_ssp ="
-        " ::rapidproto::wire::skip_value(rp_sc, rp_scend, ::rapidproto::wire::byte_ptr(body),"
-        " rp_stag, 0, &rp_swe, &rp_sfo);\n");
-    p.print("if (rp_ssp == nullptr) { break; }\n");
-    p.print("rp_sc = rp_ssp;\n");
-    p.outdent();
-    p.print("}\n");
-    p.outdent();
-    p.print("}\n");
-}
-
 void emit_decode_into_body(const Emit& emit, const MessageNode& message,
                            const MessageLayout& layout) {
     Printer& p = emit.printer;
@@ -1719,7 +1602,6 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
     // here would reorder every existing golden): a repeated raw member gets its growable array of
     // payload views (a singular one needs none); a dropped field (absent from the plan) gets
     // nothing; materialized repeated/maps their growable arrays.
-    emit_count_prescan(emit, message, by_node);  // must precede the allocations it sizes
     for (const FieldNode& f : message.fields) {
         const auto it = by_node.find(&f);
         if (it == by_node.end()) {

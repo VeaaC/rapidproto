@@ -25,12 +25,12 @@ namespace {
 // runtime so the planner can never drift from arena_runtime.hpp.
 // EXPERIMENTAL (arena-offset prototype): every reference is a 40-bit self-relative offset, not an
 // 8-byte pointer, and each cell holds its parts as byte arrays so it is align 1 with no padding.
-constexpr std::size_t kPtrSize = 5;  // a sub-message reference: forward offset only
-constexpr std::size_t kPtrAlign = 1;
-constexpr std::size_t kStringSize = 9;  // ArenaString  = {uint40 backward offset, uint32 len}
-constexpr std::size_t kStringAlign = 1;
-constexpr std::size_t kViewSize = 9;  // ArenaArray<T> = {uint40 forward offset, uint32 count}
-constexpr std::size_t kViewAlign = 1;
+constexpr std::size_t kPtrSize = 4;  // a sub-message reference: a region-absolute offset
+constexpr std::size_t kPtrAlign = 4;
+constexpr std::size_t kStringSize = 8;  // ArenaString  = {uint32 region offset, uint32 len}
+constexpr std::size_t kStringAlign = 4;
+constexpr std::size_t kViewSize = 8;  // ArenaArray<T> = {uint32 region offset, uint32 count}
+constexpr std::size_t kViewAlign = 4;
 constexpr std::size_t kEnumSize = 4;  // enums stored as their int32 underlying value
 constexpr std::size_t kEnumAlign = 4;
 constexpr std::size_t kDiscSize = 1;  // oneof discriminant: a uint8 member index (0 = none)
