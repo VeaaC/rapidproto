@@ -22,11 +22,13 @@
 //     spans zero) / flat (real but < 0.5%) / SIG (real and meaningful).
 //   * Where the kernel permits unprivileged self-monitoring (perf_event_paranoid <= 2) we count CPU
 //     cycles and report frequency-invariant cycles/byte; otherwise we fall back to wall time.
-//   * We self-pin to the current core (RAPIDPROTO_BENCH_NO_PIN opts out) and spin to steady-state
-//     frequency before measuring.
+//   * We pin to the fastest allowed core -- on a hybrid P/E-core CPU this avoids an efficiency core,
+//     which runs ~2x slower and would halve a whole run at random (RAPIDPROTO_BENCH_NO_PIN opts out,
+//     RAPIDPROTO_BENCH_CPU=N forces a core) -- then spin to steady-state frequency before measuring.
+//     The chosen core is printed so a surprising number can be traced back to it.
 //
-// On a hybrid (P/E-core) CPU, still launch on a performance core so it does not pin to an E-core:
-//   taskset -c 0 ./build/gcc/rapidproto_bench
+// `taskset -c N` still works and simply narrows the choice to core N (e.g. to compare two builds on
+// the exact same core); without it the harness already prefers a performance core on its own.
 
 #include <algorithm>
 #include <chrono>
@@ -61,17 +63,78 @@ inline double ns_since(Clock::time_point t) {
     return std::chrono::duration<double, std::nano>(Clock::now() - t).count();
 }
 
-// One-time (no root): pin to the current core so we are not migrated mid-measurement, then spin to
-// a steady-state frequency so we do not measure the turbo ramp.
+inline bool json_mode();  // defined below; prepare_env announces the pinned core unless JSON output
+
+#if defined(__linux__)
+// A CPU's advertised max frequency in kHz, or -1 if sysfs cannot answer. Used only to rank cores.
+inline long cpu_max_freq_khz(int cpu) {
+    char path[128];
+    std::snprintf(path, sizeof path, "/sys/devices/system/cpu/cpu%d/cpufreq/cpuinfo_max_freq", cpu);
+    std::FILE* const f = std::fopen(path, "re");
+    if (f == nullptr) {
+        return -1;
+    }
+    long khz = -1;
+    if (std::fscanf(f, "%ld", &khz) != 1) {
+        khz = -1;
+    }
+    std::fclose(f);
+    return khz;
+}
+#endif
+
+// One-time (no root): pin to a FIXED, FAST core so we neither migrate mid-measurement nor -- on a
+// hybrid P/E-core CPU -- get stuck on an efficiency core, which runs these decode benchmarks ~2x
+// slower and would masquerade as a code regression (this bit us: whole runs silently halved depending
+// on where the scheduler happened to start us). Among the CPUs this process is ALLOWED to run on --
+// so `taskset -c N` and the RAPIDPROTO_BENCH_CPU override both narrow the choice -- we pick the
+// highest advertised max frequency, ties to the lowest index. Then spin to steady-state frequency so
+// we do not measure the turbo ramp. RAPIDPROTO_BENCH_NO_PIN opts out of pinning entirely.
 inline void prepare_env() {
 #if defined(__linux__)
     if (std::getenv("RAPIDPROTO_BENCH_NO_PIN") == nullptr) {
-        const int cpu = sched_getcpu();
-        if (cpu >= 0) {
+        cpu_set_t allowed;
+        CPU_ZERO(&allowed);
+        if (sched_getaffinity(0, sizeof allowed, &allowed) != 0) {
+            CPU_ZERO(&allowed);
+            const int cur = sched_getcpu();
+            CPU_SET(cur >= 0 ? cur : 0, &allowed);
+        }
+        const char* const want = std::getenv("RAPIDPROTO_BENCH_CPU");
+        const int forced = want != nullptr ? std::atoi(want) : -1;
+        int chosen = -1;
+        long chosen_khz = -1;
+        if (forced >= 0 && forced < CPU_SETSIZE && CPU_ISSET(forced, &allowed)) {
+            chosen = forced;
+            chosen_khz = cpu_max_freq_khz(forced);
+        } else {
+            for (int cpu = 0; cpu < CPU_SETSIZE; ++cpu) {
+                if (!CPU_ISSET(cpu, &allowed)) {
+                    continue;
+                }
+                const long khz = cpu_max_freq_khz(cpu);
+                if (chosen < 0 || khz > chosen_khz) {
+                    chosen = cpu;
+                    chosen_khz = khz;
+                }
+            }
+        }
+        if (chosen >= 0) {
             cpu_set_t set;
             CPU_ZERO(&set);
-            CPU_SET(cpu, &set);
-            sched_setaffinity(0, sizeof set, &set);
+            CPU_SET(chosen, &set);
+            const bool ok = sched_setaffinity(0, sizeof set, &set) == 0;
+            if (!json_mode()) {
+                if (ok && chosen_khz > 0) {
+                    std::printf("benchmark pinned to CPU %d (max %.0f MHz)\n", chosen,
+                                static_cast<double>(chosen_khz) / 1000.0);
+                } else if (ok) {
+                    std::printf("benchmark pinned to CPU %d\n", chosen);
+                } else {
+                    std::printf("benchmark: failed to pin to CPU %d (measurements may be noisy)\n",
+                                chosen);
+                }
+            }
         }
     }
 #endif
