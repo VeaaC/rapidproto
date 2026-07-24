@@ -16,7 +16,8 @@ The quality gate pins specific versions, so install:
   snapshot both decoders, `table` to render, `diff`/`experiment` to compare); read the
   [Decoder performance](architecture.md#decoder-performance) section first for how to read the numbers
   (placement noise, cyc/B vs the placement-invariant ins/B, pinning to one core). The current headline
-  numbers live in [docs/benchmarks.md](docs/benchmarks.md) — update that one file when they change.
+  numbers live in [docs/benchmarks.md](docs/benchmarks.md) — update it first when they change, and
+  keep the README's headline claims in step.
 
 ## Building
 

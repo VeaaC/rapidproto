@@ -710,8 +710,9 @@ compared against a hand-written value-threaded loop and mapbox/protozero (`tests
 `rapidproto_arena_bench`). Both are driven by `tests/bench.py` (`run` builds and executes both pinned
 to one core and writes an NDJSON snapshot, `table` renders/compares snapshots, `diff` is the GB/s
 regression gate, `experiment` snapshots two git refs and diffs them). The **current headline numbers**
-— which decoder is how much faster than which baseline, against which libprotobuf — live in ONE place,
-[`docs/benchmarks.md`](docs/benchmarks.md); the bench prints its libprotobuf baseline version at
+— which decoder is how much faster than which baseline, against which libprotobuf — live in
+[`docs/benchmarks.md`](docs/benchmarks.md), their source of truth (the README's lead repeats the
+headline claims and moves with it); the bench prints its libprotobuf baseline version at
 startup, since the baseline's version is half a ratio's meaning. Treat each number as a point, not a
 constant, and reproduce rather than quote. What the results mean structurally:
 

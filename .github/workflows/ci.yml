@@ -25,7 +25,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-toolchain
       - name: Quality gate minus tidy (./check.sh)
-        run: RAPIDPROTO_GATE_STAGES='format gcc clang cf fuzz' ./check.sh
+        run: RAPIDPROTO_GATE_STAGES='format docs gcc clang cf fuzz' ./check.sh
 
   # arm64 build + test on both pinned compilers. The packed-varint SWAR kernels are the reason: on
   # AArch64 they lower to native instructions the x86 gate never sees (ctz -> rbit+clz, popcount ->

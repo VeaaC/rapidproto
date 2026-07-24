@@ -23,15 +23,17 @@ def doc_files():
 
 
 def strip_fenced(text):
-    """Drop fenced code blocks: a '# comment' line inside one is not a heading."""
-    return re.sub(r"```.*?```", "", text, flags=re.S)
+    """Drop fenced code blocks: a '# comment' line inside one is not a heading. An unterminated
+    trailing fence is stripped to end-of-file rather than left behind."""
+    text = re.sub(r"```.*?```", "", text, flags=re.S)
+    return re.sub(r"```.*", "", text, flags=re.S)
 
 
 def strip_code(text):
-    """Additionally drop inline code spans: lambda syntax like `[](Tag, T v){}` is not a markdown
-    link. Only for link extraction -- headings keep their span TEXT in the anchor, so anchors_of
-    must not use this."""
-    return re.sub(r"`[^`\n]*`", "", strip_fenced(text))
+    """Additionally drop inline code spans (which may wrap across lines): lambda syntax like
+    `[](Tag, T v){}` is not a markdown link. Only for link extraction -- headings keep their span
+    TEXT in the anchor, so anchors_of must not use this."""
+    return re.sub(r"`[^`]*`", "", strip_fenced(text))
 
 
 def github_anchor(heading):
@@ -46,9 +48,13 @@ def anchors_of(path, cache={}):
     if path not in cache:
         with open(path, encoding="utf-8") as f:
             text = strip_fenced(f.read())
-        cache[path] = {
-            github_anchor(m.group(1)) for m in re.finditer(r"^#{1,6}\s+(.*)$", text, flags=re.M)
-        }
+        seen, out = {}, set()
+        for m in re.finditer(r"^#{1,6}\s+(.*)$", text, flags=re.M):
+            a = github_anchor(m.group(1))
+            n = seen.get(a, 0)
+            seen[a] = n + 1
+            out.add(a if n == 0 else f"{a}-{n}")  # GitHub dedups repeated headings with -1, -2, ...
+        cache[path] = out
     return cache[path]
 
 

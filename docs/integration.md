@@ -45,7 +45,7 @@ rapidproto_generate(my_schema
   GENERATOR   both                  # arena | stream | both           (default: arena)
   PROTOS      proto/person.proto    # one or more entry .proto files
   IMPORT_DIRS proto)                # -I roots your schema imports against
-  # also: NAMESPACE_PREFIX <ns>, OUT_DIR <dir>, UNKNOWN_PRESENT (arena), NO_WELLKNOWN, DEBUG (arena dumper),
+  # also: NAMESPACE_PREFIX <ns>, OUT_DIR <dir>, UNKNOWN_PRESENT (arena), NO_WELLKNOWN, DUMP (arena dumper),
   #       FIELD_MODES <file>... / DROP <name>... / RAW <name>... / UNKNOWN <message>...  (arena profiles)
 
 add_executable(app main.cpp)

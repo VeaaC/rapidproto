@@ -5,7 +5,7 @@
 # tests). Operates only on our own sources -- never the vendored Catch2 amalgam or
 # the thin CLI driver src/main.cpp.
 #
-#   ./check.sh        # full gate: format check, build+test both compilers, compile-fail, clang-tidy
+#   ./check.sh        # full gate: format check, doc links, build+test both compilers, compile-fail, clang-tidy
 #   ./check.sh fix    # first apply clang-format, then run the full gate
 #   ./check.sh quick  # fast inner loop: apply formatting + gcc build+test only (no clang/tidy)
 #   ./check.sh deep   # OPT-IN heavy tier (CI / end-of-phase, NOT the inner loop): ASan+UBSan over the
