@@ -341,8 +341,8 @@ inline PackedKernel packed_strategy(const std::uint8_t* p, std::size_t span, int
 // ── Packed-varint output sinks ──────────────────────────────────────────────────────────────────
 // decode_packed_varints is the SWAR packed-varint kernel, templated on a SINK. The arena decoder drives it
 // with array_sink, which stores conv(raw) into its pre-allocated array (the streaming decoder does NOT use
-// the kernel -- a streaming callback can't vectorize its per-element store, so SWAR is arena-only; see the
-// README Benchmarks section). A sink exposes put(index, raw) for one element and put2(index, r0, r1) for
+// the kernel -- a streaming callback can't vectorize its per-element store, so SWAR is arena-only; see
+// docs/benchmarks.md). A sink exposes put(index, raw) for one element and put2(index, r0, r1) for
 // two adjacent ones (the fixed 2-per-load kernel -- its own method so the two array stores fold to a
 // base+offset pair, which they don't through two separate put() calls). Both are void: the kernel never
 // aborts mid-span, so the bulk stores stay vectorizable / fused.
@@ -1156,7 +1156,7 @@ constexpr void invoke_handler(D& dispatcher, Tag tag, Vs&&... vs) {
 // to it (otherwise it is skipped). `bytes` is the raw value bytes after the tag, exactly as they
 // appear on the wire: for a LEN field that includes the length prefix, and for a group it is the
 // body plus the trailing EGROUP marker; the tag is `varint((field_number << 3) | wire_type)`. (See
-// README.md for the re-serialize / logging patterns.) Known schema fields you simply did not give a
+// docs/streaming.md for the re-serialize / logging patterns.) Known schema fields you simply did not give a
 // callback for are NOT "unknown"; use a generic `[](auto, auto)` catch-all to receive those, typed.
 struct UnknownField {
     std::uint32_t field_number;

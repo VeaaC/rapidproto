@@ -15,7 +15,9 @@ The quality gate pins specific versions, so install:
 - For the benchmarks: `libprotobuf-dev` + `protozero`. Drive them with `tests/bench.py` (`run` to
   snapshot both decoders, `table` to render, `diff`/`experiment` to compare); read the
   [Decoder performance](architecture.md#decoder-performance) section first for how to read the numbers
-  (placement noise, cyc/B vs the placement-invariant ins/B, pinning to one core).
+  (placement noise, cyc/B vs the placement-invariant ins/B, pinning to one core). The current headline
+  numbers live in [docs/benchmarks.md](docs/benchmarks.md) — update it first when they change, and
+  keep the README's headline claims in step.
 
 ## Building
 
@@ -30,7 +32,7 @@ cmake --build --preset gcc
 `./check.sh` is the one-stop bar and **must be green before you commit**:
 
 - `./check.sh`: clang-format, dual-compiler build + test, clang-tidy (strict on the library), the
-  compile-fail harnesses, and a dispatch-gate stress compile.
+  compile-fail harnesses, a docs link check, and a dispatch-gate stress compile.
 - `./check.sh fix`: apply clang-format first, then run the full gate.
 - `./check.sh quick`: gcc-only build + test for the inner loop (not the commit bar).
 - `./check.sh deep` is the heavy tier: ASan + UBSan, a library coverage floor, and a fuzz smoke.

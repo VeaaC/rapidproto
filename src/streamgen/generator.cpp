@@ -449,7 +449,7 @@ void emit_decode_and_invoke(Printer& printer, const std::string& fname, const Fi
 // deliberately arena-only: the streaming callback model can't vectorize a per-element store (unlike the
 // arena's array_sink, which materializes into its own array), so the kernel only helps wide-value packed
 // data and loses to this inline loop on 1-byte-dominant fields (packed repeated enums / small ints) -- a
-// common shape. See the README Benchmarks section. Offsets are span-relative (rp_pbeg is the offset base).
+// common shape. See docs/benchmarks.md. Offsets are span-relative (rp_pbeg is the offset base).
 void emit_packed_body(Printer& printer, const std::string& fname, const FieldGen& gen) {
     emit_vt_len_read(printer, "rp_packed");
     printer.print("const std::uint8_t* rp_pc = ::rapidproto::wire::byte_ptr(rp_packed);\n");

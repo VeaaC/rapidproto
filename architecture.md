@@ -33,7 +33,20 @@ identity stays decode-only. The output is header-only, so a consumer adds `-I<ou
 > **How to read this doc.** **Part I — Overview** is the onboarding path: read it top to bottom (~10
 > minutes) to get the mental model, find the code, build it, and learn the constraints. **Part II —
 > Reference** is the deep, per-subsystem detail; jump to the section for whatever you're working on.
-> A user-facing guide to *using* the generated decoders is in [`README.md`](README.md).
+> A user-facing guide to *using* the generated decoders starts at [`README.md`](README.md) and
+> continues in the [`docs/`](docs/) pages (one per topic: arena, streaming, dumper, semantics,
+> profiles, integration, benchmarks).
+
+**Contents.**
+Part I: [Terminology](#terminology) · [Orientation](#orientation) ·
+[Core model & invariants](#core-model--invariants) · [Subsystem map](#subsystem-map).
+Part II: [Front-end](#front-end) · [Wire reader](#wire-reader) ·
+[Streaming emitter](#streaming-emitter) · [Arena emitter](#arena-emitter) ·
+[Debug dumper emitter](#debug-dumper-emitter) ·
+[Shared emitter infrastructure](#shared-emitter-infrastructure) ·
+[Coexistence design](#coexistence-design) · [Decoder performance](#decoder-performance) ·
+[Normalization truth tables](#normalization-truth-tables) · [Build and test](#build-and-test) ·
+[Known limitations and non-goals](#known-limitations-and-non-goals).
 
 ---
 ---
@@ -82,9 +95,9 @@ CMakeLists.txt · CMakePresets.json · check.sh
 
 - **Build.** `cmake --preset gcc` (or `clang`) configures a dual-compiler build (gcc-13, clang-20) with
   `-Werror`. Targets: `rapidprotoc` (the CLI), `rapidproto_tests`.
-- **The gate.** `./check.sh` is the one-stop quality bar: clang-format, build + test on both compilers,
-  clang-tidy (strict on the library, relaxed on tests), the compile-fail harnesses (the generated API
-  rejects misuse), and a dispatch-gate stress compile. It **must be green before any commit**.
+- **The gate.** `./check.sh` is the one-stop quality bar: clang-format, a docs link check, build + test
+  on both compilers, clang-tidy (strict on the library, relaxed on tests), the compile-fail harnesses
+  (the generated API rejects misuse), and a dispatch-gate stress compile. It **must be green before any commit**.
   `./check.sh fix` formats first; `./check.sh quick` is gcc-only for the inner loop (not the commit bar).
 - **Goldens.** Much of the suite is golden tests (the analyzed AST, the wire structure, each emitter's
   output, the arena layout plan, all dumped to text and compared byte-for-byte). After an *intentional*
@@ -183,9 +196,9 @@ return `Result<T>` and stop at the first error.
 
 A parser is any callable `Range<I> -> Result<Parsed<O, I>>` returning the produced value plus the
 unconsumed remainder, or an `Error` whose offset is relative to its input. Sequential combinators lift
-child offsets, so the outermost parser reports a whole-buffer offset. Toolkit: `one`, `tag`, `take_while`,
-`take_while1`, `take_till`, `take_until`, `alt`, `seq`, `opt`, `many`, `many1`, `map`, `cut`, `recognize`,
-`all_consuming`, `delimited`, `preceded`, `separated_list`.
+child offsets, so the outermost parser reports a whole-buffer offset. The toolkit itself (sequencing,
+alternation, repetition, and the char-specific matchers) is enumerated in the `combinators.hpp` header
+comment; the behaviors that are not obvious from it:
 
 - Combinators are generic lambdas templated on the input range, so the same toolkit serves the lexer
   (`Range<char>`) and the parser (`Range<Token>`).
@@ -221,28 +234,22 @@ tokens) so the option grammar can accept a leading `+`.
 A single normalized model that abstracts away proto2/proto3/editions differences. Nodes are plain
 copyable/movable structs; presence, enum openness, and repeated/message encoding are stored as resolved
 semantic enums; everything decode-relevant is a typed field, everything else is retained raw under
-`options`. Key nodes:
+`options`. The node inventory and each node's fields are declared (and commented) in `ast.hpp`; what
+the declarations don't show:
 
-- **`FileNode`:** `syntax_level`, `edition`, `package`, `filename`, `imports`, `messages`, `enums`,
-  file-level `extends`, file `options`. (No services field.)
-- **`MessageNode`:** `fields`, `map_fields`, `oneofs`, `enums`, `nested_messages`, `reserved`,
-  `extension_ranges`, nested `extends`, `options`, `fqn`.
-- **`FieldNode`:** `name`, `type_name` (as written), `number`, and normalized attributes `presence`,
-  `is_repeated`, `repeated_encoding`, `is_group`, `message_encoding`, `default_value` (proto2 `[default]`,
-  stored raw), raw `options`, `fqn` (extension fields), and the type-resolution outputs
-  `resolved_type_fqn` / `is_message_type` / `is_enum_type`.
-- **`MapFieldNode`:** `key_type`, `value_type`, plus resolved `resolved_value_type_fqn` /
-  `value_is_message` / `value_is_enum` (keys are always scalar).
-- **`EnumNode` / `EnumValueNode`:** `openness`, `values`, `reserved`, `options`, `fqn`.
-- **`ExtendNode`:** `extendee_type_name`, `fields`, `options`; valid at file and message scope.
-- **`ExtensionRangeNode` / `ReservedNode`:** inclusive `NumberRange`s and reserved names. The `to max`
-  sentinel is context-dependent: `kMaxMessageFieldNumber = 536870911` (2²⁹−1) for message/extension
-  ranges, `kMaxEnumNumber = INT32_MAX` for enum ranges.
-
-Option value tree: `OptionValue` is a `variant<bool, int64, uint64, double, Identifier, string,
-MessageLiteral, ListLiteral>`. `MessageLiteral`/`ListLiteral` hold `vector<OptionValue>`, giving recursion
-value semantics via `std::vector`'s incomplete-type support, with no heap indirection and fully
-self-owning copies.
+- **Fields carry their resolution outputs in place.** A `FieldNode` holds both what the parser saw
+  (`type_name` as written) and what the semantic passes later computed (`presence`,
+  `repeated_encoding`, `resolved_type_fqn` / `is_message_type` / `is_enum_type`); there is no separate
+  "resolved AST" type.
+- **`FileNode` has no services field** — `service`/`rpc` are parsed past and dropped.
+- **Maps are first-class** (`MapFieldNode`; keys are always scalar). The map entry message is
+  synthesized at codegen time, not in the AST.
+- **The reserved/extension-range `to max` sentinel is context-dependent:**
+  `kMaxMessageFieldNumber = 536870911` (2²⁹−1) for message/extension ranges,
+  `kMaxEnumNumber = INT32_MAX` for enum ranges.
+- **Option value tree:** `OptionValue` is a variant over scalars, `Identifier`, `string`, and
+  `MessageLiteral`/`ListLiteral`, which hold `vector<OptionValue>` — recursion with value semantics via
+  `std::vector`'s incomplete-type support, no heap indirection, fully self-owning copies.
 
 ### Parser (`parser.hpp`, `src/parser.cpp`)
 
@@ -333,25 +340,16 @@ input is untrusted**, so it is **fully validating** (every overflow, truncation,
 wire type, and group mismatch → a `WireError`).
 
 **Performance-shaped API.** Wire decoding is the hottest path in a decoder, so the primitives avoid the
-heavyweight `Result`/`Error` and any stateful reader object:
-
-- The wire primitives are **value-threaded free functions** in the `rapidproto::wire` namespace
-  (`read_varint` with a 1-byte fast path, `read_tag`, `read_tag_or_end`, `read_fixed32/64`,
-  `read_length_delimited`, `skip_value`, `scan_group_end`, `read_group`). Each takes the byte cursor as a
-  `(cur, end, begin)` pointer triple **by value** and returns the advanced cursor (`nullptr` = failed),
-  writing the decoded value and a payload-free `WireError` code + fail offset to caller-owned out-params.
-  Because the cursor is passed and returned by value it stays in registers across the whole decode loop —
-  no reader member whose address escapes to memory (measurably fewer retired instructions than a stateful
-  cursor, most on GCC).
-- The public view type is `std::string_view` (`ByteView`); the cursor is a raw `const uint8_t*` retyped
-  from the view's `char` bytes, which is well-defined because `uint8_t` is `unsigned char` (a
-  `static_assert` pins it).
-- Header-only: the primitives (including the cold group walk) and the decode-dispatch machinery are all
-  `inline`, so a generated decoder can vendor the whole runtime as that single file.
-
-**API layers:** *wire primitives* (the `rapidproto::wire::read_*` / `skip_value` / `read_group` free
-functions above); *interpretation helpers* (caller-applied, infallible: `zigzag_decode_32/64`,
-`bit_cast_float/double` via `memcpy`, `varint_to_bool/int32/int64`).
+heavyweight `Result`/`Error` and any stateful reader object: they are **value-threaded free functions**
+in the `rapidproto::wire` namespace, each taking the byte cursor as a `(cur, end, begin)` pointer
+triple **by value** and returning the advanced cursor (`nullptr` = failed, with a payload-free
+`WireError` code + fail offset written to caller-owned out-params). Because the cursor is passed and
+returned by value it stays in registers across the whole decode loop — no reader member whose address
+escapes to memory (measurably fewer retired instructions than a stateful cursor, most on GCC).
+Everything is header-only `inline`, so a generated decoder can vendor the runtime as that single file.
+The full primitive inventory, the caller-applied interpretation helpers layered on top (zigzag,
+float bit-cast, varint narrowing), and the `uint8_t`-cursor aliasing note live in `runtime.hpp`'s
+header comments.
 
 **Single-level decode.** A LEN payload (string/bytes/sub-message/packed array — indistinguishable without
 type info) and a group body (`read_group`) are returned as opaque `ByteView` spans the caller re-parses.
@@ -365,7 +363,7 @@ Inline-hot-path throughput is ~1.7 GB/s (≈570 M fields/s, `-O3`).
 The `streamgen` emitter (`src/streamgen/`) turns the analyzed AST into C++ headers for **streaming,
 callback-based decoders**, via inline emitters over a small `Printer` (`$placeholder$` substitution +
 indentation, no template engine), one `<stem>.rp.stream.hpp` per `.proto`. (A user-facing guide to the
-generated API is in [`README.md`](README.md).)
+generated API is in [`docs/streaming.md`](docs/streaming.md).)
 
 **Generated API.** For each message `Foo`, a `struct Foo` holding a borrowed `ByteView`, driven by
 callbacks:
@@ -454,17 +452,12 @@ Per message: a `class` with the reordered storage + mask word(s) + inline storag
 views, the field accessors, nested enum/oneof/map types, and a static `decode(ByteView, Arena&,
 ArenaDecodeError* = nullptr) → const Msg*` (plus an out-of-line `rp_decode_into` that fills an
 already-allocated node, emitted after every class shell so forward/cyclic references are complete types).
-Accessor conventions: scalars/enums by value (explicit-presence fields return `std::optional<T>`,
-`std::nullopt` when absent); `std::string_view` for string/bytes (`std::optional<std::string_view>` if
-explicit-presence); `const Sub*` for sub-messages (inline or pointer alike, `nullptr` when absent);
-`ArrayView<T>` for repeated (a `StringArrayView` of `std::string_view` for repeated string/bytes); a
-`MapView` with `find()` for maps; and a oneof *reader* `<oneof>(handlers…)` that dispatches the active
-member to its typed handler (`std::monostate` handles unset).
+The accessor conventions — what each construct's accessor returns, presence, defaults, the oneof
+visitor — are the generated API's user contract, documented in [`docs/arena.md`](docs/arena.md) and
+[`docs/semantics.md`](docs/semantics.md).
 
-**Presence and defaults.** An absent `Implicit` field reads back its zero default (0 / "" / first enum);
-an absent `Explicit` field reads `std::nullopt` (the proto2 `[default = X]` is NOT materialized — a
-consumer applies it via `value_or`). A missing proto2 `required` field makes `decode()` **fail** (`nullptr` +
-`MissingRequired`), matching protoc — required-presence is tracked **transiently** during decode (a
+**Required presence is transient.** A missing proto2 `required` field makes `decode()` **fail**
+(`nullptr` + `MissingRequired`), matching protoc — required-presence is tracked only during decode (a
 stack-local bitmask validated at each message's end), so there is no resting presence bit for required
 fields.
 
@@ -490,10 +483,10 @@ A header-only, std-only support library the generated decoders depend on (vendor
 
 - **`Arena`:** a growable, single-threaded **bump allocator**. RAII-owned chunks (an inline head chunk +
   a vector of heap chunks), so a small message that fits the head, or a caller-seeded buffer, needs zero
-  heap allocation. `reset()` rewinds for reuse without freeing. Chunk growth is geometric but **capped at
-  96 KiB** (`kMaxChunk`): only the last chunk carries unfilled-tail waste, so capping its size bounds that
-  waste at a constant (and 96 K stays under glibc's 128 K mmap threshold, keeping cold-arena chunks on the
-  heap). `bytes_used()` / `bytes_reserved()` expose the footprint.
+  heap allocation. `reset()` rewinds for reuse without freeing; `bytes_used()` / `bytes_reserved()`
+  expose the footprint. Chunk growth is geometric, **capped at 96 KiB** (`kMaxChunk`) — the dominant
+  held-memory lever; the full rationale is the comment on the constant, and the measurements behind it
+  are under [Tuning](#tuning-benchmark-driven-knobs).
 - **`ArenaString`:** a 12-byte borrowed `{ptr, len}` view into the input (32-bit `len`; no copy, no SSO),
   so strings/bytes are zero-copy and the tree borrows the input. Trivially copyable/destructible. A value
   ≥ 4 GiB can't be represented, but the top-level guard rejects an over-`UINT32_MAX` input first
@@ -502,8 +495,10 @@ A header-only, std-only support library the generated decoders depend on (vendor
   `StringArrayView` adapts a repeated `ArenaString` array to `std::string_view` elements; the map view
   does a last-wins linear `find` (protobuf map semantics).
 - **`ArenaDecodeError`:** the failure detail (`Wire` / `OutOfMemory` / `RecursionTooDeep` /
-  `MissingRequired` / `RepeatedSingularMessage` / `StringTooLong`), plus the depth guard
-  (`kMaxDecodeDepth`, 100) decoders honor on untrusted nesting.
+  `MissingRequired` / `RepeatedSingularMessage` / `InputTooLarge`; `StringTooLong` is reserved and
+  never produced — strings borrow the input rather than being copied, and an over-4 GiB input is
+  rejected up front as `InputTooLarge`), plus the depth guard (`kMaxDecodeDepth`, 100) decoders honor
+  on untrusted nesting.
 
 ### Decode emission
 
@@ -712,24 +707,30 @@ instantaneous frequency, sampled adaptively until each ratio's significance is s
 (`tests/bench_harness.hpp`) — so a real few-percent win is separable from placement noise. Streaming is
 compared against a hand-written value-threaded loop and mapbox/protozero (`tests/bench_streamgen.cpp` →
 `rapidproto_bench`); arena against `protoc` + `google::protobuf::Arena` (`tests/bench_arena.cpp` →
-`rapidproto_arena_bench`). Headline results — measured against libprotobuf 3.21 with gcc-13/clang-20,
-pinned to one performance core; the bench prints its libprotobuf baseline version at startup, since the
-baseline's version is half a ratio's meaning. One realistic payload; treat each number as a point, not a
-constant, and reproduce with the benches:
+`rapidproto_arena_bench`). Both are driven by `tests/bench.py` (`run` builds and executes both pinned
+to one core and writes an NDJSON snapshot, `table` renders/compares snapshots, `diff` is the GB/s
+regression gate, `experiment` snapshots two git refs and diffs them). The **current headline numbers**
+— which decoder is how much faster than which baseline, against which libprotobuf — live in
+[`docs/benchmarks.md`](docs/benchmarks.md), their source of truth (the README's lead repeats the
+headline claims and moves with it); the bench prints its libprotobuf baseline version at
+startup, since the baseline's version is half a ratio's meaning. Treat each number as a point, not a
+constant, and reproduce rather than quote. What the results mean structurally:
 
-- **Streaming is at or below a hand-written value-threaded loop, and near protozero.** The callback/dispatch
-  abstraction is free, and on nested/message-heavy payloads the generated decoder actually *beats* a naive
-  hand loop, because its loop is driven by a fused end-or-tag read (one bounds check per field, tag kept as
-  a value) that a straightforward `while (!at_end()) { read_tag(); … }` does not use. It also validates
-  *more* than protozero (whose wire-type checks are `assert`s that compile out under `NDEBUG`; ours never
-  do). After the fused-loop work the generated streaming decoder is at or above protozero on nested-message
-  decode on clang, and within ~15% on gcc.
-- **Arena beats `protoc` on both axes:** decode time ≈ 0.4× protoc (≈ 2× like-for-like after accounting
-  for protoc's per-`string` UTF-8 validation, which the arena skips), and peak memory ≈ ⅔ of protoc's —
-  the same tree in roughly two-thirds the memory. "Memory" is allocator-reported arena accounting
-  (`bytes_used`/`bytes_reserved` vs protobuf's `SpaceUsed`/`SpaceAllocated`), not process RSS. The
-  memory ratio is deterministic (exact byte counts); the time multiple varies with payload shape and
-  machine thermal state.
+- **Streaming is at or above a hand-written value-threaded loop, and at or above protozero on most
+  shapes.** The callback/dispatch abstraction is free, and on nested/message-heavy payloads the
+  generated decoder actually *beats* a naive hand loop, because its loop is driven by a fused
+  end-or-tag read (one bounds check per field, tag kept as a value) that a straightforward
+  `while (!at_end()) { read_tag(); … }` does not use. It also validates *more* than protozero (whose
+  wire-type checks are `assert`s that compile out under `NDEBUG`; ours never do). Remaining protozero
+  losses are confined to large packed arrays, decoded one element per callback (use the arena model
+  there).
+- **Arena beats `protoc` + `google::protobuf::Arena` on both axes** — decode throughput and peak
+  memory — on every shape and both compilers. Part of the time gap is a feature gap (protoc validates
+  UTF-8 per proto3 `string`; the arena does not), and most of the memory gap comes from borrowing
+  strings/bytes/`raw` payloads as views into the input instead of copying them. "Memory" is
+  allocator-reported arena accounting (`bytes_used`/`bytes_reserved` vs protobuf's
+  `SpaceUsed`/`SpaceAllocated`), not process RSS; the memory ratio is deterministic (exact byte
+  counts), while the time multiple varies with payload shape, baseline version, and machine state.
 - **Real codegen wins, surfaced by same-binary A/B.** The headline metric is **GB/s** — measured decode
   throughput, which unlike retired instructions reflects everything the CPU pays for (branch
   mispredictions, cache/memory stalls; e.g. random-width packed varints run ~4× slower than fixed-width
@@ -762,22 +763,12 @@ constant, and reproduce with the benches:
 **The `protoc` baseline version matters — and is selectable without vendoring protobuf.** The arena
 bench's `protoc` arm is whatever `find_package(Protobuf)` resolves; libprotobuf's own decoder has sped
 up markedly across releases (measured here, **3.21 → 25.3 is ~10–40% fewer cycles/byte** on these
-shapes, most on many-small-messages), so an old baseline flatters the arena. To benchmark against a
-specific version, build it (plus **Abseil**, required by protobuf 22+) into a local prefix — nothing is
-committed to the tree — and point CMake at it:
-
-```sh
-git clone --depth 1 --recurse-submodules -b v25.3 https://github.com/protocolbuffers/protobuf
-cmake -S protobuf -B protobuf/_b -DCMAKE_BUILD_TYPE=Release -Dprotobuf_BUILD_TESTS=OFF \
-      -Dprotobuf_ABSL_PROVIDER=module -DCMAKE_INSTALL_PREFIX="$PWD/pb-25"
-cmake --build protobuf/_b -j && cmake --install protobuf/_b
-cmake --preset gcc -DCMAKE_PREFIX_PATH="$PWD/pb-25"    # find_package(Protobuf CONFIG) picks it up
-```
-
-The bench CMake prefers the protobuf **CONFIG** package (whose `protobuf::libprotobuf` target carries
-the Abseil link deps 22+ needs) and falls back to the **FindProtobuf module** for a system 3.x install;
-`protoc` and `libprotobuf` come matched from the same prefix. Against a current `protoc` (25.3) the
-arena still wins on every shape and both compilers, by a smaller margin than against 3.21.
+shapes, most on many-small-messages), so an old baseline flatters the arena. The recipe for building a
+specific protobuf release into a local prefix and pointing CMake at it is in
+[`docs/benchmarks.md`](docs/benchmarks.md#choosing-the-protoc-baseline). The bench CMake prefers the
+protobuf **CONFIG** package (whose `protobuf::libprotobuf` target carries the Abseil link deps 22+
+needs) and falls back to the **FindProtobuf module** for a system 3.x install; `protoc` and
+`libprotobuf` come matched from the same prefix.
 
 **The benchmarking caveat that matters most.** Decode hot loops run at ~1–8 GB/s
 (1–2 ns/field), so throughput is dominated by **code placement**: which address a function lands at and
@@ -837,7 +828,8 @@ reflected (a documented simplification; decoders accept both wire forms).
   with `-Werror`. Library sources compile strict + clang-tidy; the CLI is built strict but excluded from
   tidy/format; vendored Catch2 and generated sources are excluded.
 - **`./check.sh`** is the single quality gate (see [Orientation](#orientation)):
-  clang-format, build + test on both compilers, clang-tidy, the per-emitter compile-fail harnesses (each
+  clang-format, a docs link check (`tests/check_doc_links.py`: every relative link's file and heading
+  anchor must resolve), build + test on both compilers, clang-tidy, the per-emitter compile-fail harnesses (each
   proves the generated API rejects misuse, e.g. assigning to a read-only arena accessor), and a
   dispatch-gate worst-case compile. `./check.sh fix` formats first; `./check.sh quick` is gcc-only.
 - **Regenerating goldens.** After an intentional change to an emitter / AST dumper / wire dumper / layout
@@ -874,6 +866,9 @@ reflected (a documented simplification; decoders accept both wire forms).
     mapbox protozero across ~13 wire-path scenarios.
   - `rapidproto_arena_bench` (`bench_arena.cpp`, built only when `protobuf` is found): arena vs `protoc` +
     `Arena` vs streaming on a realistic payload, plus the chunk-cap shape/size sweep.
+  - `tests/bench.py` drives both: `run` builds and executes them pinned and writes an NDJSON snapshot,
+    `table` renders/compares snapshots, `diff OLD NEW` is the GB/s regression gate (~10% placement
+    floor), `experiment BASELINE [VARIANT]` snapshots two git refs and diffs them.
 
   See [Decoder performance](#decoder-performance) for how to read the numbers (and the placement noise floor).
 
@@ -922,7 +917,7 @@ decode-relevant may be approximated or rejected.
   Closed, editions `enum_type = CLOSED`), but neither emitter consumes it: an unrecognized value of a
   *closed* enum is delivered as its raw integer cast into the enum, where `protoc` would route it to
   unknown fields. Uniform open decoding keeps both models simple; consumers must not rely on
-  closed-enum semantics (documented in README's enum bullet).
+  closed-enum semantics (documented in [`docs/semantics.md`](docs/semantics.md)).
 
 **Deferred** (worth fixing if the trust-protoc assumption is relaxed):
 

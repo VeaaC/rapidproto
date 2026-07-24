@@ -1,0 +1,85 @@
+# The `rapidprotoc` CLI & CMake integration
+
+*How generation is wired into a build. Back to the [README](../README.md).*
+
+## The `rapidprotoc` CLI
+
+```
+rapidprotoc [options] <entry.proto>...
+```
+
+| Flag | Meaning |
+|---|---|
+| `--arena` | Emit the arena decoder (`<stem>.rp.hpp`). **The default** if neither model flag is given. |
+| `--stream` | Emit the streaming decoder (`<stem>.rp.stream.hpp`). Combine with `--arena` to emit both. |
+| `--dump` | Emit the [debug dumper](dumper.md) (`<stem>.rp.dump.hpp`), a JSON-like text dumper over the arena tree. Implies `--arena`. |
+| `--unknown-present` | Arena: reserve the "unknown fields present" bit (`has_unknown_fields()`) on **every** message. |
+| `--unknown=<message>` | Arena: reserve that bit on **one** message (repeatable; a one-line `unknown-fields` profile entry). |
+| `--field-modes=<file>` | Arena: apply a decode profile file (repeatable; see [Decode profiles](profiles.md)). |
+| `--drop=<name>` | Arena: drop one field or type inline (as a one-line profile entry). |
+| `--raw=<name>` | Arena: keep a message field's or type's payloads for deferred `decode()`s, inline. |
+| `-I <dir>` | Add an import search path (repeatable). |
+| `--out-dir <dir>` | Where to write the headers (and `rapidproto/runtime.hpp`, plus `arena_runtime.hpp` for `--arena` and `dump_runtime.hpp` for `--dump`). Default: the current directory. |
+| `--namespace-prefix <ns>` | Dot-separated prefix prepended to every C++ namespace (see [Coexisting with protoc](using-both-models.md#coexisting-with-protoc)). |
+| `--no-wellknown` | Don't load the bundled well-known-type definitions. |
+| `--depfile <path>` | Write a Make/Ninja depfile (the entries' headers depend on **every** input `.proto` and profile file) so a build regenerates when any input changes. Used by the CMake helper; harmless otherwise. |
+| `-v`, `--verbose` | Log each written file (`wrote <path>`); output is otherwise silent on success. |
+| `-h`, `--help` | Print the full flag table and exit. |
+| `--version` | Print the tool version and exit. |
+
+Multiple entries resolve as **one batch**: shared imports parse once, every file in the union
+gets its decoder exactly once, and a decode profile resolves against all of them together. Each
+generated file covers the entry **and** its transitive imports **and** the well-known types it
+uses, plus the shared `<stem>.rp.common.hpp` and the runtime, so the output directory is
+self-contained.
+
+## CMake integration
+
+RapidProto ships a `rapidproto_generate()` helper that turns a `.proto` into a linkable, header-only
+target: it runs `rapidprotoc` at build time, tracks the whole import closure for correct **incremental
+rebuilds** (a touched import re-triggers generation, via a depfile), and puts the output directory on
+your include path. Link the target and `#include` the generated header; there's nothing else to wire up.
+
+```cmake
+rapidproto_generate(my_schema
+  GENERATOR   both                  # arena | stream | both           (default: arena)
+  PROTOS      proto/person.proto    # one or more entry .proto files
+  IMPORT_DIRS proto)                # -I roots your schema imports against
+  # also: NAMESPACE_PREFIX <ns>, OUT_DIR <dir>, UNKNOWN_PRESENT (arena), NO_WELLKNOWN, DUMP (arena dumper),
+  #       FIELD_MODES <file>... / DROP <name>... / RAW <name>... / UNKNOWN <message>...  (arena profiles)
+
+add_executable(app main.cpp)
+target_link_libraries(app PRIVATE my_schema)   # generates before `app` compiles, adds the include dir
+```
+
+Then `#include "person.rp.hpp"` (arena) and/or `"person.rp.stream.hpp"` (streaming); each is the
+entry's stem under its import-relative path. `GENERATOR both` writes both decoders from one `rapidprotoc`
+invocation, so a single TU can use both models for one schema (see
+[Using both models](using-both-models.md)).
+
+Get the helper and the `rapidproto::rapidprotoc` tool it drives, either way:
+
+```cmake
+# Build from source within your build:
+include(FetchContent)
+FetchContent_Declare(rapidproto
+  GIT_REPOSITORY https://github.com/VeaaC/rapidproto
+  GIT_TAG        v0.3.1)                       # pin the release you want
+FetchContent_MakeAvailable(rapidproto)         # defines rapidproto_generate() + rapidproto::rapidprotoc
+
+# …or use an installed RapidProto (cmake --install <build> --prefix <prefix>):
+find_package(rapidproto REQUIRED)              # same helper + tool, imported
+```
+
+Both expose the identical `rapidproto::rapidprotoc` target, so one `rapidproto_generate()` call is
+source-agnostic.
+
+**CMake version.** Incremental import-tracking uses `add_custom_command(DEPFILE)`: supported on Ninja at
+any version, and on the Makefile generators with CMake ≥ 3.20 (Xcode / Visual Studio ≥ 3.21). On an
+older CMake with those generators the helper still generates correctly but won't auto-retrigger on an
+import edit (it warns); re-run CMake or clean-build after editing an imported `.proto`.
+
+**Cross-compiling.** `rapidprotoc` must run on the **build host**, not the target, so it must be a
+**host build**. Build/install RapidProto for the host and bring that host tool in (e.g. a host-prefixed
+`find_package`). `rapidproto_generate()` rejects the in-tree (target-built) tool when
+`CMAKE_CROSSCOMPILING` is set; ensure the imported `rapidproto::rapidprotoc` it sees is a host binary.
