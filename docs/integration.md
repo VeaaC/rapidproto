@@ -62,7 +62,9 @@ Get the helper and the `rapidproto::rapidprotoc` tool it drives, either way:
 ```cmake
 # Build from source within your build:
 include(FetchContent)
-FetchContent_Declare(rapidproto GIT_REPOSITORY <url> GIT_TAG <tag>)
+FetchContent_Declare(rapidproto
+  GIT_REPOSITORY https://github.com/VeaaC/rapidproto
+  GIT_TAG        v0.3.1)                       # pin the release you want
 FetchContent_MakeAvailable(rapidproto)         # defines rapidproto_generate() + rapidproto::rapidprotoc
 
 # …or use an installed RapidProto (cmake --install <build> --prefix <prefix>):

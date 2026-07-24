@@ -31,7 +31,7 @@ cmake --build --preset gcc
 `./check.sh` is the one-stop bar and **must be green before you commit**:
 
 - `./check.sh`: clang-format, dual-compiler build + test, clang-tidy (strict on the library), the
-  compile-fail harnesses, and a dispatch-gate stress compile.
+  compile-fail harnesses, a docs link check, and a dispatch-gate stress compile.
 - `./check.sh fix`: apply clang-format first, then run the full gate.
 - `./check.sh quick`: gcc-only build + test for the inner loop (not the commit bar).
 - `./check.sh deep` is the heavy tier: ASan + UBSan, a library coverage floor, and a fuzz smoke.

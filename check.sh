@@ -12,7 +12,7 @@
 #                     # full suite, coverage with a line floor, and a fuzz smoke over the three decode
 #                     # paths. Slow (three instrumented builds). Override: FUZZ_TIME=120 COV_FLOOR=88.
 #
-# The independent stages (format, gcc build+test, clang build+test, compile-fail,
+# The independent stages (format, doc-links, gcc build+test, clang build+test, compile-fail,
 # fuzz-compile, clang-tidy) run concurrently; each build is a parallel build and clang-tidy is
 # parallelized across files. Per-stage output is captured and printed in a fixed
 # order so nothing interleaves. Exits non-zero if anything is not clean.
@@ -174,6 +174,12 @@ job_format() {
   fi
 }
 
+# The markdown docs are split across README / docs/ / architecture.md with heavy cross-linking, so a
+# renamed heading or a moved page rots silently; validate every relative link (file + anchor).
+job_doc_links() {
+  python3 tests/check_doc_links.py
+}
+
 job_build_test() {  # $1 = preset; parallel build, then run the test binary
   local preset=$1 build_out test_out rc
   build_out=$(cmake --build --preset "$preset" -j"$JOBS" 2>&1); rc=$?
@@ -294,10 +300,10 @@ job_tidy() {
   echo "tidy clean (${#tus[@]} TUs, shard $shard)"
 }
 
-# Which of the six gate stages run (default: all). CI splits them across runner jobs -- the
+# Which of the seven gate stages run (default: all). CI splits them across runner jobs -- the
 # build/test stages in one, tidy shards in a matrix -- so wall-clock is the slowest runner.
 stage_enabled() {
-  [[ " ${RAPIDPROTO_GATE_STAGES:-format gcc clang cf fuzz tidy} " == *" $1 "* ]]
+  [[ " ${RAPIDPROTO_GATE_STAGES:-format docs gcc clang cf fuzz tidy} " == *" $1 "* ]]
 }
 run_stage() {  # $1 stage key, $2 log name, rest: the job command
   local key=$1 log=$2; shift 2
@@ -318,6 +324,7 @@ if [[ "${RAPIDPROTO_GATE_SERIAL:-${GITHUB_ACTIONS:+1}}" == "1" ]]; then
   # Progress lines go straight to stdout (stage output stays buffered): if the runner kills the
   # job anyway, the last line names the guilty stage.
   echo "serial gate: format";        run_stage format "format" job_format;         rc_format=$?
+  echo "serial gate: doc-links";     run_stage docs   "docs"   job_doc_links;      rc_docs=$?
   echo "serial gate: build gcc";     run_stage gcc    "gcc"    job_build_test gcc; rc_gcc=$?
   echo "serial gate: build clang";   run_stage clang  "clang"  job_build_test clang; rc_clang=$?
   echo "serial gate: compile-fail";  run_stage cf     "cf"     job_compile_fail;   rc_cf=$?
@@ -325,6 +332,7 @@ if [[ "${RAPIDPROTO_GATE_SERIAL:-${GITHUB_ACTIONS:+1}}" == "1" ]]; then
   echo "serial gate: tidy";          run_stage tidy   "tidy"   job_tidy;           rc_tidy=$?
 else
   run_stage format "format" job_format         & p_format=$!
+  run_stage docs   "docs"   job_doc_links      & p_docs=$!
   run_stage gcc    "gcc"    job_build_test gcc & p_gcc=$!
   run_stage clang  "clang"  job_build_test clang & p_clang=$!
   run_stage cf     "cf"     job_compile_fail   & p_cf=$!
@@ -332,6 +340,7 @@ else
   run_stage tidy   "tidy"   job_tidy           & p_tidy=$!
 
   wait "$p_format"; rc_format=$?
+  wait "$p_docs";   rc_docs=$?
   wait "$p_gcc";    rc_gcc=$?
   wait "$p_clang";  rc_clang=$?
   wait "$p_cf";     rc_cf=$?
@@ -342,6 +351,7 @@ fi
 # --- print each stage's output in a fixed order (already captured, so never interleaved) ----------
 
 section "clang-format (check)";                       cat "$LOG/format"
+section "doc links";                                  cat "$LOG/docs"
 section "build + test (gcc)";                         cat "$LOG/gcc"
 section "build + test (clang)";                       cat "$LOG/clang"
 section "compile-fail (generated decoder rejects misuse)"; cat "$LOG/cf"
@@ -349,7 +359,7 @@ section "fuzz harness compile-check";                      cat "$LOG/fuzz"
 section "clang-tidy (library = strict, tests = relaxed)";  cat "$LOG/tidy"
 
 fail=0
-for rc in "$rc_format" "$rc_gcc" "$rc_clang" "$rc_cf" "$rc_fuzz" "$rc_tidy"; do
+for rc in "$rc_format" "$rc_docs" "$rc_gcc" "$rc_clang" "$rc_cf" "$rc_fuzz" "$rc_tidy"; do
   [[ "$rc" -ne 0 ]] && fail=1
 done
 

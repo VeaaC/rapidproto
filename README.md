@@ -1,5 +1,9 @@
 # RapidProto — fast, header-only Protobuf decoders for C++
 
+[![CI](https://github.com/VeaaC/rapidproto/actions/workflows/ci.yml/badge.svg)](https://github.com/VeaaC/rapidproto/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/VeaaC/rapidproto)](https://github.com/VeaaC/rapidproto/releases)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+
 RapidProto compiles a `.proto` schema into **header-only C++ decoders**. One CLI, `rapidprotoc`, turns
 your schema into headers you `#include`. Nothing to link. A single schema gives you two
 decode models, and you pick whichever fits the job:
@@ -167,6 +171,7 @@ can use both models for one schema in one translation unit; see
 | [docs/profiles.md](docs/profiles.md) | Decode profiles (`drop` / `raw`) and unknown-field detection (arena) |
 | [docs/integration.md](docs/integration.md) | The `rapidprotoc` CLI reference and the CMake helper (incl. cross-compiling) |
 | [docs/benchmarks.md](docs/benchmarks.md) | The numbers, how they're measured, and how to reproduce them |
+| [CHANGELOG.md](CHANGELOG.md) | Notable user-visible changes per release (SemVer-0: the MINOR version is the breaking axis) |
 | [architecture.md](architecture.md) | Internals and design rationale, for contributors |
 
 A runnable end-to-end example (one schema, both models in one TU, a decode profile) is in
