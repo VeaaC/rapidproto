@@ -15,7 +15,8 @@ The quality gate pins specific versions, so install:
 - For the benchmarks: `libprotobuf-dev` + `protozero`. Drive them with `tests/bench.py` (`run` to
   snapshot both decoders, `table` to render, `diff`/`experiment` to compare); read the
   [Decoder performance](architecture.md#decoder-performance) section first for how to read the numbers
-  (placement noise, cyc/B vs the placement-invariant ins/B, pinning to one core).
+  (placement noise, cyc/B vs the placement-invariant ins/B, pinning to one core). The current headline
+  numbers live in [docs/benchmarks.md](docs/benchmarks.md) — update that one file when they change.
 
 ## Building
 

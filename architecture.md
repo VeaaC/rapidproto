@@ -33,7 +33,20 @@ identity stays decode-only. The output is header-only, so a consumer adds `-I<ou
 > **How to read this doc.** **Part I — Overview** is the onboarding path: read it top to bottom (~10
 > minutes) to get the mental model, find the code, build it, and learn the constraints. **Part II —
 > Reference** is the deep, per-subsystem detail; jump to the section for whatever you're working on.
-> A user-facing guide to *using* the generated decoders is in [`README.md`](README.md).
+> A user-facing guide to *using* the generated decoders starts at [`README.md`](README.md) and
+> continues in the [`docs/`](docs/) pages (one per topic: arena, streaming, dumper, semantics,
+> profiles, integration, benchmarks).
+
+**Contents.**
+Part I: [Terminology](#terminology) · [Orientation](#orientation) ·
+[Core model & invariants](#core-model--invariants) · [Subsystem map](#subsystem-map).
+Part II: [Front-end](#front-end) · [Wire reader](#wire-reader) ·
+[Streaming emitter](#streaming-emitter) · [Arena emitter](#arena-emitter) ·
+[Debug dumper emitter](#debug-dumper-emitter) ·
+[Shared emitter infrastructure](#shared-emitter-infrastructure) ·
+[Coexistence design](#coexistence-design) · [Decoder performance](#decoder-performance) ·
+[Normalization truth tables](#normalization-truth-tables) · [Build and test](#build-and-test) ·
+[Known limitations and non-goals](#known-limitations-and-non-goals).
 
 ---
 ---
@@ -365,7 +378,7 @@ Inline-hot-path throughput is ~1.7 GB/s (≈570 M fields/s, `-O3`).
 The `streamgen` emitter (`src/streamgen/`) turns the analyzed AST into C++ headers for **streaming,
 callback-based decoders**, via inline emitters over a small `Printer` (`$placeholder$` substitution +
 indentation, no template engine), one `<stem>.rp.stream.hpp` per `.proto`. (A user-facing guide to the
-generated API is in [`README.md`](README.md).)
+generated API is in [`docs/streaming.md`](docs/streaming.md).)
 
 **Generated API.** For each message `Foo`, a `struct Foo` holding a borrowed `ByteView`, driven by
 callbacks:
@@ -502,8 +515,10 @@ A header-only, std-only support library the generated decoders depend on (vendor
   `StringArrayView` adapts a repeated `ArenaString` array to `std::string_view` elements; the map view
   does a last-wins linear `find` (protobuf map semantics).
 - **`ArenaDecodeError`:** the failure detail (`Wire` / `OutOfMemory` / `RecursionTooDeep` /
-  `MissingRequired` / `RepeatedSingularMessage` / `StringTooLong`), plus the depth guard
-  (`kMaxDecodeDepth`, 100) decoders honor on untrusted nesting.
+  `MissingRequired` / `RepeatedSingularMessage` / `InputTooLarge`; `StringTooLong` is reserved and
+  never produced — strings borrow the input rather than being copied, and an over-4 GiB input is
+  rejected up front as `InputTooLarge`), plus the depth guard (`kMaxDecodeDepth`, 100) decoders honor
+  on untrusted nesting.
 
 ### Decode emission
 
@@ -712,24 +727,29 @@ instantaneous frequency, sampled adaptively until each ratio's significance is s
 (`tests/bench_harness.hpp`) — so a real few-percent win is separable from placement noise. Streaming is
 compared against a hand-written value-threaded loop and mapbox/protozero (`tests/bench_streamgen.cpp` →
 `rapidproto_bench`); arena against `protoc` + `google::protobuf::Arena` (`tests/bench_arena.cpp` →
-`rapidproto_arena_bench`). Headline results — measured against libprotobuf 3.21 with gcc-13/clang-20,
-pinned to one performance core; the bench prints its libprotobuf baseline version at startup, since the
-baseline's version is half a ratio's meaning. One realistic payload; treat each number as a point, not a
-constant, and reproduce with the benches:
+`rapidproto_arena_bench`). Both are driven by `tests/bench.py` (`run` builds and executes both pinned
+to one core and writes an NDJSON snapshot, `table` renders/compares snapshots, `diff` is the GB/s
+regression gate, `experiment` snapshots two git refs and diffs them). The **current headline numbers**
+— which decoder is how much faster than which baseline, against which libprotobuf — live in ONE place,
+[`docs/benchmarks.md`](docs/benchmarks.md); the bench prints its libprotobuf baseline version at
+startup, since the baseline's version is half a ratio's meaning. Treat each number as a point, not a
+constant, and reproduce rather than quote. What the results mean structurally:
 
-- **Streaming is at or below a hand-written value-threaded loop, and near protozero.** The callback/dispatch
-  abstraction is free, and on nested/message-heavy payloads the generated decoder actually *beats* a naive
-  hand loop, because its loop is driven by a fused end-or-tag read (one bounds check per field, tag kept as
-  a value) that a straightforward `while (!at_end()) { read_tag(); … }` does not use. It also validates
-  *more* than protozero (whose wire-type checks are `assert`s that compile out under `NDEBUG`; ours never
-  do). After the fused-loop work the generated streaming decoder is at or above protozero on nested-message
-  decode on clang, and within ~15% on gcc.
-- **Arena beats `protoc` on both axes:** decode time ≈ 0.4× protoc (≈ 2× like-for-like after accounting
-  for protoc's per-`string` UTF-8 validation, which the arena skips), and peak memory ≈ ⅔ of protoc's —
-  the same tree in roughly two-thirds the memory. "Memory" is allocator-reported arena accounting
-  (`bytes_used`/`bytes_reserved` vs protobuf's `SpaceUsed`/`SpaceAllocated`), not process RSS. The
-  memory ratio is deterministic (exact byte counts); the time multiple varies with payload shape and
-  machine thermal state.
+- **Streaming is at or above a hand-written value-threaded loop, and at or above protozero on most
+  shapes.** The callback/dispatch abstraction is free, and on nested/message-heavy payloads the
+  generated decoder actually *beats* a naive hand loop, because its loop is driven by a fused
+  end-or-tag read (one bounds check per field, tag kept as a value) that a straightforward
+  `while (!at_end()) { read_tag(); … }` does not use. It also validates *more* than protozero (whose
+  wire-type checks are `assert`s that compile out under `NDEBUG`; ours never do). Remaining protozero
+  losses are confined to large packed arrays, decoded one element per callback (use the arena model
+  there).
+- **Arena beats `protoc` + `google::protobuf::Arena` on both axes** — decode throughput and peak
+  memory — on every shape and both compilers. Part of the time gap is a feature gap (protoc validates
+  UTF-8 per proto3 `string`; the arena does not), and most of the memory gap comes from borrowing
+  strings/bytes/`raw` payloads as views into the input instead of copying them. "Memory" is
+  allocator-reported arena accounting (`bytes_used`/`bytes_reserved` vs protobuf's
+  `SpaceUsed`/`SpaceAllocated`), not process RSS; the memory ratio is deterministic (exact byte
+  counts), while the time multiple varies with payload shape, baseline version, and machine state.
 - **Real codegen wins, surfaced by same-binary A/B.** The headline metric is **GB/s** — measured decode
   throughput, which unlike retired instructions reflects everything the CPU pays for (branch
   mispredictions, cache/memory stalls; e.g. random-width packed varints run ~4× slower than fixed-width
@@ -762,22 +782,12 @@ constant, and reproduce with the benches:
 **The `protoc` baseline version matters — and is selectable without vendoring protobuf.** The arena
 bench's `protoc` arm is whatever `find_package(Protobuf)` resolves; libprotobuf's own decoder has sped
 up markedly across releases (measured here, **3.21 → 25.3 is ~10–40% fewer cycles/byte** on these
-shapes, most on many-small-messages), so an old baseline flatters the arena. To benchmark against a
-specific version, build it (plus **Abseil**, required by protobuf 22+) into a local prefix — nothing is
-committed to the tree — and point CMake at it:
-
-```sh
-git clone --depth 1 --recurse-submodules -b v25.3 https://github.com/protocolbuffers/protobuf
-cmake -S protobuf -B protobuf/_b -DCMAKE_BUILD_TYPE=Release -Dprotobuf_BUILD_TESTS=OFF \
-      -Dprotobuf_ABSL_PROVIDER=module -DCMAKE_INSTALL_PREFIX="$PWD/pb-25"
-cmake --build protobuf/_b -j && cmake --install protobuf/_b
-cmake --preset gcc -DCMAKE_PREFIX_PATH="$PWD/pb-25"    # find_package(Protobuf CONFIG) picks it up
-```
-
-The bench CMake prefers the protobuf **CONFIG** package (whose `protobuf::libprotobuf` target carries
-the Abseil link deps 22+ needs) and falls back to the **FindProtobuf module** for a system 3.x install;
-`protoc` and `libprotobuf` come matched from the same prefix. Against a current `protoc` (25.3) the
-arena still wins on every shape and both compilers, by a smaller margin than against 3.21.
+shapes, most on many-small-messages), so an old baseline flatters the arena. The recipe for building a
+specific protobuf release into a local prefix and pointing CMake at it is in
+[`docs/benchmarks.md`](docs/benchmarks.md#choosing-the-protoc-baseline). The bench CMake prefers the
+protobuf **CONFIG** package (whose `protobuf::libprotobuf` target carries the Abseil link deps 22+
+needs) and falls back to the **FindProtobuf module** for a system 3.x install; `protoc` and
+`libprotobuf` come matched from the same prefix.
 
 **The benchmarking caveat that matters most.** Decode hot loops run at ~1–8 GB/s
 (1–2 ns/field), so throughput is dominated by **code placement**: which address a function lands at and
@@ -874,6 +884,9 @@ reflected (a documented simplification; decoders accept both wire forms).
     mapbox protozero across ~13 wire-path scenarios.
   - `rapidproto_arena_bench` (`bench_arena.cpp`, built only when `protobuf` is found): arena vs `protoc` +
     `Arena` vs streaming on a realistic payload, plus the chunk-cap shape/size sweep.
+  - `tests/bench.py` drives both: `run` builds and executes them pinned and writes an NDJSON snapshot,
+    `table` renders/compares snapshots, `diff OLD NEW` is the GB/s regression gate (~10% placement
+    floor), `experiment BASELINE [VARIANT]` snapshots two git refs and diffs them.
 
   See [Decoder performance](#decoder-performance) for how to read the numbers (and the placement noise floor).
 
@@ -922,7 +935,7 @@ decode-relevant may be approximated or rejected.
   Closed, editions `enum_type = CLOSED`), but neither emitter consumes it: an unrecognized value of a
   *closed* enum is delivered as its raw integer cast into the enum, where `protoc` would route it to
   unknown fields. Uniform open decoding keeps both models simple; consumers must not rely on
-  closed-enum semantics (documented in README's enum bullet).
+  closed-enum semantics (documented in [`docs/semantics.md`](docs/semantics.md)).
 
 **Deferred** (worth fixing if the trust-protoc assumption is relaxed):
 
