@@ -4,6 +4,9 @@
 [![Release](https://img.shields.io/github/v/release/VeaaC/rapidproto)](https://github.com/VeaaC/rapidproto/releases)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
+**Faster than `protoc` + Arena when materializing a full message tree, and faster than protozero
+when streaming fields — with wire validation that never compiles out ([benchmarks](docs/benchmarks.md)).**
+
 RapidProto compiles a `.proto` schema into **header-only C++ decoders**. One CLI, `rapidprotoc`, turns
 your schema into headers you `#include`. Nothing to link. A single schema gives you two
 decode models, and you pick whichever fits the job:
@@ -20,8 +23,7 @@ JSON codec (see [the debug dumper](docs/dumper.md)).
 Both decode models are **decode-only**: no serialization, no JSON codec. Both fully validate untrusted wire input
 (truncation, length overruns, group nesting), and both trust the schema — they assume `protoc` already
 accepted it, so field *values* aren't range-checked. They cover **proto2, proto3, and the newer
-editions schema format (2023/2024)**, including groups, maps, and oneofs. The arena model beats `protoc` +
-`google::protobuf::Arena` on decode time and peak memory (see [benchmarks](docs/benchmarks.md)).
+editions schema format (2023/2024)**, including groups, maps, and oneofs.
 
 You can read the same schema with either model, and even use both **in one translation unit** (see
 [using both models](docs/using-both-models.md)).
