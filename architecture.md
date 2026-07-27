@@ -880,6 +880,28 @@ reflected (a documented simplification; decoders accept both wire forms).
 
   See [Decoder performance](#decoder-performance) for how to read the numbers (and the placement noise floor).
 
+- **Compile-time / code-size benchmark:** `tests/compile_bench.py` (`run` / `table` / `diff`) measures what
+  the generated decoders cost to *build* — wall seconds, `.text` bytes, and the compiler's peak RSS — across
+  a fixed set of schemas on both compilers. It exists because those costs were invisible while scaling
+  badly: `RP_FLATTEN` on every `rp_decode_into` transitively inlines the whole sub-message closure, so on
+  **gcc** a 10-message nesting chain takes 49s and 526 KB of `.text` where **clang** takes 1.1s and 45 KB,
+  and the gap widens with the closure. Peak RSS is measured because it is the failure that actually stops a
+  build: one arena TU peaks near 1 GB on gcc.
+
+  Each measured translation unit defines **one external-linkage function per message**, taking the input as
+  a parameter. That is the load-bearing part, for a narrow reason: external linkage obliges the compiler to
+  emit each body, and an opaque parameter stops it reasoning about the input. An earlier version that merely
+  `#include`d the header reported 7 bytes of `.text` for a 103k-line schema. Once every decoder is
+  referenced the remaining refinements are small — forwarding streamed values to an undefined `extern` sink
+  is worth 0.06–1.4% on nesting chains, though ~31% on a field-dense message, so it is kept. The size floor
+  the harness enforces catches only a TU that measured *nothing*; no threshold separates the subtler cases,
+  because with external linkage the code is emitted either way.
+
+  Both models take their message list from the **arena** header so they always measure the same set:
+  deriving each from its own header diverged silently, since the streaming header nests sub-messages inside
+  their parent. Streaming rows use a non-recursing catch-all and so understate a consumer that descends into
+  sub-messages; every record carries `recurses` to say so.
+
 ---
 
 ## Known limitations and non-goals
