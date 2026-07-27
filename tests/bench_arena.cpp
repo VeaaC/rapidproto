@@ -61,14 +61,14 @@
 #include "bench.pb.h"           // protoc: bench::Dataset / WideSet / BigSet
 #include "bench.rp.hpp"         // arenagen: rp::bench::Dataset / WideSet / BigSet
 #include "bench.rp.stream.hpp"  // streamgen: rp::bench::stream::Dataset
+#include "bench_baselines.hpp"  // third-party baselines, in their own TUs (see that header)
 #include "bench_harness.hpp"  // rpbench: the shared measurement harness (also used by rapidproto_bench)
 #include "bench_varint.hpp"  // repeated-varint sweep builders (shared with the streaming bench)
 #include "rapidproto/arena_runtime.hpp"
 #include "rapidproto/runtime.hpp"
 
-#if __has_include(<protozero/pbf_reader.hpp>)
-#include <protozero/pbf_reader.hpp>
-#define RAPIDPROTO_HAVE_PROTOZERO 1
+#ifdef RAPIDPROTO_BENCH_COMPUTE
+#include "bench_arm_compute.hpp"
 #endif
 
 namespace {
@@ -280,30 +280,6 @@ std::string make_records(int count) {
 
 // ── checksums (must agree across decoders for Dataset; guard optimize-away for the sweep shapes) ───
 
-std::uint64_t checksum_protoc(const bench::Dataset& d) {
-    std::uint64_t s = static_cast<std::uint64_t>(d.version()) + d.name().size();
-    for (const bench::Person& p : d.people()) {
-        s += static_cast<std::uint64_t>(p.id()) + p.name().size() + p.email().size() +
-             (p.active() ? 1U : 0U) + bits(p.score()) + p.created();
-        if (p.has_address()) {
-            s += p.address().street().size() + p.address().city().size() + p.address().zip();
-        }
-        for (const std::string& t : p.tags()) {
-            s += t.size();
-        }
-        for (const std::int32_t h : p.history()) {
-            s += static_cast<std::uint32_t>(h);
-        }
-        for (const bench::Attribute& a : p.attributes()) {
-            s += a.key().size() + a.value().size();
-        }
-        for (const auto& kv : p.counters()) {
-            s += kv.first.size() + static_cast<std::uint32_t>(kv.second);
-        }
-    }
-    return s;
-}
-
 std::uint64_t checksum_arena_dataset(const rp::bench::Dataset* d) {
     std::uint64_t s = static_cast<std::uint64_t>(d->version()) + d->name().size();
     for (const rp::bench::Person& p : d->people()) {
@@ -372,51 +348,6 @@ std::uint64_t checksum_arena_big(const rp::bench::BigSet* b) {
     return s;
 }
 
-// protoc-side mirrors of checksum_arena_big / checksum_arena_wide, for the repeated-shape runs' protoc
-// arm (each run's arena and protoc arms decode the same bytes, so their checksums must agree).
-std::uint64_t checksum_protoc_big(const bench::BigSet& b) {
-    std::uint64_t s = 0;
-    for (const bench::Big& it : b.items()) {
-        for (const std::int64_t v : it.numbers()) {
-            s += static_cast<std::uint64_t>(v);
-        }
-        for (const double r : it.reals()) {
-            s += bits(r);
-        }
-        for (const std::int64_t v : it.zz()) {
-            s += static_cast<std::uint64_t>(v);
-        }
-        for (const int k : it.kinds()) {
-            s += static_cast<std::uint64_t>(k);
-        }
-    }
-    return s;
-}
-std::uint64_t checksum_protoc_wide(const bench::WideSet& w) {
-    std::uint64_t s = 0;
-    for (const bench::Wide& it : w.items()) {
-        for (const std::int32_t v : it.a()) {
-            s += static_cast<std::uint32_t>(v);
-        }
-        for (const std::int32_t v : it.b()) {
-            s += static_cast<std::uint32_t>(v);
-        }
-        for (const std::int32_t v : it.c()) {
-            s += static_cast<std::uint32_t>(v);
-        }
-        for (const std::int32_t v : it.d()) {
-            s += static_cast<std::uint32_t>(v);
-        }
-        for (const auto& x : it.s()) {
-            s += x.size();
-        }
-        for (const auto& x : it.t()) {
-            s += x.size();
-        }
-    }
-    return s;
-}
-
 std::uint64_t checksum_arena_particle(const rp::bench::ParticleSet* d) {
     std::uint64_t s = 0;
     for (const rp::bench::Particle& it : d->items()) {
@@ -458,32 +389,6 @@ std::uint64_t checksum_arena_record(const rp::bench::RecordSet* d) {
     return s;
 }
 
-std::uint64_t checksum_protoc_record(const bench::RecordSet& d) {
-    std::uint64_t s = 0;
-    const auto sample = [&](const bench::Sample& x) {
-        s += static_cast<std::uint64_t>(x.a()) + static_cast<std::uint64_t>(x.b()) +
-             static_cast<std::uint64_t>(x.c()) + static_cast<std::uint64_t>(x.d()) +
-             (x.e() ? 1U : 0U) + x.f();
-    };
-    for (const bench::Record& r : d.records()) {
-        s += static_cast<std::uint64_t>(r.f1()) + static_cast<std::uint64_t>(r.f2()) +
-             static_cast<std::uint64_t>(r.f3()) + static_cast<std::uint64_t>(r.f4()) + r.f5() +
-             static_cast<std::uint64_t>(r.f6()) + (r.f7() ? 1U : 0U) + r.f8() +
-             static_cast<std::uint64_t>(r.f9()) + static_cast<std::uint64_t>(r.f10()) +
-             static_cast<std::uint64_t>(r.f11()) + static_cast<std::uint64_t>(r.f12()) +
-             static_cast<std::uint64_t>(r.f13()) + static_cast<std::uint64_t>(r.f14()) +
-             static_cast<std::uint64_t>(r.f15()) + static_cast<std::uint64_t>(r.f18()) +
-             static_cast<std::uint64_t>(r.f19()) + static_cast<std::uint64_t>(r.f20());
-        if (r.has_s1()) {
-            sample(r.s1());
-        }
-        if (r.has_s2()) {
-            sample(r.s2());
-        }
-    }
-    return s;
-}
-
 std::uint64_t checksum_stream(rapidproto::ByteView buf) {
     using namespace rp::bench::stream;
     std::uint64_t s = 0;
@@ -518,119 +423,6 @@ std::uint64_t checksum_stream(rapidproto::ByteView buf) {
 }
 
 #ifdef RAPIDPROTO_HAVE_PROTOZERO
-// protozero (mapbox pbf_reader) yardstick: a zero-materialization pull parse of the SAME Dataset,
-// summed identically to checksum_stream so the cross-check holds. get_view() is the zero-copy
-// string path (matches the streaming decoder's string_view). protozero's wire-type checks are
-// protozero_assert()s compiled out under NDEBUG, so it validates marginally less than we do.
-std::uint64_t checksum_protozero(rapidproto::ByteView buf) {
-    std::uint64_t s = 0;
-    protozero::pbf_reader ds{buf.data(), buf.size()};
-    while (ds.next()) {
-        switch (ds.tag()) {
-            case 1:
-                s += ds.get_view().size();  // Dataset.name
-                break;
-            case 2:
-                s += static_cast<std::uint64_t>(ds.get_int64());  // Dataset.version
-                break;
-            case 3: {  // Dataset.people (repeated Person)
-                protozero::pbf_reader p = ds.get_message();
-                while (p.next()) {
-                    switch (p.tag()) {
-                        case 1:
-                            s += static_cast<std::uint64_t>(p.get_int64());  // id
-                            break;
-                        case 2:
-                            s += p.get_view().size();  // name
-                            break;
-                        case 3:
-                            s += p.get_view().size();  // email
-                            break;
-                        case 4:
-                            s += p.get_bool() ? 1U : 0U;  // active
-                            break;
-                        case 5:
-                            s += bits(p.get_double());  // score
-                            break;
-                        case 6:
-                            s += p.get_fixed64();  // created
-                            break;
-                        case 7: {  // address (nested)
-                            protozero::pbf_reader a = p.get_message();
-                            while (a.next()) {
-                                switch (a.tag()) {
-                                    case 1:
-                                        s += a.get_view().size();  // street
-                                        break;
-                                    case 2:
-                                        s += a.get_view().size();  // city
-                                        break;
-                                    case 3:
-                                        s += a.get_uint32();  // zip
-                                        break;
-                                    default:
-                                        a.skip();
-                                }
-                            }
-                            break;
-                        }
-                        case 8:
-                            s += p.get_view().size();  // tags (repeated string)
-                            break;
-                        case 9: {  // history (packed int32)
-                            const auto packed = p.get_packed_int32();
-                            for (const auto v : packed) {
-                                s += static_cast<std::uint32_t>(v);
-                            }
-                            break;
-                        }
-                        case 10: {  // attributes (repeated Attribute)
-                            protozero::pbf_reader a = p.get_message();
-                            while (a.next()) {
-                                switch (a.tag()) {
-                                    case 1:
-                                        s += a.get_view().size();  // key
-                                        break;
-                                    case 2:
-                                        s += a.get_view().size();  // value
-                                        break;
-                                    default:
-                                        a.skip();
-                                }
-                            }
-                            break;
-                        }
-                        case 11: {  // counters (map<string,int32> == repeated {key=1,value=2})
-                            protozero::pbf_reader e = p.get_message();
-                            std::size_t klen = 0;
-                            std::int32_t val = 0;
-                            while (e.next()) {
-                                switch (e.tag()) {
-                                    case 1:
-                                        klen = e.get_view().size();
-                                        break;
-                                    case 2:
-                                        val = e.get_int32();
-                                        break;
-                                    default:
-                                        e.skip();
-                                }
-                            }
-                            s += klen + static_cast<std::uint32_t>(val);
-                            break;
-                        }
-                        default:
-                            p.skip();
-                    }
-                }
-                break;
-            }
-            default:
-                ds.skip();
-        }
-    }
-    return s;
-}
 #endif
 
 // ── timing ────────────────────────────────────────────────────────────────────────────────────────
@@ -709,29 +501,7 @@ std::uint64_t checksum_big_arena(const rp::bench::Big* b) {
     }
     return s;
 }
-std::uint64_t checksum_big_protoc(const bench::Big& b) {
-    std::uint64_t s = 0;
-    for (const std::int64_t v : b.numbers()) {
-        s += static_cast<std::uint64_t>(v);
-    }
-    return s;
-}
 #ifdef RAPIDPROTO_HAVE_PROTOZERO
-std::uint64_t checksum_big_protozero(rapidproto::ByteView buf) {
-    std::uint64_t s = 0;
-    protozero::pbf_reader r{buf.data(), buf.size()};
-    while (r.next()) {
-        if (r.tag() == 1) {
-            auto packed = r.get_packed_int64();
-            for (const auto v : packed) {
-                s += static_cast<std::uint64_t>(v);
-            }
-        } else {
-            r.skip();
-        }
-    }
-    return s;
-}
 #endif
 
 // Same shape for the packed sint64 `zz` (field 3) and enum `kinds` (field 4) type-comparison arms: the
@@ -745,13 +515,6 @@ std::uint64_t checksum_big_arena_zz(const rp::bench::Big* b) {
     }
     return s;
 }
-std::uint64_t checksum_big_protoc_zz(const bench::Big& b) {
-    std::uint64_t s = 0;
-    for (const std::int64_t v : b.zz()) {
-        s += static_cast<std::uint64_t>(v);
-    }
-    return s;
-}
 std::uint64_t checksum_big_arena_kinds(const rp::bench::Big* b) {
     std::uint64_t s = 0;
     if (b != nullptr) {
@@ -761,44 +524,7 @@ std::uint64_t checksum_big_arena_kinds(const rp::bench::Big* b) {
     }
     return s;
 }
-std::uint64_t checksum_big_protoc_kinds(const bench::Big& b) {
-    std::uint64_t s = 0;
-    for (const int k : b.kinds()) {
-        s += static_cast<std::uint64_t>(static_cast<std::int32_t>(k));
-    }
-    return s;
-}
 #ifdef RAPIDPROTO_HAVE_PROTOZERO
-std::uint64_t checksum_big_protozero_zz(rapidproto::ByteView buf) {
-    std::uint64_t s = 0;
-    protozero::pbf_reader r{buf.data(), buf.size()};
-    while (r.next()) {
-        if (r.tag() == 3) {
-            auto packed = r.get_packed_sint64();
-            for (const auto v : packed) {
-                s += static_cast<std::uint64_t>(v);
-            }
-        } else {
-            r.skip();
-        }
-    }
-    return s;
-}
-std::uint64_t checksum_big_protozero_kinds(rapidproto::ByteView buf) {
-    std::uint64_t s = 0;
-    protozero::pbf_reader r{buf.data(), buf.size()};
-    while (r.next()) {
-        if (r.tag() == 4) {
-            auto packed = r.get_packed_enum();
-            for (const auto v : packed) {
-                s += static_cast<std::uint64_t>(static_cast<std::int32_t>(v));
-            }
-        } else {
-            r.skip();
-        }
-    }
-    return s;
-}
 #endif
 
 // The packed int64 fill (rp::bench::Big.numbers) across element byte width (fixed 1..10, uniform, 90/10
@@ -836,11 +562,8 @@ void sweep_repeated_varint() {
             std::vector<rpbench::Arm> arms = {
                 {"protoc",
                  [&, i = 0]() mutable {
-                     const std::string& buf = pool[static_cast<std::size_t>(i++) % pool.size()];
-                     google::protobuf::Arena pa;
-                     auto* m = google::protobuf::Arena::CreateMessage<bench::Big>(&pa);
-                     m->ParseFromString(buf);
-                     return checksum_big_protoc(*m);
+                     return rpbaseline::protoc_big(
+                         pool[static_cast<std::size_t>(i++) % pool.size()]);
                  }},
                 {"arena-warm",
                  [&, i = 0]() mutable {
@@ -852,7 +575,7 @@ void sweep_repeated_varint() {
 #ifdef RAPIDPROTO_HAVE_PROTOZERO
                 {"protozero",
                  [&, i = 0]() mutable {
-                     return checksum_big_protozero(
+                     return rpbaseline::protozero_big(
                          views[static_cast<std::size_t>(i++) % views.size()]);
                  }},
 #endif
@@ -895,11 +618,7 @@ void sweep_repeated_varint_types() {
         std::vector<rpbench::Arm> arms = {
             {"protoc",
              [&, i = 0]() mutable {
-                 const std::string& buf = pool[static_cast<std::size_t>(i++) % pool.size()];
-                 google::protobuf::Arena pa;
-                 auto* m = google::protobuf::Arena::CreateMessage<bench::Big>(&pa);
-                 m->ParseFromString(buf);
-                 return protoc_sum(*m);
+                 return protoc_sum(pool[static_cast<std::size_t>(i++) % pool.size()]);
              }},
             {"arena-warm",
              [&, i = 0]() mutable {
@@ -918,18 +637,18 @@ void sweep_repeated_varint_types() {
         (void)rpbench::run(name.c_str(), avg_bytes, arms);
     };
 #ifdef RAPIDPROTO_HAVE_PROTOZERO
-    const auto zz_pz = checksum_big_protozero_zz;
-    const auto kinds_pz = checksum_big_protozero_kinds;
+    const auto zz_pz = rpbaseline::protozero_big_zz;
+    const auto kinds_pz = rpbaseline::protozero_big_kinds;
 #else
     const auto zz_pz = [](rapidproto::ByteView) { return std::uint64_t{0}; };
     const auto kinds_pz = [](rapidproto::ByteView) { return std::uint64_t{0}; };
 #endif
     for (const auto& dist : rpbench::varint_dists()) {
-        run_type(dist, 3, "zz", checksum_big_arena_zz, checksum_big_protoc_zz, zz_pz);
+        run_type(dist, 3, "zz", checksum_big_arena_zz, rpbaseline::protoc_big_zz, zz_pz);
         const bool narrow = dist.label == "fx1" || dist.label == "fx2" || dist.label == "fx3" ||
                             dist.label == "mix12" || dist.label == "mix13";
         if (narrow) {
-            run_type(dist, 4, "enum", checksum_big_arena_kinds, checksum_big_protoc_kinds,
+            run_type(dist, 4, "enum", checksum_big_arena_kinds, rpbaseline::protoc_big_kinds,
                      kinds_pz);
         }
     }
@@ -956,15 +675,12 @@ int main() {
     // Cross-check correctness first (Dataset, all three decoders).
     rapidproto::Arena setup_arena;
     const rp::bench::Dataset* adoc = rp::bench::Dataset::decode(view, setup_arena);
-    google::protobuf::Arena setup_pa;
-    auto* pdoc = google::protobuf::Arena::CreateMessage<bench::Dataset>(&setup_pa);
-    pdoc->ParseFromString(buf);
     const std::uint64_t c_arena = checksum_arena_dataset(adoc);
-    const std::uint64_t c_protoc = checksum_protoc(*pdoc);
+    const std::uint64_t c_protoc = rpbaseline::protoc_dataset(buf);
     const std::uint64_t c_stream = checksum_stream(view);
     bool mismatch = c_arena != c_protoc || c_arena != c_stream;
 #ifdef RAPIDPROTO_HAVE_PROTOZERO
-    const std::uint64_t c_pz = checksum_protozero(view);
+    const std::uint64_t c_pz = rpbaseline::protozero_dataset(view);
     mismatch = mismatch || c_arena != c_pz;
 #endif
     if (mismatch) {
@@ -984,13 +700,7 @@ int main() {
         std::printf("bench: Dataset with %d people, wire = %zu bytes\n\n", kPeople, buf.size());
     }
     std::vector<rpbench::Arm> arms = {
-        {"protoc",
-         [&]() {
-             google::protobuf::Arena pa;
-             auto* m = google::protobuf::Arena::CreateMessage<bench::Dataset>(&pa);
-             m->ParseFromString(buf);
-             return checksum_protoc(*m);
-         }},
+        {"protoc", [&]() { return rpbaseline::protoc_dataset(buf); }},
         {"arena-cold",
          [&]() {
              rapidproto::Arena a;
@@ -1004,19 +714,26 @@ int main() {
         {"streamgen", [&]() { return checksum_stream(view); }},
     };
 #ifdef RAPIDPROTO_HAVE_PROTOZERO
-    arms.push_back({"protozero", [&]() { return checksum_protozero(view); }});
+    arms.push_back({"protozero", [&]() { return rpbaseline::protozero_dataset(view); }});
 #endif
     (void)rpbench::run("Dataset", static_cast<double>(buf.size()), arms);
 
+#ifdef RAPIDPROTO_BENCH_COMPUTE
+    // The large real-world schema arm lives in its OWN translation unit (bench_arm_compute.cpp):
+    // measured variants sharing a translation unit re-time each other whenever the file changes,
+    // which produces deltas that look like results but are not (see bench_arm_compute.hpp).
+    if (!rpcompute::run_arm()) {
+        return 1;
+    }
+#endif
+
     rapidproto::Arena mem_arena;
     (void)rp::bench::Dataset::decode(view, mem_arena);
-    google::protobuf::Arena mem_pa;
-    auto* mp = google::protobuf::Arena::CreateMessage<bench::Dataset>(&mem_pa);
-    mp->ParseFromString(buf);
+    const rpbaseline::ProtocMemory protoc_mem = rpbaseline::protoc_dataset_memory(buf);
     const std::size_t mem_a_used = mem_arena.bytes_used();
     const std::size_t mem_a_held = mem_arena.bytes_reserved();
-    const auto mem_p_used = static_cast<std::size_t>(mem_pa.SpaceUsed());
-    const auto mem_p_held = static_cast<std::size_t>(mem_pa.SpaceAllocated());
+    const std::size_t mem_p_used = protoc_mem.used;
+    const std::size_t mem_p_held = protoc_mem.held;
 
     if (rpbench::json_mode()) {
         std::printf(R"({"rec":"mem","shape":"Dataset","arena_used":%zu,"arena_held":%zu,)"
@@ -1043,13 +760,7 @@ int main() {
         rapidproto::ByteView v(b);
         rapidproto::Arena w;
         std::vector<rpbench::Arm> a = {
-            {"protoc",
-             [&]() {
-                 google::protobuf::Arena pa;
-                 auto* m = google::protobuf::Arena::CreateMessage<bench::BigSet>(&pa);
-                 m->ParseFromString(b);
-                 return checksum_protoc_big(*m);
-             }},
+            {"protoc", [&]() { return rpbaseline::protoc_big_set(b); }},
             {"arena-warm",
              [&]() {
                  w.reset();
@@ -1067,13 +778,7 @@ int main() {
         rapidproto::ByteView v(wbuf);
         rapidproto::Arena w;
         std::vector<rpbench::Arm> a = {
-            {"protoc",
-             [&]() {
-                 google::protobuf::Arena pa;
-                 auto* m = google::protobuf::Arena::CreateMessage<bench::WideSet>(&pa);
-                 m->ParseFromString(wbuf);
-                 return checksum_protoc_wide(*m);
-             }},
+            {"protoc", [&]() { return rpbaseline::protoc_wide(wbuf); }},
             {"arena-warm",
              [&]() {
                  w.reset();
@@ -1090,13 +795,7 @@ int main() {
         rapidproto::ByteView v(rbuf);
         rapidproto::Arena w;
         std::vector<rpbench::Arm> a = {
-            {"protoc",
-             [&]() {
-                 google::protobuf::Arena pa;
-                 auto* m = google::protobuf::Arena::CreateMessage<bench::RecordSet>(&pa);
-                 m->ParseFromString(rbuf);
-                 return checksum_protoc_record(*m);
-             }},
+            {"protoc", [&]() { return rpbaseline::protoc_record(rbuf); }},
             {"arena-warm",
              [&]() {
                  w.reset();

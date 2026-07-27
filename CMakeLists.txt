@@ -403,6 +403,10 @@ if(RAPIDPROTO_BUILD_TESTS)
 
     add_executable(rapidproto_arena_bench
       tests/bench_arena.cpp
+      # Baselines in their own TU: gcc's inline-growth budget is per-TU, so keeping them beside
+      # the decoders let OUR code's size change THEIR codegen (see tests/bench_baselines.hpp).
+      tests/bench_baselines.cpp
+      tests/bench_protoc.cpp
       "${BENCH_GEN}/bench.pb.cc"
       "${BENCH_GEN}/bench.rp.hpp"
       "${BENCH_GEN}/bench.rp.stream.hpp")
@@ -412,5 +416,74 @@ if(RAPIDPROTO_BUILD_TESTS)
     # -O3 for the measured code; protobuf's generated headers trip our strict warnings, so the bench
     # is NOT linked against rapidproto_strict (it is a standalone measurement, like rapidproto_bench).
     target_compile_options(rapidproto_arena_bench PRIVATE -O3 -DNDEBUG)
+
+    # ── large real-world schema arm ────────────────────────────────────────────────────────────
+    # Every other arena scenario decodes tests/bench/bench.proto -- a schema written for this
+    # repository, small enough that its whole decoder fits in cache. That cannot show what
+    # RP_FLATTEN's code growth costs at scale: one compute.proto `Instance` decoder is 646,334
+    # bytes of .text against 163,864 when built with -DRP_FLATTEN= (3.9x). This arm decodes that.
+    #
+    # Opt-in by construction: it builds only when the fetched corpus is present (tests/
+    # fetch_corpus.py), because compute.proto is not in this repository. Note the cost -- that
+    # decoder takes ~99s to compile on gcc against ~9s unflattened, which is the effect under
+    # test showing up in this project's own build.
+    #
+    # The decoder is generated under the `rp` namespace prefix so RapidProto's
+    # google::cloud::compute types cannot collide with anything protoc emits in the same TU.
+    # Matches tests/fetch_corpus.py's default. A corpus fetched with --dest elsewhere will not
+    # be found, and the arm is skipped with the message below rather than silently.
+    set(CORPUS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/build/corpus"
+        CACHE PATH "Fetched corpus root (tests/fetch_corpus.py)")
+    set(COMPUTE_PROTO "${CORPUS_DIR}/googleapis/google/cloud/compute/v1beta/compute.proto")
+    if(NOT EXISTS "${COMPUTE_PROTO}")
+      message(STATUS
+        "arena bench: large-schema (compute.proto) arm SKIPPED -- corpus not fetched. "
+        "Run python3 tests/fetch_corpus.py, then re-run cmake. Note that fetching alone does "
+        "NOT re-trigger this check: the guard is configure-time.")
+    else()
+      set(COMPUTE_GEN "${BENCH_GEN}/google/cloud/compute/v1beta/compute.rp.hpp")
+      add_custom_command(
+        OUTPUT "${COMPUTE_GEN}"
+        COMMAND rapidprotoc --arena -I${CORPUS_DIR}/googleapis -I${CORPUS_DIR}/protobuf/src
+                --namespace-prefix=rp --depfile=${BENCH_GEN}/compute.d
+                --out-dir=${BENCH_GEN} ${COMPUTE_PROTO}
+        DEPFILE "${BENCH_GEN}/compute.d"
+        DEPENDS rapidprotoc "${COMPUTE_PROTO}"
+        COMMENT "rapidprotoc --arena compute.proto -> compute.rp.hpp (large-schema bench arm)"
+        VERBATIM)
+
+      # The payload: a synthesized Instance, text-format -> wire bytes via protoc at build time,
+      # so nothing derived is committed and a corpus pin bump cannot leave a stale payload.
+      # The payload: a synthesized Instance encoded to wire bytes at build time, so nothing
+      # derived is committed and a corpus pin bump cannot leave a stale payload. The script owns
+      # the protoc call so it can write atomically (a shell `>` redirect leaves a zero-byte file
+      # when the encode fails) and filter protoc's lint about compute.proto's own unused import,
+      # which would otherwise trip the gate's build-output warning check.
+      set(COMPUTE_PAYLOAD "${BENCH_GEN}/compute_instance.pb")
+      set(COMPUTE_PAYLOAD_SCRIPT
+          "${CMAKE_CURRENT_SOURCE_DIR}/tests/bench/make_compute_payload.py")
+      add_custom_command(
+        OUTPUT "${COMPUTE_PAYLOAD}"
+        COMMAND python3 "${COMPUTE_PAYLOAD_SCRIPT}"
+                --protoc ${Protobuf_PROTOC_EXECUTABLE}
+                -I${CORPUS_DIR}/googleapis -I${CORPUS_DIR}/protobuf/src
+                --proto ${COMPUTE_PROTO} --out "${COMPUTE_PAYLOAD}"
+        # The generated DECODER tracks the import closure via --depfile; the payload needs the
+        # same, or a pin bump to an import re-generates one and not the other. COMPUTE_GEN stands
+        # in for that closure (it is rebuilt when any import changes), and protoc itself is a
+        # dependency so a protobuf upgrade cannot leave stale bytes.
+        DEPENDS "${COMPUTE_PAYLOAD_SCRIPT}" "${COMPUTE_PROTO}" "${COMPUTE_GEN}"
+                ${Protobuf_PROTOC_EXECUTABLE}
+        COMMENT "make_compute_payload.py -> compute_instance.pb" VERBATIM)
+
+      target_sources(rapidproto_arena_bench PRIVATE
+        # Its own TU: measured variants sharing one re-time each other on any edit (see
+        # tests/bench_arm_compute.hpp).
+        tests/bench_arm_compute.cpp
+        "${COMPUTE_GEN}" "${COMPUTE_PAYLOAD}")
+      target_compile_definitions(rapidproto_arena_bench PRIVATE
+        RAPIDPROTO_BENCH_COMPUTE
+        RAPIDPROTO_COMPUTE_PAYLOAD="${COMPUTE_PAYLOAD}")
+    endif()
   endif()
 endif()

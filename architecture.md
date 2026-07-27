@@ -528,6 +528,31 @@ and locked at their chosen values; each is a single constant with a rationale co
 - **Inline-sub-message cutoff = 16 bytes.** Measured optimal: with single-pass-growable arrays, inlining
   a sub-message of size S costs ≈ 2S of array memory vs ≈ 16 + S for a pointer, so inlining pays out
   exactly up to S = 16. (Strings/bytes borrow the input, so there is no string-width knob to tune.)
+- **`RP_FLATTEN` helps a small sub-message closure; its effect on a large one is unresolved.** Across two
+  Release builds differing only in `-DRP_FLATTEN=` (g++-13, 5 runs each, pinned), the small in-repo
+  `Dataset` schema decodes **+28.8% to +39.9%** faster with flatten depending on the build — the
+  direction is robust (it is 5× the measured noise floor, and moves *against* that floor's direction),
+  the magnitude is not. One `compute.proto` `Instance` — a large real schema — reads **−18.4%** with
+  flatten, but the control moved −8.4% the same way in those runs, so an unknown part of that is layout,
+  not flatten. **Suggestive that flatten stops paying, and may cost, on a large closure; not
+  established.** What is solid is the build cost: flattened, that decoder's translation unit holds
+  **646,334 bytes** of `.text` against **163,864** without it (3.9×), and takes **99 s** to compile
+  against **9 s** (11×), at `-O3 -DNDEBUG`.
+
+  **Why this is not measured more precisely: a cross-build A/B cannot resolve it.** The baselines and the
+  large-schema arm each live in their own translation unit (`bench_baselines.{hpp,cpp}`,
+  `bench_protoc.cpp`, `bench_arm_compute.{hpp,cpp}`) so that measured variants stop re-timing each other
+  — with them together, an untouched protozero baseline moved 25% because our decoders beside it changed
+  size, and the compute arm moved 21% purely from relocating the protoc arms. Splitting fixed that. But
+  the protozero control still moves **8.4% across two builds whose objects are byte-identical** (verified
+  with `cmp`), because *link-time* layout shifts everything when other objects change size. So
+  byte-identical objects are **not** sufficient for a cross-build comparison; ~8–10% is the floor here,
+  and only effects several times larger than that mean anything.
+
+  Resolving the large-closure question needs a **same-binary** A/B: two copies of one schema generated
+  under different `--namespace-prefix` values into a single translation unit, one with `RP_FLATTEN`
+  defined and one with it `#undef`'d (the `#ifndef RP_FLATTEN` guard in `runtime.hpp` exists for this),
+  measured back to back in one process. No second build, no link difference, no floor. Not done yet.
 
 ### Decode profiles (`arenagen/modes.{hpp,cpp}`)
 
@@ -754,7 +779,8 @@ constant, and reproduce rather than quote. What the results mean structurally:
   raw-byte peek switch that dispatches single-byte tags (fields 1–15) without splitting field from wire;
   `RP_FLATTEN` on generated `decode()`, which recovers the inlining GCC leaves on the table in a large
   translation unit (~30% more retired instructions on message/skip-heavy shapes, where Clang was already
-  inlining); and, for the arena's packed scalars, pre-sizing the array from the wire length plus a single
+  inlining — but see the flatten knob under [Tuning](#tuning-benchmark-driven-knobs): that win holds
+  only while the sub-message closure is small, and REVERSES on a large one); and, for the arena's packed scalars, pre-sizing the array from the wire length plus a single
   bulk copy of a packed **fixed-width** array on little-endian (≈2–2.5× packed varint, ≈5× packed fixed,
   ahead of protoc). That bulk copy moves a whole packed *array* in one `memcpy`; an earlier attempt to
   `memcpy` a *single* fixed-width field, by contrast, showed no effect under the same control — the
