@@ -1,6 +1,7 @@
 # Continuous integration: the project's quality bar on every push to the default branch and every
 # pull request. Parallel jobs -- the default gate's build/test stages, its clang-tidy stage as a
-# three-shard matrix (tidy is ~80% of the gate's CPU, so it gets its own runners), an arm64
+# three-shard matrix (tidy is ~80% of the gate's CPU, so it gets its own runners), a corpus job that
+# sweeps ~8000 real third-party schemas (its own runner: it needs a ~100 MB fetch), an arm64
 # build/test job (the SWAR decode kernels lower to native AArch64 instructions x86 can't exercise),
 # the heavy "deep" tier (sanitizers + coverage floor + fuzz smoke), a Release -O3 -Werror build on
 # both compilers, and the consumer job (install -> find_package -> newer-standard header compiles) --
@@ -26,6 +27,26 @@ jobs:
       - uses: ./.github/actions/setup-toolchain
       - name: Quality gate minus tidy (./check.sh)
         run: RAPIDPROTO_GATE_STAGES='format docs gcc clang cf fuzz' ./check.sh
+
+  # The real-world compatibility check (see tests/corpus_gate.py for what it covers and why).
+  # Its own job because it needs a ~100 MB fetch the other jobs don't, keeping that off the main
+  # gate's critical path. Two known costs, accepted deliberately rather than hidden: the fetch is
+  # uncached (if it becomes the slow part, key an actions/cache on the pinned SHAs in
+  # tests/fetch_corpus.py), and the 'gcc' stage is here to produce the rapidprotoc the sweep drives
+  # -- which re-runs the unit tests and consumer examples the `gate` job already ran. Splitting a
+  # build-only stage out of job_build_test would fix that if it ever matters.
+  # Expect minutes rather than the ~40s a dev box sees: the sweep is ~11 CPU-minutes of work, so a
+  # 2-core runner is the constraint.
+  corpus:
+    name: corpus (real-world schema sweep)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-toolchain
+      - name: Fetch the corpus at its pinned refs
+        run: python3 tests/fetch_corpus.py
+      - name: Sweep it (./check.sh; gcc builds the rapidprotoc the sweep drives)
+        run: RAPIDPROTO_GATE_STAGES='gcc corpus' ./check.sh
 
   # arm64 build + test on both pinned compilers. The packed-varint SWAR kernels are the reason: on
   # AArch64 they lower to native instructions the x86 gate never sees (ctz -> rbit+clz, popcount ->

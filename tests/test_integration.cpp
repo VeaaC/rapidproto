@@ -108,7 +108,12 @@ std::optional<std::string> read_file(const std::filesystem::path& path) {
 
 }  // namespace
 
-TEST_CASE("integration: every corpus .proto lexes and parses end to end", "[.corpus]") {
+// Also tagged [sweep] so the gate can exclude it: check.sh's corpus stage drives every schema
+// through rapidprotoc, which parses all of them on the way to generating, so re-lexing and
+// re-parsing the same 8018 files costs ~47s to re-prove a strict subset. Kept for direct
+// front-end diagnosis: `rapidproto_tests [sweep]` reports lex/parse errors per file, where
+// rapidprotoc reports only the first error of a whole pipeline run.
+TEST_CASE("integration: every corpus .proto lexes and parses end to end", "[.corpus][sweep]") {
     const std::filesystem::path root = require_corpus();
 
     std::vector<std::string> failures;
