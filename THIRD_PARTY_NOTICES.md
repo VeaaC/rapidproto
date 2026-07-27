@@ -53,3 +53,19 @@ and are not part of what it distributes.
   via a system/dev install. It is not linked into the library or its output.
 - **Copyright:** Mapbox.
 - **License:** BSD 2-Clause.
+
+### Protocol Buffers — schema corpus
+
+- **Use:** `.proto` schemas fetched by `tests/fetch_corpus.py` into the gitignored
+  `build/corpus/` for the integration tests. Nothing is committed here or redistributed.
+  Conformance-suite message schemas, `descriptor.proto` and `compiler/plugin.proto` at
+  `v35.1`; benchmark schemas and datasets at `v21.12`.
+- **Copyright:** 2008 Google Inc.
+- **License:** BSD 3-Clause.
+
+### Google APIs — schema corpus
+
+- **Use:** production API schemas fetched by `tests/fetch_corpus.py` (same terms as above).
+  Pinned by commit; the exact revision lives in `tests/fetch_corpus.py`.
+- **Copyright:** Google LLC.
+- **License:** Apache-2.0.

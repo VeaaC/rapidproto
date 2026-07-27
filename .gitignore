@@ -1,5 +1,8 @@
-# CMake build tree (also holds the local schema/ test corpus, which stays untracked)
+# CMake build tree (also holds corpus/, fetched by tests/fetch_corpus.py)
 /build/
+
+# Bytecode from the tests/ python tooling (fetch_corpus.py, bench.py, check_doc_links.py)
+__pycache__/
 
 # Benchmark snapshots emitted by tests/bench.py (carry same-machine cyc/B; not portable, kept local)
 /bench_snapshots/
