@@ -5,7 +5,8 @@
 # tests). Operates only on our own sources -- never the vendored Catch2 amalgam or
 # the thin CLI driver src/main.cpp.
 #
-#   ./check.sh        # full gate: format check, doc links, build+test both compilers, compile-fail, clang-tidy
+#   ./check.sh        # full gate: format check, doc links, build+test both compilers, compile-fail,
+#                     # clang-tidy, and the real-world schema corpus sweep
 #   ./check.sh fix    # first apply clang-format, then run the full gate
 #   ./check.sh quick  # fast inner loop: apply formatting + gcc build+test only (no clang/tidy)
 #   ./check.sh deep   # OPT-IN heavy tier (CI / end-of-phase, NOT the inner loop): ASan+UBSan over the
@@ -14,7 +15,8 @@
 #
 # The independent stages (format, doc-links, gcc build+test, clang build+test, compile-fail,
 # fuzz-compile, clang-tidy) run concurrently; each build is a parallel build and clang-tidy is
-# parallelized across files. Per-stage output is captured and printed in a fixed
+# parallelized across files. The corpus stage is the exception: it consumes the gcc stage's
+# rapidprotoc, so it runs after them. Per-stage output is captured and printed in a fixed
 # order so nothing interleaves. Exits non-zero if anything is not clean.
 
 set -uo pipefail
@@ -180,6 +182,7 @@ job_doc_links() {
   python3 tests/check_doc_links.py
 }
 
+
 job_build_test() {  # $1 = preset; parallel build, then run the test binary
   local preset=$1 build_out test_out rc
   build_out=$(cmake --build --preset "$preset" -j"$JOBS" 2>&1); rc=$?
@@ -300,10 +303,40 @@ job_tidy() {
   echo "tidy clean (${#tus[@]} TUs, shard $shard)"
 }
 
-# Which of the seven gate stages run (default: all). CI splits them across runner jobs -- the
+# The real-world compatibility check (see tests/corpus_gate.py for WHY it is load-bearing): every
+# fetched schema through rapidprotoc, plus the [corpus] resolver cases. The `~[sweep]` filter drops
+# the lex+parse sweep -- rapidprotoc already parsed all 8018, so re-parsing them costs ~47s to
+# re-prove a strict subset. Runs AFTER the build stages: it consumes their rapidprotoc.
+#
+# A missing build is a FAILURE, not a skip: if this quietly returned 0 whenever build/gcc was
+# absent, dropping `gcc` from a stage list would silently disarm the gate instead of breaking it.
+# (Absence of the corpus itself IS a legitimate skip -- nobody must fetch ~100 MB to run the gate --
+# and corpus_gate.py decides that, distinguishing "nothing fetched" from "partially fetched".)
+job_corpus() {
+  local rc=0 out
+  if [[ ! -x ./build/gcc/rapidprotoc || ! -x ./build/gcc/rapidproto_tests ]]; then
+    echo ">> build/gcc missing: the corpus stage needs the gcc stage's binaries"
+    echo "   (run ./check.sh, or include 'gcc' in RAPIDPROTO_GATE_STAGES)"
+    return 1
+  fi
+  python3 tests/corpus_gate.py --rapidprotoc ./build/gcc/rapidprotoc --jobs "$JOBS" || rc=1
+  # Key on Catch2's own verdict, never on a substring like "skipped": a schema PATH containing
+  # that word (googleapis is ~8000 files) would otherwise turn a failing run green.
+  out=$(./build/gcc/rapidproto_tests "[corpus]~[sweep]" 2>&1)
+  if grep -qE '^[[:space:]]*(assertions|test cases):.*[0-9]+ failed|FAILED' <<<"$out"; then
+    echo ">> corpus tests failed:"
+    grep -E 'FAILED|with expansion|assertions:' <<<"$out" | head -30
+    rc=1
+  else
+    grep -oE '(All tests passed.*|test cases:.*)' <<<"$out" | head -1
+  fi
+  return "$rc"
+}
+
+# Which of the eight gate stages run (default: all). CI splits them across runner jobs -- the
 # build/test stages in one, tidy shards in a matrix -- so wall-clock is the slowest runner.
 stage_enabled() {
-  [[ " ${RAPIDPROTO_GATE_STAGES:-format docs gcc clang cf fuzz tidy} " == *" $1 "* ]]
+  [[ " ${RAPIDPROTO_GATE_STAGES:-format docs gcc clang cf fuzz tidy corpus} " == *" $1 "* ]]
 }
 run_stage() {  # $1 stage key, $2 log name, rest: the job command
   local key=$1 log=$2; shift 2
@@ -348,6 +381,9 @@ else
   wait "$p_tidy";   rc_tidy=$?
 fi
 
+# After the build stages, never alongside them: this one consumes build/gcc's rapidprotoc.
+run_stage corpus "corpus" job_corpus; rc_corpus=$?
+
 # --- print each stage's output in a fixed order (already captured, so never interleaved) ----------
 
 section "clang-format (check)";                       cat "$LOG/format"
@@ -357,9 +393,10 @@ section "build + test (clang)";                       cat "$LOG/clang"
 section "compile-fail (generated decoder rejects misuse)"; cat "$LOG/cf"
 section "fuzz harness compile-check";                      cat "$LOG/fuzz"
 section "clang-tidy (library = strict, tests = relaxed)";  cat "$LOG/tidy"
+section "real-world schema corpus";                        cat "$LOG/corpus"
 
 fail=0
-for rc in "$rc_format" "$rc_docs" "$rc_gcc" "$rc_clang" "$rc_cf" "$rc_fuzz" "$rc_tidy"; do
+for rc in "$rc_format" "$rc_docs" "$rc_gcc" "$rc_clang" "$rc_cf" "$rc_fuzz" "$rc_tidy" "$rc_corpus"; do
   [[ "$rc" -ne 0 ]] && fail=1
 done
 

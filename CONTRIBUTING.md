@@ -51,10 +51,25 @@ python3 tests/fetch_corpus.py            # ~100 MB into build/corpus (gitignored
 python3 tests/fetch_corpus.py --list     # what it fetches, and why, without touching the network
 ```
 
-Nothing is vendored and nothing is redistributed; `test_integration.cpp` **skips** when the corpus
-isn't present, so you never have to download it to run the gate. Pins carry both the ref and the
-commit it resolved to, and a mismatch fails loudly — bump a pin **in its own commit**, never as a
-side effect of other work, so a corpus change can't be a hidden variable behind an unrelated failure.
+Nothing is vendored and nothing is redistributed, and everything corpus-related **skips** when
+*nothing* has been fetched, so you never have to download it to run the gate. A **partially** fetched
+corpus is a hard failure instead: sweeping a fraction of the schemas while reporting the same green
+result is worse than not sweeping at all. Once fetched, `./check.sh` gains a `corpus` stage (~40s)
+that drives every schema through `rapidprotoc`; CI runs it in its own job.
+
+Failures are diffed against `tests/corpus_expected_failures.txt`, and that list is strict in three
+directions: an unlisted schema that fails is a regression, a listed one that starts **passing** fails
+too (so fixing a limitation deletes its lines in the same change), and a listed one that fails for a
+**different reason** than recorded fails as well. Keep it small — every line is a documented gap
+between RapidProto and protoc.
+
+The deep sweep (`rapidproto_tests [sweep]`, ~47s) lex+parses every schema on its own. It is excluded
+from the gate because `rapidprotoc` already parses all of them; run it directly when you want
+per-file front-end diagnostics rather than one error per pipeline run.
+
+Pins carry both the ref and the commit it resolved to, and a mismatch fails loudly — bump a pin **in
+its own commit**, never as a side effect of other work, so a corpus change can't be a hidden variable
+behind an unrelated failure.
 
 ## Goldens
 

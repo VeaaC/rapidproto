@@ -842,9 +842,12 @@ reflected (a documented simplification; decoders accept both wire forms).
   **real-world schema corpus** (~8000 schemas: protobuf's conformance sets, its benchmark schemas, and
   googleapis — `tests/fetch_corpus.py`, nothing vendored). Because RapidProto parses `.proto` itself
   rather than consuming a protoc `FileDescriptorSet`, that corpus is the only available check that the
-  front-end accepts what protoc accepts — but it is **on demand, not gated**: the cases are tagged
-  `[.corpus]` (hidden from a default run) and no CI stage fetches the corpus yet, so run them
-  deliberately with `rapidproto_tests [corpus]`. The golden suites:
+  front-end accepts what protoc accepts. `check.sh`'s **`corpus` stage** drives every fetched schema
+  through `rapidprotoc` — parse → resolve → analyze → generate, all three emitters — and diffs the
+  outcome against `tests/corpus_expected_failures.txt` (the policy for that list is in
+  [CONTRIBUTING.md](CONTRIBUTING.md)). **Compiling** the generated code is deliberately not swept: one
+  real schema generates 2223 message decoders and takes minutes, which is the `RP_FLATTEN` scaling
+  problem rather than a corpus problem, so making it affordable belongs to that fix. The golden suites:
   - **AST golden** (`test_golden.cpp`): resolve + analyze the feature-complete `tests/corpus/` (proto2,
     proto3, editions 2023/2024, full-fidelity options, a multi-file import set) and assert the serialized
     syntax tree matches `tests/golden/*.txt` byte-for-byte. The dumper (`tests/ast_dump.hpp`) is a
