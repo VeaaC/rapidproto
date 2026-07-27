@@ -18,6 +18,10 @@ The quality gate pins specific versions, so install:
   (placement noise, cyc/B vs the placement-invariant ins/B, pinning to one core). The current headline
   numbers live in [docs/benchmarks.md](docs/benchmarks.md) — update it first when they change, and
   keep the README's headline claims in step.
+- `tests/compile_bench.py` measures the other half of what a code generator costs its user: how long
+  the generated decoders take to **compile**, how big the resulting `.text` is, and the compiler's
+  peak RSS. Same `run` / `table` / `diff` shape. It is a tool, not a gate — a single arena TU can take
+  a minute on gcc, which is the point rather than a flaw.
 
 ## Building
 
