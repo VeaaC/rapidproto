@@ -40,6 +40,22 @@ cmake --build --preset gcc
 CI runs `./check.sh`, `./check.sh deep`, and a Release `-O3 -Werror` build on **every push and pull
 request**.
 
+## The real-world schema corpus
+
+RapidProto parses `.proto` itself instead of consuming a protoc `FileDescriptorSet`, so nothing in
+the build otherwise checks the front-end against schemas *protoc* accepts. `tests/fetch_corpus.py`
+closes that gap by fetching third-party schemas at pinned refs:
+
+```sh
+python3 tests/fetch_corpus.py            # ~100 MB into build/corpus (gitignored)
+python3 tests/fetch_corpus.py --list     # what it fetches, and why, without touching the network
+```
+
+Nothing is vendored and nothing is redistributed; `test_integration.cpp` **skips** when the corpus
+isn't present, so you never have to download it to run the gate. Pins carry both the ref and the
+commit it resolved to, and a mismatch fails loudly — bump a pin **in its own commit**, never as a
+side effect of other work, so a corpus change can't be a hidden variable behind an unrelated failure.
+
 ## Goldens
 
 Much of the suite is golden tests (the analyzed AST, the wire structure, each emitter's output, the

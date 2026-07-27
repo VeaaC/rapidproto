@@ -838,8 +838,13 @@ reflected (a documented simplification; decoders accept both wire forms).
 - **Compile-time stress** of the dispatch gate (work is ~O(fields × callbacks)): run
   `tests/streamgen_compile_bench.sh` (optionally `N=128 …`) to time a large decoder's compile; do this
   when touching the gate metaprogramming. The gate runs it in `--check` (compile-only) mode.
-- **Tests** are Catch2 unit tests per module plus integration over a 105-file corpus (gitignored under
-  `build/schema`) and the embedded WKTs. The golden suites:
+- **Tests** are Catch2 unit tests per module, the embedded WKTs, and integration over a fetched
+  **real-world schema corpus** (~8000 schemas: protobuf's conformance sets, its benchmark schemas, and
+  googleapis — `tests/fetch_corpus.py`, nothing vendored). Because RapidProto parses `.proto` itself
+  rather than consuming a protoc `FileDescriptorSet`, that corpus is the only available check that the
+  front-end accepts what protoc accepts — but it is **on demand, not gated**: the cases are tagged
+  `[.corpus]` (hidden from a default run) and no CI stage fetches the corpus yet, so run them
+  deliberately with `rapidproto_tests [corpus]`. The golden suites:
   - **AST golden** (`test_golden.cpp`): resolve + analyze the feature-complete `tests/corpus/` (proto2,
     proto3, editions 2023/2024, full-fidelity options, a multi-file import set) and assert the serialized
     syntax tree matches `tests/golden/*.txt` byte-for-byte. The dumper (`tests/ast_dump.hpp`) is a
