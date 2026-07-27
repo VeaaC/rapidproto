@@ -372,7 +372,7 @@ class BytesWrap {
 static_assert(::std::is_trivially_destructible_v<BytesWrap>);
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-RP_FLATTEN inline bool A::rp_decode_into([[maybe_unused]] A& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN RP_NOINLINE inline bool A::rp_decode_into([[maybe_unused]] A& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(body);
   const std::uint8_t* const rp_cend = rp_c + body.size();
@@ -512,7 +512,7 @@ inline const Nested* Nested::decode(::rapidproto::ByteView input, ::rapidproto::
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-RP_FLATTEN inline bool Nested::User::rp_decode_into([[maybe_unused]] Nested::User& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN RP_NOINLINE inline bool Nested::User::rp_decode_into([[maybe_unused]] Nested::User& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   ::xr::Nested::Def* rp_acc_many = nullptr;
   std::size_t rp_n_many = 0;
@@ -943,7 +943,7 @@ inline const Nested::Def::Inner* Nested::Def::Inner::decode(::rapidproto::ByteVi
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-RP_FLATTEN inline bool Nested::P::rp_decode_into([[maybe_unused]] Nested::P& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN RP_NOINLINE inline bool Nested::P::rp_decode_into([[maybe_unused]] Nested::P& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(body);
   const std::uint8_t* const rp_cend = rp_c + body.size();
@@ -1072,7 +1072,7 @@ inline const FwdMsg* FwdMsg::decode(::rapidproto::ByteView input, ::rapidproto::
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-RP_FLATTEN inline bool FwdMsg::Ref::rp_decode_into([[maybe_unused]] FwdMsg::Ref& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN RP_NOINLINE inline bool FwdMsg::Ref::rp_decode_into([[maybe_unused]] FwdMsg::Ref& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   ::xr::FwdMsg::Target* rp_acc_many = nullptr;
   std::size_t rp_n_many = 0;
@@ -1384,7 +1384,7 @@ inline const CousinA* CousinA::decode(::rapidproto::ByteView input, ::rapidproto
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-RP_FLATTEN inline bool CousinA::Use::rp_decode_into([[maybe_unused]] CousinA::Use& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN RP_NOINLINE inline bool CousinA::Use::rp_decode_into([[maybe_unused]] CousinA::Use& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   ::xr::CousinB::Thing* rp_acc_things = nullptr;
   std::size_t rp_n_things = 0;

@@ -77,7 +77,148 @@ std::string first_difference(const std::string& expected, const std::string& act
     }
 }
 
+// A planned schema, kept together because a LayoutSet holds raw AST back-pointers (MessageLayout::
+// message, MemberPlan::field, ...) into the ResolvedFileSet it was planned from: dropping the set
+// would dangle every one of them.
+struct Planned {
+    ResolvedFileSet set;
+    SymbolTable symbols;
+    arenagen::LayoutSet layouts;
+};
+
+// Plan an inline schema at a chosen flatten budget.
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): temp-dir name vs schema text, distinct roles
+Planned plan_at_budget(const std::string& name, const std::string& schema, std::size_t budget) {
+    const test::TempDir dir(name);
+    dir.write("s.proto", schema);
+    ResolverConfig config;
+    config.include_paths = {dir.root()};
+    auto resolved = resolve(dir.path("s.proto"), config);
+    REQUIRE(resolved.is_ok());
+    Planned out;
+    out.set = std::move(resolved).value();
+    auto analyzed = analyze(out.set);
+    REQUIRE(analyzed.is_ok());
+    out.symbols = std::move(analyzed).value();
+    arenagen::LayoutOptions options;
+    options.flatten_budget = budget;
+    out.layouts = arenagen::plan_layouts(out.set, out.symbols, options);
+    return out;
+}
+
+const arenagen::MessageLayout& planned(const Planned& plan, const std::string& fqn) {
+    const arenagen::MessageLayout* layout = plan.layouts.find(fqn);
+    REQUIRE(layout != nullptr);
+    return *layout;
+}
+
+bool marked(const Planned& plan, const std::string& fqn) {
+    return planned(plan, fqn).noinline_decode;
+}
+
 }  // namespace
+
+// The budget pass is otherwise covered only by golden dumps, which pin whatever it happens to do.
+// These pin the RULES, so a retune shows up as a deliberate golden change and a rule change fails
+// a named assertion instead.
+
+TEST_CASE("arena-layout: the flatten budget never marks a message that inlines no closure",
+          "[arena-layout]") {
+    // Leaf6 is wide but flat; Inner blows the budget through Leaf6 and is marked. Wide then inlines
+    // NOTHING (its only target is already marked), so marking it would bound nothing below and only
+    // cost a call -- exactly the reason a leaf is exempt. WideLeaf is the control: the same ten arms
+    // with no message field at all.
+    const std::string schema =
+        "syntax = \"proto3\";\npackage f;\n"
+        "message Leaf6 { int32 a=1; int32 b=2; int32 c=3; int32 d=4; int32 e=5; int32 f=6; }\n"
+        "message Inner { int32 a=1; int32 b=2; int32 c=3; int32 d=4; Leaf6 l=5; }\n"
+        "message Wide { int32 a=1; int32 b=2; int32 c=3; int32 d=4; int32 e=5; int32 f=6;"
+        " int32 g=7; int32 h=8; int32 i=9; int32 j=10; Inner n=11; }\n"
+        "message WideLeaf { int32 a=1; int32 b=2; int32 c=3; int32 d=4; int32 e=5; int32 f=6;"
+        " int32 g=7; int32 h=8; int32 i=9; int32 j=10; }\n";
+    const Planned plan = plan_at_budget("layout_flatten_leaf", schema, 4);
+
+    CHECK(marked(plan, ".f.Inner"));        // 5 own arms + Leaf6's 6 = 11 > 4, and it inlines Leaf6
+    CHECK_FALSE(marked(plan, ".f.Leaf6"));  // a leaf, however wide
+    CHECK_FALSE(marked(plan, ".f.WideLeaf"));  // a leaf, however wide
+    CHECK_FALSE(marked(plan, ".f.Wide"));      // inlines nothing: Inner is already marked
+    // Wide's cost counts its own 11 arms and NOTHING from the marked Inner -- the marked flag, not
+    // the cost value, is what stops a closure accumulating upward.
+    CHECK(planned(plan, ".f.Wide").flatten_cost == 11);
+    CHECK(planned(plan, ".f.Inner").flatten_cost == 11);  // kept after marking, for review
+}
+
+TEST_CASE("arena-layout: the flatten budget marks strictly above the budget, not at it",
+          "[arena-layout]") {
+    // Pins `cost > budget` against `cost >= budget`: a `>=` typo would flip AtBudget and read as a
+    // plausible retune rather than a rule change.
+    const std::string schema =
+        "syntax = \"proto3\";\npackage b;\n"
+        "message L { int32 a=1; }\n"
+        "message AtBudget { int32 x=1; int32 y=2; L l=3; }\n"                // 3 own + L's 1 = 4
+        "message OverBudget { int32 x=1; int32 y=2; int32 z=3; L l=4; }\n";  // 4 own + 1 = 5
+    const Planned plan = plan_at_budget("layout_flatten_edge", schema, 4);
+
+    CHECK_FALSE(marked(plan, ".b.AtBudget"));  // cost == budget stays flattened
+    CHECK(marked(plan, ".b.OverBudget"));      // cost == budget + 1 is marked
+}
+
+TEST_CASE("arena-layout: a oneof member's sub-message counts toward the flatten budget",
+          "[arena-layout]") {
+    // Oneof members are decode arms and their targets are inlined like any other, but a golden
+    // whose message is over budget on its plain fields alone cannot tell. Holder trips the budget
+    // ONLY through the oneof: 2 own arms + Leaf6's 6. OneofOnly is the leaf control -- five oneof
+    // members, no sub-message, so it stays flattened however many arms it has.
+    const std::string schema =
+        "syntax = \"proto3\";\npackage o;\n"
+        "message Leaf6 { int32 a=1; int32 b=2; int32 c=3; int32 d=4; int32 e=5; int32 f=6; }\n"
+        "message Holder { oneof k { int32 i=1; Leaf6 l=2; } }\n"
+        "message OneofOnly { oneof k { int32 a=1; int32 b=2; int32 c=3; int32 d=4; int32 e=5; } "
+        "}\n";
+    const Planned plan = plan_at_budget("layout_flatten_oneof", schema, 4);
+
+    CHECK(planned(plan, ".o.Holder").flatten_cost == 8);  // 2 oneof arms + Leaf6's 6
+    CHECK(marked(plan, ".o.Holder"));
+    CHECK(planned(plan, ".o.OneofOnly").flatten_cost == 5);  // oneof members are arms
+    CHECK_FALSE(marked(plan, ".o.OneofOnly"));               // ... but it inlines nothing
+}
+
+TEST_CASE("arena-layout: a flatten-budget cycle is broken at one message", "[arena-layout]") {
+    // Mutual recursion has to be broken somewhere, and exactly one message is enough: the other
+    // stays flattened, and its flatten stops at the marked one.
+    const std::string schema =
+        "syntax = \"proto3\";\npackage c;\n"
+        "message A { int32 a=1; B b=2; }\n"
+        "message B { int32 x=1; A a=2; }\n";
+    const Planned plan = plan_at_budget("layout_flatten_cycle", schema, 4);
+
+    const int marks =
+        static_cast<int>(marked(plan, ".c.A")) + static_cast<int>(marked(plan, ".c.B"));
+    CHECK(marks == 1);
+    // The unmarked one accumulates only its own arms, because its target is marked.
+    const std::string open = marked(plan, ".c.A") ? ".c.B" : ".c.A";
+    CHECK(planned(plan, open).flatten_cost == 2);
+}
+
+TEST_CASE("arena-layout: flatten budget 0 disables the pass", "[arena-layout]") {
+    // Budget 0 means flatten everything, and is otherwise unreachable from the test suite --
+    // nothing else exercises the pass's early return.
+    const std::string schema =
+        "syntax = \"proto3\";\npackage z;\n"
+        "message Leaf6 { int32 a=1; int32 b=2; int32 c=3; int32 d=4; int32 e=5; int32 f=6; }\n"
+        "message Inner { int32 a=1; int32 b=2; int32 c=3; int32 d=4; Leaf6 l=5; }\n"
+        "message Outer { int32 a=1; Inner n=2; }\n";
+    const Planned plan = plan_at_budget("layout_flatten_off", schema, 0);
+
+    for (const arenagen::MessageLayout& layout : plan.layouts.layouts) {
+        INFO("message " << layout.fqn);
+        CHECK_FALSE(layout.noinline_decode);
+        CHECK(layout.flatten_cost == 0);  // nothing was computed, not "costs nothing"
+    }
+    // Same schema at budget 4 does mark, so the case above is a real disable and not a schema that
+    // simply never trips the budget.
+    CHECK(marked(plan_at_budget("layout_flatten_on", schema, 4), ".z.Inner"));
+}
 
 TEST_CASE("arena-layout: corpus layout dumps match expectations", "[arena-layout]") {
     const std::vector<std::string> scenarios = {

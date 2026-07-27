@@ -42,7 +42,7 @@ class Outer {
 static_assert(::std::is_trivially_destructible_v<Outer>);
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-RP_FLATTEN inline bool Outer::rp_decode_into([[maybe_unused]] Outer& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN RP_NOINLINE inline bool Outer::rp_decode_into([[maybe_unused]] Outer& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(body);
   const std::uint8_t* const rp_cend = rp_c + body.size();

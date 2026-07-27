@@ -5,9 +5,10 @@
 
 Decode throughput is measured by tests/bench.py. This measures the other half of the bargain a
 code generator strikes with its user: build time, code size, and the compiler's peak memory.
-All three were invisible, and all three scale badly -- `RP_FLATTEN` on every message's
-`rp_decode_into` transitively inlines the whole sub-message closure, so on gcc a 10-message
-nesting chain takes ~60s and 599 KB of `.text` where clang takes ~1.1s and 48 KB.
+All three were invisible, and all three scale with the sub-message closure -- `RP_FLATTEN` on every
+message's `rp_decode_into` transitively inlines it, bounded by `LayoutOptions::flatten_budget`. On
+gcc a 10-message nesting chain takes ~4.7s and 174 KB of `.text` (unbounded: ~65s and 599 KB),
+where clang takes ~1.1s and 48 KB.
 
 Methodology
 -----------
@@ -40,10 +41,11 @@ Caveats that the numbers do NOT capture:
     on gcc against ~4.0 KB on clang. Since the table puts the two side by side, subtract the
     baseline before reading a gcc/clang `.text` gap as schema code.
 
-Message counts are CAPPED per case only because the flatten cost makes uncapped numbers
-impractical. Every record carries the cap and a digest of the exact decoders instantiated;
-`diff` refuses to compare records whose set differs, because those are not the same
-measurement. Lifting the caps belongs to the flatten fix, not here.
+Message counts are CAPPED per case only because compiling every decoder of a large schema is
+impractical: the flatten budget (`LayoutOptions::flatten_budget`) bounds closure growth, it does
+not make a 2223-decoder schema cheap. Every record carries the cap and a digest of the exact
+decoders instantiated; `diff` refuses to compare records whose set differs, because those are not
+the same measurement.
 
 Usage:
     python3 tests/compile_bench.py run                    # measure, write a snapshot
@@ -101,7 +103,7 @@ class Case:
     """One schema to measure.
 
     `max_messages` caps how many decoders the TU instantiates. None means "all"; a number is
-    always a concession to the current flatten cost, never a statement about the schema.
+    always a concession to compile cost, never a statement about the schema.
     """
 
     name: str
@@ -125,10 +127,10 @@ CASES: list[Case] = [
     # control for it, since only the depth varies.
     Case("chain5", chain_depth=5),
     Case("chain10", chain_depth=10),
-    # Real schemas. descriptor.proto is densely mutually recursive -- measured N=1/3/5 at
-    # 50/47/54s, i.e. FLAT, because the first decoder already drags in the whole closure and
-    # the rest reuse it, so a small cap loses little. compute.proto is wide and shallow
-    # (103k lines, 2223 decoders), where the cap is doing real work.
+    # Real schemas. descriptor.proto is densely mutually recursive, so its decoders share one
+    # closure and a small cap loses little -- N=1/3/5 measure 7.4/7.7/7.7s on g++-13, i.e. FLAT
+    # (the first decoder already drags in the closure and the rest reuse it). compute.proto is wide
+    # and shallow (103k lines, 2223 decoders), where the cap is doing real work.
     Case("descriptor", "protobuf/src/google/protobuf/descriptor.proto",
          "protobuf/src", max_messages=5, needs_corpus=True),
     Case("compute", "googleapis/google/cloud/compute/v1beta/compute.proto",

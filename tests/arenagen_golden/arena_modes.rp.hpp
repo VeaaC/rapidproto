@@ -130,7 +130,7 @@ inline const Blob* Blob::decode(::rapidproto::ByteView input, ::rapidproto::Aren
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-RP_FLATTEN inline bool Holder::rp_decode_into([[maybe_unused]] Holder& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN RP_NOINLINE inline bool Holder::rp_decode_into([[maybe_unused]] Holder& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   ::rapidproto::ArenaString* rp_acc_blobs = nullptr;
   std::size_t rp_n_blobs = 0;

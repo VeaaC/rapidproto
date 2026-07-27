@@ -151,6 +151,11 @@ private:
         std::string head = "message " + layout.fqn + " size=" + num(layout.size) +
                            " align=" + num(layout.align) +
                            " fixed=" + (layout.fixed_size ? "yes" : "no");
+        // The flatten-budget decision, so a budget change is a reviewable text diff rather than only
+        // a code-size or timing movement. `cost` is the accumulated closure cost the threshold was
+        // compared against, reported either way so the decision can be checked against it.
+        head += std::string(" decode=") + (layout.noinline_decode ? "noinline" : "flatten") +
+                " cost=" + num(layout.flatten_cost);
         line(head);
         const Indent indent(*this);
         for (const arenagen::MemberPlan& m : layout.members) {

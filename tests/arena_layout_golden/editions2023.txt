@@ -1,4 +1,4 @@
-message .ed23.M size=56 align=8 fixed=no
+message .ed23.M size=56 align=8 fixed=no decode=noinline cost=6
   field child num=3 pointer-submsg .ed23.M off=0 size=8 align=8 presence=ptr
   field delim num=6 pointer-submsg .ed23.M off=8 size=8 align=8 presence=ptr
   field packed_nums num=4 repeated ArrayView<int32> off=16 size=12 align=4 presence=empty

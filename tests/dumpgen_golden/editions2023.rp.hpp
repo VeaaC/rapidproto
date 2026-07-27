@@ -45,7 +45,7 @@ class M {
 static_assert(::std::is_trivially_destructible_v<M>);
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-RP_FLATTEN inline bool M::rp_decode_into([[maybe_unused]] M& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN RP_NOINLINE inline bool M::rp_decode_into([[maybe_unused]] M& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   std::int32_t* rp_acc_packed_nums = nullptr;
   std::size_t rp_n_packed_nums = 0;

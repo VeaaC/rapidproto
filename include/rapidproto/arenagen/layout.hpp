@@ -58,6 +58,39 @@ struct LayoutOptions {
     // message reserves the unknown-fields bit. The profile also drives which messages get that bit
     // (`--unknown-present` resolves to "every message"). Caller-owned; must outlive planning.
     const FieldModes* modes = nullptr;
+
+    // Threshold in DECODE ARMS (fields, including map fields, plus oneof members) at which a
+    // message stops being inlinable into its PARENT: once its own arms plus the arms of the
+    // closure it still inlines exceed this, it is emitted RP_NOINLINE. Not an upper bound on any
+    // one function -- the message that trips it still contains the closure that tripped it.
+    //
+    // Why it exists: forcing RP_FLATTEN is itself an optimization over letting the compiler decide,
+    // taken because GCC's inliner leaves decode throughput on the table in a large TU. The price is
+    // that flatten inlines a message's WHOLE sub-message closure, so on a large schema one decoder
+    // absorbs the rest -- on g++-13, googleapis google/container/v1beta1/cluster_service.proto
+    // (288 messages) does not finish compiling in 280s with flatten unbounded, against 129s at
+    // budget 4. This threshold is what keeps forcing flatten from costing serious build time
+    // relative to not forcing it at all. Clang's inliner does not need the help; GCC does.
+    //
+    // 4 is the cheapest budget measured to compile: over a googleapis sample, 185s at 4 against
+    // 220s at 8 and >=329s at 32 (see architecture.md). Budgets 1-4 emit identical code for
+    // tests/bench/bench.proto; on a large schema they do differ (cluster_service marks 83 messages
+    // at 4, 102 at 1), and budgets below 4 were not measured for compile time. Decode throughput
+    // was measured and showed no regression attributable to the threshold, but this bench's
+    // cross-build comparisons are too noisy to support a stronger claim -- see architecture.md.
+    //
+    // KNOWN GAP: a message is exempt when it inlines nothing itself -- a leaf, or one whose every
+    // target is already marked -- however wide it is. Marking it would bound nothing BELOW it, but
+    // it does leave a wide body free to be absorbed by each of its parents. On descriptor.proto
+    // that costs the largest decoder ~46% of its .text (FieldDescriptorProto is exempt because its
+    // only target is marked, and DescriptorProto absorbs it twice) at no compile-time saving. The
+    // threshold does not bound what a parent absorbs from a single child.
+    //
+    // 0 disables the pass: flatten everything, and note that this also stops breaking CYCLES, so a
+    // recursive message's flatten expansion is then bounded only by the compiler's own
+    // inline-recursion limit.
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
+    std::size_t flatten_budget = 4;
 };
 
 // A map field's synthesized entry {key, value}: its own little two-member layout (no bits; both
@@ -135,6 +168,19 @@ struct MessageLayout {
     std::size_t mask_size = 0;  // 0 if no bits; else 1/2/4/8 (or a multiple of 8 for >64 bits)
     std::size_t mask_align = 0;
     int unknown_bit = -1;  // mask bit index of the unknown-present flag, or -1
+
+    // Emit this message's rp_decode_into as RP_NOINLINE as well as RP_FLATTEN, so a PARENT's
+    // flatten cannot pull this decoder's body into itself. Set by the flatten-budget pass (see
+    // LayoutOptions::flatten_budget); reported in the layout dump so the decision is reviewable
+    // as text rather than only visible as a code-size or timing change.
+    bool noinline_decode = false;
+    // What the budget pass computed for this message: its own decode-arm count plus the accumulated
+    // cost of every sub-message closure it still inlines. This is the value flatten_budget was
+    // compared against, kept whether or not the message was marked so the decision can be checked.
+    // A marked message contributes nothing to an ancestor's cost regardless of this value -- the
+    // pass skips it by noinline_decode, which is what bounds every ancestor.
+    // 0 when the pass did not run (flatten_budget == 0).
+    std::size_t flatten_cost = 0;
 };
 
 // Every message's layout (top-level and nested, in declaration order), plus FQN lookup.

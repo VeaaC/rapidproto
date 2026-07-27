@@ -515,7 +515,7 @@ strategy, below); maps append (last-wins on read); groups use `read_group`; unkn
 
 ### Tuning (benchmark-driven knobs)
 
-Three knobs were tuned against `tests/bench_arena.cpp` (see [Decoder performance](#decoder-performance))
+These knobs were tuned against `tests/bench_arena.cpp` (see [Decoder performance](#decoder-performance))
 and locked at their chosen values; each is a single constant with a rationale comment:
 
 - **Repeated strategy: single-pass growable.** A two-pass *exact-size* variant (pre-count, then fill) cut
@@ -528,10 +528,11 @@ and locked at their chosen values; each is a single constant with a rationale co
 - **Inline-sub-message cutoff = 16 bytes.** Measured optimal: with single-pass-growable arrays, inlining
   a sub-message of size S costs ≈ 2S of array memory vs ≈ 16 + S for a pointer, so inlining pays out
   exactly up to S = 16. (Strings/bytes borrow the input, so there is no string-width knob to tune.)
-- **`RP_FLATTEN` helps a small sub-message closure; its effect on a large one is unresolved.** Across two
+- **`RP_FLATTEN` on a large sub-message closure is a build-cost problem; its throughput effect there is
+  unresolved.** Across two
   Release builds differing only in `-DRP_FLATTEN=` (g++-13, 5 runs each, pinned), the small in-repo
   `Dataset` schema decodes **+28.8% to +39.9%** faster with flatten depending on the build — the
-  direction is robust (it is 5× the measured noise floor, and moves *against* that floor's direction),
+  direction looked robust (5× the ~8% floor assumed at the time, and moving *against* its direction),
   the magnitude is not. One `compute.proto` `Instance` — a large real schema — reads **−18.4%** with
   flatten, but the control moved −8.4% the same way in those runs, so an unknown part of that is layout,
   not flatten. **Suggestive that flatten stops paying, and may cost, on a large closure; not
@@ -546,13 +547,66 @@ and locked at their chosen values; each is a single constant with a rationale co
   size, and the compute arm moved 21% purely from relocating the protoc arms. Splitting fixed that. But
   the protozero control still moves **8.4% across two builds whose objects are byte-identical** (verified
   with `cmp`), because *link-time* layout shifts everything when other objects change size. So
-  byte-identical objects are **not** sufficient for a cross-build comparison; ~8–10% is the floor here,
-  and only effects several times larger than that mean anything.
+  byte-identical objects are **not** sufficient for a cross-build comparison.
 
-  Resolving the large-closure question needs a **same-binary** A/B: two copies of one schema generated
-  under different `--namespace-prefix` values into a single translation unit, one with `RP_FLATTEN`
-  defined and one with it `#undef`'d (the `#ifndef RP_FLATTEN` guard in `runtime.hpp` exists for this),
-  measured back to back in one process. No second build, no link difference, no floor. Not done yet.
+  **Sanity-check the floor before trusting a comparison.** Running the comparison with main against
+  *itself* (`tests/bench.py experiment main main`) — identical source, two builds — is cheap and bounds
+  what the run can resolve. Observed on one machine, that self-comparison failed the 10% gate outright,
+  with a handful of arms moving far more than the 8.4% above and not the same arms between runs. That
+  is a larger spread than earlier work on this bench saw, so treat it as a property of the run rather
+  than an established figure: measure it alongside any comparison you intend to act on, and treat a
+  delta as usable only if it reproduces across independent runs **and** is absent from the
+  self-comparison. Making the harness reliable enough to state a floor is open work.
+
+  Under that rule the `Dataset` **+28.8–39.9%** and `compute` **−18.4%** readings above are not
+  usable as stated — both are single-run cross-build numbers. The build-cost figures in that bullet
+  stand; they are compile time and code size, not timing. Settling the throughput question needs a
+  **same-binary** A/B: two
+  copies of one schema generated under different `--namespace-prefix` values into a single translation
+  unit, one with `RP_FLATTEN` defined and one with it `#undef`'d (the `#ifndef RP_FLATTEN` guard in
+  `runtime.hpp` exists for this), measured back to back in one process. No second build, no link
+  difference, no floor. Not done yet.
+
+- **Flatten budget = 4 decode arms** (`LayoutOptions::flatten_budget`, applied in `arenagen/layout.cpp`).
+  Forcing `RP_FLATTEN` is itself an optimization over letting the compiler decide, taken because GCC's
+  inliner leaves throughput on the table in a large TU (Clang's does not need the help). This budget is
+  what keeps that choice affordable: without it, forcing flatten costs so much build time on a large
+  schema that it is not a viable default at all. The planner walks the message graph, accumulates each
+  message's closure cost in decode arms, and emits `RP_NOINLINE` alongside `RP_FLATTEN` where that cost
+  exceeds the budget — stopping a *parent's* flatten there, which bounds every ancestor. A message that
+  would inline no closure anyway (a leaf, or one whose every target is already marked) is exempt:
+  marking it would bound nothing below it and only cost a call. Cycles are broken by marking the message
+  the back edge points at.
+
+  Tuned on **compile cost**, which is the whole point of the bound. Measured over eight googleapis schemas
+  spanning 1–288 messages, with every decoder instantiated in one TU
+  (`google/{ads/googleads/v21/services/reach_plan_service, cloud/dialogflow/v2/session,
+  cloud/aiplatform/v1/prediction_service, container/v1beta1/cluster_service, rpc/status, type/datetime,
+  longrunning/operations, api/httpbody}.proto`, g++-13 `-O3 -DNDEBUG`), total compile time is **185 s**
+  at budget 4, **220 s** at 8, **≥329 s** at 32 (one schema still unfinished at a 240 s cap), and
+  **>430 s** unbounded (two censored at a 120 s cap, one of which alone needs >280 s). The censored
+  totals bound the trend rather than measure it — they were capped at different limits. Alone,
+  `container/v1beta1/cluster_service.proto` (288 messages) does not finish in 280 s unbounded and takes
+  129 s at budget 4.
+
+  4 is simply the cheapest budget measured; lower ones were not measured for compile time. Budgets 1–4
+  emit identical code for `tests/bench/bench.proto` — a fact about a 12-message schema, not a general
+  one: `cluster_service.proto` marks 83 messages at budget 4 and 102 at budget 1.
+
+  On throughput, the arms that read lower across the comparison decode leaf messages whose generated
+  code is byte-identical at every budget, so nothing there is attributable to the threshold. Arms that
+  read higher did so across repeated runs. Given the caveats on cross-build comparison above, the
+  defensible statement is that no decode regression was found, not a figure.
+
+  **Known gap:** the exemption is on inlining nothing *itself*, not on being small. A message far over
+  budget on its own arms whose every target is already marked stays flattened, so each of its parents
+  absorbs its whole body — on a synthetic schema whose parent holds ten such 41-arm children, that
+  parent's decoder is 134 KB of `.text` against 20 KB when the child is marked instead. It is reachable
+  on ordinary schemas: in `descriptor.proto`, `FieldDescriptorProto` is exempt because its only target
+  is already marked, and `DescriptorProto` absorbs it twice — 63 KB against 43 KB with the child marked,
+  for no compile-time saving. Across googleapis the widest exempt over-budget message is 21 arms, so the
+  worst case stays bounded in practice, and a genuine wide leaf has always had the same property. Adding
+  `|| own_arms > budget` to the mark condition would close it, at the cost of marking wide leaves.
 
 ### Decode profiles (`arenagen/modes.{hpp,cpp}`)
 
@@ -779,8 +833,8 @@ constant, and reproduce rather than quote. What the results mean structurally:
   raw-byte peek switch that dispatches single-byte tags (fields 1–15) without splitting field from wire;
   `RP_FLATTEN` on generated `decode()`, which recovers the inlining GCC leaves on the table in a large
   translation unit (~30% more retired instructions on message/skip-heavy shapes, where Clang was already
-  inlining — but see the flatten knob under [Tuning](#tuning-benchmark-driven-knobs): that win holds
-  only while the sub-message closure is small, and REVERSES on a large one); and, for the arena's packed scalars, pre-sizing the array from the wire length plus a single
+  inlining — but a large closure is what makes a schema slow, or impossible, to compile, so the planner
+  bounds it: see the flatten budget under [Tuning](#tuning-benchmark-driven-knobs)); and, for the arena's packed scalars, pre-sizing the array from the wire length plus a single
   bulk copy of a packed **fixed-width** array on little-endian (≈2–2.5× packed varint, ≈5× packed fixed,
   ahead of protoc). That bulk copy moves a whole packed *array* in one `memcpy`; an earlier attempt to
   `memcpy` a *single* fixed-width field, by contrast, showed no effect under the same control — the
@@ -807,8 +861,10 @@ one binary measure ~10% apart, purely from placement. Consequences for anyone pr
   and were *not* adopted (an if-chain dispatch vs the `switch`, a `memcpy` of a *single* fixed-width field);
   others reproduced on both compilers and *were* shipped (the fused `read_tag` / `read_tag_or_end`, the
   peek-switch dispatch, and the packed-array bulk copy above).
-- **Identical-function variance (~10%) is your noise floor.** A change whose effect falls within it is not
-  a reliable win, however stable it looks in one binary.
+- **Measure the noise floor; do not assume one.** Comparing a revision against *itself*
+  (`tests/bench.py experiment <rev> <rev>`) costs one extra run and bounds what the comparison can
+  resolve; it has been seen to fail the 10% gate on identical source. Trust a delta only if it
+  reproduces across independent runs **and** is absent from that self-comparison.
 - **Pin to one performance core** (`taskset -c <core> …`); unpinned hybrid-core runs swing 30%+, and even
   pinned, trust only same-binary ratios.
 
@@ -872,8 +928,8 @@ reflected (a documented simplification; decoders accept both wire forms).
   through `rapidprotoc` — parse → resolve → analyze → generate, all three emitters — and diffs the
   outcome against `tests/corpus_expected_failures.txt` (the policy for that list is in
   [CONTRIBUTING.md](CONTRIBUTING.md)). **Compiling** the generated code is deliberately not swept: one
-  real schema generates 2223 message decoders and takes minutes, which is the `RP_FLATTEN` scaling
-  problem rather than a corpus problem, so making it affordable belongs to that fix. The golden suites:
+  real schema generates 2223 message decoders and takes minutes to compile, so a compile leg would
+  need a schema subset small enough to stay affordable. The golden suites:
   - **AST golden** (`test_golden.cpp`): resolve + analyze the feature-complete `tests/corpus/` (proto2,
     proto3, editions 2023/2024, full-fidelity options, a multi-file import set) and assert the serialized
     syntax tree matches `tests/golden/*.txt` byte-for-byte. The dumper (`tests/ast_dump.hpp`) is a
@@ -909,9 +965,9 @@ reflected (a documented simplification; decoders accept both wire forms).
 - **Compile-time / code-size benchmark:** `tests/compile_bench.py` (`run` / `table` / `diff`) measures what
   the generated decoders cost to *build* — wall seconds, `.text` bytes, and the compiler's peak RSS — across
   a fixed set of schemas on both compilers. It exists because those costs were invisible while scaling
-  badly: `RP_FLATTEN` on every `rp_decode_into` transitively inlines the whole sub-message closure, so on
-  **gcc** a 10-message nesting chain takes 49s and 526 KB of `.text` where **clang** takes 1.1s and 45 KB,
-  and the gap widens with the closure. Peak RSS is measured because it is the failure that actually stops a
+  badly: `RP_FLATTEN` on every `rp_decode_into` transitively inlines the sub-message closure, bounded by
+  the flatten budget above. On **gcc** a 10-message nesting chain takes ~4.7s and 174 KB of `.text`
+  (unbounded: ~65s and 599 KB) where **clang** takes ~1.1s and 48 KB, and the gap widens with the closure. Peak RSS is measured because it is the failure that actually stops a
   build: one arena TU peaks near 1 GB on gcc.
 
   Each measured translation unit defines **one external-linkage function per message**, taking the input as

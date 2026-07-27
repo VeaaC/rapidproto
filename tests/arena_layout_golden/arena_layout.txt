@@ -1,20 +1,20 @@
-message .al.Point size=8 align=4 fixed=yes
+message .al.Point size=8 align=4 fixed=yes decode=flatten cost=2
   field x num=1 inline-scalar int32 off=0 size=4 align=4 presence=none
   field y num=2 inline-scalar int32 off=4 size=4 align=4 presence=none
-message .al.Big size=24 align=8 fixed=yes
+message .al.Big size=24 align=8 fixed=yes decode=flatten cost=3
   field a num=1 inline-scalar fixed64 off=0 size=8 align=8 presence=none
   field b num=2 inline-scalar fixed64 off=8 size=8 align=8 presence=none
   field c num=3 inline-scalar fixed64 off=16 size=8 align=8 presence=none
-message .al.HasString size=12 align=4 fixed=no
+message .al.HasString size=12 align=4 fixed=no decode=flatten cost=1
   field s num=1 borrow-string ArenaString off=0 size=12 align=4 presence=none
-message .al.BoolWrap size=1 align=1 fixed=yes
+message .al.BoolWrap size=1 align=1 fixed=yes decode=flatten cost=1
   field value num=1 inline-scalar bool off=- size=- align=- presence=none value=bit0
   mask off=0 size=1 align=1 bits=1
     bit 0 value value
-message .al.SelfRef size=16 align=8 fixed=no
+message .al.SelfRef size=16 align=8 fixed=no decode=noinline cost=2
   field next num=1 pointer-submsg .al.SelfRef off=0 size=8 align=8 presence=ptr
   field v num=2 inline-scalar int32 off=8 size=4 align=4 presence=none
-message .al.Layout size=144 align=8 fixed=no
+message .al.Layout size=144 align=8 fixed=no decode=noinline cost=33
   field big num=2 inline-scalar int64 off=0 size=8 align=8 presence=none
   field bg num=10 pointer-submsg .al.Big off=8 size=8 align=8 presence=ptr
   field hs num=11 pointer-submsg .al.HasString off=16 size=8 align=8 presence=ptr

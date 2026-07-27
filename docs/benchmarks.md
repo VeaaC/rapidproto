@@ -69,7 +69,8 @@ python3 tests/bench.py experiment BASE [VAR]    # build+snapshot two git refs, t
 
 A snapshot is NDJSON tagged with the compiler, protobuf version, and git revision, so a number is
 never separated from what it was measured against. GB/s is the primary signal; cyc/B and ins/B are
-kept as diagnostics. Cross-build GB/s carries a ~10% code-placement noise floor — read
+kept as diagnostics. Cross-build GB/s carries a code-placement noise floor that can be large enough
+to fail the regression gate on identical source — read
 [architecture.md](../architecture.md#decoder-performance) before comparing numbers across builds or
 machines.
 
