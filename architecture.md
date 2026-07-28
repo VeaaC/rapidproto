@@ -569,10 +569,17 @@ and locked at their chosen values; each is a single constant with a rationale co
   generators are fixed-seed), thermal drift across a session (whole-run level is 1.000 ± 0.01 across
   every run of every batch), and core choice per se.
 
-  What remains after quiescing is a genuine per-arm run-level spread of up to ±9% on a few arms. That is
-  handled statistically rather than pretended away — see `tests/bench.py --repeat` and the `noise`
-  column in `diff`, and [docs/benchmarks.md](docs/benchmarks.md#quiescing-the-box-do-this-first) for the
-  setup. Still run a self-comparison before acting on a surprising result; it now passes.
+  What remains after quiescing is a per-arm run-level spread of up to ±9% on a few arms, and it is
+  **shared-L3 residency**: per-arm counters show retired instructions bit-identical (0.0%) and branch
+  misses flat (0.1%) while LLC misses swing 100% and correlate with cycles at r = 0.94. Confirmed by
+  holding L3 pressure constant with streaming loads on other cores — miss rate rises 4.5× but its
+  spread collapses to 14% and GB/s spread to 5%. The 24 MiB L3 is shared by every core, so the
+  sensitive arms are those whose working set is *partially* resident; arms far below or far above that
+  band are quiet (`rv fx10 1M` at 10 MB: 0.8%, `rv fx1 1M` at 1 MB: 11.8%). Physical page colouring was
+  tested and refuted (huge pages made it worse, not better). Handled statistically rather than
+  pretended away — see `tests/bench.py --repeat`, the `noise` column in `diff`, and
+  [docs/benchmarks.md](docs/benchmarks.md#where-the-residual-noise-comes-from). Still run a
+  self-comparison before acting on a surprising result; it now passes.
 
   Under that rule the `Dataset` **+28.8–39.9%** and `compute` **−18.4%** readings above are not
   usable as stated — both are single-run cross-build numbers. The build-cost figures in that bullet

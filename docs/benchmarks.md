@@ -67,6 +67,19 @@ python3 tests/bench.py diff OLD NEW             # GB/s regression check (exit 1 
 python3 tests/bench.py experiment BASE [VAR]    # build+snapshot two git refs, then diff them
 ```
 
+Two environment variables help when investigating one arm rather than gating a change — both are
+read by the bench binaries directly, so they work with or without `bench.py`:
+
+```sh
+RAPIDPROTO_BENCH_ONLY="rv fx1 1M"    # run only scenarios whose name contains this (~7s, not ~100s)
+RAPIDPROTO_BENCH_EVENT=llc-miss      # add one PMU counter, reported per arm as xtra/B
+                                     # (l1d-miss | llc-miss | dtlb-miss | branch-miss)
+```
+
+The counter is measured over exactly the region the harness times, which is what makes it usable:
+`perf stat` counts the whole process, so a per-arm effect is diluted away (process-level cycles moved
+1.6% across runs whose *arm* throughput moved 19%).
+
 A snapshot is NDJSON tagged with the compiler, protobuf version, and git revision, so a number is
 never separated from what it was measured against. GB/s is the primary signal; cyc/B and ins/B are
 kept as diagnostics.
@@ -96,6 +109,36 @@ max-vs-min over the runs):
 during a run, which is a per-run coin flip: holding the sibling deliberately busy (a constant state)
 cut arms-over-5% from 14 to 2. Leaving SMT on is what made several arms look *bimodal* — they are not,
 the samples were just drawn from two different machine states.
+
+### Where the residual noise comes from
+
+Even on a quiesced box a few arms still move ±9% run to run. Diagnosed with per-arm counters
+(`RAPIDPROTO_BENCH_EVENT=llc-miss`, measured over exactly the timed region — `perf stat` dilutes this
+beyond recognition because it counts the whole process):
+
+| | run-to-run spread |
+|---|---|
+| retired instructions | **0.0%** — identical work every run |
+| branch misses | 0.1% |
+| dTLB misses | 7% (uncorrelated, r = 0.28) |
+| **LLC misses** | **100%**, and correlated with cycles at **r = 0.94** |
+
+The chain is: identical instructions → variable L3 residency → variable misses → variable cycles.
+Confirmed by making L3 pressure *constant* (streaming loads on other cores): miss rate rises 4.5× as
+expected, but its spread collapses from 100% to 14% and GB/s spread from 14% to 5%.
+
+The L3 is 24 MiB shared by every core, so ambient activity anywhere evicts our lines. The noisy arms
+are the ones whose working set sits in the **partially resident** band — big enough to be evictable,
+small enough that residency matters. Arms well below it (everything stays hot) and well above it
+(everything misses anyway) are both quiet: `rv fx10 1M` at 10 MB measures 0.8%, while `rv fx1 1M` at
+1 MB measures 11.8%.
+
+Two hypotheses were tested and **refuted**, recorded so they are not re-tried: physical page colouring
+(transparent huge pages made spread *worse*, 14% → 23%, not better) and branch-predictor aliasing
+(branch misses are flat at 0.1%). ASLR was also re-checked and makes no difference.
+
+Deliberately loading the machine would stabilise the numbers, but it costs ~40% throughput and
+measures something else. The supported answer is: quiesce, repeat, and gate per arm — below.
 
 ### Why `--repeat` exists
 
