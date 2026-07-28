@@ -96,7 +96,7 @@ class AllWire {
 static_assert(::std::is_trivially_destructible_v<AllWire>);
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-RP_FLATTEN inline bool AllWire::rp_decode_into([[maybe_unused]] AllWire& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN RP_NOINLINE inline bool AllWire::rp_decode_into([[maybe_unused]] AllWire& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   std::int32_t* rp_acc_packed = nullptr;
   std::size_t rp_n_packed = 0;

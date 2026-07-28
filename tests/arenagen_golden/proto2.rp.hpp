@@ -683,7 +683,7 @@ inline const WithGroup::MyGroup::Inner* WithGroup::MyGroup::Inner::decode(::rapi
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-RP_FLATTEN inline bool Container::rp_decode_into([[maybe_unused]] Container& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN RP_NOINLINE inline bool Container::rp_decode_into([[maybe_unused]] Container& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   ::p2::Container::Nested* rp_acc_items = nullptr;
   std::size_t rp_n_items = 0;

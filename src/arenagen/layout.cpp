@@ -5,6 +5,8 @@
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
+#include <limits>
 #include <map>
 #include <set>
 #include <string>
@@ -592,6 +594,156 @@ const MessageLayout* LayoutSet::find(const std::string& fqn) const {
     return it != by_fqn.end() ? &layouts[it->second] : nullptr;
 }
 
+// ── flatten budget ────────────────────────────────────────────────────────────────────────────
+//
+// Forcing RP_FLATTEN on every rp_decode_into buys decode throughput GCC's inliner would not give on
+// its own, but it inlines each message's whole transitive sub-message closure, so on a large schema
+// a single decoder absorbs most of the rest and build time explodes. This pass is what keeps that
+// price affordable -- without it, forcing flatten is not viable on a large schema. It bounds it by:
+// walk the message graph so a message is visited after everything it would inline, accumulate the
+// closure's cost, and when it exceeds the budget mark the message RP_NOINLINE -- which stops a
+// parent's flatten at it, and (because its own contribution then drops to zero) bounds every
+// ancestor too.
+//
+// Cost is measured in DECODE ARMS, a proxy for emitted code: the generated decode grows with fields,
+// including map fields, plus oneof members. It is a proxy, not a measurement -- the budget is tuned
+// on compile cost, so the proxy only has to be monotone in the real thing.
+//
+// A cycle (a self- or mutually-recursive message) is broken by marking the one message the back edge
+// points at; that is enough to stop flatten going round, and the rest of the cycle stays flattened.
+// Which message that is follows traversal order -- deterministic, but not meaningfully choosable.
+// Left alone, flatten's expansion around a cycle is bounded only by the compiler's inline-recursion
+// limit, which is not a contract we control.
+namespace {
+
+std::size_t own_arms(const MessageLayout& layout) {
+    std::size_t arms = layout.members.size();
+    for (const OneofPlan& oneof : layout.oneofs) {
+        arms += oneof.members.size();
+    }
+    return arms;
+}
+
+// The sub-message layouts this message's decoder would inline, as indices into `layouts.layouts`:
+// every member that decodes through another message's rp_decode_into. Map entries decode their
+// value inline, so a message-valued map contributes its value type too. Indices rather than
+// pointers so the walk can reach `seen` without hashing the FQN a second time.
+std::vector<std::size_t> inlined_targets(const MessageLayout& layout, const LayoutSet& layouts) {
+    std::vector<std::size_t> out;
+    auto add = [&](const std::string& fqn) {
+        if (fqn.empty()) {
+            return;
+        }
+        const auto it = layouts.by_fqn.find(fqn);
+        if (it != layouts.by_fqn.end()) {
+            out.push_back(it->second);
+        }
+    };
+    for (const MemberPlan& member : layout.members) {
+        switch (member.kind) {
+            case FieldKind::InlineFixedSubMsg:
+            case FieldKind::PointerSubMsg:
+            case FieldKind::Repeated:
+                add(member.target_fqn);
+                break;
+            case FieldKind::Map:
+                if (member.entry) {
+                    add(member.entry->value_fqn);
+                }
+                break;
+            default:
+                break;  // scalars, strings, enums and raw payloads decode no sub-message
+        }
+    }
+    for (const OneofPlan& oneof : layout.oneofs) {
+        for (const OneofMemberPlan& member : oneof.members) {
+            add(member.target_fqn);
+        }
+    }
+    return out;
+}
+
+enum class Visit : std::uint8_t { Unvisited, InProgress, Done };
+
+// Saturate rather than wrap: a caller may set any budget, and a shared subgraph makes cost grow
+// per edge, so a large budget can otherwise overflow into a smaller number and invert the verdict.
+std::size_t add_cost(std::size_t cost, std::size_t more) {
+    const std::size_t limit = std::numeric_limits<std::size_t>::max();
+    return cost > limit - more ? limit : cost + more;
+}
+
+// Settle one message once everything it would inline has been settled: its own arms plus the
+// accumulated cost of every closure it still inlines. Over budget -> mark it. A marked message is
+// then skipped by every parent's accumulation below, so it contributes nothing upward (a parent
+// makes a call instead of absorbing this body), which bounds every ancestor too.
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): message index vs budget, distinct roles
+void settle(LayoutSet& layouts, std::size_t index, std::size_t budget) {
+    MessageLayout& layout = layouts.layouts[index];
+    std::size_t cost = own_arms(layout);
+    bool inlines_any = false;
+    for (const std::size_t target : inlined_targets(layout, layouts)) {
+        const MessageLayout& settled = layouts.layouts[target];
+        if (!settled.noinline_decode) {
+            cost = add_cost(cost, settled.flatten_cost);
+            inlines_any = true;
+        }
+    }
+    // Kept whether or not this message is marked: it is what the threshold was compared against,
+    // and the layout dump reports it so a budget change is reviewable as text.
+    layout.flatten_cost = cost;
+    // Only a message that STILL inlines something is a candidate: marking a leaf, or one whose every
+    // target is already marked, bounds nothing BELOW it and only costs a call per occurrence. The
+    // gap that leaves (such a message stays flattened however wide, so a parent still absorbs its
+    // whole body) is documented on LayoutOptions::flatten_budget.
+    if (cost > budget && inlines_any) {
+        layout.noinline_decode = true;
+    }
+}
+
+// Queue this message's un-settled targets, and break any cycle found on the way: a target still
+// InProgress is an ancestor on the current path, so the two are mutually recursive -- mark it and
+// stop.
+void expand(const MessageLayout& layout, LayoutSet& layouts, std::vector<Visit>& seen,
+            std::vector<std::pair<std::size_t, bool>>& stack) {
+    for (const std::size_t target : inlined_targets(layout, layouts)) {
+        if (seen[target] == Visit::InProgress) {
+            layouts.layouts[target].noinline_decode = true;
+        } else if (seen[target] == Visit::Unvisited) {
+            stack.emplace_back(target, false);
+        }
+    }
+}
+
+void apply_flatten_budget(LayoutSet& layouts, std::size_t budget) {
+    if (budget == 0) {
+        return;  // threshold disabled: flatten everything, whatever the closure size
+    }
+    std::vector<Visit> seen(layouts.layouts.size(), Visit::Unvisited);
+    // Iterative post-order: recursion here would be unbounded on a deep schema, which is the very
+    // shape this pass exists for. One stack, reused across roots -- a corpus schema has thousands.
+    std::vector<std::pair<std::size_t, bool>> stack;
+    for (std::size_t root = 0; root < layouts.layouts.size(); ++root) {
+        if (seen[root] != Visit::Unvisited) {
+            continue;  // already settled through an earlier root
+        }
+        stack.assign(1, {root, false});
+        while (!stack.empty()) {
+            const auto [index, settled] = stack.back();
+            stack.pop_back();
+            if (settled) {
+                settle(layouts, index, budget);
+                seen[index] = Visit::Done;
+            } else if (seen[index] == Visit::Unvisited) {
+                seen[index] = Visit::InProgress;
+                stack.emplace_back(index, true);
+                expand(layouts.layouts[index], layouts, seen, stack);
+            }
+        }
+    }
+}
+
+}  // namespace
+
 LayoutSet plan_layouts(const ResolvedFileSet& set, const SymbolTable& symbols,
                        const LayoutOptions& options) {
     Planner planner(symbols, options);
@@ -601,6 +753,7 @@ LayoutSet plan_layouts(const ResolvedFileSet& set, const SymbolTable& symbols,
             walk_messages(message, planner, out);
         }
     }
+    apply_flatten_budget(out, options.flatten_budget);
     return out;
 }
 

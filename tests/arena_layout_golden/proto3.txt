@@ -1,4 +1,4 @@
-message .p3.Msg size=120 align=8 fixed=no
+message .p3.Msg size=120 align=8 fixed=no decode=noinline cost=13
   field self num=5 pointer-submsg .p3.Msg off=0 size=8 align=8 presence=ptr
   field name num=3 borrow-string ArenaString off=8 size=12 align=4 presence=none
   field nums num=6 repeated ArrayView<int32> off=20 size=12 align=4 presence=empty

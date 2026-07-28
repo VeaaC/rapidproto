@@ -17,6 +17,17 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
 
 ### Changed
 
+- **Arena decoders: `RP_FLATTEN` is bounded by sub-message closure size — large schemas compile
+  dramatically faster.** Generated decoders force `RP_FLATTEN`, which inlines a message's entire
+  transitive sub-message closure; on a large schema one decoder absorbed most of the rest, so build
+  time exploded. A googleapis `compute.proto` `Instance` translation unit took 99 s and 646 KB of
+  `.text`, and `container/v1beta1/cluster_service.proto` (288 messages) did not finish compiling at
+  all in 280 s — it now takes 129 s. The layout planner accumulates each message's closure cost and
+  additionally emits `RP_NOINLINE` past a threshold, stopping a parent's flatten there. No decode
+  regression was found. The threshold is `LayoutOptions::flatten_budget`, a defaulted field on the
+  public options struct, not yet exposed as a CLI flag. **Regenerate to pick this up** — generated
+  headers change.
+
 - **Debug dumper: wide arrays print as aligned columns.** An array too wide for one line used to print
   one value per line; it now fills as many aligned columns as fit, so a long array is far shorter and
   numeric values line up by place value. Objects are unaffected. Upgrading the runtime header is

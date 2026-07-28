@@ -12,9 +12,9 @@ other people wrote, with option shapes and import graphs we never thought of.
 One `rapidprotoc` invocation per schema covers parse -> resolve -> analyze -> generate for all
 three emitters (arena, streaming, dump), so a failure anywhere in the pipeline surfaces here.
 **Compilation of the generated code is NOT
-covered** -- compiling a large real schema is currently minutes (one googleapis schema
-generates 2223 message decoders), which is the flatten problem the roadmap's Phase 1 fixes.
-Making the compile leg affordable is that milestone's exit criterion, not this one's.
+covered** -- one googleapis schema generates 2223 message decoders and costs minutes to compile,
+so a compile leg would need a schema subset small enough to stay affordable. That is not this
+gate's job.
 
 A failure must match its recorded reason, not merely its path: a listed schema that starts
 failing for a DIFFERENT reason is a regression, and matching on the path alone would wave it

@@ -1786,11 +1786,16 @@ void emit_decode_def(const Emit& emit, const MessageNode& message, const std::st
     // message allocates nothing from `arena`.
     // RP_FLATTEN: inline the wire primitives / dispatch / sub-decodes into this one function. GCC's
     // large-TU inliner is otherwise far more conservative than Clang's, leaving them out-of-line.
+    //
+    // RP_NOINLINE additionally when the layout planner's flatten budget marked this message: that
+    // stops a PARENT's flatten from absorbing this decoder's body, which is what bounds the
+    // whole-closure growth on a large schema. RP_FLATTEN still applies here, so this decoder keeps
+    // inlining its own callees down to the next marked message.
     p.print(
-        "RP_FLATTEN inline bool $Q$::rp_decode_into([[maybe_unused]] $Q$& out,"
-        " ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth,"
-        " ::rapidproto::ArenaDecodeError* err) noexcept {\n",
-        {{"Q", qualifier}});
+        "RP_FLATTEN $NI$inline bool $Q$::rp_decode_into([[maybe_unused]] $Q$& out,"
+        " ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena,"
+        " int depth, ::rapidproto::ArenaDecodeError* err) noexcept {\n",
+        {{"NI", layout.noinline_decode ? "RP_NOINLINE " : ""}, {"Q", qualifier}});
     p.indent();
     emit_decode_into_body(emit, message, layout);
     p.outdent();
