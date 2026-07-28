@@ -32,6 +32,8 @@ import sys
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BENCHES = [("stream", "rapidproto_bench"), ("arena", "rapidproto_arena_bench")]
+# Runs per snapshot. See build_and_run for the measurement that picked 5.
+DEFAULT_REPEAT = 5
 
 
 # ── run: build + execute + collect ────────────────────────────────────────────────────────────────
@@ -57,9 +59,60 @@ def git_rev():
         return "unknown"
 
 
-def build_and_run(build_dir, core):
-    """Build both bench targets in build_dir and run each pinned (core='none'/'' skips pinning),
-    returning (records, protobuf_version) with every record tagged by its decoder."""
+def check_machine(core):
+    """Warn about box settings that make a measurement untrustworthy, with the exact fix.
+
+    None of these persist across a reboot, and every one of them is silent: the bench still prints
+    confident-looking numbers. Each was measured to matter on this bench (see docs/benchmarks.md) --
+    SMT in particular was the single largest source of run-to-run spread, because the scheduler may
+    or may not put work on the pinned core's sibling, which is a per-run coin flip."""
+    def read(path):
+        try:
+            with open(path) as f:
+                return f.read().strip()
+        except OSError:
+            return None
+
+    problems = []
+    if read("/proc/sys/kernel/perf_event_paranoid") not in (None, "1", "0", "-1"):
+        problems.append(("hardware counters are blocked (cyc/B and ins/B will be n/a)",
+                         "sudo sysctl -w kernel.perf_event_paranoid=1"))
+    if read("/sys/devices/system/cpu/smt/control") == "on":
+        problems.append(("SMT is on -- the pinned core's sibling may take unrelated work mid-run",
+                         "sudo sh -c 'echo off > /sys/devices/system/cpu/smt/control'"))
+    if read("/sys/devices/system/cpu/intel_pstate/no_turbo") == "0":
+        problems.append(("turbo is enabled -- clock varies with thermal/power state",
+                         "sudo sh -c 'echo 1 > /sys/devices/system/cpu/intel_pstate/no_turbo'"))
+    gov = read(f"/sys/devices/system/cpu/cpu{core}/cpufreq/scaling_governor")
+    if gov is not None and gov != "performance":
+        problems.append((f"cpu{core} governor is '{gov}', not 'performance'",
+                         "sudo sh -c 'for g in /sys/devices/system/cpu/cpu*/cpufreq/"
+                         "scaling_governor; do echo performance > $g; done'"))
+    if not problems:
+        return
+    print("\n*** benchmark box is not quiesced -- numbers will be noisier than the gate assumes.",
+          file=sys.stderr)
+    print("*** These do NOT survive a reboot; re-apply after every restart.", file=sys.stderr)
+    for what, how in problems:
+        print(f"***   - {what}\n***       {how}", file=sys.stderr)
+    print(file=sys.stderr)
+
+
+def build_and_run(build_dir, core, repeat=DEFAULT_REPEAT):
+    """Build both bench targets in build_dir and run each pinned (core='none'/'' skips pinning)
+    `repeat` times, returning (records, protobuf_version) with every record tagged by its decoder.
+
+    Why repeat at all: ONE run of an arm is not a measurement. A few arms have a run-level spread
+    near +-9% on an otherwise quiet box -- same binary, same input, same core -- so at repeat=1 two
+    snapshots of IDENTICAL code differ by up to ~14% (p95), which is above any threshold worth
+    gating on. Measured on the worst arm, p95 of that identical-code delta falls to 9.2% at 3 runs,
+    7.7% at 5, 6.1% at 7. 5 is the knee.
+
+    Each arm keeps its BEST (highest GB/s) run: interference subtracts throughput, so the fastest
+    run is the least-disturbed estimate. Measured on the same data, best-of-K is at least as stable
+    as median-of-K at every K. The per-arm spread across the runs is kept too -- `diff` gates each
+    arm against its own observed spread, so a noisy arm cannot fail on its own noise."""
+    check_machine(core)
     targets = [t for _, t in BENCHES]
     print(f"building {', '.join(targets)} in {build_dir} ...", file=sys.stderr)
     subprocess.check_call(["cmake", "--build", build_dir, "--target", *targets])
@@ -67,21 +120,40 @@ def build_and_run(build_dir, core):
     env = dict(os.environ, RAPIDPROTO_BENCH_JSON="1")
     no_pin = str(core).lower() in ("", "none")
     pin = [] if no_pin else ["taskset", "-c", str(core)]
-    records, protobuf_version = [], None
+    protobuf_version = None
+    meta, best, seen = [], {}, {}  # key -> best record; key -> [gb_s per run]
     for decoder, target in BENCHES:
         binary = os.path.join(build_dir, target)
         where = "unpinned" if no_pin else f"pinned to core {core}"
-        print(f"running {decoder} ({binary}) {where} ...", file=sys.stderr)
-        out = subprocess.check_output([*pin, binary], env=env, text=True)
-        for line in out.splitlines():
-            if not line.startswith("{"):
-                continue
-            rec = json.loads(line)
-            rec["decoder"] = decoder
-            if rec.get("rec") == "meta" and "protobuf_version" in rec:
-                protobuf_version = rec["protobuf_version"]
-            records.append(rec)
-    return records, protobuf_version
+        for r in range(repeat):
+            print(f"running {decoder} ({binary}) {where} [{r + 1}/{repeat}] ...", file=sys.stderr)
+            out = subprocess.check_output([*pin, binary], env=env, text=True)
+            for line in out.splitlines():
+                if not line.startswith("{"):
+                    continue
+                rec = json.loads(line)
+                rec["decoder"] = decoder
+                if rec.get("rec") == "meta":
+                    if "protobuf_version" in rec:
+                        protobuf_version = rec["protobuf_version"]
+                    if r == 0:
+                        meta.append(rec)
+                    continue
+                key = (decoder, rec.get("scenario"), rec.get("arm"))
+                gb = rec.get("gb_s")
+                if gb is None:
+                    best.setdefault(key, rec)
+                    continue
+                seen.setdefault(key, []).append(gb)
+                if key not in best or gb > best[key].get("gb_s", -1):
+                    best[key] = rec
+    for key, rec in best.items():
+        v = seen.get(key) or []
+        rec["runs"] = len(v)
+        # Observed spread of this arm across the runs, as a percentage of its own minimum. This is
+        # the arm's demonstrated noise; `diff` will not fail an arm on a delta smaller than it.
+        rec["spread_pct"] = (max(v) - min(v)) / min(v) * 100.0 if len(v) > 1 and min(v) > 0 else 0.0
+    return meta + list(best.values()), protobuf_version
 
 
 def write_snapshot(records, protobuf_version, build_dir, core, out_path):
@@ -106,7 +178,7 @@ def write_snapshot(records, protobuf_version, build_dir, core, out_path):
 
 
 def run(args):
-    records, pv = build_and_run(args.build_dir, args.core)
+    records, pv = build_and_run(args.build_dir, args.core, args.repeat)
     write_snapshot(records, pv, args.build_dir, args.core, args.out)
 
 
@@ -276,13 +348,26 @@ def diff(args):
             continue
         oi = (old_i.get(k) or {}).get("ins_b")
         ni = a.get("ins_b")
-        rows.append(((ng - og) / og * 100, k[0], k[1], k[2], og, ng, oi, ni))
+        # This arm's own demonstrated noise: the wider of the two snapshots' run-to-run spreads.
+        # An arm that moved less than that has not shown anything the repeated runs did not already
+        # show on unchanged code, so it is reported but never failed on.
+        noise = max((old_i.get(k) or {}).get("spread_pct") or 0.0, a.get("spread_pct") or 0.0)
+        rows.append(((ng - og) / og * 100, k[0], k[1], k[2], og, ng, oi, ni, noise))
     added = [k for k in new_i if k not in old_i]
     removed = [k for k in old_i if k not in new_i]
 
     t = args.threshold
-    regr = sorted((r for r in rows if r[0] < -t), key=lambda r: r[0])   # slower: GB/s dropped
-    impr = sorted((r for r in rows if r[0] > t), key=lambda r: -r[0])   # faster: GB/s rose
+    # Gate an arm only when it clears BOTH the flat threshold and its own measured spread. A single
+    # global threshold is wrong in both directions here: measured spreads across arms range from
+    # under 1% to over 12%, so one number is too tight for the noisy arms and too loose for the
+    # quiet ones. Snapshots without spread data (repeat=1, or written before it was recorded) score
+    # 0 noise and fall back to the flat threshold alone.
+    def gate(r):
+        return max(t, r[8])
+
+    regr = sorted((r for r in rows if r[0] < -gate(r)), key=lambda r: r[0])  # slower: GB/s dropped
+    impr = sorted((r for r in rows if r[0] > gate(r)), key=lambda r: -r[0])  # faster: GB/s rose
+    muted = [r for r in rows if abs(r[0]) > t and abs(r[0]) <= gate(r)]
 
     def ins_delta(oi, ni):
         if oi is None or ni is None or oi < 0 or ni < 0 or not oi:
@@ -294,16 +379,22 @@ def diff(args):
             return
         print(f"\n{title}")
         print(f"  {'decoder':<8}{'scenario':<24}{'arm':<14}{'old GB/s':>9}{'new GB/s':>9}"
-              f"{'delta':>9}{'ins/B':>9}")
-        for dpct, dec, scen, arm, og, ng, oi, ni in group:
-            print(f"  {dec:<8}{scen:<24}{arm:<14}{og:>9.2f}{ng:>9.2f}{dpct:>+8.1f}%{ins_delta(oi, ni):>9}")
+              f"{'delta':>9}{'noise':>8}{'ins/B':>9}")
+        for dpct, dec, scen, arm, og, ng, oi, ni, noise in group:
+            print(f"  {dec:<8}{scen:<24}{arm:<14}{og:>9.2f}{ng:>9.2f}{dpct:>+8.1f}%"
+                  f"{noise:>7.1f}%{ins_delta(oi, ni):>9}")
 
-    show(f"regressions (GB/s down > {t:.1f}%)", regr)
-    show(f"improvements (GB/s up > {t:.1f}%)", impr)
+    show(f"regressions (GB/s down, beyond {t:.1f}% and the arm's own noise)", regr)
+    show(f"improvements (GB/s up, beyond {t:.1f}% and the arm's own noise)", impr)
+    show(f"moved > {t:.1f}% but within their own measured noise (NOT gated)", muted)
 
     ex = f"; {excluded} tiny-buffer sweep rows excluded from the gate" if excluded else ""
     extra = f"; {len(added)} added, {len(removed)} removed" if (added or removed) else ""
-    print(f"\n{len(rows) - len(regr) - len(impr)} arms unchanged (|delta| <= {t:.1f}%){ex}{extra}")
+    quiet = len(rows) - len(regr) - len(impr) - len(muted)
+    print(f"\n{quiet} arms unchanged (|delta| <= {t:.1f}%){ex}{extra}")
+    if not any(r[8] for r in rows):
+        print("NOTE: no per-arm noise in these snapshots (repeat=1?) -- gating on the flat threshold "
+              "alone, which is not reliable. Re-snapshot with `bench.py run --repeat 5`.")
     if regr:
         print(f"\nFAIL: {len(regr)} GB/s regression(s) exceed {t:.1f}%")
         sys.exit(1)
@@ -351,7 +442,7 @@ def experiment(args):
     def snapshot_ref(sha, ref, name):
         print(f"\n=== {name}: {ref} ({sha[:9]}) ===", file=sys.stderr)
         subprocess.check_call(["git", "-C", REPO, "checkout", "-q", sha])
-        records, pv = build_and_run(args.build_dir, args.core)
+        records, pv = build_and_run(args.build_dir, args.core, args.repeat)
         if not any(r.get("rec") == "arm" for r in records):
             sys.exit(f"experiment: ref '{ref}' emitted no NDJSON arm records -- it likely predates the "
                      "machine-readable bench harness; both refs must be able to emit NDJSON")
@@ -383,6 +474,8 @@ def main():
     r.add_argument("--build-dir", default=os.path.join(REPO, "build", "gcc-pb25"))
     r.add_argument("--core", default="2", help="taskset core to pin to, or 'none' to skip pinning (default 2)")
     r.add_argument("--out", default=None, help="snapshot path (default bench_snapshots/<cc>-<rev>.ndjson)")
+    r.add_argument("--repeat", type=int, default=DEFAULT_REPEAT,
+                   help=f"runs per snapshot, best kept per arm (default {DEFAULT_REPEAT}; 1 is not gateable)")
     r.set_defaults(func=run)
 
     t = sub.add_parser("table", help="render one snapshot, or compare several")
@@ -402,6 +495,8 @@ def main():
     e.add_argument("variant", nargs="?", default=None, help="git ref for the variant (default: current HEAD)")
     e.add_argument("--build-dir", default=os.path.join(REPO, "build", "gcc-pb25"))
     e.add_argument("--core", default="2", help="taskset core, or 'none' to skip pinning (default 2)")
+    e.add_argument("--repeat", type=int, default=DEFAULT_REPEAT,
+                   help=f"runs per snapshot, best kept per arm (default {DEFAULT_REPEAT})")
     e.add_argument("--threshold", type=float, default=10.0,
                    help="regression threshold in %% GB/s (default 10.0 = the cross-build placement-noise floor)")
     e.set_defaults(func=experiment)

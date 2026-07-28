@@ -69,8 +69,49 @@ python3 tests/bench.py experiment BASE [VAR]    # build+snapshot two git refs, t
 
 A snapshot is NDJSON tagged with the compiler, protobuf version, and git revision, so a number is
 never separated from what it was measured against. GB/s is the primary signal; cyc/B and ins/B are
-kept as diagnostics. Cross-build GB/s carries a code-placement noise floor that can be large enough
-to fail the regression gate on identical source — read
+kept as diagnostics.
+
+### Quiescing the box (do this first)
+
+These settings are **not persistent** — re-apply after every reboot. `bench.py` checks them and prints
+the exact commands if any is wrong, so you do not have to remember; run it and read the warning.
+
+```sh
+sudo sh -c 'echo off > /sys/devices/system/cpu/smt/control'          # biggest single effect
+sudo sh -c 'echo 1 > /sys/devices/system/cpu/intel_pstate/no_turbo'  # fixed clock
+sudo sh -c 'for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do echo performance > $g; done'
+sudo sysctl -w kernel.perf_event_paranoid=1                          # enables cyc/B and ins/B
+```
+
+Why each matters, measured on this bench with the *identical binary* run five times (spread = per-arm
+max-vs-min over the runs):
+
+| | median spread | arms over 5% |
+|---|---|---|
+| as-found (`powersave`, turbo on, SMT on) | 1.0% | 21 of 259 |
+| + turbo off, `performance` governor | 0.6% | 14 |
+| + SMT off | 0.7% | 13 |
+
+**SMT is the one that matters most.** The pinned core's sibling may or may not receive unrelated work
+during a run, which is a per-run coin flip: holding the sibling deliberately busy (a constant state)
+cut arms-over-5% from 14 to 2. Leaving SMT on is what made several arms look *bimodal* — they are not,
+the samples were just drawn from two different machine states.
+
+### Why `--repeat` exists
+
+One run of an arm is not a measurement. Even on a quiesced box a few arms have a run-level spread near
+±9%, so at `--repeat 1` two snapshots of **identical code** differ by up to ~14% (p95) — above any
+threshold worth gating on, which is exactly how false "regressions" arise. p95 of that identical-code
+delta falls to 9.2% at 3 runs, 7.7% at 5, 6.1% at 7; `bench.py run` defaults to 5.
+
+Each arm keeps its **best** run (interference only ever subtracts throughput, so the fastest run is the
+least-disturbed estimate), and the spread across runs is recorded per arm. `diff` then gates each arm
+against **its own** measured spread as well as the flat threshold, and prints that spread in a `noise`
+column. An arm that moved less than its own demonstrated noise is reported but never failed on — and an
+arm whose noise is large genuinely cannot resolve a change that size, which the column makes visible
+rather than hiding.
+
+Cross-build GB/s additionally carries code-placement noise — read
 [architecture.md](../architecture.md#decoder-performance) before comparing numbers across builds or
 machines.
 

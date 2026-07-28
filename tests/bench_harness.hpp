@@ -172,11 +172,26 @@ struct Counters {
     int instr = -1;
 };
 // Prepared once (function-local static), shared by every run() call in the process.
+//
+// A failure here is silent otherwise: cyc/B and ins/B just read "n/a", and the sampling loop's
+// convergence test falls back from cycles to wall-nanoseconds, so the numbers get quietly worse
+// rather than absent. The settings are not persistent, so a reboot silently reintroduces it --
+// hence a loud, actionable warning rather than a flag in a doc no one rereads.
 inline Counters metric_fds() {
     static const Counters c = [] {
         prepare_env();
-        return Counters{open_counter(PERF_COUNT_HW_CPU_CYCLES),
-                        open_counter(PERF_COUNT_HW_INSTRUCTIONS)};
+        const Counters got{open_counter(PERF_COUNT_HW_CPU_CYCLES),
+                           open_counter(PERF_COUNT_HW_INSTRUCTIONS)};
+#if defined(__linux__)
+        if (got.cyc < 0 || got.instr < 0) {
+            std::fprintf(stderr,
+                         "\n*** bench: hardware counters unavailable -- cyc/B and ins/B will be "
+                         "n/a,\n***       and convergence falls back to wall-clock time.\n"
+                         "***       Fix (not persistent across reboot):\n"
+                         "***         sudo sysctl -w kernel.perf_event_paranoid=1\n\n");
+        }
+#endif
+        return got;
     }();
     return c;
 }
@@ -186,6 +201,15 @@ inline Counters metric_fds() {
 inline bool json_mode() {
     static const bool on = std::getenv("RAPIDPROTO_BENCH_JSON") != nullptr;
     return on;
+}
+
+// RAPIDPROTO_BENCH_ONLY=<substring> runs only the scenarios whose name contains it. A full suite is
+// minutes, which makes investigating ONE unstable scenario over many repetitions impractical; this
+// is that lever. Unset (the default) runs everything, so a gate run is unaffected.
+inline bool scenario_selected(const char* scenario) {
+    static const char* only = std::getenv("RAPIDPROTO_BENCH_ONLY");
+    return only == nullptr || *only == '\0' ||
+           std::string_view(scenario).find(only) != std::string_view::npos;
 }
 
 struct Cost {
@@ -248,6 +272,9 @@ inline Stat stat(std::vector<double> v) {
 // other arm is reported as an absolute rate AND as a drift-invariant cost ratio to the baseline with
 // a significance verdict. Returns the count of arms whose checksum disagreed with arm 0.
 inline int run(const char* scenario, double byte_size, const std::vector<Arm>& arms) {
+    if (!scenario_selected(scenario)) {
+        return 0;
+    }
     const std::size_t n = arms.size();
     const Counters cnt = metric_fds();
     const bool cyc = cnt.cyc >= 0;

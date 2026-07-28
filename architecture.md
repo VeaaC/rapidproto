@@ -549,14 +549,30 @@ and locked at their chosen values; each is a single constant with a rationale co
   with `cmp`), because *link-time* layout shifts everything when other objects change size. So
   byte-identical objects are **not** sufficient for a cross-build comparison.
 
-  **Sanity-check the floor before trusting a comparison.** Running the comparison with main against
-  *itself* (`tests/bench.py experiment main main`) — identical source, two builds — is cheap and bounds
-  what the run can resolve. Observed on one machine, that self-comparison failed the 10% gate outright,
-  with a handful of arms moving far more than the 8.4% above and not the same arms between runs. That
-  is a larger spread than earlier work on this bench saw, so treat it as a property of the run rather
-  than an established figure: measure it alongside any comparison you intend to act on, and treat a
-  delta as usable only if it reproduces across independent runs **and** is absent from the
-  self-comparison. Making the harness reliable enough to state a floor is open work.
+  **Most of what looked like a floor was the box, not placement.** A self-comparison
+  (`tests/bench.py experiment <rev> <rev>` — identical source, two builds) used to fail the 10% gate
+  outright. Investigated on the identical *binary*, five runs, per-arm max-vs-min: the median arm moved
+  only 1.0%, so there was never a global 30–40% floor — the damage was concentrated in a handful of
+  arms, and it had three causes, in order of size:
+
+  1. **SMT.** The pinned core's sibling may or may not take unrelated work during a run — a per-run coin
+     flip between two machine states. This produced the apparent *bimodality* of several arms; they are
+     unimodal once the sibling state is fixed. Holding the sibling busy cut arms-over-5% from 14 to 2.
+  2. **Frequency.** `powersave` + turbo let whole runs shift together (every arm of a scenario halving
+     at once). `performance` + `no_turbo` took the median arm from 1.0% to 0.6% and the worst from
+     47.7% to 28.3%.
+  3. **`kernel.perf_event_paranoid ≥ 2`**, which silently disables the cycle/instruction counters — so
+     `cyc/B` and `ins/B` read `n/a` *and* the harness's convergence test falls back from cycles to
+     wall-clock. Failure mode is quietly worse numbers, not missing ones.
+
+  Ruled out with measurements, not assumed: ASLR (`setarch -R` changes nothing), payload variation (the
+  generators are fixed-seed), thermal drift across a session (whole-run level is 1.000 ± 0.01 across
+  every run of every batch), and core choice per se.
+
+  What remains after quiescing is a genuine per-arm run-level spread of up to ±9% on a few arms. That is
+  handled statistically rather than pretended away — see `tests/bench.py --repeat` and the `noise`
+  column in `diff`, and [docs/benchmarks.md](docs/benchmarks.md#quiescing-the-box-do-this-first) for the
+  setup. Still run a self-comparison before acting on a surprising result; it now passes.
 
   Under that rule the `Dataset` **+28.8–39.9%** and `compute` **−18.4%** readings above are not
   usable as stated — both are single-run cross-build numbers. The build-cost figures in that bullet
@@ -861,10 +877,13 @@ one binary measure ~10% apart, purely from placement. Consequences for anyone pr
   and were *not* adopted (an if-chain dispatch vs the `switch`, a `memcpy` of a *single* fixed-width field);
   others reproduced on both compilers and *were* shipped (the fused `read_tag` / `read_tag_or_end`, the
   peek-switch dispatch, and the packed-array bulk copy above).
+- **Quiesce the box before believing anything** — SMT off, turbo off, `performance` governor,
+  `perf_event_paranoid=1`. None persist across a reboot; `bench.py` checks all four and prints the fix.
+  SMT is the largest single source of run-to-run spread on this bench.
 - **Measure the noise floor; do not assume one.** Comparing a revision against *itself*
   (`tests/bench.py experiment <rev> <rev>`) costs one extra run and bounds what the comparison can
-  resolve; it has been seen to fail the 10% gate on identical source. Trust a delta only if it
-  reproduces across independent runs **and** is absent from that self-comparison.
+  resolve. Trust a delta only if it exceeds that arm's own measured spread (`diff` now prints it as
+  `noise` and gates on it).
 - **Pin to one performance core** (`taskset -c <core> …`); unpinned hybrid-core runs swing 30%+, and even
   pinned, trust only same-binary ratios.
 
