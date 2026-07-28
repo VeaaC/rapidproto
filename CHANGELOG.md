@@ -5,6 +5,24 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
 
 ## Unreleased
 
+### Fixed
+
+- **Generated headers compile warning-free on GCC 13 and on Clang versions that diagnose an
+  untaken ternary branch.** Both warnings fired in consumer builds but not in this repo's own build,
+  so neither was caught here:
+  - GCC 13 (and 14 for `ArrayView`) `-Wdangling-reference` on `msg.field()[i]`, where the accessor
+    returns the view by value. It is a false positive — the element lives in the arena the view
+    borrows, which outlives the temporary — and is now suppressed at the accessor's declaration.
+    Note the trade-off: this also silences the warning for a view over storage owned by a temporary,
+    which would be a genuine use-after-free. `data()`, `begin()` and `end()` are unaffected.
+  - `-Wshift-count-overflow` in the packed-varint kernel: the width-8 specialization's length mask
+    contained a `uint64 << 64` in the never-taken branch of a ternary. Recomputed with `if
+    constexpr`, so the out-of-range shift is no longer part of the program, and the mask is pinned
+    by `static_assert` at every width — decoding is bit-for-bit identical. As a side effect
+    `fixed_fill<9>` now fails to compile instead of silently evaluating an out-of-range shift.
+
+  Header-only — no regeneration needed, but the installed headers must be updated.
+
 ### Added
 
 - **Debug dumper: `DumpOptions` (start indent + skip fields).** `rp_dump_write` / `rp_dump_string` now

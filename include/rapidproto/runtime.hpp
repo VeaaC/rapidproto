@@ -204,6 +204,31 @@ namespace swar_detail {
 inline constexpr std::uint64_t kMSB = 0x8080808080808080ULL;   // MSB of each byte
 inline constexpr std::uint64_t kLow7 = 0x7F7F7F7F7F7F7F7FULL;  // low 7 bits of each byte
 
+// All bits of the low N bytes of a uint64 (N == 8 -> every bit).
+//
+// `if constexpr` rather than a ternary: at N == 8 the shift `1 << 64` is out of range, and while a
+// ternary with a constant condition never EVALUATES that branch, the branch is still part of the
+// program and some compilers diagnose it (-Wshift-count-overflow) when the N == 8 specialization is
+// instantiated. Discarding it outright leaves nothing to warn about on any compiler.
+template <int N>
+constexpr std::uint64_t low_byte_mask() noexcept {
+    static_assert(N >= 1 && N <= 8, "N is a byte count within a uint64");
+    if constexpr (N >= 8) {
+        return ~std::uint64_t{0};
+    } else {
+        return (std::uint64_t{1} << (8U * static_cast<unsigned>(N))) - 1U;
+    }
+}
+// Pins every width the kernels use, so a rewrite of the above cannot silently change a mask.
+static_assert(low_byte_mask<1>() == 0xFFULL);
+static_assert(low_byte_mask<2>() == 0xFFFFULL);
+static_assert(low_byte_mask<3>() == 0xFFFFFFULL);
+static_assert(low_byte_mask<4>() == 0xFFFFFFFFULL);
+static_assert(low_byte_mask<5>() == 0xFFFFFFFFFFULL);
+static_assert(low_byte_mask<6>() == 0xFFFFFFFFFFFFULL);
+static_assert(low_byte_mask<7>() == 0xFFFFFFFFFFFFFFULL);
+static_assert(low_byte_mask<8>() == ~std::uint64_t{0});
+
 // 8 bytes as a uint64 in little-endian logical order (byte i in bits 8i..8i+7). memcpy is a single
 // aligned-agnostic load; on a big-endian host it is byte-reversed back to that logical order. The
 // reverse prefers the compiler intrinsic (gcc/clang -> a `rev`/`bswap` instruction) but falls back to
@@ -367,8 +392,7 @@ struct array_sink {
 template <int W, class Sink>
 inline const std::uint8_t* fixed_fill(const std::uint8_t* q, const std::uint8_t* end,
                                       std::size_t* np, Sink& sink) noexcept {
-    constexpr std::uint64_t kLenMask =
-        (W >= 8) ? ~std::uint64_t{0} : ((std::uint64_t{1} << (8U * static_cast<unsigned>(W))) - 1U);
+    constexpr std::uint64_t kLenMask = swar_detail::low_byte_mask<W>();
     constexpr std::uint64_t kMsbW = swar_detail::kMSB & kLenMask;  // MSB of each of the low W bytes
     // The one accepted pattern: bytes 0..W-2 continue (MSB set), byte W-1 terminates (MSB clear).
     constexpr std::uint64_t kOneVarint =

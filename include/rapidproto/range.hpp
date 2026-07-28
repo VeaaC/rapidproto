@@ -66,8 +66,26 @@ public:
     [[nodiscard]] constexpr const T* data() const noexcept { return m_data; }
 
     // Precondition: i < size(). front() requires !empty().
+    //
+    // The pragma answers GCC 13's -Wdangling-reference, which fires on `f()[i]` / `f().front()`
+    // whenever f() returns a Range by value: it assumes a reference returned from a call on a
+    // temporary points INTO that temporary. It does not -- a Range never owns what it views, so the
+    // element outlives it (and construction from an owning temporary is deleted above). GCC honours
+    // the warning being disabled at the callee's declaration, which covers every call site.
+    //
+    // Scoped to GCC 13 EXACTLY. GCC 14 already exempts Range on its own (reference_like_class_p
+    // treats a class with a pointer member as reference-like), so there suppressing would buy no
+    // false positive and would cost the true ones -- a Range over a container owned by a temporary
+    // is a real use-after-free that 14 still reports.
+#if defined(__GNUC__) && !defined(__clang__) && !defined(__NVCOMPILER) && __GNUC__ == 13
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdangling-reference"
+#endif
     constexpr const T& operator[](std::size_t i) const noexcept { return m_data[i]; }
     [[nodiscard]] constexpr const T& front() const noexcept { return m_data[0]; }
+#if defined(__GNUC__) && !defined(__clang__) && !defined(__NVCOMPILER) && __GNUC__ == 13
+#pragma GCC diagnostic pop
+#endif
 
     // Both subspans clamp to bounds (never read past end), so an over-long
     // offset/count yields a shorter or empty Range rather than UB.
