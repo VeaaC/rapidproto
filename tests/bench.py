@@ -64,8 +64,9 @@ def check_machine(core):
 
     None of these persist across a reboot, and every one of them is silent: the bench still prints
     confident-looking numbers. Each was measured to matter on this bench (see docs/benchmarks.md) --
-    SMT in particular was the single largest source of run-to-run spread, because the scheduler may
-    or may not put work on the pinned core's sibling, which is a per-run coin flip."""
+    SMT matters because whether the pinned core's sibling takes work is a per-run coin flip, which
+    makes affected arms read as if they were bimodal. `tests/bench_box.sh setup` applies all of
+    these and saves the previous values; `restore` puts them back."""
     def read(path):
         try:
             with open(path) as f:
@@ -74,9 +75,12 @@ def check_machine(core):
             return None
 
     problems = []
-    if read("/proc/sys/kernel/perf_event_paranoid") not in (None, "1", "0", "-1"):
+    paranoid = read("/proc/sys/kernel/perf_event_paranoid")
+    # The harness opens a PER-TASK event with exclude_kernel=1, which levels 0-2 all permit; only
+    # level 3+ (an extra level Debian/Ubuntu carry) denies perf_event_open outright.
+    if paranoid is not None and paranoid.lstrip("-").isdigit() and int(paranoid) >= 3:
         problems.append(("hardware counters are blocked (cyc/B and ins/B will be n/a)",
-                         "sudo sysctl -w kernel.perf_event_paranoid=1"))
+                         "sudo sysctl -w kernel.perf_event_paranoid=2"))
     if read("/sys/devices/system/cpu/smt/control") == "on":
         problems.append(("SMT is on -- the pinned core's sibling may take unrelated work mid-run",
                          "sudo sh -c 'echo off > /sys/devices/system/cpu/smt/control'"))
@@ -95,6 +99,8 @@ def check_machine(core):
     print("*** These do NOT survive a reboot; re-apply after every restart.", file=sys.stderr)
     for what, how in problems:
         print(f"***   - {what}\n***       {how}", file=sys.stderr)
+    print("***   or run: tests/bench_box.sh setup   (and `restore` when you are done)",
+          file=sys.stderr)
     print(file=sys.stderr)
 
 
@@ -102,16 +108,20 @@ def build_and_run(build_dir, core, repeat=DEFAULT_REPEAT):
     """Build both bench targets in build_dir and run each pinned (core='none'/'' skips pinning)
     `repeat` times, returning (records, protobuf_version) with every record tagged by its decoder.
 
-    Why repeat at all: ONE run of an arm is not a measurement. A few arms have a run-level spread
-    near +-9% on an otherwise quiet box -- same binary, same input, same core -- so at repeat=1 two
-    snapshots of IDENTICAL code differ by up to ~14% (p95), which is above any threshold worth
-    gating on. Measured on the worst arm, p95 of that identical-code delta falls to 9.2% at 3 runs,
-    7.7% at 5, 6.1% at 7. 5 is the knee.
+    Why repeat at all: one run's converged number is not reproducible ACROSS PROCESS LAUNCHES. Each
+    run already medians >=30 rotated rounds to a confident CI (bench_harness.hpp), but a few arms
+    still land up to ~12% apart run to run on a quiesced box, so at repeat=1 two snapshots of
+    IDENTICAL code differ by ~14% (p95) -- above any threshold worth gating on. Bootstrapped from 40
+    repeated runs of the worst arm, that identical-code p95 falls to ~9% at 3 runs, ~8% at 5, ~6% at
+    7: roughly 0.8pp per added run beyond 3, with no knee. 5 is a cost/benefit pick (7 would buy
+    another ~1.5pp for 40% more wall time), measured on the WORST arm so it over-samples the rest.
 
-    Each arm keeps its BEST (highest GB/s) run: interference subtracts throughput, so the fastest
-    run is the least-disturbed estimate. Measured on the same data, best-of-K is at least as stable
-    as median-of-K at every K. The per-arm spread across the runs is kept too -- `diff` gates each
-    arm against its own observed spread, so a noisy arm cannot fail on its own noise."""
+    Each arm keeps its BEST (highest GB/s) run, and every run's GB/s is kept alongside it so a
+    snapshot can be re-analysed without re-measuring. Best-of-K measured at least as stable as
+    median-of-K (spread of the estimator under bootstrap) at every K here. Note best-of is
+    K-DEPENDENT -- it estimates the K/(K+1) quantile, so it drifts upward with K and its spread
+    widens too. Two snapshots are therefore only comparable at equal `repeat`, which `diff`
+    enforces."""
     check_machine(core)
     targets = [t for _, t in BENCHES]
     print(f"building {', '.join(targets)} in {build_dir} ...", file=sys.stderr)
@@ -122,6 +132,7 @@ def build_and_run(build_dir, core, repeat=DEFAULT_REPEAT):
     pin = [] if no_pin else ["taskset", "-c", str(core)]
     protobuf_version = None
     meta, best, seen = [], {}, {}  # key -> best record; key -> [gb_s per run]
+    other, mismatched = {}, set()  # non-arm records (one kept); arms that mismatched in ANY run
     for decoder, target in BENCHES:
         binary = os.path.join(build_dir, target)
         where = "unpinned" if no_pin else f"pinned to core {core}"
@@ -139,21 +150,41 @@ def build_and_run(build_dir, core, repeat=DEFAULT_REPEAT):
                     if r == 0:
                         meta.append(rec)
                     continue
+                if rec.get("rec") != "arm":  # `mem` and anything else: keep one, never aggregate
+                    other.setdefault((decoder, rec.get("rec"), rec.get("shape")), rec)
+                    continue
                 key = (decoder, rec.get("scenario"), rec.get("arm"))
                 gb = rec.get("gb_s")
                 if gb is None:
                     best.setdefault(key, rec)
                     continue
                 seen.setdefault(key, []).append(gb)
+                # A checksum mismatch in ANY run is a correctness signal; keeping only the winner's
+                # flag would hide a 1-in-K divergence whenever a clean run happened to be faster.
+                if not rec.get("ok", True):
+                    mismatched.add(key)
                 if key not in best or gb > best[key].get("gb_s", -1):
                     best[key] = rec
     for key, rec in best.items():
-        v = seen.get(key) or []
+        v = sorted(seen.get(key) or [])
         rec["runs"] = len(v)
-        # Observed spread of this arm across the runs, as a percentage of its own minimum. This is
-        # the arm's demonstrated noise; `diff` will not fail an arm on a delta smaller than it.
-        rec["spread_pct"] = (max(v) - min(v)) / min(v) * 100.0 if len(v) > 1 and min(v) > 0 else 0.0
-    return meta + list(best.values()), protobuf_version
+        rec["gb_s_runs"] = v  # every run, so a snapshot can be re-analysed without re-measuring
+        if key in mismatched:
+            rec["ok"] = False
+        # Dispersion of the UPPER half only: (max - median) / median.
+        #
+        # Not the full range. The kept value is the MAX, and interference only subtracts throughput,
+        # so a low outlier is exactly what best-of exists to discard -- yet it dominates a range. A
+        # single disturbed run would then inflate this arm's gate arbitrarily and, because `diff`
+        # takes the wider of the two snapshots, disable that arm's gate against every future
+        # comparison. Measuring how much the UNDISTURBED end moves keeps the estimate aligned with
+        # the statistic it guards.
+        rec["spread_pct"] = 0.0
+        if len(v) > 1:
+            median = v[len(v) // 2] if len(v) % 2 else (v[len(v) // 2 - 1] + v[len(v) // 2]) / 2.0
+            if median > 0:
+                rec["spread_pct"] = (v[-1] - median) / median * 100.0
+    return meta + list(other.values()) + list(best.values()), protobuf_version
 
 
 def write_snapshot(records, protobuf_version, build_dir, core, out_path):
@@ -178,6 +209,8 @@ def write_snapshot(records, protobuf_version, build_dir, core, out_path):
 
 
 def run(args):
+    if args.repeat < 1:  # repeat=0 would write a header-only snapshot and exit 0
+        sys.exit("run: --repeat must be >= 1")
     records, pv = build_and_run(args.build_dir, args.core, args.repeat)
     write_snapshot(records, pv, args.build_dir, args.core, args.out)
 
@@ -334,6 +367,16 @@ def diff(args):
     by_key = lambda arms: {(a["decoder"], a["scenario"], a["arm"]): a for a in arms}
     old_i, new_i = by_key(ao), by_key(an)
 
+    # Both snapshots must use the same `repeat`. The kept value is best-of-K, which estimates the
+    # K/(K+1) quantile: it drifts UPWARD with K and its spread widens too, so a snapshot taken at a
+    # larger K reads faster AND gets a looser gate than one taken at a smaller K. Comparing across K
+    # is a silently biased comparison, so refuse it rather than print a number nobody should act on.
+    runs = lambda arms: {a.get("runs") for a in arms if a.get("gb_s")} or {None}
+    ro, rn = runs(ao), runs(an)
+    if ro != rn:
+        sys.exit(f"diff: snapshots use different --repeat ({sorted(ro, key=str)} vs "
+                 f"{sorted(rn, key=str)}); best-of-K is K-dependent, so re-measure at a common K")
+
     # (gb_s delta%, decoder, scenario, arm, old_gb, new_gb, old_ins, new_ins). Delta is signed as a
     # PERFORMANCE change: positive = faster (GB/s up), negative = slower (a regression).
     rows = []
@@ -392,9 +435,12 @@ def diff(args):
     extra = f"; {len(added)} added, {len(removed)} removed" if (added or removed) else ""
     quiet = len(rows) - len(regr) - len(impr) - len(muted)
     print(f"\n{quiet} arms unchanged (|delta| <= {t:.1f}%){ex}{extra}")
-    if not any(r[8] for r in rows):
-        print("NOTE: no per-arm noise in these snapshots (repeat=1?) -- gating on the flat threshold "
-              "alone, which is not reliable. Re-snapshot with `bench.py run --repeat 5`.")
+    # Fires when EITHER side lacks per-arm noise: an old snapshot paired with a new one would
+    # otherwise gate on the new side's spread alone, silently and asymmetrically.
+    if rows and not all(a.get("spread_pct") is not None for a in (*ao, *an) if a.get("gb_s")):
+        print(f"NOTE: a snapshot has no per-arm noise (written before it was recorded, or "
+              f"--repeat 1) -- gating on the flat {t:.1f}% threshold alone, which is not reliable. "
+              f"Re-snapshot both sides with `bench.py run --repeat {DEFAULT_REPEAT}`.")
     if regr:
         print(f"\nFAIL: {len(regr)} GB/s regression(s) exceed {t:.1f}%")
         sys.exit(1)
@@ -414,6 +460,8 @@ def current_ref():
 
 
 def experiment(args):
+    if args.repeat < 1:
+        sys.exit("experiment: --repeat must be >= 1")
     """Build+snapshot two git refs (baseline, then variant) in the same build dir and diff them on GB/s
     via diff() -- measured throughput, the real-performance signal. The two are independent builds with
     different code placement, so a sub-~10% GB/s delta can be layout/frequency noise (the diff threshold

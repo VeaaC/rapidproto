@@ -549,37 +549,23 @@ and locked at their chosen values; each is a single constant with a rationale co
   with `cmp`), because *link-time* layout shifts everything when other objects change size. So
   byte-identical objects are **not** sufficient for a cross-build comparison.
 
-  **Most of what looked like a floor was the box, not placement.** A self-comparison
-  (`tests/bench.py experiment <rev> <rev>` — identical source, two builds) used to fail the 10% gate
-  outright. Investigated on the identical *binary*, five runs, per-arm max-vs-min: the median arm moved
-  only 1.0%, so there was never a global 30–40% floor — the damage was concentrated in a handful of
-  arms, and it had three causes, in order of size:
+  **A cross-build reading is dominated by machine state, not only placement.** A self-comparison
+  (`tests/bench.py experiment <rev> <rev>` — identical source, two builds) fails the 10% gate on a box
+  that has not been quiesced. Measured on the identical *binary*, the median gated arm moves ~1%, so the
+  damage is concentrated in a handful of arms rather than being a global floor. Three causes, plus a
+  residual: CPU frequency (`powersave` + turbo), SMT (whether the pinned core's sibling takes work is a
+  per-run coin flip, which makes affected arms read as bimodal), `kernel.perf_event_paranoid ≥ 3` (which
+  silently disables the cycle counters, so `cyc/B` and `ins/B` read `n/a` *and* the harness's
+  convergence test falls back from cycles to wall-clock), and — after all of those — shared last-level
+  cache residency, which is what the remaining per-arm spread tracks.
 
-  1. **SMT.** The pinned core's sibling may or may not take unrelated work during a run — a per-run coin
-     flip between two machine states. This produced the apparent *bimodality* of several arms; they are
-     unimodal once the sibling state is fixed. Holding the sibling busy cut arms-over-5% from 14 to 2.
-  2. **Frequency.** `powersave` + turbo let whole runs shift together (every arm of a scenario halving
-     at once). `performance` + `no_turbo` took the median arm from 1.0% to 0.6% and the worst from
-     47.7% to 28.3%.
-  3. **`kernel.perf_event_paranoid ≥ 2`**, which silently disables the cycle/instruction counters — so
-     `cyc/B` and `ins/B` read `n/a` *and* the harness's convergence test falls back from cycles to
-     wall-clock. Failure mode is quietly worse numbers, not missing ones.
-
-  Ruled out with measurements, not assumed: ASLR (`setarch -R` changes nothing), payload variation (the
-  generators are fixed-seed), thermal drift across a session (whole-run level is 1.000 ± 0.01 across
-  every run of every batch), and core choice per se.
-
-  What remains after quiescing is a per-arm run-level spread of up to ±9% on a few arms, and it is
-  **shared-L3 residency**: per-arm counters show retired instructions bit-identical (0.0%) and branch
-  misses flat (0.1%) while LLC misses swing 100% and correlate with cycles at r = 0.94. Confirmed by
-  holding L3 pressure constant with streaming loads on other cores — miss rate rises 4.5× but its
-  spread collapses to 14% and GB/s spread to 5%. The 24 MiB L3 is shared by every core, so the
-  sensitive arms are those whose working set is *partially* resident; arms far below or far above that
-  band are quiet (`rv fx10 1M` at 10 MB: 0.8%, `rv fx1 1M` at 1 MB: 11.8%). Physical page colouring was
-  tested and refuted (huge pages made it worse, not better). Handled statistically rather than
-  pretended away — see `tests/bench.py --repeat`, the `noise` column in `diff`, and
-  [docs/benchmarks.md](docs/benchmarks.md#where-the-residual-noise-comes-from). Still run a
-  self-comparison before acting on a surprising result; it now passes.
+  The consequences for this design are three: quiesce the box (`tests/bench_box.sh setup`), take
+  several runs per snapshot and keep each arm's best (`bench.py run --repeat`, default 5), and gate each
+  arm against *its own* measured spread rather than one global threshold — measured spreads range from
+  under 1% to over 12%, so a single number is simultaneously too tight for the noisy arms and too loose
+  for the quiet ones. The measurements behind all of that, and the hypotheses tested and rejected, are
+  in [docs/benchmarks.md](docs/benchmarks.md#appendix-measurement-noise); they are numbers about one
+  machine and belong with the benchmark results, not here.
 
   Under that rule the `Dataset` **+28.8–39.9%** and `compute` **−18.4%** readings above are not
   usable as stated — both are single-run cross-build numbers. The build-cost figures in that bullet
@@ -884,13 +870,13 @@ one binary measure ~10% apart, purely from placement. Consequences for anyone pr
   and were *not* adopted (an if-chain dispatch vs the `switch`, a `memcpy` of a *single* fixed-width field);
   others reproduced on both compilers and *were* shipped (the fused `read_tag` / `read_tag_or_end`, the
   peek-switch dispatch, and the packed-array bulk copy above).
-- **Quiesce the box before believing anything** — SMT off, turbo off, `performance` governor,
-  `perf_event_paranoid=1`. None persist across a reboot; `bench.py` checks all four and prints the fix.
-  SMT is the largest single source of run-to-run spread on this bench.
+- **Quiesce the box before believing anything** — `tests/bench_box.sh setup` (SMT off, turbo off,
+  `performance` governor, hardware counters enabled) and `restore` afterwards. None of it survives a
+  reboot; `bench.py` checks the same settings on every run and prints the fix.
 - **Measure the noise floor; do not assume one.** Comparing a revision against *itself*
-  (`tests/bench.py experiment <rev> <rev>`) costs one extra run and bounds what the comparison can
-  resolve. Trust a delta only if it exceeds that arm's own measured spread (`diff` now prints it as
-  `noise` and gates on it).
+  (`tests/bench.py experiment <rev> <rev>`) costs a second snapshot and bounds what the comparison can
+  resolve. Trust a delta only if it exceeds that arm's own measured spread, which `diff` prints as
+  `noise` and gates on.
 - **Pin to one performance core** (`taskset -c <core> …`); unpinned hybrid-core runs swing 30%+, and even
   pinned, trust only same-binary ratios.
 

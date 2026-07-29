@@ -534,6 +534,12 @@ std::uint64_t checksum_big_arena_kinds(const rp::bench::Big* b) {
 void sweep_repeated_varint() {
     for (const auto& dist : rpbench::varint_dists()) {
         for (const int count : rpbench::varint_lengths()) {
+            // Name first, so a scenario filter can skip the POOL BUILD below, not merely the
+            // measurement -- the pool is up to 64 MB and dominates a filtered run otherwise.
+            const std::string name = "rv " + dist.label + " " + rpbench::length_tag(count);
+            if (!rpbench::scenario_selected(name.c_str())) {
+                continue;
+            }
             // Build a POOL of distinct-seed buffers with the same shape and rotate over it, so no arm
             // replays a single memorized width sequence. Pool size: ~64 MB budget, >= 8 buffers (defeat
             // the predictor at small counts), <= 64 (bound setup). Each element is <= 10 bytes, so
@@ -555,7 +561,6 @@ void sweep_repeated_varint() {
                 views.emplace_back(b);  // pool strings are stable (reserved, no realloc)
             }
             const double avg_bytes = total_bytes / static_cast<double>(pool_n);
-            const std::string name = "rv " + dist.label + " " + rpbench::length_tag(count);
             rapidproto::Arena warm;
             // Each arm keeps its own rotation index; the harness calls every arm the same number of
             // times, so all indices stay in lockstep and the per-round checksum cross-check still holds.

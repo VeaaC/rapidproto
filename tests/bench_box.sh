@@ -40,8 +40,9 @@ get()  { have "$1" && cat "$1" 2>/dev/null || echo "-"; }
 put() {
     local value=$1 path=$2
     have "$path" || { echo "  skip   $path (absent)"; return 0; }
-    # Present but unreadable = an offline cpu's cpufreq node. Nothing to do, and not an error.
-    [[ -r "$path" ]] || { echo "  skip   $path (offline)"; return 0; }
+    # Present but unreadable = an offline cpu's cpufreq node. `-r` tests permission bits only and
+    # PASSES on those (mode 0644); the read itself fails EBUSY. Probe with an actual read.
+    cat "$path" >/dev/null 2>&1 || { echo "  skip   $path (offline)"; return 0; }
     if [[ "$(get "$path")" == "$value" ]]; then echo "  ok     $path = $value"; return 0; fi
     if ! sudo -n sh -c "echo $value > $path" 2>/dev/null && ! sudo sh -c "echo $value > $path"; then
         echo "  FAILED $path = $value (needs root)" >&2
@@ -53,7 +54,7 @@ put() {
 status() {
     printf '  %-56s %s\n' "$SMT" "$(get $SMT)"
     printf '  %-56s %s\n' "$TURBO" "$(get $TURBO)   (1 = turbo disabled)"
-    printf '  %-56s %s\n' "$PARANOID" "$(get $PARANOID)   (<=1 enables cyc/B, ins/B)"
+    printf '  %-56s %s\n' "$PARANOID" "$(get $PARANOID)   (<=2 enables cyc/B, ins/B)"
     local first; first=$(governors | tr ' ' '\n' | head -1)
     printf '  %-56s %s\n' "scaling_governor (cpu0)" "$(get "$first")"
 }
@@ -107,7 +108,11 @@ restore)
     ;;
 status)
     status
-    [[ -f "$STATE" ]] && echo "  (saved pre-benchmark state present: $STATE)"
+    # Not `[[ -f ]] && echo` as the branch's last command: a false test would become the script's
+    # exit status, so `if bench_box.sh status` would report failure on a clean state dir.
+    if [[ -f "$STATE" ]]; then
+        echo "  (saved pre-benchmark state present: $STATE)"
+    fi
     ;;
 *)
     sed -n '5,9p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
