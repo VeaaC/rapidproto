@@ -3,6 +3,7 @@
 
 #include <catch_amalgamated.hpp>
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -345,4 +346,41 @@ TEST_CASE("ArenaDecodeError: rp_fail_input_too_large sets InputTooLarge", "[aren
     CHECK(e.code == ArenaDecodeError::Code::InputTooLarge);
     CHECK_FALSE(e.ok());
     rp_fail_input_too_large(nullptr);  // a null err must be a safe no-op
+}
+
+// A regression guard for a compiler warning that only appears in CONSUMER code: our own sources
+// never index a view an accessor returned by value, so GCC's -Wdangling-reference on that shape
+// reached a user rather than this repo's build. Keeping the pattern inside the warning-checked build
+// makes a reintroduction fail ./check.sh instead of a downstream project's CI. (The packed-varint
+// mask fix in the same change needs no guard here: no supported compiler diagnoses it, and
+// test_packed_kernels.cpp already drives every width through the kernel above its 256-byte gate.)
+namespace {
+
+struct ViewHolder {
+    // A generated accessor returns its view BY VALUE; indexing that temporary is the ordinary way to
+    // read an element, and it made GCC 13/14 warn -Wdangling-reference (a false positive: the
+    // element lives in the arena, not in the view).
+    [[nodiscard]] ArrayView<std::uint32_t> values() const noexcept { return m_values; }
+    ArrayView<std::uint32_t> m_values;
+};
+
+std::uint32_t sum_through_temporary(const ViewHolder& h) {
+    std::uint32_t total = 0;
+    for (std::size_t i = 0; i < h.values().size(); ++i) {
+        const std::uint32_t& element = h.values()[i];  // the shape that warned
+        total += element;
+    }
+    return total;
+}
+
+}  // namespace
+
+TEST_CASE("ArrayView: indexing a by-value accessor reads the arena, not a temporary", "[arena]") {
+    const std::array<std::uint32_t, 3> backing{7, 8, 9};
+    const ViewHolder holder{ArrayView<std::uint32_t>{backing.data(), backing.size()}};
+    // Taking the address of element 0 IS the assertion: the reference must point into `backing`,
+    // which outlives every temporary view.
+    // NOLINTNEXTLINE(readability-container-data-pointer): the address is what is under test
+    CHECK(&holder.values()[0] == backing.data());
+    CHECK(sum_through_temporary(holder) == 24);
 }

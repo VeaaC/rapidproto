@@ -378,7 +378,27 @@ public:
     }
     [[nodiscard]] std::size_t size() const noexcept { return m_size; }
     [[nodiscard]] bool empty() const noexcept { return m_size == 0; }
+    // GCC's -Wdangling-reference (13+) fires on `msg.field()[i]` whenever the accessor returns an
+    // ArrayView BY VALUE: it sees a reference returned from a call whose implicit object argument is
+    // a temporary, and assumes the reference points into that temporary. It does not -- the element
+    // lives in the ARENA the view borrows, which outlives both the view and the full expression, so
+    // the warning is a false positive on every generated accessor. GCC exempts only a hardcoded set
+    // of types (reference_wrapper, span, ref_view, pair<const T&, const T&>, classes with a
+    // reference member -- reference_like_class_p in gcc/cp/call.cc), which ArrayView cannot join.
+    // GCC does honour the warning being disabled at the callee's DECLARATION, which suppresses it at
+    // every call site; that is what this pragma does, scoped to this one accessor.
+    //
+    // What it gives up: the same warning would be RIGHT for a view over storage owned by a
+    // temporary (`make_owner().values()[0]`), and that case is now silent too. data(), begin() and
+    // end() return pointers, are never diagnosed, and are unaffected.
+#if defined(__GNUC__) && !defined(__clang__) && !defined(__NVCOMPILER) && __GNUC__ >= 13
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdangling-reference"
+#endif
     const T& operator[](std::size_t i) const noexcept { return data()[i]; }
+#if defined(__GNUC__) && !defined(__clang__) && !defined(__NVCOMPILER) && __GNUC__ >= 13
+#pragma GCC diagnostic pop
+#endif
     [[nodiscard]] const T* begin() const noexcept { return data(); }
     [[nodiscard]] const T* end() const noexcept { return data() + m_size; }
 
