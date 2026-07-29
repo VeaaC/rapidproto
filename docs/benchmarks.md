@@ -66,8 +66,12 @@ The benches need `libprotobuf-dev` (+ a matching `protoc`) and `protozero` insta
 the same settings on every run and prints the exact fix if any is off, so you do not have to
 remember; `tests/bench_box.sh status` shows the current values.
 
+`bench.py` defaults its build dir to `build/gcc-pb25`; pass `--build-dir build/gcc` to use the
+preset from [CONTRIBUTING.md](../CONTRIBUTING.md), or point it at whichever prefix you built protobuf
+into (see [Choosing the protoc baseline](#choosing-the-protoc-baseline)).
+
 ```sh
-python3 tests/bench.py run                      # build both benches, run them pinned, write a snapshot
+python3 tests/bench.py run --build-dir build/gcc # build both benches, run them pinned, write a snapshot
 python3 tests/bench.py table SNAPSHOT [...]     # render one snapshot, or compare several
 python3 tests/bench.py diff OLD NEW             # GB/s regression check (exit 1 past the threshold)
 python3 tests/bench.py experiment BASE [VAR]    # build+snapshot two git refs, then diff them
@@ -116,7 +120,9 @@ Why `--repeat`, the `noise` column and the quiesce step exist. Numbers below wer
 Linux box with a hybrid Intel CPU; treat the magnitudes as illustrative and the *method* as the
 transferable part.
 
-**Quiescing.** Same binary, five runs, spread = (max − min) / min per arm, over the 259 gated arms:
+**Quiescing.** Same binary, five runs on an otherwise idle box, over the arena bench's 259 gated
+arms. "Spread" here is (max − min) / min per arm — note this is *not* the `spread_pct` the gate uses,
+defined further down:
 
 | | median spread | arms over 5% |
 |---|---|---|
@@ -130,10 +136,13 @@ sibling — that makes affected arms look bimodal when sampled a few times. A fi
 worth having even where the aggregate barely moves. (Pinning a *constant* load on the sibling cut
 arms-over-5% to 2, but that also loads the shared cache, so it is not evidence about SMT alone.)
 
-Each cell is one five-run estimate, so the non-monotone median column is itself a reminder that
-these counts carry noise of their own; 14 versus 13 is not a resolvable difference.
+Each cell is one five-run estimate and the second column is dominated by whatever else the machine
+was doing: repeating the bottom row with a single background process alive moved arms-over-5% from 13
+to 84. Read the column as an ordering under one ambient-load condition, not a number to reproduce —
+and note that "was anything else running" matters more than any of the three knobs.
 
-**What the residual is.** Per-arm counters (`RAPIDPROTO_BENCH_EVENT`), 12 runs of the worst arm:
+**What the residual is.** Per-arm counters (`RAPIDPROTO_BENCH_EVENT`), 12 runs of the least stable
+arm, `rv fx1 1M` / `arena-warm`:
 
 | | run-to-run spread | correlation with cycles |
 |---|---|---|
@@ -145,10 +154,12 @@ these counts carry noise of their own; 14 versus 13 is not a resolvable differen
 Identical work, variable stalls, and the stalls track last-level-cache misses. The LLC is shared by
 every core, so ambient activity anywhere evicts our lines. The affected arms are those whose live
 footprint is *comparable to* the LLC — evictable, but small enough that residency matters. Both
-sweeps rotate a pool of buffers, so the live set is much larger than one buffer: `rv fx1 1M` holds 8
-input buffers of ~1 MB plus ~8 MB of decoded arena (~16 MB, comparable to this box's LLC) and
-measures 11.8%, while `rv fx10 1M` holds ~80 MB, misses regardless, and measures 0.8%. Read your own
-LLC with `getconf LEVEL3_CACHE_SIZE`.
+sweeps rotate a pool of buffers, so the live set is much larger than one buffer, and it is
+arm-specific. `rv fx1 1M` / `arena-warm` holds 8 input buffers of ~1 MB plus ~8 MB of decoded arena —
+comparable to a typical LLC — and is the least stable arm in the suite: its run-to-run spread ranges
+from ~10% to occasional 3x outliers depending on ambient load. The same scenario's `protozero` arm
+materializes nothing, touches only the 8 MB pool, and holds under 1%. `rv fx10 1M` holds ~80 MB,
+misses regardless, and measures 0.8%. Read your own LLC with `getconf LEVEL3_CACHE_SIZE`.
 
 An intervention is *consistent with* that reading: streaming loads on other cores collapse the
 miss-rate spread from 100% to 14% and GB/s spread from 14% to 5%. It is not proof — it also costs
@@ -175,17 +186,22 @@ two snapshots of identical code falls from ~14% at 1 run to ~9% at 3, ~8% at 5 a
 0.8pp per added run beyond 3, with no knee. 5 is a cost/benefit pick, taken on the worst arm so it
 over-samples the quiet ones.
 
-`spread_pct` is the dispersion of the *upper* half, (max − median) / median, not the full range: the
-kept value is the max, so a low outlier is exactly what best-of discards and must not be allowed to
-widen the gate. It is still only a five-sample estimate — expect it to vary between snapshots.
+`spread_pct` — the noise the gate uses, and a different statistic from the table above — is how far
+the kept value sits above the second-best run, (max − runner-up) / runner-up. Not the full range and
+not the median: the kept value is the max, so disturbed runs are what best-of discards and must not
+widen the gate, and a median still lands among them once they are the majority (3 of 5 is ordinary
+for an arm that reads bimodal). It needs at least 3 runs, and it is still a small-sample estimate —
+expect it to move between snapshots. A high outlier is the one case it cannot help with: best-of
+records that outlier as the value *and* reports the gap as noise, so the arm goes un-gated until the
+next snapshot. Every run's GB/s is kept in the snapshot (`gb_s_runs`) so that is auditable.
 
 **Investigating one arm.** Both variables are read by the bench binaries directly, so they work with
 or without `bench.py`:
 
 ```sh
-RAPIDPROTO_BENCH_ONLY="rv fx1 1M"    # only scenarios whose name contains this; skips the other
-                                     # sweep rows' payload builds too (~3.7s vs ~100s for the arena
-                                     # bench; ~3s of that is fixed setup the filter cannot skip)
+RAPIDPROTO_BENCH_ONLY="rv fx1 1M"    # only scenarios whose name contains this, and skips the other
+                                     # rows' payload builds too -- under 1s for the arena bench
+                                     # against tens of seconds unfiltered
 RAPIDPROTO_BENCH_EVENT=llc-miss      # one extra PMU counter, per arm, as xtra/B
                                      # (l1d-miss | llc-miss | dtlb-miss | branch-miss)
 ```

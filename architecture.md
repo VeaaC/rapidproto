@@ -564,8 +564,7 @@ and locked at their chosen values; each is a single constant with a rationale co
   arm against *its own* measured spread rather than one global threshold — measured spreads range from
   under 1% to over 12%, so a single number is simultaneously too tight for the noisy arms and too loose
   for the quiet ones. The measurements behind all of that, and the hypotheses tested and rejected, are
-  in [docs/benchmarks.md](docs/benchmarks.md#appendix-measurement-noise); they are numbers about one
-  machine and belong with the benchmark results, not here.
+  in [docs/benchmarks.md](docs/benchmarks.md#appendix-measurement-noise).
 
   Under that rule the `Dataset` **+28.8–39.9%** and `compute` **−18.4%** readings above are not
   usable as stated — both are single-run cross-build numbers. The build-cost figures in that bullet
@@ -825,7 +824,8 @@ constant, and reproduce rather than quote. What the results mean structurally:
   at the same ins/B, pure branch-mispredict cost). Cross-binary comparison buries genuine wins in
   placement noise — byte-identical functions measure ~10% apart — so the harness measures every arm
   back-to-back in one binary, where its GB/s and cycle-ratio verdict compare at one placement; the
-  cross-build regression gate then keys on GB/s only past that ~10% floor. A genuine *sub*-floor codegen
+  cross-build regression gate then keys on GB/s past the larger of that ~10% floor and the arm's own
+  measured spread. A genuine *sub*-floor codegen
   change is confirmed instead by retired **instructions/byte**, deterministic and placement-invariant
   (a rough proxy for work, blind to the stalls above). Shipped so far: **field-order threading** of both
   decode loops (see [Field-order threading](#field-order-threading)) — after each field a depth-2
@@ -870,13 +870,9 @@ one binary measure ~10% apart, purely from placement. Consequences for anyone pr
   and were *not* adopted (an if-chain dispatch vs the `switch`, a `memcpy` of a *single* fixed-width field);
   others reproduced on both compilers and *were* shipped (the fused `read_tag` / `read_tag_or_end`, the
   peek-switch dispatch, and the packed-array bulk copy above).
-- **Quiesce the box before believing anything** — `tests/bench_box.sh setup` (SMT off, turbo off,
-  `performance` governor, hardware counters enabled) and `restore` afterwards. None of it survives a
-  reboot; `bench.py` checks the same settings on every run and prints the fix.
-- **Measure the noise floor; do not assume one.** Comparing a revision against *itself*
-  (`tests/bench.py experiment <rev> <rev>`) costs a second snapshot and bounds what the comparison can
-  resolve. Trust a delta only if it exceeds that arm's own measured spread, which `diff` prints as
-  `noise` and gates on.
+- **Quiesce the box, and measure the floor rather than assuming one** — `tests/bench_box.sh setup` /
+  `restore`, then compare a revision against *itself* to bound what the run can resolve. See
+  [Reproducing](docs/benchmarks.md#reproducing).
 - **Pin to one performance core** (`taskset -c <core> …`); unpinned hybrid-core runs swing 30%+, and even
   pinned, trust only same-binary ratios.
 
@@ -969,8 +965,9 @@ reflected (a documented simplification; decoders accept both wire forms).
   - `rapidproto_arena_bench` (`bench_arena.cpp`, built only when `protobuf` is found): arena vs `protoc` +
     `Arena` vs streaming on a realistic payload, plus the chunk-cap shape/size sweep.
   - `tests/bench.py` drives both: `run` builds and executes them pinned and writes an NDJSON snapshot,
-    `table` renders/compares snapshots, `diff OLD NEW` is the GB/s regression gate (~10% placement
-    floor), `experiment BASELINE [VARIANT]` snapshots two git refs and diffs them.
+    `table` renders/compares snapshots, `diff OLD NEW` is the GB/s regression gate (past the larger of a
+    ~10% placement floor and the arm's own measured spread), `experiment BASELINE [VARIANT]` snapshots
+    two git refs and diffs them.
 
   See [Decoder performance](#decoder-performance) for how to read the numbers (and the placement noise floor).
 

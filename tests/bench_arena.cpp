@@ -600,6 +600,12 @@ void sweep_repeated_varint_types() {
     constexpr int kCount = 1'000'000;
     const auto run_type = [&](const rpbench::VarintDist& dist, int field_number, const char* tag,
                               auto arena_sum, auto protoc_sum, auto protozero_sum) {
+        // Name first, so a scenario filter skips the ~80 MB pool build below, not just the
+        // measurement (same reason as sweep_repeated_varint).
+        const std::string name = std::string("rv-") + tag + " " + dist.label + " 1M";
+        if (!rpbench::scenario_selected(name.c_str())) {
+            return;
+        }
         const long est = static_cast<long>(kCount) * 10 + 16;
         const int pool_n =
             static_cast<int>(std::min<long>(64, std::max<long>(8, (64L << 20) / est)));
@@ -618,7 +624,6 @@ void sweep_repeated_varint_types() {
             views.emplace_back(b);
         }
         const double avg_bytes = total_bytes / static_cast<double>(pool_n);
-        const std::string name = std::string("rv-") + tag + " " + dist.label + " 1M";
         rapidproto::Arena warm;
         std::vector<rpbench::Arm> arms = {
             {"protoc",

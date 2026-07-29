@@ -17,7 +17,8 @@ PRIMARY signal -- it is what a reader actually cares about and, unlike ins/B, it
 CPU pays for (branch mispredictions, cache/memory stalls), so it is what the compare and the regression
 gate key on. Caveat: across independent builds GB/s carries code-PLACEMENT noise -- byte-identical
 functions measure ~10% apart from address/alignment alone (architecture.md), plus frequency drift -- so
-the gate's floor is ~10% and sub-floor cross-build deltas are not reliable (pin a core, quiesce the box).
+the gate keys on the larger of that ~10% floor and the arm's own measured run-to-run spread; sub-floor
+cross-build deltas are not reliable (quiesce the box -- tests/bench_box.sh -- and pin a core).
 cyc/B and ins/B are kept as diagnostics: cyc/B is frequency-invariant timing (why is throughput low --
 mispredicts show here, not in ins/B), and ins/B is deterministic retired-work (identical across machines
 for one binary+input, so it resolves a real sub-floor codegen change GB/s cannot -- but it is a rough
@@ -171,19 +172,21 @@ def build_and_run(build_dir, core, repeat=DEFAULT_REPEAT):
         rec["gb_s_runs"] = v  # every run, so a snapshot can be re-analysed without re-measuring
         if key in mismatched:
             rec["ok"] = False
-        # Dispersion of the UPPER half only: (max - median) / median.
+        # How far the kept value sits above the SECOND-BEST run: (max - runner_up) / runner_up.
         #
-        # Not the full range. The kept value is the MAX, and interference only subtracts throughput,
-        # so a low outlier is exactly what best-of exists to discard -- yet it dominates a range. A
-        # single disturbed run would then inflate this arm's gate arbitrarily and, because `diff`
-        # takes the wider of the two snapshots, disable that arm's gate against every future
-        # comparison. Measuring how much the UNDISTURBED end moves keeps the estimate aligned with
-        # the statistic it guards.
+        # Not the full range, and not the median either. The kept value is the MAX, and interference
+        # only subtracts throughput, so disturbed runs are exactly what best-of discards -- yet they
+        # dominate a range, and a median still lands among them once they are the majority (3 of 5 is
+        # an ordinary outcome for a bimodal arm). Either way one bad run would inflate this arm's gate
+        # arbitrarily and, because `diff` takes the wider of the two snapshots, disable that arm
+        # against every future comparison. Anchoring on the runner-up measures how reproducible the
+        # UNDISTURBED end is, which is the end the recorded value comes from.
+        #
+        # Needs >= 3 runs to mean anything: at K=2 the runner-up IS the disturbed run. Below that the
+        # arm reports no noise and `diff` falls back to the flat threshold, and says so.
         rec["spread_pct"] = 0.0
-        if len(v) > 1:
-            median = v[len(v) // 2] if len(v) % 2 else (v[len(v) // 2 - 1] + v[len(v) // 2]) / 2.0
-            if median > 0:
-                rec["spread_pct"] = (v[-1] - median) / median * 100.0
+        if len(v) >= 3 and v[-2] > 0:
+            rec["spread_pct"] = (v[-1] - v[-2]) / v[-2] * 100.0
     return meta + list(other.values()) + list(best.values()), protobuf_version
 
 
@@ -373,7 +376,10 @@ def diff(args):
     # is a silently biased comparison, so refuse it rather than print a number nobody should act on.
     runs = lambda arms: {a.get("runs") for a in arms if a.get("gb_s")} or {None}
     ro, rn = runs(ao), runs(an)
-    if ro != rn:
+    # Only refuse when BOTH sides state a K and they disagree. A snapshot written before `runs` was
+    # recorded states nothing; refusing there would make every archived snapshot permanently
+    # un-diffable, so those fall through to the flat threshold and the NOTE below.
+    if None not in ro and None not in rn and ro != rn:
         sys.exit(f"diff: snapshots use different --repeat ({sorted(ro, key=str)} vs "
                  f"{sorted(rn, key=str)}); best-of-K is K-dependent, so re-measure at a common K")
 
@@ -435,12 +441,15 @@ def diff(args):
     extra = f"; {len(added)} added, {len(removed)} removed" if (added or removed) else ""
     quiet = len(rows) - len(regr) - len(impr) - len(muted)
     print(f"\n{quiet} arms unchanged (|delta| <= {t:.1f}%){ex}{extra}")
-    # Fires when EITHER side lacks per-arm noise: an old snapshot paired with a new one would
-    # otherwise gate on the new side's spread alone, silently and asymmetrically.
-    if rows and not all(a.get("spread_pct") is not None for a in (*ao, *an) if a.get("gb_s")):
-        print(f"NOTE: a snapshot has no per-arm noise (written before it was recorded, or "
-              f"--repeat 1) -- gating on the flat {t:.1f}% threshold alone, which is not reliable. "
-              f"Re-snapshot both sides with `bench.py run --repeat {DEFAULT_REPEAT}`.")
+    # Fires when EITHER side cannot supply usable per-arm noise -- no `spread_pct` at all (an
+    # archived snapshot), or fewer than 3 runs, where the statistic is not defined. Such a pair gates
+    # on the flat threshold alone, and asymmetrically if only one side is short, so say so.
+    thin = [a for a in (*ao, *an) if a.get("gb_s")
+            and (a.get("spread_pct") is None or (a.get("runs") or 1) < 3)]
+    if rows and thin:
+        print(f"NOTE: a snapshot has no usable per-arm noise (archived, or --repeat < 3) -- gating "
+              f"on the flat {t:.1f}% threshold alone, which is not reliable. Re-snapshot both sides "
+              f"with `bench.py run --repeat {DEFAULT_REPEAT}`.")
     if regr:
         print(f"\nFAIL: {len(regr)} GB/s regression(s) exceed {t:.1f}%")
         sys.exit(1)
@@ -460,14 +469,14 @@ def current_ref():
 
 
 def experiment(args):
-    if args.repeat < 1:
-        sys.exit("experiment: --repeat must be >= 1")
     """Build+snapshot two git refs (baseline, then variant) in the same build dir and diff them on GB/s
     via diff() -- measured throughput, the real-performance signal. The two are independent builds with
     different code placement, so a sub-~10% GB/s delta can be layout/frequency noise (the diff threshold
     defaults to that floor); keep the box quiesced and pinned, and for a change in the 2-9% band read the
     deterministic ins/B column or re-run the PRETTY bench and read its within-run `vs <baseline>` verdict.
     Refuses to run on a dirty working tree (it checks out refs) and always restores the original ref."""
+    if args.repeat < 1:
+        sys.exit("experiment: --repeat must be >= 1")
     if args.threshold < 0:
         sys.exit("experiment: --threshold must be >= 0")
     if subprocess.check_output(["git", "-C", REPO, "status", "--porcelain"], text=True).strip():

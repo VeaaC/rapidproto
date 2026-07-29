@@ -32,6 +32,7 @@ governors() {
         if [[ -e "$online" ]] && [[ "$(cat "$online" 2>/dev/null)" != "1" ]]; then continue; fi
         [[ -r "$cpu/cpufreq/scaling_governor" ]] && echo "$cpu/cpufreq/scaling_governor"
     done
+    return 0  # never let the last loop test become this function's (and the script's) exit status
 }
 
 have() { [[ -e "$1" ]]; }
@@ -79,12 +80,12 @@ setup)
     for g in $(governors); do put performance "$g"; done
     if have "$PARANOID"; then
         current=$(get $PARANOID)
-        if [[ "$current" =~ ^-?[0-9]+$ ]] && ((current <= 1)); then
+        if [[ "$current" =~ ^-?[0-9]+$ ]] && ((current <= 2)); then
             echo "  ok     $PARANOID = $current"
         else
-            sudo -n sysctl -w kernel.perf_event_paranoid=1 >/dev/null 2>&1 \
-                || sudo sysctl -w kernel.perf_event_paranoid=1 >/dev/null
-            echo "  set    $PARANOID = 1"
+            sudo -n sysctl -w kernel.perf_event_paranoid=2 >/dev/null 2>&1 \
+                || sudo sysctl -w kernel.perf_event_paranoid=2 >/dev/null
+            echo "  set    $PARANOID = 2"
         fi
     fi
     echo "done. Restore with: tests/bench_box.sh restore"
