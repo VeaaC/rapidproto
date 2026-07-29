@@ -26,6 +26,7 @@ proxy for work, blind to the stalls above, not a substitute for measured time).
 """
 import argparse
 import json
+import statistics
 import os
 import re
 import subprocess
@@ -117,12 +118,17 @@ def build_and_run(build_dir, core, repeat=DEFAULT_REPEAT):
     7: roughly 0.8pp per added run beyond 3, with no knee. 5 is a cost/benefit pick (7 would buy
     another ~1.5pp for 40% more wall time), measured on the WORST arm so it over-samples the rest.
 
-    Each arm keeps its BEST (highest GB/s) run, and every run's GB/s is kept alongside it so a
-    snapshot can be re-analysed without re-measuring. Best-of-K measured at least as stable as
-    median-of-K (spread of the estimator under bootstrap) at every K here. Note best-of is
-    K-DEPENDENT -- it estimates the K/(K+1) quantile, so it drifts upward with K and its spread
-    widens too. Two snapshots are therefore only comparable at equal `repeat`, which `diff`
-    enforces."""
+    Each arm keeps its MEDIAN run, and every run's GB/s is kept in run order alongside it so a
+    snapshot can be re-analysed without re-measuring. Best-of-K was tried first, on the theory that
+    interference only subtracts throughput so the fastest run is the least-disturbed one. Measured
+    against real paired snapshots of identical code it is much worse: it records upward flukes that
+    do not reproduce, so the worst arm moved -46.9% between two snapshots of the same binary where
+    the median moved +0.35%, and 4 arms exceeded 5% against 2. (An earlier bootstrap suggested the
+    opposite; resampling with replacement from one arm's pooled runs makes a fluke reappear on both
+    sides of the comparison, which is exactly the structure that matters here.)
+
+    The median is also K-dependent enough to matter -- its sampling distribution narrows with K -- so
+    two snapshots are only comparable at equal `repeat`, which `diff` enforces."""
     check_machine(core)
     targets = [t for _, t in BENCHES]
     print(f"building {', '.join(targets)} in {build_dir} ...", file=sys.stderr)
@@ -132,7 +138,8 @@ def build_and_run(build_dir, core, repeat=DEFAULT_REPEAT):
     no_pin = str(core).lower() in ("", "none")
     pin = [] if no_pin else ["taskset", "-c", str(core)]
     protobuf_version = None
-    meta, best, seen = [], {}, {}  # key -> best record; key -> [gb_s per run]
+    meta, best, seen = [], {}, {}  # key -> chosen record; key -> [gb_s in run order]
+    runs_by_key = {}  # key -> [record per run], so the chosen one carries its own run's counters
     other, mismatched = {}, set()  # non-arm records (one kept); arms that mismatched in ANY run
     for decoder, target in BENCHES:
         binary = os.path.join(build_dir, target)
@@ -160,33 +167,31 @@ def build_and_run(build_dir, core, repeat=DEFAULT_REPEAT):
                     best.setdefault(key, rec)
                     continue
                 seen.setdefault(key, []).append(gb)
-                # A checksum mismatch in ANY run is a correctness signal; keeping only the winner's
-                # flag would hide a 1-in-K divergence whenever a clean run happened to be faster.
+                runs_by_key.setdefault(key, []).append(rec)
+                # A checksum mismatch in ANY run is a correctness signal; keeping only the chosen
+                # run's flag would hide a 1-in-K divergence whenever a clean run was selected.
                 if not rec.get("ok", True):
                     mismatched.add(key)
-                if key not in best or gb > best[key].get("gb_s", -1):
-                    best[key] = rec
-    for key, rec in best.items():
-        v = sorted(seen.get(key) or [])
-        rec["runs"] = len(v)
-        rec["gb_s_runs"] = v  # every run, so a snapshot can be re-analysed without re-measuring
+    for key, records in runs_by_key.items():
+        v = [r["gb_s"] for r in records]  # run order
+        ordered = sorted(range(len(v)), key=lambda i: v[i])
+        chosen = records[ordered[len(ordered) // 2]]  # the MEDIAN run, with its own cyc/ins/verdict
+        best[key] = chosen
+        chosen["runs"] = len(v)
+        chosen["gb_s_runs"] = v  # run order, not sorted: a whole-run effect is visible only in order
         if key in mismatched:
-            rec["ok"] = False
-        # How far the kept value sits above the SECOND-BEST run: (max - runner_up) / runner_up.
+            chosen["ok"] = False
+        # Two-sided dispersion about the median: the interquartile range, relative to the median.
         #
-        # Not the full range, and not the median either. The kept value is the MAX, and interference
-        # only subtracts throughput, so disturbed runs are exactly what best-of discards -- yet they
-        # dominate a range, and a median still lands among them once they are the majority (3 of 5 is
-        # an ordinary outcome for a bimodal arm). Either way one bad run would inflate this arm's gate
-        # arbitrarily and, because `diff` takes the wider of the two snapshots, disable that arm
-        # against every future comparison. Anchoring on the runner-up measures how reproducible the
-        # UNDISTURBED end is, which is the end the recorded value comes from.
-        #
-        # Needs >= 3 runs to mean anything: at K=2 the runner-up IS the disturbed run. Below that the
-        # arm reports no noise and `diff` falls back to the flat threshold, and says so.
-        rec["spread_pct"] = 0.0
-        if len(v) >= 3 and v[-2] > 0:
-            rec["spread_pct"] = (v[-1] - v[-2]) / v[-2] * 100.0
+        # The recorded value is the median, so the gate wants to know how much the MIDDLE of the
+        # distribution moves -- not how far the extremes reach. An IQR ignores one outlier in either
+        # direction, which is what a range and a one-sided anchor both failed to do. Needs >= 3 runs;
+        # below that it reports nothing and `diff` falls back to the flat threshold, and says so.
+        chosen["spread_pct"] = 0.0
+        if len(v) >= 3:
+            q1, med, q3 = statistics.quantiles(sorted(v), n=4, method="inclusive")
+            if med > 0:
+                chosen["spread_pct"] = (q3 - q1) / med * 100.0
     return meta + list(other.values()) + list(best.values()), protobuf_version
 
 
@@ -199,6 +204,8 @@ def write_snapshot(records, protobuf_version, build_dir, core, out_path):
         "git_rev": git_rev(),  # after a checkout this reports the checked-out ref's rev
         "build_dir": os.path.relpath(build_dir, REPO),
         "core": core,
+        # A filtered snapshot covers only part of the suite; `diff` refuses to gate on one.
+        "scenario_filter": os.environ.get("RAPIDPROTO_BENCH_ONLY") or None,
     }
     out_path = out_path or os.path.join(
         REPO, "bench_snapshots", f"{header['compiler']}-{header['git_rev']}.ndjson")
@@ -437,6 +444,16 @@ def diff(args):
     show(f"improvements (GB/s up, beyond {t:.1f}% and the arm's own noise)", impr)
     show(f"moved > {t:.1f}% but within their own measured noise (NOT gated)", muted)
 
+    for h, side in ((ho, "old"), (hn, "new")):
+        if h.get("scenario_filter"):
+            sys.exit(f"diff: the {side} snapshot was written with RAPIDPROTO_BENCH_ONLY="
+                     f"{h['scenario_filter']!r}, so it covers only part of the suite -- "
+                     f"re-measure it unfiltered")
+    if not rows:
+        sys.exit("diff: no comparable arms (empty or truncated snapshot?) -- nothing was checked")
+    if removed:
+        sys.exit(f"diff: {len(removed)} arm(s) present in the old snapshot are missing from the new "
+                 f"one, e.g. {removed[0]}; a partial snapshot cannot be gated")
     ex = f"; {excluded} tiny-buffer sweep rows excluded from the gate" if excluded else ""
     extra = f"; {len(added)} added, {len(removed)} removed" if (added or removed) else ""
     quiet = len(rows) - len(regr) - len(impr) - len(muted)
@@ -444,7 +461,9 @@ def diff(args):
     # Fires when EITHER side cannot supply usable per-arm noise -- no `spread_pct` at all (an
     # archived snapshot), or fewer than 3 runs, where the statistic is not defined. Such a pair gates
     # on the flat threshold alone, and asymmetrically if only one side is short, so say so.
-    thin = [a for a in (*ao, *an) if a.get("gb_s")
+    gated_keys = {(r[1], r[2], r[3]) for r in rows}
+    thin = [a for a in (*ao, *an)
+            if (a.get("decoder"), a.get("scenario"), a.get("arm")) in gated_keys
             and (a.get("spread_pct") is None or (a.get("runs") or 1) < 3)]
     if rows and thin:
         print(f"NOTE: a snapshot has no usable per-arm noise (archived, or --repeat < 3) -- gating "

@@ -444,20 +444,22 @@ inline int run(const char* scenario, double byte_size, const std::vector<Arm>& a
             continue;
         }
         char rate[112];
-        int at = 0;
-        at += std::snprintf(rate + at, sizeof rate - static_cast<std::size_t>(at), "%6.3f GB/s",
-                            gb_s);
+        std::size_t at = 0;
+        // snprintf returns the length it WOULD have written, so advancing by it unclamped can run
+        // past the buffer and hand the next call a wrapped size_t. Clamp after every write.
+        const auto advance = [&](int written) {
+            const std::size_t n = written < 0 ? 0U : static_cast<std::size_t>(written);
+            at = at + n < sizeof rate ? at + n : sizeof rate - 1;
+        };
+        advance(std::snprintf(rate + at, sizeof rate - at, "%6.3f GB/s", gb_s));
         if (cyc) {
-            at += std::snprintf(rate + at, sizeof rate - static_cast<std::size_t>(at),
-                                " %5.2f cyc/B", cyc_b);
+            advance(std::snprintf(rate + at, sizeof rate - at, " %5.2f cyc/B", cyc_b));
         }
         if (ins) {
-            at += std::snprintf(rate + at, sizeof rate - static_cast<std::size_t>(at),
-                                " %6.1f ins/B", ins_b);
+            advance(std::snprintf(rate + at, sizeof rate - at, " %6.1f ins/B", ins_b));
         }
         if (xtra_b >= 0) {  // RAPIDPROTO_BENCH_EVENT; absent unless one was requested
-            std::snprintf(rate + at, sizeof rate - static_cast<std::size_t>(at), " %9.2e xtra/B",
-                          xtra_b);
+            advance(std::snprintf(rate + at, sizeof rate - at, " %9.2e xtra/B", xtra_b));
         }
         char cmp[80];
         if (k == 0) {

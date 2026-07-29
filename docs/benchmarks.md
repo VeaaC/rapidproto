@@ -79,11 +79,13 @@ python3 tests/bench.py experiment BASE [VAR]    # build+snapshot two git refs, t
 
 Four things to know before acting on a number:
 
-- **`run` executes each bench `--repeat` times (default 5)** and keeps each arm's best run, because
+- **`run` executes each bench `--repeat` times (default 5)** and keeps each arm's median run, because
   one run is not reproducible across process launches — see the appendix. Budget roughly five times
   a single run; `experiment` builds and measures two revisions, so about ten.
-- **Both snapshots must use the same `--repeat`.** Best-of-K rises with K, so mixing them biases the
-  comparison; `diff` refuses rather than printing a number you should not act on.
+- **Both snapshots must use the same `--repeat`.** The median's sampling distribution narrows with K,
+  so mixing them biases the comparison; `diff` refuses rather than printing a number you should not
+  act on. It also refuses a snapshot written under `RAPIDPROTO_BENCH_ONLY`, which covers only part of
+  the suite.
 - **Read the `noise` column.** `diff` prints each arm's own run-to-run spread and will not fail an
   arm on a delta smaller than it. An arm with large noise cannot resolve a change that size — that
   is information, not a pass.
@@ -186,14 +188,23 @@ two snapshots of identical code falls from ~14% at 1 run to ~9% at 3, ~8% at 5 a
 0.8pp per added run beyond 3, with no knee. 5 is a cost/benefit pick, taken on the worst arm so it
 over-samples the quiet ones.
 
-`spread_pct` — the noise the gate uses, and a different statistic from the table above — is how far
-the kept value sits above the second-best run, (max − runner-up) / runner-up. Not the full range and
-not the median: the kept value is the max, so disturbed runs are what best-of discards and must not
-widen the gate, and a median still lands among them once they are the majority (3 of 5 is ordinary
-for an arm that reads bimodal). It needs at least 3 runs, and it is still a small-sample estimate —
-expect it to move between snapshots. A high outlier is the one case it cannot help with: best-of
-records that outlier as the value *and* reports the gap as noise, so the arm goes un-gated until the
-next snapshot. Every run's GB/s is kept in the snapshot (`gb_s_runs`) so that is auditable.
+**Why the median, not the best, run.** Best-of-K was the first choice, on the theory that
+interference only subtracts throughput so the fastest run is the least-disturbed one. Measured
+against real paired snapshots of *identical code*, it is far worse — it records upward flukes that do
+not reproduce:
+
+| estimator, K=5 | worst arm | arms over 5% |
+|---|---|---|
+| best-of | −46.9% | 4 |
+| **median-of** | **−3.7%** | **2** |
+
+`spread_pct` — the noise the gate uses, and a different statistic from the table above — is the
+interquartile range relative to the median. The recorded value is the median, so what matters is how
+much the middle of the distribution moves, not how far the extremes reach; an IQR ignores one outlier
+in either direction, which neither a full range nor a one-sided anchor does. It needs at least 3
+runs, and it is still a small-sample estimate — expect it to move between snapshots. Every run's
+GB/s is kept in the snapshot in run order (`gb_s_runs`), so a whole-run effect stays visible and the
+gate can be re-derived without re-measuring.
 
 **Investigating one arm.** Both variables are read by the bench binaries directly, so they work with
 or without `bench.py`:

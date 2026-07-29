@@ -18,6 +18,8 @@ set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 STATE="$REPO/build/bench_box.state"
+FAILED=0   # writes that did not stick; setup/restore report a partial box rather than aborting
+SKIPPED=0  # nodes that were absent or offline, so their saved value could not be replayed
 
 SMT=/sys/devices/system/cpu/smt/control
 TURBO=/sys/devices/system/cpu/intel_pstate/no_turbo
@@ -43,11 +45,16 @@ put() {
     have "$path" || { echo "  skip   $path (absent)"; return 0; }
     # Present but unreadable = an offline cpu's cpufreq node. `-r` tests permission bits only and
     # PASSES on those (mode 0644); the read itself fails EBUSY. Probe with an actual read.
-    cat "$path" >/dev/null 2>&1 || { echo "  skip   $path (offline)"; return 0; }
+    cat "$path" >/dev/null 2>&1 || {
+        echo "  skip   $path (offline)"
+        SKIPPED=$((SKIPPED + 1))
+        return 0
+    }
     if [[ "$(get "$path")" == "$value" ]]; then echo "  ok     $path = $value"; return 0; fi
     if ! sudo -n sh -c "echo $value > $path" 2>/dev/null && ! sudo sh -c "echo $value > $path"; then
         echo "  FAILED $path = $value (needs root)" >&2
-        return 1
+        FAILED=$((FAILED + 1))  # accumulate: aborting here would leave the box half-configured
+        return 0
     fi
     echo "  set    $path = $value"
 }
@@ -88,6 +95,11 @@ setup)
             echo "  set    $PARANOID = 2"
         fi
     fi
+    if ((FAILED > 0)); then
+        echo "$FAILED setting(s) did not apply -- the box is PARTIALLY configured." >&2
+        echo "Run 'tests/bench_box.sh restore' to put it back, or re-run setup as root." >&2
+        exit 1
+    fi
     echo "done. Restore with: tests/bench_box.sh restore"
     ;;
 restore)
@@ -104,6 +116,11 @@ restore)
         gov:*)    put "$value" "${key#gov:}" ;;
         esac
     done < "$STATE"
+    if ((FAILED > 0 || SKIPPED > 0)); then
+        echo "$((FAILED + SKIPPED)) setting(s) were not replayed; KEEPING $STATE so a re-run can" >&2
+        echo "finish the job (deleting it would lose the original values for good)." >&2
+        exit 1
+    fi
     rm -f "$STATE"
     echo "done (saved state cleared)."
     ;;
