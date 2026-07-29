@@ -553,17 +553,15 @@ and locked at their chosen values; each is a single constant with a rationale co
   (`tests/bench.py experiment <rev> <rev>` — identical source, two builds) fails the 10% gate on a box
   that has not been quiesced. Measured on the identical *binary*, the median gated arm moves ~1%, so the
   damage is concentrated in a handful of arms rather than being a global floor. Three causes, plus a
-  residual: CPU frequency (`powersave` + turbo), SMT (whether the pinned core's sibling takes work is a
-  per-run coin flip, which makes affected arms read as bimodal), `kernel.perf_event_paranoid ≥ 3` (which
+  residual: CPU frequency (`powersave` + turbo), SMT (see the appendix), `kernel.perf_event_paranoid ≥ 3` (which
   silently disables the cycle counters, so `cyc/B` and `ins/B` read `n/a` *and* the harness's
   convergence test falls back from cycles to wall-clock), and — after all of those — shared last-level
   cache residency, which is what the remaining per-arm spread tracks.
 
   The consequences for this design are three: quiesce the box (`tests/bench_box.sh setup`), take
-  several runs per snapshot and keep each arm's best (`bench.py run --repeat`, default 5), and gate each
-  arm against *its own* measured spread rather than one global threshold — measured spreads range from
-  under 1% to over 12%, so a single number is simultaneously too tight for the noisy arms and too loose
-  for the quiet ones. The measurements behind all of that, and the hypotheses tested and rejected, are
+  several runs per snapshot and keep each arm's median run (`bench.py run --repeat`, default 5), and gate
+  each arm on the larger of the flat cross-build floor and its own measured spread — one number alone is
+  simultaneously too tight for the noisy arms and too loose for the quiet ones. The measurements behind all of that, and the hypotheses tested and rejected, are
   in [docs/benchmarks.md](docs/benchmarks.md#appendix-measurement-noise).
 
   Under that rule the `Dataset` **+28.8–39.9%** and `compute` **−18.4%** readings above are not

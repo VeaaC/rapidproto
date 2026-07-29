@@ -66,14 +66,16 @@ The benches need `libprotobuf-dev` (+ a matching `protoc`) and `protozero` insta
 the same settings on every run and prints the exact fix if any is off, so you do not have to
 remember; `tests/bench_box.sh status` shows the current values.
 
-`bench.py` defaults its build dir to `build/gcc-pb25`; pass `--build-dir build/gcc` to use the
-preset from [CONTRIBUTING.md](../CONTRIBUTING.md), or point it at whichever prefix you built protobuf
-into (see [Choosing the protoc baseline](#choosing-the-protoc-baseline)).
+`--build-dir` defaults to `build/gcc-pb25`, which no preset creates — pass `--build-dir build/gcc`
+for the `gcc` preset from [CONTRIBUTING.md](../CONTRIBUTING.md), or the build dir you configured
+against a specific protobuf (see [Choosing the protoc baseline](#choosing-the-protoc-baseline)).
+Pinning defaults to `--core 2`; on a hybrid CPU make sure that is a performance core.
 
 ```sh
 python3 tests/bench.py run --build-dir build/gcc # build both benches, run them pinned, write a snapshot
 python3 tests/bench.py table SNAPSHOT [...]     # render one snapshot, or compare several
-python3 tests/bench.py diff OLD NEW             # GB/s regression check (exit 1 past the threshold)
+python3 tests/bench.py diff OLD NEW             # regression check: fails past the larger of the ~10%
+                                                # cross-build placement floor and the arm's own noise
 python3 tests/bench.py experiment BASE [VAR]    # build+snapshot two git refs, then diff them
 ```
 
@@ -82,15 +84,16 @@ Four things to know before acting on a number:
 - **`run` executes each bench `--repeat` times (default 5)** and keeps each arm's median run, because
   one run is not reproducible across process launches — see the appendix. Budget roughly five times
   a single run; `experiment` builds and measures two revisions, so about ten.
-- **Both snapshots must use the same `--repeat`.** The median's sampling distribution narrows with K,
-  so mixing them biases the comparison; `diff` refuses rather than printing a number you should not
-  act on. It also refuses a snapshot written under `RAPIDPROTO_BENCH_ONLY`, which covers only part of
-  the suite.
+- **Both snapshots must use the same `--repeat`.** The median's sampling variance falls with K, and
+  at even K the harness keeps the upper of the two middle runs — so a mixed-K pair compares two
+  differently-behaved estimators. `diff` refuses, as it does for a snapshot written under
+  `RAPIDPROTO_BENCH_ONLY`, which covers only part of the suite.
 - **Read the `noise` column.** `diff` prints each arm's own run-to-run spread and will not fail an
   arm on a delta smaller than it. An arm with large noise cannot resolve a change that size — that
   is information, not a pass.
 - **Sanity-check with a self-comparison** (`experiment <rev> <rev>`) before believing a surprising
-  result. It should pass; if it does not, the box is not quiet.
+  result — it needs a clean working tree. On a quiesced box it has passed here; if it does not, treat
+  the box, not the code, as the first suspect.
 
 A snapshot is NDJSON tagged with the compiler, protobuf version, and git revision, so a number is
 never separated from what it was measured against, and it carries every run's GB/s so it can be
@@ -143,8 +146,9 @@ was doing: repeating the bottom row with a single background process alive moved
 to 84. Read the column as an ordering under one ambient-load condition, not a number to reproduce —
 and note that "was anything else running" matters more than any of the three knobs.
 
-**What the residual is.** Per-arm counters (`RAPIDPROTO_BENCH_EVENT`), 12 runs of the least stable
-arm, `rv fx1 1M` / `arena-warm`:
+**What the residual is.** Per-arm counters (`RAPIDPROTO_BENCH_EVENT`), 12 runs *per counter* — the
+harness opens one extra event per process, so each row is its own set of runs — on the least stable
+arm, `rv fx1 1M` / `arena-warm`, on an otherwise idle box:
 
 | | run-to-run spread | correlation with cycles |
 |---|---|---|
@@ -180,29 +184,42 @@ same cores) has not been run.
 
 Ruled out by measurement: ASLR (`setarch -R`, no effect over 20 runs per condition), and drift across
 a session (whole-run level, i.e. the median of per-arm ratios against the first run, stays 1.000
-±0.01 across every run of every batch). Ruled out by construction: payload variation — the generators
-are fixed-seed, and every arm's checksum is cross-checked against the baseline each round.
+±0.01 across every run of every batch). Ruled out by construction: payload variation — the generators are fixed-seed, so every run decodes
+the same bytes.
 
-**Why 5 runs.** Bootstrapped from 40 repeated runs of the worst arm, the p95 apparent delta between
-two snapshots of identical code falls from ~14% at 1 run to ~9% at 3, ~8% at 5 and ~6% at 7 — about
-0.8pp per added run beyond 3, with no knee. 5 is a cost/benefit pick, taken on the worst arm so it
-over-samples the quiet ones.
+**Why 5 runs.** Two reasons. The `spread_pct` above is only outlier-robust from 5 (below that
+Python's quantiles interpolate and it degenerates towards the range). And more runs keep converging:
+bootstrapped from 40 repeated runs of the worst arm, the p95 apparent delta between two snapshots of
+identical code fell from ~14% at 1 run to ~9% at 3, ~8% at 5 and ~6% at 7, with no knee — roughly
+3pp between 3 and 7 runs. Those figures were taken under the best-of estimator, before the switch, so
+treat the ordering as the transferable part and not the magnitudes; 5 is where the robustness
+requirement and the cost stop arguing.
 
 **Why the median, not the best, run.** Best-of-K was the first choice, on the theory that
 interference only subtracts throughput so the fastest run is the least-disturbed one. Measured
 against real paired snapshots of *identical code*, it is far worse — it records upward flukes that do
 not reproduce:
 
-| estimator, K=5 | worst arm | arms over 5% |
+Re-deriving both estimators from the *same* pair of 5-run snapshots (same binary, 485 gated arms,
+via the stored `gb_s_runs`), the largest apparent change on code that did not change:
+
+| estimator, K=5 | largest apparent change | arms whose apparent change exceeded 5% |
 |---|---|---|
 | best-of | −46.9% | 4 |
 | **median-of** | **−3.7%** | **2** |
 
+That is one paired experiment under one ambient-load condition, so read the ordering rather than the
+magnitudes — but the mechanism is not in doubt: best-of records an upward fluke, and the next
+snapshot has no reason to repeat it.
+
 `spread_pct` — the noise the gate uses, and a different statistic from the table above — is the
 interquartile range relative to the median. The recorded value is the median, so what matters is how
 much the middle of the distribution moves, not how far the extremes reach; an IQR ignores one outlier
-in either direction, which neither a full range nor a one-sided anchor does. It needs at least 3
-runs, and it is still a small-sample estimate — expect it to move between snapshots. Every run's
+in either direction, which neither a full range nor a one-sided anchor does. It requires at least
+**5** runs — Python's quantiles interpolate, so at 3 runs the "IQR" is exactly half the full range and
+would be no more robust than what it replaced — and it is still a small-sample estimate that moves
+between snapshots. Below 5 runs an arm reports no noise and the gate falls back to the flat
+threshold, saying so. Every run's
 GB/s is kept in the snapshot in run order (`gb_s_runs`), so a whole-run effect stays visible and the
 gate can be re-derived without re-measuring.
 

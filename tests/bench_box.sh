@@ -42,7 +42,11 @@ get()  { have "$1" && cat "$1" 2>/dev/null || echo "-"; }
 # Writes need root; sudo -n first so a cached credential works without a prompt in a non-tty.
 put() {
     local value=$1 path=$2
-    have "$path" || { echo "  skip   $path (absent)"; return 0; }
+    have "$path" || {
+        echo "  skip   $path (absent)"
+        SKIPPED=$((SKIPPED + 1))
+        return 0
+    }
     # Present but unreadable = an offline cpu's cpufreq node. `-r` tests permission bits only and
     # PASSES on those (mode 0644); the read itself fails EBUSY. Probe with an actual read.
     cat "$path" >/dev/null 2>&1 || {
@@ -90,9 +94,13 @@ setup)
         if [[ "$current" =~ ^-?[0-9]+$ ]] && ((current <= 2)); then
             echo "  ok     $PARANOID = $current"
         else
-            sudo -n sysctl -w kernel.perf_event_paranoid=2 >/dev/null 2>&1 \
-                || sudo sysctl -w kernel.perf_event_paranoid=2 >/dev/null
-            echo "  set    $PARANOID = 2"
+            if sudo -n sysctl -w kernel.perf_event_paranoid=2 >/dev/null 2>&1 \
+               || sudo sysctl -w kernel.perf_event_paranoid=2 >/dev/null; then
+                echo "  set    $PARANOID = 2"
+            else
+                echo "  FAILED $PARANOID = 2 (needs root)" >&2
+                FAILED=$((FAILED + 1))
+            fi
         fi
     fi
     if ((FAILED > 0)); then
@@ -105,14 +113,20 @@ setup)
 restore)
     [[ -f "$STATE" ]] || { echo "no saved state at $STATE -- nothing to restore from." >&2; exit 1; }
     echo "restoring from $STATE:"
-    while IFS='=' read -r key value; do
+    # `|| [[ -n ... ]]`: read returns false on a final line with no trailing newline, which would
+    # silently drop that setting -- and the file is deleted afterwards, so it would be lost for good.
+    while IFS='=' read -r key value || [[ -n "${key:-}" ]]; do
         [[ -n "${key:-}" && "$value" != "-" ]] || continue
         case "$key" in
         smt)      put "$value" "$SMT" ;;
         turbo)    put "$value" "$TURBO" ;;
-        paranoid) sudo -n sysctl -w "kernel.perf_event_paranoid=$value" >/dev/null 2>&1 \
-                      || sudo sysctl -w "kernel.perf_event_paranoid=$value" >/dev/null
-                  echo "  set    $PARANOID = $value" ;;
+        paranoid) if sudo -n sysctl -w "kernel.perf_event_paranoid=$value" >/dev/null 2>&1 \
+                     || sudo sysctl -w "kernel.perf_event_paranoid=$value" >/dev/null; then
+                      echo "  set    $PARANOID = $value"
+                  else
+                      echo "  FAILED $PARANOID = $value (needs root)" >&2
+                      FAILED=$((FAILED + 1))
+                  fi ;;
         gov:*)    put "$value" "${key#gov:}" ;;
         esac
     done < "$STATE"

@@ -175,7 +175,9 @@ def build_and_run(build_dir, core, repeat=DEFAULT_REPEAT):
     for key, records in runs_by_key.items():
         v = [r["gb_s"] for r in records]  # run order
         ordered = sorted(range(len(v)), key=lambda i: v[i])
-        chosen = records[ordered[len(ordered) // 2]]  # the MEDIAN run, with its own cyc/ins/verdict
+        # The median RUN, so the record carries that run's own cyc/ins/verdict rather than a value
+        # interpolated across runs. At even K this is the upper of the two middle runs.
+        chosen = records[ordered[len(ordered) // 2]]
         best[key] = chosen
         chosen["runs"] = len(v)
         chosen["gb_s_runs"] = v  # run order, not sorted: a whole-run effect is visible only in order
@@ -183,12 +185,17 @@ def build_and_run(build_dir, core, repeat=DEFAULT_REPEAT):
             chosen["ok"] = False
         # Two-sided dispersion about the median: the interquartile range, relative to the median.
         #
-        # The recorded value is the median, so the gate wants to know how much the MIDDLE of the
-        # distribution moves -- not how far the extremes reach. An IQR ignores one outlier in either
-        # direction, which is what a range and a one-sided anchor both failed to do. Needs >= 3 runs;
-        # below that it reports nothing and `diff` falls back to the flat threshold, and says so.
+        # The recorded value is the median, so what matters is how much the MIDDLE of the
+        # distribution moves, not how far the extremes reach. An IQR ignores one outlier in either
+        # direction, which a range and a one-sided anchor both failed to do.
+        #
+        # Requires >= 5 runs, and that is not a style preference: statistics.quantiles INTERPOLATES,
+        # so at K=3 the "IQR" is exactly half the full range and at K=4 the extremes still carry
+        # weight -- i.e. precisely as outlier-sensitive as the range this replaced. Only from K=5 is
+        # it v[-2] - v[1]. Below 5 the arm reports 0.0 and `diff` falls back to the flat threshold
+        # and says so, rather than gating on a number that does not mean what it claims.
         chosen["spread_pct"] = 0.0
-        if len(v) >= 3:
+        if len(v) >= 5:
             q1, med, q3 = statistics.quantiles(sorted(v), n=4, method="inclusive")
             if med > 0:
                 chosen["spread_pct"] = (q3 - q1) / med * 100.0
@@ -221,6 +228,9 @@ def write_snapshot(records, protobuf_version, build_dir, core, out_path):
 def run(args):
     if args.repeat < 1:  # repeat=0 would write a header-only snapshot and exit 0
         sys.exit("run: --repeat must be >= 1")
+    if os.environ.get("RAPIDPROTO_BENCH_ONLY"):
+        print("WARNING: RAPIDPROTO_BENCH_ONLY is set -- this snapshot covers only part of the suite "
+              "and `diff` will refuse it.", file=sys.stderr)
     records, pv = build_and_run(args.build_dir, args.core, args.repeat)
     write_snapshot(records, pv, args.build_dir, args.core, args.out)
 
@@ -377,10 +387,10 @@ def diff(args):
     by_key = lambda arms: {(a["decoder"], a["scenario"], a["arm"]): a for a in arms}
     old_i, new_i = by_key(ao), by_key(an)
 
-    # Both snapshots must use the same `repeat`. The kept value is best-of-K, which estimates the
-    # K/(K+1) quantile: it drifts UPWARD with K and its spread widens too, so a snapshot taken at a
-    # larger K reads faster AND gets a looser gate than one taken at a smaller K. Comparing across K
-    # is a silently biased comparison, so refuse it rather than print a number nobody should act on.
+    # Both snapshots must use the same `repeat`. The median's sampling variance falls with K, and at
+    # even K the harness keeps the UPPER of the two middle runs, so a mixed-K pair compares two
+    # differently-behaved estimators -- one noisier, one slightly biased against the other. Refuse
+    # rather than print a number nobody should act on.
     runs = lambda arms: {a.get("runs") for a in arms if a.get("gb_s")} or {None}
     ro, rn = runs(ao), runs(an)
     # Only refuse when BOTH sides state a K and they disagree. A snapshot written before `runs` was
@@ -388,7 +398,8 @@ def diff(args):
     # un-diffable, so those fall through to the flat threshold and the NOTE below.
     if None not in ro and None not in rn and ro != rn:
         sys.exit(f"diff: snapshots use different --repeat ({sorted(ro, key=str)} vs "
-                 f"{sorted(rn, key=str)}); best-of-K is K-dependent, so re-measure at a common K")
+                 f"{sorted(rn, key=str)}); the median-of-K estimator is K-dependent, so "
+                 f"re-measure at a common K")
 
     # (gb_s delta%, decoder, scenario, arm, old_gb, new_gb, old_ins, new_ins). Delta is signed as a
     # PERFORMANCE change: positive = faster (GB/s up), negative = slower (a regression).
@@ -464,15 +475,20 @@ def diff(args):
     gated_keys = {(r[1], r[2], r[3]) for r in rows}
     thin = [a for a in (*ao, *an)
             if (a.get("decoder"), a.get("scenario"), a.get("arm")) in gated_keys
-            and (a.get("spread_pct") is None or (a.get("runs") or 1) < 3)]
+            and (a.get("spread_pct") is None or (a.get("runs") or 1) < 5)]
     if rows and thin:
-        print(f"NOTE: a snapshot has no usable per-arm noise (archived, or --repeat < 3) -- gating "
+        print(f"NOTE: a snapshot has no usable per-arm noise (archived, or --repeat < 5) -- gating "
               f"on the flat {t:.1f}% threshold alone, which is not reliable. Re-snapshot both sides "
               f"with `bench.py run --repeat {DEFAULT_REPEAT}`.")
     if regr:
         print(f"\nFAIL: {len(regr)} GB/s regression(s) exceed {t:.1f}%")
         sys.exit(1)
-    print(f"\nOK: no GB/s regression beyond {t:.1f}%")
+    if muted:
+        print(f"\nOK: no gated regression -- but {len(muted)} arm(s) moved beyond {t:.1f}% and were "
+              f"muted by their own noise (listed above). Those arms cannot resolve a change that "
+              f"size; a real regression there would look the same.")
+    else:
+        print(f"\nOK: no GB/s regression beyond {t:.1f}%")
 
 
 def current_ref():
@@ -496,6 +512,11 @@ def experiment(args):
     Refuses to run on a dirty working tree (it checks out refs) and always restores the original ref."""
     if args.repeat < 1:
         sys.exit("experiment: --repeat must be >= 1")
+    # Check before measuring: a filtered snapshot cannot be gated, and finding that out after ten
+    # runs across two checkouts wastes tens of minutes.
+    if os.environ.get("RAPIDPROTO_BENCH_ONLY"):
+        sys.exit("experiment: RAPIDPROTO_BENCH_ONLY is set, so the snapshots would cover only part "
+                 "of the suite and could not be diffed; unset it")
     if args.threshold < 0:
         sys.exit("experiment: --threshold must be >= 0")
     if subprocess.check_output(["git", "-C", REPO, "status", "--porcelain"], text=True).strip():
@@ -551,7 +572,9 @@ def main():
     r.add_argument("--core", default="2", help="taskset core to pin to, or 'none' to skip pinning (default 2)")
     r.add_argument("--out", default=None, help="snapshot path (default bench_snapshots/<cc>-<rev>.ndjson)")
     r.add_argument("--repeat", type=int, default=DEFAULT_REPEAT,
-                   help=f"runs per snapshot, best kept per arm (default {DEFAULT_REPEAT}; 1 is not gateable)")
+                   help=f"runs per snapshot, median run kept per arm (default {DEFAULT_REPEAT}; "
+                        f"below {DEFAULT_REPEAT} there is no usable per-arm noise and the gate falls "
+                        f"back to the flat threshold)")
     r.set_defaults(func=run)
 
     t = sub.add_parser("table", help="render one snapshot, or compare several")
@@ -563,7 +586,8 @@ def main():
     d.add_argument("new")
     d.add_argument("--threshold", type=float, default=10.0,
                    help="regression threshold in %% GB/s (default 10.0 = the cross-build placement-noise "
-                        "floor; sub-floor changes are not reliably gateable -- see ins/B / the pretty verdict)")
+                        "floor; the gate uses the LARGER of this and the arm's own measured spread, "
+                        "and sub-floor changes are not reliably gateable -- see ins/B)")
     d.set_defaults(func=diff)
 
     e = sub.add_parser("experiment", help="build+snapshot two git refs and diff them on GB/s")
@@ -572,7 +596,7 @@ def main():
     e.add_argument("--build-dir", default=os.path.join(REPO, "build", "gcc-pb25"))
     e.add_argument("--core", default="2", help="taskset core, or 'none' to skip pinning (default 2)")
     e.add_argument("--repeat", type=int, default=DEFAULT_REPEAT,
-                   help=f"runs per snapshot, best kept per arm (default {DEFAULT_REPEAT})")
+                   help=f"runs per snapshot, median run kept per arm (default {DEFAULT_REPEAT})")
     e.add_argument("--threshold", type=float, default=10.0,
                    help="regression threshold in %% GB/s (default 10.0 = the cross-build placement-noise floor)")
     e.set_defaults(func=experiment)
