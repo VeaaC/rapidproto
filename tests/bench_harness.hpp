@@ -171,8 +171,7 @@ inline int open_counter(std::uint64_t config, std::uint32_t type = PERF_TYPE_HAR
 //
 // Why per-arm rather than `perf stat`: perf stat counts the whole process -- payload generation,
 // every arm, setup -- so the measured region is a small slice of it and any effect is diluted
-// beyond recognition (measured: process-level cycles moved 1.6% across runs whose ARM throughput
-// moved 19%). Attributing a stall to a specific arm needs the counter scoped to that arm.
+// beyond recognition. Attributing a stall to a specific arm needs the counter scoped to that arm.
 //
 // Names map to the portable PERF_TYPE_HW_CACHE encoding (cache id | op << 8 | result << 16).
 inline int open_named_event(const char* name) {
@@ -222,8 +221,7 @@ struct Counters {
 //
 // A failure here is silent otherwise: cyc/B and ins/B just read "n/a", and the sampling loop's
 // convergence test falls back from cycles to wall-nanoseconds, so the numbers get quietly worse
-// rather than absent. The settings are not persistent, so a reboot silently reintroduces it --
-// hence a loud, actionable warning rather than a flag in a doc no one rereads.
+// rather than absent -- and the setting does not survive a reboot, so it comes back silently.
 inline Counters metric_fds() {
     static const Counters c = [] {
         prepare_env();
@@ -237,7 +235,7 @@ inline Counters metric_fds() {
                          "\n*** bench: hardware counters unavailable -- cyc/B and ins/B will be "
                          "n/a,\n***       and convergence falls back to wall-clock time.\n"
                          "***       Fix (not persistent across reboot):\n"
-                         "***         sudo sysctl -w kernel.perf_event_paranoid=1\n\n");
+                         "***         sudo sysctl -w kernel.perf_event_paranoid=2\n\n");
         }
 #endif
         return got;
@@ -253,8 +251,8 @@ inline bool json_mode() {
 }
 
 // RAPIDPROTO_BENCH_ONLY=<substring> runs only the scenarios whose name contains it. A full suite is
-// minutes, which makes investigating ONE unstable scenario over many repetitions impractical; this
-// is that lever. Unset (the default) runs everything, so a gate run is unaffected.
+// 30-60s per bench, and a five-repeat snapshot of both is minutes, which makes investigating ONE
+// scenario over many repetitions impractical. Unset (the default) runs everything.
 inline bool scenario_selected(const char* scenario) {
     static const char* only = std::getenv("RAPIDPROTO_BENCH_ONLY");
     return only == nullptr || *only == '\0' ||

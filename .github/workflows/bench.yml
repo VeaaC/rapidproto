@@ -33,10 +33,11 @@ jobs:
           mkdir -p bench-out
           tag='${{ matrix.arch }}-${{ matrix.cc }}'
           out="bench-out/bench.$tag.ndjson"
-          # bench.py builds both bench binaries, pins them (taskset -c 0), runs each, tags every record
-          # with its decoder (arena|stream), and merges to one snapshot. A shared runner spins to a
-          # steady frequency but still can't be trusted for tight deltas -- read these as rough.
-          python3 tests/bench.py run --build-dir build/bench --core 0 --out "$out" || true
+          # bench.py builds both bench binaries, pins them (taskset -c 0), runs each ONCE
+          # (--repeat 1: this snapshot is never diffed, so repeats would only cost wall time), tags
+          # every record with its decoder (arena|stream), and merges to one snapshot. A shared runner
+          # spins to a steady frequency but still can't be trusted for tight deltas -- read as rough.
+          python3 tests/bench.py run --repeat 1 --build-dir build/bench --core 0 --out "$out" || true
           [ -s "$out" ] || { echo "no benchmark output produced"; exit 0; }
           python3 - "$tag" "$out" <<'PY'
           import json, sys

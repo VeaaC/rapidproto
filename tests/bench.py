@@ -6,10 +6,10 @@
 The benches emit NDJSON when RAPIDPROTO_BENCH_JSON=1 (see tests/bench_harness.hpp); this collects both
 into one snapshot and renders a unified table. Four subcommands:
 
-  bench.py run   [--build-dir D] [--core N] [--out FILE]   build both, run both pinned, write a snapshot
-  bench.py table SNAPSHOT [SNAPSHOT ...]                    render one snapshot, or compare several
-  bench.py diff  OLD NEW [--threshold PCT]                  GB/s regression check (exit 1 on regression)
-  bench.py experiment BASELINE_REF [VARIANT_REF]           build+snapshot two git refs, then diff them
+  bench.py run   [--build-dir D] [--core N] [--repeat K] [--out F]  build both, run pinned, snapshot
+  bench.py table SNAPSHOT [SNAPSHOT ...]                            render one, or compare several
+  bench.py diff  OLD NEW [--threshold PCT]                          regression check (exit 1 on fail)
+  bench.py experiment BASELINE_REF [VARIANT_REF]                    snapshot two git refs, then diff
 
 A snapshot is NDJSON: one `{"rec":"snapshot",...}` header (compiler / protobuf / git rev) then every
 bench record, each tagged with `"decoder":"stream"|"arena"`. GB/s (measured decode throughput) is the
@@ -112,23 +112,20 @@ def build_and_run(build_dir, core, repeat=DEFAULT_REPEAT):
 
     Why repeat at all: one run's converged number is not reproducible ACROSS PROCESS LAUNCHES. Each
     run already medians >=30 rotated rounds to a confident CI (bench_harness.hpp), but a few arms
-    still land up to ~12% apart run to run on a quiesced box, so at repeat=1 two snapshots of
+    still land ~14% apart run to run on a quiesced box, so at repeat=1 two snapshots of
     IDENTICAL code differ by ~14% (p95) -- above any threshold worth gating on. Bootstrapped from 40
     repeated runs of the worst arm, that identical-code p95 falls to ~9% at 3 runs, ~8% at 5, ~6% at
     7: roughly 0.8pp per added run beyond 3, with no knee. 5 is a cost/benefit pick (7 would buy
-    another ~1.5pp for 40% more wall time), measured on the WORST arm so it over-samples the rest.
+    another ~2pp for 40% more wall time), measured on the WORST arm so it over-samples the rest.
 
     Each arm keeps its MEDIAN run, and every run's GB/s is kept in run order alongside it so a
-    snapshot can be re-analysed without re-measuring. Best-of-K was tried first, on the theory that
-    interference only subtracts throughput so the fastest run is the least-disturbed one. Measured
-    against real paired snapshots of identical code it is much worse: it records upward flukes that
-    do not reproduce, so the worst arm moved -46.9% between two snapshots of the same binary where
-    the median moved +0.35%, and 4 arms exceeded 5% against 2. (An earlier bootstrap suggested the
-    opposite; resampling with replacement from one arm's pooled runs makes a fluke reappear on both
-    sides of the comparison, which is exactly the structure that matters here.)
+    snapshot can be re-analysed without re-measuring. Not the FASTEST run, tempting as the
+    "interference only subtracts throughput" argument is: across two snapshots of one binary the
+    fastest-run estimator moved the worst arm -46.9% where the median moved +0.35%, because it
+    records upward flukes the next snapshot has no reason to repeat.
 
-    The median is also K-dependent enough to matter -- its sampling distribution narrows with K -- so
-    two snapshots are only comparable at equal `repeat`, which `diff` enforces."""
+    The median's sampling variance falls with K, so two snapshots are only comparable at equal
+    `repeat`, which `diff` enforces."""
     check_machine(core)
     targets = [t for _, t in BENCHES]
     print(f"building {', '.join(targets)} in {build_dir} ...", file=sys.stderr)
@@ -138,8 +135,8 @@ def build_and_run(build_dir, core, repeat=DEFAULT_REPEAT):
     no_pin = str(core).lower() in ("", "none")
     pin = [] if no_pin else ["taskset", "-c", str(core)]
     protobuf_version = None
-    meta, best, seen = [], {}, {}  # key -> chosen record; key -> [gb_s in run order]
-    runs_by_key = {}  # key -> [record per run], so the chosen one carries its own run's counters
+    meta, chosen_by_key = [], {}  # key -> the one run kept for this arm
+    runs_by_key = {}  # key -> [record per run], so the kept one carries its own run's counters
     other, mismatched = {}, set()  # non-arm records (one kept); arms that mismatched in ANY run
     for decoder, target in BENCHES:
         binary = os.path.join(build_dir, target)
@@ -164,9 +161,8 @@ def build_and_run(build_dir, core, repeat=DEFAULT_REPEAT):
                 key = (decoder, rec.get("scenario"), rec.get("arm"))
                 gb = rec.get("gb_s")
                 if gb is None:
-                    best.setdefault(key, rec)
+                    chosen_by_key.setdefault(key, rec)
                     continue
-                seen.setdefault(key, []).append(gb)
                 runs_by_key.setdefault(key, []).append(rec)
                 # A checksum mismatch in ANY run is a correctness signal; keeping only the chosen
                 # run's flag would hide a 1-in-K divergence whenever a clean run was selected.
@@ -178,7 +174,7 @@ def build_and_run(build_dir, core, repeat=DEFAULT_REPEAT):
         # The median RUN, so the record carries that run's own cyc/ins/verdict rather than a value
         # interpolated across runs. At even K this is the upper of the two middle runs.
         chosen = records[ordered[len(ordered) // 2]]
-        best[key] = chosen
+        chosen_by_key[key] = chosen
         chosen["runs"] = len(v)
         chosen["gb_s_runs"] = v  # run order, not sorted: a whole-run effect is visible only in order
         if key in mismatched:
@@ -187,19 +183,19 @@ def build_and_run(build_dir, core, repeat=DEFAULT_REPEAT):
         #
         # The recorded value is the median, so what matters is how much the MIDDLE of the
         # distribution moves, not how far the extremes reach. An IQR ignores one outlier in either
-        # direction, which a range and a one-sided anchor both failed to do.
+        # direction.
         #
         # Requires >= 5 runs, and that is not a style preference: statistics.quantiles INTERPOLATES,
         # so at K=3 the "IQR" is exactly half the full range and at K=4 the extremes still carry
-        # weight -- i.e. precisely as outlier-sensitive as the range this replaced. Only from K=5 is
-        # it v[-2] - v[1]. Below 5 the arm reports 0.0 and `diff` falls back to the flat threshold
+        # weight. Only from K=5 is it v[-2] - v[1]. Below 5 the arm reports 0.0 and `diff` falls
+        # back to the flat threshold
         # and says so, rather than gating on a number that does not mean what it claims.
         chosen["spread_pct"] = 0.0
         if len(v) >= 5:
             q1, med, q3 = statistics.quantiles(sorted(v), n=4, method="inclusive")
             if med > 0:
                 chosen["spread_pct"] = (q3 - q1) / med * 100.0
-    return meta + list(other.values()) + list(best.values()), protobuf_version
+    return meta + list(other.values()) + list(chosen_by_key.values()), protobuf_version
 
 
 def write_snapshot(records, protobuf_version, build_dir, core, out_path):
@@ -366,15 +362,18 @@ def overhead_dominated(scenario):
 def diff(args):
     """Regression check between two snapshots (old -> new), keyed on (decoder, scenario, arm). Gates on
     GB/s -- measured decode throughput, the real-performance signal (it catches what ins/B cannot: branch
-    mispredictions, cache/memory stalls). Exits 1 if any arm's GB/s DROPPED by more than --threshold.
+    mispredictions, cache/memory stalls). Exits 1 if any arm's GB/s DROPPED past the gate.
 
-    Reliability caveat: across two INDEPENDENT builds, GB/s carries code-PLACEMENT noise -- byte-identical
-    functions measure ~10% apart from address/alignment alone (architecture.md), on top of frequency
-    drift. So the default threshold is ~10% (the noise floor): the gate catches gross regressions, and the
-    2-9% band is below the floor -- for a change there, read the deterministic ins/B column (printed as
-    context) or the within-run `vs <baseline>` verdict in the PRETTY (non-JSON) bench output, which is
-    placement-robust because it ratios arms back-to-back in one binary. Run both snapshots pinned to a
-    quiesced core. The sweep's n<=100 rows are excluded from pass/fail (too small to time meaningfully)."""
+    An arm fails only past BOTH the flat threshold (--threshold, default 10%: the cross-build
+    code-PLACEMENT floor, since byte-identical functions measure ~10% apart from address/alignment
+    alone) and its own measured spread_pct. Arms that moved past the flat threshold but stayed inside
+    their own noise are listed separately and never gated -- an arm that noisy cannot resolve a change
+    that size, which is information rather than a pass.
+
+    For a sub-floor change, read the deterministic ins/B column, or the within-run `vs <baseline>`
+    verdict in the PRETTY bench output, which is placement-robust because it ratios arms back-to-back
+    in one binary. Run both snapshots pinned to a quiesced box (tests/bench_box.sh). The sweep's
+    n<=100 scenarios are excluded from pass/fail (too small to time meaningfully)."""
     if args.threshold < 0:  # a negative threshold would make the regression/improvement sets overlap
         sys.exit("diff: --threshold must be >= 0")
     (ho, ao, _), (hn, an, _) = load(args.old), load(args.new)
@@ -426,7 +425,7 @@ def diff(args):
     t = args.threshold
     # Gate an arm only when it clears BOTH the flat threshold and its own measured spread. A single
     # global threshold is wrong in both directions here: measured spreads across arms range from
-    # under 1% to over 12%, so one number is too tight for the noisy arms and too loose for the
+    # under 1% to ~14%, so one number is too tight for the noisy arms and too loose for the
     # quiet ones. Snapshots without spread data (repeat=1, or written before it was recorded) score
     # 0 noise and fall back to the flat threshold alone.
     def gate(r):
@@ -465,12 +464,12 @@ def diff(args):
     if removed:
         sys.exit(f"diff: {len(removed)} arm(s) present in the old snapshot are missing from the new "
                  f"one, e.g. {removed[0]}; a partial snapshot cannot be gated")
-    ex = f"; {excluded} tiny-buffer sweep rows excluded from the gate" if excluded else ""
+    ex = f"; {excluded} tiny-buffer sweep scenarios excluded from the gate" if excluded else ""
     extra = f"; {len(added)} added, {len(removed)} removed" if (added or removed) else ""
     quiet = len(rows) - len(regr) - len(impr) - len(muted)
     print(f"\n{quiet} arms unchanged (|delta| <= {t:.1f}%){ex}{extra}")
     # Fires when EITHER side cannot supply usable per-arm noise -- no `spread_pct` at all (an
-    # archived snapshot), or fewer than 3 runs, where the statistic is not defined. Such a pair gates
+    # archived snapshot), or fewer than 5 runs, where the statistic is not defined. Such a pair gates
     # on the flat threshold alone, and asymmetrically if only one side is short, so say so.
     gated_keys = {(r[1], r[2], r[3]) for r in rows}
     thin = [a for a in (*ao, *an)
@@ -568,7 +567,9 @@ def main():
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     r = sub.add_parser("run", help="build both benches, run pinned, write a snapshot")
-    r.add_argument("--build-dir", default=os.path.join(REPO, "build", "gcc-pb25"))
+    r.add_argument("--build-dir", default=os.path.join(REPO, "build", "gcc-pb25"),
+                   help="cmake build dir (default build/gcc-pb25; no preset creates it -- see "
+                        "docs/benchmarks.md)")
     r.add_argument("--core", default="2", help="taskset core to pin to, or 'none' to skip pinning (default 2)")
     r.add_argument("--out", default=None, help="snapshot path (default bench_snapshots/<cc>-<rev>.ndjson)")
     r.add_argument("--repeat", type=int, default=DEFAULT_REPEAT,
@@ -593,7 +594,8 @@ def main():
     e = sub.add_parser("experiment", help="build+snapshot two git refs and diff them on GB/s")
     e.add_argument("baseline", help="git ref for the baseline (built and snapshotted first)")
     e.add_argument("variant", nargs="?", default=None, help="git ref for the variant (default: current HEAD)")
-    e.add_argument("--build-dir", default=os.path.join(REPO, "build", "gcc-pb25"))
+    e.add_argument("--build-dir", default=os.path.join(REPO, "build", "gcc-pb25"),
+                   help="cmake build dir (default build/gcc-pb25; no preset creates it)")
     e.add_argument("--core", default="2", help="taskset core, or 'none' to skip pinning (default 2)")
     e.add_argument("--repeat", type=int, default=DEFAULT_REPEAT,
                    help=f"runs per snapshot, median run kept per arm (default {DEFAULT_REPEAT})")
