@@ -29,3 +29,13 @@ message M {
     int32 decode__ = 6;          // collides with the deduped field `decode_` -> `decode___`
   }
 }
+
+// A nested type may not take its ENCLOSING class's name: C++ forbids a member with the same name as
+// its class, so the child is deduped and the parent keeps its name. protoc accepts this, and it is
+// the shared naming table's job (both models emit these classes), not an arena-only concern.
+message Outer {
+  message Outer {
+    optional int32 v = 1;
+  }
+  optional Outer inner = 1;  // must resolve to ::nm::Outer::Outer_
+}

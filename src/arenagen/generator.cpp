@@ -668,6 +668,12 @@ void synth_for_message(const CppNameTable& names, const LayoutSet& layouts,
                        const MessageNode& message, SynthNames& out) {
     const MessageLayout& layout = *layouts.find(message.fqn);
     std::unordered_set<std::string> taken;
+    // The class's OWN name is taken too: C++ forbids a member with the same name as its class
+    // ([class.mem]), and the injected-class-name would shadow the member anyway. A oneof reaching
+    // this is ordinary in real schemas -- `message Callback { oneof callback { ... } }` capitalizes
+    // to a `Callback` tag struct inside `class Callback` -- and it made the generated header fail to
+    // compile at the CONSUMER, since nothing here compiles what it emits.
+    taken.insert(names.local.at(&message));
     for (const EnumNode& e : message.enums) {
         taken.insert(names.local.at(&e));
     }

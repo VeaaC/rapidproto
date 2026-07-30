@@ -28,3 +28,25 @@ message Collide {
   }
   int32 decode = 9;     // reserved (the decode() entry point) -> `decode_`
 }
+
+// C++ forbids a member with the same name as its class, so every synthesized or nested name must
+// also dedup against the ENCLOSING message's name -- not only against its siblings. protoc accepts
+// all three shapes below, and each produced a header that failed to compile at the consumer.
+
+message Callback {      // a oneof capitalizing to its own class's name -> tag struct `Callback_`
+  oneof callback {
+    string python_code = 1;
+  }
+  bool disabled = 2;
+}
+
+message FooEntry {                   // a map whose entry type would take the class's name
+  map<string, int32> foo = 1;        // -> `FooEntry_`
+}
+
+message Outer {         // a nested message named like its parent -> the CHILD is deduped, `Outer_`
+  message Outer {
+    int32 v = 1;
+  }
+  Outer inner = 1;      // still resolves to the nested type, now spelled Outer_
+}

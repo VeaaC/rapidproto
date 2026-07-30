@@ -203,6 +203,10 @@ const std::string& assign_id(CppNameTable& names, std::unordered_set<std::string
 void index_message(CppNameTable& names, const MessageNode& message, const std::string& abs,
                    const std::string& msg_ns) {
     std::unordered_set<std::string> taken;
+    // Seed with the class's OWN name: C++ forbids a member with the same name as its class
+    // ([class.mem]), so `message Outer { message Outer {} }` -- which protoc accepts -- would emit a
+    // header that does not compile. The parent keeps its name; the child is the one deduped.
+    taken.insert(names.local.at(&message));
     std::vector<std::pair<const MessageNode*, std::string>> children;
     for (const auto& nested_enum : message.enums) {
         names.absolute.emplace(

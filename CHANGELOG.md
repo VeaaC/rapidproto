@@ -23,6 +23,17 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
 
   Header-only — no regeneration needed, but the installed headers must be updated.
 
+- **Generated headers no longer fail to compile when a synthesized or nested name matches its own
+  message.** C++ forbids a member with the same name as its class, and the generator deduped
+  synthesized names only against a message's *siblings*, never against the message itself. So
+  `message Callback { oneof callback { … } }` — which protoc accepts and which is common in real
+  schemas — emitted a `Callback` tag struct inside `class Callback`, and the header failed to compile
+  at the consumer. **35 of the 8015 googleapis schemas** were affected. The same omission applied to
+  a map's `<Map>Entry` type and to a nested message named like its parent (`message Outer { message
+  Outer {} }`, shared with the streaming model). The enclosing name is now reserved first, so the
+  message keeps its name and the synthesized or nested one gains the usual `_` suffix. **Regenerate
+  to pick this up.** Only schemas that actually collide change; every other header is byte-identical.
+
 ### Added
 
 - **Debug dumper: `DumpOptions` (start indent + skip fields).** `rp_dump_write` / `rp_dump_string` now
