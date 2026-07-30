@@ -73,9 +73,9 @@ std::string message_namespace(const CppNameTable& names, const FileNode& file);
 
 // A proto name -> a collision-free C++ identifier: append `_` if it collides with a keyword, any
 // `rp_`-prefixed identifier, or one of a few generated members (the streaming tag members
-// Value/Key/kNumber/kName, decode(), the decode() template parameter Callbacks, and the arena `m_bytes`
-// storage name -- see naming.cpp). For names not pre-assigned in the table -- e.g. enum values, which
-// are sanitized at emit time. (Members in `CppNameTable::local` are already sanitized + de-duped.)
+// Value/Key/kNumber/kName, decode(), and the decode() template parameter Callbacks -- see naming.cpp).
+// For names not pre-assigned in the table -- e.g. enum values, which are sanitized at emit time.
+// (Members in `CppNameTable::local` are already sanitized + de-duped.)
 std::string sanitize(std::string_view name);
 
 }  // namespace rapidproto::codegen

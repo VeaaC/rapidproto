@@ -713,6 +713,7 @@ void synth_for_message(const CppNameTable& names, const LayoutSet& layouts,
         taken.insert(names.local.at(&mp));
     }
     for (const OneofNode& o : message.oneofs) {
+        taken.insert(names.local.at(&o));  // the oneof READER method shares this class scope
         for (const FieldNode& f : o.fields) {
             taken.insert(names.local.at(&f));
         }
@@ -745,8 +746,9 @@ void synth_for_message(const CppNameTable& names, const LayoutSet& layouts,
         }
     }
     for (const OneofPlan& o : layout.oneofs) {
-        // Off the oneof's deduped id, not its raw proto name: `oneof mask { ... }` would otherwise
-        // derive `m_rp_mask` and collide with the presence mask below.
+        // Off the oneof's deduped id rather than its raw proto name, so this stays consistent with
+        // the reader method. The collision itself is handled by dedup: `oneof mask { ... }` derives
+        // `m_rp_mask` either way, and dedup gives the presence mask below the `_` suffix.
         const std::string& oneof_id = names.local.at(o.oneof);
         out.case_member[o.oneof] = dedup("m_rp_" + oneof_id + "_case");
         out.storage[o.oneof] = dedup("m_rp_" + oneof_id);
