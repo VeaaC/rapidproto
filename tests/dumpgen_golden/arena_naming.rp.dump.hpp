@@ -21,6 +21,11 @@ inline void rp_dump_write(const ::an::Callback& m, ::rapidproto::dump::Writer& w
 inline void rp_dump_write(const ::an::FooEntry& m, ::rapidproto::dump::Writer& w);
 inline void rp_dump_write(const ::an::Outer::Outer_& m, ::rapidproto::dump::Writer& w);
 inline void rp_dump_write(const ::an::Outer& m, ::rapidproto::dump::Writer& w);
+inline void rp_dump_write(const ::an::m_x& m, ::rapidproto::dump::Writer& w);
+inline void rp_dump_write(const ::an::Sibling& m, ::rapidproto::dump::Writer& w);
+inline void rp_dump_write(const ::an::config& m, ::rapidproto::dump::Writer& w);
+inline void rp_dump_write(const ::an::MaskOneof& m, ::rapidproto::dump::Writer& w);
+inline void rp_dump_write(const ::an::Bytes& m, ::rapidproto::dump::Writer& w);
 
 inline void rp_dump_write(const ::an::Collide::FooEntry& m, ::rapidproto::dump::Writer& w) {
   (void)m;
@@ -172,6 +177,92 @@ inline void rp_dump_write(const ::an::Outer& m, ::rapidproto::dump::Writer& w) {
   });
 }
 
+inline void rp_dump_write(const ::an::m_x& m, ::rapidproto::dump::Writer& w) {
+  (void)m;
+  w.group('{', '}', [&] {
+    bool rp_first = true;
+    if (const auto rp_v = m.x(); rp_v != decltype(rp_v){}) {
+      if (w.begin_field(rp_first, "x")) {
+        w.os() << rp_v;
+      }
+    }
+    (void)rp_first;
+  });
+}
+
+inline void rp_dump_write(const ::an::Sibling& m, ::rapidproto::dump::Writer& w) {
+  (void)m;
+  w.group('{', '}', [&] {
+    bool rp_first = true;
+    if (const auto rp_v = m.foo(); rp_v != decltype(rp_v){}) {
+      if (w.begin_field(rp_first, "foo")) {
+        w.os() << rp_v;
+      }
+    }
+    if (const auto rp_v = m.m_foo(); rp_v != decltype(rp_v){}) {
+      if (w.begin_field(rp_first, "m_foo")) {
+        w.os() << rp_v;
+      }
+    }
+    (void)rp_first;
+  });
+}
+
+inline void rp_dump_write(const ::an::config& m, ::rapidproto::dump::Writer& w) {
+  (void)m;
+  w.group('{', '}', [&] {
+    bool rp_first = true;
+    m.config_([&](auto rp_tag, const auto& rp_v) {
+      using RpTag = std::decay_t<decltype(rp_tag)>;
+      if constexpr (std::is_same_v<RpTag, ::an::config::Config::a>) {
+        if (w.begin_field(rp_first, "a")) {
+          w.os() << '"'; ::rapidproto::dump::write_json_escaped(w.os(), rp_v); w.os() << '"';
+        }
+      }
+    });
+    (void)rp_first;
+  });
+}
+
+inline void rp_dump_write(const ::an::MaskOneof& m, ::rapidproto::dump::Writer& w) {
+  (void)m;
+  w.group('{', '}', [&] {
+    bool rp_first = true;
+    if (const auto rp_v = m.present()) {
+      if (w.begin_field(rp_first, "present")) {
+        w.os() << *rp_v;
+      }
+    }
+    m.mask([&](auto rp_tag, const auto& rp_v) {
+      using RpTag = std::decay_t<decltype(rp_tag)>;
+      if constexpr (std::is_same_v<RpTag, ::an::MaskOneof::Mask::a>) {
+        if (w.begin_field(rp_first, "a")) {
+          w.os() << rp_v;
+        }
+      }
+    });
+    (void)rp_first;
+  });
+}
+
+inline void rp_dump_write(const ::an::Bytes& m, ::rapidproto::dump::Writer& w) {
+  (void)m;
+  w.group('{', '}', [&] {
+    bool rp_first = true;
+    if (const auto rp_v = m.bytes(); rp_v != decltype(rp_v){}) {
+      if (w.begin_field(rp_first, "bytes")) {
+        w.os() << '"'; ::rapidproto::dump::write_hex(w.os(), rp_v); w.os() << '"';
+      }
+    }
+    if (const auto rp_v = m.m_bytes(); rp_v != decltype(rp_v){}) {
+      if (w.begin_field(rp_first, "m_bytes")) {
+        w.os() << rp_v;
+      }
+    }
+    (void)rp_first;
+  });
+}
+
 }  // namespace rp_dump_detail
 
 inline void rp_dump_write(std::ostream& rp_os, const ::an::Collide::FooEntry& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
@@ -231,6 +322,56 @@ inline void rp_dump_write(std::ostream& rp_os, const ::an::Outer& m, const ::rap
 }
 
 inline std::string rp_dump_string(const ::an::Outer& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
+}
+
+inline void rp_dump_write(std::ostream& rp_os, const ::an::m_x& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+  rp_os << std::boolalpha;
+  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
+  ::an::rp_dump_detail::rp_dump_write(m, w);
+}
+
+inline std::string rp_dump_string(const ::an::m_x& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
+}
+
+inline void rp_dump_write(std::ostream& rp_os, const ::an::Sibling& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+  rp_os << std::boolalpha;
+  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
+  ::an::rp_dump_detail::rp_dump_write(m, w);
+}
+
+inline std::string rp_dump_string(const ::an::Sibling& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
+}
+
+inline void rp_dump_write(std::ostream& rp_os, const ::an::config& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+  rp_os << std::boolalpha;
+  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
+  ::an::rp_dump_detail::rp_dump_write(m, w);
+}
+
+inline std::string rp_dump_string(const ::an::config& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
+}
+
+inline void rp_dump_write(std::ostream& rp_os, const ::an::MaskOneof& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+  rp_os << std::boolalpha;
+  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
+  ::an::rp_dump_detail::rp_dump_write(m, w);
+}
+
+inline std::string rp_dump_string(const ::an::MaskOneof& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
+}
+
+inline void rp_dump_write(std::ostream& rp_os, const ::an::Bytes& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+  rp_os << std::boolalpha;
+  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
+  ::an::rp_dump_detail::rp_dump_write(m, w);
+}
+
+inline std::string rp_dump_string(const ::an::Bytes& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
 }
 

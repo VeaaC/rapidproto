@@ -23,24 +23,37 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
 
   Header-only — no regeneration needed, but the installed headers must be updated.
 
-- **Generated headers no longer fail to compile when a synthesized or nested name matches its own
-  message.** C++ forbids a member with the same name as its class, and the generator deduped
-  synthesized names only against a message's *siblings*, never against the message itself. So
-  `message Callback { oneof callback { … } }` — which protoc accepts and which is common in real
-  schemas — emitted a `Callback` tag struct inside `class Callback`, and the header failed to compile
-  at the consumer. **35 of the 8015 googleapis schemas** were affected. The same omission applied to
-  a map's `<Map>Entry` type and to a nested message named like its parent (`message Outer { message
-  Outer {} }`, shared with the streaming model). The enclosing name is now reserved first, so the
-  message keeps its name and the synthesized or nested one gains the usual `_` suffix. **Regenerate
-  to pick this up.** Only schemas that actually collide change; every other header is byte-identical.
+- **Generated headers no longer fail to compile when a generated name matches its own message.**
+  C++ forbids a member with the same name as its class, and the generator deduped names only against
+  a message's *siblings*, never against the message itself — and never deduped private storage
+  members at all. So `message Callback { oneof callback { … } }`, which protoc accepts and which is
+  common in real schemas, emitted a `Callback` tag struct inside `class Callback`, and the header
+  failed to compile at the consumer. **114 of the 8015 schemas in the real-world corpus** were
+  affected.
+
+  Every generated name is now assigned in one dedup scope that includes the enclosing class's name:
+  the oneof visit-tag struct and its reader method, a map's `<Map>Entry` type, nested messages and
+  enums (shared with the streaming model), fields, and the private `m_…` storage members, union and
+  presence mask. The message keeps its name; the colliding generated one gains the usual `_` suffix.
+
+  Two user-visible improvements fall out. A field named `m_bytes` keeps its accessor — the storage
+  member is renamed instead of the accessor, so `m_bytes` is no longer a reserved word. And a oneof
+  named like its message (`message config { oneof config { … } }`) now works.
+
+  **Regenerate to pick this up.** Only schemas that actually collide change; every other header is
+  byte-identical.
 
 ### Added
 
 - **Debug dumper: `DumpOptions` (start indent + skip fields).** `rp_dump_write` / `rp_dump_string` now
-  take an optional `rapidproto::dump::DumpOptions { width, indent, skip }`. `indent` starts the dump at a
-  nesting level (each level = 2 columns) so it drops cleanly under surrounding output, and `skip` omits
-  fields by **qualified dotted path** (e.g. `{"people.email", "address"}` — a leaf name is hidden only at
-  that path, and a message path drops its whole subtree; the field is still decoded, just not printed).
+  take an optional `rapidproto::dump::DumpOptions { width, indent, skip }`. `indent` starts the
+  dump at a
+  nesting level (each level = 2 columns) so it drops cleanly under surrounding output, and `skip`
+  omits
+  fields by **qualified dotted path** (e.g. `{"people.email", "address"}` — a leaf name is hidden
+  only at
+  that path, and a message path drops its whole subtree; the field is still decoded, just not
+  printed).
   Backward-compatible: the old width argument still works (an integer converts to a width-only
   `DumpOptions`).
 
@@ -58,7 +71,8 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
   headers change.
 
 - **Debug dumper: wide arrays print as aligned columns.** An array too wide for one line used to print
-  one value per line; it now fills as many aligned columns as fit, so a long array is far shorter and
+  one value per line; it now fills as many aligned columns as fit, so a long array is far shorter
+  and
   numeric values line up by place value. Objects are unaffected. Upgrading the runtime header is
   enough — no regeneration needed — but dumps of wide arrays now look different.
 - **Debug dumper: generated internals moved out of the public namespaces.** A generated
@@ -75,10 +89,14 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
 ### Fixed
 
 - **Debug dumper (`--dump`): multi-file schemas no longer redefine `rp_dump_enum_name`.** When two
-  generated `.rp.dump.hpp` headers both referenced an enum imported from a third file (e.g. a message and
-  one of its imports both use the same enum), including them in one translation unit failed to compile
-  with `redefinition of 'rp_dump_enum_name'`. The value-name helper is now emitted once, at the enum's
-  definition site (like the enum type itself), and referenced elsewhere through the included dependency
+  generated `.rp.dump.hpp` headers both referenced an enum imported from a third file (e.g. a
+  message and
+  one of its imports both use the same enum), including them in one translation unit failed to
+  compile
+  with `redefinition of 'rp_dump_enum_name'`. The value-name helper is now emitted once, at the
+  enum's
+  definition site (like the enum type itself), and referenced elsewhere through the included
+  dependency
   header — so cross-file dumpers compose cleanly.
 
 ## 0.3.0 — 2026-07-18
@@ -86,7 +104,8 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
 ### Added
 
 - **`rapidproto::decode_owned<T>(std::string input) -> std::shared_ptr<const T>`.** A self-contained
-  arena decode: it moves the input in, decodes into a default `Arena`, and returns a `shared_ptr` that
+  arena decode: it moves the input in, decodes into a default `Arena`, and returns a `shared_ptr`
+  that
   owns **both** the input bytes and the arena (via the aliasing constructor). Every borrowed
   `string_view` stays valid for as long as any copy of the handle lives — no external lifetime to
   manage. Returns an empty `shared_ptr` on decode failure. Use the low-level `T::decode(ByteView,
@@ -99,7 +118,8 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
   `read_varint`, `read_tag`, `read_tag_or_end`, `read_fixed32`, `read_fixed64`,
   `read_length_delimited`, `skip_value`, and `read_group` — each threading the byte cursor as a
   `(cur, end, begin)` pointer triple and returning the advanced cursor (`nullptr` on a wire error,
-  with the `WireError` written to a caller-owned slot). The generated decoders already decode through
+  with the `WireError` written to a caller-owned slot). The generated decoders already decode
+  through
   these; the stateful `WireReader` class, the `WireField` record, the `read_message` collector, and
   `DecodeStatus::from_reader` were used only by test/dev code and are gone. Code that walked wire bytes
   by hand through `WireReader` should switch to the `rapidproto::wire` free functions.
@@ -107,10 +127,14 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
 ### Changed
 
 - **The arena decoder now borrows `string`/`bytes` from the input instead of copying them (breaking).**
-  A decoded arena tree holds strings/bytes as `std::string_view`s into the input wire buffer (zero-copy;
-  the arena keeps only tree structure). The tree is therefore valid only while **both** the `Arena` and
-  the input buffer outlive it — previously the input was freeable right after `decode()`. Audit any code
-  that freed or reused the input after `decode()`, or switch it to `decode_owned` (above). `ArenaString`
+  A decoded arena tree holds strings/bytes as `std::string_view`s into the input wire buffer
+  (zero-copy;
+  the arena keeps only tree structure). The tree is therefore valid only while **both** the
+  `Arena` and
+  the input buffer outlive it — previously the input was freeable right after `decode()`. Audit
+  any code
+  that freed or reused the input after `decode()`, or switch it to `decode_owned` (above).
+  `ArenaString`
   shrank 16→12 bytes (no more SSO), so string/map field offsets change — regenerate the headers.
   `ArenaDecodeError::StringTooLong` is now reserved and never produced (an over-4 GiB input reports as
   `InputTooLarge`).
@@ -120,7 +144,8 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
   of `ArrayView<ByteView>` (each element is still a `ByteView`, i.e. `std::string_view`). Like every
   borrowed value, a raw payload is valid only while the input outlives the tree.
 - **Generated decoders reference `::rapidproto::wire::` wire readers.** The value-threaded readers the
-  generated arena and streaming decoders call moved into the `rapidproto::wire` namespace (previously
+  generated arena and streaming decoders call moved into the `rapidproto::wire` namespace
+  (previously
   free functions prefixed `vt_`). Regenerate and upgrade the runtime header together — a decoder
   emitted against the old runtime will not compile against the new one and vice versa.
 
@@ -131,17 +156,20 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
 - **Faster field dispatch in both generated decoders, no API change.** Fields 1–15 (whose whole tag
   is a single byte) now dispatch through a raw-byte peek switch, with the field/wire split and the
   wire-type check folded into the case label; everything else falls back to the unchanged validating
-  path. Generated `decode()` is also flattened (`RP_FLATTEN`), so GCC inlines the wire primitives and
+  path. Generated `decode()` is also flattened (`RP_FLATTEN`), so GCC inlines the wire primitives
+  and
   sub-decodes in a large translation unit the way Clang already did (it had been leaving ~30% more
   retired instructions on message- and skip-heavy shapes). Regenerate to pick both up. Decoded
   results are unchanged for protoc-produced input; one wire-acceptance detail changes — a
-  non-canonical over-long encoding of a low field number's tag (which no conformant encoder emits) is
+  non-canonical over-long encoding of a low field number's tag (which no conformant encoder emits)
+  is
   now skipped rather than decoded.
 
 - **Much faster packed scalar arrays (arena).** Packed repeated scalars are pre-sized from the field's
   wire length instead of grown one element at a time (about 2–2.5× on packed varint), and packed
   fixed-width arrays are filled with a single bulk copy on little-endian targets (about 5× on packed
-  fixed); both are now ahead of protoc + `Arena`. Regenerate to pick it up. Note for capacity-limited
+  fixed); both are now ahead of protoc + `Arena`. Regenerate to pick it up. Note for
+  capacity-limited
   consumers: a packed *varint* array is pre-sized to its byte length (an upper bound on the element
   count) and then trimmed, so its transient arena peak can briefly reach a few times the field's
   payload — size a tight `set_capacity_limit()` for that peak.
@@ -149,7 +177,8 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
 - **Faster string-heavy arena decode.** The arena's short-string copy (`ArenaString`, the inline SSO
   path) now uses overlapping fixed-width loads/stores instead of a runtime-length `memcpy`, which
   lowers to a slow generic small-copy — most on clang, where it is up to ~18% faster on a
-  string-heavy whole-message decode (~3.5% on gcc). No API change; picked up by upgrading the runtime
+  string-heavy whole-message decode (~3.5% on gcc). No API change; picked up by upgrading the
+  runtime
   headers (no regeneration needed).
 
 ## 0.2.3 — 2026-07-06

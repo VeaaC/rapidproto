@@ -70,13 +70,13 @@ constexpr std::size_t kWordBytes = 8;  // a uint64 mask word; >8 mask bytes mean
 constexpr int kWordBits = 64;
 
 // A `(mask & bit)` test for bit index `bit`, honoring single- vs multi-word masks.
-std::string bit_test(const MessageLayout& layout, int bit) {
+std::string bit_test(const std::string& mask, const MessageLayout& layout, int bit) {
     if (layout.mask_size > kWordBytes) {
-        return "(m_rp_mask[" + std::to_string(bit / kWordBits) + "] & (std::uint64_t{1} << " +
+        return "(" + mask + "[" + std::to_string(bit / kWordBits) + "] & (std::uint64_t{1} << " +
                std::to_string(bit % kWordBits) + "))";
     }
-    return "(m_rp_mask & (" + mask_word_type(layout.mask_size) + "{1} << " + std::to_string(bit) +
-           "))";
+    return "(" + mask + " & (" + mask_word_type(layout.mask_size) + "{1} << " +
+           std::to_string(bit) + "))";
 }
 
 // ── type-name helpers ────────────────────────────────────────────────────────────────────────────
@@ -98,6 +98,18 @@ struct Emit {
 
 std::string member_id(const Emit& emit, const MemberPlan& m) {
     return m.field != nullptr ? emit.names.local.at(m.field) : emit.names.local.at(m.map_field);
+}
+
+// The private storage member for a field/map node -- deduped in the class scope (see
+// SynthNames::storage), so it is NOT simply "m_" + the member's id.
+std::string storage_of(const Emit& emit, const void* node) {
+    return emit.synth.storage.at(node);
+}
+
+std::string storage_id(const Emit& emit, const MemberPlan& m) {
+    const void* node = m.field != nullptr ? static_cast<const void*>(m.field)
+                                          : static_cast<const void*>(m.map_field);
+    return emit.synth.storage.at(node);
 }
 
 std::string repeated_elem_type(const Emit& emit, const FieldNode& field) {
@@ -266,15 +278,15 @@ void emit_oneof_union(const Emit& emit, const OneofPlan& o) {
 void emit_oneof_accessors(const Emit& emit, const OneofPlan& o) {
     Printer& p = emit.printer;
     const std::string tag = emit.synth.case_tag.at(o.oneof);
-    // The oneof reader, named after the oneof -- sanitized like any identifier (a keyword/reserved oneof
-    // name is escaped), but NOT deduped against fields: a oneof name is already unique among the
-    // message's fields. Pass one typed handler per member (and/or a single (auto, auto) catch-all); the
+    // The oneof reader, named after the oneof -- deduped in the class scope like every other member,
+    // since a oneof name is unique among the message's FIELDS but may still equal the message's own
+    // name. Pass one typed handler per member (and/or a single (auto, auto) catch-all); the
     // active member is dispatched to its handler, an unhandled member is ignored -- the same
     // combine/handles_one dispatch the streaming decoder uses, but invoked via invoke_handler: a
     // handler must return void (the message is already decoded -- nothing to abort), as does the
     // reader itself. A `[](std::monostate)` handler covers the unset state.
     p.print("template <class... RpFs> void $n$(RpFs&&... rp_fs) const {\n",
-            {{"n", codegen::sanitize(o.oneof->name)}});
+            {{"n", emit.names.local.at(o.oneof)}});
     p.indent();
     for (const OneofMemberPlan& member : o.members) {
         const std::string& id = emit.names.local.at(member.field);
@@ -311,7 +323,7 @@ void emit_oneof_accessors(const Emit& emit, const OneofPlan& o) {
         " std::monostate unset handler)\");\n",
         {{"tags", tags}, {"o", o.oneof->name}});
     p.print("auto rp_d = ::rapidproto::combine(static_cast<RpFs&&>(rp_fs)...);\n");
-    p.print("switch (m_rp_$o$_case) {\n", {{"o", o.oneof->name}});
+    p.print("switch ($c$) {\n", {{"c", emit.synth.case_member.at(o.oneof)}});
     p.indent();
     int index = 1;
     for (const OneofMemberPlan& member : o.members) {
@@ -320,8 +332,7 @@ void emit_oneof_accessors(const Emit& emit, const OneofPlan& o) {
         if (member.kind == FieldKind::PointerSubMsg) {
             val = "*";  // stored as a pointer -> hand over a const ref
         }
-        val += "m_rp_";
-        val += o.oneof->name;
+        val += emit.synth.storage.at(o.oneof);
         val += '.';
         val += id;
         if (member.kind == FieldKind::BorrowString) {
@@ -366,78 +377,91 @@ void emit_field_accessor(const Emit& emit, const MessageLayout& layout, const Me
                     "std::optional<bool> $id$() const noexcept { return $p$ != 0 ?"
                     " std::optional<bool>($b$ != 0) : std::nullopt; }\n",
                     {{"id", id},
-                     {"p", bit_test(layout, m.presence_bit)},
-                     {"b", bit_test(layout, m.value_bit)}});
+                     {"p", bit_test(emit.synth.mask.at(layout.fqn), layout, m.presence_bit)},
+                     {"b", bit_test(emit.synth.mask.at(layout.fqn), layout, m.value_bit)}});
             } else if (m.is_bool) {
                 p.print("bool $id$() const noexcept { return $b$ != 0; }\n",
-                        {{"id", id}, {"b", bit_test(layout, m.value_bit)}});
+                        {{"id", id},
+                         {"b", bit_test(emit.synth.mask.at(layout.fqn), layout, m.value_bit)}});
             } else if (m.presence_bit >= 0) {
                 p.print(
                     "std::optional<$T$> $id$() const noexcept { return $p$ != 0 ?"
-                    " std::optional<$T$>(m_$id$) : std::nullopt; }\n",
-                    {{"T", cpp_scalar(m.field->type_name)},
+                    " std::optional<$T$>($s$) : std::nullopt; }\n",
+                    {{"s", storage_id(emit, m)},
+                     {"T", cpp_scalar(m.field->type_name)},
                      {"id", id},
-                     {"p", bit_test(layout, m.presence_bit)}});
+                     {"p", bit_test(emit.synth.mask.at(layout.fqn), layout, m.presence_bit)}});
             } else {
-                p.print("$T$ $id$() const noexcept { return m_$id$; }\n",
-                        {{"T", cpp_scalar(m.field->type_name)}, {"id", id}});
+                p.print("$T$ $id$() const noexcept { return $s$; }\n",
+                        {{"s", storage_id(emit, m)},
+                         {"T", cpp_scalar(m.field->type_name)},
+                         {"id", id}});
             }
             break;
         case FieldKind::InlineEnum:
             if (m.presence_bit >= 0) {
                 p.print(
                     "std::optional<$T$> $id$() const noexcept { return $p$ != 0 ?"
-                    " std::optional<$T$>(m_$id$) : std::nullopt; }\n",
-                    {{"T", cpp_type_name(emit.names, m.target_fqn)},
+                    " std::optional<$T$>($s$) : std::nullopt; }\n",
+                    {{"s", storage_id(emit, m)},
+                     {"T", cpp_type_name(emit.names, m.target_fqn)},
                      {"id", id},
-                     {"p", bit_test(layout, m.presence_bit)}});
+                     {"p", bit_test(emit.synth.mask.at(layout.fqn), layout, m.presence_bit)}});
             } else {
-                p.print("$T$ $id$() const noexcept { return m_$id$; }\n",
-                        {{"T", cpp_type_name(emit.names, m.target_fqn)}, {"id", id}});
+                p.print("$T$ $id$() const noexcept { return $s$; }\n",
+                        {{"s", storage_id(emit, m)},
+                         {"T", cpp_type_name(emit.names, m.target_fqn)},
+                         {"id", id}});
             }
             break;
         case FieldKind::BorrowString:
             if (m.presence_bit >= 0) {
                 p.print(
                     "std::optional<std::string_view> $id$() const noexcept { return $p$ != 0 ?"
-                    " std::optional<std::string_view>(m_$id$.view()) : std::nullopt; }\n",
-                    {{"id", id}, {"p", bit_test(layout, m.presence_bit)}});
+                    " std::optional<std::string_view>($s$.view()) : std::nullopt; }\n",
+                    {{"s", storage_id(emit, m)},
+                     {"id", id},
+                     {"p", bit_test(emit.synth.mask.at(layout.fqn), layout, m.presence_bit)}});
             } else {
-                p.print("std::string_view $id$() const noexcept { return m_$id$.view(); }\n",
-                        {{"id", id}});
+                p.print("std::string_view $id$() const noexcept { return $s$.view(); }\n",
+                        {{"s", storage_id(emit, m)}, {"id", id}});
             }
             break;
         case FieldKind::InlineFixedSubMsg:
             if (m.presence_bit >= 0) {
-                p.print(
-                    "const $T$* $id$() const noexcept { return $b$ != 0 ? &m_$id$ : nullptr; }\n",
-                    {{"T", cpp_type_name(emit.names, m.target_fqn)},
-                     {"id", id},
-                     {"b", bit_test(layout, m.presence_bit)}});
+                p.print("const $T$* $id$() const noexcept { return $b$ != 0 ? &$s$ : nullptr; }\n",
+                        {{"s", storage_id(emit, m)},
+                         {"T", cpp_type_name(emit.names, m.target_fqn)},
+                         {"id", id},
+                         {"b", bit_test(emit.synth.mask.at(layout.fqn), layout, m.presence_bit)}});
             } else {  // required: always present
-                p.print("const $T$* $id$() const noexcept { return &m_$id$; }\n",
-                        {{"T", cpp_type_name(emit.names, m.target_fqn)}, {"id", id}});
+                p.print("const $T$* $id$() const noexcept { return &$s$; }\n",
+                        {{"s", storage_id(emit, m)},
+                         {"T", cpp_type_name(emit.names, m.target_fqn)},
+                         {"id", id}});
             }
             break;
         case FieldKind::PointerSubMsg:
-            p.print("const $T$* $id$() const noexcept { return m_$id$; }\n",
-                    {{"T", cpp_type_name(emit.names, m.target_fqn)}, {"id", id}});
+            p.print("const $T$* $id$() const noexcept { return $s$; }\n",
+                    {{"s", storage_id(emit, m)},
+                     {"T", cpp_type_name(emit.names, m.target_fqn)},
+                     {"id", id}});
             break;
         case FieldKind::Repeated:
             if (repeated_elem_type(emit, *m.field) == "::rapidproto::ArenaString") {
                 // Storage is ArrayView<ArenaString> (borrowed views); expose std::string_view, not the storage type.
                 p.print(
                     "::rapidproto::StringArrayView $id$() const noexcept {"
-                    " return ::rapidproto::StringArrayView(m_$id$); }\n",
-                    {{"id", id}});
+                    " return ::rapidproto::StringArrayView($s$); }\n",
+                    {{"s", storage_id(emit, m)}, {"id", id}});
             } else {
-                p.print("$T$ $id$() const noexcept { return m_$id$; }\n",
-                        {{"T", storage_type(emit, m)}, {"id", id}});
+                p.print("$T$ $id$() const noexcept { return $s$; }\n",
+                        {{"s", storage_id(emit, m)}, {"T", storage_type(emit, m)}, {"id", id}});
             }
             break;
         case FieldKind::Map:
-            p.print("$T$ $id$() const noexcept { return m_$id$; }\n",
-                    {{"T", storage_type(emit, m)}, {"id", id}});
+            p.print("$T$ $id$() const noexcept { return $s$; }\n",
+                    {{"s", storage_id(emit, m)}, {"T", storage_type(emit, m)}, {"id", id}});
             break;
         case FieldKind::Raw:
             // The message field's borrowed payload(s): hand a view to the field type's own decode()
@@ -448,17 +472,17 @@ void emit_field_accessor(const Emit& emit, const MessageLayout& layout, const Me
             if (m.field->is_repeated) {
                 p.print(
                     "::rapidproto::StringArrayView $id$() const noexcept {"
-                    " return ::rapidproto::StringArrayView(m_$id$); }\n",
-                    {{"id", id}});
+                    " return ::rapidproto::StringArrayView($s$); }\n",
+                    {{"s", storage_id(emit, m)}, {"id", id}});
             } else if (m.field->presence == FieldPresence::Explicit) {
                 p.print(
                     "std::optional<::rapidproto::ByteView> $id$() const noexcept {"
-                    " return m_$id$.data() != nullptr ?"
-                    " std::optional<::rapidproto::ByteView>(m_$id$.view()) : std::nullopt; }\n",
-                    {{"id", id}});
+                    " return $s$.data() != nullptr ?"
+                    " std::optional<::rapidproto::ByteView>($s$.view()) : std::nullopt; }\n",
+                    {{"s", storage_id(emit, m)}, {"id", id}});
             } else {
-                p.print("::rapidproto::ByteView $id$() const noexcept { return m_$id$.view(); }\n",
-                        {{"id", id}});
+                p.print("::rapidproto::ByteView $id$() const noexcept { return $s$.view(); }\n",
+                        {{"s", storage_id(emit, m)}, {"id", id}});
             }
             break;
     }
@@ -469,19 +493,21 @@ void emit_storage(const Emit& emit, const MessageLayout& layout) {
     std::vector<std::pair<std::size_t, std::string>> slots;
     for (const MemberPlan& m : layout.members) {
         if (m.size > 0) {
-            slots.emplace_back(m.offset, storage_type(emit, m) + " m_" + member_id(emit, m) + ";");
+            slots.emplace_back(m.offset, storage_type(emit, m) + " " + storage_id(emit, m) + ";");
         }
     }
     for (const OneofPlan& o : layout.oneofs) {
-        slots.emplace_back(o.disc_offset, "std::uint8_t m_rp_" + o.oneof->name + "_case;");
-        slots.emplace_back(o.union_offset,
-                           "rp_" + o.oneof->name + "_union m_rp_" + o.oneof->name + ";");
+        slots.emplace_back(o.disc_offset,
+                           "std::uint8_t " + emit.synth.case_member.at(o.oneof) + ";");
+        slots.emplace_back(o.union_offset, "rp_" + o.oneof->name + "_union " +
+                                               emit.synth.storage.at(o.oneof) + ";");
     }
     if (layout.mask_size > 0) {
+        const std::string& mask = emit.synth.mask.at(layout.fqn);
         const std::string decl =
             layout.mask_size > 8
-                ? "std::uint64_t m_rp_mask[" + std::to_string(layout.mask_size / 8) + "];"
-                : mask_word_type(layout.mask_size) + " m_rp_mask;";
+                ? "std::uint64_t " + mask + "[" + std::to_string(layout.mask_size / 8) + "];"
+                : mask_word_type(layout.mask_size) + " " + mask + ";";
         slots.emplace_back(layout.mask_offset, decl);
     }
     std::stable_sort(slots.begin(), slots.end(),
@@ -624,9 +650,9 @@ void emit_message_body(const Emit& emit, const MessageNode& message) {
         emit_oneof_accessors(emit, o);
     }
     if (layout.unknown_bit >= 0) {  // --unknown-present: a per-message "saw an unknown field" flag
-        p.print(
-            "bool $h$() const noexcept { return $b$ != 0; }\n",
-            {{"h", emit.synth.unknown.at(&message)}, {"b", bit_test(layout, layout.unknown_bit)}});
+        p.print("bool $h$() const noexcept { return $b$ != 0; }\n",
+                {{"h", emit.synth.unknown.at(&message)},
+                 {"b", bit_test(emit.synth.mask.at(layout.fqn), layout, layout.unknown_bit)}});
     }
 
     // decode() materializes the whole tree in `arena`; the private rp_decode_into (the wire loop) fills
@@ -709,6 +735,25 @@ void synth_for_message(const CppNameTable& names, const LayoutSet& layouts,
     if (layout.unknown_bit >= 0) {
         out.unknown[&message] = dedup("has_unknown_fields");
     }
+    // Storage LAST, so the public names above keep the ids they had before storage joined this
+    // scope -- the dedup is then inert for every schema that does not actually collide.
+    for (const MemberPlan& m : layout.members) {
+        if (m.size > 0) {
+            const void* node = m.field != nullptr ? static_cast<const void*>(m.field)
+                                                  : static_cast<const void*>(m.map_field);
+            out.storage[node] = dedup("m_" + names.local.at(node));
+        }
+    }
+    for (const OneofPlan& o : layout.oneofs) {
+        // Off the oneof's deduped id, not its raw proto name: `oneof mask { ... }` would otherwise
+        // derive `m_rp_mask` and collide with the presence mask below.
+        const std::string& oneof_id = names.local.at(o.oneof);
+        out.case_member[o.oneof] = dedup("m_rp_" + oneof_id + "_case");
+        out.storage[o.oneof] = dedup("m_rp_" + oneof_id);
+    }
+    if (layout.mask_size > 0) {
+        out.mask[message.fqn] = dedup("m_rp_mask");
+    }
     for (const MessageNode& n : message.nested_messages) {
         synth_for_message(names, layouts, n, out);
     }
@@ -740,21 +785,22 @@ std::string mask_word_one(const MessageLayout& layout, int bit) {
     const std::string word = multi ? "std::uint64_t" : mask_word_type(layout.mask_size);
     return word + "{1} << " + std::to_string(multi ? bit % kWordBits : bit);
 }
-std::string mask_word_ref(const MessageLayout& layout, int bit) {
-    return layout.mask_size > kWordBytes ? "out.m_rp_mask[" + std::to_string(bit / kWordBits) + "]"
-                                         : "out.m_rp_mask";
+std::string mask_word_ref(const std::string& mask, const MessageLayout& layout, int bit) {
+    return layout.mask_size > kWordBytes
+               ? "out." + mask + "[" + std::to_string(bit / kWordBits) + "]"
+               : "out." + mask;
 }
-std::string set_bit_stmt(const MessageLayout& layout, int bit) {
+std::string set_bit_stmt(const std::string& mask, const MessageLayout& layout, int bit) {
     const std::string word =
         layout.mask_size > kWordBytes ? "std::uint64_t" : mask_word_type(layout.mask_size);
-    const std::string ref = mask_word_ref(layout, bit);
+    const std::string ref = mask_word_ref(mask, layout, bit);
     return ref + " = static_cast<" + word + ">(" + ref + " | (" + mask_word_one(layout, bit) +
            "));";
 }
-std::string clear_bit_stmt(const MessageLayout& layout, int bit) {
+std::string clear_bit_stmt(const std::string& mask, const MessageLayout& layout, int bit) {
     const std::string word =
         layout.mask_size > kWordBytes ? "std::uint64_t" : mask_word_type(layout.mask_size);
-    const std::string ref = mask_word_ref(layout, bit);
+    const std::string ref = mask_word_ref(mask, layout, bit);
     return ref + " = static_cast<" + word + ">(" + ref + " & static_cast<" + word + ">(~(" +
            mask_word_one(layout, bit) + ")));";
 }
@@ -794,7 +840,8 @@ std::string elem_wire_enum(const FieldNode& field) {  // the native wire type of
 void emit_presence_set(const Emit& emit, const MessageLayout& layout, const MemberPlan& m,
                        const std::unordered_map<const FieldNode*, int>& required_bit) {
     if (m.presence_bit >= 0) {
-        emit.printer.print("$s$\n", {{"s", set_bit_stmt(layout, m.presence_bit)}});
+        emit.printer.print(
+            "$s$\n", {{"s", set_bit_stmt(emit.synth.mask.at(layout.fqn), layout, m.presence_bit)}});
     } else if (m.field != nullptr) {
         const auto it = required_bit.find(m.field);
         if (it != required_bit.end()) {
@@ -820,10 +867,10 @@ void emit_message_decode_body(const Emit& emit, const MessageLayout& layout, con
     // concatenation-style) input rather than silently take the last (or a partial merge).
     std::string seen;
     if (m.kind == FieldKind::PointerSubMsg) {
-        seen = "out.m_" + id + " != nullptr";
+        seen = "out." + storage_id(emit, m) + " != nullptr";
     } else if (m.presence_bit >= 0) {
-        seen = "(" + mask_word_ref(layout, m.presence_bit) + " & (" +
-               mask_word_one(layout, m.presence_bit) + ")) != 0";
+        seen = "(" + mask_word_ref(emit.synth.mask.at(layout.fqn), layout, m.presence_bit) +
+               " & (" + mask_word_one(layout, m.presence_bit) + ")) != 0";
     } else {  // a required inline-fixed sub-message (no resting presence bit)
         const int ri = required_bit.at(m.field);
         seen = "(" + req_word_ref(ri, required_bit.size()) + " & (std::uint64_t{1} << " +
@@ -835,16 +882,16 @@ void emit_message_decode_body(const Emit& emit, const MessageLayout& layout, con
     emit_vt_message_read(emit, field, "rp_v");
     if (m.kind == FieldKind::InlineFixedSubMsg) {
         p.print(
-            "if (!::rapidproto::arena_detail::decode_into(out.m_$id$, rp_v, arena, depth + 1, "
+            "if (!::rapidproto::arena_detail::decode_into(out.$s$, rp_v, arena, depth + 1, "
             "err)) { return false; }\n",
-            {{"id", id}});
+            {{"s", storage_id(emit, m)}, {"id", id}});
     } else {
         p.print("$S$* const rp_sub = arena.create<$S$>();\n", {{"S", sub}});
         p.print("if (rp_sub == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }\n");
         p.print(
             "if (!::rapidproto::arena_detail::decode_into(*rp_sub, rp_v, arena, depth + 1, "
             "err)) { return false; }\n");
-        p.print("out.m_$id$ = rp_sub;\n", {{"id", id}});
+        p.print("out.$s$ = rp_sub;\n", {{"s", storage_id(emit, m)}, {"id", id}});
     }
     emit_presence_set(emit, layout, m, required_bit);
 }
@@ -854,7 +901,6 @@ void emit_singular_arm(const Emit& emit, const MessageLayout& layout, const Memb
                        const std::unordered_map<const FieldNode*, int>& required_bit) {
     Printer& p = emit.printer;
     const FieldNode& field = *m.field;
-    const std::string id = emit.names.local.at(&field);
     p.print("case $n$: {\n", {{"n", std::to_string(field.number)}});
     p.indent();
     if (m.kind == FieldKind::InlineScalar && m.is_bool) {
@@ -870,8 +916,8 @@ void emit_singular_arm(const Emit& emit, const MessageLayout& layout, const Memb
             "} rp_c "
             "= rp_np;\n");
         p.print("if (::rapidproto::varint_to_bool(rp_raw)) { $set$ } else { $clr$ }\n",
-                {{"set", set_bit_stmt(layout, m.value_bit)},
-                 {"clr", clear_bit_stmt(layout, m.value_bit)}});
+                {{"set", set_bit_stmt(emit.synth.mask.at(layout.fqn), layout, m.value_bit)},
+                 {"clr", clear_bit_stmt(emit.synth.mask.at(layout.fqn), layout, m.value_bit)}});
         emit_presence_set(emit, layout, m, required_bit);
         p.print("continue;\n");
         p.outdent();
@@ -888,7 +934,7 @@ void emit_singular_arm(const Emit& emit, const MessageLayout& layout, const Memb
         }
         p.print("if (rp_tag.wire_type == ::rapidproto::WireType::$w$) {\n", {{"w", wire}});
         p.indent();
-        emit_vt_value_read(emit, field, "out.m_" + id, "rp_c", "rp_cend",
+        emit_vt_value_read(emit, field, "out." + storage_id(emit, m), "rp_c", "rp_cend",
                            "::rapidproto::wire::byte_ptr(body)");
         emit_presence_set(emit, layout, m, required_bit);
         p.print("continue;\n");
@@ -1092,8 +1138,9 @@ void emit_repeated_arm(const Emit& emit, const FieldNode& field) {
 
 void emit_repeated_finalize(const Emit& emit, const FieldNode& field) {
     const std::string id = emit.names.local.at(&field);
-    emit.printer.print("out.m_$id$ = ::rapidproto::ArrayView<$E$>(rp_acc_$id$, rp_n_$id$);\n",
-                       {{"id", id}, {"E", repeated_elem_type(emit, field)}});
+    emit.printer.print(
+        "out.$s$ = ::rapidproto::ArrayView<$E$>(rp_acc_$id$, rp_n_$id$);\n",
+        {{"s", storage_of(emit, &field)}, {"id", id}, {"E", repeated_elem_type(emit, field)}});
 }
 
 // ── field-modes `raw` (see modes.hpp): store the message field's payload, decode later ──────────
@@ -1126,9 +1173,9 @@ void emit_raw_arm(const Emit& emit, const MessageLayout& layout, const MemberPla
         // "Already present" is the stored view's non-null data -- the same state the accessor
         // reads, mirroring the materialized pointer arm's null check.
         p.print(
-            "if (out.m_$id$.data() != nullptr) {"
+            "if (out.$s$.data() != nullptr) {"
             " ::rapidproto::rp_fail_repeated_singular(err, $n$); return false; }\n",
-            {{"id", id}, {"n", std::to_string(field.number)}});
+            {{"s", storage_id(emit, m)}, {"id", id}, {"n", std::to_string(field.number)}});
     }
     emit_vt_message_read(emit, field, "rp_v");
     if (field.is_repeated) {
@@ -1136,7 +1183,8 @@ void emit_raw_arm(const Emit& emit, const MessageLayout& layout, const MemberPla
         p.print("if (rp_slot == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }\n");
         p.print("*rp_slot = ::rapidproto::ArenaString::make(rp_v, arena);\n");
     } else {
-        p.print("out.m_$id$ = ::rapidproto::ArenaString::make(rp_v, arena);\n", {{"id", id}});
+        p.print("out.$s$ = ::rapidproto::ArenaString::make(rp_v, arena);\n",
+                {{"s", storage_id(emit, m)}, {"id", id}});
     }
     emit_presence_set(emit, layout, m, required_bit);
     p.print("continue;\n");
@@ -1151,9 +1199,9 @@ void emit_raw_finalize(const Emit& emit, const MemberPlan& m) {
     if (m.field->is_repeated) {
         const std::string id = emit.names.local.at(m.field);
         emit.printer.print(
-            "out.m_$id$ = ::rapidproto::ArrayView<::rapidproto::ArenaString>(rp_acc_$id$, "
+            "out.$s$ = ::rapidproto::ArrayView<::rapidproto::ArenaString>(rp_acc_$id$, "
             "rp_n_$id$);\n",
-            {{"id", id}});
+            {{"s", storage_id(emit, m)}, {"id", id}});
     }
 }
 
@@ -1410,9 +1458,9 @@ void emit_map_finalize(const Emit& emit, const MemberPlan& m) {
     const std::string id = emit.names.local.at(m.map_field);
     const std::string et = emit.synth.entry_type.at(m.map_field);
     emit.printer.print(
-        "out.m_$id$ = ::rapidproto::MapView<$ET$>(::rapidproto::ArrayView<$ET$>(rp_acc_$id$,"
+        "out.$s$ = ::rapidproto::MapView<$ET$>(::rapidproto::ArrayView<$ET$>(rp_acc_$id$,"
         " rp_n_$id$));\n",
-        {{"id", id}, {"ET", et}});
+        {{"s", storage_id(emit, m)}, {"id", id}, {"ET", et}});
 }
 
 void emit_oneof_arm(const Emit& emit, const OneofPlan& o, const OneofMemberPlan& member,
@@ -1420,7 +1468,7 @@ void emit_oneof_arm(const Emit& emit, const OneofPlan& o, const OneofMemberPlan&
     Printer& p = emit.printer;
     const FieldNode& field = *member.field;
     const std::string id = emit.names.local.at(&field);
-    const std::string ofield = "out.m_rp_" + o.oneof->name + "." + id;
+    const std::string ofield = "out." + emit.synth.storage.at(o.oneof) + "." + id;
     std::string wire;
     if (member.kind == FieldKind::BorrowString) {
         wire = "Len";
@@ -1457,7 +1505,8 @@ void emit_oneof_arm(const Emit& emit, const OneofPlan& o, const OneofMemberPlan&
         emit_vt_value_read(emit, field, ofield, "rp_c", "rp_cend",
                            "::rapidproto::wire::byte_ptr(body)");
     }
-    p.print("out.m_rp_$o$_case = $i$;\n", {{"o", o.oneof->name}, {"i", std::to_string(index)}});
+    p.print("out.$c$ = $i$;\n",
+            {{"c", emit.synth.case_member.at(o.oneof)}, {"i", std::to_string(index)}});
     p.print("continue;\n");
     p.outdent();
     p.print("}\n");
@@ -1543,8 +1592,8 @@ std::string primary_fast_wire(const MemberPlan& m) {
 void emit_fast_singular_value(const Emit& emit, const MessageLayout& layout, const MemberPlan& m,
                               const std::unordered_map<const FieldNode*, int>& required_bit) {
     Printer& p = emit.printer;
+    assert(m.field != nullptr && "a fast singular member is always a plain field, never a map");
     const FieldNode& field = *m.field;
-    const std::string id = emit.names.local.at(&field);
     if (m.kind == FieldKind::InlineScalar && m.is_bool) {
         p.print("std::uint64_t rp_raw = 0;\n");
         p.print(
@@ -1556,10 +1605,10 @@ void emit_fast_singular_value(const Emit& emit, const MessageLayout& layout, con
             "} rp_c "
             "= rp_np;\n");
         p.print("if (::rapidproto::varint_to_bool(rp_raw)) { $set$ } else { $clr$ }\n",
-                {{"set", set_bit_stmt(layout, m.value_bit)},
-                 {"clr", clear_bit_stmt(layout, m.value_bit)}});
+                {{"set", set_bit_stmt(emit.synth.mask.at(layout.fqn), layout, m.value_bit)},
+                 {"clr", clear_bit_stmt(emit.synth.mask.at(layout.fqn), layout, m.value_bit)}});
     } else {
-        emit_vt_value_read(emit, field, "out.m_" + id, "rp_c", "rp_cend",
+        emit_vt_value_read(emit, field, "out." + storage_id(emit, m), "rp_c", "rp_cend",
                            "::rapidproto::wire::byte_ptr(body)");
     }
     emit_presence_set(emit, layout, m, required_bit);
@@ -1733,7 +1782,8 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
         }
     }
     if (layout.unknown_bit >= 0) {
-        p.print("default: { $s$ break; }\n", {{"s", set_bit_stmt(layout, layout.unknown_bit)}});
+        p.print("default: { $s$ break; }\n",
+                {{"s", set_bit_stmt(emit.synth.mask.at(layout.fqn), layout, layout.unknown_bit)}});
     } else {
         p.print("default: break;\n");
     }

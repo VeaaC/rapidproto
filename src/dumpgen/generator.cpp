@@ -355,7 +355,9 @@ void emit_oneof(Printer& p, const CppNameTable& names, const OneofNode& o,
     // No drop/raw handling here: mode resolution (arenagen/modes.cpp field_entry_error) rejects a
     // field-modes entry naming a oneof member, so a oneof member is always materialized as its
     // declared type -- the plan never drops or rawifies it.
-    p.print("m.$o$([&](auto rp_tag, const auto& rp_v) {\n", {{"o", codegen::sanitize(o.name)}});
+    // The reader is deduped in its class scope (it can collide with the class's own name),
+    // so name it from the shared table rather than re-deriving it from the proto name.
+    p.print("m.$o$([&](auto rp_tag, const auto& rp_v) {\n", {{"o", names.local.at(&o)}});
     p.indent();
     p.print("using RpTag = std::decay_t<decltype(rp_tag)>;\n");
     for (const FieldNode& f : o.fields) {
