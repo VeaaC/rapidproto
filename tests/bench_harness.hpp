@@ -38,6 +38,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <functional>
+#include <string_view>
 #include <vector>
 
 #if defined(__linux__)
@@ -147,11 +148,11 @@ inline void prepare_env() {
 
 // Opportunistic per-process hardware counter (cycles or instructions), if the kernel allows
 // unprivileged self-monitoring. Returns a perf fd, or -1 to fall back / omit.
-inline int open_counter(std::uint64_t config) {
+inline int open_counter(std::uint64_t config, std::uint32_t type = PERF_TYPE_HARDWARE) {
 #if defined(__linux__)
     perf_event_attr attr;
     std::memset(&attr, 0, sizeof attr);
-    attr.type = PERF_TYPE_HARDWARE;
+    attr.type = type;
     attr.size = sizeof attr;
     attr.config = config;
     attr.disabled = 1;
@@ -160,6 +161,50 @@ inline int open_counter(std::uint64_t config) {
     return static_cast<int>(syscall(SYS_perf_event_open, &attr, 0, -1, -1, 0UL));
 #else
     (void)config;
+    (void)type;
+    return -1;
+#endif
+}
+
+// RAPIDPROTO_BENCH_EVENT=<name> adds ONE extra counter, measured over exactly the region the
+// harness already times, and reports it per arm as `xtra/B`.
+//
+// Why per-arm rather than `perf stat`: perf stat counts the whole process -- payload generation,
+// every arm, setup -- so the measured region is a small slice of it and any effect is diluted
+// beyond recognition. Attributing a stall to a specific arm needs the counter scoped to that arm.
+//
+// Names map to the portable PERF_TYPE_HW_CACHE encoding (cache id | op << 8 | result << 16).
+inline int open_named_event(const char* name) {
+#if defined(__linux__)
+    const auto cache = [](std::uint64_t id, std::uint64_t op, std::uint64_t result) {
+        return id | (op << 8) | (result << 16);
+    };
+    const std::string_view n(name);
+    if (n == "l1d-miss") {
+        return open_counter(cache(PERF_COUNT_HW_CACHE_L1D, PERF_COUNT_HW_CACHE_OP_READ,
+                                  PERF_COUNT_HW_CACHE_RESULT_MISS),
+                            PERF_TYPE_HW_CACHE);
+    }
+    if (n == "llc-miss") {
+        return open_counter(cache(PERF_COUNT_HW_CACHE_LL, PERF_COUNT_HW_CACHE_OP_READ,
+                                  PERF_COUNT_HW_CACHE_RESULT_MISS),
+                            PERF_TYPE_HW_CACHE);
+    }
+    if (n == "dtlb-miss") {
+        return open_counter(cache(PERF_COUNT_HW_CACHE_DTLB, PERF_COUNT_HW_CACHE_OP_READ,
+                                  PERF_COUNT_HW_CACHE_RESULT_MISS),
+                            PERF_TYPE_HW_CACHE);
+    }
+    if (n == "branch-miss") {
+        return open_counter(PERF_COUNT_HW_BRANCH_MISSES);
+    }
+    std::fprintf(stderr,
+                 "bench: unknown RAPIDPROTO_BENCH_EVENT '%s' (l1d-miss, llc-miss, "
+                 "dtlb-miss, branch-miss)\n",
+                 name);
+    return -1;
+#else
+    (void)name;
     return -1;
 #endif
 }
@@ -170,13 +215,30 @@ inline int open_counter(std::uint64_t config) {
 struct Counters {
     int cyc = -1;
     int instr = -1;
+    int xtra = -1;  // optional, RAPIDPROTO_BENCH_EVENT
 };
 // Prepared once (function-local static), shared by every run() call in the process.
+//
+// A failure here is silent otherwise: cyc/B and ins/B just read "n/a", and the sampling loop's
+// convergence test falls back from cycles to wall-nanoseconds, so the numbers get quietly worse
+// rather than absent -- and the setting does not survive a reboot, so it comes back silently.
 inline Counters metric_fds() {
     static const Counters c = [] {
         prepare_env();
-        return Counters{open_counter(PERF_COUNT_HW_CPU_CYCLES),
-                        open_counter(PERF_COUNT_HW_INSTRUCTIONS)};
+        const char* extra = std::getenv("RAPIDPROTO_BENCH_EVENT");
+        const Counters got{open_counter(PERF_COUNT_HW_CPU_CYCLES),
+                           open_counter(PERF_COUNT_HW_INSTRUCTIONS),
+                           extra ? open_named_event(extra) : -1};
+#if defined(__linux__)
+        if (got.cyc < 0 || got.instr < 0) {
+            std::fprintf(stderr,
+                         "\n*** bench: hardware counters unavailable -- cyc/B and ins/B will be "
+                         "n/a,\n***       and convergence falls back to wall-clock time.\n"
+                         "***       Fix (not persistent across reboot):\n"
+                         "***         sudo sysctl -w kernel.perf_event_paranoid=2\n\n");
+        }
+#endif
+        return got;
     }();
     return c;
 }
@@ -188,23 +250,36 @@ inline bool json_mode() {
     return on;
 }
 
+// RAPIDPROTO_BENCH_ONLY=<substring> runs only the scenarios whose name contains it. A full suite is
+// 30-60s per bench, and a five-repeat snapshot of both is minutes, which makes investigating ONE
+// scenario over many repetitions impractical. Unset (the default) runs everything.
+inline bool scenario_selected(const char* scenario) {
+    static const char* only = std::getenv("RAPIDPROTO_BENCH_ONLY");
+    return only == nullptr || *only == '\0' ||
+           std::string_view(scenario).find(only) != std::string_view::npos;
+}
+
 struct Cost {
     double ns;
     double cyc;    // -1 when no perf counter
     double instr;  // -1 when no instructions counter
+    double xtra;   // -1 unless RAPIDPROTO_BENCH_EVENT selected one
 };
 inline Cost sample(Counters cnt, const Work& f, std::uint64_t& out) {
 #if defined(__linux__)
     if (cnt.cyc >= 0) {
         ioctl(cnt.cyc, PERF_EVENT_IOC_RESET, 0);
         ioctl(cnt.instr, PERF_EVENT_IOC_RESET, 0);  // ioctl on -1 is a harmless no-op (EBADF)
+        ioctl(cnt.xtra, PERF_EVENT_IOC_RESET, 0);
         ioctl(cnt.cyc, PERF_EVENT_IOC_ENABLE, 0);
         ioctl(cnt.instr, PERF_EVENT_IOC_ENABLE, 0);
+        ioctl(cnt.xtra, PERF_EVENT_IOC_ENABLE, 0);
         const auto t0 = Clock::now();
         out = f();
         const double ns = ns_since(t0);
         ioctl(cnt.cyc, PERF_EVENT_IOC_DISABLE, 0);
         ioctl(cnt.instr, PERF_EVENT_IOC_DISABLE, 0);
+        ioctl(cnt.xtra, PERF_EVENT_IOC_DISABLE, 0);
         long long c = 0;
         if (read(cnt.cyc, &c, sizeof c) != static_cast<ssize_t>(sizeof c)) {
             c = 0;
@@ -214,13 +289,17 @@ inline Cost sample(Counters cnt, const Work& f, std::uint64_t& out) {
             read(cnt.instr, &ins, sizeof ins) != static_cast<ssize_t>(sizeof ins)) {
             ins = -1;
         }
-        return {ns, static_cast<double>(c), static_cast<double>(ins)};
+        long long xt = 0;
+        if (cnt.xtra < 0 || read(cnt.xtra, &xt, sizeof xt) != static_cast<ssize_t>(sizeof xt)) {
+            xt = -1;
+        }
+        return {ns, static_cast<double>(c), static_cast<double>(ins), static_cast<double>(xt)};
     }
 #endif
     (void)cnt;
     const auto t0 = Clock::now();
     out = f();
-    return {ns_since(t0), -1.0, -1.0};
+    return {ns_since(t0), -1.0, -1.0, -1.0};
 }
 
 struct Stat {
@@ -248,6 +327,9 @@ inline Stat stat(std::vector<double> v) {
 // other arm is reported as an absolute rate AND as a drift-invariant cost ratio to the baseline with
 // a significance verdict. Returns the count of arms whose checksum disagreed with arm 0.
 inline int run(const char* scenario, double byte_size, const std::vector<Arm>& arms) {
+    if (!scenario_selected(scenario)) {
+        return 0;
+    }
     const std::size_t n = arms.size();
     const Counters cnt = metric_fds();
     const bool cyc = cnt.cyc >= 0;
@@ -265,7 +347,7 @@ inline int run(const char* scenario, double byte_size, const std::vector<Arm>& a
         return std::fabs(sr.mean - 1.0) > 3.0 * sr.ci_half || sr.ci_half / sr.mean < kNullTol;
     };
 
-    std::vector<std::vector<double>> ns_s(n), cyc_s(n), instr_s(n), ratio(n);
+    std::vector<std::vector<double>> ns_s(n), cyc_s(n), instr_s(n), xtra_s(n), ratio(n);
     std::vector<std::uint64_t> sums(n, 0);
 
     std::uint64_t junk = 0;
@@ -290,6 +372,9 @@ inline int run(const char* scenario, double byte_size, const std::vector<Arm>& a
             }
             if (ins) {
                 instr_s[k].push_back(cost.instr);
+            }
+            if (cost.xtra >= 0) {
+                xtra_s[k].push_back(cost.xtra);
             }
             prim[k] = cyc ? cost.cyc : cost.ns;
         }
@@ -318,6 +403,7 @@ inline int run(const char* scenario, double byte_size, const std::vector<Arm>& a
         const double gb_s = byte_size / sns.median;
         const double cyc_b = cyc ? stat(cyc_s[k]).median / byte_size : -1.0;
         const double ins_b = ins ? stat(instr_s[k]).median / byte_size : -1.0;
+        const double xtra_b = xtra_s[k].empty() ? -1.0 : stat(xtra_s[k]).median / byte_size;
         // For arm 0 (baseline) there is no ratio; for k>0, `vs_base` is the throughput gain over it.
         double vs_base = 0.0;
         double band = 0.0;
@@ -347,19 +433,31 @@ inline int run(const char* scenario, double byte_size, const std::vector<Arm>& a
             } else {
                 std::printf(R"("ins_b":null,)");
             }
+            if (xtra_b >= 0) {
+                std::printf(R"("xtra_b":%.6f,)", xtra_b);
+            }
             std::printf(R"("vs_base_pct":%.3f,"ci_pct":%.3f,"verdict":"%s","ok":%s})"
                         "\n",
                         vs_base, band, verdict, ok ? "true" : "false");
             continue;
         }
-        char rate[72];
-        if (cyc && ins) {
-            std::snprintf(rate, sizeof rate, "%6.3f GB/s %5.2f cyc/B %6.1f ins/B", gb_s, cyc_b,
-                          ins_b);
-        } else if (cyc) {
-            std::snprintf(rate, sizeof rate, "%6.3f GB/s %5.2f cyc/B", gb_s, cyc_b);
-        } else {
-            std::snprintf(rate, sizeof rate, "%6.3f GB/s", gb_s);
+        char rate[112];
+        std::size_t at = 0;
+        // snprintf returns the length it WOULD have written, so advancing by it unclamped can run
+        // past the buffer and hand the next call a wrapped size_t. Clamp after every write.
+        const auto advance = [&](int written) {
+            const std::size_t n = written < 0 ? 0U : static_cast<std::size_t>(written);
+            at = at + n < sizeof rate ? at + n : sizeof rate - 1;
+        };
+        advance(std::snprintf(rate + at, sizeof rate - at, "%6.3f GB/s", gb_s));
+        if (cyc) {
+            advance(std::snprintf(rate + at, sizeof rate - at, " %5.2f cyc/B", cyc_b));
+        }
+        if (ins) {
+            advance(std::snprintf(rate + at, sizeof rate - at, " %6.1f ins/B", ins_b));
+        }
+        if (xtra_b >= 0) {  // RAPIDPROTO_BENCH_EVENT; absent unless one was requested
+            advance(std::snprintf(rate + at, sizeof rate - at, " %9.2e xtra/B", xtra_b));
         }
         char cmp[80];
         if (k == 0) {

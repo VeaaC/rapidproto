@@ -5,9 +5,11 @@ reads protobuf wire bytes into your program. One CLI, `rapidprotoc`, runs a shar
 two complementary decode **models**:
 
 - **Streaming** (the `streamgen` emitter). A message's `decode()` walks the wire once and hands each
-  field to a callback. Nothing is materialized, and it's allocation-free. Types live at `pkg::stream::Msg`.
+  field to a callback. Nothing is materialized, and it's allocation-free. Types live at
+  `pkg::stream::Msg`.
 - **Arena** (the `arenagen` emitter). `decode()` builds a fully-allocated, read-only object tree in a
-  bump arena, navigated by accessor. It's built to beat `protoc` + `google::protobuf::Arena` on decode
+  bump arena, navigated by accessor. It's built to beat `protoc` + `google::protobuf::Arena` on
+  decode
   time and memory. Types live at `pkg::Msg`.
 
 A third, optional emitter — the **debug dumper** (`dumpgen`, gated on `--dump`) — rides on the arena
@@ -63,10 +65,12 @@ Naming is kept consistent across the code and docs:
   on every generated type is `decode(...)`, never "parse" or "read".
 - **model.** One of the two decode strategies emitted from a schema: **arena** or **streaming**.
 - **emitter.** The library that generates a model's code: `streamgen` (→ the streaming model) and
-  `arenagen` (→ the arena model), plus **`dumpgen`** (→ the arena debug dumper). All are driven by the
+  `arenagen` (→ the arena model), plus **`dumpgen`** (→ the arena debug dumper). All are driven by
+  the
   single CLI, **`rapidprotoc`**.
 - **debug dumper.** The `dumpgen` emitter's output (`<stem>.rp.dump.hpp`): per arena message, free
-  functions that print the decoded tree as JSON-*like* text for human inspection. A debugging aid, not a
+  functions that print the decoded tree as JSON-*like* text for human inspection. A debugging aid,
+  not a
   serializer or a spec JSON codec.
 - **decoder.** The generated type a user calls (`pkg::Msg` arena, `pkg::stream::Msg` streaming).
   "Parser" is reserved for the schema front-end.
@@ -79,29 +83,34 @@ Naming is kept consistent across the code and docs:
 
 ```
 include/rapidproto/   public headers: range, result, source_id, source, combinators, lexer, ast,
-                      parser, resolver, resolve, features, interpret, wellknown, runtime (wire reader +
-                      streaming dispatch), arena_runtime; codegen/ (printer, naming, wire, the shared
-                      codegen layer, incl. emit.hpp); streamgen/ + arenagen/ (the two emitters; arenagen also has the
-                      layout planner); dumpgen/ (the debug dumper emitter) + dump_runtime.hpp (its runtime);
+  parser, resolver, resolve, features, interpret, wellknown, runtime (wire reader +
+  streaming dispatch), arena_runtime; codegen/ (printer, naming, wire, the shared
+  codegen layer, incl. emit.hpp); streamgen/ + arenagen/ (the two emitters; arenagen also has the
+  layout planner); dumpgen/ (the debug dumper emitter) + dump_runtime.hpp (its runtime);
                       cli/driver.hpp (shared CLI driver)
 src/                  implementations + main.cpp (schema-inspection CLI) + wellknown_generated.cpp
-                      (generated); codegen/; streamgen/; arenagen/; dumpgen/; rapidprotoc/main.cpp (the CLI)
+  (generated); codegen/; streamgen/; arenagen/; dumpgen/; rapidprotoc/main.cpp (the CLI)
 cmake/                embed_runtime.cmake (build-time: embeds each emitter's runtime header into the CLI)
 wellknown/            vendored WKT .proto sources + embed_wellknown.py
 tests/                Catch2 unit tests + the golden harnesses (AST, wire, streamgen, arenagen, arena
-                      layout) + corpus/ + benchmarks; regen_goldens.sh; the compile-fail + stress harnesses
+  layout) + corpus/ + benchmarks; regen_goldens.sh; the compile-fail + stress harnesses
 CMakeLists.txt · CMakePresets.json · check.sh
 ```
 
 - **Build.** `cmake --preset gcc` (or `clang`) configures a dual-compiler build (gcc-13, clang-20) with
   `-Werror`. Targets: `rapidprotoc` (the CLI), `rapidproto_tests`.
 - **The gate.** `./check.sh` is the one-stop quality bar: clang-format, a docs link check, build + test
-  on both compilers, clang-tidy (strict on the library, relaxed on tests), the compile-fail harnesses
-  (the generated API rejects misuse), and a dispatch-gate stress compile. It **must be green before any commit**.
-  `./check.sh fix` formats first; `./check.sh quick` is gcc-only for the inner loop (not the commit bar).
+  on both compilers, clang-tidy (strict on the library, relaxed on tests), the compile-fail
+  harnesses
+  (the generated API rejects misuse), and a dispatch-gate stress compile. It **must be green
+  before any commit**.
+  `./check.sh fix` formats first; `./check.sh quick` is gcc-only for the inner loop (not the
+  commit bar).
 - **Goldens.** Much of the suite is golden tests (the analyzed AST, the wire structure, each emitter's
-  output, the arena layout plan, all dumped to text and compared byte-for-byte). After an *intentional*
-  change to a generator / dumper, run **`tests/regen_goldens.sh`**, then `./check.sh`, and review the
+  output, the arena layout plan, all dumped to text and compared byte-for-byte). After an
+  *intentional*
+  change to a generator / dumper, run **`tests/regen_goldens.sh`**, then `./check.sh`, and review
+  the
   diff.
 - **Comment wrapping.** `.clang-format` sets `ReflowComments: false`, so wrap long comment lines yourself.
 
@@ -113,15 +122,21 @@ The single governing constraint is **decode-only**, and it has two faces that pu
 directions:
 
 - **Trust the schema (front-end).** A `.proto` is assumed to have already passed `protoc`. The front-end
-  does **no** semantic validation (no duplicate-number, range, enum-zero, or FQN-uniqueness checks) and
-  trusts numeric literals to be in range. That keeps a clean seam for a future `validate(FileSet)` pass
+  does **no** semantic validation (no duplicate-number, range, enum-zero, or FQN-uniqueness
+  checks) and
+  trusts numeric literals to be in range. That keeps a clean seam for a future `validate(FileSet)`
+  pass
   and lets numeric interpretation be infallible. There is **no `descriptor.proto` dependency**.
 - **Distrust the wire (decoders).** Serialized message bytes are **untrusted**, so the wire reader is
-  **fully validating**: every varint overflow, truncation, length overrun, reserved wire type, and group
-  mismatch is detected, and adversarial nesting is depth-capped. Malformed input fails cleanly and never
-  causes UB. But *valid* wire is decoded even when non-canonical: the encoding spec is silent on varint
+  **fully validating**: every varint overflow, truncation, length overrun, reserved wire type, and
+  group
+  mismatch is detected, and adversarial nesting is depth-capped. Malformed input fails cleanly and
+  never
+  causes UB. But *valid* wire is decoded even when non-canonical: the encoding spec is silent on
+  varint
   minimality, so a non-minimally-encoded (over-long) tag or value is accepted and decoded like its
-  canonical form (only truncation / >10-byte overflow / reserved wire type are rejected). Field *values*
+  canonical form (only truncation / >10-byte overflow / reserved wire type are rejected). Field
+  *values*
   are still not range-checked (that's the schema's job, which it trusts).
 
 The full list of intentional non-goals and known limitations is in [Known limitations and
@@ -129,13 +144,18 @@ non-goals](#known-limitations-and-non-goals) (Part II). The load-bearing **invar
 must not break:
 
 - **SymbolTable pointer stability.** The table's `extensions` (`const FieldNode*`) and `messages`/`enums`
-  node index point into the node vectors inside `file_set`. `resolve_types` builds them; the only later
-  pass (`interpret_options`) mutates fields in place and never reallocates a node-holding vector, so the
-  pointers stay valid for `file_set`'s lifetime (which must outlive the table). They also survive *moving*
-  the `file_set` (a `std::vector` move transfers its buffer, preserving element addresses), which is what
+  node index point into the node vectors inside `file_set`. `resolve_types` builds them; the only
+  later
+  pass (`interpret_options`) mutates fields in place and never reallocates a node-holding vector,
+  so the
+  pointers stay valid for `file_set`'s lifetime (which must outlive the table). They also survive
+  *moving*
+  the `file_set` (a `std::vector` move transfers its buffer, preserving element addresses), which
+  is what
   lets the CLI return the analyzed set and its table together by value.
 - **Arena trivial-destructibility.** Every object an arena decoder places in the `Arena` is trivially
-  destructible (`ArenaString`'s big buffer is itself arena-owned), so no destructor ever runs. That makes
+  destructible (`ArenaString`'s big buffer is itself arena-owned), so no destructor ever runs.
+  That makes
   `reset()` a pointer rewind and dropping the arena a single bulk free. The generated headers
   `static_assert` it per message.
 - **AST value semantics.** The recursive `OptionValue` is fully self-owning; copies are independent and
@@ -151,11 +171,13 @@ The codebase is a shared front-end + wire reader, two emitters built on a shared
 coexistence glue. Each has a reference section in Part II:
 
 - **Front-end** (`lexer` → `parser` → `resolver` → semantic passes → `SymbolTable`). Turns `.proto` text
-  into a normalized, fully-resolved AST that captures everything decode-relevant and nothing else. It's
+  into a normalized, fully-resolved AST that captures everything decode-relevant and nothing else.
+  It's
   built as **parser combinators** returning `Result<T>`; if that idiom is unfamiliar, skim the
   [Foundations](#foundations) primer before the front-end code. See [Front-end](#front-end).
 - **Wire reader** (`runtime.hpp`). A type-agnostic, fully-validating pull reader of the binary wire
-  format, with no AST dependency; the hot path both models build on. See [Wire reader](#wire-reader).
+  format, with no AST dependency; the hot path both models build on. See [Wire
+  reader](#wire-reader).
 - **Streaming emitter** (`src/streamgen/`). Emits callback decoders (`.rp.stream.hpp`) with compile-time
   dispatch and zero runtime overhead. See [Streaming emitter](#streaming-emitter).
 - **Arena emitter** (`src/arenagen/`). Emits materializing decoders (`.rp.hpp`); a layout planner packs
@@ -183,11 +205,14 @@ return `Result<T>` and stop at the first error.
 ### Foundations
 
 - **`range.hpp` (`Range<T>`).** A non-owning `(pointer, length)` view, used as parser input (`Range<char>`
-  for the lexer, `Range<Token>` for the parser). Constructible from a `string_view` temporary but not from
+  for the lexer, `Range<Token>` for the parser). Constructible from a `string_view` temporary but
+  not from
   an owning rvalue (a deleted overload prevents dangling).
 - **`result.hpp` (`Result<T>`, `Error`, `RP_TRY`).** The success-or-error return type of every front-end
-  step. `Error` carries `{ SourceId source, byte_offset, message, fatal }`; `fatal` marks a committed
-  error that backtracking combinators propagate instead of swallowing (set by `cut`). `RP_TRY(target,
+  step. `Error` carries `{ SourceId source, byte_offset, message, fatal }`; `fatal` marks a
+  committed
+  error that backtracking combinators propagate instead of swallowing (set by `cut`).
+  `RP_TRY(target,
   expr)` unwraps or returns the error.
 - **`source_id.hpp` (`SourceId`).** A lightweight source-buffer handle; the registry that maps it to a
   filename/text lives in `source.hpp` (used for `file:line:col` rendering).
@@ -239,7 +264,8 @@ the declarations don't show:
 
 - **Fields carry their resolution outputs in place.** A `FieldNode` holds both what the parser saw
   (`type_name` as written) and what the semantic passes later computed (`presence`,
-  `repeated_encoding`, `resolved_type_fqn` / `is_message_type` / `is_enum_type`); there is no separate
+  `repeated_encoding`, `resolved_type_fqn` / `is_message_type` / `is_enum_type`); there is no
+  separate
   "resolved AST" type.
 - **`FileNode` has no services field** — `service`/`rpc` are parsed past and dropped.
 - **Maps are first-class** (`MapFieldNode`; keys are always scalar). The map entry message is
@@ -248,7 +274,8 @@ the declarations don't show:
   `kMaxMessageFieldNumber = 536870911` (2²⁹−1) for message/extension ranges,
   `kMaxEnumNumber = INT32_MAX` for enum ranges.
 - **Option value tree:** `OptionValue` is a variant over scalars, `Identifier`, `string`, and
-  `MessageLiteral`/`ListLiteral`, which hold `vector<OptionValue>` — recursion with value semantics via
+  `MessageLiteral`/`ListLiteral`, which hold `vector<OptionValue>` — recursion with value
+  semantics via
   `std::vector`'s incomplete-type support, no heap indirection, fully self-owning copies.
 
 ### Parser (`parser.hpp`, `src/parser.cpp`)
@@ -259,10 +286,12 @@ message-literal/list ↔ field, nested message/group/extend bodies). `parse_file
 `ParseContext` threads the syntax level (defaulting to proto2 when no `syntax`/`edition` is declared).
 
 - **Numeric interpretation is infallible** (trust-protoc). `make_int`/`make_float` never fail: a
-  non-negative integer → `uint64`, a negative one fitting `int64` → `int64`, beyond 64-bit → `double`;
+  non-negative integer → `uint64`, a negative one fitting `int64` → `int64`, beyond 64-bit →
+  `double`;
   float over/underflow saturates to ±inf or 0. `inf`/`nan` are stored as `double`.
 - **Groups** synthesize a nested `MessageNode` (name as written) plus a `FieldNode` with `is_group =
-  true`, a lowercased name, and `MessageEncoding::Delimited`. Groups in an `extend` hoist to the enclosing
+  true`, a lowercased name, and `MessageEncoding::Delimited`. Groups in an `extend` hoist to the
+  enclosing
   scope.
 - **Maps** become first-class `MapFieldNode`s (codegen synthesizes the entry message later).
 - **`service`/`rpc`** are consumed via balanced-brace skipping and dropped.
@@ -280,10 +309,12 @@ together.
 - **Cycle detection** uses white/gray/black tri-coloring (gray = on the DFS stack); a back-edge to gray is
   reported with the full cycle path. Post-order collection gives topological order.
 - **Path canonicalization** (`canonical_import_path`, via `lexically_normal`) folds different spellings of
-  one file together; the entry is keyed by its include-relative name so a file importing it back resolves
+  one file together; the entry is keyed by its include-relative name so a file importing it back
+  resolves
   to the same node.
 - **Import lookup** searches `config.include_paths` in order (first match wins), then falls back to the
-  embedded well-known types unless `config.use_wellknown` is false. Lex/parse errors are tagged with the
+  embedded well-known types unless `config.use_wellknown` is false. Lex/parse errors are tagged
+  with the
   originating filename.
 
 ### Semantic passes (`resolve.cpp`, `features.cpp`, `interpret.cpp`)
@@ -292,22 +323,30 @@ together.
 
 1. **Feature resolution** (`resolve_features`): a no-op for proto2/proto3. For editions it resolves the
    decode-relevant FeatureSet at each scope and writes results into `presence` / `openness` /
-   `message_encoding` / `repeated_encoding`. The inheritance chain is edition-defaults → file → message →
+  `message_encoding` / `repeated_encoding`. The inheritance chain is edition-defaults → file →
+  message →
    oneof → field/enum, accepting both dotted (`features.field_presence = X`) and aggregate forms.
    `utf8_validation` is read but not persisted; `json_format` is ignored.
 2. **FQN computation** (`compute_fqns`): assigns the absolute FQN (leading `.`) of every message, enum,
    enum value, and extension field. Enum **values are sibling-scoped** (`.pkg.VALUE`, by the enum's
-   enclosing scope, not the enum). Extension fields are qualified by their **declaration** scope, not the
+  enclosing scope, not the enum). Extension fields are qualified by their **declaration** scope,
+  not the
    extendee.
 3. **Type resolution** (`resolve_types`): resolves every type reference to its FQN and kind, writing
-   `resolved_type_fqn` / `is_message_type` / `is_enum_type`, and builds the `SymbolTable`. It applies the
-   post-resolution fixup the parser couldn't (a message-typed `Implicit` field → `Explicit`; a repeated
-   message/enum field → `Expanded`). Lookup is progressive innermost-out scope-prefix search; a leading
-   dot is absolute. Visibility is self + direct imports + the transitive **public**-import closure (weak
+  `resolved_type_fqn` / `is_message_type` / `is_enum_type`, and builds the `SymbolTable`. It
+  applies the
+  post-resolution fixup the parser couldn't (a message-typed `Implicit` field → `Explicit`; a
+  repeated
+  message/enum field → `Expanded`). Lookup is progressive innermost-out scope-prefix search; a
+  leading
+  dot is absolute. Visibility is self + direct imports + the transitive **public**-import closure
+  (weak
    visible; option imports excluded). Unresolved or not-visible → error.
 4. **Option interpretation** (`interpret_options`): lifts the hardcoded decode-relevant options into
-   typed fields: `[packed]` → `repeated_encoding` (gated on repeated non-message, non-enum so it never
-   clobbers the type-resolution fixup), proto2 `[default]` → `default_value`. `option message_set_wire_
+  typed fields: `[packed]` → `repeated_encoding` (gated on repeated non-message, non-enum so it
+  never
+  clobbers the type-resolution fixup), proto2 `[default]` → `default_value`. `option
+  message_set_wire_
    format = true;` is rejected. All options remain in the raw `options` vectors.
 
 The `SymbolTable` holds `symbols` (FQN → `Message`/`Enum`), `extensions` ((extendee FQN, number) → `const
@@ -380,28 +419,35 @@ DecodeStatus s = foo.decode(                       // one pass over the wire, in
 Key properties:
 
 - **Field-identity tags.** Each field gets a distinct empty tag type `Foo::fieldname` carrying `using
-  Value` (+ `using Key` for maps), `kNumber`, and `kName` (the original proto name, even when the C++
-  identifier was de-duplicated). Identity is tied to the field **name**, so referencing a removed/renamed
+  Value` (+ `using Key` for maps), `kNumber`, and `kName` (the original proto name, even when the
+  C++
+  identifier was de-duplicated). Identity is tied to the field **name**, so referencing a
+  removed/renamed
   field is a compile error.
 - **One pass, wire order.** `decode()` reads each record once and dispatches to the matching callback;
   repeated/packed fire per element, maps per entry, unmatched/unknown are skipped. No aggregation,
   defaulting, or merging; wire data is forwarded 1:1.
 - **Subset + catch-all.** Only fields you pass a callback for are delivered (rest skipped O(1)); a generic
   `[](auto, auto){}` catch-all matches every *known* field you didn't name. A one-arg
-  `[](UnknownField){}` receives fields *not in the schema* (forward compat); the catch-all does not see
-  those. A field with no callback is skipped through a dedicated compile-time-wire skip keyed off its
+  `[](UnknownField){}` receives fields *not in the schema* (forward compat); the catch-all does
+  not see
+  those. A field with no callback is skipped through a dedicated compile-time-wire skip keyed off
+  its
   wire type, so a sparse-extract consumer (handling a few of many fields) pays almost nothing on the
   skipped majority.
 - **Exact-match, hard-to-misuse dispatch.** A callback claims a field only when its value type is *exactly*
   the field's `Value`; a wrong-but-convertible type or a duplicate is a **compile error**. The whole
-  dispatch is compile-time: a hub `switch` (over the whole 1-byte tag for the common fields 1–15, else the
+  dispatch is compile-time: a hub `switch` (over the whole 1-byte tag for the common fields 1–15,
+  else the
   field number) enters a **field-order-threaded** label chain, an `if constexpr` filter, and
-  `static_assert`s that evaporate. There is no allocation, no `std::function`, and no virtual calls. See
+  `static_assert`s that evaporate. There is no allocation, no `std::function`, and no virtual
+  calls. See
   [Field-order threading](#field-order-threading) for the loop shape both models share.
 - **Open enums.** `enum class : std::int32_t` with `INT32_MIN`/`INT32_MAX` sentinels, forcing a `default:`
   in any consumer `switch`.
 - **`decode()` is out-of-line.** The templated definition follows all struct shells, so a message-typed
-  field (including forward and mutually-cyclic references) is a complete type where its decode compiles.
+  field (including forward and mutually-cyclic references) is a complete type where its decode
+  compiles.
 
 **Status.** `decode()` returns a lean `DecodeStatus` (a `WireError` + offset, or an `aborted` flag; no
 allocation). A callback may return `void` (continue) or `DecodeStatus` (non-ok aborts the walk).
@@ -434,8 +480,10 @@ before any C++ is emitted. Given a `MessageNode` + the FQN → node index, it co
 - **InlineScalar / InlineEnum:** a fixed-width value inline; an optional one gets a presence bit.
 - **BorrowString:** a 12-byte `ArenaString` — a borrowed `{ptr, len}` view into the input (no copy, no SSO).
 - **InlineFixedSubMsg vs PointerSubMsg:** a *fixed-size* sub-message (recursively all-scalar; no
-  strings/repeated/maps; not self-referential) is **inlined by value** when ≤ 16 bytes, else stored behind
-  an arena pointer. The fixed-size analysis is recursive and cycle-aware (a self-reachable type is never
+  strings/repeated/maps; not self-referential) is **inlined by value** when ≤ 16 bytes, else
+  stored behind
+  an arena pointer. The fixed-size analysis is recursive and cycle-aware (a self-reachable type is
+  never
   fixed-size → pointer, which also terminates it).
 - **BoolWrapperBits:** a single-`bool`-field message collapses to a presence bit + a value bit (the
   accessor still returns the wrapper type).
@@ -468,8 +516,10 @@ functions, each threaded with an `Emit` bundle — references to the `Printer`, 
 `LayoutSet`, a per-message `SynthNames`, and the `SymbolTable`. Two facts orient a first read:
 
 - **Two-layer naming.** The shared `CppNameTable` names and de-collides the schema's *own* identifiers;
-  a per-message **`SynthNames`** pass names the identifiers arenagen *invents* (the `<Oneof>` visit-tag
-  struct and the `<Map>Entry` type), which `CppNameTable` cannot dedup because they don't exist until the
+  a per-message **`SynthNames`** pass names the identifiers arenagen *invents* (the `<Oneof>`
+  visit-tag
+  struct and the `<Map>Entry` type), which `CppNameTable` cannot dedup because they don't exist
+  until the
   emitter conjures them (so a user nested type literally named `FooEntry` still can't collide).
 - **Shells first, then decode bodies.** All struct shells are emitted before any out-of-line
   **`rp_decode_into`** body (for the complete-type reason given above). Each body is assembled from
@@ -482,22 +532,27 @@ A header-only, std-only support library the generated decoders depend on (vendor
 `runtime.hpp`, which it builds on):
 
 - **`Arena`:** a growable, single-threaded **bump allocator**. RAII-owned chunks (an inline head chunk +
-  a vector of heap chunks), so a small message that fits the head, or a caller-seeded buffer, needs zero
+  a vector of heap chunks), so a small message that fits the head, or a caller-seeded buffer,
+  needs zero
   heap allocation. `reset()` rewinds for reuse without freeing; `bytes_used()` / `bytes_reserved()`
   expose the footprint. Chunk growth is geometric, **capped at 96 KiB** (`kMaxChunk`) — the dominant
-  held-memory lever; the full rationale is the comment on the constant, and the measurements behind it
+  held-memory lever; the full rationale is the comment on the constant, and the measurements
+  behind it
   are under [Tuning](#tuning-benchmark-driven-knobs).
 - **`ArenaString`:** a 12-byte borrowed `{ptr, len}` view into the input (32-bit `len`; no copy, no SSO),
-  so strings/bytes are zero-copy and the tree borrows the input. Trivially copyable/destructible. A value
+  so strings/bytes are zero-copy and the tree borrows the input. Trivially copyable/destructible.
+  A value
   ≥ 4 GiB can't be represented, but the top-level guard rejects an over-`UINT32_MAX` input first
   (`InputTooLarge`), so no string span within a valid input can overflow the length.
 - **`ArrayView<T>` / `StringArrayView` / `MapView<Entry>`:** the read-only views the accessors return.
-  `StringArrayView` adapts a repeated `ArenaString` array to `std::string_view` elements; the map view
+  `StringArrayView` adapts a repeated `ArenaString` array to `std::string_view` elements; the map
+  view
   does a last-wins linear `find` (protobuf map semantics).
 - **`ArenaDecodeError`:** the failure detail (`Wire` / `OutOfMemory` / `RecursionTooDeep` /
   `MissingRequired` / `RepeatedSingularMessage` / `InputTooLarge`; `StringTooLong` is reserved and
   never produced — strings borrow the input rather than being copied, and an over-4 GiB input is
-  rejected up front as `InputTooLarge`), plus the depth guard (`kMaxDecodeDepth`, 100) decoders honor
+  rejected up front as `InputTooLarge`), plus the depth guard (`kMaxDecodeDepth`, 100) decoders
+  honor
   on untrusted nesting.
 
 ### Decode emission
@@ -519,11 +574,14 @@ These knobs were tuned against `tests/bench_arena.cpp` (see [Decoder performance
 and locked at their chosen values; each is a single constant with a rationale comment:
 
 - **Repeated strategy: single-pass growable.** A two-pass *exact-size* variant (pre-count, then fill) cut
-  memory hard (≈ 0.35× protoc) but cost ≈ +65 % time, because the pre-count is a second wire traversal
+  memory hard (≈ 0.35× protoc) but cost ≈ +65 % time, because the pre-count is a second wire
+  traversal
   (memory-bandwidth-bound, not removable). Speed was prioritized; the single-pass growable array
-  (geometric realloc-and-copy) is kept. Its realloc waste is what the chunk cap and layout tuning bound.
+  (geometric realloc-and-copy) is kept. Its realloc waste is what the chunk cap and layout tuning
+  bound.
 - **Arena chunk cap = 96 KiB.** Validated across three payload shapes (mixed records, many small arrays, a
-  few big arrays) up to 32 MB: held/used stays ≈ 1.0–1.2× vs ≈ 1.4–1.9× uncapped (the dominant held-memory
+  few big arrays) up to 32 MB: held/used stays ≈ 1.0–1.2× vs ≈ 1.4–1.9× uncapped (the dominant
+  held-memory
   lever), while warm decode time is cap-independent.
 - **Inline-sub-message cutoff = 16 bytes.** Measured optimal: with single-pass-growable arrays, inlining
   a sub-message of size S costs ≈ 2S of array memory vs ≈ 16 + S for a pointer, so inlining pays out
@@ -532,80 +590,116 @@ and locked at their chosen values; each is a single constant with a rationale co
   unresolved.** Across two
   Release builds differing only in `-DRP_FLATTEN=` (g++-13, 5 runs each, pinned), the small in-repo
   `Dataset` schema decodes **+28.8% to +39.9%** faster with flatten depending on the build — the
-  direction looked robust (5× the ~8% floor assumed at the time, and moving *against* its direction),
+  direction looked robust (5× the ~8% floor assumed at the time, and moving *against* its
+  direction),
   the magnitude is not. One `compute.proto` `Instance` — a large real schema — reads **−18.4%** with
-  flatten, but the control moved −8.4% the same way in those runs, so an unknown part of that is layout,
+  flatten, but the control moved −8.4% the same way in those runs, so an unknown part of that is
+  layout,
   not flatten. **Suggestive that flatten stops paying, and may cost, on a large closure; not
   established.** What is solid is the build cost: flattened, that decoder's translation unit holds
   **646,334 bytes** of `.text` against **163,864** without it (3.9×), and takes **99 s** to compile
   against **9 s** (11×), at `-O3 -DNDEBUG`.
 
-  **Why this is not measured more precisely: a cross-build A/B cannot resolve it.** The baselines and the
+  **Why this is not measured more precisely: a cross-build A/B cannot resolve it.** The baselines
+  and the
   large-schema arm each live in their own translation unit (`bench_baselines.{hpp,cpp}`,
-  `bench_protoc.cpp`, `bench_arm_compute.{hpp,cpp}`) so that measured variants stop re-timing each other
-  — with them together, an untouched protozero baseline moved 25% because our decoders beside it changed
-  size, and the compute arm moved 21% purely from relocating the protoc arms. Splitting fixed that. But
-  the protozero control still moves **8.4% across two builds whose objects are byte-identical** (verified
+  `bench_protoc.cpp`, `bench_arm_compute.{hpp,cpp}`) so that measured variants stop re-timing each
+  other
+  — with them together, an untouched protozero baseline moved 25% because our decoders beside it
+  changed
+  size, and the compute arm moved 21% purely from relocating the protoc arms. Splitting fixed
+  that. But
+  the protozero control still moves **8.4% across two builds whose objects are byte-identical**
+  (verified
   with `cmp`), because *link-time* layout shifts everything when other objects change size. So
   byte-identical objects are **not** sufficient for a cross-build comparison.
 
-  **Sanity-check the floor before trusting a comparison.** Running the comparison with main against
-  *itself* (`tests/bench.py experiment main main`) — identical source, two builds — is cheap and bounds
-  what the run can resolve. Observed on one machine, that self-comparison failed the 10% gate outright,
-  with a handful of arms moving far more than the 8.4% above and not the same arms between runs. That
-  is a larger spread than earlier work on this bench saw, so treat it as a property of the run rather
-  than an established figure: measure it alongside any comparison you intend to act on, and treat a
-  delta as usable only if it reproduces across independent runs **and** is absent from the
-  self-comparison. Making the harness reliable enough to state a floor is open work.
+  **A cross-build reading also carries machine state, not only placement.** A self-comparison
+  (`tests/bench.py experiment <rev> <rev>` — identical source, two builds) fails the 10% gate on a
+  box
+  that has not been quiesced. Measured on the identical *binary*, the median gated arm moves ~1%,
+  so the
+  damage is concentrated in a handful of arms rather than being a global floor even un-quiesced.
+  Three causes, plus a
+  residual: CPU frequency (`powersave` + turbo), SMT, `kernel.perf_event_paranoid ≥ 3` (which
+  blocks the
+  counters and drops the harness's convergence test back to wall-clock), and — after all of those —
+  shared last-level cache residency, which is what the remaining per-arm spread tracks.
+
+  The design consequence is a three-part discipline: quiesce the box, take several runs per snapshot
+  and keep each arm's median, and gate each arm on the larger of the flat cross-build floor and
+  its own
+  measured spread. The measurements behind it, and the hypotheses tested and rejected, are in
+  [docs/benchmarks.md](docs/benchmarks.md#appendix-measurement-noise).
 
   Under that rule the `Dataset` **+28.8–39.9%** and `compute` **−18.4%** readings above are not
   usable as stated — both are single-run cross-build numbers. The build-cost figures in that bullet
   stand; they are compile time and code size, not timing. Settling the throughput question needs a
   **same-binary** A/B: two
-  copies of one schema generated under different `--namespace-prefix` values into a single translation
+  copies of one schema generated under different `--namespace-prefix` values into a single
+  translation
   unit, one with `RP_FLATTEN` defined and one with it `#undef`'d (the `#ifndef RP_FLATTEN` guard in
   `runtime.hpp` exists for this), measured back to back in one process. No second build, no link
   difference, no floor. Not done yet.
 
 - **Flatten budget = 4 decode arms** (`LayoutOptions::flatten_budget`, applied in `arenagen/layout.cpp`).
-  Forcing `RP_FLATTEN` is itself an optimization over letting the compiler decide, taken because GCC's
-  inliner leaves throughput on the table in a large TU (Clang's does not need the help). This budget is
+  Forcing `RP_FLATTEN` is itself an optimization over letting the compiler decide, taken because
+  GCC's
+  inliner leaves throughput on the table in a large TU (Clang's does not need the help). This
+  budget is
   what keeps that choice affordable: without it, forcing flatten costs so much build time on a large
-  schema that it is not a viable default at all. The planner walks the message graph, accumulates each
-  message's closure cost in decode arms, and emits `RP_NOINLINE` alongside `RP_FLATTEN` where that cost
-  exceeds the budget — stopping a *parent's* flatten there, which bounds every ancestor. A message that
+  schema that it is not a viable default at all. The planner walks the message graph, accumulates
+  each
+  message's closure cost in decode arms, and emits `RP_NOINLINE` alongside `RP_FLATTEN` where that
+  cost
+  exceeds the budget — stopping a *parent's* flatten there, which bounds every ancestor. A message
+  that
   would inline no closure anyway (a leaf, or one whose every target is already marked) is exempt:
-  marking it would bound nothing below it and only cost a call. Cycles are broken by marking the message
+  marking it would bound nothing below it and only cost a call. Cycles are broken by marking the
+  message
   the back edge points at.
 
-  Tuned on **compile cost**, which is the whole point of the bound. Measured over eight googleapis schemas
+  Tuned on **compile cost**, which is the whole point of the bound. Measured over eight googleapis
+  schemas
   spanning 1–288 messages, with every decoder instantiated in one TU
   (`google/{ads/googleads/v21/services/reach_plan_service, cloud/dialogflow/v2/session,
-  cloud/aiplatform/v1/prediction_service, container/v1beta1/cluster_service, rpc/status, type/datetime,
+  cloud/aiplatform/v1/prediction_service, container/v1beta1/cluster_service, rpc/status,
+  type/datetime,
   longrunning/operations, api/httpbody}.proto`, g++-13 `-O3 -DNDEBUG`), total compile time is **185 s**
   at budget 4, **220 s** at 8, **≥329 s** at 32 (one schema still unfinished at a 240 s cap), and
   **>430 s** unbounded (two censored at a 120 s cap, one of which alone needs >280 s). The censored
   totals bound the trend rather than measure it — they were capped at different limits. Alone,
-  `container/v1beta1/cluster_service.proto` (288 messages) does not finish in 280 s unbounded and takes
+  `container/v1beta1/cluster_service.proto` (288 messages) does not finish in 280 s unbounded and
+  takes
   129 s at budget 4.
 
-  4 is simply the cheapest budget measured; lower ones were not measured for compile time. Budgets 1–4
-  emit identical code for `tests/bench/bench.proto` — a fact about a 12-message schema, not a general
+  4 is simply the cheapest budget measured; lower ones were not measured for compile time. Budgets
+  1–4
+  emit identical code for `tests/bench/bench.proto` — a fact about a 12-message schema, not a
+  general
   one: `cluster_service.proto` marks 83 messages at budget 4 and 102 at budget 1.
 
   On throughput, the arms that read lower across the comparison decode leaf messages whose generated
-  code is byte-identical at every budget, so nothing there is attributable to the threshold. Arms that
+  code is byte-identical at every budget, so nothing there is attributable to the threshold. Arms
+  that
   read higher did so across repeated runs. Given the caveats on cross-build comparison above, the
   defensible statement is that no decode regression was found, not a figure.
 
-  **Known gap:** the exemption is on inlining nothing *itself*, not on being small. A message far over
-  budget on its own arms whose every target is already marked stays flattened, so each of its parents
+  **Known gap:** the exemption is on inlining nothing *itself*, not on being small. A message far
+  over
+  budget on its own arms whose every target is already marked stays flattened, so each of its
+  parents
   absorbs its whole body — on a synthetic schema whose parent holds ten such 41-arm children, that
-  parent's decoder is 134 KB of `.text` against 20 KB when the child is marked instead. It is reachable
-  on ordinary schemas: in `descriptor.proto`, `FieldDescriptorProto` is exempt because its only target
-  is already marked, and `DescriptorProto` absorbs it twice — 63 KB against 43 KB with the child marked,
-  for no compile-time saving. Across googleapis the widest exempt over-budget message is 21 arms, so the
-  worst case stays bounded in practice, and a genuine wide leaf has always had the same property. Adding
+  parent's decoder is 134 KB of `.text` against 20 KB when the child is marked instead. It is
+  reachable
+  on ordinary schemas: in `descriptor.proto`, `FieldDescriptorProto` is exempt because its only
+  target
+  is already marked, and `DescriptorProto` absorbs it twice — 63 KB against 43 KB with the child
+  marked,
+  for no compile-time saving. Across googleapis the widest exempt over-budget message is 21 arms,
+  so the
+  worst case stays bounded in practice, and a genuine wide leaf has always had the same property.
+  Adding
   `|| own_arms > budget` to the mark condition would close it, at the cost of marking wide leaves.
 
 ### Decode profiles (`arenagen/modes.{hpp,cpp}`)
@@ -655,45 +749,63 @@ indent, and the skip-paths. It's a **debugging aid**, explicitly not a spec-comp
 not a wire serializer; `--dump` implies `--arena`, since the dumper reads the arena header.
 
 - **Accessors, not reflection.** The dumper walks the arena decoder's **public accessors** — no
-  reflection, no `descriptor.proto` dependency. It reuses the arena's own `CppNameTable` (so accessor
-  and type names match the arena header exactly) and derives arenagen's per-message **`SynthNames`** from
+  reflection, no `descriptor.proto` dependency. It reuses the arena's own `CppNameTable` (so
+  accessor
+  and type names match the arena header exactly) and derives arenagen's per-message
+  **`SynthNames`** from
   the same `LayoutSet` the arena header was planned under — so the oneof visit-tag structs and the
-  `has_unknown_fields()` accessor it references are exactly the identifiers arenagen declared, deduped the
-  same way (a colliding schema can't spell a name the arena header didn't). Its inputs are therefore the
+  `has_unknown_fields()` accessor it references are exactly the identifiers arenagen declared,
+  deduped the
+  same way (a colliding schema can't spell a name the arena header didn't). Its inputs are
+  therefore the
   arena's `CppNameTable`, `LayoutSet`, and the `SymbolTable` (for enum value → name).
 - **What it renders.** Scalars; `string`; `bytes` as lowercase hex; enums by their prefix-stripped name
   (matching the generated `enum class`, `UNKNOWN(<n>)` for an open-enum value outside the schema's
-  declared range); nested sub-messages; repeated fields as arrays; maps as objects; the active member of
-  a oneof. Groups dump through the identical nested-message accessor. Default-valued implicit (proto3
+  declared range); nested sub-messages; repeated fields as arrays; maps as objects; the active
+  member of
+  a oneof. Groups dump through the identical nested-message accessor. Default-valued implicit
+  (proto3
   singular) fields and empty repeated/maps are omitted; explicit-presence fields print when set;
   `required` always prints. A message that reserves the unknown-fields bit prints
   `"has_unknown_fields": true` when set — a bit only, as the arena retains no unknown-field *data*.
 - **Width-adaptive layout.** The runtime `Writer` renders each object/array compact (one line) if it fits
-  a column budget (`width`, default 120), else one entry per line; a group goes multi-line only when it
+  a column budget (`width`, default 120), else one entry per line; a group goes multi-line only
+  when it
   or a descendant doesn't fit, which forces its ancestors multi-line while siblings stay compact. It
-  probes compact-first into a scratch buffer and splices it verbatim when it fits, so cost stays ~linear.
+  probes compact-first into a scratch buffer and splices it verbatim when it fits, so cost stays
+  ~linear.
 - **Column grid for wide arrays.** An `[...]` that fails the compact probe gets one more tier before
-  one-entry-per-line: its entries are re-collected as individual cells (`entry_sep` already marks the
+  one-entry-per-line: its entries are re-collected as individual cells (`entry_sep` already marks
+  the
   boundaries, so no generated code is involved) and laid out in as many aligned columns as fit,
   row-major so index order still reads left-to-right. Each column is sized to its own widest cell;
   all-numeric arrays right-align so digits line up, everything else left-aligns, and padding is only
   ever written *before* a cell so no line gains trailing whitespace. Objects are excluded — packing
-  `"key": value` cells into columns reads worse than one per line. Collection is capped (cell count and
-  total bytes); a huge array, a multi-line cell, or a width where fewer than two columns fit all fall
+  `"key": value` cells into columns reads worse than one per line. Collection is capped (cell
+  count and
+  total bytes); a huge array, a multi-line cell, or a width where fewer than two columns fit all
+  fall
   back to one entry per line, which is safe because a group's `body` is re-runnable by contract.
 - **Own library, embedded runtime.** `dumpgen` is a first-class emitter library
   (`rapidproto_dumpgen_lib`), a peer of `streamgen`/`arenagen`. Its runtime header
-  `rapidproto/dump_runtime.hpp` (the JSON-string escaper, the hex encoder, and the `Writer`) is embedded
-  into the CLI at build (`cmake/embed_runtime.cmake`, so it can't drift) and dropped into the out-dir
-  beside the arena runtime on a `--dump` invocation, so a generated `<stem>.rp.dump.hpp` resolves its
+  `rapidproto/dump_runtime.hpp` (the JSON-string escaper, the hex encoder, and the `Writer`) is
+  embedded
+  into the CLI at build (`cmake/embed_runtime.cmake`, so it can't drift) and dropped into the
+  out-dir
+  beside the arena runtime on a `--dump` invocation, so a generated `<stem>.rp.dump.hpp` resolves
+  its
   `#include` standalone.
 - **Generated internals stay out of the public namespaces.** Only the two public entry points land in
-  the message's own namespace; the `Writer`-threaded core each one forwards to lives a level down, in
+  the message's own namespace; the `Writer`-threaded core each one forwards to lives a level down,
+  in
   `pkg::rp_dump_detail`, and the generated enum value-name tables go to `rapidproto::dump::detail`
-  rather than the runtime's public `rapidproto::dump` (the `arena_detail` / `swar_detail` convention).
-  Because ADL never looks inside a sub-namespace, every recursive call — including cross-file ones like
+  rather than the runtime's public `rapidproto::dump` (the `arena_detail` / `swar_detail`
+  convention).
+  Because ADL never looks inside a sub-namespace, every recursive call — including cross-file ones
+  like
   `::dep::rp_dump_detail::rp_dump_write` — is emitted **fully qualified** instead of relying on
-  argument-dependent lookup. The callee's namespace is derived from its resolved type FQN by stripping
+  argument-dependent lookup. The callee's namespace is derived from its resolved type FQN by
+  stripping
   trailing components while the remainder is still a known type; what is left is the proto package.
 
 ## Shared emitter infrastructure
@@ -702,18 +814,24 @@ Both emitters work over the same analyzed AST, so they share (rather than duplic
 generator-agnostic pieces (the `codegen/` module; neither emitter depends on the other):
 
 - **`Printer` + the C++ naming layer** (`codegen/{printer,naming}.hpp`): the `$placeholder$` text emitter
-  and `CppNameTable` (proto FQN → C++ name, identifier sanitization, `package a.b → namespace a::b`, the
-  `--namespace-prefix` and `model_namespace` nesting; see [Coexistence design](#coexistence-design)).
+  and `CppNameTable` (proto FQN → C++ name, identifier sanitization, `package a.b → namespace
+  a::b`, the
+  `--namespace-prefix` and `model_namespace` nesting; see [Coexistence
+  design](#coexistence-design)).
 - **The scalar/wire codegen table** (`codegen/wire.hpp`): the `scalar → {wire type, read call, value
-  conversion}` table + packability predicate, which is literal wire-format knowledge, identical for both
-  emitters, naming `::rapidproto::` runtime helpers. (Value-typed concerns, like streamgen's callback type
+  conversion}` table + packability predicate, which is literal wire-format knowledge, identical
+  for both
+  emitters, naming `::rapidproto::` runtime helpers. (Value-typed concerns, like streamgen's
+  callback type
   and arena's storage type, stay each emitter's own.)
 - **The FQN → node type index** in the front-end `SymbolTable`, built during the resolver's type walk, so
   neither emitter re-walks the AST to resolve a referenced type.
 - **The CLI driver** (`cli/driver.hpp`): flag parsing (with a hook for model-specific flags like the arena
-  model's `--unknown-present`), the resolve → analyze step, and header writing, shared by the CLI main.
+  model's `--unknown-present`), the resolve → analyze step, and header writing, shared by the CLI
+  main.
 - **The field-order-threaded loop shape** (`codegen::`): a single shape generator emits the threaded decode
-  loop both models run (see [Field-order threading](#field-order-threading)); each emitter supplies only its
+  loop both models run (see [Field-order threading](#field-order-threading)); each emitter
+  supplies only its
   per-field body (materialize into the node, or fire the callback / skip).
 
 ### Field-order threading
@@ -750,21 +868,31 @@ each invocation.
 unit. Three pieces make that work:
 
 - **Model namespacing.** The arena model is the default and sits where a user expects, `pkg::Msg`; the
-  streaming model nests one level deeper, at `pkg::stream::Msg`. The two `Msg` types are therefore distinct
-  and never clash. This is driven by a `model_namespace` field on the C++ name table (`CppNameTable`) —
-  empty for arena and `"stream"` for streaming, threaded through `build_cpp_names`. Only *messages* nest
-  under it; enums do not (below). The nesting is each model's permanent shape, applied whether one model is
+  streaming model nests one level deeper, at `pkg::stream::Msg`. The two `Msg` types are therefore
+  distinct
+  and never clash. This is driven by a `model_namespace` field on the C++ name table
+  (`CppNameTable`) —
+  empty for arena and `"stream"` for streaming, threaded through `build_cpp_names`. Only
+  *messages* nest
+  under it; enums do not (below). The nesting is each model's permanent shape, applied whether one
+  model is
   generated or both, so adding the second never renames the first.
 - **Shared enums in a common header.** A schema's top-level enums are emitted ONCE into
-  `<stem>.rp.common.hpp` at package scope (`pkg::State`), by `codegen::emit_common_header`. Both decoders
-  `#include` it (re-exported via an IWYU `export` pragma, so a TU that includes only the decoder still
-  "directly provides" the enums). The streaming decoder additionally aliases each enum into its model
-  namespace (`using ::pkg::State;` inside `namespace pkg::stream`), so `pkg::stream::State` resolves too.
-  One proto enum is thus ONE C++ type shared across both models — no duplicate definition to collide.
+  `<stem>.rp.common.hpp` at package scope (`pkg::State`), by `codegen::emit_common_header`. Both
+  decoders
+  `#include` it (re-exported via an IWYU `export` pragma, so a TU that includes only the decoder
+  still
+  "directly provides" the enums). The streaming decoder additionally aliases each enum into its
+  model
+  namespace (`using ::pkg::State;` inside `namespace pkg::stream`), so `pkg::stream::State`
+  resolves too.
+  One proto enum is thus ONE C++ type shared across both models — no duplicate definition to
+  collide.
   NESTED enums are not shared; they ride with their message inside each model's decoder (distinct
   fully-qualified names, no clash).
 - **Parse once, emit per model.** `rapidprotoc` runs the front-end once, builds a name table per selected
-  model, and emits the common header plus the selected decoders into one out-dir. The common header is
+  model, and emits the common header plus the selected decoders into one out-dir. The common
+  header is
   model-agnostic, so it is byte-identical whichever model(s) are requested.
 
 **Invariant.** Each model's generated output is byte-identical whether that model is generated alone or
@@ -800,11 +928,13 @@ constant, and reproduce rather than quote. What the results mean structurally:
   generated decoder actually *beats* a naive hand loop, because its loop is driven by a fused
   end-or-tag read (one bounds check per field, tag kept as a value) that a straightforward
   `while (!at_end()) { read_tag(); … }` does not use. It also validates *more* than protozero (whose
-  wire-type checks are `assert`s that compile out under `NDEBUG`; ours never do). Remaining protozero
+  wire-type checks are `assert`s that compile out under `NDEBUG`; ours never do). Remaining
+  protozero
   losses are confined to large packed arrays, decoded one element per callback (use the arena model
   there).
 - **Arena beats `protoc` + `google::protobuf::Arena` on both axes** — decode throughput and peak
-  memory — on every shape and both compilers. Part of the time gap is a feature gap (protoc validates
+  memory — on every shape and both compilers. Part of the time gap is a feature gap (protoc
+  validates
   UTF-8 per proto3 `string`; the arena does not), and most of the memory gap comes from borrowing
   strings/bytes/`raw` payloads as views into the input instead of copying them. "Memory" is
   allocator-reported arena accounting (`bytes_used`/`bytes_reserved` vs protobuf's
@@ -812,31 +942,47 @@ constant, and reproduce rather than quote. What the results mean structurally:
   counts), while the time multiple varies with payload shape, baseline version, and machine state.
 - **Real codegen wins, surfaced by same-binary A/B.** The headline metric is **GB/s** — measured decode
   throughput, which unlike retired instructions reflects everything the CPU pays for (branch
-  mispredictions, cache/memory stalls; e.g. random-width packed varints run ~4× slower than fixed-width
+  mispredictions, cache/memory stalls; e.g. random-width packed varints run ~4× slower than
+  fixed-width
   at the same ins/B, pure branch-mispredict cost). Cross-binary comparison buries genuine wins in
   placement noise — byte-identical functions measure ~10% apart — so the harness measures every arm
   back-to-back in one binary, where its GB/s and cycle-ratio verdict compare at one placement; the
-  cross-build regression gate then keys on GB/s only past that ~10% floor. A genuine *sub*-floor codegen
-  change is confirmed instead by retired **instructions/byte**, deterministic and placement-invariant
-  (a rough proxy for work, blind to the stalls above). Shipped so far: **field-order threading** of both
+  cross-build regression gate then keys on GB/s past the larger of that ~10% floor and the arm's own
+  measured spread. A genuine *sub*-floor codegen
+  change is confirmed instead by retired **instructions/byte**, deterministic and
+  placement-invariant
+  (a rough proxy for work, blind to the stalls above). Shipped so far: **field-order threading**
+  of both
   decode loops (see [Field-order threading](#field-order-threading)) — after each field a depth-2
-  constant-tag probe jumps straight to the next expected field, converting per-field N-way dispatch into a
+  constant-tag probe jumps straight to the next expected field, converting per-field N-way
+  dispatch into a
   predictable 2-way branch for the common ascending-order wire, and giving on gcc ≈2× throughput on
   scalar-heavy dispatch-bound arena records (ins/B 15.2 → 11.3), +16% on the mixed `Dataset`
-  (ins/B 11.4 → 9.7), ≈2× on a dense streaming consumer (ins/B 12.7 → 7.8), and ≈2.3× on a sparse-extract
-  streaming consumer (ins/B 10.6 → 4.1, the biggest winner, since the dedicated per-wire skip makes the
-  skipped majority cheap) — at about −11% arena bench `.text` (the threaded label is emitted once per
+  (ins/B 11.4 → 9.7), ≈2× on a dense streaming consumer (ins/B 12.7 → 7.8), and ≈2.3× on a
+  sparse-extract
+  streaming consumer (ins/B 10.6 → 4.1, the biggest winner, since the dedicated per-wire skip
+  makes the
+  skipped majority cheap) — at about −11% arena bench `.text` (the threaded label is emitted once
+  per
   field); a fused 1-byte-tag fast path in `read_tag` (~10% on both compilers);
   driving both decode loops with a fused `read_tag_or_end` (one bounds check instead of `at_end()` +
   `read_tag()`, tag held as a value not `std::optional`), which closed most of the protozero gap on
-  nested/message-heavy decode (≈2× nested-message throughput on gcc, at or above protozero on clang); a
-  raw-byte peek switch that dispatches single-byte tags (fields 1–15) without splitting field from wire;
-  `RP_FLATTEN` on generated `decode()`, which recovers the inlining GCC leaves on the table in a large
-  translation unit (~30% more retired instructions on message/skip-heavy shapes, where Clang was already
-  inlining — but a large closure is what makes a schema slow, or impossible, to compile, so the planner
-  bounds it: see the flatten budget under [Tuning](#tuning-benchmark-driven-knobs)); and, for the arena's packed scalars, pre-sizing the array from the wire length plus a single
-  bulk copy of a packed **fixed-width** array on little-endian (≈2–2.5× packed varint, ≈5× packed fixed,
-  ahead of protoc). That bulk copy moves a whole packed *array* in one `memcpy`; an earlier attempt to
+  nested/message-heavy decode (≈2× nested-message throughput on gcc, at or above protozero on
+  clang); a
+  raw-byte peek switch that dispatches single-byte tags (fields 1–15) without splitting field from
+  wire;
+  `RP_FLATTEN` on generated `decode()`, which recovers the inlining GCC leaves on the table in a
+  large
+  translation unit (~30% more retired instructions on message/skip-heavy shapes, where Clang was
+  already
+  inlining — but a large closure is what makes a schema slow, or impossible, to compile, so the
+  planner
+  bounds it: see the flatten budget under [Tuning](#tuning-benchmark-driven-knobs)); and, for the
+  arena's packed scalars, pre-sizing the array from the wire length plus a single
+  bulk copy of a packed **fixed-width** array on little-endian (≈2–2.5× packed varint, ≈5× packed
+  fixed,
+  ahead of protoc). That bulk copy moves a whole packed *array* in one `memcpy`; an earlier
+  attempt to
   `memcpy` a *single* fixed-width field, by contrast, showed no effect under the same control — the
   discipline is what tells a real win from a placement artifact.
 
@@ -856,15 +1002,18 @@ the resulting alignment / branch-predictor behavior. Two **byte-for-byte identic
 one binary measure ~10% apart, purely from placement. Consequences for anyone profiling this code:
 
 - **Compare structures at controlled placement.** A reliable A/B puts both variants in *one* binary,
-  measured in both orders. Comparing across binaries, or a generated function against a hand-written one,
-  measures placement, not the code. Under this control some plausible wins proved to be placement artifacts
-  and were *not* adopted (an if-chain dispatch vs the `switch`, a `memcpy` of a *single* fixed-width field);
-  others reproduced on both compilers and *were* shipped (the fused `read_tag` / `read_tag_or_end`, the
+  measured in both orders. Comparing across binaries, or a generated function against a
+  hand-written one,
+  measures placement, not the code. Under this control some plausible wins proved to be placement
+  artifacts
+  and were *not* adopted (an if-chain dispatch vs the `switch`, a `memcpy` of a *single*
+  fixed-width field);
+  others reproduced on both compilers and *were* shipped (the fused `read_tag` /
+  `read_tag_or_end`, the
   peek-switch dispatch, and the packed-array bulk copy above).
-- **Measure the noise floor; do not assume one.** Comparing a revision against *itself*
-  (`tests/bench.py experiment <rev> <rev>`) costs one extra run and bounds what the comparison can
-  resolve; it has been seen to fail the 10% gate on identical source. Trust a delta only if it
-  reproduces across independent runs **and** is absent from that self-comparison.
+- **Quiesce the box, and measure the floor rather than assuming one** — `tests/bench_box.sh setup` /
+  `restore`, then compare a revision against *itself* to bound what the run can resolve.
+  See [Reproducing](docs/benchmarks.md#reproducing).
 - **Pin to one performance core** (`taskset -c <core> …`); unpinned hybrid-core runs swing 30%+, and even
   pinned, trust only same-binary ratios.
 
@@ -907,81 +1056,111 @@ reflected (a documented simplification; decoders accept both wire forms).
 ## Build and test
 
 - **Presets.** `cmake --preset gcc` / `--preset clang` configure dual-compiler builds (gcc-13, clang-20)
-  with `-Werror`. Library sources compile strict + clang-tidy; the CLI is built strict but excluded from
+  with `-Werror`. Library sources compile strict + clang-tidy; the CLI is built strict but
+  excluded from
   tidy/format; vendored Catch2 and generated sources are excluded.
 - **`./check.sh`** is the single quality gate (see [Orientation](#orientation)):
-  clang-format, a docs link check (`tests/check_doc_links.py`: every relative link's file and heading
-  anchor must resolve), build + test on both compilers, clang-tidy, the per-emitter compile-fail harnesses (each
+  clang-format, a docs link check (`tests/check_doc_links.py`: every relative link's file and
+  heading
+  anchor must resolve), build + test on both compilers, clang-tidy, the per-emitter compile-fail
+  harnesses (each
   proves the generated API rejects misuse, e.g. assigning to a read-only arena accessor), and a
   dispatch-gate worst-case compile. `./check.sh fix` formats first; `./check.sh quick` is gcc-only.
 - **Regenerating goldens.** After an intentional change to an emitter / AST dumper / wire dumper / layout
-  dumper, run **`tests/regen_goldens.sh`** (then `./check.sh`, review the diff). It drives `rapidprotoc`
+  dumper, run **`tests/regen_goldens.sh`** (then `./check.sh`, review the diff). It drives
+  `rapidprotoc`
   directly so it works even when a change breaks the checked-in headers the tests `#include`.
 - **Compile-time stress** of the dispatch gate (work is ~O(fields × callbacks)): run
-  `tests/streamgen_compile_bench.sh` (optionally `N=128 …`) to time a large decoder's compile; do this
+  `tests/streamgen_compile_bench.sh` (optionally `N=128 …`) to time a large decoder's compile; do
+  this
   when touching the gate metaprogramming. The gate runs it in `--check` (compile-only) mode.
 - **Tests** are Catch2 unit tests per module, the embedded WKTs, and integration over a fetched
-  **real-world schema corpus** (~8000 schemas: protobuf's conformance sets, its benchmark schemas, and
+  **real-world schema corpus** (~8000 schemas: protobuf's conformance sets, its benchmark schemas,
+  and
   googleapis — `tests/fetch_corpus.py`, nothing vendored). Because RapidProto parses `.proto` itself
-  rather than consuming a protoc `FileDescriptorSet`, that corpus is the only available check that the
+  rather than consuming a protoc `FileDescriptorSet`, that corpus is the only available check that
+  the
   front-end accepts what protoc accepts. `check.sh`'s **`corpus` stage** drives every fetched schema
   through `rapidprotoc` — parse → resolve → analyze → generate, all three emitters — and diffs the
   outcome against `tests/corpus_expected_failures.txt` (the policy for that list is in
-  [CONTRIBUTING.md](CONTRIBUTING.md)). **Compiling** the generated code is deliberately not swept: one
+  [CONTRIBUTING.md](CONTRIBUTING.md)). **Compiling** the generated code is deliberately not swept:
+  one
   real schema generates 2223 message decoders and takes minutes to compile, so a compile leg would
   need a schema subset small enough to stay affordable. The golden suites:
   - **AST golden** (`test_golden.cpp`): resolve + analyze the feature-complete `tests/corpus/` (proto2,
-    proto3, editions 2023/2024, full-fidelity options, a multi-file import set) and assert the serialized
+  proto3, editions 2023/2024, full-fidelity options, a multi-file import set) and assert the
+  serialized
     syntax tree matches `tests/golden/*.txt` byte-for-byte. The dumper (`tests/ast_dump.hpp`) is a
     test-only debug serializer, not protobuf serialization.
   - **Wire** (`test_wire.cpp`, `[wire]`): every primitive and `WireError` with hand-authored buffers, plus
-    structural decode of protoc-encoded fixtures. **Wire golden** (`[wire-golden]`) dumps each fixture's
-    structure against `tests/wire_golden/*.txt`. Fixtures (`tests/wire_fixtures/*.bin`) are produced from
+  structural decode of protoc-encoded fixtures. **Wire golden** (`[wire-golden]`) dumps each
+  fixture's
+  structure against `tests/wire_golden/*.txt`. Fixtures (`tests/wire_fixtures/*.bin`) are produced
+  from
     textproto by `generate.py` via `protoc` and **checked in** (protoc is a dev/CI dependency only).
   - **Streamgen / arenagen goldens:** each generated `.rp.stream.hpp` / `.rp.hpp` compared byte-for-byte
-    to `tests/streamgen_golden/` / `tests/arenagen_golden/` and compile-smoked; the **arena layout** dump
+  to `tests/streamgen_golden/` / `tests/arenagen_golden/` and compile-smoked; the **arena layout**
+  dump
     golden-checked against `tests/arena_layout_golden/`; plus arena **runtime** unit tests
     (`test_arena_runtime.cpp`) and **decode** tests (`test_arena_decode.cpp`: real buffers incl. the
     protoc fixtures, asserting accessor values and the required/depth/malformed failure modes).
   - **Dumpgen goldens + output tests** (`test_dumpgen.cpp`): the generated `.rp.dump.hpp` for each
     corpus entry is checked in under `tests/dumpgen_golden/` and byte-matched, regenerated by
     `tests/regen_dumpgen_goldens.sh` (wired into `tests/regen_goldens.sh`) over the same corpus the
-    arena goldens use (`--namespace-prefix` and import cases included); plus **runtime-output** tests
+  arena goldens use (`--namespace-prefix` and import cases included); plus **runtime-output**
+  tests
     that decode the protoc wire fixtures and assert the exact dumped text (scalars/bytes-hex/enums,
     nested/repeated/map/oneof with default-omission, width-adaptive layout, `{}`, and the
     `has_unknown_fields` marker).
 - **Decode benchmarks:** two standalone micro-benchmarks, built at `-O3 -DNDEBUG` and kept **out** of the
-  test binary on purpose (measuring decoders inside the large binary is placement-sensitive). Run pinned:
+  test binary on purpose (measuring decoders inside the large binary is placement-sensitive). Run
+  pinned:
   - `rapidproto_bench` (`bench_streamgen.cpp`): streaming decoder vs a hand-written value-threaded loop vs
     mapbox protozero across ~13 wire-path scenarios.
   - `rapidproto_arena_bench` (`bench_arena.cpp`, built only when `protobuf` is found): arena vs `protoc` +
     `Arena` vs streaming on a realistic payload, plus the chunk-cap shape/size sweep.
   - `tests/bench.py` drives both: `run` builds and executes them pinned and writes an NDJSON snapshot,
-    `table` renders/compares snapshots, `diff OLD NEW` is the GB/s regression gate (~10% placement
-    floor), `experiment BASELINE [VARIANT]` snapshots two git refs and diffs them.
+  `table` renders/compares snapshots, `diff OLD NEW` is the GB/s regression gate (past the larger
+  of a
+  ~10% placement floor and the arm's own measured spread), `experiment BASELINE [VARIANT]`
+  snapshots
+    two git refs and diffs them.
 
-  See [Decoder performance](#decoder-performance) for how to read the numbers (and the placement noise floor).
+  See [Decoder performance](#decoder-performance) for how to read the numbers (and the placement
+  noise floor).
 
 - **Compile-time / code-size benchmark:** `tests/compile_bench.py` (`run` / `table` / `diff`) measures what
-  the generated decoders cost to *build* — wall seconds, `.text` bytes, and the compiler's peak RSS — across
-  a fixed set of schemas on both compilers. It exists because those costs were invisible while scaling
-  badly: `RP_FLATTEN` on every `rp_decode_into` transitively inlines the sub-message closure, bounded by
+  the generated decoders cost to *build* — wall seconds, `.text` bytes, and the compiler's peak
+  RSS — across
+  a fixed set of schemas on both compilers. It exists because those costs were invisible while
+  scaling
+  badly: `RP_FLATTEN` on every `rp_decode_into` transitively inlines the sub-message closure,
+  bounded by
   the flatten budget above. On **gcc** a 10-message nesting chain takes ~4.7s and 174 KB of `.text`
-  (unbounded: ~65s and 599 KB) where **clang** takes ~1.1s and 48 KB, and the gap widens with the closure. Peak RSS is measured because it is the failure that actually stops a
+  (unbounded: ~65s and 599 KB) where **clang** takes ~1.1s and 48 KB, and the gap widens with the
+  closure. Peak RSS is measured because it is the failure that actually stops a
   build: one arena TU peaks near 1 GB on gcc.
 
-  Each measured translation unit defines **one external-linkage function per message**, taking the input as
-  a parameter. That is the load-bearing part, for a narrow reason: external linkage obliges the compiler to
-  emit each body, and an opaque parameter stops it reasoning about the input. An earlier version that merely
+  Each measured translation unit defines **one external-linkage function per message**, taking the
+  input as
+  a parameter. That is the load-bearing part, for a narrow reason: external linkage obliges the
+  compiler to
+  emit each body, and an opaque parameter stops it reasoning about the input. An earlier version
+  that merely
   `#include`d the header reported 7 bytes of `.text` for a 103k-line schema. Once every decoder is
-  referenced the remaining refinements are small — forwarding streamed values to an undefined `extern` sink
-  is worth 0.06–1.4% on nesting chains, though ~31% on a field-dense message, so it is kept. The size floor
-  the harness enforces catches only a TU that measured *nothing*; no threshold separates the subtler cases,
+  referenced the remaining refinements are small — forwarding streamed values to an undefined
+  `extern` sink
+  is worth 0.06–1.4% on nesting chains, though ~31% on a field-dense message, so it is kept. The
+  size floor
+  the harness enforces catches only a TU that measured *nothing*; no threshold separates the
+  subtler cases,
   because with external linkage the code is emitted either way.
 
   Both models take their message list from the **arena** header so they always measure the same set:
-  deriving each from its own header diverged silently, since the streaming header nests sub-messages inside
-  their parent. Streaming rows use a non-recursing catch-all and so understate a consumer that descends into
+  deriving each from its own header diverged silently, since the streaming header nests
+  sub-messages inside
+  their parent. Streaming rows use a non-recursing catch-all and so understate a consumer that
+  descends into
   sub-messages; every record carries `recurses` to say so.
 
 ---
@@ -994,30 +1173,37 @@ decode-relevant may be approximated or rejected.
 **Intentional non-goals:**
 
 - No semantic validation, no serialization, no JSON codec (`json_format`/`json_name` are never
-  interpreted). The `dumpgen` dumper is a deliberate, scoped exception: it emits JSON-*like* inspection
+  interpreted). The `dumpgen` dumper is a deliberate, scoped exception: it emits JSON-*like*
+  inspection
   text over the arena accessors, not spec JSON and not a wire encoding.
 - **The debug dumper prints well-known types as their nested fields** (`Timestamp` as `seconds`/`nanos`,
-  etc.), with no special JSON form (no RFC-3339 string, no `Any` unpacking) — a known non-goal for now.
+  etc.), with no special JSON form (no RFC-3339 string, no `Any` unpacking) — a known non-goal for
+  now.
 - **The debug dumper cannot show unknown-field data.** A message that reserves the bit dumps
-  `"has_unknown_fields": true`, but the arena retains no unknown-field payload to print (arena drops the
+  `"has_unknown_fields": true`, but the arena retains no unknown-field payload to print (arena
+  drops the
   bytes; see the arena unknown-fields non-goal below).
 - **gRPC is out of scope.** `service`/`rpc` are parsed past and dropped (no `ServiceNode`; a file's
   messages still decode).
 - **`extend` / extension fields are retained but not emitted.** The AST keeps the extension registry (for a
-  future typed-extension consumer), but neither emitter emits typed extension accessors today: an extension
-  is "a field not in your schema", so streamgen surfaces it via the untyped unknown-field handler and
+  future typed-extension consumer), but neither emitter emits typed extension accessors today: an
+  extension
+  is "a field not in your schema", so streamgen surfaces it via the untyped unknown-field handler
+  and
   arenagen drops it.
 - **Options: raw except the decode-relevant set.** Option values are kept verbatim as a text-format value
   tree; only `packed`, the `features.*` set, and proto2 `default` are lifted into typed fields. No
   `descriptor.proto` dependency.
 - The **schema** parser's recursion (over trusted nested `.proto` declarations) is unbounded, a deliberate
-  non-goal. The **decoders** over untrusted *wire* input are bounded: the wire reader caps group nesting
+  non-goal. The **decoders** over untrusted *wire* input are bounded: the wire reader caps group
+  nesting
   (`kMaxGroupDepth`) and the arena decoder caps sub-message nesting (`kMaxDecodeDepth`).
 - The arena decoder **drops unknown fields** (no per-field channel like streamgen's); `--unknown-present`
   (every message) or `--unknown=<msg>` / `unknown-fields <msg>` (per message) reserves only a single
   "saw an unknown" flag, and the selection folds into the decode-profile identity.
 - The arena decoder **rejects a singular sub-message that occurs more than once** (`RepeatedSingularMessage`)
-  instead of protobuf's last-one-wins merge, an exotic case excluded for now (a clear error, not a silent
+  instead of protobuf's last-one-wins merge, an exotic case excluded for now (a clear error, not a
+  silent
   mis-merge).
 - Type resolution uses progressive scope search rather than protobuf's first-component-binds rule; for
   valid input the result is identical (shadowing edge cases `protoc` rejects are not diagnosed).
@@ -1026,7 +1212,8 @@ decode-relevant may be approximated or rejected.
 - An editions `repeated_field_encoding` on a repeated *enum* is not reflected in `repeated_encoding` (forced
   Expanded); decoders accept both wire forms regardless.
 - **Closed enums decode as open — intentionally.** The front-end resolves `EnumOpenness` (proto2 →
-  Closed, editions `enum_type = CLOSED`), but neither emitter consumes it: an unrecognized value of a
+  Closed, editions `enum_type = CLOSED`), but neither emitter consumes it: an unrecognized value
+  of a
   *closed* enum is delivered as its raw integer cast into the enum, where `protoc` would route it to
   unknown fields. Uniform open decoding keeps both models simple; consumers must not rely on
   closed-enum semantics (documented in [`docs/semantics.md`](docs/semantics.md)).
@@ -1036,7 +1223,8 @@ decode-relevant may be approximated or rejected.
 - A `group` inside a `oneof` is rejected (valid proto2; needs a group-hoisting channel on `OneofNode`).
 - A missing `weak` import is a hard error (`protoc` treats weak as optional).
 - A hex/octal integer literal overflowing `uint64` collapses to a wrong float value (decimal overflow is
-  handled correctly); an octal string escape `> \377` truncates its high bit; text-format `-someident` is
+  handled correctly); an octal string escape `> \377` truncates its high bit; text-format
+  `-someident` is
   rejected.
 
 A future `validate(FileSet)` pass is the natural home for the checks RapidProto intentionally skips.

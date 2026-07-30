@@ -598,6 +598,12 @@ int scenario_repeated_varint() {
     int bad = 0;
     for (const auto& dist : rpbench::varint_dists()) {
         for (const int count : rpbench::varint_lengths()) {
+            // Name first, so a scenario filter can skip the POOL BUILD below, not merely the
+            // measurement -- the pool is up to 64 MB and dominates a filtered run otherwise.
+            const std::string name = "rv " + dist.label + " " + rpbench::length_tag(count);
+            if (!rpbench::scenario_selected(name.c_str())) {
+                continue;
+            }
             // Rotate over a pool of distinct-seed buffers (same shape) so no arm replays one memorized
             // width sequence. Pool: ~64 MB budget, >= 8 buffers (defeat the predictor at small counts),
             // <= 64 (bound setup). count*10 over-estimates a buffer (<= 10 bytes each), only shrinking it.
@@ -618,7 +624,6 @@ int scenario_repeated_varint() {
                 views.emplace_back(b);  // pool strings are stable (reserved, no realloc)
             }
             const double avg_bytes = total_bytes / static_cast<double>(pool_n);
-            const std::string name = "rv " + dist.label + " " + rpbench::length_tag(count);
             const Arm arms[] = {
                 {"generated",
                  [](ByteView b) -> std::uint64_t {
