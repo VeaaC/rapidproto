@@ -346,11 +346,12 @@ together.
   typed fields: `[packed]` → `repeated_encoding` (gated on repeated non-message, non-enum so it
   never
   clobbers the type-resolution fixup), proto2 `[default]` → `default_value`. `option
-  message_set_wire_
-   format = true;` is rejected. All options remain in the raw `options` vectors.
+  message_set_wire_format = true` is accepted with a warning appended to the symbol table's
+  `warnings` (see the MessageSet non-goal). All options remain in the raw `options` vectors.
 
 The `SymbolTable` holds `symbols` (FQN → `Message`/`Enum`), `extensions` ((extendee FQN, number) → `const
-FieldNode*`), and a **FQN → node index** (`messages`/`enums` → `const MessageNode*`/`const EnumNode*`),
+FieldNode*`), non-fatal `warnings` from the passes, and a **FQN → node index** (`messages`/`enums` →
+`const MessageNode*`/`const EnumNode*`),
 populated during the same walk so an emitter that inspects a referenced type reuses it instead of
 re-walking the AST (see [Shared emitter infrastructure](#shared-emitter-infrastructure)).
 
@@ -1195,8 +1196,9 @@ decode-relevant may be approximated or rejected.
 - **MessageSet (`option message_set_wire_format = true`) decodes as unknown fields.** A MessageSet
   is a proto1-era container holding ONLY extensions, encoded as repeated groups in field 1 rather
   than ordinary tagged fields. Since extensions are not materialized (above), its contents are
-  unreadable either way — but the encoding is well-formed, so it skips cleanly and a malformed group still
-  fails. The option is therefore **accepted with a warning naming the message**, not rejected:
+  unreadable either way — but the encoding is well-formed, so it skips cleanly and a malformed
+  group still fails. The option is therefore **accepted with a warning naming the message**, not
+  rejected:
   rejecting it would fail the whole FILE, which costs every unrelated message in it (protobuf's own
   proto2 conformance schema has ~200 that decode perfectly). Reading a MessageSet's contents needs
   typed extension support first.

@@ -27,6 +27,9 @@ rapidprotoc [options] <entry.proto>...
 | `-h`, `--help` | Print the full flag table and exit. |
 | `--version` | Print the tool version and exit. |
 
+Non-fatal `warning:` diagnostics (e.g. a schema using the MessageSet wire format) go to stderr
+regardless of `-v`, and never change the exit code.
+
 Multiple entries resolve as **one batch**: shared imports parse once, every file in the union
 gets its decoder exactly once, and a decode profile resolves against all of them together. Each
 generated file covers the entry **and** its transitive imports **and** the well-known types it

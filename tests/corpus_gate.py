@@ -125,7 +125,10 @@ def check(tool: Path, root: Path, path: Path, timeout: float) -> str | None:
             return f"TIMEOUT after {timeout}s (hang or runaway recursion)"
     if proc.returncode == 0:
         return None
-    message = (proc.stderr or proc.stdout).strip().splitlines()
+    lines = (proc.stderr or proc.stdout).strip().splitlines()
+    # Skip non-fatal `warning:` lines: they precede the real diagnostic, and taking one as the
+    # failure reason would diff against corpus_expected_failures.txt as a spurious reason change.
+    message = [ln for ln in lines if not ln.lstrip().startswith("warning:")]
     return message[0] if message else f"exit {proc.returncode} with no diagnostic"
 
 

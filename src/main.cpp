@@ -64,6 +64,11 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+    // Non-fatal analysis diagnostics, same as rapidprotoc: stderr, and never a failure.
+    for (const std::string& warning : analyzed.value().warnings) {
+        std::cerr << warning << '\n';
+    }
+
     std::cout << "resolved " << set.files.size() << " file(s) in topological order; "
               << analyzed.value().symbols.size() << " type(s), "
               << analyzed.value().extensions.size() << " extension(s):\n";

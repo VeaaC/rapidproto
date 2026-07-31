@@ -26,6 +26,7 @@ inline void rp_dump_write(const ::an::Sibling& m, ::rapidproto::dump::Writer& w)
 inline void rp_dump_write(const ::an::config& m, ::rapidproto::dump::Writer& w);
 inline void rp_dump_write(const ::an::MaskOneof& m, ::rapidproto::dump::Writer& w);
 inline void rp_dump_write(const ::an::Bytes& m, ::rapidproto::dump::Writer& w);
+inline void rp_dump_write(const ::an::Keywords& m, ::rapidproto::dump::Writer& w);
 
 inline void rp_dump_write(const ::an::Collide::FooEntry& m, ::rapidproto::dump::Writer& w) {
   (void)m;
@@ -263,6 +264,84 @@ inline void rp_dump_write(const ::an::Bytes& m, ::rapidproto::dump::Writer& w) {
   });
 }
 
+inline void rp_dump_write(const ::an::Keywords& m, ::rapidproto::dump::Writer& w) {
+  (void)m;
+  w.group('{', '}', [&] {
+    bool rp_first = true;
+    if (const auto rp_v = m.static_cast_(); rp_v != decltype(rp_v){}) {
+      if (w.begin_field(rp_first, "static_cast")) {
+        w.os() << rp_v;
+      }
+    }
+    if (const auto rp_v = m.const_cast_(); rp_v != decltype(rp_v){}) {
+      if (w.begin_field(rp_first, "const_cast")) {
+        w.os() << rp_v;
+      }
+    }
+    if (const auto rp_v = m.dynamic_cast_(); rp_v != decltype(rp_v){}) {
+      if (w.begin_field(rp_first, "dynamic_cast")) {
+        w.os() << rp_v;
+      }
+    }
+    if (const auto rp_v = m.reinterpret_cast_(); rp_v != decltype(rp_v){}) {
+      if (w.begin_field(rp_first, "reinterpret_cast")) {
+        w.os() << rp_v;
+      }
+    }
+    if (const auto rp_v = m.static_assert_(); rp_v != decltype(rp_v){}) {
+      if (w.begin_field(rp_first, "static_assert")) {
+        w.os() << rp_v;
+      }
+    }
+    if (const auto rp_v = m.concept_(); rp_v != decltype(rp_v){}) {
+      if (w.begin_field(rp_first, "concept")) {
+        w.os() << rp_v;
+      }
+    }
+    if (const auto rp_v = m.requires_(); rp_v != decltype(rp_v){}) {
+      if (w.begin_field(rp_first, "requires")) {
+        w.os() << rp_v;
+      }
+    }
+    if (const auto rp_v = m.consteval_(); rp_v != decltype(rp_v){}) {
+      if (w.begin_field(rp_first, "consteval")) {
+        w.os() << rp_v;
+      }
+    }
+    if (const auto rp_v = m.constinit_(); rp_v != decltype(rp_v){}) {
+      if (w.begin_field(rp_first, "constinit")) {
+        w.os() << rp_v;
+      }
+    }
+    if (const auto rp_v = m.co_await_(); rp_v != decltype(rp_v){}) {
+      if (w.begin_field(rp_first, "co_await")) {
+        w.os() << rp_v;
+      }
+    }
+    if (const auto rp_v = m.co_return_(); rp_v != decltype(rp_v){}) {
+      if (w.begin_field(rp_first, "co_return")) {
+        w.os() << rp_v;
+      }
+    }
+    if (const auto rp_v = m.co_yield_(); rp_v != decltype(rp_v){}) {
+      if (w.begin_field(rp_first, "co_yield")) {
+        w.os() << rp_v;
+      }
+    }
+    if (const auto rp_v = m.char8_t_(); rp_v != decltype(rp_v){}) {
+      if (w.begin_field(rp_first, "char8_t")) {
+        w.os() << rp_v;
+      }
+    }
+    if (const auto rp_v = m.concept__(); rp_v != decltype(rp_v){}) {
+      if (w.begin_field(rp_first, "concept_")) {
+        w.os() << rp_v;
+      }
+    }
+    (void)rp_first;
+  });
+}
+
 }  // namespace rp_dump_detail
 
 inline void rp_dump_write(std::ostream& rp_os, const ::an::Collide::FooEntry& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
@@ -372,6 +451,16 @@ inline void rp_dump_write(std::ostream& rp_os, const ::an::Bytes& m, const ::rap
 }
 
 inline std::string rp_dump_string(const ::an::Bytes& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
+}
+
+inline void rp_dump_write(std::ostream& rp_os, const ::an::Keywords& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+  rp_os << std::boolalpha;
+  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
+  ::an::rp_dump_detail::rp_dump_write(m, w);
+}
+
+inline std::string rp_dump_string(const ::an::Keywords& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
 }
 

@@ -32,6 +32,13 @@ done
 # has_unknown_fields(). The only golden built WITH the flag, so it is its own line; decoded in
 # test_arena_decode.
 "$BIN" --arena --unknown-present -Itests/corpus --out-dir="$T" tests/corpus/arena_unknown.proto >/dev/null
+# The same MessageSet fixture under --unknown-present, in its own subdir so it does not collide with
+# the plain one: a MessageSet decodes as unknown fields, so the bit is the only way to observe that
+# its contents arrived at all.
+# --namespace-prefix as well, so this variant's types do not collide with the plain messageset
+# golden when both are included in one TU (same package, and the modes inline namespace would make
+# `ms::Outer` ambiguous rather than distinct).
+"$BIN" --arena --unknown-present --namespace-prefix=unk -Itests/corpus --out-dir="$T/unknown" tests/corpus/messageset.proto >/dev/null
 # Field modes: generated under THE decode profile (tests/corpus/arena_modes.modes, which mirrors
 # tests/arena_modes_profile.hpp); the golden test regenerates the same pair in-test, so the two
 # spellings of the profile cannot drift without a byte-diff.

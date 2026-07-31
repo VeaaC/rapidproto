@@ -42,8 +42,9 @@ struct SymbolTable {
     // (extendee FQN, field number) -> the extension FieldNode (parsers need this). The pointers
     // reference the FieldNodes inside `file_set`, which must outlive the table.
     std::map<std::pair<std::string, std::int32_t>, const FieldNode*> extensions;
-    // Non-fatal diagnostics from the passes, each already prefixed with "warning: ". The CLI prints
-    // them; a library consumer may ignore them. Analysis SUCCEEDED whenever this is non-empty.
+    // Non-fatal diagnostics from the passes, each already prefixed with "warning: ". `rapidprotoc`
+    // prints them to stderr; a library consumer may ignore them. They never mean analysis failed --
+    // a failure is an Error, and this table only exists on success.
     std::vector<std::string> warnings;
 };
 

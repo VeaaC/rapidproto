@@ -15,6 +15,16 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
   warning naming it, and decodes as unknown fields; a malformed group is still a wire error. Eight
   schemas in the real-world corpus, including `test_messages_proto2.proto`, now generate.
 
+- **Every C++ keyword is escaped in generated headers, and they now compile as C++20/23 too.** The
+  reserved-identifier set was missing thirteen keywords. Five (`static_cast`, `const_cast`,
+  `dynamic_cast`, `reinterpret_cast`, `static_assert`) broke **C++17** as well: a field with one of
+  those names produced a header that does not compile at all. The other eight (`char8_t`, `concept`,
+  `consteval`, `constinit`, `co_await`, `co_return`, `co_yield`, `requires`) are fine at C++17 and
+  hard errors at C++20 — which matters because a generated header is compiled in the *consumer's*
+  translation unit, commonly at a newer standard than this library targets. The set is now checked
+  against the full `[lex.key]` table through C++23, a keyword fixture is in the corpus, and
+  `./check.sh` compiles the generated headers at `-std=c++20` and `-std=c++23`.
+
 - **Generated headers compile warning-free on GCC 13 and on Clang versions that diagnose an
   untaken ternary branch.** Both warnings fired in consumer builds but not in this repo's own build,
   so neither was caught here:

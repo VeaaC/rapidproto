@@ -31,6 +31,7 @@
 #include "arenagen_golden/messageset.rp.hpp"  // MessageSet: accepted, decodes as unknown
 #include "arenagen_golden/proto2.rp.hpp"
 #include "arenagen_golden/proto3.rp.hpp"
+#include "arenagen_golden/unknown/messageset.rp.hpp"  // ... observable via the unknown bit
 #include "arenagen_golden/wire_all.rp.hpp"
 #include "arenagen_golden/xref.rp.hpp"  // oneof member stored as a pointer (Def -> const-ref deref)
 #include "rapidproto/arena_runtime.hpp"
@@ -1300,4 +1301,30 @@ TEST_CASE("arena: a MessageSet payload decodes as unknown fields, and malformed 
     const ms::Outer* o = ms::Outer::decode(ByteView(outer), arena, &err3);
     REQUIRE(o != nullptr);
     CHECK(o->ordinary() == 42);
+}
+
+// With --unknown-present reserved, the unknown bit is the only way to observe that a MessageSet's
+// contents arrived at all -- the decoder materializes none of them. This pins the semantic the
+// accept-with-a-warning decision rests on: the data is SKIPPED, not lost silently or rejected.
+TEST_CASE("arena: --unknown-present observes that a MessageSet carried content", "[arena-decode]") {
+    Arena arena;
+    std::string item;  // 1 { 2: type_id, 3: "abc" }
+    put_tag(item, 1, 3);
+    put_tag(item, 2, 0);
+    put_varint(item, 1547769);
+    put_tag(item, 3, 2);
+    put_varint(item, 3);
+    item += "abc";
+    put_tag(item, 1, 4);
+    ArenaDecodeError err{};
+    const unk::ms::Outer::Container* full =
+        unk::ms::Outer::Container::decode(ByteView(item), arena, &err);
+    REQUIRE(full != nullptr);
+    CHECK(full->has_unknown_fields());  // the extension arrived, unmaterialized
+
+    ArenaDecodeError err2{};
+    const unk::ms::Outer::Container* empty =
+        unk::ms::Outer::Container::decode(ByteView(std::string{}), arena, &err2);
+    REQUIRE(empty != nullptr);
+    CHECK_FALSE(empty->has_unknown_fields());  // nothing on the wire, nothing reported
 }
