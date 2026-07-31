@@ -28,7 +28,7 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
   a message's *siblings*, never against the message itself — and never deduped private storage
   members at all. So `message Callback { oneof callback { … } }`, which protoc accepts and which is
   common in real schemas, emitted a `Callback` tag struct inside `class Callback`, and the header
-  failed to compile at the consumer. **138 of the 8015 schemas in the real-world corpus** emit a
+  failed to compile at the consumer. **137 of the ~8000 schemas in the real-world corpus** emit a
   different arena header once this is fixed.
 
   Every generated name is now assigned in one dedup scope that includes the enclosing class's name:
@@ -40,8 +40,10 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
   member moved into the `rp_` prefix that `sanitize()` already puts out of every proto name's reach,
   so `m_bytes` is no longer a reserved word and the *user's* field is no longer the one renamed.
 
-  **Regenerate to pick this up.** Arena headers change only where a name actually collided; every
-  streaming header changes, but only in that one private member — no public name moves.
+  **Regenerate to pick this up.** An arena header changes where a name collided, and in a few more
+  schemas where a oneof's private storage is now derived from its deduped id rather than its raw
+  proto name. Streaming headers change only in that one private member, and only for schemas that
+  declare a message at all.
 
 ### Added
 
