@@ -23,6 +23,28 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
 
   Header-only — no regeneration needed, but the installed headers must be updated.
 
+- **Generated headers no longer fail to compile when a generated name matches its own message.**
+  C++ forbids a member with the same name as its class, and the generator deduped names only against
+  a message's *siblings*, never against the message itself — and never deduped private storage
+  members at all. So `message Callback { oneof callback { … } }`, which protoc accepts and which is
+  common in real schemas, emitted a `Callback` tag struct inside `class Callback`, and the header
+  failed to compile at the consumer. **137 of the ~8000 schemas in the real-world corpus** emit a
+  different arena header once this is fixed.
+
+  Every generated name is now assigned in one dedup scope that includes the enclosing class's name:
+  the oneof visit-tag struct and its reader method, a map's `<Map>Entry` type, nested messages and
+  enums (shared with the streaming model), fields, and the private `m_…` storage members, union and
+  presence mask. The message keeps its name; the colliding generated one gains the usual `_` suffix.
+
+  A field named `m_bytes` also keeps its accessor now: the streaming decoder's private byte-span
+  member moved into the `rp_` prefix that `sanitize()` already puts out of every proto name's reach,
+  so `m_bytes` is no longer a reserved word and the *user's* field is no longer the one renamed.
+
+  **Regenerate to pick this up.** An arena header changes where a name collided, and in a few more
+  schemas where a oneof's private storage is now derived from its deduped id rather than its raw
+  proto name. Streaming headers change only in that one private member, and only for schemas that
+  declare a message at all.
+
 ### Added
 
 - **Debug dumper: `DumpOptions` (start indent + skip fields).** `rp_dump_write` / `rp_dump_string` now

@@ -103,8 +103,6 @@ std::string sanitize(std::string_view name) {
         //  - decode: the generated decode() method (a same-named nested tag / arena accessor clashes).
         //  - Callbacks: the streaming decode() template parameter pack; a nested tag of that name
         //    shadows it in the out-of-line definition.
-        //  - m_bytes: arena stores field `bytes` as member `m_bytes`, which clashes with the accessor
-        //    of a sibling field literally named `m_bytes`.
         // Every other emitted local is `rp_`-prefixed and each streaming tag is referenced by its
         // message-qualified name, so common field names (value, tag, status, reader, ...) stay free.
         "Value",
@@ -113,7 +111,6 @@ std::string sanitize(std::string_view name) {
         "kName",
         "decode",
         "Callbacks",
-        "m_bytes",
         // Common C/C++ MACROS: a field accessor or a (prefix-stripped) bare enum value of one of these
         // would macro-expand rather than compile (e.g. `EOF` -> `(-1)`). Not exhaustive -- a best-effort
         // guard for the names a SCREAMING_SNAKE enum value realistically hits; enum-prefix stripping
@@ -203,6 +200,10 @@ const std::string& assign_id(CppNameTable& names, std::unordered_set<std::string
 void index_message(CppNameTable& names, const MessageNode& message, const std::string& abs,
                    const std::string& msg_ns) {
     std::unordered_set<std::string> taken;
+    // Seed with the class's OWN name: C++ forbids a member with the same name as its class
+    // ([class.mem]), so `message Outer { message Outer {} }` -- which protoc accepts -- would emit a
+    // header that does not compile. The parent keeps its name; the child is the one deduped.
+    taken.insert(names.local.at(&message));
     std::vector<std::pair<const MessageNode*, std::string>> children;
     for (const auto& nested_enum : message.enums) {
         names.absolute.emplace(
@@ -218,6 +219,10 @@ void index_message(CppNameTable& names, const MessageNode& message, const std::s
         assign_id(names, taken, &field, field.name);
     }
     for (const auto& oneof : message.oneofs) {
+        // The oneof itself gets an id too: arenagen emits a reader method named after it, and that
+        // shares the class scope with everything else here -- including the class's own name, which
+        // `message config { oneof config { ... } }` (protoc-valid) would otherwise collide with.
+        assign_id(names, taken, &oneof, oneof.name);
         for (const auto& field : oneof.fields) {
             assign_id(names, taken, &field, field.name);
         }

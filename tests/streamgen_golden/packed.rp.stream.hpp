@@ -13,8 +13,8 @@ namespace pk::stream {
 struct Packed;
 
 struct Packed {
-  explicit Packed(::rapidproto::ByteView bytes) noexcept : m_bytes(bytes) {}
-  ::rapidproto::ByteView rp_bytes() const noexcept { return m_bytes; }
+  explicit Packed(::rapidproto::ByteView bytes) noexcept : rp_span(bytes) {}
+  ::rapidproto::ByteView rp_bytes() const noexcept { return rp_span; }
 
   struct pd { using Value = double; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "pd"; };
   struct psf { using Value = std::int32_t; static constexpr std::uint32_t kNumber = 2; static constexpr std::string_view kName = "psf"; };
@@ -23,15 +23,15 @@ struct Packed {
   template <class... Callbacks>
   [[nodiscard]] ::rapidproto::DecodeStatus decode(Callbacks&&... rp_callbacks) const;
  private:
-  ::rapidproto::ByteView m_bytes;
+  ::rapidproto::ByteView rp_span;
 };
 
 template <class... Callbacks>
 RP_FLATTEN ::rapidproto::DecodeStatus Packed::decode(Callbacks&&... rp_callbacks) const {
   static_assert((true && ... && !::rapidproto::is_stray_callback<Callbacks, pd, psf, pf>), "a callback matches no field of 'Packed' (and is not a catch-all or unknown-field handler)");
   [[maybe_unused]] auto rp_dispatch = ::rapidproto::combine(static_cast<Callbacks&&>(rp_callbacks)...);
-  const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(m_bytes);
-  const std::uint8_t* const rp_cend = rp_c + m_bytes.size();
+  const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(rp_span);
+  const std::uint8_t* const rp_cend = rp_c + rp_span.size();
   ::rapidproto::Tag rp_tag{};
   ::rapidproto::WireError rp_we = ::rapidproto::WireError::None;
   for (;;) {
@@ -54,7 +54,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Packed::decode(Callbacks&&... rp_callbacks
       if constexpr ((false || ... || ::rapidproto::handles_one<Callbacks, pd, pd::Value>)) {
         std::uint64_t rp_raw = 0;
         const std::uint8_t* const rp_np = ::rapidproto::wire::read_fixed64(rp_c, rp_cend, &rp_raw, &rp_we);
-        if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(m_bytes))}; }
+        if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_np;
         if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, pd{}, ::rapidproto::bit_cast_double(rp_raw)); !rp_status.ok()) {
           return rp_status;
@@ -62,7 +62,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Packed::decode(Callbacks&&... rp_callbacks
       } else {  // no callback for this field -> skip its value (compile-time wire)
         std::uint64_t rp_skip = 0;
         const std::uint8_t* const rp_sp = ::rapidproto::wire::read_fixed64(rp_c, rp_cend, &rp_skip, &rp_we);
-        if (rp_sp == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(m_bytes))}; }
+        if (rp_sp == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_sp;
       }
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(1, ::rapidproto::WireType::I64)) { ++rp_c; goto rp_do_1; }  // another element of the same field
@@ -73,7 +73,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Packed::decode(Callbacks&&... rp_callbacks
     rp_do_1_p: {
       if constexpr ((false || ... || ::rapidproto::handles_one<Callbacks, pd, pd::Value>)) {
         ::rapidproto::ByteView rp_packed;
-        { const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_packed, &rp_we); if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(m_bytes))}; } rp_c = rp_np; }
+        { const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_packed, &rp_we); if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; } rp_c = rp_np; }
         const std::uint8_t* rp_pc = ::rapidproto::wire::byte_ptr(rp_packed);
         const std::uint8_t* const rp_pbeg = rp_pc;
         const std::uint8_t* const rp_pe = rp_pc + rp_packed.size();
@@ -89,7 +89,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Packed::decode(Callbacks&&... rp_callbacks
       } else {  // no callback -> skip the packed LEN payload
         ::rapidproto::ByteView rp_skipview;
         const std::uint8_t* const rp_sp = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_skipview, &rp_we);
-        if (rp_sp == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(m_bytes))}; }
+        if (rp_sp == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_sp;
       }
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(2, ::rapidproto::WireType::I32)) { ++rp_c; goto rp_do_2; }
@@ -104,7 +104,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Packed::decode(Callbacks&&... rp_callbacks
       if constexpr ((false || ... || ::rapidproto::handles_one<Callbacks, psf, psf::Value>)) {
         std::uint32_t rp_raw = 0;
         const std::uint8_t* const rp_np = ::rapidproto::wire::read_fixed32(rp_c, rp_cend, &rp_raw, &rp_we);
-        if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(m_bytes))}; }
+        if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_np;
         if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, psf{}, static_cast<std::int32_t>(rp_raw)); !rp_status.ok()) {
           return rp_status;
@@ -112,7 +112,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Packed::decode(Callbacks&&... rp_callbacks
       } else {  // no callback for this field -> skip its value (compile-time wire)
         std::uint32_t rp_skip = 0;
         const std::uint8_t* const rp_sp = ::rapidproto::wire::read_fixed32(rp_c, rp_cend, &rp_skip, &rp_we);
-        if (rp_sp == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(m_bytes))}; }
+        if (rp_sp == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_sp;
       }
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(2, ::rapidproto::WireType::I32)) { ++rp_c; goto rp_do_2; }  // another element of the same field
@@ -122,7 +122,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Packed::decode(Callbacks&&... rp_callbacks
     rp_do_2_p: {
       if constexpr ((false || ... || ::rapidproto::handles_one<Callbacks, psf, psf::Value>)) {
         ::rapidproto::ByteView rp_packed;
-        { const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_packed, &rp_we); if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(m_bytes))}; } rp_c = rp_np; }
+        { const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_packed, &rp_we); if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; } rp_c = rp_np; }
         const std::uint8_t* rp_pc = ::rapidproto::wire::byte_ptr(rp_packed);
         const std::uint8_t* const rp_pbeg = rp_pc;
         const std::uint8_t* const rp_pe = rp_pc + rp_packed.size();
@@ -138,7 +138,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Packed::decode(Callbacks&&... rp_callbacks
       } else {  // no callback -> skip the packed LEN payload
         ::rapidproto::ByteView rp_skipview;
         const std::uint8_t* const rp_sp = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_skipview, &rp_we);
-        if (rp_sp == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(m_bytes))}; }
+        if (rp_sp == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_sp;
       }
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(3, ::rapidproto::WireType::I32)) { ++rp_c; goto rp_do_3; }
@@ -152,7 +152,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Packed::decode(Callbacks&&... rp_callbacks
       if constexpr ((false || ... || ::rapidproto::handles_one<Callbacks, pf, pf::Value>)) {
         std::uint32_t rp_raw = 0;
         const std::uint8_t* const rp_np = ::rapidproto::wire::read_fixed32(rp_c, rp_cend, &rp_raw, &rp_we);
-        if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(m_bytes))}; }
+        if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_np;
         if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, pf{}, ::rapidproto::bit_cast_float(rp_raw)); !rp_status.ok()) {
           return rp_status;
@@ -160,7 +160,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Packed::decode(Callbacks&&... rp_callbacks
       } else {  // no callback for this field -> skip its value (compile-time wire)
         std::uint32_t rp_skip = 0;
         const std::uint8_t* const rp_sp = ::rapidproto::wire::read_fixed32(rp_c, rp_cend, &rp_skip, &rp_we);
-        if (rp_sp == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(m_bytes))}; }
+        if (rp_sp == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_sp;
       }
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(3, ::rapidproto::WireType::I32)) { ++rp_c; goto rp_do_3; }  // another element of the same field
@@ -169,7 +169,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Packed::decode(Callbacks&&... rp_callbacks
     rp_do_3_p: {
       if constexpr ((false || ... || ::rapidproto::handles_one<Callbacks, pf, pf::Value>)) {
         ::rapidproto::ByteView rp_packed;
-        { const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_packed, &rp_we); if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(m_bytes))}; } rp_c = rp_np; }
+        { const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_packed, &rp_we); if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; } rp_c = rp_np; }
         const std::uint8_t* rp_pc = ::rapidproto::wire::byte_ptr(rp_packed);
         const std::uint8_t* const rp_pbeg = rp_pc;
         const std::uint8_t* const rp_pe = rp_pc + rp_packed.size();
@@ -185,7 +185,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Packed::decode(Callbacks&&... rp_callbacks
       } else {  // no callback -> skip the packed LEN payload
         ::rapidproto::ByteView rp_skipview;
         const std::uint8_t* const rp_sp = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_skipview, &rp_we);
-        if (rp_sp == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(m_bytes))}; }
+        if (rp_sp == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_sp;
       }
       continue;
@@ -194,7 +194,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Packed::decode(Callbacks&&... rp_callbacks
     ::rapidproto::wire::TagState rp_state = ::rapidproto::wire::TagState::End;
     const std::uint8_t* const rp_tp = ::rapidproto::wire::read_tag_or_end(rp_c, rp_cend, &rp_tag, &rp_we, &rp_state);
     if (rp_state == ::rapidproto::wire::TagState::End) { return ::rapidproto::DecodeStatus::success(); }
-    if (rp_state == ::rapidproto::wire::TagState::Error) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(m_bytes))}; }
+    if (rp_state == ::rapidproto::wire::TagState::Error) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
     rp_c = rp_tp;
     switch (rp_tag.field_number) {
       case 1: { if (rp_tag.wire_type == ::rapidproto::WireType::I64) { goto rp_do_1; } if (rp_tag.wire_type == ::rapidproto::WireType::Len) { goto rp_do_1_p; } break; }
@@ -202,12 +202,12 @@ RP_FLATTEN ::rapidproto::DecodeStatus Packed::decode(Callbacks&&... rp_callbacks
       case 3: { if (rp_tag.wire_type == ::rapidproto::WireType::I32) { goto rp_do_3; } if (rp_tag.wire_type == ::rapidproto::WireType::Len) { goto rp_do_3_p; } break; }
       default:
         if constexpr ((false || ... || ::rapidproto::specifically_handles_unknown<Callbacks>)) {
-          const std::size_t rp_value_start = static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(m_bytes));
+          const std::size_t rp_value_start = static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span));
           std::size_t rp_ufo = 0;
-          const std::uint8_t* const rp_usp = ::rapidproto::wire::skip_value(rp_c, rp_cend, ::rapidproto::wire::byte_ptr(m_bytes), rp_tag, 0, &rp_we, &rp_ufo);
+          const std::uint8_t* const rp_usp = ::rapidproto::wire::skip_value(rp_c, rp_cend, ::rapidproto::wire::byte_ptr(rp_span), rp_tag, 0, &rp_we, &rp_ufo);
           if (rp_usp == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, rp_ufo}; }
           rp_c = rp_usp;
-          if (const auto rp_status = ::rapidproto::invoke_unknown(rp_dispatch, ::rapidproto::UnknownField{rp_tag.field_number, rp_tag.wire_type, m_bytes.substr(rp_value_start, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(m_bytes)) - rp_value_start)}); !rp_status.ok()) {
+          if (const auto rp_status = ::rapidproto::invoke_unknown(rp_dispatch, ::rapidproto::UnknownField{rp_tag.field_number, rp_tag.wire_type, rp_span.substr(rp_value_start, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span)) - rp_value_start)}); !rp_status.ok()) {
             return rp_status;
           }
           continue;
@@ -215,7 +215,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Packed::decode(Callbacks&&... rp_callbacks
         break;
     }
     std::size_t rp_fo = 0;
-    const std::uint8_t* const rp_sp = ::rapidproto::wire::skip_value(rp_c, rp_cend, ::rapidproto::wire::byte_ptr(m_bytes), rp_tag, 0, &rp_we, &rp_fo);
+    const std::uint8_t* const rp_sp = ::rapidproto::wire::skip_value(rp_c, rp_cend, ::rapidproto::wire::byte_ptr(rp_span), rp_tag, 0, &rp_we, &rp_fo);
     if (rp_sp == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, rp_fo}; }
     rp_c = rp_sp;
   }

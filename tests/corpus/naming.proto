@@ -29,3 +29,24 @@ message M {
     int32 decode__ = 6;          // collides with the deduped field `decode_` -> `decode___`
   }
 }
+
+// A nested type may not take its ENCLOSING class's name: C++ forbids a member with the same name as
+// its class, so the child is deduped and the parent keeps its name. protoc accepts this, and it is
+// the shared naming table's job (both models emit these classes), not an arena-only concern.
+message Outer {
+  message Outer {
+    optional int32 v = 1;
+  }
+  optional Outer inner = 1;  // must resolve to ::nm::Outer::Outer_
+}
+
+// The streaming struct holds its bytes in an `rp_`-prefixed private member, which sanitize() puts
+// out of reach of any proto name -- so `m_bytes` is an ordinary identifier here, in all three roles.
+message m_bytes {
+  optional int32 v = 1;
+}
+
+message UsesMBytes {
+  optional int32 m_bytes = 1;
+  optional string other = 2;
+}

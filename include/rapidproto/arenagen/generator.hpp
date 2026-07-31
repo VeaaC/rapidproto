@@ -33,6 +33,14 @@ struct SynthNames {
     std::unordered_map<const OneofNode*, std::string> case_tag;       // <Oneof> visit-tag struct
     std::unordered_map<const MapFieldNode*, std::string> entry_type;  // <Map>Entry
     std::unordered_map<const MessageNode*, std::string> unknown;      // has_unknown_fields()
+    // Private storage members, deduped in the same class scope as everything above. They are
+    // derived (`m_` + the member's id), so without dedup they can take the CLASS's own name
+    // (`message m_x { int32 x = 1; }`) or a sibling's accessor (`int32 foo = 1; int32 m_foo = 2;`)
+    // -- both protoc-valid, both previously emitting a header that does not compile.
+    // Keyed by FieldNode*/MapFieldNode* for a field's storage, and by OneofNode* for its union.
+    std::unordered_map<const void*, std::string> storage;
+    std::unordered_map<const OneofNode*, std::string> case_member;  // m_rp_<oneof>_case
+    std::unordered_map<std::string, std::string> mask;              // message fqn -> m_rp_mask
 };
 
 // Build the synthesized-name table for every message in `file`, deduped against the already-deduped

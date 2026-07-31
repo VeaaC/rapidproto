@@ -515,12 +515,15 @@ The emitter (`generator.cpp`, the project's largest file) is a flat collection o
 functions, each threaded with an `Emit` bundle — references to the `Printer`, the `CppNameTable`, the
 `LayoutSet`, a per-message `SynthNames`, and the `SymbolTable`. Two facts orient a first read:
 
-- **Two-layer naming.** The shared `CppNameTable` names and de-collides the schema's *own* identifiers;
-  a per-message **`SynthNames`** pass names the identifiers arenagen *invents* (the `<Oneof>`
-  visit-tag
-  struct and the `<Map>Entry` type), which `CppNameTable` cannot dedup because they don't exist
-  until the
-  emitter conjures them (so a user nested type literally named `FooEntry` still can't collide).
+- **Two-layer naming.** The shared `CppNameTable` names and de-collides the schema's *own*
+  identifiers (nested types, fields, oneofs); a per-message **`SynthNames`** pass names
+  everything arenagen *invents* — the `<Oneof>` visit-tag struct, the `<Map>Entry` type,
+  `has_unknown_fields()`, and the private storage: each member's `m_…`, a oneof's union and
+  `_case` discriminant, and the presence mask. `CppNameTable` cannot dedup those because they
+  do not exist until the emitter conjures them. Both layers dedup within one class scope
+  **seeded with the class's own name**, since C++ forbids a member with the same name as its
+  class. `rp_`-prefixed names skip all of this: `sanitize()` escapes every proto name starting
+  with `rp_`, so they are unreachable by construction.
 - **Shells first, then decode bodies.** All struct shells are emitted before any out-of-line
   **`rp_decode_into`** body (for the complete-type reason given above). Each body is assembled from
   per-field *arms* (`emit_singular_arm` / `emit_repeated_arm` / `emit_map_arm` / `emit_oneof_arm`),

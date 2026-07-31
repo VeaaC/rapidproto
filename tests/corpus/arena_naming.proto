@@ -28,3 +28,55 @@ message Collide {
   }
   int32 decode = 9;     // reserved (the decode() entry point) -> `decode_`
 }
+
+// C++ forbids a member with the same name as its class, so every synthesized or nested name must
+// also dedup against the ENCLOSING message's name -- not only against its siblings. protoc accepts
+// all three shapes below, and each produced a header that failed to compile at the consumer.
+
+message Callback {      // a oneof capitalizing to its own class's name -> tag struct `Callback_`
+  oneof callback {
+    string python_code = 1;
+  }
+  bool disabled = 2;
+}
+
+message FooEntry {                   // a map whose entry type would take the class's name
+  map<string, int32> foo = 1;        // -> `FooEntry_`
+}
+
+message Outer {         // a nested message named like its parent -> the CHILD is deduped, `Outer_`
+  message Outer {
+    int32 v = 1;
+  }
+  Outer inner = 1;      // still resolves to the nested type, now spelled Outer_
+}
+
+// Private storage members are derived (`m_` + the member's id), so they need the same dedup: without
+// it they can take the class's own name or a sibling's accessor. All protoc-valid.
+
+message m_x {          // storage for `x` would be `m_x` == the class -> `m_x_`
+  int32 x = 1;
+}
+
+message Sibling {
+  int32 foo = 1;       // storage `m_foo` would collide with the accessor of the next field
+  int32 m_foo = 2;
+}
+
+message config {       // the oneof READER method would take the class's name -> `config_`
+  oneof config {
+    string a = 1;
+  }
+}
+
+message MaskOneof {    // a oneof named `mask` would derive `m_rp_mask` == the presence mask
+  oneof mask {
+    int32 a = 1;
+  }
+  optional int32 present = 2;
+}
+
+message Bytes {        // storage for `bytes` is `m_bytes`; the sibling accessor keeps its name now
+  bytes bytes = 1;
+  int32 m_bytes = 2;
+}
