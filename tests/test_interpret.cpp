@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "rapidproto/ast.hpp"
 #include "rapidproto/interpret.hpp"
@@ -123,31 +124,50 @@ TEST_CASE("interpret: custom and unknown options pass through raw, unmodified") 
     CHECK(field.options[2].name[0].name == "deprecated");
 }
 
-TEST_CASE("interpret: message_set_wire_format = true is rejected") {
+// A MessageSet holds only extensions, which no emitter materializes, so its contents are
+// unreadable either way -- but the encoding is well-formed and skips cleanly as unknown fields.
+// Rejecting the option would fail the whole FILE, taking every unrelated message with it.
+TEST_CASE("interpret: message_set_wire_format = true warns, and does not reject") {
     FileNode f = parse_only(R"(
         syntax = "proto2";
         message M { option message_set_wire_format = true; extensions 1 to max; }
     )");
     compute_fqns(f);
-    auto result = interpret_options(f);
-    REQUIRE(result.is_err());
-    CHECK(result.error().message.find("message-set wire format") != std::string::npos);
+    std::vector<std::string> warnings;
+    REQUIRE(interpret_options(f, &warnings).is_ok());
+    REQUIRE(warnings.size() == 1);
+    CHECK(warnings[0].find("MessageSet wire format") != std::string::npos);
+    CHECK(warnings[0].find(".M") != std::string::npos);  // names the message, by FQN
 }
 
-TEST_CASE("interpret: message_set_wire_format in a nested message is rejected") {
+TEST_CASE("interpret: message_set_wire_format in a nested message warns") {
     FileNode f = parse_only(R"(
         syntax = "proto2";
         message Outer { message Inner { option message_set_wire_format = true; } }
     )");
     compute_fqns(f);
-    REQUIRE(interpret_options(f).is_err());
+    std::vector<std::string> warnings;
+    REQUIRE(interpret_options(f, &warnings).is_ok());
+    REQUIRE(warnings.size() == 1);
+    CHECK(warnings[0].find(".Outer.Inner") != std::string::npos);
 }
 
-TEST_CASE("interpret: message_set_wire_format = false is allowed") {
+TEST_CASE("interpret: the warnings sink is optional") {
+    FileNode f = parse_only(R"(
+        syntax = "proto2";
+        message M { option message_set_wire_format = true; extensions 1 to max; }
+    )");
+    compute_fqns(f);
+    CHECK(interpret_options(f).is_ok());  // nullptr sink: no diagnostic, still no error
+}
+
+TEST_CASE("interpret: message_set_wire_format = false is allowed and silent") {
     FileNode f =
         parse_only(R"(syntax = "proto2"; message M { option message_set_wire_format = false; })");
     compute_fqns(f);
-    CHECK(interpret_options(f).is_ok());
+    std::vector<std::string> warnings;
+    CHECK(interpret_options(f, &warnings).is_ok());
+    CHECK(warnings.empty());
 }
 
 TEST_CASE("interpret: default applies to extension fields") {

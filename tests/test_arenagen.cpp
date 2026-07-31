@@ -35,8 +35,9 @@
 #include "arenagen_golden/arena_naming.rp.hpp"   // identifier dedup: must compile
 #include "arenagen_golden/editions2023.rp.hpp"
 #include "arenagen_golden/editions2024.rp.hpp"  // 2024: decode-relevant defaults match 2023
-#include "arenagen_golden/main.rp.hpp"   // cross-file imports: transitively pulls dep/forward/pub
-#include "arenagen_golden/nopkg.rp.hpp"  // NO package: types land at global scope
+#include "arenagen_golden/main.rp.hpp"  // cross-file imports: transitively pulls dep/forward/pub
+#include "arenagen_golden/messageset.rp.hpp"  // MessageSet: accepted, decodes as unknown
+#include "arenagen_golden/nopkg.rp.hpp"       // NO package: types land at global scope
 #include "arenagen_golden/prefixed/main.rp.hpp"  // --namespace-prefix + imports (pulls prefixed dep/...)
 #include "arenagen_golden/proto2.rp.hpp"
 #include "arenagen_golden/proto3.rp.hpp"
@@ -169,6 +170,7 @@ TEST_CASE("arenagen: generated headers match the goldens", "[arenagen]") {
     check_golden("arena_layout", generate_corpus("arena_layout.proto"));
     check_golden("arena_manyreq", generate_corpus("arena_manyreq.proto"));
     check_golden("arena_naming", generate_corpus("arena_naming.proto"));
+    check_golden("messageset", generate_corpus("messageset.proto"));
     check_golden("proto2", generate_corpus("proto2.proto"));
     check_golden("proto3", generate_corpus("proto3.proto"));
     check_golden("editions2023", generate_corpus("editions2023.proto"));

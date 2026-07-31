@@ -1,0 +1,27 @@
+// A MessageSet is a proto1-era container that holds ONLY extensions, encoded as repeated groups in
+// field 1 rather than as ordinary tagged fields. RapidProto does not materialize extensions (see the
+// `extend` non-goal), so a MessageSet decodes as unknown fields -- but it is accepted rather than
+// rejected, because rejecting it would fail the whole FILE and take every unrelated message with it.
+// Generation emits a warning naming the message.
+syntax = "proto2";
+
+package ms;
+
+message Outer {
+  optional int32 ordinary = 1;  // decodes normally, in the same file as the MessageSet below
+
+  message Container {
+    option message_set_wire_format = true;
+
+    extensions 4 to max;
+  }
+
+  optional Container container = 2;
+}
+
+message Ext {
+  extend Outer.Container {
+    optional Ext message_set_extension = 1234;
+  }
+  optional string s = 1;
+}

@@ -7,6 +7,14 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
 
 ### Fixed
 
+- **`option message_set_wire_format = true` is accepted instead of rejected.** A MessageSet is a
+  proto1-era container holding only extensions, encoded as repeated groups in field 1. RapidProto
+  does not materialize extensions, so its contents were never going to be readable — but rejecting
+  the option failed the whole **file**, taking every unrelated message with it (protobuf's own
+  proto2 conformance schema has ~200 that decode perfectly). Such a message now generates, emits a
+  warning naming it, and decodes as unknown fields; a malformed group is still a wire error. Eight
+  schemas in the real-world corpus, including `test_messages_proto2.proto`, now generate.
+
 - **Generated headers compile warning-free on GCC 13 and on Clang versions that diagnose an
   untaken ternary branch.** Both warnings fired in consumer builds but not in this repo's own build,
   so neither was caught here:

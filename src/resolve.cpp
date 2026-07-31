@@ -387,7 +387,7 @@ Result<SymbolTable> analyze(ResolvedFileSet& file_set) {
     }
     // Option interpretation: interpret_options only mutates fields in place (no reallocation), so
     // the extension FieldNode* pointers in `symbols` remain valid.
-    if (auto interpreted = interpret_options(file_set); !interpreted) {
+    if (auto interpreted = interpret_options(file_set, &symbols.value().warnings); !interpreted) {
         return std::move(interpreted).error();
     }
     return std::move(symbols).value();
