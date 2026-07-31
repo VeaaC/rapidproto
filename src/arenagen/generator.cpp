@@ -738,6 +738,14 @@ void synth_for_message(const CppNameTable& names, const LayoutSet& layouts,
     }
     // Storage LAST, so the public names above keep the ids they had before storage joined this
     // scope -- the dedup is then inert for every schema that does not actually collide.
+    //
+    // Two mechanisms keep generated identifiers collision-free, and they are deliberately different.
+    // Anything `rp_`-prefixed is UNREACHABLE by construction: codegen::sanitize escapes every proto
+    // name starting with `rp_`, so no user name can land there (that is why streamgen's byte span is
+    // `rp_span` and needs no dedup). Everything else -- the `m_` storage members below, and the
+    // public names above -- is ASSIGNED here instead, which additionally protects generated names
+    // from each other (storage vs the presence mask vs a oneof union), something a prefix alone
+    // cannot do.
     for (const MemberPlan& m : layout.members) {
         if (m.size > 0) {
             const void* node = m.field != nullptr ? static_cast<const void*>(m.field)
