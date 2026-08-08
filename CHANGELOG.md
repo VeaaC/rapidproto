@@ -25,6 +25,36 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
   against the full `[lex.key]` table through C++23, a keyword fixture is in the corpus, and
   `./check.sh` compiles the generated headers at `-std=c++20` and `-std=c++23`.
 
+- **The debug dumper (`--dump`) rendered bools, integers and floating-point values wrongly.** Four
+  defects, all from letting the output stream's formatting state decide how a value prints:
+  - A `bool` printed as `1`/`0` instead of `true`/`false` whenever its group fit on one line. The
+    dumper set `boolalpha` on the caller's stream, but a group that fits is rendered into an
+    internal scratch buffer first, and the flag never reached it — so the same value printed
+    differently depending on the surrounding line width. This applied to a `map<bool, …>`'s **keys**
+    as well as to bool fields and values.
+  - A `float`/`double` printed at the stream default of 6 significant digits, silently truncating:
+    `3.141592653589793` dumped as `3.14159`, a *different* value. Both now print with enough digits
+    to read back exactly, without padding every value out to the type's maximum (`0.1` stays `0.1`).
+  - `NaN` and the infinities printed as bare `nan` / `inf`, which no JSON parser accepts. They now
+    use protobuf's JSON convention: the quoted strings `"NaN"` / `"Infinity"` / `"-Infinity"`.
+    They are recognized from the exponent bits rather than via `std::isnan`/`std::isinf`, so the
+    rendering survives a consumer building the generated header with `-ffast-math`, under which
+    those two fold to a constant `false`.
+  - An integer took its base, sign and digit grouping from the stream it was written to. Under a
+    German locale a dump contained `1.234.567.890`; with `std::hex` set — sticky, and ordinary in a
+    debugging session — `255` printed as `ff`, and an out-of-range enum's `UNKNOWN(99)` marker
+    became `UNKNOWN(63)`, a wrong number that still looks like a plausible one.
+
+  Every value is now formatted by the dumper itself and handed to the stream as characters, so the
+  output is identical whatever locale and flags that stream carries. Dumping also leaves that stream
+  exactly as it found it, where it previously set `boolalpha` permanently — and it deliberately does
+  not go the other way and re-configure the stream, since re-imbuing one that another thread may be
+  reading is a data race.
+
+  Regenerate the `*.rp.dump.hpp` headers to pick this up; the arena and streaming headers are
+  unaffected.
+
+
 - **Generated headers compile warning-free on GCC 13 and on Clang versions that diagnose an
   untaken ternary branch.** Both warnings fired in consumer builds but not in this repo's own build,
   so neither was caught here:

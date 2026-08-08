@@ -36,7 +36,6 @@ inline void rp_dump_write(const ::samepkg::FirstA& m, ::rapidproto::dump::Writer
 }  // namespace rp_dump_detail
 
 inline void rp_dump_write(std::ostream& rp_os, const ::samepkg::FirstA& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  rp_os << std::boolalpha;
   ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
   ::samepkg::rp_dump_detail::rp_dump_write(m, w);
 }

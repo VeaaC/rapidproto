@@ -92,7 +92,7 @@ inline void rp_dump_write(const ::rp::xr::A& m, ::rapidproto::dump::Writer& w) {
     }
     if (const auto rp_v = m.id(); rp_v != decltype(rp_v){}) {
       if (w.begin_field(rp_first, "id")) {
-        w.os() << rp_v;
+        ::rapidproto::dump::write_int(w.os(), rp_v);
       }
     }
     (void)rp_first;
@@ -143,7 +143,7 @@ inline void rp_dump_write(const ::rp::xr::Nested::User& m, ::rapidproto::dump::W
       if (w.begin_field(rp_first, "kind")) {
         { const auto rp_e = rp_v;
         if (const char* rp_nm = ::rapidproto::dump::detail::rp_dump_enum_name(rp_e)) { w.os() << '"' << rp_nm << '"'; }
-        else { w.os() << "\"UNKNOWN(" << static_cast<std::int32_t>(rp_e) << ")\""; } }
+        else { w.os() << "\"UNKNOWN("; ::rapidproto::dump::write_int(w.os(), static_cast<std::int32_t>(rp_e)); w.os() << ")\""; } }
       }
     }
     if (const auto& rp_r = m.kinds(); !rp_r.empty()) {
@@ -154,7 +154,7 @@ inline void rp_dump_write(const ::rp::xr::Nested::User& m, ::rapidproto::dump::W
             w.entry_sep(rp_efirst);
             { const auto rp_e = rp_el;
             if (const char* rp_nm = ::rapidproto::dump::detail::rp_dump_enum_name(rp_e)) { w.os() << '"' << rp_nm << '"'; }
-            else { w.os() << "\"UNKNOWN(" << static_cast<std::int32_t>(rp_e) << ")\""; } }
+            else { w.os() << "\"UNKNOWN("; ::rapidproto::dump::write_int(w.os(), static_cast<std::int32_t>(rp_e)); w.os() << ")\""; } }
             if (w.overflowed()) { break; }
           }
         });
@@ -202,10 +202,10 @@ inline void rp_dump_write(const ::rp::xr::Nested::User& m, ::rapidproto::dump::W
           bool rp_efirst = true;
           for (const auto& rp_ent : rp_mp) {
             w.entry_sep(rp_efirst);
-            w.os() << '"' << rp_ent.key() << "\": ";
+            w.os() << '"'; ::rapidproto::dump::write_int(w.os(), rp_ent.key()); w.os() << "\": ";
             { const auto rp_e = rp_ent.value();
             if (const char* rp_nm = ::rapidproto::dump::detail::rp_dump_enum_name(rp_e)) { w.os() << '"' << rp_nm << '"'; }
-            else { w.os() << "\"UNKNOWN(" << static_cast<std::int32_t>(rp_e) << ")\""; } }
+            else { w.os() << "\"UNKNOWN("; ::rapidproto::dump::write_int(w.os(), static_cast<std::int32_t>(rp_e)); w.os() << ")\""; } }
             if (w.overflowed()) { break; }
           }
         });
@@ -224,7 +224,7 @@ inline void rp_dump_write(const ::rp::xr::Nested::User& m, ::rapidproto::dump::W
         if (w.begin_field(rp_first, "tagged")) {
           { const auto rp_e = rp_v;
           if (const char* rp_nm = ::rapidproto::dump::detail::rp_dump_enum_name(rp_e)) { w.os() << '"' << rp_nm << '"'; }
-          else { w.os() << "\"UNKNOWN(" << static_cast<std::int32_t>(rp_e) << ")\""; } }
+          else { w.os() << "\"UNKNOWN("; ::rapidproto::dump::write_int(w.os(), static_cast<std::int32_t>(rp_e)); w.os() << ")\""; } }
         }
       }
     });
@@ -256,7 +256,7 @@ inline void rp_dump_write(const ::rp::xr::Nested::Def& m, ::rapidproto::dump::Wr
     }
     if (const auto rp_v = m.n(); rp_v != decltype(rp_v){}) {
       if (w.begin_field(rp_first, "n")) {
-        w.os() << rp_v;
+        ::rapidproto::dump::write_int(w.os(), rp_v);
       }
     }
     (void)rp_first;
@@ -333,7 +333,7 @@ inline void rp_dump_write(const ::rp::xr::FwdMsg::Ref& m, ::rapidproto::dump::Wr
           bool rp_efirst = true;
           for (const auto& rp_ent : rp_mp) {
             w.entry_sep(rp_efirst);
-            w.os() << '"' << rp_ent.key() << "\": ";
+            w.os() << '"'; ::rapidproto::dump::write_int(w.os(), rp_ent.key()); w.os() << "\": ";
             if (const auto* rp_vp = rp_ent.value()) { ::rp::xr::rp_dump_detail::rp_dump_write(*rp_vp, w); } else { w.os() << "null"; }
             if (w.overflowed()) { break; }
           }
@@ -366,7 +366,7 @@ inline void rp_dump_write(const ::rp::xr::FwdMsg::Target& m, ::rapidproto::dump:
     }
     if (const auto rp_v = m.n(); rp_v != decltype(rp_v){}) {
       if (w.begin_field(rp_first, "n")) {
-        w.os() << rp_v;
+        ::rapidproto::dump::write_int(w.os(), rp_v);
       }
     }
     (void)rp_first;
@@ -410,7 +410,7 @@ inline void rp_dump_write(const ::rp::xr::CousinA::Use& m, ::rapidproto::dump::W
       if (w.begin_field(rp_first, "tag")) {
         { const auto rp_e = rp_v;
         if (const char* rp_nm = ::rapidproto::dump::detail::rp_dump_enum_name(rp_e)) { w.os() << '"' << rp_nm << '"'; }
-        else { w.os() << "\"UNKNOWN(" << static_cast<std::int32_t>(rp_e) << ")\""; } }
+        else { w.os() << "\"UNKNOWN("; ::rapidproto::dump::write_int(w.os(), static_cast<std::int32_t>(rp_e)); w.os() << ")\""; } }
       }
     }
     (void)rp_first;
@@ -452,37 +452,37 @@ inline void rp_dump_write(const ::rp::xr::ReservedNames& m, ::rapidproto::dump::
     bool rp_first = true;
     if (const auto rp_v = m.value(); rp_v != decltype(rp_v){}) {
       if (w.begin_field(rp_first, "value")) {
-        w.os() << rp_v;
+        ::rapidproto::dump::write_int(w.os(), rp_v);
       }
     }
     if (const auto rp_v = m.tag(); rp_v != decltype(rp_v){}) {
       if (w.begin_field(rp_first, "tag")) {
-        w.os() << rp_v;
+        ::rapidproto::dump::write_int(w.os(), rp_v);
       }
     }
     if (const auto rp_v = m.status(); rp_v != decltype(rp_v){}) {
       if (w.begin_field(rp_first, "status")) {
-        w.os() << rp_v;
+        ::rapidproto::dump::write_int(w.os(), rp_v);
       }
     }
     if (const auto rp_v = m.reader(); rp_v != decltype(rp_v){}) {
       if (w.begin_field(rp_first, "reader")) {
-        w.os() << rp_v;
+        ::rapidproto::dump::write_int(w.os(), rp_v);
       }
     }
     if (const auto rp_v = m.dispatch(); rp_v != decltype(rp_v){}) {
       if (w.begin_field(rp_first, "dispatch")) {
-        w.os() << rp_v;
+        ::rapidproto::dump::write_int(w.os(), rp_v);
       }
     }
     if (const auto rp_v = m.callbacks(); rp_v != decltype(rp_v){}) {
       if (w.begin_field(rp_first, "callbacks")) {
-        w.os() << rp_v;
+        ::rapidproto::dump::write_int(w.os(), rp_v);
       }
     }
     if (const auto rp_v = m.read(); rp_v != decltype(rp_v){}) {
       if (w.begin_field(rp_first, "read")) {
-        w.os() << rp_v;
+        ::rapidproto::dump::write_int(w.os(), rp_v);
       }
     }
     (void)rp_first;
@@ -495,7 +495,7 @@ inline void rp_dump_write(const ::rp::xr::IntWrap& m, ::rapidproto::dump::Writer
     bool rp_first = true;
     if (const auto rp_v = m.value(); rp_v != decltype(rp_v){}) {
       if (w.begin_field(rp_first, "value")) {
-        w.os() << rp_v;
+        ::rapidproto::dump::write_int(w.os(), rp_v);
       }
     }
     (void)rp_first;
@@ -508,7 +508,7 @@ inline void rp_dump_write(const ::rp::xr::BoolWrap& m, ::rapidproto::dump::Write
     bool rp_first = true;
     if (const auto rp_v = m.value(); rp_v != decltype(rp_v){}) {
       if (w.begin_field(rp_first, "value")) {
-        w.os() << rp_v;
+        ::rapidproto::dump::write_bool(w.os(), rp_v);
       }
     }
     (void)rp_first;
@@ -531,7 +531,6 @@ inline void rp_dump_write(const ::rp::xr::BytesWrap& m, ::rapidproto::dump::Writ
 }  // namespace rp_dump_detail
 
 inline void rp_dump_write(std::ostream& rp_os, const ::rp::xr::A& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  rp_os << std::boolalpha;
   ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
   ::rp::xr::rp_dump_detail::rp_dump_write(m, w);
 }
@@ -541,7 +540,6 @@ inline std::string rp_dump_string(const ::rp::xr::A& m, const ::rapidproto::dump
 }
 
 inline void rp_dump_write(std::ostream& rp_os, const ::rp::xr::B& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  rp_os << std::boolalpha;
   ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
   ::rp::xr::rp_dump_detail::rp_dump_write(m, w);
 }
@@ -551,7 +549,6 @@ inline std::string rp_dump_string(const ::rp::xr::B& m, const ::rapidproto::dump
 }
 
 inline void rp_dump_write(std::ostream& rp_os, const ::rp::xr::Nested::User& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  rp_os << std::boolalpha;
   ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
   ::rp::xr::rp_dump_detail::rp_dump_write(m, w);
 }
@@ -561,7 +558,6 @@ inline std::string rp_dump_string(const ::rp::xr::Nested::User& m, const ::rapid
 }
 
 inline void rp_dump_write(std::ostream& rp_os, const ::rp::xr::Nested::Def::Inner& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  rp_os << std::boolalpha;
   ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
   ::rp::xr::rp_dump_detail::rp_dump_write(m, w);
 }
@@ -571,7 +567,6 @@ inline std::string rp_dump_string(const ::rp::xr::Nested::Def::Inner& m, const :
 }
 
 inline void rp_dump_write(std::ostream& rp_os, const ::rp::xr::Nested::Def& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  rp_os << std::boolalpha;
   ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
   ::rp::xr::rp_dump_detail::rp_dump_write(m, w);
 }
@@ -581,7 +576,6 @@ inline std::string rp_dump_string(const ::rp::xr::Nested::Def& m, const ::rapidp
 }
 
 inline void rp_dump_write(std::ostream& rp_os, const ::rp::xr::Nested::P& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  rp_os << std::boolalpha;
   ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
   ::rp::xr::rp_dump_detail::rp_dump_write(m, w);
 }
@@ -591,7 +585,6 @@ inline std::string rp_dump_string(const ::rp::xr::Nested::P& m, const ::rapidpro
 }
 
 inline void rp_dump_write(std::ostream& rp_os, const ::rp::xr::Nested::Q& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  rp_os << std::boolalpha;
   ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
   ::rp::xr::rp_dump_detail::rp_dump_write(m, w);
 }
@@ -601,7 +594,6 @@ inline std::string rp_dump_string(const ::rp::xr::Nested::Q& m, const ::rapidpro
 }
 
 inline void rp_dump_write(std::ostream& rp_os, const ::rp::xr::Nested& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  rp_os << std::boolalpha;
   ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
   ::rp::xr::rp_dump_detail::rp_dump_write(m, w);
 }
@@ -611,7 +603,6 @@ inline std::string rp_dump_string(const ::rp::xr::Nested& m, const ::rapidproto:
 }
 
 inline void rp_dump_write(std::ostream& rp_os, const ::rp::xr::FwdMsg::Ref& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  rp_os << std::boolalpha;
   ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
   ::rp::xr::rp_dump_detail::rp_dump_write(m, w);
 }
@@ -621,7 +612,6 @@ inline std::string rp_dump_string(const ::rp::xr::FwdMsg::Ref& m, const ::rapidp
 }
 
 inline void rp_dump_write(std::ostream& rp_os, const ::rp::xr::FwdMsg::Target& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  rp_os << std::boolalpha;
   ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
   ::rp::xr::rp_dump_detail::rp_dump_write(m, w);
 }
@@ -631,7 +621,6 @@ inline std::string rp_dump_string(const ::rp::xr::FwdMsg::Target& m, const ::rap
 }
 
 inline void rp_dump_write(std::ostream& rp_os, const ::rp::xr::FwdMsg& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  rp_os << std::boolalpha;
   ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
   ::rp::xr::rp_dump_detail::rp_dump_write(m, w);
 }
@@ -641,7 +630,6 @@ inline std::string rp_dump_string(const ::rp::xr::FwdMsg& m, const ::rapidproto:
 }
 
 inline void rp_dump_write(std::ostream& rp_os, const ::rp::xr::CousinA::Use& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  rp_os << std::boolalpha;
   ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
   ::rp::xr::rp_dump_detail::rp_dump_write(m, w);
 }
@@ -651,7 +639,6 @@ inline std::string rp_dump_string(const ::rp::xr::CousinA::Use& m, const ::rapid
 }
 
 inline void rp_dump_write(std::ostream& rp_os, const ::rp::xr::CousinA& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  rp_os << std::boolalpha;
   ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
   ::rp::xr::rp_dump_detail::rp_dump_write(m, w);
 }
@@ -661,7 +648,6 @@ inline std::string rp_dump_string(const ::rp::xr::CousinA& m, const ::rapidproto
 }
 
 inline void rp_dump_write(std::ostream& rp_os, const ::rp::xr::CousinB::Thing& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  rp_os << std::boolalpha;
   ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
   ::rp::xr::rp_dump_detail::rp_dump_write(m, w);
 }
@@ -671,7 +657,6 @@ inline std::string rp_dump_string(const ::rp::xr::CousinB::Thing& m, const ::rap
 }
 
 inline void rp_dump_write(std::ostream& rp_os, const ::rp::xr::CousinB& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  rp_os << std::boolalpha;
   ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
   ::rp::xr::rp_dump_detail::rp_dump_write(m, w);
 }
@@ -681,7 +666,6 @@ inline std::string rp_dump_string(const ::rp::xr::CousinB& m, const ::rapidproto
 }
 
 inline void rp_dump_write(std::ostream& rp_os, const ::rp::xr::ReservedNames& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  rp_os << std::boolalpha;
   ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
   ::rp::xr::rp_dump_detail::rp_dump_write(m, w);
 }
@@ -691,7 +675,6 @@ inline std::string rp_dump_string(const ::rp::xr::ReservedNames& m, const ::rapi
 }
 
 inline void rp_dump_write(std::ostream& rp_os, const ::rp::xr::IntWrap& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  rp_os << std::boolalpha;
   ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
   ::rp::xr::rp_dump_detail::rp_dump_write(m, w);
 }
@@ -701,7 +684,6 @@ inline std::string rp_dump_string(const ::rp::xr::IntWrap& m, const ::rapidproto
 }
 
 inline void rp_dump_write(std::ostream& rp_os, const ::rp::xr::BoolWrap& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  rp_os << std::boolalpha;
   ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
   ::rp::xr::rp_dump_detail::rp_dump_write(m, w);
 }
@@ -711,7 +693,6 @@ inline std::string rp_dump_string(const ::rp::xr::BoolWrap& m, const ::rapidprot
 }
 
 inline void rp_dump_write(std::ostream& rp_os, const ::rp::xr::BytesWrap& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  rp_os << std::boolalpha;
   ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
   ::rp::xr::rp_dump_detail::rp_dump_write(m, w);
 }

@@ -24,7 +24,7 @@ inline void rp_dump_write(const ::wire::AllWire::G& m, ::rapidproto::dump::Write
     bool rp_first = true;
     if (const auto rp_v = m.a()) {
       if (w.begin_field(rp_first, "a")) {
-        w.os() << *rp_v;
+        ::rapidproto::dump::write_int(w.os(), *rp_v);
       }
     }
     (void)rp_first;
@@ -37,17 +37,17 @@ inline void rp_dump_write(const ::wire::AllWire& m, ::rapidproto::dump::Writer& 
     bool rp_first = true;
     if (const auto rp_v = m.zz()) {
       if (w.begin_field(rp_first, "zz")) {
-        w.os() << *rp_v;
+        ::rapidproto::dump::write_int(w.os(), *rp_v);
       }
     }
     if (const auto rp_v = m.db()) {
       if (w.begin_field(rp_first, "db")) {
-        w.os() << *rp_v;
+        ::rapidproto::dump::write_float(w.os(), *rp_v);
       }
     }
     if (const auto rp_v = m.fx()) {
       if (w.begin_field(rp_first, "fx")) {
-        w.os() << *rp_v;
+        ::rapidproto::dump::write_int(w.os(), *rp_v);
       }
     }
     if (const auto rp_v = m.s()) {
@@ -73,7 +73,7 @@ inline void rp_dump_write(const ::wire::AllWire& m, ::rapidproto::dump::Writer& 
           bool rp_efirst = true;
           for (const auto& rp_el : rp_r) {
             w.entry_sep(rp_efirst);
-            w.os() << rp_el;
+            ::rapidproto::dump::write_int(w.os(), rp_el);
             if (w.overflowed()) { break; }
           }
         });
@@ -90,7 +90,7 @@ inline void rp_dump_write(const ::wire::AllWire& m, ::rapidproto::dump::Writer& 
       using RpTag = std::decay_t<decltype(rp_tag)>;
       if constexpr (std::is_same_v<RpTag, ::wire::AllWire::Pick::oi>) {
         if (w.begin_field(rp_first, "oi")) {
-          w.os() << rp_v;
+          ::rapidproto::dump::write_int(w.os(), rp_v);
         }
       }
       if constexpr (std::is_same_v<RpTag, ::wire::AllWire::Pick::os>) {
@@ -106,7 +106,6 @@ inline void rp_dump_write(const ::wire::AllWire& m, ::rapidproto::dump::Writer& 
 }  // namespace rp_dump_detail
 
 inline void rp_dump_write(std::ostream& rp_os, const ::wire::AllWire::G& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  rp_os << std::boolalpha;
   ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
   ::wire::rp_dump_detail::rp_dump_write(m, w);
 }
@@ -116,7 +115,6 @@ inline std::string rp_dump_string(const ::wire::AllWire::G& m, const ::rapidprot
 }
 
 inline void rp_dump_write(std::ostream& rp_os, const ::wire::AllWire& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  rp_os << std::boolalpha;
   ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
   ::wire::rp_dump_detail::rp_dump_write(m, w);
 }

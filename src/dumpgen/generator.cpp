@@ -54,12 +54,32 @@ std::string dump_detail_ns(const CppNameTable& names, const std::string& fqn) {
 // How the debug writer must treat a field's VALUE, derived straight from the FieldNode (mirrors the
 // arena accessor's return-type categories).
 enum class ValueKind : std::uint8_t {
-    Scalar,   // numeric / bool -> numeric literal (bool -> true/false)
+    Scalar,   // integral -> numeric literal
+    Bool,     // -> true/false, via write_bool
+    Float,    // float/double -> a literal that reads back exactly, via write_float
     String,   // string -> JSON-escaped quoted
     Bytes,    // bytes -> lowercase hex quoted
     Enum,     // -> "NAME" (numeric fallback), via rp_dump_enum_name
     Message,  // -> nested object (const T* accessor)
 };
+
+// The kind for a scalar type keyword. Shared by fields and map values so both render a `bool` or a
+// `double` the same way.
+ValueKind scalar_kind(std::string_view type_name) {
+    if (type_name == "bool") {
+        return ValueKind::Bool;
+    }
+    if (type_name == "float" || type_name == "double") {
+        return ValueKind::Float;
+    }
+    if (type_name == "string") {
+        return ValueKind::String;
+    }
+    if (type_name == "bytes") {
+        return ValueKind::Bytes;
+    }
+    return ValueKind::Scalar;
+}
 
 ValueKind value_kind(const FieldNode& f) {
     if (f.is_message_type) {
@@ -71,13 +91,7 @@ ValueKind value_kind(const FieldNode& f) {
     if (f.is_enum_type) {
         return ValueKind::Enum;
     }
-    if (f.type_name == "string") {
-        return ValueKind::String;
-    }
-    if (f.type_name == "bytes") {
-        return ValueKind::Bytes;
-    }
-    return ValueKind::Scalar;
+    return scalar_kind(f.type_name);
 }
 
 // A scalar/string/enum field carries explicit presence -> its arena accessor returns std::optional<T>
@@ -98,9 +112,13 @@ void emit_write_value(Printer& p, ValueKind kind, const std::string& expr,
                       const std::string& detail_ns) {
     switch (kind) {
         case ValueKind::Scalar:
-            // bool prints as true/false via std::boolalpha (set once by the caller's ostream setup);
-            // ints/float/double stream as numeric literals. Cast (u)int8 out (none here) not needed.
-            p.print("w.os() << $e$;\n", {{"e", expr}});
+            p.print("::rapidproto::dump::write_int(w.os(), $e$);\n", {{"e", expr}});
+            break;
+        case ValueKind::Bool:
+            p.print("::rapidproto::dump::write_bool(w.os(), $e$);\n", {{"e", expr}});
+            break;
+        case ValueKind::Float:
+            p.print("::rapidproto::dump::write_float(w.os(), $e$);\n", {{"e", expr}});
             break;
         case ValueKind::String:
             p.print(
@@ -121,8 +139,9 @@ void emit_write_value(Printer& p, ValueKind kind, const std::string& expr,
                 "if (const char* rp_nm = ::rapidproto::dump::detail::rp_dump_enum_name(rp_e)) {"
                 " w.os() << '\"' << rp_nm << '\"'; }\n");
             p.print(
-                "else { w.os() << \"\\\"UNKNOWN(\""
-                " << static_cast<std::int32_t>(rp_e) << \")\\\"\"; } }\n");
+                "else { w.os() << \"\\\"UNKNOWN(\";"
+                " ::rapidproto::dump::write_int(w.os(), static_cast<std::int32_t>(rp_e));"
+                " w.os() << \")\\\"\"; } }\n");
             break;
         case ValueKind::Message:
             p.print("$ns$::rp_dump_write($e$, w);\n", {{"ns", detail_ns}, {"e", expr}});
@@ -290,12 +309,10 @@ void emit_map_field(Printer& p, const CppNameTable& names, const MapFieldNode& m
         vkind = ValueKind::Message;
     } else if (mp.value_is_enum) {
         vkind = ValueKind::Enum;
-    } else if (mp.value_type == "string") {
-        vkind = ValueKind::String;
-    } else if (mp.value_type == "bytes") {
-        vkind = ValueKind::Bytes;
+    } else {
+        vkind = scalar_kind(mp.value_type);
     }
-    const bool key_is_string = mp.key_type == "string";
+    const ValueKind kkind = scalar_kind(mp.key_type);
     // Omit an empty map.
     p.print("if (const auto& rp_mp = m.$acc$(); !rp_mp.empty()) {\n",
             {{"acc", names.local.at(&mp)}});
@@ -312,14 +329,21 @@ void emit_map_field(Printer& p, const CppNameTable& names, const MapFieldNode& m
     p.print("for (const auto& rp_ent : rp_mp) {\n");
     p.indent();
     p.print("w.entry_sep(rp_efirst);\n");
-    // The object key is always a JSON string. A string key escapes; a numeric key is streamed into
-    // the quotes as its decimal form.
-    if (key_is_string) {
+    // The object key is always a JSON string. proto restricts a map key to the integral types, bool
+    // and string, so there are three renderings inside the quotes: an escaped string, the
+    // `true`/`false` literal, and an integral key's decimal form.
+    if (kkind == ValueKind::String) {
         p.print(
             "w.os() << '\"'; ::rapidproto::dump::write_json_escaped(w.os(), rp_ent.key());"
             " w.os() << \"\\\": \";\n");
+    } else if (kkind == ValueKind::Bool) {
+        p.print(
+            "w.os() << '\"'; ::rapidproto::dump::write_bool(w.os(), rp_ent.key());"
+            " w.os() << \"\\\": \";\n");
     } else {
-        p.print("w.os() << '\"' << rp_ent.key() << \"\\\": \";\n");
+        p.print(
+            "w.os() << '\"'; ::rapidproto::dump::write_int(w.os(), rp_ent.key());"
+            " w.os() << \"\\\": \";\n");
     }
     if (vkind == ValueKind::Message) {
         // value() is const V* for a message entry.
@@ -497,7 +521,9 @@ void emit_message_public(Printer& p, const CppNameTable& names, const MessageNod
         " const ::rapidproto::dump::DumpOptions& rp_opts = {}) {\n",
         {{"T", type}});
     p.indent();
-    p.print("rp_os << std::boolalpha;\n");
+    // No stream setup: the runtime's writers format every value into characters themselves, so the
+    // dump text is the same whatever locale and flags this stream carries -- and the dumper never
+    // touches either, which re-imbuing a stream someone else may be reading would require.
     p.print("::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);\n");
     p.print("$ns$::rp_dump_write(m, w);\n", {{"ns", detail}});
     p.outdent();
