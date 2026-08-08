@@ -42,6 +42,10 @@ struct SymbolTable {
     // (extendee FQN, field number) -> the extension FieldNode (parsers need this). The pointers
     // reference the FieldNodes inside `file_set`, which must outlive the table.
     std::map<std::pair<std::string, std::int32_t>, const FieldNode*> extensions;
+    // Non-fatal diagnostics from the passes, each already prefixed with "warning: ". `rapidprotoc`
+    // prints them to stderr; a library consumer may ignore them. They never mean analysis failed --
+    // a failure is an Error, and this table only exists on success.
+    std::vector<std::string> warnings;
 };
 
 // Resolve all type references in `file_set` in place (writing resolved_type_fqn/is_message_type/
@@ -54,6 +58,6 @@ Result<SymbolTable> resolve_types(ResolvedFileSet& file_set);
 // FQN computation -> type resolution -> decode-relevant option interpretation.
 // Returns the symbol table + extension registry, or the first error. This is the top-level entry a
 // parser/codegen consumer uses after the import resolver builds the file set.
-Result<SymbolTable> analyze(ResolvedFileSet& file_set);
+Result<SymbolTable> analyze(ResolvedFileSet& file_set);  // warnings land in the table
 
 }  // namespace rapidproto

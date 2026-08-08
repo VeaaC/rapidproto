@@ -249,6 +249,31 @@ job_compile_fail() {
 # slip past the default gate and surface only in CI's fuzz job. A syntax-only compile here (no fuzzer,
 # no sanitizer, no link) is enough to catch it. The benches and example consumers ARE built by the
 # cmake build above, so they need no separate check.
+# A generated header is compiled in the CONSUMER's translation unit, which is commonly newer than
+# the C++17 this library targets -- and a field named `concept` or `requires` is merely a warning at
+# 17 but a hard ERROR at 20. Nothing else in the gate compiles generated code at a newer standard,
+# so without this the C++20 half of codegen's reserved-identifier set is unenforceable.
+job_cxx20_smoke() {
+  local cxx=g++-13 rc=0 out
+  command -v "$cxx" >/dev/null 2>&1 || cxx=c++
+  local tu="build/cxx20_smoke.cpp"
+  mkdir -p build
+  {
+    echo '#include "arenagen_golden/arena_naming.rp.hpp"   // the C++ keyword fixture lives here'
+    echo '#include "streamgen_golden/naming.rp.stream.hpp"'
+    echo 'int main() {}'
+  } >"$tu"
+  for std in c++20 c++23; do
+    if ! out=$("$cxx" -std=$std -Iinclude -Itests -Ibuild/gcc/generated/include -fsyntax-only "$tu" 2>&1); then
+      echo ">> generated headers do not compile at -std=$std:"
+      head -10 <<<"$out"
+      rc=1
+    fi
+  done
+  [[ $rc -eq 0 ]] && echo "generated headers compile at c++20 and c++23"
+  return $rc
+}
+
 job_fuzz_compile() {
   local cxx=clang++-20 rc=0 out
   command -v "$cxx" >/dev/null 2>&1 || cxx=c++
@@ -336,7 +361,7 @@ job_corpus() {
 # Which of the eight gate stages run (default: all). CI splits them across runner jobs -- the
 # build/test stages in one, tidy shards in a matrix -- so wall-clock is the slowest runner.
 stage_enabled() {
-  [[ " ${RAPIDPROTO_GATE_STAGES:-format docs gcc clang cf fuzz tidy corpus} " == *" $1 "* ]]
+  [[ " ${RAPIDPROTO_GATE_STAGES:-format docs gcc clang cf fuzz tidy corpus cxx20} " == *" $1 "* ]]
 }
 run_stage() {  # $1 stage key, $2 log name, rest: the job command
   local key=$1 log=$2; shift 2
@@ -383,9 +408,12 @@ fi
 
 # After the build stages, never alongside them: this one consumes build/gcc's rapidprotoc.
 run_stage corpus "corpus" job_corpus; rc_corpus=$?
+# Needs the goldens on disk (not a build product), so it can run any time after them.
+run_stage cxx20 "cxx20" job_cxx20_smoke; rc_cxx20=$?
 
 # --- print each stage's output in a fixed order (already captured, so never interleaved) ----------
 
+section "generated headers at c++20/c++23";            cat "$LOG/cxx20"
 section "clang-format (check)";                       cat "$LOG/format"
 section "doc links";                                  cat "$LOG/docs"
 section "build + test (gcc)";                         cat "$LOG/gcc"
@@ -396,7 +424,8 @@ section "clang-tidy (library = strict, tests = relaxed)";  cat "$LOG/tidy"
 section "real-world schema corpus";                        cat "$LOG/corpus"
 
 fail=0
-for rc in "$rc_format" "$rc_docs" "$rc_gcc" "$rc_clang" "$rc_cf" "$rc_fuzz" "$rc_tidy" "$rc_corpus"; do
+for rc in "$rc_format" "$rc_docs" "$rc_gcc" "$rc_clang" "$rc_cf" "$rc_fuzz" "$rc_tidy" \
+         "$rc_corpus" "$rc_cxx20"; do
   [[ "$rc" -ne 0 ]] && fail=1
 done
 

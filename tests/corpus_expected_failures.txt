@@ -16,21 +16,3 @@
 # The import is genuinely absent from the corpus; fetching grafeas too would fix these.
 googleapis/google/cloud/binaryauthorization/v1/service.proto	import not found
 googleapis/google/devtools/containeranalysis/v1/containeranalysis.proto	import not found
-
-# --- MessageSet wire format: unsupported ---
-# `option message_set_wire_format = true` is rejected outright. Notably this affects NO
-# googleapis production schema -- only protobuf's own proto2 conformance schema and the
-# google_message3/4 benchmark messages (both derived from legacy Google-internal messages).
-# That scopes the gap: it costs conformance and legacy-benchmark coverage, not adoption.
-#
-# Only test_messages_proto2, benchmark_message3_5 and benchmark_message4 actually declare the
-# option; benchmark_message3 and _1.._4 fail TRANSITIVELY because they import _5. (_6.._8 do
-# not import it and pass.)
-protobuf/src/google/protobuf/test_messages_proto2.proto	message-set wire format is not supported
-protobuf-benchmarks/benchmarks/datasets/google_message3/benchmark_message3_5.proto	message-set wire format is not supported
-protobuf-benchmarks/benchmarks/datasets/google_message4/benchmark_message4.proto	message-set wire format is not supported
-protobuf-benchmarks/benchmarks/datasets/google_message3/benchmark_message3.proto	message-set wire format is not supported
-protobuf-benchmarks/benchmarks/datasets/google_message3/benchmark_message3_1.proto	message-set wire format is not supported
-protobuf-benchmarks/benchmarks/datasets/google_message3/benchmark_message3_2.proto	message-set wire format is not supported
-protobuf-benchmarks/benchmarks/datasets/google_message3/benchmark_message3_3.proto	message-set wire format is not supported
-protobuf-benchmarks/benchmarks/datasets/google_message3/benchmark_message3_4.proto	message-set wire format is not supported

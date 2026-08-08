@@ -1,6 +1,7 @@
 #include "rapidproto/interpret.hpp"
 
 #include <optional>
+#include <string>
 #include <string_view>
 #include <utility>
 #include <variant>
@@ -46,21 +47,28 @@ void interpret_field(FieldNode& field) {
     }
 }
 
-std::optional<Error> check_message_set_wire_format(const MessageNode& message) {
+// A MessageSet is a proto1-era container that holds ONLY extensions, encoded as repeated groups in
+// field 1 rather than as ordinary tagged fields. We do not decode extensions at all (see the
+// `extend` non-goal in architecture.md), so its contents are unreadable to us either way -- but the
+// encoding is still well-formed, so the generated decoder skips it as unknown fields exactly like
+// any other extension, and a TRUNCATED group is still rejected. Warn rather than reject: refusing
+// the option fails the whole FILE, which punishes every unrelated message in it (protobuf's own
+// proto2 conformance schema has ~200 that decode perfectly).
+bool declares_message_set(const MessageNode& message) {
     const OptionValue* option = find_option(message.options, "message_set_wire_format");
     if (option == nullptr) {
-        return std::nullopt;
+        return false;
     }
     const auto* value = std::get_if<Identifier>(&option->value);
-    if (value != nullptr && value->name == "true") {
-        return Error{0, "message-set wire format is not supported: " + message.fqn};
-    }
-    return std::nullopt;
+    return value != nullptr && value->name == "true";
 }
 
-std::optional<Error> interpret_message(MessageNode& message) {
-    if (auto error = check_message_set_wire_format(message)) {
-        return error;
+std::optional<Error> interpret_message(MessageNode& message, std::vector<std::string>* warnings) {
+    if (declares_message_set(message) && warnings != nullptr) {
+        warnings->push_back(
+            "warning: " + message.fqn +
+            " uses the MessageSet wire format; it holds only extensions, which this decoder does"
+            " not materialize, so the message will decode as unknown fields");
     }
     for (auto& field : message.fields) {
         interpret_field(field);
@@ -76,7 +84,7 @@ std::optional<Error> interpret_message(MessageNode& message) {
         }
     }
     for (auto& nested : message.nested_messages) {
-        if (auto error = interpret_message(nested)) {
+        if (auto error = interpret_message(nested, warnings)) {
             return error;
         }
     }
@@ -85,9 +93,9 @@ std::optional<Error> interpret_message(MessageNode& message) {
 
 }  // namespace
 
-Result<std::monostate> interpret_options(FileNode& file) {
+Result<std::monostate> interpret_options(FileNode& file, std::vector<std::string>* warnings) {
     for (auto& message : file.messages) {
-        if (auto error = interpret_message(message)) {
+        if (auto error = interpret_message(message, warnings)) {
             return *error;
         }
     }
@@ -99,9 +107,10 @@ Result<std::monostate> interpret_options(FileNode& file) {
     return std::monostate{};
 }
 
-Result<std::monostate> interpret_options(ResolvedFileSet& file_set) {
+Result<std::monostate> interpret_options(ResolvedFileSet& file_set,
+                                         std::vector<std::string>* warnings) {
     for (auto& file : file_set.files) {
-        if (auto result = interpret_options(file); result.is_err()) {
+        if (auto result = interpret_options(file, warnings); result.is_err()) {
             return std::move(result).error();
         }
     }

@@ -35,8 +35,9 @@
 #include "arenagen_golden/arena_naming.rp.hpp"   // identifier dedup: must compile
 #include "arenagen_golden/editions2023.rp.hpp"
 #include "arenagen_golden/editions2024.rp.hpp"  // 2024: decode-relevant defaults match 2023
-#include "arenagen_golden/main.rp.hpp"   // cross-file imports: transitively pulls dep/forward/pub
-#include "arenagen_golden/nopkg.rp.hpp"  // NO package: types land at global scope
+#include "arenagen_golden/main.rp.hpp"  // cross-file imports: transitively pulls dep/forward/pub
+#include "arenagen_golden/messageset.rp.hpp"  // MessageSet: accepted, decodes as unknown
+#include "arenagen_golden/nopkg.rp.hpp"       // NO package: types land at global scope
 #include "arenagen_golden/prefixed/main.rp.hpp"  // --namespace-prefix + imports (pulls prefixed dep/...)
 #include "arenagen_golden/proto2.rp.hpp"
 #include "arenagen_golden/proto3.rp.hpp"
@@ -106,6 +107,30 @@ ModesOutput generate_modes_golden() {
 // has_unknown_fields() bit, and the flag folds into the profile identity (an inline rp_modes_<id>
 // namespace). Byte-pinning this golden guards the fold -- the banner id and the inline namespace must
 // not drift silently, since a mismatch is exactly the ODR hazard the fold closes.
+// As above, for any corpus entry and an optional namespace prefix.
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): entry path vs namespace prefix, distinct
+std::string generate_unknown_present(const std::string& entry, const std::string& ns_prefix) {
+    ResolverConfig config;
+    config.include_paths = {RAPIDPROTO_CORPUS_DIR};
+    auto resolved = resolve(entry, config);
+    REQUIRE(resolved.is_ok());
+    ResolvedFileSet set = std::move(resolved).value();
+    auto analyzed = analyze(set);
+    REQUIRE(analyzed.is_ok());
+    const SymbolTable symbols = std::move(analyzed).value();
+    arenagen::FieldModesSpec spec;
+    spec.unknown_all = true;
+    auto resolved_modes = arenagen::resolve_field_modes(spec, set, symbols);
+    REQUIRE(resolved_modes.is_ok());
+    const arenagen::FieldModes modes = std::move(resolved_modes).value();
+    const codegen::CppNameTable names =
+        codegen::build_cpp_names(set.files.back(), set.files, codegen::namespace_of(ns_prefix));
+    arenagen::LayoutOptions options;
+    options.modes = &modes;
+    const arenagen::LayoutSet layouts = arenagen::plan_layouts(set, symbols, options);
+    return arenagen::generate_header(set.files.back(), names, layouts, symbols, &modes);
+}
+
 std::string generate_unknown_present_golden() {
     ResolverConfig config;
     config.include_paths = {RAPIDPROTO_CORPUS_DIR};
@@ -169,6 +194,12 @@ TEST_CASE("arenagen: generated headers match the goldens", "[arenagen]") {
     check_golden("arena_layout", generate_corpus("arena_layout.proto"));
     check_golden("arena_manyreq", generate_corpus("arena_manyreq.proto"));
     check_golden("arena_naming", generate_corpus("arena_naming.proto"));
+    check_golden("messageset", generate_corpus("messageset.proto"));
+    // The same schema under --unknown-present + a namespace prefix: pins the modes inline
+    // namespace (the ODR guard) as well as the unknown bit the decode test asserts on.
+    check_golden(
+        "unknown/messageset",
+        generate_unknown_present(std::string(RAPIDPROTO_CORPUS_DIR) + "/messageset.proto", "unk"));
     check_golden("proto2", generate_corpus("proto2.proto"));
     check_golden("proto3", generate_corpus("proto3.proto"));
     check_golden("editions2023", generate_corpus("editions2023.proto"));

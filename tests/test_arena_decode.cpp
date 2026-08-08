@@ -28,8 +28,10 @@
 #include "arenagen_golden/editions2023.rp.hpp"  // editions features: presence + DELIMITED, at runtime
 #include "arenagen_golden/editions2024.rp.hpp"  // 2024: decode-relevant defaults match 2023
 #include "arenagen_golden/main.rp.hpp"  // cross-file imports (pulls dep/forward/pub): runtime decode
+#include "arenagen_golden/messageset.rp.hpp"  // MessageSet: accepted, decodes as unknown
 #include "arenagen_golden/proto2.rp.hpp"
 #include "arenagen_golden/proto3.rp.hpp"
+#include "arenagen_golden/unknown/messageset.rp.hpp"  // ... observable via the unknown bit
 #include "arenagen_golden/wire_all.rp.hpp"
 #include "arenagen_golden/xref.rp.hpp"  // oneof member stored as a pointer (Def -> const-ref deref)
 #include "rapidproto/arena_runtime.hpp"
@@ -1259,4 +1261,70 @@ TEST_CASE("arena-decode: raw required and dropped fields keep decode guarantees"
     ArenaDecodeError err2{};
     CHECK(fm::Holder::decode(ByteView(bad), arena, &err2) == nullptr);
     CHECK(err2.code == ArenaDecodeError::Code::Wire);
+}
+
+// A MessageSet holds only extensions, encoded as repeated groups in field 1 rather than as ordinary
+// tagged fields. RapidProto materializes no extensions, so the contents are invisible either way --
+// but the encoding is well-formed, so it must SKIP cleanly rather than be rejected, and a malformed
+// group must still fail. This is the behaviour the accept-with-a-warning decision rests on.
+TEST_CASE("arena: a MessageSet payload decodes as unknown fields, and malformed input still fails",
+          "[arena-decode]") {
+    Arena arena;
+    // 1 { 2: type_id, 3: "abc" } -- one extension item in MessageSet encoding.
+    std::string wire;
+    put_tag(wire, 1, 3);  // start group
+    put_tag(wire, 2, 0);
+    put_varint(wire, 1547769);  // type_id
+    put_tag(wire, 3, 2);
+    put_varint(wire, 3);
+    wire += "abc";
+    put_tag(wire, 1, 4);  // end group
+    ArenaDecodeError err{};
+    const ms::Outer::Container* m = ms::Outer::Container::decode(ByteView(wire), arena, &err);
+    REQUIRE(m != nullptr);  // accepted: the group is well-formed, just not materialized
+    CHECK(err.ok());
+
+    // A group with no end tag is still a wire error -- accepting the option did not weaken validation.
+    std::string truncated;
+    put_tag(truncated, 1, 3);
+    put_tag(truncated, 2, 0);
+    put_varint(truncated, 1547769);
+    ArenaDecodeError err2{};
+    CHECK(ms::Outer::Container::decode(ByteView(truncated), arena, &err2) == nullptr);
+    CHECK(err2.code == ArenaDecodeError::Code::Wire);
+
+    // The ordinary field in the same FILE decodes normally -- the point of not rejecting the file.
+    std::string outer;
+    put_tag(outer, 1, 0);
+    put_varint(outer, 42);
+    ArenaDecodeError err3{};
+    const ms::Outer* o = ms::Outer::decode(ByteView(outer), arena, &err3);
+    REQUIRE(o != nullptr);
+    CHECK(o->ordinary() == 42);
+}
+
+// With --unknown-present reserved, the unknown bit is the only way to observe that a MessageSet's
+// contents arrived at all -- the decoder materializes none of them. This pins the semantic the
+// accept-with-a-warning decision rests on: the data is SKIPPED, not lost silently or rejected.
+TEST_CASE("arena: --unknown-present observes that a MessageSet carried content", "[arena-decode]") {
+    Arena arena;
+    std::string item;  // 1 { 2: type_id, 3: "abc" }
+    put_tag(item, 1, 3);
+    put_tag(item, 2, 0);
+    put_varint(item, 1547769);
+    put_tag(item, 3, 2);
+    put_varint(item, 3);
+    item += "abc";
+    put_tag(item, 1, 4);
+    ArenaDecodeError err{};
+    const unk::ms::Outer::Container* full =
+        unk::ms::Outer::Container::decode(ByteView(item), arena, &err);
+    REQUIRE(full != nullptr);
+    CHECK(full->has_unknown_fields());  // the extension arrived, unmaterialized
+
+    ArenaDecodeError err2{};
+    const unk::ms::Outer::Container* empty =
+        unk::ms::Outer::Container::decode(ByteView(std::string{}), arena, &err2);
+    REQUIRE(empty != nullptr);
+    CHECK_FALSE(empty->has_unknown_fields());  // nothing on the wire, nothing reported
 }

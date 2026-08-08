@@ -346,11 +346,12 @@ together.
   typed fields: `[packed]` → `repeated_encoding` (gated on repeated non-message, non-enum so it
   never
   clobbers the type-resolution fixup), proto2 `[default]` → `default_value`. `option
-  message_set_wire_
-   format = true;` is rejected. All options remain in the raw `options` vectors.
+  message_set_wire_format = true` is accepted with a warning appended to the symbol table's
+  `warnings` (see the MessageSet non-goal). All options remain in the raw `options` vectors.
 
 The `SymbolTable` holds `symbols` (FQN → `Message`/`Enum`), `extensions` ((extendee FQN, number) → `const
-FieldNode*`), and a **FQN → node index** (`messages`/`enums` → `const MessageNode*`/`const EnumNode*`),
+FieldNode*`), non-fatal `warnings` from the passes, and a **FQN → node index** (`messages`/`enums` →
+`const MessageNode*`/`const EnumNode*`),
 populated during the same walk so an emitter that inspects a referenced type reuses it instead of
 re-walking the AST (see [Shared emitter infrastructure](#shared-emitter-infrastructure)).
 
@@ -1188,12 +1189,19 @@ decode-relevant may be approximated or rejected.
   bytes; see the arena unknown-fields non-goal below).
 - **gRPC is out of scope.** `service`/`rpc` are parsed past and dropped (no `ServiceNode`; a file's
   messages still decode).
-- **`extend` / extension fields are retained but not emitted.** The AST keeps the extension registry (for a
-  future typed-extension consumer), but neither emitter emits typed extension accessors today: an
-  extension
-  is "a field not in your schema", so streamgen surfaces it via the untyped unknown-field handler
-  and
-  arenagen drops it.
+- **`extend` / extension fields are retained but not emitted.** The AST keeps the extension registry
+  (for a future typed-extension consumer), but no emitter emits typed extension accessors today: an
+  extension is "a field not in your schema", so streamgen surfaces it via the untyped unknown-field
+  handler and arenagen drops it.
+- **MessageSet (`option message_set_wire_format = true`) decodes as unknown fields.** A MessageSet
+  is a proto1-era container holding ONLY extensions, encoded as repeated groups in field 1 rather
+  than ordinary tagged fields. Since extensions are not materialized (above), its contents are
+  unreadable either way — but the encoding is well-formed, so it skips cleanly and a malformed
+  group still fails. The option is therefore **accepted with a warning naming the message**, not
+  rejected:
+  rejecting it would fail the whole FILE, which costs every unrelated message in it (protobuf's own
+  proto2 conformance schema has ~200 that decode perfectly). Reading a MessageSet's contents needs
+  typed extension support first.
 - **Options: raw except the decode-relevant set.** Option values are kept verbatim as a text-format value
   tree; only `packed`, the `features.*` set, and proto2 `default` are lifted into typed fields. No
   `descriptor.proto` dependency.

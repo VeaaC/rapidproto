@@ -80,3 +80,24 @@ message Bytes {        // storage for `bytes` is `m_bytes`; the sibling accessor
   bytes bytes = 1;
   int32 m_bytes = 2;
 }
+
+// C++ keywords are legal proto field names. The generated header is compiled in the CONSUMER's
+// translation unit, so every keyword must be escaped -- including the C++20 ones, since a consumer
+// commonly builds at -std=c++20 even though this library targets 17. (The C++20 subset is compiled
+// at that standard by check.sh's keyword smoke; the rest are covered by this golden compiling here.)
+message Keywords {
+  int32 static_cast = 1;
+  int32 const_cast = 2;
+  int32 dynamic_cast = 3;
+  int32 reinterpret_cast = 4;
+  int32 static_assert = 5;
+  int32 concept = 6;
+  int32 requires = 7;
+  int32 consteval = 8;
+  int32 constinit = 9;
+  int32 co_await = 10;
+  int32 co_return = 11;
+  int32 co_yield = 12;
+  int32 char8_t = 13;
+  int32 concept_ = 14;  // dedups against the escaped `concept` -> concept__
+}

@@ -150,6 +150,12 @@ int main(int argc, char** argv) {
     const rapidproto::ResolvedFileSet& set = analyzed->first;
     const rapidproto::SymbolTable& symbols = analyzed->second;
 
+    // Non-fatal analysis diagnostics. Generation continues -- these say the OUTPUT is narrower than
+    // the schema, not that the schema is bad -- so they go to stderr and never change the exit code.
+    for (const std::string& warning : symbols.warnings) {
+        std::cerr << warning << '\n';
+    }
+
     // Build the name table(s) ONCE for the whole resolved set (identical for every file), then emit
     // per file. `names` has NO model namespace: arena types sit at pkg::Msg and enums at pkg::State
     // (the common header's home), so it drives both the arena decoder and the model-agnostic common.

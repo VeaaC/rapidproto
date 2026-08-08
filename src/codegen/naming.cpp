@@ -97,6 +97,22 @@ std::string sanitize(std::string_view name) {
         "wchar_t",
         "while",
         "thread_local",
+        "const_cast",
+        "dynamic_cast",
+        "reinterpret_cast",
+        "static_assert",
+        "static_cast",
+        // C++20 keywords. The library targets C++17, but a GENERATED header is included in the
+        // consumer's TU, which is commonly C++20 -- where a field named `concept` or `requires` is
+        // a hard error rather than a warning. Escaping them costs nothing on C++17.
+        "char8_t",
+        "concept",
+        "consteval",
+        "constinit",
+        "co_await",
+        "co_return",
+        "co_yield",
+        "requires",
         // Non-keyword reservations, each a real clash a field of that name would cause:
         //  - Value/Key/kNumber/kName: a streaming tag `struct value { using Value = ...; }` etc. would
         //    redeclare the injected-class-name.

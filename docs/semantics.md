@@ -28,6 +28,10 @@ link here instead of restating.*
   the raw value — so do not rely on closed-enum semantics.
 - **Well-known types** (`google.protobuf.Timestamp`, etc.) decode as plain messages (their `seconds`/
   `nanos` fields), with no special Timestamp/Duration/Any semantics.
+- **Extensions are not decoded**, so an extension on the wire arrives as an unknown field. A message
+  marked `option message_set_wire_format = true` (a proto1-era container holding only extensions)
+  is accepted with a warning and decodes as unknown fields — its schema no longer fails generation,
+  but its contents are not readable.
 - **Thread-safety.** A streaming `decode()` is `const` and holds no mutable state, so decoders over one
   buffer run concurrently as long as the buffer isn't mutated. An arena `decode()` mutates its `Arena`,
   so give each thread its own arena; the resulting read-only tree can then be shared.
