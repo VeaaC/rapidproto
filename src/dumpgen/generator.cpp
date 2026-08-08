@@ -2,6 +2,7 @@
 // Copyright 2026 Christian Vetter
 #include "rapidproto/dumpgen/generator.hpp"
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -175,22 +176,17 @@ void emit_enum_name_fn(Printer& p, const CppNameTable& names, const std::string&
     p.indent();
     p.print("switch (static_cast<std::int32_t>(rp_e)) {\n");
     p.indent();
-    // Display each value with its prefix stripped the same way the generated `enum class` strips it
-    // (STATE_ON -> ON), so the debug name matches the C++ enumerator. If the enum isn't strippable
-    // (a value missing the prefix, a keyword/macro remainder, etc.) the full proto names are kept.
-    const std::string prefix = codegen::enum_value_prefix(node.name);
-    const bool strip = codegen::enum_prefix_strippable(node, prefix);
+    // Each value prints as the C++ enumerator the generated `enum class` declares for it, taken from
+    // the shared helper -- prefix-stripped where the enum allows it (STATE_ON -> ON) and deduped
+    // within the enum, so two proto names that sanitize alike stay distinguishable in a dump.
+    const std::vector<std::string> value_names = codegen::enum_value_names(node);
     std::unordered_set<std::int32_t> seen;  // an alias enum (allow_alias) repeats a number
-    for (const EnumValueNode& v : node.values) {
-        if (!seen.insert(v.number).second) {
+    for (std::size_t i = 0; i < node.values.size(); ++i) {
+        if (!seen.insert(node.values[i].number).second) {
             continue;
         }
-        std::string_view raw = v.name;
-        if (strip) {
-            raw.remove_prefix(prefix.size());
-        }
         p.print("case $n$: return \"$name$\";\n",
-                {{"n", std::to_string(v.number)}, {"name", codegen::sanitize(raw)}});
+                {{"n", std::to_string(node.values[i].number)}, {"name", value_names[i]}});
     }
     p.outdent();
     p.print("}\n");

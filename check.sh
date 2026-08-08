@@ -31,13 +31,14 @@ export CLANG_TIDY
 # nothing is exempt; only VENDORED code (tests/catch_amalgamated.*) and GENERATED code
 # (src/wellknown_generated.cpp, the *_golden/ headers) are, since formatting them would fight their
 # vendor/generator. clang-tidy runs on the narrower LIB_SRC + TEST_SRC: the thin CLI drivers
-# (src/*/main.cpp), the benches (built -O3, non-strict), the fuzz harnesses, and the example consumers
+# (src/*/main.cpp and the differential's harness generator), the benches (built -O3, non-strict),
+# the fuzz harnesses, and the example consumers
 # are formatted but NOT tidied -- their argv / measurement / harness patterns trip strict checks for
 # no real-bug gain.
 HEADERS=(include/rapidproto/*.hpp include/rapidproto/streamgen/*.hpp include/rapidproto/arenagen/*.hpp include/rapidproto/dumpgen/*.hpp include/rapidproto/codegen/*.hpp include/rapidproto/cli/*.hpp)
 LIB_SRC=(src/lexer.cpp src/interpret.cpp src/parser.cpp src/features.cpp src/resolve.cpp src/resolver.cpp src/source.cpp src/streamgen/generator.cpp src/codegen/naming.cpp src/arenagen/layout.cpp src/arenagen/modes.cpp src/arenagen/generator.cpp src/dumpgen/generator.cpp src/header_self_contained.cpp)
 TEST_SRC=(tests/test_*.cpp)
-CLI_SRC=(src/main.cpp src/rapidprotoc/main.cpp)
+CLI_SRC=(src/main.cpp src/rapidprotoc/main.cpp tests/diffgen/main.cpp)
 EXTRA_SRC=(tests/bench_streamgen.cpp tests/bench_stream_isolated.cpp tests/bench_arena.cpp tests/fuzz/*.cpp examples/*/*.cpp)
 # Test-helper headers (the dump / temp_dir utilities our tests #include) -- every tests/*.hpp EXCEPT
 # the vendored Catch2 amalgam, so a newly-added helper can't silently escape the format gate.
@@ -358,10 +359,23 @@ job_corpus() {
   return "$rc"
 }
 
-# Which of the eight gate stages run (default: all). CI splits them across runner jobs -- the
+# Randomized differential against protobuf: build random messages with protobuf, decode the same
+# bytes both ways, compare every field (tests/differential.py). Needs protoc + the protobuf Python
+# bindings and skips itself when either is absent -- they are dev-only, like protozero and Catch2 --
+# so this must not be the only thing standing between a change and the gate.
+job_differential() {
+  if [[ ! -x ./build/gcc/rapidprotoc || ! -x ./build/gcc/rapidproto_diffgen ]]; then
+    echo ">> build/gcc missing: the differential stage needs the gcc stage's binaries"
+    echo "   (run ./check.sh, or include 'gcc' in RAPIDPROTO_GATE_STAGES)"
+    return 1
+  fi
+  python3 tests/differential.py --build-dir ./build/gcc
+}
+
+# Which of the ten gate stages run (default: all). CI splits them across runner jobs -- the
 # build/test stages in one, tidy shards in a matrix -- so wall-clock is the slowest runner.
 stage_enabled() {
-  [[ " ${RAPIDPROTO_GATE_STAGES:-format docs gcc clang cf fuzz tidy corpus cxx20} " == *" $1 "* ]]
+  [[ " ${RAPIDPROTO_GATE_STAGES:-format docs gcc clang cf fuzz tidy corpus cxx20 differential} " == *" $1 "* ]]
 }
 run_stage() {  # $1 stage key, $2 log name, rest: the job command
   local key=$1 log=$2; shift 2
@@ -410,6 +424,8 @@ fi
 run_stage corpus "corpus" job_corpus; rc_corpus=$?
 # Needs the goldens on disk (not a build product), so it can run any time after them.
 run_stage cxx20 "cxx20" job_cxx20_smoke; rc_cxx20=$?
+# Also consumes build/gcc's binaries, and compiles a harness per schema, so it runs alone at the end.
+run_stage differential "differential" job_differential; rc_differential=$?
 
 # --- print each stage's output in a fixed order (already captured, so never interleaved) ----------
 
@@ -422,10 +438,11 @@ section "compile-fail (generated decoder rejects misuse)"; cat "$LOG/cf"
 section "fuzz harness compile-check";                      cat "$LOG/fuzz"
 section "clang-tidy (library = strict, tests = relaxed)";  cat "$LOG/tidy"
 section "real-world schema corpus";                        cat "$LOG/corpus"
+section "randomized differential vs protobuf";             cat "$LOG/differential"
 
 fail=0
 for rc in "$rc_format" "$rc_docs" "$rc_gcc" "$rc_clang" "$rc_cf" "$rc_fuzz" "$rc_tidy" \
-         "$rc_corpus" "$rc_cxx20"; do
+         "$rc_corpus" "$rc_cxx20" "$rc_differential"; do
   [[ "$rc" -ne 0 ]] && fail=1
 done
 

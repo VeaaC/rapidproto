@@ -46,6 +46,7 @@
 #include "dumpgen_golden/editions2023.rp.dump.hpp"
 #include "dumpgen_golden/editions2024.rp.dump.hpp"
 #include "dumpgen_golden/main.rp.dump.hpp"  // cross-file imports + shared-enum dumper guard (see dep.proto)
+#include "dumpgen_golden/naming.rp.dump.hpp"  // enum values that sanitize alike stay distinct
 #include "dumpgen_golden/prefixed/main.rp.dump.hpp"  // --namespace-prefix + imports
 #include "dumpgen_golden/proto2.rp.dump.hpp"
 #include "dumpgen_golden/proto3.rp.dump.hpp"
@@ -281,6 +282,7 @@ TEST_CASE("dumpgen: generated headers match the goldens", "[dumpgen]") {
     check_golden("arena_layout", generate_corpus("arena_layout.proto"));
     check_golden("arena_manyreq", generate_corpus("arena_manyreq.proto"));
     check_golden("arena_naming", generate_corpus("arena_naming.proto"));
+    check_golden("naming", generate_corpus("naming.proto"));
     check_golden("proto2", generate_corpus("proto2.proto"));
     check_golden("proto3", generate_corpus("proto3.proto"));
     check_golden("editions2023", generate_corpus("editions2023.proto"));
@@ -688,6 +690,24 @@ TEST_CASE("dumpgen: a message with no set fields dumps as an empty object", "[du
     const p3::Msg* m = p3::Msg::decode(ByteView(std::string()), arena);
     REQUIRE(m != nullptr);
     CHECK(p3::rp_dump_string(*m) == "{}");
+}
+
+TEST_CASE("dumpgen: two enum values that sanitize alike still dump differently", "[dumpgen]") {
+    // `enum E { decode = 0; decode_ = 1; }` -- protoc-valid. `decode` is reserved, so BOTH names
+    // sanitize to `decode_`; the generated enum breaks the tie by suffixing, and the dumper prints
+    // the enumerator it actually declared. Rendering the two values identically would make the dump
+    // ambiguous about which one the wire carried.
+    const auto dump_of = [](std::uint64_t value) {
+        std::string buf;
+        put_tag(buf, 5, 0);  // nm::M::e: Varint
+        put_varint(buf, value);
+        Arena arena;
+        const nm::M* m = nm::M::decode(ByteView(buf), arena);
+        REQUIRE(m != nullptr);
+        return nm::rp_dump_string(*m);
+    };
+    CHECK(dump_of(0) == R"({"e": "decode_"})");
+    CHECK(dump_of(1) == R"({"e": "decode__"})");
 }
 
 TEST_CASE("dumpgen: an open-enum value outside the schema dumps as UNKNOWN(<n>)", "[dumpgen]") {

@@ -31,7 +31,7 @@ trap 'rm -rf "$T"' EXIT
 
 # Each corpus entry is single-file (no imports) so the CLI writes exactly <stem>.rp.dump.hpp (+ the
 # arena/common it drops beside it).
-for entry in arena_layout arena_manyreq arena_naming proto2 proto3 editions2023 editions2024 xref; do
+for entry in arena_layout arena_manyreq arena_naming naming proto2 proto3 editions2023 editions2024 xref; do
   "$BIN" --dump -Itests/corpus --out-dir="$T" "tests/corpus/$entry.proto" >/dev/null
 done
 "$BIN" --dump -Itests/wire_fixtures --out-dir="$T" tests/wire_fixtures/wire_all.proto >/dev/null
