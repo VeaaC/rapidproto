@@ -2,22 +2,36 @@
 // Copyright 2026 Christian Vetter
 #pragma once
 
-// Header-only support for the generated `*.rp.dump.hpp` dumpers: a JSON-string escaper, a lowercase
-// hex encoder for `bytes`, a small indenting Writer wrapping an std::ostream, and a DumpOptions bag
-// (width / start-indent / skip-paths). Dependency-light so a dump header pulls in nothing heavy.
+// Header-only support for the generated `*.rp.dump.hpp` dumpers: a writer per value category
+// (`bool`, integers, `float`/`double`, JSON-escaped strings, `bytes` as lowercase hex), a small
+// indenting Writer wrapping an std::ostream, and a DumpOptions bag (width / start-indent /
+// skip-paths). Dependency-light so a dump header pulls in nothing heavy.
+//
+// Every value is formatted HERE and handed to the stream as characters, never via `operator<<` on
+// the value itself. That keeps the dump text identical whatever locale and format flags the
+// caller's stream carries, without the dumper reaching in to change them -- it writes to that
+// stream, it does not reconfigure it, and it must not, since a stream being read concurrently
+// cannot be re-imbued without a data race.
 
+#include <array>
+#include <climits>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
+#include <limits>
+#include <locale>
 #include <ostream>
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <vector>
 
 namespace rapidproto::dump {
 
-// Internals of the two encoders below. Not part of the surface a generated dumper (or a consumer)
-// calls -- only write_json_escaped / write_hex / Writer / DumpOptions are.
+// Internals of the writers below. Not part of the surface a generated dumper (or a consumer) calls
+// -- only write_bool / write_int / write_float / write_json_escaped / write_hex / Writer /
+// DumpOptions are.
 namespace detail {
 
 // The 16 lowercase hex digits. std::string_view (not a C array) so it is a plain object, not a
@@ -35,7 +49,165 @@ inline char hex_low(unsigned char uc) noexcept {
     return kHexDigits[uc & kNibbleMask];
 }
 
+// The unsigned integer holding a float/double's bit pattern.
+template <class T>
+using FloatBits =
+    std::conditional_t<sizeof(T) == sizeof(std::uint32_t), std::uint32_t, std::uint64_t>;
+
+template <class T>
+FloatBits<T> float_bits(T value) {
+    static_assert(std::is_floating_point_v<T>, "float/double only");
+    static_assert(sizeof(T) == sizeof(std::uint32_t) || sizeof(T) == sizeof(std::uint64_t),
+                  "float/double only");
+    FloatBits<T> bits = 0;
+    std::memcpy(&bits, &value, sizeof(T));
+    return bits;
+}
+
+enum class FloatClass : std::uint8_t { Finite, Nan, Inf, NegInf };
+
+// Classify a float/double from its EXPONENT BITS rather than with std::isnan/std::isinf. Those two
+// fold to a constant `false` under -ffast-math / -ffinite-math-only, and a generated dump header is
+// compiled by the CONSUMER, who chooses those flags -- under which a bare `nan` or `inf` would reach
+// the output and the text would no longer be JSON. Reading the bits is immune to the flag.
+template <class T>
+FloatClass classify(T value) {
+    // Ahead of the widths below, so an unsupported type (long double) reports THIS rather than a
+    // shift-count overflow from computing its exponent width.
+    static_assert(sizeof(T) == sizeof(std::uint32_t) || sizeof(T) == sizeof(std::uint64_t),
+                  "float/double only");
+    using Bits = FloatBits<T>;
+    constexpr int kWidth = static_cast<int>(sizeof(T)) * CHAR_BIT;
+    constexpr int kMantissaBits = std::numeric_limits<T>::digits - 1;
+    constexpr Bits kMantissaMask = (Bits{1} << kMantissaBits) - 1;
+    constexpr Bits kExponentMax = (Bits{1} << (kWidth - kMantissaBits - 1)) - 1;
+    const Bits bits = float_bits(value);
+    if (((bits >> kMantissaBits) & kExponentMax) != kExponentMax) {
+        return FloatClass::Finite;  // any exponent below all-ones is a finite value
+    }
+    if ((bits & kMantissaMask) != 0) {
+        return FloatClass::Nan;
+    }
+    return (bits >> (kWidth - 1)) != 0 ? FloatClass::NegInf : FloatClass::Inf;
+}
+
+// A rendering of `value` that parses back to the IDENTICAL value, in as few digits as this search
+// finds. Starts at digits10 -- the width at which a decimal literal survives a trip through the type,
+// so a good first guess -- and widens only when the parse-back differs, so 0.1 stays "0.1" while
+// 3.141592653589793 keeps all 16 digits it needs. max_digits10 always round-trips, which is what
+// bounds the loop.
+//
+// NOT guaranteed minimal: the search never goes BELOW digits10, and it can only produce the
+// correctly rounded form at each width. So a subnormal (which carries far less precision than
+// digits10) and an exact power of two (whose round-trip interval is lopsided, admitting a shorter
+// decimal that is not the correctly rounded one) both come out a little wider than necessary --
+// 4.94065645841247e-324 where the minimum is 5e-324. Every such rendering still reads back exactly.
+// Reaching the true minimum means starting the search at one digit, paying up to 17 parse-backs per
+// value to shorten the rare case; <charconv>'s shortest-round-trip overload would be the real answer,
+// but its floating-point half is too recent to rely on (libstdc++ needs GCC 11, libc++ far later),
+// and feature-detecting it would make the dump text differ by toolchain.
+//
+// Rendered through its own classic-locale stream rather than the caller's: a dump has to stay
+// machine-parseable, and an imbued locale would render the decimal separator as ','.
+//
+// One caveat this does not cover: -ffast-math (and -Ofast) link a startup object that sets FTZ/DAZ
+// process-wide, under which the float->double widening `out << value` performs reads a SUBNORMAL
+// float as zero -- so a subnormal float dumps as 0 in such a program, however this header itself was
+// compiled. That is the flag doing what it is asked to; doubles are unaffected, as their formatting
+// performs no arithmetic.
+template <class T>
+std::string round_trip_text(T value) {
+    static_assert(std::is_floating_point_v<T>, "float/double only");
+    // The round-trip is checked on the BIT PATTERN, not with ==, which would accept a rendering
+    // that turned -0.0 into 0.0. Held as an integer so the comparison is a plain integer compare.
+    using Bits = FloatBits<T>;
+    const Bits want = float_bits(value);
+
+    std::ostringstream out;
+    out.imbue(std::locale::classic());
+    std::string text;
+    for (int precision = std::numeric_limits<T>::digits10;
+         precision <= std::numeric_limits<T>::max_digits10; ++precision) {
+        out.str(std::string());
+        out.clear();
+        out.precision(precision);
+        out << value;
+        text = out.str();
+        std::istringstream parse(text);
+        parse.imbue(std::locale::classic());
+        T parsed{};
+        parse >> parsed;
+        if (!parse.fail() && float_bits(parsed) == want) {
+            break;
+        }
+    }
+    return text;
+}
+
 }  // namespace detail
+
+// Write a bool as the JSON literal `true`/`false`. Written out rather than streamed, so the result
+// does not depend on the sink's `boolalpha` flag -- the Writer renders a group into a scratch buffer
+// before splicing it, and flags set on the caller's stream do not reach that buffer.
+inline void write_bool(std::ostream& os, bool value) {
+    os << (value ? "true" : "false");
+}
+
+// Write an integer as base-10 JSON digits. The digits are formed here and emitted with an
+// UNFORMATTED write, so the result depends on nothing the sink carries: `operator<<` would take the
+// base from the stream's flags (`std::hex` -> `ff`, and `std::hex` is both sticky and common in the
+// debugging sessions this dumper serves), a sign from `showpos`, and digit grouping from its locale
+// ("1.234.567.890" under a German one) -- none of which is JSON.
+template <class T>
+void write_int(std::ostream& os, T value) {
+    static_assert(std::is_integral_v<T>, "write_int renders the integral types");
+    using Unsigned = std::make_unsigned_t<T>;
+    constexpr Unsigned kRadix = 10;
+    constexpr std::size_t kMaxChars = 24;  // 20 digits of a uint64 plus a sign, rounded up
+
+    auto magnitude = static_cast<Unsigned>(value);
+    const bool negative = std::is_signed_v<T> && value < 0;
+    if (negative) {
+        // Negated in the UNSIGNED type: `-value` overflows at the most negative value of T.
+        magnitude = static_cast<Unsigned>(Unsigned{0} - magnitude);
+    }
+    // Filled back to front, so `cursor` ends at the first character written.
+    std::array<char, kMaxChars> chars{};
+    std::size_t cursor = chars.size();
+    for (bool done = false; !done;) {
+        chars.at(--cursor) = static_cast<char>('0' + static_cast<unsigned>(magnitude % kRadix));
+        magnitude /= kRadix;
+        done = magnitude == 0;
+    }
+    if (negative) {
+        chars.at(--cursor) = '-';
+    }
+    os.write(&chars.at(cursor), static_cast<std::streamsize>(chars.size() - cursor));
+}
+
+// Write a float/double as JSON. Finite values print with enough digits to read back exactly, so the
+// dump neither truncates (the stream default of 6 significant digits loses a double) nor pads every
+// value out to max_digits10 -- though not always in the fewest digits possible (see round_trip_text).
+// Non-finite values have no JSON number form and take protobuf's JSON convention: the quoted strings
+// "NaN" / "Infinity" / "-Infinity".
+template <class T>
+void write_float(std::ostream& os, T value) {
+    static_assert(std::is_floating_point_v<T>, "write_float renders float/double");
+    switch (detail::classify(value)) {
+        case detail::FloatClass::Nan:
+            os << "\"NaN\"";  // protobuf JSON ignores a NaN's sign too
+            break;
+        case detail::FloatClass::Inf:
+            os << "\"Infinity\"";
+            break;
+        case detail::FloatClass::NegInf:
+            os << "\"-Infinity\"";
+            break;
+        case detail::FloatClass::Finite:
+            os << detail::round_trip_text(value);
+            break;
+    }
+}
 
 // Write `s` as a JSON string body (no surrounding quotes): escape the mandatory control/quote/backslash
 // characters, pass everything else (incl. UTF-8) through verbatim.
@@ -105,6 +277,14 @@ public:
           m_skip(skip),
           m_column((start_indent < kMaxIndent ? start_indent : kMaxIndent) * kIndentWidth),
           m_indent(static_cast<int>(start_indent < kMaxIndent ? start_indent : kMaxIndent)) {}
+
+    ~Writer() = default;
+
+    // Holds a reference to the caller's stream: neither copying nor moving one is meaningful.
+    Writer(const Writer&) = delete;
+    Writer& operator=(const Writer&) = delete;
+    Writer(Writer&&) = delete;
+    Writer& operator=(Writer&&) = delete;
 
     // The active sink the generated value-writers stream into: the scratch buffer during a compact
     // probe, the real output otherwise.

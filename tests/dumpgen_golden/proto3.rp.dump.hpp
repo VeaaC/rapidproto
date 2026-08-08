@@ -35,12 +35,12 @@ inline void rp_dump_write(const ::p3::Msg& m, ::rapidproto::dump::Writer& w) {
     bool rp_first = true;
     if (const auto rp_v = m.implicit_i(); rp_v != decltype(rp_v){}) {
       if (w.begin_field(rp_first, "implicit_i")) {
-        w.os() << rp_v;
+        ::rapidproto::dump::write_int(w.os(), rp_v);
       }
     }
     if (const auto rp_v = m.explicit_i()) {
       if (w.begin_field(rp_first, "explicit_i")) {
-        w.os() << *rp_v;
+        ::rapidproto::dump::write_int(w.os(), *rp_v);
       }
     }
     if (const auto rp_v = m.name(); rp_v != decltype(rp_v){}) {
@@ -52,7 +52,7 @@ inline void rp_dump_write(const ::p3::Msg& m, ::rapidproto::dump::Writer& w) {
       if (w.begin_field(rp_first, "state")) {
         { const auto rp_e = rp_v;
         if (const char* rp_nm = ::rapidproto::dump::detail::rp_dump_enum_name(rp_e)) { w.os() << '"' << rp_nm << '"'; }
-        else { w.os() << "\"UNKNOWN(" << static_cast<std::int32_t>(rp_e) << ")\""; } }
+        else { w.os() << "\"UNKNOWN("; ::rapidproto::dump::write_int(w.os(), static_cast<std::int32_t>(rp_e)); w.os() << ")\""; } }
       }
     }
     if (const auto* rp_p = m.self()) {
@@ -68,7 +68,7 @@ inline void rp_dump_write(const ::p3::Msg& m, ::rapidproto::dump::Writer& w) {
           bool rp_efirst = true;
           for (const auto& rp_el : rp_r) {
             w.entry_sep(rp_efirst);
-            w.os() << rp_el;
+            ::rapidproto::dump::write_int(w.os(), rp_el);
             if (w.overflowed()) { break; }
           }
         });
@@ -80,7 +80,7 @@ inline void rp_dump_write(const ::p3::Msg& m, ::rapidproto::dump::Writer& w) {
           bool rp_efirst = true;
           for (const auto& rp_el : rp_r) {
             w.entry_sep(rp_efirst);
-            w.os() << rp_el;
+            ::rapidproto::dump::write_int(w.os(), rp_el);
             if (w.overflowed()) { break; }
           }
         });
@@ -94,7 +94,7 @@ inline void rp_dump_write(const ::p3::Msg& m, ::rapidproto::dump::Writer& w) {
             w.entry_sep(rp_efirst);
             { const auto rp_e = rp_el;
             if (const char* rp_nm = ::rapidproto::dump::detail::rp_dump_enum_name(rp_e)) { w.os() << '"' << rp_nm << '"'; }
-            else { w.os() << "\"UNKNOWN(" << static_cast<std::int32_t>(rp_e) << ")\""; } }
+            else { w.os() << "\"UNKNOWN("; ::rapidproto::dump::write_int(w.os(), static_cast<std::int32_t>(rp_e)); w.os() << ")\""; } }
             if (w.overflowed()) { break; }
           }
         });
@@ -106,7 +106,7 @@ inline void rp_dump_write(const ::p3::Msg& m, ::rapidproto::dump::Writer& w) {
           bool rp_efirst = true;
           for (const auto& rp_el : rp_r) {
             w.entry_sep(rp_efirst);
-            w.os() << rp_el;
+            ::rapidproto::dump::write_float(w.os(), rp_el);
             if (w.overflowed()) { break; }
           }
         });
@@ -118,7 +118,19 @@ inline void rp_dump_write(const ::p3::Msg& m, ::rapidproto::dump::Writer& w) {
           bool rp_efirst = true;
           for (const auto& rp_el : rp_r) {
             w.entry_sep(rp_efirst);
-            w.os() << rp_el;
+            ::rapidproto::dump::write_int(w.os(), rp_el);
+            if (w.overflowed()) { break; }
+          }
+        });
+      }
+    }
+    if (const auto& rp_r = m.bools(); !rp_r.empty()) {
+      if (w.begin_field(rp_first, "bools")) {
+        w.group('[', ']', [&] {
+          bool rp_efirst = true;
+          for (const auto& rp_el : rp_r) {
+            w.entry_sep(rp_efirst);
+            ::rapidproto::dump::write_bool(w.os(), rp_el);
             if (w.overflowed()) { break; }
           }
         });
@@ -131,7 +143,46 @@ inline void rp_dump_write(const ::p3::Msg& m, ::rapidproto::dump::Writer& w) {
           for (const auto& rp_ent : rp_mp) {
             w.entry_sep(rp_efirst);
             w.os() << '"'; ::rapidproto::dump::write_json_escaped(w.os(), rp_ent.key()); w.os() << "\": ";
-            w.os() << rp_ent.value();
+            ::rapidproto::dump::write_int(w.os(), rp_ent.value());
+            if (w.overflowed()) { break; }
+          }
+        });
+      }
+    }
+    if (const auto& rp_mp = m.flags(); !rp_mp.empty()) {
+      if (w.begin_field(rp_first, "flags")) {
+        w.group('{', '}', [&] {
+          bool rp_efirst = true;
+          for (const auto& rp_ent : rp_mp) {
+            w.entry_sep(rp_efirst);
+            w.os() << '"'; ::rapidproto::dump::write_bool(w.os(), rp_ent.key()); w.os() << "\": ";
+            w.os() << '"'; ::rapidproto::dump::write_json_escaped(w.os(), rp_ent.value()); w.os() << '"';
+            if (w.overflowed()) { break; }
+          }
+        });
+      }
+    }
+    if (const auto& rp_mp = m.toggles(); !rp_mp.empty()) {
+      if (w.begin_field(rp_first, "toggles")) {
+        w.group('{', '}', [&] {
+          bool rp_efirst = true;
+          for (const auto& rp_ent : rp_mp) {
+            w.entry_sep(rp_efirst);
+            w.os() << '"'; ::rapidproto::dump::write_json_escaped(w.os(), rp_ent.key()); w.os() << "\": ";
+            ::rapidproto::dump::write_bool(w.os(), rp_ent.value());
+            if (w.overflowed()) { break; }
+          }
+        });
+      }
+    }
+    if (const auto& rp_mp = m.ratios(); !rp_mp.empty()) {
+      if (w.begin_field(rp_first, "ratios")) {
+        w.group('{', '}', [&] {
+          bool rp_efirst = true;
+          for (const auto& rp_ent : rp_mp) {
+            w.entry_sep(rp_efirst);
+            w.os() << '"'; ::rapidproto::dump::write_json_escaped(w.os(), rp_ent.key()); w.os() << "\": ";
+            ::rapidproto::dump::write_float(w.os(), rp_ent.value());
             if (w.overflowed()) { break; }
           }
         });
@@ -141,12 +192,22 @@ inline void rp_dump_write(const ::p3::Msg& m, ::rapidproto::dump::Writer& w) {
       using RpTag = std::decay_t<decltype(rp_tag)>;
       if constexpr (std::is_same_v<RpTag, ::p3::Msg::Pick::a>) {
         if (w.begin_field(rp_first, "a")) {
-          w.os() << rp_v;
+          ::rapidproto::dump::write_int(w.os(), rp_v);
         }
       }
       if constexpr (std::is_same_v<RpTag, ::p3::Msg::Pick::b>) {
         if (w.begin_field(rp_first, "b")) {
           w.os() << '"'; ::rapidproto::dump::write_json_escaped(w.os(), rp_v); w.os() << '"';
+        }
+      }
+      if constexpr (std::is_same_v<RpTag, ::p3::Msg::Pick::c>) {
+        if (w.begin_field(rp_first, "c")) {
+          ::rapidproto::dump::write_bool(w.os(), rp_v);
+        }
+      }
+      if constexpr (std::is_same_v<RpTag, ::p3::Msg::Pick::d>) {
+        if (w.begin_field(rp_first, "d")) {
+          ::rapidproto::dump::write_float(w.os(), rp_v);
         }
       }
     });
@@ -157,7 +218,6 @@ inline void rp_dump_write(const ::p3::Msg& m, ::rapidproto::dump::Writer& w) {
 }  // namespace rp_dump_detail
 
 inline void rp_dump_write(std::ostream& rp_os, const ::p3::Msg& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  rp_os << std::boolalpha;
   ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
   ::p3::rp_dump_detail::rp_dump_write(m, w);
 }

@@ -13,10 +13,14 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <fstream>
 #include <ios>
+#include <limits>
+#include <locale>
 #include <sstream>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -212,6 +216,63 @@ void put_varint(std::string& b, std::uint64_t v) {
 }
 void put_tag(std::string& b, std::uint32_t field, std::uint32_t wire) {
     put_varint(b, (static_cast<std::uint64_t>(field) << 3U) | wire);
+}
+
+// A float/double field body: the IEEE bits, little-endian (wire types I32 / I64). Assembled by
+// shifting the bit pattern rather than memcpy-ing the object, so the bytes land in wire order on a
+// big-endian host too.
+template <class T>
+void put_ieee(std::string& b, T value) {
+    using Bits =
+        std::conditional_t<sizeof(T) == sizeof(std::uint32_t), std::uint32_t, std::uint64_t>;
+    Bits bits = 0;
+    std::memcpy(&bits, &value, sizeof(T));
+    for (std::size_t i = 0; i < sizeof(T); ++i) {
+        b.push_back(static_cast<char>((bits >> (i * 8U)) & 0xFFU));
+    }
+}
+
+// Dump a p2::Scalars through a stream deliberately carrying a digit-grouping locale and
+// hex/showpos/uppercase/showbase flags -- the state a dump must neither read nor disturb -- and
+// return the text. The locale is built from a facet rather than a named system one, so the test
+// needs nothing installed. Asserts here that the stream came back exactly as it was handed over.
+std::string dump_through_hostile_stream(std::size_t width) {
+    struct Grouping : std::numpunct<char> {
+        char do_thousands_sep() const override { return '.'; }
+        std::string do_grouping() const override { return "\3"; }
+        char do_decimal_point() const override { return ','; }
+    };
+    const std::locale grouping(std::locale::classic(), new Grouping);  // the locale owns the facet
+
+    std::string wire;
+    put_tag(wire, 1, 0);  // i32 (required): Varint
+    put_varint(wire, 1);
+    put_tag(wire, 4, 0);  // u64: Varint -- large enough for grouping to show
+    put_varint(wire, 1234567890);
+    put_tag(wire, 15, 1);  // db: I64
+    put_ieee(wire, 1234567.25);
+    Arena arena;
+    const p2::Scalars* m = p2::Scalars::decode(ByteView(wire), arena);
+    REQUIRE(m != nullptr);
+
+    std::ostringstream os;
+    os.imbue(grouping);
+    os << std::hex << std::showpos << std::uppercase << std::showbase;
+    const std::ios::fmtflags flags = os.flags();
+    p2::rp_dump_write(os, *m, width);
+    CHECK(os.getloc() == grouping);
+    CHECK(os.flags() == flags);
+    return os.str();
+}
+
+// The values dump_through_hostile_stream's message carries, as they must appear whatever the sink
+// was set to: plain decimal digits, no `+`, no grouping separators, an unmangled double.
+void check_hostile_stream_ignored(const std::string& text) {
+    CHECK(text.find("1234567890") != std::string::npos);
+    CHECK(text.find("499602D2") == std::string::npos);       // std::hex
+    CHECK(text.find("+1234567890") == std::string::npos);    // std::showpos
+    CHECK(text.find("1.234.567.890") == std::string::npos);  // the grouping locale
+    CHECK(text.find("1234567.25") != std::string::npos);
 }
 
 }  // namespace
@@ -642,6 +703,240 @@ TEST_CASE("dumpgen: an open-enum value outside the schema dumps as UNKNOWN(<n>)"
     const std::string dump = p3::rp_dump_string(*m);
     CHECK(dump.find("\"UNKNOWN(99)\"") != std::string::npos);
     CHECK(dump == R"j({"state": "UNKNOWN(99)"})j");
+}
+
+TEST_CASE("dumpgen: a bool renders true/false inside a COMPACT group", "[dumpgen]") {
+    // A group that fits the width budget is rendered into the Writer's scratch buffer and spliced,
+    // and that buffer carries its own formatting flags. write_bool spells the literal out, so the
+    // compact and multi-line paths agree rather than depending on which sink is active.
+    std::string inner;
+    put_tag(inner, 4, 0);  // Inner.flag: Varint
+    put_varint(inner, 1);
+    std::string group;
+    put_tag(group, 2, 0);  // MyGroup.a: Varint
+    put_varint(group, 5);
+    put_tag(group, 3, 3);  // MyGroup.Inner: SGROUP
+    group += inner;
+    put_tag(group, 3, 4);  // EGROUP
+    std::string buf;
+    put_tag(buf, 1, 3);  // WithGroup.MyGroup: SGROUP
+    buf += group;
+    put_tag(buf, 1, 4);  // EGROUP
+    Arena arena;
+    const p2::WithGroup* m = p2::WithGroup::decode(ByteView(buf), arena);
+    REQUIRE(m != nullptr);
+    CHECK(p2::rp_dump_string(*m) == R"({"mygroup": {"a": 5, "inner": {"flag": true}}})");
+    // The same value on the multi-line path (width 0 forces every group to expand) reads the same.
+    CHECK(p2::rp_dump_string(*m, 0).find("\"flag\": true") != std::string::npos);
+}
+
+TEST_CASE("dumpgen: a bool map KEY renders as true/false, not 1/0", "[dumpgen]") {
+    // A map key is rendered inside the JSON object's quotes, on a path separate from the value's.
+    // proto allows `bool` there, so that path needs the same true/false literal the value side gets.
+    const auto entry = [](bool key, std::string_view value) {
+        std::string body;
+        put_tag(body, 1, 0);  // MapEntry.key: Varint
+        put_varint(body, key ? 1 : 0);
+        put_tag(body, 2, 2);  // MapEntry.value: Len
+        put_varint(body, value.size());
+        body += value;
+        std::string out;
+        put_tag(out, 14, 2);  // Msg.flags: Len
+        put_varint(out, body.size());
+        out += body;
+        return out;
+    };
+    const std::string buf = entry(true, "on") + entry(false, "off");
+    Arena arena;
+    const p3::Msg* m = p3::Msg::decode(ByteView(buf), arena);
+    REQUIRE(m != nullptr);
+    CHECK(p3::rp_dump_string(*m) == R"({"flags": {"true": "on", "false": "off"}})");
+    // Both layout paths agree: width 0 forces the map object onto multiple lines.
+    const std::string wide = p3::rp_dump_string(*m, 0);
+    CHECK(wide.find("\"true\": \"on\"") != std::string::npos);
+    CHECK(wide.find("\"1\":") == std::string::npos);
+}
+
+TEST_CASE("dumpgen: bools and floats render through their writers in every container",
+          "[dumpgen]") {
+    // Repeated elements, map values and oneof members each reach the value writers by their own
+    // emission path, so each needs its own coverage -- a bool or double is not rendered by the
+    // singular-field path in any of them.
+    std::string buf;
+    {  // bools = [true, false] (field 17, packed by default in proto3)
+        std::string packed;
+        put_varint(packed, 1);
+        put_varint(packed, 0);
+        put_tag(buf, 17, 2);
+        put_varint(buf, packed.size());
+        buf += packed;
+    }
+    {  // toggles = {"t": true} (field 18)
+        std::string entry;
+        put_tag(entry, 1, 2);
+        put_varint(entry, 1);
+        entry += "t";
+        put_tag(entry, 2, 0);
+        put_varint(entry, 1);
+        put_tag(buf, 18, 2);
+        put_varint(buf, entry.size());
+        buf += entry;
+    }
+    {  // ratios = {"r": 0.5} (field 19)
+        std::string entry;
+        put_tag(entry, 1, 2);
+        put_varint(entry, 1);
+        entry += "r";
+        put_tag(entry, 2, 1);
+        put_ieee(entry, 0.5);
+        put_tag(buf, 19, 2);
+        put_varint(buf, entry.size());
+        buf += entry;
+    }
+    Arena arena;
+    const p3::Msg* m = p3::Msg::decode(ByteView(buf), arena);
+    REQUIRE(m != nullptr);
+    CHECK(p3::rp_dump_string(*m) ==
+          R"({"bools": [true, false], "toggles": {"t": true}, "ratios": {"r": 0.5}})");
+}
+
+TEST_CASE("dumpgen: a bool/double oneof member renders through its writer", "[dumpgen]") {
+    const auto dump_of = [](const std::string& buf) {
+        Arena arena;
+        const p3::Msg* m = p3::Msg::decode(ByteView(buf), arena);
+        REQUIRE(m != nullptr);
+        return p3::rp_dump_string(*m);
+    };
+    std::string pick_bool;
+    put_tag(pick_bool, 15, 0);  // pick.c: Varint
+    put_varint(pick_bool, 1);
+    CHECK(dump_of(pick_bool) == R"({"c": true})");
+
+    std::string pick_double;
+    put_tag(pick_double, 16, 1);  // pick.d: I64
+    put_ieee(pick_double, 2.5);
+    CHECK(dump_of(pick_double) == R"({"d": 2.5})");
+}
+
+TEST_CASE("dumpgen: float/double edge values keep their exact bits", "[dumpgen]") {
+    const auto dump_of = [](double db, float fl) {
+        std::string buf;
+        put_tag(buf, 1, 0);  // i32 (required)
+        put_varint(buf, 1);
+        put_tag(buf, 14, 5);  // fl: I32
+        put_ieee(buf, fl);
+        put_tag(buf, 15, 1);  // db: I64
+        put_ieee(buf, db);
+        Arena arena;
+        const p2::Scalars* m = p2::Scalars::decode(ByteView(buf), arena);
+        REQUIRE(m != nullptr);
+        return p2::rp_dump_string(*m);
+    };
+    // A float needs up to 9 significant digits to read back exactly; this one needs all 9. Paired
+    // with -0.0, whose sign survives only because the round-trip check compares bit patterns.
+    CHECK(dump_of(-0.0, 3.1415927F) == R"({"i32": 1, "fl": 3.1415927, "db": -0})");
+    // Subnormals round-trip too, though not in the fewest digits possible (see round_trip_text).
+    CHECK(dump_of(std::numeric_limits<double>::denorm_min(),
+                  std::numeric_limits<float>::denorm_min()) ==
+          R"({"i32": 1, "fl": 1.4013e-45, "db": 4.94065645841247e-324})");
+}
+
+TEST_CASE("dumpgen: a double keeps its precision on the multi-line path too", "[dumpgen]") {
+    // The compact and multi-line paths render through different sinks (the Writer's scratch buffer
+    // vs the output stream), so a value's rendering is pinned on both rather than only the default.
+    std::string packed;
+    put_ieee(packed, 3.141592653589793);
+    put_ieee(packed, 2.718281828459045);
+    std::string buf;
+    put_tag(buf, 12, 2);  // reals: Len (packed I64)
+    put_varint(buf, packed.size());
+    buf += packed;
+    Arena arena;
+    const p3::Msg* m = p3::Msg::decode(ByteView(buf), arena);
+    REQUIRE(m != nullptr);
+    CHECK(p3::rp_dump_string(*m) == R"({"reals": [3.141592653589793, 2.718281828459045]})");
+    const std::string wide = p3::rp_dump_string(*m, 0);
+    CHECK(wide.find("3.141592653589793") != std::string::npos);
+    CHECK(wide.find("2.718281828459045") != std::string::npos);
+}
+
+TEST_CASE("dumpgen: a double keeps every digit it needs to read back", "[dumpgen]") {
+    // The stream default of 6 significant digits would render this as 3.14159 -- a DIFFERENT value.
+    // write_float widens the precision until the text parses back to the identical double.
+    std::string buf;
+    put_tag(buf, 15, 1);  // Scalars.db: I64
+    put_ieee(buf, 3.141592653589793);
+    put_tag(buf, 1, 0);  // Scalars.i32 (required): Varint
+    put_varint(buf, 1);
+    Arena arena;
+    const p2::Scalars* m = p2::Scalars::decode(ByteView(buf), arena);
+    REQUIRE(m != nullptr);
+    CHECK(p2::rp_dump_string(*m) == R"({"i32": 1, "db": 3.141592653589793})");
+}
+
+TEST_CASE("dumpgen: a float/double renders no more digits than it carries", "[dumpgen]") {
+    // The flip side of the test above: precision is widened only when the shorter form fails to
+    // read back, so 0.1 stays "0.1" rather than padding out to 0.10000000000000001.
+    std::string buf;
+    put_tag(buf, 1, 0);  // i32 (required)
+    put_varint(buf, 1);
+    put_tag(buf, 14, 5);  // fl: I32
+    put_ieee(buf, 0.1F);
+    put_tag(buf, 15, 1);  // db: I64
+    put_ieee(buf, 0.1);
+    Arena arena;
+    const p2::Scalars* m = p2::Scalars::decode(ByteView(buf), arena);
+    REQUIRE(m != nullptr);
+    CHECK(p2::rp_dump_string(*m) == R"({"i32": 1, "fl": 0.1, "db": 0.1})");
+}
+
+TEST_CASE("dumpgen: non-finite floats render as JSON strings, not bare nan/inf", "[dumpgen]") {
+    // NaN and the infinities have no JSON number form -- streaming them raw emits `nan` / `-inf`,
+    // which no JSON parser accepts. They take protobuf's JSON convention instead.
+    const auto dump_of = [](double db, float fl) {
+        std::string buf;
+        put_tag(buf, 1, 0);  // i32 (required)
+        put_varint(buf, 1);
+        put_tag(buf, 14, 5);  // fl: I32
+        put_ieee(buf, fl);
+        put_tag(buf, 15, 1);  // db: I64
+        put_ieee(buf, db);
+        Arena arena;
+        const p2::Scalars* m = p2::Scalars::decode(ByteView(buf), arena);
+        REQUIRE(m != nullptr);
+        return p2::rp_dump_string(*m);
+    };
+    CHECK(dump_of(std::numeric_limits<double>::quiet_NaN(),
+                  -std::numeric_limits<float>::infinity()) ==
+          R"({"i32": 1, "fl": "-Infinity", "db": "NaN"})");
+    CHECK(
+        dump_of(std::numeric_limits<double>::infinity(), std::numeric_limits<float>::infinity()) ==
+        R"({"i32": 1, "fl": "Infinity", "db": "Infinity"})");
+}
+
+TEST_CASE("dumpgen: the sink's locale and format flags do not reach the dump", "[dumpgen]") {
+    // Both layout paths: a group that fits renders through the Writer's own scratch buffer, while
+    // width 0 opens every group so the values land straight on the caller's stream.
+    check_hostile_stream_ignored(dump_through_hostile_stream(120));
+    check_hostile_stream_ignored(dump_through_hostile_stream(0));
+}
+
+TEST_CASE("dumpgen: dumping does not change the caller's stream formatting", "[dumpgen]") {
+    // Dumping sets no stream flags, so a caller's ostream keeps whatever formatting it carried --
+    // a dump is not allowed to change how that stream prints anything afterwards.
+    std::string buf;
+    put_tag(buf, 1, 0);  // i32 (required)
+    put_varint(buf, 1);
+    Arena arena;
+    const p2::Scalars* m = p2::Scalars::decode(ByteView(buf), arena);
+    REQUIRE(m != nullptr);
+    std::ostringstream os;
+    const std::ios::fmtflags before = os.flags();
+    p2::rp_dump_write(os, *m);
+    CHECK(os.flags() == before);
+    os.str(std::string());
+    os << true;  // the stream's own default numeric rendering, not `true`
+    CHECK(os.str() == "1");
 }
 
 TEST_CASE("dumpgen: a string field escapes JSON control/quote/backslash characters", "[dumpgen]") {

@@ -23,7 +23,7 @@ inline void rp_dump_write(const ::rp::pub::Pub& m, ::rapidproto::dump::Writer& w
     bool rp_first = true;
     if (const auto rp_v = m.w()) {
       if (w.begin_field(rp_first, "w")) {
-        w.os() << *rp_v;
+        ::rapidproto::dump::write_int(w.os(), *rp_v);
       }
     }
     (void)rp_first;
@@ -33,7 +33,6 @@ inline void rp_dump_write(const ::rp::pub::Pub& m, ::rapidproto::dump::Writer& w
 }  // namespace rp_dump_detail
 
 inline void rp_dump_write(std::ostream& rp_os, const ::rp::pub::Pub& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  rp_os << std::boolalpha;
   ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
   ::rp::pub::rp_dump_detail::rp_dump_write(m, w);
 }

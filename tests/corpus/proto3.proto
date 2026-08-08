@@ -23,7 +23,15 @@ message Msg {
   oneof pick {
     int32 a = 10;
     string b = 11;
+    bool c = 15;    // bool/double reach the dumper through their own oneof-member path
+    double d = 16;
   }
   repeated double reals = 12;   // packed fixed-width (I64): exercises the bulk-copy path
   repeated fixed32 codes = 13;  // packed fixed-width (I32): exercises the bulk-copy path
+  // bool and float/double render through dedicated writers rather than the stream's default
+  // formatting, and each container below reaches those writers by a separate path.
+  map<bool, string> flags = 14;  // bool KEY (rendered as true/false, not 1/0)
+  repeated bool bools = 17;
+  map<string, bool> toggles = 18;
+  map<string, double> ratios = 19;
 }

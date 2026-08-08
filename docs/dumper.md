@@ -51,8 +51,13 @@ std::cout << example::rp_dump_string(*p, opts);
 What it renders: scalars, `string`, `bytes` (as lowercase hex), enums by their prefix-stripped name
 (`UNKNOWN(<n>)` for an open-enum value outside the schema's range), nested sub-messages, repeated fields
 (arrays), maps (objects), and the active member of a oneof; groups print through the identical
-nested-message accessor. Default-valued implicit (proto3 singular) fields and empty repeated/maps are
-omitted; explicit-presence fields print when set; a `required` field always prints. A message that
+nested-message accessor. A `bool` prints as `true`/`false`, including as a `map<bool, …>` key.
+`float`/`double` print with enough digits to read back to the same value, without padding out to the
+type's maximum, and the non-finite ones as the quoted strings `"NaN"` / `"Infinity"` / `"-Infinity"` —
+JSON has no number syntax for those. Every value is formatted by the dumper itself, so the text does
+not vary with the locale or format flags of the stream you write to (and the dump leaves both alone).
+Default-valued implicit (proto3 singular) fields and empty repeated/maps are omitted;
+explicit-presence fields print when set; a `required` field always prints. A message that
 reserves the [unknown-fields](profiles.md#unknown-fields) bit shows `"has_unknown_fields": true` when
 set — a bit only, since the arena retains no unknown-field *data*. The output is **width-adaptive**:
 each object or array renders on one line if it fits the budget (`width`, default 120 columns),

@@ -16,10 +16,16 @@ file proto3.proto
     field states num=8 presence=explicit repeated=expanded type=State -> .p3.State enum
     field reals num=12 presence=explicit repeated=packed type=double
     field codes num=13 presence=explicit repeated=packed type=fixed32
+    field bools num=17 presence=explicit repeated=packed type=bool
     map counts num=9 key=string value=int32
+    map flags num=14 key=bool value=string
+    map toggles num=18 key=string value=bool
+    map ratios num=19 key=string value=double
     oneof pick
       field a num=10 presence=explicit type=int32
       field b num=11 presence=explicit type=string
+      field c num=15 presence=explicit type=bool
+      field d num=16 presence=explicit type=double
 symbols
   .p3.Msg message
   .p3.State enum
