@@ -25,6 +25,14 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
   against the full `[lex.key]` table through C++23, a keyword fixture is in the corpus, and
   `./check.sh` compiles the generated headers at `-std=c++20` and `-std=c++23`.
 
+- **The debug dumper (`--dump`) printed the same name for two different enum values.** A value's
+  rendered name is the C++ enumerator the generated `enum class` declares, but the dumper re-derived
+  it without the dedup step that enumerator went through — so `enum E { decode = 0; decode_ = 1; }`
+  (protoc-valid; `decode` is reserved, so both sanitize to `decode_`) declared `decode_` and
+  `decode__` while dumping both as `"decode_"`, leaving the dump ambiguous about which value the
+  wire carried. Both now come from one shared helper. Regenerate `*.rp.dump.hpp` to pick this up;
+  only enums with two values that sanitize alike are affected.
+
 - **The debug dumper (`--dump`) rendered bools, integers and floating-point values wrongly.** Four
   defects, all from letting the output stream's formatting state decide how a value prints:
   - A `bool` printed as `1`/`0` instead of `true`/`false` whenever its group fit on one line. The

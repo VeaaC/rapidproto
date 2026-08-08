@@ -36,7 +36,8 @@ cmake --build --preset gcc
 `./check.sh` is the one-stop bar and **must be green before you commit**:
 
 - `./check.sh`: clang-format, dual-compiler build + test, clang-tidy (strict on the library), the
-  compile-fail harnesses, a docs link check, and a dispatch-gate stress compile.
+  compile-fail harnesses, a docs link check, a dispatch-gate stress compile, and the randomized
+  differential against protobuf.
 - `./check.sh fix`: apply clang-format first, then run the full gate.
 - `./check.sh quick`: gcc-only build + test for the inner loop (not the commit bar).
 - `./check.sh deep` is the heavy tier: ASan + UBSan, a library coverage floor, and a fuzz smoke.
@@ -74,6 +75,33 @@ per-file front-end diagnostics rather than one error per pipeline run.
 Pins carry both the ref and the commit it resolved to, and a mismatch fails loudly — bump a pin **in
 its own commit**, never as a side effect of other work, so a corpus change can't be a hidden variable
 behind an unrelated failure.
+
+## The differential against protobuf
+
+`tests/differential.py` is the correctness oracle the goldens cannot be: it builds random messages
+with protobuf's own reflection, serializes them, decodes the same bytes with the generated arena
+decoder, and compares **every field**. Goldens pin what the generator emits; this pins what the
+generated code *means*, against an independent implementation.
+
+```bash
+python3 tests/differential.py                      # every tests/corpus schema (a check.sh stage)
+python3 tests/differential.py --messages 250 --seed 3 --verbose
+python3 tests/differential.py --schema tests/corpus/proto3.proto
+```
+
+No comparator is written per schema: `rapidproto_diffgen` emits the C++ harness, taking the exact
+generated type names from the shared `CppNameTable` rather than re-deriving them (keyword escapes
+and collision suffixes make that unpredictable). The comparison surface is the debug dumper, since
+RapidProto has no reflection and nothing else turns a decoded tree into data a script can walk.
+
+It needs `protoc` and the protobuf Python bindings, and skips cleanly without them — they are
+dev-only dependencies, like protozero and Catch2. Two things it cannot cover by construction:
+extensions, which are never materialized, and unknown fields, since payloads come from the same
+schema that decodes them. A schema it cannot drive is skipped rather than failed, with the reason
+printed under `--verbose`: protoc rejecting it (an intentional-collision fixture, a custom option it
+cannot resolve, editions on a protoc too old for them), or `package main`, whose `namespace main`
+cannot coexist with the harness's `int main()`. A harness that fails to *compile* is a failure, not
+a skip.
 
 ## Goldens
 

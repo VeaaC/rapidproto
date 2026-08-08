@@ -343,6 +343,14 @@ if(RAPIDPROTO_BUILD_TESTS)
 
   add_test(NAME unit COMMAND rapidproto_tests)
 
+  # Harness generator for the randomized differential test (tests/differential.py). Test-only: it
+  # exists to name the exact C++ types the arena header declared, which it reads off the shared
+  # CppNameTable rather than re-deriving from proto names (keyword escapes and collision suffixes
+  # make that unpredictable). The Python driver runs it per schema and compiles what it emits.
+  add_executable(rapidproto_diffgen tests/diffgen/main.cpp)
+  target_link_libraries(rapidproto_diffgen PRIVATE rapidproto_lib rapidproto_codegen_lib
+                                                   rapidproto_strict)
+
   # Consumer example: exercises rapidproto_generate() end to end -- generate a cross-file schema,
   # compile a TU against it, decode. The in-tree mirror of a downstream find_package/FetchContent user.
   add_subdirectory(examples/consumer)

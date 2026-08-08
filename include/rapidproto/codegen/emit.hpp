@@ -70,27 +70,27 @@ inline bool enum_prefix_strippable(const EnumNode& node, std::string_view prefix
     });
 }
 
-// Emit `enum class <Name> : std::int32_t { <values>; rp_known_{min,max};
-// rp_non_exhaustive_{min,max} };` for `node`.
-// When every value carries the conventional `<ENUMNAME>_` prefix and every bare remainder is a clean
-// identifier (see enum_prefix_strippable -- not a keyword/reserved name/macro), the prefix is stripped
-// (all-or-nothing per enum) so a conventionally-named enum reads `Status::OK`, not the redundant
-// `Status::STATUS_OK`; a numeric-suffix value (`VERSION_2` -> `2`), a value missing the prefix, or one
-// whose remainder would macro-expand (`STATUS_EOF` -> `EOF`) disables stripping for the whole enum. Enumerators are then deduped (two
-// proto names that sanitize alike must not redefine one), and the full int32 range is reserved via the
-// rp_non_exhaustive_{min,max} sentinels so a switch over the enum must carry a `default:` -- enums are
-// OPEN, unknown wire values are representable. Stripping touches only this C++ identifier: the wire is
-// by number, and an enum default resolves to its number, so nothing else references the value name.
-// `trailing_blank` appends the blank line streamgen places between declarations (arenagen does not),
-// keeping each generator's output byte-identical.
-inline void emit_enum(Printer& printer, const CppNameTable& names, const EnumNode& node,
-                      bool trailing_blank) {
-    printer.print("enum class $E$ : std::int32_t {\n", {{"E", names.local.at(&node)}});
-    printer.indent();
+// The C++ enumerator name for each value of `node`, in declaration order. Three steps:
+//
+//  1. Strip the enum's conventional `<ENUMNAME>_` prefix, all-or-nothing per enum, so a
+//     conventionally-named enum reads `Status::OK` rather than the redundant `Status::STATUS_OK`.
+//     A value missing the prefix, a numeric remainder (`VERSION_2` -> `2`), or one that would
+//     macro-expand or hit a keyword (`STATUS_EOF` -> `EOF`) disables stripping for the whole enum
+//     -- see enum_prefix_strippable, which decides that.
+//  2. sanitize(), escaping whatever the strip left exposed.
+//  3. Dedup WITHIN the enum: two proto names that sanitize alike (`decode` and `decode_` both reach
+//     `decode_`, since `decode` is reserved) must not declare the same enumerator twice.
+//
+// Shared so the debug dumper's value-name table prints exactly the enumerators emit_enum declares:
+// deriving those names again without step 3 makes two distinct values render identically.
+inline std::vector<std::string> enum_value_names(const EnumNode& node) {
     const std::string prefix = enum_value_prefix(node.name);
     const bool strip = enum_prefix_strippable(node, prefix);
+    // Seeded with the sentinels emit_enum appends, which a proto value could otherwise collide with.
     std::unordered_set<std::string> taken = {"rp_known_min", "rp_known_max",
                                              "rp_non_exhaustive_min", "rp_non_exhaustive_max"};
+    std::vector<std::string> out;
+    out.reserve(node.values.size());
     for (const auto& value : node.values) {
         std::string_view raw = value.name;
         if (strip) {
@@ -100,7 +100,28 @@ inline void emit_enum(Printer& printer, const CppNameTable& names, const EnumNod
         while (!taken.insert(name).second) {
             name += '_';
         }
-        printer.print("$name$ = $n$,\n", {{"name", name}, {"n", std::to_string(value.number)}});
+        out.push_back(std::move(name));
+    }
+    return out;
+}
+
+// Emit `enum class <Name> : std::int32_t { <values>; rp_known_{min,max};
+// rp_non_exhaustive_{min,max} };` for `node`. Enumerators are named by enum_value_names above
+// (prefix stripped where the enum allows it, then deduped); the naming touches only this C++
+// identifier, since the wire is by number and an enum default resolves to its number.
+//
+// The full int32 range is reserved via the rp_non_exhaustive_{min,max} sentinels, so a switch over
+// the enum must carry a `default:` -- enums are OPEN, and an unknown wire value is representable.
+// `trailing_blank` appends the blank line streamgen places between declarations (arenagen does not),
+// keeping each generator's output byte-identical.
+inline void emit_enum(Printer& printer, const CppNameTable& names, const EnumNode& node,
+                      bool trailing_blank) {
+    printer.print("enum class $E$ : std::int32_t {\n", {{"E", names.local.at(&node)}});
+    printer.indent();
+    const std::vector<std::string> value_names = enum_value_names(node);
+    for (std::size_t i = 0; i < node.values.size(); ++i) {
+        printer.print("$name$ = $n$,\n",
+                      {{"name", value_names[i]}, {"n", std::to_string(node.values[i].number)}});
     }
     // The DECLARED value range (aliases collapse; unrelated to the INT32 sentinels below): the
     // schema-known bounds a consumer can range-check or size against without hand-tracking the
