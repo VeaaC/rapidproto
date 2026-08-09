@@ -116,8 +116,10 @@ struct ArenaDecodeError {
 - **RecursionTooDeep.** Message nesting exceeded the depth guard (`kMaxDecodeDepth`, 100), which protects
   against adversarial input.
 - **OutOfMemory.** The arena could not satisfy an allocation.
-- **RepeatedSingularMessage.** A singular (non-repeated) sub-message field appeared more than once
-  (rejected, not merged); `field_number` names it.
+- **RepeatedSingularMessage.** A singular (non-repeated) sub-message appeared more than once, which
+  protobuf merges and a read-only tree cannot; `field_number` names the field you wrote (for a map,
+  the map itself). Also covers a sub-message oneof member repeating while the oneof still holds it,
+  and a map entry repeating its `value` — see [duplicate fields](semantics.md).
 - **InputTooLarge.** The input exceeded 4 GiB (`UINT32_MAX`), the size at which a repeated/map element
   count or a string length stays representable in the 32-bit view fields. (`StringTooLong` is reserved
   and never produced.)

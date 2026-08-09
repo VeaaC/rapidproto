@@ -208,6 +208,7 @@ RP_FLATTEN RP_NOINLINE inline bool Main::rp_decode_into([[maybe_unused]] Main& o
           const std::uint8_t* rp_ec = ::rapidproto::wire::byte_ptr(rp_ent);
           const std::uint8_t* const rp_ee = rp_ec + rp_ent.size();
           ::rapidproto::Tag rp_et{};
+          bool rp_vseen = false;
           for (;;) {
             ::rapidproto::wire::TagState rp_st = ::rapidproto::wire::TagState::End;
             const std::uint8_t* const rp_etp = ::rapidproto::wire::read_tag_or_end(rp_ec, rp_ee, &rp_et, &rp_we, &rp_st);
@@ -221,6 +222,8 @@ RP_FLATTEN RP_NOINLINE inline bool Main::rp_decode_into([[maybe_unused]] Main& o
               rp_ec = rp_np;
               rp_slot->rp_key = ::rapidproto::varint_to_int32(rp_raw);
             } else if (rp_et.field_number == 2 && rp_et.wire_type == ::rapidproto::WireType::Len) {
+              if (rp_vseen) { ::rapidproto::rp_fail_repeated_singular(err, 6); return false; }
+              rp_vseen = true;
               ::rapidproto::ByteView rp_v;
               { const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_ec, rp_ee, &rp_v, &rp_we); if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_ec - ::rapidproto::wire::byte_ptr(rp_ent))); return false; } rp_ec = rp_np; }
               if (!::rapidproto::arena_detail::decode_into(rp_slot->rp_value, rp_v, arena, depth + 1, err)) { return false; }
@@ -237,6 +240,7 @@ RP_FLATTEN RP_NOINLINE inline bool Main::rp_decode_into([[maybe_unused]] Main& o
       }
       case 7: {
         if (rp_tag.wire_type == ::rapidproto::WireType::Len) {
+          if (out.m_rp_choice_case == 1) { ::rapidproto::rp_fail_repeated_singular(err, 7); return false; }
           ::rapidproto::ByteView rp_v;
           { const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_v, &rp_we); if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; } rp_c = rp_np; }
           out.m_rp_choice.od = ::rp::dep::Dep{};

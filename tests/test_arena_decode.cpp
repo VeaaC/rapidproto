@@ -856,6 +856,132 @@ TEST_CASE("arena-decode: a repeated singular sub-message is rejected", "[arena-d
     CHECK(err.field_number == 5);
 }
 
+// A singular scalar or string occurring more than once takes the LAST value; string values are
+// never JOINED. Worth pinning separately from the oneof/map cases because the usual way a buffer
+// gets here is concatenating two serialized messages, and "concatenation" there refers to the
+// message bytes, not to the field's value. docs/semantics.md states this rule.
+TEST_CASE("arena-decode: a repeated singular scalar or string takes the last value",
+          "[arena-decode]") {
+    std::string buf;
+    put_tag(buf, 1, 0);  // implicit_i = 1
+    put_varint(buf, 1);
+    put_len(buf, 3, "AAA");  // name = "AAA"
+    put_tag(buf, 1, 0);      // implicit_i = 2 -- wins
+    put_varint(buf, 2);
+    put_len(buf, 3, "BBB");  // name = "BBB" -- wins, and is not "AAABBB"
+    Arena arena;
+    const p3::Msg* m = p3::Msg::decode(ByteView(buf), arena);
+    REQUIRE(m != nullptr);
+    CHECK(m->implicit_i() == 2);
+    CHECK(m->name() == "BBB");
+}
+
+// A sub-message ONEOF member repeating while the oneof already holds it is rejected, exactly as a
+// singular sub-message field outside a oneof is: that is the case protobuf MERGES (it would yield
+// x=7 here), and a read-only tree cannot -- so it must be an error, never a differing value.
+//
+// The rejection keys on the oneof's current case, not on "seen before", because an intervening
+// DIFFERENT member clears the oneof: protobuf starts the later occurrence fresh there, which is what
+// plain last-wins already does, so that case must keep decoding.
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): two independent wire inputs
+TEST_CASE("arena-decode: a repeated sub-message oneof member is rejected", "[arena-decode]") {
+    std::string inner;  // p2.Container.Nested { x = 7 }
+    put_tag(inner, 1, 0);
+    put_varint(inner, 7);
+
+    SECTION("same member twice -- protobuf would merge, so reject") {
+        std::string buf;
+        put_len(buf, 4, inner);          // choice.cn = Nested{x=7}
+        put_len(buf, 4, std::string());  // ...again, while the oneof still holds cn
+        Arena arena;
+        ArenaDecodeError err;
+        const p2::Container* c = p2::Container::decode(ByteView(buf), arena, &err);
+        CHECK(c == nullptr);
+        CHECK(err.code == ArenaDecodeError::Code::RepeatedSingularMessage);
+        CHECK(err.field_number == 4);
+    }
+    SECTION("another member in between clears it, so the later occurrence is fresh") {
+        std::string buf;
+        put_len(buf, 4, inner);  // choice.cn = Nested{x=7}
+        put_tag(buf, 3, 0);      // choice.ci = 5 -- clears cn
+        put_varint(buf, 5);
+        put_len(buf, 4, std::string());  // cn again, now starting fresh
+        Arena arena;
+        ArenaDecodeError err;
+        const p2::Container* c = p2::Container::decode(ByteView(buf), arena, &err);
+        REQUIRE(c != nullptr);  // matches protobuf, which also yields an empty cn here
+        CHECK(err.ok());
+        bool saw = false;
+        c->choice(
+            [&](p2::Container::Choice::cn, const p2::Container::Nested& n) {
+                saw = true;
+                CHECK(!n.x().has_value());
+            },
+            [](auto, auto) { FAIL("unexpected oneof member"); });
+        CHECK(saw);
+    }
+}
+
+// A map ENTRY repeating its message-typed `value` is rejected for the same reason: protobuf merges
+// the two within an entry, so overwriting would hand back a different sub-tree. Scoped to one entry
+// -- two ENTRIES sharing a key is the ordinary duplicate-key case and still decodes (last wins on
+// lookup), as does an entry repeating its scalar `key`.
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): three independent wire inputs
+TEST_CASE("arena-decode: a map entry repeating its message value is rejected", "[arena-decode]") {
+    const std::string v1 = [] {  // Nested{x=7}
+        std::string v;
+        put_tag(v, 1, 0);
+        put_varint(v, 7);
+        return v;
+    }();
+
+    SECTION("one entry, value twice -- protobuf would merge, so reject") {
+        // The second value is EMPTY, so merging and last-wins genuinely disagree: protobuf keeps
+        // x=7 from the first, while overwriting would drop it. Two identical values would also be
+        // rejected, but would not demonstrate why -- merging them changes nothing.
+        std::string entry;
+        put_len(entry, 1, "a");            // key
+        put_len(entry, 2, v1);             // value = Nested{x=7}
+        put_len(entry, 2, std::string());  // value again, empty, inside the SAME entry
+        std::string buf;
+        put_len(buf, 1, entry);  // p2.Container.by_name
+        Arena arena;
+        ArenaDecodeError err;
+        const p2::Container* c = p2::Container::decode(ByteView(buf), arena, &err);
+        CHECK(c == nullptr);
+        CHECK(err.code == ArenaDecodeError::Code::RepeatedSingularMessage);
+        CHECK(err.field_number == 1);  // the MAP's field number, not the entry's `value`
+    }
+    SECTION("two entries sharing a key still decode") {
+        std::string e1;
+        put_len(e1, 1, "a");
+        put_len(e1, 2, v1);
+        std::string buf;
+        put_len(buf, 1, e1);
+        put_len(buf, 1, e1);  // a second ENTRY, not a second value
+        Arena arena;
+        ArenaDecodeError err;
+        const p2::Container* c = p2::Container::decode(ByteView(buf), arena, &err);
+        REQUIRE(c != nullptr);
+        CHECK(err.ok());
+        CHECK(c->by_name().size() == 2);  // both retained; find() takes the last
+    }
+    SECTION("one entry repeating its scalar key still decodes") {
+        std::string entry;
+        put_len(entry, 1, "a");
+        put_len(entry, 1, "b");  // key again -- last wins, as protobuf does
+        put_len(entry, 2, v1);
+        std::string buf;
+        put_len(buf, 1, entry);
+        Arena arena;
+        ArenaDecodeError err;
+        const p2::Container* c = p2::Container::decode(ByteView(buf), arena, &err);
+        REQUIRE(c != nullptr);
+        CHECK(err.ok());
+        REQUIRE(c->by_name().find(std::string_view("b")) != nullptr);
+    }
+}
+
 TEST_CASE("arena-decode: oneof keeps the last member set", "[arena-decode]") {
     std::string buf;      // p3.Msg oneof pick { a=10 (int32); b=11 (string) }
     put_tag(buf, 10, 0);  // a = 1

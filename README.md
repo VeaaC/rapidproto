@@ -168,7 +168,7 @@ can use both models for one schema in one translation unit; see
 | [docs/arena.md](docs/arena.md) | The arena decoder: accessors, the `Arena`, `decode_owned`, error handling |
 | [docs/streaming.md](docs/streaming.md) | The streaming decoder: field tags, the three consumption patterns, aborting |
 | [docs/dumper.md](docs/dumper.md) | The `--dump` debug dumper: JSON-like inspection text, `DumpOptions` |
-| [docs/semantics.md](docs/semantics.md) | The shared rules: lifetimes, validation & trust, presence/defaults, open enums, thread-safety |
+| [docs/semantics.md](docs/semantics.md) | The shared rules: lifetimes, validation & trust, presence/defaults, open enums, duplicate fields, thread-safety |
 | [docs/using-both-models.md](docs/using-both-models.md) | Both models in one TU, the mid-decode hybrid, coexisting with protoc |
 | [docs/profiles.md](docs/profiles.md) | Decode profiles (`drop` / `raw`) and unknown-field detection (arena) |
 | [docs/integration.md](docs/integration.md) | The `rapidprotoc` CLI reference and the CMake helper (incl. cross-compiling) |

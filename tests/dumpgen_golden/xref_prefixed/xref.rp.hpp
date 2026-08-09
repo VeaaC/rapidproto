@@ -721,6 +721,7 @@ RP_FLATTEN RP_NOINLINE inline bool Nested::User::rp_decode_into([[maybe_unused]]
           const std::uint8_t* rp_ec = ::rapidproto::wire::byte_ptr(rp_ent);
           const std::uint8_t* const rp_ee = rp_ec + rp_ent.size();
           ::rapidproto::Tag rp_et{};
+          bool rp_vseen = false;
           for (;;) {
             ::rapidproto::wire::TagState rp_st = ::rapidproto::wire::TagState::End;
             const std::uint8_t* const rp_etp = ::rapidproto::wire::read_tag_or_end(rp_ec, rp_ee, &rp_et, &rp_we, &rp_st);
@@ -734,6 +735,8 @@ RP_FLATTEN RP_NOINLINE inline bool Nested::User::rp_decode_into([[maybe_unused]]
               rp_ec = rp_np;
               rp_slot->rp_key = ::rapidproto::ArenaString::make(rp_v, arena);
             } else if (rp_et.field_number == 2 && rp_et.wire_type == ::rapidproto::WireType::Len) {
+              if (rp_vseen) { ::rapidproto::rp_fail_repeated_singular(err, 3); return false; }
+              rp_vseen = true;
               ::rapidproto::ByteView rp_v;
               { const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_ec, rp_ee, &rp_v, &rp_we); if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_ec - ::rapidproto::wire::byte_ptr(rp_ent))); return false; } rp_ec = rp_np; }
               ::rp::xr::Nested::Def* const rp_mv = arena.create<::rp::xr::Nested::Def>();
@@ -792,6 +795,7 @@ RP_FLATTEN RP_NOINLINE inline bool Nested::User::rp_decode_into([[maybe_unused]]
       }
       case 4: {
         if (rp_tag.wire_type == ::rapidproto::WireType::Len) {
+          if (out.m_rp_pick_case == 1) { ::rapidproto::rp_fail_repeated_singular(err, 4); return false; }
           ::rapidproto::ByteView rp_v;
           { const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_v, &rp_we); if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; } rp_c = rp_np; }
           ::rp::xr::Nested::Def* const rp_sub = arena.create<::rp::xr::Nested::Def>();
@@ -1154,6 +1158,7 @@ RP_FLATTEN RP_NOINLINE inline bool FwdMsg::Ref::rp_decode_into([[maybe_unused]] 
           const std::uint8_t* rp_ec = ::rapidproto::wire::byte_ptr(rp_ent);
           const std::uint8_t* const rp_ee = rp_ec + rp_ent.size();
           ::rapidproto::Tag rp_et{};
+          bool rp_vseen = false;
           for (;;) {
             ::rapidproto::wire::TagState rp_st = ::rapidproto::wire::TagState::End;
             const std::uint8_t* const rp_etp = ::rapidproto::wire::read_tag_or_end(rp_ec, rp_ee, &rp_et, &rp_we, &rp_st);
@@ -1167,6 +1172,8 @@ RP_FLATTEN RP_NOINLINE inline bool FwdMsg::Ref::rp_decode_into([[maybe_unused]] 
               rp_ec = rp_np;
               rp_slot->rp_key = ::rapidproto::varint_to_int32(rp_raw);
             } else if (rp_et.field_number == 2 && rp_et.wire_type == ::rapidproto::WireType::Len) {
+              if (rp_vseen) { ::rapidproto::rp_fail_repeated_singular(err, 3); return false; }
+              rp_vseen = true;
               ::rapidproto::ByteView rp_v;
               { const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_ec, rp_ee, &rp_v, &rp_we); if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_ec - ::rapidproto::wire::byte_ptr(rp_ent))); return false; } rp_ec = rp_np; }
               ::rp::xr::FwdMsg::Target* const rp_mv = arena.create<::rp::xr::FwdMsg::Target>();
@@ -1186,6 +1193,7 @@ RP_FLATTEN RP_NOINLINE inline bool FwdMsg::Ref::rp_decode_into([[maybe_unused]] 
       }
       case 4: {
         if (rp_tag.wire_type == ::rapidproto::WireType::Len) {
+          if (out.m_rp_pick_case == 1) { ::rapidproto::rp_fail_repeated_singular(err, 4); return false; }
           ::rapidproto::ByteView rp_v;
           { const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_v, &rp_we); if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; } rp_c = rp_np; }
           ::rp::xr::FwdMsg::Target* const rp_sub = arena.create<::rp::xr::FwdMsg::Target>();

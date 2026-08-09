@@ -1187,6 +1187,20 @@ decode-relevant may be approximated or rejected.
   `"has_unknown_fields": true`, but the arena retains no unknown-field payload to print (arena
   drops the
   bytes; see the arena unknown-fields non-goal below).
+- **A duplicate singular sub-message is rejected, not merged.** Protobuf merges repeated occurrences
+  of a singular message field — equivalently, concatenating two serialized messages merges them, a
+  documented idiom. The arena model rejects such a buffer with `RepeatedSingularMessage` instead.
+  Merging is *feasible*: gather the field's occurrences, concatenate their payloads and decode that
+  once into a fresh child — protobuf defines merging as exactly that — so it needs no layout change
+  and no merge pass over an already-materialized subtree. It is declined on cost: a prototype added
+  `.text` to every decoder carrying such a field, even with the merge path kept out of line, for an
+  idiom few need, plus tail work for groups and the `raw` field mode. Rejecting instead reports the
+  case rather than decoding to a tree protobuf
+  would not produce. That covers a sub-message **oneof** member repeating while the oneof still holds
+  it, and a map entry repeating its `value`; a oneof whose members alternate still decodes, since the
+  different member clears the oneof and protobuf likewise starts the later occurrence fresh. The
+  streaming model applies no policy of its own: it reports each occurrence and lets you combine them,
+  except inside a map entry, where the `(key, value)` callback carries only that entry's last of each.
 - **gRPC is out of scope.** `service`/`rpc` are parsed past and dropped (no `ServiceNode`; a file's
   messages still decode).
 - **`extend` / extension fields are retained but not emitted.** The AST keeps the extension registry
@@ -1212,10 +1226,6 @@ decode-relevant may be approximated or rejected.
 - The arena decoder **drops unknown fields** (no per-field channel like streamgen's); `--unknown-present`
   (every message) or `--unknown=<msg>` / `unknown-fields <msg>` (per message) reserves only a single
   "saw an unknown" flag, and the selection folds into the decode-profile identity.
-- The arena decoder **rejects a singular sub-message that occurs more than once** (`RepeatedSingularMessage`)
-  instead of protobuf's last-one-wins merge, an exotic case excluded for now (a clear error, not a
-  silent
-  mis-merge).
 - Type resolution uses progressive scope search rather than protobuf's first-component-binds rule; for
   valid input the result is identical (shadowing edge cases `protoc` rejects are not diagnosed).
 - The parser is over-permissive where `protoc` would reject (`optional`/`required` in editions, `extend` in

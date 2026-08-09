@@ -92,6 +92,9 @@ handler; a known field you simply didn't handle is not "unknown" (use a catch-al
   `[&](Person::labels, std::string_view key, std::string_view value) { … }`.
 - **`oneof`.** Each member is an ordinary field tag. The member present on the wire fires its callback
   and the others don't, so *the callback that fires is the discriminator*. There's no oneof-level type.
+  On a buffer carrying more than one member — two serialized messages concatenated, say — each fires
+  in wire order, and the **last** is the one protobuf would call set (see
+  [duplicate fields](semantics.md)).
 
 ## Error handling
 

@@ -402,6 +402,83 @@ TEST_CASE("streamgen: a repeated message field fires per element", "[streamgen]"
     CHECK(xs == std::vector<std::int32_t>{11, 22});  // one callback per element, in wire order
 }
 
+// A SINGULAR sub-message occurring twice fires the callback twice rather than failing -- the
+// streaming counterpart to the arena model, which rejects that buffer with RepeatedSingularMessage
+// because a read-only tree cannot merge. Neither model merges; this one hands both occurrences over
+// and leaves the policy to the caller. docs/semantics.md documents the asymmetry, so pin it.
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): three independent wire inputs
+TEST_CASE("streamgen: a singular sub-message occurring twice fires per occurrence", "[streamgen]") {
+    std::string buf;        // p3.Msg { self { implicit_i: 1 }, self { implicit_i: 2 } }
+    put_tag(buf, 5, 2);     // p3.Msg.self (singular message)
+    buf.push_back('\x02');  // length
+    buf.push_back('\x08');  // implicit_i tag
+    buf.push_back('\x01');  // = 1
+    put_tag(buf, 5, 2);     // ...again
+    buf.push_back('\x02');
+    buf.push_back('\x08');
+    buf.push_back('\x02');  // = 2
+
+    std::vector<std::int32_t> seen;
+    const p3::stream::Msg m{ByteView(buf)};
+    const DecodeStatus s = m.decode([&](p3::stream::Msg::self,
+                                        p3::stream::Msg self) -> DecodeStatus {
+        return self.decode([&](p3::stream::Msg::implicit_i, std::int32_t v) { seen.push_back(v); });
+    });
+    CHECK(s.ok());  // no error: unlike the arena model, this is not a rejection
+    CHECK(seen == std::vector<std::int32_t>{1, 2});
+
+    // The same holds for a singular SCALAR and STRING: the model stores nothing, so it applies no
+    // last-wins either -- both occurrences reach the caller, and the two string values are handed
+    // over separately rather than joined. docs/semantics.md claims this for every field kind, so
+    // pin more than the sub-message case.
+    std::string flat;
+    put_tag(flat, 1, 0);  // implicit_i = 1
+    put_varint(flat, 1);
+    put_tag(flat, 3, 2);  // name = "AAA"
+    put_varint(flat, 3);
+    flat += "AAA";
+    put_tag(flat, 1, 0);  // implicit_i = 2
+    put_varint(flat, 2);
+    put_tag(flat, 3, 2);  // name = "BBB"
+    put_varint(flat, 3);
+    flat += "BBB";
+    std::vector<std::int32_t> ints;
+    std::vector<std::string> names;
+    const DecodeStatus s2 = p3::stream::Msg{ByteView(flat)}.decode(
+        [&](p3::stream::Msg::implicit_i, std::int32_t v) { ints.push_back(v); },
+        [&](p3::stream::Msg::name, std::string_view v) { names.emplace_back(v); });
+    CHECK(s2.ok());
+    CHECK(ints == std::vector<std::int32_t>{1, 2});
+    CHECK(names == std::vector<std::string>{"AAA", "BBB"});
+
+    // The exception docs/semantics.md names: a map ENTRY hands over one (key, value) pair, so a
+    // duplicate INSIDE one entry never reaches the caller -- only that entry's last key and last
+    // value do. This is the one place the streaming model resolves a duplicate for you.
+    std::string entry;
+    put_tag(entry, 1, 2);  // key = "a"
+    put_varint(entry, 1);
+    entry += "a";
+    put_tag(entry, 1, 2);  // key again = "b" -- this one is delivered
+    put_varint(entry, 1);
+    entry += "b";
+    put_tag(entry, 2, 0);  // value = 7
+    put_varint(entry, 7);
+    put_tag(entry, 2, 0);  // value again = 9 -- this one is delivered
+    put_varint(entry, 9);
+    std::string mbuf;
+    put_tag(mbuf, 9, 2);  // p3.Msg.counts, map<string, int32>
+    put_varint(mbuf, entry.size());
+    mbuf += entry;
+    std::vector<std::string> pairs;
+    const DecodeStatus s3 = p3::stream::Msg{ByteView(mbuf)}.decode(
+        [&](p3::stream::Msg::counts, p3::stream::Msg::counts::Key k,
+            p3::stream::Msg::counts::Value v) {
+            pairs.push_back(std::string(k) + "=" + std::to_string(v));
+        });
+    CHECK(s3.ok());
+    CHECK(pairs == std::vector<std::string>{"b=9"});  // one callback, the last of each
+}
+
 // Malformed input through a generated MAP decoder and a generated GROUP decoder propagates the wire
 // error (distinct paths from a scalar-field truncation).
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): two independent malformed inputs
