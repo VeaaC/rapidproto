@@ -50,3 +50,31 @@ message UsesMBytes {
   optional int32 m_bytes = 1;
   optional string other = 2;
 }
+
+// Out-of-line definitions must name themselves ABSOLUTELY. Naming one enters its class scope for the
+// rest of the declarator, so a relative qualifier has its own parameter type resolved from inside the
+// class -- where a nested name shadows the enclosing one and the header stops compiling. Two shapes
+// reach that, both protoc-valid:
+
+// A nested ENUM whose name is the enclosing top-level message's.
+message Shadow {
+  message Inner {
+    enum Shadow {
+      SHADOW_X = 0;
+    }
+    optional Shadow e = 1;  // resolves to Inner's enum, not the outer message
+  }
+  optional Inner inner = 1;
+}
+
+// Three levels of the same name. Two levels are handled by per-scope dedup alone; the third is what
+// needs the absolute qualifier.
+message Deep {
+  message Deep {
+    message Deep {
+      optional int32 x = 1;
+    }
+    optional Deep inner = 1;
+  }
+  optional Deep mid = 1;
+}

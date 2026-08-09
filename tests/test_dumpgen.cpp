@@ -46,7 +46,9 @@
 #include "dumpgen_golden/editions2023.rp.dump.hpp"
 #include "dumpgen_golden/editions2024.rp.dump.hpp"
 #include "dumpgen_golden/main.rp.dump.hpp"  // cross-file imports + shared-enum dumper guard (see dep.proto)
-#include "dumpgen_golden/naming.rp.dump.hpp"  // enum values that sanitize alike stay distinct
+// Enum values that sanitize alike stay distinct; also pulls in naming.rp.hpp, whose shadowing
+// fixtures only compile if the out-of-line definitions name themselves absolutely.
+#include "dumpgen_golden/naming.rp.dump.hpp"
 #include "dumpgen_golden/prefixed/main.rp.dump.hpp"  // --namespace-prefix + imports
 #include "dumpgen_golden/proto2.rp.dump.hpp"
 #include "dumpgen_golden/proto3.rp.dump.hpp"
