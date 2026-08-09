@@ -96,7 +96,7 @@ class AllWire {
 static_assert(::std::is_trivially_destructible_v<AllWire>);
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-RP_FLATTEN RP_NOINLINE inline bool AllWire::rp_decode_into([[maybe_unused]] AllWire& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN RP_NOINLINE inline bool ::wire::AllWire::rp_decode_into([[maybe_unused]] ::wire::AllWire& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   std::int32_t* rp_acc_packed = nullptr;
   std::size_t rp_n_packed = 0;
@@ -293,16 +293,16 @@ RP_FLATTEN RP_NOINLINE inline bool AllWire::rp_decode_into([[maybe_unused]] AllW
   out.m_packed = ::rapidproto::ArrayView<std::int32_t>(rp_acc_packed, rp_n_packed);
   return true;
 }
-inline const AllWire* AllWire::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+inline const ::wire::AllWire* ::wire::AllWire::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
-  AllWire* const rp_root = arena.create<AllWire>();
+  ::wire::AllWire* const rp_root = arena.create<::wire::AllWire>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
   return rp_root;
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-RP_FLATTEN inline bool AllWire::G::rp_decode_into([[maybe_unused]] AllWire::G& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN inline bool ::wire::AllWire::G::rp_decode_into([[maybe_unused]] ::wire::AllWire::G& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(body);
   const std::uint8_t* const rp_cend = rp_c + body.size();
@@ -341,9 +341,9 @@ RP_FLATTEN inline bool AllWire::G::rp_decode_into([[maybe_unused]] AllWire::G& o
   }
   return true;
 }
-inline const AllWire::G* AllWire::G::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+inline const ::wire::AllWire::G* ::wire::AllWire::G::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
-  AllWire::G* const rp_root = arena.create<AllWire::G>();
+  ::wire::AllWire::G* const rp_root = arena.create<::wire::AllWire::G>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
   return rp_root;

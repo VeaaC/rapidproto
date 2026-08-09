@@ -155,7 +155,7 @@ class ManyRequired {
 static_assert(::std::is_trivially_destructible_v<ManyRequired>);
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-RP_FLATTEN inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequired& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN inline bool ::mr::ManyRequired::rp_decode_into([[maybe_unused]] ::mr::ManyRequired& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   std::uint64_t rp_req[2] = {};
   const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(body);
@@ -1041,9 +1041,9 @@ RP_FLATTEN inline bool ManyRequired::rp_decode_into([[maybe_unused]] ManyRequire
   if ((rp_req[1] & (std::uint64_t{1} << 0)) == 0) { ::rapidproto::rp_fail_missing_required(err, 65); return false; }
   return true;
 }
-inline const ManyRequired* ManyRequired::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+inline const ::mr::ManyRequired* ::mr::ManyRequired::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
-  ManyRequired* const rp_root = arena.create<ManyRequired>();
+  ::mr::ManyRequired* const rp_root = arena.create<::mr::ManyRequired>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
   return rp_root;

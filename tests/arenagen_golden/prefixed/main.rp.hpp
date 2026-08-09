@@ -91,7 +91,7 @@ class Main {
 static_assert(::std::is_trivially_destructible_v<Main>);
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-RP_FLATTEN RP_NOINLINE inline bool Main::rp_decode_into([[maybe_unused]] Main& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN RP_NOINLINE inline bool ::rp::main::Main::rp_decode_into([[maybe_unused]] ::rp::main::Main& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   ::rp::dep::Dep* rp_acc_ds = nullptr;
   std::size_t rp_n_ds = 0;
@@ -273,9 +273,9 @@ RP_FLATTEN RP_NOINLINE inline bool Main::rp_decode_into([[maybe_unused]] Main& o
   out.m_dm = ::rapidproto::MapView<DmEntry>(::rapidproto::ArrayView<DmEntry>(rp_acc_dm, rp_n_dm));
   return true;
 }
-inline const Main* Main::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+inline const ::rp::main::Main* ::rp::main::Main::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
-  Main* const rp_root = arena.create<Main>();
+  ::rp::main::Main* const rp_root = arena.create<::rp::main::Main>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
   return rp_root;

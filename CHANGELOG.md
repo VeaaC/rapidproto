@@ -7,6 +7,25 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
 
 ### Fixed
 
+- **Arena headers no longer fail to compile when a nested type shadows the name it is nested in.**
+  The out-of-line `rp_decode_into` / `decode` definitions named themselves with a qualifier assembled
+  from local names (`A::B::rp_decode_into(A::B& out, …)`). Naming a definition enters that class's
+  scope for the rest of the declarator, so the parameter type `A::B` was resolved from *inside*
+  `A::B` — where a nested `A` shadows the top-level one and the header stops compiling. Both shapes
+  are protoc-valid and both failed on gcc and clang:
+
+  ```proto
+  message A { message B { enum A { A_X = 0; } optional A e = 1; } optional B b = 1; }
+  message P { message P { message P { optional int32 x = 1; } } }   // three levels
+  ```
+
+  The definition and its `out` parameter are now both spelled with the absolute
+  `::pkg::A::B::…` name (`::A::B::…` without a package), which cannot be shadowed. **Regenerate** to
+  pick this up: every out-of-line definition in every arena header changes, though only these
+  schemas changed behaviour. Streaming and dump headers are unaffected. No schema in the ~8000-file
+  real-world corpus hits it, and the corpus gate only generates headers rather than compiling them,
+  which is why it went unnoticed.
+
 - **An edition RapidProto has no feature defaults for is now refused instead of silently decoded by
   2023's rules.** `edition = "2025"` (or any unrecognized value) was accepted and given the
   2023/2024 defaults. That is invisible today because both known editions share every

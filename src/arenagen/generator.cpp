@@ -1868,10 +1868,21 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
     p.print("return true;\n");
 }
 
-// Out-of-line decode()/rp_decode_into() for `message` (C++-qualified name `qualifier`) + its nested
-// messages. Emitted after all class shells so every field type is complete.
-void emit_decode_def(const Emit& emit, const MessageNode& message, const std::string& qualifier) {
+// Out-of-line decode()/rp_decode_into() for `message` + its nested messages. Emitted after all class
+// shells so every field type is complete.
+//
+// The qualifier is the ABSOLUTE `::pkg::A::B` name, never one assembled by joining local names down
+// the nesting -- and the `out` PARAMETER is spelled with that same name, which is the part that
+// matters. Naming the definition enters the class scope for the rest of the declarator, so a
+// relative `A::B& out` is resolved from INSIDE `A::B`, where a nested type called `A` shadows the
+// top-level `A` and the header stops compiling. The qualifier itself was never at risk (each
+// component resolves in its own scope, so shadowing cannot misdirect it); it is shared with the
+// parameter, so deriving it absolutely here fixes the parameter. Anything else added AFTER the
+// declarator-id -- a further parameter, a trailing return type -- is exposed the same way and must
+// likewise be `::`-rooted; the absolute qualifier alone does not protect it.
+void emit_decode_def(const Emit& emit, const MessageNode& message) {
     Printer& p = emit.printer;
+    const std::string qualifier = cpp_type_name(emit.names, message.fqn);
     const MessageLayout& layout = *emit.layouts.find(message.fqn);
     p.print(
         "// NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch\n");
@@ -1910,7 +1921,7 @@ void emit_decode_def(const Emit& emit, const MessageNode& message, const std::st
     p.outdent();
     p.print("}\n\n");
     for (const MessageNode& nested : message.nested_messages) {
-        emit_decode_def(emit, nested, qualifier + "::" + emit.names.local.at(&nested));
+        emit_decode_def(emit, nested);
     }
 }
 
@@ -1995,7 +2006,7 @@ std::string generate_header(const FileNode& file, const CppNameTable& names,
     // Out-of-line decode()/rp_decode_into() definitions, after every class shell so all field types are
     // complete (handles forward + cyclic references).
     for (const MessageNode* message : ordered_siblings(emit, file.messages)) {
-        emit_decode_def(emit, *message, names.local.at(message));
+        emit_decode_def(emit, *message);
     }
     if (profiled) {
         printer.print("}  // namespace rp_modes_$id$\n", {{"id", modes->profile_id}});
