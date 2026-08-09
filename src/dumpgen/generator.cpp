@@ -240,7 +240,18 @@ void emit_singular_field(Printer& p, const CppNameTable& names, const FieldNode&
         // Implicit presence (proto3 singular): "unset" is indistinguishable from the default, so a
         // default-valued field (0 / false / "" / the zero enum) is omitted -- as protobuf's own JSON
         // does. decltype(rp_v){} is that zero default for the accessor's value type.
-        p.print("if (const auto rp_v = $c$; rp_v != decltype(rp_v){}) {\n", {{"c", call}});
+        //
+        // Floats need the bit pattern instead: `-0.0 != 0.0` is FALSE, so `!=` would drop a negative
+        // zero, which protobuf serializes and its JSON prints. (It also trips `-Wfloat-equal`, so
+        // the `!=` form does not even compile for a consumer who enables it.)
+        if (kind == ValueKind::Float) {
+            p.print(
+                "if (const auto rp_v = $c$;"
+                " !::rapidproto::dump::detail::is_positive_zero(rp_v)) {\n",
+                {{"c", call}});
+        } else {
+            p.print("if (const auto rp_v = $c$; rp_v != decltype(rp_v){}) {\n", {{"c", call}});
+        }
         p.indent();
         p.print("if (w.begin_field(rp_first, \"$k$\")) {\n", {{"k", f.name}});
         p.indent();

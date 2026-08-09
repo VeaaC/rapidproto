@@ -17,6 +17,8 @@ file proto3.proto
     field reals num=12 presence=explicit repeated=packed type=double
     field codes num=13 presence=explicit repeated=packed type=fixed32
     field bools num=17 presence=explicit repeated=packed type=bool
+    field ratio num=20 presence=implicit type=double
+    field scale num=21 presence=implicit type=float
     map counts num=9 key=string value=int32
     map flags num=14 key=bool value=string
     map toggles num=18 key=string value=bool

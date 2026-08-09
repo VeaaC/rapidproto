@@ -136,6 +136,16 @@ inline void rp_dump_write(const ::p3::Msg& m, ::rapidproto::dump::Writer& w) {
         });
       }
     }
+    if (const auto rp_v = m.ratio(); !::rapidproto::dump::detail::is_positive_zero(rp_v)) {
+      if (w.begin_field(rp_first, "ratio")) {
+        ::rapidproto::dump::write_float(w.os(), rp_v);
+      }
+    }
+    if (const auto rp_v = m.scale(); !::rapidproto::dump::detail::is_positive_zero(rp_v)) {
+      if (w.begin_field(rp_first, "scale")) {
+        ::rapidproto::dump::write_float(w.os(), rp_v);
+      }
+    }
     if (const auto& rp_mp = m.counts(); !rp_mp.empty()) {
       if (w.begin_field(rp_first, "counts")) {
         w.group('{', '}', [&] {

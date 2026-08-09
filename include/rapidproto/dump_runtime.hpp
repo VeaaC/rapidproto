@@ -29,9 +29,10 @@
 
 namespace rapidproto::dump {
 
-// Internals of the writers below. Not part of the surface a generated dumper (or a consumer) calls
-// -- only write_bool / write_int / write_float / write_json_escaped / write_hex / Writer /
-// DumpOptions are.
+// Internals. A generated dumper does reach in here (for is_positive_zero, and for the value-name
+// tables dumpgen emits into this namespace), but a CONSUMER's supported surface is only
+// write_bool / write_int / write_float / write_json_escaped / write_hex / Writer / DumpOptions --
+// so anything below may change with the generator that calls it.
 namespace detail {
 
 // The 16 lowercase hex digits. std::string_view (not a C array) so it is a plain object, not a
@@ -142,6 +143,18 @@ std::string round_trip_text(T value) {
         }
     }
     return text;
+}
+
+// Whether a float/double is POSITIVE zero, tested on the bit pattern so -0.0 is not.
+//
+// This is what an implicit-presence field's "equals its default, so omit it" test must ask. Asking
+// it with `==` gets -0.0 wrong: `-0.0 == 0.0` is true, so the field is dropped even though protobuf
+// treats -0.0 as non-default -- it serializes the field and its JSON keeps `-0.0`. Omitting it would
+// report a value the sender never wrote, and lose the sign write_float otherwise takes care to print.
+template <class T>
+bool is_positive_zero(T value) {
+    static_assert(std::is_floating_point_v<T>, "float/double only");
+    return float_bits(value) == 0;
 }
 
 }  // namespace detail
