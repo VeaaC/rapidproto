@@ -1,0 +1,35 @@
+// A package named `rapidproto`, the runtime's own namespace. Unlike `std` (nsedge/stdpkg.proto),
+// which is shadowed from INSIDE a class, this collides at the ROOT: the schema's types would be
+// merged into `::rapidproto`, and any sharing a name with a runtime type is redeclared as a
+// different kind of entity. The names below are exactly those types, so none of the three headers
+// compiles unless the package component is escaped to `rapidproto_`. Messages reach the arena and
+// dump models (their types sit directly in the package namespace); top-level ENUMS reach the
+// streaming model too, since they stay at package scope in the shared common header rather than
+// descending into `<pkg>::stream`.
+syntax = "proto3";
+package rapidproto;
+
+message wire {
+  int32 x = 1;
+}
+
+message Arena {
+  int32 y = 1;
+}
+
+message Tag {
+  string s = 1;
+}
+
+message ByteView {
+  bytes b = 1;
+}
+
+// Top-level enums: the shape that reaches the STREAMING model as well.
+enum WireType {
+  WIRE_TYPE_A = 0;
+}
+
+enum DecodeStatus {
+  DECODE_STATUS_A = 0;
+}

@@ -36,7 +36,9 @@
 #include "streamgen_golden/main.rp.stream.hpp"    // cross-file: pulls dep/forward/pub via #include
 #include "streamgen_golden/naming.rp.stream.hpp"  // identifier dedup + absolute names: must compile
 #include "streamgen_golden/nopkg.rp.stream.hpp"   // NO package: a top-level `namespace stream`
-#include "streamgen_golden/usewkt.rp.stream.hpp"  // WKT closure: pulls google/protobuf/* headers
+#include "streamgen_golden/rppkg.rp.stream.hpp"   // package `rapidproto` -> namespace rapidproto_
+#include "streamgen_golden/stdpkg.rp.stream.hpp"  // package `std` -> namespace std_, not namespace std
+#include "streamgen_golden/usewkt.rp.stream.hpp"    // WKT closure: pulls google/protobuf/* headers
 #include "streamgen_golden/weakmain.rp.stream.hpp"  // weak import: pulls weakdep via #include
 #include "streamgen_golden/xpkg.rp.stream.hpp"  // dotted package (pulls deep): com::example::deep
 #include "streamgen_golden/xref.rp.stream.hpp"  // mutually-cyclic A<->B: must compile
@@ -127,7 +129,9 @@ TEST_CASE("streamgen: generated headers match the goldens", "[streamgen]") {
         {"editions2024", corpus},  // 2024 defaults (EXPLICIT presence, PACKED repeated)
         {"deep", nsedge},          // dotted package
         {"nopkg", nsedge},         // no package at all
-        {"xpkg", nsedge}};         // cross-file reference into a dotted package
+        {"xpkg", nsedge},          // cross-file reference into a dotted package
+        {"stdpkg", nsedge},        // package `std` -> namespace std_, never namespace std
+        {"rppkg", nsedge}};        // package `rapidproto` -> namespace rapidproto_
 
     // NOLINTNEXTLINE(concurrency-mt-unsafe): single-threaded test, opt-in regeneration only
     const bool regen = std::getenv("RAPIDPROTO_REGEN_GOLDEN") != nullptr;
@@ -820,6 +824,29 @@ TEST_CASE("streamgen: colliding identifiers are de-duplicated and types bind abs
     static_assert(nm::stream::E::decode_ == static_cast<nm::stream::E>(0));
     static_assert(nm::stream::E::decode__ == static_cast<nm::stream::E>(1));
     static_assert(std::is_same_v<nm::stream::M::e::Value, nm::stream::E>);
+    // `std` is escaped in every role. Unescaped, each shadows the namespace the generated members
+    // name unrooted (`std::int32_t`, `std::string_view`), and the class stops compiling -- so these
+    // bindings existing at all is the regression test; the kName checks pin the wire name.
+    static_assert(std::is_same_v<nm::stream::Std::s::Value, nm::stream::Std::std_>);  // nested type
+    static_assert(
+        std::is_same_v<nm::stream::StdEnum::e::Value, nm::stream::StdEnum::std_>);  // enum
+    CHECK(nm::stream::StdField::std_::kName == "std");                              // field
+    CHECK(nm::stream::StdMap::std_::kName == "std");                                // map field
+    // A package named `std` is escaped the same way; `namespace std` would be undefined behaviour.
+    static_assert(std::is_same_v<std_::stream::Types::n::Value, std::int32_t>);
+    // `RP_`-prefixed names are escaped like the lowercase `rp_` ones: RP_FLATTEN and RP_NOINLINE are
+    // object-like macros, so an unescaped name here would macro-expand rather than compile.
+    static_assert(std::is_same_v<nm::stream::Macros::m::Value, nm::stream::Macros::RP_FLATTEN_>);
+    CHECK(nm::stream::Macros::RP_NOINLINE_::kName == "RP_NOINLINE");
+    static_assert(nm::stream::MacroEnum::RP_FLATTEN_ == static_cast<nm::stream::MacroEnum>(0));
+    // A package named `rapidproto` collides with the runtime's namespace at the ROOT rather than
+    // shadowing from within: unescaped, `wire` would redeclare ::rapidproto::wire, and the top-level
+    // enum `WireType` would redeclare ::rapidproto::WireType in the shared common header.
+    static_assert(std::is_same_v<rapidproto_::stream::wire::x::Value, std::int32_t>);
+    static_assert(rapidproto_::WireType::A == static_cast<rapidproto_::WireType>(0));
+    // A FIELD named `stream` keeps its name: the model sub-namespace `nm::stream` is a different
+    // scope from the class members, so nothing collides.
+    CHECK(nm::stream::UsesStream::stream::kName == "stream");
     SUCCEED("dedup + absolute-binding bindings compiled");
 }
 

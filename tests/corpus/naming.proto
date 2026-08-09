@@ -78,3 +78,81 @@ message Deep {
   }
   optional Deep mid = 1;
 }
+
+// `std` is the one namespace the generated code names UNROOTED (`std::int32_t`, `std::string_view`,
+// `std::optional`), so it is reserved: a proto `std` that becomes a C++ TYPE shadows the namespace
+// from inside the class and the header stops compiling. protoc accepts every spelling below, and
+// each role gets its own message because protoc forbids a field and a nested type of the same name
+// in one. A PACKAGE named `std` is covered separately, by nsedge/stdpkg.proto.
+message Std {
+  message std {
+    optional int32 a = 1;
+  }
+
+  optional std s = 1;  // value type must reference ::nm::Std::std_
+}
+
+message StdEnum {
+  enum std {
+    STD_X = 0;
+  }
+
+  optional std e = 1;  // must reference ::nm::StdEnum::std_
+}
+
+// Fields break the STREAMING model only, where each becomes a nested tag struct. The arena accessor
+// of the same name is a member function, which a nested-name-specifier skips -- it is escaped for
+// uniformity, not because it shadowed anything.
+message StdField {
+  optional int32 std = 1;
+}
+
+message StdMap {
+  map<string, int32> std = 1;
+}
+
+// `RP_`-prefixed names are escaped like the lowercase `rp_` ones: the runtime headers define
+// RP_FLATTEN and RP_NOINLINE as object-like macros, so an accessor or a bare enum value spelled that
+// way macro-expands instead of compiling. One prefix rule covers whatever macros exist.
+message Macros {
+  message RP_FLATTEN {
+    optional int32 a = 1;
+  }
+
+  optional RP_FLATTEN m = 1;   // value type must reference ::nm::Macros::RP_FLATTEN_
+  optional int32 RP_NOINLINE = 2;
+
+  // `rP_` matches neither `rp_` nor `RP_`, so sanitize leaves it -- but arenagen capitalizes the id
+  // to build the map entry type, MANUFACTURING `RP_xEntry` inside the reserved prefix. Synthesized
+  // names re-check for that.
+  map<string, int32> rP_x = 3;
+}
+
+enum MacroEnum {
+  RP_FLATTEN = 0;  // an unprefixed enum value: escaped rather than macro-expanded
+  MACRO_ENUM_OTHER = 1;
+}
+
+// arenagen SYNTHESIZES a oneof's visit-tag struct from the raw proto name, so codegen::sanitize
+// never sees it -- but `struct EOF` still macro-expands. Only the macro-expanding subset is escaped
+// here: `Value` is a legal tag struct, and escaping it would rename working public API.
+message OneofTags {
+  oneof EOF {
+    int32 a = 1;
+  }
+
+  oneof value {  // stays `Value`
+    int32 b = 2;
+  }
+
+  oneof RP_FLATTEN {
+    int32 c = 3;
+  }
+}
+
+// A FIELD named `stream` keeps its name: the streaming model's `namespace nm::stream` is a
+// different scope from anything inside the class. (A top-level TYPE named `stream` does clash with
+// it, and is not fixed here -- see the roadmap; escaping it needs a package-wide dedup scope.)
+message UsesStream {
+  optional int32 stream = 1;
+}

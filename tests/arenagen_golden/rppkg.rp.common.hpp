@@ -4,24 +4,22 @@
 
 #include <cstdint>
 
-namespace nm {
+namespace rapidproto_ {
 
-enum class E : std::int32_t {
-  decode_ = 0,
-  decode__ = 1,
+enum class WireType : std::int32_t {
+  A = 0,
   rp_known_min = 0,
-  rp_known_max = 1,
+  rp_known_max = 0,
   rp_non_exhaustive_min = INT32_MIN,
   rp_non_exhaustive_max = INT32_MAX,
 };
 
-enum class MacroEnum : std::int32_t {
-  RP_FLATTEN_ = 0,
-  MACRO_ENUM_OTHER = 1,
+enum class DecodeStatus : std::int32_t {
+  A = 0,
   rp_known_min = 0,
-  rp_known_max = 1,
+  rp_known_max = 0,
   rp_non_exhaustive_min = INT32_MIN,
   rp_non_exhaustive_max = INT32_MAX,
 };
 
-}  // namespace nm
+}  // namespace rapidproto_

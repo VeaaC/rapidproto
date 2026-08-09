@@ -725,13 +725,28 @@ void synth_for_message(const CppNameTable& names, const LayoutSet& layouts,
         }
         return name;
     };
+    // capitalize() can MANUFACTURE a name in reserved space out of one that was not: a field spelled
+    // `rP_x` passes sanitize (which tests `rp_`/`RP_`, not `rP_`) and capitalizes into `RP_x`. So
+    // every name synthesized from a proto name re-checks, whether it came from the raw name or from
+    // an already-sanitized id. Narrow on purpose -- only what would macro-expand. The full reserved
+    // set holds names that are legal here (`oneof value` -> `Value`), and escaping those renames the
+    // public tag struct of 77 corpus schemas for no compile benefit.
+    const auto synth = [](std::string name) {
+        if (codegen::expands_as_macro(name)) {
+            name += '_';
+        }
+        return name;
+    };
     for (const MemberPlan& m : layout.members) {
         if (m.kind == FieldKind::Map) {
-            out.entry_type[m.map_field] = dedup(capitalize(names.local.at(m.map_field)) + "Entry");
+            out.entry_type[m.map_field] =
+                dedup(synth(capitalize(names.local.at(m.map_field)) + "Entry"));
         }
     }
     for (const OneofPlan& o : layout.oneofs) {
-        out.case_tag[o.oneof] = dedup(capitalize(o.oneof->name));  // visit-tag struct, e.g. "Pick"
+        // Visit-tag struct, e.g. "Pick". Built from the RAW proto name, so codegen::sanitize never
+        // sees it at all -- `struct EOF` would macro-expand.
+        out.case_tag[o.oneof] = dedup(synth(capitalize(o.oneof->name)));
     }
     if (layout.unknown_bit >= 0) {
         out.unknown[&message] = dedup("has_unknown_fields");

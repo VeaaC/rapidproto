@@ -72,10 +72,18 @@ std::string join_ns(std::string_view a, std::string_view b);
 std::string message_namespace(const CppNameTable& names, const FileNode& file);
 
 // A proto name -> a collision-free C++ identifier: append `_` if it collides with a keyword, any
-// `rp_`-prefixed identifier, or one of a few generated members (the streaming tag members
-// Value/Key/kNumber/kName, decode(), and the decode() template parameter Callbacks -- see naming.cpp).
+// `rp_`- or `RP_`-prefixed identifier (generator-internal names and the runtime's macros), or one of
+// a few generated members and namespaces (the streaming tag members Value/Key/kNumber/kName,
+// decode(), the decode() template parameter Callbacks, `std` and `rapidproto` -- see naming.cpp).
 // For names not pre-assigned in the table -- e.g. enum values, which are sanitized at emit time.
 // (Members in `CppNameTable::local` are already sanitized + de-duped.)
 std::string sanitize(std::string_view name);
+
+// Would this identifier macro-expand rather than compile (`EOF` -> `(-1)`, `RP_FLATTEN` -> an
+// attribute)? Call it on any identifier SYNTHESIZED from a raw proto name; anything that already
+// went through sanitize() has it folded in and needs nothing. arenagen's oneof visit-tag struct is
+// the one such name today. Deliberately narrower than sanitize(): a tag struct may legitimately be
+// called `Value` or `decode`, so escaping the full reserved set there would rename working API.
+bool expands_as_macro(std::string_view name);
 
 }  // namespace rapidproto::codegen

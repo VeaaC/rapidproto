@@ -41,7 +41,9 @@
 #include "arenagen_golden/prefixed/main.rp.hpp"  // --namespace-prefix + imports (pulls prefixed dep/...)
 #include "arenagen_golden/proto2.rp.hpp"
 #include "arenagen_golden/proto3.rp.hpp"
+#include "arenagen_golden/rppkg.rp.hpp"      // package `rapidproto` -> namespace rapidproto_
 #include "arenagen_golden/samepkg_a.rp.hpp"  // same-package multi-file (pulls samepkg_b): ODR guard
+#include "arenagen_golden/stdpkg.rp.hpp"     // package `std` -> namespace std_, not namespace std
 #include "arenagen_golden/weakmain.rp.hpp"  // weak import (pulls weakdep): filtered like a normal one
 #include "arenagen_golden/wire_all.rp.hpp"  // group + packed (generated from the fixtures dir)
 #include "arenagen_golden/xpkg.rp.hpp"  // dotted package (pulls deep): namespace com::example::deep
@@ -252,6 +254,13 @@ TEST_CASE("arenagen: generated headers match the goldens", "[arenagen]") {
     check_golden("deep", generate(nsedge, "deep.proto"));
     check_golden("nopkg", generate(nsedge, "nopkg.proto"));
     check_golden("xpkg", generate(nsedge, "xpkg.proto"));
+    // A package named `std` -> `namespace std_`. Unlike every other shape here, getting this wrong
+    // emits `namespace std`, which is undefined behaviour that COMPILES -- so the golden, not the
+    // compile smoke, is what catches a regression.
+    check_golden("stdpkg", generate(nsedge, "stdpkg.proto"));
+    // A package named `rapidproto` collides with the runtime's namespace at the root instead; here
+    // the compile smoke below IS the check, since the clash is a hard redeclaration error.
+    check_golden("rppkg", generate(nsedge, "rppkg.proto"));
 }
 
 // The --namespace-prefix nests every generated namespace under the prefix, so the arena types coexist

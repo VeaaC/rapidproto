@@ -46,6 +46,11 @@ trap 'rm -rf "$T"' EXIT
 # top-level `namespace stream`. xpkg pulls deep, pinning a cross-file reference into a dotted package.
 "$BIN" --stream -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/nopkg.proto >/dev/null
 "$BIN" --stream -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/xpkg.proto >/dev/null
+# A package named `std` -> `namespace std_`, never `namespace std` (which would be UB).
+"$BIN" --stream -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/stdpkg.proto >/dev/null
+# A package named `rapidproto` -> `namespace rapidproto_`; unescaped it merges the schema's
+# types into the runtime's own namespace.
+"$BIN" --stream -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/rppkg.proto >/dev/null
 "$BIN" --stream -Itests/wire_fixtures --out-dir="$T" tests/wire_fixtures/wire_all.proto >/dev/null
 # xref under a namespace prefix -> its own subdir golden, isolating its prefixed common header (rp::xr
 # enums) from the un-prefixed xref's common of the same stem (see regen_arenagen_goldens.sh).

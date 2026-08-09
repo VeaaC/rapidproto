@@ -7,6 +7,37 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
 
 ### Fixed
 
+- **Proto names that collide with what the generated code or its runtime defines are now escaped**
+  with a trailing `_`. All of the shapes below are protoc-valid and produced a header that did not
+  compile; they were found together.
+
+  - **`std` wherever it becomes a C++ *type*** — a message or enum at any nesting depth, a package
+    component after the first, a streaming field or map tag struct, an arena oneof-member tag
+    struct. It is the one namespace the generated code names unrooted (`std::int32_t`,
+    `std::string_view`, `std::optional`), so a type of that name shadowed it from inside the class.
+  - **A package named `std`**, which emitted `namespace std { … }` — undefined behaviour per
+    [namespace.std] that compiles *without a diagnostic*, so nothing would have told you.
+  - **A package named `rapidproto`**, which merged the schema's types into the runtime's own
+    namespace; any that shared a name with something the runtime declares (`wire`, `Arena`,
+    `ByteView`, `WireType`, `dump`, `ArrayView`, … — not a closed list) clashed with it.
+  - **`RP_FLATTEN` and `RP_NOINLINE`**, the runtime's two object-like macros, in any role. The rule
+    is the whole `RP_` prefix, matching the existing `rp_` one, so it holds for macros added later.
+  - **A oneof named `EOF`** or another common macro. arenagen synthesizes its visit-tag struct from
+    the raw proto name, so `sanitize()` never saw it and the preprocessor ate `struct EOF`. This one
+    gets a deliberately narrow escape — only names that would macro-expand — because a tag struct
+    may legitimately be called `Value`, `Key` or `decode`, and escaping the full reserved set there
+    renames the public tag struct of 77 corpus schemas for no compile benefit.
+
+  **Renames of API that already compiled.** One reserved set serves every role, and the `rp_`/`RP_`
+  prefixes are reserved wholesale, so these change even though they never broke: `std` as an arena
+  or dump accessor (`msg.std()` → `msg.std_()`), an enum value, or a oneof; `rapidproto` in *any*
+  role; and any `RP_…` name in any role, whether or not it is a macro. Wire names and proto names
+  are untouched, but a renamed **enum value** does change the `--dump` text output, which prints the
+  C++ identifier.
+
+  **Regenerate only if your schema uses one of these spellings** — all 8018 schemas in the
+  real-world corpus generate byte-identical output before and after this change.
+
 - **Arena headers no longer fail to compile when a nested type shadows the name it is nested in.**
   The out-of-line `rp_decode_into` / `decode` definitions named themselves with a qualifier assembled
   from local names (`A::B::rp_decode_into(A::B& out, …)`). Naming a definition enters that class's
