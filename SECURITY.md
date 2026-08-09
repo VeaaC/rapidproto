@@ -36,7 +36,9 @@ configured cap* is in scope; unbounded growth with no cap configured is working 
 
 Memory safety on untrusted input is exercised continuously: libFuzzer harnesses over the wire reader
 and both decode models, run under AddressSanitizer + UndefinedBehaviorSanitizer (`./check.sh deep`,
-which CI runs on every pull request).
+which CI runs on every pull request). A fourth harness covers the schema front-end. That one is not
+a trust boundary — a schema stays trusted input, per the scope list above — but a malformed one must
+still be a clean diagnostic rather than a crash, and the same sanitizers enforce it.
 
 ## Reporting a vulnerability
 

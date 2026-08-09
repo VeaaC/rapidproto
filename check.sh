@@ -10,8 +10,9 @@
 #   ./check.sh fix    # first apply clang-format, then run the full gate
 #   ./check.sh quick  # fast inner loop: apply formatting + gcc build+test only (no clang/tidy)
 #   ./check.sh deep   # OPT-IN heavy tier (CI / end-of-phase, NOT the inner loop): ASan+UBSan over the
-#                     # full suite, coverage with a line floor, and a fuzz smoke over the three decode
-#                     # paths. Slow (three instrumented builds). Override: FUZZ_TIME=120 COV_FLOOR=88.
+#                     # full suite, coverage with a line floor, and a fuzz smoke over the four targets
+#                     # (three decode paths + the schema front-end). Slow (three instrumented builds).
+#                     # Override: FUZZ_TIME=120 COV_FLOOR=88.
 #
 # The independent stages (format, doc-links, gcc build+test, clang build+test, compile-fail,
 # fuzz-compile, clang-tidy) run concurrently; each build is a parallel build and clang-tidy is
@@ -125,12 +126,68 @@ if [[ "${1:-}" == "deep" ]]; then
     echo ">> coverage build failed"; deep_fail=1
   fi
 
+  # Seeds for one target, staged fresh under build/fuzz/seeds/<target>. Staged rather than pointing
+  # libFuzzer at the fixture directories themselves, which hold more than seeds: tests/wire_fixtures
+  # also carries .txtpb / .proto / .py that would enter the corpus as junk units, and tests/corpus
+  # nests subdirectories whose same-named files need flattening to coexist in one directory.
+  # Rebuilding each run also means a fixture that moved cannot leave a stale seed behind.
+  stage_fuzz_seeds() {
+    # `seed` is local: the caller loops over `f`, and an undeclared loop variable here would clobber
+    # it -- leaving the caller running ./build/fuzz/fuzz_ with an empty target name.
+    local target=$1 dir="build/fuzz/seeds/$1" seed dst
+    rm -rf "$dir"; mkdir -p "$dir"
+    if [[ "$target" == parser ]]; then
+      # Every corpus schema, path-flattened. Flattening is not injective (a future
+      # tests/corpus/arena/modes.proto would land on arena_modes.proto), so say so rather than
+      # silently staging one file fewer than intended.
+      while IFS= read -r seed; do
+        dst="$dir/${seed//\//_}"
+        [[ -e "$dst" ]] && echo ">> seed name collision: $seed flattens onto an already-staged name"
+        cp "$seed" "$dst"
+      done < <(find tests/corpus -name '*.proto')
+      # The parser's recursion DepthGuard is its one explicit anti-crash mechanism, and no corpus
+      # schema nests more than a few levels -- so mutation never assembles a run deep enough to
+      # reach it, and deleting the guard goes unnoticed for as long as anyone cares to fuzz. These
+      # two start just under the cap, at the two recursion points, for the mutator to extend.
+      printf 'option x = %s' "$(printf '[%.0s' $(seq 1 2000))" >"$dir/zz_deep_list.proto"
+      printf '%s' "$(printf 'message M{%.0s' $(seq 1 300))" >"$dir/zz_deep_message.proto"
+    else
+      cp tests/wire_fixtures/*.bin "$dir/" 2>/dev/null || true
+      # Payloads the differential kept, if it was run with --write-seeds: thousands of valid
+      # messages, reaching decoder arms a handful of fixtures never will.
+      if [[ -d build/fuzz/payload-seeds ]]; then
+        cp build/fuzz/payload-seeds/* "$dir/" 2>/dev/null || true
+      fi
+    fi
+    # Staging nothing means the target runs cold while the tier still reports green, so say so. A
+    # moved fixture directory is the way this happens, and it is silent otherwise.
+    if [[ -z "$(ls -A "$dir" 2>/dev/null)" ]]; then
+      echo ">> no seeds staged for fuzz_$target (fixtures moved?) -- it will run from an empty corpus"
+    fi
+    return 0
+  }
+
   section "fuzz smoke (${FUZZ_TIME}s per target)"
   mkdir -p build/fuzz
-  for f in wire arena stream; do
+  # The front-end target links the library TUs; the three decode targets are header-only.
+  parser_tus=(src/lexer.cpp src/parser.cpp src/features.cpp src/resolve.cpp src/interpret.cpp
+              src/source.cpp src/resolver.cpp src/wellknown_generated.cpp)
+  for f in wire arena stream parser; do
+    extra_tus=()
+    [[ "$f" == parser ]] && extra_tus=("${parser_tus[@]}")
     if "$CXX" -std=c++17 -O1 -g -Iinclude -Itests -fsanitize=fuzzer,address,undefined \
-         "tests/fuzz/fuzz_$f.cpp" -o "build/fuzz/fuzz_$f" 2>/dev/null; then
-      if "./build/fuzz/fuzz_$f" -max_total_time="$FUZZ_TIME" -timeout=10 -artifact_prefix=build/fuzz/ \
+         "tests/fuzz/fuzz_$f.cpp" "${extra_tus[@]}" -o "build/fuzz/fuzz_$f" 2>/dev/null; then
+      # The corpus directory persists across runs (build/ is gitignored), so each run starts from
+      # what earlier runs discovered instead of rediscovering the same coverage from scratch.
+      mkdir -p "build/fuzz/corpus/$f"
+      stage_fuzz_seeds "$f"
+      # DEBUGINFOD_URLS= : libFuzzer symbolizes its NEW_FUNC lines, and where the system points
+      # llvm-symbolizer at a debuginfod server (Ubuntu ships /etc/debuginfod/*.urls by default) that
+      # lookup blocks ~90s the first time a new function is discovered -- consuming the whole budget.
+      # Measured on this box: 27 executions in 90s with it set, 35087 in 31s without. Emptying it
+      # only stops the network fetch; local -g debug info still symbolizes.
+      if DEBUGINFOD_URLS= "./build/fuzz/fuzz_$f" "build/fuzz/corpus/$f" "build/fuzz/seeds/$f" \
+           -max_total_time="$FUZZ_TIME" -timeout=10 -artifact_prefix=build/fuzz/ \
            >"build/fuzz/log_$f" 2>&1; then
         echo "fuzz_$f: clean ($(grep -oE 'cov: [0-9]+ ' "build/fuzz/log_$f" | tail -1))"
       else

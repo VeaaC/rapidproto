@@ -40,7 +40,8 @@ cmake --build --preset gcc
   differential against protobuf.
 - `./check.sh fix`: apply clang-format first, then run the full gate.
 - `./check.sh quick`: gcc-only build + test for the inner loop (not the commit bar).
-- `./check.sh deep` is the heavy tier: ASan + UBSan, a library coverage floor, and a fuzz smoke.
+- `./check.sh deep` is the heavy tier: ASan + UBSan, a library coverage floor, and a fuzz smoke over
+  the four targets (see [Fuzzing](#fuzzing)).
 
 CI runs `./check.sh`, `./check.sh deep`, and a Release `-O3 -Werror` build on **every push and pull
 request**.
@@ -102,6 +103,41 @@ printed under `--verbose`: protoc rejecting it (an intentional-collision fixture
 cannot resolve, editions on a protoc too old for them), or `package main`, whose `namespace main`
 cannot coexist with the harness's `int main()`. A harness that fails to *compile* is a failure, not
 a skip.
+
+## Fuzzing
+
+Four libFuzzer targets in `tests/fuzz/`, run by `./check.sh deep` (`FUZZ_TIME` seconds each, default
+30) under ASan + UBSan. Three drive decoding — `fuzz_wire` (the wire reader), `fuzz_arena` and
+`fuzz_stream` (generated decoders) — over arbitrary bytes. `fuzz_parser` drives the schema front-end:
+lexer, parser, and the semantic passes. That one is a **robustness** bar rather than a trust
+boundary — a schema is trusted input, per [SECURITY.md](SECURITY.md) — but a malformed one must be a
+clean diagnostic, never a crash. It is filesystem-free, so import resolution (I/O, not parsing)
+stays out.
+
+Each target keeps a **persistent corpus** under `build/fuzz/corpus/<target>` (gitignored), so a run
+on that machine starts from what earlier runs found rather than rediscovering the same coverage —
+locally it compounds; CI checks out fresh each time and always starts from the seeds. Seeds are
+staged into `build/fuzz/seeds/<target>`: the corpus schemas for `fuzz_parser`, and
+`tests/wire_fixtures/*.bin` for the decode targets. To seed those far more heavily, keep the
+differential's payloads first — thousands of valid messages over real schemas:
+
+```sh
+python3 tests/differential.py --write-seeds build/fuzz/payload-seeds
+FUZZ_TIME=300 ./check.sh deep
+```
+
+Two seeds are synthesized rather than taken from the corpus: deeply-nested `option`/`message` runs
+that put the mutator within reach of the parser's recursion cap. Nothing in `tests/corpus` nests more
+than a few levels, so without them the cap — the parser's one explicit anti-crash mechanism — has no
+regression cover at all: deleting it goes unnoticed through minutes of fuzzing, and is caught in
+seconds with them.
+
+A crash writes its input to `build/fuzz/` and fails the tier; reproduce with
+`./build/fuzz/fuzz_<target> <that-file>`. A newly found crash never enters the corpus (libFuzzer
+stores a unit only after it executes cleanly), but a change that makes an *already stored* unit
+crash makes every later run fail on it — which is the point, and `rm -rf build/fuzz/corpus/<target>`
+is the way out once the bug is fixed. The corpus is never pruned, so if replaying it starts eating
+the time budget, delete it and let it rebuild.
 
 ## Goldens
 

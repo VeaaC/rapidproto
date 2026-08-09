@@ -39,6 +39,7 @@ Usage:
     python3 tests/differential.py --messages 200        # more payloads per message type
     python3 tests/differential.py --seed 7 --verbose
     python3 tests/differential.py --schema tests/corpus/proto3.proto
+    python3 tests/differential.py --write-seeds build/fuzz/payload-seeds   # seed the fuzzers
 """
 
 from __future__ import annotations
@@ -47,8 +48,8 @@ import argparse
 import json
 import math
 import random
-import struct
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
@@ -418,7 +419,7 @@ def build_schema(schema: Path, work: Path, tools: dict[str, Path], cxx: str):
 
 
 def check_message(harness: Path, work: Path, factory, descriptor, meta, count: int,
-                  rng: random.Random) -> list[str]:
+                  rng: random.Random, seed_dir: Path | None = None) -> list[str]:
     """Round-trip `count` random messages of one type. Returns a list of mismatch reports."""
     message_class = factory.GetPrototype(descriptor)
     payload_file = work / "payloads.bin"
@@ -438,6 +439,12 @@ def check_message(harness: Path, work: Path, factory, descriptor, meta, count: i
         # for agreement.
         expected.append((message_class.FromString(encoded), encoded))
     payload_file.write_bytes(bytes(blob))
+    if seed_dir is not None:
+        # One file per payload, for use as a fuzzer seed corpus (see check.sh's fuzz smoke). These
+        # are valid messages over real schemas, which is what a mutation-based fuzzer needs to reach
+        # decoder arms it would otherwise take a very long time to stumble into.
+        for index, (_, encoded) in enumerate(expected):
+            (seed_dir / f"{descriptor.full_name}.{index}.bin").write_bytes(encoded)
 
     result = run([str(harness), "." + descriptor.full_name, str(payload_file)])
     if result.returncode != 0:
@@ -498,6 +505,8 @@ def main() -> int:
     parser.add_argument("--build-dir", type=Path, default=DEFAULT_BUILD_DIR,
                         help="where rapidprotoc and rapidproto_diffgen were built")
     parser.add_argument("--cxx", default="g++", help="compiler for the generated harness")
+    parser.add_argument("--write-seeds", type=Path, default=None, metavar="DIR",
+                        help="also write every generated payload into DIR, as a fuzzer seed corpus")
     parser.add_argument("--verbose", action="store_true", help="name every schema and skip reason")
     args = parser.parse_args()
 
@@ -526,6 +535,15 @@ def main() -> int:
 
     # rglob: the cross-file fixtures live in tests/corpus/imports and tests/corpus/nsedge, and those
     # are exactly the ones that exercise imported types.
+    seed_dir = args.write_seeds
+    if seed_dir is not None:
+        seed_dir.mkdir(parents=True, exist_ok=True)
+        # Clear what a previous run left: payloads are named by message and index, so a re-run with
+        # a smaller --messages would otherwise leave the higher-index files of the older, larger run
+        # sitting in the seed corpus, unexplained and never regenerated.
+        for stale in seed_dir.glob("*.bin"):
+            stale.unlink()
+
     schemas = args.schema or sorted(CORPUS.rglob("*.proto"))
     for schema in schemas:
         if not schema.is_file():
@@ -552,7 +570,7 @@ def main() -> int:
                     continue  # synthesized map entries are not decoded on their own
                 checked += 1
                 failures += check_message(harness, work, factory, descriptor, meta,
-                                          args.messages, rng)
+                                          args.messages, rng, seed_dir)
         if args.verbose:
             print(f"  {schema.name}: done")
 
