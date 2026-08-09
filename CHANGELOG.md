@@ -7,6 +7,29 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
 
 ### Fixed
 
+- **Two duplicate sub-message cases no longer decode to a tree protobuf would not produce.** A
+  singular sub-message repeating on the wire has always been rejected, because protobuf *merges* the
+  occurrences and a read-only tree cannot. Two paths slipped through that check and silently accepted
+  the buffer instead:
+  - a **oneof member**, because the oneof's last-wins rule ran first, so the later occurrence
+    replaced the earlier one;
+  - a **map entry repeating its `value`**, where protobuf merges within the entry. This one differed
+    by how the value is stored: a pointer-stored value was replaced, while an inline-stored one was
+    decoded *into the already-populated struct* — an in-place partial merge that accumulated presence
+    bits but replaced any repeated field inside, matching neither protobuf nor a plain overwrite.
+
+  Both now fail with `ArenaDecodeError::Code::RepeatedSingularMessage`, carrying the field number you
+  wrote in the schema — for a map, the map's own number rather than the synthetic entry's `value`.
+  The ordinary cases are untouched: a oneof whose members alternate still decodes (a different member
+  clears the oneof, and protobuf also starts the later occurrence fresh), as do two map entries
+  sharing a key and an entry repeating its scalar `key`. The check is unconditional, so a buffer
+  whose occurrences would have merged to the same tree an overwrite produces is now rejected too —
+  telling those apart needs the merge machinery this deliberately does not carry.
+
+  **Regenerate** to pick this up — arena headers change for schemas with a sub-message oneof member
+  or a message-valued map. The rules for every duplicate-field kind, in both decode models, are now
+  written down in [docs/semantics.md](docs/semantics.md).
+
 - **`option message_set_wire_format = true` is accepted instead of rejected.** A MessageSet is a
   proto1-era container holding only extensions, encoded as repeated groups in field 1. RapidProto
   does not materialize extensions, so its contents were never going to be readable — but rejecting

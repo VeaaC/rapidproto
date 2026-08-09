@@ -1392,6 +1392,13 @@ void emit_map_arm(const Emit& emit, const MemberPlan& m) {
     // paths rather than holding it live across the hot loop (a free reinterpret_cast off rp_ent).
     const std::string beg = "::rapidproto::wire::byte_ptr(rp_ent)";
     p.print("::rapidproto::Tag rp_et{};\n");
+    if (e.value_kind == FieldKind::InlineFixedSubMsg || e.value_kind == FieldKind::PointerSubMsg) {
+        // An entry's `value` is a singular sub-message, and protobuf MERGES it when the entry
+        // repeats it -- so the same rejection a singular sub-message field gets applies here, or
+        // this path would hand back a tree protobuf never produces. Per ENTRY, not per map: two
+        // entries repeating a KEY is the ordinary duplicate-key case, which stays last-wins.
+        p.print("bool rp_vseen = false;\n");
+    }
     p.print("for (;;) {\n");
     p.indent();
     p.print("::rapidproto::wire::TagState rp_st = ::rapidproto::wire::TagState::End;\n");
@@ -1418,6 +1425,14 @@ void emit_map_arm(const Emit& emit, const MemberPlan& m) {
     p.indent();
     if (e.value_kind == FieldKind::InlineFixedSubMsg || e.value_kind == FieldKind::PointerSubMsg) {
         const std::string sub = cpp_type_name(emit.names, e.value_fqn);
+        // Reported against the MAP's field number, not the entry's `value` (always 2): the entry is
+        // a synthetic type the user never wrote, so 2 would name nothing they can look up, and would
+        // be indistinguishable from a real field 2. This matches the oneof guard, which likewise
+        // reports the field the user can find in their schema.
+        p.print(
+            "if (rp_vseen) { ::rapidproto::rp_fail_repeated_singular(err, $n$); return false; }\n",
+            {{"n", std::to_string(map.number)}});
+        p.print("rp_vseen = true;\n");
         p.print("::rapidproto::ByteView rp_v;\n");
         p.print(
             "{ const std::uint8_t* const rp_np ="
@@ -1497,6 +1512,17 @@ void emit_oneof_arm(const Emit& emit, const OneofPlan& o, const OneofMemberPlan&
     p.indent();
     if (member.kind == FieldKind::InlineFixedSubMsg || member.kind == FieldKind::PointerSubMsg) {
         const std::string sub = cpp_type_name(emit.names, member.target_fqn);
+        // A message-typed member occurring again while the oneof ALREADY holds it is the case
+        // protobuf MERGES, and a read-only tree cannot -- so reject it, exactly as a singular
+        // sub-message field outside a oneof is rejected. Keyed on the case value rather than a
+        // seen-flag because a different member in between CLEARS the oneof: protobuf then starts
+        // the later occurrence fresh, which is what the plain last-wins below already does.
+        p.print(
+            "if (out.$c$ == $i$) { ::rapidproto::rp_fail_repeated_singular(err, $n$);"
+            " return false; }\n",
+            {{"c", emit.synth.case_member.at(o.oneof)},
+             {"i", std::to_string(index)},
+             {"n", std::to_string(field.number)}});
         emit_vt_message_read(emit, field, "rp_v");
         if (member.kind == FieldKind::InlineFixedSubMsg) {
             p.print("$of$ = $S${};\n", {{"of", ofield}, {"S", sub}});

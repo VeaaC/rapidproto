@@ -533,8 +533,6 @@ def main() -> int:
         return 0
     tools["protoc"] = Path(protoc)
 
-    # rglob: the cross-file fixtures live in tests/corpus/imports and tests/corpus/nsedge, and those
-    # are exactly the ones that exercise imported types.
     seed_dir = args.write_seeds
     if seed_dir is not None:
         seed_dir.mkdir(parents=True, exist_ok=True)
@@ -544,6 +542,8 @@ def main() -> int:
         for stale in seed_dir.glob("*.bin"):
             stale.unlink()
 
+    # rglob: the cross-file fixtures live in tests/corpus/imports and tests/corpus/nsedge, and those
+    # are exactly the ones that exercise imported types.
     schemas = args.schema or sorted(CORPUS.rglob("*.proto"))
     for schema in schemas:
         if not schema.is_file():

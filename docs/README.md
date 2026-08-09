@@ -6,7 +6,8 @@ The user manual, one page per topic. New here? Start with the
 - [arena.md](arena.md) — the arena decoder: accessors, the `Arena`, `decode_owned`, error handling
 - [streaming.md](streaming.md) — the streaming decoder: field tags, the consumption patterns, aborting
 - [dumper.md](dumper.md) — the `--dump` debug dumper: JSON-like inspection text, `DumpOptions`
-- [semantics.md](semantics.md) — the shared rules: lifetimes, validation & trust, presence, open enums
+- [semantics.md](semantics.md) — the shared rules: lifetimes, validation & trust, presence, open enums,
+  duplicate fields
 - [using-both-models.md](using-both-models.md) — both models in one TU; coexisting with protoc
 - [profiles.md](profiles.md) — decode profiles (`drop` / `raw`) and unknown-field detection (arena)
 - [integration.md](integration.md) — the `rapidprotoc` CLI reference and the CMake helper
