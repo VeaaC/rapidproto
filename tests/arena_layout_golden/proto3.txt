@@ -1,27 +1,29 @@
-message .p3.Msg size=176 align=8 fixed=no decode=noinline cost=19
+message .p3.Msg size=184 align=8 fixed=no decode=noinline cost=21
   field self num=5 pointer-submsg .p3.Msg off=16 size=8 align=8 presence=ptr
-  field name num=3 borrow-string ArenaString off=24 size=12 align=4 presence=none
-  field nums num=6 repeated ArrayView<int32> off=36 size=12 align=4 presence=empty
-  field unpacked num=7 repeated ArrayView<int32> off=48 size=12 align=4 presence=empty
-  field states num=8 repeated ArrayView<.p3.State> off=60 size=12 align=4 presence=empty
-  map counts num=9 off=72 size=12 align=4 presence=empty
+  field ratio num=20 inline-scalar double off=24 size=8 align=8 presence=none
+  field name num=3 borrow-string ArenaString off=32 size=12 align=4 presence=none
+  field nums num=6 repeated ArrayView<int32> off=44 size=12 align=4 presence=empty
+  field unpacked num=7 repeated ArrayView<int32> off=56 size=12 align=4 presence=empty
+  field states num=8 repeated ArrayView<.p3.State> off=68 size=12 align=4 presence=empty
+  map counts num=9 off=80 size=12 align=4 presence=empty
     entry key=borrow-string:ArenaString value=inline-scalar:int32 size=16 align=4
-  field reals num=12 repeated ArrayView<double> off=84 size=12 align=4 presence=empty
-  field codes num=13 repeated ArrayView<fixed32> off=96 size=12 align=4 presence=empty
-  map flags num=14 off=108 size=12 align=4 presence=empty
+  field reals num=12 repeated ArrayView<double> off=92 size=12 align=4 presence=empty
+  field codes num=13 repeated ArrayView<fixed32> off=104 size=12 align=4 presence=empty
+  map flags num=14 off=116 size=12 align=4 presence=empty
     entry key=inline-scalar:bool value=borrow-string:ArenaString size=16 align=4
-  field bools num=17 repeated ArrayView<bool> off=120 size=12 align=4 presence=empty
-  map toggles num=18 off=132 size=12 align=4 presence=empty
+  field bools num=17 repeated ArrayView<bool> off=128 size=12 align=4 presence=empty
+  map toggles num=18 off=140 size=12 align=4 presence=empty
     entry key=borrow-string:ArenaString value=inline-scalar:bool size=16 align=4
-  map ratios num=19 off=144 size=12 align=4 presence=empty
+  map ratios num=19 off=152 size=12 align=4 presence=empty
     entry key=borrow-string:ArenaString value=inline-scalar:double size=24 align=8
-  field implicit_i num=1 inline-scalar int32 off=156 size=4 align=4 presence=none
-  field explicit_i num=2 inline-scalar int32 off=160 size=4 align=4 presence=bit0
-  field state num=4 inline-enum .p3.State off=164 size=4 align=4 presence=none
-  oneof pick disc-off=168 union-off=0 union-size=12 union-align=8
+  field implicit_i num=1 inline-scalar int32 off=164 size=4 align=4 presence=none
+  field explicit_i num=2 inline-scalar int32 off=168 size=4 align=4 presence=bit0
+  field state num=4 inline-enum .p3.State off=172 size=4 align=4 presence=none
+  field scale num=21 inline-scalar float off=176 size=4 align=4 presence=none
+  oneof pick disc-off=180 union-off=0 union-size=12 union-align=8
     member a num=10 inline-scalar int32 size=4 align=4
     member b num=11 borrow-string ArenaString size=12 align=4
     member c num=15 inline-scalar bool size=1 align=1
     member d num=16 inline-scalar double size=8 align=8
-  mask off=169 size=1 align=1 bits=1
+  mask off=181 size=1 align=1 bits=1
     bit 0 presence explicit_i

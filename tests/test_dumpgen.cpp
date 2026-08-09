@@ -910,6 +910,27 @@ TEST_CASE("dumpgen: a float/double renders no more digits than it carries", "[du
     CHECK(p2::rp_dump_string(*m) == R"({"i32": 1, "fl": 0.1, "db": 0.1})");
 }
 
+TEST_CASE("dumpgen: an implicit-presence -0.0 is printed, not omitted as a default", "[dumpgen]") {
+    // Implicit presence omits a field equal to its zero default. For a float that test must read the
+    // BIT PATTERN: -0.0 compares equal to 0.0, so a plain comparison drops it -- but protobuf sends
+    // it (it serializes the field, and its JSON prints -0.0), so omitting it reports a value the
+    // sender never wrote and loses the sign the dumper otherwise takes care to render.
+    const auto dump_of = [](double ratio, float scale) {
+        std::string buf;
+        put_tag(buf, 20, 1);  // p3.Msg.ratio: I64
+        put_ieee(buf, ratio);
+        put_tag(buf, 21, 5);  // p3.Msg.scale: I32
+        put_ieee(buf, scale);
+        Arena arena;
+        const p3::Msg* m = p3::Msg::decode(ByteView(buf), arena);
+        REQUIRE(m != nullptr);
+        return p3::rp_dump_string(*m);
+    };
+    CHECK(dump_of(-0.0, -0.0F) == R"({"ratio": -0, "scale": -0})");
+    CHECK(dump_of(0.0, 0.0F) == "{}");  // positive zero IS the default -- still omitted
+    CHECK(dump_of(1.5, -2.5F) == R"({"ratio": 1.5, "scale": -2.5})");
+}
+
 TEST_CASE("dumpgen: non-finite floats render as JSON strings, not bare nan/inf", "[dumpgen]") {
     // NaN and the infinities have no JSON number form -- streaming them raw emits `nan` / `-inf`,
     // which no JSON parser accepts. They take protobuf's JSON convention instead.

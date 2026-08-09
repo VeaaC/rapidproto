@@ -7,6 +7,18 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
 
 ### Fixed
 
+- **The debug dumper (`--dump`) dropped an implicit-presence `float`/`double` holding `-0.0`.** A
+  proto3 singular field equal to its zero default is omitted, matching protobuf's JSON — but the test
+  for "is this the default" compared with `==`, and `-0.0 == 0.0` is true. So a negative zero, which
+  protobuf treats as non-default (it serializes the field, and its JSON prints `-0.0`), vanished from
+  the dump entirely and read back as absent. The comparison is now made on the bit pattern, so `-0.0`
+  prints and positive zero is still omitted.
+
+  The same `==` also meant such a header did not **compile** for a consumer building with
+  `-Wfloat-equal -Werror` ("comparing floating-point with `==` or `!=` is unsafe"), which is the
+  louder symptom of the two. Regenerate the `*.rp.dump.hpp` headers to pick this up; only schemas
+  with a singular implicit-presence float or double are affected.
+
 - **Two duplicate sub-message cases no longer decode to a tree protobuf would not produce.** A
   singular sub-message repeating on the wire has always been rejected, because protobuf *merges* the
   occurrences and a read-only tree cannot. Two paths slipped through that check and silently accepted

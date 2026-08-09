@@ -66,6 +66,8 @@ class Msg {
   ::rapidproto::ArrayView<double> reals() const noexcept { return m_reals; }
   ::rapidproto::ArrayView<std::uint32_t> codes() const noexcept { return m_codes; }
   ::rapidproto::ArrayView<bool> bools() const noexcept { return m_bools; }
+  double ratio() const noexcept { return m_ratio; }
+  float scale() const noexcept { return m_scale; }
   ::rapidproto::MapView<CountsEntry> counts() const noexcept { return m_counts; }
   ::rapidproto::MapView<FlagsEntry> flags() const noexcept { return m_flags; }
   ::rapidproto::MapView<TogglesEntry> toggles() const noexcept { return m_toggles; }
@@ -133,6 +135,7 @@ class Msg {
   };
   rp_pick_union m_rp_pick;
   const ::p3::Msg* m_self;
+  double m_ratio;
   ::rapidproto::ArenaString m_name;
   ::rapidproto::ArrayView<std::int32_t> m_nums;
   ::rapidproto::ArrayView<std::int32_t> m_unpacked;
@@ -147,6 +150,7 @@ class Msg {
   std::int32_t m_implicit_i;
   std::int32_t m_explicit_i;
   ::p3::State m_state;
+  float m_scale;
   std::uint8_t m_rp_pick_case;
   std::uint8_t m_rp_mask;
 };
@@ -509,6 +513,7 @@ RP_FLATTEN RP_NOINLINE inline bool Msg::rp_decode_into([[maybe_unused]] Msg& out
       *rp_slot = ::rapidproto::bit_cast_double(rp_raw);
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(12, ::rapidproto::WireType::I64)) { ++rp_c; goto rp_do_12; }  // another element of the same field
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(13, ::rapidproto::WireType::I32)) { ++rp_c; goto rp_do_13; }
+      if (rp_c + 1 < rp_cend && rp_c[0] == 161 && rp_c[1] == 1) { rp_c += 2; goto rp_do_20; }
       continue;
     }
     rp_do_12_p: {
@@ -542,6 +547,7 @@ RP_FLATTEN RP_NOINLINE inline bool Msg::rp_decode_into([[maybe_unused]] Msg& out
         ++rp_n_reals;
       }
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(13, ::rapidproto::WireType::I32)) { ++rp_c; goto rp_do_13; }
+      if (rp_c + 1 < rp_cend && rp_c[0] == 161 && rp_c[1] == 1) { rp_c += 2; goto rp_do_20; }
       continue;
     }
     rp_do_13: {
@@ -553,6 +559,8 @@ RP_FLATTEN RP_NOINLINE inline bool Msg::rp_decode_into([[maybe_unused]] Msg& out
       rp_c = rp_np;
       *rp_slot = rp_raw;
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(13, ::rapidproto::WireType::I32)) { ++rp_c; goto rp_do_13; }  // another element of the same field
+      if (rp_c + 1 < rp_cend && rp_c[0] == 161 && rp_c[1] == 1) { rp_c += 2; goto rp_do_20; }
+      if (rp_c + 1 < rp_cend && rp_c[0] == 173 && rp_c[1] == 1) { rp_c += 2; goto rp_do_21; }
       continue;
     }
     rp_do_13_p: {
@@ -585,6 +593,25 @@ RP_FLATTEN RP_NOINLINE inline bool Msg::rp_decode_into([[maybe_unused]] Msg& out
         rp_acc_codes[rp_n_codes] = rp_raw;
         ++rp_n_codes;
       }
+      if (rp_c + 1 < rp_cend && rp_c[0] == 161 && rp_c[1] == 1) { rp_c += 2; goto rp_do_20; }
+      if (rp_c + 1 < rp_cend && rp_c[0] == 173 && rp_c[1] == 1) { rp_c += 2; goto rp_do_21; }
+      continue;
+    }
+    rp_do_20: {
+      std::uint64_t rp_raw = 0;
+      const std::uint8_t* const rp_np = ::rapidproto::wire::read_fixed64(rp_c, rp_cend, &rp_raw, &rp_we);
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      rp_c = rp_np;
+      out.m_ratio = ::rapidproto::bit_cast_double(rp_raw);
+      if (rp_c + 1 < rp_cend && rp_c[0] == 173 && rp_c[1] == 1) { rp_c += 2; goto rp_do_21; }
+      continue;
+    }
+    rp_do_21: {
+      std::uint32_t rp_raw = 0;
+      const std::uint8_t* const rp_np = ::rapidproto::wire::read_fixed32(rp_c, rp_cend, &rp_raw, &rp_we);
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      rp_c = rp_np;
+      out.m_scale = ::rapidproto::bit_cast_float(rp_raw);
       continue;
     }
     rp_field_general:;
@@ -644,6 +671,8 @@ RP_FLATTEN RP_NOINLINE inline bool Msg::rp_decode_into([[maybe_unused]] Msg& out
         }
         break;
       }
+      case 20: { if (rp_tag.wire_type == ::rapidproto::WireType::I64) { goto rp_do_20; } break; }
+      case 21: { if (rp_tag.wire_type == ::rapidproto::WireType::I32) { goto rp_do_21; } break; }
       case 9: {
         if (rp_tag.wire_type == ::rapidproto::WireType::Len) {
           ::rapidproto::ByteView rp_ent;

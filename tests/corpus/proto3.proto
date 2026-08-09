@@ -34,4 +34,9 @@ message Msg {
   repeated bool bools = 17;
   map<string, bool> toggles = 18;
   map<string, double> ratios = 19;
+  // Singular implicit-presence float/double. The omission rule ("absent == the zero default") has to
+  // read the BIT PATTERN here: -0.0 compares equal to 0.0 but is a value protobuf sends, so a naive
+  // comparison drops it. Nothing else in the corpus has one, so nothing else covers that.
+  double ratio = 20;
+  float scale = 21;
 }
