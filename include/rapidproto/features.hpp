@@ -10,13 +10,20 @@
 // FieldNode::repeated_encoding, FieldNode::message_encoding, EnumNode::openness).
 // Proto2/proto3 files are a no-op: their values were finalized at parse time.
 
+#include <variant>
+
 #include "rapidproto/ast.hpp"
+#include "rapidproto/result.hpp"
 
 namespace rapidproto {
 
 struct ResolvedFileSet;  // defined in rapidproto/resolver.hpp
 
-void resolve_features(FileNode& file);
-void resolve_features(ResolvedFileSet& file_set);
+// Resolve editions features into the AST's decode-relevant fields. A no-op for proto2/proto3, whose
+// presence/openness/encoding are fixed at parse time. Errors on an edition whose feature defaults
+// this decoder does not know: applying another edition's defaults could decode the schema wrongly,
+// and silently, so the file is refused instead.
+Result<std::monostate> resolve_features(FileNode& file);
+Result<std::monostate> resolve_features(ResolvedFileSet& file_set);
 
 }  // namespace rapidproto

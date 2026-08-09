@@ -7,6 +7,19 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
 
 ### Fixed
 
+- **An edition RapidProto has no feature defaults for is now refused instead of silently decoded by
+  2023's rules.** `edition = "2025"` (or any unrecognized value) was accepted and given the
+  2023/2024 defaults. That is invisible today because both known editions share every
+  decode-relevant default — and it is precisely why it was worth fixing: the day an edition changes
+  one, such a schema would have decoded by the wrong rules with no diagnostic. It now fails with
+  `unknown edition "…"`, naming the editions that are known and pointing at the declaration, the way
+  `protoc` does. The known set is one list in `src/features.cpp`.
+
+  Adding an edition is therefore a deliberate act: check its defaults against the table in
+  [architecture.md](architecture.md), do not just append a string. Note protobuf's
+  `edition = "UNSTABLE"` marker is refused by this rule, since the in-development edition's defaults
+  are by definition not settled.
+
 - **The debug dumper (`--dump`) dropped an implicit-presence `float`/`double` holding `-0.0`.** A
   proto3 singular field equal to its zero default is omitted, matching protobuf's JSON — but the test
   for "is this the default" compared with `==`, and `-0.0 == 0.0` is true. So a negative zero, which

@@ -379,7 +379,11 @@ Result<SymbolTable> resolve_types(ResolvedFileSet& file_set) {
 }
 
 Result<SymbolTable> analyze(ResolvedFileSet& file_set) {
-    resolve_features(file_set);              // editions features (no-op for proto2/proto3)
+    // Editions features (no-op for proto2/proto3). First, and fatal on an unknown edition: every
+    // later pass reads the presence/openness/encoding it resolves.
+    if (auto features = resolve_features(file_set); !features) {
+        return std::move(features).error();
+    }
     compute_fqns(file_set);                  // FQN computation
     auto symbols = resolve_types(file_set);  // type resolution
     if (!symbols) {

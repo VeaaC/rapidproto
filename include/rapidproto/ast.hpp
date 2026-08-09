@@ -232,6 +232,9 @@ struct ImportNode {
 struct FileNode {
     SyntaxLevel syntax_level = SyntaxLevel::Proto2;  // absent syntax/edition decl => proto2
     std::string edition;                             // for SyntaxLevel::Edition (e.g. "2023")
+    // Source byte offset of the edition string, so the feature pass can point at it when the
+    // edition is one this decoder has no feature defaults for.
+    std::size_t edition_offset = 0;
     std::string package;
     std::string filename;
     SourceId
