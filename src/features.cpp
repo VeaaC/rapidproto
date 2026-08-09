@@ -1,8 +1,14 @@
 #include "rapidproto/features.hpp"
 
+#include <algorithm>
+#include <array>
 #include <string>
+#include <string_view>
+#include <utility>
 #include <variant>
 #include <vector>
+
+#include "rapidproto/result.hpp"
 
 #include "rapidproto/ast.hpp"
 #include "rapidproto/resolver.hpp"
@@ -22,9 +28,26 @@ struct ResolvedFeatures {
     bool utf8_validation_verify = true;
 };
 
+// The editions this decoder knows the decode-relevant feature defaults for. THE list -- an edition
+// absent from it is rejected rather than decoded by these defaults, because a later edition may
+// change one and applying today's rules to it would decode the schema wrongly, and silently.
+//
+// A released protoc rejects an unknown edition too, so no schema one accepts TODAY lands here. That
+// is a fact about protoc's current set, not an invariant: `descriptor.proto` already declares
+// EDITION_2026, and the day it ships, schemas using it arrive here and are refused until this list
+// grows. Growing it means checking that edition's defaults against the table in architecture.md, not
+// appending a string -- though as of protobuf v35 none of the five decode-relevant features carries
+// an `edition_defaults` entry above EDITION_2023, so 2024 and 2026 both still resolve to the 2023
+// values.
+constexpr std::array<std::string_view, 2> kKnownEditions = {"2023", "2024"};
+
+bool is_known_edition(std::string_view edition) {
+    return std::find(kKnownEditions.begin(), kKnownEditions.end(), edition) != kKnownEditions.end();
+}
+
 ResolvedFeatures edition_defaults(const std::string& /*edition*/) {
-    // Editions 2023 and 2024 share the same decode-relevant defaults (see the plan's
-    // default table); future editions can branch here.
+    // Every edition in kKnownEditions shares these decode-relevant defaults, so the argument is
+    // unused today; branch on it here when an edition arrives that changes one.
     return ResolvedFeatures{};
 }
 
@@ -157,9 +180,23 @@ void resolve_message(MessageNode& message, ResolvedFeatures scope) {
 
 }  // namespace
 
-void resolve_features(FileNode& file) {
+Result<std::monostate> resolve_features(FileNode& file) {
     if (file.syntax_level != SyntaxLevel::Edition) {
-        return;  // proto2/proto3 presence/openness/encoding were finalized at parse time
+        return std::monostate{};  // proto2/proto3 presence/openness/encoding fixed at parse time
+    }
+    if (!is_known_edition(file.edition)) {
+        std::string known;
+        for (const std::string_view name : kKnownEditions) {
+            known += known.empty() ? "" : ", ";
+            known += name;
+        }
+        // Cross-file form: an unknown edition can arrive in an IMPORT, so the diagnostic has to name
+        // which file it came from, not only the offset.
+        return Error{file.source, file.edition_offset,
+                     "unknown edition \"" + file.edition +
+                         "\"; this decoder knows the feature defaults for " + known +
+                         " only, and a later edition may change one -- decoding it by those rules "
+                         "could be silently wrong"};
     }
     ResolvedFeatures scope = edition_defaults(file.edition);
     apply_features(file.options, scope);
@@ -172,12 +209,18 @@ void resolve_features(FileNode& file) {
     for (auto& extend : file.extends) {
         resolve_extend(extend, scope);
     }
+    return std::monostate{};
 }
 
-void resolve_features(ResolvedFileSet& file_set) {
+Result<std::monostate> resolve_features(ResolvedFileSet& file_set) {
     for (auto& file : file_set.files) {
-        resolve_features(file);
+        // The set is in dependency order, so an unknown edition in an IMPORT is reported before the
+        // importer is resolved against defaults that may not apply to it.
+        if (auto resolved = resolve_features(file); !resolved) {
+            return std::move(resolved).error();
+        }
     }
+    return std::monostate{};
 }
 
 }  // namespace rapidproto

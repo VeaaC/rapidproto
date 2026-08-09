@@ -11,6 +11,13 @@
 # Keep it SMALL. Every line is a documented gap between RapidProto and protoc; if this file
 # grows, that is the signal, not the noise.
 
+# --- Editions whose feature defaults we do not know ---
+# `edition = "UNSTABLE"` is protobuf's marker for the in-development edition, whose defaults are by
+# definition not settled. Decoding it by the 2023/2024 rules could be silently wrong, so it is
+# refused rather than assumed. This line goes away if UNSTABLE is ever pinned to a real edition we
+# add to kKnownEditions (src/features.cpp) after checking its defaults.
+protobuf/conformance/test_protos/test_messages_edition_unstable.proto	unknown edition "UNSTABLE"
+
 # --- Cross-repo imports: not a RapidProto limitation ---
 # These import grafeas/v1/*.proto, which lives in github.com/grafeas/grafeas, not googleapis.
 # The import is genuinely absent from the corpus; fetching grafeas too would fix these.

@@ -326,7 +326,16 @@ together.
   `message_encoding` / `repeated_encoding`. The inheritance chain is edition-defaults → file →
   message →
    oneof → field/enum, accepting both dotted (`features.field_presence = X`) and aggregate forms.
-   `utf8_validation` is read but not persisted; `json_format` is ignored.
+   `utf8_validation` is read but not persisted; `json_format` is ignored. This pass is also where an
+   **unrecognized edition is refused**: the known set (`kKnownEditions`, 2023 and 2024) is one list in
+   `src/features.cpp`, and an edition outside it errors rather than inheriting those defaults. They
+   happen to be identical across both known editions today, which is exactly the trap — assuming them
+   for a later edition would keep "working" until one changes a default, and then decode by the wrong
+   rules silently. A released `protoc` refuses an unknown edition too, so no schema one accepts today
+   reaches it; `descriptor.proto` already declares `EDITION_2026`, though, so that will stop being
+   true when 2026 ships and this list has to grow to accept it. Validation covers the edition
+   *value*, not edition-versioned *syntax*: `export`/`local` (2024 additions) parse under any edition,
+   which has no wire consequence.
 2. **FQN computation** (`compute_fqns`): assigns the absolute FQN (leading `.`) of every message, enum,
    enum value, and extension field. Enum **values are sibling-scoped** (`.pkg.VALUE`, by the enum's
   enclosing scope, not the enum). Extension fields are qualified by their **declaration** scope,

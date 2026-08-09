@@ -846,6 +846,7 @@ struct PackageName {
 struct SyntaxInfo {
     SyntaxLevel level = SyntaxLevel::Proto2;
     std::string edition;
+    std::size_t edition_offset = 0;  // the edition string token, for the unknown-edition diagnostic
 };
 
 // Consume a balanced { ... } block (tracking nesting); produce nothing. Used to skip `service`.
@@ -921,6 +922,7 @@ auto syntax_decl() {
                        SyntaxInfo info;
                        info.level = SyntaxLevel::Edition;
                        info.edition = std::get<1>(parts).str_value;
+                       info.edition_offset = std::get<1>(parts).byte_offset;
                        return info;
                    }));
 }
@@ -1079,12 +1081,14 @@ Result<Parsed<MessageNode, Token>> parse_message(Range<Token> in, const ParseCon
 Result<Parsed<FileNode, Token>> parse_file(Range<Token> in) {
     ParseContext ctx;  // absent syntax/edition decl => proto2
     std::string edition;
+    std::size_t edition_offset = 0;
     Range<Token> rest = in;
 
     auto syntax = syntax_decl()(in);
     if (syntax.is_ok()) {
         ctx.syntax_level = syntax.value().value.level;
         edition = std::move(syntax.value().value.edition);
+        edition_offset = syntax.value().value.edition_offset;
         rest = syntax.value().remaining;
     } else if (syntax.error().fatal) {
         return std::move(syntax.error());  // a malformed syntax/edition declaration
@@ -1100,6 +1104,7 @@ Result<Parsed<FileNode, Token>> parse_file(Range<Token> in) {
     FileNode file;
     file.syntax_level = ctx.syntax_level;
     file.edition = std::move(edition);
+    file.edition_offset = edition_offset;
     for (auto& element : body.value().value) {
         apply_file_element(file, element);
     }
