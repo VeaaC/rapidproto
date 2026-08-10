@@ -117,47 +117,65 @@ std::string sanitize(std::string_view name) {
         //  - Value/Key/kNumber/kName: a streaming tag `struct value { using Value = ...; }` etc. would
         //    redeclare the injected-class-name.
         //  - decode: the generated decode() method (a same-named nested tag / arena accessor clashes).
-        //  - Callbacks: the streaming decode() template parameter pack; a nested tag of that name
-        //    shadows it in the out-of-line definition.
-        // Every other emitted local is `rp_`-prefixed and each streaming tag is referenced by its
-        // message-qualified name, so common field names (value, tag, status, reader, ...) stay free.
+        //  - std: the one namespace generated code LOOKS UP unrooted (`std::int32_t`,
+        //    `std::string_view`, `std::optional`). Any proto name that becomes a C++ TYPE would
+        //    shadow it from inside the class -- a message or enum at any depth, a package component
+        //    after the first, a streaming field/map tag struct, an arena oneof-member tag struct.
+        //    An arena accessor named `std` would NOT: a nested-name-specifier considers only
+        //    namespaces, types and class templates, so a member function is skipped. It is escaped
+        //    regardless, because one reserved set serves every role. A PACKAGE called `std` is the
+        //    worst case -- it would emit `namespace std { ... }`, undefined behaviour per
+        //    [namespace.std] that compiles without a diagnostic.
+        // The two modes are worth keeping apart: SHADOWING needs a name the output looks up
+        // unrooted (only `std`), while REDECLARATION needs a name the output already defines at the
+        // same scope. `rp_dump_detail` is out of reach via the `rp_` rule. The model sub-namespace
+        // `<pkg>::stream` belongs to the second mode and is NOT handled -- see index_file().
+        // Every other name the emitters introduce is `rp_`-prefixed -- including the template
+        // parameter packs (`rp_Callbacks`, `rp_Fs`) and the friend/tag aliases (`rp_T`, `rp_Tag`),
+        // which are named that way SO THAT they need no entry here. Reserve a name below only when
+        // the identifier is public API a user writes and so cannot take the prefix.
         "Value",
         "Key",
         "kNumber",
         "kName",
         "decode",
-        "Callbacks",
-        // Common C/C++ MACROS: a field accessor or a (prefix-stripped) bare enum value of one of these
-        // would macro-expand rather than compile (e.g. `EOF` -> `(-1)`). Not exhaustive -- a best-effort
-        // guard for the names a SCREAMING_SNAKE enum value realistically hits; enum-prefix stripping
-        // additionally refuses to strip any enum whose bare remainder is reserved here (see emit_enum).
-        "EOF",
-        "NULL",
-        "NAN",
-        "INFINITY",
-        "ERROR",
-        "TRUE",
-        "FALSE",
-        "BUFSIZ",
-        "EXIT_SUCCESS",
-        "EXIT_FAILURE",
-        "RAND_MAX",
-        "SEEK_SET",
-        "SEEK_CUR",
-        "SEEK_END",
-        "errno",
-        "stdin",
-        "stdout",
-        "stderr",
+        "std",
     };
     std::string out(name);
-    // `rp_`-prefixed: any proto name beginning with the reserved generator-internal prefix. A
-    // single trailing `_` makes it distinct from every emitted `rp_` local (which never end in
-    // `_`).
-    if (name.rfind("rp_", 0) == 0 || kReserved.count(name) != 0) {
+    // `rp_`-prefixed: any proto name beginning with the generator-internal prefix. A single trailing
+    // `_` makes it distinct from every emitted `rp_` local (which never end in `_`).
+    if (name.rfind("rp_", 0) == 0 || kReserved.count(name) != 0 || expands_as_macro(name)) {
         out += '_';
     }
     return out;
+}
+
+// Would this identifier MACRO-EXPAND rather than compile? Split out from the reserved set above
+// because it is the only part that applies to names sanitize() never sees: arenagen synthesizes its
+// oneof visit-tag struct from the proto name, and a struct called `EOF` expands to `(-1)`.
+//
+// A macro fires wherever the token appears, so unlike the rest of sanitize() this cannot be narrowed
+// by role -- but it must not be WIDENED either. The rest of the reserved set holds names that are
+// perfectly legal as a tag struct (`Value`, `Key`, `decode`), and escaping those renames the public
+// tag struct of 77 corpus schemas for no compile benefit. Hence two sets, not one.
+bool expands_as_macro(std::string_view name) {
+    // The runtime's own `RP_`-prefixed macros (`RP_FLATTEN`, `RP_NOINLINE`) by prefix, so the rule
+    // holds for whatever it adds later, plus a list of common C/C++ ones.
+    //
+    // The list is a portability guard, not a description of this toolchain: a generated header is
+    // included in the CONSUMER's TU, so what matters is every macro THEY may have defined first.
+    // `ERROR`/`TRUE`/`FALSE` come in via windows.h, `NAN`/`INFINITY` via <cmath> -- none is defined
+    // by anything rapidproto includes, and all five stay. Deliberately not exhaustive in the other
+    // direction either (<cerrno>, <climits> and the GNU predefined `linux`/`unix` are not here); a
+    // list can only ever cover the names a SCREAMING_SNAKE enum value realistically hits.
+    // Enum-prefix stripping additionally refuses to strip any enum whose bare remainder lands here
+    // (see emit_enum), so one `*_ERROR` value keeps its whole enum unstripped.
+    static const std::unordered_set<std::string_view> kMacros = {
+        "EOF",      "NULL",     "NAN",          "INFINITY",     "ERROR",    "TRUE",
+        "FALSE",    "BUFSIZ",   "EXIT_SUCCESS", "EXIT_FAILURE", "RAND_MAX", "SEEK_SET",
+        "SEEK_CUR", "SEEK_END", "errno",        "stdin",        "stdout",   "stderr",
+    };
+    return name.rfind("RP_", 0) == 0 || kMacros.count(name) != 0;
 }
 
 namespace {
@@ -262,6 +280,10 @@ void index_file(CppNameTable& names, const FileNode& file) {
     // opens for the decoder.
     const std::string msg_ns = message_namespace(names, file);
     const std::string msg_root = msg_ns.empty() ? std::string() : "::" + msg_ns;
+    // This scope is per FILE, but the namespace it protects is per PACKAGE: two files sharing a
+    // package are indexed independently, so an escape here can land on a name a sibling file uses
+    // (`enum decode` -> `decode_` in one, `message decode_` in the other). Widening the scope to the
+    // package across the resolved file set is what fixes that -- until then, do not add names here.
     std::unordered_set<std::string> taken;
     std::vector<std::pair<const MessageNode*, std::string>> tops;
     for (const auto& node : file.enums) {
@@ -288,7 +310,15 @@ std::string namespace_of(std::string_view package) {
             if (!out.empty()) {
                 out += "::";
             }
-            out += sanitize(component);
+            // `rapidproto` is escaped HERE rather than in sanitize(), because it only clashes as
+            // a NAMESPACE: a package of that name merges the schema's own types into the runtime's,
+            // where any sharing a name with something the runtime declares (`wire`, `Arena`,
+            // `ByteView`, `WireType`, `dump`, `ArrayView`, ... -- not a closed list) redeclares it.
+            // A message or field called `rapidproto` sits in the schema's own namespace and never
+            // collides, so reserving it outright would rename working API -- and, because this
+            // scope is per file (see index_file), could land it on a sibling file's `rapidproto_`.
+            const std::string id = sanitize(component);
+            out += id == "rapidproto" ? "rapidproto_" : id;
             component.clear();
         }
     };

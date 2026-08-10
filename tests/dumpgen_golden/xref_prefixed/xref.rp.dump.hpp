@@ -212,15 +212,15 @@ inline void rp_dump_write(const ::rp::xr::Nested::User& m, ::rapidproto::dump::W
       }
     }
     m.pick([&](auto rp_tag, const auto& rp_v) {
-      using RpTag = std::decay_t<decltype(rp_tag)>;
-      if constexpr (std::is_same_v<RpTag, ::rp::xr::Nested::User::Pick::chosen>) {
+      using rp_Tag = std::decay_t<decltype(rp_tag)>;
+      if constexpr (std::is_same_v<rp_Tag, ::rp::xr::Nested::User::Pick::chosen>) {
         if (w.begin_field(rp_first, "chosen")) {
           w.push_path("chosen");
           ::rp::xr::rp_dump_detail::rp_dump_write(rp_v, w);
           w.pop_path();
         }
       }
-      if constexpr (std::is_same_v<RpTag, ::rp::xr::Nested::User::Pick::tagged>) {
+      if constexpr (std::is_same_v<rp_Tag, ::rp::xr::Nested::User::Pick::tagged>) {
         if (w.begin_field(rp_first, "tagged")) {
           { const auto rp_e = rp_v;
           if (const char* rp_nm = ::rapidproto::dump::detail::rp_dump_enum_name(rp_e)) { w.os() << '"' << rp_nm << '"'; }
@@ -342,8 +342,8 @@ inline void rp_dump_write(const ::rp::xr::FwdMsg::Ref& m, ::rapidproto::dump::Wr
       }
     }
     m.pick([&](auto rp_tag, const auto& rp_v) {
-      using RpTag = std::decay_t<decltype(rp_tag)>;
-      if constexpr (std::is_same_v<RpTag, ::rp::xr::FwdMsg::Ref::Pick::chosen>) {
+      using rp_Tag = std::decay_t<decltype(rp_tag)>;
+      if constexpr (std::is_same_v<rp_Tag, ::rp::xr::FwdMsg::Ref::Pick::chosen>) {
         if (w.begin_field(rp_first, "chosen")) {
           w.push_path("chosen");
           ::rp::xr::rp_dump_detail::rp_dump_write(rp_v, w);

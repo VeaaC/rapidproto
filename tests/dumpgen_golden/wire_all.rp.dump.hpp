@@ -87,13 +87,13 @@ inline void rp_dump_write(const ::wire::AllWire& m, ::rapidproto::dump::Writer& 
       }
     }
     m.pick([&](auto rp_tag, const auto& rp_v) {
-      using RpTag = std::decay_t<decltype(rp_tag)>;
-      if constexpr (std::is_same_v<RpTag, ::wire::AllWire::Pick::oi>) {
+      using rp_Tag = std::decay_t<decltype(rp_tag)>;
+      if constexpr (std::is_same_v<rp_Tag, ::wire::AllWire::Pick::oi>) {
         if (w.begin_field(rp_first, "oi")) {
           ::rapidproto::dump::write_int(w.os(), rp_v);
         }
       }
-      if constexpr (std::is_same_v<RpTag, ::wire::AllWire::Pick::os>) {
+      if constexpr (std::is_same_v<rp_Tag, ::wire::AllWire::Pick::os>) {
         if (w.begin_field(rp_first, "os")) {
           w.os() << '"'; ::rapidproto::dump::write_json_escaped(w.os(), rp_v); w.os() << '"';
         }

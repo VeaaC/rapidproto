@@ -81,15 +81,15 @@ inline void rp_dump_write(const ::rp::main::Main& m, ::rapidproto::dump::Writer&
       }
     }
     m.choice([&](auto rp_tag, const auto& rp_v) {
-      using RpTag = std::decay_t<decltype(rp_tag)>;
-      if constexpr (std::is_same_v<RpTag, ::rp::main::Main::Choice::od>) {
+      using rp_Tag = std::decay_t<decltype(rp_tag)>;
+      if constexpr (std::is_same_v<rp_Tag, ::rp::main::Main::Choice::od>) {
         if (w.begin_field(rp_first, "od")) {
           w.push_path("od");
           ::rp::dep::rp_dump_detail::rp_dump_write(rp_v, w);
           w.pop_path();
         }
       }
-      if constexpr (std::is_same_v<RpTag, ::rp::main::Main::Choice::oi>) {
+      if constexpr (std::is_same_v<rp_Tag, ::rp::main::Main::Choice::oi>) {
         if (w.begin_field(rp_first, "oi")) {
           ::rapidproto::dump::write_int(w.os(), rp_v);
         }

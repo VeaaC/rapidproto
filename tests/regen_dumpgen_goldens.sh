@@ -50,6 +50,11 @@ done
 "$BIN" --dump -Itests/corpus/imports --out-dir="$T" tests/corpus/imports/samepkg_a.proto >/dev/null
 # Weak import: filtered like a standard import.
 "$BIN" --dump -Itests/corpus/imports --out-dir="$T" tests/corpus/imports/weakmain.proto >/dev/null
+# Package SHAPES: `std` and `rapidproto` must not become their own C++ namespace verbatim. The
+# `std` one is why this needs a golden at all -- `namespace std` is UB that compiles QUIETLY,
+# so no compiler would catch a regression here.
+"$BIN" --dump -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/stdpkg.proto >/dev/null
+"$BIN" --dump -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/rppkg.proto >/dev/null
 # --namespace-prefix + imports: the prefixed closure into a subdir, so its relative #includes resolve
 # to the prefixed siblings (not the unprefixed ones, which share the same filenames).
 "$BIN" --dump --namespace-prefix=rp -Itests/corpus/imports --out-dir="$T/prefixed" tests/corpus/imports/main.proto >/dev/null

@@ -533,7 +533,12 @@ functions, each threaded with an `Emit` bundle — references to the `Printer`, 
   do not exist until the emitter conjures them. Both layers dedup within one class scope
   **seeded with the class's own name**, since C++ forbids a member with the same name as its
   class. `rp_`-prefixed names skip all of this: `sanitize()` escapes every proto name starting
-  with `rp_`, so they are unreachable by construction.
+  with `rp_` — and with `RP_`, the runtime's macro prefix — so they are unreachable by
+  construction. Both names `SynthNames` derives from a proto name re-check with
+  `codegen::expands_as_macro()`, for different reasons: the `<Oneof>` visit-tag struct is built from
+  the **raw** name and so never reached `sanitize()` at all, while `<Map>Entry` starts from the
+  sanitized id but `capitalize()` can *manufacture* a reserved prefix out of it (`rP_x` → `RP_x`).
+  Anything else synthesized from a proto name — raw or sanitized — needs the same re-check.
 - **Shells first, then decode bodies.** All struct shells are emitted before any out-of-line
   **`rp_decode_into`** body (for the complete-type reason given above). Each body is assembled from
   per-field *arms* (`emit_singular_arm` / `emit_repeated_arm` / `emit_map_arm` / `emit_oneof_arm`),

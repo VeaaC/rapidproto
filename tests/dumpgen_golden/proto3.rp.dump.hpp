@@ -199,23 +199,23 @@ inline void rp_dump_write(const ::p3::Msg& m, ::rapidproto::dump::Writer& w) {
       }
     }
     m.pick([&](auto rp_tag, const auto& rp_v) {
-      using RpTag = std::decay_t<decltype(rp_tag)>;
-      if constexpr (std::is_same_v<RpTag, ::p3::Msg::Pick::a>) {
+      using rp_Tag = std::decay_t<decltype(rp_tag)>;
+      if constexpr (std::is_same_v<rp_Tag, ::p3::Msg::Pick::a>) {
         if (w.begin_field(rp_first, "a")) {
           ::rapidproto::dump::write_int(w.os(), rp_v);
         }
       }
-      if constexpr (std::is_same_v<RpTag, ::p3::Msg::Pick::b>) {
+      if constexpr (std::is_same_v<rp_Tag, ::p3::Msg::Pick::b>) {
         if (w.begin_field(rp_first, "b")) {
           w.os() << '"'; ::rapidproto::dump::write_json_escaped(w.os(), rp_v); w.os() << '"';
         }
       }
-      if constexpr (std::is_same_v<RpTag, ::p3::Msg::Pick::c>) {
+      if constexpr (std::is_same_v<rp_Tag, ::p3::Msg::Pick::c>) {
         if (w.begin_field(rp_first, "c")) {
           ::rapidproto::dump::write_bool(w.os(), rp_v);
         }
       }
-      if constexpr (std::is_same_v<RpTag, ::p3::Msg::Pick::d>) {
+      if constexpr (std::is_same_v<rp_Tag, ::p3::Msg::Pick::d>) {
         if (w.begin_field(rp_first, "d")) {
           ::rapidproto::dump::write_float(w.os(), rp_v);
         }

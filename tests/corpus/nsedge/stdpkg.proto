@@ -1,0 +1,12 @@
+// A package named `std`. Generated code names the `std` namespace UNROOTED (`std::int32_t` and
+// friends), so this is the one package that must not become its own C++ namespace verbatim: the
+// header would open `namespace std { ... }`, which is undefined behaviour AND compiles quietly. The
+// package component is sanitized like any other identifier, so the namespace is `std_`.
+syntax = "proto3";
+package std;
+
+message Types {
+  int32 n = 1;
+  string s = 2;
+  repeated int64 many = 3;
+}

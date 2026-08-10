@@ -174,8 +174,9 @@ inline std::string emit_common_header(const FileNode& file, const CppNameTable& 
 }
 
 // The compile-time dispatch misuse guards both emitters generate, identical up to the name of the
-// callback template-parameter pack (`pack`: streamgen's decode() uses "Callbacks", the arena oneof
-// reader "RpFs"). `args` is the trait argument list after the pack ("$f$, $f$::Value" for a field,
+// callback template-parameter pack (`pack`: streamgen's decode() uses "rp_Callbacks", the arena
+// oneof reader "rp_Fs" -- both `rp_`-prefixed, so no proto name can collide with them). `args` is
+// the trait argument list after the pack ("$f$, $f$::Value" for a field,
 // with Key inserted for a map); `what` names the case for diagnostics; `expected` describes the
 // expected value type(s). Four guards: at most one specific handler (duplicates are an error); at
 // most one catch-all; no partially-generic callback; and a callback that NAMES this case must
