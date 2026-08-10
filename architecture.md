@@ -290,9 +290,9 @@ message-literal/list ↔ field, nested message/group/extend bodies). `parse_file
   `double`;
   float over/underflow saturates to ±inf or 0. `inf`/`nan` are stored as `double`.
 - **Groups** synthesize a nested `MessageNode` (name as written) plus a `FieldNode` with `is_group =
-  true`, a lowercased name, and `MessageEncoding::Delimited`. Groups in an `extend` hoist to the
-  enclosing
-  scope.
+  true`, a lowercased name, and `MessageEncoding::Delimited`. A group in an `extend` **or in a
+  `oneof`** hoists its synthesized message to the enclosing scope — neither is a scope of its own —
+  while the field stays where it was written.
 - **Maps** become first-class `MapFieldNode`s (codegen synthesizes the entry message later).
 - **`service`/`rpc`** are consumed via balanced-brace skipping and dropped.
 - Error offsets are token indices; the resolver maps them back to source byte offsets.
@@ -1243,7 +1243,11 @@ decode-relevant may be approximated or rejected.
 - Type resolution uses progressive scope search rather than protobuf's first-component-binds rule; for
   valid input the result is identical (shadowing edge cases `protoc` rejects are not diagnosed).
 - The parser is over-permissive where `protoc` would reject (`optional`/`required` in editions, `extend` in
-  proto3, `import option` in any syntax), which is harmless under trust-protoc.
+  proto3, `import option` in any syntax), which is harmless under trust-protoc. The same applies to
+  `group`: the cardinality is optional where the spec makes it mandatory, the name is not required
+  to start uppercase, groups are not gated to proto2, and a `group G` beside a field `g` is deduped
+  rather than refused. A oneof body is the one position that matches the spec exactly, since
+  `OneofGroupDecl` has no cardinality slot at all.
 - An editions `repeated_field_encoding` on a repeated *enum* is not reflected in `repeated_encoding` (forced
   Expanded); decoders accept both wire forms regardless.
 - **Closed enums decode as open — intentionally.** The front-end resolves `EnumOpenness` (proto2 →
@@ -1255,7 +1259,6 @@ decode-relevant may be approximated or rejected.
 
 **Deferred** (worth fixing if the trust-protoc assumption is relaxed):
 
-- A `group` inside a `oneof` is rejected (valid proto2; needs a group-hoisting channel on `OneofNode`).
 - A missing `weak` import is a hard error (`protoc` treats weak as optional).
 - A hex/octal integer literal overflowing `uint64` collapses to a wrong float value (decimal overflow is
   handled correctly); an octal string escape `> \377` truncates its high bit; text-format

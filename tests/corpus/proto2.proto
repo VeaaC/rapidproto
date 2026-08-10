@@ -55,6 +55,21 @@ message WithGroup {
   option deprecated = true;
 }
 
+// A `group` as a oneof MEMBER: protoc accepts it, and the synthesized message belongs to the
+// enclosing message (a oneof is not a scope) while the field joins the oneof. The delimited wire
+// form is the same one editions reach via features.message_encoding = DELIMITED.
+message OneofGroup {
+  oneof pick {
+    int32 i = 1;
+    group G = 2 {
+      optional int32 x = 3;
+      optional string s = 4;
+    }
+  }
+
+  optional int32 after = 5;
+}
+
 extend WithGroup {
   optional int32 ext_a = 100 [default = 9];
   repeated string ext_b = 101;

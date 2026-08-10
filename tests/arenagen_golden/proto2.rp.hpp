@@ -15,6 +15,7 @@ namespace p2 {
 
 class Scalars;
 class WithGroup;
+class OneofGroup;
 class Container;
 
 class Scalars {
@@ -96,6 +97,74 @@ class WithGroup {
   std::uint8_t m_rp_mask;
 };
 static_assert(::std::is_trivially_destructible_v<WithGroup>);
+
+class OneofGroup {
+ public:
+  class G;
+  class G {
+   public:
+    std::optional<std::int32_t> x() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? std::optional<std::int32_t>(m_x) : std::nullopt; }
+    std::optional<std::string_view> s() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 1)) != 0 ? std::optional<std::string_view>(m_s.view()) : std::nullopt; }
+    [[nodiscard]] static const G* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
+   private:
+    template <class rp_T> friend bool ::rapidproto::arena_detail::decode_into(rp_T&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
+    static bool rp_decode_into(G& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
+    ::rapidproto::ArenaString m_s;
+    std::int32_t m_x;
+    std::uint8_t m_rp_mask;
+  };
+  struct Pick {
+    struct i { using Value = std::int32_t; };
+    struct g { using Value = ::p2::OneofGroup::G; };
+  };
+  std::optional<std::int32_t> after() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? std::optional<std::int32_t>(m_after) : std::nullopt; }
+  template <class... rp_Fs> void pick(rp_Fs&&... rp_fs) const {
+    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Fs, Pick::i, typename Pick::i::Value>)) <= 1U, "oneof member 'i' is handled by more than one callback");
+    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Fs, Pick::i, typename Pick::i::Value>)) <= 1U, "oneof member 'i' is matched by more than one catch-all callback");
+    static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Fs, Pick::i, typename Pick::i::Value>), "a callback for oneof member 'i' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+    static_assert((true && ... && !(::rapidproto::targets<rp_Fs, Pick::i, typename Pick::i::Value> && !::rapidproto::specifically_handles<rp_Fs, Pick::i, typename Pick::i::Value>)), "a callback for oneof member 'i' has the wrong value type (expected Pick::i::Value)");
+    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Fs, Pick::g, typename Pick::g::Value>)) <= 1U, "oneof member 'g' is handled by more than one callback");
+    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Fs, Pick::g, typename Pick::g::Value>)) <= 1U, "oneof member 'g' is matched by more than one catch-all callback");
+    static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Fs, Pick::g, typename Pick::g::Value>), "a callback for oneof member 'g' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+    static_assert((true && ... && !(::rapidproto::targets<rp_Fs, Pick::g, typename Pick::g::Value> && !::rapidproto::specifically_handles<rp_Fs, Pick::g, typename Pick::g::Value>)), "a callback for oneof member 'g' has the wrong value type (expected Pick::g::Value)");
+    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Fs, std::monostate>)) <= 1U, "a oneof's unset (std::monostate) state is handled by more than one callback");
+    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Fs, std::monostate>)) <= 1U, "a oneof's unset (std::monostate) state is matched by more than one catch-all callback");
+    static_assert((true && ... && !(::rapidproto::targets<rp_Fs, std::monostate> && !::rapidproto::specifically_handles<rp_Fs, std::monostate>)), "a callback for a oneof's unset (std::monostate) state must take exactly (std::monostate)");
+    static_assert((true && ... && !::rapidproto::is_stray_handler<rp_Fs, Pick::i, Pick::g, std::monostate>), "a callback matches no member of oneof 'pick' (and is not a catch-all or the std::monostate unset handler)");
+    auto rp_d = ::rapidproto::combine(static_cast<rp_Fs&&>(rp_fs)...);
+    switch (m_rp_pick_case) {
+      case 1:
+        if constexpr ((false || ... || ::rapidproto::handles_one<rp_Fs, Pick::i, typename Pick::i::Value>)) {
+        ::rapidproto::invoke_handler(rp_d, Pick::i{}, m_rp_pick.i);
+        }
+        break;
+      case 2:
+        if constexpr ((false || ... || ::rapidproto::handles_one<rp_Fs, Pick::g, typename Pick::g::Value>)) {
+        ::rapidproto::invoke_handler(rp_d, Pick::g{}, *m_rp_pick.g);
+        }
+        break;
+      default:
+        if constexpr ((false || ... || ::rapidproto::handles_one<rp_Fs, std::monostate>)) {
+        ::rapidproto::invoke_handler(rp_d, std::monostate{});
+        }
+        break;
+    }
+  }
+  [[nodiscard]] static const OneofGroup* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
+ private:
+  template <class rp_T> friend bool ::rapidproto::arena_detail::decode_into(rp_T&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
+  static bool rp_decode_into(OneofGroup& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
+  union rp_pick_union {
+    std::int32_t i;
+    const ::p2::OneofGroup::G* g;
+    rp_pick_union() noexcept {}
+  };
+  rp_pick_union m_rp_pick;
+  std::int32_t m_after;
+  std::uint8_t m_rp_pick_case;
+  std::uint8_t m_rp_mask;
+};
+static_assert(::std::is_trivially_destructible_v<OneofGroup>);
 
 class Container {
  public:
@@ -677,6 +746,140 @@ RP_FLATTEN inline bool ::p2::WithGroup::MyGroup::Inner::rp_decode_into([[maybe_u
 inline const ::p2::WithGroup::MyGroup::Inner* ::p2::WithGroup::MyGroup::Inner::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
   ::p2::WithGroup::MyGroup::Inner* const rp_root = arena.create<::p2::WithGroup::MyGroup::Inner>();
+  if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
+  if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
+  return rp_root;
+}
+
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
+RP_FLATTEN RP_NOINLINE inline bool ::p2::OneofGroup::rp_decode_into([[maybe_unused]] ::p2::OneofGroup& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+  if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
+  const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(body);
+  const std::uint8_t* const rp_cend = rp_c + body.size();
+  ::rapidproto::Tag rp_tag{};
+  ::rapidproto::WireError rp_we = ::rapidproto::WireError::None;
+  for (;;) {
+    if (rp_c >= rp_cend) { break; }
+    switch (*rp_c) {  // peek the 1-byte tag; threaded fields jump to their label
+      case ::rapidproto::raw_tag(5, ::rapidproto::WireType::Varint): ++rp_c; goto rp_do_5;
+      default: break;
+    }
+    goto rp_field_general;
+    rp_do_5: {
+      std::uint64_t rp_raw = 0;
+      const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      rp_c = rp_np;
+      out.m_after = ::rapidproto::varint_to_int32(rp_raw);
+      out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 0));
+      continue;
+    }
+    rp_field_general:;
+    ::rapidproto::wire::TagState rp_state = ::rapidproto::wire::TagState::End;
+    const std::uint8_t* const rp_tp = ::rapidproto::wire::read_tag_or_end(rp_c, rp_cend, &rp_tag, &rp_we, &rp_state);
+    if (rp_state == ::rapidproto::wire::TagState::End) { break; }
+    if (rp_state == ::rapidproto::wire::TagState::Error) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+    rp_c = rp_tp;
+    switch (rp_tag.field_number) {
+      case 5: { if (rp_tag.wire_type == ::rapidproto::WireType::Varint) { goto rp_do_5; } break; }
+      case 1: {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
+          std::uint64_t rp_raw = 0;
+          const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
+          if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+          rp_c = rp_np;
+          out.m_rp_pick.i = ::rapidproto::varint_to_int32(rp_raw);
+          out.m_rp_pick_case = 1;
+          continue;
+        }
+        break;
+      }
+      case 2: {
+        if (rp_tag.wire_type == ::rapidproto::WireType::SGroup) {
+          if (out.m_rp_pick_case == 2) { ::rapidproto::rp_fail_repeated_singular(err, 2); return false; }
+          ::rapidproto::ByteView rp_v;
+          { std::size_t rp_fo = 0; const std::uint8_t* const rp_np = ::rapidproto::wire::read_group(rp_c, rp_cend, ::rapidproto::wire::byte_ptr(body), rp_tag.field_number, &rp_v, &rp_we, &rp_fo); if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo); return false; } rp_c = rp_np; }
+          ::p2::OneofGroup::G* const rp_sub = arena.create<::p2::OneofGroup::G>();
+          if (rp_sub == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }
+          if (!::rapidproto::arena_detail::decode_into(*rp_sub, rp_v, arena, depth + 1, err)) { return false; }
+          out.m_rp_pick.g = rp_sub;
+          out.m_rp_pick_case = 2;
+          continue;
+        }
+        break;
+      }
+      default: break;
+    }
+    std::size_t rp_fo = 0;
+    const std::uint8_t* const rp_sp = ::rapidproto::wire::skip_value(rp_c, rp_cend, ::rapidproto::wire::byte_ptr(body), rp_tag, 0, &rp_we, &rp_fo);
+    if (rp_sp == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo); return false; }
+    rp_c = rp_sp;
+  }
+  return true;
+}
+inline const ::p2::OneofGroup* ::p2::OneofGroup::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+  if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
+  ::p2::OneofGroup* const rp_root = arena.create<::p2::OneofGroup>();
+  if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
+  if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
+  return rp_root;
+}
+
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
+RP_FLATTEN inline bool ::p2::OneofGroup::G::rp_decode_into([[maybe_unused]] ::p2::OneofGroup::G& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+  if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
+  const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(body);
+  const std::uint8_t* const rp_cend = rp_c + body.size();
+  ::rapidproto::Tag rp_tag{};
+  ::rapidproto::WireError rp_we = ::rapidproto::WireError::None;
+  for (;;) {
+    if (rp_c >= rp_cend) { break; }
+    switch (*rp_c) {  // peek the 1-byte tag; threaded fields jump to their label
+      case ::rapidproto::raw_tag(3, ::rapidproto::WireType::Varint): ++rp_c; goto rp_do_3;
+      case ::rapidproto::raw_tag(4, ::rapidproto::WireType::Len): ++rp_c; goto rp_do_4;
+      default: break;
+    }
+    goto rp_field_general;
+    rp_do_3: {
+      std::uint64_t rp_raw = 0;
+      const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      rp_c = rp_np;
+      out.m_x = ::rapidproto::varint_to_int32(rp_raw);
+      out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 0));
+      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(4, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_4; }
+      continue;
+    }
+    rp_do_4: {
+      ::rapidproto::ByteView rp_v;
+      const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_v, &rp_we);
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      rp_c = rp_np;
+      out.m_s = ::rapidproto::ArenaString::make(rp_v, arena);
+      out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 1));
+      continue;
+    }
+    rp_field_general:;
+    ::rapidproto::wire::TagState rp_state = ::rapidproto::wire::TagState::End;
+    const std::uint8_t* const rp_tp = ::rapidproto::wire::read_tag_or_end(rp_c, rp_cend, &rp_tag, &rp_we, &rp_state);
+    if (rp_state == ::rapidproto::wire::TagState::End) { break; }
+    if (rp_state == ::rapidproto::wire::TagState::Error) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+    rp_c = rp_tp;
+    switch (rp_tag.field_number) {
+      case 3: { if (rp_tag.wire_type == ::rapidproto::WireType::Varint) { goto rp_do_3; } break; }
+      case 4: { if (rp_tag.wire_type == ::rapidproto::WireType::Len) { goto rp_do_4; } break; }
+      default: break;
+    }
+    std::size_t rp_fo = 0;
+    const std::uint8_t* const rp_sp = ::rapidproto::wire::skip_value(rp_c, rp_cend, ::rapidproto::wire::byte_ptr(body), rp_tag, 0, &rp_we, &rp_fo);
+    if (rp_sp == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo); return false; }
+    rp_c = rp_sp;
+  }
+  return true;
+}
+inline const ::p2::OneofGroup::G* ::p2::OneofGroup::G::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+  if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
+  ::p2::OneofGroup::G* const rp_root = arena.create<::p2::OneofGroup::G>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
   return rp_root;

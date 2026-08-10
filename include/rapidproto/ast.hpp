@@ -206,7 +206,7 @@ struct ExtendNode {
     std::string extendee_type_name;
     std::size_t offset = 0;  // source byte offset (the `extend` keyword), for diagnostics
     std::vector<FieldNode> fields;
-    std::vector<Option> options;
+    // No options: ExtensionElement admits only fields and groups (see parser.cpp).
 };
 
 struct MessageNode {

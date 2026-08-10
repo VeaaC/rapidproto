@@ -147,7 +147,8 @@ void resolve_enum(EnumNode& node, ResolvedFeatures scope) {
 }
 
 void resolve_extend(ExtendNode& node, ResolvedFeatures scope) {
-    apply_features(node.options, scope);
+    // No extend-level options to apply: ExtensionElement admits only fields and groups, so the
+    // scope reaching the fields is the enclosing file's or message's unchanged.
     for (auto& field : node.fields) {
         resolve_field(field, scope, /*is_oneof_member=*/false);
     }
