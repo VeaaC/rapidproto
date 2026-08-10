@@ -9,6 +9,7 @@
 
 #include <catch_amalgamated.hpp>
 
+#include <cstdint>
 #include <cstdlib>
 #include <fstream>
 #include <ios>
@@ -19,6 +20,7 @@
 #include <vector>
 
 #include "arena_modes_profile.hpp"
+#include "rapidproto/arena_runtime.hpp"  // MapView, asserted on below
 #include "rapidproto/arenagen/generator.hpp"
 #include "rapidproto/arenagen/layout.hpp"
 #include "rapidproto/arenagen/modes.hpp"
@@ -49,6 +51,7 @@
 #include "arenagen_golden/xpkg.rp.hpp"  // dotted package (pulls deep): namespace com::example::deep
 #include "arenagen_golden/xref.rp.hpp"
 #include "arenagen_golden/xref_prefixed/xref.rp.hpp"  // --namespace-prefix=rp -> namespace rp::xr
+#include "dumpgen_golden/naming.rp.hpp"  // synthesized-name escapes (see the test below)
 // IWYU pragma: end_keep
 
 using namespace rapidproto;  // NOLINT(google-build-using-namespace): test convenience
@@ -266,6 +269,25 @@ TEST_CASE("arenagen: generated headers match the goldens", "[arenagen]") {
 // The --namespace-prefix nests every generated namespace under the prefix, so the arena types coexist
 // with protoc's (and the streamgen) headers in one TU. xref_prefixed (also #included above) proves
 // the prefixed output is valid C++ and is a distinct type from the unprefixed one.
+// The two names arenagen SYNTHESIZES from a proto name, rather than taking from the name table.
+// Both re-check for macro expansion: the oneof visit tag because sanitize() never saw the raw name,
+// the map entry because capitalize() can MANUFACTURE a reserved prefix out of a sanitized id
+// (`rP_x` passes sanitize, which tests `rp_`/`RP_`, then capitalizes into `RP_x`). Compile-time
+// bindings -- reaching this body means the escapes held.
+TEST_CASE("arenagen: synthesized type names escape what would macro-expand", "[arenagen]") {
+    // Map entry: `rP_x` -> `RP_xEntry` -> escaped. Without the escape the name sits in the runtime's
+    // reserved `RP_` prefix, which nothing else in the suite would notice.
+    static_assert(std::is_same_v<decltype(std::declval<const nm::Macros&>().rP_x()),
+                                 ::rapidproto::MapView<nm::Macros::RP_xEntry_>>);
+    // Oneof visit tag: `EOF` -> `struct EOF` would expand to `(-1)`. `value` -> `Value` is left
+    // alone, which is the narrow half of the rule. (An arena visit tag carries only its members'
+    // Value types, so naming one at all is the assertion.)
+    static_assert(std::is_same_v<nm::OneofTags::EOF__::a::Value, std::int32_t>);
+    static_assert(std::is_same_v<nm::OneofTags::Value::b::Value, std::int32_t>);
+    static_assert(std::is_same_v<nm::OneofTags::RP_FLATTEN__::c::Value, std::int32_t>);
+    SUCCEED("synthesized-name escapes compiled");
+}
+
 TEST_CASE("arenagen: namespace prefix nests the generated namespace", "[arenagen]") {
     const std::string prefixed = generate_corpus("xref.proto", "rp");
     CHECK(prefixed.find("namespace rp::xr {") != std::string::npos);

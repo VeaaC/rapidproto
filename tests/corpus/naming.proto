@@ -171,3 +171,12 @@ message Freed {
     int32 x = 5;
   }
 }
+
+// The one spelling of the four that actually failed to compile before the pack took the prefix: the
+// arena oneof reader is named after the oneof, so `template <class... RpFs> void RpFs(RpFs&&...)`
+// declared a function shadowing its own template parameter. A FIELD named `RpFs` was always fine.
+message FreedOneof {
+  oneof RpFs {
+    int32 a = 1;
+  }
+}

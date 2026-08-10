@@ -14,11 +14,13 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
   three were never on it, which is why `oneof RpFs` failed to compile rather than being escaped.
 
   The principle: reserve a name only when it is public API a user writes and so cannot take the
-  prefix. That leaves `Value`, `Key`, `kNumber`, `kName`, `decode`, plus the two namespaces `std`
-  and `rapidproto`.
+  prefix. That leaves `Value`, `Key`, `kNumber`, `kName`, `decode` and the namespace `std`
+  (`rapidproto` is escaped only as a namespace component, where it actually collides).
 
   Only the streaming decoder's *declaration* changes shape (`template <class... rp_Callbacks>`);
-  callbacks are deduced, so calling code is unaffected. **Regenerate** to pick it up.
+  callbacks are deduced, so calling code is unaffected — unless your schema actually spells a name
+  `Callbacks`, whose generated identifier goes back from `Callbacks_` to `Callbacks`.
+  **Regenerate** to pick it up.
 
 ### Fixed
 
@@ -34,7 +36,9 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
     [namespace.std] that compiles *without a diagnostic*, so nothing would have told you.
   - **A package named `rapidproto`**, which merged the schema's types into the runtime's own
     namespace; any that shared a name with something the runtime declares (`wire`, `Arena`,
-    `ByteView`, `WireType`, `dump`, `ArrayView`, … — not a closed list) clashed with it.
+    `ByteView`, `WireType`, `dump`, `ArrayView`, … — not a closed list) clashed with it. Escaped as
+    a *namespace component only* — a message or field of that name sits in the schema's own
+    namespace and never collided, so it keeps its name.
   - **`RP_FLATTEN` and `RP_NOINLINE`**, the runtime's two object-like macros, in any role. The rule
     is the whole `RP_` prefix, matching the existing `rp_` one, so it holds for macros added later.
   - **A oneof named `EOF`** or another common macro. arenagen synthesizes its visit-tag struct from
@@ -44,11 +48,18 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
     renames the public tag struct of 77 corpus schemas for no compile benefit.
 
   **Renames of API that already compiled.** One reserved set serves every role, and the `rp_`/`RP_`
-  prefixes are reserved wholesale, so these change even though they never broke: `std` as an arena
-  or dump accessor (`msg.std()` → `msg.std_()`), an enum value, or a oneof; `rapidproto` in *any*
-  role; and any `RP_…` name in any role, whether or not it is a macro. Wire names and proto names
-  are untouched, but a renamed **enum value** does change the `--dump` text output, which prints the
-  C++ identifier.
+  prefixes are reserved wholesale, so these change even though they never broke:
+
+  - `std` as an arena or dump accessor (`msg.std()` → `msg.std_()`), an enum value, or a oneof.
+  - Any `RP_…` name in any role, whether or not it is a macro — **including one the generator
+    *capitalizes* into that prefix**, so a oneof or map field spelled `rP_…` renames its visit-tag
+    or `…Entry` struct even though the proto name has no `RP_` in it.
+  - An enum with *any* value whose prefix-stripped remainder starts with `RP_` loses prefix
+    stripping **for the whole enum**, so every value in it keeps its full name
+    (`KIND_RP_A`/`KIND_OK` rather than `RP_A`/`OK`).
+
+  Wire names and proto names are untouched, but a renamed **enum value** does change the `--dump`
+  text output, which prints the C++ identifier.
 
   **Regenerate only if your schema uses one of these spellings** — all 8018 schemas in the
   real-world corpus generate byte-identical output before and after this change.

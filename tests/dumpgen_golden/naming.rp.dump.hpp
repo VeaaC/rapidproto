@@ -70,6 +70,7 @@ inline void rp_dump_write(const ::nm::Macros& m, ::rapidproto::dump::Writer& w);
 inline void rp_dump_write(const ::nm::OneofTags& m, ::rapidproto::dump::Writer& w);
 inline void rp_dump_write(const ::nm::UsesStream& m, ::rapidproto::dump::Writer& w);
 inline void rp_dump_write(const ::nm::Freed& m, ::rapidproto::dump::Writer& w);
+inline void rp_dump_write(const ::nm::FreedOneof& m, ::rapidproto::dump::Writer& w);
 
 inline void rp_dump_write(const ::nm::M::int_& m, ::rapidproto::dump::Writer& w) {
   (void)m;
@@ -465,6 +466,22 @@ inline void rp_dump_write(const ::nm::Freed& m, ::rapidproto::dump::Writer& w) {
   });
 }
 
+inline void rp_dump_write(const ::nm::FreedOneof& m, ::rapidproto::dump::Writer& w) {
+  (void)m;
+  w.group('{', '}', [&] {
+    bool rp_first = true;
+    m.RpFs([&](auto rp_tag, const auto& rp_v) {
+      using rp_Tag = std::decay_t<decltype(rp_tag)>;
+      if constexpr (std::is_same_v<rp_Tag, ::nm::FreedOneof::RpFs_::a>) {
+        if (w.begin_field(rp_first, "a")) {
+          ::rapidproto::dump::write_int(w.os(), rp_v);
+        }
+      }
+    });
+    (void)rp_first;
+  });
+}
+
 }  // namespace rp_dump_detail
 
 inline void rp_dump_write(std::ostream& rp_os, const ::nm::M::int_& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
@@ -653,6 +670,15 @@ inline void rp_dump_write(std::ostream& rp_os, const ::nm::Freed& m, const ::rap
 }
 
 inline std::string rp_dump_string(const ::nm::Freed& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
+}
+
+inline void rp_dump_write(std::ostream& rp_os, const ::nm::FreedOneof& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
+  ::nm::rp_dump_detail::rp_dump_write(m, w);
+}
+
+inline std::string rp_dump_string(const ::nm::FreedOneof& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
 }
 

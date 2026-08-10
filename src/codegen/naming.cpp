@@ -126,11 +126,6 @@ std::string sanitize(std::string_view name) {
         //    regardless, because one reserved set serves every role. A PACKAGE called `std` is the
         //    worst case -- it would emit `namespace std { ... }`, undefined behaviour per
         //    [namespace.std] that compiles without a diagnostic.
-        //  - rapidproto: a different failure -- a collision at the ROOT, not shadowing from within.
-        //    A package of this name would merge the schema's own types into the runtime's namespace,
-        //    where any sharing a name with something the runtime declares (`wire`, `Arena`,
-        //    `ByteView`, `WireType`, `dump`, `ArrayView`, `combine`, ... -- not a closed list)
-        //    clashes with it.
         // The two modes are worth keeping apart: SHADOWING needs a name the output looks up
         // unrooted (only `std`), while REDECLARATION needs a name the output already defines at the
         // same scope. `rp_dump_detail` is out of reach via the `rp_` rule. The model sub-namespace
@@ -145,7 +140,6 @@ std::string sanitize(std::string_view name) {
         "kName",
         "decode",
         "std",
-        "rapidproto",
     };
     std::string out(name);
     // `rp_`-prefixed: any proto name beginning with the generator-internal prefix. A single trailing
@@ -316,7 +310,15 @@ std::string namespace_of(std::string_view package) {
             if (!out.empty()) {
                 out += "::";
             }
-            out += sanitize(component);
+            // `rapidproto` is escaped HERE rather than in sanitize(), because it only clashes as
+            // a NAMESPACE: a package of that name merges the schema's own types into the runtime's,
+            // where any sharing a name with something the runtime declares (`wire`, `Arena`,
+            // `ByteView`, `WireType`, `dump`, `ArrayView`, ... -- not a closed list) redeclares it.
+            // A message or field called `rapidproto` sits in the schema's own namespace and never
+            // collides, so reserving it outright would rename working API -- and, because this
+            // scope is per file (see index_file), could land it on a sibling file's `rapidproto_`.
+            const std::string id = sanitize(component);
+            out += id == "rapidproto" ? "rapidproto_" : id;
             component.clear();
         }
     };

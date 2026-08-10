@@ -52,9 +52,11 @@
 #include "dumpgen_golden/prefixed/main.rp.dump.hpp"  // --namespace-prefix + imports
 #include "dumpgen_golden/proto2.rp.dump.hpp"
 #include "dumpgen_golden/proto3.rp.dump.hpp"
+#include "dumpgen_golden/rppkg.rp.dump.hpp"      // package `rapidproto` -> namespace rapidproto_
 #include "dumpgen_golden/samepkg_a.rp.dump.hpp"  // same-package multi-file (pulls samepkg_b)
-#include "dumpgen_golden/weakmain.rp.dump.hpp"   // weak import (pulls weakdep)
-#include "dumpgen_golden/wire_all.rp.dump.hpp"   // group + packed (dumped as a group)
+#include "dumpgen_golden/stdpkg.rp.dump.hpp"  // package `std` -> namespace std_, not namespace std
+#include "dumpgen_golden/weakmain.rp.dump.hpp"  // weak import (pulls weakdep)
+#include "dumpgen_golden/wire_all.rp.dump.hpp"  // group + packed (dumped as a group)
 #include "dumpgen_golden/xref.rp.dump.hpp"
 #include "dumpgen_golden/xref_prefixed/xref.rp.dump.hpp"  // --namespace-prefix=rp -> namespace rp::xr
 // IWYU pragma: end_keep
@@ -285,6 +287,11 @@ TEST_CASE("dumpgen: generated headers match the goldens", "[dumpgen]") {
     check_golden("arena_manyreq", generate_corpus("arena_manyreq.proto"));
     check_golden("arena_naming", generate_corpus("arena_naming.proto"));
     check_golden("naming", generate_corpus("naming.proto"));
+    // Package shapes: `namespace std` would be UB that compiles silently, so the byte-compare
+    // is the only thing that catches a regression; `rapidproto` is a hard redeclaration.
+    const std::string nsedge_dir = std::string(RAPIDPROTO_CORPUS_DIR) + "/nsedge";
+    check_golden("stdpkg", generate(nsedge_dir, "stdpkg.proto"));
+    check_golden("rppkg", generate(nsedge_dir, "rppkg.proto"));
     check_golden("proto2", generate_corpus("proto2.proto"));
     check_golden("proto3", generate_corpus("proto3.proto"));
     check_golden("editions2023", generate_corpus("editions2023.proto"));
