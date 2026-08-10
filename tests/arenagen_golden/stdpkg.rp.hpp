@@ -22,7 +22,7 @@ class Types {
   ::rapidproto::ArrayView<std::int64_t> many() const noexcept { return m_many; }
   [[nodiscard]] static const Types* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
-  template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
+  template <class rp_T> friend bool ::rapidproto::arena_detail::decode_into(rp_T&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
   static bool rp_decode_into(Types& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
   ::rapidproto::ArenaString m_s;
   ::rapidproto::ArrayView<std::int64_t> m_many;

@@ -23,7 +23,7 @@ class wire {
   std::int32_t x() const noexcept { return m_x; }
   [[nodiscard]] static const wire* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
-  template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
+  template <class rp_T> friend bool ::rapidproto::arena_detail::decode_into(rp_T&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
   static bool rp_decode_into(wire& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
   std::int32_t m_x;
 };
@@ -34,7 +34,7 @@ class Arena {
   std::int32_t y() const noexcept { return m_y; }
   [[nodiscard]] static const Arena* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
-  template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
+  template <class rp_T> friend bool ::rapidproto::arena_detail::decode_into(rp_T&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
   static bool rp_decode_into(Arena& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
   std::int32_t m_y;
 };
@@ -45,7 +45,7 @@ class Tag {
   std::string_view s() const noexcept { return m_s.view(); }
   [[nodiscard]] static const Tag* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
-  template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
+  template <class rp_T> friend bool ::rapidproto::arena_detail::decode_into(rp_T&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
   static bool rp_decode_into(Tag& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
   ::rapidproto::ArenaString m_s;
 };
@@ -56,7 +56,7 @@ class ByteView {
   std::string_view b() const noexcept { return m_b.view(); }
   [[nodiscard]] static const ByteView* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
-  template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
+  template <class rp_T> friend bool ::rapidproto::arena_detail::decode_into(rp_T&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
   static bool rp_decode_into(ByteView& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
   ::rapidproto::ArenaString m_b;
 };

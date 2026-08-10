@@ -16,8 +16,8 @@ struct Person {
   struct email   { using Value = std::string_view;     /* kNumber=3, kName="email"   */ };
   struct address { using Value = ::example::stream::Address; /* kNumber=4, kName="address" */ };
 
-  template <class... Callbacks>
-  [[nodiscard]] rapidproto::DecodeStatus decode(Callbacks&&... callbacks) const;
+  template <class... rp_Callbacks>
+  [[nodiscard]] rapidproto::DecodeStatus decode(rp_Callbacks&&... rp_callbacks) const;
 };
 ```
 

@@ -5,6 +5,21 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
 
 ## Unreleased
 
+### Changed
+
+- **`Callbacks` is a usable field name again**, and `RpFs` / `RpT` / `RpTag` never break a schema.
+  The generated code's own template parameters and aliases are now spelled `rp_Callbacks`, `rp_Fs`,
+  `rp_T` and `rp_Tag` — inside the `rp_` prefix the generator already reserves — so none of them
+  needs a reserved word of its own. `Callbacks` came off the reserved list as a result; the other
+  three were never on it, which is why `oneof RpFs` failed to compile rather than being escaped.
+
+  The principle: reserve a name only when it is public API a user writes and so cannot take the
+  prefix. That leaves `Value`, `Key`, `kNumber`, `kName`, `decode`, plus the two namespaces `std`
+  and `rapidproto`.
+
+  Only the streaming decoder's *declaration* changes shape (`template <class... rp_Callbacks>`);
+  callbacks are deduced, so calling code is unaffected. **Regenerate** to pick it up.
+
 ### Fixed
 
 - **Proto names that collide with what the generated code or its runtime defines are now escaped**

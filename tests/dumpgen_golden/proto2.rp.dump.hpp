@@ -257,13 +257,13 @@ inline void rp_dump_write(const ::p2::Container& m, ::rapidproto::dump::Writer& 
       }
     }
     m.choice([&](auto rp_tag, const auto& rp_v) {
-      using RpTag = std::decay_t<decltype(rp_tag)>;
-      if constexpr (std::is_same_v<RpTag, ::p2::Container::Choice::ci>) {
+      using rp_Tag = std::decay_t<decltype(rp_tag)>;
+      if constexpr (std::is_same_v<rp_Tag, ::p2::Container::Choice::ci>) {
         if (w.begin_field(rp_first, "ci")) {
           ::rapidproto::dump::write_int(w.os(), rp_v);
         }
       }
-      if constexpr (std::is_same_v<RpTag, ::p2::Container::Choice::cn>) {
+      if constexpr (std::is_same_v<rp_Tag, ::p2::Container::Choice::cn>) {
         if (w.begin_field(rp_first, "cn")) {
           w.push_path("cn");
           ::p2::rp_dump_detail::rp_dump_write(rp_v, w);

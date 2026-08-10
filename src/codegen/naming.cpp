@@ -117,8 +117,6 @@ std::string sanitize(std::string_view name) {
         //  - Value/Key/kNumber/kName: a streaming tag `struct value { using Value = ...; }` etc. would
         //    redeclare the injected-class-name.
         //  - decode: the generated decode() method (a same-named nested tag / arena accessor clashes).
-        //  - Callbacks: the streaming decode() template parameter pack; a nested tag of that name
-        //    shadows it in the out-of-line definition.
         //  - std: the one namespace generated code LOOKS UP unrooted (`std::int32_t`,
         //    `std::string_view`, `std::optional`). Any proto name that becomes a C++ TYPE would
         //    shadow it from inside the class -- a message or enum at any depth, a package component
@@ -137,14 +135,15 @@ std::string sanitize(std::string_view name) {
         // unrooted (only `std`), while REDECLARATION needs a name the output already defines at the
         // same scope. `rp_dump_detail` is out of reach via the `rp_` rule. The model sub-namespace
         // `<pkg>::stream` belongs to the second mode and is NOT handled -- see index_file().
-        // Every other emitted local is `rp_`-prefixed and each streaming tag is referenced by its
-        // message-qualified name, so common field names (value, tag, status, reader, ...) stay free.
+        // Every other name the emitters introduce is `rp_`-prefixed -- including the template
+        // parameter packs (`rp_Callbacks`, `rp_Fs`) and the friend/tag aliases (`rp_T`, `rp_Tag`),
+        // which are named that way SO THAT they need no entry here. Reserve a name below only when
+        // the identifier is public API a user writes and so cannot take the prefix.
         "Value",
         "Key",
         "kNumber",
         "kName",
         "decode",
-        "Callbacks",
         "std",
         "rapidproto",
     };

@@ -285,7 +285,7 @@ void emit_oneof_accessors(const Emit& emit, const OneofPlan& o) {
     // combine/handles_one dispatch the streaming decoder uses, but invoked via invoke_handler: a
     // handler must return void (the message is already decoded -- nothing to abort), as does the
     // reader itself. A `[](std::monostate)` handler covers the unset state.
-    p.print("template <class... RpFs> void $n$(RpFs&&... rp_fs) const {\n",
+    p.print("template <class... rp_Fs> void $n$(rp_Fs&&... rp_fs) const {\n",
             {{"n", emit.names.local.at(o.oneof)}});
     p.indent();
     for (const OneofMemberPlan& member : o.members) {
@@ -302,9 +302,9 @@ void emit_oneof_accessors(const Emit& emit, const OneofPlan& o) {
         what += '\'';
         std::string expected = tagref;
         expected += "::Value";
-        codegen::emit_dispatch_guards(p, "RpFs", args, what, expected);
+        codegen::emit_dispatch_guards(p, "rp_Fs", args, what, expected);
     }
-    codegen::emit_dispatch_guards(p, "RpFs", "std::monostate",
+    codegen::emit_dispatch_guards(p, "rp_Fs", "std::monostate",
                                   "a oneof's unset (std::monostate) state", "");
     // Per-handler stray guard: every handler must name one of THIS oneof's member tags (or
     // std::monostate, or be a catch-all). Catches a handler pasted from another oneof's reader,
@@ -318,11 +318,11 @@ void emit_oneof_accessors(const Emit& emit, const OneofPlan& o) {
     }
     tags += "std::monostate";
     p.print(
-        "static_assert((true && ... && !::rapidproto::is_stray_handler<RpFs, $tags$>),"
+        "static_assert((true && ... && !::rapidproto::is_stray_handler<rp_Fs, $tags$>),"
         " \"a callback matches no member of oneof '$o$' (and is not a catch-all or the"
         " std::monostate unset handler)\");\n",
         {{"tags", tags}, {"o", o.oneof->name}});
-    p.print("auto rp_d = ::rapidproto::combine(static_cast<RpFs&&>(rp_fs)...);\n");
+    p.print("auto rp_d = ::rapidproto::combine(static_cast<rp_Fs&&>(rp_fs)...);\n");
     p.print("switch ($c$) {\n", {{"c", emit.synth.case_member.at(o.oneof)}});
     p.indent();
     int index = 1;
@@ -342,7 +342,7 @@ void emit_oneof_accessors(const Emit& emit, const OneofPlan& o) {
         p.indent();
         p.print(
             "if constexpr ((false || ... ||"
-            " ::rapidproto::handles_one<RpFs, $S$::$id$, typename $S$::$id$::Value>)) {\n",
+            " ::rapidproto::handles_one<rp_Fs, $S$::$id$, typename $S$::$id$::Value>)) {\n",
             {{"S", tag}, {"id", id}});
         p.print("::rapidproto::invoke_handler(rp_d, $S$::$id${}, $val$);\n",
                 {{"S", tag}, {"id", id}, {"val", val}});
@@ -352,7 +352,8 @@ void emit_oneof_accessors(const Emit& emit, const OneofPlan& o) {
     }
     p.print("default:\n");
     p.indent();
-    p.print("if constexpr ((false || ... || ::rapidproto::handles_one<RpFs, std::monostate>)) {\n");
+    p.print(
+        "if constexpr ((false || ... || ::rapidproto::handles_one<rp_Fs, std::monostate>)) {\n");
     p.print("::rapidproto::invoke_handler(rp_d, std::monostate{});\n");
     p.print("}\n");
     p.print("break;\n");
@@ -668,7 +669,7 @@ void emit_message_body(const Emit& emit, const MessageNode& message) {
     p.print(" private:\n");
     p.indent();
     p.print(
-        "template <class RpT> friend bool ::rapidproto::arena_detail::decode_into(RpT&,"
+        "template <class rp_T> friend bool ::rapidproto::arena_detail::decode_into(rp_T&,"
         " ::rapidproto::ByteView, ::rapidproto::Arena&, int,"
         " ::rapidproto::ArenaDecodeError*) noexcept;\n");
     p.print(

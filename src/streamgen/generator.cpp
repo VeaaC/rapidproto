@@ -162,11 +162,11 @@ void emit_map_arm(Printer& printer, const CppNameTable& symbols, const MapFieldN
     printer.print("case $f$::kNumber:\n", {{"f", fname}});
     printer.indent();
     codegen::emit_dispatch_guards(
-        printer, "Callbacks", fname + ", " + fname + "::Key, " + fname + "::Value",
+        printer, "rp_Callbacks", fname + ", " + fname + "::Key, " + fname + "::Value",
         "map field '" + fname + "'", fname + "::Key, " + fname + "::Value");
     printer.print(
         "if constexpr ((false || ... ||"
-        " ::rapidproto::handles_one<Callbacks, $f$, $f$::Key, $f$::Value>)) {\n",
+        " ::rapidproto::handles_one<rp_Callbacks, $f$, $f$::Key, $f$::Value>)) {\n",
         {{"f", fname}});
     printer.indent();
     printer.print("if (rp_tag.wire_type == ::rapidproto::WireType::Len) {\n");
@@ -334,9 +334,9 @@ void emit_message(Printer& printer, const CppNameTable& symbols, const MessageNo
         printer.print("\n");
     }
 
-    printer.print("template <class... Callbacks>\n");
+    printer.print("template <class... rp_Callbacks>\n");
     printer.print(
-        "[[nodiscard]] ::rapidproto::DecodeStatus decode(Callbacks&&... rp_callbacks) const;\n");
+        "[[nodiscard]] ::rapidproto::DecodeStatus decode(rp_Callbacks&&... rp_callbacks) const;\n");
 
     printer.outdent();
     printer.print(" private:\n");
@@ -471,11 +471,11 @@ void emit_arm(Printer& printer, const std::string& fname, const FieldGen& gen, b
 
     printer.print("case $f$::kNumber:\n", {{"f", fname}});
     printer.indent();
-    codegen::emit_dispatch_guards(printer, "Callbacks", fname + ", " + fname + "::Value",
+    codegen::emit_dispatch_guards(printer, "rp_Callbacks", fname + ", " + fname + "::Value",
                                   "field '" + fname + "'", fname + "::Value");
     printer.print(
         "if constexpr ((false || ... ||"
-        " ::rapidproto::handles_one<Callbacks, $f$, $f$::Value>)) {\n",
+        " ::rapidproto::handles_one<rp_Callbacks, $f$, $f$::Value>)) {\n",
         {{"f", fname}});
     printer.indent();
 
@@ -564,11 +564,12 @@ bool is_threaded_field(const FieldNode& field, const FieldGen& gen) {
 void emit_decode_def(Printer& printer, const CppNameTable& symbols, const MessageNode& message,
                      const std::string& qualifier) {
     const auto fields = collect_fields(symbols, message);
-    printer.print("template <class... Callbacks>\n");
+    printer.print("template <class... rp_Callbacks>\n");
     // RP_FLATTEN: inline the wire primitives / dispatch / sub-decodes into this one function. GCC's
     // large-TU inliner is otherwise far more conservative than Clang's, leaving them out-of-line.
     printer.print(
-        "RP_FLATTEN ::rapidproto::DecodeStatus $Q$::decode(Callbacks&&... rp_callbacks) const {\n",
+        "RP_FLATTEN ::rapidproto::DecodeStatus $Q$::decode(rp_Callbacks&&... rp_callbacks) const "
+        "{\n",
         {{"Q", qualifier}});
     printer.indent();
     // Per-callback stray guard: every callback must name one of THIS message's tags (or be a
@@ -582,13 +583,13 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
         tags += ", " + symbols.local.at(&map);
     }
     printer.print(
-        "static_assert((true && ... && !::rapidproto::is_stray_callback<Callbacks$tags$>),"
+        "static_assert((true && ... && !::rapidproto::is_stray_callback<rp_Callbacks$tags$>),"
         " \"a callback matches no field of '$Q$' (and is not a catch-all or unknown-field"
         " handler)\");\n",
         {{"tags", tags}, {"Q", qualifier}});
     printer.print(
         "[[maybe_unused]] auto rp_dispatch = "
-        "::rapidproto::combine(static_cast<Callbacks&&>(rp_callbacks)...);\n");
+        "::rapidproto::combine(static_cast<rp_Callbacks&&>(rp_callbacks)...);\n");
     // Value-threaded wire loop: the cursor (rp_c) is threaded by value through the rapidproto::wire:: reader/skip free
     // functions and stays in registers -- no WireReader member whose address escapes to memory. Fail
     // offsets are anchored at byte_ptr(rp_span); rp_we is the shared error slot used by every arm.
@@ -631,11 +632,11 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
         const std::string fname = symbols.local.at(field);
         // The stray-callback / wrong-wire guards, emitted once per field: a threaded field has no
         // general-switch arm, so this label body is the sole site for them.
-        codegen::emit_dispatch_guards(printer, "Callbacks", fname + ", " + fname + "::Value",
+        codegen::emit_dispatch_guards(printer, "rp_Callbacks", fname + ", " + fname + "::Value",
                                       "field '" + fname + "'", fname + "::Value");
         printer.print(
             "if constexpr ((false || ... ||"
-            " ::rapidproto::handles_one<Callbacks, $f$, $f$::Value>)) {\n",
+            " ::rapidproto::handles_one<rp_Callbacks, $f$, $f$::Value>)) {\n",
             {{"f", fname}});
         printer.indent();
         emit_decode_and_invoke(printer, fname, gen, "rp_c", "rp_cend",
@@ -653,7 +654,7 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
         const std::string fname = symbols.local.at(field);
         printer.print(
             "if constexpr ((false || ... ||"
-            " ::rapidproto::handles_one<Callbacks, $f$, $f$::Value>)) {\n",
+            " ::rapidproto::handles_one<rp_Callbacks, $f$, $f$::Value>)) {\n",
             {{"f", fname}});
         printer.indent();
         emit_packed_body(printer, fname, gen);
@@ -708,7 +709,7 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
     printer.indent();
     printer.print(
         "if constexpr ((false || ... ||"
-        " ::rapidproto::specifically_handles_unknown<Callbacks>)) {\n");
+        " ::rapidproto::specifically_handles_unknown<rp_Callbacks>)) {\n");
     printer.indent();
     printer.print(
         "const std::size_t rp_value_start ="

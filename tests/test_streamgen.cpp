@@ -847,6 +847,12 @@ TEST_CASE("streamgen: colliding identifiers are de-duplicated and types bind abs
     // A FIELD named `stream` keeps its name: the model sub-namespace `nm::stream` is a different
     // scope from the class members, so nothing collides.
     CHECK(nm::stream::UsesStream::stream::kName == "stream");
+    // Names the emitters no longer reserve, because their own identifiers took the `rp_` prefix.
+    // These compile only if the proto name survived unescaped.
+    static_assert(nm::stream::Freed::Callbacks::kNumber == 1);
+    static_assert(nm::stream::Freed::RpFs::kNumber == 2);
+    static_assert(nm::stream::Freed::RpT::kNumber == 3);
+    static_assert(nm::stream::Freed::RpTag::kNumber == 4);
     SUCCEED("dedup + absolute-binding bindings compiled");
 }
 

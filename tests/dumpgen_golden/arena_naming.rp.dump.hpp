@@ -79,26 +79,26 @@ inline void rp_dump_write(const ::an::Collide& m, ::rapidproto::dump::Writer& w)
       }
     }
     m.pick([&](auto rp_tag, const auto& rp_v) {
-      using RpTag = std::decay_t<decltype(rp_tag)>;
-      if constexpr (std::is_same_v<RpTag, ::an::Collide::Pick::p1>) {
+      using rp_Tag = std::decay_t<decltype(rp_tag)>;
+      if constexpr (std::is_same_v<rp_Tag, ::an::Collide::Pick::p1>) {
         if (w.begin_field(rp_first, "p1")) {
           ::rapidproto::dump::write_int(w.os(), rp_v);
         }
       }
-      if constexpr (std::is_same_v<RpTag, ::an::Collide::Pick::p2>) {
+      if constexpr (std::is_same_v<rp_Tag, ::an::Collide::Pick::p2>) {
         if (w.begin_field(rp_first, "p2")) {
           ::rapidproto::dump::write_int(w.os(), rp_v);
         }
       }
     });
     m.letters([&](auto rp_tag, const auto& rp_v) {
-      using RpTag = std::decay_t<decltype(rp_tag)>;
-      if constexpr (std::is_same_v<RpTag, ::an::Collide::Letters::a>) {
+      using rp_Tag = std::decay_t<decltype(rp_tag)>;
+      if constexpr (std::is_same_v<rp_Tag, ::an::Collide::Letters::a>) {
         if (w.begin_field(rp_first, "a")) {
           ::rapidproto::dump::write_int(w.os(), rp_v);
         }
       }
-      if constexpr (std::is_same_v<RpTag, ::an::Collide::Letters::A>) {
+      if constexpr (std::is_same_v<rp_Tag, ::an::Collide::Letters::A>) {
         if (w.begin_field(rp_first, "A")) {
           ::rapidproto::dump::write_int(w.os(), rp_v);
         }
@@ -118,8 +118,8 @@ inline void rp_dump_write(const ::an::Callback& m, ::rapidproto::dump::Writer& w
       }
     }
     m.callback([&](auto rp_tag, const auto& rp_v) {
-      using RpTag = std::decay_t<decltype(rp_tag)>;
-      if constexpr (std::is_same_v<RpTag, ::an::Callback::Callback_::python_code>) {
+      using rp_Tag = std::decay_t<decltype(rp_tag)>;
+      if constexpr (std::is_same_v<rp_Tag, ::an::Callback::Callback_::python_code>) {
         if (w.begin_field(rp_first, "python_code")) {
           w.os() << '"'; ::rapidproto::dump::write_json_escaped(w.os(), rp_v); w.os() << '"';
         }
@@ -214,8 +214,8 @@ inline void rp_dump_write(const ::an::config& m, ::rapidproto::dump::Writer& w) 
   w.group('{', '}', [&] {
     bool rp_first = true;
     m.config_([&](auto rp_tag, const auto& rp_v) {
-      using RpTag = std::decay_t<decltype(rp_tag)>;
-      if constexpr (std::is_same_v<RpTag, ::an::config::Config::a>) {
+      using rp_Tag = std::decay_t<decltype(rp_tag)>;
+      if constexpr (std::is_same_v<rp_Tag, ::an::config::Config::a>) {
         if (w.begin_field(rp_first, "a")) {
           w.os() << '"'; ::rapidproto::dump::write_json_escaped(w.os(), rp_v); w.os() << '"';
         }
@@ -235,8 +235,8 @@ inline void rp_dump_write(const ::an::MaskOneof& m, ::rapidproto::dump::Writer& 
       }
     }
     m.mask([&](auto rp_tag, const auto& rp_v) {
-      using RpTag = std::decay_t<decltype(rp_tag)>;
-      if constexpr (std::is_same_v<RpTag, ::an::MaskOneof::Mask::a>) {
+      using rp_Tag = std::decay_t<decltype(rp_tag)>;
+      if constexpr (std::is_same_v<rp_Tag, ::an::MaskOneof::Mask::a>) {
         if (w.begin_field(rp_first, "a")) {
           ::rapidproto::dump::write_int(w.os(), rp_v);
         }

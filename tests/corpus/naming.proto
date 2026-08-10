@@ -156,3 +156,18 @@ message OneofTags {
 message UsesStream {
   optional int32 stream = 1;
 }
+
+// Names the emitters used to reserve, freed by giving their own identifiers the `rp_` prefix
+// instead. Each of these is a template parameter or alias in generated code -- `rp_Callbacks` and
+// `rp_Fs` are the callback packs, `rp_T` the decode_into friend's parameter, `rp_Tag` the dumper's
+// oneof alias -- so a proto name of the old spelling is now just an ordinary identifier.
+message Freed {
+  optional int32 Callbacks = 1;
+  optional int32 RpFs = 2;
+  optional int32 RpT = 3;
+  optional int32 RpTag = 4;
+
+  oneof RpFs_oneof {  // the arena visitor's pack shares this class scope
+    int32 x = 5;
+  }
+}

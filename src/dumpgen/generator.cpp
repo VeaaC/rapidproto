@@ -390,11 +390,11 @@ void emit_oneof(Printer& p, const CppNameTable& names, const OneofNode& o,
     // so name it from the shared table rather than re-deriving it from the proto name.
     p.print("m.$o$([&](auto rp_tag, const auto& rp_v) {\n", {{"o", names.local.at(&o)}});
     p.indent();
-    p.print("using RpTag = std::decay_t<decltype(rp_tag)>;\n");
+    p.print("using rp_Tag = std::decay_t<decltype(rp_tag)>;\n");
     for (const FieldNode& f : o.fields) {
         const ValueKind kind = value_kind(f);
         const std::string member_tag = oneof_tag + "::" + names.local.at(&f);
-        p.print("if constexpr (std::is_same_v<RpTag, $tag$>) {\n", {{"tag", member_tag}});
+        p.print("if constexpr (std::is_same_v<rp_Tag, $tag$>) {\n", {{"tag", member_tag}});
         p.indent();
         p.print("if (w.begin_field(rp_first, \"$k$\")) {\n", {{"k", f.name}});
         p.indent();
