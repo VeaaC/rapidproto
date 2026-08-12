@@ -1,9 +1,11 @@
 #pragma once
 
 // Shared between the parser's translation units. The parser is split across TUs purely for BUILD
-// COST: `src/parser.cpp` was ~340s of the gate's ~290s clang-tidy stage -- one file on the critical
-// path -- because the check matchers walk an AST whose size is driven by combinator width. The
-// compile itself is only ~18s, so this buys parallelism, not less work.
+// COST: `src/parser.cpp` was the slowest TU in the ~290s clang-tidy stage, because the check
+// matchers walk an AST whose size is driven by combinator width rather than by line count (the
+// compile is ~20s under clang, ~42s under gcc). Measured, uncontended: 195s -> 171s for the file,
+// 287s -> 270s for the stage. Total tidy CPU goes slightly UP (195s -> 202s) -- this buys a shorter
+// critical path, not less work, which is also why it matters more to CI's sharded tidy job.
 //
 // What lives here is deliberately narrow: the few `auto`-returning combinator helpers that are too
 // small to be worth a call boundary (each TU instantiates its own copy, which is cheap), plus
@@ -22,11 +24,10 @@
 #include "rapidproto/range.hpp"
 #include "rapidproto/result.hpp"
 
-namespace rapidproto {
-// A nested namespace, not the anonymous one: these have to be visible across the parser's TUs.
+// A named namespace, not the anonymous one: these have to be visible across the parser's TUs.
 // Each .cpp does `using namespace parse_detail;` so call sites read exactly as they did when this
 // was all one file.
-namespace parse_detail {
+namespace rapidproto::parse_detail {
 
 inline bool is_keyword(TokenKind k) {
     return k >= TokenKind::KwSyntax && k <= TokenKind::KwNan;
@@ -85,5 +86,4 @@ inline auto reserved_range(std::int32_t max_sentinel) {
 // ReservedDecl = "reserved" ( Range {"," Range} | Name {"," Name} ) ";"
 Result<Parsed<ReservedNode, Token>> parse_reserved(Range<Token> in, std::int32_t max_sentinel);
 
-}  // namespace parse_detail
-}  // namespace rapidproto
+}  // namespace rapidproto::parse_detail

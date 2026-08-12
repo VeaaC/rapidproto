@@ -1,11 +1,13 @@
 // The enum / reserved-range corner of the schema grammar, split out of parser.cpp for BUILD COST
 // rather than for design: see src/parser_internal.hpp. clang-tidy's matchers walk an AST whose size
-// tracks combinator width, and parser.cpp alone was the gate's critical path at ~340s (its compile
-// is only ~18s). Splitting the width across TUs lets the lint run in parallel.
+// tracks combinator width, and parser.cpp was the slowest TU in the tidy stage. Splitting the width
+// lets the lint parallelise: measured uncontended, the file went 195s -> 171s, the stage 287s ->
+// 270s. `parse_enum` is public API, so it stays in `rapidproto`, not `parse_detail`.
 //
 // Self-contained by design: `signed_int`, the reserved-name parser and the enum body live only
 // here. The three entry points parser.cpp still calls -- reserved_range, parse_reserved, parse_enum
-// -- are declared in the internal header; everything else stays in the anonymous namespace.
+// -- are declared in the internal header (bar parse_enum); everything else is in the anonymous
+// namespace.
 
 #include <cstdint>
 #include <string>

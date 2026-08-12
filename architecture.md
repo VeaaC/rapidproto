@@ -1098,7 +1098,8 @@ reflected (a documented simplification; decoders accept both wire forms).
   googleapis — `tests/fetch_corpus.py`, nothing vendored). Because RapidProto parses `.proto` itself
   rather than consuming a protoc `FileDescriptorSet`, that corpus is the only available check that
   the
-  front-end accepts what protoc accepts. `check.sh`'s **`corpus` stage** drives every fetched schema
+  front-end accepts what protoc accepts. `check.sh`'s **`corpus` stage** -- in the `deep` tier and its own CI job, not the default gate --
+  drives every fetched schema
   through `rapidprotoc` — parse → resolve → analyze → generate, all three emitters — and diffs the
   outcome against `tests/corpus_expected_failures.txt` (the policy for that list is in
   [CONTRIBUTING.md](CONTRIBUTING.md)). **Compiling** the generated code is deliberately not swept:

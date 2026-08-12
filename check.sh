@@ -5,12 +5,14 @@
 # tests). Operates only on our own sources -- never the vendored Catch2 amalgam or
 # the thin CLI driver src/main.cpp.
 #
-#   ./check.sh        # full gate: format check, doc links, build+test both compilers, compile-fail,
-#                     # clang-tidy, and the real-world schema corpus sweep
+#   ./check.sh        # full gate: format check, doc links, nsedge fixture coverage, build+test on
+#                     # both compilers, compile-fail, fuzz-compile, clang-tidy, the C++20/23 header
+#                     # smoke and the randomized differential. NOT the corpus sweep -- see `deep`.
 #   ./check.sh fix    # first apply clang-format, then run the full gate
 #   ./check.sh quick  # fast inner loop: apply formatting + gcc build+test only (no clang/tidy)
 #   ./check.sh deep   # OPT-IN heavy tier (CI / end-of-phase, NOT the inner loop): ASan+UBSan over the
-#                     # full suite, coverage with a line floor, and a fuzz smoke over the four targets
+#                     # full suite, coverage with a line floor, the real-world corpus sweep, and a
+#                     # fuzz smoke over the four targets
 #                     # (three decode paths + the schema front-end). Slow (three instrumented builds).
 #                     # Override: FUZZ_TIME=120 COV_FLOOR=88.
 #
@@ -22,9 +24,9 @@
 # RAPIDPROTO_GATE_SERIAL=1 runs stages one at a time (the default under GITHUB_ACTIONS).
 #
 # The independent stages (format, doc-links, fixture-coverage, gcc build+test, clang build+test,
-# compile-fail, fuzz-compile, clang-tidy) run concurrently; each build is a parallel build and clang-tidy is
-# parallelized across files. The corpus stage is the exception: it consumes the gcc stage's
-# rapidprotoc, so it runs after them. Per-stage output is captured and printed in a fixed
+# compile-fail, fuzz-compile, clang-tidy) run concurrently; each build is a parallel build and
+# clang-tidy is parallelized across files. Three run after that block: corpus (only when asked for)
+# and the differential consume the gcc stage's binaries, and the C++20/23 smoke needs the goldens. Per-stage output is captured and printed in a fixed
 # order so nothing interleaves. Exits non-zero if anything is not clean.
 
 set -uo pipefail
@@ -52,7 +54,12 @@ EXTRA_SRC=(tests/bench_streamgen.cpp tests/bench_stream_isolated.cpp tests/bench
 # the vendored Catch2 amalgam, so a newly-added helper can't silently escape the format gate.
 TEST_HDR=()
 for _h in tests/*.hpp; do [[ "$_h" == tests/catch_amalgamated.hpp ]] || TEST_HDR+=("$_h"); done
-FORMAT_FILES=("${HEADERS[@]}" "${LIB_SRC[@]}" "${TEST_SRC[@]}" "${CLI_SRC[@]}" "${EXTRA_SRC[@]}" "${TEST_HDR[@]}")
+# SRC_HDR: private headers under src/. They are outside HEADERS (which is include/-only) and are
+# not TUs, so without naming them here they escape BOTH the format check and clang-tidy's
+# --header-filter -- 89 unlinted lines the moment one is added.
+SRC_HDR=()
+for _h in src/*.hpp src/*/*.hpp; do [[ -f "$_h" ]] && SRC_HDR+=("$_h"); done
+FORMAT_FILES=("${HEADERS[@]}" "${SRC_HDR[@]}" "${LIB_SRC[@]}" "${TEST_SRC[@]}" "${CLI_SRC[@]}" "${EXTRA_SRC[@]}" "${TEST_HDR[@]}")
 
 section() { printf '\n=== %s ===\n' "$1"; }
 
@@ -215,6 +222,15 @@ if [[ "${1:-}" == "deep" ]]; then
   fi
   if [[ -x ./build/gcc/rapidprotoc ]]; then
     python3 tests/corpus_gate.py --rapidprotoc ./build/gcc/rapidprotoc --jobs "$JOBS" || deep_fail=1
+    # job_corpus runs the sweep AND the [corpus] resolver cases; both moved, not just the sweep.
+    if [[ -x ./build/gcc/rapidproto_tests ]]; then
+      corpus_out=$(./build/gcc/rapidproto_tests "[corpus]~[sweep]" 2>&1)
+      if grep -qE '^[[:space:]]*(assertions|test cases):.*[0-9]+ failed|FAILED' <<<"$corpus_out"; then
+        echo ">> corpus resolver cases failed:"; tail -20 <<<"$corpus_out"; deep_fail=1
+      else
+        tail -1 <<<"$corpus_out"
+      fi
+    fi
   else
     echo ">> could not build build/gcc/rapidprotoc for the corpus sweep"; deep_fail=1
   fi
@@ -227,8 +243,15 @@ fi
 # Kept, not deleted: after a long run the useful next step is almost always "read the stage that
 # failed", and a deleted log means re-running the whole gate to see it again. One fixed path so the
 # summary can name it (and so a second run does not accumulate directories).
-LOG="build/gate-logs"
+# Per-run directory, symlinked to a stable name. A single fixed path let a second, overlapping run
+# `rm -rf` the first's results: the first then printed the second's logs and reported ALL GREEN with
+# its own failure erased. The symlink keeps "read build/gate-logs" true for the last run started.
+LOG="build/gate-logs.$$"
 rm -rf "$LOG"; mkdir -p "$LOG"
+rm -rf build/gate-logs   # a plain `ln -sfn` into an existing directory links INSIDE it
+ln -sfn "$(basename "$LOG")" build/gate-logs
+# Keep the last few runs, not every run since the epoch.
+ls -dt build/gate-logs.* 2>/dev/null | tail -n +4 | xargs -r rm -rf
 # A CI kill (OOM, preemption, cancellation) arrives as SIGTERM and would discard every buffered
 # stage log -- exactly when the logs matter most. Dump whatever was captured before dying.
 trap 'echo ">> check.sh: killed (SIGTERM/SIGINT) -- dumping captured stage logs"; for f in "$LOG"/*; do [[ -f "$f" ]] && { echo "--- ${f##*/} ---"; cat "$f"; }; done; exit 143' TERM INT
@@ -378,8 +401,10 @@ tidy_one() {
   # --header-filter on the COMMAND LINE, not (only) the config file: clang-tidy < 20.1.8 ignores
   # the config's HeaderFilterRegex, silently skipping all header diagnostics -- the gate must
   # lint headers identically on every toolchain point release. Anchored to include/rapidproto
-  # (see .clang-tidy for why a bare 'rapidproto/.*' is wrong).
-  out=$("$CLANG_TIDY" -p build/clang --quiet --header-filter='include/rapidproto/.*' "$f" 2>/dev/null \
+  # (see .clang-tidy for why a bare 'rapidproto/.*' is wrong), plus src/ for the parser's private
+  # header: without that alternative its contents are linted by nothing at all.
+  out=$("$CLANG_TIDY" -p build/clang --quiet \
+    --header-filter='(include/rapidproto|src)/.*\.hpp' "$f" 2>/dev/null \
     | grep -E 'warning:|error:')
   if [[ -n "$out" ]]; then
     { printf '>> %s\n' "$f"; head -20 <<<"$out"; } >"$TIDY_D/$(tr / _ <<<"$f")"
@@ -496,10 +521,15 @@ stage_job() {
     corpus)       job_corpus ;;
     cxx20)        job_cxx20_smoke ;;
     differential) job_differential ;;
+    # Not optional: without it, a key added to STAGE_KEYS but not here falls out of the case with
+    # status 0 and an empty log -- a stage that can only ever report success, which is the exact
+    # failure this table was introduced to remove.
+    *) echo ">> no job defined for stage '$1'"; return 1 ;;
   esac
 }
 
-# Which stages run (default: all). CI splits them across runner jobs -- the build/test stages in one,
+# Which stages run (default: everything except corpus -- see DEFAULT_STAGES). CI splits them
+# across runner jobs -- the build/test stages in one,
 # tidy shards in a matrix -- so wall-clock is the slowest runner. An unknown key is a hard error: a
 # comma instead of a space, or one typo, used to skip EVERY stage and report ALL GREEN in a second.
 if [[ -n "${RAPIDPROTO_GATE_STAGES:-}" ]]; then

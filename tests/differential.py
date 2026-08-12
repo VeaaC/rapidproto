@@ -39,6 +39,7 @@ Usage:
     python3 tests/differential.py --messages 200        # more payloads per message type
     python3 tests/differential.py --seed 7 --verbose
     python3 tests/differential.py --schema tests/corpus/proto3.proto
+    python3 tests/differential.py --jobs 4                # schemas checked in parallel
     python3 tests/differential.py --write-seeds build/fuzz/payload-seeds   # seed the fuzzers
 """
 
