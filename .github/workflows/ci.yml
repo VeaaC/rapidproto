@@ -28,7 +28,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-toolchain
       - name: Quality gate minus tidy (./check.sh)
-        run: RAPIDPROTO_GATE_STAGES='format docs gcc clang cf fuzz differential' ./check.sh
+        run: RAPIDPROTO_GATE_STAGES='format docs fixtures gcc clang cf fuzz cxx20 differential' ./check.sh
 
   # The real-world compatibility check (see tests/corpus_gate.py for what it covers and why).
   # Its own job because it needs a ~100 MB fetch the other jobs don't, keeping that off the main

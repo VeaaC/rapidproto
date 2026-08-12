@@ -146,6 +146,13 @@ arena layout plan — all dumped to text and compared byte-for-byte). After an *
 to a generator or a dumper, regenerate with `tests/regen_goldens.sh`, then run `./check.sh` and
 review the diff by hand. Never hand-edit a file under `tests/*_golden/`.
 
+Adding a schema to `tests/corpus/nsedge/` needs one extra step: the regen scripts only *overwrite*
+goldens that already exist, so seed each one once by running `rapidprotoc` directly, and add the
+fixture to `tests/regen_goldens.sh`, `tests/regen_arenagen_goldens.sh`, and the case list plus
+`#include` in the matching test file. `tests/check_fixture_coverage.sh` (a gate stage) fails until
+the fixture is referenced by both regen scripts and both goldens exist — without it a new fixture
+is silently unpinned, since a package/namespace shape can fail in ways no compiler reports.
+
 ## Style & scope
 
 - All hand-written code is `clang-format`ed; the gate enforces it, and nothing is exempt. Comments

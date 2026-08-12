@@ -95,4 +95,9 @@ echo "[5/5] regenerating AST + wire + arena-layout + common goldens via the test
 RAPIDPROTO_REGEN_GOLDEN=1 ./build/gcc/rapidproto_tests "[golden],[wire-golden],[arena-layout],[common]" 2>&1 |
   grep -i "regenerated" || true
 
+# The reverse of the orphan check at [2/5], which only flags a golden that exists but was not
+# regenerated: this catches a fixture with no golden at all. Shared with check.sh (the `fixtures`
+# gate stage, which CI runs) so it holds even when nobody runs this script.
+tests/check_fixture_coverage.sh
+
 echo "done -- review the diff (git diff), then run ./check.sh to confirm."

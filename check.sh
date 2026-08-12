@@ -14,8 +14,8 @@
 #                     # (three decode paths + the schema front-end). Slow (three instrumented builds).
 #                     # Override: FUZZ_TIME=120 COV_FLOOR=88.
 #
-# The independent stages (format, doc-links, gcc build+test, clang build+test, compile-fail,
-# fuzz-compile, clang-tidy) run concurrently; each build is a parallel build and clang-tidy is
+# The independent stages (format, doc-links, fixture-coverage, gcc build+test, clang build+test,
+# compile-fail, fuzz-compile, clang-tidy) run concurrently; each build is a parallel build and clang-tidy is
 # parallelized across files. The corpus stage is the exception: it consumes the gcc stage's
 # rapidprotoc, so it runs after them. Per-stage output is captured and printed in a fixed
 # order so nothing interleaves. Exits non-zero if anything is not clean.
@@ -240,6 +240,9 @@ job_doc_links() {
   python3 tests/check_doc_links.py
 }
 
+job_fixtures() {
+  tests/check_fixture_coverage.sh
+}
 
 job_build_test() {  # $1 = preset; parallel build, then run the test binary
   local preset=$1 build_out test_out rc
@@ -429,10 +432,10 @@ job_differential() {
   python3 tests/differential.py --build-dir ./build/gcc
 }
 
-# Which of the ten gate stages run (default: all). CI splits them across runner jobs -- the
+# Which of the eleven gate stages run (default: all). CI splits them across runner jobs -- the
 # build/test stages in one, tidy shards in a matrix -- so wall-clock is the slowest runner.
 stage_enabled() {
-  [[ " ${RAPIDPROTO_GATE_STAGES:-format docs gcc clang cf fuzz tidy corpus cxx20 differential} " == *" $1 "* ]]
+  [[ " ${RAPIDPROTO_GATE_STAGES:-format docs fixtures gcc clang cf fuzz tidy corpus cxx20 differential} " == *" $1 "* ]]
 }
 run_stage() {  # $1 stage key, $2 log name, rest: the job command
   local key=$1 log=$2; shift 2
@@ -454,6 +457,7 @@ if [[ "${RAPIDPROTO_GATE_SERIAL:-${GITHUB_ACTIONS:+1}}" == "1" ]]; then
   # job anyway, the last line names the guilty stage.
   echo "serial gate: format";        run_stage format "format" job_format;         rc_format=$?
   echo "serial gate: doc-links";     run_stage docs   "docs"   job_doc_links;      rc_docs=$?
+  echo "serial gate: fixtures";     run_stage fixtures "fixtures" job_fixtures;  rc_fixtures=$?
   echo "serial gate: build gcc";     run_stage gcc    "gcc"    job_build_test gcc; rc_gcc=$?
   echo "serial gate: build clang";   run_stage clang  "clang"  job_build_test clang; rc_clang=$?
   echo "serial gate: compile-fail";  run_stage cf     "cf"     job_compile_fail;   rc_cf=$?
@@ -462,6 +466,7 @@ if [[ "${RAPIDPROTO_GATE_SERIAL:-${GITHUB_ACTIONS:+1}}" == "1" ]]; then
 else
   run_stage format "format" job_format         & p_format=$!
   run_stage docs   "docs"   job_doc_links      & p_docs=$!
+  run_stage fixtures "fixtures" job_fixtures   & p_fixtures=$!
   run_stage gcc    "gcc"    job_build_test gcc & p_gcc=$!
   run_stage clang  "clang"  job_build_test clang & p_clang=$!
   run_stage cf     "cf"     job_compile_fail   & p_cf=$!
@@ -470,6 +475,7 @@ else
 
   wait "$p_format"; rc_format=$?
   wait "$p_docs";   rc_docs=$?
+  wait "$p_fixtures"; rc_fixtures=$?
   wait "$p_gcc";    rc_gcc=$?
   wait "$p_clang";  rc_clang=$?
   wait "$p_cf";     rc_cf=$?
@@ -489,6 +495,7 @@ run_stage differential "differential" job_differential; rc_differential=$?
 section "generated headers at c++20/c++23";            cat "$LOG/cxx20"
 section "clang-format (check)";                       cat "$LOG/format"
 section "doc links";                                  cat "$LOG/docs"
+section "corpus fixture coverage";                    cat "$LOG/fixtures"
 section "build + test (gcc)";                         cat "$LOG/gcc"
 section "build + test (clang)";                       cat "$LOG/clang"
 section "compile-fail (generated decoder rejects misuse)"; cat "$LOG/cf"
@@ -498,7 +505,7 @@ section "real-world schema corpus";                        cat "$LOG/corpus"
 section "randomized differential vs protobuf";             cat "$LOG/differential"
 
 fail=0
-for rc in "$rc_format" "$rc_docs" "$rc_gcc" "$rc_clang" "$rc_cf" "$rc_fuzz" "$rc_tidy" \
+for rc in "$rc_format" "$rc_docs" "$rc_fixtures" "$rc_gcc" "$rc_clang" "$rc_cf" "$rc_fuzz" "$rc_tidy" \
          "$rc_corpus" "$rc_cxx20" "$rc_differential"; do
   [[ "$rc" -ne 0 ]] && fail=1
 done
