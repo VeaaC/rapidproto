@@ -14,6 +14,13 @@
 #                     # (three decode paths + the schema front-end). Slow (three instrumented builds).
 #                     # Override: FUZZ_TIME=120 COV_FLOOR=88.
 #
+# Every stage's output is captured to build/gate-logs/<stage> and kept after the run, so a failure
+# you piped past can be read back instead of re-running the gate. The summary names the stages that
+# failed, how long each took, and how many ran -- `./check.sh | tail -20` is enough to triage.
+#
+# RAPIDPROTO_GATE_STAGES='gcc tidy' runs a subset (space-separated; an unknown key is an error).
+# RAPIDPROTO_GATE_SERIAL=1 runs stages one at a time (the default under GITHUB_ACTIONS).
+#
 # The independent stages (format, doc-links, fixture-coverage, gcc build+test, clang build+test,
 # compile-fail, fuzz-compile, clang-tidy) run concurrently; each build is a parallel build and clang-tidy is
 # parallelized across files. The corpus stage is the exception: it consumes the gcc stage's
@@ -204,8 +211,11 @@ if [[ "${1:-}" == "deep" ]]; then
   exit "$deep_fail"
 fi
 
-LOG="$(mktemp -d)"
-trap 'rm -rf "$LOG"' EXIT
+# Kept, not deleted: after a long run the useful next step is almost always "read the stage that
+# failed", and a deleted log means re-running the whole gate to see it again. One fixed path so the
+# summary can name it (and so a second run does not accumulate directories).
+LOG="build/gate-logs"
+rm -rf "$LOG"; mkdir -p "$LOG"
 # A CI kill (OOM, preemption, cancellation) arrives as SIGTERM and would discard every buffered
 # stage log -- exactly when the logs matter most. Dump whatever was captured before dying.
 trap 'echo ">> check.sh: killed (SIGTERM/SIGINT) -- dumping captured stage logs"; for f in "$LOG"/*; do [[ -f "$f" ]] && { echo "--- ${f##*/} ---"; cat "$f"; }; done; exit 143' TERM INT
@@ -432,18 +442,79 @@ job_differential() {
   python3 tests/differential.py --build-dir ./build/gcc
 }
 
-# Which of the eleven gate stages run (default: all). CI splits them across runner jobs -- the
-# build/test stages in one, tidy shards in a matrix -- so wall-clock is the slowest runner.
-stage_enabled() {
-  [[ " ${RAPIDPROTO_GATE_STAGES:-format docs fixtures gcc clang cf fuzz tidy corpus cxx20 differential} " == *" $1 "* ]]
+# THE stage table. Adding a gate stage means one key here, one title, one job -- and nothing else:
+# the run loops, the log capture, the printing and the pass/fail aggregation are all driven off this
+# list. The previous shape needed six separate edits, two of which (the default allow-list and the
+# rc_<name> aggregation) failed SILENTLY when missed, leaving a stage that could only report success.
+readonly STAGE_KEYS=(format docs fixtures gcc clang cf fuzz tidy corpus cxx20 differential)
+
+stage_title() {
+  case $1 in
+    format)       echo "clang-format (check)" ;;
+    docs)         echo "doc links" ;;
+    fixtures)     echo "corpus fixture coverage" ;;
+    gcc)          echo "build + test (gcc)" ;;
+    clang)        echo "build + test (clang)" ;;
+    cf)           echo "compile-fail (generated decoder rejects misuse)" ;;
+    fuzz)         echo "fuzz harness compile-check" ;;
+    tidy)         echo "clang-tidy (library = strict, tests = relaxed)" ;;
+    corpus)       echo "real-world schema corpus" ;;
+    cxx20)        echo "generated headers at c++20/c++23" ;;
+    differential) echo "randomized differential vs protobuf" ;;
+  esac
 }
-run_stage() {  # $1 stage key, $2 log name, rest: the job command
-  local key=$1 log=$2; shift 2
-  if stage_enabled "$key"; then
-    "$@" >"$LOG/$log" 2>&1
-  else
-    echo "stage skipped (RAPIDPROTO_GATE_STAGES)" >"$LOG/$log"
+
+stage_job() {
+  case $1 in
+    format)       job_format ;;
+    docs)         job_doc_links ;;
+    fixtures)     job_fixtures ;;
+    gcc)          job_build_test gcc ;;
+    clang)        job_build_test clang ;;
+    cf)           job_compile_fail ;;
+    fuzz)         job_fuzz_compile ;;
+    tidy)         job_tidy ;;
+    corpus)       job_corpus ;;
+    cxx20)        job_cxx20_smoke ;;
+    differential) job_differential ;;
+  esac
+}
+
+# Which stages run (default: all). CI splits them across runner jobs -- the build/test stages in one,
+# tidy shards in a matrix -- so wall-clock is the slowest runner. An unknown key is a hard error: a
+# comma instead of a space, or one typo, used to skip EVERY stage and report ALL GREEN in a second.
+if [[ -n "${RAPIDPROTO_GATE_STAGES:-}" ]]; then
+  for want in $RAPIDPROTO_GATE_STAGES; do
+    known=0
+    for key in "${STAGE_KEYS[@]}"; do [[ "$want" == "$key" ]] && known=1; done
+    if [[ $known -eq 0 ]]; then
+      echo ">> unknown gate stage '$want' in RAPIDPROTO_GATE_STAGES" >&2
+      echo ">> valid stages (space-separated): ${STAGE_KEYS[*]}" >&2
+      exit 2
+    fi
+  done
+fi
+
+stage_enabled() {
+  [[ " ${RAPIDPROTO_GATE_STAGES:-${STAGE_KEYS[*]}} " == *" $1 "* ]]
+}
+
+# Records the outcome and duration BESIDE the log, because a concurrent stage runs in a subshell and
+# cannot assign to a parent variable -- which is exactly how a hand-written rc_<name> came to be
+# forgotten. Reading it back from disk means an unrecorded stage is visibly absent, not silently 0.
+run_stage() {  # $1 = stage key
+  local key=$1 start rc
+  if ! stage_enabled "$key"; then
+    echo "stage skipped (RAPIDPROTO_GATE_STAGES)" >"$LOG/$key"
+    echo skipped >"$LOG/$key.rc"
+    return 0
   fi
+  start=$SECONDS
+  stage_job "$key" >"$LOG/$key" 2>&1
+  rc=$?
+  echo "$rc" >"$LOG/$key.rc"
+  echo "$((SECONDS - start))" >"$LOG/$key.dur"
+  return "$rc"
 }
 
 # --- run all stages, capturing each to its own log ------------------------------------------------
@@ -455,65 +526,56 @@ run_stage() {  # $1 stage key, $2 log name, rest: the job command
 if [[ "${RAPIDPROTO_GATE_SERIAL:-${GITHUB_ACTIONS:+1}}" == "1" ]]; then
   # Progress lines go straight to stdout (stage output stays buffered): if the runner kills the
   # job anyway, the last line names the guilty stage.
-  echo "serial gate: format";        run_stage format "format" job_format;         rc_format=$?
-  echo "serial gate: doc-links";     run_stage docs   "docs"   job_doc_links;      rc_docs=$?
-  echo "serial gate: fixtures";     run_stage fixtures "fixtures" job_fixtures;  rc_fixtures=$?
-  echo "serial gate: build gcc";     run_stage gcc    "gcc"    job_build_test gcc; rc_gcc=$?
-  echo "serial gate: build clang";   run_stage clang  "clang"  job_build_test clang; rc_clang=$?
-  echo "serial gate: compile-fail";  run_stage cf     "cf"     job_compile_fail;   rc_cf=$?
-  echo "serial gate: fuzz-compile";  run_stage fuzz   "fuzz"   job_fuzz_compile;   rc_fuzz=$?
-  echo "serial gate: tidy";          run_stage tidy   "tidy"   job_tidy;           rc_tidy=$?
+  for key in format docs fixtures gcc clang cf fuzz tidy; do
+    echo "serial gate: $key"
+    run_stage "$key"
+  done
 else
-  run_stage format "format" job_format         & p_format=$!
-  run_stage docs   "docs"   job_doc_links      & p_docs=$!
-  run_stage fixtures "fixtures" job_fixtures   & p_fixtures=$!
-  run_stage gcc    "gcc"    job_build_test gcc & p_gcc=$!
-  run_stage clang  "clang"  job_build_test clang & p_clang=$!
-  run_stage cf     "cf"     job_compile_fail   & p_cf=$!
-  run_stage fuzz   "fuzz"   job_fuzz_compile   & p_fuzz=$!
-  run_stage tidy   "tidy"   job_tidy           & p_tidy=$!
-
-  wait "$p_format"; rc_format=$?
-  wait "$p_docs";   rc_docs=$?
-  wait "$p_fixtures"; rc_fixtures=$?
-  wait "$p_gcc";    rc_gcc=$?
-  wait "$p_clang";  rc_clang=$?
-  wait "$p_cf";     rc_cf=$?
-  wait "$p_fuzz";   rc_fuzz=$?
-  wait "$p_tidy";   rc_tidy=$?
+  stage_pids=()
+  for key in format docs fixtures gcc clang cf fuzz tidy; do
+    run_stage "$key" & stage_pids+=("$!")
+  done
+  # Outcomes come from $LOG/<key>.rc, not from wait: each stage records its result where every
+  # consumer reads it, so there is no second place to keep in sync.
+  for pid in "${stage_pids[@]}"; do wait "$pid" || true; done
 fi
 
 # After the build stages, never alongside them: this one consumes build/gcc's rapidprotoc.
-run_stage corpus "corpus" job_corpus; rc_corpus=$?
+run_stage corpus
 # Needs the goldens on disk (not a build product), so it can run any time after them.
-run_stage cxx20 "cxx20" job_cxx20_smoke; rc_cxx20=$?
+run_stage cxx20
 # Also consumes build/gcc's binaries, and compiles a harness per schema, so it runs alone at the end.
-run_stage differential "differential" job_differential; rc_differential=$?
+run_stage differential
 
 # --- print each stage's output in a fixed order (already captured, so never interleaved) ----------
 
-section "generated headers at c++20/c++23";            cat "$LOG/cxx20"
-section "clang-format (check)";                       cat "$LOG/format"
-section "doc links";                                  cat "$LOG/docs"
-section "corpus fixture coverage";                    cat "$LOG/fixtures"
-section "build + test (gcc)";                         cat "$LOG/gcc"
-section "build + test (clang)";                       cat "$LOG/clang"
-section "compile-fail (generated decoder rejects misuse)"; cat "$LOG/cf"
-section "fuzz harness compile-check";                      cat "$LOG/fuzz"
-section "clang-tidy (library = strict, tests = relaxed)";  cat "$LOG/tidy"
-section "real-world schema corpus";                        cat "$LOG/corpus"
-section "randomized differential vs protobuf";             cat "$LOG/differential"
+for key in cxx20 format docs fixtures gcc clang cf fuzz tidy corpus differential; do
+  section "$(stage_title "$key")"
+  cat "$LOG/$key"
+done
 
 fail=0
-for rc in "$rc_format" "$rc_docs" "$rc_fixtures" "$rc_gcc" "$rc_clang" "$rc_cf" "$rc_fuzz" "$rc_tidy" \
-         "$rc_corpus" "$rc_cxx20" "$rc_differential"; do
-  [[ "$rc" -ne 0 ]] && fail=1
+failed_stages=(); ran=0; skipped=()
+for key in "${STAGE_KEYS[@]}"; do
+  rc="$(cat "$LOG/$key.rc" 2>/dev/null || echo missing)"
+  case "$rc" in
+    0)       ran=$((ran + 1)) ;;
+    skipped) skipped+=("$key") ;;
+    # "missing" lands here too: a stage that never recorded a result must not read as a pass.
+    *)       ran=$((ran + 1)); fail=1; failed_stages+=("$key") ;;
+  esac
 done
 
 section "summary"
+for key in "${STAGE_KEYS[@]}"; do
+  dur="$(cat "$LOG/$key.dur" 2>/dev/null || true)"
+  [[ -n "$dur" ]] && printf '  %-13s %4ss\n' "$key" "$dur"
+done
+echo "ran $ran/${#STAGE_KEYS[@]} stages${skipped:+ (skipped: ${skipped[*]})}"
+echo "stage logs: $LOG"
 if [[ "$fail" == "0" ]]; then
   echo "ALL GREEN"
 else
-  echo "FAILURES above"
+  echo "FAILURES: ${failed_stages[*]}"
 fi
 exit "$fail"
