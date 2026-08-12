@@ -609,28 +609,6 @@ Result<Parsed<FieldNode, Token>> oneof_field(Range<Token> in) {
                })(in);
 }
 
-using OneofElement = std::variant<FieldNode, Option, std::monostate>;
-
-OneofNode assemble_oneof(std::string_view name, std::vector<OneofElement>& elements) {
-    OneofNode node;
-    node.name = std::string(name);
-    for (auto& element : elements) {
-        if (auto* field = std::get_if<FieldNode>(&element)) {
-            node.fields.push_back(std::move(*field));
-        } else if (auto* option = std::get_if<Option>(&element)) {
-            node.options.push_back(std::move(*option));
-        }
-    }
-    return node;
-}
-
-auto oneof_body() {
-    return many(alt(map(parse_option_decl, [](Option o) { return OneofElement{std::move(o)}; }),
-                    map(oneof_field, [](FieldNode f) { return OneofElement{std::move(f)}; }),
-                    map(kind(TokenKind::Semicolon),
-                        [](const Token&) { return OneofElement{std::monostate{}}; })));
-}
-
 // --- messages / groups / extend / file --------------------------------------
 // The parsers below are combinator-based recursive descent over nested messages / groups / extend
 // bodies. Recursion depth is bounded by the DepthGuard at each body/aggregate entry (see
@@ -665,12 +643,37 @@ struct ExtendBundle {
     std::vector<MessageNode> group_messages;
 };
 
+// Likewise for a oneof: protoc accepts `group` as a oneof member, and the synthesized message
+// belongs to the ENCLOSING message (a oneof is not a scope), while the field joins the oneof.
+struct OneofBundle {
+    OneofNode node;
+    std::vector<MessageNode> group_messages;
+};
+
+using OneofElement = std::variant<FieldNode, GroupDecl, Option>;
+
+OneofBundle assemble_oneof(std::string_view name, std::vector<OneofElement>& elements) {
+    OneofBundle bundle;
+    bundle.node.name = std::string(name);
+    for (auto& element : elements) {
+        if (auto* field = std::get_if<FieldNode>(&element)) {
+            bundle.node.fields.push_back(std::move(*field));
+        } else if (auto* group = std::get_if<GroupDecl>(&element)) {
+            bundle.node.fields.push_back(std::move(group->field));
+            bundle.group_messages.push_back(std::move(group->message));
+        } else if (auto* option = std::get_if<Option>(&element)) {
+            bundle.node.options.push_back(std::move(*option));
+        }
+    }
+    return bundle;
+}
+
 // A real struct, not a `using` alias: an alias would mangle as the spelled-out variant (~1 KB)
 // inside every symbol that mentions MessageElement -- notably assemble_message's visitor lambdas,
 // whose names embed the enclosing signature. The wrapper mangles as its 14-char name; visit()
 // goes through the .v member.
 struct MessageElement {
-    std::variant<FieldNode, MapFieldNode, OneofNode, EnumNode, MessageNode, ReservedNode,
+    std::variant<FieldNode, MapFieldNode, OneofBundle, EnumNode, MessageNode, ReservedNode,
                  ExtensionRangeNode, ExtendBundle, Option, GroupDecl, std::monostate>
         v;
 };
@@ -679,6 +682,9 @@ struct MessageElement {
 Result<Parsed<std::vector<MessageElement>, Token>> message_body(Range<Token> in,
                                                                 const ParseContext& ctx);
 Result<Parsed<GroupDecl, Token>> parse_group(Range<Token> in, const ParseContext& ctx);
+Result<Parsed<std::vector<OneofElement>, Token>> oneof_body(Range<Token> in,
+                                                            const ParseContext& ctx);
+Result<Parsed<OneofBundle, Token>> parse_oneof(Range<Token> in, const ParseContext& ctx);
 Result<Parsed<ExtendBundle, Token>> parse_extend(Range<Token> in, const ParseContext& ctx);
 
 // ExtensionRangeDecl = "extensions" Range { "," Range } [CompactOptions] ";"
@@ -710,7 +716,12 @@ MessageNode assemble_message(std::string_view name, std::vector<MessageElement>&
     for (auto& element : elements) {
         std::visit(overloaded{[&](FieldNode& f) { node.fields.push_back(std::move(f)); },
                               [&](MapFieldNode& m) { node.map_fields.push_back(std::move(m)); },
-                              [&](OneofNode& o) { node.oneofs.push_back(std::move(o)); },
+                              [&](OneofBundle& b) {
+                                  node.oneofs.push_back(std::move(b.node));
+                                  for (auto& gm : b.group_messages) {
+                                      node.nested_messages.push_back(std::move(gm));
+                                  }
+                              },
                               [&](EnumNode& e) { node.enums.push_back(std::move(e)); },
                               [&](MessageNode& m) { node.nested_messages.push_back(std::move(m)); },
                               [&](ReservedNode& r) { node.reserved.push_back(std::move(r)); },
@@ -734,6 +745,52 @@ MessageNode assemble_message(std::string_view name, std::vector<MessageElement>&
     return node;
 }
 
+// OneofDecl = "oneof" ident "{" { OptionDecl | OneofFieldDecl | OneofGroupDecl } "}"
+// The oneof forms are RESTRICTED versions of the message-scope ones: the spec subtracts the
+// cardinality keywords from a oneof field's leading identifier, and OneofGroupDecl has no
+// cardinality slot at all -- which is what oneof_element enforces.
+// Internal, like parse_extend: it yields a bundle, because a `group` member synthesizes a message
+// that belongs to the ENCLOSING message rather than to the oneof.
+Result<Parsed<OneofBundle, Token>> parse_oneof(Range<Token> in, const ParseContext& ctx) {
+    return map(
+        seq(
+            kind(TokenKind::KwOneof), cut(name_token()), cut(kind(TokenKind::LBrace)),
+            [ctx](Range<Token> i) { return oneof_body(i, ctx); }, cut(kind(TokenKind::RBrace))),
+        [](auto parts) { return assemble_oneof(std::get<1>(parts).text, std::get<3>(parts)); })(in);
+}
+
+// One oneof body element. A oneof member never carries a cardinality label -- the spec forbids it
+// syntactically, and protoc says "Fields in oneofs must not have labels" -- which is why oneof_field
+// has no `cardinality()` to match. The group branch has to refuse one explicitly, because
+// parse_group accepts a label at message scope (where the spec in fact REQUIRES one).
+Result<Parsed<OneofElement, Token>> oneof_element(Range<Token> in, const ParseContext& ctx) {
+    if (!in.empty() &&
+        (in.front().kind == TokenKind::KwRequired || in.front().kind == TokenKind::KwOptional ||
+         in.front().kind == TokenKind::KwRepeated)) {
+        // Offset 0 = "at the first token of `in`", the library's relative convention: `many` and
+        // `seq` lift it by their own base as it propagates (see combinators.hpp). Fatal so the
+        // enclosing `many` propagates it instead of quietly ending the body, which would report a
+        // bare "unexpected input" at the same token and throw the diagnostic away.
+        Error error{0, "a oneof member must not have a label (required/optional/repeated)"};
+        error.fatal = true;
+        return error;
+    }
+    // No empty-statement branch: the spec gives OneofElement no EmptyDecl alternative, unlike
+    // MessageElement, and protoc agrees ("Expected type name."). An empty BODY is still accepted:
+    // the grammar admits it (`{ OneofElement }` allows zero), and the spec's prose rule that "a
+    // oneof must contain at least one field or group" is one we knowingly do not enforce -- a
+    // semantic check that costs a schema nothing to get right and protoc already makes.
+    return alt(map(parse_option_decl, [](Option o) { return OneofElement{std::move(o)}; }),
+               map([ctx](Range<Token> i) { return parse_group(i, ctx); },
+                   [](GroupDecl g) { return OneofElement{std::move(g)}; }),
+               map(oneof_field, [](FieldNode f) { return OneofElement{std::move(f)}; }))(in);
+}
+
+Result<Parsed<std::vector<OneofElement>, Token>> oneof_body(Range<Token> in,
+                                                            const ParseContext& ctx) {
+    return many([ctx](Range<Token> i) { return oneof_element(i, ctx); })(in);
+}
+
 // One message body element. Keyword-led declarations come before parse_field, and group before
 // field, per the alt-ordering contract (parse_field fatally commits after a leading keyword type).
 // A plain function, not an `auto` combinator: this is a composition HUB, and returning the alt's
@@ -743,7 +800,8 @@ Result<Parsed<MessageElement, Token>> message_element(Range<Token> in, const Par
     return alt(
         map(parse_option_decl, [](Option o) { return MessageElement{std::move(o)}; }),
         map(parse_map_field, [](MapFieldNode m) { return MessageElement{std::move(m)}; }),
-        map(parse_oneof, [](OneofNode o) { return MessageElement{std::move(o)}; }),
+        map([ctx](Range<Token> i) { return parse_oneof(i, ctx); },
+            [](OneofBundle b) { return MessageElement{std::move(b)}; }),
         map([](Range<Token> i) { return parse_reserved(i, kMaxMessageFieldNumber); },
             [](ReservedNode r) { return MessageElement{std::move(r)}; }),
         map(extension_range, [](ExtensionRangeNode x) { return MessageElement{std::move(x)}; }),
@@ -771,6 +829,9 @@ Result<Parsed<std::vector<MessageElement>, Token>> message_body(Range<Token> in,
 }
 
 // GroupDecl = [Cardinality] "group" Ident "=" intLit [CompactOptions] "{" { MessageElement } "}".
+// The spec makes the cardinality MANDATORY at message/extend scope; accepting it as optional is a
+// deliberate superset (protoc rejects the bare form). Inside a oneof there is none, and the caller
+// enforces that. Also superset: the spec requires the group name to start uppercase.
 // Synthesized into a nested message (named as written) + an is_group field (lowercased name).
 Result<Parsed<GroupDecl, Token>> parse_group(Range<Token> in, const ParseContext& ctx) {
     const SyntaxLevel syntax = ctx.syntax_level;
@@ -795,22 +856,24 @@ Result<Parsed<GroupDecl, Token>> parse_group(Range<Token> in, const ParseContext
 }
 
 // One extend body element: FieldDecl | GroupDecl | OptionDecl | ";".
-using ExtendElement = std::variant<FieldNode, GroupDecl, Option, std::monostate>;
+using ExtendElement = std::variant<FieldNode, GroupDecl>;
 
-// Deliberate super-set of the published EBNF (which lists fields/options/empty only): proto2 protoc
-// accepts group members inside `extend`, and we retain groups fully, so group is included.
+// ExtensionElement = ExtensionFieldDecl | GroupDecl -- the ONLY element list in the grammar with
+// neither OptionDecl nor EmptyDecl (message/enum/service/method/file carry both; oneof the first).
+// That is deliberate on the spec's part, not an omission: ExtensionFieldDeclIdentifier subtracts
+// only `optional`/`required`/`repeated`, NOT `option` -- which MessageFieldDeclIdentifier and
+// OneofFieldDeclIdentifier both do subtract. So in an extend body `option` is a legal extension
+// field TYPE name, and an OptionDecl branch here did worse than widen the grammar: it swallowed the
+// grammar-legal `extend M { option x = 100; }` as an option declaration instead of a field.
 // Function boundary for the same reason as message_element: a hub's type must not leak upward.
 Result<Parsed<ExtendElement, Token>> extend_element(Range<Token> in, const ParseContext& ctx) {
-    return alt(map(parse_option_decl, [](Option o) { return ExtendElement{std::move(o)}; }),
-               map([ctx](Range<Token> i) { return parse_group(i, ctx); },
+    return alt(map([ctx](Range<Token> i) { return parse_group(i, ctx); },
                    [](GroupDecl g) { return ExtendElement{std::move(g)}; }),
                map([ctx](Range<Token> i) { return parse_field(i, ctx); },
-                   [](FieldNode f) { return ExtendElement{std::move(f)}; }),
-               map(kind(TokenKind::Semicolon),
-                   [](const Token&) { return ExtendElement{std::monostate{}}; }))(in);
+                   [](FieldNode f) { return ExtendElement{std::move(f)}; }))(in);
 }
 
-// ExtendDecl = "extend" TypeName "{" { FieldDecl | GroupDecl | OptionDecl | ";" } "}"
+// ExtensionDecl = "extend" ExtendedMessage "{" { ExtensionFieldDecl | GroupDecl } "}"
 Result<Parsed<ExtendBundle, Token>> parse_extend(Range<Token> in, const ParseContext& ctx) {
     const std::size_t offset = in.empty() ? 0 : in.front().byte_offset;  // the `extend` keyword
     return map(
@@ -828,9 +891,7 @@ Result<Parsed<ExtendBundle, Token>> parse_extend(Range<Token> in, const ParseCon
                                [&](GroupDecl& g) {
                                    bundle.node.fields.push_back(std::move(g.field));
                                    bundle.group_messages.push_back(std::move(g.message));
-                               },
-                               [&](Option& o) { bundle.node.options.push_back(std::move(o)); },
-                               [](std::monostate) {}},
+                               }},
                     element);
             }
             return bundle;
@@ -1051,14 +1112,6 @@ Result<Parsed<MapFieldNode, Token>> parse_map_field(Range<Token> in) {
                    }
                    return node;
                })(in);
-}
-
-// OneofDecl = "oneof" ident "{" { OneofElement } "}"
-Result<Parsed<OneofNode, Token>> parse_oneof(Range<Token> in) {
-    return map(
-        seq(kind(TokenKind::KwOneof), cut(name_token()), cut(kind(TokenKind::LBrace)), oneof_body(),
-            cut(kind(TokenKind::RBrace))),
-        [](auto parts) { return assemble_oneof(std::get<1>(parts).text, std::get<3>(parts)); })(in);
 }
 
 // MessageDecl = [ "export"|"local" ] "message" ident "{" { MessageElement } "}"

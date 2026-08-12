@@ -24,6 +24,42 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
 
 ### Fixed
 
+- **`group` inside a `oneof` now parses.** protoc accepts it; RapidProto answered `unexpected input`
+  and refused the schema outright:
+
+  ```proto
+  message M { oneof pick { int32 i = 1; group G = 2 { optional int32 x = 3; } } }
+  ```
+
+  A oneof is not a scope, so the synthesized message lands in the enclosing message while the
+  delimited field joins the oneof — the same shape editions already reached through
+  `features.message_encoding = DELIMITED`, which is why this was a front-end gap rather than a
+  decode one.
+
+  A oneof member still may not carry a label, and that diagnostic got better along the way: it now
+  says so (`a oneof member must not have a label`) and points at the label token, where before it
+  said `unexpected input` and pointed past it. It also now rejects `oneof p { optional x = 1; }` in
+  a file that happens to declare a message named `optional`, which used to parse as a field of that
+  type. Both match protoc's position exactly.
+
+  No schema in the real-world corpus hits it — groups are proto2-era and deprecated, and this
+  combination rarer still — which is why nothing exercised the path.
+
+  Matching the [language spec](https://protobuf.com/docs/language-spec) while in the area removed
+  two stray acceptances, both of which protoc also rejects:
+
+  - A bare `;` between **oneof** members. `MessageElement` lists an empty statement; `OneofElement`
+    does not. An empty oneof *body* (`oneof p { }`) is still accepted: the grammar admits it, and
+    the separate prose rule that a oneof must hold at least one member is a semantic check we do
+    not make.
+  - A bare `;` **or an `option`** inside an `extend` body. `ExtensionElement` is the only element
+    list in the grammar carrying neither. That is deliberate on the spec's part, not an omission:
+    `ExtensionFieldDeclIdentifier` subtracts only the cardinality keywords, *not* `option`, so
+    `option` is a legal extension-field **type name** there. Accepting an option declaration did
+    more than widen the grammar — it swallowed the grammar-legal `extend M { option x = 100; }` as
+    an option instead of a field. `ExtendNode::options` is gone with it; nothing consumed it beyond
+    a feature-resolution call that could never fire.
+
 - **Proto names that collide with what the generated code or its runtime defines are now escaped**
   with a trailing `_`. All of the shapes below are protoc-valid and produced a header that did not
   compile; they were found together.

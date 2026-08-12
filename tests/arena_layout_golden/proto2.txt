@@ -49,6 +49,19 @@ message .p2.WithGroup.MyGroup.Inner size=1 align=1 fixed=yes decode=flatten cost
   mask off=0 size=1 align=1 bits=2
     bit 0 presence flag
     bit 1 value flag
+message .p2.OneofGroup size=16 align=8 fixed=no decode=noinline cost=5
+  field after num=5 inline-scalar int32 off=8 size=4 align=4 presence=bit0
+  oneof pick disc-off=12 union-off=0 union-size=8 union-align=8
+    member i num=1 inline-scalar int32 size=4 align=4
+    member g num=2 pointer-submsg .p2.OneofGroup.G size=8 align=8
+  mask off=13 size=1 align=1 bits=1
+    bit 0 presence after
+message .p2.OneofGroup.G size=20 align=4 fixed=no decode=flatten cost=2
+  field s num=4 borrow-string ArenaString off=0 size=12 align=4 presence=bit1
+  field x num=3 inline-scalar int32 off=12 size=4 align=4 presence=bit0
+  mask off=16 size=1 align=1 bits=2
+    bit 0 presence x
+    bit 1 presence s
 message .p2.Container size=48 align=4 fixed=no decode=noinline cost=8
   map by_name num=1 off=0 size=12 align=4 presence=empty
     entry key=borrow-string:ArenaString value=inline-submsg:.p2.Container.Nested size=20 align=4

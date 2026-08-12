@@ -44,13 +44,10 @@ Result<Parsed<FieldNode, Token>> parse_field(Range<Token> in, const ParseContext
 // MapFieldDecl = "map" "<" KeyType "," TypeName ">" ident "=" intLit [CompactOptions] ";"
 Result<Parsed<MapFieldNode, Token>> parse_map_field(Range<Token> in);
 
-// OneofDecl = "oneof" ident "{" { TypeName ident "=" intLit [CompactOptions] ";" | OptionDecl | ";"
-// } "}"
-Result<Parsed<OneofNode, Token>> parse_oneof(Range<Token> in);
-
 // MessageDecl = [ "export"|"local" ] "message" ident "{" { MessageElement } "}". Nested messages,
 // groups (synthesized as a nested message + an is_group field), extend, and extension ranges are
-// all handled within the body.
+// all handled within the body -- including a group inside a oneof, whose synthesized message hoists
+// to this message because a oneof is not a scope.
 Result<Parsed<MessageNode, Token>> parse_message(Range<Token> in, const ParseContext& ctx);
 
 // File = [ SyntaxDecl ] { FileElement }. The top-level entry point: determines the syntax level

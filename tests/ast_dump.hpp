@@ -321,7 +321,7 @@ private:
     void dump_extend(const ExtendNode& node) {
         line("extend " + node.extendee_type_name);
         const Indent indent(*this);
-        dump_options(node.options);
+        // No options to dump: ExtensionElement admits only fields and groups.
         for (const auto& field : node.fields) {
             dump_field(field, "field");
         }

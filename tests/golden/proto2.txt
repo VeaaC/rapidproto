@@ -58,6 +58,14 @@ file proto2.proto
       field inner num=3 presence=explicit group delimited type=Inner -> .p2.WithGroup.MyGroup.Inner msg
       message Inner [fqn=.p2.WithGroup.MyGroup.Inner]
         field flag num=4 presence=explicit type=bool
+  message OneofGroup [fqn=.p2.OneofGroup]
+    field after num=5 presence=explicit type=int32
+    oneof pick
+      field i num=1 presence=explicit type=int32
+      field g num=2 presence=explicit group delimited type=G -> .p2.OneofGroup.G msg
+    message G [fqn=.p2.OneofGroup.G]
+      field x num=3 presence=explicit type=int32
+      field s num=4 presence=explicit type=string
   message Container [fqn=.p2.Container]
     field items num=5 presence=explicit repeated=expanded type=Nested -> .p2.Container.Nested msg
     map by_name num=1 key=string value=Nested -> .p2.Container.Nested msg
@@ -78,6 +86,8 @@ symbols
   .p2.Color enum
   .p2.Container message
   .p2.Container.Nested message
+  .p2.OneofGroup message
+  .p2.OneofGroup.G message
   .p2.Scalars message
   .p2.WithGroup message
   .p2.WithGroup.MyGroup message

@@ -13,6 +13,15 @@ using namespace rapidproto;  // NOLINT(google-build-using-namespace): test conve
 
 namespace {
 
+// True if the file fails to parse, either outright or by leaving input unconsumed.
+bool file_rejects(const std::string& src) {
+    auto lr = lex(src);
+    REQUIRE(lr.is_ok());
+    const LexResult lexed = std::move(lr).value();
+    auto r = parse_file(Range<Token>(lexed.tokens));
+    return !r.is_ok() || !r.value().remaining.empty();
+}
+
 // Lex `src`, parse the whole file, require success + full consumption, return the FileNode.
 FileNode file_ok(std::string src) {
     auto lr = lex(std::move(src));
@@ -228,6 +237,20 @@ TEST_CASE("file: group inside a file-level extend hoists its message to the file
     CHECK(f.extends[0].fields[0].is_group);
     REQUIRE(f.messages.size() == 1);  // synthesized group message hoisted to file scope
     CHECK(f.messages[0].name == "G");
+}
+
+TEST_CASE("extend: the body follows ExtensionElement, which lists only fields and groups") {
+    // ExtensionElement = ExtensionFieldDecl | GroupDecl -- the one element list in the grammar with
+    // neither OptionDecl nor EmptyDecl. protoc rejects both spellings here too.
+    CHECK(file_rejects("extend Foo { optional int32 a = 100; ; }"));
+    CHECK(file_rejects("extend Foo { option deprecated = true; }"));
+    // ExtensionFieldDeclIdentifier subtracts only the cardinality keywords, NOT `option` -- so
+    // `option` is a legal extension-field TYPE name, which an OptionDecl branch used to swallow.
+    const FileNode f = file_ok("extend Foo { optional option x = 100; }");
+    REQUIRE(f.extends.size() == 1);
+    REQUIRE(f.extends[0].fields.size() == 1);
+    CHECK(f.extends[0].fields[0].type_name == "option");
+    CHECK(f.extends[0].fields[0].name == "x");
 }
 
 TEST_CASE("message: nested enum visibility (editions)") {
