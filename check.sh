@@ -44,7 +44,7 @@ export CLANG_TIDY
 # are formatted but NOT tidied -- their argv / measurement / harness patterns trip strict checks for
 # no real-bug gain.
 HEADERS=(include/rapidproto/*.hpp include/rapidproto/streamgen/*.hpp include/rapidproto/arenagen/*.hpp include/rapidproto/dumpgen/*.hpp include/rapidproto/codegen/*.hpp include/rapidproto/cli/*.hpp)
-LIB_SRC=(src/lexer.cpp src/interpret.cpp src/parser.cpp src/features.cpp src/resolve.cpp src/resolver.cpp src/source.cpp src/streamgen/generator.cpp src/codegen/naming.cpp src/arenagen/layout.cpp src/arenagen/modes.cpp src/arenagen/generator.cpp src/dumpgen/generator.cpp src/header_self_contained.cpp)
+LIB_SRC=(src/lexer.cpp src/interpret.cpp src/parser.cpp src/parser_enum.cpp src/features.cpp src/resolve.cpp src/resolver.cpp src/source.cpp src/streamgen/generator.cpp src/codegen/naming.cpp src/arenagen/layout.cpp src/arenagen/modes.cpp src/arenagen/generator.cpp src/dumpgen/generator.cpp src/header_self_contained.cpp)
 TEST_SRC=(tests/test_*.cpp)
 CLI_SRC=(src/main.cpp src/rapidprotoc/main.cpp tests/diffgen/main.cpp)
 EXTRA_SRC=(tests/bench_streamgen.cpp tests/bench_stream_isolated.cpp tests/bench_arena.cpp tests/fuzz/*.cpp examples/*/*.cpp)
@@ -177,7 +177,7 @@ if [[ "${1:-}" == "deep" ]]; then
   section "fuzz smoke (${FUZZ_TIME}s per target)"
   mkdir -p build/fuzz
   # The front-end target links the library TUs; the three decode targets are header-only.
-  parser_tus=(src/lexer.cpp src/parser.cpp src/features.cpp src/resolve.cpp src/interpret.cpp
+  parser_tus=(src/lexer.cpp src/parser.cpp src/parser_enum.cpp src/features.cpp src/resolve.cpp src/interpret.cpp
               src/source.cpp src/resolver.cpp src/wellknown_generated.cpp)
   for f in wire arena stream parser; do
     extra_tus=()

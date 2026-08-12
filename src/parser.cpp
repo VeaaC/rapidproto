@@ -1,4 +1,5 @@
 #include "rapidproto/parser.hpp"
+#include "parser_internal.hpp"
 
 #include <cctype>
 #include <charconv>
@@ -34,6 +35,7 @@
 // conversion is always memory-safe.
 
 namespace rapidproto {
+using namespace parse_detail;  // NOLINT(google-build-using-namespace): the parser's own split
 namespace {
 
 // --- recursion-depth guard --------------------------------------------------
@@ -77,25 +79,6 @@ Error too_deep(Range<Token> in) {
 }
 
 // --- token matchers ---------------------------------------------------------
-
-bool is_keyword(TokenKind k) {
-    return k >= TokenKind::KwSyntax && k <= TokenKind::KwNan;
-}
-
-// A name position accepts an identifier or a keyword (proto allows keywords as
-// names — e.g. a field named `message`).
-bool is_name_token(const Token& t) {
-    return t.kind == TokenKind::Identifier || is_keyword(t.kind);
-}
-
-// Match one token of the given kind; produces the Token.
-auto kind(TokenKind k) {
-    return one([k](const Token& t) { return t.kind == k; });
-}
-
-auto name_token() {
-    return one([](const Token& t) { return is_name_token(t); });
-}
 
 auto sign_token() {
     return one(
@@ -390,137 +373,6 @@ Result<Parsed<ListLiteral, Token>> parse_list_literal(Range<Token> in) {
 // out-of-range magnitude (beyond uint64, or outside int32 once signed) silently yields an unspecified
 // in-range value rather than erroring: a value-range concern for invalid input only, and
 // memory-safe.
-std::int32_t parse_int32(std::string_view text, bool negative) {
-    const auto [base, digits] = split_int_literal(text);
-    std::uint64_t mag = 0;
-    // NOLINTNEXTLINE(bugprone-suspicious-stringview-data-usage): paired with size below
-    const char* first = digits.data();
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic): from_chars needs a range
-    const char* last = first + digits.size();
-    std::from_chars(first, last, mag, base);
-    // Negate in the unsigned domain, where wraparound is well-defined: negating the int64 cast
-    // would be signed-overflow UB for a magnitude of exactly 2^63 (e.g. `-9223372036854775808`).
-    const std::uint64_t value = negative ? std::uint64_t{0} - mag : mag;
-    return static_cast<std::int32_t>(value);
-}
-
-template <typename T>
-std::vector<T> prepend(T first, std::vector<T> rest) {
-    std::vector<T> out;
-    out.reserve(rest.size() + 1);
-    out.push_back(std::move(first));
-    for (auto& item : rest) {
-        out.push_back(std::move(item));
-    }
-    return out;
-}
-
-// ["-"] intLit  ->  int32
-auto signed_int() {
-    return map(seq(opt(kind(TokenKind::Minus)), kind(TokenKind::IntLiteral)), [](auto parts) {
-        return parse_int32(std::get<1>(parts).text, std::get<0>(parts).has_value());
-    });
-}
-
-// Range = ["-"] intLit [ "to" ( ["-"] intLit | "max" ) ]; `max` -> the given sentinel.
-// Function boundary: reserved_range appears twice inside both parse_reserved and
-// extension_range, so its signed_int/kind chain otherwise re-spells into every enclosing name.
-Result<Parsed<NumberRange, Token>> reserved_range(Range<Token> in, std::int32_t max_sentinel) {
-    auto bound =
-        alt(map(kind(TokenKind::KwMax), [max_sentinel](const Token&) { return max_sentinel; }),
-            signed_int());
-    return map(seq(signed_int(), opt(preceded(kind(TokenKind::KwTo), bound))), [](auto parts) {
-        NumberRange range;
-        range.start = std::get<0>(parts);
-        range.end = std::get<1>(parts).has_value() ? *std::get<1>(parts) : range.start;
-        return range;
-    })(in);
-}
-// The lambda-wrapped spelling that combinator call sites consume.
-auto reserved_range(std::int32_t max_sentinel) {
-    return [max_sentinel](Range<Token> in) { return reserved_range(in, max_sentinel); };
-}
-
-// A reserved name is a string literal (proto2/proto3) or an identifier (editions).
-auto reserved_name() {
-    return alt(map(kind(TokenKind::StringLiteral), [](Token t) { return std::move(t.str_value); }),
-               map(name_token(), [](const Token& t) { return std::string(t.text); }));
-}
-
-// ReservedDecl = "reserved" ( Range {"," Range} | Name {"," Name} ) ";"
-Result<Parsed<ReservedNode, Token>> parse_reserved(Range<Token> in, std::int32_t max_sentinel) {
-    auto ranges = map(seq(reserved_range(max_sentinel),
-                          many(preceded(kind(TokenKind::Comma), reserved_range(max_sentinel)))),
-                      [](auto parts) {
-                          ReservedNode node;
-                          node.ranges =
-                              prepend(std::move(std::get<0>(parts)), std::move(std::get<1>(parts)));
-                          return node;
-                      });
-    auto names = map(seq(reserved_name(), many(preceded(kind(TokenKind::Comma), reserved_name()))),
-                     [](auto parts) {
-                         ReservedNode node;
-                         node.names =
-                             prepend(std::move(std::get<0>(parts)), std::move(std::get<1>(parts)));
-                         return node;
-                     });
-    return delimited(kind(TokenKind::KwReserved), alt(ranges, names),
-                     cut(kind(TokenKind::Semicolon)))(in);
-}
-
-// EnumValueDecl = ident "=" ["-"] intLit [ CompactOptions ] ";"
-auto enum_value_decl() {
-    return map(seq(name_token(), cut(kind(TokenKind::Equals)), cut(signed_int()),
-                   opt(parse_compact_options), cut(kind(TokenKind::Semicolon))),
-               [](auto parts) {
-                   EnumValueNode value;
-                   value.name = std::string(std::get<0>(parts).text);
-                   value.number = std::get<2>(parts);
-                   if (std::get<3>(parts).has_value()) {
-                       value.options = std::move(*std::get<3>(parts));
-                   }
-                   return value;
-               });
-}
-
-// [ "export" | "local" ]  ->  optional<Visibility>
-auto visibility_modifier() {
-    return opt(alt(map(kind(TokenKind::KwExport), [](const Token&) { return Visibility::Export; }),
-                   map(kind(TokenKind::KwLocal), [](const Token&) { return Visibility::Local; })));
-}
-
-// One enum body element. `option`/`reserved` are matched before a bare value so those
-// keywords aren't mistaken for value names. monostate represents an empty ";".
-using EnumElement = std::variant<EnumValueNode, Option, ReservedNode, std::monostate>;
-
-auto enum_body() {
-    return many(
-        alt(map(parse_option_decl, [](Option o) { return EnumElement{std::move(o)}; }),
-            map([](Range<Token> i) { return parse_reserved(i, kMaxEnumNumber); },
-                [](ReservedNode r) { return EnumElement{std::move(r)}; }),
-            map(enum_value_decl(), [](EnumValueNode v) { return EnumElement{std::move(v)}; }),
-            map(kind(TokenKind::Semicolon),
-                [](const Token&) { return EnumElement{std::monostate{}}; })));
-}
-
-EnumNode assemble_enum(std::string_view name, std::vector<EnumElement>& elements,
-                       SyntaxLevel syntax) {
-    EnumNode node;
-    node.name = std::string(name);
-    // proto2 enums are closed; proto3 and editions default open (editions refined by
-    // the feature pass).
-    node.openness = syntax == SyntaxLevel::Proto2 ? EnumOpenness::Closed : EnumOpenness::Open;
-    for (auto& element : elements) {
-        if (auto* value = std::get_if<EnumValueNode>(&element)) {
-            node.values.push_back(std::move(*value));
-        } else if (auto* option = std::get_if<Option>(&element)) {
-            node.options.push_back(std::move(*option));
-        } else if (auto* reserved = std::get_if<ReservedNode>(&element)) {
-            node.reserved.push_back(std::move(*reserved));
-        }
-    }
-    return node;
-}
 
 // --- fields / maps / oneofs -------------------------------------------------
 
@@ -1052,21 +904,6 @@ Result<Parsed<std::vector<Option>, Token>> parse_compact_options(Range<Token> in
                      cut(kind(TokenKind::RBracket)))(in);
 }
 
-// EnumDecl = [ "export" | "local" ] "enum" ident "{" { EnumElement } "}"
-Result<Parsed<EnumNode, Token>> parse_enum(Range<Token> in, const ParseContext& ctx) {
-    const SyntaxLevel syntax = ctx.syntax_level;
-    return map(seq(visibility_modifier(), kind(TokenKind::KwEnum), cut(name_token()),
-                   cut(kind(TokenKind::LBrace)), enum_body(), cut(kind(TokenKind::RBrace))),
-               [syntax](auto parts) {
-                   EnumNode node =
-                       assemble_enum(std::get<2>(parts).text, std::get<4>(parts), syntax);
-                   if (std::get<0>(parts).has_value()) {
-                       node.visibility = *std::get<0>(parts);
-                   }
-                   return node;
-               })(in);
-}
-
 // FieldDecl = [Cardinality] TypeName ident "=" intLit [CompactOptions] ";". The "= number"
 // is folded into one tuple slot with preceded() so each element below is meaningful.
 //
@@ -1162,6 +999,22 @@ Result<Parsed<FileNode, Token>> parse_file(Range<Token> in) {
         apply_file_element(file, element);
     }
     return Parsed<FileNode, Token>{body.value().remaining, std::move(file)};
+}
+
+// Declared in parser_internal.hpp: parser_enum.cpp's signed_int() needs it, and it stays here
+// because it leans on split_int_literal, which the option parsers use.
+std::int32_t parse_detail::parse_int32(std::string_view text, bool negative) {
+    const auto [base, digits] = split_int_literal(text);
+    std::uint64_t mag = 0;
+    // NOLINTNEXTLINE(bugprone-suspicious-stringview-data-usage): paired with size below
+    const char* first = digits.data();
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic): from_chars needs a range
+    const char* last = first + digits.size();
+    std::from_chars(first, last, mag, base);
+    // Negate in the unsigned domain, where wraparound is well-defined: negating the int64 cast
+    // would be signed-overflow UB for a magnitude of exactly 2^63 (e.g. `-9223372036854775808`).
+    const std::uint64_t value = negative ? std::uint64_t{0} - mag : mag;
+    return static_cast<std::int32_t>(value);
 }
 
 }  // namespace rapidproto
