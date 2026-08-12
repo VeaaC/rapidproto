@@ -45,14 +45,17 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import json
 import math
 import random
 import shutil
 import struct
+import os
 import subprocess
 import sys
 import tempfile
+from itertools import repeat
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
@@ -494,6 +497,37 @@ def describe_difference(wanted, got, path: str = "") -> str:
     return f"{path or '<root>'}: protobuf={wanted!r} rapidproto={got!r}"
 
 
+def check_schema(schema: Path, tools: dict[str, Path], cxx: str, seed: int, messages: int,
+                 seed_dir: Path | None) -> tuple[int, str | None, list[str]]:
+    """One schema end to end: (messages checked, skip reason or None, mismatch descriptions).
+
+    Runs in a worker process, so every argument is picklable and nothing is shared but `seed_dir`
+    (whose files are named after the message FQN, unique across schemas).
+    """
+    from google.protobuf import message_factory  # re-imported here: this runs in a worker process
+
+    rng = random.Random(f"{seed}:{schema.name}")  # per schema, so one file's set is stable
+    with tempfile.TemporaryDirectory(prefix="rpdiff-") as directory:
+        work = Path(directory)
+        try:
+            harness, pool, meta = build_schema(schema, work, tools, cxx)
+        except Skip as reason:
+            return 0, f"{schema.name}: {reason}", []
+        except HarnessError as error:
+            return 0, None, [f"{schema.name}: {error}"]
+        factory = message_factory.MessageFactory(pool)
+        checked = 0
+        failures: list[str] = []
+        for fqn in meta["messages"]:
+            descriptor = pool.FindMessageTypeByName(fqn.lstrip("."))
+            if descriptor.GetOptions().map_entry:
+                continue  # synthesized map entries are not decoded on their own
+            checked += 1
+            failures += check_message(harness, work, factory, descriptor, meta, messages, rng,
+                                      seed_dir)
+        return checked, None, failures
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -508,10 +542,12 @@ def main() -> int:
     parser.add_argument("--write-seeds", type=Path, default=None, metavar="DIR",
                         help="also write every generated payload into DIR, as a fuzzer seed corpus")
     parser.add_argument("--verbose", action="store_true", help="name every schema and skip reason")
+    parser.add_argument("--jobs", type=int, default=os.cpu_count() or 4,
+                        help="schemas to check in parallel (default: CPU count)")
     args = parser.parse_args()
 
     try:
-        from google.protobuf import message_factory
+        import google.protobuf.message_factory  # noqa: F401  (presence check; workers re-import)
     except ImportError:
         print("differential: protobuf Python bindings not installed; skipping")
         return 0
@@ -548,31 +584,23 @@ def main() -> int:
     for schema in schemas:
         if not schema.is_file():
             raise SystemExit(f"--schema {schema} does not exist")
+    # One worker per schema. Each compiles a harness and runs it, so the work is dominated by
+    # subprocesses rather than Python -- but the payload generation and field comparison ARE Python,
+    # so processes (not threads) to escape the GIL. map() yields in input order, which keeps the
+    # skip/failure lines identical run to run regardless of who finishes first.
     checked = 0
     skipped: list[str] = []
     failures: list[str] = []
-    for schema in schemas:
-        rng = random.Random(f"{args.seed}:{schema.name}")  # per schema, so one file's set is stable
-        with tempfile.TemporaryDirectory(prefix="rpdiff-") as directory:
-            work = Path(directory)
-            try:
-                harness, pool, meta = build_schema(schema, work, tools, args.cxx)
-            except Skip as reason:
-                skipped.append(f"{schema.name}: {reason}")
-                continue
-            except HarnessError as error:
-                failures.append(f"{schema.name}: {error}")
-                continue
-            factory = message_factory.MessageFactory(pool)
-            for fqn in meta["messages"]:
-                descriptor = pool.FindMessageTypeByName(fqn.lstrip("."))
-                if descriptor.GetOptions().map_entry:
-                    continue  # synthesized map entries are not decoded on their own
-                checked += 1
-                failures += check_message(harness, work, factory, descriptor, meta,
-                                          args.messages, rng, seed_dir)
-        if args.verbose:
-            print(f"  {schema.name}: done")
+    with concurrent.futures.ProcessPoolExecutor(max_workers=args.jobs) as pool_exec:
+        results = pool_exec.map(check_schema, schemas, repeat(tools), repeat(args.cxx),
+                                repeat(args.seed), repeat(args.messages), repeat(seed_dir))
+        for schema, (count, skip, schema_failures) in zip(schemas, results):
+            checked += count
+            if skip is not None:
+                skipped.append(skip)
+            failures += schema_failures
+            if args.verbose:
+                print(f"  {schema.name}: done")
 
     # Skips are printed every run, not just under --verbose: they are how a schema silently leaves
     # coverage, and the count drifting is the thing worth noticing.

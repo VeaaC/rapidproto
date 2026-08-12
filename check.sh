@@ -206,6 +206,19 @@ if [[ "${1:-}" == "deep" ]]; then
     fi
   done
 
+  # Moved out of the default gate (see DEFAULT_STAGES). Needs a rapidprotoc: the sanitizer build is
+  # the wrong binary to sweep 8000 schemas with, so build the plain one if this is a bare deep run.
+  section "real-world schema corpus"
+  if [[ ! -x ./build/gcc/rapidprotoc ]]; then
+    cmake --preset gcc >/dev/null 2>&1
+    cmake --build --preset gcc --target rapidprotoc -j"$JOBS" >/dev/null 2>&1
+  fi
+  if [[ -x ./build/gcc/rapidprotoc ]]; then
+    python3 tests/corpus_gate.py --rapidprotoc ./build/gcc/rapidprotoc --jobs "$JOBS" || deep_fail=1
+  else
+    echo ">> could not build build/gcc/rapidprotoc for the corpus sweep"; deep_fail=1
+  fi
+
   section "deep summary"
   if [[ "$deep_fail" == 0 ]]; then echo "DEEP ALL GREEN"; else echo "DEEP FAILURES above"; fi
   exit "$deep_fail"
@@ -439,7 +452,7 @@ job_differential() {
     echo "   (run ./check.sh, or include 'gcc' in RAPIDPROTO_GATE_STAGES)"
     return 1
   fi
-  python3 tests/differential.py --build-dir ./build/gcc
+  python3 tests/differential.py --build-dir ./build/gcc --jobs "$JOBS"
 }
 
 # THE stage table. Adding a gate stage means one key here, one title, one job -- and nothing else:
@@ -447,6 +460,12 @@ job_differential() {
 # list. The previous shape needed six separate edits, two of which (the default allow-list and the
 # rc_<name> aggregation) failed SILENTLY when missed, leaving a stage that could only report success.
 readonly STAGE_KEYS=(format docs fixtures gcc clang cf fuzz tidy corpus cxx20 differential)
+
+# What a bare ./check.sh runs. `corpus` is deliberately absent: sweeping ~8000 third-party schemas is
+# a COMPATIBILITY check, not a fast-feedback one -- the library's own behaviour is covered by the
+# explicit tests -- and at ~163s it was 30% of the gate. It moved to the deep tier (which gates every
+# PR) and keeps its own CI runner, so nothing stopped watching it; it just left the inner loop.
+readonly DEFAULT_STAGES=(format docs fixtures gcc clang cf fuzz tidy cxx20 differential)
 
 stage_title() {
   case $1 in
@@ -496,7 +515,7 @@ if [[ -n "${RAPIDPROTO_GATE_STAGES:-}" ]]; then
 fi
 
 stage_enabled() {
-  [[ " ${RAPIDPROTO_GATE_STAGES:-${STAGE_KEYS[*]}} " == *" $1 "* ]]
+  [[ " ${RAPIDPROTO_GATE_STAGES:-${DEFAULT_STAGES[*]}} " == *" $1 "* ]]
 }
 
 # Records the outcome and duration BESIDE the log, because a concurrent stage runs in a subshell and
