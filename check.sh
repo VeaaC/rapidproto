@@ -362,8 +362,12 @@ fi
 # Per-run directory, symlinked to a stable name. A single fixed path let a second, overlapping run
 # `rm -rf` the first's results: the first then printed the second's logs and reported ALL GREEN with
 # its own failure erased. The symlink keeps "read build/gate-logs" true for the last run started.
-mkdir -p build
-LOG="$(mktemp -d build/gate-logs.XXXXXX)"   # mktemp, not $$: PIDs repeat in containers
+# Checked: these run before every stage, so an unwritable build/ used to surface as a cascade of
+# unrelated failures (an empty $LOG turning every stage's log path into /<name>) instead of one line.
+if ! mkdir -p build; then echo ">> cannot create build/ -- the gate writes all of its output there"; exit 2; fi
+if ! LOG="$(mktemp -d build/gate-logs.XXXXXX)"; then   # mktemp, not $$: PIDs repeat in containers
+  echo ">> cannot create a log directory under build/"; exit 2
+fi
 rm -rf build/gate-logs   # a plain `ln -sfn` into an existing directory links INSIDE it
 ln -sfn "$(basename "$LOG")" build/gate-logs
 # Keep the last few runs, not every run since the epoch. Skip any directory still marked live: a
@@ -512,9 +516,10 @@ job_cxx20_smoke() {
   # write left the PREVIOUS run's translation unit in place and the stage compiled that -- passing
   # without ever including the generated headers it exists to check.
   if ! mkdir -p build; then echo ">> cannot create build/"; return 1; fi
-  # One printf, not a { ... } group: bash reports a FAILED redirect on a group as success when the
-  # group is the condition of `if !` (measured on 5.2.21 -- bare it is 1, negated it is 0), so the
-  # group form left this guard inert. A simple command's redirect failure is caught.
+  # One printf, not a { ... } group: a failed redirect on a COMPOUND command ({}, (), for, while)
+  # aborts it with status 1 and DISCARDS a leading `!`, so `if ! { ... } >"$tu"` sees 1, takes the
+  # else branch, and the guard never fires. On a simple command the `!` is applied as usual.
+  # (Measured on bash 5.2.21. `{ ... } >"$tu" || return 1` is unaffected -- no `!` involved.)
   if ! printf '%s\n' \
        '#include "arenagen_golden/arena_naming.rp.hpp"   // the C++ keyword fixture lives here' \
        '#include "streamgen_golden/naming.rp.stream.hpp"' \
@@ -601,8 +606,12 @@ job_tidy() {
   # jobs; unset (the local default) lints everything.
   local shard="${RAPIDPROTO_TIDY_SHARD:-1/1}" tu_index=0 tu
   local shard_index="${shard%/*}" shard_count="${shard#*/}"
-  # Range-checked: the modulo below silently aliases 0/3 onto 3/3 and 5/4 onto 1/4, so a mistyped
-  # shard lints the wrong slice while CI's matrix still looks complete.
+  # Range-checked: the modulo below silently aliases 0/3 onto 3/3 and 5/4 onto 1/4, so a shard
+  # outside 1..N lints the wrong slice while every job still reports success.
+  # 10# because arithmetic contexts read a leading zero as octal: 08/3 aborts the comparison as an
+  # invalid digit, and 010/12 would be accepted as slice 8, leaving slice 10 unlinted.
+  if [[ $shard_index =~ ^[0-9]+$ ]]; then shard_index=$((10#$shard_index)); fi
+  if [[ $shard_count =~ ^[0-9]+$ ]]; then shard_count=$((10#$shard_count)); fi
   if [[ ! $shard_index =~ ^[0-9]+$ || ! $shard_count =~ ^[0-9]+$ ]] \
      || [[ $shard_count -lt 1 || $shard_index -lt 1 || $shard_index -gt $shard_count ]]; then
     echo ">> RAPIDPROTO_TIDY_SHARD='$shard' is not a valid i/N with 1 <= i <= N"; return 1

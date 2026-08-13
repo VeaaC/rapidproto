@@ -26,10 +26,10 @@ Usage:
     python3 tests/corpus_gate.py --jobs 8
     python3 tests/corpus_gate.py --list-failures    # print every failure, do not diff
 
-Exits 0 when NO source has been fetched: downloading ~100 MB must never be a precondition for
-running the gate locally. A partially fetched corpus is an ERROR, not a skip -- sweeping a
-fraction of the schemas while reporting the same green result is the failure mode worth being
-loudest about.
+Self-skips (exit 77) when NO source has been fetched: downloading ~100 MB must never be a
+precondition for running the gate locally. A partially fetched corpus -- or one checked out at
+the wrong pin -- is an ERROR, not a skip: sweeping a fraction of the schemas while reporting the
+same green result is the failure mode worth being loudest about.
 """
 
 from __future__ import annotations

@@ -96,9 +96,10 @@ def is_message(field) -> bool:
 def is_open_enum(enum_type) -> bool:
     """Whether an unknown number stays in the field rather than moving to unknown fields.
 
-    Proto3 only: editions files report `syntax == "editions"`, so an editions enum declaring OPEN is
-    treated as closed here. That is deliberately conservative -- it can only make this harness
-    expect a value in unknown fields that the decoder kept -- but it is NOT editions support."""
+    Proto3 only, and `syntax` is read defensively (older bindings omit it) -- editions files report
+    `syntax == "editions"`, so an editions enum declaring OPEN is treated as closed. This gates only
+    GENERATION of an out-of-range enum number, so the cost is lost coverage for editions schemas,
+    not a false mismatch. It is not editions support."""
     return getattr(enum_type.file, "syntax", "proto2") == "proto3"
 
 
