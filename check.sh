@@ -109,7 +109,10 @@ if [[ "${1:-}" == "quick" ]]; then
   fi
   echo "build clean (gcc)"
   test_out=$(./build/gcc/rapidproto_tests  2>&1); test_rc=$?
-  if grep -qE 'All tests passed' <<<"$test_out"; then
+  # BOTH: Catch2 prints its summary before the process exits, so an at-exit failure (LeakSanitizer,
+  # a static-destructor crash, an atexit abort) leaves "All tests passed" in the output of a run
+  # that returned non-zero. Text alone called a segfaulting binary clean.
+  if [[ $test_rc -eq 0 ]] && grep -qE 'All tests passed' <<<"$test_out"; then
     grep -oE 'All tests passed.*' <<<"$test_out"
     echo ">> quick OK (gcc only -- run ./check.sh for the full gate before committing)"
     exit 0
@@ -168,9 +171,12 @@ if [[ "${1:-}" == "deep" ]]; then
   deep_fail=0
 
   section "ASan + UBSan (full suite)"
-  if cmake -S . -B build/san -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER="$CC" \
-       -DCMAKE_CXX_COMPILER="$CXX" -DRAPIDPROTO_SANITIZE=ON >/dev/null 2>&1 \
-     && cmake --build build/san --target rapidproto_tests -j"$JOBS" >/dev/null 2>&1; then
+  # -DRAPIDPROTO_BUILD_TESTS=ON explicitly: a cached OFF from an earlier configure left the target
+  # absent, `cmake --build --target` exited 0 doing nothing, and the section then ran a STALE binary
+  # and reported clean. Output is kept so a CI failure says which step broke and why.
+  if san_build=$(cmake -S . -B build/san -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER="$CC" \
+       -DCMAKE_CXX_COMPILER="$CXX" -DRAPIDPROTO_SANITIZE=ON -DRAPIDPROTO_BUILD_TESTS=ON 2>&1) \
+     && san_build=$(cmake --build build/san --target rapidproto_tests -j"$JOBS" 2>&1); then
     san_out=$(UBSAN_OPTIONS=print_stacktrace=1 ASAN_OPTIONS=detect_leaks=1 \
       ./build/san/rapidproto_tests 2>&1); san_rc=$?
     # BOTH conditions. The exit status is not redundant with the Catch2 line: LeakSanitizer reports
@@ -183,18 +189,27 @@ if [[ "${1:-}" == "deep" ]]; then
     else
       # Print it: a CI runner cannot "re-run the binary" after the job ends.
       echo ">> ASan/UBSan finding or test failure (exit $san_rc):"
-      tail -30 <<<"$san_out"
+      # head, not tail: ASan prints ERROR/stack/SUMMARY first and 20 lines of shadow-byte legend
+      # last, so `tail -30` showed only the legend for every memory error. Add the SUMMARY line back
+      # explicitly for leaks, whose report comes last.
+      head -40 <<<"$san_out"
+      grep -E '^(SUMMARY|==[0-9]+==ERROR)' <<<"$san_out" | head -5
       deep_fail=1
     fi
   else
-    echo ">> sanitizer build failed"; deep_fail=1
+    echo ">> sanitizer build failed:"; tail -20 <<<"$san_build"; deep_fail=1
   fi
 
   section "coverage (library line floor ${COV_FLOOR}%)"
   if cmake -S . -B build/cov -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER="$CC" \
        -DCMAKE_CXX_COMPILER="$CXX" -DRAPIDPROTO_COVERAGE=ON >/dev/null 2>&1 \
      && cmake --build build/cov --target rapidproto_tests -j"$JOBS" >/dev/null 2>&1; then
-    LLVM_PROFILE_FILE=build/cov/cov.profraw ./build/cov/rapidproto_tests >/dev/null 2>&1
+    # Status checked, not discarded: a suite that crashes here used to be noticed only if coverage
+    # happened to drop below the floor, which is not a test result.
+    cov_out=$(LLVM_PROFILE_FILE=build/cov/cov.profraw ./build/cov/rapidproto_tests 2>&1); cov_rc=$?
+    if [[ $cov_rc -ne 0 ]]; then
+      echo ">> coverage run failed (exit $cov_rc):"; tail -20 <<<"$cov_out"; deep_fail=1
+    fi
     llvm-profdata-20 merge -sparse build/cov/cov.profraw -o build/cov/cov.profdata 2>/dev/null
     cov=$(llvm-cov-20 report ./build/cov/rapidproto_tests -instr-profile=build/cov/cov.profdata \
             -ignore-filename-regex='(tests/|build/|wellknown_generated|catch_amalgamated)' 2>/dev/null \
@@ -299,8 +314,7 @@ if [[ "${1:-}" == "deep" ]]; then
     if [[ -x ./build/gcc/rapidproto_tests ]]; then
       corpus_cases_rc=0
       corpus_out=$(./build/gcc/rapidproto_tests "[corpus]~[sweep]" 2>&1) || corpus_cases_rc=$?
-      if [[ $corpus_cases_rc -ne 0 ]] &&
-           ! grep -qE '^[[:space:]]*assertions: - none -' <<<"$corpus_out"; then
+      if [[ $corpus_cases_rc -ne 0 && $corpus_cases_rc -ne 4 ]]; then
         echo ">> corpus resolver cases exited $corpus_cases_rc:"; tail -5 <<<"$corpus_out"
         deep_fail=1
       fi
@@ -392,7 +406,10 @@ job_build_test() {  # $1 = preset; parallel build, then run the test binary
   fi
   echo "build clean ($preset)"
   test_out=$(./build/"$preset"/rapidproto_tests  2>&1); test_rc=$?
-  if grep -qE 'All tests passed' <<<"$test_out"; then
+  # BOTH: Catch2 prints its summary before the process exits, so an at-exit failure (LeakSanitizer,
+  # a static-destructor crash, an atexit abort) leaves "All tests passed" in the output of a run
+  # that returned non-zero. Text alone called a segfaulting binary clean.
+  if [[ $test_rc -eq 0 ]] && grep -qE 'All tests passed' <<<"$test_out"; then
     grep -oE 'All tests passed.*' <<<"$test_out"
   else
     echo ">> tests failed ($preset):"
@@ -586,7 +603,9 @@ job_corpus() {
   out=$(./build/gcc/rapidproto_tests "[corpus]~[sweep]" 2>&1) || cases_rc=$?
   # Absence of failure evidence is not a pass: a renamed [corpus] tag makes Catch2 exit 2 with
   # "No tests ran", which matched no failure pattern and reported green while checking nothing.
-  if [[ $cases_rc -ne 0 ]] && ! grep -qE '^[[:space:]]*assertions: - none -' <<<"$out"; then
+  # 4 is Catch2's AllTestsSkippedExitCode -- the legitimate "corpus not fetched" outcome. Keying on
+  # the VALUE, not on the `assertions: - none -` text, which laundered any other status the same way.
+  if [[ $cases_rc -ne 0 && $cases_rc -ne 4 ]]; then
     echo ">> corpus resolver cases exited $cases_rc:"; tail -5 <<<"$out"; rc=1
   fi
   if grep -qE '^[[:space:]]*(assertions|test cases):.*[0-9]+ failed|FAILED' <<<"$out"; then

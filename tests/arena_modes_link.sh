@@ -44,9 +44,16 @@ int main() {
 EOF
 
 FLAGS=(-std=c++17 -I"$ROOT/include")
-"$CXX" "${FLAGS[@]}" -I"$T/lean" -c "$T/provider.cpp" -o "$T/provider.o"
-"$CXX" "${FLAGS[@]}" -I"$T/lean" -c "$T/consumer.cpp" -o "$T/consumer_lean.o"
-"$CXX" "${FLAGS[@]}" -I"$T/other" -c "$T/consumer.cpp" -o "$T/consumer_other.o"
+# Compile status checked: without this a compile failure fell through to the link step, which then
+# failed for a different reason and reported the wrong cause.
+for tu in "lean:provider.cpp:provider.o" "lean:consumer.cpp:consumer_lean.o" \
+          "other:consumer.cpp:consumer_other.o"; do
+  inc="${tu%%:*}"; rest="${tu#*:}"; src="${rest%%:*}"; obj="${rest#*:}"
+  if ! "$CXX" "${FLAGS[@]}" -I"$T/$inc" -c "$T/$src" -o "$T/$obj"; then
+    echo ">> arena modes link: $src failed to compile against $inc"
+    exit 1
+  fi
+done
 
 # Same profile: must link AND decode.
 if "$CXX" "$T/provider.o" "$T/consumer_lean.o" -o "$T/same" 2>"$T/same.err" && "$T/same"; then
