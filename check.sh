@@ -256,8 +256,18 @@ if [[ "${1:-}" == "deep" ]]; then
     # `seed` is local: the caller loops over `f`, and an undeclared loop variable here would clobber
     # it -- leaving the caller running ./build/fuzz/fuzz_ with an empty target name.
     local target=$1 dir="build/fuzz/seeds/$1" seed dst
-    if ! rm -rf "$dir" || ! mkdir -p "$dir"; then
-      echo ">> cannot create $dir -- fuzz_$target would run with no seeds"; deep_fail=1; return 1
+    # Two conditions, two messages. A stale directory that cannot be removed is the one that used
+    # to pass: mkdir -p succeeds on it, the copies below fail under `2>/dev/null || true`, and the
+    # `ls -A` emptiness warning stays quiet because the PREVIOUS run's seeds are still sitting
+    # there -- so the target fuzzed green off stale input. An absent directory that cannot be
+    # created was already red (libFuzzer refuses to start), just with a confusing CRASH label.
+    if ! rm -rf "$dir"; then
+      echo ">> cannot clear $dir -- fuzz_$target would rerun the previous run's seeds"
+      deep_fail=1; return 1
+    fi
+    if ! mkdir -p "$dir"; then
+      echo ">> cannot create $dir -- fuzz_$target has nowhere to stage its seeds"
+      deep_fail=1; return 1
     fi
     if [[ "$target" == parser ]]; then
       # Every corpus schema, path-flattened. Flattening is not injective (a future
@@ -303,7 +313,7 @@ if [[ "${1:-}" == "deep" ]]; then
       # The corpus directory persists across runs (build/ is gitignored), so each run starts from
       # what earlier runs discovered instead of rediscovering the same coverage from scratch.
       mkdir -p "build/fuzz/corpus/$f"
-      stage_fuzz_seeds "$f"
+      stage_fuzz_seeds "$f" || continue   # already reported; launching it only adds noise
       # DEBUGINFOD_URLS= : libFuzzer symbolizes its NEW_FUNC lines, and where the system points
       # llvm-symbolizer at a debuginfod server (Ubuntu ships /etc/debuginfod/*.urls by default) that
       # lookup blocks ~90s the first time a new function is discovered -- consuming the whole budget.
@@ -373,14 +383,18 @@ fi
 if ! LOG="$(mktemp -d build/gate-logs.XXXXXX)"; then   # mktemp, not $$: PIDs repeat in containers
   echo ">> cannot create a log directory under build/" >&2; exit 2
 fi
-# Checked for the reason stated above: a stale build/gate-logs that cannot be replaced leaves the
-# symlink pointing at an EARLIER run, so `cat build/gate-logs/<stage>` shows that run's output
-# while this one reports ALL GREEN -- the exact confusion the per-run directory exists to end.
+# Checked for the reason stated above. Only a leftover real DIRECTORY can fail here (a symlink is
+# removed without trouble, and build/ is known writable by now) -- and when it does, the name keeps
+# pointing at an EARLIER run, so `cat build/gate-logs/<stage>` shows that run's output while this
+# one reports ALL GREEN: the exact confusion the per-run directory exists to end.
+# $LOG is removed on these paths: they exit above the reaper that caps old log directories, so a
+# persistent fault used to leave one orphan build/gate-logs.XXXXXX behind per run.
 if ! rm -rf build/gate-logs; then   # a plain `ln -sfn` into an existing directory links INSIDE it
-  echo ">> cannot replace build/gate-logs -- it would still point at an earlier run" >&2; exit 2
+  echo ">> cannot replace build/gate-logs -- it would still point at an earlier run" >&2
+  rm -rf "$LOG"; exit 2
 fi
 if ! ln -sfn "$(basename "$LOG")" build/gate-logs; then
-  echo ">> cannot link build/gate-logs -> $LOG" >&2; exit 2
+  echo ">> cannot link build/gate-logs -> $LOG" >&2; rm -rf "$LOG"; exit 2
 fi
 # Keep the last few runs, not every run since the epoch. Skip any directory still marked live: a
 # running gate's mtime goes quiet during a long stage (tidy is 5+ min of silence), so an mtime sort
@@ -474,7 +488,12 @@ job_build_test() {  # $1 = preset; parallel build, then run the test binary
   local example out
   for example in rapidproto_example_consumer rapidproto_example_lean; do
     local path="./build/$preset/examples/consumer/$example"
-    [[ -x "$path" ]] || continue
+    # Not `|| continue`: the build above declares these targets unconditionally, so an absent or
+    # non-executable binary means the build did not produce what it claimed. Skipping in silence
+    # made a renamed or disabled target read as a clean run.
+    if [[ ! -x "$path" ]]; then
+      echo ">> $example was not built ($preset) -- expected $path"; return 1
+    fi
     if out=$("$path" 2>&1); then
       echo "$example: decoded OK ($preset)"
     else
@@ -714,10 +733,11 @@ job_differential() {
   python3 tests/differential.py --build-dir ./build/gcc --jobs "$JOBS"
 }
 
-# THE stage table. Adding a gate stage means one key here, one title, one job -- and nothing else:
-# the run loops, the log capture, the printing and the pass/fail aggregation are all driven off this
-# list. The previous shape needed six separate edits, two of which (the default allow-list and the
-# rc_<name> aggregation) failed SILENTLY when missed, leaving a stage that could only report success.
+# THE stage table. Adding a gate stage means one key here, one title, one job: the stage list, the
+# log capture and the pass/fail aggregation all read from it (a few call sites still name specific
+# stages -- the deep tier, and the two that may self-skip). The previous shape needed six separate
+# edits, two of which (the default allow-list and the rc_<name> aggregation) failed SILENTLY when
+# missed, leaving a stage that could only report success.
 readonly STAGE_KEYS=(format docs fixtures gcc clang cf fuzz tidy corpus cxx20 differential)
 
 # What a bare ./check.sh runs. `corpus` is deliberately absent: sweeping ~8000 third-party schemas is

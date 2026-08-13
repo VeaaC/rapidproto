@@ -82,6 +82,12 @@ while IFS= read -r g; do
     miss=1
   fi
 done < <(find "$GOLDEN" -name '*.rp.hpp')
+# A zero-match find regenerates nothing and reports success: with the goldens moved or the
+# name pattern stale, this script printed "0 arenagen goldens regenerated" and exited 0.
+if [[ $(find "$GOLDEN" -name '*.rp.hpp' | wc -l) -eq 0 ]]; then
+  echo ">> no arenagen goldens found under $GOLDEN -- nothing was regenerated" >&2
+  exit 1
+fi
 [[ $miss -eq 0 ]] || exit 1
 
 # Co-locate each file's shared common header (the decoder #includes its own) beside the decoder
