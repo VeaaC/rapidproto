@@ -97,7 +97,7 @@ if [[ "${1:-}" == "quick" ]]; then
   fi
   echo "formatted ${#FORMAT_FILES[@]} files"
   section "build + test (gcc)"
-  if ! cmake --preset gcc >/dev/null 2>&1; then
+  if ! cmake --preset gcc -DRAPIDPROTO_BUILD_TESTS=ON >/dev/null 2>&1; then
     echo ">> cmake configure failed"
     exit 1
   fi
@@ -335,7 +335,7 @@ if [[ "${1:-}" == "deep" ]]; then
   # Moved out of the default gate (see DEFAULT_STAGES). Needs a rapidprotoc: the sanitizer build is
   # the wrong binary to sweep 8000 schemas with, so build the plain one if this is a bare deep run.
   section "real-world schema corpus"
-  cmake --preset gcc >/dev/null 2>&1
+  cmake --preset gcc -DRAPIDPROTO_BUILD_TESTS=ON >/dev/null 2>&1
   # Same construction as job_corpus: build, do not guess. The deep tier had no freshness handling at
   # all, so it swept 8018 schemas with whatever binary happened to be on disk.
   ensure_gcc_binaries rapidprotoc rapidproto_tests || deep_fail=1
@@ -407,14 +407,24 @@ while IFS= read -r old_log; do
   rm -rf "$old_log"   # stale marker from a hard-killed run: reap it, or the bound decays forever
 done < <(ls -dt build/gate-logs.* 2>/dev/null | tail -n +4)
 # A CI kill (OOM, preemption, cancellation) arrives as SIGTERM and would discard every buffered
+if [[ -n "${RAPIDPROTO_REGEN_GOLDEN:-}" ]]; then
+  echo ">> RAPIDPROTO_REGEN_GOLDEN is set; ignoring it -- the gate verifies goldens, it never" >&2
+  echo "   rewrites them (use tests/regen_*_goldens.sh for that)" >&2
+  unset RAPIDPROTO_REGEN_GOLDEN
+fi
+
 # stage log -- exactly when the logs matter most. Dump whatever was captured before dying.
 trap 'echo ">> check.sh: killed (SIGTERM/SIGINT) -- dumping captured stage logs"; rm -f "$LOG/.live"; for f in "$LOG"/*; do [[ -f "$f" ]] && { echo "--- ${f##*/} ---"; cat "$f"; }; done; exit 143' TERM INT
 trap 'rm -f "$LOG/.live"' EXIT
 
 # Configure both presets up front (each build dir once) so the concurrent build and clang-tidy jobs
 # never race on the same build directory. Configuration is cheap.
-cmake --preset gcc   >"$LOG/cfg-gcc"   2>&1 & cfg_gcc=$!
-cmake --preset clang >"$LOG/cfg-clang" 2>&1 & cfg_clang=$!
+# -DRAPIDPROTO_BUILD_TESTS=ON on both, for the reason build/san and build/cov already pin it: a
+# cached OFF leaves rapidproto_tests and the examples out of the build, `cmake --build --target`
+# exits 0 doing nothing, and the stage tests whatever binary is on disk. Measured: an injected
+# failing assertion never compiled and the stage reported the same 9347 assertions, ALL GREEN.
+cmake --preset gcc   -DRAPIDPROTO_BUILD_TESTS=ON >"$LOG/cfg-gcc"   2>&1 & cfg_gcc=$!
+cmake --preset clang -DRAPIDPROTO_BUILD_TESTS=ON >"$LOG/cfg-clang" 2>&1 & cfg_clang=$!
 wait "$cfg_gcc"; rc_cfg_gcc=$?
 wait "$cfg_clang"; rc_cfg_clang=$?
 if [[ $rc_cfg_gcc -ne 0 || $rc_cfg_clang -ne 0 ]]; then
@@ -488,9 +498,10 @@ job_build_test() {  # $1 = preset; parallel build, then run the test binary
   local example out
   for example in rapidproto_example_consumer rapidproto_example_lean; do
     local path="./build/$preset/examples/consumer/$example"
-    # Not `|| continue`: the build above declares these targets unconditionally, so an absent or
-    # non-executable binary means the build did not produce what it claimed. Skipping in silence
-    # made a renamed or disabled target read as a clean run.
+    # Not `|| continue`: a binary that is missing or not executable means the build did not
+    # produce what it claimed, and skipping it in silence reported that as a clean run. (A target
+    # that was renamed or disabled leaves the old binary in place and runnable -- what catches
+    # THAT is pinning RAPIDPROTO_BUILD_TESTS=ON on the configure, above.)
     if [[ ! -x "$path" ]]; then
       echo ">> $example was not built ($preset) -- expected $path"; return 1
     fi
@@ -733,11 +744,11 @@ job_differential() {
   python3 tests/differential.py --build-dir ./build/gcc --jobs "$JOBS"
 }
 
-# THE stage table. Adding a gate stage means one key here, one title, one job: the stage list, the
-# log capture and the pass/fail aggregation all read from it (a few call sites still name specific
-# stages -- the deep tier, and the two that may self-skip). The previous shape needed six separate
-# edits, two of which (the default allow-list and the rc_<name> aggregation) failed SILENTLY when
-# missed, leaving a stage that could only report success.
+# THE stage table. Validation, aggregation and the summary read from it; the run loops and the
+# default allow-list still spell stages out, so a new stage needs a key, a title, a job AND a line
+# in the loops -- it just fails LOUDLY (`FAILURES: <key>`, no .rc recorded) when that is missed.
+# The previous shape needed six separate edits, two of which (the default allow-list and the
+# rc_<name> aggregation) failed SILENTLY, leaving a stage that could only report success.
 readonly STAGE_KEYS=(format docs fixtures gcc clang cf fuzz tidy corpus cxx20 differential)
 
 # What a bare ./check.sh runs. `corpus` is deliberately absent: sweeping ~8000 third-party schemas is

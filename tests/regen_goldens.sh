@@ -68,8 +68,9 @@ while IFS= read -r g; do
     miss=1
   fi
 done < <(find "$GOLDEN" -name '*.rp.stream.hpp')
-# A zero-match find regenerates nothing and reports success: with the goldens moved or the
-# name pattern stale, this script printed "0 streamgen goldens regenerated" and exited 0.
+# A zero-match find regenerates nothing and reports success: with the directory present but
+# the name pattern stale, this printed "0 streamgen goldens regenerated" and exited 0. (A
+# MISSING directory already failed -- the find -delete above trips errexit.)
 if [[ $(find "$GOLDEN" -name '*.rp.stream.hpp' | wc -l) -eq 0 ]]; then
   echo ">> no streamgen goldens found under $GOLDEN -- nothing was regenerated" >&2
   exit 1
