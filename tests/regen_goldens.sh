@@ -94,8 +94,11 @@ cmake --build --preset gcc --target rapidproto_tests -j"$JOBS" >/dev/null
 echo "[5/5] regenerating AST + wire + arena-layout + common goldens via the test binary ..."
 # Status kept: `| grep -i regenerated || true` discarded it, so a suite that crashed part-way
 # through regeneration reported the goldens as regenerated and left the rest at their old contents.
+# `|| regen_rc=$?` and not a following `regen_rc=$?`: this script runs under errexit, which aborts
+# at a failing assignment, so the separate-statement form made the branch below unreachable.
+regen_rc=0
 regen_out=$(RAPIDPROTO_REGEN_GOLDEN=1 ./build/gcc/rapidproto_tests \
-  "[golden],[wire-golden],[arena-layout],[common]" 2>&1); regen_rc=$?
+  "[golden],[wire-golden],[arena-layout],[common]" 2>&1) || regen_rc=$?
 grep -i "regenerated" <<<"$regen_out" || true
 if [[ $regen_rc -ne 0 ]]; then
   echo ">> golden regeneration failed (exit $regen_rc) -- goldens are incomplete:"

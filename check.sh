@@ -225,8 +225,6 @@ if [[ "${1:-}" == "deep" ]]; then
     if [[ $cov_rc -ne 0 ]]; then
       echo ">> coverage run failed (exit $cov_rc):"; tail -20 <<<"$cov_out"; deep_fail=1
     fi
-    # Status checked: a failed merge (unwritten, corrupt or version-mismatched .profraw) left the
-    # PREVIOUS run's cov.profdata in place, and the floor was then graded against stale data.
     # Status checked, and the grading is INSIDE the else: a failed merge (unwritten, corrupt or
     # version-mismatched .profraw) leaves the PREVIOUS run's cov.profdata on disk, so reporting past
     # it printed a confident percentage read from a profile this run never produced.
@@ -553,17 +551,20 @@ tidy_one() {
   out=$("$CLANG_TIDY" -p build/clang --quiet \
     --header-filter='(include/rapidproto|src)/.*\.hpp' "$f" 2>/dev/null); rc=$?
   # A crash or a bad invocation exits non-zero while printing nothing a diagnostic grep would catch;
-  # without this the TU silently counted as clean. (clang-tidy exits 1 when it emits diagnostics, so
-  # only treat a non-zero status as fatal when there is nothing to show for it.)
+  # without this the TU silently counted as clean. Only a non-zero status with nothing to show is
+  # fatal: some clang-tidy versions exit non-zero alongside real diagnostics, and this repo's
+  # clang-tidy-20 exits 0 with them, so the status alone decides nothing.
   if [[ $rc -ne 0 && -z "$(grep -E 'warning:|error:' <<<"$out")" ]]; then
-    printf '>> %s\n' "$f" >"$TIDY_D/$(tr / _ <<<"$f")"
-    echo "   $CLANG_TIDY exited $rc with no diagnostics -- treating as a failure, not as clean" \
-      >>"$TIDY_D/$(tr / _ <<<"$f")"
+    # `|| return 1`: an unwritable TIDY_D silently dropped this report, which reads as clean. A
+    # non-zero return makes xargs fail the fan-out instead.
+    { printf '>> %s\n' "$f"
+      echo "   $CLANG_TIDY exited $rc with no diagnostics -- treating as a failure, not as clean"
+    } >"$TIDY_D/$(tr / _ <<<"$f")" || return 1
     return 0
   fi
   out=$(grep -E 'warning:|error:' <<<"$out")
   if [[ -n "$out" ]]; then
-    { printf '>> %s\n' "$f"; head -20 <<<"$out"; } >"$TIDY_D/$(tr / _ <<<"$f")"
+    { printf '>> %s\n' "$f"; head -20 <<<"$out"; } >"$TIDY_D/$(tr / _ <<<"$f")" || return 1
   fi
 }
 export -f tidy_one
@@ -583,8 +584,8 @@ job_tidy() {
     echo ">> build/clang/compile_commands.json missing"
     return 1
   fi
-  # Checked because this file runs without `set -e`: an unwritable TIDY_D otherwise left every
-  # tidy_one redirect failing, which looks exactly like "no diagnostics".
+  # Checked because this file runs without `set -e`. This catches only "cannot create"; an existing
+  # directory that is unwritable passes mkdir -p and is caught in tidy_one, where the write is.
   TIDY_D="$LOG/tidy.d"
   if ! mkdir -p "$TIDY_D"; then echo ">> cannot create $TIDY_D"; return 1; fi
   export TIDY_D
@@ -598,9 +599,14 @@ job_tidy() {
     tu_index=$((tu_index + 1))
     [[ $((tu_index % shard_count)) -eq $((shard_index % shard_count)) ]] && tus+=("$tu")
   done
+  # An empty selection is a broken invocation, not a clean lint: it reported `tidy clean (0 TUs)`.
+  if [[ ${#tus[@]} -eq 0 ]]; then
+    echo ">> shard $shard selects no TUs out of $tu_index -- nothing was linted"; return 1
+  fi
   # Status checked: tidy_one reports by WRITING a log, so "no logs" means "clean" -- which is also
-  # what a fan-out that never ran looks like. A bad -P argument, an unwritable TIDY_D or a killed
-  # bash wrapper (the runners' documented OOM behaviour) all lint zero TUs and used to say clean.
+  # what a fan-out that never ran looks like. Measured: a bad -P argument exits 1, a child killed by
+  # a signal makes xargs exit 125, and a child that cannot write its log exits 123 -- all of which
+  # used to be read as clean.
   if ! printf '%s\n' "${tus[@]}" | xargs -P"$JOBS" -I{} bash -c 'tidy_one "$@"' _ {}; then
     echo ">> clang-tidy fan-out failed -- TUs may not have been linted"
     cat "$TIDY_D"/* 2>/dev/null
