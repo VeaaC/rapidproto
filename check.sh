@@ -508,12 +508,19 @@ job_cxx20_smoke() {
   local cxx=g++-13 rc=0 out
   command -v "$cxx" >/dev/null 2>&1 || cxx=c++
   local tu="build/cxx20_smoke.cpp"
-  mkdir -p build
-  {
-    echo '#include "arenagen_golden/arena_naming.rp.hpp"   // the C++ keyword fixture lives here'
-    echo '#include "streamgen_golden/naming.rp.stream.hpp"'
-    echo 'int main() {}'
-  } >"$tu"
+  # Both writes checked (this file runs without `set -e`): $tu persists across runs, so a failed
+  # write left the PREVIOUS run's translation unit in place and the stage compiled that -- passing
+  # without ever including the generated headers it exists to check.
+  if ! mkdir -p build; then echo ">> cannot create build/"; return 1; fi
+  # One printf, not a { ... } group: bash reports a FAILED redirect on a group as success when the
+  # group is the condition of `if !` (measured on 5.2.21 -- bare it is 1, negated it is 0), so the
+  # group form left this guard inert. A simple command's redirect failure is caught.
+  if ! printf '%s\n' \
+       '#include "arenagen_golden/arena_naming.rp.hpp"   // the C++ keyword fixture lives here' \
+       '#include "streamgen_golden/naming.rp.stream.hpp"' \
+       'int main() {}' >"$tu"; then
+    echo ">> cannot write $tu"; return 1
+  fi
   for std in c++20 c++23; do
     if ! out=$("$cxx" -std=$std -Iinclude -Itests -Ibuild/gcc/generated/include -fsyntax-only "$tu" 2>&1); then
       echo ">> generated headers do not compile at -std=$std:"
@@ -553,7 +560,7 @@ tidy_one() {
   # A crash or a bad invocation exits non-zero while printing nothing a diagnostic grep would catch;
   # without this the TU silently counted as clean. Only a non-zero status with nothing to show is
   # fatal: some clang-tidy versions exit non-zero alongside real diagnostics, and this repo's
-  # clang-tidy-20 exits 0 with them, so the status alone decides nothing.
+  # clang-tidy-20 exits 0 with them, so a non-zero status alone does not mean failure.
   if [[ $rc -ne 0 && -z "$(grep -E 'warning:|error:' <<<"$out")" ]]; then
     # `|| return 1`: an unwritable TIDY_D silently dropped this report, which reads as clean. A
     # non-zero return makes xargs fail the fan-out instead.
@@ -594,6 +601,12 @@ job_tidy() {
   # jobs; unset (the local default) lints everything.
   local shard="${RAPIDPROTO_TIDY_SHARD:-1/1}" tu_index=0 tu
   local shard_index="${shard%/*}" shard_count="${shard#*/}"
+  # Range-checked: the modulo below silently aliases 0/3 onto 3/3 and 5/4 onto 1/4, so a mistyped
+  # shard lints the wrong slice while CI's matrix still looks complete.
+  if [[ ! $shard_index =~ ^[0-9]+$ || ! $shard_count =~ ^[0-9]+$ ]] \
+     || [[ $shard_count -lt 1 || $shard_index -lt 1 || $shard_index -gt $shard_count ]]; then
+    echo ">> RAPIDPROTO_TIDY_SHARD='$shard' is not a valid i/N with 1 <= i <= N"; return 1
+  fi
   local tus=()
   for tu in "${LIB_SRC[@]}" "${TEST_SRC[@]}"; do
     tu_index=$((tu_index + 1))
@@ -604,9 +617,9 @@ job_tidy() {
     echo ">> shard $shard selects no TUs out of $tu_index -- nothing was linted"; return 1
   fi
   # Status checked: tidy_one reports by WRITING a log, so "no logs" means "clean" -- which is also
-  # what a fan-out that never ran looks like. Measured: a bad -P argument exits 1, a child killed by
-  # a signal makes xargs exit 125, and a child that cannot write its log exits 123 -- all of which
-  # used to be read as clean.
+  # what a fan-out that never ran looks like. Measured, all as xargs' own status: a bad -P argument
+  # exits 1, a child killed by a signal makes it exit 125, and a child that returns non-zero (one
+  # that could not write its log) makes it exit 123 -- all of which used to be read as clean.
   if ! printf '%s\n' "${tus[@]}" | xargs -P"$JOBS" -I{} bash -c 'tidy_one "$@"' _ {}; then
     echo ">> clang-tidy fan-out failed -- TUs may not have been linted"
     cat "$TIDY_D"/* 2>/dev/null

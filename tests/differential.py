@@ -94,9 +94,11 @@ def is_message(field) -> bool:
 
 
 def is_open_enum(enum_type) -> bool:
-    """Whether an unknown number stays in the field rather than moving to unknown fields. True for
-    proto3 and for editions enums declaring OPEN; protobuf spells the latter through the same
-    `syntax` attribute on older bindings, so fall back to closed when it cannot be determined."""
+    """Whether an unknown number stays in the field rather than moving to unknown fields.
+
+    Proto3 only: editions files report `syntax == "editions"`, so an editions enum declaring OPEN is
+    treated as closed here. That is deliberately conservative -- it can only make this harness
+    expect a value in unknown fields that the decoder kept -- but it is NOT editions support."""
     return getattr(enum_type.file, "syntax", "proto2") == "proto3"
 
 
