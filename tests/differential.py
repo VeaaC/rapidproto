@@ -59,6 +59,10 @@ import tempfile
 from itertools import repeat
 from pathlib import Path
 
+# Reserved exit code for "I could not run, and that is expected" -- check.sh reports it as a
+# self-skip rather than a pass, so a green gate cannot quietly have checked nothing.
+SKIP_RC = 77
+
 REPO = Path(__file__).resolve().parent.parent
 CORPUS = REPO / "tests" / "corpus"
 DEFAULT_BUILD_DIR = REPO / "build" / "gcc"
@@ -397,14 +401,18 @@ def build_schema(schema: Path, work: Path, tools: dict[str, Path], cxx: str):
     generated = run([str(tools["rapidprotoc"]), "--arena", "--dump", f"-I{include}",
                      "--out-dir", str(work), str(schema)])
     if generated.returncode != 0:
-        raise Skip("rapidprotoc rejects it: %s" % first_error(generated.stderr))
+        # NOT a Skip: protoc accepted this schema, so our own front-end rejecting it is a
+        # regression that would otherwise leave coverage silently, one reassuring line at a time.
+        raise HarnessError("rapidprotoc rejects a protoc-valid schema: %s"
+                           % first_error(generated.stderr))
 
     harness_source = work / "harness.cpp"
     meta_path = work / "meta.json"
     emitted = run([str(tools["diffgen"]), f"-I{include}", "--out", str(harness_source),
                    "--meta", str(meta_path), str(schema)])
     if emitted.returncode != 0:
-        raise Skip("diffgen failed: %s" % first_error(emitted.stderr))
+        # Same reasoning: diffgen is ours, so its failure is a defect, not a property of the schema.
+        raise HarnessError("diffgen failed: %s" % first_error(emitted.stderr))
     meta = json.loads(meta_path.read_text())
     if not meta["messages"]:
         raise Skip("no messages")
@@ -551,7 +559,7 @@ def main() -> int:
         import google.protobuf.message_factory  # noqa: F401  (presence check; workers re-import)
     except ImportError:
         print("differential: protobuf Python bindings not installed; skipping")
-        return 0
+        return SKIP_RC
 
     # An explicit --build-dir that holds no tools is a typo, not a reason to report success; the
     # DEFAULT one being unbuilt is the legitimate skip (nobody must build to run an unrelated stage).
@@ -563,11 +571,11 @@ def main() -> int:
             if explicit_build_dir:
                 raise SystemExit(f"--build-dir {args.build_dir}: {path.name} is not built there")
             print(f"differential: {path} not built; skipping")
-            return 0
+            return SKIP_RC
     protoc = shutil.which("protoc")
     if protoc is None:
         print("differential: protoc not on PATH; skipping")
-        return 0
+        return SKIP_RC
     tools["protoc"] = Path(protoc)
 
     seed_dir = args.write_seeds
@@ -609,12 +617,22 @@ def main() -> int:
         print("   skipped " + reason)
     for failure in failures:
         print(">> " + failure)
+    # Harness failures are counted apart from mismatches: one means our tools broke, the other
+    # means a decode disagreed with protobuf, and reporting a tool failure as a "mismatch" sends
+    # the reader looking for a decode bug that is not there.
+    harness_failures = sum(1 for f in failures if "rejects a protoc-valid schema" in f
+                           or "diffgen failed" in f or "harness does not compile" in f)
+    mismatches = len(failures) - harness_failures
     print("differential: %d message types over %d schemas, %d payloads each, %d mismatches "
-          "(%d schemas skipped)" % (checked, len(schemas) - len(skipped), args.messages,
-                                    len(failures), len(skipped)))
+          "(%d schemas skipped%s)" % (checked, len(schemas) - len(skipped) - harness_failures,
+                                      args.messages, mismatches, len(skipped),
+                                      ", %d harness failure%s"
+                                      % (harness_failures, "" if harness_failures == 1 else "s")
+                                      if harness_failures else ""))
     if checked == 0:
-        print(">> nothing was checked: every schema skipped. Something upstream is broken -- a "
-              "green result here would mean only that the test ran, not that anything decoded.")
+        why = ("every schema hit a harness failure" if harness_failures else "every schema skipped")
+        print(">> nothing was checked: %s. Something upstream is broken -- a green result here "
+              "would mean only that the test ran, not that anything decoded." % why)
         return 1
     return 1 if failures else 0
 

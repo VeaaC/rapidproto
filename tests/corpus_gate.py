@@ -46,6 +46,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import fetch_corpus  # noqa: E402  (needs the path insert above)
 
 REPO = Path(__file__).resolve().parent.parent
+# See differential.py: 77 means "expected not-run", which check.sh reports as a self-skip.
+SKIP_RC = 77
+
 DEFAULT_EXPECTED = Path(__file__).resolve().parent / "corpus_expected_failures.txt"
 
 # A single schema should take milliseconds. This is a deadlock/runaway guard, not a budget:
@@ -177,7 +180,7 @@ def main() -> int:
     present, unusable = (fetched_sources(corpus) if corpus.is_dir() else ([], []))
     if not present:
         print(f"corpus not fetched ({corpus}); skipping -- run tests/fetch_corpus.py")
-        return 0
+        return SKIP_RC
     if unusable:
         raise SystemExit(
             f"corpus is INCOMPLETE: {', '.join(unusable)} missing or not at the pinned commit.\n"

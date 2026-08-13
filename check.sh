@@ -32,8 +32,8 @@
 set -uo pipefail
 cd "$(dirname "$0")"
 
-CLANG_FORMAT=clang-format-20
-CLANG_TIDY=clang-tidy-20
+CLANG_FORMAT="${CLANG_FORMAT:-clang-format-20}"   # overridable so the gate can be tested against a broken tool
+CLANG_TIDY="${CLANG_TIDY:-clang-tidy-20}"   # overridable so the gate can be tested against a broken tool
 JOBS="${JOBS:-$(nproc 2>/dev/null || echo 4)}"
 export CLANG_TIDY
 
@@ -46,7 +46,7 @@ export CLANG_TIDY
 # are formatted but NOT tidied -- their argv / measurement / harness patterns trip strict checks for
 # no real-bug gain.
 HEADERS=(include/rapidproto/*.hpp include/rapidproto/streamgen/*.hpp include/rapidproto/arenagen/*.hpp include/rapidproto/dumpgen/*.hpp include/rapidproto/codegen/*.hpp include/rapidproto/cli/*.hpp)
-LIB_SRC=(src/lexer.cpp src/interpret.cpp src/parser.cpp src/parser_enum.cpp src/features.cpp src/resolve.cpp src/resolver.cpp src/source.cpp src/streamgen/generator.cpp src/codegen/naming.cpp src/arenagen/layout.cpp src/arenagen/modes.cpp src/arenagen/generator.cpp src/dumpgen/generator.cpp src/header_self_contained.cpp)
+LIB_SRC=(src/lexer.cpp src/interpret.cpp src/parser.cpp src/features.cpp src/resolve.cpp src/resolver.cpp src/source.cpp src/streamgen/generator.cpp src/codegen/naming.cpp src/arenagen/layout.cpp src/arenagen/modes.cpp src/arenagen/generator.cpp src/dumpgen/generator.cpp src/header_self_contained.cpp)
 TEST_SRC=(tests/test_*.cpp)
 CLI_SRC=(src/main.cpp src/rapidprotoc/main.cpp tests/diffgen/main.cpp)
 EXTRA_SRC=(tests/bench_streamgen.cpp tests/bench_stream_isolated.cpp tests/bench_arena.cpp tests/fuzz/*.cpp examples/*/*.cpp)
@@ -54,18 +54,35 @@ EXTRA_SRC=(tests/bench_streamgen.cpp tests/bench_stream_isolated.cpp tests/bench
 # the vendored Catch2 amalgam, so a newly-added helper can't silently escape the format gate.
 TEST_HDR=()
 for _h in tests/*.hpp; do [[ "$_h" == tests/catch_amalgamated.hpp ]] || TEST_HDR+=("$_h"); done
-# SRC_HDR: private headers under src/. They are outside HEADERS (which is include/-only) and are
-# not TUs, so without naming them here they escape BOTH the format check and clang-tidy's
-# --header-filter -- 89 unlinted lines the moment one is added.
+# SRC_HDR: private headers under src/. There are none today, and the glob is deliberately kept: such
+# a header is outside HEADERS (include/-only) and is not a TU, so without naming it here it escapes
+# BOTH the format check and clang-tidy's --header-filter. That gap was found the hard way -- a
+# private parser header sat unlinted until a review caught it.
 SRC_HDR=()
 for _h in src/*.hpp src/*/*.hpp; do [[ -f "$_h" ]] && SRC_HDR+=("$_h"); done
 FORMAT_FILES=("${HEADERS[@]}" "${SRC_HDR[@]}" "${LIB_SRC[@]}" "${TEST_SRC[@]}" "${CLI_SRC[@]}" "${EXTRA_SRC[@]}" "${TEST_HDR[@]}")
 
 section() { printf '\n=== %s ===\n' "$1"; }
 
+# `./check.sh deeep` used to run the default gate and report ALL GREEN -- the one place a typo gives
+# false confidence about which tier ran.
+case "${1:-}" in
+  ""|fix|quick|deep) ;;
+  *) echo ">> unknown argument '$1' -- expected one of: fix, quick, deep (or no argument)" >&2
+     exit 2 ;;
+esac
+if [[ $# -gt 1 ]]; then   # otherwise `./check.sh deep --fast` silently runs plain `deep`
+  echo ">> check.sh takes at most one argument; got: $*" >&2
+  exit 2
+fi
+
 if [[ "${1:-}" == "fix" ]]; then
   section "clang-format (apply)"
-  "$CLANG_FORMAT" -i "${FORMAT_FILES[@]}"
+  if ! "$CLANG_FORMAT" -i "${FORMAT_FILES[@]}"; then
+    echo ">> $CLANG_FORMAT exited non-zero -- the tree may be PARTIALLY formatted (a stale path in"
+    echo "   LIB_SRC/CLI_SRC does this: clang-format rewrites the good files, then fails on the bad)"
+    exit 1
+  fi
   echo "formatted ${#FORMAT_FILES[@]} files"
 fi
 
@@ -73,7 +90,11 @@ fi
 # compile-fail, and the stress compile). Run the full gate (`./check.sh`) before committing.
 if [[ "${1:-}" == "quick" ]]; then
   section "clang-format (apply)"
-  "$CLANG_FORMAT" -i "${FORMAT_FILES[@]}"
+  if ! "$CLANG_FORMAT" -i "${FORMAT_FILES[@]}"; then
+    echo ">> $CLANG_FORMAT exited non-zero -- the tree may be PARTIALLY formatted (a stale path in"
+    echo "   LIB_SRC/CLI_SRC does this: clang-format rewrites the good files, then fails on the bad)"
+    exit 1
+  fi
   echo "formatted ${#FORMAT_FILES[@]} files"
   section "build + test (gcc)"
   if ! cmake --preset gcc >/dev/null 2>&1; then
@@ -87,20 +108,59 @@ if [[ "${1:-}" == "quick" ]]; then
     exit 1
   fi
   echo "build clean (gcc)"
-  test_out=$(./build/gcc/rapidproto_tests 2>&1)
+  test_out=$(./build/gcc/rapidproto_tests  2>&1); test_rc=$?
   if grep -qE 'All tests passed' <<<"$test_out"; then
     grep -oE 'All tests passed.*' <<<"$test_out"
     echo ">> quick OK (gcc only -- run ./check.sh for the full gate before committing)"
     exit 0
   fi
   echo ">> tests failed (gcc):"
-  grep -E 'FAILED|with expansion|assertions:' <<<"$test_out" | head -30
+  # -A3: the value lines FOLLOW 'with expansion:', so matching the header alone logged the failing
+  # file:line but never the actual-vs-expected. Also catch a binary that died before Catch2 printed.
+  # Per-failure detail is capped; the totals line is printed separately so the cap can never eat it
+  # (-A3 multiplies every match by four, which silently truncated the summary before).
+  grep -E -A3 'FAILED|with expansion' <<<"$test_out" | head -40
+  grep -E '^[[:space:]]*(test cases|assertions):' <<<"$test_out"
+  if [[ -z "$(grep -E 'FAILED|assertions:' <<<"$test_out")" ]]; then
+    echo "   (no Catch2 output -- the binary exited $test_rc without reporting; last lines:)"
+    tail -10 <<<"$test_out"
+  fi
   exit 1
 fi
 
 # Opt-in heavy tier: the dynamic-analysis tooling (sanitizers, coverage, fuzzing). Deliberately NOT
 # part of the default gate -- three instrumented builds + a fuzz run are too slow for every small
 # change. Run it in CI or at the end of a phase. Requires clang-20 + llvm-{cov,profdata}-20.
+# Build what this stage consumes, rather than trying to DETECT whether it is stale. Two mtime
+# heuristics and one build-plan grep all got that wrong -- the grep both false-positived (any
+# checkout path containing `/c++` matched the plan text and wedged the stage forever) and
+# false-negatived (header dependencies live in compiler_depend.make, which is empty until a second
+# build's `depend` step, so `make -n` cannot see them). Building is a no-op of a second or two when
+# up to date, and afterwards the binaries are fresh BY CONSTRUCTION rather than by inference.
+ensure_gcc_binaries() {  # $@ = the targets THIS stage consumes
+  local out target
+  # `cmake --build --target X` is NOT a target-existence check: under Makefiles it degenerates to
+  # `make X`, and if X is no longer a target but build/gcc/X still exists as a file, make prints
+  # "Nothing to be done" and exits 0. A renamed target -- or one disabled by a stale
+  # -DRAPIDPROTO_BUILD_TESTS=OFF configure -- would then freeze the binary and pass forever.
+  # Capture then grep -- `... | grep -q` under `set -o pipefail` reports failure on a MATCH (grep
+  # exits early, upstream takes SIGPIPE). That inversion has now bitten this file twice.
+  local targets
+  targets=$(cmake --build --preset gcc --target help 2>/dev/null)
+  for target in "$@"; do
+    if ! grep -qE "(^|\.\.\. )$target\$" <<<"$targets"; then
+      echo ">> '$target' is not a target of build/gcc: the configure is stale or the target was"
+      echo "   renamed, and this stage would run against a frozen binary (re-run cmake --preset gcc)"
+      return 1
+    fi
+  done
+  if ! out=$(cmake --build --preset gcc --target "$@" -j"$JOBS" 2>&1); then
+    echo ">> could not build $*: this stage would otherwise run against a stale or missing binary"
+    tail -20 <<<"$out"
+    return 1
+  fi
+}
+
 if [[ "${1:-}" == "deep" ]]; then
   CXX=clang++-20; CC=clang-20
   FUZZ_TIME=${FUZZ_TIME:-30}   # seconds per fuzz target
@@ -111,11 +171,20 @@ if [[ "${1:-}" == "deep" ]]; then
   if cmake -S . -B build/san -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER="$CC" \
        -DCMAKE_CXX_COMPILER="$CXX" -DRAPIDPROTO_SANITIZE=ON >/dev/null 2>&1 \
      && cmake --build build/san --target rapidproto_tests -j"$JOBS" >/dev/null 2>&1; then
-    if UBSAN_OPTIONS=print_stacktrace=1 ASAN_OPTIONS=detect_leaks=1 \
-         ./build/san/rapidproto_tests 2>&1 | grep -qE 'All tests passed'; then
+    san_out=$(UBSAN_OPTIONS=print_stacktrace=1 ASAN_OPTIONS=detect_leaks=1 \
+      ./build/san/rapidproto_tests 2>&1); san_rc=$?
+    # BOTH conditions. The exit status is not redundant with the Catch2 line: LeakSanitizer reports
+    # at exit, AFTER "All tests passed" is printed, so a leaking run matches the text and only the
+    # non-zero status catches it. (The old `| grep -q` form got this right by accident -- pipefail
+    # propagated the binary's rc -- and rewriting it as a bare grep silently disabled leak detection,
+    # which is the project's only leak gate.)
+    if [[ $san_rc -eq 0 ]] && grep -qE 'All tests passed' <<<"$san_out"; then
       echo "sanitizers clean"
     else
-      echo ">> ASan/UBSan finding or test failure (re-run ./build/san/rapidproto_tests)"; deep_fail=1
+      # Print it: a CI runner cannot "re-run the binary" after the job ends.
+      echo ">> ASan/UBSan finding or test failure (exit $san_rc):"
+      tail -30 <<<"$san_out"
+      deep_fail=1
     fi
   else
     echo ">> sanitizer build failed"; deep_fail=1
@@ -184,7 +253,7 @@ if [[ "${1:-}" == "deep" ]]; then
   section "fuzz smoke (${FUZZ_TIME}s per target)"
   mkdir -p build/fuzz
   # The front-end target links the library TUs; the three decode targets are header-only.
-  parser_tus=(src/lexer.cpp src/parser.cpp src/parser_enum.cpp src/features.cpp src/resolve.cpp src/interpret.cpp
+  parser_tus=(src/lexer.cpp src/parser.cpp src/features.cpp src/resolve.cpp src/interpret.cpp
               src/source.cpp src/resolver.cpp src/wellknown_generated.cpp)
   for f in wire arena stream parser; do
     extra_tus=()
@@ -216,15 +285,25 @@ if [[ "${1:-}" == "deep" ]]; then
   # Moved out of the default gate (see DEFAULT_STAGES). Needs a rapidprotoc: the sanitizer build is
   # the wrong binary to sweep 8000 schemas with, so build the plain one if this is a bare deep run.
   section "real-world schema corpus"
-  if [[ ! -x ./build/gcc/rapidprotoc ]]; then
-    cmake --preset gcc >/dev/null 2>&1
-    cmake --build --preset gcc --target rapidprotoc -j"$JOBS" >/dev/null 2>&1
-  fi
+  cmake --preset gcc >/dev/null 2>&1
+  # Same construction as job_corpus: build, do not guess. The deep tier had no freshness handling at
+  # all, so it swept 8018 schemas with whatever binary happened to be on disk.
+  ensure_gcc_binaries rapidprotoc rapidproto_tests || deep_fail=1
   if [[ -x ./build/gcc/rapidprotoc ]]; then
-    python3 tests/corpus_gate.py --rapidprotoc ./build/gcc/rapidprotoc --jobs "$JOBS" || deep_fail=1
+    corpus_rc=0
+    python3 tests/corpus_gate.py --rapidprotoc ./build/gcc/rapidprotoc --jobs "$JOBS" || corpus_rc=$?
+    # 77 = not fetched: a skip, not a failure. CI's deep job never fetches the corpus, so treating
+    # it as a failure would have turned that job red on every PR.
+    [[ $corpus_rc -ne 0 && $corpus_rc -ne 77 ]] && deep_fail=1
     # job_corpus runs the sweep AND the [corpus] resolver cases; both moved, not just the sweep.
     if [[ -x ./build/gcc/rapidproto_tests ]]; then
-      corpus_out=$(./build/gcc/rapidproto_tests "[corpus]~[sweep]" 2>&1)
+      corpus_cases_rc=0
+      corpus_out=$(./build/gcc/rapidproto_tests "[corpus]~[sweep]" 2>&1) || corpus_cases_rc=$?
+      if [[ $corpus_cases_rc -ne 0 ]] &&
+           ! grep -qE '^[[:space:]]*assertions: - none -' <<<"$corpus_out"; then
+        echo ">> corpus resolver cases exited $corpus_cases_rc:"; tail -5 <<<"$corpus_out"
+        deep_fail=1
+      fi
       if grep -qE '^[[:space:]]*(assertions|test cases):.*[0-9]+ failed|FAILED' <<<"$corpus_out"; then
         echo ">> corpus resolver cases failed:"; tail -20 <<<"$corpus_out"; deep_fail=1
       else
@@ -246,15 +325,24 @@ fi
 # Per-run directory, symlinked to a stable name. A single fixed path let a second, overlapping run
 # `rm -rf` the first's results: the first then printed the second's logs and reported ALL GREEN with
 # its own failure erased. The symlink keeps "read build/gate-logs" true for the last run started.
-LOG="build/gate-logs.$$"
-rm -rf "$LOG"; mkdir -p "$LOG"
+mkdir -p build
+LOG="$(mktemp -d build/gate-logs.XXXXXX)"   # mktemp, not $$: PIDs repeat in containers
 rm -rf build/gate-logs   # a plain `ln -sfn` into an existing directory links INSIDE it
 ln -sfn "$(basename "$LOG")" build/gate-logs
-# Keep the last few runs, not every run since the epoch.
-ls -dt build/gate-logs.* 2>/dev/null | tail -n +4 | xargs -r rm -rf
+# Keep the last few runs, not every run since the epoch. Skip any directory still marked live: a
+# running gate's mtime goes quiet during a long stage (tidy is 5+ min of silence), so an mtime sort
+# happily reaps a concurrent run's logs out from under it.
+echo $$ >"$LOG/.live"   # PID, not a bare marker: a SIGKILLed run runs no trap to clear it
+while IFS= read -r old_log; do
+  if [[ -f "$old_log/.live" ]] && kill -0 "$(cat "$old_log/.live" 2>/dev/null)" 2>/dev/null; then
+    continue   # a genuinely running gate -- leave its logs alone
+  fi
+  rm -rf "$old_log"   # stale marker from a hard-killed run: reap it, or the bound decays forever
+done < <(ls -dt build/gate-logs.* 2>/dev/null | tail -n +4)
 # A CI kill (OOM, preemption, cancellation) arrives as SIGTERM and would discard every buffered
 # stage log -- exactly when the logs matter most. Dump whatever was captured before dying.
-trap 'echo ">> check.sh: killed (SIGTERM/SIGINT) -- dumping captured stage logs"; for f in "$LOG"/*; do [[ -f "$f" ]] && { echo "--- ${f##*/} ---"; cat "$f"; }; done; exit 143' TERM INT
+trap 'echo ">> check.sh: killed (SIGTERM/SIGINT) -- dumping captured stage logs"; rm -f "$LOG/.live"; for f in "$LOG"/*; do [[ -f "$f" ]] && { echo "--- ${f##*/} ---"; cat "$f"; }; done; exit 143' TERM INT
+trap 'rm -f "$LOG/.live"' EXIT
 
 # Configure both presets up front (each build dir once) so the concurrent build and clang-tidy jobs
 # never race on the same build directory. Configuration is cheap.
@@ -272,6 +360,10 @@ fi
 # --- stages: each writes its full output to a log and exits 0 (clean) / 1 (problem) -------------
 
 job_format() {
+  if ! "$CLANG_FORMAT" --version >/dev/null 2>&1; then
+    echo ">> $CLANG_FORMAT is missing or not runnable: the format stage cannot run"
+    return 1
+  fi
   if "$CLANG_FORMAT" --dry-run --Werror "${FORMAT_FILES[@]}"; then
     echo "format clean"
   else
@@ -291,7 +383,7 @@ job_fixtures() {
 }
 
 job_build_test() {  # $1 = preset; parallel build, then run the test binary
-  local preset=$1 build_out test_out rc
+  local preset=$1 build_out test_out rc test_rc
   build_out=$(cmake --build --preset "$preset" -j"$JOBS" 2>&1); rc=$?
   if [[ $rc -ne 0 ]] || grep -qE 'error:|warning:' <<<"$build_out"; then
     echo ">> build problems ($preset):"
@@ -299,32 +391,37 @@ job_build_test() {  # $1 = preset; parallel build, then run the test binary
     return 1
   fi
   echo "build clean ($preset)"
-  test_out=$(./build/"$preset"/rapidproto_tests 2>&1)
+  test_out=$(./build/"$preset"/rapidproto_tests  2>&1); test_rc=$?
   if grep -qE 'All tests passed' <<<"$test_out"; then
     grep -oE 'All tests passed.*' <<<"$test_out"
   else
     echo ">> tests failed ($preset):"
-    grep -E 'FAILED|with expansion|assertions:' <<<"$test_out" | head -30
+    # -A3 so the value lines that FOLLOW 'with expansion:' survive; the totals are printed OUTSIDE
+    # the cap, because -A3 multiplies every match by four and used to push them past `head`.
+    grep -E -A3 'FAILED|with expansion' <<<"$test_out" | head -40
+    grep -E '^[[:space:]]*(test cases|assertions):' <<<"$test_out"
+    if [[ -z "$(grep -E 'FAILED|assertions:' <<<"$test_out")" ]]; then
+      echo "   (no Catch2 output -- the binary exited $test_rc without reporting; last lines:)"
+      tail -10 <<<"$test_out"
+    fi
     return 1
   fi
   # The consumer example (examples/consumer) is built alongside via rapidproto_generate(); run it to
   # confirm the helper-generated decoders (arena + streaming, in one TU) decode at runtime here.
-  if [[ -x "./build/$preset/examples/consumer/rapidproto_example_consumer" ]]; then
-    if "./build/$preset/examples/consumer/rapidproto_example_consumer" >/dev/null 2>&1; then
-      echo "consumer example: decoded OK ($preset)"
+  local example out
+  for example in rapidproto_example_consumer rapidproto_example_lean; do
+    local path="./build/$preset/examples/consumer/$example"
+    [[ -x "$path" ]] || continue
+    if out=$("$path" 2>&1); then
+      echo "$example: decoded OK ($preset)"
     else
-      echo ">> consumer example failed ($preset)"
+      # Print what it said. Discarding this left the log as a single ">> ... failed" line with no
+      # reason, on a stage whose whole job is to explain itself.
+      echo ">> $example failed ($preset), rc=$? -- output:"
+      head -20 <<<"$out"
       return 1
     fi
-  fi
-  if [[ -x "./build/$preset/examples/consumer/rapidproto_example_lean" ]]; then
-    if "./build/$preset/examples/consumer/rapidproto_example_lean" >/dev/null 2>&1; then
-      echo "lean consumer example: decoded OK ($preset)"
-    else
-      echo ">> lean consumer example failed ($preset)"
-      return 1
-    fi
-  fi
+  done
   # The gcc build also produced rapidprotoc; compile-check the dispatch-gate worst case
   # (a many-field x many-callback decoder builds). Timing stays manual (streamgen_compile_bench.sh).
   if [[ "$preset" == gcc ]]; then
@@ -401,11 +498,21 @@ tidy_one() {
   # --header-filter on the COMMAND LINE, not (only) the config file: clang-tidy < 20.1.8 ignores
   # the config's HeaderFilterRegex, silently skipping all header diagnostics -- the gate must
   # lint headers identically on every toolchain point release. Anchored to include/rapidproto
-  # (see .clang-tidy for why a bare 'rapidproto/.*' is wrong), plus src/ for the parser's private
-  # header: without that alternative its contents are linted by nothing at all.
+  # (see .clang-tidy for why a bare 'rapidproto/.*' is wrong), plus src/ so a PRIVATE header there is
+  # linted too -- without that alternative its contents are checked by nothing at all.
+  local rc
   out=$("$CLANG_TIDY" -p build/clang --quiet \
-    --header-filter='(include/rapidproto|src)/.*\.hpp' "$f" 2>/dev/null \
-    | grep -E 'warning:|error:')
+    --header-filter='(include/rapidproto|src)/.*\.hpp' "$f" 2>/dev/null); rc=$?
+  # A crash or a bad invocation exits non-zero while printing nothing a diagnostic grep would catch;
+  # without this the TU silently counted as clean. (clang-tidy exits 1 when it emits diagnostics, so
+  # only treat a non-zero status as fatal when there is nothing to show for it.)
+  if [[ $rc -ne 0 && -z "$(grep -E 'warning:|error:' <<<"$out")" ]]; then
+    printf '>> %s\n' "$f" >"$TIDY_D/$(tr / _ <<<"$f")"
+    echo "   $CLANG_TIDY exited $rc with no diagnostics -- treating as a failure, not as clean" \
+      >>"$TIDY_D/$(tr / _ <<<"$f")"
+    return 0
+  fi
+  out=$(grep -E 'warning:|error:' <<<"$out")
   if [[ -n "$out" ]]; then
     { printf '>> %s\n' "$f"; head -20 <<<"$out"; } >"$TIDY_D/$(tr / _ <<<"$f")"
   fi
@@ -413,6 +520,16 @@ tidy_one() {
 export -f tidy_one
 
 job_tidy() {
+  # A missing binary produces no stdout and tidy_one greps stdout only -- so without this the stage
+  # reported `tidy clean` and rc 0 on a box with no clang-tidy at all: a silent pass, not a skip.
+  # Run it, do not merely look it up: `command -v` answers "is there a candidate", not "does it
+  # work", and returns non-executable candidates too. A mode-644 file, a broken wrapper that exits
+  # non-zero, and one that writes only to stderr all reported `tidy clean` before this.
+  if ! "$CLANG_TIDY" --version >/dev/null 2>&1; then
+    echo ">> $CLANG_TIDY is missing or not runnable: the tidy stage cannot run (install it, or drop"
+    echo "   'tidy' from RAPIDPROTO_GATE_STAGES to skip it deliberately)"
+    return 1
+  fi
   if [[ ! -f build/clang/compile_commands.json ]]; then
     echo ">> build/clang/compile_commands.json missing"
     return 1
@@ -446,6 +563,9 @@ job_tidy() {
 # absent, dropping `gcc` from a stage list would silently disarm the gate instead of breaking it.
 # (Absence of the corpus itself IS a legitimate skip -- nobody must fetch ~100 MB to run the gate --
 # and corpus_gate.py decides that, distinguishing "nothing fetched" from "partially fetched".)
+# A stage that consumes build/gcc's binaries must not silently test a STALE one: `rapidprotoc`
+# embeds the runtime headers at build time, so with an out-of-date binary the differential happily
+# reported 0 mismatches against a decoder bug that was already in the tree. Existence is not enough.
 job_corpus() {
   local rc=0 out
   if [[ ! -x ./build/gcc/rapidprotoc || ! -x ./build/gcc/rapidproto_tests ]]; then
@@ -453,10 +573,22 @@ job_corpus() {
     echo "   (run ./check.sh, or include 'gcc' in RAPIDPROTO_GATE_STAGES)"
     return 1
   fi
-  python3 tests/corpus_gate.py --rapidprotoc ./build/gcc/rapidprotoc --jobs "$JOBS" || rc=1
+  ensure_gcc_binaries rapidprotoc rapidproto_tests || return 1
+  local sweep_rc=0
+  python3 tests/corpus_gate.py --rapidprotoc ./build/gcc/rapidprotoc --jobs "$JOBS" || sweep_rc=$?
+  # 77 = "corpus not fetched", the documented skip -- propagate it so the stage self-skips instead
+  # of failing. Nobody should have to fetch ~100 MB to run an unrelated stage.
+  [[ $sweep_rc -eq 77 ]] && return 77
+  [[ $sweep_rc -ne 0 ]] && rc=1
   # Key on Catch2's own verdict, never on a substring like "skipped": a schema PATH containing
   # that word (googleapis is ~8000 files) would otherwise turn a failing run green.
-  out=$(./build/gcc/rapidproto_tests "[corpus]~[sweep]" 2>&1)
+  local cases_rc=0
+  out=$(./build/gcc/rapidproto_tests "[corpus]~[sweep]" 2>&1) || cases_rc=$?
+  # Absence of failure evidence is not a pass: a renamed [corpus] tag makes Catch2 exit 2 with
+  # "No tests ran", which matched no failure pattern and reported green while checking nothing.
+  if [[ $cases_rc -ne 0 ]] && ! grep -qE '^[[:space:]]*assertions: - none -' <<<"$out"; then
+    echo ">> corpus resolver cases exited $cases_rc:"; tail -5 <<<"$out"; rc=1
+  fi
   if grep -qE '^[[:space:]]*(assertions|test cases):.*[0-9]+ failed|FAILED' <<<"$out"; then
     echo ">> corpus tests failed:"
     grep -E 'FAILED|with expansion|assertions:' <<<"$out" | head -30
@@ -477,6 +609,7 @@ job_differential() {
     echo "   (run ./check.sh, or include 'gcc' in RAPIDPROTO_GATE_STAGES)"
     return 1
   fi
+  ensure_gcc_binaries rapidprotoc rapidproto_diffgen || return 1
   python3 tests/differential.py --build-dir ./build/gcc --jobs "$JOBS"
 }
 
@@ -532,7 +665,16 @@ stage_job() {
 # across runner jobs -- the build/test stages in one,
 # tidy shards in a matrix -- so wall-clock is the slowest runner. An unknown key is a hard error: a
 # comma instead of a space, or one typo, used to skip EVERY stage and report ALL GREEN in a second.
+# Normalise first: `for want in $VAR` splits on all of IFS, but stage_enabled matches on literal
+# SPACES -- so a tab- or newline-separated list validated fine and then enabled nothing, reporting
+# `ran 0/11 stages` and ALL GREEN. Same defect class as the comma case this validation was added for.
 if [[ -n "${RAPIDPROTO_GATE_STAGES:-}" ]]; then
+  RAPIDPROTO_GATE_STAGES="$(tr -s '[:space:]' ' ' <<<"$RAPIDPROTO_GATE_STAGES" | sed 's/^ *//; s/ *$//')"
+  if [[ -z "$RAPIDPROTO_GATE_STAGES" ]]; then
+    echo ">> RAPIDPROTO_GATE_STAGES is set but empty: that would run nothing and report success" >&2
+    echo ">> valid stages (space-separated): ${STAGE_KEYS[*]}" >&2
+    exit 2
+  fi
   for want in $RAPIDPROTO_GATE_STAGES; do
     known=0
     for key in "${STAGE_KEYS[@]}"; do [[ "$want" == "$key" ]] && known=1; done
@@ -561,8 +703,22 @@ run_stage() {  # $1 = stage key
   start=$SECONDS
   stage_job "$key" >"$LOG/$key" 2>&1
   rc=$?
+  # 77 = the stage ran but could not do its work for a documented reason (no protoc, no protobuf
+  # bindings, corpus unfetched). Recorded distinctly so the summary can say so: it is not a pass,
+  # and it is not a failure. Anything else non-zero is a failure.
+  # 77 means "ran, but could not do its work for a documented reason" -- and ONLY corpus and
+  # differential document it (corpus_gate.py / differential.py). Honouring it everywhere would let
+  # any stage launder an unrelated 77 into a green self-skip.
+  if [[ $rc -eq 77 && ( $key == corpus || $key == differential ) ]]; then
+    echo selfskip >"$LOG/$key.rc"
+    echo "$((SECONDS - start))" >"$LOG/$key.dur"
+    return 0
+  fi
   echo "$rc" >"$LOG/$key.rc"
   echo "$((SECONDS - start))" >"$LOG/$key.dur"
+  # Never leave a failing stage with an empty log: the summary would name it with nothing to read.
+  [[ $rc -ne 0 && ! -s "$LOG/$key" ]] &&
+    echo ">> stage '$key' exited $rc without producing any output" >"$LOG/$key"
   return "$rc"
 }
 
@@ -572,11 +728,12 @@ run_stage() {  # $1 = stage key
 # under a 7 GB cgroup: SIGTERM, no output), so under GITHUB_ACTIONS the stages run one at a time --
 # identical checks, bounded peak. Override either way with RAPIDPROTO_GATE_SERIAL=1/0.
 
-if [[ "${RAPIDPROTO_GATE_SERIAL:-${GITHUB_ACTIONS:+1}}" == "1" ]]; then
+serial_gate=$([[ "${RAPIDPROTO_GATE_SERIAL:-${GITHUB_ACTIONS:+1}}" == "1" ]] && echo 1 || echo 0)
+if [[ "$serial_gate" == 1 ]]; then
   # Progress lines go straight to stdout (stage output stays buffered): if the runner kills the
   # job anyway, the last line names the guilty stage.
   for key in format docs fixtures gcc clang cf fuzz tidy; do
-    echo "serial gate: $key"
+    stage_enabled "$key" && echo "serial gate: $key"   # no progress line for a stage we skip
     run_stage "$key"
   done
 else
@@ -590,10 +747,13 @@ else
 fi
 
 # After the build stages, never alongside them: this one consumes build/gcc's rapidprotoc.
+[[ "$serial_gate" == 1 ]] && stage_enabled corpus && echo "serial gate: corpus"
 run_stage corpus
 # Needs the goldens on disk (not a build product), so it can run any time after them.
+[[ "$serial_gate" == 1 ]] && stage_enabled cxx20 && echo "serial gate: cxx20"
 run_stage cxx20
 # Also consumes build/gcc's binaries, and compiles a harness per schema, so it runs alone at the end.
+[[ "$serial_gate" == 1 ]] && stage_enabled differential && echo "serial gate: differential"
 run_stage differential
 
 # --- print each stage's output in a fixed order (already captured, so never interleaved) ----------
@@ -604,12 +764,13 @@ for key in cxx20 format docs fixtures gcc clang cf fuzz tidy corpus differential
 done
 
 fail=0
-failed_stages=(); ran=0; skipped=()
+failed_stages=(); ran=0; skipped=(); selfskipped=()
 for key in "${STAGE_KEYS[@]}"; do
   rc="$(cat "$LOG/$key.rc" 2>/dev/null || echo missing)"
   case "$rc" in
-    0)       ran=$((ran + 1)) ;;
-    skipped) skipped+=("$key") ;;
+    0)        ran=$((ran + 1)) ;;
+    skipped)  skipped+=("$key") ;;
+    selfskip) ran=$((ran + 1)); selfskipped+=("$key") ;;
     # "missing" lands here too: a stage that never recorded a result must not read as a pass.
     *)       ran=$((ran + 1)); fail=1; failed_stages+=("$key") ;;
   esac
@@ -621,6 +782,7 @@ for key in "${STAGE_KEYS[@]}"; do
   [[ -n "$dur" ]] && printf '  %-13s %4ss\n' "$key" "$dur"
 done
 echo "ran $ran/${#STAGE_KEYS[@]} stages${skipped:+ (skipped: ${skipped[*]})}"
+[[ ${#selfskipped[@]} -gt 0 ]] && echo "ran but self-skipped (missing tool or data): ${selfskipped[*]}"
 echo "stage logs: $LOG"
 if [[ "$fail" == "0" ]]; then
   echo "ALL GREEN"
