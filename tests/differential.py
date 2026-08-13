@@ -96,10 +96,11 @@ def is_message(field) -> bool:
 def is_open_enum(enum_type) -> bool:
     """Whether an unknown number stays in the field rather than moving to unknown fields.
 
-    Proto3 only, and `syntax` is read defensively (older bindings omit it) -- editions files report
-    `syntax == "editions"`, so an editions enum declaring OPEN is treated as closed. This gates only
-    GENERATION of an out-of-range enum number, so the cost is lost coverage for editions schemas,
-    not a false mismatch. It is not editions support."""
+    Proto3 only. Editions files report `syntax == "editions"`, so an editions enum declaring OPEN
+    is treated as closed; this gates only GENERATION of an out-of-range enum number, so the cost is
+    lost coverage, not a false mismatch. It is not editions support. The `getattr` default is the
+    same trade in the other direction: if a future binding drops the attribute, every enum reads as
+    closed and this coverage disappears silently."""
     return getattr(enum_type.file, "syntax", "proto2") == "proto3"
 
 

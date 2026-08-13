@@ -256,7 +256,9 @@ if [[ "${1:-}" == "deep" ]]; then
     # `seed` is local: the caller loops over `f`, and an undeclared loop variable here would clobber
     # it -- leaving the caller running ./build/fuzz/fuzz_ with an empty target name.
     local target=$1 dir="build/fuzz/seeds/$1" seed dst
-    rm -rf "$dir"; mkdir -p "$dir"
+    if ! rm -rf "$dir" || ! mkdir -p "$dir"; then
+      echo ">> cannot create $dir -- fuzz_$target would run with no seeds"; deep_fail=1; return 1
+    fi
     if [[ "$target" == parser ]]; then
       # Every corpus schema, path-flattened. Flattening is not injective (a future
       # tests/corpus/arena/modes.proto would land on arena_modes.proto), so say so rather than
@@ -362,14 +364,24 @@ fi
 # Per-run directory, symlinked to a stable name. A single fixed path let a second, overlapping run
 # `rm -rf` the first's results: the first then printed the second's logs and reported ALL GREEN with
 # its own failure erased. The symlink keeps "read build/gate-logs" true for the last run started.
-# Checked: these run before every stage, so an unwritable build/ used to surface as a cascade of
-# unrelated failures (an empty $LOG turning every stage's log path into /<name>) instead of one line.
-if ! mkdir -p build; then echo ">> cannot create build/ -- the gate writes all of its output there"; exit 2; fi
-if ! LOG="$(mktemp -d build/gate-logs.XXXXXX)"; then   # mktemp, not $$: PIDs repeat in containers
-  echo ">> cannot create a log directory under build/"; exit 2
+# Checked: every stage of the default gate writes here (`quick` and `deep` exit above), so an
+# unwritable build/ used to surface as a cascade of unrelated failures -- an empty $LOG turning
+# every stage's log path into /<name> -- instead of one line naming the cause.
+if ! mkdir -p build; then
+  echo ">> cannot create build/ -- the gate writes all of its output there" >&2; exit 2
 fi
-rm -rf build/gate-logs   # a plain `ln -sfn` into an existing directory links INSIDE it
-ln -sfn "$(basename "$LOG")" build/gate-logs
+if ! LOG="$(mktemp -d build/gate-logs.XXXXXX)"; then   # mktemp, not $$: PIDs repeat in containers
+  echo ">> cannot create a log directory under build/" >&2; exit 2
+fi
+# Checked for the reason stated above: a stale build/gate-logs that cannot be replaced leaves the
+# symlink pointing at an EARLIER run, so `cat build/gate-logs/<stage>` shows that run's output
+# while this one reports ALL GREEN -- the exact confusion the per-run directory exists to end.
+if ! rm -rf build/gate-logs; then   # a plain `ln -sfn` into an existing directory links INSIDE it
+  echo ">> cannot replace build/gate-logs -- it would still point at an earlier run" >&2; exit 2
+fi
+if ! ln -sfn "$(basename "$LOG")" build/gate-logs; then
+  echo ">> cannot link build/gate-logs -> $LOG" >&2; exit 2
+fi
 # Keep the last few runs, not every run since the epoch. Skip any directory still marked live: a
 # running gate's mtime goes quiet during a long stage (tidy is 5+ min of silence), so an mtime sort
 # happily reaps a concurrent run's logs out from under it.
@@ -515,7 +527,6 @@ job_cxx20_smoke() {
   # Both writes checked (this file runs without `set -e`): $tu persists across runs, so a failed
   # write left the PREVIOUS run's translation unit in place and the stage compiled that -- passing
   # without ever including the generated headers it exists to check.
-  if ! mkdir -p build; then echo ">> cannot create build/"; return 1; fi
   # One printf, not a { ... } group: a failed redirect on a COMPOUND command ({}, (), for, while)
   # aborts it with status 1 and DISCARDS a leading `!`, so `if ! { ... } >"$tu"` sees 1, takes the
   # else branch, and the guard never fires. On a simple command the `!` is applied as usual.
