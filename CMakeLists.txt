@@ -97,7 +97,6 @@ add_library(rapidproto_lib STATIC
   src/lexer.cpp
   src/interpret.cpp
   src/parser.cpp
-  src/parser_enum.cpp
   src/features.cpp
   src/resolve.cpp
   src/resolver.cpp
