@@ -124,7 +124,7 @@ if [[ "${1:-}" == "quick" ]]; then
   # (-A3 multiplies every match by four, which silently truncated the summary before).
   grep -E -A3 'FAILED|with expansion' <<<"$test_out" | head -40
   grep -E '^[[:space:]]*(test cases|assertions):' <<<"$test_out"
-  if [[ -z "$(grep -E 'FAILED|assertions:' <<<"$test_out")" ]]; then
+  if [[ -z "$(grep -E 'FAILED|assertions:|All tests passed' <<<"$test_out")" ]]; then
     echo "   (no Catch2 output -- the binary exited $test_rc without reporting; last lines:)"
     tail -10 <<<"$test_out"
   fi
@@ -177,7 +177,11 @@ if [[ "${1:-}" == "deep" ]]; then
   if san_build=$(cmake -S . -B build/san -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER="$CC" \
        -DCMAKE_CXX_COMPILER="$CXX" -DRAPIDPROTO_SANITIZE=ON -DRAPIDPROTO_BUILD_TESTS=ON 2>&1) \
      && san_build=$(cmake --build build/san --target rapidproto_tests -j"$JOBS" 2>&1); then
-    san_out=$(UBSAN_OPTIONS=print_stacktrace=1 ASAN_OPTIONS=detect_leaks=1 \
+    # DEBUGINFOD_URLS= for the same reason as the fuzz section: LeakSanitizer symbolizes its report
+    # through llvm-symbolizer, and where the system points that at a debuginfod server (Ubuntu ships
+    # /etc/debuginfod/*.urls by default) each frame without local debuginfo costs a ~90s lookup. The
+    # leak report is the last thing this section produces, so that delay reads as a hang.
+    san_out=$(DEBUGINFOD_URLS= UBSAN_OPTIONS=print_stacktrace=1 ASAN_OPTIONS=detect_leaks=1 \
       ./build/san/rapidproto_tests 2>&1); san_rc=$?
     # BOTH conditions. The exit status is not redundant with the Catch2 line: LeakSanitizer reports
     # at exit, AFTER "All tests passed" is printed, so a leaking run matches the text and only the
@@ -201,16 +205,24 @@ if [[ "${1:-}" == "deep" ]]; then
   fi
 
   section "coverage (library line floor ${COV_FLOOR}%)"
-  if cmake -S . -B build/cov -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER="$CC" \
-       -DCMAKE_CXX_COMPILER="$CXX" -DRAPIDPROTO_COVERAGE=ON >/dev/null 2>&1 \
-     && cmake --build build/cov --target rapidproto_tests -j"$JOBS" >/dev/null 2>&1; then
+  # -DRAPIDPROTO_BUILD_TESTS=ON for the same reason as build/san: a cached OFF leaves the target
+  # absent, `cmake --build --target` exits 0 doing nothing, and the section grades a stale binary.
+  if cov_build=$(cmake -S . -B build/cov -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER="$CC" \
+       -DCMAKE_CXX_COMPILER="$CXX" -DRAPIDPROTO_COVERAGE=ON -DRAPIDPROTO_BUILD_TESTS=ON 2>&1) \
+     && cov_build=$(cmake --build build/cov --target rapidproto_tests -j"$JOBS" 2>&1); then
     # Status checked, not discarded: a suite that crashes here used to be noticed only if coverage
     # happened to drop below the floor, which is not a test result.
     cov_out=$(LLVM_PROFILE_FILE=build/cov/cov.profraw ./build/cov/rapidproto_tests 2>&1); cov_rc=$?
     if [[ $cov_rc -ne 0 ]]; then
       echo ">> coverage run failed (exit $cov_rc):"; tail -20 <<<"$cov_out"; deep_fail=1
     fi
-    llvm-profdata-20 merge -sparse build/cov/cov.profraw -o build/cov/cov.profdata 2>/dev/null
+    # Status checked: a failed merge (unwritten, corrupt or version-mismatched .profraw) left the
+    # PREVIOUS run's cov.profdata in place, and the floor was then graded against stale data.
+    if ! merge_out=$(llvm-profdata-20 merge -sparse build/cov/cov.profraw \
+         -o build/cov/cov.profdata 2>&1); then
+      echo ">> llvm-profdata merge failed -- coverage would be graded against a stale profile:"
+      tail -10 <<<"$merge_out"; deep_fail=1
+    fi
     cov=$(llvm-cov-20 report ./build/cov/rapidproto_tests -instr-profile=build/cov/cov.profdata \
             -ignore-filename-regex='(tests/|build/|wellknown_generated|catch_amalgamated)' 2>/dev/null \
             | awk '/^TOTAL/{print $10}')
@@ -221,7 +233,7 @@ if [[ "${1:-}" == "deep" ]]; then
       echo ">> coverage ${cov} below floor ${COV_FLOOR}%"; deep_fail=1
     fi
   else
-    echo ">> coverage build failed"; deep_fail=1
+    echo ">> coverage build failed:"; tail -20 <<<"$cov_build"; deep_fail=1
   fi
 
   # Seeds for one target, staged fresh under build/fuzz/seeds/<target>. Staged rather than pointing
@@ -417,7 +429,7 @@ job_build_test() {  # $1 = preset; parallel build, then run the test binary
     # the cap, because -A3 multiplies every match by four and used to push them past `head`.
     grep -E -A3 'FAILED|with expansion' <<<"$test_out" | head -40
     grep -E '^[[:space:]]*(test cases|assertions):' <<<"$test_out"
-    if [[ -z "$(grep -E 'FAILED|assertions:' <<<"$test_out")" ]]; then
+    if [[ -z "$(grep -E 'FAILED|assertions:|All tests passed' <<<"$test_out")" ]]; then
       echo "   (no Catch2 output -- the binary exited $test_rc without reporting; last lines:)"
       tail -10 <<<"$test_out"
     fi
