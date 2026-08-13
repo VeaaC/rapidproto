@@ -60,7 +60,13 @@ def anchors_of(path, cache={}):
 
 def main():
     errors = 0
-    for path in doc_files():
+    files = doc_files()
+    # A zero-file run is a broken invocation, not a pass: the gate stage would report success
+    # having checked nothing (the same case tests/check_fixture_coverage.sh guards).
+    if not files:
+        print(">> no documentation files found -- check_doc_links.py is looking in the wrong place")
+        return 1
+    for path in files:
         rel = os.path.relpath(path, ROOT)
         base = os.path.dirname(path)
         with open(path, encoding="utf-8") as f:
@@ -84,7 +90,7 @@ def main():
                 errors += 1
     if errors:
         return 1
-    print(f"doc links ok ({len(doc_files())} files)")
+    print(f"doc links ok ({len(files)} files)")
     return 0
 
 

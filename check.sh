@@ -124,7 +124,12 @@ if [[ "${1:-}" == "quick" ]]; then
   # (-A3 multiplies every match by four, which silently truncated the summary before).
   grep -E -A3 'FAILED|with expansion' <<<"$test_out" | head -40
   grep -E '^[[:space:]]*(test cases|assertions):' <<<"$test_out"
-  if [[ -z "$(grep -E 'FAILED|assertions:|All tests passed' <<<"$test_out")" ]]; then
+  # Same three shapes as job_build_test: assertion failure, at-exit failure after a clean summary,
+  # or no report at all. The middle one is invisible in Catch2's output, so name it explicitly.
+  if grep -qE 'All tests passed' <<<"$test_out"; then
+    echo "   (Catch2 reported success, then the binary exited $test_rc -- at-exit failure:)"
+    tail -10 <<<"$test_out"
+  elif [[ -z "$(grep -E 'FAILED|assertions:' <<<"$test_out")" ]]; then
     echo "   (no Catch2 output -- the binary exited $test_rc without reporting; last lines:)"
     tail -10 <<<"$test_out"
   fi
@@ -172,15 +177,18 @@ if [[ "${1:-}" == "deep" ]]; then
 
   section "ASan + UBSan (full suite)"
   # -DRAPIDPROTO_BUILD_TESTS=ON explicitly: a cached OFF from an earlier configure left the target
-  # absent, `cmake --build --target` exited 0 doing nothing, and the section then ran a STALE binary
-  # and reported clean. Output is kept so a CI failure says which step broke and why.
+  # absent, and under the Makefiles generator `cmake --build --target X` then exits 0 doing nothing
+  # WHEN a file of that name already exists (without one it fails loudly) -- so a leftover binary
+  # from an earlier run was silently re-tested. Output is kept so a failure says which step broke.
   if san_build=$(cmake -S . -B build/san -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER="$CC" \
        -DCMAKE_CXX_COMPILER="$CXX" -DRAPIDPROTO_SANITIZE=ON -DRAPIDPROTO_BUILD_TESTS=ON 2>&1) \
      && san_build=$(cmake --build build/san --target rapidproto_tests -j"$JOBS" 2>&1); then
     # DEBUGINFOD_URLS= for the same reason as the fuzz section: LeakSanitizer symbolizes its report
-    # through llvm-symbolizer, and where the system points that at a debuginfod server (Ubuntu ships
-    # /etc/debuginfod/*.urls by default) each frame without local debuginfo costs a ~90s lookup. The
-    # leak report is the last thing this section produces, so that delay reads as a hang.
+    # through llvm-symbolizer, which issues one debuginfod lookup per module whose local DWARF does
+    # not cover a frame (Ubuntu ships /etc/debuginfod/*.urls and exports it into every shell). Where
+    # the server is unreachable that lookup burns the full 90s DEBUGINFOD_TIMEOUT rather than 404ing
+    # fast: measured on a leaking suite, 1m40s inherited vs 10s cleared. Only a FAILING run pays it,
+    # i.e. exactly when the report is needed.
     san_out=$(DEBUGINFOD_URLS= UBSAN_OPTIONS=print_stacktrace=1 ASAN_OPTIONS=detect_leaks=1 \
       ./build/san/rapidproto_tests 2>&1); san_rc=$?
     # BOTH conditions. The exit status is not redundant with the Catch2 line: LeakSanitizer reports
@@ -206,7 +214,8 @@ if [[ "${1:-}" == "deep" ]]; then
 
   section "coverage (library line floor ${COV_FLOOR}%)"
   # -DRAPIDPROTO_BUILD_TESTS=ON for the same reason as build/san: a cached OFF leaves the target
-  # absent, `cmake --build --target` exits 0 doing nothing, and the section grades a stale binary.
+  # absent, and with a leftover build/cov/rapidproto_tests on disk the build then exits 0 doing
+  # nothing, so the floor was graded against whatever that stale binary happened to cover.
   if cov_build=$(cmake -S . -B build/cov -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER="$CC" \
        -DCMAKE_CXX_COMPILER="$CXX" -DRAPIDPROTO_COVERAGE=ON -DRAPIDPROTO_BUILD_TESTS=ON 2>&1) \
      && cov_build=$(cmake --build build/cov --target rapidproto_tests -j"$JOBS" 2>&1); then
@@ -218,19 +227,23 @@ if [[ "${1:-}" == "deep" ]]; then
     fi
     # Status checked: a failed merge (unwritten, corrupt or version-mismatched .profraw) left the
     # PREVIOUS run's cov.profdata in place, and the floor was then graded against stale data.
+    # Status checked, and the grading is INSIDE the else: a failed merge (unwritten, corrupt or
+    # version-mismatched .profraw) leaves the PREVIOUS run's cov.profdata on disk, so reporting past
+    # it printed a confident percentage read from a profile this run never produced.
     if ! merge_out=$(llvm-profdata-20 merge -sparse build/cov/cov.profraw \
          -o build/cov/cov.profdata 2>&1); then
-      echo ">> llvm-profdata merge failed -- coverage would be graded against a stale profile:"
+      echo ">> llvm-profdata merge failed -- coverage not graded (the profile on disk is stale):"
       tail -10 <<<"$merge_out"; deep_fail=1
-    fi
-    cov=$(llvm-cov-20 report ./build/cov/rapidproto_tests -instr-profile=build/cov/cov.profdata \
-            -ignore-filename-regex='(tests/|build/|wellknown_generated|catch_amalgamated)' 2>/dev/null \
-            | awk '/^TOTAL/{print $10}')
-    echo "library line coverage: ${cov:-unknown}"
-    if awk -v c="${cov%\%}" -v f="$COV_FLOOR" 'BEGIN{exit !(c+0 >= f+0)}'; then
-      echo "at or above floor (${COV_FLOOR}%)"
     else
-      echo ">> coverage ${cov} below floor ${COV_FLOOR}%"; deep_fail=1
+      cov=$(llvm-cov-20 report ./build/cov/rapidproto_tests -instr-profile=build/cov/cov.profdata \
+              -ignore-filename-regex='(tests/|build/|wellknown_generated|catch_amalgamated)' 2>/dev/null \
+              | awk '/^TOTAL/{print $10}')
+      echo "library line coverage: ${cov:-unknown}"
+      if awk -v c="${cov%\%}" -v f="$COV_FLOOR" 'BEGIN{exit !(c+0 >= f+0)}'; then
+        echo "at or above floor (${COV_FLOOR}%)"
+      else
+        echo ">> coverage ${cov} below floor ${COV_FLOOR}%"; deep_fail=1
+      fi
     fi
   else
     echo ">> coverage build failed:"; tail -20 <<<"$cov_build"; deep_fail=1
@@ -429,7 +442,14 @@ job_build_test() {  # $1 = preset; parallel build, then run the test binary
     # the cap, because -A3 multiplies every match by four and used to push them past `head`.
     grep -E -A3 'FAILED|with expansion' <<<"$test_out" | head -40
     grep -E '^[[:space:]]*(test cases|assertions):' <<<"$test_out"
-    if [[ -z "$(grep -E 'FAILED|assertions:|All tests passed' <<<"$test_out")" ]]; then
+    # Every failure branch must print SOMETHING. Catch2's own summary explains an assertion
+    # failure, but the two other shapes are invisible in it: a run that reported success and then
+    # died at exit (LeakSanitizer, a static destructor, an atexit abort -- the report follows the
+    # summary), and a run that never reported at all.
+    if grep -qE 'All tests passed' <<<"$test_out"; then
+      echo "   (Catch2 reported success, then the binary exited $test_rc -- at-exit failure:)"
+      tail -10 <<<"$test_out"
+    elif [[ -z "$(grep -E 'FAILED|assertions:' <<<"$test_out")" ]]; then
       echo "   (no Catch2 output -- the binary exited $test_rc without reporting; last lines:)"
       tail -10 <<<"$test_out"
     fi
@@ -563,7 +583,11 @@ job_tidy() {
     echo ">> build/clang/compile_commands.json missing"
     return 1
   fi
-  TIDY_D="$LOG/tidy.d"; mkdir -p "$TIDY_D"; export TIDY_D
+  # Checked because this file runs without `set -e`: an unwritable TIDY_D otherwise left every
+  # tidy_one redirect failing, which looks exactly like "no diagnostics".
+  TIDY_D="$LOG/tidy.d"
+  if ! mkdir -p "$TIDY_D"; then echo ">> cannot create $TIDY_D"; return 1; fi
+  export TIDY_D
   # Lint every TU in parallel (each writes its own log), then aggregate. RAPIDPROTO_TIDY_SHARD=i/N
   # keeps every Nth TU (1-based): tidy dominates the gate's CPU, so CI fans it out across runner
   # jobs; unset (the local default) lints everything.
@@ -574,7 +598,14 @@ job_tidy() {
     tu_index=$((tu_index + 1))
     [[ $((tu_index % shard_count)) -eq $((shard_index % shard_count)) ]] && tus+=("$tu")
   done
-  printf '%s\n' "${tus[@]}" | xargs -P"$JOBS" -I{} bash -c 'tidy_one "$@"' _ {}
+  # Status checked: tidy_one reports by WRITING a log, so "no logs" means "clean" -- which is also
+  # what a fan-out that never ran looks like. A bad -P argument, an unwritable TIDY_D or a killed
+  # bash wrapper (the runners' documented OOM behaviour) all lint zero TUs and used to say clean.
+  if ! printf '%s\n' "${tus[@]}" | xargs -P"$JOBS" -I{} bash -c 'tidy_one "$@"' _ {}; then
+    echo ">> clang-tidy fan-out failed -- TUs may not have been linted"
+    cat "$TIDY_D"/* 2>/dev/null
+    return 1
+  fi
   if compgen -G "$TIDY_D/*" >/dev/null; then
     cat "$TIDY_D"/*
     echo ">> clang-tidy diagnostics above"

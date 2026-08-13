@@ -92,8 +92,16 @@ echo "[4/5] building the test binary (the fresh streamgen + arenagen + dumpgen g
 cmake --build --preset gcc --target rapidproto_tests -j"$JOBS" >/dev/null
 
 echo "[5/5] regenerating AST + wire + arena-layout + common goldens via the test binary ..."
-RAPIDPROTO_REGEN_GOLDEN=1 ./build/gcc/rapidproto_tests "[golden],[wire-golden],[arena-layout],[common]" 2>&1 |
-  grep -i "regenerated" || true
+# Status kept: `| grep -i regenerated || true` discarded it, so a suite that crashed part-way
+# through regeneration reported the goldens as regenerated and left the rest at their old contents.
+regen_out=$(RAPIDPROTO_REGEN_GOLDEN=1 ./build/gcc/rapidproto_tests \
+  "[golden],[wire-golden],[arena-layout],[common]" 2>&1); regen_rc=$?
+grep -i "regenerated" <<<"$regen_out" || true
+if [[ $regen_rc -ne 0 ]]; then
+  echo ">> golden regeneration failed (exit $regen_rc) -- goldens are incomplete:"
+  tail -20 <<<"$regen_out"
+  exit 1
+fi
 
 # The reverse of the orphan check at [2/5], which only flags a golden that exists but was not
 # regenerated: this catches a fixture with no golden at all. Shared with check.sh (the `fixtures`
