@@ -148,7 +148,21 @@ inline ParseResult parse_args(int argc, char** argv, std::string_view usage,
             std::cerr << "error: unknown flag '" << arg << "'\n";
             return usage_error();
         } else {
-            opts.entries.push_back(arg);
+            // Absolutised here, which decides where the header lands. canonical_entry_name rebases
+            // an entry onto the first -I that contains it and otherwise returns the spelling it was
+            // given -- so a relative spelling became the header's PATH, and one with `../` put the
+            // header outside --out-dir entirely. Absolute, the fallback is a path header_path
+            // reduces to its basename, which is the rule the CMake helper documents and follows
+            // (it absolutises too, which is why generated builds never saw this). An entry that
+            // does resolve under an -I is unaffected: canonical_entry_name absolutises internally
+            // before relativizing, so it rebases exactly as before.
+            // absolute() only prepends the cwd; it does NOT collapse `..`, and must not -- that
+            // is a textual rewrite, so `lnk/../x.proto` with `lnk` a symlink would name a file the
+            // OS never would (measured: it generated from a different schema, exit 0). Resolution
+            // stays with canonical_entry_name's weakly_canonical, which follows links.
+            std::error_code ec;
+            const std::filesystem::path abs = std::filesystem::absolute(arg, ec);
+            opts.entries.push_back(ec ? arg : abs.string());
         }
     }
     if (opts.entries.empty()) {
@@ -251,7 +265,26 @@ inline std::filesystem::path header_path(const std::string& out_dir, const FileN
         std::string_view(stem).substr(stem.size() - kProto.size()) == kProto) {
         stem.erase(stem.size() - kProto.size());
     }
+    // Normalized, so the path WRITTEN is the one header_escapes_out_dir tested. Without this a stem
+    // like `a/b/../../d/e/f` -- which normalizes clean, so the check accepts it -- was written
+    // literally: it creates the intermediate directories, and traverses any symlink among them, so
+    // the header could still land outside the out-dir. lexically_normal also collapses `a/./b`.
+    stem = std::filesystem::path(stem).lexically_normal().generic_string();
     return std::filesystem::path(out_dir) / (stem + std::string(extension));
+}
+
+// True when `file`'s generated header would land OUTSIDE the out-dir.
+//
+// Only an IMPORT can reach this: an entry's canonical name is either rebased onto an include dir or
+// is the absolute path the CLI stored, and header_path reduces the latter to a basename. An import's
+// name is the import string itself -- canonical_import_path normalizes it but never rebases it --
+// so `import "../up/u.proto"` names a header outside the out-dir, and no -I can move it. Normalized
+// first, so `a/../../b` counts and not just a leading `../`.
+[[nodiscard]] inline bool header_escapes_out_dir(const FileNode& file) {
+    const std::filesystem::path normalized =
+        std::filesystem::path(file.filename).lexically_normal();
+    return std::any_of(normalized.begin(), normalized.end(),
+                       [](const std::filesystem::path& part) { return part == ".."; });
 }
 
 // Write a generated header for `file` under `out_dir` (path per header_path). Returns the path, or

@@ -30,6 +30,14 @@ rapidprotoc [options] <entry.proto>...
 Non-fatal `warning:` diagnostics (e.g. a schema using the MessageSet wire format) go to stderr
 regardless of `-v`, and never change the exit code.
 
+`<stem>` is the schema's path relative to the first `-I` directory that contains it, and its
+basename when no `-I` does — so `-I proto proto/sub/a.proto` writes `sub/a.rp.hpp`, while
+`sub/a.proto` with no `-I` writes `a.rp.hpp`. The output therefore always stays under `--out-dir`.
+Three inputs are refused rather than resolved, because either answer would silently lose a schema:
+two entries that generate the same header, two that share a name relative to the include paths (they
+would deduplicate to one), and an `import` whose path escapes the output directory. Nothing is
+written when one of these fires.
+
 Multiple entries resolve as **one batch**: shared imports parse once, every file in the union
 gets its decoder exactly once, and a decode profile resolves against all of them together. Each
 generated file covers the entry **and** its transitive imports **and** the well-known types it

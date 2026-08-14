@@ -13,6 +13,7 @@
 #include <fstream>
 #include <ios>
 #include <iostream>
+#include <map>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -154,6 +155,80 @@ int main(int argc, char** argv) {
     // the schema, not that the schema is bad -- so they go to stderr and never change the exit code.
     for (const std::string& warning : symbols.warnings) {
         std::cerr << warning << '\n';
+    }
+
+    // Three things are refused before ANY file is written, so a refused run leaves nothing behind.
+    // Each is a way two schemas silently lose work rather than a malformed input.
+    //
+    // Two distinct schemas must not resolve to one canonical name. They are deduplicated by that
+    // name -- the mechanism that makes a shared import parse once -- so when two different files
+    // collide the second is silently DROPPED, and the user gets a decoder for one of the two
+    // schemas they asked for. Entries are absolute here, so weakly_canonical separates "the same
+    // file twice" (fine, and deduplicated on purpose) from "two files, one name".
+    std::map<std::string, std::string> by_canonical_name;
+    for (const std::string& entry : opts->entries) {
+        const std::string name =
+            rapidproto::canonical_entry_name(entry, opts->config.include_paths);
+        std::error_code ec;
+        const std::string disk = std::filesystem::weakly_canonical(entry, ec).string();
+        const auto [it, fresh] = by_canonical_name.emplace(name, ec ? entry : disk);
+        if (!fresh && it->second != (ec ? entry : disk)) {
+            std::cerr << "error: '" << it->second << "' and '" << (ec ? entry : disk)
+                      << "' are both '" << name << "' relative to the include paths\n"
+                      << "  only one of them would be generated; give them include paths that "
+                         "keep their names distinct\n";
+            return 1;
+        }
+    }
+
+    for (const rapidproto::FileNode& file : set.files) {
+        // Only an IMPORT can still land outside the out-dir: entries are absolute by now, so their
+        // fallback name is one header_path reduces to a basename. An import's name is the import
+        // string itself -- canonical_import_path normalizes it but never rebases it on an include
+        // dir -- so a `..` there escapes, and no -I can move it.
+        if (rapidproto::cli::header_escapes_out_dir(file)) {
+            // Name the file that has to be edited, not just the one that cannot be placed: the
+            // offending path is an import STATEMENT, which lives in whoever imports it.
+            std::string importer;
+            for (const rapidproto::FileNode& other : set.files) {
+                for (const rapidproto::ImportNode& import : other.imports) {
+                    if (rapidproto::canonical_import_path(import.path) == file.filename) {
+                        importer = other.filename;
+                        break;
+                    }
+                }
+                if (!importer.empty()) {
+                    break;
+                }
+            }
+            std::cerr << "error: '" << file.filename << "' would write outside --out-dir ("
+                      << opts->out_dir << ")\n";
+            if (importer.empty()) {
+                std::cerr << "  rewrite it relative to an -I directory (protoc rejects '..' in an "
+                             "import too)\n";
+            } else {
+                std::cerr << "  it is imported by '" << importer
+                          << "'; rewrite that import relative to an -I directory (protoc rejects "
+                             "'..' in an import too)\n";
+            }
+            return 1;
+        }
+    }
+
+    // ...and two schemas must not generate the SAME header. Distinct canonical names can still
+    // share one output stem, because a name that is not import-relative reduces to its basename:
+    // `/a/x.proto` and `/b/x.proto` both wrote x.rp.hpp, the second over the first, exit 0.
+    std::map<std::string, std::string> by_output;
+    for (const rapidproto::FileNode& file : set.files) {
+        const std::string stem = rapidproto::cli::header_path(opts->out_dir, file, "").string();
+        const auto [it, fresh] = by_output.emplace(stem, file.filename);
+        if (!fresh) {
+            std::cerr << "error: '" << it->second << "' and '" << file.filename
+                      << "' both generate " << stem << ".*\n"
+                      << "  one would overwrite the other; pass an -I they share, so each keeps a "
+                         "distinct path relative to it\n";
+            return 1;
+        }
     }
 
     // Build the name table(s) ONCE for the whole resolved set (identical for every file), then emit
