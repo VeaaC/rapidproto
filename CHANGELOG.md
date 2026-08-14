@@ -24,6 +24,14 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
 
 ### Fixed
 
+- **Ninja no longer regenerates the headers on every build.** The depfile listed its targets in
+  sorted order, but Ninja accepts a depfile only when its *first* target is the build rule's first
+  output — and a mismatch is not an error, it silently marks the outputs dirty forever. Any target
+  whose first generated header was not the alphabetically smallest was affected: `DUMP` always
+  (`<stem>.rp.dump.hpp` sorts ahead of the `<stem>.rp.hpp` anchor), and multi-schema targets whose
+  first `PROTOS` entry does not sort first. Makefile generators were unaffected — they read the
+  depfile as ordinary rules, in any order. ([#40](https://github.com/VeaaC/rapidproto/issues/40))
+
 - **`group` inside a `oneof` now parses.** protoc accepts it; RapidProto answered `unexpected input`
   and refused the schema outright:
 

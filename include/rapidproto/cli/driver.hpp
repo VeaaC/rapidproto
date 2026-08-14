@@ -306,6 +306,36 @@ inline std::vector<std::filesystem::path> disk_proto_paths(const std::vector<std
     return paths;
 }
 
+namespace detail {
+
+// Collapse duplicates in place, keeping the FIRST occurrence and the caller's order.
+//
+// Depfile OUTPUTS must use this: Ninja accepts a depfile only when its first target is the edge's
+// first output, and a mismatch is not an error -- it reports the outputs dirty and re-runs the
+// command on every build ("expected depfile to mention 'x.rp.hpp', got 'x.rp.dump.hpp'"). Sorting
+// them did exactly that whenever the first output was not alphabetically first: `<stem>.rp.dump.hpp`
+// sorts ahead of the `<stem>.rp.hpp` anchor, so every DUMP consumer regenerated its whole closure
+// every time. (GNU Make is unaffected -- it reads the depfile as ordinary rules, in any order.)
+inline void dedup_keep_order(std::vector<std::filesystem::path>& paths) {
+    std::vector<std::filesystem::path> unique;
+    unique.reserve(paths.size());
+    for (std::filesystem::path& path : paths) {
+        if (std::find(unique.begin(), unique.end(), path) == unique.end()) {
+            unique.push_back(std::move(path));
+        }
+    }
+    paths = std::move(unique);
+}
+
+// Collapse duplicates by sorting. Only for depfile PREREQUISITES: the build tool merely stats
+// them, so their order carries no meaning and sorting keeps the output stable.
+inline void dedup_sorted(std::vector<std::filesystem::path>& paths) {
+    std::sort(paths.begin(), paths.end());
+    paths.erase(std::unique(paths.begin(), paths.end()), paths.end());
+}
+
+}  // namespace detail
+
 // Write a Make/Ninja-style depfile (`out1 out2 ... : in1 in2 ...`) declaring that the outputs
 // depend on every input. add_custom_command(DEPFILE ...) reads it so codegen re-runs when any input
 // .proto changes, including transitive imports a plain DEPENDS list (outputs only) would never catch.
@@ -318,10 +348,29 @@ inline std::vector<std::filesystem::path> disk_proto_paths(const std::vector<std
 // build node's relative name. An output OUTSIDE that dir (an out-of-tree OUT_DIR) is named absolutely,
 // matching how the tool names an out-of-tree node. Prerequisites stay absolute; the build tool only
 // stats them. Spaces, '#', '$', and backslash are escaped; duplicates collapsed.
+//
+// Output ORDER is preserved as given -- Ninja requires the depfile's first target to be the rule's
+// first output; it ignores the rest. (An undeclared name is a hard error only once the FIRST target
+// has matched -- in first position it produces the same silent every-build rebuild, which is why
+// order is the whole contract here.) Callers must pass outputs in the rule's declared order.
 // Returns false after printing an error when the depfile cannot be written.
+//
+// NOLINTBEGIN(bugprone-easily-swappable-parameters): outputs and prereqs are both path vectors and
+// a caller that swapped them would emit an inverted rule. Measured, a swap is NOT loud: the first
+// target becomes a .proto path, Ninja's first-target comparison mismatches and short-circuits before
+// it ever validates the remaining names, so the result is the same silent rebuild-every-time as the
+// bug this order exists to prevent. What actually catches it is the depfile stage in check.sh
+// (tests/depfile_norebuild.sh), which builds a generated target twice and requires the second build
+// to do nothing. Kept as two parameters: one call site, and that stage covers it. (The check stopped
+// suppressing this when the two stopped being passed to the same dedup helper: outputs must keep
+// their order, prerequisites may be sorted. Bracketed rather than a next-line suppression because
+// the diagnostic is reported on the second PARAMETER's line, not the declaration's first line --
+// and the marker words are deliberately not spelled out in this prose, since clang-tidy parses
+// them wherever they appear in a comment.)
 [[nodiscard]] inline bool write_depfile(const std::filesystem::path& depfile_path,
                                         std::vector<std::filesystem::path> outputs,
                                         std::vector<std::filesystem::path> prereqs) {
+    // NOLINTEND(bugprone-easily-swappable-parameters)
     std::error_code cwd_error;
     const std::filesystem::path base = std::filesystem::current_path(cwd_error);
     const auto as_target = [&](const std::filesystem::path& path) {
@@ -341,18 +390,14 @@ inline std::vector<std::filesystem::path> disk_proto_paths(const std::vector<std
         }
         return rel;
     };
-    const auto dedup = [](std::vector<std::filesystem::path>& paths) {
-        std::sort(paths.begin(), paths.end());
-        paths.erase(std::unique(paths.begin(), paths.end()), paths.end());
-    };
     for (std::filesystem::path& path : outputs) {
         path = as_target(path);  // build-dir-relative, matching the build tool's output node
     }
     for (std::filesystem::path& path : prereqs) {
         path = lexically_absolute(path);
     }
-    dedup(outputs);
-    dedup(prereqs);
+    detail::dedup_keep_order(outputs);  // FIRST target must stay first -- see the helper
+    detail::dedup_sorted(prereqs);
     // Escape per the depfile grammar GCC's -MD emits (what CMake and Ninja consume): a backslash before
     // a space, '#', or backslash; '$' doubled. (':' is left alone -- it does not occur in POSIX paths
     // and is the rule separator.)
