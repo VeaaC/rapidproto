@@ -50,6 +50,14 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
   file with more bytes than tokens, past the end of the file (`deep.proto:122:1` for a 121-line
   file). The rejection itself was always correct — only where it pointed was wrong.
 
+- **A schema reached through a symlink no longer regenerates on every build.** `rapidproto_generate()`
+  declares the generated headers as a build rule's outputs, and the CMake helper computed that path
+  by resolving symlinks in a case where the generator does not — so for an entry whose link name
+  differs from its target's, the declared header was never the one written and the target rebuilt
+  forever. The same applied to a `.proto` produced by another rule under a symlinked path: CMake
+  cannot resolve a path that does not exist yet, so the helper now resolves the longest part of it
+  that does — matching what the generator computes at build time, when the file is there.
+
 - **Ninja no longer regenerates the headers on every build.** The depfile listed its targets in
   sorted order, but Ninja accepts a depfile only when its *first* target is the build rule's first
   output — and a mismatch is not an error, it silently marks the outputs dirty forever. Any target

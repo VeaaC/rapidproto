@@ -7,7 +7,8 @@
 #
 #   ./check.sh        # full gate: format check, doc links, nsedge fixture coverage, build+test on
 #                     # both compilers, compile-fail, fuzz-compile, clang-tidy, the C++20/23 header
-#                     # smoke and the randomized differential. NOT the corpus sweep -- see `deep`.
+#                     # smoke, the CMake-helper name check and the randomized differential. NOT the
+#                     # corpus sweep -- see `deep`.
 #   ./check.sh fix    # first apply clang-format, then run the full gate
 #   ./check.sh quick  # fast inner loop: apply formatting + gcc build+test only (no clang/tidy)
 #   ./check.sh deep   # OPT-IN heavy tier (CI / end-of-phase, NOT the inner loop): ASan+UBSan over the
@@ -25,9 +26,10 @@
 #
 # The independent stages (format, doc-links, fixture-coverage, gcc build+test, clang build+test,
 # compile-fail, fuzz-compile, clang-tidy) run concurrently; each build is a parallel build and
-# clang-tidy is parallelized across files. Three run after that block: corpus (only when asked for)
-# and the differential consume the gcc stage's binaries, and the C++20/23 smoke needs the goldens. Per-stage output is captured and printed in a fixed
-# order so nothing interleaves. Exits non-zero if anything is not clean.
+# clang-tidy is parallelized across files. Four run after that block: corpus, the CMake-helper name
+# check and the differential all consume the gcc stage's binaries (corpus only when asked for), and
+# the C++20/23 smoke needs the goldens. Per-stage output is captured and printed in a fixed order so
+# nothing interleaves. Exits non-zero if anything is not clean.
 
 set -uo pipefail
 cd "$(dirname "$0")"
@@ -656,6 +658,14 @@ job_cxx20_smoke() {
   return $rc
 }
 
+# The CMake helper declares the CLI's output paths as a custom command's OUTPUT, so the two rules
+# must agree exactly or the declared file is never produced and the target regenerates forever. They
+# are written in different languages and have drifted once already.
+job_generate_names() {
+  ensure_gcc_binaries rapidprotoc || return 1
+  tests/check_generate_names.sh build/gcc/rapidprotoc
+}
+
 job_fuzz_compile() {
   local cxx=clang++-20 rc=0 out
   command -v "$cxx" >/dev/null 2>&1 || cxx=c++
@@ -827,13 +837,13 @@ job_differential() {
 # log-print loop -- so a new stage needs a key, a title, a job and a line in each. Omitting it from
 # a run loop fails loudly (`FAILURES: <key>`, no .rc recorded); omitting it from DEFAULT_STAGES
 # used to disable it in silence, which the NON_DEFAULT_STAGES check rejects before any stage runs.
-readonly STAGE_KEYS=(format docs fixtures gcc clang cf fuzz tidy corpus cxx20 differential)
+readonly STAGE_KEYS=(format docs fixtures gcc clang cf fuzz tidy corpus cxx20 names differential)
 
 # What a bare ./check.sh runs. `corpus` is deliberately absent: sweeping ~8000 third-party schemas is
 # a COMPATIBILITY check, not a fast-feedback one -- the library's own behaviour is covered by the
 # explicit tests -- and at ~163s it was 30% of the gate. It moved to the deep tier (which gates every
 # PR) and keeps its own CI runner, so nothing stopped watching it; it just left the inner loop.
-readonly DEFAULT_STAGES=(format docs fixtures gcc clang cf fuzz tidy cxx20 differential)
+readonly DEFAULT_STAGES=(format docs fixtures gcc clang cf fuzz tidy cxx20 names differential)
 # Stages deliberately outside the default gate. Every STAGE_KEYS entry must be in DEFAULT_STAGES or
 # here, checked below: a stage left out of BOTH is disabled by omission -- exactly the silent
 # forgot-a-list failure the single table was introduced to end.
@@ -858,6 +868,7 @@ stage_title() {
     tidy)         echo "clang-tidy (library = strict, tests = relaxed)" ;;
     corpus)       echo "real-world schema corpus" ;;
     cxx20)        echo "generated headers at c++20/c++23" ;;
+    names)        echo "cmake helper predicts the CLI's header paths" ;;
     differential) echo "randomized differential vs protobuf" ;;
   esac
 }
@@ -874,6 +885,7 @@ stage_job() {
     tidy)         job_tidy ;;
     corpus)       job_corpus ;;
     cxx20)        job_cxx20_smoke ;;
+    names)        job_generate_names ;;
     differential) job_differential ;;
     # Not optional: without it, a key added to STAGE_KEYS but not here falls out of the case with
     # status 0 and an empty log -- a stage that can only ever report success, which is the exact
@@ -977,13 +989,16 @@ run_stage corpus
 # Needs the goldens on disk (not a build product), so it can run any time after them.
 [[ "$serial_gate" == 1 ]] && stage_enabled cxx20 && echo "serial gate: cxx20"
 run_stage cxx20
+# Consumes build/gcc's rapidprotoc, so it runs after the build stages.
+[[ "$serial_gate" == 1 ]] && stage_enabled names && echo "serial gate: names"
+run_stage names
 # Also consumes build/gcc's binaries, and compiles a harness per schema, so it runs alone at the end.
 [[ "$serial_gate" == 1 ]] && stage_enabled differential && echo "serial gate: differential"
 run_stage differential
 
 # --- print each stage's output in a fixed order (already captured, so never interleaved) ----------
 
-for key in cxx20 format docs fixtures gcc clang cf fuzz tidy corpus differential; do
+for key in cxx20 names format docs fixtures gcc clang cf fuzz tidy corpus differential; do
   section "$(stage_title "$key")"
   cat "$LOG/$key"
 done

@@ -14,11 +14,44 @@ include_guard(GLOBAL)
 # path relative to the first import dir that contains it, else its basename, with ".proto" -> `ext`,
 # under `out_dir`. `import_dirs_abs` is the absolute import dirs in -I order.
 function(_rapidproto_output_header out_var proto_abs ext out_dir import_dirs_abs)
-  # Resolve symlinks (REALPATH) so this matches the generator's canonical_entry_name, which uses
-  # weakly_canonical (symlink-resolving). file(RELATIVE_PATH) is purely lexical, so without this a
-  # symlinked import dir or entry path would compute a different stem than the CLI actually writes,
-  # and CMake would error with "output not produced by COMMAND".
-  get_filename_component(_proto_real "${proto_abs}" REALPATH)
+  # Resolve symlinks (REALPATH) for the import-relative test, matching canonical_entry_name, which
+  # weakly_canonical()s both the entry and the include dir before relativizing. file(RELATIVE_PATH)
+  # is purely lexical, so without this a symlinked import dir would compute a different stem than
+  # the CLI writes, and CMake would error with "output not produced by COMMAND".
+  #
+  # The FALLBACK below deliberately does NOT use the resolved path: when the entry resolves under no
+  # import dir, canonical_entry_name returns the spelling it was GIVEN, and the CLI names the header
+  # from that. Taking REALPATH's basename here instead made the two disagree for a symlinked entry
+  # whose link name differs from its target -- `protolink/alias.proto -> ../real/aaa.proto` had
+  # CMake declare aaa.rp.hpp while the CLI wrote alias.rp.hpp, so the declared output never appeared
+  # and the target regenerated on every build.
+  # Mirror weakly_canonical: resolve the longest EXISTING prefix, then re-attach what is missing.
+  # REALPATH leaves the WHOLE path unresolved as soon as its last component is absent -- not just
+  # that component -- and an entry another rule generates does not exist when this runs, possibly
+  # several directories deep. Resolving only the parent would close one level and leave the rest
+  # disagreeing with the CLI, which resolves at BUILD time when the file is there. A build tree
+  # below macOS's /var -> /private/var makes this ordinary rather than exotic.
+  set(_probe "${proto_abs}")
+  set(_missing_tail "")
+  while(NOT EXISTS "${_probe}")
+    get_filename_component(_parent "${_probe}" DIRECTORY)
+    if(_parent STREQUAL "${_probe}")
+      break()  # walked up to the root without finding anything that exists
+    endif()
+    get_filename_component(_missing_name "${_probe}" NAME)
+    if(_missing_tail STREQUAL "")
+      set(_missing_tail "${_missing_name}")
+    else()
+      set(_missing_tail "${_missing_name}/${_missing_tail}")
+    endif()
+    set(_probe "${_parent}")
+  endwhile()
+  get_filename_component(_probe_real "${_probe}" REALPATH)
+  if(_missing_tail STREQUAL "")
+    set(_proto_real "${_probe_real}")
+  else()
+    set(_proto_real "${_probe_real}/${_missing_tail}")
+  endif()
   set(_rel "")
   foreach(_dir IN LISTS import_dirs_abs)
     get_filename_component(_dir_real "${_dir}" REALPATH)
@@ -29,7 +62,7 @@ function(_rapidproto_output_header out_var proto_abs ext out_dir import_dirs_abs
     endif()
   endforeach()
   if(_rel STREQUAL "")
-    get_filename_component(_rel "${_proto_real}" NAME)
+    get_filename_component(_rel "${proto_abs}" NAME)  # as GIVEN -- see above
   endif()
   string(REGEX REPLACE "\\.proto$" "" _rel "${_rel}")
   set(${out_var} "${out_dir}/${_rel}${ext}" PARENT_SCOPE)
