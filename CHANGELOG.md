@@ -7,6 +7,26 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
 
 ### Changed
 
+- **A reserved-name escape no longer takes an identifier another type really uses.** `decode` is
+  reserved (the decoders expose a static `decode()`), so `enum decode` is emitted as `decode_` — and
+  a schema that also declares `message decode_` got two `p::decode_`, which does not compile. Names
+  are now deduplicated across the whole PACKAGE rather than per file, so the two no longer land on
+  each other even when they live in different files of that package.
+
+  Two consequences for generated identifiers, so **regenerate**. At PACKAGE scope — top-level enums
+  and messages — a literal name and an escape that contend now resolve the other way round: the
+  literal keeps its spelling and the escape moves, so that schema emits `decode_` (the message) and
+  `decode__` (the enum) where it previously emitted `decode_` (the enum) and `decode__` (the
+  message). That applies to single-file schemas too, not only the cross-file case that failed to
+  compile. Names INSIDE a message (nested types, fields, oneofs, map entries) are unaffected: there
+  the escape still keeps `decode_` and the literal takes `decode__`. And because the dedup scope is
+  now the whole resolved file set, adding a file to a package can shift an escaped id in a sibling
+  file — including in a header a previous generator run already wrote, which is a compile error
+  rather than a silent mismatch.
+
+  Unchanged for every one of the 8018 schemas in the corpus sweep: this only moves names when a
+  reserved-name escape and a real identifier actually contend.
+
 - **`Callbacks` is a usable field name again**, and `RpFs` / `RpT` / `RpTag` never break a schema.
   The generated code's own template parameters and aliases are now spelled `rp_Callbacks`, `rp_Fs`,
   `rp_T` and `rp_Tag` — inside the `rp_` prefix the generator already reserves — so none of them

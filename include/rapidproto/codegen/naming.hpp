@@ -45,7 +45,16 @@ struct CppNameTable {
 
 // Build the name table for the resolved set. `all_files` is the whole set (a file's imports precede
 // it); indexing every file means a cross-file type reference resolves to the imported scope's
-// dedup-stable absolute name. When `all_files` is empty, only `file` is indexed (the single-file
+// dedup-stable absolute name.
+//
+// Top-level names are deduplicated per PACKAGE across the whole set, because that is the scope they
+// are emitted into -- so a reserved-name escape in one file cannot take an identifier another file
+// of the same package really uses. Two consequences worth knowing at the call site: an id can be
+// ESCAPED because of a name in a different file, and adding a file to the set can therefore change
+// a sibling's id -- including one an earlier run already emitted, so a split generation over one
+// package can leave headers that disagree. Names that need no escape are claimed first, so at this
+// scope a literal identifier keeps its spelling and only escapes move. Member scopes (nested types,
+// fields, oneofs, map entries) are unchanged: they dedup per message, first-come. When `all_files` is empty, only `file` is indexed (the single-file
 // convenience path, valid when `file` has no cross-file type references). `ns_prefix` is an already
 // `::`-joined C++ namespace (see `namespace_of`), possibly empty. `model_namespace` (e.g. "stream")
 // nests TOP-LEVEL messages under that extra segment so the two decoder models coexist; empty leaves
@@ -56,6 +65,11 @@ CppNameTable build_cpp_names(const FileNode& file, const std::vector<FileNode>& 
 
 // A resolved type FQN -> its absolute C++ name. Types in the set use their dedup-stable name;
 // anything not in the set (should not occur for a resolved type) falls back to a plain mapping.
+// That fallback is a guess, not a diagnostic, and since names are deduplicated per package it can
+// now return an id that BELONGS to a different type in the same namespace: `.p.decode` misses the
+// table and synthesizes `::p::decode_`, which is the id the real `message decode_` holds. Callers
+// pass FQNs straight from the AST (leading-dot form, `.pkg.Name`); a mis-spelled one gets a
+// plausible wrong answer rather than an error.
 std::string cpp_type_name(const CppNameTable& names, std::string_view fqn);
 
 // proto package "a.b.c" -> C++ namespace "a::b::c" (empty package -> ""), each component sanitized.

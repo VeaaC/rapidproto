@@ -1,0 +1,15 @@
+// See escdedup_b.proto: this file's `enum decode` escapes onto the name that file already uses.
+syntax = "proto3";
+package escdedup;
+
+import "escdedup_b.proto";
+
+enum decode {
+  DECODE_UNSET = 0;
+  DECODE_ON = 1;
+}
+
+message Holder {
+  decode_ ref = 1;
+  decode kind = 2;
+}

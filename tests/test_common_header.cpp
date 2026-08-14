@@ -12,6 +12,7 @@
 #include <sstream>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "rapidproto/ast.hpp"
 #include "rapidproto/codegen/emit.hpp"
@@ -77,6 +78,40 @@ TEST_CASE("common-header: golden output (enums + import includes)", "[common]") 
     // an imported file's own common header (its top-level enum is shared across the closure).
     check_golden("main", common_header(corpus + "/imports", "main.proto"));
     check_golden("dep", common_header(corpus + "/imports", "dep.proto"));
+}
+
+TEST_CASE("naming: same-package files share one dedup scope, and real names win", "[common]") {
+    // escdedup_a declares `enum decode`, which is reserved (the decoders expose a static decode()),
+    // so it sanitizes onto `decode_` -- the name escdedup_b really gives a message. Deduping per
+    // file gave both `escdedup::decode_`, and any TU including the two headers stopped compiling.
+    const ResolvedFileSet set =
+        resolve_set(std::string(RAPIDPROTO_CORPUS_DIR) + "/imports", "escdedup_a.proto");
+    const codegen::CppNameTable names =
+        codegen::build_cpp_names(set.files.back(), set.files, std::string{});
+    const std::string enum_name = codegen::cpp_type_name(names, ".escdedup.decode");
+    const std::string message_name = codegen::cpp_type_name(names, ".escdedup.decode_");
+    INFO("enum -> " << enum_name << ", message -> " << message_name);
+    CHECK(enum_name != message_name);
+    // The literal identifier keeps its spelling; the escape is what moves.
+    CHECK(message_name == "::escdedup::decode_");
+    CHECK(enum_name == "::escdedup::decode__");
+
+    // ...and that does not depend on the order the files are indexed in. Reversing the set used to
+    // hand the contested id to whichever file came first, so one schema generated two different
+    // sets of C++ names.
+    std::vector<FileNode> reversed(set.files.rbegin(), set.files.rend());
+    const codegen::CppNameTable flipped =
+        codegen::build_cpp_names(reversed.front(), reversed, std::string{});
+    CHECK(codegen::cpp_type_name(flipped, ".escdedup.decode") == enum_name);
+    CHECK(codegen::cpp_type_name(flipped, ".escdedup.decode_") == message_name);
+
+    // ...nor on the model. The dedup scope is keyed on the PACKAGE namespace precisely so the two
+    // models agree here: this enum is emitted once, into the shared common header, so an id that
+    // differed between the arena and streaming runs would leave that header contradicting the
+    // streaming decoder's references to it.
+    const codegen::CppNameTable streamed =
+        codegen::build_cpp_names(set.files.back(), set.files, std::string{}, "stream");
+    CHECK(codegen::cpp_type_name(streamed, ".escdedup.decode") == enum_name);
 }
 
 TEST_CASE("common-header: model_namespace nests messages, not enums", "[common]") {
