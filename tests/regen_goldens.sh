@@ -21,7 +21,15 @@ GOLDEN=tests/streamgen_golden
 BIN=build/gcc/rapidprotoc
 
 echo "[1/5] building rapidprotoc ..."
-cmake --preset gcc >/dev/null
+cmake --preset gcc -DRAPIDPROTO_BUILD_TESTS=ON >/dev/null
+# Target checked before building: `cmake --build --target X` degenerates to `make X` under
+# Makefiles, so a renamed target with build/gcc/X still on disk prints "Nothing to be done" and
+# exits 0 -- and every golden below would then be regenerated from that stale binary.
+if ! grep -qE '(^|\.\.\. )rapidprotoc$' <<<"$(cmake --build --preset gcc --target help 2>/dev/null)"; then
+  echo ">> 'rapidprotoc' is not a target of build/gcc -- the goldens would be regenerated from a" >&2
+  echo "   stale binary. Re-run cmake --preset gcc." >&2
+  exit 1
+fi
 cmake --build --preset gcc --target rapidprotoc -j"$JOBS" >/dev/null
 
 echo "[2/5] regenerating streamgen goldens via the CLI ..."
@@ -68,6 +76,12 @@ while IFS= read -r g; do
     miss=1
   fi
 done < <(find "$GOLDEN" -name '*.rp.stream.hpp')
+# A zero-match find regenerates nothing and reports success: with the goldens moved or the
+# name pattern stale, this printed "0 streamgen goldens regenerated" and exited 0.
+if [[ $(find "$GOLDEN" -name '*.rp.stream.hpp' | wc -l) -eq 0 ]]; then
+  echo ">> no streamgen goldens found under $GOLDEN -- nothing was regenerated" >&2
+  exit 1
+fi
 [[ $miss -eq 0 ]] || exit 1
 echo "    $(find "$GOLDEN" -name '*.rp.stream.hpp' | wc -l) streamgen goldens regenerated"
 
@@ -89,10 +103,34 @@ tests/regen_arenagen_goldens.sh >/dev/null
 tests/regen_dumpgen_goldens.sh >/dev/null
 
 echo "[4/5] building the test binary (the fresh streamgen + arenagen + dumpgen goldens now compile) ..."
+# Target checked before building: `cmake --build --target X` degenerates to `make X` under
+# Makefiles, so a renamed target with build/gcc/X still on disk prints "Nothing to be done" and
+# exits 0 -- and this script would then rewrite EVERY golden from that stale binary.
+if ! grep -qE '(^|\.\.\. )rapidproto_tests$' <<<"$(cmake --build --preset gcc --target help 2>/dev/null)"; then
+  echo ">> 'rapidproto_tests' is not a target of build/gcc -- the goldens would be regenerated" >&2
+  echo "   from a stale binary. Re-run cmake --preset gcc." >&2
+  exit 1
+fi
 cmake --build --preset gcc --target rapidproto_tests -j"$JOBS" >/dev/null
 
 echo "[5/5] regenerating AST + wire + arena-layout + common goldens via the test binary ..."
-RAPIDPROTO_REGEN_GOLDEN=1 ./build/gcc/rapidproto_tests "[golden],[wire-golden],[arena-layout],[common]" 2>&1 |
-  grep -i "regenerated" || true
+# Status kept: `| grep -i regenerated || true` discarded it, so a suite that crashed part-way
+# through regeneration reported the goldens as regenerated and left the rest at their old contents.
+# `|| regen_rc=$?` and not a following `regen_rc=$?`: this script runs under errexit, which aborts
+# at a failing assignment, so the separate-statement form made the branch below unreachable.
+regen_rc=0
+regen_out=$(RAPIDPROTO_REGEN_GOLDEN=1 ./build/gcc/rapidproto_tests \
+  "[golden],[wire-golden],[arena-layout],[common]" 2>&1) || regen_rc=$?
+grep -i "regenerated" <<<"$regen_out" || true
+if [[ $regen_rc -ne 0 ]]; then
+  echo ">> golden regeneration failed (exit $regen_rc) -- goldens are incomplete:"
+  tail -20 <<<"$regen_out"
+  exit 1
+fi
+
+# The reverse of the orphan check at [2/5], which only flags a golden that exists but was not
+# regenerated: this catches a fixture with no golden at all. Shared with check.sh (the `fixtures`
+# gate stage, which CI runs) so it holds even when nobody runs this script.
+tests/check_fixture_coverage.sh
 
 echo "done -- review the diff (git diff), then run ./check.sh to confirm."

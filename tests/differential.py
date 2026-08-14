@@ -39,21 +39,29 @@ Usage:
     python3 tests/differential.py --messages 200        # more payloads per message type
     python3 tests/differential.py --seed 7 --verbose
     python3 tests/differential.py --schema tests/corpus/proto3.proto
+    python3 tests/differential.py --jobs 4                # schemas checked in parallel
     python3 tests/differential.py --write-seeds build/fuzz/payload-seeds   # seed the fuzzers
 """
 
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import json
 import math
 import random
 import shutil
 import struct
+import os
 import subprocess
 import sys
 import tempfile
+from itertools import repeat
 from pathlib import Path
+
+# Reserved exit code for "I could not run, and that is expected" -- check.sh reports it as a
+# self-skip rather than a pass, so a green gate cannot quietly have checked nothing.
+SKIP_RC = 77
 
 REPO = Path(__file__).resolve().parent.parent
 CORPUS = REPO / "tests" / "corpus"
@@ -86,9 +94,13 @@ def is_message(field) -> bool:
 
 
 def is_open_enum(enum_type) -> bool:
-    """Whether an unknown number stays in the field rather than moving to unknown fields. True for
-    proto3 and for editions enums declaring OPEN; protobuf spells the latter through the same
-    `syntax` attribute on older bindings, so fall back to closed when it cannot be determined."""
+    """Whether an unknown number stays in the field rather than moving to unknown fields.
+
+    Proto3 only. Editions files report `syntax == "editions"`, so an editions enum declaring OPEN
+    is treated as closed; this gates only GENERATION of an out-of-range enum number, so the cost is
+    lost coverage, not a false mismatch. It is not editions support. The `getattr` default is the
+    same trade in the other direction: if a future binding drops the attribute, every enum reads as
+    closed and this coverage disappears silently."""
     return getattr(enum_type.file, "syntax", "proto2") == "proto3"
 
 
@@ -393,14 +405,18 @@ def build_schema(schema: Path, work: Path, tools: dict[str, Path], cxx: str):
     generated = run([str(tools["rapidprotoc"]), "--arena", "--dump", f"-I{include}",
                      "--out-dir", str(work), str(schema)])
     if generated.returncode != 0:
-        raise Skip("rapidprotoc rejects it: %s" % first_error(generated.stderr))
+        # NOT a Skip: protoc accepted this schema, so our own front-end rejecting it is a
+        # regression that would otherwise leave coverage silently, one reassuring line at a time.
+        raise HarnessError("rapidprotoc rejects a protoc-valid schema: %s"
+                           % first_error(generated.stderr))
 
     harness_source = work / "harness.cpp"
     meta_path = work / "meta.json"
     emitted = run([str(tools["diffgen"]), f"-I{include}", "--out", str(harness_source),
                    "--meta", str(meta_path), str(schema)])
     if emitted.returncode != 0:
-        raise Skip("diffgen failed: %s" % first_error(emitted.stderr))
+        # Same reasoning: diffgen is ours, so its failure is a defect, not a property of the schema.
+        raise HarnessError("diffgen failed: %s" % first_error(emitted.stderr))
     meta = json.loads(meta_path.read_text())
     if not meta["messages"]:
         raise Skip("no messages")
@@ -494,6 +510,37 @@ def describe_difference(wanted, got, path: str = "") -> str:
     return f"{path or '<root>'}: protobuf={wanted!r} rapidproto={got!r}"
 
 
+def check_schema(schema: Path, tools: dict[str, Path], cxx: str, seed: int, messages: int,
+                 seed_dir: Path | None) -> tuple[int, str | None, list[str]]:
+    """One schema end to end: (messages checked, skip reason or None, mismatch descriptions).
+
+    Runs in a worker process, so every argument is picklable and nothing is shared but `seed_dir`
+    (whose files are named after the message FQN, unique across schemas).
+    """
+    from google.protobuf import message_factory  # re-imported here: this runs in a worker process
+
+    rng = random.Random(f"{seed}:{schema.name}")  # per schema, so one file's set is stable
+    with tempfile.TemporaryDirectory(prefix="rpdiff-") as directory:
+        work = Path(directory)
+        try:
+            harness, pool, meta = build_schema(schema, work, tools, cxx)
+        except Skip as reason:
+            return 0, f"{schema.name}: {reason}", []
+        except HarnessError as error:
+            return 0, None, [f"{schema.name}: {error}"]
+        factory = message_factory.MessageFactory(pool)
+        checked = 0
+        failures: list[str] = []
+        for fqn in meta["messages"]:
+            descriptor = pool.FindMessageTypeByName(fqn.lstrip("."))
+            if descriptor.GetOptions().map_entry:
+                continue  # synthesized map entries are not decoded on their own
+            checked += 1
+            failures += check_message(harness, work, factory, descriptor, meta, messages, rng,
+                                      seed_dir)
+        return checked, None, failures
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -508,13 +555,15 @@ def main() -> int:
     parser.add_argument("--write-seeds", type=Path, default=None, metavar="DIR",
                         help="also write every generated payload into DIR, as a fuzzer seed corpus")
     parser.add_argument("--verbose", action="store_true", help="name every schema and skip reason")
+    parser.add_argument("--jobs", type=int, default=os.cpu_count() or 4,
+                        help="schemas to check in parallel (default: CPU count)")
     args = parser.parse_args()
 
     try:
-        from google.protobuf import message_factory
+        import google.protobuf.message_factory  # noqa: F401  (presence check; workers re-import)
     except ImportError:
         print("differential: protobuf Python bindings not installed; skipping")
-        return 0
+        return SKIP_RC
 
     # An explicit --build-dir that holds no tools is a typo, not a reason to report success; the
     # DEFAULT one being unbuilt is the legitimate skip (nobody must build to run an unrelated stage).
@@ -526,11 +575,11 @@ def main() -> int:
             if explicit_build_dir:
                 raise SystemExit(f"--build-dir {args.build_dir}: {path.name} is not built there")
             print(f"differential: {path} not built; skipping")
-            return 0
+            return SKIP_RC
     protoc = shutil.which("protoc")
     if protoc is None:
         print("differential: protoc not on PATH; skipping")
-        return 0
+        return SKIP_RC
     tools["protoc"] = Path(protoc)
 
     seed_dir = args.write_seeds
@@ -548,31 +597,23 @@ def main() -> int:
     for schema in schemas:
         if not schema.is_file():
             raise SystemExit(f"--schema {schema} does not exist")
+    # One worker per schema. Each compiles a harness and runs it, so the work is dominated by
+    # subprocesses rather than Python -- but the payload generation and field comparison ARE Python,
+    # so processes (not threads) to escape the GIL. map() yields in input order, which keeps the
+    # skip/failure lines identical run to run regardless of who finishes first.
     checked = 0
     skipped: list[str] = []
     failures: list[str] = []
-    for schema in schemas:
-        rng = random.Random(f"{args.seed}:{schema.name}")  # per schema, so one file's set is stable
-        with tempfile.TemporaryDirectory(prefix="rpdiff-") as directory:
-            work = Path(directory)
-            try:
-                harness, pool, meta = build_schema(schema, work, tools, args.cxx)
-            except Skip as reason:
-                skipped.append(f"{schema.name}: {reason}")
-                continue
-            except HarnessError as error:
-                failures.append(f"{schema.name}: {error}")
-                continue
-            factory = message_factory.MessageFactory(pool)
-            for fqn in meta["messages"]:
-                descriptor = pool.FindMessageTypeByName(fqn.lstrip("."))
-                if descriptor.GetOptions().map_entry:
-                    continue  # synthesized map entries are not decoded on their own
-                checked += 1
-                failures += check_message(harness, work, factory, descriptor, meta,
-                                          args.messages, rng, seed_dir)
-        if args.verbose:
-            print(f"  {schema.name}: done")
+    with concurrent.futures.ProcessPoolExecutor(max_workers=args.jobs) as pool_exec:
+        results = pool_exec.map(check_schema, schemas, repeat(tools), repeat(args.cxx),
+                                repeat(args.seed), repeat(args.messages), repeat(seed_dir))
+        for schema, (count, skip, schema_failures) in zip(schemas, results):
+            checked += count
+            if skip is not None:
+                skipped.append(skip)
+            failures += schema_failures
+            if args.verbose:
+                print(f"  {schema.name}: done")
 
     # Skips are printed every run, not just under --verbose: they are how a schema silently leaves
     # coverage, and the count drifting is the thing worth noticing.
@@ -580,12 +621,22 @@ def main() -> int:
         print("   skipped " + reason)
     for failure in failures:
         print(">> " + failure)
+    # Harness failures are counted apart from mismatches: one means our tools broke, the other
+    # means a decode disagreed with protobuf, and reporting a tool failure as a "mismatch" sends
+    # the reader looking for a decode bug that is not there.
+    harness_failures = sum(1 for f in failures if "rejects a protoc-valid schema" in f
+                           or "diffgen failed" in f or "harness does not compile" in f)
+    mismatches = len(failures) - harness_failures
     print("differential: %d message types over %d schemas, %d payloads each, %d mismatches "
-          "(%d schemas skipped)" % (checked, len(schemas) - len(skipped), args.messages,
-                                    len(failures), len(skipped)))
+          "(%d schemas skipped%s)" % (checked, len(schemas) - len(skipped) - harness_failures,
+                                      args.messages, mismatches, len(skipped),
+                                      ", %d harness failure%s"
+                                      % (harness_failures, "" if harness_failures == 1 else "s")
+                                      if harness_failures else ""))
     if checked == 0:
-        print(">> nothing was checked: every schema skipped. Something upstream is broken -- a "
-              "green result here would mean only that the test ran, not that anything decoded.")
+        why = ("every schema hit a harness failure" if harness_failures else "every schema skipped")
+        print(">> nothing was checked: %s. Something upstream is broken -- a green result here "
+              "would mean only that the test ran, not that anything decoded." % why)
         return 1
     return 1 if failures else 0
 

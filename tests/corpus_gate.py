@@ -26,10 +26,10 @@ Usage:
     python3 tests/corpus_gate.py --jobs 8
     python3 tests/corpus_gate.py --list-failures    # print every failure, do not diff
 
-Exits 0 when NO source has been fetched: downloading ~100 MB must never be a precondition for
-running the gate locally. A partially fetched corpus is an ERROR, not a skip -- sweeping a
-fraction of the schemas while reporting the same green result is the failure mode worth being
-loudest about.
+Self-skips (exit 77) when NO source has been fetched: downloading ~100 MB must never be a
+precondition for running the gate locally. A partially fetched corpus -- or one checked out at
+the wrong pin -- is an ERROR, not a skip: sweeping a fraction of the schemas while reporting the
+same green result is the failure mode worth being loudest about.
 """
 
 from __future__ import annotations
@@ -46,6 +46,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import fetch_corpus  # noqa: E402  (needs the path insert above)
 
 REPO = Path(__file__).resolve().parent.parent
+# See differential.py: 77 means "expected not-run", which check.sh reports as a self-skip.
+SKIP_RC = 77
+
 DEFAULT_EXPECTED = Path(__file__).resolve().parent / "corpus_expected_failures.txt"
 
 # A single schema should take milliseconds. This is a deadlock/runaway guard, not a budget:
@@ -76,21 +79,27 @@ def load_expected(path: Path) -> dict[str, str]:
     return expected
 
 
-def fetched_sources(corpus: Path) -> tuple[list[fetch_corpus.Source], list[str]]:
-    """Split the declared sources into (present-and-at-their-pin, not-usable).
+def fetched_sources(corpus: Path) -> tuple[list[fetch_corpus.Source], list[str], list[str]]:
+    """Split the declared sources into (present-and-at-their-pin, stale, absent).
 
     Reuses fetch_corpus's own staleness check -- stamp AND `git rev-parse HEAD` against the
     pinned commit -- rather than trusting that a directory exists. Deriving the source list
     from fetch_corpus.SOURCES (instead of a local copy) means a source added to the fetcher
     cannot be silently left out of the sweep.
+
+    Stale and absent are separate because they mean opposite things to the caller: nothing
+    fetched at all is a legitimate skip (the corpus is optional and CI's deep job runs without
+    it), while a checkout sitting at the wrong commit is the loudest failure this gate has.
     """
-    present, unusable = [], []
+    present, stale, absent = [], [], []
     for source in fetch_corpus.SOURCES:
         if fetch_corpus.is_current(corpus, source):
             present.append(source)
+        elif (corpus / source.name).is_dir():
+            stale.append(source.name)
         else:
-            unusable.append(source.name)
-    return present, unusable
+            absent.append(source.name)
+    return present, stale, absent
 
 
 def schemas(corpus: Path, sources: list[fetch_corpus.Source]) -> list[tuple[str, Path, Path]]:
@@ -174,13 +183,22 @@ def main() -> int:
     if explicit and not corpus.is_dir():
         raise SystemExit(f"--corpus {corpus} does not exist")
 
-    present, unusable = (fetched_sources(corpus) if corpus.is_dir() else ([], []))
+    present, stale, absent = (fetched_sources(corpus) if corpus.is_dir() else ([], [], []))
+    # Nothing fetched at all -> skip (the corpus is optional). Anything checked out but not at its
+    # pin -> INCOMPLETE, tested FIRST: when every source is stale, `present` is empty as well, and
+    # testing the skip first reported the loudest state this gate has as a green self-skip.
+    if stale:
+        raise SystemExit(
+            f"corpus is INCOMPLETE: {', '.join(stale)} not at the pinned commit.\n"
+            f"Sweeping a fraction of the schemas would report the same green result as a full "
+            f"run. Re-run tests/fetch_corpus.py."
+        )
     if not present:
         print(f"corpus not fetched ({corpus}); skipping -- run tests/fetch_corpus.py")
-        return 0
-    if unusable:
+        return SKIP_RC
+    if absent:
         raise SystemExit(
-            f"corpus is INCOMPLETE: {', '.join(unusable)} missing or not at the pinned commit.\n"
+            f"corpus is INCOMPLETE: {', '.join(absent)} never fetched, while others are present.\n"
             f"Sweeping a fraction of the schemas would report the same green result as a full "
             f"run. Re-run tests/fetch_corpus.py."
         )

@@ -44,9 +44,18 @@ int main() {
 EOF
 
 FLAGS=(-std=c++17 -I"$ROOT/include")
-"$CXX" "${FLAGS[@]}" -I"$T/lean" -c "$T/provider.cpp" -o "$T/provider.o"
-"$CXX" "${FLAGS[@]}" -I"$T/lean" -c "$T/consumer.cpp" -o "$T/consumer_lean.o"
-"$CXX" "${FLAGS[@]}" -I"$T/other" -c "$T/consumer.cpp" -o "$T/consumer_other.o"
+# `set -e` already aborts on a failed compile; this names which TU and profile broke, so a failure
+# here is not mistaken for one of the link expectations below. Every compile goes through it -- the
+# arguments are all relative to $T.
+compile() {  # <include-dir> <source> <object>
+  if ! "$CXX" "${FLAGS[@]}" -I"$T/$1" -c "$T/$2" -o "$T/$3"; then
+    echo ">> arena modes link: $2 failed to compile against $1"
+    exit 1
+  fi
+}
+compile lean  provider.cpp  provider.o
+compile lean  consumer.cpp  consumer_lean.o
+compile other consumer.cpp  consumer_other.o
 
 # Same profile: must link AND decode.
 if "$CXX" "$T/provider.o" "$T/consumer_lean.o" -o "$T/same" 2>"$T/same.err" && "$T/same"; then
@@ -86,8 +95,8 @@ cat >"$T/uk_consumer.cpp" <<'EOF'
 int holder_n(const au::Holder* h);
 int main() { return holder_n(nullptr) == -1 ? 0 : 1; }
 EOF
-"$CXX" "${FLAGS[@]}" -I"$T/uk_on" -c "$T/uk_provider.cpp" -o "$T/uk_provider.o"
-"$CXX" "${FLAGS[@]}" -I"$T/uk_off" -c "$T/uk_consumer.cpp" -o "$T/uk_consumer.o"
+compile uk_on  uk_provider.cpp uk_provider.o
+compile uk_off uk_consumer.cpp uk_consumer.o
 if "$CXX" "$T/uk_provider.o" "$T/uk_consumer.o" -o "$T/uk_mixed" 2>"$T/uk.err"; then
   echo "FAIL [unknown-present fold]: expected a link error, but it linked"
   fail=1
@@ -104,7 +113,7 @@ fi
 # path, which no other test drives, and confirms per-message != global identity).
 "$BIN" --arena '--unknown=au.Holder' \
   -I"$ROOT/tests/corpus" --out-dir="$T/uk_one" "$ROOT/tests/corpus/arena_unknown.proto" >/dev/null
-"$CXX" "${FLAGS[@]}" -I"$T/uk_one" -c "$T/uk_provider.cpp" -o "$T/uk_one_provider.o"
+compile uk_one uk_provider.cpp uk_one_provider.o
 if "$CXX" "$T/uk_one_provider.o" "$T/uk_consumer.o" -o "$T/uk_one_mixed" 2>"$T/uk_one.err"; then
   echo "FAIL [unknown= per-message]: expected a link error, but it linked"
   fail=1

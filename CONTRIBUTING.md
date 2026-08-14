@@ -40,8 +40,8 @@ cmake --build --preset gcc
   differential against protobuf.
 - `./check.sh fix`: apply clang-format first, then run the full gate.
 - `./check.sh quick`: gcc-only build + test for the inner loop (not the commit bar).
-- `./check.sh deep` is the heavy tier: ASan + UBSan, a library coverage floor, and a fuzz smoke over
-  the four targets (see [Fuzzing](#fuzzing)).
+- `./check.sh deep` is the heavy tier: ASan + UBSan, a library coverage floor, the real-world corpus
+  sweep, and a fuzz smoke over the four targets (see [Fuzzing](#fuzzing)).
 
 CI runs `./check.sh`, `./check.sh deep`, and a Release `-O3 -Werror` build on **every push and pull
 request**.
@@ -60,8 +60,10 @@ python3 tests/fetch_corpus.py --list     # what it fetches, and why, without tou
 Nothing is vendored and nothing is redistributed, and everything corpus-related **skips** when
 *nothing* has been fetched, so you never have to download it to run the gate. A **partially** fetched
 corpus is a hard failure instead: sweeping a fraction of the schemas while reporting the same green
-result is worse than not sweeping at all. Once fetched, `./check.sh` gains a `corpus` stage (~40s)
-that drives every schema through `rapidprotoc`; CI runs it in its own job.
+result is worse than not sweeping at all. Once fetched, `./check.sh deep` sweeps every schema
+through `rapidprotoc` (~3 min on 20 cores, ~38 CPU-minutes of work). It is out of the default gate
+deliberately -- it is a compatibility check, not fast feedback -- and CI runs it in its own job on
+every PR.
 
 Failures are diffed against `tests/corpus_expected_failures.txt`, and that list is strict in three
 directions: an unlisted schema that fails is a regression, a listed one that starts **passing** fails
@@ -145,6 +147,13 @@ Much of the suite is golden tests (the analyzed AST, the wire structure, each em
 arena layout plan — all dumped to text and compared byte-for-byte). After an **intentional** change
 to a generator or a dumper, regenerate with `tests/regen_goldens.sh`, then run `./check.sh` and
 review the diff by hand. Never hand-edit a file under `tests/*_golden/`.
+
+Adding a schema to `tests/corpus/nsedge/` needs one extra step: the regen scripts only *overwrite*
+goldens that already exist, so seed each one once by running `rapidprotoc` directly, and add the
+fixture to `tests/regen_goldens.sh`, `tests/regen_arenagen_goldens.sh`, and the case list plus
+`#include` in the matching test file. `tests/check_fixture_coverage.sh` (a gate stage) fails until
+the fixture is referenced by both regen scripts and both goldens exist — without it a new fixture
+is silently unpinned, since a package/namespace shape can fail in ways no compiler reports.
 
 ## Style & scope
 

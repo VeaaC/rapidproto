@@ -3,7 +3,7 @@
 # three-shard matrix (tidy is ~80% of the gate's CPU, so it gets its own runners), a corpus job that
 # sweeps ~8000 real third-party schemas (its own runner: it needs a ~100 MB fetch), an arm64
 # build/test job (the SWAR decode kernels lower to native AArch64 instructions x86 can't exercise),
-# the heavy "deep" tier (sanitizers + coverage floor + fuzz smoke), a Release -O3 -Werror build on
+# the heavy "deep" tier (sanitizers + coverage floor + corpus sweep + fuzz smoke), a Release -O3 -Werror build on
 # both compilers, and the consumer job (install -> find_package -> newer-standard header compiles) --
 # so wall-clock is the slowest runner, not the sum.
 name: CI
@@ -28,7 +28,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-toolchain
       - name: Quality gate minus tidy (./check.sh)
-        run: RAPIDPROTO_GATE_STAGES='format docs gcc clang cf fuzz differential' ./check.sh
+        run: RAPIDPROTO_GATE_STAGES='format docs fixtures gcc clang cf fuzz cxx20 differential' ./check.sh
 
   # The real-world compatibility check (see tests/corpus_gate.py for what it covers and why).
   # Its own job because it needs a ~100 MB fetch the other jobs don't, keeping that off the main
@@ -37,7 +37,7 @@ jobs:
   # tests/fetch_corpus.py), and the 'gcc' stage is here to produce the rapidprotoc the sweep drives
   # -- which re-runs the unit tests and consumer examples the `gate` job already ran. Splitting a
   # build-only stage out of job_build_test would fix that if it ever matters.
-  # Expect minutes rather than the ~40s a dev box sees: the sweep is ~11 CPU-minutes of work, so a
+  # Expect minutes rather than the ~3 min a 20-core dev box sees: the sweep is ~38 CPU-minutes, so a
   # 2-core runner is the constraint.
   corpus:
     name: corpus (real-world schema sweep)
@@ -80,7 +80,7 @@ jobs:
           ./check.sh
 
   deep:
-    name: deep (ASan/UBSan + coverage + fuzz smoke)
+    name: deep (ASan/UBSan + coverage + corpus + fuzz smoke)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4

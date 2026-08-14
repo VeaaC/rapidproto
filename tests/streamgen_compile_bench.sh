@@ -16,6 +16,13 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 BIN="$ROOT/build/gcc/rapidprotoc"
 N="${N:-48}"
+# Validated: N is what makes this a STRESS compile. `N=1 ./check.sh` printed "1-field x 1-callback
+# decoder builds" and passed green with the dispatch-gate check doing nothing.
+if [[ ! $N =~ ^[0-9]+$ ]] || [[ $((10#$N)) -lt 8 ]]; then
+  echo "stress-bench: N must be an integer >= 8 (got '$N')" >&2
+  exit 1
+fi
+N=$((10#$N))
 
 mode="time"
 CXX="c++"
@@ -32,7 +39,13 @@ if [[ ! -x "$BIN" ]]; then
   exit 1
 fi
 
-tmp="$(mktemp -d)"
+# Checked: this script runs under `set -uo pipefail` without -e, and it is called from the gate's
+# gcc stage -- an unusable TMPDIR otherwise turned every later step into its own error against a
+# path of `/`, burying the cause under four unrelated failures.
+if ! tmp="$(mktemp -d)"; then
+  echo "stress-bench: cannot create a temporary directory" >&2
+  exit 1
+fi
 trap 'rm -rf "$tmp"' EXIT
 
 # A message with N int32 fields.

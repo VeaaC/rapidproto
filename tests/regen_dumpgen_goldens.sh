@@ -23,6 +23,14 @@ BIN=build/gcc/rapidprotoc
 
 echo "[1/3] building rapidprotoc ..."
 cmake --preset gcc >/dev/null
+# Target checked before building: `cmake --build --target X` degenerates to `make X` under
+# Makefiles, so a renamed target with build/gcc/X still on disk prints "Nothing to be done" and
+# exits 0 -- and every golden below would then be regenerated from that stale binary.
+if ! grep -qE '(^|\.\.\. )rapidprotoc$' <<<"$(cmake --build --preset gcc --target help 2>/dev/null)"; then
+  echo ">> 'rapidprotoc' is not a target of build/gcc -- the goldens would be regenerated from a" >&2
+  echo "   stale binary. Re-run cmake --preset gcc." >&2
+  exit 1
+fi
 cmake --build --preset gcc --target rapidprotoc -j"$JOBS" >/dev/null
 
 echo "[2/3] regenerating dumpgen goldens via the CLI ..."
@@ -74,6 +82,12 @@ while IFS= read -r g; do
     miss=1
   fi
 done < <(find "$GOLDEN" -name '*.rp.dump.hpp')
+# A zero-match find regenerates nothing and reports success: with the goldens moved or the
+# name pattern stale, this printed "0 dumpgen goldens regenerated" and exited 0.
+if [[ $(find "$GOLDEN" -name '*.rp.dump.hpp' | wc -l) -eq 0 ]]; then
+  echo ">> no dumpgen goldens found under $GOLDEN -- nothing was regenerated" >&2
+  exit 1
+fi
 [[ $miss -eq 0 ]] || exit 1
 
 # Co-locate each debug header's arena decoder + shared common beside it (the debug header #includes
