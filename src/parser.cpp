@@ -70,8 +70,14 @@ private:
 
 // A committed ("fatal") too-deeply-nested parse error at the current position; fatal so the
 // backtracking combinators propagate it instead of trying sibling alternatives.
-Error too_deep(Range<Token> in) {
-    Error error{in.empty() ? 0 : in.front().byte_offset, "maximum nesting depth exceeded"};
+//
+// Offset 0, not the token's byte_offset: a parser reports failures RELATIVE to the range it was
+// given (see combinators.hpp), and every caller checks the depth before consuming anything, so the
+// offending token is that range's first. The sequential combinators lift it on the way out. Storing
+// a byte offset here put a byte count where the resolver reads a token index, which landed the
+// diagnostic in the wrong column and, on a large file, past EOF.
+Error too_deep() {
+    Error error{0, "maximum nesting depth exceeded"};
     error.fatal = true;
     return error;
 }
@@ -362,7 +368,7 @@ Result<Parsed<MessageLiteralField, Token>> parse_message_field(Range<Token> in) 
 Result<Parsed<MessageLiteral, Token>> parse_message_literal(Range<Token> in) {
     const DepthGuard guard;
     if (!guard.within_limit()) {
-        return too_deep(in);
+        return too_deep();
     }
     return alt(
         map(delimited(kind(TokenKind::LBrace), message_body(), cut(kind(TokenKind::RBrace))),
@@ -375,7 +381,7 @@ Result<Parsed<MessageLiteral, Token>> parse_message_literal(Range<Token> in) {
 Result<Parsed<ListLiteral, Token>> parse_list_literal(Range<Token> in) {
     const DepthGuard guard;
     if (!guard.within_limit()) {
-        return too_deep(in);
+        return too_deep();
     }
     return map(
         delimited(kind(TokenKind::LBracket), separated_list(parse_value, kind(TokenKind::Comma)),
@@ -823,7 +829,7 @@ Result<Parsed<std::vector<MessageElement>, Token>> message_body(Range<Token> in,
                                                                 const ParseContext& ctx) {
     const DepthGuard guard;
     if (!guard.within_limit()) {
-        return too_deep(in);
+        return too_deep();
     }
     return many([ctx](Range<Token> i) { return message_element(i, ctx); })(in);
 }

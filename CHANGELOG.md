@@ -44,6 +44,12 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
 
 ### Fixed
 
+- **A "maximum nesting depth exceeded" error now points at the token that exceeded it.** The
+  parser reports positions as token indices, which the resolver maps back to `file:line:col`; this
+  one error stored a byte offset instead, so the diagnostic landed in the wrong column and, on a
+  file with more bytes than tokens, past the end of the file (`deep.proto:122:1` for a 121-line
+  file). The rejection itself was always correct — only where it pointed was wrong.
+
 - **Ninja no longer regenerates the headers on every build.** The depfile listed its targets in
   sorted order, but Ninja accepts a depfile only when its *first* target is the build rule's first
   output — and a mismatch is not an error, it silently marks the outputs dirty forever. Any target

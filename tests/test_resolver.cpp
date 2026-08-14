@@ -1,5 +1,6 @@
 #include <catch_amalgamated.hpp>
 
+#include <cctype>
 #include <cstddef>
 #include <string>
 #include <utility>
@@ -17,6 +18,76 @@ using namespace rapidproto;  // NOLINT(google-build-using-namespace): test conve
 namespace {
 
 using rapidproto::test::TempDir;
+
+// `<file>:<line>:<col>: msg` -> the line number, or 0 when the rendering does not name `file`.
+int rendered_line(const std::string& rendered, const std::string& file) {
+    const std::size_t at = rendered.find(file + ":");
+    if (at == std::string::npos) {
+        return 0;
+    }
+    const std::size_t start = at + file.size() + 1;
+    const std::size_t end = rendered.find(':', start);
+    if (end == std::string::npos || end == start) {
+        return 0;
+    }
+    int line = 0;
+    for (std::size_t i = start; i < end; ++i) {
+        if (std::isdigit(static_cast<unsigned char>(rendered[i])) == 0) {
+            return 0;  // not a line number: let the caller's REQUIRE say so rather than throwing
+        }
+        line = line * 10 + (rendered[i] - '0');
+    }
+    return line;
+}
+
+// Keeps a trailing partial line: dropping it would put a "line is inside the file" check off
+// by one for any text not ending in a newline.
+std::vector<std::string> split_lines(const std::string& text) {
+    std::vector<std::string> lines;
+    std::size_t pos = 0;
+    for (std::size_t next = text.find('\n'); next != std::string::npos;
+         next = text.find('\n', pos)) {
+        lines.push_back(text.substr(pos, next - pos));
+        pos = next + 1;
+    }
+    if (pos < text.size()) {
+        lines.push_back(text.substr(pos));  // a trailing partial line still counts
+    }
+    return lines;
+}
+
+// `depth` nested messages, one per line, so a reported line number is countable by hand.
+std::string nested_messages(int depth) {
+    std::string text = "syntax = \"proto3\";\n";
+    for (int i = 0; i < depth; ++i) {
+        text += "message M" + std::to_string(i) + " {\n";
+    }
+    for (int i = 0; i < depth; ++i) {
+        text += "}\n";
+    }
+    return text;
+}
+
+// Resolves `text` and returns the line its depth-cap diagnostic names, checking on the way that the
+// position is INSIDE the file (the byte offset ran off the end) and names a line that opens a
+// message (the offending token), rather than one a byte count happened to land on.
+int depth_error_line(const TempDir& dir, const std::string& text) {
+    dir.write("deep.proto", text);
+    ResolverConfig config;
+    config.include_paths = {dir.root()};
+    SourceRegistry sources;
+    auto result = resolve(dir.path("deep.proto"), config, sources);
+    REQUIRE(result.is_err());
+    const std::string rendered = render_error(result.error(), sources);
+    INFO(rendered);
+    CHECK(rendered.find("maximum nesting depth exceeded") != std::string::npos);
+    const std::vector<std::string> lines = split_lines(text);
+    const int line = rendered_line(rendered, "deep.proto");
+    REQUIRE(line >= 1);
+    REQUIRE(line <= static_cast<int>(lines.size()));
+    CHECK(lines[static_cast<std::size_t>(line) - 1].rfind("message ", 0) == 0);
+    return line;
+}
 
 }  // namespace
 
@@ -175,6 +246,40 @@ TEST_CASE("resolver: a propagated parse error renders with file:line:col") {
     const std::string rendered = render_error(result.error(), sources);
     INFO(rendered);
     CHECK(rendered.find("a.proto:1:") != std::string::npos);  // file:line: attribution, not bare
+}
+
+TEST_CASE("resolver: a depth-cap error lands on the offending token, not a byte offset") {
+    // The parser reports failure positions as TOKEN INDICES and the resolver maps them back to a
+    // source position. too_deep() stored the token's BYTE offset in that slot, so the diagnostic
+    // landed in the wrong column -- and on a file with more bytes than tokens, past the end of it.
+    //
+    // Both files are over the cap, so the position is decided by the CAP and must be identical --
+    // which is what this can assert without seeing kMaxParseDepth. A position that tracks the file
+    // instead (a byte offset, or one lifted by the wrong amount) moves with the depth.
+    const TempDir dir("deepcap");
+    CHECK(depth_error_line(dir, nested_messages(60)) == depth_error_line(dir, nested_messages(80)));
+}
+
+TEST_CASE("resolver: a depth-cap error inside an option value lands on the right column") {
+    // The same bug in an aggregate. This is the tighter of the two shapes: the exact column pins
+    // the token, where a line check would still pass if the offset were lifted by the wrong amount
+    // within the line. (On this fixture the old code also ran past EOF, reporting 3:1.)
+    const TempDir dir("deepcol");
+    const std::string opens(51, '[');
+    const std::string closes(51, ']');
+    dir.write("d.proto", "syntax = \"proto3\";\noption x = " + opens + closes + ";\n");
+
+    ResolverConfig config;
+    config.include_paths = {dir.root()};
+    SourceRegistry sources;
+    auto result = resolve(dir.path("d.proto"), config, sources);
+    REQUIRE(result.is_err());
+    const std::string rendered = render_error(result.error(), sources);
+    INFO(rendered);
+    CHECK(rendered.find("maximum nesting depth exceeded") != std::string::npos);
+    // "option x = " is 11 characters, so the k-th '[' sits at column 11 + k. The cap is 50, so the
+    // 51st bracket is the first one over it: column 62.
+    CHECK(rendered.find("d.proto:2:62:") != std::string::npos);
 }
 
 TEST_CASE("resolver: a parse error in an imported file is attributed to that file") {
