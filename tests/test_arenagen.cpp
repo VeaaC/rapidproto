@@ -37,6 +37,7 @@
 #include "arenagen_golden/arena_naming.rp.hpp"   // identifier dedup: must compile
 #include "arenagen_golden/editions2023.rp.hpp"
 #include "arenagen_golden/editions2024.rp.hpp"  // 2024: decode-relevant defaults match 2023
+#include "arenagen_golden/escdedup_a.rp.hpp"    // same-package escape collision (pulls escdedup_b)
 #include "arenagen_golden/main.rp.hpp"  // cross-file imports: transitively pulls dep/forward/pub
 #include "arenagen_golden/messageset.rp.hpp"  // MessageSet: accepted, decodes as unknown
 #include "arenagen_golden/nopkg.rp.hpp"       // NO package: types land at global scope
@@ -242,6 +243,12 @@ TEST_CASE("arenagen: generated headers match the goldens", "[arenagen]") {
     // becoming a single per-package entity that redefines across files.
     check_golden("samepkg_b", generate(imports, "samepkg_b.proto"));
     check_golden("samepkg_a", generate(imports, "samepkg_a.proto"));
+    // Same package again, but here one file's ESCAPE takes a name the other legitimately declares:
+    // `enum decode` sanitizes to `decode_`, which escdedup_b already uses for a message. Deduping
+    // per file gave both the same id and the #include above stopped compiling; the dedup scope is
+    // the package across the resolved set, so the real name keeps it and the escape moves on.
+    check_golden("escdedup_b", generate(imports, "escdedup_b.proto"));
+    check_golden("escdedup_a", generate(imports, "escdedup_a.proto"));
     // Weak import: arena filters `weak` like a standard import (parity with streamgen).
     check_golden("weakdep", generate(imports, "weakdep.proto"));
     check_golden("weakmain", generate(imports, "weakmain.proto"));

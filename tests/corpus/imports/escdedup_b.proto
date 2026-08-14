@@ -1,0 +1,10 @@
+// Same package as escdedup_a, and holds the name that file's ESCAPE lands on: `decode` is reserved
+// (the generated decoders declare a static decode()), so `enum decode` becomes `decode_` -- which is
+// a name a sibling file may legitimately use. Deduping per file instead of per package emitted both
+// as `escdedup::decode_`, and any TU including the two headers failed to compile.
+syntax = "proto3";
+package escdedup;
+
+message decode_ {
+  int32 x = 1;
+}

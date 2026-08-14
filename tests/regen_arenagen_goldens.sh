@@ -56,6 +56,10 @@ done
 "$BIN" --arena -Itests/corpus/imports --out-dir="$T" tests/corpus/imports/main.proto >/dev/null
 # Same package, two files: guards against the decoder being a single per-package entity (an ODR trap).
 "$BIN" --arena -Itests/corpus/imports --out-dir="$T" tests/corpus/imports/samepkg_a.proto >/dev/null
+# Same package, two files, where one file's reserved-name ESCAPE lands on a name the other really
+# uses (`enum decode` -> `decode_` beside `message decode_`). Deduping per file emitted both as
+# `escdedup::decode_`; the compile smoke that #includes this is what catches it.
+"$BIN" --arena -Itests/corpus/imports --out-dir="$T" tests/corpus/imports/escdedup_a.proto >/dev/null
 # Weak import: filtered like a standard import (the field type stays usable), as in streamgen.
 "$BIN" --arena -Itests/corpus/imports --out-dir="$T" tests/corpus/imports/weakmain.proto >/dev/null
 # Package SHAPES the rest of the corpus never exercises (every other entry has a single-component

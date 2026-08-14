@@ -2,6 +2,7 @@
 
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -217,8 +218,18 @@ std::string fqn_to_absolute(std::string_view ns_prefix, std::string_view fqn) {
 
 // Records a scope member's collision-free C++ id into `names`: sanitize the proto name, then append
 // `_` until it is unique among `taken` (this scope's already-used identifiers). Returns the id.
+// Ids claimed ahead of the main pass, by node. Deliberately its own map rather than a lookup into
+// `names.local`: that one holds every scope's ids, so keying off it would let a future pre-claim of
+// a NESTED or member node bypass that scope's own dedup without anything noticing.
+using ClaimedIds = std::unordered_map<const void*, std::string>;
+
 const std::string& assign_id(CppNameTable& names, std::unordered_set<std::string>& taken,
-                             const void* node, std::string_view raw) {
+                             const ClaimedIds& claimed, const void* node, std::string_view raw) {
+    // Claimed by the unescaped-names pass: keep that id rather than deduping it against the entry
+    // it made itself.
+    if (const auto found = claimed.find(node); found != claimed.end()) {
+        return names.local.emplace(node, found->second).first->second;
+    }
     std::string id = sanitize(raw);
     while (!taken.insert(id).second) {
         id += '_';
@@ -232,7 +243,7 @@ const std::string& assign_id(CppNameTable& names, std::unordered_set<std::string
 // are internal to this file's single recursion.
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 void index_message(CppNameTable& names, const MessageNode& message, const std::string& abs,
-                   const std::string& msg_ns) {
+                   const std::string& msg_ns, const ClaimedIds& claimed) {
     std::unordered_set<std::string> taken;
     // Seed with the class's OWN name: C++ forbids a member with the same name as its class
     // ([class.mem]), so `message Outer { message Outer {} }` -- which protoc accepts -- would emit a
@@ -241,37 +252,81 @@ void index_message(CppNameTable& names, const MessageNode& message, const std::s
     std::vector<std::pair<const MessageNode*, std::string>> children;
     for (const auto& nested_enum : message.enums) {
         names.absolute.emplace(
-            nested_enum.fqn, abs + "::" + assign_id(names, taken, &nested_enum, nested_enum.name));
+            nested_enum.fqn,
+            abs + "::" + assign_id(names, taken, claimed, &nested_enum, nested_enum.name));
     }
     for (const auto& nested : message.nested_messages) {
-        std::string child_abs = abs + "::" + assign_id(names, taken, &nested, nested.name);
+        std::string child_abs = abs + "::" + assign_id(names, taken, claimed, &nested, nested.name);
         names.absolute.emplace(nested.fqn, child_abs);
         names.type_ns.emplace(nested.fqn, msg_ns);
         children.emplace_back(&nested, std::move(child_abs));
     }
     for (const auto& field : message.fields) {
-        assign_id(names, taken, &field, field.name);
+        assign_id(names, taken, claimed, &field, field.name);
     }
     for (const auto& oneof : message.oneofs) {
         // The oneof itself gets an id too: arenagen emits a reader method named after it, and that
         // shares the class scope with everything else here -- including the class's own name, which
         // `message config { oneof config { ... } }` (protoc-valid) would otherwise collide with.
-        assign_id(names, taken, &oneof, oneof.name);
+        assign_id(names, taken, claimed, &oneof, oneof.name);
         for (const auto& field : oneof.fields) {
-            assign_id(names, taken, &field, field.name);
+            assign_id(names, taken, claimed, &field, field.name);
         }
     }
     for (const auto& map : message.map_fields) {
-        assign_id(names, taken, &map, map.name);
+        assign_id(names, taken, claimed, &map, map.name);
     }
     for (const auto& [child, child_abs] : children) {
-        index_message(names, *child, child_abs, msg_ns);
+        index_message(names, *child, child_abs, msg_ns, claimed);
+    }
+}
+
+// Dedup scopes for namespace-scope names, keyed by the PACKAGE namespace and shared by every file
+// in it. Not per file: the namespace these names land in is per package, so two files sharing one
+// were deduped independently and an escape in one could take a name a sibling file legitimately
+// uses -- `enum decode` -> `decode_` beside a real `message decode_` -- which collides in any TU
+// that includes both headers.
+using TakenByNamespace = std::unordered_map<std::string, std::unordered_set<std::string>>;
+
+// First pass over the file set: every top-level name that sanitize() leaves ALONE claims its id
+// before any escaped name is placed.
+//
+// Two reasons. A user's literal identifier keeps its spelling -- `message decode_` stays `decode_`
+// and the escape from `enum decode` moves to `decode__`, rather than the other way round. And an
+// escape stops depending on the order files are indexed in: without this, `x.proto y.proto` and
+// `y.proto x.proto` gave the same schema different C++ names, because whoever was indexed first
+// took the contested id. Escapes cannot collide with each OTHER -- sanitize() appends one `_`, so
+// two distinct proto names reach one id only when one of them already IS that id, and this pass
+// claims it -- and two identical names in a package are rejected before codegen.
+//
+// What this does NOT settle: two distinct PACKAGES that sanitize to one C++ namespace (`p.decode`
+// and `p.decode_`, or `std` and `std_`) put two literal names in one scope, which is decided here
+// by iteration order. Both spellings compile either way -- the loser takes a `_` -- so the output
+// is valid but not order-stable. Fixing it means tie-breaking on the proto FQN, or rejecting the
+// aliasing outright, which is a schema-level diagnostic rather than a naming one.
+void claim_unescaped_toplevel(const CppNameTable& names, const FileNode& file,
+                              TakenByNamespace& taken_by_ns, ClaimedIds& claimed) {
+    std::unordered_set<std::string>& taken =
+        taken_by_ns[join_ns(names.ns_prefix, namespace_of(file.package))];
+    const auto claim = [&](const void* node, const std::string& raw) {
+        std::string id = sanitize(raw);
+        if (id != raw || !taken.insert(id).second) {
+            return;  // needs an escape, or an identical name already claimed it: second pass
+        }
+        claimed.emplace(node, std::move(id));
+    };
+    for (const auto& node : file.enums) {
+        claim(&node, node.name);
+    }
+    for (const auto& message : file.messages) {
+        claim(&message, message.name);
     }
 }
 
 // Index one file's namespace-scope members (top-level enums + messages, recursing into nested
-// scopes) into `names`. Each file's namespace is its own dedup scope.
-void index_file(CppNameTable& names, const FileNode& file) {
+// scopes) into `names`.
+void index_file(CppNameTable& names, const FileNode& file, TakenByNamespace& taken_by_ns,
+                const ClaimedIds& claimed) {
     const std::string ns = join_ns(names.ns_prefix, namespace_of(file.package));
     const std::string root = ns.empty() ? std::string() : "::" + ns;  // "::" + Local rejoins below
     // Top-level messages (the decoders) may sit in a per-model sub-namespace so the two models' types
@@ -280,23 +335,28 @@ void index_file(CppNameTable& names, const FileNode& file) {
     // opens for the decoder.
     const std::string msg_ns = message_namespace(names, file);
     const std::string msg_root = msg_ns.empty() ? std::string() : "::" + msg_ns;
-    // This scope is per FILE, but the namespace it protects is per PACKAGE: two files sharing a
-    // package are indexed independently, so an escape here can land on a name a sibling file uses
-    // (`enum decode` -> `decode_` in one, `message decode_` in the other). Widening the scope to the
-    // package across the resolved file set is what fixes that -- until then, do not add names here.
-    std::unordered_set<std::string> taken;
+    // Keyed on the PACKAGE namespace, not on msg_ns: top-level enums live at package scope and
+    // top-level messages may sit in a per-model sub-namespace, but both share one scope so the ids
+    // come out model-independent. They must -- enums are emitted into the SHARED common header, and
+    // an id that differed between the arena and streaming runs would make the two commons disagree.
+    // Model-independent ids are not the same as handling the model sub-namespace itself: a
+    // top-level type NAMED `stream` still collides with `namespace <pkg>::stream` (see sanitize()),
+    // which this scope cannot see and does not fix.
+    std::unordered_set<std::string>& taken = taken_by_ns[ns];
     std::vector<std::pair<const MessageNode*, std::string>> tops;
     for (const auto& node : file.enums) {
-        names.absolute.emplace(node.fqn, root + "::" + assign_id(names, taken, &node, node.name));
+        names.absolute.emplace(node.fqn,
+                               root + "::" + assign_id(names, taken, claimed, &node, node.name));
     }
     for (const auto& message : file.messages) {
-        std::string abs = msg_root + "::" + assign_id(names, taken, &message, message.name);
+        std::string abs =
+            msg_root + "::" + assign_id(names, taken, claimed, &message, message.name);
         names.absolute.emplace(message.fqn, abs);
         names.type_ns.emplace(message.fqn, msg_ns);
         tops.emplace_back(&message, std::move(abs));
     }
     for (const auto& [message, abs] : tops) {
-        index_message(names, *message, abs, msg_ns);
+        index_message(names, *message, abs, msg_ns, claimed);
     }
 }
 
@@ -314,9 +374,12 @@ std::string namespace_of(std::string_view package) {
             // a NAMESPACE: a package of that name merges the schema's own types into the runtime's,
             // where any sharing a name with something the runtime declares (`wire`, `Arena`,
             // `ByteView`, `WireType`, `dump`, `ArrayView`, ... -- not a closed list) redeclares it.
-            // A message or field called `rapidproto` sits in the schema's own namespace and never
-            // collides, so reserving it outright would rename working API -- and, because this
-            // scope is per file (see index_file), could land it on a sibling file's `rapidproto_`.
+            // A message or field called `rapidproto` sits in the schema's own namespace, so
+            // reserving it outright would rename working API in every schema that has a package.
+            // It is NOT unreachable: with no package at all the type lands at global scope beside
+            // the runtime's own namespace, and `message rapidproto` there is a redeclaration
+            // today. That case wants its own fix (the reservation would have to be conditional on
+            // the package being empty), not a blanket rename.
             const std::string id = sanitize(component);
             out += id == "rapidproto" ? "rapidproto_" : id;
             component.clear();
@@ -352,11 +415,21 @@ CppNameTable build_cpp_names(const FileNode& file, const std::vector<FileNode>& 
     CppNameTable names;
     names.ns_prefix = std::move(ns_prefix);
     names.model_namespace = std::move(model_namespace);
+    // One set of dedup scopes for the whole file set, so files sharing a package see each other's
+    // ids. Iteration order therefore decides who keeps a contested name and who gets the `_`; the
+    // resolved file set is in a fixed order, and every generator run indexes the same set, so the
+    // ids are stable across files and across models.
+    TakenByNamespace taken_by_ns;
+    ClaimedIds claimed;
     if (all_files.empty()) {
-        index_file(names, file);
+        claim_unescaped_toplevel(names, file, taken_by_ns, claimed);
+        index_file(names, file, taken_by_ns, claimed);
     } else {
         for (const auto& dep : all_files) {  // includes `file`
-            index_file(names, dep);
+            claim_unescaped_toplevel(names, dep, taken_by_ns, claimed);
+        }
+        for (const auto& dep : all_files) {
+            index_file(names, dep, taken_by_ns, claimed);
         }
     }
     return names;
