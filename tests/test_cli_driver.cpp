@@ -111,6 +111,39 @@ TEST_CASE("driver: write_file reports an unwritable path instead of crashing", "
     CHECK(read_text(*ok) == "content");
 }
 
+TEST_CASE("driver: write_depfile keeps the caller's output order", "[cli]") {
+    const test::TempDir tmp("cli_depfile_order");
+    // Ninja accepts a depfile only when its FIRST target is the rule's FIRST output; anything else
+    // leaves the outputs dirty and re-runs the command on every build. Sorting the outputs broke
+    // exactly this: `.rp.dump.hpp` sorts ahead of the `.rp.hpp` anchor the CMake helper lists
+    // first, so every DUMP consumer regenerated its whole closure every time.
+    const std::filesystem::path depfile = tmp.path("order.d");
+    CHECK(cli::write_depfile(depfile, {tmp.path("m.rp.hpp"), tmp.path("m.rp.dump.hpp")},
+                             {tmp.path("m.proto")}));
+    const std::string text = read_text(depfile);
+    INFO("depfile: " << text);
+    CHECK(text.find("m.rp.hpp") < text.find("m.rp.dump.hpp"));
+
+    // Same for entries whose order is not alphabetical (PROTOS listed b, a).
+    const std::filesystem::path multi = tmp.path("multi.d");
+    CHECK(cli::write_depfile(multi, {tmp.path("b.rp.hpp"), tmp.path("a.rp.hpp")},
+                             {tmp.path("b.proto"), tmp.path("a.proto")}));
+    const std::string multi_text = read_text(multi);
+    INFO("depfile: " << multi_text);
+    CHECK(multi_text.find("b.rp.hpp") < multi_text.find("a.rp.hpp"));
+
+    // Duplicates still collapse, and the FIRST occurrence is the one that survives.
+    const std::filesystem::path dup = tmp.path("dup.d");
+    CHECK(cli::write_depfile(dup,
+                             {tmp.path("x.rp.hpp"), tmp.path("w.rp.hpp"), tmp.path("x.rp.hpp")},
+                             {tmp.path("x.proto"), tmp.path("x.proto")}));
+    const std::string dup_text = read_text(dup);
+    INFO("depfile: " << dup_text);
+    CHECK(dup_text.find("x.rp.hpp") < dup_text.find("w.rp.hpp"));
+    CHECK(dup_text.find("x.rp.hpp", dup_text.find("w.rp.hpp")) == std::string::npos);
+    CHECK(dup_text.find("x.proto", dup_text.find("x.proto") + 1) == std::string::npos);
+}
+
 TEST_CASE("driver: write_depfile reports an unwritable path", "[cli]") {
     const test::TempDir tmp("cli_depfile_fail");
     tmp.write("blocker", "not a directory");
