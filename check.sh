@@ -76,8 +76,8 @@ if [[ $# -gt 1 ]]; then   # otherwise `./check.sh deep --fast` silently runs pla
   exit 2
 fi
 
-# Above the fix/quick/deep branches on purpose: each of them runs the test binary and returns, so a
-# guard further down covered only the default gate. With this variable set, the binary REWRITES the
+# Above the fix/quick/deep branches on purpose: quick and deep run the test binary and return, and
+# fix falls through to a gate that runs it, so a guard further down covered only the default gate. With this variable set, the binary REWRITES the
 # goldens it is meant to verify -- a corrupted fixture is overwritten to match the code, ~100
 # assertions disappear, and the run reports green. `-v` and not `-n`: the tests check presence with
 # getenv() != nullptr, so an empty value regenerates too and a value test misses it entirely.
@@ -156,29 +156,36 @@ fi
 # false-negatived (header dependencies live in compiler_depend.make, which is empty until a second
 # build's `depend` step, so `make -n` cannot see them). Building is a no-op of a second or two when
 # up to date, and afterwards the binaries are fresh BY CONSTRUCTION rather than by inference.
-ensure_gcc_binaries() {  # $@ = the targets THIS stage consumes
-  local out target
+ensure_targets() {  # $1 = build dir; $@ = the targets THIS stage consumes
+  local dir=$1; shift
+  local out target targets
   # `cmake --build --target X` is NOT a target-existence check: under Makefiles it degenerates to
-  # `make X`, and if X is no longer a target but build/gcc/X still exists as a file, make prints
+  # `make X`, and if X is no longer a target but <dir>/X still exists as a file, make prints
   # "Nothing to be done" and exits 0. A renamed target -- or one disabled by a stale
   # -DRAPIDPROTO_BUILD_TESTS=OFF configure -- would then freeze the binary and pass forever.
-  # Capture then grep -- `... | grep -q` under `set -o pipefail` reports failure on a MATCH (grep
-  # exits early, upstream takes SIGPIPE). That inversion has now bitten this file twice.
-  local targets
-  targets=$(cmake --build --preset gcc --target help 2>/dev/null)
+  # Capture then grep, never `... | grep -q`: under `set -o pipefail` that reports failure on a
+  # MATCH when the writer is still going (grep exits early, upstream takes SIGPIPE). The inversion
+  # has bitten this file twice, and `help` output being short enough to fit a pipe buffer today is
+  # not a reason to write the fragile form.
+  targets=$(cmake --build "$dir" --target help 2>/dev/null)
   for target in "$@"; do
     if ! grep -qE "(^|\.\.\. )$target\$" <<<"$targets"; then
-      echo ">> '$target' is not a target of build/gcc: the configure is stale or the target was"
-      echo "   renamed, and this stage would run against a frozen binary (re-run cmake --preset gcc)"
+      echo ">> '$target' is not a target of $dir: the configure is stale or the target was"
+      echo "   renamed, and this stage would run against a frozen binary (re-run cmake)"
       return 1
     fi
   done
-  if ! out=$(cmake --build --preset gcc --target "$@" -j"$JOBS" 2>&1); then
-    echo ">> could not build $*: this stage would otherwise run against a stale or missing binary"
+  # Built explicitly, not merely listed: a target excluded from `all` (EXCLUDE_FROM_ALL) stays in
+  # the help output and is never rebuilt by a plain `cmake --build`, so the stage would keep
+  # running whatever binary an earlier run left behind while every check above passed.
+  if ! out=$(cmake --build "$dir" --target "$@" -j"$JOBS" 2>&1); then
+    echo ">> could not build $* in $dir: this stage would otherwise run a stale or missing binary"
     tail -20 <<<"$out"
     return 1
   fi
 }
+
+ensure_gcc_binaries() { ensure_targets build/gcc "$@"; }
 
 if [[ "${1:-}" == "deep" ]]; then
   CXX=clang++-20; CC=clang-20
@@ -193,7 +200,7 @@ if [[ "${1:-}" == "deep" ]]; then
   # from an earlier run was silently re-tested. Output is kept so a failure says which step broke.
   if san_build=$(cmake -S . -B build/san -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER="$CC" \
        -DCMAKE_CXX_COMPILER="$CXX" -DRAPIDPROTO_SANITIZE=ON -DRAPIDPROTO_BUILD_TESTS=ON 2>&1) \
-     && san_build=$(cmake --build build/san --target rapidproto_tests -j"$JOBS" 2>&1); then
+     && san_build=$(ensure_targets build/san rapidproto_tests 2>&1); then
     # DEBUGINFOD_URLS= for the same reason as the fuzz section: LeakSanitizer symbolizes its report
     # through llvm-symbolizer, which issues one debuginfod lookup per module whose local DWARF does
     # not cover a frame (Ubuntu ships /etc/debuginfod/*.urls and exports it into every shell). Where
@@ -229,7 +236,7 @@ if [[ "${1:-}" == "deep" ]]; then
   # nothing, so the floor was graded against whatever that stale binary happened to cover.
   if cov_build=$(cmake -S . -B build/cov -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER="$CC" \
        -DCMAKE_CXX_COMPILER="$CXX" -DRAPIDPROTO_COVERAGE=ON -DRAPIDPROTO_BUILD_TESTS=ON 2>&1) \
-     && cov_build=$(cmake --build build/cov --target rapidproto_tests -j"$JOBS" 2>&1); then
+     && cov_build=$(ensure_targets build/cov rapidproto_tests 2>&1); then
     # Status checked, not discarded: a suite that crashes here used to be noticed only if coverage
     # happened to drop below the floor, which is not a test result.
     cov_out=$(LLVM_PROFILE_FILE=build/cov/cov.profraw ./build/cov/rapidproto_tests 2>&1); cov_rc=$?
@@ -292,7 +299,7 @@ if [[ "${1:-}" == "deep" ]]; then
       done < <(find tests/corpus -name '*.proto')
       # Counted, not inferred from `ls -A`: the two synthetic seeds below are written afterwards,
       # so the directory is never empty for this target and the emptiness check could not fire.
-      # A moved tests/corpus dropped this target from 28 seeds to 2 with nothing said.
+      # A moved tests/corpus dropped this target from 30 seeds to 2 with nothing said.
       if [[ $staged -eq 0 ]]; then
         echo ">> no corpus schemas staged for fuzz_parser (tests/corpus moved?) -- it would run"
         echo "   on the two synthetic depth seeds alone"
@@ -305,9 +312,21 @@ if [[ "${1:-}" == "deep" ]]; then
       printf 'option x = %s' "$(printf '[%.0s' $(seq 1 2000))" >"$dir/zz_deep_list.proto"
       printf '%s' "$(printf 'message M{%.0s' $(seq 1 300))" >"$dir/zz_deep_message.proto"
     else
-      cp tests/wire_fixtures/*.bin "$dir/" 2>/dev/null || true
+      # Counted like the parser's, and for the same reason: `ls -A` cannot tell "the fixtures are
+      # gone" from "an old payload-seeds directory is still here". Measured with tests/wire_fixtures
+      # moved and one stale payload present, all three targets fuzzed on 1 seed instead of 4 and
+      # the tier reported clean.
+      local staged=0 fixture
+      for fixture in tests/wire_fixtures/*.bin; do
+        [[ -f "$fixture" ]] && cp "$fixture" "$dir/" && staged=$((staged + 1))
+      done
+      if [[ $staged -eq 0 ]]; then
+        echo ">> no wire fixtures staged for fuzz_$target (tests/wire_fixtures moved?)"
+        deep_fail=1; return 1
+      fi
       # Payloads the differential kept, if it was run with --write-seeds: thousands of valid
-      # messages, reaching decoder arms a handful of fixtures never will.
+      # messages, reaching decoder arms a handful of fixtures never will. Additive only -- their
+      # absence is normal, so they are not counted.
       if [[ -d build/fuzz/payload-seeds ]]; then
         cp build/fuzz/payload-seeds/* "$dir/" 2>/dev/null || true
       fi
@@ -439,8 +458,7 @@ trap 'rm -f "$LOG/.live"' EXIT
 # cached OFF drops rapidproto_tests and the examples from the build system entirely, so the build
 # succeeds without them and the stage runs whatever binary an earlier run left on disk. Measured:
 # an injected failing assertion never compiled and the stage reported the same 9347 assertions,
-# ALL GREEN. It also empties the compile database of test TUs, which made clang-tidy lint nothing
-# while still printing its usual TU count.
+# ALL GREEN.
 cmake --preset gcc   -DRAPIDPROTO_BUILD_TESTS=ON >"$LOG/cfg-gcc"   2>&1 & cfg_gcc=$!
 cmake --preset clang -DRAPIDPROTO_BUILD_TESTS=ON >"$LOG/cfg-clang" 2>&1 & cfg_clang=$!
 wait "$cfg_gcc"; rc_cfg_gcc=$?
@@ -479,16 +497,27 @@ job_fixtures() {
   # exits 0 on a TU absent from the compile database, and the suite prints its usual assertion
   # count -- so an entire test file's worth of failures reads as a clean run, with no number
   # moving to give it away. TEST_SRC is the same glob the format and tidy stages use.
-  local missing=() tu
+  #
+  # Matched against the add_executable(rapidproto_tests ...) block with # comments stripped, not
+  # against the whole file: a plain substring search over CMakeLists.txt accepts a source that is
+  # commented out, named in a comment, or listed in a DIFFERENT target -- and commenting a line
+  # out "while debugging" is the most likely way this bug actually happens. Measured: one
+  # commented-out entry removed 135 assertions and 18 test cases while the check said all present.
+  local block missing=() tu
+  block=$(sed -n '/add_executable(rapidproto_tests/,/^  )/p' CMakeLists.txt | sed 's/#.*//')
+  if [[ -z "$(grep -E '[^[:space:]]' <<<"$block")" ]]; then
+    echo ">> could not read the add_executable(rapidproto_tests ...) source list from CMakeLists.txt"
+    return 1
+  fi
   for tu in "${TEST_SRC[@]}"; do
-    grep -qF "$tu" CMakeLists.txt || missing+=("$tu")
+    grep -qE "(^|[[:space:]])$tu([[:space:]]|$)" <<<"$block" || missing+=("$tu")
   done
   if [[ ${#missing[@]} -gt 0 ]]; then
-    echo ">> test sources not listed in CMakeLists.txt -- never compiled, never run:"
+    echo ">> test sources not in the rapidproto_tests source list -- never compiled, never run:"
     printf '   %s\n' "${missing[@]}"
     return 1
   fi
-  echo "test sources: ${#TEST_SRC[@]} files, all in the test binary"
+  echo "test sources: ${#TEST_SRC[@]} files, each listed in add_executable(rapidproto_tests)"
   tests/check_fixture_coverage.sh
 }
 
@@ -501,6 +530,13 @@ job_build_test() {  # $1 = preset; parallel build, then run the test binary
     return 1
   fi
   echo "build clean ($preset)"
+  # The binaries this stage grades, checked and rebuilt by name. The plain build above cannot see
+  # a target that was renamed or dropped from `all`: it succeeds, leaves the previous binary on
+  # disk, and the stage runs THAT. Measured on rapidproto_tests: an injected failing assertion
+  # lived in a freshly built rapidproto_tests_v2 while the stage reported the stale binary's
+  # 9212 assertions as ALL GREEN.
+  ensure_targets "build/$preset" rapidproto_tests rapidproto_example_consumer \
+    rapidproto_example_lean || return 1
   test_out=$(./build/"$preset"/rapidproto_tests  2>&1); test_rc=$?
   # BOTH: Catch2 prints its summary before the process exits, so an at-exit failure (LeakSanitizer,
   # a static-destructor crash, an atexit abort) leaves "All tests passed" in the output of a run
@@ -529,22 +565,10 @@ job_build_test() {  # $1 = preset; parallel build, then run the test binary
   # The consumer example (examples/consumer) is built alongside via rapidproto_generate(); run it to
   # confirm the helper-generated decoders (arena + streaming, in one TU) decode at runtime here.
   local example out
-  # Captured once per preset. Capture-then-grep, never `| grep -q`: under pipefail a MATCH reports
-  # failure (grep exits early, upstream takes SIGPIPE) -- the inversion that has bitten this file.
-  local preset_targets
-  preset_targets=$(cmake --build --preset "$preset" --target help 2>/dev/null)
   for example in rapidproto_example_consumer rapidproto_example_lean; do
     local path="./build/$preset/examples/consumer/$example"
-    # Two checks, because they catch different things. `-x` catches a binary the build did not
-    # produce; skipping that in silence reported it as a clean run. The target list catches the
-    # opposite case -- a target renamed or dropped from the build system leaves the PREVIOUS
-    # binary on disk, executable and passing, which -x cannot see. (ensure_gcc_binaries makes the
-    # same argument for the corpus stages; this is the per-preset form.)
-    if ! grep -qE "(^|\.\.\. )$example\$" <<<"$preset_targets"; then
-      echo ">> '$example' is not a target of build/$preset: the configure is stale or the target"
-      echo "   was renamed, and this stage would run an earlier run's binary"
-      return 1
-    fi
+    # -x on top of ensure_targets: that call proves the target exists and was built, this proves
+    # the file it was supposed to produce is actually there and runnable.
     if [[ ! -x "$path" ]]; then
       echo ">> $example was not built ($preset) -- expected $path"; return 1
     fi
@@ -787,11 +811,11 @@ job_differential() {
   python3 tests/differential.py --build-dir ./build/gcc --jobs "$JOBS"
 }
 
-# THE stage table. Validation, aggregation and the summary read from it. Four lists still spell
-# stages out -- DEFAULT_STAGES, the serial and parallel run loops, and the log-print loop -- so a
-# new stage needs a key, a title, a job and a line in each. Omitting it from a run loop fails
-# loudly (`FAILURES: <key>`, no .rc recorded); omitting it from DEFAULT_STAGES used to disable it
-# in silence, which the NON_DEFAULT_STAGES check below now rejects at startup.
+# THE stage table. Validation, aggregation and the summary read from it. Five lists still spell
+# stages out -- DEFAULT_STAGES, NON_DEFAULT_STAGES, the serial and parallel run loops, and the
+# log-print loop -- so a new stage needs a key, a title, a job and a line in each. Omitting it from
+# a run loop fails loudly (`FAILURES: <key>`, no .rc recorded); omitting it from DEFAULT_STAGES
+# used to disable it in silence, which the NON_DEFAULT_STAGES check rejects before any stage runs.
 readonly STAGE_KEYS=(format docs fixtures gcc clang cf fuzz tidy corpus cxx20 differential)
 
 # What a bare ./check.sh runs. `corpus` is deliberately absent: sweeping ~8000 third-party schemas is

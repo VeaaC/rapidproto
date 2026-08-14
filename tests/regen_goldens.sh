@@ -95,6 +95,14 @@ tests/regen_arenagen_goldens.sh >/dev/null
 tests/regen_dumpgen_goldens.sh >/dev/null
 
 echo "[4/5] building the test binary (the fresh streamgen + arenagen + dumpgen goldens now compile) ..."
+# Target checked before building: `cmake --build --target X` degenerates to `make X` under
+# Makefiles, so a renamed target with build/gcc/X still on disk prints "Nothing to be done" and
+# exits 0 -- and this script would then rewrite EVERY golden from that stale binary.
+if ! grep -qE '(^|\.\.\. )rapidproto_tests$' <<<"$(cmake --build --preset gcc --target help 2>/dev/null)"; then
+  echo ">> 'rapidproto_tests' is not a target of build/gcc -- the goldens would be regenerated" >&2
+  echo "   from a stale binary. Re-run cmake --preset gcc." >&2
+  exit 1
+fi
 cmake --build --preset gcc --target rapidproto_tests -j"$JOBS" >/dev/null
 
 echo "[5/5] regenerating AST + wire + arena-layout + common goldens via the test binary ..."
