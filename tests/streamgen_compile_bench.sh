@@ -16,6 +16,13 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 BIN="$ROOT/build/gcc/rapidprotoc"
 N="${N:-48}"
+# Validated: N is what makes this a STRESS compile. `N=1 ./check.sh` printed "1-field x 1-callback
+# decoder builds" and passed green with the dispatch-gate check doing nothing.
+if [[ ! $N =~ ^[0-9]+$ ]] || [[ $((10#$N)) -lt 8 ]]; then
+  echo "stress-bench: N must be an integer >= 8 (got '$N')" >&2
+  exit 1
+fi
+N=$((10#$N))
 
 mode="time"
 CXX="c++"

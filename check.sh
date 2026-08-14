@@ -76,6 +76,17 @@ if [[ $# -gt 1 ]]; then   # otherwise `./check.sh deep --fast` silently runs pla
   exit 2
 fi
 
+# Above the fix/quick/deep branches on purpose: each of them runs the test binary and returns, so a
+# guard further down covered only the default gate. With this variable set, the binary REWRITES the
+# goldens it is meant to verify -- a corrupted fixture is overwritten to match the code, ~100
+# assertions disappear, and the run reports green. `-v` and not `-n`: the tests check presence with
+# getenv() != nullptr, so an empty value regenerates too and a value test misses it entirely.
+if [[ -v RAPIDPROTO_REGEN_GOLDEN ]]; then
+  echo ">> RAPIDPROTO_REGEN_GOLDEN is set; ignoring it -- the gate verifies goldens, it never" >&2
+  echo "   rewrites them (use tests/regen_*_goldens.sh for that)" >&2
+  unset RAPIDPROTO_REGEN_GOLDEN
+fi
+
 if [[ "${1:-}" == "fix" ]]; then
   section "clang-format (apply)"
   if ! "$CLANG_FORMAT" -i "${FORMAT_FILES[@]}"; then
@@ -273,11 +284,20 @@ if [[ "${1:-}" == "deep" ]]; then
       # Every corpus schema, path-flattened. Flattening is not injective (a future
       # tests/corpus/arena/modes.proto would land on arena_modes.proto), so say so rather than
       # silently staging one file fewer than intended.
+      local staged=0
       while IFS= read -r seed; do
         dst="$dir/${seed//\//_}"
         [[ -e "$dst" ]] && echo ">> seed name collision: $seed flattens onto an already-staged name"
-        cp "$seed" "$dst"
+        cp "$seed" "$dst" && staged=$((staged + 1))
       done < <(find tests/corpus -name '*.proto')
+      # Counted, not inferred from `ls -A`: the two synthetic seeds below are written afterwards,
+      # so the directory is never empty for this target and the emptiness check could not fire.
+      # A moved tests/corpus dropped this target from 28 seeds to 2 with nothing said.
+      if [[ $staged -eq 0 ]]; then
+        echo ">> no corpus schemas staged for fuzz_parser (tests/corpus moved?) -- it would run"
+        echo "   on the two synthetic depth seeds alone"
+        deep_fail=1; return 1
+      fi
       # The parser's recursion DepthGuard is its one explicit anti-crash mechanism, and no corpus
       # schema nests more than a few levels -- so mutation never assembles a run deep enough to
       # reach it, and deleting the guard goes unnoticed for as long as anyone cares to fuzz. These
@@ -292,10 +312,12 @@ if [[ "${1:-}" == "deep" ]]; then
         cp build/fuzz/payload-seeds/* "$dir/" 2>/dev/null || true
       fi
     fi
-    # Staging nothing means the target runs cold while the tier still reports green, so say so. A
-    # moved fixture directory is the way this happens, and it is silent otherwise.
+    # Staging nothing is a failure, not a note: the target runs cold, finds little, and the tier
+    # reported green anyway -- coverage silently lost, which is the one outcome this file exists to
+    # prevent. A moved fixture directory is how it happens.
     if [[ -z "$(ls -A "$dir" 2>/dev/null)" ]]; then
-      echo ">> no seeds staged for fuzz_$target (fixtures moved?) -- it will run from an empty corpus"
+      echo ">> no seeds staged for fuzz_$target (fixtures moved?) -- it would run from an empty corpus"
+      deep_fail=1; return 1
     fi
     return 0
   }
@@ -407,12 +429,6 @@ while IFS= read -r old_log; do
   rm -rf "$old_log"   # stale marker from a hard-killed run: reap it, or the bound decays forever
 done < <(ls -dt build/gate-logs.* 2>/dev/null | tail -n +4)
 # A CI kill (OOM, preemption, cancellation) arrives as SIGTERM and would discard every buffered
-if [[ -n "${RAPIDPROTO_REGEN_GOLDEN:-}" ]]; then
-  echo ">> RAPIDPROTO_REGEN_GOLDEN is set; ignoring it -- the gate verifies goldens, it never" >&2
-  echo "   rewrites them (use tests/regen_*_goldens.sh for that)" >&2
-  unset RAPIDPROTO_REGEN_GOLDEN
-fi
-
 # stage log -- exactly when the logs matter most. Dump whatever was captured before dying.
 trap 'echo ">> check.sh: killed (SIGTERM/SIGINT) -- dumping captured stage logs"; rm -f "$LOG/.live"; for f in "$LOG"/*; do [[ -f "$f" ]] && { echo "--- ${f##*/} ---"; cat "$f"; }; done; exit 143' TERM INT
 trap 'rm -f "$LOG/.live"' EXIT
@@ -420,9 +436,11 @@ trap 'rm -f "$LOG/.live"' EXIT
 # Configure both presets up front (each build dir once) so the concurrent build and clang-tidy jobs
 # never race on the same build directory. Configuration is cheap.
 # -DRAPIDPROTO_BUILD_TESTS=ON on both, for the reason build/san and build/cov already pin it: a
-# cached OFF leaves rapidproto_tests and the examples out of the build, `cmake --build --target`
-# exits 0 doing nothing, and the stage tests whatever binary is on disk. Measured: an injected
-# failing assertion never compiled and the stage reported the same 9347 assertions, ALL GREEN.
+# cached OFF drops rapidproto_tests and the examples from the build system entirely, so the build
+# succeeds without them and the stage runs whatever binary an earlier run left on disk. Measured:
+# an injected failing assertion never compiled and the stage reported the same 9347 assertions,
+# ALL GREEN. It also empties the compile database of test TUs, which made clang-tidy lint nothing
+# while still printing its usual TU count.
 cmake --preset gcc   -DRAPIDPROTO_BUILD_TESTS=ON >"$LOG/cfg-gcc"   2>&1 & cfg_gcc=$!
 cmake --preset clang -DRAPIDPROTO_BUILD_TESTS=ON >"$LOG/cfg-clang" 2>&1 & cfg_clang=$!
 wait "$cfg_gcc"; rc_cfg_gcc=$?
@@ -456,6 +474,21 @@ job_doc_links() {
 }
 
 job_fixtures() {
+  # Every tests/test_*.cpp must be IN the test binary. A file added to tests/ but never added to
+  # CMakeLists.txt is compiled by nothing and run by nothing: the format stage checks it, tidy
+  # exits 0 on a TU absent from the compile database, and the suite prints its usual assertion
+  # count -- so an entire test file's worth of failures reads as a clean run, with no number
+  # moving to give it away. TEST_SRC is the same glob the format and tidy stages use.
+  local missing=() tu
+  for tu in "${TEST_SRC[@]}"; do
+    grep -qF "$tu" CMakeLists.txt || missing+=("$tu")
+  done
+  if [[ ${#missing[@]} -gt 0 ]]; then
+    echo ">> test sources not listed in CMakeLists.txt -- never compiled, never run:"
+    printf '   %s\n' "${missing[@]}"
+    return 1
+  fi
+  echo "test sources: ${#TEST_SRC[@]} files, all in the test binary"
   tests/check_fixture_coverage.sh
 }
 
@@ -496,12 +529,22 @@ job_build_test() {  # $1 = preset; parallel build, then run the test binary
   # The consumer example (examples/consumer) is built alongside via rapidproto_generate(); run it to
   # confirm the helper-generated decoders (arena + streaming, in one TU) decode at runtime here.
   local example out
+  # Captured once per preset. Capture-then-grep, never `| grep -q`: under pipefail a MATCH reports
+  # failure (grep exits early, upstream takes SIGPIPE) -- the inversion that has bitten this file.
+  local preset_targets
+  preset_targets=$(cmake --build --preset "$preset" --target help 2>/dev/null)
   for example in rapidproto_example_consumer rapidproto_example_lean; do
     local path="./build/$preset/examples/consumer/$example"
-    # Not `|| continue`: a binary that is missing or not executable means the build did not
-    # produce what it claimed, and skipping it in silence reported that as a clean run. (A target
-    # that was renamed or disabled leaves the old binary in place and runnable -- what catches
-    # THAT is pinning RAPIDPROTO_BUILD_TESTS=ON on the configure, above.)
+    # Two checks, because they catch different things. `-x` catches a binary the build did not
+    # produce; skipping that in silence reported it as a clean run. The target list catches the
+    # opposite case -- a target renamed or dropped from the build system leaves the PREVIOUS
+    # binary on disk, executable and passing, which -x cannot see. (ensure_gcc_binaries makes the
+    # same argument for the corpus stages; this is the per-preset form.)
+    if ! grep -qE "(^|\.\.\. )$example\$" <<<"$preset_targets"; then
+      echo ">> '$example' is not a target of build/$preset: the configure is stale or the target"
+      echo "   was renamed, and this stage would run an earlier run's binary"
+      return 1
+    fi
     if [[ ! -x "$path" ]]; then
       echo ">> $example was not built ($preset) -- expected $path"; return 1
     fi
@@ -744,11 +787,11 @@ job_differential() {
   python3 tests/differential.py --build-dir ./build/gcc --jobs "$JOBS"
 }
 
-# THE stage table. Validation, aggregation and the summary read from it; the run loops and the
-# default allow-list still spell stages out, so a new stage needs a key, a title, a job AND a line
-# in the loops -- it just fails LOUDLY (`FAILURES: <key>`, no .rc recorded) when that is missed.
-# The previous shape needed six separate edits, two of which (the default allow-list and the
-# rc_<name> aggregation) failed SILENTLY, leaving a stage that could only report success.
+# THE stage table. Validation, aggregation and the summary read from it. Four lists still spell
+# stages out -- DEFAULT_STAGES, the serial and parallel run loops, and the log-print loop -- so a
+# new stage needs a key, a title, a job and a line in each. Omitting it from a run loop fails
+# loudly (`FAILURES: <key>`, no .rc recorded); omitting it from DEFAULT_STAGES used to disable it
+# in silence, which the NON_DEFAULT_STAGES check below now rejects at startup.
 readonly STAGE_KEYS=(format docs fixtures gcc clang cf fuzz tidy corpus cxx20 differential)
 
 # What a bare ./check.sh runs. `corpus` is deliberately absent: sweeping ~8000 third-party schemas is
@@ -756,6 +799,17 @@ readonly STAGE_KEYS=(format docs fixtures gcc clang cf fuzz tidy corpus cxx20 di
 # explicit tests -- and at ~163s it was 30% of the gate. It moved to the deep tier (which gates every
 # PR) and keeps its own CI runner, so nothing stopped watching it; it just left the inner loop.
 readonly DEFAULT_STAGES=(format docs fixtures gcc clang cf fuzz tidy cxx20 differential)
+# Stages deliberately outside the default gate. Every STAGE_KEYS entry must be in DEFAULT_STAGES or
+# here, checked below: a stage left out of BOTH is disabled by omission -- exactly the silent
+# forgot-a-list failure the single table was introduced to end.
+readonly NON_DEFAULT_STAGES=(corpus)
+for _key in "${STAGE_KEYS[@]}"; do
+  if [[ " ${DEFAULT_STAGES[*]} ${NON_DEFAULT_STAGES[*]} " != *" $_key "* ]]; then
+    echo ">> stage '$_key' is in STAGE_KEYS but in neither DEFAULT_STAGES nor NON_DEFAULT_STAGES;" >&2
+    echo "   it would never run. Add it to one of them." >&2
+    exit 2
+  fi
+done
 
 stage_title() {
   case $1 in
@@ -828,7 +882,11 @@ stage_enabled() {
 run_stage() {  # $1 = stage key
   local key=$1 start rc
   if ! stage_enabled "$key"; then
-    echo "stage skipped (RAPIDPROTO_GATE_STAGES)" >"$LOG/$key"
+    if [[ -n "${RAPIDPROTO_GATE_STAGES:-}" ]]; then
+      echo "stage skipped (not in RAPIDPROTO_GATE_STAGES)" >"$LOG/$key"
+    else
+      echo "stage skipped (not in DEFAULT_STAGES -- see NON_DEFAULT_STAGES)" >"$LOG/$key"
+    fi
     echo skipped >"$LOG/$key.rc"
     return 0
   fi
