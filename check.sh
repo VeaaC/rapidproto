@@ -76,6 +76,37 @@ if [[ $# -gt 1 ]]; then   # otherwise `./check.sh deep --fast` silently runs pla
   exit 2
 fi
 
+ensure_targets() {  # $1 = build dir; $@ = the targets THIS stage consumes
+  local dir=$1; shift
+  local out target targets
+  # `cmake --build --target X` is NOT a target-existence check: under Makefiles it degenerates to
+  # `make X`, and if X is no longer a target but <dir>/X still exists as a file, make prints
+  # "Nothing to be done" and exits 0. A renamed target -- or one disabled by a stale
+  # -DRAPIDPROTO_BUILD_TESTS=OFF configure -- would then freeze the binary and pass forever.
+  # Capture then grep, never `... | grep -q`: under `set -o pipefail` that reports failure on a
+  # MATCH when the writer is still going (grep exits early, upstream takes SIGPIPE). The inversion
+  # has bitten this file twice, and `help` output being short enough to fit a pipe buffer today is
+  # not a reason to write the fragile form.
+  targets=$(cmake --build "$dir" --target help 2>/dev/null)
+  for target in "$@"; do
+    if ! grep -qE "(^|\.\.\. )$target\$" <<<"$targets"; then
+      echo ">> '$target' is not a target of $dir: the configure is stale or the target was"
+      echo "   renamed, and this stage would run against a frozen binary (re-run cmake)"
+      return 1
+    fi
+  done
+  # Built explicitly, not merely listed: a target excluded from `all` (EXCLUDE_FROM_ALL) stays in
+  # the help output and is never rebuilt by a plain `cmake --build`, so the stage would keep
+  # running whatever binary an earlier run left behind while every check above passed.
+  if ! out=$(cmake --build "$dir" --target "$@" -j"$JOBS" 2>&1); then
+    echo ">> could not build $* in $dir: this stage would otherwise run a stale or missing binary"
+    tail -20 <<<"$out"
+    return 1
+  fi
+}
+
+ensure_gcc_binaries() { ensure_targets build/gcc "$@"; }
+
 # Above the fix/quick/deep branches on purpose: quick and deep run the test binary and return, and
 # fix falls through to a gate that runs it, so a guard further down covered only the default gate. With this variable set, the binary REWRITES the
 # goldens it is meant to verify -- a corrupted fixture is overwritten to match the code, ~100
@@ -113,12 +144,16 @@ if [[ "${1:-}" == "quick" ]]; then
     exit 1
   fi
   build_out=$(cmake --build --preset gcc -j"$JOBS" 2>&1)
+  # Same check as the full gate: quick runs this binary, so a renamed or excluded target would
+  # hand it the previous build. (Placed before the build-output check so a missing target is
+  # named rather than surfacing as an unrelated failure later.)
   if [[ $? -ne 0 ]] || grep -qE 'error:|warning:' <<<"$build_out"; then
     echo ">> build problems (gcc):"
     grep -E 'error:|warning:' <<<"$build_out" | head -30
     exit 1
   fi
   echo "build clean (gcc)"
+  ensure_targets build/gcc rapidproto_tests || exit 1
   test_out=$(./build/gcc/rapidproto_tests  2>&1); test_rc=$?
   # BOTH: Catch2 prints its summary before the process exits, so an at-exit failure (LeakSanitizer,
   # a static-destructor crash, an atexit abort) leaves "All tests passed" in the output of a run
@@ -156,36 +191,6 @@ fi
 # false-negatived (header dependencies live in compiler_depend.make, which is empty until a second
 # build's `depend` step, so `make -n` cannot see them). Building is a no-op of a second or two when
 # up to date, and afterwards the binaries are fresh BY CONSTRUCTION rather than by inference.
-ensure_targets() {  # $1 = build dir; $@ = the targets THIS stage consumes
-  local dir=$1; shift
-  local out target targets
-  # `cmake --build --target X` is NOT a target-existence check: under Makefiles it degenerates to
-  # `make X`, and if X is no longer a target but <dir>/X still exists as a file, make prints
-  # "Nothing to be done" and exits 0. A renamed target -- or one disabled by a stale
-  # -DRAPIDPROTO_BUILD_TESTS=OFF configure -- would then freeze the binary and pass forever.
-  # Capture then grep, never `... | grep -q`: under `set -o pipefail` that reports failure on a
-  # MATCH when the writer is still going (grep exits early, upstream takes SIGPIPE). The inversion
-  # has bitten this file twice, and `help` output being short enough to fit a pipe buffer today is
-  # not a reason to write the fragile form.
-  targets=$(cmake --build "$dir" --target help 2>/dev/null)
-  for target in "$@"; do
-    if ! grep -qE "(^|\.\.\. )$target\$" <<<"$targets"; then
-      echo ">> '$target' is not a target of $dir: the configure is stale or the target was"
-      echo "   renamed, and this stage would run against a frozen binary (re-run cmake)"
-      return 1
-    fi
-  done
-  # Built explicitly, not merely listed: a target excluded from `all` (EXCLUDE_FROM_ALL) stays in
-  # the help output and is never rebuilt by a plain `cmake --build`, so the stage would keep
-  # running whatever binary an earlier run left behind while every check above passed.
-  if ! out=$(cmake --build "$dir" --target "$@" -j"$JOBS" 2>&1); then
-    echo ">> could not build $* in $dir: this stage would otherwise run a stale or missing binary"
-    tail -20 <<<"$out"
-    return 1
-  fi
-}
-
-ensure_gcc_binaries() { ensure_targets build/gcc "$@"; }
 
 if [[ "${1:-}" == "deep" ]]; then
   CXX=clang++-20; CC=clang-20
@@ -504,9 +509,15 @@ job_fixtures() {
   # out "while debugging" is the most likely way this bug actually happens. Measured: one
   # commented-out entry removed 135 assertions and 18 test cases while the check said all present.
   local block missing=() tu
-  block=$(sed -n '/add_executable(rapidproto_tests/,/^  )/p' CMakeLists.txt | sed 's/#.*//')
-  if [[ -z "$(grep -E '[^[:space:]]' <<<"$block")" ]]; then
+  block=$(sed -n '/add_executable(rapidproto_tests/,/^[[:space:]]*)[[:space:]]*$/p' CMakeLists.txt \
+            | sed 's/#.*//')
+  # The range must have TERMINATED on a closing paren. Anchored to `^  )` it silently ran to EOF
+  # if CMakeLists were reindented, and the check then degraded back into the whole-file substring
+  # search it replaced -- passing a source that had been moved to a different target.
+  if [[ -z "$(grep -E '[^[:space:]]' <<<"$block")" ]] \
+     || ! grep -qE '^[[:space:]]*\)[[:space:]]*$' <<<"$block"; then
     echo ">> could not read the add_executable(rapidproto_tests ...) source list from CMakeLists.txt"
+    echo "   (the block must end in a closing paren on its own line)"
     return 1
   fi
   for tu in "${TEST_SRC[@]}"; do

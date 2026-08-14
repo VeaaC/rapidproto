@@ -22,6 +22,14 @@ BIN=build/gcc/rapidprotoc
 
 echo "[1/5] building rapidprotoc ..."
 cmake --preset gcc -DRAPIDPROTO_BUILD_TESTS=ON >/dev/null
+# Target checked before building: `cmake --build --target X` degenerates to `make X` under
+# Makefiles, so a renamed target with build/gcc/X still on disk prints "Nothing to be done" and
+# exits 0 -- and every golden below would then be regenerated from that stale binary.
+if ! grep -qE '(^|\.\.\. )rapidprotoc$' <<<"$(cmake --build --preset gcc --target help 2>/dev/null)"; then
+  echo ">> 'rapidprotoc' is not a target of build/gcc -- the goldens would be regenerated from a" >&2
+  echo "   stale binary. Re-run cmake --preset gcc." >&2
+  exit 1
+fi
 cmake --build --preset gcc --target rapidprotoc -j"$JOBS" >/dev/null
 
 echo "[2/5] regenerating streamgen goldens via the CLI ..."
