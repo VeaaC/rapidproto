@@ -470,7 +470,7 @@ TEST_CASE("arena-decode: submessage, repeated, map, oneof fixture", "[arena-deco
         [](auto, auto) { FAIL("unexpected oneof member"); });
     CHECK(picked_a);
     REQUIRE(m->counts().size() == 2);  // map<string,int32>
-    REQUIRE(m->counts().find(std::string_view("x")) != nullptr);
+    REQUIRE(m->counts().find(std::string_view("x")) != m->counts().end());
     CHECK(m->counts().find(std::string_view("x"))->value() == 1);
     CHECK(m->counts().find(std::string_view("y"))->value() == 2);
 }
@@ -579,8 +579,8 @@ TEST_CASE("arena-decode: message-value and enum-value maps fixture", "[arena-dec
     const p2::Container* c = p2::Container::decode(ByteView(bin), arena);
     REQUIRE(c != nullptr);
     REQUIRE(c->by_name().size() == 2);
-    const auto* alpha = c->by_name().find(std::string_view("alpha"));
-    REQUIRE(alpha != nullptr);
+    const auto alpha = c->by_name().find(std::string_view("alpha"));
+    REQUIRE(alpha != c->by_name().end());
     REQUIRE(alpha->value());  // map value is a sub-message
     CHECK(alpha->value()->x() == 11);
     CHECK(c->by_name().find(std::string_view("beta"))->value()->x() == 22);
@@ -773,7 +773,7 @@ TEST_CASE("arena-decode: imported (cross-file) sub-messages decode through the f
     REQUIRE(m->ds().size() == 2);
     CHECK(m->ds()[0].v() == 7);  // repeated cross-file
     CHECK(m->ds()[1].v() == 8);
-    REQUIRE(m->dm().find(3) != nullptr);
+    REQUIRE(m->dm().find(3) != m->dm().end());
     CHECK(m->dm().find(3)->value()->v() == 99);  // map-value cross-file
     bool chose_od =
         false;  // oneof reader: a sub-message member arrives by const-ref (no null-check)
@@ -978,7 +978,7 @@ TEST_CASE("arena-decode: a map entry repeating its message value is rejected", "
         const p2::Container* c = p2::Container::decode(ByteView(buf), arena, &err);
         REQUIRE(c != nullptr);
         CHECK(err.ok());
-        REQUIRE(c->by_name().find(std::string_view("b")) != nullptr);
+        REQUIRE(c->by_name().find(std::string_view("b")) != c->by_name().end());
     }
 }
 
@@ -1233,13 +1233,13 @@ TEST_CASE("arena-decode: map entry edge cases on the wire", "[arena-decode]") {
     const p3::Msg* m = p3::Msg::decode(ByteView(buf), arena);
     REQUIRE(m != nullptr);
     REQUIRE(m->counts().size() == 5);  // insertion order, duplicates kept
-    REQUIRE(m->counts().find(std::string_view("k")) != nullptr);
+    REQUIRE(m->counts().find(std::string_view("k")) != m->counts().end());
     CHECK(m->counts().find(std::string_view("k"))->value() == 2);  // last wins
-    REQUIRE(m->counts().find(std::string_view("empty")) != nullptr);
+    REQUIRE(m->counts().find(std::string_view("empty")) != m->counts().end());
     CHECK(m->counts().find(std::string_view("empty"))->value() == 0);
-    REQUIRE(m->counts().find(std::string_view("")) != nullptr);
+    REQUIRE(m->counts().find(std::string_view("")) != m->counts().end());
     CHECK(m->counts().find(std::string_view(""))->value() == 9);
-    REQUIRE(m->counts().find(std::string_view("u")) != nullptr);
+    REQUIRE(m->counts().find(std::string_view("u")) != m->counts().end());
     CHECK(m->counts().find(std::string_view("u"))->value() == 5);
 }
 
@@ -1308,7 +1308,7 @@ TEST_CASE("arena-decode: raw fields hold their exact payloads, decodable directl
     CHECK(h->blobs()[0] == ByteView(b0));
     CHECK(h->blobs()[1].empty());            // present element, empty payload
     CHECK(h->blobs()[1].data() != nullptr);  // ...still a real (input-backed) view
-    REQUIRE(h->by_name().find(std::string_view("k")) != nullptr);  // materialized map
+    REQUIRE(h->by_name().find(std::string_view("k")) != h->by_name().end());  // materialized map
     // The point of raw: each view decodes DIRECTLY through the field type's own decoder.
     // NOLINTNEXTLINE(bugprone-unchecked-optional-access): guarded by the REQUIRE above
     const fm::Blob* blob = fm::Blob::decode(*h->blob(), arena);

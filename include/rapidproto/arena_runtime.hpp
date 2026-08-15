@@ -464,27 +464,74 @@ private:
 };
 
 // A read-only map view over insertion-order entries (a generated `Entry` exposing `.key()`).
-// find() is a last-wins linear scan (protobuf maps take the last value for a duplicate key).
+// find() is a last-wins linear scan (protobuf maps take the last value for a duplicate key) and
+// returns end() on a miss, like std::map.
 template <class Entry>
 class MapView {
 public:
+    // Deliberately NOT a raw pointer, and deliberately not convertible to one or to bool.
+    //
+    // find() used to return `nullptr` on a miss while end() is the one-past-the-end pointer, so the
+    // habitual `find(k) != end()` compiled clean, read as "found" for every miss on a non-empty map,
+    // and then dereferenced null -- while being accidentally correct on an empty map, so it survived
+    // a unit test. Returning end() fixes that spelling but would break `if (auto* e = find(k))` the
+    // same silent way, since end() is non-null. A distinct type makes both old spellings a compile
+    // error instead: there is no idiom left that reports the wrong answer quietly.
+    class const_iterator {
+    public:
+        using iterator_category = std::forward_iterator_tag;
+        using value_type = Entry;
+        using reference = const Entry&;
+        using pointer = const Entry*;
+        using difference_type = std::ptrdiff_t;
+
+        const_iterator() noexcept = default;
+        explicit const_iterator(const Entry* entry) noexcept : m_entry(entry) {}
+
+        reference operator*() const noexcept { return *m_entry; }
+        pointer operator->() const noexcept { return m_entry; }
+        // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic): advancing over the
+        // entry array is what an iterator is; the array's bounds are the caller's `end()`.
+        const_iterator& operator++() noexcept {
+            ++m_entry;
+            return *this;
+        }
+        const_iterator operator++(int) noexcept {
+            const const_iterator before = *this;
+            ++m_entry;
+            return before;
+        }
+        // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        friend bool operator==(const_iterator a, const_iterator b) noexcept {
+            return a.m_entry == b.m_entry;
+        }
+        friend bool operator!=(const_iterator a, const_iterator b) noexcept {
+            return a.m_entry != b.m_entry;
+        }
+
+    private:
+        const Entry* m_entry = nullptr;
+    };
+
     MapView() noexcept = default;
     explicit MapView(ArrayView<Entry> entries) noexcept : m_entries(entries) {}
 
     [[nodiscard]] std::size_t size() const noexcept { return m_entries.size(); }
     [[nodiscard]] bool empty() const noexcept { return m_entries.empty(); }
-    [[nodiscard]] const Entry* begin() const noexcept { return m_entries.begin(); }
-    [[nodiscard]] const Entry* end() const noexcept { return m_entries.end(); }
+    [[nodiscard]] const_iterator begin() const noexcept {
+        return const_iterator(m_entries.begin());
+    }
+    [[nodiscard]] const_iterator end() const noexcept { return const_iterator(m_entries.end()); }
 
     template <class Key>
-    [[nodiscard]] const Entry* find(const Key& key) const noexcept {
-        const Entry* hit = nullptr;
+    [[nodiscard]] const_iterator find(const Key& key) const noexcept {
+        const Entry* hit = m_entries.end();
         for (const Entry& e : m_entries) {
             if (e.key() == key) {
                 hit = &e;  // keep scanning: last duplicate wins
             }
         }
-        return hit;
+        return const_iterator(hit);
     }
 
 private:

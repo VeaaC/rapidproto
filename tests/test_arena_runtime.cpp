@@ -7,7 +7,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <iterator>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include "rapidproto/arena_runtime.hpp"
@@ -321,13 +323,48 @@ private:
 TEST_CASE("MapView: linear find is last-wins", "[arena][map]") {
     const Entry entries[] = {{1, 10}, {2, 20}, {1, 11}, {3, 30}};  // key 1 appears twice
     const MapView<Entry> m(ArrayView<Entry>(entries, 4));
-    CHECK(m.size() == 4);
-    REQUIRE(m.find(1) != nullptr);
+    CHECK(m.size() == 4);  // the raw wire entries: a duplicate key is not collapsed
+    REQUIRE(m.find(1) != m.end());
     CHECK(m.find(1)->value() == 11);  // last duplicate wins
     CHECK(m.find(2)->value() == 20);
-    CHECK(m.find(99) == nullptr);
+    CHECK(m.find(99) == m.end());
     CHECK(MapView<Entry>{}.empty());
 }
+
+TEST_CASE("MapView: a miss compares equal to end(), on every map shape", "[arena][map]") {
+    // find() returning nullptr while end() was one-past-the-end made `find(k) != end()` -- the
+    // habit every std::map user has -- true for a MISS on a non-empty map, and then the caller
+    // dereferenced null. It was accidentally correct on an empty map, so a test could not see it.
+    const Entry entries[] = {{1, 10}, {2, 20}};
+    const MapView<Entry> full(ArrayView<Entry>(entries, 2));
+    CHECK(full.find(99) == full.end());
+    CHECK_FALSE(full.find(99) != full.end());
+    CHECK(full.find(1) != full.end());
+
+    const MapView<Entry> none;
+    CHECK(none.find(1) == none.end());
+    CHECK(none.begin() == none.end());
+}
+
+TEST_CASE("MapView: the iterator is a forward iterator", "[arena][map]") {
+    const Entry entries[] = {{1, 10}, {2, 20}};
+    const MapView<Entry> full(ArrayView<Entry>(entries, 2));
+    std::size_t seen = 0;
+    for (const Entry& e : full) {
+        (void)e;
+        ++seen;
+    }
+    CHECK(seen == 2);
+    CHECK(std::distance(full.begin(), full.end()) == 2);
+}
+
+// The old spellings must not compile rather than report the wrong answer quietly: an iterator that
+// converted to bool or to a pointer would reinstate the bug in mirror image, since end() is
+// non-null on a non-empty map.
+static_assert(!std::is_constructible_v<bool, MapView<Entry>::const_iterator>,
+              "MapView iterators must not be testable as bools");
+static_assert(!std::is_convertible_v<MapView<Entry>::const_iterator, const Entry*>,
+              "MapView iterators must not decay to a pointer");
 
 TEST_CASE("ArenaDecodeError: ok() reflects the code", "[arena]") {
     ArenaDecodeError e;

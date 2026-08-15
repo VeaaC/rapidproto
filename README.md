@@ -55,8 +55,8 @@ you both shapes.
 - **Safe on untrusted input.** Both models fully validate wire structure (truncation, length overruns,
   group nesting) and are built never to crash on malformed bytes; only field *values* are trusted to the
   schema.
-- **Compile-time typed.** Dispatch is entirely compile-time — no `std::function`, no virtual calls — so
-  misuse (wrong value type, renamed field) is a compile error, not a silent bug.
+- **Compile-time typed.** Dispatch is entirely compile-time — no `std::function`, no virtual calls, and
+  a wrong value type or a renamed field is a compile error rather than a silent bug.
 
 Know the trade-offs: RapidProto is **decode-only** (no serialization, no JSON codec, no
 reflection) — the one exception being an opt-in [debug dumper](docs/dumper.md) that emits JSON-*like*
