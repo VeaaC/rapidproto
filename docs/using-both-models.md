@@ -5,9 +5,12 @@
 
 The two models live in **different C++ namespaces** for the same schema: arena at `pkg::Msg`, streaming
 at `pkg::stream::Msg`, with the schema's enums as a single shared type, so they coexist in
-one translation unit — unless the schema itself has a top-level type named `stream`, whose arena
-class takes the name the streaming namespace needs. Generation succeeds and the two headers then
-collide; rename the type, or generate the models into separate translation units. Generate both (`--arena --stream`, or `GENERATOR both` in CMake) and use each
+one translation unit — unless some schema in the import closure declares a **top-level type named
+`stream`**, which collides with the `pkg::stream` namespace itself (nested types and fields of that
+name are fine). A top-level *message* generates cleanly and the two headers collide only where one
+translation unit includes both, so separate translation units are a way out; a top-level *enum* sits
+at package scope in the shared common header, so the streaming header then fails to compile even on
+its own. Renaming the type covers both. Generate both (`--arena --stream`, or `GENERATOR both` in CMake) and use each
 where it fits:
 
 ```cpp

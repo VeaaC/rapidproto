@@ -157,7 +157,7 @@ Use **arena** when you need the decoded message as an object to navigate — ran
 passes, passing the tree around. Use **streaming** when you handle each field and move on: summing a
 column, pulling two fields from a big message, transcoding, or anywhere you want zero allocation. You
 can use both models for one schema in one translation unit; see
-[using both models](docs/using-both-models.md).
+[using both models](docs/using-both-models.md), including the one type name that collides.
 
 ---
 
