@@ -50,6 +50,23 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
   file with more bytes than tokens, past the end of the file (`deep.proto:122:1` for a 121-line
   file). The rejection itself was always correct — only where it pointed was wrong.
 
+- **`rapidprotoc` names generated headers by one rule, and refuses inputs it cannot name.** A
+  header is placed at the schema's path relative to the first `-I` that contains it, else at its
+  basename — the rule the CMake helper already documented and followed. The CLI deviated for
+  relative arguments, naming the header after the path as given, so `rapidprotoc --out-dir gen
+  ../schemas/x.proto` reported `wrote gen/../schemas/x.rp.hpp` and created it **outside** `gen`,
+  exiting 0. It now writes `gen/x.rp.hpp`, as the same schema always did via CMake or an absolute
+  path. A relative argument that resolves under no `-I` therefore loses its directory prefix:
+  `rapidprotoc --out-dir gen sub/a.proto` writes `gen/a.rp.hpp`, not `gen/sub/a.rp.hpp`. Pass
+  `-I .` to keep the subdirectory.
+
+  Three inputs that silently lost work are now errors, each naming both files. Two schemas that
+  generate the same header (`/a/x.proto` and `/b/x.proto` both wrote `x.rp.hpp`, the second over
+  the first); two that share a canonical name via different `-I` directories (deduplicated as one
+  file, so only one was generated at all); and a `..` in an `import`, which names a header outside
+  the output directory and which protoc rejects too. Nothing is written when any of these fires.
+  Diagnostics now print entry paths as absolute, since that is the form the CLI resolves.
+
 - **A schema reached through a symlink no longer regenerates on every build.** `rapidproto_generate()`
   declares the generated headers as a build rule's outputs, and the CMake helper computed that path
   by resolving symlinks in a case where the generator does not — so for an entry whose link name

@@ -23,6 +23,9 @@ HELPER="$ROOT/cmake/rapidproto-generate.cmake"
 if [[ ! -x "$BIN" ]]; then
   echo ">> $BIN is not executable (build rapidprotoc first)"; exit 1
 fi
+# Absolute: the `relative` cases below run the CLI from $WORK, where a relative $BIN would not
+# resolve.
+BIN="$(cd "$(dirname "$BIN")" && pwd)/$(basename "$BIN")"
 if ! command -v cmake >/dev/null 2>&1; then
   echo ">> cmake not found"; exit 1
 fi
@@ -61,6 +64,13 @@ cases=(
   "nested/sub/deep.proto|nested nested/sub"
   "nested/sub/deep.proto|nested/sub nested"
   "nested/a.proto.proto|nested"                # ".proto" mid-name: only the trailing one is stripped
+  # RELATIVE spellings. Every case above passes an absolute path, because that is what CMake does --
+  # so none of them can see what the CLI does with a relative one, which is the half of the rule
+  # that has no other guard. The CLI absolutises its entries so that an entry under no -I falls back
+  # to a basename (what the helper predicts for the same file) rather than to the given path, which
+  # became the header's location and could point outside the out-dir entirely.
+  "real/aaa.proto|nested|relative"              # under no -I: basename, NOT `real/aaa.rp.hpp`
+  "nested/sub/deep.proto|nested|relative"       # under an -I: keeps its import-relative subpath
 )
 
 fail=0
@@ -101,7 +111,15 @@ CMAKE
 
   out="$WORK/out"
   rm -rf "$out"
-  if ! cli_log=$("$BIN" --arena "${cli_includes[@]}" --out-dir "$out" "$proto" 2>&1); then
+  if [[ "$mode" == relative ]]; then
+    # Spelled relative, from $WORK -- the helper still gets the absolute path, as CMake gives it.
+    rel_includes=()
+    for dir in $rel_import; do rel_includes+=(-I "$dir"); done
+    cli_log=$(cd "$WORK" && "$BIN" --arena "${rel_includes[@]}" --out-dir "$out" "$rel_proto" 2>&1)
+  else
+    cli_log=$("$BIN" --arena "${cli_includes[@]}" --out-dir "$out" "$proto" 2>&1)
+  fi
+  if [[ -n "$cli_log" ]] && grep -q "^error:" <<<"$cli_log"; then
     echo ">> the CLI failed on $rel_proto:"; tail -3 <<<"$cli_log"; fail=1; continue
   fi
   # The decoder header, relative to the out-dir. The CLI writes one per file in the closure, so
@@ -123,5 +141,36 @@ CMAKE
   fi
 done
 
+# ...and the CLI refuses what it cannot name unambiguously. None of the comparisons above can see
+# these: they live in the driver, so removing the checks from main.cpp leaves every name match green
+# while headers overwrite each other or land wherever a `..` points.
+mkdir -p "$WORK/cwd" "$WORK/c1" "$WORK/c2" "$WORK/isub" "$WORK/iup"
+printf 'syntax = "proto3";\nmessage C1 { int32 a = 1; }\n' >"$WORK/c1/dup.proto"
+printf 'syntax = "proto3";\nmessage C2 { int32 b = 1; }\n' >"$WORK/c2/dup.proto"
+printf 'syntax = "proto3";\nmessage U { int32 x = 1; }\n' >"$WORK/iup/u.proto"
+printf 'syntax = "proto3";\nimport "../iup/u.proto";\nmessage R { U u = 1; }\n' >"$WORK/isub/root.proto"
+
+# <label>|<expected message fragment>|<args...>
+refusals=(
+  "two schemas, one header|both generate|--out-dir $WORK/cwd/o1 $WORK/c1/dup.proto $WORK/c2/dup.proto"
+  "two schemas, one name|relative to the include paths|-I $WORK/c1 -I $WORK/c2 --out-dir $WORK/cwd/o2 $WORK/c1/dup.proto $WORK/c2/dup.proto"
+  "import escaping the out-dir|would write outside --out-dir|-I $WORK/isub --out-dir $WORK/cwd/o3 $WORK/isub/root.proto"
+)
+for spec in "${refusals[@]}"; do
+  IFS='|' read -r label want args <<<"$spec"
+  # shellcheck disable=SC2086  # args is a deliberately word-split argument list
+  if "$BIN" --arena $args >"$WORK/refuse.log" 2>&1; then
+    echo ">> $label: accepted, but it cannot be generated unambiguously"; fail=1
+  elif ! grep -qF "$want" "$WORK/refuse.log"; then
+    echo ">> $label: refused, but not with the expected diagnostic (wanted '$want'):"
+    tail -3 "$WORK/refuse.log"; fail=1
+  fi
+done
+# A refused run is inert: every check runs before the first write.
+stray=$(find "$WORK/cwd" -name '*.rp*.hpp' 2>/dev/null)
+if [[ -n "$stray" ]]; then
+  echo ">> a refused run still wrote:"; sed 's/^/   /' <<<"$stray"; fail=1
+fi
+
 [[ $fail -eq 0 ]] || exit 1
-echo "generate names: ${#cases[@]} entry shapes, helper prediction matches the CLI"
+echo "generate names: ${#cases[@]} entry shapes match the CLI, ${#refusals[@]} ambiguous ones refused"

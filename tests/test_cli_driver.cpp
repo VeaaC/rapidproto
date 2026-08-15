@@ -15,6 +15,7 @@
 #include <utility>
 #include <vector>
 
+#include "rapidproto/ast.hpp"  // FileNode, constructed directly for header_path
 #include "rapidproto/cli/driver.hpp"
 #include "rapidproto/resolver.hpp"
 #include "rapidproto/version.hpp"
@@ -111,6 +112,39 @@ TEST_CASE("driver: write_file reports an unwritable path instead of crashing", "
     CHECK(read_text(*ok) == "content");
 }
 
+TEST_CASE("driver: a header path that would leave the out-dir is detected", "[cli]") {
+    FileNode file;
+    // Names reach here from two places. An ENTRY's is absolute (the CLI absolutises before
+    // resolving), so header_path reduces it to a basename and it cannot escape. An IMPORT's is the
+    // import string itself -- canonical_import_path normalizes it but never rebases it on an
+    // include dir -- so `import "../up/u.proto"` still names a path outside the out-dir, which the
+    // CLI refuses (as protoc does).
+    file.filename = "../up/u.proto";
+    CHECK(cli::header_escapes_out_dir(file));
+    file.filename = "a/../../b/c.proto";  // normalizes to ../b/c, so the test is not textual
+    CHECK(cli::header_escapes_out_dir(file));
+
+    // Everything that stays inside is accepted, and header_path is unchanged for all of it: an
+    // import-relative subpath (what the CMake helper declares as its custom command's OUTPUT), a
+    // `.` component, and an absolute name reduced to its basename -- which is what every entry is
+    // by the time it gets here, and the rule the CMake helper documents.
+    file.filename = "sub/deep.proto";
+    CHECK_FALSE(cli::header_escapes_out_dir(file));
+    CHECK(cli::header_path("gen", file, ".rp.hpp") == std::filesystem::path("gen/sub/deep.rp.hpp"));
+    file.filename = "a/./b.proto";
+    CHECK_FALSE(cli::header_escapes_out_dir(file));
+    CHECK(cli::header_path("gen", file, ".rp.hpp") == std::filesystem::path("gen/a/b.rp.hpp"));
+    // Normalizes CLEAN, so the check accepts it -- and header_path must therefore write the
+    // normalized path. Written literally, it creates the intermediate directories and traverses
+    // any symlink among them, so the header could land outside the out-dir the check just cleared.
+    file.filename = "a/b/../../d/e/f.proto";
+    CHECK_FALSE(cli::header_escapes_out_dir(file));
+    CHECK(cli::header_path("gen", file, ".rp.hpp") == std::filesystem::path("gen/d/e/f.rp.hpp"));
+    file.filename = "/abs/dir/x.proto";
+    CHECK_FALSE(cli::header_escapes_out_dir(file));
+    CHECK(cli::header_path("gen", file, ".rp.hpp") == std::filesystem::path("gen/x.rp.hpp"));
+}
+
 TEST_CASE("driver: write_depfile keeps the caller's output order", "[cli]") {
     const test::TempDir tmp("cli_depfile_order");
     // Ninja accepts a depfile only when its FIRST target is the rule's FIRST output; anything else
@@ -177,8 +211,15 @@ TEST_CASE("driver: parse_args rejects an unknown flag instead of treating it as 
         const_cast<char**>(args.data()), "usage: test\n",
         [](std::string_view arg) { return arg == "--model-flag"; });
     REQUIRE(hooked.options.has_value());
+    // Entries are stored ABSOLUTE. That is what decides where the header lands: an entry resolving
+    // under no -I keeps the name it was given, so a relative one became the header's path (and a
+    // `../` one put it outside --out-dir). Absolute, the fallback is a name header_path reduces to
+    // a basename -- the rule the CMake helper follows, which absolutises for the same reason.
     // NOLINTNEXTLINE(bugprone-unchecked-optional-access): guarded by the REQUIRE above
-    CHECK(hooked.options.value().entries == std::vector<std::string>{"a.proto"});
+    const std::vector<std::string>& entries = hooked.options.value().entries;
+    REQUIRE(entries.size() == 1);
+    CHECK(std::filesystem::path(entries.front()).is_absolute());
+    CHECK(std::filesystem::path(entries.front()).filename() == "a.proto");
 }
 
 TEST_CASE("driver: parse_args serves --help and --version with exit 0", "[cli]") {
