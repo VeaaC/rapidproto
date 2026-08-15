@@ -75,14 +75,18 @@ example::stream::Person{wire}.decode(
 ```
 
 `UnknownField` carries `{ std::uint32_t field_number; rapidproto::WireType wire_type; rapidproto::ByteView
-bytes; }` (the raw value bytes after the tag). Only field numbers *not in the schema* reach this
+bytes; }` — the field's bytes **as they appear on the wire after the tag**, so a LEN field's view
+starts with its length prefix and a group's ends with the closing `EGROUP` marker; it is not the
+decoded payload. Only field numbers *not in the schema* reach this
 handler; a known field you simply didn't handle is not "unknown" (use a catch-all for those). Proto2
 `extend` fields are not decoded; an extension on the wire arrives here as a raw `UnknownField`.
 
 ## Field kinds
 
 - **Scalars, `string`, `bytes`.** Delivered by value; `string`/`bytes` both arrive as
-  `std::string_view` (no UTF-8 validation). The value types match the arena model's scalar mapping.
+  `std::string_view` (no UTF-8 validation). The value types match the arena model's scalar mapping,
+  enums included — which decode **open**, so a `switch` on one needs a `default:` arm
+  ([semantics](semantics.md)).
 - **`repeated`.** Fires **once per element**, in wire order (packed or expanded).
 - **Sub-messages and groups.** Delivered as a **sub-decoder**; recurse with its `decode(...)`. It
   doesn't decode until you do. Groups behave like sub-messages. `rp_bytes()` exposes the

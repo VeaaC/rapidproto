@@ -34,7 +34,9 @@ every field of that message type), or per message (for `unknown-fields`):
   `StringArrayView`, one payload per element. Each view is exactly what the field type's own
   `decode()` accepts, so the tree is built only when — and if — you ask: keep a huge or
   rarely-read sub-message (or a million-element repeated field) as bytes, and decode single
-  elements on demand. Decode semantics are otherwise unchanged (presence, `required` validation,
+  elements on demand. A raw singular field's accessor becomes `std::optional<ByteView>` — the
+  pointer that normally carries a sub-message's presence is gone, though presence itself still
+  reads the same way. Decode semantics are otherwise unchanged (`required` validation,
   duplicate-singular rejection). Scalars, strings, and enums can't go raw (no payload a later
   `decode()` could consume — they're cheap to materialize or drop), nor can maps (their entry
   type is generated internals). To defer a huge *packed scalar* array, wrap it in a sub-message

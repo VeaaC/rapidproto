@@ -40,7 +40,8 @@ opts.skip   = {"email", "address.zip"};         // omit these fields by qualifie
 std::cout << example::rp_dump_string(*p, opts);
 ```
 
-- **`skip`** names fields by their **dotted path** from the message root (`"address.zip"`, not just
+- **`skip`** holds `string_view`s, which must outlive the dump call. It names fields by their
+  **dotted path** from the message root (`"address.zip"`, not just
   `"zip"`), so the same leaf name is hidden only where you mean it; naming a sub-message path
   (`"address"`) drops its whole subtree. The field is still decoded — just not printed. Paths carry no
   index, so a path *through* a repeated or map field applies to every element (`"orders.total"` hides

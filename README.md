@@ -25,8 +25,8 @@ Both decode models are **decode-only**: no serialization, no JSON codec. Both fu
 accepted it, so field *values* aren't range-checked. They cover **proto2, proto3, and the newer
 editions schema format (2023/2024)**, including groups, maps, and oneofs.
 
-You can read the same schema with either model, and even use both **in one translation unit** (see
-[using both models](docs/using-both-models.md)).
+You can read the same schema with either model, and in most schemas use both **in one translation
+unit** (see [using both models](docs/using-both-models.md) for the one name that collides).
 
 > See [`architecture.md`](architecture.md) for the internals and design rationale: the layout planner,
 > the compile-time dispatch, the arena, the coexistence design, and the benchmark methodology.

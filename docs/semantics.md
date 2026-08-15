@@ -11,7 +11,9 @@ link here instead of restating.*
   for a `shared_ptr` that owns both.
 - **Untrusted input is validated; values are not.** Wire input is fully checked for **wire-format
   integrity** (structure, lengths, group nesting), so a malformed buffer fails cleanly and never
-  triggers UB. Field *values* are not range-checked: RapidProto trusts the schema, not the bytes.
+  triggers UB. Field *values* are not range-checked: RapidProto trusts the schema, not the bytes —
+  in particular a `string` is handed back unvalidated, so it may hold bytes `protoc` would reject as
+  invalid UTF-8.
 - **Defaults & presence.** Arena: an *implicit*-presence field (plain proto3 scalars) reads back its
   zero default (`0` / `""` / the first enum value) when absent; an *explicit*-presence scalar/string/
   enum field returns `std::optional<T>` (`std::nullopt` when absent — apply a proto2 `[default=X]`
