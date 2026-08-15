@@ -81,7 +81,10 @@ example::stream::Person{wire}.decode(
 
 `UnknownField` carries `{ std::uint32_t field_number; rapidproto::WireType wire_type; rapidproto::ByteView
 bytes; }` — the field's bytes **as they appear on the wire after the tag**, so a LEN field's view
-starts with its length prefix and a group's ends with its closing end-group tag. Only field numbers
+starts with its length prefix and a group's ends with its closing end-group tag. That framing is why
+these bytes are **not** what another decoder's `decode()` takes — a sub-decoder's `rp_bytes()` is
+(see [using both models](using-both-models.md)); strip the prefix yourself if you want to decode an
+unknown field. Only field numbers
 *not in the schema* reach this handler; a known field you simply didn't handle is not "unknown" (use
 a catch-all for those). Proto2
 `extend` fields are not decoded; an extension on the wire arrives here as a raw `UnknownField`.

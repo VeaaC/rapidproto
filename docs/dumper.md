@@ -29,8 +29,8 @@ const example::Person* p = example::Person::decode(rapidproto::ByteView(buf), ar
 std::cout << example::rp_dump_string(*p) << '\n';         // or: rp_dump_write(std::cout, *p, 120);
 ```
 
-`DumpOptions` tunes a dump (all fields default, so `rp_dump_string(m, 120)` still works — an integer
-converts to a width):
+`DumpOptions` tunes a dump. Every field has a default and an integer converts to a width, so
+`rp_dump_string(m, 120)` and `rp_dump_write(std::cout, *p, 120)` above are whole-options calls:
 
 ```cpp
 rapidproto::dump::DumpOptions opts;
