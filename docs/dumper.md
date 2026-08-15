@@ -29,8 +29,8 @@ const example::Person* p = example::Person::decode(rapidproto::ByteView(buf), ar
 std::cout << example::rp_dump_string(*p) << '\n';         // or: rp_dump_write(std::cout, *p, 120);
 ```
 
-`DumpOptions` tunes a dump (all fields default, so `rp_dump_string(m, 120)` still works — an integer
-converts to a width):
+`DumpOptions` tunes a dump. Every field has a default and an integer converts to a width, so
+`rp_dump_string(m, 120)` and `rp_dump_write(std::cout, *p, 120)` above are whole-options calls:
 
 ```cpp
 rapidproto::dump::DumpOptions opts;
@@ -44,7 +44,8 @@ std::cout << example::rp_dump_string(*p, opts);
   `"zip"`), so the same leaf name is hidden only where you mean it; naming a sub-message path
   (`"address"`) drops its whole subtree. The field is still decoded — just not printed. Paths carry no
   index, so a path *through* a repeated or map field applies to every element (`"orders.total"` hides
-  `total` in every order); a map's keys are not themselves path-addressable.
+  `total` in every order); a map's keys are not themselves path-addressable. The paths are
+  `string_view`s, so whatever they point at must outlive the dump call.
 - **`indent`** starts the output at a nesting level (each level = 2 columns): the opening brace stays at
   the cursor, continuation lines indent that much deeper, and the width budget shrinks accordingly.
 

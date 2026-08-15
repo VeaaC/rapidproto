@@ -31,6 +31,11 @@ per entry). The decoder never materializes the whole message.
 > callback isn't called (and proto3 scalars equal to their default aren't on the wire at all).
 > Initialize your own destination variables.
 
+A schema with a **top-level enum named `stream`** cannot use this model: the enum takes package
+scope in the shared common header, which is the name this header needs for its own namespace. Rename
+the enum. (Nested enums, messages, and fields of that name are fine — as is a top-level *message*,
+until you [pair the two models](using-both-models.md) in one translation unit.)
+
 ## Three ways to consume fields
 
 All snippets decode a `Person` buffer `wire` (a `rapidproto::ByteView`). `decode()` is `[[nodiscard]]`
@@ -75,8 +80,13 @@ example::stream::Person{wire}.decode(
 ```
 
 `UnknownField` carries `{ std::uint32_t field_number; rapidproto::WireType wire_type; rapidproto::ByteView
-bytes; }` (the raw value bytes after the tag). Only field numbers *not in the schema* reach this
-handler; a known field you simply didn't handle is not "unknown" (use a catch-all for those). Proto2
+bytes; }` — the field's bytes **as they appear on the wire after the tag**, so a LEN field's view
+starts with its length prefix and a group's ends with its closing end-group tag. That framing is why
+these bytes are **not** what another decoder's `decode()` takes — a sub-decoder's `rp_bytes()` is
+(see [using both models](using-both-models.md)); strip the prefix yourself if you want to decode an
+unknown field. Only field numbers
+*not in the schema* reach this handler; a known field you simply didn't handle is not "unknown" (use
+a catch-all for those). Proto2
 `extend` fields are not decoded; an extension on the wire arrives here as a raw `UnknownField`.
 
 ## Field kinds
@@ -95,6 +105,8 @@ handler; a known field you simply didn't handle is not "unknown" (use a catch-al
   On a buffer carrying more than one member — two serialized messages concatenated, say — each fires
   in wire order, and the **last** is the one protobuf would call set (see
   [duplicate fields](semantics.md)).
+
+Enums decode open, so a `switch` over one needs a `default:` arm — see [semantics](semantics.md).
 
 ## Error handling
 

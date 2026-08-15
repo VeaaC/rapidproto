@@ -17,6 +17,12 @@ example::stream::Person{bytes}.decode( /* … */ );                       // or 
 // example::Status is the same enum type in both.
 ```
 
+> **The one name that can't coexist:** rename any **top-level message called `stream`** in the
+> import closure — its arena class collides with the `pkg::stream` namespace the streaming header
+> opens, so a translation unit including both won't compile. (Nested types and fields of that name
+> are fine; a top-level *enum* of that name breaks the [streaming header](streaming.md) by itself,
+> whether or not you generate the arena model.)
+
 The models also combine **mid-decode**: stream a large outer message and materialize just the
 sub-messages you keep. A streaming sub-decoder's `rp_bytes()` is exactly the sub-message's field
 bytes, which the arena `decode()` accepts directly. The materialized tree borrows those bytes (a slice

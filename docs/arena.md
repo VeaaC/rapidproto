@@ -23,6 +23,9 @@ class Person {
 
 ## What each field kind returns
 
+A [decode profile](profiles.md) changes these types where it applies — a `drop`ped field loses its
+accessor, a `raw` one returns undecoded bytes.
+
 | Construct | Accessor returns |
 |---|---|
 | scalar / `enum` | the value, by value (`std::int32_t`, `bool`, the generated `enum class`, …); absent reads as the zero default, indistinguishable from a written zero ([semantics](semantics.md)) |
