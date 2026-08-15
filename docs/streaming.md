@@ -31,6 +31,11 @@ per entry). The decoder never materializes the whole message.
 > callback isn't called (and proto3 scalars equal to their default aren't on the wire at all).
 > Initialize your own destination variables.
 
+A schema with a **top-level enum named `stream`** cannot use this model: the enum takes package
+scope in the shared common header, which is the name this header needs for its own namespace. Rename
+the enum. (Nested enums, messages, and fields of that name are fine — as is a top-level *message*,
+until you [pair the two models](using-both-models.md) in one translation unit.)
+
 ## Three ways to consume fields
 
 All snippets decode a `Person` buffer `wire` (a `rapidproto::ByteView`). `decode()` is `[[nodiscard]]`
@@ -76,17 +81,15 @@ example::stream::Person{wire}.decode(
 
 `UnknownField` carries `{ std::uint32_t field_number; rapidproto::WireType wire_type; rapidproto::ByteView
 bytes; }` — the field's bytes **as they appear on the wire after the tag**, so a LEN field's view
-starts with its length prefix and a group's ends with the closing `EGROUP` marker; it is not the
-decoded payload. Only field numbers *not in the schema* reach this
-handler; a known field you simply didn't handle is not "unknown" (use a catch-all for those). Proto2
+starts with its length prefix and a group's ends with its closing end-group tag. Only field numbers
+*not in the schema* reach this handler; a known field you simply didn't handle is not "unknown" (use
+a catch-all for those). Proto2
 `extend` fields are not decoded; an extension on the wire arrives here as a raw `UnknownField`.
 
 ## Field kinds
 
 - **Scalars, `string`, `bytes`.** Delivered by value; `string`/`bytes` both arrive as
-  `std::string_view` (no UTF-8 validation). The value types match the arena model's scalar mapping,
-  enums included — which decode **open**, so a `switch` on one needs a `default:` arm
-  ([semantics](semantics.md)).
+  `std::string_view` (no UTF-8 validation). The value types match the arena model's scalar mapping.
 - **`repeated`.** Fires **once per element**, in wire order (packed or expanded).
 - **Sub-messages and groups.** Delivered as a **sub-decoder**; recurse with its `decode(...)`. It
   doesn't decode until you do. Groups behave like sub-messages. `rp_bytes()` exposes the
@@ -99,6 +102,8 @@ handler; a known field you simply didn't handle is not "unknown" (use a catch-al
   On a buffer carrying more than one member — two serialized messages concatenated, say — each fires
   in wire order, and the **last** is the one protobuf would call set (see
   [duplicate fields](semantics.md)).
+
+Enums decode open, so a `switch` over one needs a `default:` arm — see [semantics](semantics.md).
 
 ## Error handling
 

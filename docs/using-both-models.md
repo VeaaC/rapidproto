@@ -5,12 +5,7 @@
 
 The two models live in **different C++ namespaces** for the same schema: arena at `pkg::Msg`, streaming
 at `pkg::stream::Msg`, with the schema's enums as a single shared type, so they coexist in
-one translation unit — unless some schema in the import closure declares a **top-level type named
-`stream`**, which collides with the `pkg::stream` namespace itself (nested types and fields of that
-name are fine). A top-level *message* generates cleanly and the two headers collide only where one
-translation unit includes both, so separate translation units are a way out; a top-level *enum* sits
-at package scope in the shared common header, so the streaming header then fails to compile even on
-its own. Renaming the type covers both. Generate both (`--arena --stream`, or `GENERATOR both` in CMake) and use each
+one translation unit. Generate both (`--arena --stream`, or `GENERATOR both` in CMake) and use each
 where it fits:
 
 ```cpp
@@ -21,6 +16,12 @@ const example::Person* tree = example::Person::decode(bytes, arena);   // materi
 example::stream::Person{bytes}.decode( /* … */ );                       // or stream when you don't
 // example::Status is the same enum type in both.
 ```
+
+> **The one name that can't coexist:** rename any **top-level message called `stream`** in the
+> import closure — its arena class collides with the `pkg::stream` namespace the streaming header
+> opens, so a translation unit including both won't compile. (Nested types and fields of that name
+> are fine; a top-level *enum* of that name breaks the [streaming header](streaming.md) by itself,
+> whether or not you generate the arena model.)
 
 The models also combine **mid-decode**: stream a large outer message and materialize just the
 sub-messages you keep. A streaming sub-decoder's `rp_bytes()` is exactly the sub-message's field

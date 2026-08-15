@@ -887,8 +887,10 @@ unit. Three pieces make that work:
 
 - **Model namespacing.** The arena model is the default and sits where a user expects, `pkg::Msg`; the
   streaming model nests one level deeper, at `pkg::stream::Msg`. The two `Msg` types are therefore
-  distinct
-  and never clash. This is driven by a `model_namespace` field on the C++ name table
+  distinct — except where a top-level type is itself named `stream` and collides with the
+  sub-namespace, which `sanitize()`'s reserved set deliberately does not cover (it is scoped by name,
+  not by nesting depth, so reserving `stream` would rename every nested type and field of that name
+  too). This is driven by a `model_namespace` field on the C++ name table
   (`CppNameTable`) —
   empty for arena and `"stream"` for streaming, threaded through `build_cpp_names`. Only
   *messages* nest
@@ -905,7 +907,8 @@ unit. Three pieces make that work:
   namespace (`using ::pkg::State;` inside `namespace pkg::stream`), so `pkg::stream::State`
   resolves too.
   One proto enum is thus ONE C++ type shared across both models — no duplicate definition to
-  collide.
+  collide. Package scope is also why a top-level enum named `stream` is the worse half of the
+  collision above: it defeats the streaming header on its own, with no arena model involved.
   NESTED enums are not shared; they ride with their message inside each model's decoder (distinct
   fully-qualified names, no clash).
 - **Parse once, emit per model.** `rapidprotoc` runs the front-end once, builds a name table per selected

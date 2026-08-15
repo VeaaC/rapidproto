@@ -25,8 +25,8 @@ Both decode models are **decode-only**: no serialization, no JSON codec. Both fu
 accepted it, so field *values* aren't range-checked. They cover **proto2, proto3, and the newer
 editions schema format (2023/2024)**, including groups, maps, and oneofs.
 
-You can read the same schema with either model, and in most schemas use both **in one translation
-unit** (see [using both models](docs/using-both-models.md) for the one name that collides).
+You can read the same schema with either model, and even use both **in one translation unit** (see
+[using both models](docs/using-both-models.md)).
 
 > See [`architecture.md`](architecture.md) for the internals and design rationale: the layout planner,
 > the compile-time dispatch, the arena, the coexistence design, and the benchmark methodology.
@@ -157,7 +157,7 @@ Use **arena** when you need the decoded message as an object to navigate — ran
 passes, passing the tree around. Use **streaming** when you handle each field and move on: summing a
 column, pulling two fields from a big message, transcoding, or anywhere you want zero allocation. You
 can use both models for one schema in one translation unit; see
-[using both models](docs/using-both-models.md), including the one type name that collides.
+[using both models](docs/using-both-models.md).
 
 ---
 
