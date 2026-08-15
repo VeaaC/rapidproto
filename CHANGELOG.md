@@ -7,6 +7,20 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
 
 ### Changed
 
+- **Breaking: `MapView::find` returns an iterator, not a pointer.** It now compares against `end()`
+  the way `std::map` does. Previously it returned `nullptr` on a miss while `end()` was
+  one-past-the-end, so the habitual `find(k) != end()` compiled clean under `-Wall -Wextra`, was
+  true for a **miss** on a non-empty map, and then dereferenced null — while being accidentally
+  correct on a map with no entries, so it passed a unit test and crashed on the first message that
+  had any.
+
+  The iterator is deliberately not convertible to a pointer or to `bool`, so both old spellings —
+  `if (auto* e = m.find(k))` and `m.find(k) != nullptr` — are now compile errors rather than
+  silently inverted. Rewrite them as `if (auto it = m.find(k); it != m.end())`. Iteration,
+  `size()`, `empty()` and `.key()`/`.value()` are unchanged, and the iterator is a forward iterator,
+  so range-`for` and `std::` algorithms work as before.
+
+
 - **A reserved-name escape no longer takes an identifier another type really uses.** `decode` is
   reserved (the decoders expose a static `decode()`), so `enum decode` is emitted as `decode_` — and
   a schema that also declares `message decode_` got two `p::decode_`, which does not compile. Names
