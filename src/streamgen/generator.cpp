@@ -304,8 +304,10 @@ void emit_message(Printer& printer, const CppNameTable& symbols, const MessageNo
     // identifier, so it can never collide with a field tag.
     printer.print("::rapidproto::ByteView rp_bytes() const noexcept { return rp_span; }\n\n");
 
+    // Defined once in the common header's mirror; alias it so both models name one type.
     for (const auto& nested_enum : message.enums) {
-        codegen::emit_enum(printer, symbols, nested_enum, true);
+        printer.print("using $E$ = $A$;\n\n", {{"E", symbols.local.at(&nested_enum)},
+                                               {"A", cpp_type_name(symbols, nested_enum.fqn)}});
     }
     // Forward-declare nested messages first: a field tag's `using Value` and any sibling cross-reference
     // (including a cycle) must name a nested type that may be defined later. Nested types can only be

@@ -139,6 +139,36 @@ inline void emit_enum(Printer& printer, const CppNameTable& names, const EnumNod
     printer.print(trailing_blank ? "};\n\n" : "};\n");
 }
 
+// Does `message` hold an enum anywhere beneath it? Decides whether the mirror opens a namespace for
+// it: a message with no enum in its whole subtree contributes nothing to share.
+inline bool holds_enum(const MessageNode& message) {
+    if (!message.enums.empty()) {
+        return true;
+    }
+    return std::any_of(message.nested_messages.begin(), message.nested_messages.end(),
+                       [](const MessageNode& nested) { return holds_enum(nested); });
+}
+
+// Mirror `message`'s nesting as NAMESPACES so its nested enums have one canonical home both models
+// alias. Namespaces rather than scope structs: a namespace cannot be named as a type, so nothing
+// here can be mistaken for the message, and `message Outer { message Outer {} }` needs no escape.
+// The ids are the ones the model already assigned, so this path is the model path with the root
+// swapped.
+inline void emit_enum_mirror(Printer& printer, const CppNameTable& names,
+                             const MessageNode& message) {
+    if (!holds_enum(message)) {
+        return;
+    }
+    printer.print("namespace $id$ {\n", {{"id", names.local.at(&message)}});
+    for (const auto& nested_enum : message.enums) {
+        emit_enum(printer, names, nested_enum, /*trailing_blank=*/false);
+    }
+    for (const auto& nested : message.nested_messages) {
+        emit_enum_mirror(printer, names, nested);
+    }
+    printer.print("}  // namespace $id$\n\n", {{"id", names.local.at(&message)}});
+}
+
 // Emit the shared "common header" for `file`: `#pragma once`, `<cstdint>`, an include of each
 // (non-option) import's common header, the package namespace, and one `enum class` per TOP-LEVEL enum
 // (via emit_enum). This is the single home for the schema's enums: both the streaming and arena decoder
@@ -163,9 +193,11 @@ inline std::string emit_common_header(const FileNode& file, const CppNameTable& 
     if (!ns.empty()) {
         printer.print("namespace $ns$ {\n\n", {{"ns", ns}});
     }
-    for (const auto& node :
-         file.enums) {  // top-level enums only; nested enums ride with the message
+    for (const auto& node : file.enums) {
         emit_enum(printer, names, node, /*trailing_blank=*/true);
+    }
+    for (const auto& message : file.messages) {
+        emit_enum_mirror(printer, names, message);
     }
     if (!ns.empty()) {
         printer.print("}  // namespace $ns$\n", {{"ns", ns}});

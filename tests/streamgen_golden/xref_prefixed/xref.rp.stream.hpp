@@ -62,14 +62,7 @@ struct Nested {
     explicit Def(::rapidproto::ByteView bytes) noexcept : rp_span(bytes) {}
     ::rapidproto::ByteView rp_bytes() const noexcept { return rp_span; }
 
-    enum class Kind : std::int32_t {
-      UNKNOWN = 0,
-      A = 1,
-      rp_known_min = 0,
-      rp_known_max = 1,
-      rp_non_exhaustive_min = INT32_MIN,
-      rp_non_exhaustive_max = INT32_MAX,
-    };
+    using Kind = ::pfx::enums::xr::Nested::Def::Kind;
 
     struct Inner;
     struct Inner {
@@ -99,14 +92,14 @@ struct Nested {
 
     struct single { using Value = ::pfx::stream::xr::Nested::Def; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "single"; };
     struct many { using Value = ::pfx::stream::xr::Nested::Def; static constexpr std::uint32_t kNumber = 2; static constexpr std::string_view kName = "many"; };
-    struct kind { using Value = ::pfx::stream::xr::Nested::Def::Kind; static constexpr std::uint32_t kNumber = 5; static constexpr std::string_view kName = "kind"; };
-    struct kinds { using Value = ::pfx::stream::xr::Nested::Def::Kind; static constexpr std::uint32_t kNumber = 6; static constexpr std::string_view kName = "kinds"; };
+    struct kind { using Value = ::pfx::enums::xr::Nested::Def::Kind; static constexpr std::uint32_t kNumber = 5; static constexpr std::string_view kName = "kind"; };
+    struct kinds { using Value = ::pfx::enums::xr::Nested::Def::Kind; static constexpr std::uint32_t kNumber = 6; static constexpr std::string_view kName = "kinds"; };
     struct inner { using Value = ::pfx::stream::xr::Nested::Def::Inner; static constexpr std::uint32_t kNumber = 9; static constexpr std::string_view kName = "inner"; };
     struct inners { using Value = ::pfx::stream::xr::Nested::Def::Inner; static constexpr std::uint32_t kNumber = 10; static constexpr std::string_view kName = "inners"; };
     struct chosen { using Value = ::pfx::stream::xr::Nested::Def; static constexpr std::uint32_t kNumber = 4; static constexpr std::string_view kName = "chosen"; };
-    struct tagged { using Value = ::pfx::stream::xr::Nested::Def::Kind; static constexpr std::uint32_t kNumber = 8; static constexpr std::string_view kName = "tagged"; };
+    struct tagged { using Value = ::pfx::enums::xr::Nested::Def::Kind; static constexpr std::uint32_t kNumber = 8; static constexpr std::string_view kName = "tagged"; };
     struct by_name { using Key = std::string_view; using Value = ::pfx::stream::xr::Nested::Def; static constexpr std::uint32_t kNumber = 3; static constexpr std::string_view kName = "by_name"; };
-    struct ranked { using Key = std::int32_t; using Value = ::pfx::stream::xr::Nested::Def::Kind; static constexpr std::uint32_t kNumber = 7; static constexpr std::string_view kName = "ranked"; };
+    struct ranked { using Key = std::int32_t; using Value = ::pfx::enums::xr::Nested::Def::Kind; static constexpr std::uint32_t kNumber = 7; static constexpr std::string_view kName = "ranked"; };
 
     template <class... rp_Callbacks>
     [[nodiscard]] ::rapidproto::DecodeStatus decode(rp_Callbacks&&... rp_callbacks) const;
@@ -188,14 +181,7 @@ struct CousinB {
   explicit CousinB(::rapidproto::ByteView bytes) noexcept : rp_span(bytes) {}
   ::rapidproto::ByteView rp_bytes() const noexcept { return rp_span; }
 
-  enum class Tag : std::int32_t {
-    NONE = 0,
-    X = 1,
-    rp_known_min = 0,
-    rp_known_max = 1,
-    rp_non_exhaustive_min = INT32_MIN,
-    rp_non_exhaustive_max = INT32_MAX,
-  };
+  using Tag = ::pfx::enums::xr::CousinB::Tag;
 
   struct Thing;
   struct Thing {
@@ -227,7 +213,7 @@ struct CousinA {
 
     struct thing { using Value = ::pfx::stream::xr::CousinB::Thing; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "thing"; };
     struct things { using Value = ::pfx::stream::xr::CousinB::Thing; static constexpr std::uint32_t kNumber = 2; static constexpr std::string_view kName = "things"; };
-    struct tag { using Value = ::pfx::stream::xr::CousinB::Tag; static constexpr std::uint32_t kNumber = 3; static constexpr std::string_view kName = "tag"; };
+    struct tag { using Value = ::pfx::enums::xr::CousinB::Tag; static constexpr std::uint32_t kNumber = 3; static constexpr std::string_view kName = "tag"; };
 
     template <class... rp_Callbacks>
     [[nodiscard]] ::rapidproto::DecodeStatus decode(rp_Callbacks&&... rp_callbacks) const;
@@ -565,7 +551,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Nested::User::decode(rp_Callbacks&&... rp_
         const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
         if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_np;
-        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, kind{}, static_cast<::pfx::stream::xr::Nested::Def::Kind>(::rapidproto::varint_to_int32(rp_raw))); !rp_status.ok()) {
+        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, kind{}, static_cast<::pfx::enums::xr::Nested::Def::Kind>(::rapidproto::varint_to_int32(rp_raw))); !rp_status.ok()) {
           return rp_status;
         }
       } else {  // no callback for this field -> skip its value (compile-time wire)
@@ -588,7 +574,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Nested::User::decode(rp_Callbacks&&... rp_
         const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
         if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_np;
-        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, kinds{}, static_cast<::pfx::stream::xr::Nested::Def::Kind>(::rapidproto::varint_to_int32(rp_raw))); !rp_status.ok()) {
+        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, kinds{}, static_cast<::pfx::enums::xr::Nested::Def::Kind>(::rapidproto::varint_to_int32(rp_raw))); !rp_status.ok()) {
           return rp_status;
         }
       } else {  // no callback for this field -> skip its value (compile-time wire)
@@ -614,7 +600,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Nested::User::decode(rp_Callbacks&&... rp_
           const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_pc, rp_pe, &rp_raw, &rp_we);
           if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_pc - rp_pbeg)}; }
           rp_pc = rp_np;
-          if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, kinds{}, static_cast<::pfx::stream::xr::Nested::Def::Kind>(::rapidproto::varint_to_int32(rp_raw))); !rp_status.ok()) {
+          if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, kinds{}, static_cast<::pfx::enums::xr::Nested::Def::Kind>(::rapidproto::varint_to_int32(rp_raw))); !rp_status.ok()) {
             return rp_status;
           }
         }
@@ -707,7 +693,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Nested::User::decode(rp_Callbacks&&... rp_
         const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
         if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_np;
-        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, tagged{}, static_cast<::pfx::stream::xr::Nested::Def::Kind>(::rapidproto::varint_to_int32(rp_raw))); !rp_status.ok()) {
+        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, tagged{}, static_cast<::pfx::enums::xr::Nested::Def::Kind>(::rapidproto::varint_to_int32(rp_raw))); !rp_status.ok()) {
           return rp_status;
         }
       } else {  // no callback for this field -> skip its value (compile-time wire)
@@ -810,7 +796,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Nested::User::decode(rp_Callbacks&&... rp_
                 const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_ec, rp_ee, &rp_raw, &rp_we);
                 if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_ec - ::rapidproto::wire::byte_ptr(rp_entry))}; }
                 rp_ec = rp_np;
-                rp_value = static_cast<::pfx::stream::xr::Nested::Def::Kind>(::rapidproto::varint_to_int32(rp_raw));
+                rp_value = static_cast<::pfx::enums::xr::Nested::Def::Kind>(::rapidproto::varint_to_int32(rp_raw));
               } else {
                 std::size_t rp_efo = 0;
                 const std::uint8_t* const rp_esp = ::rapidproto::wire::skip_value(rp_ec, rp_ee, ::rapidproto::wire::byte_ptr(rp_entry), rp_et, 0, &rp_we, &rp_efo);
@@ -1525,7 +1511,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus CousinA::Use::decode(rp_Callbacks&&... rp_
         const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
         if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_np;
-        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, tag{}, static_cast<::pfx::stream::xr::CousinB::Tag>(::rapidproto::varint_to_int32(rp_raw))); !rp_status.ok()) {
+        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, tag{}, static_cast<::pfx::enums::xr::CousinB::Tag>(::rapidproto::varint_to_int32(rp_raw))); !rp_status.ok()) {
           return rp_status;
         }
       } else {  // no callback for this field -> skip its value (compile-time wire)

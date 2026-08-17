@@ -33,4 +33,29 @@ enum class Stream : std::int32_t {
   rp_non_exhaustive_max = INT32_MAX,
 };
 
+namespace Nested {
+namespace Def {
+enum class Kind : std::int32_t {
+  UNKNOWN = 0,
+  A = 1,
+  rp_known_min = 0,
+  rp_known_max = 1,
+  rp_non_exhaustive_min = INT32_MIN,
+  rp_non_exhaustive_max = INT32_MAX,
+};
+}  // namespace Def
+
+}  // namespace Nested
+
+namespace CousinB {
+enum class Tag : std::int32_t {
+  NONE = 0,
+  X = 1,
+  rp_known_min = 0,
+  rp_known_max = 1,
+  rp_non_exhaustive_min = INT32_MIN,
+  rp_non_exhaustive_max = INT32_MAX,
+};
+}  // namespace CousinB
+
 }  // namespace pfx::enums::xr

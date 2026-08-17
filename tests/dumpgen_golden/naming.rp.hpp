@@ -149,19 +149,13 @@ class Shadow {
   class Inner;
   class Inner {
    public:
-    enum class Shadow : std::int32_t {
-      X = 0,
-      rp_known_min = 0,
-      rp_known_max = 0,
-      rp_non_exhaustive_min = INT32_MIN,
-      rp_non_exhaustive_max = INT32_MAX,
-    };
-    std::optional<::rp::arena::nm::Shadow::Inner::Shadow> e() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? std::optional<::rp::arena::nm::Shadow::Inner::Shadow>(m_e) : std::nullopt; }
+    using Shadow = ::rp::enums::nm::Shadow::Inner::Shadow;
+    std::optional<::rp::enums::nm::Shadow::Inner::Shadow> e() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? std::optional<::rp::enums::nm::Shadow::Inner::Shadow>(m_e) : std::nullopt; }
     [[nodiscard]] static const Inner* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
    private:
     template <class rp_T> friend bool ::rapidproto::arena_detail::decode_into(rp_T&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
     static bool rp_decode_into(Inner& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
-    ::rp::arena::nm::Shadow::Inner::Shadow m_e;
+    ::rp::enums::nm::Shadow::Inner::Shadow m_e;
     std::uint8_t m_rp_mask;
   };
   const ::rp::arena::nm::Shadow::Inner* inner() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? &m_inner : nullptr; }
@@ -233,19 +227,13 @@ static_assert(::std::is_trivially_destructible_v<Std>);
 
 class StdEnum {
  public:
-  enum class std_ : std::int32_t {
-    X = 0,
-    rp_known_min = 0,
-    rp_known_max = 0,
-    rp_non_exhaustive_min = INT32_MIN,
-    rp_non_exhaustive_max = INT32_MAX,
-  };
-  std::optional<::rp::arena::nm::StdEnum::std_> e() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? std::optional<::rp::arena::nm::StdEnum::std_>(m_e) : std::nullopt; }
+  using std_ = ::rp::enums::nm::StdEnum::std_;
+  std::optional<::rp::enums::nm::StdEnum::std_> e() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? std::optional<::rp::enums::nm::StdEnum::std_>(m_e) : std::nullopt; }
   [[nodiscard]] static const StdEnum* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class rp_T> friend bool ::rapidproto::arena_detail::decode_into(rp_T&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
   static bool rp_decode_into(StdEnum& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
-  ::rp::arena::nm::StdEnum::std_ m_e;
+  ::rp::enums::nm::StdEnum::std_ m_e;
   std::uint8_t m_rp_mask;
 };
 static_assert(::std::is_trivially_destructible_v<StdEnum>);
@@ -951,7 +939,7 @@ RP_FLATTEN inline bool ::rp::arena::nm::Shadow::Inner::rp_decode_into([[maybe_un
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
       if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
       rp_c = rp_np;
-      out.m_e = static_cast<::rp::arena::nm::Shadow::Inner::Shadow>(::rapidproto::varint_to_int32(rp_raw));
+      out.m_e = static_cast<::rp::enums::nm::Shadow::Inner::Shadow>(::rapidproto::varint_to_int32(rp_raw));
       out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 0));
       continue;
     }
@@ -1236,7 +1224,7 @@ RP_FLATTEN inline bool ::rp::arena::nm::StdEnum::rp_decode_into([[maybe_unused]]
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
       if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
       rp_c = rp_np;
-      out.m_e = static_cast<::rp::arena::nm::StdEnum::std_>(::rapidproto::varint_to_int32(rp_raw));
+      out.m_e = static_cast<::rp::enums::nm::StdEnum::std_>(::rapidproto::varint_to_int32(rp_raw));
       out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 0));
       continue;
     }

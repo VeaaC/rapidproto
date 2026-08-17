@@ -176,20 +176,28 @@ TEST_CASE("common-header: model_namespace nests every message (incl. imported), 
     }
 }
 
-TEST_CASE("common-header: a nested enum rides with its message under model_namespace", "[common]") {
-    // A NESTED enum is not shared (not in the common header) -- it stays inside its message, so it
-    // follows the model root (::rp::stream::pkg::Msg::Inner), distinct from the arena copy.
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): a flat sweep over every nested enum
+TEST_CASE("common-header: a nested enum is shared, mirrored under the enums root", "[common]") {
+    // A nested enum is DEFINED once in the common header's namespace mirror and aliased into each
+    // model, so its absolute name carries the enums root and is byte-identical whichever model asked
+    // -- the property that makes one enum usable across both decoders.
     const ResolvedFileSet set = resolve_set(RAPIDPROTO_CORPUS_DIR, "editions2023.proto");
-    const codegen::CppNameTable names =
+    const codegen::CppNameTable stream_names =
         codegen::build_cpp_names(set.files.front(), set.files, codegen::effective_ns_prefix({}),
                                  std::string(codegen::kStreamRoot));
+    const codegen::CppNameTable arena_names =
+        codegen::build_cpp_names(set.files.front(), set.files, codegen::effective_ns_prefix({}),
+                                 std::string(codegen::kArenaRoot));
     bool saw_nested_enum = false;
     for (const FileNode& file : set.files) {
         for (const auto& message : file.messages) {
             for (const auto& nested_enum : message.enums) {
                 INFO("nested enum " << nested_enum.fqn);
-                CHECK(codegen::cpp_type_name(names, nested_enum.fqn).find("::stream::") !=
-                      std::string::npos);
+                const std::string from_stream =
+                    codegen::cpp_type_name(stream_names, nested_enum.fqn);
+                CHECK(from_stream.find("::enums::") != std::string::npos);
+                CHECK(from_stream.find("::stream::") == std::string::npos);
+                CHECK(from_stream == codegen::cpp_type_name(arena_names, nested_enum.fqn));
                 saw_nested_enum = true;
             }
         }

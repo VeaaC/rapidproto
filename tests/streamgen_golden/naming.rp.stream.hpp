@@ -118,15 +118,9 @@ struct Shadow {
     explicit Inner(::rapidproto::ByteView bytes) noexcept : rp_span(bytes) {}
     ::rapidproto::ByteView rp_bytes() const noexcept { return rp_span; }
 
-    enum class Shadow : std::int32_t {
-      X = 0,
-      rp_known_min = 0,
-      rp_known_max = 0,
-      rp_non_exhaustive_min = INT32_MIN,
-      rp_non_exhaustive_max = INT32_MAX,
-    };
+    using Shadow = ::rp::enums::nm::Shadow::Inner::Shadow;
 
-    struct e { using Value = ::rp::stream::nm::Shadow::Inner::Shadow; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "e"; };
+    struct e { using Value = ::rp::enums::nm::Shadow::Inner::Shadow; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "e"; };
 
     template <class... rp_Callbacks>
     [[nodiscard]] ::rapidproto::DecodeStatus decode(rp_Callbacks&&... rp_callbacks) const;
@@ -209,15 +203,9 @@ struct StdEnum {
   explicit StdEnum(::rapidproto::ByteView bytes) noexcept : rp_span(bytes) {}
   ::rapidproto::ByteView rp_bytes() const noexcept { return rp_span; }
 
-  enum class std_ : std::int32_t {
-    X = 0,
-    rp_known_min = 0,
-    rp_known_max = 0,
-    rp_non_exhaustive_min = INT32_MIN,
-    rp_non_exhaustive_max = INT32_MAX,
-  };
+  using std_ = ::rp::enums::nm::StdEnum::std_;
 
-  struct e { using Value = ::rp::stream::nm::StdEnum::std_; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "e"; };
+  struct e { using Value = ::rp::enums::nm::StdEnum::std_; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "e"; };
 
   template <class... rp_Callbacks>
   [[nodiscard]] ::rapidproto::DecodeStatus decode(rp_Callbacks&&... rp_callbacks) const;
@@ -958,7 +946,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Shadow::Inner::decode(rp_Callbacks&&... rp
         const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
         if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_np;
-        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, e{}, static_cast<::rp::stream::nm::Shadow::Inner::Shadow>(::rapidproto::varint_to_int32(rp_raw))); !rp_status.ok()) {
+        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, e{}, static_cast<::rp::enums::nm::Shadow::Inner::Shadow>(::rapidproto::varint_to_int32(rp_raw))); !rp_status.ok()) {
           return rp_status;
         }
       } else {  // no callback for this field -> skip its value (compile-time wire)
@@ -1348,7 +1336,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus StdEnum::decode(rp_Callbacks&&... rp_callb
         const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
         if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_np;
-        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, e{}, static_cast<::rp::stream::nm::StdEnum::std_>(::rapidproto::varint_to_int32(rp_raw))); !rp_status.ok()) {
+        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, e{}, static_cast<::rp::enums::nm::StdEnum::std_>(::rapidproto::varint_to_int32(rp_raw))); !rp_status.ok()) {
           return rp_status;
         }
       } else {  // no callback for this field -> skip its value (compile-time wire)

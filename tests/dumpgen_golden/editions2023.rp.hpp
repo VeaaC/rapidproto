@@ -19,13 +19,7 @@ class M;
 
 class M {
  public:
-  enum class Inner : std::int32_t {
-    ZERO = 0,
-    rp_known_min = 0,
-    rp_known_max = 0,
-    rp_non_exhaustive_min = INT32_MIN,
-    rp_non_exhaustive_max = INT32_MAX,
-  };
+  using Inner = ::rp::enums::ed23::M::Inner;
   std::int32_t implicit_scalar() const noexcept { return m_implicit_scalar; }
   std::optional<std::int32_t> explicit_scalar() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? std::optional<std::int32_t>(m_explicit_scalar) : std::nullopt; }
   const ::rp::arena::ed23::M* child() const noexcept { return m_child; }

@@ -1,5 +1,6 @@
 #include "rapidproto/codegen/naming.hpp"
 
+#include <cstddef>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -241,24 +242,36 @@ const std::string& assign_id(CppNameTable& names, std::unordered_set<std::string
 // member, so it shares it verbatim (see CppNameTable::type_ns).
 // `abs` is a full `::a::b::C` type name, `msg_ns` a bare `a::b` namespace -- distinct shapes, and both
 // are internal to this file's single recursion.
+// `enum_abs` is the same path as `abs` under the enums root; a swap shows up in every golden.
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 void index_message(CppNameTable& names, const MessageNode& message, const std::string& abs,
-                   const std::string& msg_ns, const ClaimedIds& claimed) {
+                   const std::string& enum_abs, const std::string& msg_ns,
+                   const ClaimedIds& claimed) {
     std::unordered_set<std::string> taken;
     // Seed with the class's OWN name: C++ forbids a member with the same name as its class
     // ([class.mem]), so `message Outer { message Outer {} }` -- which protoc accepts -- would emit a
     // header that does not compile. The parent keeps its name; the child is the one deduped.
     taken.insert(names.local.at(&message));
     std::vector<std::pair<const MessageNode*, std::string>> children;
+    // A nested enum's canonical home is the MIRROR under the enums root, not this class: one C++
+    // type both models alias, instead of a copy per model. The mirror reuses the ids assigned here,
+    // so its path is the model path with the root swapped -- which is why `taken` still governs both
+    // and why no second dedup pass exists.
     for (const auto& nested_enum : message.enums) {
         names.absolute.emplace(
             nested_enum.fqn,
-            abs + "::" + assign_id(names, taken, claimed, &nested_enum, nested_enum.name));
+            enum_abs + "::" + assign_id(names, taken, claimed, &nested_enum, nested_enum.name));
     }
+    std::vector<std::string> child_enum_abs;
     for (const auto& nested : message.nested_messages) {
-        std::string child_abs = abs + "::" + assign_id(names, taken, claimed, &nested, nested.name);
+        const std::string id = assign_id(names, taken, claimed, &nested, nested.name);
+        std::string child_abs = abs;
+        child_abs.append("::").append(id);
         names.absolute.emplace(nested.fqn, child_abs);
         names.type_ns.emplace(nested.fqn, msg_ns);
+        std::string child_enums = enum_abs;
+        child_enums.append("::").append(id);
+        child_enum_abs.push_back(std::move(child_enums));
         children.emplace_back(&nested, std::move(child_abs));
     }
     for (const auto& field : message.fields) {
@@ -276,8 +289,9 @@ void index_message(CppNameTable& names, const MessageNode& message, const std::s
     for (const auto& map : message.map_fields) {
         assign_id(names, taken, claimed, &map, map.name);
     }
-    for (const auto& [child, child_abs] : children) {
-        index_message(names, *child, child_abs, msg_ns, claimed);
+    for (std::size_t i = 0; i < children.size(); ++i) {
+        index_message(names, *children[i].first, children[i].second, child_enum_abs[i], msg_ns,
+                      claimed);
     }
 }
 
@@ -355,7 +369,9 @@ void index_file(CppNameTable& names, const FileNode& file, TakenByNamespace& tak
         tops.emplace_back(&message, std::move(abs));
     }
     for (const auto& [message, abs] : tops) {
-        index_message(names, *message, abs, msg_ns, claimed);
+        // The mirror path for a top-level message: same id, enums root instead of the model root.
+        index_message(names, *message, abs, enum_root + "::" + names.local.at(message), msg_ns,
+                      claimed);
     }
 }
 

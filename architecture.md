@@ -899,8 +899,11 @@ unit. Three pieces make that work:
   "directly provides" the enums) and each aliases every enum into its own model namespace, so
   `<prefix>::arena::pkg::State` and `<prefix>::stream::pkg::State` name one type. A third root rather
   than package scope keeps the ids model-independent while leaving package scope empty of anything
-  the generator invented. NESTED enums are not shared yet; they ride with their message inside each
-  model's decoder (distinct fully-qualified names, no clash).
+  the generator invented. NESTED enums are shared the same way, through a **namespace mirror** of the
+  message nesting (`rp::enums::pkg::Msg::Kind`), aliased back into each model's class. The mirror
+  reuses the ids the model already assigned, so its path is the model path with the root swapped and
+  no second dedup pass exists; namespaces rather than scope structs, since a namespace cannot be
+  named as a type and so cannot be mistaken for the message.
 - **Parse once, emit per model.** `rapidprotoc` runs the front-end once, builds a name table per selected
   model, and emits the common header plus the selected decoders into one out-dir. The common
   header is

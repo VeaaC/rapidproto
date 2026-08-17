@@ -14,12 +14,17 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
   |---|---|---|
   | arena | `pkg::Msg` | `rp::arena::pkg::Msg` |
   | streaming | `pkg::stream::Msg` | `rp::stream::pkg::Msg` |
-  | enums (top-level) | `pkg::Enum` | `rp::enums::pkg::Enum`, aliased into both models |
+  | enums | `pkg::Enum`, `pkg::Msg::Kind` | `rp::enums::pkg::Enum`, `rp::enums::pkg::Msg::Kind`, aliased into both models |
 
   One `namespace p = rp::arena::pkg;` per file keeps bodies unchanged. The root is
   `--namespace-prefix`, which now defaults to `rp` and **no longer accepts an empty value** — the
   three root segments would otherwise land at global scope. Pass `--namespace-prefix=myco` if your
   codebase already owns `rp`.
+
+  **Nested enums are now shared too.** A `Msg::Kind` used to be defined separately inside each
+  model's class, so an enum read from the arena decoder was a different C++ type from the streaming
+  one and could not be compared or passed across — true of 88% of enums in real schemas. Both models
+  now alias one definition, mirrored under `rp::enums`. The spelling you already write is unchanged.
 
   What this buys: a schema can now declare a top-level type named `stream` (previously the two
   headers collided, and a top-level *enum* of that name broke the streaming header on its own); a

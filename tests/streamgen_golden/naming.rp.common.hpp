@@ -24,4 +24,27 @@ enum class MacroEnum : std::int32_t {
   rp_non_exhaustive_max = INT32_MAX,
 };
 
+namespace Shadow {
+namespace Inner {
+enum class Shadow : std::int32_t {
+  X = 0,
+  rp_known_min = 0,
+  rp_known_max = 0,
+  rp_non_exhaustive_min = INT32_MIN,
+  rp_non_exhaustive_max = INT32_MAX,
+};
+}  // namespace Inner
+
+}  // namespace Shadow
+
+namespace StdEnum {
+enum class std_ : std::int32_t {
+  X = 0,
+  rp_known_min = 0,
+  rp_known_max = 0,
+  rp_non_exhaustive_min = INT32_MIN,
+  rp_non_exhaustive_max = INT32_MAX,
+};
+}  // namespace StdEnum
+
 }  // namespace rp::enums::nm

@@ -18,13 +18,7 @@ struct M {
   explicit M(::rapidproto::ByteView bytes) noexcept : rp_span(bytes) {}
   ::rapidproto::ByteView rp_bytes() const noexcept { return rp_span; }
 
-  enum class Inner : std::int32_t {
-    ZERO = 0,
-    rp_known_min = 0,
-    rp_known_max = 0,
-    rp_non_exhaustive_min = INT32_MIN,
-    rp_non_exhaustive_max = INT32_MAX,
-  };
+  using Inner = ::rp::enums::ed23::M::Inner;
 
   struct implicit_scalar { using Value = std::int32_t; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "implicit_scalar"; };
   struct explicit_scalar { using Value = std::int32_t; static constexpr std::uint32_t kNumber = 2; static constexpr std::string_view kName = "explicit_scalar"; };

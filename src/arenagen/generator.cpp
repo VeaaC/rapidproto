@@ -613,8 +613,11 @@ void emit_message_body(const Emit& emit, const MessageNode& message) {
     p.print(" public:\n");
     p.indent();
 
+    // A nested enum is DEFINED once in the common header's mirror; the class only aliases it, so the
+    // spelling a user already writes still resolves and both models name one type.
     for (const EnumNode& nested : message.enums) {
-        codegen::emit_enum(emit.printer, emit.names, nested, false);
+        p.print("using $E$ = $A$;\n", {{"E", emit.names.local.at(&nested)},
+                                       {"A", cpp_type_name(emit.names, nested.fqn)}});
     }
     // Forward-declare nested messages first, so any sibling cross-reference -- a pointer, repeated, map
     // value, or oneof member, and even a cycle -- names a declared type regardless of definition order.

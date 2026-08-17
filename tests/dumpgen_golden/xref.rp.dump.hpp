@@ -37,7 +37,7 @@ inline const char* rp_dump_enum_name(::rp::enums::xr::Stream rp_e) {
   return nullptr;  // unknown (open enum): the caller renders UNKNOWN(<n>)
 }
 
-inline const char* rp_dump_enum_name(::rp::arena::xr::Nested::Def::Kind rp_e) {
+inline const char* rp_dump_enum_name(::rp::enums::xr::Nested::Def::Kind rp_e) {
   switch (static_cast<std::int32_t>(rp_e)) {
     case 0: return "UNKNOWN";
     case 1: return "A";
@@ -45,7 +45,7 @@ inline const char* rp_dump_enum_name(::rp::arena::xr::Nested::Def::Kind rp_e) {
   return nullptr;  // unknown (open enum): the caller renders UNKNOWN(<n>)
 }
 
-inline const char* rp_dump_enum_name(::rp::arena::xr::CousinB::Tag rp_e) {
+inline const char* rp_dump_enum_name(::rp::enums::xr::CousinB::Tag rp_e) {
   switch (static_cast<std::int32_t>(rp_e)) {
     case 0: return "NONE";
     case 1: return "X";
