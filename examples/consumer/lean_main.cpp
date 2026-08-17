@@ -14,6 +14,10 @@
 #include "rapidproto/arena_runtime.hpp"
 #include "rapidproto/runtime.hpp"
 
+// The generated types live under one root per model; alias each package once so the
+// bodies below read as they did before the roots existed. This file uses the arena model only.
+namespace demo = rp::arena::demo;
+
 int main() {
     // The same wire bytes as main.cpp: demo.Shape{ name: "hi", origin: {3,4}, kind: KIND_CIRCLE,
     // sides: [3,4,5] } plus an unknown field 99. The dropped sides and the unknown field are

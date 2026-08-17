@@ -20,11 +20,13 @@ link here instead of restating.*
   yourself via `value_or`); a sub-message's presence is its `const T*` accessor returning `nullptr`.
   Streaming: an absent field simply fires no callback, and no defaults are delivered.
 - **Enums are open** and **shared between the models.** A proto enum becomes one `enum class :
-  std::int32_t` (e.g. `example::Status`) used by *both* decoders. An unrecognized wire value arrives as
+  std::int32_t`. A **top-level** enum is defined once at `rp::enums::<pkg>` and aliased into both
+  decoders, so `rp::arena::<pkg>::Status` and `rp::stream::<pkg>::Status` are the same type; an enum
+  **nested in a message** is still defined per model, so the two spellings are distinct types there. An unrecognized wire value arrives as
   its raw integer cast into the enum; `INT32_MIN`/`INT32_MAX` sentinels force a `default:` arm under
   `-Wswitch`, and `rp_known_min`/`rp_known_max` carry the schema's declared value range (e.g.
-  `if (v <= Status::rp_known_max)`). (The generator places the enums in a shared
-  `<stem>.rp.common.hpp` that each decoder `#include`s for you, so you never include it directly.) This applies to **closed** enums too
+  `if (v <= Status::rp_known_max)`). (They live in a shared
+  `<stem>.rp.common.hpp` that each decoder `#include`s for you.) This applies to **closed** enums too
   (proto2, or editions `enum_type = CLOSED`): RapidProto intentionally decodes every enum as open —
   where protoc would route an unrecognized closed-enum value to unknown fields, RapidProto delivers
   the raw value — so do not rely on closed-enum semantics.

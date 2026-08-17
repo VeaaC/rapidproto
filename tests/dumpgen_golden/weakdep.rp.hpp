@@ -11,7 +11,7 @@
 #include "rapidproto/arena_runtime.hpp"
 #include "weakdep.rp.common.hpp"  // IWYU pragma: export
 
-namespace wd {
+namespace rp::arena::wd {
 
 class WDep;
 
@@ -28,7 +28,7 @@ class WDep {
 static_assert(::std::is_trivially_destructible_v<WDep>);
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-RP_FLATTEN inline bool ::wd::WDep::rp_decode_into([[maybe_unused]] ::wd::WDep& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN inline bool ::rp::arena::wd::WDep::rp_decode_into([[maybe_unused]] ::rp::arena::wd::WDep& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(body);
   const std::uint8_t* const rp_cend = rp_c + body.size();
@@ -67,12 +67,12 @@ RP_FLATTEN inline bool ::wd::WDep::rp_decode_into([[maybe_unused]] ::wd::WDep& o
   }
   return true;
 }
-inline const ::wd::WDep* ::wd::WDep::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+inline const ::rp::arena::wd::WDep* ::rp::arena::wd::WDep::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
-  ::wd::WDep* const rp_root = arena.create<::wd::WDep>();
+  ::rp::arena::wd::WDep* const rp_root = arena.create<::rp::arena::wd::WDep>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
   return rp_root;
 }
 
-}  // namespace wd
+}  // namespace rp::arena::wd

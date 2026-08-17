@@ -134,8 +134,9 @@ int main(int argc, char** argv) {
         std::cerr << "error: " << entry << " resolved to no files\n";
         return 1;
     }
-    const rapidproto::codegen::CppNameTable names =
-        rapidproto::codegen::build_cpp_names(set.files.front(), set.files, "", "");
+    const rapidproto::codegen::CppNameTable names = rapidproto::codegen::build_cpp_names(
+        set.files.front(), set.files, rapidproto::codegen::effective_ns_prefix({}),
+        std::string(rapidproto::codegen::kArenaRoot));
 
     // The ENTRY file is the last in the resolved set (imports come first), matching how the CLI
     // picks the file to emit for.

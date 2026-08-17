@@ -12,24 +12,24 @@
 #include "samepkg_a.rp.common.hpp"  // IWYU pragma: export
 #include "samepkg_b.rp.hpp"
 
-namespace samepkg {
+namespace rp::arena::samepkg {
 
 class FirstA;
 
 class FirstA {
  public:
-  const ::samepkg::SecondB* b() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? &m_b : nullptr; }
+  const ::rp::arena::samepkg::SecondB* b() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? &m_b : nullptr; }
   [[nodiscard]] static const FirstA* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class rp_T> friend bool ::rapidproto::arena_detail::decode_into(rp_T&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
   static bool rp_decode_into(FirstA& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
-  ::samepkg::SecondB m_b;
+  ::rp::arena::samepkg::SecondB m_b;
   std::uint8_t m_rp_mask;
 };
 static_assert(::std::is_trivially_destructible_v<FirstA>);
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-RP_FLATTEN inline bool ::samepkg::FirstA::rp_decode_into([[maybe_unused]] ::samepkg::FirstA& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN inline bool ::rp::arena::samepkg::FirstA::rp_decode_into([[maybe_unused]] ::rp::arena::samepkg::FirstA& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(body);
   const std::uint8_t* const rp_cend = rp_c + body.size();
@@ -67,12 +67,12 @@ RP_FLATTEN inline bool ::samepkg::FirstA::rp_decode_into([[maybe_unused]] ::same
   }
   return true;
 }
-inline const ::samepkg::FirstA* ::samepkg::FirstA::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+inline const ::rp::arena::samepkg::FirstA* ::rp::arena::samepkg::FirstA::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
-  ::samepkg::FirstA* const rp_root = arena.create<::samepkg::FirstA>();
+  ::rp::arena::samepkg::FirstA* const rp_root = arena.create<::rp::arena::samepkg::FirstA>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
   return rp_root;
 }
 
-}  // namespace samepkg
+}  // namespace rp::arena::samepkg

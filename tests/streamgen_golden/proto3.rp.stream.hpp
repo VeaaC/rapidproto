@@ -8,9 +8,9 @@
 #include "rapidproto/runtime.hpp"
 #include "proto3.rp.common.hpp"  // IWYU pragma: export
 
-namespace p3::stream {
+namespace rp::stream::p3 {
 
-using ::p3::State;
+using ::rp::enums::p3::State;
 
 struct Msg;
 
@@ -21,11 +21,11 @@ struct Msg {
   struct implicit_i { using Value = std::int32_t; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "implicit_i"; };
   struct explicit_i { using Value = std::int32_t; static constexpr std::uint32_t kNumber = 2; static constexpr std::string_view kName = "explicit_i"; };
   struct name { using Value = std::string_view; static constexpr std::uint32_t kNumber = 3; static constexpr std::string_view kName = "name"; };
-  struct state { using Value = ::p3::State; static constexpr std::uint32_t kNumber = 4; static constexpr std::string_view kName = "state"; };
-  struct self { using Value = ::p3::stream::Msg; static constexpr std::uint32_t kNumber = 5; static constexpr std::string_view kName = "self"; };
+  struct state { using Value = ::rp::enums::p3::State; static constexpr std::uint32_t kNumber = 4; static constexpr std::string_view kName = "state"; };
+  struct self { using Value = ::rp::stream::p3::Msg; static constexpr std::uint32_t kNumber = 5; static constexpr std::string_view kName = "self"; };
   struct nums { using Value = std::int32_t; static constexpr std::uint32_t kNumber = 6; static constexpr std::string_view kName = "nums"; };
   struct unpacked { using Value = std::int32_t; static constexpr std::uint32_t kNumber = 7; static constexpr std::string_view kName = "unpacked"; };
-  struct states { using Value = ::p3::State; static constexpr std::uint32_t kNumber = 8; static constexpr std::string_view kName = "states"; };
+  struct states { using Value = ::rp::enums::p3::State; static constexpr std::uint32_t kNumber = 8; static constexpr std::string_view kName = "states"; };
   struct reals { using Value = double; static constexpr std::uint32_t kNumber = 12; static constexpr std::string_view kName = "reals"; };
   struct codes { using Value = std::uint32_t; static constexpr std::uint32_t kNumber = 13; static constexpr std::string_view kName = "codes"; };
   struct bools { using Value = bool; static constexpr std::uint32_t kNumber = 17; static constexpr std::string_view kName = "bools"; };
@@ -157,7 +157,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Msg::decode(rp_Callbacks&&... rp_callbacks
         const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
         if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_np;
-        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, state{}, static_cast<::p3::State>(::rapidproto::varint_to_int32(rp_raw))); !rp_status.ok()) {
+        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, state{}, static_cast<::rp::enums::p3::State>(::rapidproto::varint_to_int32(rp_raw))); !rp_status.ok()) {
           return rp_status;
         }
       } else {  // no callback for this field -> skip its value (compile-time wire)
@@ -180,7 +180,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Msg::decode(rp_Callbacks&&... rp_callbacks
         const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_val, &rp_we);
         if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_np;
-        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, self{}, ::p3::stream::Msg{rp_val}); !rp_status.ok()) {
+        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, self{}, ::rp::stream::p3::Msg{rp_val}); !rp_status.ok()) {
           return rp_status;
         }
       } else {  // no callback for this field -> skip its value (compile-time wire)
@@ -303,7 +303,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Msg::decode(rp_Callbacks&&... rp_callbacks
         const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
         if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_np;
-        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, states{}, static_cast<::p3::State>(::rapidproto::varint_to_int32(rp_raw))); !rp_status.ok()) {
+        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, states{}, static_cast<::rp::enums::p3::State>(::rapidproto::varint_to_int32(rp_raw))); !rp_status.ok()) {
           return rp_status;
         }
       } else {  // no callback for this field -> skip its value (compile-time wire)
@@ -329,7 +329,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Msg::decode(rp_Callbacks&&... rp_callbacks
           const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_pc, rp_pe, &rp_raw, &rp_we);
           if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_pc - rp_pbeg)}; }
           rp_pc = rp_np;
-          if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, states{}, static_cast<::p3::State>(::rapidproto::varint_to_int32(rp_raw))); !rp_status.ok()) {
+          if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, states{}, static_cast<::rp::enums::p3::State>(::rapidproto::varint_to_int32(rp_raw))); !rp_status.ok()) {
             return rp_status;
           }
         }
@@ -841,4 +841,4 @@ RP_FLATTEN ::rapidproto::DecodeStatus Msg::decode(rp_Callbacks&&... rp_callbacks
   }
 }
 
-}  // namespace p3::stream
+}  // namespace rp::stream::p3

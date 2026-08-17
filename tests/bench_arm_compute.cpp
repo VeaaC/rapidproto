@@ -19,6 +19,10 @@
 #include "rapidproto/arena_runtime.hpp"
 #include "rapidproto/runtime.hpp"
 
+// The generated types live under one root per model; alias each package once so the
+// bodies below read as they did before the roots existed. This file uses the arena model only.
+namespace google = rp::arena::google;
+
 namespace rpcompute {
 namespace {
 
@@ -27,7 +31,7 @@ namespace {
 // googleapis marks essentially every scalar/string field `optional`, so these accessors return
 // std::optional; repeated sub-messages arrive as ArrayView VALUES (not pointers), and a map is
 // a MapView whose entries expose key()/value().
-std::uint64_t checksum_compute(const rp::google::cloud::compute::v1beta::Instance* inst) {
+std::uint64_t checksum_compute(const google::cloud::compute::v1beta::Instance* inst) {
     if (inst == nullptr) {
         return 0;
     }
@@ -100,7 +104,7 @@ bool run_arm() {
         const rapidproto::ByteView cview(cbuf);
         rapidproto::Arena setup;
         const std::uint64_t expect =
-            checksum_compute(rp::google::cloud::compute::v1beta::Instance::decode(cview, setup));
+            checksum_compute(google::cloud::compute::v1beta::Instance::decode(cview, setup));
         // Load-bearing, not defensive: this is the only correctness check on the compute
         // decoder anywhere in the tree (the corpus gate sweeps the front end but never runs a
         // decode), and it catches a truncated or stale payload as a loud failure.
@@ -117,13 +121,13 @@ bool run_arm() {
              [&]() {
                  rapidproto::Arena a;
                  return checksum_compute(
-                     rp::google::cloud::compute::v1beta::Instance::decode(cview, a));
+                     google::cloud::compute::v1beta::Instance::decode(cview, a));
              }},
             {"arena-warm",
              [&]() {
                  cwarm.reset();
                  return checksum_compute(
-                     rp::google::cloud::compute::v1beta::Instance::decode(cview, cwarm));
+                     google::cloud::compute::v1beta::Instance::decode(cview, cwarm));
              }},
         };
         (void)rpbench::run("compute Instance", static_cast<double>(cbuf.size()), carms);

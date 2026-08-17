@@ -12,7 +12,7 @@
 #include "rapidproto/arena_runtime.hpp"
 #include "arena_unknown.rp.common.hpp"  // IWYU pragma: export
 
-namespace au {
+namespace rp::arena::au {
 inline namespace rp_modes_23113b230f50018b {
 
 class Flag;
@@ -32,7 +32,7 @@ static_assert(::std::is_trivially_destructible_v<Flag>);
 
 class Holder {
  public:
-  const ::au::Flag* flag() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? &m_flag : nullptr; }
+  const ::rp::arena::au::Flag* flag() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? &m_flag : nullptr; }
   std::int32_t n() const noexcept { return m_n; }
   bool has_unknown_fields() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 1)) != 0; }
   [[nodiscard]] static const Holder* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
@@ -40,13 +40,13 @@ class Holder {
   template <class rp_T> friend bool ::rapidproto::arena_detail::decode_into(rp_T&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
   static bool rp_decode_into(Holder& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
   std::int32_t m_n;
-  ::au::Flag m_flag;
+  ::rp::arena::au::Flag m_flag;
   std::uint8_t m_rp_mask;
 };
 static_assert(::std::is_trivially_destructible_v<Holder>);
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-RP_FLATTEN inline bool ::au::Flag::rp_decode_into([[maybe_unused]] ::au::Flag& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN inline bool ::rp::arena::au::Flag::rp_decode_into([[maybe_unused]] ::rp::arena::au::Flag& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(body);
   const std::uint8_t* const rp_cend = rp_c + body.size();
@@ -83,16 +83,16 @@ RP_FLATTEN inline bool ::au::Flag::rp_decode_into([[maybe_unused]] ::au::Flag& o
   }
   return true;
 }
-inline const ::au::Flag* ::au::Flag::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+inline const ::rp::arena::au::Flag* ::rp::arena::au::Flag::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
-  ::au::Flag* const rp_root = arena.create<::au::Flag>();
+  ::rp::arena::au::Flag* const rp_root = arena.create<::rp::arena::au::Flag>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
   return rp_root;
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-RP_FLATTEN inline bool ::au::Holder::rp_decode_into([[maybe_unused]] ::au::Holder& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN inline bool ::rp::arena::au::Holder::rp_decode_into([[maybe_unused]] ::rp::arena::au::Holder& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(body);
   const std::uint8_t* const rp_cend = rp_c + body.size();
@@ -141,13 +141,13 @@ RP_FLATTEN inline bool ::au::Holder::rp_decode_into([[maybe_unused]] ::au::Holde
   }
   return true;
 }
-inline const ::au::Holder* ::au::Holder::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+inline const ::rp::arena::au::Holder* ::rp::arena::au::Holder::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
-  ::au::Holder* const rp_root = arena.create<::au::Holder>();
+  ::rp::arena::au::Holder* const rp_root = arena.create<::rp::arena::au::Holder>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
   return rp_root;
 }
 
 }  // namespace rp_modes_23113b230f50018b
-}  // namespace au
+}  // namespace rp::arena::au

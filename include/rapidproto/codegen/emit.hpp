@@ -159,7 +159,7 @@ inline std::string emit_common_header(const FileNode& file, const CppNameTable& 
         }
     }
     printer.print("\n");
-    const std::string ns = join_ns(names.ns_prefix, namespace_of(file.package));
+    const std::string ns = enum_namespace(names, file);
     if (!ns.empty()) {
         printer.print("namespace $ns$ {\n\n", {{"ns", ns}});
     }

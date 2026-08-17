@@ -129,8 +129,8 @@ std::string sanitize(std::string_view name) {
         //    [namespace.std] that compiles without a diagnostic.
         // The two modes are worth keeping apart: SHADOWING needs a name the output looks up
         // unrooted (only `std`), while REDECLARATION needs a name the output already defines at the
-        // same scope. `rp_dump_detail` is out of reach via the `rp_` rule. The model sub-namespace
-        // `<pkg>::stream` belongs to the second mode and is NOT handled -- see index_file().
+        // same scope. `rp_dump_detail` is out of reach via the `rp_` rule, and the model roots are
+        // out of reach by position -- they sit ABOVE every package, so no proto name can reach them.
         // Every other name the emitters introduce is `rp_`-prefixed -- including the template
         // parameter packs (`rp_Callbacks`, `rp_Fs`) and the friend/tag aliases (`rp_T`, `rp_Tag`),
         // which are named that way SO THAT they need no entry here. Reserve a name below only when
@@ -327,26 +327,25 @@ void claim_unescaped_toplevel(const CppNameTable& names, const FileNode& file,
 // scopes) into `names`.
 void index_file(CppNameTable& names, const FileNode& file, TakenByNamespace& taken_by_ns,
                 const ClaimedIds& claimed) {
-    const std::string ns = join_ns(names.ns_prefix, namespace_of(file.package));
-    const std::string root = ns.empty() ? std::string() : "::" + ns;  // "::" + Local rejoins below
-    // Top-level messages (the decoders) may sit in a per-model sub-namespace so the two models' types
-    // coexist in one TU; top-level enums stay at package scope (shared, in the common header). Derive
-    // it via the shared message_namespace() so these absolute names match the `namespace` a generator
-    // opens for the decoder.
+    // Messages and enums are emitted under DIFFERENT roots -- `<prefix>::<model>::<pkg>` and
+    // `<prefix>::enums::<pkg>` -- so a top-level type of any name can no longer collide with a
+    // generator-invented segment: there is none inside the package scope any more.
     const std::string msg_ns = message_namespace(names, file);
     const std::string msg_root = msg_ns.empty() ? std::string() : "::" + msg_ns;
-    // Keyed on the PACKAGE namespace, not on msg_ns: top-level enums live at package scope and
-    // top-level messages may sit in a per-model sub-namespace, but both share one scope so the ids
-    // come out model-independent. They must -- enums are emitted into the SHARED common header, and
-    // an id that differed between the arena and streaming runs would make the two commons disagree.
-    // Model-independent ids are not the same as handling the model sub-namespace itself: a
-    // top-level type NAMED `stream` still collides with `namespace <pkg>::stream` (see sanitize()),
-    // which this scope cannot see and does not fix.
-    std::unordered_set<std::string>& taken = taken_by_ns[ns];
+    const std::string enum_ns = enum_namespace(names, file);
+    const std::string enum_root = enum_ns.empty() ? std::string() : "::" + enum_ns;
+    // ONE dedup scope for both, keyed on the PACKAGE namespace alone -- never on the root. The two
+    // roots are separate C++ scopes, so a shared set is stricter than C++ requires; that is
+    // deliberate. It keeps ids model-independent (the common header is shared, and ids differing
+    // between the arena and streaming runs would make the two commons disagree), and it keeps an
+    // enum's id equal to the one the model's alias will use, so the two spellings differ only in
+    // their root segment.
+    const std::string pkg_ns = join_ns(names.ns_prefix, namespace_of(file.package));
+    std::unordered_set<std::string>& taken = taken_by_ns[pkg_ns];
     std::vector<std::pair<const MessageNode*, std::string>> tops;
     for (const auto& node : file.enums) {
-        names.absolute.emplace(node.fqn,
-                               root + "::" + assign_id(names, taken, claimed, &node, node.name));
+        names.absolute.emplace(
+            node.fqn, enum_root + "::" + assign_id(names, taken, claimed, &node, node.name));
     }
     for (const auto& message : file.messages) {
         std::string abs =
@@ -407,7 +406,15 @@ std::string join_ns(std::string_view a, std::string_view b) {
 }
 
 std::string message_namespace(const CppNameTable& names, const FileNode& file) {
-    return join_ns(join_ns(names.ns_prefix, namespace_of(file.package)), names.model_namespace);
+    return join_ns(join_ns(names.ns_prefix, names.model_namespace), namespace_of(file.package));
+}
+
+std::string effective_ns_prefix(std::string_view prefix) {
+    return namespace_of(prefix.empty() ? kDefaultNsPrefix : prefix);
+}
+
+std::string enum_namespace(const CppNameTable& names, const FileNode& file) {
+    return join_ns(join_ns(names.ns_prefix, kEnumsRoot), namespace_of(file.package));
 }
 
 CppNameTable build_cpp_names(const FileNode& file, const std::vector<FileNode>& all_files,

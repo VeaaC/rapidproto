@@ -38,6 +38,9 @@ accessor, a `raw` one returns undecoded bytes.
 
 ## Reading a generated schema
 
+The examples below use `namespace ex = rp::arena::example;` — generated arena types live under
+`rp::arena::<your.package>`, and one alias keeps the code short.
+
 In a generated schema `pkg.Foo` becomes `pkg::Foo`, and each accessor is its proto field name. A
 map's entry type is nested in its message: `Foo::LabelsEntry`. Any name that would clash with C++ or
 with the generated API takes a trailing `_` — messages, enums and package components included
@@ -48,11 +51,11 @@ with the generated API takes a trailing `_` — messages, enums and package comp
 //                  repeated Phone phones = 4; map<string, string> labels = 5;
 //                  optional string nickname = 6; }
 
-std::string describe(const example::Person* p) {
+std::string describe(const ex::Person* p) {
   std::string out(p->name());                                       // string: a view into the input
   out += std::to_string(p->id());                                   // scalar: by value
-  if (const example::Address* a = p->address()) out += a->city();   // message: null when absent
-  for (const example::Phone& ph : p->phones()) out += ph.number();  // repeated: elements are values
+  if (const ex::Address* a = p->address()) out += a->city();   // message: null when absent
+  for (const ex::Phone& ph : p->phones()) out += ph.number();  // repeated: elements are values
   const auto labels = p->labels();
   if (auto it = labels.find("env"); it != labels.end()) out += it->value();
   out += p->nickname().value_or("");                                // `optional`: std::optional<T>
@@ -65,7 +68,7 @@ Two mistakes the view types invite on any schema, neither diagnosable from what 
 
 | If you write | you get | write instead |
 |---|---|---|
-| `for (const auto* ph : p->phones())` | `unable to deduce ‘const auto*’` (clang: `incompatible initializer of type ‘const Phone’`) | `for (const example::Phone& ph : …)` |
+| `for (const auto* ph : p->phones())` | `unable to deduce ‘const auto*’` (clang: `incompatible initializer of type ‘const Phone’`) | `for (const ex::Phone& ph : …)` |
 | `for (auto& [k, v] : p->labels())` | `cannot decompose inaccessible member … ‘rp_key’` (clang: `private member`) | `for (const auto& e : …)`, then `e.key()` / `e.value()` |
 
 Enums decode open, so a `switch` over one needs a `default:` arm — see [semantics](semantics.md).
@@ -75,8 +78,8 @@ A `oneof` is read with a visitor, so an inactive member cannot be read:
 ```cpp
 // oneof contact { string email = 1; Address work = 2; }
 person->contact(
-    [](example::Person::Contact::email, std::string_view e)      { use(e); },
-    [](example::Person::Contact::work,  const example::Address& a) { use(a.city()); },  // const&, no null-check
+    [](ex::Person::Contact::email, std::string_view e)      { use(e); },
+    [](ex::Person::Contact::work,  const ex::Address& a) { use(a.city()); },  // const&, no null-check
     [](std::monostate)                                            { /* unset */ });      // optional
 ```
 
@@ -119,8 +122,8 @@ returns a `std::shared_ptr<const Foo>` that owns **both** the input bytes and th
 
 ```cpp
 std::string bytes = read_request();                 // input you own
-std::shared_ptr<const example::Person> p =
-    rapidproto::decode_owned<example::Person>(std::move(bytes));  // move in -> no copy
+std::shared_ptr<const ex::Person> p =
+    rapidproto::decode_owned<ex::Person>(std::move(bytes));  // move in -> no copy
 if (!p) { /* malformed input (pass &err for the reason) */ }
 use(p->name());                                     // valid while any copy of `p` lives
 ```

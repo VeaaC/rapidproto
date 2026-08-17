@@ -17,6 +17,13 @@
 #include "arenagen_golden/proto3.rp.hpp"
 #include "arenagen_golden/wire_all.rp.hpp"
 
+// The generated types live under one root per model; alias each package once so the
+// bodies below read as they did before the roots existed. This file uses the arena model only.
+namespace au = rp::arena::au;
+namespace fm = rp::arena::fm;
+namespace mr = rp::arena::mr;
+namespace p3 = rp::arena::p3;
+
 extern "C" int LLVMFuzzerTestOneInput(const std::uint8_t* data, std::size_t size) {
     const rapidproto::ByteView input(reinterpret_cast<const char*>(data), size);
     volatile std::size_t sink = 0;
@@ -35,10 +42,10 @@ extern "C" int LLVMFuzzerTestOneInput(const std::uint8_t* data, std::size_t size
     }
     {
         rapidproto::Arena arena;
-        if (const wire::AllWire* w = wire::AllWire::decode(input, arena)) {
+        if (const rp::arena::wire::AllWire* w = rp::arena::wire::AllWire::decode(input, arena)) {
             sink += static_cast<std::size_t>(w->fx().value_or(0));
             sink += w->packed().size();
-            if (const wire::AllWire* nested = w->nested()) {
+            if (const rp::arena::wire::AllWire* nested = w->nested()) {
                 sink += static_cast<std::size_t>(nested->zz().value_or(0));
             }
         }

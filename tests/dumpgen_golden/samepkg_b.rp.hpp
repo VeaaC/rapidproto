@@ -11,7 +11,7 @@
 #include "rapidproto/arena_runtime.hpp"
 #include "samepkg_b.rp.common.hpp"  // IWYU pragma: export
 
-namespace samepkg {
+namespace rp::arena::samepkg {
 
 class SecondB;
 
@@ -28,7 +28,7 @@ class SecondB {
 static_assert(::std::is_trivially_destructible_v<SecondB>);
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-RP_FLATTEN inline bool ::samepkg::SecondB::rp_decode_into([[maybe_unused]] ::samepkg::SecondB& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN inline bool ::rp::arena::samepkg::SecondB::rp_decode_into([[maybe_unused]] ::rp::arena::samepkg::SecondB& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(body);
   const std::uint8_t* const rp_cend = rp_c + body.size();
@@ -67,12 +67,12 @@ RP_FLATTEN inline bool ::samepkg::SecondB::rp_decode_into([[maybe_unused]] ::sam
   }
   return true;
 }
-inline const ::samepkg::SecondB* ::samepkg::SecondB::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+inline const ::rp::arena::samepkg::SecondB* ::rp::arena::samepkg::SecondB::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
-  ::samepkg::SecondB* const rp_root = arena.create<::samepkg::SecondB>();
+  ::rp::arena::samepkg::SecondB* const rp_root = arena.create<::rp::arena::samepkg::SecondB>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
   return rp_root;
 }
 
-}  // namespace samepkg
+}  // namespace rp::arena::samepkg

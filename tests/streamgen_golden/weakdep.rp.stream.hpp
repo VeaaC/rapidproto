@@ -8,7 +8,7 @@
 #include "rapidproto/runtime.hpp"
 #include "weakdep.rp.common.hpp"  // IWYU pragma: export
 
-namespace wd::stream {
+namespace rp::stream::wd {
 
 struct WDep;
 
@@ -89,4 +89,4 @@ RP_FLATTEN ::rapidproto::DecodeStatus WDep::decode(rp_Callbacks&&... rp_callback
   }
 }
 
-}  // namespace wd::stream
+}  // namespace rp::stream::wd

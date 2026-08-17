@@ -4,6 +4,6 @@
 
 #include <cstdint>
 
-namespace ed24 {
+namespace rp::enums::ed24 {
 
-}  // namespace ed24
+}  // namespace rp::enums::ed24

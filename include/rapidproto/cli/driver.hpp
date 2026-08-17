@@ -23,6 +23,7 @@
 #include <utility>
 #include <vector>
 
+#include "rapidproto/codegen/naming.hpp"
 #include "rapidproto/resolve.hpp"
 #include "rapidproto/resolver.hpp"
 #include "rapidproto/result.hpp"
@@ -31,12 +32,17 @@
 
 namespace rapidproto::cli {
 
-// A --namespace-prefix is empty (no prefix) or a dot-separated list of C++ identifiers
+// A --namespace-prefix is a NON-EMPTY dot-separated list of C++ identifiers
 // (`[A-Za-z_][A-Za-z0-9_]*`). This catches CLI typos (e.g. `rp:`) up front instead of emitting
 // uncompilable generated code.
+//
+// Empty is rejected rather than meaning "no prefix". The generated models sit under per-model root
+// segments (`arena`, `stream`, `enums`), so an empty prefix would put those three ordinary words at
+// GLOBAL scope, where a consumer's own `class arena` or `namespace stream` collides with them. The
+// prefix is what keeps them in one namespace the consumer can rename; `rp` is only its default.
 inline bool valid_namespace_prefix(std::string_view p) {
     if (p.empty()) {
-        return true;
+        return false;
     }
     std::size_t start = 0;
     while (true) {
@@ -61,11 +67,13 @@ inline bool valid_namespace_prefix(std::string_view p) {
 
 // The flags shared by every generator CLI.
 struct Options {
-    ResolverConfig config;         // -I include paths, --no-wellknown
-    std::string out_dir = ".";     // --out-dir
-    std::string namespace_prefix;  // --namespace-prefix (dotted, prepended to each C++ namespace)
-    std::string depfile;           // --depfile (emit a Make/Ninja depfile for incremental codegen)
-    bool verbose = false;          // --verbose / -v: log each written file
+    ResolverConfig config;      // -I include paths, --no-wellknown
+    std::string out_dir = ".";  // --out-dir
+    // --namespace-prefix (dotted, prepended to each C++ namespace). See valid_namespace_prefix for
+    // why it cannot be emptied.
+    std::string namespace_prefix{codegen::kDefaultNsPrefix};
+    std::string depfile;   // --depfile (emit a Make/Ninja depfile for incremental codegen)
+    bool verbose = false;  // --verbose / -v: log each written file
     std::vector<std::string> entries;
 };
 

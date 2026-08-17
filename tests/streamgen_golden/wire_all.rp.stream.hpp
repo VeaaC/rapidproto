@@ -8,7 +8,7 @@
 #include "rapidproto/runtime.hpp"
 #include "wire_all.rp.common.hpp"  // IWYU pragma: export
 
-namespace wire::stream {
+namespace rp::stream::wire {
 
 struct AllWire;
 
@@ -34,9 +34,9 @@ struct AllWire {
   struct fx { using Value = std::uint32_t; static constexpr std::uint32_t kNumber = 3; static constexpr std::string_view kName = "fx"; };
   struct s { using Value = std::string_view; static constexpr std::uint32_t kNumber = 4; static constexpr std::string_view kName = "s"; };
   struct by { using Value = std::string_view; static constexpr std::uint32_t kNumber = 5; static constexpr std::string_view kName = "by"; };
-  struct nested { using Value = ::wire::stream::AllWire; static constexpr std::uint32_t kNumber = 6; static constexpr std::string_view kName = "nested"; };
+  struct nested { using Value = ::rp::stream::wire::AllWire; static constexpr std::uint32_t kNumber = 6; static constexpr std::string_view kName = "nested"; };
   struct packed { using Value = std::int32_t; static constexpr std::uint32_t kNumber = 7; static constexpr std::string_view kName = "packed"; };
-  struct g { using Value = ::wire::stream::AllWire::G; static constexpr std::uint32_t kNumber = 8; static constexpr std::string_view kName = "g"; };
+  struct g { using Value = ::rp::stream::wire::AllWire::G; static constexpr std::uint32_t kNumber = 8; static constexpr std::string_view kName = "g"; };
   struct oi { using Value = std::int32_t; static constexpr std::uint32_t kNumber = 10; static constexpr std::string_view kName = "oi"; };
   struct os { using Value = std::string_view; static constexpr std::uint32_t kNumber = 11; static constexpr std::string_view kName = "os"; };
 
@@ -195,7 +195,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus AllWire::decode(rp_Callbacks&&... rp_callb
         const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_val, &rp_we);
         if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_np;
-        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, nested{}, ::wire::stream::AllWire{rp_val}); !rp_status.ok()) {
+        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, nested{}, ::rp::stream::wire::AllWire{rp_val}); !rp_status.ok()) {
           return rp_status;
         }
       } else {  // no callback for this field -> skip its value (compile-time wire)
@@ -327,7 +327,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus AllWire::decode(rp_Callbacks&&... rp_callb
             const std::uint8_t* const rp_np = ::rapidproto::wire::read_group(rp_c, rp_cend, ::rapidproto::wire::byte_ptr(rp_span), rp_tag.field_number, &rp_val, &rp_we, &rp_gfo);
             if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, rp_gfo}; }
             rp_c = rp_np;
-            if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, g{}, ::wire::stream::AllWire::G{rp_val}); !rp_status.ok()) {
+            if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, g{}, ::rp::stream::wire::AllWire::G{rp_val}); !rp_status.ok()) {
               return rp_status;
             }
             continue;
@@ -422,4 +422,4 @@ RP_FLATTEN ::rapidproto::DecodeStatus AllWire::G::decode(rp_Callbacks&&... rp_ca
   }
 }
 
-}  // namespace wire::stream
+}  // namespace rp::stream::wire

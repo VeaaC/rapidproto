@@ -8,7 +8,7 @@
 #include "rapidproto/runtime.hpp"
 #include "timestamp.rp.common.hpp"  // IWYU pragma: export
 
-namespace google::protobuf::stream {
+namespace rp::stream::google::protobuf {
 
 struct Timestamp;
 
@@ -114,4 +114,4 @@ RP_FLATTEN ::rapidproto::DecodeStatus Timestamp::decode(rp_Callbacks&&... rp_cal
   }
 }
 
-}  // namespace google::protobuf::stream
+}  // namespace rp::stream::google::protobuf

@@ -8,7 +8,7 @@
 #include "rapidproto/runtime.hpp"
 #include "pub.rp.common.hpp"  // IWYU pragma: export
 
-namespace pub::stream {
+namespace rp::stream::pub {
 
 struct Pub;
 
@@ -89,4 +89,4 @@ RP_FLATTEN ::rapidproto::DecodeStatus Pub::decode(rp_Callbacks&&... rp_callbacks
   }
 }
 
-}  // namespace pub::stream
+}  // namespace rp::stream::pub

@@ -5,7 +5,8 @@
 // plus the shared common header `<stem>.rp.common.hpp` (the schema's top-level enums, one C++ type both
 // models include) per file, plus a self-contained copy of each model's runtime. Parsing once and
 // emitting both models from one name analysis is what lets the two decoders coexist in a single TU
-// (arena at `pkg::Msg`, streaming at `pkg::stream::Msg`, the enum shared at `pkg::State`). A thin driver
+// (arena at `rp::arena::pkg::Msg`, streaming at `rp::stream::pkg::Msg`, enums shared at
+// `rp::enums::pkg::State`). A thin driver
 // over the library; not linted. The shared flag parsing / resolve-analyze / file writing live in
 // rapidproto/cli/driver.hpp.
 
@@ -234,17 +235,18 @@ int main(int argc, char** argv) {
     // Build the name table(s) ONCE for the whole resolved set (identical for every file), then emit
     // per file. `names` has NO model namespace: arena types sit at pkg::Msg and enums at pkg::State
     // (the common header's home), so it drives both the arena decoder and the model-agnostic common.
-    // `names_stream` nests messages under pkg::stream (enums stay shared); built only when needed.
+    // `names_stream` puts messages under the stream root (enums stay shared); built only when needed.
     const rapidproto::codegen::CppNameTable names =
         set.files.empty() ? rapidproto::codegen::CppNameTable{}
                           : rapidproto::codegen::build_cpp_names(
                                 set.files.front(), set.files,
-                                rapidproto::codegen::namespace_of(opts->namespace_prefix));
+                                rapidproto::codegen::namespace_of(opts->namespace_prefix),
+                                std::string(rapidproto::codegen::kArenaRoot));
     rapidproto::codegen::CppNameTable names_stream;
     if (stream && !set.files.empty()) {
         names_stream = rapidproto::codegen::build_cpp_names(
             set.files.front(), set.files, rapidproto::codegen::namespace_of(opts->namespace_prefix),
-            "stream");
+            std::string(rapidproto::codegen::kStreamRoot));
     }
     std::optional<rapidproto::arenagen::LayoutSet> layouts;
     rapidproto::arenagen::FieldModes modes;  // inactive unless a selection resolved

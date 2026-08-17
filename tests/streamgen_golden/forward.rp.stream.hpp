@@ -9,7 +9,7 @@
 #include "forward.rp.common.hpp"  // IWYU pragma: export
 #include "pub.rp.stream.hpp"
 
-namespace fwd::stream {
+namespace rp::stream::fwd {
 
 struct Fwd;
 
@@ -90,4 +90,4 @@ RP_FLATTEN ::rapidproto::DecodeStatus Fwd::decode(rp_Callbacks&&... rp_callbacks
   }
 }
 
-}  // namespace fwd::stream
+}  // namespace rp::stream::fwd

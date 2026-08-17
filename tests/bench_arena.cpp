@@ -59,8 +59,8 @@
 #include <google/protobuf/arena.h>
 
 #include "bench.pb.h"           // protoc: bench::Dataset / WideSet / BigSet
-#include "bench.rp.hpp"         // arenagen: rp::bench::Dataset / WideSet / BigSet
-#include "bench.rp.stream.hpp"  // streamgen: rp::bench::stream::Dataset
+#include "bench.rp.hpp"         // arenagen: rp::arena::bench::Dataset / WideSet / BigSet
+#include "bench.rp.stream.hpp"  // streamgen: rp::stream::bench::Dataset
 #include "bench_baselines.hpp"  // third-party baselines, in their own TUs (see that header)
 #include "bench_harness.hpp"  // rpbench: the shared measurement harness (also used by rapidproto_bench)
 #include "bench_varint.hpp"  // repeated-varint sweep builders (shared with the streaming bench)
@@ -280,12 +280,12 @@ std::string make_records(int count) {
 
 // ── checksums (must agree across decoders for Dataset; guard optimize-away for the sweep shapes) ───
 
-std::uint64_t checksum_arena_dataset(const rp::bench::Dataset* d) {
+std::uint64_t checksum_arena_dataset(const rp::arena::bench::Dataset* d) {
     std::uint64_t s = static_cast<std::uint64_t>(d->version()) + d->name().size();
-    for (const rp::bench::Person& p : d->people()) {
+    for (const rp::arena::bench::Person& p : d->people()) {
         s += static_cast<std::uint64_t>(p.id()) + p.name().size() + p.email().size() +
              (p.active() ? 1U : 0U) + bits(p.score()) + p.created();
-        if (const rp::bench::Address* a = p.address()) {
+        if (const rp::arena::bench::Address* a = p.address()) {
             s += a->street().size() + a->city().size() + a->zip();
         }
         for (const std::string_view t : p.tags()) {
@@ -294,7 +294,7 @@ std::uint64_t checksum_arena_dataset(const rp::bench::Dataset* d) {
         for (const std::int32_t h : p.history()) {
             s += static_cast<std::uint32_t>(h);
         }
-        for (const rp::bench::Attribute& a : p.attributes()) {
+        for (const rp::arena::bench::Attribute& a : p.attributes()) {
             s += a.key().size() + a.value().size();
         }
         for (const auto& e : p.counters()) {
@@ -304,9 +304,9 @@ std::uint64_t checksum_arena_dataset(const rp::bench::Dataset* d) {
     return s;
 }
 
-std::uint64_t checksum_arena_wide(const rp::bench::WideSet* w) {
+std::uint64_t checksum_arena_wide(const rp::arena::bench::WideSet* w) {
     std::uint64_t s = 0;
-    for (const rp::bench::Wide& it : w->items()) {
+    for (const rp::arena::bench::Wide& it : w->items()) {
         for (const std::int32_t v : it.a()) {
             s += static_cast<std::uint32_t>(v);
         }
@@ -329,9 +329,9 @@ std::uint64_t checksum_arena_wide(const rp::bench::WideSet* w) {
     return s;
 }
 
-std::uint64_t checksum_arena_big(const rp::bench::BigSet* b) {
+std::uint64_t checksum_arena_big(const rp::arena::bench::BigSet* b) {
     std::uint64_t s = 0;
-    for (const rp::bench::Big& it : b->items()) {
+    for (const rp::arena::bench::Big& it : b->items()) {
         for (const std::int64_t v : it.numbers()) {
             s += static_cast<std::uint64_t>(v);
         }
@@ -341,40 +341,40 @@ std::uint64_t checksum_arena_big(const rp::bench::BigSet* b) {
         for (const std::int64_t v : it.zz()) {  // sint64 (zigzag) -- the OSM-delta shape
             s += static_cast<std::uint64_t>(v);
         }
-        for (const rp::bench::Kind k : it.kinds()) {
+        for (const rp::arena::bench::Kind k : it.kinds()) {
             s += static_cast<std::uint64_t>(k);
         }
     }
     return s;
 }
 
-std::uint64_t checksum_arena_particle(const rp::bench::ParticleSet* d) {
+std::uint64_t checksum_arena_particle(const rp::arena::bench::ParticleSet* d) {
     std::uint64_t s = 0;
-    for (const rp::bench::Particle& it : d->items()) {
+    for (const rp::arena::bench::Particle& it : d->items()) {
         s += static_cast<std::uint64_t>(it.id()) + it.color();
-        if (const rp::bench::Vec3* p = it.position()) {
+        if (const rp::arena::bench::Vec3* p = it.position()) {
             s += bits(p->x()) + bits(p->y()) + bits(p->z());
         }
-        if (const rp::bench::Vec3* v = it.velocity()) {
+        if (const rp::arena::bench::Vec3* v = it.velocity()) {
             s += bits(v->x()) + bits(v->y()) + bits(v->z());
         }
     }
     return s;
 }
 
-std::uint64_t checksum_arena_record(const rp::bench::RecordSet* d) {
+std::uint64_t checksum_arena_record(const rp::arena::bench::RecordSet* d) {
     if (d == nullptr) {
         return 0;
     }
     std::uint64_t s = 0;
-    const auto sample = [&](const rp::bench::Sample* x) {
+    const auto sample = [&](const rp::arena::bench::Sample* x) {
         if (x != nullptr) {
             s += static_cast<std::uint64_t>(x->a()) + static_cast<std::uint64_t>(x->b()) +
                  static_cast<std::uint64_t>(x->c()) + static_cast<std::uint64_t>(x->d()) +
                  (x->e() ? 1U : 0U) + x->f();
         }
     };
-    for (const rp::bench::Record& r : d->records()) {
+    for (const rp::arena::bench::Record& r : d->records()) {
         s += static_cast<std::uint64_t>(r.f1()) + static_cast<std::uint64_t>(r.f2()) +
              static_cast<std::uint64_t>(r.f3()) + static_cast<std::uint64_t>(r.f4()) + r.f5() +
              static_cast<std::uint64_t>(r.f6()) + (r.f7() ? 1U : 0U) + r.f8() +
@@ -390,7 +390,7 @@ std::uint64_t checksum_arena_record(const rp::bench::RecordSet* d) {
 }
 
 std::uint64_t checksum_stream(rapidproto::ByteView buf) {
-    using namespace rp::bench::stream;
+    using namespace rp::stream::bench;
     std::uint64_t s = 0;
     const Dataset d{buf};
     const rapidproto::DecodeStatus st = d.decode(
@@ -492,7 +492,7 @@ void sweep_shape(const char* name, Build build, ParseSum parse_sum,
 
 // ── repeated-varint sweep ───────────────────────────────────────────────────────────────────────
 // Bare-Big checksums (a message carrying only packed int64 `numbers`, field 1) for the sweep arms.
-std::uint64_t checksum_big_arena(const rp::bench::Big* b) {
+std::uint64_t checksum_big_arena(const rp::arena::bench::Big* b) {
     std::uint64_t s = 0;
     if (b != nullptr) {
         for (const std::int64_t v : b->numbers()) {
@@ -506,7 +506,7 @@ std::uint64_t checksum_big_arena(const rp::bench::Big* b) {
 
 // Same shape for the packed sint64 `zz` (field 3) and enum `kinds` (field 4) type-comparison arms: the
 // wire is identical packed varints, so the only difference from `numbers` is the zigzag / enum-cast conv.
-std::uint64_t checksum_big_arena_zz(const rp::bench::Big* b) {
+std::uint64_t checksum_big_arena_zz(const rp::arena::bench::Big* b) {
     std::uint64_t s = 0;
     if (b != nullptr) {
         for (const std::int64_t v : b->zz()) {
@@ -515,7 +515,7 @@ std::uint64_t checksum_big_arena_zz(const rp::bench::Big* b) {
     }
     return s;
 }
-std::uint64_t checksum_big_arena_kinds(const rp::bench::Big* b) {
+std::uint64_t checksum_big_arena_kinds(const rp::arena::bench::Big* b) {
     std::uint64_t s = 0;
     if (b != nullptr) {
         for (const auto k : b->kinds()) {
@@ -527,7 +527,7 @@ std::uint64_t checksum_big_arena_kinds(const rp::bench::Big* b) {
 #ifdef RAPIDPROTO_HAVE_PROTOZERO
 #endif
 
-// The packed int64 fill (rp::bench::Big.numbers) across element byte width (fixed 1..10, uniform, 90/10
+// The packed int64 fill (rp::arena::bench::Big.numbers) across element byte width (fixed 1..10, uniform, 90/10
 // skew) x element count (10 .. 1,000,000): arena-warm vs protoc (and protozero as a raw-parse
 // yardstick). The streaming bench sweeps the SAME shapes, so the two map the packed-varint decode
 // surface for both decoders.
@@ -575,7 +575,7 @@ void sweep_repeated_varint() {
                      const rapidproto::ByteView& view =
                          views[static_cast<std::size_t>(i++) % views.size()];
                      warm.reset();
-                     return checksum_big_arena(rp::bench::Big::decode(view, warm));
+                     return checksum_big_arena(rp::arena::bench::Big::decode(view, warm));
                  }},
 #ifdef RAPIDPROTO_HAVE_PROTOZERO
                 {"protozero",
@@ -635,7 +635,7 @@ void sweep_repeated_varint_types() {
                  const rapidproto::ByteView& view =
                      views[static_cast<std::size_t>(i++) % views.size()];
                  warm.reset();
-                 return arena_sum(rp::bench::Big::decode(view, warm));
+                 return arena_sum(rp::arena::bench::Big::decode(view, warm));
              }},
 #ifdef RAPIDPROTO_HAVE_PROTOZERO
             {"protozero",
@@ -684,7 +684,7 @@ int main() {
 
     // Cross-check correctness first (Dataset, all three decoders).
     rapidproto::Arena setup_arena;
-    const rp::bench::Dataset* adoc = rp::bench::Dataset::decode(view, setup_arena);
+    const rp::arena::bench::Dataset* adoc = rp::arena::bench::Dataset::decode(view, setup_arena);
     const std::uint64_t c_arena = checksum_arena_dataset(adoc);
     const std::uint64_t c_protoc = rpbaseline::protoc_dataset(buf);
     const std::uint64_t c_stream = checksum_stream(view);
@@ -714,12 +714,12 @@ int main() {
         {"arena-cold",
          [&]() {
              rapidproto::Arena a;
-             return checksum_arena_dataset(rp::bench::Dataset::decode(view, a));
+             return checksum_arena_dataset(rp::arena::bench::Dataset::decode(view, a));
          }},
         {"arena-warm",
          [&]() {
              warm.reset();
-             return checksum_arena_dataset(rp::bench::Dataset::decode(view, warm));
+             return checksum_arena_dataset(rp::arena::bench::Dataset::decode(view, warm));
          }},
         {"streamgen", [&]() { return checksum_stream(view); }},
     };
@@ -738,7 +738,7 @@ int main() {
 #endif
 
     rapidproto::Arena mem_arena;
-    (void)rp::bench::Dataset::decode(view, mem_arena);
+    (void)rp::arena::bench::Dataset::decode(view, mem_arena);
     const rpbaseline::ProtocMemory protoc_mem = rpbaseline::protoc_dataset_memory(buf);
     const std::size_t mem_a_used = mem_arena.bytes_used();
     const std::size_t mem_a_held = mem_arena.bytes_reserved();
@@ -774,7 +774,7 @@ int main() {
             {"arena-warm",
              [&]() {
                  w.reset();
-                 return checksum_arena_big(rp::bench::BigSet::decode(v, w));
+                 return checksum_arena_big(rp::arena::bench::BigSet::decode(v, w));
              }},
         };
         (void)rpbench::run(name, static_cast<double>(b.size()), a);
@@ -792,7 +792,7 @@ int main() {
             {"arena-warm",
              [&]() {
                  w.reset();
-                 return checksum_arena_wide(rp::bench::WideSet::decode(v, w));
+                 return checksum_arena_wide(rp::arena::bench::WideSet::decode(v, w));
              }},
         };
         (void)rpbench::run("many msgs, tiny arrays", static_cast<double>(wbuf.size()), a);
@@ -809,7 +809,7 @@ int main() {
             {"arena-warm",
              [&]() {
                  w.reset();
-                 return checksum_arena_record(rp::bench::RecordSet::decode(v, w));
+                 return checksum_arena_record(rp::arena::bench::RecordSet::decode(v, w));
              }},
         };
         (void)rpbench::run("scalar records (dispatch-bound)", static_cast<double>(rbuf.size()), a);
@@ -831,28 +831,28 @@ int main() {
     sweep_shape(
         "mixed (Dataset)", [](int n) { return make_dataset(n); },
         [](rapidproto::ByteView v, rapidproto::Arena& a) {
-            const rp::bench::Dataset* d = rp::bench::Dataset::decode(v, a);
+            const rp::arena::bench::Dataset* d = rp::arena::bench::Dataset::decode(v, a);
             return d != nullptr ? checksum_arena_dataset(d) : 0;
         },
         {2000, 22000, 88000, 176000});
     sweep_shape(
         "many-small (WideSet)", [](int n) { return make_wide(n); },
         [](rapidproto::ByteView v, rapidproto::Arena& a) {
-            const rp::bench::WideSet* d = rp::bench::WideSet::decode(v, a);
+            const rp::arena::bench::WideSet* d = rp::arena::bench::WideSet::decode(v, a);
             return d != nullptr ? checksum_arena_wide(d) : 0;
         },
         {6000, 62000, 250000, 520000});
     sweep_shape(
         "few-big (BigSet)", [](int n) { return make_big(n, 20000); },
         [](rapidproto::ByteView v, rapidproto::Arena& a) {
-            const rp::bench::BigSet* d = rp::bench::BigSet::decode(v, a);
+            const rp::arena::bench::BigSet* d = rp::arena::bench::BigSet::decode(v, a);
             return d != nullptr ? checksum_arena_big(d) : 0;
         },
         {2, 20, 80, 160});
     sweep_shape(
         "fixed-submsg (Particle)", [](int n) { return make_particles(n); },
         [](rapidproto::ByteView v, rapidproto::Arena& a) {
-            const rp::bench::ParticleSet* d = rp::bench::ParticleSet::decode(v, a);
+            const rp::arena::bench::ParticleSet* d = rp::arena::bench::ParticleSet::decode(v, a);
             return d != nullptr ? checksum_arena_particle(d) : 0;
         },
         {6000, 60000, 250000, 500000});

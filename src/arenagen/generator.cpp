@@ -30,8 +30,6 @@ namespace {
 
 using codegen::cpp_type_name;
 using codegen::CppNameTable;
-using codegen::join_ns;
-using codegen::namespace_of;
 using codegen::Printer;
 
 // ── small string helpers ─────────────────────────────────────────────────────────────────────────
@@ -1996,7 +1994,7 @@ std::string generate_header(const FileNode& file, const CppNameTable& names,
     }
     printer.print("\n");
 
-    const std::string ns = join_ns(names.ns_prefix, namespace_of(file.package));
+    const std::string ns = codegen::message_namespace(names, file);
     if (!ns.empty()) {
         printer.print(profiled ? "namespace $ns$ {\n" : "namespace $ns$ {\n\n", {{"ns", ns}});
     }
@@ -2007,7 +2005,16 @@ std::string generate_header(const FileNode& file, const CppNameTable& names,
         // the boundary is a LINK error instead of a silent ODR violation.
         printer.print("inline namespace rp_modes_$id$ {\n\n", {{"id", modes->profile_id}});
     }
-    // Top-level enums are emitted by the common header above; nested enums ride with their message.
+    // Top-level enums live in the shared common header under their own root (one C++ type, shared
+    // with the streaming decoder); alias each into this model namespace so `<prefix>::arena::<pkg>::
+    // Enum` resolves and the two models spell one enum the same way. Nested enums ride with their
+    // message.
+    for (const auto& node : file.enums) {
+        printer.print("using $e$;\n", {{"e", cpp_type_name(names, node.fqn)}});
+    }
+    if (!file.enums.empty()) {
+        printer.print("\n");
+    }
     for (const auto& message : file.messages) {  // forward-declare for pointer cross-references
         printer.print("class $T$;\n", {{"T", names.local.at(&message)}});
     }
@@ -2036,7 +2043,8 @@ std::string generate_header(const FileNode& file, const CppNameTable& names,
 std::string generate_header(const FileNode& file, const ResolvedFileSet& set,
                             const SymbolTable& symbols, const std::string& namespace_prefix) {
     const CppNameTable names =
-        codegen::build_cpp_names(file, set.files, namespace_of(namespace_prefix));
+        codegen::build_cpp_names(file, set.files, codegen::effective_ns_prefix(namespace_prefix),
+                                 std::string(codegen::kArenaRoot));
     const LayoutSet layouts = plan_layouts(set, symbols);
     return generate_header(file, names, layouts, symbols);
 }

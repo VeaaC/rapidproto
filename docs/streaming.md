@@ -14,7 +14,7 @@ struct Person {
   struct name    { using Value = std::string_view;     /* kNumber=1, kName="name"    */ };
   struct id      { using Value = std::uint32_t;        /* kNumber=2, kName="id"      */ };
   struct email   { using Value = std::string_view;     /* kNumber=3, kName="email"   */ };
-  struct address { using Value = ::example::stream::Address; /* kNumber=4, kName="address" */ };
+  struct address { using Value = ::sex::Address; /* kNumber=4, kName="address" */ };
 
   template <class... rp_Callbacks>
   [[nodiscard]] rapidproto::DecodeStatus decode(rp_Callbacks&&... rp_callbacks) const;
@@ -31,11 +31,6 @@ per entry). The decoder never materializes the whole message.
 > callback isn't called (and proto3 scalars equal to their default aren't on the wire at all).
 > Initialize your own destination variables.
 
-A schema with a **top-level enum named `stream`** cannot use this model: the enum takes package
-scope in the shared common header, which is the name this header needs for its own namespace. Rename
-the enum. (Nested enums, messages, and fields of that name are fine — as is a top-level *message*,
-until you [pair the two models](using-both-models.md) in one translation unit.)
-
 ## Three ways to consume fields
 
 All snippets decode a `Person` buffer `wire` (a `rapidproto::ByteView`). `decode()` is `[[nodiscard]]`
@@ -46,9 +41,9 @@ extracting a few fields from a large message stays fast:
 
 ```cpp
 std::string name; std::uint32_t id = 0;
-example::stream::Person{wire}.decode(
-    [&](example::stream::Person::name, std::string_view v) { name = std::string(v); },
-    [&](example::stream::Person::id,   std::uint32_t v)    { id = v; });
+sex::Person{wire}.decode(
+    [&](sex::Person::name, std::string_view v) { name = std::string(v); },
+    [&](sex::Person::id,   std::uint32_t v)    { id = v; });
 // email and address are never decoded.
 ```
 
@@ -58,7 +53,7 @@ mix a catch-all with specific callbacks (the specific one wins). For a sub-messa
 undecoded sub-decoder; a catch-all does **not** recurse, so call `value.decode(...)` yourself.
 
 ```cpp
-example::stream::Person{wire}.decode([&](auto tag, auto&& value) {
+sex::Person{wire}.decode([&](auto tag, auto&& value) {
     log("field %s (#%u)", tag.kName.data(), tag.kNumber);
 });
 ```
@@ -68,11 +63,11 @@ example::stream::Person{wire}.decode([&](auto tag, auto&& value) {
 producer's field). This is the forward-compatibility pattern:
 
 ```cpp
-example::stream::Person{wire}.decode(
-    [&](example::stream::Person::name,  std::string_view v) { name = std::string(v); },
-    [&](example::stream::Person::email, std::string_view v) { emails.push_back(std::string(v)); }, // per element
-    [&](example::stream::Person::address, example::stream::Address a) -> rapidproto::DecodeStatus { // recurse
-        return a.decode([&](example::stream::Address::city, std::string_view v) { city = std::string(v); });
+sex::Person{wire}.decode(
+    [&](sex::Person::name,  std::string_view v) { name = std::string(v); },
+    [&](sex::Person::email, std::string_view v) { emails.push_back(std::string(v)); }, // per element
+    [&](sex::Person::address, sex::Address a) -> rapidproto::DecodeStatus { // recurse
+        return a.decode([&](sex::Address::city, std::string_view v) { city = std::string(v); });
     },
     [&](rapidproto::UnknownField uf) {                                  // a field not in our schema
         log("unknown #%u (wire type %d, %zu bytes)", uf.field_number, int(uf.wire_type), uf.bytes.size());

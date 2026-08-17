@@ -8,7 +8,7 @@
 #include "rapidproto/runtime.hpp"
 #include "duration.rp.common.hpp"  // IWYU pragma: export
 
-namespace google::protobuf::stream {
+namespace rp::stream::google::protobuf {
 
 struct Duration;
 
@@ -114,4 +114,4 @@ RP_FLATTEN ::rapidproto::DecodeStatus Duration::decode(rp_Callbacks&&... rp_call
   }
 }
 
-}  // namespace google::protobuf::stream
+}  // namespace rp::stream::google::protobuf

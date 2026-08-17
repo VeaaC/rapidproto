@@ -11,7 +11,9 @@
 #include "rapidproto/arena_runtime.hpp"
 #include "proto2.rp.common.hpp"  // IWYU pragma: export
 
-namespace p2 {
+namespace rp::arena::p2 {
+
+using ::rp::enums::p2::Color;
 
 class Scalars;
 class WithGroup;
@@ -35,7 +37,7 @@ class Scalars {
   std::optional<std::string_view> by() const noexcept { return (m_rp_mask & (std::uint16_t{1} << 12)) != 0 ? std::optional<std::string_view>(m_by.view()) : std::nullopt; }
   std::optional<float> fl() const noexcept { return (m_rp_mask & (std::uint16_t{1} << 13)) != 0 ? std::optional<float>(m_fl) : std::nullopt; }
   std::optional<double> db() const noexcept { return (m_rp_mask & (std::uint16_t{1} << 14)) != 0 ? std::optional<double>(m_db) : std::nullopt; }
-  std::optional<::p2::Color> color() const noexcept { return (m_rp_mask & (std::uint16_t{1} << 15)) != 0 ? std::optional<::p2::Color>(m_color) : std::nullopt; }
+  std::optional<::rp::enums::p2::Color> color() const noexcept { return (m_rp_mask & (std::uint16_t{1} << 15)) != 0 ? std::optional<::rp::enums::p2::Color>(m_color) : std::nullopt; }
   ::rapidproto::ArrayView<std::int32_t> packed_nums() const noexcept { return m_packed_nums; }
   ::rapidproto::ArrayView<std::int32_t> expanded_nums() const noexcept { return m_expanded_nums; }
   [[nodiscard]] static const Scalars* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
@@ -58,7 +60,7 @@ class Scalars {
   std::uint32_t m_f32;
   std::int32_t m_sf32;
   float m_fl;
-  ::p2::Color m_color;
+  ::rp::enums::p2::Color m_color;
   std::uint16_t m_rp_mask;
 };
 static_assert(::std::is_trivially_destructible_v<Scalars>);
@@ -79,21 +81,21 @@ class WithGroup {
       std::uint8_t m_rp_mask;
     };
     std::optional<std::int32_t> a() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? std::optional<std::int32_t>(m_a) : std::nullopt; }
-    const ::p2::WithGroup::MyGroup::Inner* inner() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 1)) != 0 ? &m_inner : nullptr; }
+    const ::rp::arena::p2::WithGroup::MyGroup::Inner* inner() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 1)) != 0 ? &m_inner : nullptr; }
     [[nodiscard]] static const MyGroup* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
    private:
     template <class rp_T> friend bool ::rapidproto::arena_detail::decode_into(rp_T&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
     static bool rp_decode_into(MyGroup& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
     std::int32_t m_a;
-    ::p2::WithGroup::MyGroup::Inner m_inner;
+    ::rp::arena::p2::WithGroup::MyGroup::Inner m_inner;
     std::uint8_t m_rp_mask;
   };
-  const ::p2::WithGroup::MyGroup* mygroup() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? &m_mygroup : nullptr; }
+  const ::rp::arena::p2::WithGroup::MyGroup* mygroup() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? &m_mygroup : nullptr; }
   [[nodiscard]] static const WithGroup* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class rp_T> friend bool ::rapidproto::arena_detail::decode_into(rp_T&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
   static bool rp_decode_into(WithGroup& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
-  ::p2::WithGroup::MyGroup m_mygroup;
+  ::rp::arena::p2::WithGroup::MyGroup m_mygroup;
   std::uint8_t m_rp_mask;
 };
 static_assert(::std::is_trivially_destructible_v<WithGroup>);
@@ -115,7 +117,7 @@ class OneofGroup {
   };
   struct Pick {
     struct i { using Value = std::int32_t; };
-    struct g { using Value = ::p2::OneofGroup::G; };
+    struct g { using Value = ::rp::arena::p2::OneofGroup::G; };
   };
   std::optional<std::int32_t> after() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? std::optional<std::int32_t>(m_after) : std::nullopt; }
   template <class... rp_Fs> void pick(rp_Fs&&... rp_fs) const {
@@ -156,7 +158,7 @@ class OneofGroup {
   static bool rp_decode_into(OneofGroup& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
   union rp_pick_union {
     std::int32_t i;
-    const ::p2::OneofGroup::G* g;
+    const ::rp::arena::p2::OneofGroup::G* g;
     rp_pick_union() noexcept {}
   };
   rp_pick_union m_rp_pick;
@@ -181,25 +183,25 @@ class Container {
   };
   struct Choice {
     struct ci { using Value = std::int32_t; };
-    struct cn { using Value = ::p2::Container::Nested; };
+    struct cn { using Value = ::rp::arena::p2::Container::Nested; };
   };
   struct By_nameEntry {
     std::string_view key() const noexcept { return rp_key.view(); }
-    const ::p2::Container::Nested* value() const noexcept { return &rp_value; }
+    const ::rp::arena::p2::Container::Nested* value() const noexcept { return &rp_value; }
     friend class Container;
    private:
     ::rapidproto::ArenaString rp_key;
-    ::p2::Container::Nested rp_value;
+    ::rp::arena::p2::Container::Nested rp_value;
   };
   struct By_idEntry {
     std::int32_t key() const noexcept { return rp_key; }
-    ::p2::Color value() const noexcept { return rp_value; }
+    ::rp::enums::p2::Color value() const noexcept { return rp_value; }
     friend class Container;
    private:
     std::int32_t rp_key;
-    ::p2::Color rp_value;
+    ::rp::enums::p2::Color rp_value;
   };
-  ::rapidproto::ArrayView<::p2::Container::Nested> items() const noexcept { return m_items; }
+  ::rapidproto::ArrayView<::rp::arena::p2::Container::Nested> items() const noexcept { return m_items; }
   ::rapidproto::MapView<By_nameEntry> by_name() const noexcept { return m_by_name; }
   ::rapidproto::MapView<By_idEntry> by_id() const noexcept { return m_by_id; }
   template <class... rp_Fs> void choice(rp_Fs&&... rp_fs) const {
@@ -240,19 +242,19 @@ class Container {
   static bool rp_decode_into(Container& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
   union rp_choice_union {
     std::int32_t ci;
-    ::p2::Container::Nested cn;
+    ::rp::arena::p2::Container::Nested cn;
     rp_choice_union() noexcept {}
   };
   ::rapidproto::MapView<By_nameEntry> m_by_name;
   ::rapidproto::MapView<By_idEntry> m_by_id;
-  ::rapidproto::ArrayView<::p2::Container::Nested> m_items;
+  ::rapidproto::ArrayView<::rp::arena::p2::Container::Nested> m_items;
   rp_choice_union m_rp_choice;
   std::uint8_t m_rp_choice_case;
 };
 static_assert(::std::is_trivially_destructible_v<Container>);
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-RP_FLATTEN inline bool ::p2::Scalars::rp_decode_into([[maybe_unused]] ::p2::Scalars& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN inline bool ::rp::arena::p2::Scalars::rp_decode_into([[maybe_unused]] ::rp::arena::p2::Scalars& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   std::int32_t* rp_acc_packed_nums = nullptr;
   std::size_t rp_n_packed_nums = 0;
@@ -476,7 +478,7 @@ RP_FLATTEN inline bool ::p2::Scalars::rp_decode_into([[maybe_unused]] ::p2::Scal
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
       if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
       rp_c = rp_np;
-      out.m_color = static_cast<::p2::Color>(::rapidproto::varint_to_int32(rp_raw));
+      out.m_color = static_cast<::rp::enums::p2::Color>(::rapidproto::varint_to_int32(rp_raw));
       out.m_rp_mask = static_cast<std::uint16_t>(out.m_rp_mask | (std::uint16_t{1} << 15));
       continue;
     }
@@ -595,16 +597,16 @@ RP_FLATTEN inline bool ::p2::Scalars::rp_decode_into([[maybe_unused]] ::p2::Scal
   if ((rp_req & (std::uint64_t{1} << 0)) == 0) { ::rapidproto::rp_fail_missing_required(err, 1); return false; }
   return true;
 }
-inline const ::p2::Scalars* ::p2::Scalars::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+inline const ::rp::arena::p2::Scalars* ::rp::arena::p2::Scalars::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
-  ::p2::Scalars* const rp_root = arena.create<::p2::Scalars>();
+  ::rp::arena::p2::Scalars* const rp_root = arena.create<::rp::arena::p2::Scalars>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
   return rp_root;
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-RP_FLATTEN inline bool ::p2::WithGroup::rp_decode_into([[maybe_unused]] ::p2::WithGroup& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN inline bool ::rp::arena::p2::WithGroup::rp_decode_into([[maybe_unused]] ::rp::arena::p2::WithGroup& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(body);
   const std::uint8_t* const rp_cend = rp_c + body.size();
@@ -637,16 +639,16 @@ RP_FLATTEN inline bool ::p2::WithGroup::rp_decode_into([[maybe_unused]] ::p2::Wi
   }
   return true;
 }
-inline const ::p2::WithGroup* ::p2::WithGroup::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+inline const ::rp::arena::p2::WithGroup* ::rp::arena::p2::WithGroup::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
-  ::p2::WithGroup* const rp_root = arena.create<::p2::WithGroup>();
+  ::rp::arena::p2::WithGroup* const rp_root = arena.create<::rp::arena::p2::WithGroup>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
   return rp_root;
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-RP_FLATTEN inline bool ::p2::WithGroup::MyGroup::rp_decode_into([[maybe_unused]] ::p2::WithGroup::MyGroup& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN inline bool ::rp::arena::p2::WithGroup::MyGroup::rp_decode_into([[maybe_unused]] ::rp::arena::p2::WithGroup::MyGroup& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(body);
   const std::uint8_t* const rp_cend = rp_c + body.size();
@@ -696,16 +698,16 @@ RP_FLATTEN inline bool ::p2::WithGroup::MyGroup::rp_decode_into([[maybe_unused]]
   }
   return true;
 }
-inline const ::p2::WithGroup::MyGroup* ::p2::WithGroup::MyGroup::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+inline const ::rp::arena::p2::WithGroup::MyGroup* ::rp::arena::p2::WithGroup::MyGroup::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
-  ::p2::WithGroup::MyGroup* const rp_root = arena.create<::p2::WithGroup::MyGroup>();
+  ::rp::arena::p2::WithGroup::MyGroup* const rp_root = arena.create<::rp::arena::p2::WithGroup::MyGroup>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
   return rp_root;
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-RP_FLATTEN inline bool ::p2::WithGroup::MyGroup::Inner::rp_decode_into([[maybe_unused]] ::p2::WithGroup::MyGroup::Inner& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN inline bool ::rp::arena::p2::WithGroup::MyGroup::Inner::rp_decode_into([[maybe_unused]] ::rp::arena::p2::WithGroup::MyGroup::Inner& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(body);
   const std::uint8_t* const rp_cend = rp_c + body.size();
@@ -743,16 +745,16 @@ RP_FLATTEN inline bool ::p2::WithGroup::MyGroup::Inner::rp_decode_into([[maybe_u
   }
   return true;
 }
-inline const ::p2::WithGroup::MyGroup::Inner* ::p2::WithGroup::MyGroup::Inner::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+inline const ::rp::arena::p2::WithGroup::MyGroup::Inner* ::rp::arena::p2::WithGroup::MyGroup::Inner::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
-  ::p2::WithGroup::MyGroup::Inner* const rp_root = arena.create<::p2::WithGroup::MyGroup::Inner>();
+  ::rp::arena::p2::WithGroup::MyGroup::Inner* const rp_root = arena.create<::rp::arena::p2::WithGroup::MyGroup::Inner>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
   return rp_root;
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-RP_FLATTEN RP_NOINLINE inline bool ::p2::OneofGroup::rp_decode_into([[maybe_unused]] ::p2::OneofGroup& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN RP_NOINLINE inline bool ::rp::arena::p2::OneofGroup::rp_decode_into([[maybe_unused]] ::rp::arena::p2::OneofGroup& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(body);
   const std::uint8_t* const rp_cend = rp_c + body.size();
@@ -799,7 +801,7 @@ RP_FLATTEN RP_NOINLINE inline bool ::p2::OneofGroup::rp_decode_into([[maybe_unus
           if (out.m_rp_pick_case == 2) { ::rapidproto::rp_fail_repeated_singular(err, 2); return false; }
           ::rapidproto::ByteView rp_v;
           { std::size_t rp_fo = 0; const std::uint8_t* const rp_np = ::rapidproto::wire::read_group(rp_c, rp_cend, ::rapidproto::wire::byte_ptr(body), rp_tag.field_number, &rp_v, &rp_we, &rp_fo); if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo); return false; } rp_c = rp_np; }
-          ::p2::OneofGroup::G* const rp_sub = arena.create<::p2::OneofGroup::G>();
+          ::rp::arena::p2::OneofGroup::G* const rp_sub = arena.create<::rp::arena::p2::OneofGroup::G>();
           if (rp_sub == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }
           if (!::rapidproto::arena_detail::decode_into(*rp_sub, rp_v, arena, depth + 1, err)) { return false; }
           out.m_rp_pick.g = rp_sub;
@@ -817,16 +819,16 @@ RP_FLATTEN RP_NOINLINE inline bool ::p2::OneofGroup::rp_decode_into([[maybe_unus
   }
   return true;
 }
-inline const ::p2::OneofGroup* ::p2::OneofGroup::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+inline const ::rp::arena::p2::OneofGroup* ::rp::arena::p2::OneofGroup::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
-  ::p2::OneofGroup* const rp_root = arena.create<::p2::OneofGroup>();
+  ::rp::arena::p2::OneofGroup* const rp_root = arena.create<::rp::arena::p2::OneofGroup>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
   return rp_root;
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-RP_FLATTEN inline bool ::p2::OneofGroup::G::rp_decode_into([[maybe_unused]] ::p2::OneofGroup::G& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN inline bool ::rp::arena::p2::OneofGroup::G::rp_decode_into([[maybe_unused]] ::rp::arena::p2::OneofGroup::G& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(body);
   const std::uint8_t* const rp_cend = rp_c + body.size();
@@ -877,24 +879,24 @@ RP_FLATTEN inline bool ::p2::OneofGroup::G::rp_decode_into([[maybe_unused]] ::p2
   }
   return true;
 }
-inline const ::p2::OneofGroup::G* ::p2::OneofGroup::G::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+inline const ::rp::arena::p2::OneofGroup::G* ::rp::arena::p2::OneofGroup::G::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
-  ::p2::OneofGroup::G* const rp_root = arena.create<::p2::OneofGroup::G>();
+  ::rp::arena::p2::OneofGroup::G* const rp_root = arena.create<::rp::arena::p2::OneofGroup::G>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
   return rp_root;
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-RP_FLATTEN RP_NOINLINE inline bool ::p2::Container::rp_decode_into([[maybe_unused]] ::p2::Container& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN RP_NOINLINE inline bool ::rp::arena::p2::Container::rp_decode_into([[maybe_unused]] ::rp::arena::p2::Container& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
-  ::p2::Container::Nested* rp_acc_items = nullptr;
+  ::rp::arena::p2::Container::Nested* rp_acc_items = nullptr;
   std::size_t rp_n_items = 0;
   std::size_t rp_cap_items = 0;
-  const auto rp_slot_items = [&]() noexcept -> ::p2::Container::Nested* {
+  const auto rp_slot_items = [&]() noexcept -> ::rp::arena::p2::Container::Nested* {
     if (rp_n_items == rp_cap_items) {
       const std::size_t rp_nc = rp_cap_items == 0 ? std::size_t{4} : rp_cap_items * 2;
-      ::p2::Container::Nested* const rp_nb = arena.allocate_array<::p2::Container::Nested>(rp_nc);
+      ::rp::arena::p2::Container::Nested* const rp_nb = arena.allocate_array<::rp::arena::p2::Container::Nested>(rp_nc);
       if (rp_nb == nullptr) { return nullptr; }
       for (std::size_t rp_i = 0; rp_i < rp_n_items; ++rp_i) { rp_nb[rp_i] = rp_acc_items[rp_i]; }
       rp_acc_items = rp_nb;
@@ -942,11 +944,11 @@ RP_FLATTEN RP_NOINLINE inline bool ::p2::Container::rp_decode_into([[maybe_unuse
     }
     goto rp_field_general;
     rp_do_5: {
-      ::p2::Container::Nested* const rp_slot = rp_slot_items();
+      ::rp::arena::p2::Container::Nested* const rp_slot = rp_slot_items();
       if (rp_slot == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }
       ::rapidproto::ByteView rp_v;
       { const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_v, &rp_we); if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; } rp_c = rp_np; }
-      *rp_slot = ::p2::Container::Nested{};
+      *rp_slot = ::rp::arena::p2::Container::Nested{};
       if (!::rapidproto::arena_detail::decode_into(*rp_slot, rp_v, arena, depth + 1, err)) { return false; }
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(5, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_5; }  // another element of the same field
       continue;
@@ -1026,7 +1028,7 @@ RP_FLATTEN RP_NOINLINE inline bool ::p2::Container::rp_decode_into([[maybe_unuse
               const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_ec, rp_ee, &rp_raw, &rp_we);
               if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_ec - ::rapidproto::wire::byte_ptr(rp_ent))); return false; }
               rp_ec = rp_np;
-              rp_slot->rp_value = static_cast<::p2::Color>(::rapidproto::varint_to_int32(rp_raw));
+              rp_slot->rp_value = static_cast<::rp::enums::p2::Color>(::rapidproto::varint_to_int32(rp_raw));
             } else {
               std::size_t rp_fo = 0;
               const std::uint8_t* const rp_sp = ::rapidproto::wire::skip_value(rp_ec, rp_ee, ::rapidproto::wire::byte_ptr(rp_ent), rp_et, 0, &rp_we, &rp_fo);
@@ -1055,7 +1057,7 @@ RP_FLATTEN RP_NOINLINE inline bool ::p2::Container::rp_decode_into([[maybe_unuse
           if (out.m_rp_choice_case == 2) { ::rapidproto::rp_fail_repeated_singular(err, 4); return false; }
           ::rapidproto::ByteView rp_v;
           { const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_v, &rp_we); if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; } rp_c = rp_np; }
-          out.m_rp_choice.cn = ::p2::Container::Nested{};
+          out.m_rp_choice.cn = ::rp::arena::p2::Container::Nested{};
           if (!::rapidproto::arena_detail::decode_into(out.m_rp_choice.cn, rp_v, arena, depth + 1, err)) { return false; }
           out.m_rp_choice_case = 2;
           continue;
@@ -1069,21 +1071,21 @@ RP_FLATTEN RP_NOINLINE inline bool ::p2::Container::rp_decode_into([[maybe_unuse
     if (rp_sp == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo); return false; }
     rp_c = rp_sp;
   }
-  out.m_items = ::rapidproto::ArrayView<::p2::Container::Nested>(rp_acc_items, rp_n_items);
+  out.m_items = ::rapidproto::ArrayView<::rp::arena::p2::Container::Nested>(rp_acc_items, rp_n_items);
   out.m_by_name = ::rapidproto::MapView<By_nameEntry>(::rapidproto::ArrayView<By_nameEntry>(rp_acc_by_name, rp_n_by_name));
   out.m_by_id = ::rapidproto::MapView<By_idEntry>(::rapidproto::ArrayView<By_idEntry>(rp_acc_by_id, rp_n_by_id));
   return true;
 }
-inline const ::p2::Container* ::p2::Container::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+inline const ::rp::arena::p2::Container* ::rp::arena::p2::Container::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
-  ::p2::Container* const rp_root = arena.create<::p2::Container>();
+  ::rp::arena::p2::Container* const rp_root = arena.create<::rp::arena::p2::Container>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
   return rp_root;
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-RP_FLATTEN inline bool ::p2::Container::Nested::rp_decode_into([[maybe_unused]] ::p2::Container::Nested& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN inline bool ::rp::arena::p2::Container::Nested::rp_decode_into([[maybe_unused]] ::rp::arena::p2::Container::Nested& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(body);
   const std::uint8_t* const rp_cend = rp_c + body.size();
@@ -1122,12 +1124,12 @@ RP_FLATTEN inline bool ::p2::Container::Nested::rp_decode_into([[maybe_unused]] 
   }
   return true;
 }
-inline const ::p2::Container::Nested* ::p2::Container::Nested::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+inline const ::rp::arena::p2::Container::Nested* ::rp::arena::p2::Container::Nested::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
-  ::p2::Container::Nested* const rp_root = arena.create<::p2::Container::Nested>();
+  ::rp::arena::p2::Container::Nested* const rp_root = arena.create<::rp::arena::p2::Container::Nested>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
   return rp_root;
 }
 
-}  // namespace p2
+}  // namespace rp::arena::p2

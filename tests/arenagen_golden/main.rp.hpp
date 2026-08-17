@@ -13,29 +13,29 @@
 #include "dep.rp.hpp"
 #include "forward.rp.hpp"
 
-namespace main {
+namespace rp::arena::main {
 
 class Main;
 
 class Main {
  public:
   struct Choice {
-    struct od { using Value = ::dep::Dep; };
+    struct od { using Value = ::rp::arena::dep::Dep; };
     struct oi { using Value = std::int32_t; };
   };
   struct DmEntry {
     std::int32_t key() const noexcept { return rp_key; }
-    const ::dep::Dep* value() const noexcept { return &rp_value; }
+    const ::rp::arena::dep::Dep* value() const noexcept { return &rp_value; }
     friend class Main;
    private:
-    ::dep::Dep rp_value;
+    ::rp::arena::dep::Dep rp_value;
     std::int32_t rp_key;
   };
-  const ::dep::Dep* d() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? &m_d : nullptr; }
-  const ::pub::Pub* p() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 1)) != 0 ? &m_p : nullptr; }
-  const ::fwd::Fwd* f() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 2)) != 0 ? &m_f : nullptr; }
-  std::optional<::dep::DepEnum> e() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 3)) != 0 ? std::optional<::dep::DepEnum>(m_e) : std::nullopt; }
-  ::rapidproto::ArrayView<::dep::Dep> ds() const noexcept { return m_ds; }
+  const ::rp::arena::dep::Dep* d() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? &m_d : nullptr; }
+  const ::rp::arena::pub::Pub* p() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 1)) != 0 ? &m_p : nullptr; }
+  const ::rp::arena::fwd::Fwd* f() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 2)) != 0 ? &m_f : nullptr; }
+  std::optional<::rp::enums::dep::DepEnum> e() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 3)) != 0 ? std::optional<::rp::enums::dep::DepEnum>(m_e) : std::nullopt; }
+  ::rapidproto::ArrayView<::rp::arena::dep::Dep> ds() const noexcept { return m_ds; }
   ::rapidproto::MapView<DmEntry> dm() const noexcept { return m_dm; }
   template <class... rp_Fs> void choice(rp_Fs&&... rp_fs) const {
     static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Fs, Choice::od, typename Choice::od::Value>)) <= 1U, "oneof member 'od' is handled by more than one callback");
@@ -74,32 +74,32 @@ class Main {
   template <class rp_T> friend bool ::rapidproto::arena_detail::decode_into(rp_T&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
   static bool rp_decode_into(Main& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
   union rp_choice_union {
-    ::dep::Dep od;
+    ::rp::arena::dep::Dep od;
     std::int32_t oi;
     rp_choice_union() noexcept {}
   };
-  ::dep::Dep m_d;
-  ::rapidproto::ArrayView<::dep::Dep> m_ds;
+  ::rp::arena::dep::Dep m_d;
+  ::rapidproto::ArrayView<::rp::arena::dep::Dep> m_ds;
   ::rapidproto::MapView<DmEntry> m_dm;
   rp_choice_union m_rp_choice;
-  ::pub::Pub m_p;
-  ::fwd::Fwd m_f;
-  ::dep::DepEnum m_e;
+  ::rp::arena::pub::Pub m_p;
+  ::rp::arena::fwd::Fwd m_f;
+  ::rp::enums::dep::DepEnum m_e;
   std::uint8_t m_rp_choice_case;
   std::uint8_t m_rp_mask;
 };
 static_assert(::std::is_trivially_destructible_v<Main>);
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-RP_FLATTEN RP_NOINLINE inline bool ::main::Main::rp_decode_into([[maybe_unused]] ::main::Main& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN RP_NOINLINE inline bool ::rp::arena::main::Main::rp_decode_into([[maybe_unused]] ::rp::arena::main::Main& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
-  ::dep::Dep* rp_acc_ds = nullptr;
+  ::rp::arena::dep::Dep* rp_acc_ds = nullptr;
   std::size_t rp_n_ds = 0;
   std::size_t rp_cap_ds = 0;
-  const auto rp_slot_ds = [&]() noexcept -> ::dep::Dep* {
+  const auto rp_slot_ds = [&]() noexcept -> ::rp::arena::dep::Dep* {
     if (rp_n_ds == rp_cap_ds) {
       const std::size_t rp_nc = rp_cap_ds == 0 ? std::size_t{4} : rp_cap_ds * 2;
-      ::dep::Dep* const rp_nb = arena.allocate_array<::dep::Dep>(rp_nc);
+      ::rp::arena::dep::Dep* const rp_nb = arena.allocate_array<::rp::arena::dep::Dep>(rp_nc);
       if (rp_nb == nullptr) { return nullptr; }
       for (std::size_t rp_i = 0; rp_i < rp_n_ds; ++rp_i) { rp_nb[rp_i] = rp_acc_ds[rp_i]; }
       rp_acc_ds = rp_nb;
@@ -171,17 +171,17 @@ RP_FLATTEN RP_NOINLINE inline bool ::main::Main::rp_decode_into([[maybe_unused]]
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
       if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
       rp_c = rp_np;
-      out.m_e = static_cast<::dep::DepEnum>(::rapidproto::varint_to_int32(rp_raw));
+      out.m_e = static_cast<::rp::enums::dep::DepEnum>(::rapidproto::varint_to_int32(rp_raw));
       out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 3));
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(5, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_5; }
       continue;
     }
     rp_do_5: {
-      ::dep::Dep* const rp_slot = rp_slot_ds();
+      ::rp::arena::dep::Dep* const rp_slot = rp_slot_ds();
       if (rp_slot == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }
       ::rapidproto::ByteView rp_v;
       { const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_v, &rp_we); if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; } rp_c = rp_np; }
-      *rp_slot = ::dep::Dep{};
+      *rp_slot = ::rp::arena::dep::Dep{};
       if (!::rapidproto::arena_detail::decode_into(*rp_slot, rp_v, arena, depth + 1, err)) { return false; }
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(5, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_5; }  // another element of the same field
       continue;
@@ -243,7 +243,7 @@ RP_FLATTEN RP_NOINLINE inline bool ::main::Main::rp_decode_into([[maybe_unused]]
           if (out.m_rp_choice_case == 1) { ::rapidproto::rp_fail_repeated_singular(err, 7); return false; }
           ::rapidproto::ByteView rp_v;
           { const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_v, &rp_we); if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; } rp_c = rp_np; }
-          out.m_rp_choice.od = ::dep::Dep{};
+          out.m_rp_choice.od = ::rp::arena::dep::Dep{};
           if (!::rapidproto::arena_detail::decode_into(out.m_rp_choice.od, rp_v, arena, depth + 1, err)) { return false; }
           out.m_rp_choice_case = 1;
           continue;
@@ -269,16 +269,16 @@ RP_FLATTEN RP_NOINLINE inline bool ::main::Main::rp_decode_into([[maybe_unused]]
     if (rp_sp == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo); return false; }
     rp_c = rp_sp;
   }
-  out.m_ds = ::rapidproto::ArrayView<::dep::Dep>(rp_acc_ds, rp_n_ds);
+  out.m_ds = ::rapidproto::ArrayView<::rp::arena::dep::Dep>(rp_acc_ds, rp_n_ds);
   out.m_dm = ::rapidproto::MapView<DmEntry>(::rapidproto::ArrayView<DmEntry>(rp_acc_dm, rp_n_dm));
   return true;
 }
-inline const ::main::Main* ::main::Main::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+inline const ::rp::arena::main::Main* ::rp::arena::main::Main::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
-  ::main::Main* const rp_root = arena.create<::main::Main>();
+  ::rp::arena::main::Main* const rp_root = arena.create<::rp::arena::main::Main>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
   return rp_root;
 }
 
-}  // namespace main
+}  // namespace rp::arena::main

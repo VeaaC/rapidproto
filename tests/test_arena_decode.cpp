@@ -37,6 +37,21 @@
 #include "rapidproto/arena_runtime.hpp"
 #include "rapidproto/runtime.hpp"  // ByteView, WireError
 
+// The generated types live under one root per model; alias each package once so the
+// bodies below read as they did before the roots existed. This file uses the arena model only.
+namespace an = rp::arena::an;
+namespace au = rp::arena::au;
+namespace dep = rp::arena::dep;
+namespace ed23 = rp::arena::ed23;
+namespace ed24 = rp::arena::ed24;
+namespace fm = rp::arena::fm;
+namespace main = rp::arena::main;
+namespace mr = rp::arena::mr;
+namespace ms = rp::arena::ms;
+namespace p2 = rp::arena::p2;
+namespace p3 = rp::arena::p3;
+namespace xr = rp::arena::xr;
+
 using namespace rapidproto;  // NOLINT(google-build-using-namespace): test convenience
 
 // The schema-known enum bounds ride in the shared common header (one type for both models):
@@ -593,7 +608,7 @@ TEST_CASE("arena-decode: message-value and enum-value maps fixture", "[arena-dec
 TEST_CASE("arena-decode: group (delimited) fixture", "[arena-decode]") {
     const std::string bin = fixture("all_wire.bin");
     Arena arena;
-    const ::wire::AllWire* m = ::wire::AllWire::decode(ByteView(bin), arena);
+    const ::rp::arena::wire::AllWire* m = ::rp::arena::wire::AllWire::decode(ByteView(bin), arena);
     REQUIRE(m != nullptr);
     CHECK(m->zz() == -1234567890123LL);
     CHECK(m->fx() == 305419896U);
@@ -605,7 +620,7 @@ TEST_CASE("arena-decode: group (delimited) fixture", "[arena-decode]") {
     CHECK(m->g()->a() == 99);
     bool got_oi = false;
     m->pick(
-        [&](::wire::AllWire::Pick::oi, std::int32_t v) {
+        [&](::rp::arena::wire::AllWire::Pick::oi, std::int32_t v) {
             got_oi = true;
             CHECK(v == 5);
         },
@@ -1443,14 +1458,14 @@ TEST_CASE("arena: --unknown-present observes that a MessageSet carried content",
     item += "abc";
     put_tag(item, 1, 4);
     ArenaDecodeError err{};
-    const unk::ms::Outer::Container* full =
-        unk::ms::Outer::Container::decode(ByteView(item), arena, &err);
+    const unk::arena::ms::Outer::Container* full =
+        unk::arena::ms::Outer::Container::decode(ByteView(item), arena, &err);
     REQUIRE(full != nullptr);
     CHECK(full->has_unknown_fields());  // the extension arrived, unmaterialized
 
     ArenaDecodeError err2{};
-    const unk::ms::Outer::Container* empty =
-        unk::ms::Outer::Container::decode(ByteView(std::string{}), arena, &err2);
+    const unk::arena::ms::Outer::Container* empty =
+        unk::arena::ms::Outer::Container::decode(ByteView(std::string{}), arena, &err2);
     REQUIRE(empty != nullptr);
     CHECK_FALSE(empty->has_unknown_fields());  // nothing on the wire, nothing reported
 }

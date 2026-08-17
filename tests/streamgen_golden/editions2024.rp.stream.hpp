@@ -8,7 +8,7 @@
 #include "rapidproto/runtime.hpp"
 #include "editions2024.rp.common.hpp"  // IWYU pragma: export
 
-namespace ed24::stream {
+namespace rp::stream::ed24 {
 
 struct M;
 
@@ -140,4 +140,4 @@ RP_FLATTEN ::rapidproto::DecodeStatus M::decode(rp_Callbacks&&... rp_callbacks) 
   }
 }
 
-}  // namespace ed24::stream
+}  // namespace rp::stream::ed24

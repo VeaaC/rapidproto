@@ -11,13 +11,13 @@
 #include "pub.rp.hpp"  // IWYU pragma: export
 #include "rapidproto/dump_runtime.hpp"
 
-namespace pub {
+namespace rp::arena::pub {
 
 namespace rp_dump_detail {
 
-inline void rp_dump_write(const ::pub::Pub& m, ::rapidproto::dump::Writer& w);
+inline void rp_dump_write(const ::rp::arena::pub::Pub& m, ::rapidproto::dump::Writer& w);
 
-inline void rp_dump_write(const ::pub::Pub& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::pub::Pub& m, ::rapidproto::dump::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
@@ -32,13 +32,13 @@ inline void rp_dump_write(const ::pub::Pub& m, ::rapidproto::dump::Writer& w) {
 
 }  // namespace rp_dump_detail
 
-inline void rp_dump_write(std::ostream& rp_os, const ::pub::Pub& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+inline void rp_dump_write(std::ostream& rp_os, const ::rp::arena::pub::Pub& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::pub::rp_dump_detail::rp_dump_write(m, w);
+  ::rp::arena::pub::rp_dump_detail::rp_dump_write(m, w);
 }
 
-inline std::string rp_dump_string(const ::pub::Pub& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+inline std::string rp_dump_string(const ::rp::arena::pub::Pub& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
 }
 
-}  // namespace pub
+}  // namespace rp::arena::pub

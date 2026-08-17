@@ -4,6 +4,6 @@
 
 #include <cstdint>
 
-namespace mr {
+namespace rp::enums::mr {
 
-}  // namespace mr
+}  // namespace rp::enums::mr

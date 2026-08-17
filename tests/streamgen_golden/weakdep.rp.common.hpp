@@ -4,6 +4,6 @@
 
 #include <cstdint>
 
-namespace wd {
+namespace rp::enums::wd {
 
-}  // namespace wd
+}  // namespace rp::enums::wd

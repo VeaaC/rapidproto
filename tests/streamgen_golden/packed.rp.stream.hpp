@@ -8,7 +8,7 @@
 #include "rapidproto/runtime.hpp"
 #include "packed.rp.common.hpp"  // IWYU pragma: export
 
-namespace pk::stream {
+namespace rp::stream::pk {
 
 struct Packed;
 
@@ -221,4 +221,4 @@ RP_FLATTEN ::rapidproto::DecodeStatus Packed::decode(rp_Callbacks&&... rp_callba
   }
 }
 
-}  // namespace pk::stream
+}  // namespace rp::stream::pk

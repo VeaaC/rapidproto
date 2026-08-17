@@ -4,6 +4,6 @@
 
 #include <cstdint>
 
-namespace google::protobuf {
+namespace rp::enums::google::protobuf {
 
-}  // namespace google::protobuf
+}  // namespace rp::enums::google::protobuf

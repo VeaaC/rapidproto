@@ -4,3 +4,6 @@
 
 #include <cstdint>
 
+namespace rp::enums {
+
+}  // namespace rp::enums

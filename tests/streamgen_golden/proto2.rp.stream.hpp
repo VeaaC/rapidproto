@@ -8,9 +8,9 @@
 #include "rapidproto/runtime.hpp"
 #include "proto2.rp.common.hpp"  // IWYU pragma: export
 
-namespace p2::stream {
+namespace rp::stream::p2 {
 
-using ::p2::Color;
+using ::rp::enums::p2::Color;
 
 struct Scalars;
 struct WithGroup;
@@ -36,7 +36,7 @@ struct Scalars {
   struct by { using Value = std::string_view; static constexpr std::uint32_t kNumber = 13; static constexpr std::string_view kName = "by"; };
   struct fl { using Value = float; static constexpr std::uint32_t kNumber = 14; static constexpr std::string_view kName = "fl"; };
   struct db { using Value = double; static constexpr std::uint32_t kNumber = 15; static constexpr std::string_view kName = "db"; };
-  struct color { using Value = ::p2::Color; static constexpr std::uint32_t kNumber = 16; static constexpr std::string_view kName = "color"; };
+  struct color { using Value = ::rp::enums::p2::Color; static constexpr std::uint32_t kNumber = 16; static constexpr std::string_view kName = "color"; };
   struct packed_nums { using Value = std::int32_t; static constexpr std::uint32_t kNumber = 17; static constexpr std::string_view kName = "packed_nums"; };
   struct expanded_nums { using Value = std::int32_t; static constexpr std::uint32_t kNumber = 18; static constexpr std::string_view kName = "expanded_nums"; };
 
@@ -69,7 +69,7 @@ struct WithGroup {
     };
 
     struct a { using Value = std::int32_t; static constexpr std::uint32_t kNumber = 2; static constexpr std::string_view kName = "a"; };
-    struct inner { using Value = ::p2::stream::WithGroup::MyGroup::Inner; static constexpr std::uint32_t kNumber = 3; static constexpr std::string_view kName = "inner"; };
+    struct inner { using Value = ::rp::stream::p2::WithGroup::MyGroup::Inner; static constexpr std::uint32_t kNumber = 3; static constexpr std::string_view kName = "inner"; };
 
     template <class... rp_Callbacks>
     [[nodiscard]] ::rapidproto::DecodeStatus decode(rp_Callbacks&&... rp_callbacks) const;
@@ -77,7 +77,7 @@ struct WithGroup {
     ::rapidproto::ByteView rp_span;
   };
 
-  struct mygroup { using Value = ::p2::stream::WithGroup::MyGroup; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "mygroup"; };
+  struct mygroup { using Value = ::rp::stream::p2::WithGroup::MyGroup; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "mygroup"; };
 
   template <class... rp_Callbacks>
   [[nodiscard]] ::rapidproto::DecodeStatus decode(rp_Callbacks&&... rp_callbacks) const;
@@ -105,7 +105,7 @@ struct OneofGroup {
 
   struct after { using Value = std::int32_t; static constexpr std::uint32_t kNumber = 5; static constexpr std::string_view kName = "after"; };
   struct i { using Value = std::int32_t; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "i"; };
-  struct g { using Value = ::p2::stream::OneofGroup::G; static constexpr std::uint32_t kNumber = 2; static constexpr std::string_view kName = "g"; };
+  struct g { using Value = ::rp::stream::p2::OneofGroup::G; static constexpr std::uint32_t kNumber = 2; static constexpr std::string_view kName = "g"; };
 
   template <class... rp_Callbacks>
   [[nodiscard]] ::rapidproto::DecodeStatus decode(rp_Callbacks&&... rp_callbacks) const;
@@ -130,11 +130,11 @@ struct Container {
     ::rapidproto::ByteView rp_span;
   };
 
-  struct items { using Value = ::p2::stream::Container::Nested; static constexpr std::uint32_t kNumber = 5; static constexpr std::string_view kName = "items"; };
+  struct items { using Value = ::rp::stream::p2::Container::Nested; static constexpr std::uint32_t kNumber = 5; static constexpr std::string_view kName = "items"; };
   struct ci { using Value = std::int32_t; static constexpr std::uint32_t kNumber = 3; static constexpr std::string_view kName = "ci"; };
-  struct cn { using Value = ::p2::stream::Container::Nested; static constexpr std::uint32_t kNumber = 4; static constexpr std::string_view kName = "cn"; };
-  struct by_name { using Key = std::string_view; using Value = ::p2::stream::Container::Nested; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "by_name"; };
-  struct by_id { using Key = std::int32_t; using Value = ::p2::Color; static constexpr std::uint32_t kNumber = 2; static constexpr std::string_view kName = "by_id"; };
+  struct cn { using Value = ::rp::stream::p2::Container::Nested; static constexpr std::uint32_t kNumber = 4; static constexpr std::string_view kName = "cn"; };
+  struct by_name { using Key = std::string_view; using Value = ::rp::stream::p2::Container::Nested; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "by_name"; };
+  struct by_id { using Key = std::int32_t; using Value = ::rp::enums::p2::Color; static constexpr std::uint32_t kNumber = 2; static constexpr std::string_view kName = "by_id"; };
 
   template <class... rp_Callbacks>
   [[nodiscard]] ::rapidproto::DecodeStatus decode(rp_Callbacks&&... rp_callbacks) const;
@@ -525,7 +525,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Scalars::decode(rp_Callbacks&&... rp_callb
         const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
         if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_np;
-        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, color{}, static_cast<::p2::Color>(::rapidproto::varint_to_int32(rp_raw))); !rp_status.ok()) {
+        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, color{}, static_cast<::rp::enums::p2::Color>(::rapidproto::varint_to_int32(rp_raw))); !rp_status.ok()) {
           return rp_status;
         }
       } else {  // no callback for this field -> skip its value (compile-time wire)
@@ -677,7 +677,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus WithGroup::decode(rp_Callbacks&&... rp_cal
             const std::uint8_t* const rp_np = ::rapidproto::wire::read_group(rp_c, rp_cend, ::rapidproto::wire::byte_ptr(rp_span), rp_tag.field_number, &rp_val, &rp_we, &rp_gfo);
             if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, rp_gfo}; }
             rp_c = rp_np;
-            if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, mygroup{}, ::p2::stream::WithGroup::MyGroup{rp_val}); !rp_status.ok()) {
+            if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, mygroup{}, ::rp::stream::p2::WithGroup::MyGroup{rp_val}); !rp_status.ok()) {
               return rp_status;
             }
             continue;
@@ -761,7 +761,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus WithGroup::MyGroup::decode(rp_Callbacks&&.
             const std::uint8_t* const rp_np = ::rapidproto::wire::read_group(rp_c, rp_cend, ::rapidproto::wire::byte_ptr(rp_span), rp_tag.field_number, &rp_val, &rp_we, &rp_gfo);
             if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, rp_gfo}; }
             rp_c = rp_np;
-            if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, inner{}, ::p2::stream::WithGroup::MyGroup::Inner{rp_val}); !rp_status.ok()) {
+            if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, inner{}, ::rp::stream::p2::WithGroup::MyGroup::Inner{rp_val}); !rp_status.ok()) {
               return rp_status;
             }
             continue;
@@ -934,7 +934,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus OneofGroup::decode(rp_Callbacks&&... rp_ca
             const std::uint8_t* const rp_np = ::rapidproto::wire::read_group(rp_c, rp_cend, ::rapidproto::wire::byte_ptr(rp_span), rp_tag.field_number, &rp_val, &rp_we, &rp_gfo);
             if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, rp_gfo}; }
             rp_c = rp_np;
-            if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, g{}, ::p2::stream::OneofGroup::G{rp_val}); !rp_status.ok()) {
+            if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, g{}, ::rp::stream::p2::OneofGroup::G{rp_val}); !rp_status.ok()) {
               return rp_status;
             }
             continue;
@@ -1078,7 +1078,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Container::decode(rp_Callbacks&&... rp_cal
         const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_val, &rp_we);
         if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_np;
-        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, items{}, ::p2::stream::Container::Nested{rp_val}); !rp_status.ok()) {
+        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, items{}, ::rp::stream::p2::Container::Nested{rp_val}); !rp_status.ok()) {
           return rp_status;
         }
       } else {  // no callback for this field -> skip its value (compile-time wire)
@@ -1124,7 +1124,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Container::decode(rp_Callbacks&&... rp_cal
         const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_val, &rp_we);
         if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_np;
-        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, cn{}, ::p2::stream::Container::Nested{rp_val}); !rp_status.ok()) {
+        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, cn{}, ::rp::stream::p2::Container::Nested{rp_val}); !rp_status.ok()) {
           return rp_status;
         }
       } else {  // no callback for this field -> skip its value (compile-time wire)
@@ -1176,7 +1176,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Container::decode(rp_Callbacks&&... rp_cal
                 const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_ec, rp_ee, &rp_val, &rp_we);
                 if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_ec - ::rapidproto::wire::byte_ptr(rp_entry))}; }
                 rp_ec = rp_np;
-                rp_value = ::p2::stream::Container::Nested{rp_val};
+                rp_value = ::rp::stream::p2::Container::Nested{rp_val};
               } else {
                 std::size_t rp_efo = 0;
                 const std::uint8_t* const rp_esp = ::rapidproto::wire::skip_value(rp_ec, rp_ee, ::rapidproto::wire::byte_ptr(rp_entry), rp_et, 0, &rp_we, &rp_efo);
@@ -1222,7 +1222,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Container::decode(rp_Callbacks&&... rp_cal
                 const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_ec, rp_ee, &rp_raw, &rp_we);
                 if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_ec - ::rapidproto::wire::byte_ptr(rp_entry))}; }
                 rp_ec = rp_np;
-                rp_value = static_cast<::p2::Color>(::rapidproto::varint_to_int32(rp_raw));
+                rp_value = static_cast<::rp::enums::p2::Color>(::rapidproto::varint_to_int32(rp_raw));
               } else {
                 std::size_t rp_efo = 0;
                 const std::uint8_t* const rp_esp = ::rapidproto::wire::skip_value(rp_ec, rp_ee, ::rapidproto::wire::byte_ptr(rp_entry), rp_et, 0, &rp_we, &rp_efo);
@@ -1323,4 +1323,4 @@ RP_FLATTEN ::rapidproto::DecodeStatus Container::Nested::decode(rp_Callbacks&&..
   }
 }
 
-}  // namespace p2::stream
+}  // namespace rp::stream::p2

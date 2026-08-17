@@ -58,7 +58,15 @@
 #include "dumpgen_golden/weakmain.rp.dump.hpp"  // weak import (pulls weakdep)
 #include "dumpgen_golden/wire_all.rp.dump.hpp"  // group + packed (dumped as a group)
 #include "dumpgen_golden/xref.rp.dump.hpp"
-#include "dumpgen_golden/xref_prefixed/xref.rp.dump.hpp"  // --namespace-prefix=rp -> namespace rp::xr
+#include "dumpgen_golden/xref_prefixed/xref.rp.dump.hpp"  // --namespace-prefix=pfx -> namespace pfx::arena::xr
+
+// The generated types live under one root per model; alias each package once so the
+// bodies below read as they did before the roots existed. This file uses the arena model only.
+namespace au = rp::arena::au;
+namespace fm = rp::arena::fm;
+namespace nm = rp::arena::nm;
+namespace p2 = rp::arena::p2;
+namespace p3 = rp::arena::p3;
 // IWYU pragma: end_keep
 
 using namespace rapidproto;  // NOLINT(google-build-using-namespace): test convenience
@@ -89,7 +97,8 @@ std::string generate(const std::string& dir, const std::string& entry,
     REQUIRE(analyzed.is_ok());
     const SymbolTable symbols = std::move(analyzed).value();
     const codegen::CppNameTable names =
-        codegen::build_cpp_names(set.files.front(), set.files, codegen::namespace_of(prefix));
+        codegen::build_cpp_names(set.files.front(), set.files, codegen::effective_ns_prefix(prefix),
+                                 std::string(codegen::kArenaRoot));
     const arenagen::FieldModes modes;  // inactive: every field materializes
     arenagen::LayoutOptions options;
     options.modes = &modes;
@@ -112,7 +121,9 @@ std::string generate_modes_golden() {
     REQUIRE(analyzed.is_ok());
     const SymbolTable symbols = std::move(analyzed).value();
     const arenagen::FieldModes modes = test::arena_modes_profile(set, symbols);
-    const codegen::CppNameTable names = codegen::build_cpp_names(set.files.front(), set.files, "");
+    const codegen::CppNameTable names =
+        codegen::build_cpp_names(set.files.front(), set.files, codegen::effective_ns_prefix({}),
+                                 std::string(codegen::kArenaRoot));
     arenagen::LayoutOptions options;
     options.modes = &modes;
     const arenagen::LayoutSet layouts = arenagen::plan_layouts(set, symbols, options);
@@ -135,7 +146,9 @@ std::string generate_unknown_present_golden() {
     auto resolved_modes = arenagen::resolve_field_modes(spec, set, symbols);
     REQUIRE(resolved_modes.is_ok());
     const arenagen::FieldModes modes = std::move(resolved_modes).value();
-    const codegen::CppNameTable names = codegen::build_cpp_names(set.files.front(), set.files, "");
+    const codegen::CppNameTable names =
+        codegen::build_cpp_names(set.files.front(), set.files, codegen::effective_ns_prefix({}),
+                                 std::string(codegen::kArenaRoot));
     arenagen::LayoutOptions options;
     options.modes = &modes;
     const arenagen::LayoutSet layouts = arenagen::plan_layouts(set, symbols, options);
@@ -301,7 +314,7 @@ TEST_CASE("dumpgen: generated headers match the goldens", "[dumpgen]") {
     // --unknown-present: the "has_unknown_fields": true marker is emitted per message.
     check_golden("arena_unknown", generate_unknown_present_golden());
     check_golden("xref", generate_corpus("xref.proto"));
-    check_golden("xref_prefixed/xref", generate_corpus("xref.proto", "rp"));
+    check_golden("xref_prefixed/xref", generate_corpus("xref.proto", "pfx"));
     check_golden("wire_all", generate(RAPIDPROTO_WIRE_FIXTURE_DIR, "wire_all.proto"));
     // Cross-file imports (distinct packages): a debug header #includes only its own arena header
     // (which transitively pulls the deps' arena headers), so each file gets its own dumper.
@@ -316,8 +329,8 @@ TEST_CASE("dumpgen: generated headers match the goldens", "[dumpgen]") {
     check_golden("weakmain", generate(imports, "weakmain.proto"));
     // --namespace-prefix + imports: the oneof visit-tag structs the dumper references come from the
     // same deduped SynthNames the arena header declared, so the prefixed closure compiles.
-    check_golden("prefixed/main", generate(imports, "main.proto", "rp"));
-    check_golden("prefixed/dep", generate(imports, "dep.proto", "rp"));
+    check_golden("prefixed/main", generate(imports, "main.proto", "pfx"));
+    check_golden("prefixed/dep", generate(imports, "dep.proto", "pfx"));
 }
 
 // ── generated namespace layout ───────────────────────────────────────────────────────────────────
@@ -333,11 +346,12 @@ TEST_CASE("dumpgen: generated internals live in sub-namespaces, not the public o
 
     SECTION("a multi-component package qualifies against the FULL package namespace") {
         const std::string out = generate(nsedge, "deep.proto");
-        CHECK(out.find("namespace com::example::deep {") != std::string::npos);
+        CHECK(out.find("namespace rp::arena::com::example::deep {") != std::string::npos);
         CHECK(out.find("namespace rp_dump_detail {") != std::string::npos);
         // The nested Inner is a CLASS member, so its dumper is still qualified with the PACKAGE
-        // namespace -- never `::com::example::deep::Outer::rp_dump_detail`.
-        CHECK(out.find("::com::example::deep::rp_dump_detail::rp_dump_write") != std::string::npos);
+        // namespace -- never `rp::arena::com::example::deep::Outer::rp_dump_detail`.
+        CHECK(out.find("rp::arena::com::example::deep::rp_dump_detail::rp_dump_write") !=
+              std::string::npos);
         CHECK(out.find("Outer::rp_dump_detail") == std::string::npos);
     }
     SECTION("a file with NO package opens the detail namespace at global scope") {
@@ -347,12 +361,13 @@ TEST_CASE("dumpgen: generated internals live in sub-namespaces, not the public o
     }
     SECTION("a cross-file call is qualified with the CALLEE's namespace, not the caller's") {
         const std::string out = generate(nsedge, "xpkg.proto");
-        CHECK(out.find("namespace other {") != std::string::npos);
-        CHECK(out.find("::com::example::deep::rp_dump_detail::rp_dump_write") != std::string::npos);
+        CHECK(out.find("namespace rp::arena::other {") != std::string::npos);
+        CHECK(out.find("rp::arena::com::example::deep::rp_dump_detail::rp_dump_write") !=
+              std::string::npos);
     }
     SECTION("--namespace-prefix is carried into the qualified call") {
         const std::string out = generate(nsedge, "xpkg.proto", "rp");
-        CHECK(out.find("::rp::com::example::deep::rp_dump_detail::rp_dump_write") !=
+        CHECK(out.find("rp::arena::com::example::deep::rp_dump_detail::rp_dump_write") !=
               std::string::npos);
     }
     SECTION("the public entry points stay OUT of the detail namespace") {
@@ -438,7 +453,7 @@ TEST_CASE("dumpgen: container fixture dumps map-of-messages and an array of obje
 TEST_CASE("dumpgen: all_wire fixture dumps a group field (delimited sub-message)", "[dumpgen]") {
     const std::string bin = fixture("all_wire.bin");
     Arena arena;
-    const ::wire::AllWire* m = ::wire::AllWire::decode(ByteView(bin), arena);
+    const ::rp::arena::wire::AllWire* m = ::rp::arena::wire::AllWire::decode(ByteView(bin), arena);
     REQUIRE(m != nullptr);
     // `g` is a group -- decoded through the identical nested-message accessor, dumped like any msg.
     const std::string expected = R"({
@@ -452,7 +467,7 @@ TEST_CASE("dumpgen: all_wire fixture dumps a group field (delimited sub-message)
   "g": {"a": 99},
   "oi": 5
 })";
-    CHECK(::wire::rp_dump_string(*m) == expected);
+    CHECK(::rp::arena::wire::rp_dump_string(*m) == expected);
 }
 
 // The width knob drives the adaptive compact/multi-line choice PER group. At width 20 the top object

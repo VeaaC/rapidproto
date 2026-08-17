@@ -75,12 +75,12 @@ done
 "$BIN" --arena -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/rppkg.proto >/dev/null
 # --namespace-prefix + imports: the prefixed closure into a subdir, so its relative #includes resolve
 # to the prefixed siblings (not the unprefixed ones, which share the same filenames).
-"$BIN" --arena --namespace-prefix=rp -Itests/corpus/imports --out-dir="$T/prefixed" tests/corpus/imports/main.proto >/dev/null
+"$BIN" --arena --namespace-prefix=pfx -Itests/corpus/imports --out-dir="$T/prefixed" tests/corpus/imports/main.proto >/dev/null
 # xref under a namespace prefix -> its own subdir golden. It must be a subdir (not a flat
 # xref_prefixed.rp.hpp) so its prefixed common header (holding rp::xr enums) stays isolated: the decoder
 # includes its common by stem ("xref.rp.common.hpp"), which on a flat layout would collide with the
 # un-prefixed xref's common of the same name.
-"$BIN" --arena -Itests/corpus --namespace-prefix=rp --out-dir="$T/xref_prefixed" tests/corpus/xref.proto >/dev/null
+"$BIN" --arena -Itests/corpus --namespace-prefix=pfx --out-dir="$T/xref_prefixed" tests/corpus/xref.proto >/dev/null
 
 # Copy a fresh version over every checked-in golden; a golden with no fresh version means this script
 # needs a new entry above.

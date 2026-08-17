@@ -11,24 +11,24 @@
 #include "arena_naming.rp.hpp"  // IWYU pragma: export
 #include "rapidproto/dump_runtime.hpp"
 
-namespace an {
+namespace rp::arena::an {
 
 namespace rp_dump_detail {
 
-inline void rp_dump_write(const ::an::Collide::FooEntry& m, ::rapidproto::dump::Writer& w);
-inline void rp_dump_write(const ::an::Collide& m, ::rapidproto::dump::Writer& w);
-inline void rp_dump_write(const ::an::Callback& m, ::rapidproto::dump::Writer& w);
-inline void rp_dump_write(const ::an::FooEntry& m, ::rapidproto::dump::Writer& w);
-inline void rp_dump_write(const ::an::Outer::Outer_& m, ::rapidproto::dump::Writer& w);
-inline void rp_dump_write(const ::an::Outer& m, ::rapidproto::dump::Writer& w);
-inline void rp_dump_write(const ::an::m_x& m, ::rapidproto::dump::Writer& w);
-inline void rp_dump_write(const ::an::Sibling& m, ::rapidproto::dump::Writer& w);
-inline void rp_dump_write(const ::an::config& m, ::rapidproto::dump::Writer& w);
-inline void rp_dump_write(const ::an::MaskOneof& m, ::rapidproto::dump::Writer& w);
-inline void rp_dump_write(const ::an::Bytes& m, ::rapidproto::dump::Writer& w);
-inline void rp_dump_write(const ::an::Keywords& m, ::rapidproto::dump::Writer& w);
+inline void rp_dump_write(const ::rp::arena::an::Collide::FooEntry& m, ::rapidproto::dump::Writer& w);
+inline void rp_dump_write(const ::rp::arena::an::Collide& m, ::rapidproto::dump::Writer& w);
+inline void rp_dump_write(const ::rp::arena::an::Callback& m, ::rapidproto::dump::Writer& w);
+inline void rp_dump_write(const ::rp::arena::an::FooEntry& m, ::rapidproto::dump::Writer& w);
+inline void rp_dump_write(const ::rp::arena::an::Outer::Outer_& m, ::rapidproto::dump::Writer& w);
+inline void rp_dump_write(const ::rp::arena::an::Outer& m, ::rapidproto::dump::Writer& w);
+inline void rp_dump_write(const ::rp::arena::an::m_x& m, ::rapidproto::dump::Writer& w);
+inline void rp_dump_write(const ::rp::arena::an::Sibling& m, ::rapidproto::dump::Writer& w);
+inline void rp_dump_write(const ::rp::arena::an::config& m, ::rapidproto::dump::Writer& w);
+inline void rp_dump_write(const ::rp::arena::an::MaskOneof& m, ::rapidproto::dump::Writer& w);
+inline void rp_dump_write(const ::rp::arena::an::Bytes& m, ::rapidproto::dump::Writer& w);
+inline void rp_dump_write(const ::rp::arena::an::Keywords& m, ::rapidproto::dump::Writer& w);
 
-inline void rp_dump_write(const ::an::Collide::FooEntry& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::an::Collide::FooEntry& m, ::rapidproto::dump::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
@@ -41,7 +41,7 @@ inline void rp_dump_write(const ::an::Collide::FooEntry& m, ::rapidproto::dump::
   });
 }
 
-inline void rp_dump_write(const ::an::Collide& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::an::Collide& m, ::rapidproto::dump::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
@@ -80,12 +80,12 @@ inline void rp_dump_write(const ::an::Collide& m, ::rapidproto::dump::Writer& w)
     }
     m.pick([&](auto rp_tag, const auto& rp_v) {
       using rp_Tag = std::decay_t<decltype(rp_tag)>;
-      if constexpr (std::is_same_v<rp_Tag, ::an::Collide::Pick::p1>) {
+      if constexpr (std::is_same_v<rp_Tag, ::rp::arena::an::Collide::Pick::p1>) {
         if (w.begin_field(rp_first, "p1")) {
           ::rapidproto::dump::write_int(w.os(), rp_v);
         }
       }
-      if constexpr (std::is_same_v<rp_Tag, ::an::Collide::Pick::p2>) {
+      if constexpr (std::is_same_v<rp_Tag, ::rp::arena::an::Collide::Pick::p2>) {
         if (w.begin_field(rp_first, "p2")) {
           ::rapidproto::dump::write_int(w.os(), rp_v);
         }
@@ -93,12 +93,12 @@ inline void rp_dump_write(const ::an::Collide& m, ::rapidproto::dump::Writer& w)
     });
     m.letters([&](auto rp_tag, const auto& rp_v) {
       using rp_Tag = std::decay_t<decltype(rp_tag)>;
-      if constexpr (std::is_same_v<rp_Tag, ::an::Collide::Letters::a>) {
+      if constexpr (std::is_same_v<rp_Tag, ::rp::arena::an::Collide::Letters::a>) {
         if (w.begin_field(rp_first, "a")) {
           ::rapidproto::dump::write_int(w.os(), rp_v);
         }
       }
-      if constexpr (std::is_same_v<rp_Tag, ::an::Collide::Letters::A>) {
+      if constexpr (std::is_same_v<rp_Tag, ::rp::arena::an::Collide::Letters::A>) {
         if (w.begin_field(rp_first, "A")) {
           ::rapidproto::dump::write_int(w.os(), rp_v);
         }
@@ -108,7 +108,7 @@ inline void rp_dump_write(const ::an::Collide& m, ::rapidproto::dump::Writer& w)
   });
 }
 
-inline void rp_dump_write(const ::an::Callback& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::an::Callback& m, ::rapidproto::dump::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
@@ -119,7 +119,7 @@ inline void rp_dump_write(const ::an::Callback& m, ::rapidproto::dump::Writer& w
     }
     m.callback([&](auto rp_tag, const auto& rp_v) {
       using rp_Tag = std::decay_t<decltype(rp_tag)>;
-      if constexpr (std::is_same_v<rp_Tag, ::an::Callback::Callback_::python_code>) {
+      if constexpr (std::is_same_v<rp_Tag, ::rp::arena::an::Callback::Callback_::python_code>) {
         if (w.begin_field(rp_first, "python_code")) {
           w.os() << '"'; ::rapidproto::dump::write_json_escaped(w.os(), rp_v); w.os() << '"';
         }
@@ -129,7 +129,7 @@ inline void rp_dump_write(const ::an::Callback& m, ::rapidproto::dump::Writer& w
   });
 }
 
-inline void rp_dump_write(const ::an::FooEntry& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::an::FooEntry& m, ::rapidproto::dump::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
@@ -150,7 +150,7 @@ inline void rp_dump_write(const ::an::FooEntry& m, ::rapidproto::dump::Writer& w
   });
 }
 
-inline void rp_dump_write(const ::an::Outer::Outer_& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::an::Outer::Outer_& m, ::rapidproto::dump::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
@@ -163,14 +163,14 @@ inline void rp_dump_write(const ::an::Outer::Outer_& m, ::rapidproto::dump::Writ
   });
 }
 
-inline void rp_dump_write(const ::an::Outer& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::an::Outer& m, ::rapidproto::dump::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
     if (const auto* rp_p = m.inner()) {
       if (w.begin_field(rp_first, "inner")) {
         w.push_path("inner");
-        ::an::rp_dump_detail::rp_dump_write(*rp_p, w);
+        ::rp::arena::an::rp_dump_detail::rp_dump_write(*rp_p, w);
         w.pop_path();
       }
     }
@@ -178,7 +178,7 @@ inline void rp_dump_write(const ::an::Outer& m, ::rapidproto::dump::Writer& w) {
   });
 }
 
-inline void rp_dump_write(const ::an::m_x& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::an::m_x& m, ::rapidproto::dump::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
@@ -191,7 +191,7 @@ inline void rp_dump_write(const ::an::m_x& m, ::rapidproto::dump::Writer& w) {
   });
 }
 
-inline void rp_dump_write(const ::an::Sibling& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::an::Sibling& m, ::rapidproto::dump::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
@@ -209,13 +209,13 @@ inline void rp_dump_write(const ::an::Sibling& m, ::rapidproto::dump::Writer& w)
   });
 }
 
-inline void rp_dump_write(const ::an::config& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::an::config& m, ::rapidproto::dump::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
     m.config_([&](auto rp_tag, const auto& rp_v) {
       using rp_Tag = std::decay_t<decltype(rp_tag)>;
-      if constexpr (std::is_same_v<rp_Tag, ::an::config::Config::a>) {
+      if constexpr (std::is_same_v<rp_Tag, ::rp::arena::an::config::Config::a>) {
         if (w.begin_field(rp_first, "a")) {
           w.os() << '"'; ::rapidproto::dump::write_json_escaped(w.os(), rp_v); w.os() << '"';
         }
@@ -225,7 +225,7 @@ inline void rp_dump_write(const ::an::config& m, ::rapidproto::dump::Writer& w) 
   });
 }
 
-inline void rp_dump_write(const ::an::MaskOneof& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::an::MaskOneof& m, ::rapidproto::dump::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
@@ -236,7 +236,7 @@ inline void rp_dump_write(const ::an::MaskOneof& m, ::rapidproto::dump::Writer& 
     }
     m.mask([&](auto rp_tag, const auto& rp_v) {
       using rp_Tag = std::decay_t<decltype(rp_tag)>;
-      if constexpr (std::is_same_v<rp_Tag, ::an::MaskOneof::Mask::a>) {
+      if constexpr (std::is_same_v<rp_Tag, ::rp::arena::an::MaskOneof::Mask::a>) {
         if (w.begin_field(rp_first, "a")) {
           ::rapidproto::dump::write_int(w.os(), rp_v);
         }
@@ -246,7 +246,7 @@ inline void rp_dump_write(const ::an::MaskOneof& m, ::rapidproto::dump::Writer& 
   });
 }
 
-inline void rp_dump_write(const ::an::Bytes& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::an::Bytes& m, ::rapidproto::dump::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
@@ -264,7 +264,7 @@ inline void rp_dump_write(const ::an::Bytes& m, ::rapidproto::dump::Writer& w) {
   });
 }
 
-inline void rp_dump_write(const ::an::Keywords& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::an::Keywords& m, ::rapidproto::dump::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
@@ -344,112 +344,112 @@ inline void rp_dump_write(const ::an::Keywords& m, ::rapidproto::dump::Writer& w
 
 }  // namespace rp_dump_detail
 
-inline void rp_dump_write(std::ostream& rp_os, const ::an::Collide::FooEntry& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+inline void rp_dump_write(std::ostream& rp_os, const ::rp::arena::an::Collide::FooEntry& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::an::rp_dump_detail::rp_dump_write(m, w);
+  ::rp::arena::an::rp_dump_detail::rp_dump_write(m, w);
 }
 
-inline std::string rp_dump_string(const ::an::Collide::FooEntry& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+inline std::string rp_dump_string(const ::rp::arena::an::Collide::FooEntry& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
 }
 
-inline void rp_dump_write(std::ostream& rp_os, const ::an::Collide& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+inline void rp_dump_write(std::ostream& rp_os, const ::rp::arena::an::Collide& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::an::rp_dump_detail::rp_dump_write(m, w);
+  ::rp::arena::an::rp_dump_detail::rp_dump_write(m, w);
 }
 
-inline std::string rp_dump_string(const ::an::Collide& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+inline std::string rp_dump_string(const ::rp::arena::an::Collide& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
 }
 
-inline void rp_dump_write(std::ostream& rp_os, const ::an::Callback& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+inline void rp_dump_write(std::ostream& rp_os, const ::rp::arena::an::Callback& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::an::rp_dump_detail::rp_dump_write(m, w);
+  ::rp::arena::an::rp_dump_detail::rp_dump_write(m, w);
 }
 
-inline std::string rp_dump_string(const ::an::Callback& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+inline std::string rp_dump_string(const ::rp::arena::an::Callback& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
 }
 
-inline void rp_dump_write(std::ostream& rp_os, const ::an::FooEntry& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+inline void rp_dump_write(std::ostream& rp_os, const ::rp::arena::an::FooEntry& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::an::rp_dump_detail::rp_dump_write(m, w);
+  ::rp::arena::an::rp_dump_detail::rp_dump_write(m, w);
 }
 
-inline std::string rp_dump_string(const ::an::FooEntry& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+inline std::string rp_dump_string(const ::rp::arena::an::FooEntry& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
 }
 
-inline void rp_dump_write(std::ostream& rp_os, const ::an::Outer::Outer_& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+inline void rp_dump_write(std::ostream& rp_os, const ::rp::arena::an::Outer::Outer_& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::an::rp_dump_detail::rp_dump_write(m, w);
+  ::rp::arena::an::rp_dump_detail::rp_dump_write(m, w);
 }
 
-inline std::string rp_dump_string(const ::an::Outer::Outer_& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+inline std::string rp_dump_string(const ::rp::arena::an::Outer::Outer_& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
 }
 
-inline void rp_dump_write(std::ostream& rp_os, const ::an::Outer& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+inline void rp_dump_write(std::ostream& rp_os, const ::rp::arena::an::Outer& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::an::rp_dump_detail::rp_dump_write(m, w);
+  ::rp::arena::an::rp_dump_detail::rp_dump_write(m, w);
 }
 
-inline std::string rp_dump_string(const ::an::Outer& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+inline std::string rp_dump_string(const ::rp::arena::an::Outer& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
 }
 
-inline void rp_dump_write(std::ostream& rp_os, const ::an::m_x& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+inline void rp_dump_write(std::ostream& rp_os, const ::rp::arena::an::m_x& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::an::rp_dump_detail::rp_dump_write(m, w);
+  ::rp::arena::an::rp_dump_detail::rp_dump_write(m, w);
 }
 
-inline std::string rp_dump_string(const ::an::m_x& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+inline std::string rp_dump_string(const ::rp::arena::an::m_x& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
 }
 
-inline void rp_dump_write(std::ostream& rp_os, const ::an::Sibling& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+inline void rp_dump_write(std::ostream& rp_os, const ::rp::arena::an::Sibling& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::an::rp_dump_detail::rp_dump_write(m, w);
+  ::rp::arena::an::rp_dump_detail::rp_dump_write(m, w);
 }
 
-inline std::string rp_dump_string(const ::an::Sibling& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+inline std::string rp_dump_string(const ::rp::arena::an::Sibling& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
 }
 
-inline void rp_dump_write(std::ostream& rp_os, const ::an::config& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+inline void rp_dump_write(std::ostream& rp_os, const ::rp::arena::an::config& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::an::rp_dump_detail::rp_dump_write(m, w);
+  ::rp::arena::an::rp_dump_detail::rp_dump_write(m, w);
 }
 
-inline std::string rp_dump_string(const ::an::config& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+inline std::string rp_dump_string(const ::rp::arena::an::config& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
 }
 
-inline void rp_dump_write(std::ostream& rp_os, const ::an::MaskOneof& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+inline void rp_dump_write(std::ostream& rp_os, const ::rp::arena::an::MaskOneof& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::an::rp_dump_detail::rp_dump_write(m, w);
+  ::rp::arena::an::rp_dump_detail::rp_dump_write(m, w);
 }
 
-inline std::string rp_dump_string(const ::an::MaskOneof& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+inline std::string rp_dump_string(const ::rp::arena::an::MaskOneof& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
 }
 
-inline void rp_dump_write(std::ostream& rp_os, const ::an::Bytes& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+inline void rp_dump_write(std::ostream& rp_os, const ::rp::arena::an::Bytes& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::an::rp_dump_detail::rp_dump_write(m, w);
+  ::rp::arena::an::rp_dump_detail::rp_dump_write(m, w);
 }
 
-inline std::string rp_dump_string(const ::an::Bytes& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+inline std::string rp_dump_string(const ::rp::arena::an::Bytes& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
 }
 
-inline void rp_dump_write(std::ostream& rp_os, const ::an::Keywords& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+inline void rp_dump_write(std::ostream& rp_os, const ::rp::arena::an::Keywords& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::an::rp_dump_detail::rp_dump_write(m, w);
+  ::rp::arena::an::rp_dump_detail::rp_dump_write(m, w);
 }
 
-inline std::string rp_dump_string(const ::an::Keywords& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
+inline std::string rp_dump_string(const ::rp::arena::an::Keywords& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
   std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
 }
 
-}  // namespace an
+}  // namespace rp::arena::an

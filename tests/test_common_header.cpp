@@ -45,7 +45,8 @@ ResolvedFileSet resolve_set(const std::string& dir, const std::string& entry) {
 std::string common_header(const std::string& dir, const std::string& entry) {
     const ResolvedFileSet set = resolve_set(dir, entry);
     const codegen::CppNameTable names =
-        codegen::build_cpp_names(set.files.front(), set.files, std::string{});
+        codegen::build_cpp_names(set.files.front(), set.files, codegen::effective_ns_prefix({}),
+                                 std::string(codegen::kArenaRoot));
     return codegen::emit_common_header(set.files.back(), names);
 }
 
@@ -83,25 +84,27 @@ TEST_CASE("common-header: golden output (enums + import includes)", "[common]") 
 TEST_CASE("naming: same-package files share one dedup scope, and real names win", "[common]") {
     // escdedup_a declares `enum decode`, which is reserved (the decoders expose a static decode()),
     // so it sanitizes onto `decode_` -- the name escdedup_b really gives a message. Deduping per
-    // file gave both `escdedup::decode_`, and any TU including the two headers stopped compiling.
+    // file gave both `rp::arena::escdedup::decode_`, and any TU including the two headers stopped compiling.
     const ResolvedFileSet set =
         resolve_set(std::string(RAPIDPROTO_CORPUS_DIR) + "/imports", "escdedup_a.proto");
     const codegen::CppNameTable names =
-        codegen::build_cpp_names(set.files.back(), set.files, std::string{});
+        codegen::build_cpp_names(set.files.back(), set.files, codegen::effective_ns_prefix({}),
+                                 std::string(codegen::kArenaRoot));
     const std::string enum_name = codegen::cpp_type_name(names, ".escdedup.decode");
     const std::string message_name = codegen::cpp_type_name(names, ".escdedup.decode_");
     INFO("enum -> " << enum_name << ", message -> " << message_name);
     CHECK(enum_name != message_name);
     // The literal identifier keeps its spelling; the escape is what moves.
-    CHECK(message_name == "::escdedup::decode_");
-    CHECK(enum_name == "::escdedup::decode__");
+    CHECK(message_name == "::rp::arena::escdedup::decode_");
+    CHECK(enum_name == "::rp::enums::escdedup::decode__");
 
     // ...and that does not depend on the order the files are indexed in. Reversing the set used to
     // hand the contested id to whichever file came first, so one schema generated two different
     // sets of C++ names.
     std::vector<FileNode> reversed(set.files.rbegin(), set.files.rend());
     const codegen::CppNameTable flipped =
-        codegen::build_cpp_names(reversed.front(), reversed, std::string{});
+        codegen::build_cpp_names(reversed.front(), reversed, codegen::effective_ns_prefix({}),
+                                 std::string(codegen::kArenaRoot));
     CHECK(codegen::cpp_type_name(flipped, ".escdedup.decode") == enum_name);
     CHECK(codegen::cpp_type_name(flipped, ".escdedup.decode_") == message_name);
 
@@ -110,7 +113,8 @@ TEST_CASE("naming: same-package files share one dedup scope, and real names win"
     // differed between the arena and streaming runs would leave that header contradicting the
     // streaming decoder's references to it.
     const codegen::CppNameTable streamed =
-        codegen::build_cpp_names(set.files.back(), set.files, std::string{}, "stream");
+        codegen::build_cpp_names(set.files.back(), set.files, codegen::effective_ns_prefix({}),
+                                 std::string(codegen::kStreamRoot));
     CHECK(codegen::cpp_type_name(streamed, ".escdedup.decode") == enum_name);
 }
 
@@ -124,23 +128,28 @@ TEST_CASE("common-header: model_namespace nests messages, not enums", "[common]"
 
     // model_namespace = "stream": the top-level message nests under ::stream::; the enum does not.
     const codegen::CppNameTable nested =
-        codegen::build_cpp_names(set.files.front(), set.files, std::string{}, "stream");
+        codegen::build_cpp_names(set.files.front(), set.files, codegen::effective_ns_prefix({}),
+                                 std::string(codegen::kStreamRoot));
     CHECK(codegen::cpp_type_name(nested, msg_fqn).find("::stream::") != std::string::npos);
     CHECK(codegen::cpp_type_name(nested, enum_fqn).find("::stream::") == std::string::npos);
 
-    // Default (empty model_namespace): the message stays at package scope (today's arena layout), and
-    // the enum's absolute name is identical either way (enums are never model-nested).
+    // The arena root: messages sit under `<prefix>::arena::<pkg>` while the enum keeps its own
+    // `<prefix>::enums::<pkg>` home, identical from either model -- the coexistence invariant.
     const codegen::CppNameTable plain =
-        codegen::build_cpp_names(set.files.front(), set.files, std::string{});
-    CHECK(codegen::cpp_type_name(plain, msg_fqn).find("::stream::") == std::string::npos);
+        codegen::build_cpp_names(set.files.front(), set.files, codegen::effective_ns_prefix({}),
+                                 std::string(codegen::kArenaRoot));
+    CHECK(codegen::cpp_type_name(plain, msg_fqn).find("::arena::") != std::string::npos);
     CHECK(codegen::cpp_type_name(nested, enum_fqn) == codegen::cpp_type_name(plain, enum_fqn));
 
-    // --namespace-prefix nests INSIDE the prefix: ::rp::p3::stream::Msg; the enum stays ::rp::p3::State.
-    const codegen::CppNameTable prefixed = codegen::build_cpp_names(
-        set.files.front(), set.files, codegen::namespace_of("rp"), "stream");
-    CHECK(codegen::cpp_type_name(prefixed, msg_fqn).find("::rp::p3::stream::") !=
+    // --namespace-prefix wraps the ROOTS: ::rp::stream::p3::Msg, and the enum keeps its own root
+    // at ::rp::enums::p3::State -- model-independent, which is what lets both models alias one type.
+    const codegen::CppNameTable prefixed =
+        codegen::build_cpp_names(set.files.front(), set.files, codegen::namespace_of("rp"),
+                                 std::string(codegen::kStreamRoot));
+    CHECK(codegen::cpp_type_name(prefixed, msg_fqn).find("::rp::stream::p3::") !=
           std::string::npos);
-    CHECK(codegen::cpp_type_name(prefixed, enum_fqn).find("::rp::p3::") != std::string::npos);
+    CHECK(codegen::cpp_type_name(prefixed, enum_fqn).find("::rp::enums::p3::") !=
+          std::string::npos);
     CHECK(codegen::cpp_type_name(prefixed, enum_fqn).find("::stream::") == std::string::npos);
 }
 
@@ -152,7 +161,8 @@ TEST_CASE("common-header: model_namespace nests every message (incl. imported), 
     const ResolvedFileSet set =
         resolve_set(std::string(RAPIDPROTO_CORPUS_DIR) + "/imports", "main.proto");
     const codegen::CppNameTable names =
-        codegen::build_cpp_names(set.files.front(), set.files, std::string{}, "stream");
+        codegen::build_cpp_names(set.files.front(), set.files, codegen::effective_ns_prefix({}),
+                                 std::string(codegen::kStreamRoot));
     for (const FileNode& file : set.files) {
         for (const auto& message : file.messages) {
             INFO("message " << message.fqn);
@@ -167,11 +177,12 @@ TEST_CASE("common-header: model_namespace nests every message (incl. imported), 
 }
 
 TEST_CASE("common-header: a nested enum rides with its message under model_namespace", "[common]") {
-    // A NESTED enum is not shared (not in the common header) -- it stays inside its message, so under
-    // "stream" it nests too (::pkg::stream::Msg::Inner), distinct from the arena copy.
+    // A NESTED enum is not shared (not in the common header) -- it stays inside its message, so it
+    // follows the model root (::rp::stream::pkg::Msg::Inner), distinct from the arena copy.
     const ResolvedFileSet set = resolve_set(RAPIDPROTO_CORPUS_DIR, "editions2023.proto");
     const codegen::CppNameTable names =
-        codegen::build_cpp_names(set.files.front(), set.files, std::string{}, "stream");
+        codegen::build_cpp_names(set.files.front(), set.files, codegen::effective_ns_prefix({}),
+                                 std::string(codegen::kStreamRoot));
     bool saw_nested_enum = false;
     for (const FileNode& file : set.files) {
         for (const auto& message : file.messages) {

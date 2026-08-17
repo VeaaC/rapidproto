@@ -93,7 +93,7 @@ endfunction()
 #   [GENERATOR arena|stream|both]   # which decoder(s) to emit (default: arena -- the default model)
 #   [DUMP]                          # also emit the JSON-like debug dumper (<stem>.rp.dump.hpp); needs arena
 #   [IMPORT_DIRS <dir>...]          # -I import search roots (the root your .proto tree imports against)
-#   [NAMESPACE_PREFIX <ns>]         # nest generated namespaces under <ns> (e.g. to coexist with protoc)
+#   [NAMESPACE_PREFIX <ns>]         # rename the root the generated code lives under (default: rp)
 #   [OUT_DIR <dir>]                 # where headers are written (default: a private dir under the build)
 #   [UNKNOWN_PRESENT]               # arena: reserve the "unknown fields present" bit on every message
 #   [UNKNOWN <message>...]          # arena: reserve that bit on these messages only
@@ -115,6 +115,13 @@ function(rapidproto_generate target)
   set(_one OUT_DIR GENERATOR NAMESPACE_PREFIX)
   set(_multi PROTOS IMPORT_DIRS FIELD_MODES DROP RAW UNKNOWN)
   cmake_parse_arguments(RPG "${_options}" "${_one}" "${_multi}" ${ARGN})
+
+  if("NAMESPACE_PREFIX" IN_LIST RPG_KEYWORDS_MISSING_VALUES)
+    # Empty is not "no prefix": the generated roots would land at global scope, so the CLI rejects it.
+    # Caught here because cmake_parse_arguments leaves the variable UNSET for an explicit empty value,
+    # which would otherwise look exactly like omitting the keyword and silently use the default.
+    message(FATAL_ERROR "rapidproto_generate(${target}): NAMESPACE_PREFIX cannot be empty")
+  endif()
 
   if(RPG_UNPARSED_ARGUMENTS)
     message(FATAL_ERROR "rapidproto_generate(${target}): unexpected arguments: ${RPG_UNPARSED_ARGUMENTS}")

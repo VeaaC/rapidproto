@@ -4,7 +4,7 @@
 
 #include <cstdint>
 
-namespace rp::xr {
+namespace pfx::enums::xr {
 
 enum class Version : std::int32_t {
   VERSION_1 = 0,
@@ -33,4 +33,4 @@ enum class Stream : std::int32_t {
   rp_non_exhaustive_max = INT32_MAX,
 };
 
-}  // namespace rp::xr
+}  // namespace pfx::enums::xr

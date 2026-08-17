@@ -9,7 +9,7 @@
 #include "xpkg.rp.common.hpp"  // IWYU pragma: export
 #include "deep.rp.stream.hpp"
 
-namespace other::stream {
+namespace rp::stream::other {
 
 struct Ref;
 
@@ -17,7 +17,7 @@ struct Ref {
   explicit Ref(::rapidproto::ByteView bytes) noexcept : rp_span(bytes) {}
   ::rapidproto::ByteView rp_bytes() const noexcept { return rp_span; }
 
-  struct target { using Value = ::com::example::deep::stream::Outer; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "target"; };
+  struct target { using Value = ::rp::stream::com::example::deep::Outer; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "target"; };
 
   template <class... rp_Callbacks>
   [[nodiscard]] ::rapidproto::DecodeStatus decode(rp_Callbacks&&... rp_callbacks) const;
@@ -50,7 +50,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Ref::decode(rp_Callbacks&&... rp_callbacks
         const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_val, &rp_we);
         if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_np;
-        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, target{}, ::com::example::deep::stream::Outer{rp_val}); !rp_status.ok()) {
+        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, target{}, ::rp::stream::com::example::deep::Outer{rp_val}); !rp_status.ok()) {
           return rp_status;
         }
       } else {  // no callback for this field -> skip its value (compile-time wire)
@@ -90,4 +90,4 @@ RP_FLATTEN ::rapidproto::DecodeStatus Ref::decode(rp_Callbacks&&... rp_callbacks
   }
 }
 
-}  // namespace other::stream
+}  // namespace rp::stream::other

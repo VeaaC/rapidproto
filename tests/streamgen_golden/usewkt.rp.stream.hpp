@@ -10,7 +10,7 @@
 #include "google/protobuf/timestamp.rp.stream.hpp"
 #include "google/protobuf/duration.rp.stream.hpp"
 
-namespace uw::stream {
+namespace rp::stream::uw {
 
 struct Event;
 
@@ -18,8 +18,8 @@ struct Event {
   explicit Event(::rapidproto::ByteView bytes) noexcept : rp_span(bytes) {}
   ::rapidproto::ByteView rp_bytes() const noexcept { return rp_span; }
 
-  struct at { using Value = ::google::protobuf::stream::Timestamp; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "at"; };
-  struct took { using Value = ::google::protobuf::stream::Duration; static constexpr std::uint32_t kNumber = 2; static constexpr std::string_view kName = "took"; };
+  struct at { using Value = ::rp::stream::google::protobuf::Timestamp; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "at"; };
+  struct took { using Value = ::rp::stream::google::protobuf::Duration; static constexpr std::uint32_t kNumber = 2; static constexpr std::string_view kName = "took"; };
 
   template <class... rp_Callbacks>
   [[nodiscard]] ::rapidproto::DecodeStatus decode(rp_Callbacks&&... rp_callbacks) const;
@@ -53,7 +53,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Event::decode(rp_Callbacks&&... rp_callbac
         const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_val, &rp_we);
         if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_np;
-        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, at{}, ::google::protobuf::stream::Timestamp{rp_val}); !rp_status.ok()) {
+        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, at{}, ::rp::stream::google::protobuf::Timestamp{rp_val}); !rp_status.ok()) {
           return rp_status;
         }
       } else {  // no callback for this field -> skip its value (compile-time wire)
@@ -75,7 +75,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Event::decode(rp_Callbacks&&... rp_callbac
         const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_val, &rp_we);
         if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_np;
-        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, took{}, ::google::protobuf::stream::Duration{rp_val}); !rp_status.ok()) {
+        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, took{}, ::rp::stream::google::protobuf::Duration{rp_val}); !rp_status.ok()) {
           return rp_status;
         }
       } else {  // no callback for this field -> skip its value (compile-time wire)
@@ -116,4 +116,4 @@ RP_FLATTEN ::rapidproto::DecodeStatus Event::decode(rp_Callbacks&&... rp_callbac
   }
 }
 
-}  // namespace uw::stream
+}  // namespace rp::stream::uw

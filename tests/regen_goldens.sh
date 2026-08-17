@@ -62,7 +62,7 @@ trap 'rm -rf "$T"' EXIT
 "$BIN" --stream -Itests/wire_fixtures --out-dir="$T" tests/wire_fixtures/wire_all.proto >/dev/null
 # xref under a namespace prefix -> its own subdir golden, isolating its prefixed common header (rp::xr
 # enums) from the un-prefixed xref's common of the same stem (see regen_arenagen_goldens.sh).
-"$BIN" --stream -Itests/corpus --namespace-prefix=rp --out-dir="$T/xref_prefixed" tests/corpus/xref.proto >/dev/null
+"$BIN" --stream -Itests/corpus --namespace-prefix=pfx --out-dir="$T/xref_prefixed" tests/corpus/xref.proto >/dev/null
 
 # Copy a fresh version over every currently-checked-in golden (preserving subdirs). Fail loudly if an
 # existing golden was not regenerated -- a new golden means this script needs a new entry above.

@@ -26,7 +26,6 @@ namespace rapidproto::streamgen {
 using codegen::build_cpp_names;
 using codegen::cpp_type_name;
 using codegen::CppNameTable;
-using codegen::namespace_of;
 using codegen::Printer;
 
 namespace {
@@ -833,12 +832,14 @@ std::string generate_header(const FileNode& file, const std::vector<FileNode>& a
     // build it ONCE with build_cpp_names and call the (file, names) overload per file. The prefix
     // is dot-separated (proto convention); namespace_of sanitizes + ::-joins it.
     return generate_header(
-        file, build_cpp_names(file, all_files, namespace_of(namespace_prefix), "stream"));
+        file, build_cpp_names(file, all_files, codegen::effective_ns_prefix(namespace_prefix),
+                              std::string(codegen::kStreamRoot)));
 }
 
 std::string generate_header(const FileNode& file) {
     return generate_header(
-        file, build_cpp_names(file, {}, std::string{}, "stream"));  // single-file table
+        file, build_cpp_names(file, {}, codegen::effective_ns_prefix({}),
+                              std::string(codegen::kStreamRoot)));  // single-file table
 }
 
 }  // namespace rapidproto::streamgen

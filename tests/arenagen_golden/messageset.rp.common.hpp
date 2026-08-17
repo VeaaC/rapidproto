@@ -4,6 +4,6 @@
 
 #include <cstdint>
 
-namespace ms {
+namespace rp::enums::ms {
 
-}  // namespace ms
+}  // namespace rp::enums::ms

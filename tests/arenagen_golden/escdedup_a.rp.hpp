@@ -12,26 +12,28 @@
 #include "escdedup_a.rp.common.hpp"  // IWYU pragma: export
 #include "escdedup_b.rp.hpp"
 
-namespace escdedup {
+namespace rp::arena::escdedup {
+
+using ::rp::enums::escdedup::decode__;
 
 class Holder;
 
 class Holder {
  public:
-  const ::escdedup::decode_* ref() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? &m_ref : nullptr; }
-  ::escdedup::decode__ kind() const noexcept { return m_kind; }
+  const ::rp::arena::escdedup::decode_* ref() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? &m_ref : nullptr; }
+  ::rp::enums::escdedup::decode__ kind() const noexcept { return m_kind; }
   [[nodiscard]] static const Holder* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class rp_T> friend bool ::rapidproto::arena_detail::decode_into(rp_T&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
   static bool rp_decode_into(Holder& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
-  ::escdedup::decode_ m_ref;
-  ::escdedup::decode__ m_kind;
+  ::rp::arena::escdedup::decode_ m_ref;
+  ::rp::enums::escdedup::decode__ m_kind;
   std::uint8_t m_rp_mask;
 };
 static_assert(::std::is_trivially_destructible_v<Holder>);
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-RP_FLATTEN inline bool ::escdedup::Holder::rp_decode_into([[maybe_unused]] ::escdedup::Holder& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN inline bool ::rp::arena::escdedup::Holder::rp_decode_into([[maybe_unused]] ::rp::arena::escdedup::Holder& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(body);
   const std::uint8_t* const rp_cend = rp_c + body.size();
@@ -59,7 +61,7 @@ RP_FLATTEN inline bool ::escdedup::Holder::rp_decode_into([[maybe_unused]] ::esc
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
       if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
       rp_c = rp_np;
-      out.m_kind = static_cast<::escdedup::decode__>(::rapidproto::varint_to_int32(rp_raw));
+      out.m_kind = static_cast<::rp::enums::escdedup::decode__>(::rapidproto::varint_to_int32(rp_raw));
       continue;
     }
     rp_field_general:;
@@ -80,12 +82,12 @@ RP_FLATTEN inline bool ::escdedup::Holder::rp_decode_into([[maybe_unused]] ::esc
   }
   return true;
 }
-inline const ::escdedup::Holder* ::escdedup::Holder::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+inline const ::rp::arena::escdedup::Holder* ::rp::arena::escdedup::Holder::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
-  ::escdedup::Holder* const rp_root = arena.create<::escdedup::Holder>();
+  ::rp::arena::escdedup::Holder* const rp_root = arena.create<::rp::arena::escdedup::Holder>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
   return rp_root;
 }
 
-}  // namespace escdedup
+}  // namespace rp::arena::escdedup

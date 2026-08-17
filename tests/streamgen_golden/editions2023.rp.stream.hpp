@@ -8,9 +8,9 @@
 #include "rapidproto/runtime.hpp"
 #include "editions2023.rp.common.hpp"  // IWYU pragma: export
 
-namespace ed23::stream {
+namespace rp::stream::ed23 {
 
-using ::ed23::E;
+using ::rp::enums::ed23::E;
 
 struct M;
 
@@ -28,10 +28,10 @@ struct M {
 
   struct implicit_scalar { using Value = std::int32_t; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "implicit_scalar"; };
   struct explicit_scalar { using Value = std::int32_t; static constexpr std::uint32_t kNumber = 2; static constexpr std::string_view kName = "explicit_scalar"; };
-  struct child { using Value = ::ed23::stream::M; static constexpr std::uint32_t kNumber = 3; static constexpr std::string_view kName = "child"; };
+  struct child { using Value = ::rp::stream::ed23::M; static constexpr std::uint32_t kNumber = 3; static constexpr std::string_view kName = "child"; };
   struct packed_nums { using Value = std::int32_t; static constexpr std::uint32_t kNumber = 4; static constexpr std::string_view kName = "packed_nums"; };
   struct expanded_nums { using Value = std::int32_t; static constexpr std::uint32_t kNumber = 5; static constexpr std::string_view kName = "expanded_nums"; };
-  struct delim { using Value = ::ed23::stream::M; static constexpr std::uint32_t kNumber = 6; static constexpr std::string_view kName = "delim"; };
+  struct delim { using Value = ::rp::stream::ed23::M; static constexpr std::uint32_t kNumber = 6; static constexpr std::string_view kName = "delim"; };
 
   template <class... rp_Callbacks>
   [[nodiscard]] ::rapidproto::DecodeStatus decode(rp_Callbacks&&... rp_callbacks) const;
@@ -116,7 +116,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus M::decode(rp_Callbacks&&... rp_callbacks) 
         const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_val, &rp_we);
         if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_np;
-        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, child{}, ::ed23::stream::M{rp_val}); !rp_status.ok()) {
+        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, child{}, ::rp::stream::ed23::M{rp_val}); !rp_status.ok()) {
           return rp_status;
         }
       } else {  // no callback for this field -> skip its value (compile-time wire)
@@ -247,7 +247,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus M::decode(rp_Callbacks&&... rp_callbacks) 
             const std::uint8_t* const rp_np = ::rapidproto::wire::read_group(rp_c, rp_cend, ::rapidproto::wire::byte_ptr(rp_span), rp_tag.field_number, &rp_val, &rp_we, &rp_gfo);
             if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, rp_gfo}; }
             rp_c = rp_np;
-            if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, delim{}, ::ed23::stream::M{rp_val}); !rp_status.ok()) {
+            if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, delim{}, ::rp::stream::ed23::M{rp_val}); !rp_status.ok()) {
               return rp_status;
             }
             continue;
@@ -275,4 +275,4 @@ RP_FLATTEN ::rapidproto::DecodeStatus M::decode(rp_Callbacks&&... rp_callbacks) 
   }
 }
 
-}  // namespace ed23::stream
+}  // namespace rp::stream::ed23

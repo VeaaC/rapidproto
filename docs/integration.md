@@ -20,7 +20,7 @@ rapidprotoc [options] <entry.proto>...
 | `--raw=<name>` | Arena: keep a message field's or type's payloads for deferred `decode()`s, inline. |
 | `-I <dir>` | Add an import search path (repeatable). |
 | `--out-dir <dir>` | Where to write the headers (and `rapidproto/runtime.hpp`, plus `arena_runtime.hpp` for `--arena` and `dump_runtime.hpp` for `--dump`). Default: the current directory. |
-| `--namespace-prefix <ns>` | Dot-separated prefix prepended to every C++ namespace (see [Coexisting with protoc](using-both-models.md#coexisting-with-protoc)). |
+| `--namespace-prefix <ns>` | Rename the root the generated code lives under (default `rp`; dot-separated, cannot be empty). |
 | `--no-wellknown` | Don't load the bundled well-known-type definitions. |
 | `--depfile <path>` | Write a Make/Ninja depfile (the entries' headers depend on **every** input `.proto` and profile file) so a build regenerates when any input changes. Used by the CMake helper; harmless otherwise. |
 | `-v`, `--verbose` | Log each written file (`wrote <path>`); output is otherwise silent on success. |

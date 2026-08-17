@@ -8,10 +8,10 @@
 #include "rapidproto/runtime.hpp"
 #include "rppkg.rp.common.hpp"  // IWYU pragma: export
 
-namespace rapidproto_::stream {
+namespace rp::stream::rapidproto_ {
 
-using ::rapidproto_::WireType;
-using ::rapidproto_::DecodeStatus;
+using ::rp::enums::rapidproto_::WireType;
+using ::rp::enums::rapidproto_::DecodeStatus;
 
 struct wire;
 struct Arena;
@@ -326,4 +326,4 @@ RP_FLATTEN ::rapidproto::DecodeStatus ByteView::decode(rp_Callbacks&&... rp_call
   }
 }
 
-}  // namespace rapidproto_::stream
+}  // namespace rp::stream::rapidproto_

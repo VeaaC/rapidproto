@@ -4,7 +4,7 @@
 
 #include <cstdint>
 
-namespace rapidproto_ {
+namespace rp::enums::rapidproto_ {
 
 enum class WireType : std::int32_t {
   A = 0,
@@ -22,4 +22,4 @@ enum class DecodeStatus : std::int32_t {
   rp_non_exhaustive_max = INT32_MAX,
 };
 
-}  // namespace rapidproto_
+}  // namespace rp::enums::rapidproto_

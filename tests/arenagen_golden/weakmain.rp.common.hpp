@@ -5,6 +5,6 @@
 #include <cstdint>
 #include "weakdep.rp.common.hpp"
 
-namespace wm {
+namespace rp::enums::wm {
 
-}  // namespace wm
+}  // namespace rp::enums::wm

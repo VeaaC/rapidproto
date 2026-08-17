@@ -8,9 +8,9 @@
 #include "rapidproto/runtime.hpp"
 #include "dep.rp.common.hpp"  // IWYU pragma: export
 
-namespace dep::stream {
+namespace rp::stream::dep {
 
-using ::dep::DepEnum;
+using ::rp::enums::dep::DepEnum;
 
 struct Dep;
 
@@ -19,7 +19,7 @@ struct Dep {
   ::rapidproto::ByteView rp_bytes() const noexcept { return rp_span; }
 
   struct v { using Value = std::int32_t; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "v"; };
-  struct de { using Value = ::dep::DepEnum; static constexpr std::uint32_t kNumber = 2; static constexpr std::string_view kName = "de"; };
+  struct de { using Value = ::rp::enums::dep::DepEnum; static constexpr std::uint32_t kNumber = 2; static constexpr std::string_view kName = "de"; };
 
   template <class... rp_Callbacks>
   [[nodiscard]] ::rapidproto::DecodeStatus decode(rp_Callbacks&&... rp_callbacks) const;
@@ -75,7 +75,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Dep::decode(rp_Callbacks&&... rp_callbacks
         const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
         if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_np;
-        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, de{}, static_cast<::dep::DepEnum>(::rapidproto::varint_to_int32(rp_raw))); !rp_status.ok()) {
+        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, de{}, static_cast<::rp::enums::dep::DepEnum>(::rapidproto::varint_to_int32(rp_raw))); !rp_status.ok()) {
           return rp_status;
         }
       } else {  // no callback for this field -> skip its value (compile-time wire)
@@ -116,4 +116,4 @@ RP_FLATTEN ::rapidproto::DecodeStatus Dep::decode(rp_Callbacks&&... rp_callbacks
   }
 }
 
-}  // namespace dep::stream
+}  // namespace rp::stream::dep

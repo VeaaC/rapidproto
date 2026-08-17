@@ -10,9 +10,9 @@
 `example` it emits two free functions:
 
 ```cpp
-void        example::rp_dump_write(std::ostream& os, const example::Foo& m,
+void        ex::rp_dump_write(std::ostream& os, const ex::Foo& m,
                                    const rapidproto::dump::DumpOptions& opts = {});
-std::string example::rp_dump_string(const example::Foo& m,
+std::string ex::rp_dump_string(const ex::Foo& m,
                                    const rapidproto::dump::DumpOptions& opts = {});
 ```
 
@@ -25,8 +25,9 @@ std::string example::rp_dump_string(const example::Foo& m,
 #include "person.rp.hpp"
 #include "person.rp.dump.hpp"
 
-const example::Person* p = example::Person::decode(rapidproto::ByteView(buf), arena);
-std::cout << example::rp_dump_string(*p) << '\n';         // or: rp_dump_write(std::cout, *p, 120);
+namespace ex = rp::arena::example;   // the dump functions sit beside the arena types
+const ex::Person* p = ex::Person::decode(rapidproto::ByteView(buf), arena);
+std::cout << ex::rp_dump_string(*p) << '\n';         // or: rp_dump_write(std::cout, *p, 120);
 ```
 
 `DumpOptions` tunes a dump. Every field has a default and an integer converts to a width, so
@@ -37,7 +38,7 @@ rapidproto::dump::DumpOptions opts;
 opts.width  = 100;                              // line-width budget (compact vs one-entry-per-line)
 opts.indent = 2;                                // start two nesting levels in, to nest under other output
 opts.skip   = {"email", "address.zip"};         // omit these fields by qualified path (subtree and all)
-std::cout << example::rp_dump_string(*p, opts);
+std::cout << ex::rp_dump_string(*p, opts);
 ```
 
 - **`skip`** names fields by their **dotted path** from the message root (`"address.zip"`, not just

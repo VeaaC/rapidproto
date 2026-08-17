@@ -7,6 +7,26 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
 
 ### Changed
 
+- **Breaking: generated types moved under per-model roots.** Every spelling changes, so **regenerate
+  and update your call sites**:
+
+  | | before | after |
+  |---|---|---|
+  | arena | `pkg::Msg` | `rp::arena::pkg::Msg` |
+  | streaming | `pkg::stream::Msg` | `rp::stream::pkg::Msg` |
+  | enums (top-level) | `pkg::Enum` | `rp::enums::pkg::Enum`, aliased into both models |
+
+  One `namespace p = rp::arena::pkg;` per file keeps bodies unchanged. The root is
+  `--namespace-prefix`, which now defaults to `rp` and **no longer accepts an empty value** — the
+  three root segments would otherwise land at global scope. Pass `--namespace-prefix=myco` if your
+  codebase already owns `rp`.
+
+  What this buys: a schema can now declare a top-level type named `stream` (previously the two
+  headers collided, and a top-level *enum* of that name broke the streaming header on its own); a
+  package and a sibling `pkg.stream.*` package no longer collide; and generated headers coexist with
+  protoc's `.pb.h` for the same schema **by default**, including the well-known types, where
+  RapidProto previously redefined `google::protobuf::Timestamp` for any schema importing one.
+
 - **Breaking: `MapView::find` returns an iterator, not a pointer.** It now compares against `end()`
   the way `std::map` does. Previously it returned `nullptr` on a miss while `end()` was
   one-past-the-end, so the habitual `find(k) != end()` compiled clean under `-Wall -Wextra`, was

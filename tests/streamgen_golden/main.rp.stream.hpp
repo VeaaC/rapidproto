@@ -10,7 +10,7 @@
 #include "dep.rp.stream.hpp"
 #include "forward.rp.stream.hpp"
 
-namespace main::stream {
+namespace rp::stream::main {
 
 struct Main;
 
@@ -18,14 +18,14 @@ struct Main {
   explicit Main(::rapidproto::ByteView bytes) noexcept : rp_span(bytes) {}
   ::rapidproto::ByteView rp_bytes() const noexcept { return rp_span; }
 
-  struct d { using Value = ::dep::stream::Dep; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "d"; };
-  struct p { using Value = ::pub::stream::Pub; static constexpr std::uint32_t kNumber = 2; static constexpr std::string_view kName = "p"; };
-  struct f { using Value = ::fwd::stream::Fwd; static constexpr std::uint32_t kNumber = 3; static constexpr std::string_view kName = "f"; };
-  struct e { using Value = ::dep::DepEnum; static constexpr std::uint32_t kNumber = 4; static constexpr std::string_view kName = "e"; };
-  struct ds { using Value = ::dep::stream::Dep; static constexpr std::uint32_t kNumber = 5; static constexpr std::string_view kName = "ds"; };
-  struct od { using Value = ::dep::stream::Dep; static constexpr std::uint32_t kNumber = 7; static constexpr std::string_view kName = "od"; };
+  struct d { using Value = ::rp::stream::dep::Dep; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "d"; };
+  struct p { using Value = ::rp::stream::pub::Pub; static constexpr std::uint32_t kNumber = 2; static constexpr std::string_view kName = "p"; };
+  struct f { using Value = ::rp::stream::fwd::Fwd; static constexpr std::uint32_t kNumber = 3; static constexpr std::string_view kName = "f"; };
+  struct e { using Value = ::rp::enums::dep::DepEnum; static constexpr std::uint32_t kNumber = 4; static constexpr std::string_view kName = "e"; };
+  struct ds { using Value = ::rp::stream::dep::Dep; static constexpr std::uint32_t kNumber = 5; static constexpr std::string_view kName = "ds"; };
+  struct od { using Value = ::rp::stream::dep::Dep; static constexpr std::uint32_t kNumber = 7; static constexpr std::string_view kName = "od"; };
   struct oi { using Value = std::int32_t; static constexpr std::uint32_t kNumber = 8; static constexpr std::string_view kName = "oi"; };
-  struct dm { using Key = std::int32_t; using Value = ::dep::stream::Dep; static constexpr std::uint32_t kNumber = 6; static constexpr std::string_view kName = "dm"; };
+  struct dm { using Key = std::int32_t; using Value = ::rp::stream::dep::Dep; static constexpr std::uint32_t kNumber = 6; static constexpr std::string_view kName = "dm"; };
 
   template <class... rp_Callbacks>
   [[nodiscard]] ::rapidproto::DecodeStatus decode(rp_Callbacks&&... rp_callbacks) const;
@@ -64,7 +64,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Main::decode(rp_Callbacks&&... rp_callback
         const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_val, &rp_we);
         if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_np;
-        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, d{}, ::dep::stream::Dep{rp_val}); !rp_status.ok()) {
+        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, d{}, ::rp::stream::dep::Dep{rp_val}); !rp_status.ok()) {
           return rp_status;
         }
       } else {  // no callback for this field -> skip its value (compile-time wire)
@@ -87,7 +87,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Main::decode(rp_Callbacks&&... rp_callback
         const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_val, &rp_we);
         if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_np;
-        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, p{}, ::pub::stream::Pub{rp_val}); !rp_status.ok()) {
+        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, p{}, ::rp::stream::pub::Pub{rp_val}); !rp_status.ok()) {
           return rp_status;
         }
       } else {  // no callback for this field -> skip its value (compile-time wire)
@@ -110,7 +110,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Main::decode(rp_Callbacks&&... rp_callback
         const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_val, &rp_we);
         if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_np;
-        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, f{}, ::fwd::stream::Fwd{rp_val}); !rp_status.ok()) {
+        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, f{}, ::rp::stream::fwd::Fwd{rp_val}); !rp_status.ok()) {
           return rp_status;
         }
       } else {  // no callback for this field -> skip its value (compile-time wire)
@@ -133,7 +133,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Main::decode(rp_Callbacks&&... rp_callback
         const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
         if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_np;
-        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, e{}, static_cast<::dep::DepEnum>(::rapidproto::varint_to_int32(rp_raw))); !rp_status.ok()) {
+        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, e{}, static_cast<::rp::enums::dep::DepEnum>(::rapidproto::varint_to_int32(rp_raw))); !rp_status.ok()) {
           return rp_status;
         }
       } else {  // no callback for this field -> skip its value (compile-time wire)
@@ -156,7 +156,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Main::decode(rp_Callbacks&&... rp_callback
         const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_val, &rp_we);
         if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_np;
-        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, ds{}, ::dep::stream::Dep{rp_val}); !rp_status.ok()) {
+        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, ds{}, ::rp::stream::dep::Dep{rp_val}); !rp_status.ok()) {
           return rp_status;
         }
       } else {  // no callback for this field -> skip its value (compile-time wire)
@@ -180,7 +180,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Main::decode(rp_Callbacks&&... rp_callback
         const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_val, &rp_we);
         if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_np;
-        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, od{}, ::dep::stream::Dep{rp_val}); !rp_status.ok()) {
+        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, od{}, ::rp::stream::dep::Dep{rp_val}); !rp_status.ok()) {
           return rp_status;
         }
       } else {  // no callback for this field -> skip its value (compile-time wire)
@@ -258,7 +258,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Main::decode(rp_Callbacks&&... rp_callback
                 const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_ec, rp_ee, &rp_val, &rp_we);
                 if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_ec - ::rapidproto::wire::byte_ptr(rp_entry))}; }
                 rp_ec = rp_np;
-                rp_value = ::dep::stream::Dep{rp_val};
+                rp_value = ::rp::stream::dep::Dep{rp_val};
               } else {
                 std::size_t rp_efo = 0;
                 const std::uint8_t* const rp_esp = ::rapidproto::wire::skip_value(rp_ec, rp_ee, ::rapidproto::wire::byte_ptr(rp_entry), rp_et, 0, &rp_we, &rp_efo);
@@ -294,4 +294,4 @@ RP_FLATTEN ::rapidproto::DecodeStatus Main::decode(rp_Callbacks&&... rp_callback
   }
 }
 
-}  // namespace main::stream
+}  // namespace rp::stream::main

@@ -8,7 +8,7 @@
 #include "rapidproto/runtime.hpp"
 #include "stdpkg.rp.common.hpp"  // IWYU pragma: export
 
-namespace std_::stream {
+namespace rp::stream::std_ {
 
 struct Types;
 
@@ -166,4 +166,4 @@ RP_FLATTEN ::rapidproto::DecodeStatus Types::decode(rp_Callbacks&&... rp_callbac
   }
 }
 
-}  // namespace std_::stream
+}  // namespace rp::stream::std_

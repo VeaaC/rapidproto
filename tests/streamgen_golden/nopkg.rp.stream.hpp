@@ -8,7 +8,7 @@
 #include "rapidproto/runtime.hpp"
 #include "nopkg.rp.common.hpp"  // IWYU pragma: export
 
-namespace stream {
+namespace rp::stream {
 
 struct Root;
 
@@ -29,8 +29,8 @@ struct Root {
     ::rapidproto::ByteView rp_span;
   };
 
-  struct sub { using Value = ::stream::Root::Sub; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "sub"; };
-  struct self { using Value = ::stream::Root; static constexpr std::uint32_t kNumber = 2; static constexpr std::string_view kName = "self"; };
+  struct sub { using Value = ::rp::stream::Root::Sub; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "sub"; };
+  struct self { using Value = ::rp::stream::Root; static constexpr std::uint32_t kNumber = 2; static constexpr std::string_view kName = "self"; };
 
   template <class... rp_Callbacks>
   [[nodiscard]] ::rapidproto::DecodeStatus decode(rp_Callbacks&&... rp_callbacks) const;
@@ -64,7 +64,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Root::decode(rp_Callbacks&&... rp_callback
         const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_val, &rp_we);
         if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_np;
-        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, sub{}, ::stream::Root::Sub{rp_val}); !rp_status.ok()) {
+        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, sub{}, ::rp::stream::Root::Sub{rp_val}); !rp_status.ok()) {
           return rp_status;
         }
       } else {  // no callback for this field -> skip its value (compile-time wire)
@@ -86,7 +86,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Root::decode(rp_Callbacks&&... rp_callback
         const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_val, &rp_we);
         if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_np;
-        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, self{}, ::stream::Root{rp_val}); !rp_status.ok()) {
+        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, self{}, ::rp::stream::Root{rp_val}); !rp_status.ok()) {
           return rp_status;
         }
       } else {  // no callback for this field -> skip its value (compile-time wire)
@@ -192,4 +192,4 @@ RP_FLATTEN ::rapidproto::DecodeStatus Root::Sub::decode(rp_Callbacks&&... rp_cal
   }
 }
 
-}  // namespace stream
+}  // namespace rp::stream

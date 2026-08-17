@@ -4,7 +4,7 @@
 
 #include <cstdint>
 
-namespace nm {
+namespace rp::enums::nm {
 
 enum class E : std::int32_t {
   decode_ = 0,
@@ -24,4 +24,4 @@ enum class MacroEnum : std::int32_t {
   rp_non_exhaustive_max = INT32_MAX,
 };
 
-}  // namespace nm
+}  // namespace rp::enums::nm

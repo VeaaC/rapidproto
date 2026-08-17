@@ -6,7 +6,7 @@ two complementary decode **models**:
 
 - **Streaming** (the `streamgen` emitter). A message's `decode()` walks the wire once and hands each
   field to a callback. Nothing is materialized, and it's allocation-free. Types live at
-  `pkg::stream::Msg`.
+  `<prefix>::stream::pkg::Msg`.
 - **Arena** (the `arenagen` emitter). `decode()` builds a fully-allocated, read-only object tree in a
   bump arena, navigated by accessor. It's built to beat `protoc` + `google::protobuf::Arena` on
   decode
@@ -72,7 +72,7 @@ Naming is kept consistent across the code and docs:
   functions that print the decoded tree as JSON-*like* text for human inspection. A debugging aid,
   not a
   serializer or a spec JSON codec.
-- **decoder.** The generated type a user calls (`pkg::Msg` arena, `pkg::stream::Msg` streaming).
+- **decoder.** The generated type a user calls (`rp::arena::pkg::Msg`, `rp::stream::pkg::Msg`).
   "Parser" is reserved for the schema front-end.
 - **common header.** `<stem>.rp.common.hpp`: the schema's top-level enums as one shared C++ type both
   models include.
@@ -885,32 +885,22 @@ each invocation.
 `rapidprotoc` emits both decode models for one schema so they compile together in a single translation
 unit. Three pieces make that work:
 
-- **Model namespacing.** The arena model is the default and sits where a user expects, `pkg::Msg`; the
-  streaming model nests one level deeper, at `pkg::stream::Msg`. The two `Msg` types are therefore
-  distinct — except where a top-level type is itself named `stream` and collides with the
-  sub-namespace, which `sanitize()`'s reserved set deliberately does not cover (it is scoped by name,
-  not by nesting depth, so reserving `stream` would rename every nested type and field of that name
-  too). This is driven by a `model_namespace` field on the C++ name table
-  (`CppNameTable`) —
-  empty for arena and `"stream"` for streaming, threaded through `build_cpp_names`. Only
-  *messages* nest
-  under it; enums do not (below). The nesting is each model's permanent shape, applied whether one
-  model is
-  generated or both, so adding the second never renames the first.
-- **Shared enums in a common header.** A schema's top-level enums are emitted ONCE into
-  `<stem>.rp.common.hpp` at package scope (`pkg::State`), by `codegen::emit_common_header`. Both
-  decoders
-  `#include` it (re-exported via an IWYU `export` pragma, so a TU that includes only the decoder
-  still
-  "directly provides" the enums). The streaming decoder additionally aliases each enum into its
-  model
-  namespace (`using ::pkg::State;` inside `namespace pkg::stream`), so `pkg::stream::State`
-  resolves too.
-  One proto enum is thus ONE C++ type shared across both models — no duplicate definition to
-  collide. Package scope is also why a top-level enum named `stream` is the worse half of the
-  collision above: it defeats the streaming header on its own, with no arena model involved.
-  NESTED enums are not shared; they ride with their message inside each model's decoder (distinct
-  fully-qualified names, no clash).
+- **Per-model ROOTS.** Each model owns a root segment between the prefix and the package:
+  `<prefix>::arena::pkg::Msg` and `<prefix>::stream::pkg::Msg`, driven by `model_namespace` on
+  `CppNameTable` (`kArenaRoot` / `kStreamRoot`, threaded through `build_cpp_names`). Roots rather
+  than a sub-namespace *inside* the package is what makes coexistence unconditional: the generator
+  introduces no name into package scope, so a top-level type of any name — including `stream` —
+  cannot collide with one. It also keeps generated code out of protoc's namespace, so a `.pb.h` and
+  a `.rp.hpp` for one schema compile together. The shape is each model's permanent one, applied
+  whether one model is generated or both, so adding the second never renames the first.
+- **Shared enums under their own root.** A schema's top-level enums are emitted ONCE into
+  `<stem>.rp.common.hpp` at `<prefix>::enums::pkg`, by `codegen::emit_common_header`. Both decoders
+  `#include` it (re-exported via an IWYU `export` pragma, so a TU that includes only the decoder still
+  "directly provides" the enums) and each aliases every enum into its own model namespace, so
+  `<prefix>::arena::pkg::State` and `<prefix>::stream::pkg::State` name one type. A third root rather
+  than package scope keeps the ids model-independent while leaving package scope empty of anything
+  the generator invented. NESTED enums are not shared yet; they ride with their message inside each
+  model's decoder (distinct fully-qualified names, no clash).
 - **Parse once, emit per model.** `rapidprotoc` runs the front-end once, builds a name table per selected
   model, and emits the common header plus the selected decoders into one out-dir. The common
   header is
