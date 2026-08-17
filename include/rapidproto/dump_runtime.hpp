@@ -27,7 +27,7 @@
 #include <type_traits>
 #include <vector>
 
-namespace rapidproto::dump {
+namespace rapidproto::dump_detail {
 
 // Internals. A generated dumper does reach in here (for is_positive_zero, and for the value-name
 // tables dumpgen emits into this namespace), but a CONSUMER's supported surface is only
@@ -641,18 +641,49 @@ private:
     std::size_t m_cell_bytes = 0;           // their total size, against kMaxGridBytes
 };
 
-// Options for the generated rp_dump_write / rp_dump_string. Backward-compatible: an old
-// `rp_dump_string(m, 120)` still compiles -- an integer converts to a width-only DumpOptions.
+// The extension point the generated headers specialize, one per message type. DEFINED, not merely
+// declared, so a user who forgot the `--dump` header or passed a streaming type reads a sentence
+// instead of "incomplete type 'dumper<...>' used in nested name specifier".
+template <class T>
+struct dumper {
+    static_assert(
+        sizeof(T) == 0,
+        "rapidproto::dump: no generated dumper for this type. Include the <stem>.rp.dump.hpp "
+        "generated with --dump, and pass an ARENA message (rp::arena::...), not a streaming one.");
+};
+
+}  // namespace rapidproto::dump_detail
+
+namespace rapidproto {
+
+// Options for rapidproto::dump. An integer converts, so `dump(m, 120)` sets the width only.
 struct DumpOptions {
-    std::size_t width = Writer::kDefaultWidth;  // line-width budget (compact vs one-entry-per-line)
+    std::size_t width = dump_detail::Writer::kDefaultWidth;  // line-width budget
     std::size_t indent = 0;  // nesting level to start at (each level = 2 columns)
-    // Qualified field paths to omit from the dump, e.g. {"people.email", "people.address.city"}. A path
-    // names a message/container field to drop its whole subtree. Views must outlive the dump call.
+    // Qualified field paths to omit, e.g. {"people.email"}. A path names a message/container field to
+    // drop its whole subtree. Views must outlive the dump call.
     std::vector<std::string_view> skip;
 
     DumpOptions() = default;
-    // NOLINTNEXTLINE(google-explicit-constructor,hicpp-explicit-conversions): back-compat with `width`.
+    // NOLINTNEXTLINE(google-explicit-constructor,hicpp-explicit-conversions): `dump(m, 120)`.
     DumpOptions(std::size_t width_) : width(width_) {}
 };
 
-}  // namespace rapidproto::dump
+// Dump a decoded arena message as JSON-like debug text. Needs the schema's `--dump` header included;
+// see docs/dumper.md. No stream setup: every value is formatted into characters by the runtime, so
+// the text is identical whatever locale or format flags the caller's stream carries.
+template <class T>
+[[nodiscard]] std::string dump(const T& m, const DumpOptions& opts = {}) {
+    std::ostringstream ss;
+    dump_detail::Writer w(ss, opts.width, opts.indent, &opts.skip);
+    dump_detail::dumper<T>::write(m, w);
+    return ss.str();
+}
+
+template <class T>
+void dump(std::ostream& os, const T& m, const DumpOptions& opts = {}) {
+    dump_detail::Writer w(os, opts.width, opts.indent, &opts.skip);
+    dump_detail::dumper<T>::write(m, w);
+}
+
+}  // namespace rapidproto

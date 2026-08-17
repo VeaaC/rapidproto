@@ -15,20 +15,20 @@ namespace rp::arena::std_ {
 
 namespace rp_dump_detail {
 
-inline void rp_dump_write(const ::rp::arena::std_::Types& m, ::rapidproto::dump::Writer& w);
+inline void rp_dump_write(const ::rp::arena::std_::Types& m, ::rapidproto::dump_detail::Writer& w);
 
-inline void rp_dump_write(const ::rp::arena::std_::Types& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::std_::Types& m, ::rapidproto::dump_detail::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
     if (const auto rp_v = m.n(); rp_v != decltype(rp_v){}) {
       if (w.begin_field(rp_first, "n")) {
-        ::rapidproto::dump::write_int(w.os(), rp_v);
+        ::rapidproto::dump_detail::write_int(w.os(), rp_v);
       }
     }
     if (const auto rp_v = m.s(); rp_v != decltype(rp_v){}) {
       if (w.begin_field(rp_first, "s")) {
-        w.os() << '"'; ::rapidproto::dump::write_json_escaped(w.os(), rp_v); w.os() << '"';
+        w.os() << '"'; ::rapidproto::dump_detail::write_json_escaped(w.os(), rp_v); w.os() << '"';
       }
     }
     if (const auto& rp_r = m.many(); !rp_r.empty()) {
@@ -37,7 +37,7 @@ inline void rp_dump_write(const ::rp::arena::std_::Types& m, ::rapidproto::dump:
           bool rp_efirst = true;
           for (const auto& rp_el : rp_r) {
             w.entry_sep(rp_efirst);
-            ::rapidproto::dump::write_int(w.os(), rp_el);
+            ::rapidproto::dump_detail::write_int(w.os(), rp_el);
             if (w.overflowed()) { break; }
           }
         });
@@ -49,13 +49,13 @@ inline void rp_dump_write(const ::rp::arena::std_::Types& m, ::rapidproto::dump:
 
 }  // namespace rp_dump_detail
 
-inline void rp_dump_write(std::ostream& rp_os, const ::rp::arena::std_::Types& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::rp::arena::std_::rp_dump_detail::rp_dump_write(m, w);
-}
-
-inline std::string rp_dump_string(const ::rp::arena::std_::Types& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
-}
-
 }  // namespace rp::arena::std_
+
+namespace rapidproto::dump_detail {
+
+template <>
+struct dumper<::rp::arena::std_::Types> {
+  static void write(const ::rp::arena::std_::Types& m, Writer& w) { ::rp::arena::std_::rp_dump_detail::rp_dump_write(m, w); }
+};
+
+}  // namespace rapidproto::dump_detail

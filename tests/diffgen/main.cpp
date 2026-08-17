@@ -202,7 +202,7 @@ void run(const std::vector<std::string>& payloads) {
             std::cout << "!decode-failed\n";
             continue;
         }
-        std::cout << rp_dump_string(*message, kOneLine) << '\n';  // found by ADL on T
+        std::cout << ::rapidproto::dump(*message, kOneLine) << '\n';
     }
 }
 

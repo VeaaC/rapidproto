@@ -15,15 +15,15 @@ namespace rp::arena::ed24 {
 
 namespace rp_dump_detail {
 
-inline void rp_dump_write(const ::rp::arena::ed24::M& m, ::rapidproto::dump::Writer& w);
+inline void rp_dump_write(const ::rp::arena::ed24::M& m, ::rapidproto::dump_detail::Writer& w);
 
-inline void rp_dump_write(const ::rp::arena::ed24::M& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::ed24::M& m, ::rapidproto::dump_detail::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
     if (const auto rp_v = m.a()) {
       if (w.begin_field(rp_first, "a")) {
-        ::rapidproto::dump::write_int(w.os(), *rp_v);
+        ::rapidproto::dump_detail::write_int(w.os(), *rp_v);
       }
     }
     if (const auto& rp_r = m.b(); !rp_r.empty()) {
@@ -32,7 +32,7 @@ inline void rp_dump_write(const ::rp::arena::ed24::M& m, ::rapidproto::dump::Wri
           bool rp_efirst = true;
           for (const auto& rp_el : rp_r) {
             w.entry_sep(rp_efirst);
-            ::rapidproto::dump::write_int(w.os(), rp_el);
+            ::rapidproto::dump_detail::write_int(w.os(), rp_el);
             if (w.overflowed()) { break; }
           }
         });
@@ -44,13 +44,13 @@ inline void rp_dump_write(const ::rp::arena::ed24::M& m, ::rapidproto::dump::Wri
 
 }  // namespace rp_dump_detail
 
-inline void rp_dump_write(std::ostream& rp_os, const ::rp::arena::ed24::M& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::rp::arena::ed24::rp_dump_detail::rp_dump_write(m, w);
-}
-
-inline std::string rp_dump_string(const ::rp::arena::ed24::M& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
-}
-
 }  // namespace rp::arena::ed24
+
+namespace rapidproto::dump_detail {
+
+template <>
+struct dumper<::rp::arena::ed24::M> {
+  static void write(const ::rp::arena::ed24::M& m, Writer& w) { ::rp::arena::ed24::rp_dump_detail::rp_dump_write(m, w); }
+};
+
+}  // namespace rapidproto::dump_detail

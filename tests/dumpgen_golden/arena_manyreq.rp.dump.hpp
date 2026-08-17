@@ -15,206 +15,206 @@ namespace rp::arena::mr {
 
 namespace rp_dump_detail {
 
-inline void rp_dump_write(const ::rp::arena::mr::ManyRequired& m, ::rapidproto::dump::Writer& w);
+inline void rp_dump_write(const ::rp::arena::mr::ManyRequired& m, ::rapidproto::dump_detail::Writer& w);
 
-inline void rp_dump_write(const ::rp::arena::mr::ManyRequired& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::mr::ManyRequired& m, ::rapidproto::dump_detail::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
     if (w.begin_field(rp_first, "f1")) {
-      ::rapidproto::dump::write_int(w.os(), m.f1());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f1());
     }
     if (w.begin_field(rp_first, "f2")) {
-      ::rapidproto::dump::write_int(w.os(), m.f2());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f2());
     }
     if (w.begin_field(rp_first, "f3")) {
-      ::rapidproto::dump::write_int(w.os(), m.f3());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f3());
     }
     if (w.begin_field(rp_first, "f4")) {
-      ::rapidproto::dump::write_int(w.os(), m.f4());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f4());
     }
     if (w.begin_field(rp_first, "f5")) {
-      ::rapidproto::dump::write_int(w.os(), m.f5());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f5());
     }
     if (w.begin_field(rp_first, "f6")) {
-      ::rapidproto::dump::write_int(w.os(), m.f6());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f6());
     }
     if (w.begin_field(rp_first, "f7")) {
-      ::rapidproto::dump::write_int(w.os(), m.f7());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f7());
     }
     if (w.begin_field(rp_first, "f8")) {
-      ::rapidproto::dump::write_int(w.os(), m.f8());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f8());
     }
     if (w.begin_field(rp_first, "f9")) {
-      ::rapidproto::dump::write_int(w.os(), m.f9());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f9());
     }
     if (w.begin_field(rp_first, "f10")) {
-      ::rapidproto::dump::write_int(w.os(), m.f10());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f10());
     }
     if (w.begin_field(rp_first, "f11")) {
-      ::rapidproto::dump::write_int(w.os(), m.f11());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f11());
     }
     if (w.begin_field(rp_first, "f12")) {
-      ::rapidproto::dump::write_int(w.os(), m.f12());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f12());
     }
     if (w.begin_field(rp_first, "f13")) {
-      ::rapidproto::dump::write_int(w.os(), m.f13());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f13());
     }
     if (w.begin_field(rp_first, "f14")) {
-      ::rapidproto::dump::write_int(w.os(), m.f14());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f14());
     }
     if (w.begin_field(rp_first, "f15")) {
-      ::rapidproto::dump::write_int(w.os(), m.f15());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f15());
     }
     if (w.begin_field(rp_first, "f16")) {
-      ::rapidproto::dump::write_int(w.os(), m.f16());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f16());
     }
     if (w.begin_field(rp_first, "f17")) {
-      ::rapidproto::dump::write_int(w.os(), m.f17());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f17());
     }
     if (w.begin_field(rp_first, "f18")) {
-      ::rapidproto::dump::write_int(w.os(), m.f18());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f18());
     }
     if (w.begin_field(rp_first, "f19")) {
-      ::rapidproto::dump::write_int(w.os(), m.f19());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f19());
     }
     if (w.begin_field(rp_first, "f20")) {
-      ::rapidproto::dump::write_int(w.os(), m.f20());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f20());
     }
     if (w.begin_field(rp_first, "f21")) {
-      ::rapidproto::dump::write_int(w.os(), m.f21());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f21());
     }
     if (w.begin_field(rp_first, "f22")) {
-      ::rapidproto::dump::write_int(w.os(), m.f22());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f22());
     }
     if (w.begin_field(rp_first, "f23")) {
-      ::rapidproto::dump::write_int(w.os(), m.f23());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f23());
     }
     if (w.begin_field(rp_first, "f24")) {
-      ::rapidproto::dump::write_int(w.os(), m.f24());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f24());
     }
     if (w.begin_field(rp_first, "f25")) {
-      ::rapidproto::dump::write_int(w.os(), m.f25());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f25());
     }
     if (w.begin_field(rp_first, "f26")) {
-      ::rapidproto::dump::write_int(w.os(), m.f26());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f26());
     }
     if (w.begin_field(rp_first, "f27")) {
-      ::rapidproto::dump::write_int(w.os(), m.f27());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f27());
     }
     if (w.begin_field(rp_first, "f28")) {
-      ::rapidproto::dump::write_int(w.os(), m.f28());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f28());
     }
     if (w.begin_field(rp_first, "f29")) {
-      ::rapidproto::dump::write_int(w.os(), m.f29());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f29());
     }
     if (w.begin_field(rp_first, "f30")) {
-      ::rapidproto::dump::write_int(w.os(), m.f30());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f30());
     }
     if (w.begin_field(rp_first, "f31")) {
-      ::rapidproto::dump::write_int(w.os(), m.f31());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f31());
     }
     if (w.begin_field(rp_first, "f32")) {
-      ::rapidproto::dump::write_int(w.os(), m.f32());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f32());
     }
     if (w.begin_field(rp_first, "f33")) {
-      ::rapidproto::dump::write_int(w.os(), m.f33());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f33());
     }
     if (w.begin_field(rp_first, "f34")) {
-      ::rapidproto::dump::write_int(w.os(), m.f34());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f34());
     }
     if (w.begin_field(rp_first, "f35")) {
-      ::rapidproto::dump::write_int(w.os(), m.f35());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f35());
     }
     if (w.begin_field(rp_first, "f36")) {
-      ::rapidproto::dump::write_int(w.os(), m.f36());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f36());
     }
     if (w.begin_field(rp_first, "f37")) {
-      ::rapidproto::dump::write_int(w.os(), m.f37());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f37());
     }
     if (w.begin_field(rp_first, "f38")) {
-      ::rapidproto::dump::write_int(w.os(), m.f38());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f38());
     }
     if (w.begin_field(rp_first, "f39")) {
-      ::rapidproto::dump::write_int(w.os(), m.f39());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f39());
     }
     if (w.begin_field(rp_first, "f40")) {
-      ::rapidproto::dump::write_int(w.os(), m.f40());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f40());
     }
     if (w.begin_field(rp_first, "f41")) {
-      ::rapidproto::dump::write_int(w.os(), m.f41());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f41());
     }
     if (w.begin_field(rp_first, "f42")) {
-      ::rapidproto::dump::write_int(w.os(), m.f42());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f42());
     }
     if (w.begin_field(rp_first, "f43")) {
-      ::rapidproto::dump::write_int(w.os(), m.f43());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f43());
     }
     if (w.begin_field(rp_first, "f44")) {
-      ::rapidproto::dump::write_int(w.os(), m.f44());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f44());
     }
     if (w.begin_field(rp_first, "f45")) {
-      ::rapidproto::dump::write_int(w.os(), m.f45());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f45());
     }
     if (w.begin_field(rp_first, "f46")) {
-      ::rapidproto::dump::write_int(w.os(), m.f46());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f46());
     }
     if (w.begin_field(rp_first, "f47")) {
-      ::rapidproto::dump::write_int(w.os(), m.f47());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f47());
     }
     if (w.begin_field(rp_first, "f48")) {
-      ::rapidproto::dump::write_int(w.os(), m.f48());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f48());
     }
     if (w.begin_field(rp_first, "f49")) {
-      ::rapidproto::dump::write_int(w.os(), m.f49());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f49());
     }
     if (w.begin_field(rp_first, "f50")) {
-      ::rapidproto::dump::write_int(w.os(), m.f50());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f50());
     }
     if (w.begin_field(rp_first, "f51")) {
-      ::rapidproto::dump::write_int(w.os(), m.f51());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f51());
     }
     if (w.begin_field(rp_first, "f52")) {
-      ::rapidproto::dump::write_int(w.os(), m.f52());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f52());
     }
     if (w.begin_field(rp_first, "f53")) {
-      ::rapidproto::dump::write_int(w.os(), m.f53());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f53());
     }
     if (w.begin_field(rp_first, "f54")) {
-      ::rapidproto::dump::write_int(w.os(), m.f54());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f54());
     }
     if (w.begin_field(rp_first, "f55")) {
-      ::rapidproto::dump::write_int(w.os(), m.f55());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f55());
     }
     if (w.begin_field(rp_first, "f56")) {
-      ::rapidproto::dump::write_int(w.os(), m.f56());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f56());
     }
     if (w.begin_field(rp_first, "f57")) {
-      ::rapidproto::dump::write_int(w.os(), m.f57());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f57());
     }
     if (w.begin_field(rp_first, "f58")) {
-      ::rapidproto::dump::write_int(w.os(), m.f58());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f58());
     }
     if (w.begin_field(rp_first, "f59")) {
-      ::rapidproto::dump::write_int(w.os(), m.f59());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f59());
     }
     if (w.begin_field(rp_first, "f60")) {
-      ::rapidproto::dump::write_int(w.os(), m.f60());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f60());
     }
     if (w.begin_field(rp_first, "f61")) {
-      ::rapidproto::dump::write_int(w.os(), m.f61());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f61());
     }
     if (w.begin_field(rp_first, "f62")) {
-      ::rapidproto::dump::write_int(w.os(), m.f62());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f62());
     }
     if (w.begin_field(rp_first, "f63")) {
-      ::rapidproto::dump::write_int(w.os(), m.f63());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f63());
     }
     if (w.begin_field(rp_first, "f64")) {
-      ::rapidproto::dump::write_int(w.os(), m.f64());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f64());
     }
     if (w.begin_field(rp_first, "f65")) {
-      ::rapidproto::dump::write_int(w.os(), m.f65());
+      ::rapidproto::dump_detail::write_int(w.os(), m.f65());
     }
     (void)rp_first;
   });
@@ -222,13 +222,13 @@ inline void rp_dump_write(const ::rp::arena::mr::ManyRequired& m, ::rapidproto::
 
 }  // namespace rp_dump_detail
 
-inline void rp_dump_write(std::ostream& rp_os, const ::rp::arena::mr::ManyRequired& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::rp::arena::mr::rp_dump_detail::rp_dump_write(m, w);
-}
-
-inline std::string rp_dump_string(const ::rp::arena::mr::ManyRequired& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
-}
-
 }  // namespace rp::arena::mr
+
+namespace rapidproto::dump_detail {
+
+template <>
+struct dumper<::rp::arena::mr::ManyRequired> {
+  static void write(const ::rp::arena::mr::ManyRequired& m, Writer& w) { ::rp::arena::mr::rp_dump_detail::rp_dump_write(m, w); }
+};
+
+}  // namespace rapidproto::dump_detail

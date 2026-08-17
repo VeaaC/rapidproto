@@ -11,7 +11,7 @@
 #include "editions2023.rp.hpp"  // IWYU pragma: export
 #include "rapidproto/dump_runtime.hpp"
 
-namespace rapidproto::dump::detail {
+namespace rapidproto::dump_detail {
 
 inline const char* rp_dump_enum_name(::rp::enums::ed23::E rp_e) {
   switch (static_cast<std::int32_t>(rp_e)) {
@@ -28,26 +28,26 @@ inline const char* rp_dump_enum_name(::rp::enums::ed23::M::Inner rp_e) {
   return nullptr;  // unknown (open enum): the caller renders UNKNOWN(<n>)
 }
 
-}  // namespace rapidproto::dump::detail
+}  // namespace rapidproto::dump_detail
 
 namespace rp::arena::ed23 {
 
 namespace rp_dump_detail {
 
-inline void rp_dump_write(const ::rp::arena::ed23::M& m, ::rapidproto::dump::Writer& w);
+inline void rp_dump_write(const ::rp::arena::ed23::M& m, ::rapidproto::dump_detail::Writer& w);
 
-inline void rp_dump_write(const ::rp::arena::ed23::M& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::ed23::M& m, ::rapidproto::dump_detail::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
     if (const auto rp_v = m.implicit_scalar(); rp_v != decltype(rp_v){}) {
       if (w.begin_field(rp_first, "implicit_scalar")) {
-        ::rapidproto::dump::write_int(w.os(), rp_v);
+        ::rapidproto::dump_detail::write_int(w.os(), rp_v);
       }
     }
     if (const auto rp_v = m.explicit_scalar()) {
       if (w.begin_field(rp_first, "explicit_scalar")) {
-        ::rapidproto::dump::write_int(w.os(), *rp_v);
+        ::rapidproto::dump_detail::write_int(w.os(), *rp_v);
       }
     }
     if (const auto* rp_p = m.child()) {
@@ -63,7 +63,7 @@ inline void rp_dump_write(const ::rp::arena::ed23::M& m, ::rapidproto::dump::Wri
           bool rp_efirst = true;
           for (const auto& rp_el : rp_r) {
             w.entry_sep(rp_efirst);
-            ::rapidproto::dump::write_int(w.os(), rp_el);
+            ::rapidproto::dump_detail::write_int(w.os(), rp_el);
             if (w.overflowed()) { break; }
           }
         });
@@ -75,7 +75,7 @@ inline void rp_dump_write(const ::rp::arena::ed23::M& m, ::rapidproto::dump::Wri
           bool rp_efirst = true;
           for (const auto& rp_el : rp_r) {
             w.entry_sep(rp_efirst);
-            ::rapidproto::dump::write_int(w.os(), rp_el);
+            ::rapidproto::dump_detail::write_int(w.os(), rp_el);
             if (w.overflowed()) { break; }
           }
         });
@@ -94,13 +94,13 @@ inline void rp_dump_write(const ::rp::arena::ed23::M& m, ::rapidproto::dump::Wri
 
 }  // namespace rp_dump_detail
 
-inline void rp_dump_write(std::ostream& rp_os, const ::rp::arena::ed23::M& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::rp::arena::ed23::rp_dump_detail::rp_dump_write(m, w);
-}
-
-inline std::string rp_dump_string(const ::rp::arena::ed23::M& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
-}
-
 }  // namespace rp::arena::ed23
+
+namespace rapidproto::dump_detail {
+
+template <>
+struct dumper<::rp::arena::ed23::M> {
+  static void write(const ::rp::arena::ed23::M& m, Writer& w) { ::rp::arena::ed23::rp_dump_detail::rp_dump_write(m, w); }
+};
+
+}  // namespace rapidproto::dump_detail

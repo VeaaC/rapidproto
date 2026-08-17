@@ -32,7 +32,7 @@ using codegen::Printer;
 const arenagen::MemberPlan kDropped;
 
 // The sub-namespace holding a file's generated INTERNALS, so the message's own namespace exposes only
-// the two public entry points (rp_dump_write(ostream, ...) / rp_dump_string). The `_detail` naming
+// the public entry point (rapidproto::dump). The `_detail` naming
 // follows the runtime's own `arena_detail` / `swar_detail` / `dump::detail` convention.
 constexpr std::string_view kDetailNs = "rp_dump_detail";
 
@@ -113,23 +113,25 @@ void emit_write_value(Printer& p, ValueKind kind, const std::string& expr,
                       const std::string& detail_ns) {
     switch (kind) {
         case ValueKind::Scalar:
-            p.print("::rapidproto::dump::write_int(w.os(), $e$);\n", {{"e", expr}});
+            p.print("::rapidproto::dump_detail::write_int(w.os(), $e$);\n", {{"e", expr}});
             break;
         case ValueKind::Bool:
-            p.print("::rapidproto::dump::write_bool(w.os(), $e$);\n", {{"e", expr}});
+            p.print("::rapidproto::dump_detail::write_bool(w.os(), $e$);\n", {{"e", expr}});
             break;
         case ValueKind::Float:
-            p.print("::rapidproto::dump::write_float(w.os(), $e$);\n", {{"e", expr}});
+            p.print("::rapidproto::dump_detail::write_float(w.os(), $e$);\n", {{"e", expr}});
             break;
         case ValueKind::String:
             p.print(
-                "w.os() << '\"'; ::rapidproto::dump::write_json_escaped(w.os(), $e$);"
+                "w.os() << '\"'; ::rapidproto::dump_detail::write_json_escaped(w.os(), $e$);"
                 " w.os() << '\"';\n",
                 {{"e", expr}});
             break;
         case ValueKind::Bytes:
-            p.print("w.os() << '\"'; ::rapidproto::dump::write_hex(w.os(), $e$); w.os() << '\"';\n",
-                    {{"e", expr}});
+            p.print(
+                "w.os() << '\"'; ::rapidproto::dump_detail::write_hex(w.os(), $e$); w.os() << "
+                "'\"';\n",
+                {{"e", expr}});
             break;
         case ValueKind::Enum:
             // rp_dump_enum_name returns the value's stripped name, or nullptr for an unknown (open-
@@ -137,11 +139,11 @@ void emit_write_value(Printer& p, ValueKind kind, const std::string& expr,
             // shared/thread-local buffer. Bind the value once so the accessor call isn't repeated.
             p.print("{ const auto rp_e = $e$;\n", {{"e", expr}});
             p.print(
-                "if (const char* rp_nm = ::rapidproto::dump::detail::rp_dump_enum_name(rp_e)) {"
+                "if (const char* rp_nm = ::rapidproto::dump_detail::rp_dump_enum_name(rp_e)) {"
                 " w.os() << '\"' << rp_nm << '\"'; }\n");
             p.print(
                 "else { w.os() << \"\\\"UNKNOWN(\";"
-                " ::rapidproto::dump::write_int(w.os(), static_cast<std::int32_t>(rp_e));"
+                " ::rapidproto::dump_detail::write_int(w.os(), static_cast<std::int32_t>(rp_e));"
                 " w.os() << \")\\\"\"; } }\n");
             break;
         case ValueKind::Message:
@@ -247,7 +249,7 @@ void emit_singular_field(Printer& p, const CppNameTable& names, const FieldNode&
         if (kind == ValueKind::Float) {
             p.print(
                 "if (const auto rp_v = $c$;"
-                " !::rapidproto::dump::detail::is_positive_zero(rp_v)) {\n",
+                " !::rapidproto::dump_detail::detail::is_positive_zero(rp_v)) {\n",
                 {{"c", call}});
         } else {
             p.print("if (const auto rp_v = $c$; rp_v != decltype(rp_v){}) {\n", {{"c", call}});
@@ -341,15 +343,15 @@ void emit_map_field(Printer& p, const CppNameTable& names, const MapFieldNode& m
     // `true`/`false` literal, and an integral key's decimal form.
     if (kkind == ValueKind::String) {
         p.print(
-            "w.os() << '\"'; ::rapidproto::dump::write_json_escaped(w.os(), rp_ent.key());"
+            "w.os() << '\"'; ::rapidproto::dump_detail::write_json_escaped(w.os(), rp_ent.key());"
             " w.os() << \"\\\": \";\n");
     } else if (kkind == ValueKind::Bool) {
         p.print(
-            "w.os() << '\"'; ::rapidproto::dump::write_bool(w.os(), rp_ent.key());"
+            "w.os() << '\"'; ::rapidproto::dump_detail::write_bool(w.os(), rp_ent.key());"
             " w.os() << \"\\\": \";\n");
     } else {
         p.print(
-            "w.os() << '\"'; ::rapidproto::dump::write_int(w.os(), rp_ent.key());"
+            "w.os() << '\"'; ::rapidproto::dump_detail::write_int(w.os(), rp_ent.key());"
             " w.os() << \"\\\": \";\n");
     }
     if (vkind == ValueKind::Message) {
@@ -425,7 +427,7 @@ void emit_message_fwd_decls(Printer& p, const CppNameTable& names, const Message
     for (const MessageNode& n : m.nested_messages) {
         emit_message_fwd_decls(p, names, n);
     }
-    p.print("inline void rp_dump_write(const $T$& m, ::rapidproto::dump::Writer& w);\n",
+    p.print("inline void rp_dump_write(const $T$& m, ::rapidproto::dump_detail::Writer& w);\n",
             {{"T", cpp_type_name(names, m.fqn)}});
 }
 
@@ -482,7 +484,7 @@ void emit_message_core(Printer& p, const CppNameTable& names, const SynthNames& 
         emit_message_core(p, names, synth, layouts, n);
     }
     const std::string type = cpp_type_name(names, m.fqn);
-    p.print("inline void rp_dump_write(const $T$& m, ::rapidproto::dump::Writer& w) {\n",
+    p.print("inline void rp_dump_write(const $T$& m, ::rapidproto::dump_detail::Writer& w) {\n",
             {{"T", type}});
     p.indent();
     p.print("(void)m;\n");  // a zero-field message never reads `m`; keeps {} warning-free
@@ -520,31 +522,16 @@ void emit_message_public(Printer& p, const CppNameTable& names, const MessageNod
     const std::string type = cpp_type_name(names, m.fqn);
     const std::string detail = dump_detail_ns(names, m.fqn);
 
-    // A convenience overload that constructs a Writer over an ostream. `opts` carries the line-width
-    // budget (compact vs multi-line), the start indent, and the skip-paths; an integer still converts
-    // (back-compat: `rp_dump_write(os, m, 120)` sets the width).
-    p.print(
-        "inline void rp_dump_write(std::ostream& rp_os, const $T$& m,"
-        " const ::rapidproto::dump::DumpOptions& rp_opts = {}) {\n",
-        {{"T", type}});
+    // The hook `rapidproto::dump` dispatches through: one specialization per message type, forwarding
+    // to the Writer-threaded core below. A class template rather than an overload set, because
+    // `dump` is a template and a qualified call inside it binds at ITS definition context -- an
+    // overload declared by a header included later would never be found.
+    p.print("template <>\nstruct dumper<$T$> {\n", {{"T", type}});
     p.indent();
-    // No stream setup: the runtime's writers format every value into characters themselves, so the
-    // dump text is the same whatever locale and flags this stream carries -- and the dumper never
-    // touches either, which re-imbuing a stream someone else may be reading would require.
-    p.print("::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);\n");
-    p.print("$ns$::rp_dump_write(m, w);\n", {{"ns", detail}});
+    p.print("static void write(const $T$& m, Writer& w) { $ns$::rp_dump_write(m, w); }\n",
+            {{"T", type}, {"ns", detail}});
     p.outdent();
-    p.print("}\n\n");
-
-    // std::string convenience.
-    p.print(
-        "inline std::string rp_dump_string(const $T$& m,"
-        " const ::rapidproto::dump::DumpOptions& rp_opts = {}) {\n",
-        {{"T", type}});
-    p.indent();
-    p.print("std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();\n");
-    p.outdent();
-    p.print("}\n\n");
+    p.print("};\n\n");
 }
 
 }  // namespace
@@ -607,18 +594,19 @@ std::string generate_header(const FileNode& file, const CppNameTable& names,
         collect_defined_enums(m, defined_enums);
     }
     if (!defined_enums.empty()) {
-        p.print("namespace rapidproto::dump::detail {\n\n");
+        p.print("namespace rapidproto::dump_detail {\n\n");
         for (const EnumNode* e : defined_enums) {
             emit_enum_name_fn(p, names, e->fqn, *e);
             p.print("\n");
         }
-        p.print("}  // namespace rapidproto::dump::detail\n\n");
+        p.print("}  // namespace rapidproto::dump_detail\n\n");
     }
 
-    // The public entry points live in the message's own namespace (so a consumer calls
-    // `pkg::rp_dump_string(m)`); the Writer-threaded cores they forward to live one level down, in
+    // The Writer-threaded cores live in the message's own namespace, one level down in
     // pkg::rp_dump_detail, keeping the package namespace free of generated internals. Cross-file
     // recursion is emitted fully qualified against that sub-namespace -- ADL would not reach into it.
+    // The public surface is `rapidproto::dump(m)`, reached through the dumper<T> specializations
+    // emitted after this block.
     const std::string ns = codegen::message_namespace(names, file);
     if (!ns.empty()) {
         p.print("namespace $ns$ {\n\n", {{"ns", ns}});
@@ -633,12 +621,17 @@ std::string generate_header(const FileNode& file, const CppNameTable& names,
             emit_message_core(p, names, synth, layouts, m);
         }
         p.print("}  // namespace $d$\n\n", {{"d", kDetailNs}});
+    }
+    if (!ns.empty()) {
+        p.print("}  // namespace $ns$\n\n", {{"ns", ns}});
+    }
+    // The dumper<T> hooks, reopening the runtime's namespace after every core is defined.
+    if (!file.messages.empty()) {
+        p.print("namespace rapidproto::dump_detail {\n\n");
         for (const MessageNode& m : file.messages) {
             emit_message_public(p, names, m);
         }
-    }
-    if (!ns.empty()) {
-        p.print("}  // namespace $ns$\n", {{"ns", ns}});
+        p.print("}  // namespace rapidproto::dump_detail\n");
     }
     return p.str();
 }

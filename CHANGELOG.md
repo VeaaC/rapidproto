@@ -26,6 +26,13 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
   one and could not be compared or passed across — true of 88% of enums in real schemas. Both models
   now alias one definition, mirrored under `rp::enums`. The spelling you already write is unchanged.
 
+  **The dumper's entry points moved with them.** `pkg::rp_dump_string(m, opts)` and
+  `pkg::rp_dump_write(os, m, opts)` become `rapidproto::dump(m, opts)` and
+  `rapidproto::dump(os, m, opts)` — one spelling for every schema, usable from generic code — and
+  `rapidproto::dump::DumpOptions` becomes `rapidproto::DumpOptions`. Calling `dump` on a type with no
+  generated dumper now names the fix in a `static_assert` instead of failing on an incomplete type.
+  `Writer` and the `write_*` helpers move to `rapidproto::dump_detail`; they were never documented.
+
   What this buys: a schema can now declare a top-level type named `stream` (previously the two
   headers collided, and a top-level *enum* of that name broke the streaming header on its own); a
   package and a sibling `pkg.stream.*` package no longer collide; and generated headers coexist with
