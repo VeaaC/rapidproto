@@ -54,6 +54,9 @@ trap 'rm -rf "$T"' EXIT
 # top-level `namespace stream`. xpkg pulls deep, pinning a cross-file reference into a dotted package.
 "$BIN" --stream -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/nopkg.proto >/dev/null
 "$BIN" --stream -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/xpkg.proto >/dev/null
+"$BIN" --stream -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/rootnames.proto >/dev/null
+"$BIN" --stream -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/sibparent.proto >/dev/null
+"$BIN" --stream -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/sibpkg.proto >/dev/null
 # A package named `std` -> `namespace std_`, never `namespace std` (which would be UB).
 "$BIN" --stream -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/stdpkg.proto >/dev/null
 # A package named `rapidproto` -> `namespace rapidproto_`; unescaped it merges the schema's

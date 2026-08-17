@@ -67,6 +67,9 @@ done
 # scope. xpkg pulls deep, so it also pins a cross-file reference INTO a dotted package.
 "$BIN" --arena -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/nopkg.proto >/dev/null
 "$BIN" --arena -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/xpkg.proto >/dev/null
+"$BIN" --arena -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/rootnames.proto >/dev/null
+"$BIN" --arena -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/sibparent.proto >/dev/null
+"$BIN" --arena -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/sibpkg.proto >/dev/null
 # A package named `std` -> `namespace std_`. `namespace std` is UB that compiles QUIETLY, so no
 # compiler would catch a regression here -- the golden is the only thing that would.
 "$BIN" --arena -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/stdpkg.proto >/dev/null

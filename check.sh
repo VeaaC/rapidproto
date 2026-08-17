@@ -407,6 +407,13 @@ if [[ "${1:-}" == "deep" ]]; then
         tail -1 <<<"$corpus_out"
       fi
     fi
+    # The sweep above GENERATES 8018 schemas and compiles none of them (see corpus_gate.py). This
+    # leg compiles a bounded sample instead, both models in ONE TU -- the only shape that can catch a
+    # collision between them. Deep-tier only: ~55s at -j8, against the sweep's ~160s.
+    compile_rc=0
+    python3 tests/corpus_compile.py --rapidprotoc ./build/gcc/rapidprotoc --jobs "$JOBS" \
+      || compile_rc=$?
+    [[ $compile_rc -ne 0 && $compile_rc -ne 77 ]] && deep_fail=1
   else
     echo ">> could not build build/gcc/rapidprotoc for the corpus sweep"; deep_fail=1
   fi

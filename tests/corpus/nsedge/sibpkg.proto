@@ -1,0 +1,8 @@
+// A package whose own name contains a model root, imported alongside its parent package. The
+// sub-package's namespace used to be opened where the parent's STREAMING types lived, so a parent
+// type named like the next component (`logging` here) collided -- between the sub-package's common
+// header and the parent's streaming header, not the two models of one schema.
+syntax = "proto3";
+package sib.stream.logging.v1;
+
+message Entry { int32 y = 1; }
