@@ -171,10 +171,10 @@ inline void emit_enum_mirror(Printer& printer, const CppNameTable& names,
 
 // Emit the shared "common header" for `file`: `#pragma once`, `<cstdint>`, an include of each
 // (non-option) import's common header, the package namespace, and one `enum class` per TOP-LEVEL enum
-// (via emit_enum). This is the single home for the schema's enums: both the streaming and arena decoder
-// headers `#include` it -- so the same proto enum is ONE C++ type shared across the two models, instead
-// of each decoder defining the enums and colliding when included together. Nested enums are NOT here;
-// they ride with their message in each decoder. The import includes use the fixed ".rp.common.hpp"
+// (via emit_enum), plus a NAMESPACE MIRROR of the message nesting carrying the nested ones
+// (emit_enum_mirror). This is the single home for the schema's enums: both decoder headers
+// `#include` it and alias every enum back into their own scope, so one proto enum is ONE C++ type
+// across both models rather than a copy per model. The import includes use the fixed ".rp.common.hpp"
 // suffix (the common header's own name).
 inline std::string emit_common_header(const FileNode& file, const CppNameTable& names) {
     Printer printer;

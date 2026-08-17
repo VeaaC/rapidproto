@@ -234,19 +234,20 @@ int main(int argc, char** argv) {
     }
 
     // Build the name table(s) ONCE for the whole resolved set (identical for every file), then emit
-    // per file. `names` has NO model namespace: arena types sit at pkg::Msg and enums at pkg::State
-    // (the common header's home), so it drives both the arena decoder and the model-agnostic common.
-    // `names_stream` puts messages under the stream root (enums stay shared); built only when needed.
+    // per file. `names` carries the ARENA root, so it drives both the arena decoder and the
+    // model-agnostic common header (enums sit under their own root either way). `names_stream`
+    // carries the stream root; built only when needed.
     const rapidproto::codegen::CppNameTable names =
         set.files.empty() ? rapidproto::codegen::CppNameTable{}
                           : rapidproto::codegen::build_cpp_names(
                                 set.files.front(), set.files,
-                                rapidproto::codegen::namespace_of(opts->namespace_prefix),
+                                rapidproto::codegen::effective_ns_prefix(opts->namespace_prefix),
                                 std::string(rapidproto::codegen::kArenaRoot));
     rapidproto::codegen::CppNameTable names_stream;
     if (stream && !set.files.empty()) {
         names_stream = rapidproto::codegen::build_cpp_names(
-            set.files.front(), set.files, rapidproto::codegen::namespace_of(opts->namespace_prefix),
+            set.files.front(), set.files,
+            rapidproto::codegen::effective_ns_prefix(opts->namespace_prefix),
             std::string(rapidproto::codegen::kStreamRoot));
     }
     std::optional<rapidproto::arenagen::LayoutSet> layouts;

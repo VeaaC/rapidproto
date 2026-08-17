@@ -1,7 +1,7 @@
 // Generated debug-dumper tests. Two kinds of oracle: (1) a golden test that regenerates each
 // *.rp.dump.hpp and compares byte-for-byte to the checked-in copy; (2) runtime-output tests that
 // decode real wire fixtures through the arena decoder and assert the EXACT dumped string from
-// rp_dump_string. The compile-smoke below (#including every generated debug golden) also makes the
+// rapidproto::dump. The compile-smoke below (#including every generated debug golden) also makes the
 // generated dumpers -- and, transitively, the arena headers they include -- valid C++.
 //
 // Regenerate after an intentional generator change with: tests/regen_goldens.sh (the in-test
@@ -36,7 +36,7 @@
 #include "rapidproto/resolver.hpp"
 #include "rapidproto/runtime.hpp"  // ByteView
 // Checked-in generated debug headers (compile-smoke: they -- and the arena headers they #include --
-// must be valid C++). These also supply the rp_dump_string overloads the runtime tests call.
+// must be valid C++). These also supply the dumper<T> hooks the runtime tests dump through.
 // IWYU pragma: begin_keep
 #include "dumpgen_golden/arena_layout.rp.dump.hpp"
 #include "dumpgen_golden/arena_manyreq.rp.dump.hpp"  // >64 required
@@ -350,7 +350,7 @@ TEST_CASE("dumpgen: generated internals live in sub-namespaces, not the public o
         CHECK(out.find("namespace rp_dump_detail {") != std::string::npos);
         // The nested Inner is a CLASS member, so its dumper is still qualified with the PACKAGE
         // namespace -- never `rp::arena::com::example::deep::Outer::rp_dump_detail`.
-        CHECK(out.find("rp::arena::com::example::deep::rp_dump_detail::rp_dump_write") !=
+        CHECK(out.find("::rp::arena::com::example::deep::rp_dump_detail::rp_dump_write") !=
               std::string::npos);
         CHECK(out.find("Outer::rp_dump_detail") == std::string::npos);
     }
@@ -362,13 +362,16 @@ TEST_CASE("dumpgen: generated internals live in sub-namespaces, not the public o
     SECTION("a cross-file call is qualified with the CALLEE's namespace, not the caller's") {
         const std::string out = generate(nsedge, "xpkg.proto");
         CHECK(out.find("namespace rp::arena::other {") != std::string::npos);
-        CHECK(out.find("rp::arena::com::example::deep::rp_dump_detail::rp_dump_write") !=
+        CHECK(out.find("::rp::arena::com::example::deep::rp_dump_detail::rp_dump_write") !=
               std::string::npos);
     }
     SECTION("--namespace-prefix is carried into the qualified call") {
-        const std::string out = generate(nsedge, "xpkg.proto", "rp");
-        CHECK(out.find("rp::arena::com::example::deep::rp_dump_detail::rp_dump_write") !=
+        // A NON-DEFAULT prefix, or this asserts the same string the unprefixed sections above do
+        // and says nothing about the flag.
+        const std::string out = generate(nsedge, "xpkg.proto", "pfx");
+        CHECK(out.find("::pfx::arena::com::example::deep::rp_dump_detail::rp_dump_write") !=
               std::string::npos);
+        CHECK(out.find("::rp::arena::com::example::deep::") == std::string::npos);
     }
     SECTION("the dumper<T> hooks are emitted after every core they forward to") {
         const std::string out = generate(nsedge, "deep.proto");

@@ -512,8 +512,8 @@ void emit_message_core(Printer& p, const CppNameTable& names, const SynthNames& 
     p.print("}\n\n");
 }
 
-// The PUBLIC entry points for one message (and, recursively, its nested messages), emitted in the
-// message's own namespace: the two convenience overloads a consumer actually calls. They forward to
+// The hook `rapidproto::dump` dispatches through, for one message and, recursively, its nested
+// ones: a `dumper<T>` specialization in the runtime's detail namespace. It forwards to
 // the core dumper in rp_dump_detail, which is the only thing that ever touches a Writer.
 void emit_message_public(Printer& p, const CppNameTable& names, const MessageNode& m) {
     for (const MessageNode& n : m.nested_messages) {
@@ -581,7 +581,7 @@ std::string generate_header(const FileNode& file, const CppNameTable& names,
     p.print("\n");
 
     // Enum name tables: rp_dump_enum_name(E) for each enum DEFINED in this file, in namespace
-    // rapidproto::dump::detail so the dumpers call it by one fully-qualified name (overload resolution
+    // rapidproto::dump_detail so the dumpers call it by one fully-qualified name (overload resolution
     // on the enum type picks the right one) without landing in the runtime's PUBLIC namespace.
     // Emitted once at the definition site -- a file that references an imported enum gets the overload
     // via that import's included .rp.dump.hpp, never re-emitting it.

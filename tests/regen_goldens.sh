@@ -54,9 +54,6 @@ trap 'rm -rf "$T"' EXIT
 # top-level `namespace stream`. xpkg pulls deep, pinning a cross-file reference into a dotted package.
 "$BIN" --stream -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/nopkg.proto >/dev/null
 "$BIN" --stream -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/xpkg.proto >/dev/null
-"$BIN" --stream -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/rootnames.proto >/dev/null
-"$BIN" --stream -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/sibparent.proto >/dev/null
-"$BIN" --stream -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/sibpkg.proto >/dev/null
 # A package named `std` -> `namespace std_`, never `namespace std` (which would be UB).
 "$BIN" --stream -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/stdpkg.proto >/dev/null
 # A package named `rapidproto` -> `namespace rapidproto_`; unescaped it merges the schema's
@@ -130,6 +127,22 @@ if [[ $regen_rc -ne 0 ]]; then
   tail -20 <<<"$regen_out"
   exit 1
 fi
+
+# [4b/5] Coexistence goldens: BOTH models from ONE invocation into ONE dir, which is what a consumer
+# does and the only shape with a single shared common header. Generating them per-model dir instead
+# gives two copies of that header, and a TU including both fails on duplicate enum definitions --
+# which is exactly what tests/test_coexistence.cpp exists to hold in one TU.
+echo "[4b/5] coexistence goldens (both models, one out-dir)"
+rm -rf tests/coexist_golden
+# Listed one per line, not looped over stems: check_fixture_coverage.sh greps this file for each
+# fixture's path, and a loop variable would hide them from it.
+for entry in tests/corpus/nsedge/rootnames.proto \
+             tests/corpus/nsedge/rootenum.proto \
+             tests/corpus/nsedge/sibparent.proto \
+             tests/corpus/nsedge/sibpkg.proto; do
+  "$BIN" --arena --stream -Itests/corpus/nsedge --out-dir=tests/coexist_golden "$entry" >/dev/null
+done
+rm -rf tests/coexist_golden/rapidproto  # the runtime copy; the test TU uses the repo's own headers
 
 # The reverse of the orphan check at [2/5], which only flags a golden that exists but was not
 # regenerated: this catches a fixture with no golden at all. Shared with check.sh (the `fixtures`

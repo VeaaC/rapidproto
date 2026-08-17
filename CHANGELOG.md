@@ -20,10 +20,16 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
 
   ```cpp
   namespace pkg { using namespace rp::arena::pkg; }           // arena only
-  namespace pkg { namespace stream = rp::stream::pkg; }       // streaming only
+  namespace pkg { using namespace rp::enums::pkg;             // streaming only
+                  namespace stream = rp::stream::pkg; }
   namespace pkg { using namespace rp::arena::pkg;             // both
                   namespace stream = rp::stream::pkg; }
   ```
+
+  The streaming row needs the enums root because a streaming codebase spelled top-level enums at
+  package scope (`pkg::Status`), which only the arena model's alias brings back. A package-less
+  schema takes the same shapes at global scope. Put the alias in a `.cpp`: at file scope in a header
+  it leaks to every includer.
 
   If you already passed `--namespace-prefix=rp` for protoc coexistence, your types move from
   `rp::pkg::Msg` to `rp::arena::pkg::Msg` — and the flag is no longer needed for that purpose. The

@@ -41,10 +41,7 @@
 #include "streamgen_golden/usewkt.rp.stream.hpp"    // WKT closure: pulls google/protobuf/* headers
 #include "streamgen_golden/weakmain.rp.stream.hpp"  // weak import: pulls weakdep via #include
 #include "streamgen_golden/xpkg.rp.stream.hpp"  // dotted package (pulls deep): com::example::deep
-#include "streamgen_golden/rootnames.rp.stream.hpp"  // top-level types named after the model roots
-#include "streamgen_golden/sibparent.rp.stream.hpp"  // parent package of sibpkg
-#include "streamgen_golden/sibpkg.rp.stream.hpp"     // package containing a model-root component
-#include "streamgen_golden/xref.rp.stream.hpp"       // mutually-cyclic A<->B: must compile
+#include "streamgen_golden/xref.rp.stream.hpp"  // mutually-cyclic A<->B: must compile
 #include "streamgen_golden/xref_prefixed/xref.rp.stream.hpp"  // --namespace-prefix=pfx -> namespace pfx::arena::xr
 // IWYU pragma: end_keep
 #include "streamgen_golden/wire_all.rp.stream.hpp"  // group + packed coverage
@@ -133,9 +130,6 @@ TEST_CASE("streamgen: generated headers match the goldens", "[streamgen]") {
         {"deep", nsedge},          // dotted package
         {"nopkg", nsedge},         // no package at all
         {"xpkg", nsedge},          // cross-file reference into a dotted package
-        {"rootnames", nsedge},     // top-level types named after the model roots
-        {"sibparent", nsedge},     // parent package of sibpkg
-        {"sibpkg", nsedge},        // package whose own name contains a model root
         {"stdpkg", nsedge},        // package `std` -> namespace std_, never namespace std
         {"rppkg", nsedge}};        // package `rapidproto` -> namespace rapidproto_
 

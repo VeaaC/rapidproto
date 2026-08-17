@@ -60,8 +60,10 @@ std::string generate_header(const FileNode& file, const codegen::CppNameTable& n
                             const FieldModes* modes = nullptr);
 
 // Convenience: build the name table + layouts for `set` and emit `file`. `symbols` is analyze()'s
-// table. `namespace_prefix` is the dot-separated prefix (proto convention) nesting every generated
-// namespace, identical to streamgen's `--namespace-prefix`. A caller emitting a whole set should
+// table. `namespace_prefix` is the ROOT the generated code lives under (`prefix::arena::a::b`),
+// identical to streamgen's `--namespace-prefix`. Empty means the DEFAULT (`rp`), not "no prefix":
+// codegen::effective_ns_prefix substitutes it, so a caller that omits the argument cannot emit
+// rootless names. A caller emitting a whole set should
 // instead build names/layouts once and use the (file, names, layouts) overload per file.
 std::string generate_header(const FileNode& file, const ResolvedFileSet& set,
                             const SymbolTable& symbols, const std::string& namespace_prefix = {});

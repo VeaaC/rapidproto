@@ -6,18 +6,21 @@
 #include <string_view>
 
 #include "rapidproto/runtime.hpp"
-#include "duration.rp.common.hpp"  // IWYU pragma: export
+#include "rootenum.rp.common.hpp"  // IWYU pragma: export
 
-namespace rp::stream::google::protobuf {
+namespace rp::stream::re {
 
-struct Duration;
+using ::rp::enums::re::stream;
+using ::rp::enums::re::arena;
 
-struct Duration {
-  explicit Duration(::rapidproto::ByteView bytes) noexcept : rp_span(bytes) {}
+struct Holder;
+
+struct Holder {
+  explicit Holder(::rapidproto::ByteView bytes) noexcept : rp_span(bytes) {}
   ::rapidproto::ByteView rp_bytes() const noexcept { return rp_span; }
 
-  struct seconds { using Value = std::int64_t; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "seconds"; };
-  struct nanos { using Value = std::int32_t; static constexpr std::uint32_t kNumber = 2; static constexpr std::string_view kName = "nanos"; };
+  struct s { using Value = ::rp::enums::re::stream; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "s"; };
+  struct a { using Value = ::rp::enums::re::arena; static constexpr std::uint32_t kNumber = 2; static constexpr std::string_view kName = "a"; };
 
   template <class... rp_Callbacks>
   [[nodiscard]] ::rapidproto::DecodeStatus decode(rp_Callbacks&&... rp_callbacks) const;
@@ -26,8 +29,8 @@ struct Duration {
 };
 
 template <class... rp_Callbacks>
-RP_FLATTEN ::rapidproto::DecodeStatus Duration::decode(rp_Callbacks&&... rp_callbacks) const {
-  static_assert((true && ... && !::rapidproto::is_stray_callback<rp_Callbacks, seconds, nanos>), "a callback matches no field of '::rp::stream::google::protobuf::Duration' (and is not a catch-all or unknown-field handler)");
+RP_FLATTEN ::rapidproto::DecodeStatus Holder::decode(rp_Callbacks&&... rp_callbacks) const {
+  static_assert((true && ... && !::rapidproto::is_stray_callback<rp_Callbacks, s, a>), "a callback matches no field of '::rp::stream::re::Holder' (and is not a catch-all or unknown-field handler)");
   [[maybe_unused]] auto rp_dispatch = ::rapidproto::combine(static_cast<rp_Callbacks&&>(rp_callbacks)...);
   const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(rp_span);
   const std::uint8_t* const rp_cend = rp_c + rp_span.size();
@@ -42,16 +45,16 @@ RP_FLATTEN ::rapidproto::DecodeStatus Duration::decode(rp_Callbacks&&... rp_call
     }
     goto rp_field_general;
     rp_do_1: {
-      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Callbacks, seconds, seconds::Value>)) <= 1U, "field '::rp::stream::google::protobuf::Duration::seconds' is handled by more than one callback");
-      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Callbacks, seconds, seconds::Value>)) <= 1U, "field '::rp::stream::google::protobuf::Duration::seconds' is matched by more than one catch-all callback");
-      static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Callbacks, seconds, seconds::Value>), "a callback for field '::rp::stream::google::protobuf::Duration::seconds' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
-      static_assert((true && ... && !(::rapidproto::targets<rp_Callbacks, seconds, seconds::Value> && !::rapidproto::specifically_handles<rp_Callbacks, seconds, seconds::Value>)), "a callback for field '::rp::stream::google::protobuf::Duration::seconds' has the wrong value type (expected ::rp::stream::google::protobuf::Duration::seconds::Value)");
-      if constexpr ((false || ... || ::rapidproto::handles_one<rp_Callbacks, seconds, seconds::Value>)) {
+      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Callbacks, s, s::Value>)) <= 1U, "field '::rp::stream::re::Holder::s' is handled by more than one callback");
+      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Callbacks, s, s::Value>)) <= 1U, "field '::rp::stream::re::Holder::s' is matched by more than one catch-all callback");
+      static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Callbacks, s, s::Value>), "a callback for field '::rp::stream::re::Holder::s' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+      static_assert((true && ... && !(::rapidproto::targets<rp_Callbacks, s, s::Value> && !::rapidproto::specifically_handles<rp_Callbacks, s, s::Value>)), "a callback for field '::rp::stream::re::Holder::s' has the wrong value type (expected ::rp::stream::re::Holder::s::Value)");
+      if constexpr ((false || ... || ::rapidproto::handles_one<rp_Callbacks, s, s::Value>)) {
         std::uint64_t rp_raw = 0;
         const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
         if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_np;
-        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, seconds{}, ::rapidproto::varint_to_int64(rp_raw)); !rp_status.ok()) {
+        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, s{}, static_cast<::rp::enums::re::stream>(::rapidproto::varint_to_int32(rp_raw))); !rp_status.ok()) {
           return rp_status;
         }
       } else {  // no callback for this field -> skip its value (compile-time wire)
@@ -64,16 +67,16 @@ RP_FLATTEN ::rapidproto::DecodeStatus Duration::decode(rp_Callbacks&&... rp_call
       continue;
     }
     rp_do_2: {
-      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Callbacks, nanos, nanos::Value>)) <= 1U, "field '::rp::stream::google::protobuf::Duration::nanos' is handled by more than one callback");
-      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Callbacks, nanos, nanos::Value>)) <= 1U, "field '::rp::stream::google::protobuf::Duration::nanos' is matched by more than one catch-all callback");
-      static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Callbacks, nanos, nanos::Value>), "a callback for field '::rp::stream::google::protobuf::Duration::nanos' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
-      static_assert((true && ... && !(::rapidproto::targets<rp_Callbacks, nanos, nanos::Value> && !::rapidproto::specifically_handles<rp_Callbacks, nanos, nanos::Value>)), "a callback for field '::rp::stream::google::protobuf::Duration::nanos' has the wrong value type (expected ::rp::stream::google::protobuf::Duration::nanos::Value)");
-      if constexpr ((false || ... || ::rapidproto::handles_one<rp_Callbacks, nanos, nanos::Value>)) {
+      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Callbacks, a, a::Value>)) <= 1U, "field '::rp::stream::re::Holder::a' is handled by more than one callback");
+      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Callbacks, a, a::Value>)) <= 1U, "field '::rp::stream::re::Holder::a' is matched by more than one catch-all callback");
+      static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Callbacks, a, a::Value>), "a callback for field '::rp::stream::re::Holder::a' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+      static_assert((true && ... && !(::rapidproto::targets<rp_Callbacks, a, a::Value> && !::rapidproto::specifically_handles<rp_Callbacks, a, a::Value>)), "a callback for field '::rp::stream::re::Holder::a' has the wrong value type (expected ::rp::stream::re::Holder::a::Value)");
+      if constexpr ((false || ... || ::rapidproto::handles_one<rp_Callbacks, a, a::Value>)) {
         std::uint64_t rp_raw = 0;
         const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
         if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_np;
-        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, nanos{}, ::rapidproto::varint_to_int32(rp_raw)); !rp_status.ok()) {
+        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, a{}, static_cast<::rp::enums::re::arena>(::rapidproto::varint_to_int32(rp_raw))); !rp_status.ok()) {
           return rp_status;
         }
       } else {  // no callback for this field -> skip its value (compile-time wire)
@@ -114,4 +117,4 @@ RP_FLATTEN ::rapidproto::DecodeStatus Duration::decode(rp_Callbacks&&... rp_call
   }
 }
 
-}  // namespace rp::stream::google::protobuf
+}  // namespace rp::stream::re

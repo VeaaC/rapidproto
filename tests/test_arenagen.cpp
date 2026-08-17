@@ -44,11 +44,8 @@
 #include "arenagen_golden/prefixed/main.rp.hpp"  // --namespace-prefix + imports (pulls prefixed dep/...)
 #include "arenagen_golden/proto2.rp.hpp"
 #include "arenagen_golden/proto3.rp.hpp"
-#include "arenagen_golden/rootnames.rp.hpp"  // top-level types named after the model roots
 #include "arenagen_golden/rppkg.rp.hpp"      // package `rapidproto` -> namespace rapidproto_
 #include "arenagen_golden/samepkg_a.rp.hpp"  // same-package multi-file (pulls samepkg_b): ODR guard
-#include "arenagen_golden/sibparent.rp.hpp"  // parent package of sibpkg
-#include "arenagen_golden/sibpkg.rp.hpp"     // package containing a model-root component
 #include "arenagen_golden/stdpkg.rp.hpp"     // package `std` -> namespace std_, not namespace std
 #include "arenagen_golden/weakmain.rp.hpp"  // weak import (pulls weakdep): filtered like a normal one
 #include "arenagen_golden/wire_all.rp.hpp"  // group + packed (generated from the fixtures dir)
@@ -277,9 +274,6 @@ TEST_CASE("arenagen: generated headers match the goldens", "[arenagen]") {
     check_golden("deep", generate(nsedge, "deep.proto"));
     check_golden("nopkg", generate(nsedge, "nopkg.proto"));
     check_golden("xpkg", generate(nsedge, "xpkg.proto"));
-    check_golden("rootnames", generate(nsedge, "rootnames.proto"));
-    check_golden("sibparent", generate(nsedge, "sibparent.proto"));
-    check_golden("sibpkg", generate(nsedge, "sibpkg.proto"));
     // A package named `std` -> `namespace std_`. Unlike every other shape here, getting this wrong
     // emits `namespace std`, which is undefined behaviour that COMPILES -- so the golden, not the
     // compile smoke, is what catches a regression.
@@ -356,24 +350,4 @@ TEST_CASE("arenagen: a long sibling dependency chain is emitted in dependency or
         CHECK(header.find("class M" + std::to_string(i - 1) + " {") <
               header.find("class M" + std::to_string(i) + " {"));
     }
-}
-
-// The collision shapes the per-model roots exist to close. Each one fails to compile under a layout
-// that puts a generator-invented segment inside package scope: with the models at `<pkg>::stream`,
-// `message stream` redeclared that namespace, a top-level `enum stream` broke the streaming header
-// on its own, and a package like `sib.stream.logging.v1` collided with `sib`'s streaming types. The
-// assertions are almost beside the point -- the fixtures' INCLUDES above are the test, since both
-// models of every one of these are in this TU.
-TEST_CASE("naming: a schema may name types after the generator's own roots", "[arenagen][nsedge]") {
-    // Types spelled exactly like the roots, all usable, all distinct from the roots themselves.
-    static_assert(std::is_class_v<rp::arena::rn::stream>);
-    static_assert(std::is_class_v<rp::arena::rn::arena>);
-    static_assert(std::is_class_v<rp::arena::rn::enums>);
-    static_assert(
-        std::is_same_v<rp::arena::rn::rp, rp::enums::rn::rp>);  // a top-level enum named `rp`
-    // A package containing a root component, beside the parent package holding the type it used to
-    // collide with.
-    static_assert(std::is_class_v<rp::arena::sib::logging>);
-    static_assert(std::is_class_v<rp::arena::sib::stream::logging::v1::Entry>);
-    CHECK(true);  // the compile is the assertion
 }

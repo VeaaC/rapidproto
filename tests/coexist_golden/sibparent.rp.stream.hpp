@@ -6,17 +6,17 @@
 #include <string_view>
 
 #include "rapidproto/runtime.hpp"
-#include "sibpkg.rp.common.hpp"  // IWYU pragma: export
+#include "sibparent.rp.common.hpp"  // IWYU pragma: export
 
-namespace rp::stream::sib::stream::logging::v1 {
+namespace rp::stream::sib {
 
-struct Entry;
+struct logging;
 
-struct Entry {
-  explicit Entry(::rapidproto::ByteView bytes) noexcept : rp_span(bytes) {}
+struct logging {
+  explicit logging(::rapidproto::ByteView bytes) noexcept : rp_span(bytes) {}
   ::rapidproto::ByteView rp_bytes() const noexcept { return rp_span; }
 
-  struct y { using Value = std::int32_t; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "y"; };
+  struct x { using Value = std::int32_t; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "x"; };
 
   template <class... rp_Callbacks>
   [[nodiscard]] ::rapidproto::DecodeStatus decode(rp_Callbacks&&... rp_callbacks) const;
@@ -25,8 +25,8 @@ struct Entry {
 };
 
 template <class... rp_Callbacks>
-RP_FLATTEN ::rapidproto::DecodeStatus Entry::decode(rp_Callbacks&&... rp_callbacks) const {
-  static_assert((true && ... && !::rapidproto::is_stray_callback<rp_Callbacks, y>), "a callback matches no field of '::rp::stream::sib::stream::logging::v1::Entry' (and is not a catch-all or unknown-field handler)");
+RP_FLATTEN ::rapidproto::DecodeStatus logging::decode(rp_Callbacks&&... rp_callbacks) const {
+  static_assert((true && ... && !::rapidproto::is_stray_callback<rp_Callbacks, x>), "a callback matches no field of '::rp::stream::sib::logging' (and is not a catch-all or unknown-field handler)");
   [[maybe_unused]] auto rp_dispatch = ::rapidproto::combine(static_cast<rp_Callbacks&&>(rp_callbacks)...);
   const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(rp_span);
   const std::uint8_t* const rp_cend = rp_c + rp_span.size();
@@ -40,16 +40,16 @@ RP_FLATTEN ::rapidproto::DecodeStatus Entry::decode(rp_Callbacks&&... rp_callbac
     }
     goto rp_field_general;
     rp_do_1: {
-      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Callbacks, y, y::Value>)) <= 1U, "field '::rp::stream::sib::stream::logging::v1::Entry::y' is handled by more than one callback");
-      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Callbacks, y, y::Value>)) <= 1U, "field '::rp::stream::sib::stream::logging::v1::Entry::y' is matched by more than one catch-all callback");
-      static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Callbacks, y, y::Value>), "a callback for field '::rp::stream::sib::stream::logging::v1::Entry::y' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
-      static_assert((true && ... && !(::rapidproto::targets<rp_Callbacks, y, y::Value> && !::rapidproto::specifically_handles<rp_Callbacks, y, y::Value>)), "a callback for field '::rp::stream::sib::stream::logging::v1::Entry::y' has the wrong value type (expected y::Value)");
-      if constexpr ((false || ... || ::rapidproto::handles_one<rp_Callbacks, y, y::Value>)) {
+      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Callbacks, x, x::Value>)) <= 1U, "field '::rp::stream::sib::logging::x' is handled by more than one callback");
+      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Callbacks, x, x::Value>)) <= 1U, "field '::rp::stream::sib::logging::x' is matched by more than one catch-all callback");
+      static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Callbacks, x, x::Value>), "a callback for field '::rp::stream::sib::logging::x' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+      static_assert((true && ... && !(::rapidproto::targets<rp_Callbacks, x, x::Value> && !::rapidproto::specifically_handles<rp_Callbacks, x, x::Value>)), "a callback for field '::rp::stream::sib::logging::x' has the wrong value type (expected ::rp::stream::sib::logging::x::Value)");
+      if constexpr ((false || ... || ::rapidproto::handles_one<rp_Callbacks, x, x::Value>)) {
         std::uint64_t rp_raw = 0;
         const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
         if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_np;
-        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, y{}, ::rapidproto::varint_to_int32(rp_raw)); !rp_status.ok()) {
+        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, x{}, ::rapidproto::varint_to_int32(rp_raw)); !rp_status.ok()) {
           return rp_status;
         }
       } else {  // no callback for this field -> skip its value (compile-time wire)
@@ -89,4 +89,4 @@ RP_FLATTEN ::rapidproto::DecodeStatus Entry::decode(rp_Callbacks&&... rp_callbac
   }
 }
 
-}  // namespace rp::stream::sib::stream::logging::v1
+}  // namespace rp::stream::sib

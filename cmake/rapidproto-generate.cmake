@@ -120,7 +120,9 @@ function(rapidproto_generate target)
     # Empty is not "no prefix": the generated roots would land at global scope, so the CLI rejects it.
     # Caught here because cmake_parse_arguments leaves the variable UNSET for an explicit empty value,
     # which would otherwise look exactly like omitting the keyword and silently use the default.
-    message(FATAL_ERROR "rapidproto_generate(${target}): NAMESPACE_PREFIX cannot be empty")
+    message(FATAL_ERROR
+      "rapidproto_generate(${target}): NAMESPACE_PREFIX cannot be empty -- the arena/stream/enums "
+      "roots would land at global scope. Pass a name instead (default: rp).")
   endif()
 
   if(RPG_UNPARSED_ARGUMENTS)
@@ -157,7 +159,10 @@ function(rapidproto_generate target)
     list(APPEND _import_dirs_abs "${_dir_abs}")
     list(APPEND _common "-I${_dir_abs}")
   endforeach()
-  if(RPG_NAMESPACE_PREFIX)
+  # DEFINED, not truthiness: CMake reads `NAMESPACE_PREFIX N` (or `no`/`off`/`false`/`0`) as false,
+  # so a truthiness test silently dropped the flag and generated under the default instead. `N` is a
+  # plausible short namespace.
+  if(DEFINED RPG_NAMESPACE_PREFIX)
     list(APPEND _common "--namespace-prefix" "${RPG_NAMESPACE_PREFIX}")
   endif()
   if(RPG_NO_WELLKNOWN)

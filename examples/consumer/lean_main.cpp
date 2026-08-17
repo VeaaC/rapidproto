@@ -32,7 +32,7 @@ int main() {
         return 1;
     }
     // shape->sides() does not exist under this profile; shape->origin() is the Point payload
-    // (0x08 0x03 0x10 0x04), owned by the arena -- `buf` may go away.
+    // (0x08 0x03 0x10 0x04), borrowed from the input -- `buf` must outlive it.
     if (!shape->origin().has_value()) {
         std::fprintf(stderr, "lean consumer: origin payload missing\n");
         return 1;

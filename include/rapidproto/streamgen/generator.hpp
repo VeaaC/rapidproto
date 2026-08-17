@@ -26,10 +26,11 @@ std::string generate_header(const FileNode& file, const codegen::CppNameTable& s
 // comes from an imported file resolves to that file's dedup-stable name. Pass
 // `ResolvedFileSet::files`.
 //
-// `namespace_prefix` (dot-separated, e.g. "rp" or "my.decoders") is prepended to every file's C++
-// namespace, so a proto `package a.b` becomes `namespace prefix::a::b`. Empty (the default) keeps
-// protoc parity (`namespace a::b`); a prefix lets the generated decoders coexist with protoc's
-// headers (which use the same `a::b`) in one translation unit.
+// `namespace_prefix` (dot-separated, e.g. "rp" or "my.decoders") is the ROOT the generated code
+// lives under: a proto `package a.b` becomes `namespace prefix::stream::a::b`. Empty means the
+// default (`rp`), NOT "no prefix" -- see codegen::effective_ns_prefix, which substitutes it, and
+// cli::valid_namespace_prefix, which rejects empty at the CLI. Coexistence with protoc's headers
+// needs no flag: the roots keep every generated name clear of protoc's `a::b`.
 std::string generate_header(const FileNode& file, const std::vector<FileNode>& all_files,
                             const std::string& namespace_prefix = {});
 

@@ -323,6 +323,7 @@ if(RAPIDPROTO_BUILD_TESTS)
     tests/test_printer.cpp
     tests/test_streamgen.cpp
     tests/test_cli_driver.cpp
+    tests/test_coexistence.cpp
     tests/test_common_header.cpp
   )
   target_link_libraries(rapidproto_tests PRIVATE rapidproto rapidproto_lib rapidproto_streamgen_lib

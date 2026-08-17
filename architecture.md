@@ -68,8 +68,8 @@ Naming is kept consistent across the code and docs:
   `arenagen` (→ the arena model), plus **`dumpgen`** (→ the arena debug dumper). All are driven by
   the
   single CLI, **`rapidprotoc`**.
-- **debug dumper.** The `dumpgen` emitter's output (`<stem>.rp.dump.hpp`): per arena message, free
-  functions that print the decoded tree as JSON-*like* text for human inspection. A debugging aid,
+- **debug dumper.** The `dumpgen` emitter's output (`<stem>.rp.dump.hpp`): per arena message, a
+  `rapidproto::dump_detail::dumper<>` specialization that `rapidproto::dump()` prints the tree through for human inspection. A debugging aid,
   not a
   serializer or a spec JSON codec.
 - **decoder.** The generated type a user calls (`rp::arena::pkg::Msg`, `rp::stream::pkg::Msg`).
@@ -914,7 +914,7 @@ suites assert this (regenerating with `rapidprotoc --arena` or `--stream` produc
 `examples/consumer` decodes the same bytes with both models in one TU as an end-to-end check.
 
 Coexistence with `protoc`-generated headers needs no flag: the roots keep every generated type clear
-of protoc's `pkg::Msg`, including the well-known types (see [Coexistence design](#coexistence-design)).
+of protoc's `pkg::Msg`, including the well-known types.
 `--namespace-prefix` renames the root for a codebase that already owns `rp`.
 
 ---

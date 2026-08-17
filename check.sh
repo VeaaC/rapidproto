@@ -503,23 +503,45 @@ job_format() {
 # renamed heading or a moved page rots silently; validate every relative link (file + anchor).
 job_doc_links() {
   python3 tests/check_doc_links.py || return 1
-  # Nothing compiles the code in the docs, so a namespace change rots every snippet silently -- the
-  # roots change rotted five pages at once, including one whose only code block stopped compiling.
-  # Grep for spellings that no longer exist. CHANGELOG.md is exempt: its older entries describe the
-  # layout as it was, which is the point of a changelog.
+  # Nothing compiles the code in the docs or the comments, so a namespace change rots them silently
+  # -- the roots change rotted five pages at once, one of whose only code block stopped compiling.
+  # Grep for FAMILIES of spelling this generator cannot emit, not for the individual strings a past
+  # cleanup happened to delete: a blocklist of literals only guards against re-introducing those
+  # exact seven, which is not the failure being prevented. CHANGELOG.md is exempt -- its older
+  # entries describe the layout as it was, which is the point of a changelog.
   local stale=0 hit
-  # shellcheck disable=SC2016  # the patterns are literal, not shell expansions
-  for pat in 'pkg::stream::Msg' 'example::stream::' 'demo::stream::' 'rp_dump_string' 'rp_dump_write(' \
-             'rapidproto::dump::DumpOptions' 'rapidproto::dump::Writer'; do
-    if hit=$(grep -rn --include='*.md' --include='*.cmake' -F "$pat" . \
-               --exclude=CHANGELOG.md --exclude-dir=build --exclude-dir=.git 2>/dev/null); then
-      echo ">> docs name a spelling this generator no longer emits: '$pat'"
+  # <pkg>::stream:: -- the pre-roots streaming spelling, for ANY package. `rp::stream::` is the
+  # live one; `rapidproto::` is the runtime's own namespace and never a schema package.
+  # Prose only. In C++ the same shape is ambiguous -- `pfx::stream::xr` is the LIVE spelling under
+  # `--namespace-prefix=pfx`, and `sib::stream::logging` is a real package with a `stream` component
+  # -- and stale generated spellings there cannot compile anyway; only comments can rot, and those
+  # need a human. Prose has no such excuse.
+  if hit=$(grep -rnoE '(^|[^:[:alnum:]_])[A-Za-z_][A-Za-z0-9_]*::stream::' \
+             --include='*.md' --include='*.cmake' \
+             . --exclude=CHANGELOG.md --exclude-dir=build --exclude-dir=.git \
+             --exclude-dir=*golden* 2>/dev/null | grep -vE '(rp|rapidproto|prefix|<prefix>)::stream::'); then
+    echo ">> a pre-roots streaming spelling (<pkg>::stream::) -- the model root goes BEFORE the package:"
+    sed 's/^/   /' <<<"$hit" | head -5
+    stale=1
+  fi
+  # The dumper's removed per-package entry points, and its old namespace. `rp_dump_write` without a
+  # namespace qualifier is still emitted (it is the per-message core), so only the qualified form is
+  # stale; `rapidproto::dump::` covers DumpOptions, Writer and the old ::detail home in one.
+  # `rp_dump_write` is deliberately NOT here: it is still the name of the per-message core, and
+  # dumpgen emits the call through a `$ns$` placeholder, so its own source contains the string
+  # legitimately. `rp_dump_string` was removed outright, and the two only ever appeared as a pair,
+  # so prose naming the old API is caught by the half that is unambiguous.
+  for pat in 'rp_dump_string' 'rapidproto::dump::'; do
+    if hit=$(grep -rnF "$pat" --include='*.md' --include='*.cmake' --include='*.cpp' --include='*.hpp' \
+               . --exclude=CHANGELOG.md --exclude-dir=build --exclude-dir=.git \
+               --exclude-dir=*golden* 2>/dev/null); then
+      echo ">> a spelling this generator no longer emits: '$pat'"
       sed 's/^/   /' <<<"$hit" | head -5
       stale=1
     fi
   done
   [[ $stale -eq 0 ]] || {
-    echo ">> update the page, or add the pattern here if the spelling came back"
+    echo ">> update the text, or add an exemption here if the spelling came back"
     return 1
   }
 }
@@ -885,7 +907,7 @@ done
 stage_title() {
   case $1 in
     format)       echo "clang-format (check)" ;;
-    docs)         echo "doc links" ;;
+    docs)         echo "doc links + stale spellings" ;;
     fixtures)     echo "corpus fixture coverage" ;;
     gcc)          echo "build + test (gcc)" ;;
     clang)        echo "build + test (clang)" ;;

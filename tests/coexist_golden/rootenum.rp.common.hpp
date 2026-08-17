@@ -4,9 +4,9 @@
 
 #include <cstdint>
 
-namespace rp::enums::rn {
+namespace rp::enums::re {
 
-enum class rp : std::int32_t {
+enum class stream : std::int32_t {
   UNSET = 0,
   rp_known_min = 0,
   rp_known_max = 0,
@@ -14,4 +14,12 @@ enum class rp : std::int32_t {
   rp_non_exhaustive_max = INT32_MAX,
 };
 
-}  // namespace rp::enums::rn
+enum class arena : std::int32_t {
+  UNSET = 0,
+  rp_known_min = 0,
+  rp_known_max = 0,
+  rp_non_exhaustive_min = INT32_MIN,
+  rp_non_exhaustive_max = INT32_MAX,
+};
+
+}  // namespace rp::enums::re

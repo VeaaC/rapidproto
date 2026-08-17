@@ -17,6 +17,7 @@
 
 #include "rapidproto/ast.hpp"  // FileNode, constructed directly for header_path
 #include "rapidproto/cli/driver.hpp"
+#include "rapidproto/codegen/naming.hpp"
 #include "rapidproto/resolver.hpp"
 #include "rapidproto/version.hpp"
 #include "temp_dir.hpp"
@@ -250,6 +251,7 @@ TEST_CASE("driver: parse_args --verbose / -v set verbose (quiet is the default)"
     CHECK(short_form.options.value().verbose);
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): a flat list of usage errors
 TEST_CASE("driver: parse_args usage errors all exit 2", "[cli]") {
     // A flag missing its value, no entry files at all, and a malformed --namespace-prefix (which
     // reports through its own error path, not usage_error) must all agree on exit code 2.
@@ -258,4 +260,22 @@ TEST_CASE("driver: parse_args usage errors all exit 2", "[cli]") {
     const cli::ParseResult bad_prefix = parse({"--namespace-prefix", "not:valid", "a.proto"});
     CHECK_FALSE(bad_prefix.options.has_value());
     CHECK(bad_prefix.exit_code == 2);
+    // Empty is refused too, and by its own branch: it is not a typo but what someone tries to get
+    // the pre-roots layout back, and it would put `arena`/`stream`/`enums` at global scope. Both
+    // spellings, because the split-argument form takes a different path than `--flag=value`.
+    for (const std::vector<const char*>& form :
+         {std::vector<const char*>{"--namespace-prefix", "", "a.proto"},
+          std::vector<const char*>{"--namespace-prefix=", "a.proto"}}) {
+        const cli::ParseResult empty_prefix = parse(form);
+        CHECK_FALSE(empty_prefix.options.has_value());
+        CHECK(empty_prefix.exit_code == 2);
+    }
+    // ...and the default is a real prefix, so a caller that never passes the flag still gets roots.
+    const cli::ParseResult defaulted = parse({"a.proto"});
+    REQUIRE(defaulted.options.has_value());
+    if (defaulted.options.has_value()) {
+        CHECK(defaulted.options->namespace_prefix ==
+              std::string(rapidproto::codegen::kDefaultNsPrefix));
+    }
+    CHECK_FALSE(cli::valid_namespace_prefix(""));
 }
