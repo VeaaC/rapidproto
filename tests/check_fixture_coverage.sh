@@ -43,10 +43,13 @@ for proto in "${protos[@]}"; do
   # invocation into tests/coexist_golden/ (regen_goldens.sh [4b/5]) rather than once per model dir.
   # Two per-model copies of that header duplicate every enum in such a TU.
   if [[ -s "tests/coexist_golden/$stem.rp.hpp" && -s "tests/coexist_golden/$stem.rp.stream.hpp" ]]; then
-    if ! grep -q "coexist_golden/$stem.rp.hpp" tests/test_coexistence.cpp; then
-      echo ">> $proto has coexistence goldens that tests/test_coexistence.cpp never includes"
-      missing=1
-    fi
+    for model in "rp.hpp|arena" "rp.stream.hpp|stream"; do
+      if ! grep -q "coexist_golden/$stem.${model%%|*}" tests/test_coexistence.cpp; then
+        echo ">> $proto: tests/test_coexistence.cpp never includes its ${model##*|} header --"
+        echo "   that TU exists to hold BOTH models at once, so one of them is not being tested"
+        missing=1
+      fi
+    done
     # Only the per-model golden check is skipped; regeneration is still verified below.
     coexist=1
   else
@@ -84,14 +87,34 @@ done
 # redefinition error from clang. This is why the prefixed goldens use a NON-default prefix -- at the
 # default they were byte-for-byte their unprefixed twins. Enforced here so that stays true.
 # Empty commons (a package with no enums) are exempt: they define nothing to redefine.
-dupes="$(for f in $(find tests -name '*.rp*.hpp' | sort); do
-           [[ -s "$f" ]] || continue
-           grep -qE '^(class|struct|enum class|inline|template)' "$f" || continue
-           echo "$(sha256sum "$f" | cut -d' ' -f1) $(dirname "$f") $f"
-         done | sort | awk '{ key=$1" "$2; if (key==prev) { print prevf; print $3 } prev=key; prevf=$3 }')"
-if [[ -n "$dupes" ]]; then
-  echo ">> byte-identical goldens in one directory -- clang rejects a TU including both:"
-  sed 's/^/   /' <<<"$dupes" | sort -u
+# Two byte-identical goldens INCLUDED BY THE SAME TU are both a lost test and a portability trap:
+# gcc's content-keyed `#pragma once` silently collapses them, clang rejects the second as a
+# redefinition. This is why a `_prefixed` golden must use a NON-default prefix -- at the default it
+# is byte-for-byte its unprefixed twin, and tests/test_streamgen.cpp includes both.
+#
+# Per TU, not tree-wide: identical goldens in DIFFERENT directories (arenagen_golden/x.rp.hpp and
+# dumpgen_golden/x.rp.hpp) are a known, deliberate duplication that no TU mixes, and flagging those
+# would be noise.
+dupes=""
+for tu in tests/test_*.cpp; do
+  # `|| true` on the whole pipeline: a TU with no golden includes makes grep exit 1, and an
+  # assignment adopts the substitution's status, which under `set -e` ends the run right here.
+  hits="$( { grep -oE '#include "[^"]+_golden/[^"]+"' "$tu" || true; } 2>/dev/null | sed 's/#include "//; s/"$//' \
+          | while read -r inc; do
+              f="tests/$inc"
+              [[ -s "$f" ]] || continue
+              grep -qE '^(class|struct|enum class|inline|template)' "$f" || continue
+              echo "$(sha256sum "$f" | cut -d' ' -f1) $f"
+            done | sort | awk -v tu="$tu" '{ if ($1==prev) { print tu": "prevf" == "$2 } prev=$1; prevf=$2 }')"
+  # `if`, not `[[ ... ]] && ...`: as the loop body's last command the && form returns 1 when there
+  # are no duplicates, which under `set -e` exits the script silently with status 1.
+  if [[ -n "$hits" ]]; then
+    dupes+="$hits"$'\n'
+  fi
+done
+if [[ -n "${dupes// /}" ]]; then
+  echo ">> byte-identical goldens included by one TU -- clang rejects the second as a redefinition:"
+  sed 's/^/   /' <<<"$dupes" | grep -v '^   $'
   missing=1
 fi
 

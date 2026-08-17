@@ -340,7 +340,8 @@ if(RAPIDPROTO_BUILD_TESTS)
     RAPIDPROTO_ARENA_LAYOUT_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/arena_layout_golden"
     RAPIDPROTO_ARENAGEN_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/arenagen_golden"
     RAPIDPROTO_DUMPGEN_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/dumpgen_golden"
-    RAPIDPROTO_COMMON_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/common_golden")
+    RAPIDPROTO_COMMON_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/common_golden"
+    RAPIDPROTO_COEXIST_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/coexist_golden")
 
   add_test(NAME unit COMMAND rapidproto_tests)
 
@@ -362,14 +363,14 @@ if(RAPIDPROTO_BUILD_TESTS)
   # (it is not linked against rapidproto_strict). Run pinned: taskset -c 0 ./rapidproto_bench
   # The bench schema's decoders (arena + streaming, under the `rp` prefix), shared by BOTH benches so
   # they decode the same shapes. Generating it needs only rapidprotoc (no protobuf), so it is emitted
-  # unconditionally -- the streaming bench uses rp::bench::stream::Big for the repeated-varint sweep.
+  # unconditionally -- the streaming bench uses rp::stream::bench::Big for the repeated-varint sweep.
   set(BENCH_PROTO "${CMAKE_CURRENT_SOURCE_DIR}/tests/bench/bench.proto")
   set(BENCH_PROTO_DIR "${CMAKE_CURRENT_SOURCE_DIR}/tests/bench")
   set(BENCH_GEN "${CMAKE_CURRENT_BINARY_DIR}/generated/bench")
   file(MAKE_DIRECTORY "${BENCH_GEN}")
   # One rapidprotoc invocation emits BOTH decoders under the `rp` prefix, sharing ONE common header
-  # (rp::bench): arena at rp::bench::Dataset, streaming at rp::bench::stream::Dataset, both distinct
-  # from protoc's bench::Dataset -- all three Dataset types coexist in one translation unit.
+  # (rp::enums::bench): arena at rp::arena::bench::Dataset, streaming at rp::stream::bench::Dataset,
+  # both distinct from protoc's bench::Dataset -- all three coexist in one translation unit.
   add_custom_command(
     OUTPUT "${BENCH_GEN}/bench.rp.hpp" "${BENCH_GEN}/bench.rp.stream.hpp"
     COMMAND rapidprotoc --arena --stream -I${BENCH_PROTO_DIR} --namespace-prefix=rp

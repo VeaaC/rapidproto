@@ -102,6 +102,30 @@ echo "[3/5] regenerating arenagen + dumpgen goldens via rapidprotoc --arena / --
 tests/regen_arenagen_goldens.sh >/dev/null
 tests/regen_dumpgen_goldens.sh >/dev/null
 
+# [3b/5] Coexistence goldens: BOTH models from ONE invocation into ONE dir, which is what a consumer
+# does and the only shape with a single shared common header. Generating them per-model instead gives
+# two copies of that header, and a TU including both fails on duplicate enum definitions -- which is
+# exactly what tests/test_coexistence.cpp holds in one TU.
+#
+# BEFORE [4/5], and generating into "$T" first, for two reasons that both bit:
+#   - test_coexistence.cpp is compiled INTO the test binary, so a generator change that stops the old
+#     coexist goldens compiling fails [4/5] -- and a step after it would never run, exactly when you
+#     need it. Same chicken-and-egg this script's header describes for streamgen.
+#   - `rm -rf` on the tracked directory before generating destroys checked-in goldens the moment any
+#     schema fails, under `set -e`. Stage into the trap-cleaned temp dir and swap in only on success.
+echo "[3b/5] coexistence goldens (both models, one out-dir)"
+# Listed one per line, not looped over stems: check_fixture_coverage.sh greps this file for each
+# fixture's path, and a loop variable would hide them from it.
+for entry in tests/corpus/nsedge/rootnames.proto \
+             tests/corpus/nsedge/rootenum.proto \
+             tests/corpus/nsedge/sibparent.proto \
+             tests/corpus/nsedge/sibpkg.proto; do
+  "$BIN" --arena --stream -Itests/corpus/nsedge --out-dir="$T/coexist" "$entry" >/dev/null
+done
+rm -rf "$T/coexist/rapidproto"  # the runtime copy; the test TU uses the repo's own headers
+rm -rf tests/coexist_golden
+cp -a "$T/coexist" tests/coexist_golden
+
 echo "[4/5] building the test binary (the fresh streamgen + arenagen + dumpgen goldens now compile) ..."
 # Target checked before building: `cmake --build --target X` degenerates to `make X` under
 # Makefiles, so a renamed target with build/gcc/X still on disk prints "Nothing to be done" and
@@ -127,22 +151,6 @@ if [[ $regen_rc -ne 0 ]]; then
   tail -20 <<<"$regen_out"
   exit 1
 fi
-
-# [4b/5] Coexistence goldens: BOTH models from ONE invocation into ONE dir, which is what a consumer
-# does and the only shape with a single shared common header. Generating them per-model dir instead
-# gives two copies of that header, and a TU including both fails on duplicate enum definitions --
-# which is exactly what tests/test_coexistence.cpp exists to hold in one TU.
-echo "[4b/5] coexistence goldens (both models, one out-dir)"
-rm -rf tests/coexist_golden
-# Listed one per line, not looped over stems: check_fixture_coverage.sh greps this file for each
-# fixture's path, and a loop variable would hide them from it.
-for entry in tests/corpus/nsedge/rootnames.proto \
-             tests/corpus/nsedge/rootenum.proto \
-             tests/corpus/nsedge/sibparent.proto \
-             tests/corpus/nsedge/sibpkg.proto; do
-  "$BIN" --arena --stream -Itests/corpus/nsedge --out-dir=tests/coexist_golden "$entry" >/dev/null
-done
-rm -rf tests/coexist_golden/rapidproto  # the runtime copy; the test TU uses the repo's own headers
 
 # The reverse of the orphan check at [2/5], which only flags a golden that exists but was not
 # regenerated: this catches a fixture with no golden at all. Shared with check.sh (the `fixtures`

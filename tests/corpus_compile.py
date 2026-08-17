@@ -25,9 +25,13 @@ import subprocess
 import sys
 import tempfile
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from fetch_corpus import SOURCES  # noqa: E402  -- each source's declared include_root
+
 REPO = pathlib.Path(__file__).resolve().parent.parent
 CORPUS = REPO / "build" / "corpus"
 NOT_FETCHED = 77
+INCLUDE_ROOT = {s.name: s.include_root for s in SOURCES}
 
 
 def schemas(sample: int) -> list[pathlib.Path]:
@@ -65,7 +69,16 @@ def compile_one(binary: pathlib.Path, cxx: str,
     the caller can tell "nothing to compile" from "compiled clean" -- reporting a count of SAMPLED
     schemas would let this leg print green having invoked the compiler zero times."""
     rel = proto.relative_to(CORPUS)
-    root = CORPUS / rel.parts[0]  # each corpus source is its own import root
+    # The -I each source DECLARES, not its checkout root: protobuf's schemas import relative to
+    # `src` and the benchmarks' to `benchmarks`, so rooting at the checkout made every cross-import
+    # schema fail to generate -- silently, since a rejected schema is corpus_gate.py's business.
+    # That threw away most of what sampling the small sources was for (the group and deep-nesting
+    # shapes). tests/corpus_gate.py has always honoured this; this leg did not.
+    #
+    # Files OUTSIDE that root (protobuf keeps its editions/conformance schemas beside `src`, not in
+    # it) fall back to the source root, which is what they import relative to.
+    declared = CORPUS / rel.parts[0] / INCLUDE_ROOT.get(rel.parts[0], ".")
+    root = declared if declared in proto.parents else CORPUS / rel.parts[0]
     with tempfile.TemporaryDirectory(prefix="rp_cc_") as tmp:
         out = pathlib.Path(tmp)
         gen = subprocess.run(
@@ -111,16 +124,19 @@ def main() -> int:
     picked = schemas(args.sample)
     failures = []
     compiled = 0
+    compiled_sources: set[str] = set()
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
         for proto, err, ok in pool.map(lambda p: compile_one(binary, args.cxx, p), picked):
             compiled += int(ok)
+            if ok:
+                compiled_sources.add(proto.relative_to(CORPUS).parts[0])
             if err:
                 failures.append((proto, err))
 
     for proto, err in failures:
         print(f">> {proto.relative_to(CORPUS)} generates but does not compile:", file=sys.stderr)
         print("\n".join(err.splitlines()[:6]), file=sys.stderr)
-    sources = len({p.relative_to(CORPUS).parts[0] for p in picked})
+    sources = len(compiled_sources)
     print(f"corpus compile: {compiled}/{len(picked)} schemas compiled across {sources} sources, "
           f"all models in one TU, {len(failures)} failed")
     # Absence of failures is not a pass. A generator that rejects everything, or a sampler that

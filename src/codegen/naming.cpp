@@ -386,15 +386,16 @@ std::string namespace_of(std::string_view package) {
                 out += "::";
             }
             // `rapidproto` is escaped HERE rather than in sanitize(), because it only clashes as
-            // a NAMESPACE: a package of that name merges the schema's own types into the runtime's,
-            // where any sharing a name with something the runtime declares (`wire`, `Arena`,
-            // `ByteView`, `WireType`, `dump`, `ArrayView`, ... -- not a closed list) redeclares it.
-            // A message or field called `rapidproto` sits in the schema's own namespace, so
-            // reserving it outright would rename working API in every schema that has a package.
-            // It is NOT unreachable: with no package at all the type lands at global scope beside
-            // the runtime's own namespace, and `message rapidproto` there is a redeclaration
-            // today. That case wants its own fix (the reservation would have to be conditional on
-            // the package being empty), not a blanket rename.
+            // a NAMESPACE COMPONENT -- and, since the roots, only when it is the PREFIX. This
+            // function renders both, so a `--namespace-prefix=rapidproto` would otherwise open
+            // `namespace rapidproto::arena`, merging generated types into the runtime's own
+            // namespace, where anything sharing a name with what the runtime declares (`wire`,
+            // `Arena`, `dump`, ... -- not a closed list) redeclares it.
+            //
+            // A PACKAGE of that name no longer can: it lands at `<prefix>::arena::rapidproto`,
+            // three levels below `::rapidproto`, and so does a package-less `message rapidproto`.
+            // The escape still renames those, which costs a schema that has one a gratuitous `_`.
+            // Narrowing it to the prefix is worth doing and is not this change; see the roadmap.
             const std::string id = sanitize(component);
             out += id == "rapidproto" ? "rapidproto_" : id;
             component.clear();

@@ -516,10 +516,14 @@ job_doc_links() {
   # `--namespace-prefix=pfx`, and `sib::stream::logging` is a real package with a `stream` component
   # -- and stale generated spellings there cannot compile anyway; only comments can rot, and those
   # need a human. Prose has no such excuse.
-  if hit=$(grep -rnoE '(^|[^:[:alnum:]_])[A-Za-z_][A-Za-z0-9_]*::stream::' \
-             --include='*.md' --include='*.cmake' \
+  # `(ident::)+stream::`, not one component: `com::example::deep::stream::Msg` is the same defect
+  # and was invisible. The exclusion is ANCHORED -- an unanchored `rp::stream::` matched any package
+  # ending in `rp` (`corp`, `erp`). `CMakeLists.txt` is named explicitly; `*.cmake` does not match it.
+  if hit=$(grep -rnoE '(^|[^:[:alnum:]_])([A-Za-z_][A-Za-z0-9_]*::)+stream::' \
+             --include='*.md' --include='*.cmake' --include='CMakeLists.txt' \
              . --exclude=CHANGELOG.md --exclude-dir=build --exclude-dir=.git \
-             --exclude-dir=*golden* 2>/dev/null | grep -vE '(rp|rapidproto|prefix|<prefix>)::stream::'); then
+             --exclude-dir=*golden* 2>/dev/null \
+             | grep -vE '(^|[^:[:alnum:]_])(rp|rapidproto|prefix|<prefix>|pfx|sib)::stream::'); then
     echo ">> a pre-roots streaming spelling (<pkg>::stream::) -- the model root goes BEFORE the package:"
     sed 's/^/   /' <<<"$hit" | head -5
     stale=1
@@ -527,6 +531,19 @@ job_doc_links() {
   # The dumper's removed per-package entry points, and its old namespace. `rp_dump_write` without a
   # namespace qualifier is still emitted (it is the per-message core), so only the qualified form is
   # stale; `rapidproto::dump::` covers DumpOptions, Writer and the old ::detail home in one.
+  # The PRE-roots prefixed layout, `rp::<pkg>::Msg`. The CHANGELOG explicitly migrates users off it
+  # (they had passed --namespace-prefix=rp for protoc coexistence), so it is a live rot target: it
+  # looks current, and every root spelling shares its first component.
+  if hit=$(grep -rnoE '(^|[^:[:alnum:]_])rp::[A-Za-z_][A-Za-z0-9_]*::' \
+             --include='*.md' --include='*.cmake' --include='CMakeLists.txt' \
+             . --exclude=CHANGELOG.md --exclude-dir=build --exclude-dir=.git \
+             --exclude-dir=*golden* 2>/dev/null \
+             | grep -vE 'rp::(arena|stream|enums)::'); then
+    echo ">> the pre-roots prefixed layout (rp::<pkg>::) -- a model root goes between them:"
+    sed 's/^/   /' <<<"$hit" | head -5
+    stale=1
+  fi
+
   # `rp_dump_write` is deliberately NOT here: it is still the name of the per-message core, and
   # dumpgen emits the call through a `$ns$` placeholder, so its own source contains the string
   # legitimately. `rp_dump_string` was removed outright, and the two only ever appeared as a pair,

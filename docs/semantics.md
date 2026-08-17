@@ -26,7 +26,15 @@ link here instead of restating.*
   wire value arrives as its raw integer cast into the enum; `INT32_MIN`/`INT32_MAX` sentinels force a
   `default:` arm under `-Wswitch`, and `rp_known_min`/`rp_known_max` carry the schema's declared
   value range (e.g. `if (v <= Status::rp_known_max)`). (They live in a shared
-  `<stem>.rp.common.hpp` that each decoder `#include`s for you.) This applies to **closed** enums too
+  `<stem>.rp.common.hpp` that each decoder `#include`s for you.)
+- **Enumerator names drop the enum's own prefix**, all-or-nothing per enum: `enum Status
+  { STATUS_OK = 0; }` yields `Status::OK`, matching what protobuf's own Go and Rust generators do.
+  The strip is refused for the whole enum if any value would be left with a name that is not a clean
+  identifier — one missing the prefix, a numeric remainder (`VERSION_2` → `2`), a keyword, or a
+  macro (`STATUS_EOF` → `EOF`). **So adding a value can rename the others**: appending
+  `LEGACY_GREEN` to `{COLOR_RED, COLOR_BLUE}` turns `Color::RED` back into `Color::COLOR_RED` and
+  breaks call sites that never changed. Wire compatibility is unaffected — only the C++ spelling
+  moves — but treat an enum's C++ names as part of your API surface. This applies to **closed** enums too
   (proto2, or editions `enum_type = CLOSED`): RapidProto intentionally decodes every enum as open —
   where protoc would route an unrecognized closed-enum value to unknown fields, RapidProto delivers
   the raw value — so do not rely on closed-enum semantics.
