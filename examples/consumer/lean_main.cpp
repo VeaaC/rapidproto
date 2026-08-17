@@ -14,8 +14,7 @@
 #include "rapidproto/arena_runtime.hpp"
 #include "rapidproto/runtime.hpp"
 
-// The generated types live under one root per model; alias each package once so the
-// bodies below read as they did before the roots existed. This file uses the arena model only.
+// Arena types live under `rp::arena::<package>`; alias it once and the body stays short.
 namespace demo = rp::arena::demo;
 
 int main() {

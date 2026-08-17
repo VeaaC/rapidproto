@@ -41,7 +41,7 @@ accessor, a `raw` one returns undecoded bytes.
 The examples below use `namespace ex = rp::arena::example;` — generated arena types live under
 `rp::arena::<your.package>`, and one alias keeps the code short.
 
-In a generated schema `pkg.Foo` becomes `pkg::Foo`, and each accessor is its proto field name. A
+In a generated schema `pkg.Foo` becomes `rp::arena::pkg::Foo`, and each accessor is its proto field name. A
 map's entry type is nested in its message: `Foo::LabelsEntry`. Any name that would clash with C++ or
 with the generated API takes a trailing `_` — messages, enums and package components included
 (`enum std` → `std_`). Reading a `Person` carrying one of each shape:

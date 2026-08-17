@@ -6,8 +6,8 @@
 `--dump` emits a third header that prints a decoded arena tree as human-readable, JSON-*like* text — a
 **debugging and logging aid**, not a spec-compliant JSON codec and not a wire serializer. It reads the
 [arena decoder](arena.md)'s public accessors (no reflection, no `descriptor.proto`), so `--dump`
-**implies `--arena`** and dumps whatever the arena header exposes. For each message `Foo` in namespace
-`example` it teaches `rapidproto::dump` how to print those messages:
+**implies `--arena`** and dumps whatever the arena header exposes. For each message in the schema it
+teaches `rapidproto::dump` how to print it:
 
 ```cpp
 std::string rapidproto::dump(const T& m, const rapidproto::DumpOptions& opts = {});

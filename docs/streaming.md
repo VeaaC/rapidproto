@@ -1,6 +1,6 @@
 # The streaming decoder
 
-*Generated with `--stream`. Header: `<stem>.rp.stream.hpp`, types at `pkg::stream::Msg`. Back to the
+*Generated with `--stream`. Header: `<stem>.rp.stream.hpp`, types at `rp::stream::pkg::Msg`. Back to the
 [README](../README.md); shared rules (lifetimes, presence, enums) in [semantics.md](semantics.md).*
 
 A streaming decoder forwards wire data 1:1, with no aggregation, defaulting, or merging; you decide
@@ -14,12 +14,15 @@ struct Person {
   struct name    { using Value = std::string_view;     /* kNumber=1, kName="name"    */ };
   struct id      { using Value = std::uint32_t;        /* kNumber=2, kName="id"      */ };
   struct email   { using Value = std::string_view;     /* kNumber=3, kName="email"   */ };
-  struct address { using Value = ::sex::Address; /* kNumber=4, kName="address" */ };
+  struct address { using Value = ::rp::stream::example::Address; /* kNumber=4, kName="address" */ };
 
   template <class... rp_Callbacks>
   [[nodiscard]] rapidproto::DecodeStatus decode(rp_Callbacks&&... rp_callbacks) const;
 };
 ```
+
+The examples below use `namespace ex_s = rp::stream::example;` — streaming types live under
+`rp::stream::<your.package>`, and one alias keeps call sites short.
 
 A callback is `[](Foo::field, Value v){ … }`. The **tag type** names the field (tied to its proto name,
 so referencing a removed or renamed field is a compile error), and `Value` is the field's type. Each
@@ -41,9 +44,9 @@ extracting a few fields from a large message stays fast:
 
 ```cpp
 std::string name; std::uint32_t id = 0;
-sex::Person{wire}.decode(
-    [&](sex::Person::name, std::string_view v) { name = std::string(v); },
-    [&](sex::Person::id,   std::uint32_t v)    { id = v; });
+ex_s::Person{wire}.decode(
+    [&](ex_s::Person::name, std::string_view v) { name = std::string(v); },
+    [&](ex_s::Person::id,   std::uint32_t v)    { id = v; });
 // email and address are never decoded.
 ```
 
@@ -53,7 +56,7 @@ mix a catch-all with specific callbacks (the specific one wins). For a sub-messa
 undecoded sub-decoder; a catch-all does **not** recurse, so call `value.decode(...)` yourself.
 
 ```cpp
-sex::Person{wire}.decode([&](auto tag, auto&& value) {
+ex_s::Person{wire}.decode([&](auto tag, auto&& value) {
     log("field %s (#%u)", tag.kName.data(), tag.kNumber);
 });
 ```
@@ -63,19 +66,19 @@ sex::Person{wire}.decode([&](auto tag, auto&& value) {
 producer's field). This is the forward-compatibility pattern:
 
 ```cpp
-sex::Person{wire}.decode(
-    [&](sex::Person::name,  std::string_view v) { name = std::string(v); },
-    [&](sex::Person::email, std::string_view v) { emails.push_back(std::string(v)); }, // per element
-    [&](sex::Person::address, sex::Address a) -> rapidproto::DecodeStatus { // recurse
-        return a.decode([&](sex::Address::city, std::string_view v) { city = std::string(v); });
+ex_s::Person{wire}.decode(
+    [&](ex_s::Person::name,  std::string_view v) { name = std::string(v); },
+    [&](ex_s::Person::email, std::string_view v) { emails.push_back(std::string(v)); }, // per element
+    [&](ex_s::Person::address, ex_s::Address a) -> rapidproto::DecodeStatus { // recurse
+        return a.decode([&](ex_s::Address::city, std::string_view v) { city = std::string(v); });
     },
     [&](rapidproto::UnknownField uf) {                                  // a field not in our schema
         log("unknown #%u (wire type %d, %zu bytes)", uf.field_number, int(uf.wire_type), uf.bytes.size());
     });
 ```
 
-`UnknownField` carries `{ std::uint32_t field_number; rapidproto::WireType wire_type; rapidproto::ByteView
-bytes; }` — the field's bytes **as they appear on the wire after the tag**, so a LEN field's view
+`UnknownField` carries `{ std::uint32_t field_number; rapidproto::WireType wire_type;
+rapidproto::ByteView bytes; }` — the field's bytes **as they appear on the wire after the tag**, so a LEN field's view
 starts with its length prefix and a group's ends with its closing end-group tag. That framing is why
 these bytes are **not** what another decoder's `decode()` takes — a sub-decoder's `rp_bytes()` is
 (see [using both models](using-both-models.md)); strip the prefix yourself if you want to decode an

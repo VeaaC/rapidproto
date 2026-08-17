@@ -502,7 +502,26 @@ job_format() {
 # The markdown docs are split across README / docs/ / architecture.md with heavy cross-linking, so a
 # renamed heading or a moved page rots silently; validate every relative link (file + anchor).
 job_doc_links() {
-  python3 tests/check_doc_links.py
+  python3 tests/check_doc_links.py || return 1
+  # Nothing compiles the code in the docs, so a namespace change rots every snippet silently -- the
+  # roots change rotted five pages at once, including one whose only code block stopped compiling.
+  # Grep for spellings that no longer exist. CHANGELOG.md is exempt: its older entries describe the
+  # layout as it was, which is the point of a changelog.
+  local stale=0 hit
+  # shellcheck disable=SC2016  # the patterns are literal, not shell expansions
+  for pat in 'pkg::stream::Msg' 'example::stream::' 'demo::stream::' 'rp_dump_string' 'rp_dump_write(' \
+             'rapidproto::dump::DumpOptions' 'rapidproto::dump::Writer'; do
+    if hit=$(grep -rn --include='*.md' --include='*.cmake' -F "$pat" . \
+               --exclude=CHANGELOG.md --exclude-dir=build --exclude-dir=.git 2>/dev/null); then
+      echo ">> docs name a spelling this generator no longer emits: '$pat'"
+      sed 's/^/   /' <<<"$hit" | head -5
+      stale=1
+    fi
+  done
+  [[ $stale -eq 0 ]] || {
+    echo ">> update the page, or add the pattern here if the spelling came back"
+    return 1
+  }
 }
 
 job_fixtures() {

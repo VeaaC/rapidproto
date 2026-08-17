@@ -22,10 +22,10 @@ link here instead of restating.*
 - **Enums are open** and **shared between the models.** A proto enum becomes one `enum class :
   std::int32_t`, defined once under `rp::enums::<pkg>` and aliased into both decoders, so
   `rp::arena::<pkg>::Status` and `rp::stream::<pkg>::Status` are the same type. Nested enums too: a
-  `Msg::Kind` mirrors to `rp::enums::<pkg>::Msg::Kind`, one type both models alias. An unrecognized wire value arrives as
-  its raw integer cast into the enum; `INT32_MIN`/`INT32_MAX` sentinels force a `default:` arm under
-  `-Wswitch`, and `rp_known_min`/`rp_known_max` carry the schema's declared value range (e.g.
-  `if (v <= Status::rp_known_max)`). (They live in a shared
+  `Msg::Kind` mirrors to `rp::enums::<pkg>::Msg::Kind`, one type both models alias. An unrecognized
+  wire value arrives as its raw integer cast into the enum; `INT32_MIN`/`INT32_MAX` sentinels force a
+  `default:` arm under `-Wswitch`, and `rp_known_min`/`rp_known_max` carry the schema's declared
+  value range (e.g. `if (v <= Status::rp_known_max)`). (They live in a shared
   `<stem>.rp.common.hpp` that each decoder `#include`s for you.) This applies to **closed** enums too
   (proto2, or editions `enum_type = CLOSED`): RapidProto intentionally decodes every enum as open —
   where protoc would route an unrecognized closed-enum value to unknown fields, RapidProto delivers

@@ -13,11 +13,11 @@ Generate both (`--arena --stream`, or `GENERATOR both` in CMake) and use each wh
 #include "person.rp.stream.hpp"  // streaming: rp::stream::example::Person  (both pull in the shared enums)
 
 namespace ex  = rp::arena::example;   // alias each model once and the code below stays short
-namespace sex = rp::stream::example;
+namespace ex_s = rp::stream::example;
 
 const ex::Person* tree = ex::Person::decode(bytes, arena);   // materialize when you need an object
-sex::Person{bytes}.decode( /* … */ );                        // or stream when you don't
-// ex::Status and sex::Status are the same enum type.
+ex_s::Person{bytes}.decode( /* … */ );                        // or stream when you don't
+// ex::Status and ex_s::Status are the same enum type.
 ```
 
 The models also combine **mid-decode**: stream a large outer message and materialize just the
@@ -27,8 +27,8 @@ of the input `wire`), so `wire` must outlive every tree you keep:
 
 ```cpp
 rapidproto::Arena arena;
-sex::Person{wire}.decode(
-    [&](sex::Person::address, sex::Address a) {
+ex_s::Person{wire}.decode(
+    [&](ex_s::Person::address, ex_s::Address a) {
         const ex::Address* tree = ex::Address::decode(a.rp_bytes(), arena);
         // keep `tree` -- valid while both `wire` and `arena` live
     });

@@ -176,6 +176,14 @@ inline ParseResult parse_args(int argc, char** argv, std::string_view usage,
     if (opts.entries.empty()) {
         return usage_error();
     }
+    if (opts.namespace_prefix.empty()) {
+        // Separated from the syntax error below because emptying the prefix is a deliberate attempt
+        // -- it is how a user would try to restore the pre-roots layout -- not a typo.
+        std::cerr
+            << "error: --namespace-prefix cannot be empty: the arena/stream/enums roots would "
+               "land at global scope. Pass a name instead (default: rp).\n";
+        return {std::nullopt, 2};
+    }
     if (!valid_namespace_prefix(opts.namespace_prefix)) {
         std::cerr << "error: --namespace-prefix must be dot-separated C++ identifiers, got '"
                   << opts.namespace_prefix << "'\n";

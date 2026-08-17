@@ -10,7 +10,7 @@ two complementary decode **models**:
 - **Arena** (the `arenagen` emitter). `decode()` builds a fully-allocated, read-only object tree in a
   bump arena, navigated by accessor. It's built to beat `protoc` + `google::protobuf::Arena` on
   decode
-  time and memory. Types live at `pkg::Msg`.
+  time and memory. Types live at `<prefix>::arena::pkg::Msg`.
 
 A third, optional emitter — the **debug dumper** (`dumpgen`, gated on `--dump`) — rides on the arena
 model: it prints a decoded arena tree as human-readable, JSON-*like* text over the arena decoder's
@@ -749,7 +749,7 @@ a name is readability, never trust. The unknown-fields selection folds into the 
 `--unknown-present` contributes one stable `unknown *` line (so its id doesn't shift as the schema
 gains messages, and it subsumes any redundant per-message entries) — closing the ODR gap for a flag
 that changes a message's struct but used to leave its type name untouched. Qualified use stays
-`pkg::Msg`; mixed-profile TUs hold distinct types and fail to **link** at any exchange point instead of
+`rp::arena::pkg::Msg`; mixed-profile TUs hold distinct types and fail to **link** at any exchange point instead of
 silently violating the ODR (`tests/arena_modes_link.sh` pins every direction in the default gate,
 including `--unknown-present` with-vs-without). The common header (shared
 enums) stays outside the namespace, so a profiled arena header still coexists with the streaming
@@ -760,10 +760,9 @@ entry (additive when needed).
 ## Debug dumper emitter
 
 The `dumpgen` emitter (`src/dumpgen/`) turns the AST into `<stem>.rp.dump.hpp`: per arena message
-`Foo` in namespace `pkg`, a pair of free functions that print a decoded arena tree as human-readable,
-JSON-*like* text — `pkg::rp_dump_write(std::ostream&, const Foo&, const dump::DumpOptions& = {})` and
-`pkg::rp_dump_string(const Foo&, ...)`, where `DumpOptions` carries the line-width budget, a start
-indent, and the skip-paths. It's a **debugging aid**, explicitly not a spec-compliant JSON codec and
+`Foo`, a `rapidproto::dump_detail::dumper<Foo>` specialization that prints a decoded arena tree as
+human-readable, JSON-*like* text. Users call `rapidproto::dump(m, opts)` (or the `ostream` overload),
+where `rapidproto::DumpOptions` carries the line-width budget, a start indent, and the skip-paths. It's a **debugging aid**, explicitly not a spec-compliant JSON codec and
 not a wire serializer; `--dump` implies `--arena`, since the dumper reads the arena header.
 
 - **Accessors, not reflection.** The dumper walks the arena decoder's **public accessors** — no
@@ -813,15 +812,15 @@ not a wire serializer; `--dump` implies `--arena`, since the dumper reads the ar
   beside the arena runtime on a `--dump` invocation, so a generated `<stem>.rp.dump.hpp` resolves
   its
   `#include` standalone.
-- **Generated internals stay out of the public namespaces.** Only the two public entry points land in
-  the message's own namespace; the `Writer`-threaded core each one forwards to lives a level down,
-  in
-  `pkg::rp_dump_detail`, and the generated enum value-name tables go to `rapidproto::dump::detail`
-  rather than the runtime's public `rapidproto::dump` (the `arena_detail` / `swar_detail`
-  convention).
+- **Generated internals stay out of the public namespaces.** Nothing public lands in the message's
+  own namespace: the entry point is the runtime's `rapidproto::dump`, reached through a
+  `dumper<T>` specialization. The `Writer`-threaded core it forwards to lives in
+  `rp::arena::pkg::rp_dump_detail`, and the specializations and enum value-name tables go to
+  `rapidproto::dump_detail` -- never `rapidproto` itself, which is the public surface (the
+  `arena_detail` / `swar_detail` convention).
   Because ADL never looks inside a sub-namespace, every recursive call — including cross-file ones
   like
-  `::dep::rp_dump_detail::rp_dump_write` — is emitted **fully qualified** instead of relying on
+  `::rp::arena::dep::rp_dump_detail::rp_dump_write` — is emitted **fully qualified** instead of relying on
   argument-dependent lookup. The callee's namespace is derived from its resolved type FQN by
   stripping
   trailing components while the remainder is still a known type; what is left is the proto package.
@@ -914,8 +913,9 @@ together with the other — so a consumer adds the second model without touching
 suites assert this (regenerating with `rapidprotoc --arena` or `--stream` produces no change), and
 `examples/consumer` decodes the same bytes with both models in one TU as an end-to-end check.
 
-To coexist with `protoc`-generated headers instead, `--namespace-prefix=<ns>` nests everything under an
-extra prefix (`ns::pkg::Msg`), keeping RapidProto's types clear of protoc's `pkg::Msg`.
+Coexistence with `protoc`-generated headers needs no flag: the roots keep every generated type clear
+of protoc's `pkg::Msg`, including the well-known types (see [Coexistence design](#coexistence-design)).
+`--namespace-prefix` renames the root for a codebase that already owns `rp`.
 
 ---
 

@@ -107,8 +107,8 @@ endfunction()
 # `#include "<schema-stem>.rp.stream.hpp"` (or ".rp.hpp") resolves.
 #
 # GENERATOR both writes both headers into one OUT_DIR and they COEXIST in a single translation unit:
-# the arena types live at `pkg::Msg`, the streaming types at `pkg::stream::Msg`, and the schema's enums
-# are ONE shared type in `<stem>.rp.common.hpp` that both #include. So a TU can use both models at once
+# the arena types live at `rp::arena::pkg::Msg`, the streaming types at `rp::stream::pkg::Msg`, and
+# the schema's enums are ONE shared type in `<stem>.rp.common.hpp` that both #include. So a TU can use both models at once
 # (examples/consumer decodes the same bytes both ways to prove it).
 function(rapidproto_generate target)
   set(_options UNKNOWN_PRESENT NO_WELLKNOWN DUMP)

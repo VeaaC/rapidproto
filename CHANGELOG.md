@@ -16,7 +16,18 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
   | streaming | `pkg::stream::Msg` | `rp::stream::pkg::Msg` |
   | enums | `pkg::Enum`, `pkg::Msg::Kind` | `rp::enums::pkg::Enum`, `rp::enums::pkg::Msg::Kind`, aliased into both models |
 
-  One `namespace p = rp::arena::pkg;` per file keeps bodies unchanged. The root is
+  A namespace alias per file keeps bodies unchanged — one shape per model you use:
+
+  ```cpp
+  namespace pkg { using namespace rp::arena::pkg; }           // arena only
+  namespace pkg { namespace stream = rp::stream::pkg; }       // streaming only
+  namespace pkg { using namespace rp::arena::pkg;             // both
+                  namespace stream = rp::stream::pkg; }
+  ```
+
+  If you already passed `--namespace-prefix=rp` for protoc coexistence, your types move from
+  `rp::pkg::Msg` to `rp::arena::pkg::Msg` — and the flag is no longer needed for that purpose. The
+  root is
   `--namespace-prefix`, which now defaults to `rp` and **no longer accepts an empty value** — the
   three root segments would otherwise land at global scope. Pass `--namespace-prefix=myco` if your
   codebase already owns `rp`.

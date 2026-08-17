@@ -1,6 +1,6 @@
 // Consumer smoke test for rapidproto_generate(GENERATOR both): decode the SAME bytes two ways in ONE
 // translation unit -- the arena object-tree decoder (demo::Shape) and the streaming callback decoder
-// (sdemo::Shape) -- proving the two models coexist and SHARE one enum type (demo::Kind, from the
+// (rp::stream::demo::Shape) -- proving the two models coexist and SHARE one enum type (demo::Kind, from the
 // common header message.rp.common.hpp). Along the way it shows the API surfaces a real consumer
 // uses: byte_view() over a raw buffer, a repeated field read both ways, an unknown-field handler
 // (forward compatibility), and the arena error diagnostics on malformed input. This is the in-tree
@@ -13,19 +13,19 @@
 #include <utility>
 
 #include "message.rp.hpp"  // arena: demo::Shape / demo::Point (pulls types.rp.hpp + the common)
-#include "message.rp.stream.hpp"  // streaming: sdemo::Shape (pulls the same common header)
+#include "message.rp.stream.hpp"  // streaming: demo_s::Shape (pulls the same common header)
 #include "rapidproto/arena_runtime.hpp"
 #include "rapidproto/runtime.hpp"
 
-// One alias per model, so the code below names `demo::Shape` (arena) and `sdemo::Shape`
+// One alias per model, so the code below names `demo::Shape` (arena) and `demo_s::Shape`
 // (streaming) rather than repeating the roots at every mention.
 namespace demo = rp::arena::demo;
-namespace sdemo = rp::stream::demo;
+namespace demo_s = rp::stream::demo;
 
 // The schema's enum is ONE C++ type shared by both models (it lives in message.rp.common.hpp, not in
 // either decoder): the arena accessor returns it and the streaming callback delivers it, both demo::Kind.
 static_assert(std::is_same_v<decltype(std::declval<const demo::Shape&>().kind()), demo::Kind>);
-static_assert(std::is_same_v<sdemo::Shape::kind::Value, demo::Kind>);
+static_assert(std::is_same_v<demo_s::Shape::kind::Value, demo::Kind>);
 
 int main() {
     // Wire bytes for demo.Shape{ name: "hi", origin: { x: 3, y: 4 }, kind: KIND_CIRCLE,
@@ -61,14 +61,14 @@ int main() {
     int stream_side_sum = 0;
     unsigned unknown_seen = 0;
     const demo::Point* hybrid_origin = nullptr;  // materialized from within the streaming walk
-    const rapidproto::DecodeStatus status = sdemo::Shape{bytes}.decode(
-        [&](sdemo::Shape::name, std::string_view v) { stream_name = v; },
-        [&](sdemo::Shape::kind, demo::Kind v) { stream_kind = v; },
-        [&](sdemo::Shape::sides, std::int32_t v) { stream_side_sum += v; },
+    const rapidproto::DecodeStatus status = demo_s::Shape{bytes}.decode(
+        [&](demo_s::Shape::name, std::string_view v) { stream_name = v; },
+        [&](demo_s::Shape::kind, demo::Kind v) { stream_kind = v; },
+        [&](demo_s::Shape::sides, std::int32_t v) { stream_side_sum += v; },
         // Hybrid: rp_bytes() is the sub-message's exact field bytes, so the ARENA model can
         // materialize just this field mid-stream. The resulting tree borrows those bytes (a slice of
         // `bytes`), so it stays valid only while `bytes` and `arena` outlive it -- both do here.
-        [&](sdemo::Shape::origin, sdemo::Point p) {
+        [&](demo_s::Shape::origin, demo_s::Point p) {
             hybrid_origin = demo::Point::decode(p.rp_bytes(), arena);
         },
         [&](rapidproto::UnknownField uf) {
@@ -101,8 +101,6 @@ int main() {
         std::fprintf(stderr, "consumer: arena/streaming values disagree\n");
         return 1;
     }
-    std::puts(
-        "consumer: arena + streaming decoded demo.Shape consistently (one TU, shared "
-        "demo::Kind)");
+    std::puts("consumer: arena + streaming decoded demo.Shape consistently (one TU, shared Kind)");
     return 0;
 }
