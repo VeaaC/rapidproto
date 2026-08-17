@@ -145,7 +145,8 @@ void emit_map_tag(Printer& printer, const CppNameTable& symbols, const MapFieldN
 
 // A map field decodes as repeated `{ key=1, value=2 }` LEN entries; the callback fires once per
 // entry as (Tag, Key, Value). Absent key/value default to their zero value.
-void emit_map_arm(Printer& printer, const CppNameTable& symbols, const MapFieldNode& map) {
+void emit_map_arm(Printer& printer, const CppNameTable& symbols, const MapFieldNode& map,
+                  const std::string& owner) {
     const std::string fname = symbols.local.at(&map);
     const std::optional<FieldGen> key_gen = scalar_gen(map.key_type);
     if (!key_gen) {
@@ -162,7 +163,7 @@ void emit_map_arm(Printer& printer, const CppNameTable& symbols, const MapFieldN
     printer.indent();
     codegen::emit_dispatch_guards(
         printer, "rp_Callbacks", fname + ", " + fname + "::Key, " + fname + "::Value",
-        "map field '" + fname + "'", fname + "::Key, " + fname + "::Value");
+        "map field '" + owner + "::" + fname + "'", fname + "::Key, " + fname + "::Value");
     printer.print(
         "if constexpr ((false || ... ||"
         " ::rapidproto::handles_one<rp_Callbacks, $f$, $f$::Key, $f$::Value>)) {\n",
@@ -464,14 +465,15 @@ void emit_packed_body(Printer& printer, const std::string& fname, const FieldGen
     printer.print("}\n");
 }
 
-void emit_arm(Printer& printer, const std::string& fname, const FieldGen& gen, bool repeated) {
+void emit_arm(Printer& printer, const std::string& fname, const FieldGen& gen, bool repeated,
+              const std::string& owner) {
     // Packable element types (numeric scalars + enums) may also arrive packed in a single LEN.
     const bool packable = codegen::is_packable_wire(gen.wire_type);
 
     printer.print("case $f$::kNumber:\n", {{"f", fname}});
     printer.indent();
     codegen::emit_dispatch_guards(printer, "rp_Callbacks", fname + ", " + fname + "::Value",
-                                  "field '" + fname + "'", fname + "::Value");
+                                  "field '" + owner + "::" + fname + "'", fname + "::Value");
     printer.print(
         "if constexpr ((false || ... ||"
         " ::rapidproto::handles_one<rp_Callbacks, $f$, $f$::Value>)) {\n",
@@ -563,6 +565,10 @@ bool is_threaded_field(const FieldNode& field, const FieldGen& gen) {
 void emit_decode_def(Printer& printer, const CppNameTable& symbols, const MessageNode& message,
                      const std::string& qualifier) {
     const auto fields = collect_fields(symbols, message);
+    // The name a USER writes for this message, for diagnostics only -- the out-of-line qualifier
+    // above must stay relative. Corpus schemas hold several messages called `M`, so a bare local
+    // name cannot say which decode() rejected the callback.
+    const std::string owner = cpp_type_name(symbols, message.fqn);
     printer.print("template <class... rp_Callbacks>\n");
     // RP_FLATTEN: inline the wire primitives / dispatch / sub-decodes into this one function. GCC's
     // large-TU inliner is otherwise far more conservative than Clang's, leaving them out-of-line.
@@ -583,9 +589,9 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
     }
     printer.print(
         "static_assert((true && ... && !::rapidproto::is_stray_callback<rp_Callbacks$tags$>),"
-        " \"a callback matches no field of '$Q$' (and is not a catch-all or unknown-field"
+        " \"a callback matches no field of '$D$' (and is not a catch-all or unknown-field"
         " handler)\");\n",
-        {{"tags", tags}, {"Q", qualifier}});
+        {{"tags", tags}, {"D", owner}});
     printer.print(
         "[[maybe_unused]] auto rp_dispatch = "
         "::rapidproto::combine(static_cast<rp_Callbacks&&>(rp_callbacks)...);\n");
@@ -632,7 +638,7 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
         // The stray-callback / wrong-wire guards, emitted once per field: a threaded field has no
         // general-switch arm, so this label body is the sole site for them.
         codegen::emit_dispatch_guards(printer, "rp_Callbacks", fname + ", " + fname + "::Value",
-                                      "field '" + fname + "'", fname + "::Value");
+                                      "field '" + owner + "::" + fname + "'", fname + "::Value");
         printer.print(
             "if constexpr ((false || ... ||"
             " ::rapidproto::handles_one<rp_Callbacks, $f$, $f$::Value>)) {\n",
@@ -695,11 +701,11 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
             codegen::emit_threaded_general_case(
                 printer, {field->number, field->is_repeated, packable, std::string(gen.wire_type)});
         } else {
-            emit_arm(printer, symbols.local.at(field), gen, field->is_repeated);
+            emit_arm(printer, symbols.local.at(field), gen, field->is_repeated, owner);
         }
     }
     for (const auto& map : message.map_fields) {
-        emit_map_arm(printer, symbols, map);
+        emit_map_arm(printer, symbols, map, owner);
     }
     // `default` = a field number not in the schema. If the caller passed a callback that
     // specifically handles UnknownField, deliver the raw field to it; otherwise (including when

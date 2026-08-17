@@ -54,10 +54,10 @@ class M {
   std::optional<std::int32_t> int__() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 3)) != 0 ? std::optional<std::int32_t>(m_int__) : std::nullopt; }
   std::optional<::rp::enums::nm::E> e() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 4)) != 0 ? std::optional<::rp::enums::nm::E>(m_e) : std::nullopt; }
   template <class... rp_Fs> void pick(rp_Fs&&... rp_fs) const {
-    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Fs, Pick::decode___, typename Pick::decode___::Value>)) <= 1U, "oneof member 'decode___' is handled by more than one callback");
-    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Fs, Pick::decode___, typename Pick::decode___::Value>)) <= 1U, "oneof member 'decode___' is matched by more than one catch-all callback");
-    static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Fs, Pick::decode___, typename Pick::decode___::Value>), "a callback for oneof member 'decode___' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
-    static_assert((true && ... && !(::rapidproto::targets<rp_Fs, Pick::decode___, typename Pick::decode___::Value> && !::rapidproto::specifically_handles<rp_Fs, Pick::decode___, typename Pick::decode___::Value>)), "a callback for oneof member 'decode___' has the wrong value type (expected Pick::decode___::Value)");
+    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Fs, Pick::decode___, typename Pick::decode___::Value>)) <= 1U, "oneof member '::rp::arena::nm::M::decode___' is handled by more than one callback");
+    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Fs, Pick::decode___, typename Pick::decode___::Value>)) <= 1U, "oneof member '::rp::arena::nm::M::decode___' is matched by more than one catch-all callback");
+    static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Fs, Pick::decode___, typename Pick::decode___::Value>), "a callback for oneof member '::rp::arena::nm::M::decode___' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+    static_assert((true && ... && !(::rapidproto::targets<rp_Fs, Pick::decode___, typename Pick::decode___::Value> && !::rapidproto::specifically_handles<rp_Fs, Pick::decode___, typename Pick::decode___::Value>)), "a callback for oneof member '::rp::arena::nm::M::decode___' has the wrong value type (expected Pick::decode___::Value)");
     static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Fs, std::monostate>)) <= 1U, "a oneof's unset (std::monostate) state is handled by more than one callback");
     static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Fs, std::monostate>)) <= 1U, "a oneof's unset (std::monostate) state is matched by more than one catch-all callback");
     static_assert((true && ... && !(::rapidproto::targets<rp_Fs, std::monostate> && !::rapidproto::specifically_handles<rp_Fs, std::monostate>)), "a callback for a oneof's unset (std::monostate) state must take exactly (std::monostate)");
@@ -328,10 +328,10 @@ class OneofTags {
     struct c { using Value = std::int32_t; };
   };
   template <class... rp_Fs> void EOF_(rp_Fs&&... rp_fs) const {
-    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Fs, EOF__::a, typename EOF__::a::Value>)) <= 1U, "oneof member 'a' is handled by more than one callback");
-    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Fs, EOF__::a, typename EOF__::a::Value>)) <= 1U, "oneof member 'a' is matched by more than one catch-all callback");
-    static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Fs, EOF__::a, typename EOF__::a::Value>), "a callback for oneof member 'a' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
-    static_assert((true && ... && !(::rapidproto::targets<rp_Fs, EOF__::a, typename EOF__::a::Value> && !::rapidproto::specifically_handles<rp_Fs, EOF__::a, typename EOF__::a::Value>)), "a callback for oneof member 'a' has the wrong value type (expected EOF__::a::Value)");
+    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Fs, EOF__::a, typename EOF__::a::Value>)) <= 1U, "oneof member '::rp::arena::nm::OneofTags::a' is handled by more than one callback");
+    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Fs, EOF__::a, typename EOF__::a::Value>)) <= 1U, "oneof member '::rp::arena::nm::OneofTags::a' is matched by more than one catch-all callback");
+    static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Fs, EOF__::a, typename EOF__::a::Value>), "a callback for oneof member '::rp::arena::nm::OneofTags::a' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+    static_assert((true && ... && !(::rapidproto::targets<rp_Fs, EOF__::a, typename EOF__::a::Value> && !::rapidproto::specifically_handles<rp_Fs, EOF__::a, typename EOF__::a::Value>)), "a callback for oneof member '::rp::arena::nm::OneofTags::a' has the wrong value type (expected EOF__::a::Value)");
     static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Fs, std::monostate>)) <= 1U, "a oneof's unset (std::monostate) state is handled by more than one callback");
     static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Fs, std::monostate>)) <= 1U, "a oneof's unset (std::monostate) state is matched by more than one catch-all callback");
     static_assert((true && ... && !(::rapidproto::targets<rp_Fs, std::monostate> && !::rapidproto::specifically_handles<rp_Fs, std::monostate>)), "a callback for a oneof's unset (std::monostate) state must take exactly (std::monostate)");
@@ -351,10 +351,10 @@ class OneofTags {
     }
   }
   template <class... rp_Fs> void value(rp_Fs&&... rp_fs) const {
-    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Fs, Value::b, typename Value::b::Value>)) <= 1U, "oneof member 'b' is handled by more than one callback");
-    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Fs, Value::b, typename Value::b::Value>)) <= 1U, "oneof member 'b' is matched by more than one catch-all callback");
-    static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Fs, Value::b, typename Value::b::Value>), "a callback for oneof member 'b' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
-    static_assert((true && ... && !(::rapidproto::targets<rp_Fs, Value::b, typename Value::b::Value> && !::rapidproto::specifically_handles<rp_Fs, Value::b, typename Value::b::Value>)), "a callback for oneof member 'b' has the wrong value type (expected Value::b::Value)");
+    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Fs, Value::b, typename Value::b::Value>)) <= 1U, "oneof member '::rp::arena::nm::OneofTags::b' is handled by more than one callback");
+    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Fs, Value::b, typename Value::b::Value>)) <= 1U, "oneof member '::rp::arena::nm::OneofTags::b' is matched by more than one catch-all callback");
+    static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Fs, Value::b, typename Value::b::Value>), "a callback for oneof member '::rp::arena::nm::OneofTags::b' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+    static_assert((true && ... && !(::rapidproto::targets<rp_Fs, Value::b, typename Value::b::Value> && !::rapidproto::specifically_handles<rp_Fs, Value::b, typename Value::b::Value>)), "a callback for oneof member '::rp::arena::nm::OneofTags::b' has the wrong value type (expected Value::b::Value)");
     static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Fs, std::monostate>)) <= 1U, "a oneof's unset (std::monostate) state is handled by more than one callback");
     static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Fs, std::monostate>)) <= 1U, "a oneof's unset (std::monostate) state is matched by more than one catch-all callback");
     static_assert((true && ... && !(::rapidproto::targets<rp_Fs, std::monostate> && !::rapidproto::specifically_handles<rp_Fs, std::monostate>)), "a callback for a oneof's unset (std::monostate) state must take exactly (std::monostate)");
@@ -374,10 +374,10 @@ class OneofTags {
     }
   }
   template <class... rp_Fs> void RP_FLATTEN_(rp_Fs&&... rp_fs) const {
-    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Fs, RP_FLATTEN__::c, typename RP_FLATTEN__::c::Value>)) <= 1U, "oneof member 'c' is handled by more than one callback");
-    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Fs, RP_FLATTEN__::c, typename RP_FLATTEN__::c::Value>)) <= 1U, "oneof member 'c' is matched by more than one catch-all callback");
-    static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Fs, RP_FLATTEN__::c, typename RP_FLATTEN__::c::Value>), "a callback for oneof member 'c' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
-    static_assert((true && ... && !(::rapidproto::targets<rp_Fs, RP_FLATTEN__::c, typename RP_FLATTEN__::c::Value> && !::rapidproto::specifically_handles<rp_Fs, RP_FLATTEN__::c, typename RP_FLATTEN__::c::Value>)), "a callback for oneof member 'c' has the wrong value type (expected RP_FLATTEN__::c::Value)");
+    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Fs, RP_FLATTEN__::c, typename RP_FLATTEN__::c::Value>)) <= 1U, "oneof member '::rp::arena::nm::OneofTags::c' is handled by more than one callback");
+    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Fs, RP_FLATTEN__::c, typename RP_FLATTEN__::c::Value>)) <= 1U, "oneof member '::rp::arena::nm::OneofTags::c' is matched by more than one catch-all callback");
+    static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Fs, RP_FLATTEN__::c, typename RP_FLATTEN__::c::Value>), "a callback for oneof member '::rp::arena::nm::OneofTags::c' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+    static_assert((true && ... && !(::rapidproto::targets<rp_Fs, RP_FLATTEN__::c, typename RP_FLATTEN__::c::Value> && !::rapidproto::specifically_handles<rp_Fs, RP_FLATTEN__::c, typename RP_FLATTEN__::c::Value>)), "a callback for oneof member '::rp::arena::nm::OneofTags::c' has the wrong value type (expected RP_FLATTEN__::c::Value)");
     static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Fs, std::monostate>)) <= 1U, "a oneof's unset (std::monostate) state is handled by more than one callback");
     static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Fs, std::monostate>)) <= 1U, "a oneof's unset (std::monostate) state is matched by more than one catch-all callback");
     static_assert((true && ... && !(::rapidproto::targets<rp_Fs, std::monostate> && !::rapidproto::specifically_handles<rp_Fs, std::monostate>)), "a callback for a oneof's unset (std::monostate) state must take exactly (std::monostate)");
@@ -443,10 +443,10 @@ class Freed {
   std::optional<std::int32_t> RpT() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 2)) != 0 ? std::optional<std::int32_t>(m_RpT) : std::nullopt; }
   std::optional<std::int32_t> RpTag() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 3)) != 0 ? std::optional<std::int32_t>(m_RpTag) : std::nullopt; }
   template <class... rp_Fs> void RpFs_oneof(rp_Fs&&... rp_fs) const {
-    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Fs, RpFs_oneof_::x, typename RpFs_oneof_::x::Value>)) <= 1U, "oneof member 'x' is handled by more than one callback");
-    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Fs, RpFs_oneof_::x, typename RpFs_oneof_::x::Value>)) <= 1U, "oneof member 'x' is matched by more than one catch-all callback");
-    static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Fs, RpFs_oneof_::x, typename RpFs_oneof_::x::Value>), "a callback for oneof member 'x' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
-    static_assert((true && ... && !(::rapidproto::targets<rp_Fs, RpFs_oneof_::x, typename RpFs_oneof_::x::Value> && !::rapidproto::specifically_handles<rp_Fs, RpFs_oneof_::x, typename RpFs_oneof_::x::Value>)), "a callback for oneof member 'x' has the wrong value type (expected RpFs_oneof_::x::Value)");
+    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Fs, RpFs_oneof_::x, typename RpFs_oneof_::x::Value>)) <= 1U, "oneof member '::rp::arena::nm::Freed::x' is handled by more than one callback");
+    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Fs, RpFs_oneof_::x, typename RpFs_oneof_::x::Value>)) <= 1U, "oneof member '::rp::arena::nm::Freed::x' is matched by more than one catch-all callback");
+    static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Fs, RpFs_oneof_::x, typename RpFs_oneof_::x::Value>), "a callback for oneof member '::rp::arena::nm::Freed::x' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+    static_assert((true && ... && !(::rapidproto::targets<rp_Fs, RpFs_oneof_::x, typename RpFs_oneof_::x::Value> && !::rapidproto::specifically_handles<rp_Fs, RpFs_oneof_::x, typename RpFs_oneof_::x::Value>)), "a callback for oneof member '::rp::arena::nm::Freed::x' has the wrong value type (expected RpFs_oneof_::x::Value)");
     static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Fs, std::monostate>)) <= 1U, "a oneof's unset (std::monostate) state is handled by more than one callback");
     static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Fs, std::monostate>)) <= 1U, "a oneof's unset (std::monostate) state is matched by more than one catch-all callback");
     static_assert((true && ... && !(::rapidproto::targets<rp_Fs, std::monostate> && !::rapidproto::specifically_handles<rp_Fs, std::monostate>)), "a callback for a oneof's unset (std::monostate) state must take exactly (std::monostate)");
@@ -489,10 +489,10 @@ class FreedOneof {
     struct a { using Value = std::int32_t; };
   };
   template <class... rp_Fs> void RpFs(rp_Fs&&... rp_fs) const {
-    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Fs, RpFs_::a, typename RpFs_::a::Value>)) <= 1U, "oneof member 'a' is handled by more than one callback");
-    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Fs, RpFs_::a, typename RpFs_::a::Value>)) <= 1U, "oneof member 'a' is matched by more than one catch-all callback");
-    static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Fs, RpFs_::a, typename RpFs_::a::Value>), "a callback for oneof member 'a' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
-    static_assert((true && ... && !(::rapidproto::targets<rp_Fs, RpFs_::a, typename RpFs_::a::Value> && !::rapidproto::specifically_handles<rp_Fs, RpFs_::a, typename RpFs_::a::Value>)), "a callback for oneof member 'a' has the wrong value type (expected RpFs_::a::Value)");
+    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Fs, RpFs_::a, typename RpFs_::a::Value>)) <= 1U, "oneof member '::rp::arena::nm::FreedOneof::a' is handled by more than one callback");
+    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Fs, RpFs_::a, typename RpFs_::a::Value>)) <= 1U, "oneof member '::rp::arena::nm::FreedOneof::a' is matched by more than one catch-all callback");
+    static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Fs, RpFs_::a, typename RpFs_::a::Value>), "a callback for oneof member '::rp::arena::nm::FreedOneof::a' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+    static_assert((true && ... && !(::rapidproto::targets<rp_Fs, RpFs_::a, typename RpFs_::a::Value> && !::rapidproto::specifically_handles<rp_Fs, RpFs_::a, typename RpFs_::a::Value>)), "a callback for oneof member '::rp::arena::nm::FreedOneof::a' has the wrong value type (expected RpFs_::a::Value)");
     static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Fs, std::monostate>)) <= 1U, "a oneof's unset (std::monostate) state is handled by more than one callback");
     static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Fs, std::monostate>)) <= 1U, "a oneof's unset (std::monostate) state is matched by more than one catch-all callback");
     static_assert((true && ... && !(::rapidproto::targets<rp_Fs, std::monostate> && !::rapidproto::specifically_handles<rp_Fs, std::monostate>)), "a callback for a oneof's unset (std::monostate) state must take exactly (std::monostate)");

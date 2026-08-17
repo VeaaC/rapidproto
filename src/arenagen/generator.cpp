@@ -273,7 +273,7 @@ void emit_oneof_union(const Emit& emit, const OneofPlan& o) {
     p.print("};\n");
 }
 
-void emit_oneof_accessors(const Emit& emit, const OneofPlan& o) {
+void emit_oneof_accessors(const Emit& emit, const OneofPlan& o, const std::string& owner) {
     Printer& p = emit.printer;
     const std::string tag = emit.synth.case_tag.at(o.oneof);
     // The oneof reader, named after the oneof -- deduped in the class scope like every other member,
@@ -295,7 +295,11 @@ void emit_oneof_accessors(const Emit& emit, const OneofPlan& o) {
         args += ", typename ";
         args += tagref;
         args += "::Value";
+        // The name a USER writes, not the local id: several corpus messages share a local name, so
+        // a bare one cannot say which reader rejected the handler.
         std::string what = "oneof member '";
+        what += owner;
+        what += "::";
         what += id;
         what += '\'';
         std::string expected = tagref;
@@ -646,7 +650,7 @@ void emit_message_body(const Emit& emit, const MessageNode& message) {
         }
     }
     for (const OneofPlan& o : layout.oneofs) {
-        emit_oneof_accessors(emit, o);
+        emit_oneof_accessors(emit, o, cpp_type_name(emit.names, layout.fqn));
     }
     if (layout.unknown_bit >= 0) {  // --unknown-present: a per-message "saw an unknown field" flag
         p.print("bool $h$() const noexcept { return $b$ != 0; }\n",
