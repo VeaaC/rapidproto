@@ -211,5 +211,70 @@ cmake_case falsy-value   "NAMESPACE_PREFIX N"  "--namespace-prefix N"
 cmake_case ordinary      "NAMESPACE_PREFIX my.decoders" "--namespace-prefix my.decoders"
 cmake_case empty-refused 'NAMESPACE_PREFIX ""' REFUSED
 
+# ── declared outputs ────────────────────────────────────────────────────────────────────────────
+# Every file the CLI writes must be a declared OUTPUT of the custom command. The cases above check
+# WHERE a header lands; this checks that the helper declares ALL of them. Two sets have no entry in
+# PROTOS and so were missed: an IMPORTED schema gets a full header set of its own, and the CLI drops
+# its runtime beside the headers on every run.
+#
+# Deleting an undeclared output is unrecoverable in a way that reads like a broken checkout: the
+# build fails on the missing include and keeps failing, because nothing tells the build system that
+# generation should re-run. So the check is end-to-end rather than a comparison of two lists --
+# delete each generated file in turn and require the build to put it back. That covers any cause,
+# including ones no list comparison would model.
+#
+# The fixture imports a well-known type too: its source is embedded in the CLI and unreadable here,
+# but the header path follows from the import string, so it is declared like any other import.
+#
+# Both directions are checked. Deleting a file catches an UNDER-declaration; it cannot catch an
+# OVER-declaration, and worse, an over-declared path disarms the delete loop entirely -- a declared
+# output that is never written leaves the command permanently out of date, so every build re-runs it
+# and restores whatever was deleted, whether or not it was declared. The second build below is the
+# other half: it must do nothing.
+outputs_dir="$WORK/outputs"
+mkdir -p "$outputs_dir/proto"
+printf 'syntax = "proto3";\npackage d;\nenum K { K0 = 0; }\nmessage D { int32 x = 1; }\n' \
+  >"$outputs_dir/proto/dep.proto"
+printf 'syntax = "proto3";\npackage u;\nimport "dep.proto";\nimport "google/protobuf/timestamp.proto";\nmessage U { d.D dd = 1; d.K k = 2; google.protobuf.Timestamp t = 3; }\n' \
+  >"$outputs_dir/proto/use.proto"
+{
+  echo 'cmake_minimum_required(VERSION 3.16)'
+  echo 'project(outputs CXX)'
+  # The NAMESPACED name the helper actually invokes: unnamespaced, CMake leaves it unresolved and
+  # the literal `rapidproto::rapidprotoc` reaches the makefile, where its colons are a syntax error.
+  echo "add_executable(rapidproto::rapidprotoc IMPORTED GLOBAL)"
+  echo "set_target_properties(rapidproto::rapidprotoc PROPERTIES IMPORTED_LOCATION \"$BIN\")"
+  echo "include(\"$ROOT/cmake/rapidproto-generate.cmake\")"
+  echo 'rapidproto_generate(schema PROTOS proto/use.proto IMPORT_DIRS proto GENERATOR both DUMP)'
+} >"$outputs_dir/CMakeLists.txt"
+
+if ! cmake -S "$outputs_dir" -B "$outputs_dir/b" >/dev/null 2>&1 ||
+   ! cmake --build "$outputs_dir/b" --target schema_generate >/dev/null 2>&1; then
+  echo ">> declared outputs: the fixture project does not configure/build"; exit 1
+fi
+# An over-declared output makes the command permanently out of date. Checked BEFORE the delete
+# loop, because that is exactly what would make the loop pass vacuously.
+rebuild="$(cmake --build "$outputs_dir/b" --target schema_generate 2>&1)"
+if grep -q "rapidproto: schema" <<<"$rebuild"; then
+  echo ">> declared outputs: the target regenerates on every build -- a declared OUTPUT is never"
+  echo "   written, which also makes the delete check below pass without testing anything"
+  fail=1
+fi
+mapfile -t generated < <(cd "$outputs_dir/b" && find . -name '*.hpp' | sort)
+# A fixture that generated nothing would pass every check below without testing anything.
+if [[ ${#generated[@]} -lt 8 ]]; then
+  echo ">> declared outputs: expected at least 8 generated headers, found ${#generated[@]}"; exit 1
+fi
+for rel in "${generated[@]}"; do
+  rm -f "$outputs_dir/b/$rel"
+  cmake --build "$outputs_dir/b" --target schema_generate >/dev/null 2>&1
+  if [[ ! -f "$outputs_dir/b/$rel" ]]; then
+    echo ">> declared outputs: ${rel#./} is written by the CLI but is not a declared OUTPUT --"
+    echo "   deleting it leaves the build permanently broken"
+    fail=1
+    cmake --build "$outputs_dir/b" --target schema_generate >/dev/null 2>&1  # restore for the rest
+  fi
+done
+
 [[ $fail -eq 0 ]] || exit 1
-echo "generate names: ${#cases[@]} entry shapes match the CLI, ${#refusals[@]} ambiguous ones refused, NAMESPACE_PREFIX passed through"
+echo "generate names: ${#cases[@]} entry shapes match the CLI, ${#refusals[@]} ambiguous ones refused, NAMESPACE_PREFIX passed through, ${#generated[@]} declared outputs restored when deleted"

@@ -13,6 +13,97 @@ include_guard(GLOBAL)
 # mirrors the generator exactly (resolver.cpp canonical_entry_name + driver.hpp header_path): the entry's
 # path relative to the first import dir that contains it, else its basename, with ".proto" -> `ext`,
 # under `out_dir`. `import_dirs_abs` is the absolute import dirs in -I order.
+# An import string, normalized the way canonical_import_path does (std::filesystem
+# lexically_normal): "./dep.proto" -> "dep.proto", "a//b.proto" -> "a/b.proto". Purely lexical --
+# rebasing on a synthetic root collapses `.` and `..` without touching the filesystem or resolving
+# symlinks, which is what the CLI does too.
+function(_rapidproto_normalize_import out_var import_string)
+  get_filename_component(_abs "${import_string}" ABSOLUTE BASE_DIR "/rapidproto-import-base")
+  file(RELATIVE_PATH _rel "/rapidproto-import-base" "${_abs}")
+  set(${out_var} "${_rel}" PARENT_SCOPE)
+endfunction()
+
+# The transitive import closure of `protos_abs`, as IMPORT STRINGS (`out_imports`) plus every file
+# scanned (`out_scanned`).
+#
+# The CLI writes a full header set for EVERY file in the resolved set, not only the listed ones, so
+# an imported schema's headers are outputs as much as an entry's are. An undeclared header that is
+# deleted never comes back: the build fails on the missing include and keeps failing, because
+# nothing tells the build system that command should re-run.
+#
+# Import strings, not resolved paths, because that is what the header is NAMED from. An ENTRY is
+# named by canonical_entry_name (resolve symlinks, relativize against the first import dir that
+# holds it); an IMPORT is named by the import string itself -- canonical_import_path normalizes it
+# and never rebases it on an import dir (src/rapidprotoc/main.cpp). Naming imports by the entry rule
+# declares a path the CLI never writes whenever the two differ -- `IMPORT_DIRS inc inc/sub` with
+# `import "dep.proto"` is enough -- and an output that is never written leaves the command
+# permanently out of date: it regenerates on every build, forever, while the real header stays
+# undeclared. Ninja does not even warn.
+#
+# This also covers the CLI's EMBEDDED well-known types: their sources cannot be read here, but the
+# header path follows from the import string alone, so they need no special case.
+function(_rapidproto_import_closure out_imports out_scanned protos_abs import_dirs_abs)
+  set(_imports "")
+  set(_scanned "")
+  set(_queue ${protos_abs})
+  while(_queue)
+    list(GET _queue 0 _cur)
+    list(REMOVE_AT _queue 0)
+    if("${_cur}" IN_LIST _scanned)
+      continue()
+    endif()
+    list(APPEND _scanned "${_cur}")
+    if(NOT EXISTS "${_cur}")
+      continue()  # an entry another rule generates: not readable yet, and not ours to scan
+    endif()
+    # Comments are stripped before matching. A commented-out import is not an import, and declaring
+    # its headers is the permanently-out-of-date failure described above -- a `/* ... */` around an
+    # import statement is the realistic way that happens.
+    file(READ "${_cur}" _text)
+    string(REGEX REPLACE "/\\*[^*]*\\*+([^/*][^*]*\\*+)*/" "" _text "${_text}")
+    string(REGEX REPLACE "//[^\n]*" "" _text "${_text}")
+    # MATCHALL, not a per-line match: two imports on one line, and `import"x.proto";` with no space
+    # after the keyword, are both valid proto that a line-anchored pattern misses.
+    string(REGEX MATCHALL "import[ \t\r\n]*(public|weak)?[ \t\r\n]*\"[^\"]*\"" _stmts "${_text}")
+    foreach(_stmt IN LISTS _stmts)
+      string(REGEX MATCH "\"([^\"]*)\"" _quoted "${_stmt}")
+      _rapidproto_normalize_import(_imp "${CMAKE_MATCH_1}")
+      if(_imp STREQUAL "")
+        continue()
+      endif()
+      if(NOT "${_imp}" IN_LIST _imports)
+        list(APPEND _imports "${_imp}")
+      endif()
+      foreach(_dir IN LISTS import_dirs_abs)
+        if(EXISTS "${_dir}/${_imp}")
+          list(APPEND _queue "${_dir}/${_imp}")
+          break()  # first import dir that has it owns it, as read_import does
+        endif()
+      endforeach()
+    endforeach()
+  endwhile()
+  set(${out_imports} "${_imports}" PARENT_SCOPE)
+  set(${out_scanned} "${_scanned}" PARENT_SCOPE)
+endfunction()
+
+# Declare `path` as an output of THIS target, unless another rapidproto_generate() call already
+# claimed it. Two targets writing to one OUT_DIR share the runtime headers, and share the headers of
+# any schema they both import; declaring one file from two commands is a hard error under Ninja
+# ("multiple rules generate ...") that configure does not catch, and a silently overridden recipe
+# under Make. The first claimer owns the file -- so a shared header deleted by hand comes back when
+# that target is built, which is what an ordinary `cmake --build` does.
+function(_rapidproto_claim_output out_list path target)
+  string(MAKE_C_IDENTIFIER "${path}" _key)
+  get_property(_owner GLOBAL PROPERTY _rapidproto_output_owner_${_key})
+  if(_owner)
+    return()
+  endif()
+  set_property(GLOBAL PROPERTY _rapidproto_output_owner_${_key} "${target}")
+  set(_local "${${out_list}}")
+  list(APPEND _local "${path}")
+  set(${out_list} "${_local}" PARENT_SCOPE)
+endfunction()
+
 function(_rapidproto_output_header out_var proto_abs ext out_dir import_dirs_abs)
   # Resolve symlinks (REALPATH) for the import-relative test, matching canonical_entry_name, which
   # weakly_canonical()s both the entry and the include dir before relativizing. file(RELATIVE_PATH)
@@ -121,7 +212,7 @@ function(rapidproto_generate target)
     # Caught here because cmake_parse_arguments leaves the variable UNSET for an explicit empty value,
     # which would otherwise look exactly like omitting the keyword and silently use the default.
     message(FATAL_ERROR
-      "rapidproto_generate(${target}): NAMESPACE_PREFIX cannot be empty -- the arena/stream/enums "
+      "rapidproto_generate(${target}): NAMESPACE_PREFIX cannot be empty -- the arena/stream/common "
       "roots would land at global scope. Pass a name instead (default: rp).")
   endif()
 
@@ -257,26 +348,79 @@ function(rapidproto_generate target)
   foreach(_proto IN LISTS RPG_PROTOS)
     get_filename_component(_proto_abs "${_proto}" ABSOLUTE)
     list(APPEND _protos_abs "${_proto_abs}")
-    if("arena" IN_LIST _jobs)
-      _rapidproto_output_header(_h "${_proto_abs}" ".rp.hpp" "${RPG_OUT_DIR}" "${_import_dirs_abs}")
-      list(APPEND _outputs "${_h}")
-    endif()
-    if("stream" IN_LIST _jobs)
-      _rapidproto_output_header(_h "${_proto_abs}" ".rp.stream.hpp" "${RPG_OUT_DIR}" "${_import_dirs_abs}")
-      list(APPEND _outputs "${_h}")
-    endif()
-    if(RPG_DUMP)
-      _rapidproto_output_header(_h "${_proto_abs}" ".rp.dump.hpp" "${RPG_OUT_DIR}" "${_import_dirs_abs}")
-      list(APPEND _outputs "${_h}")
-    endif()
-    # The shared common header is an output too. Undeclared, deleting it did not re-run the command
-    # -- the build stayed broken on `fatal error: <stem>.rp.common.hpp: No such file or directory`
-    # until something else invalidated the batch. It carries every enum in the schema (nested ones
-    # included), so it is load-bearing for nearly every schema rather than the few with a top-level
-    # enum.
-    _rapidproto_output_header(_h "${_proto_abs}" ".rp.common.hpp" "${RPG_OUT_DIR}" "${_import_dirs_abs}")
-    list(APPEND _outputs "${_h}")
   endforeach()
+  _rapidproto_import_closure(_import_strings _scanned_protos "${_protos_abs}" "${_import_dirs_abs}")
+  # The import scan runs at CONFIGURE time, so CMake must re-run when an import statement changes.
+  # Without this, adding an import leaves the new file's headers undeclared, and removing one leaves
+  # a declared output nothing writes -- a target that regenerates on every build, forever.
+  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_scanned_protos})
+
+  set(_exts "")
+  if("arena" IN_LIST _jobs)
+    list(APPEND _exts ".rp.hpp")
+  endif()
+  if("stream" IN_LIST _jobs)
+    list(APPEND _exts ".rp.stream.hpp")
+  endif()
+  if(RPG_DUMP)
+    list(APPEND _exts ".rp.dump.hpp")
+  endif()
+  # The shared common header is an output too. Undeclared, deleting it did not re-run the command
+  # -- the build stayed broken on `fatal error: <stem>.rp.common.hpp: No such file or directory`
+  # until something else invalidated the batch. It carries every enum in the schema (nested ones
+  # included), so it is load-bearing for nearly every schema rather than the few with a top-level
+  # enum.
+  list(APPEND _exts ".rp.common.hpp")
+
+  # Entries are named by canonical_entry_name, which _rapidproto_output_header mirrors.
+  foreach(_proto_abs IN LISTS _protos_abs)
+    foreach(_ext IN LISTS _exts)
+      _rapidproto_output_header(_h "${_proto_abs}" "${_ext}" "${RPG_OUT_DIR}" "${_import_dirs_abs}")
+      _rapidproto_claim_output(_outputs "${_h}" "${target}")
+    endforeach()
+  endforeach()
+  # Imports are named by the import STRING (see _rapidproto_import_closure). A file that is both
+  # listed and imported keeps its entry name -- the resolver registers the entry first -- so its
+  # import spelling is skipped rather than declared a second time under a different path.
+  foreach(_imp IN LISTS _import_strings)
+    set(_is_entry FALSE)
+    foreach(_dir IN LISTS _import_dirs_abs)
+      if(EXISTS "${_dir}/${_imp}")
+        get_filename_component(_imp_real "${_dir}/${_imp}" REALPATH)
+        foreach(_proto_abs IN LISTS _protos_abs)
+          get_filename_component(_entry_real "${_proto_abs}" REALPATH)
+          if(_imp_real STREQUAL _entry_real)
+            set(_is_entry TRUE)
+          endif()
+        endforeach()
+        break()
+      endif()
+    endforeach()
+    if(_is_entry)
+      continue()
+    endif()
+    string(REGEX REPLACE "\\.proto$" "" _stem "${_imp}")
+    foreach(_ext IN LISTS _exts)
+      _rapidproto_claim_output(_outputs "${RPG_OUT_DIR}/${_stem}${_ext}" "${target}")
+    endforeach()
+  endforeach()
+  # The runtime the CLI drops beside the headers so the generated tree is self-contained (see the
+  # file header). Written on every run, included by every generated header, and no flag turns it
+  # off -- so it is an output on the same footing as the headers, for the same reason: deleted and
+  # undeclared, it never comes back.
+  _rapidproto_claim_output(_outputs "${RPG_OUT_DIR}/rapidproto/runtime.hpp" "${target}")
+  if("arena" IN_LIST _jobs)
+    _rapidproto_claim_output(_outputs "${RPG_OUT_DIR}/rapidproto/arena_runtime.hpp" "${target}")
+  endif()
+  if(RPG_DUMP)
+    _rapidproto_claim_output(_outputs "${RPG_OUT_DIR}/rapidproto/dump_runtime.hpp" "${target}")
+  endif()
+  if(NOT _outputs)
+    message(FATAL_ERROR
+      "rapidproto_generate(${target}): every output this target would declare is already claimed by "
+      "another rapidproto_generate() call writing to ${RPG_OUT_DIR}")
+  endif()
+
   # Name the depfile off the first header; the CLI lists every entry's decoder header as a target
   # in it (so each output node gets the import edges), and re-running regenerates the whole batch.
   list(GET _outputs 0 _anchor)
