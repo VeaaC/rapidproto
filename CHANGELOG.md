@@ -16,7 +16,7 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
   | streaming | `pkg::stream::Msg` | `rp::stream::pkg::Msg` |
   | enums | `pkg::Enum`, `pkg::Msg::Kind` | `rp::enums::pkg::Enum`, `rp::enums::pkg::Msg::Kind`, aliased into both models |
 
-  A namespace alias per file keeps bodies unchanged — one shape per model you use:
+  A namespace alias per file leaves most bodies unchanged — one shape per model you use:
 
   ```cpp
   namespace pkg { using namespace rp::arena::pkg; }           // arena only
@@ -29,11 +29,20 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
   The streaming row needs the enums root because a streaming codebase spelled top-level enums at
   package scope (`pkg::Status`), which only the arena model's alias brings back. A package-less
   schema takes the same shapes at global scope. Put the alias in a `.cpp`: at file scope in a header
-  it leaks to every includer.
+  it leaks to every includer. Do not combine two rows — `using namespace rp::arena::pkg;` beside
+  `using namespace rp::enums::pkg;` makes `pkg::Msg` ambiguous between the arena class and the
+  mirror namespace.
+
+  Two things the alias does not carry over, both compile errors rather than silent:
+
+  - **A helper you wrote in `namespace pkg` for ADL** — `operator<<`, `to_string` — is no longer
+    found, because lookup now searches `rp::arena::pkg`. Move it there, or call it qualified.
+  - **A `namespace pkg::stream` of your own** collides with the streaming row's alias. Rename one.
+  - A leftover `namespace pkg { class Msg; }` forward declaration wins over the using-directive and
+    rebinds `pkg::Msg` to an empty class. Delete it; generated types cannot be forward-declared.
 
   If you already passed `--namespace-prefix=rp` for protoc coexistence, your types move from
-  `rp::pkg::Msg` to `rp::arena::pkg::Msg` — and the flag is no longer needed for that purpose. The
-  root is
+  `rp::pkg::Msg` to `rp::arena::pkg::Msg` — and the flag is no longer needed for that purpose. The root is named by
   `--namespace-prefix`, which now defaults to `rp` and **no longer accepts an empty value** — the
   three root segments would otherwise land at global scope. Pass `--namespace-prefix=myco` if your
   codebase already owns `rp`.
@@ -106,6 +115,16 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
   **Regenerate** to pick it up.
 
 ### Fixed
+
+- **`rapidproto_generate(NAMESPACE_PREFIX N)` no longer silently ignores the prefix.** The helper
+  tested the value for truth, and CMake reads `N`, `no`, `off`, `false` and `0` as false — so those
+  prefixes were dropped and headers were generated under the default while the build file said
+  otherwise. It now tests whether the keyword was given at all.
+
+- **A deleted `<stem>.rp.common.hpp` is regenerated instead of breaking the build for good.** The
+  CMake helper declared the decoder headers as outputs but not the shared common header, so removing
+  it (or losing it to a partial clean) left `fatal error: <stem>.rp.common.hpp: No such file or
+  directory` until something unrelated invalidated the batch.
 
 - **A "maximum nesting depth exceeded" error now points at the token that exceeded it.** The
   parser reports positions as token indices, which the resolver maps back to `file:line:col`; this

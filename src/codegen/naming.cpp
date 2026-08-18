@@ -437,7 +437,11 @@ std::string enum_namespace(const CppNameTable& names, const FileNode& file) {
 CppNameTable build_cpp_names(const FileNode& file, const std::vector<FileNode>& all_files,
                              std::string ns_prefix, std::string model_namespace) {
     CppNameTable names;
-    names.ns_prefix = std::move(ns_prefix);
+    // Substituted HERE as well as in the convenience overloads: this is a public entry point, and an
+    // empty prefix would put the model roots -- `arena`, `stream`, `enums` -- at global scope, which
+    // is exactly what the CLI and the CMake helper refuse. A library caller should not be able to
+    // reach a layout the tools forbid.
+    names.ns_prefix = ns_prefix.empty() ? namespace_of(kDefaultNsPrefix) : std::move(ns_prefix);
     names.model_namespace = std::move(model_namespace);
     // One set of dedup scopes for the whole file set, so files sharing a package see each other's
     // ids. Iteration order therefore decides who keeps a contested name and who gets the `_`; the

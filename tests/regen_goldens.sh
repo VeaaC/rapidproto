@@ -51,7 +51,8 @@ trap 'rm -rf "$T"' EXIT
 "$BIN" --stream -Itests/corpus/imports --out-dir="$T" tests/corpus/imports/weakmain.proto >/dev/null
 # Package SHAPES the rest of the corpus never exercises (every other entry has a single-component
 # package): a dotted package -> namespace com::example::deep::stream, and NO package at all -> a
-# top-level `namespace stream`. xpkg pulls deep, pinning a cross-file reference into a dotted package.
+# `rp::stream` with no package component. xpkg pulls deep, pinning a cross-file reference into a
+# dotted package.
 "$BIN" --stream -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/nopkg.proto >/dev/null
 "$BIN" --stream -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/xpkg.proto >/dev/null
 # A package named `std` -> `namespace std_`, never `namespace std` (which would be UB).
@@ -119,7 +120,8 @@ echo "[3b/5] coexistence goldens (both models, one out-dir)"
 for entry in tests/corpus/nsedge/rootnames.proto \
              tests/corpus/nsedge/rootenum.proto \
              tests/corpus/nsedge/sibparent.proto \
-             tests/corpus/nsedge/sibpkg.proto; do
+             tests/corpus/nsedge/sibpkg.proto \
+             tests/corpus/nsedge/nestenum.proto; do
   "$BIN" --arena --stream -Itests/corpus/nsedge --out-dir="$T/coexist" "$entry" >/dev/null
 done
 rm -rf "$T/coexist/rapidproto"  # the runtime copy; the test TU uses the repo's own headers

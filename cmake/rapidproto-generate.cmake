@@ -269,6 +269,13 @@ function(rapidproto_generate target)
       _rapidproto_output_header(_h "${_proto_abs}" ".rp.dump.hpp" "${RPG_OUT_DIR}" "${_import_dirs_abs}")
       list(APPEND _outputs "${_h}")
     endif()
+    # The shared common header is an output too. Undeclared, deleting it did not re-run the command
+    # -- the build stayed broken on `fatal error: <stem>.rp.common.hpp: No such file or directory`
+    # until something else invalidated the batch. It carries every enum in the schema (nested ones
+    # included), so it is load-bearing for nearly every schema rather than the few with a top-level
+    # enum.
+    _rapidproto_output_header(_h "${_proto_abs}" ".rp.common.hpp" "${RPG_OUT_DIR}" "${_import_dirs_abs}")
+    list(APPEND _outputs "${_h}")
   endforeach()
   # Name the depfile off the first header; the CLI lists every entry's decoder header as a target
   # in it (so each output node gets the import edges), and re-running regenerates the whole batch.

@@ -16,7 +16,8 @@ namespace ex  = rp::arena::example;   // alias each model once and the code belo
 namespace ex_s = rp::stream::example;
 
 const ex::Person* tree = ex::Person::decode(bytes, arena);   // materialize when you need an object
-ex_s::Person{bytes}.decode( /* … */ );                        // or stream when you don't
+const auto st = ex_s::Person{bytes}.decode( /* … */ );        // or stream when you don't
+if (!st.ok()) { /* malformed input */ }                       // decode() is [[nodiscard]]
 // ex::Status and ex_s::Status are the same enum type.
 ```
 

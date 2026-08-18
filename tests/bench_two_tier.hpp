@@ -18,40 +18,44 @@
 #include <string>
 #include <string_view>
 
-#include "proto2.rp.stream.hpp"  // generated p2::stream::Scalars (comprehensive: 18 field kinds)
+#include "proto2.rp.stream.hpp"  // generated rp::stream::p2::Scalars (comprehensive: 18 field kinds)
 #include "rapidproto/runtime.hpp"
 
 // The generated types live under one root per model; alias each package once so the
 // bodies below read as they did before the roots existed. This file uses the stream model only.
-namespace p2 = rp::stream::p2;
 
 // A comprehensive, varint-heavy decode: a mix of varint scalars + a large packed varint array (where
 // the out-of-line read_varint penalty bites) + a string. `fn` is the generated function name.
-#define RP_BENCH_DEFINE_SCALARS_DECODE(fn)                                                   \
-    std::uint64_t fn(::rapidproto::ByteView bytes) {                                         \
-        std::uint64_t sum = 0;                                                               \
-        (void)p2::Scalars{bytes}.decode(                                                     \
-            [&](p2::Scalars::i32, std::int32_t v) { sum += static_cast<std::uint32_t>(v); }, \
-            [&](p2::Scalars::u64, std::uint64_t v) { sum += v; },                            \
-            [&](p2::Scalars::s32, std::int32_t v) { sum += static_cast<std::uint32_t>(v); }, \
-            [&](p2::Scalars::packed_nums, std::int32_t v) {                                  \
-                sum += static_cast<std::uint32_t>(v);                                        \
-            },                                                                               \
-            [&](p2::Scalars::s, std::string_view v) { sum += v.size(); });                   \
-        return sum;                                                                          \
+#define RP_BENCH_DEFINE_SCALARS_DECODE(fn)                                             \
+    std::uint64_t fn(::rapidproto::ByteView bytes) {                                   \
+        std::uint64_t sum = 0;                                                         \
+        (void)rp::stream::p2::Scalars{bytes}.decode(                                   \
+            [&](rp::stream::p2::Scalars::i32, std::int32_t v) {                        \
+                sum += static_cast<std::uint32_t>(v);                                  \
+            },                                                                         \
+            [&](rp::stream::p2::Scalars::u64, std::uint64_t v) { sum += v; },          \
+            [&](rp::stream::p2::Scalars::s32, std::int32_t v) {                        \
+                sum += static_cast<std::uint32_t>(v);                                  \
+            },                                                                         \
+            [&](rp::stream::p2::Scalars::packed_nums, std::int32_t v) {                \
+                sum += static_cast<std::uint32_t>(v);                                  \
+            },                                                                         \
+            [&](rp::stream::p2::Scalars::s, std::string_view v) { sum += v.size(); }); \
+        return sum;                                                                    \
     }
 
 // A multi-byte-tag-heavy decode: every record is field 18 (tag 0x90 0x01, a 2-byte tag) + a 1-byte
 // varint. This is the worst case for the tag path -- it exercises read_tag_or_end's multi-byte
 // fallback (read_tag) on every record. Used to isolate, in one binary, whether inlining read_varint
 // helps or HURTS the tag path (micro=inlined vs large=out-of-line).
-#define RP_BENCH_DEFINE_MBTAG_DECODE(fn)                                                  \
-    std::uint64_t fn(::rapidproto::ByteView bytes) {                                      \
-        std::uint64_t sum = 0;                                                            \
-        (void)p2::Scalars{bytes}.decode([&](p2::Scalars::expanded_nums, std::int32_t v) { \
-            sum += static_cast<std::uint32_t>(v);                                         \
-        });                                                                               \
-        return sum;                                                                       \
+#define RP_BENCH_DEFINE_MBTAG_DECODE(fn)                                  \
+    std::uint64_t fn(::rapidproto::ByteView bytes) {                      \
+        std::uint64_t sum = 0;                                            \
+        (void)rp::stream::p2::Scalars{bytes}.decode(                      \
+            [&](rp::stream::p2::Scalars::expanded_nums, std::int32_t v) { \
+                sum += static_cast<std::uint32_t>(v);                     \
+            });                                                           \
+        return sum;                                                       \
     }
 
 // Build a buffer matching the decode above: a few varint scalars, a large packed_nums array, a string.

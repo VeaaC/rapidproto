@@ -13,8 +13,9 @@ namespace rapidproto::streamgen {
 
 // Generate the streaming-decoder header text for `file` from a prebuilt C++ name table. When
 // emitting a whole resolved set, build the table ONCE with `build_cpp_names(any_file, set.files,
-// namespace_of(prefix))` and call this per file -- the table is identical for every file in the
-// set, so this avoids an O(files^2) rebuild. The table also carries the namespace prefix.
+// effective_ns_prefix(prefix), std::string(kStreamRoot))` and call this per file -- the table is
+// identical for every file in the set, so this avoids an O(files^2) rebuild. The table also carries
+// the namespace prefix and the model root.
 //
 // Precondition: `file` (and every file the table was built from) has been ANALYZED -- run
 // `analyze()` on the ResolvedFileSet first; otherwise a field referencing a user-defined (message/

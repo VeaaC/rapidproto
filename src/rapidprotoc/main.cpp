@@ -2,7 +2,7 @@
 // the semantic pipeline, and emits the selected decoder model(s) into the output directory:
 //   --arena   an arena object-tree decoder   `<stem>.rp.hpp`         (the default if neither is given)
 //   --stream  a streaming callback decoder    `<stem>.rp.stream.hpp`
-// plus the shared common header `<stem>.rp.common.hpp` (the schema's top-level enums, one C++ type both
+// plus the shared common header `<stem>.rp.common.hpp` (the schema's enums, one C++ type both
 // models include) per file, plus a self-contained copy of each model's runtime. Parsing once and
 // emitting both models from one name analysis is what lets the two decoders coexist in a single TU
 // (arena at `rp::arena::pkg::Msg`, streaming at `rp::stream::pkg::Msg`, enums shared at
@@ -267,7 +267,8 @@ int main(int argc, char** argv) {
     }
 
     for (const rapidproto::FileNode& file : set.files) {
-        // The shared common header (the schema's top-level enums) every selected decoder includes.
+        // The shared common header (the schema's enums, nested ones via the mirror) every
+        // selected decoder includes.
         if (!rapidproto::cli::write_shared_file(
                 rapidproto::cli::header_path(opts->out_dir, file, ".rp.common.hpp"),
                 rapidproto::codegen::emit_common_header(file, names), opts->verbose)) {

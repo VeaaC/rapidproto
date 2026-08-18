@@ -50,6 +50,13 @@ for proto in "${protos[@]}"; do
         missing=1
       fi
     done
+    # Being INCLUDED only proves it compiles. check_pair's stem list is what byte-compares it, and
+    # that list is hand-maintained -- trimming it leaves the golden unpinned with the suite green.
+    if ! grep -q "\"$stem\"" tests/test_coexistence.cpp; then
+      echo ">> $proto is included by tests/test_coexistence.cpp but absent from check_pair's stem"
+      echo "   list, so its goldens are compiled and never compared"
+      missing=1
+    fi
     # Only the per-model golden check is skipped; regeneration is still verified below.
     coexist=1
   else
@@ -82,11 +89,6 @@ for proto in "${protos[@]}"; do
   done
 done
 
-# Two byte-identical goldens in ONE directory are both a lost test and a portability trap: a TU
-# including both gets silent deduplication from gcc's content-keyed `#pragma once` and a hard
-# redefinition error from clang. This is why the prefixed goldens use a NON-default prefix -- at the
-# default they were byte-for-byte their unprefixed twins. Enforced here so that stays true.
-# Empty commons (a package with no enums) are exempt: they define nothing to redefine.
 # Two byte-identical goldens INCLUDED BY THE SAME TU are both a lost test and a portability trap:
 # gcc's content-keyed `#pragma once` silently collapses them, clang rejects the second as a
 # redefinition. This is why a `_prefixed` golden must use a NON-default prefix -- at the default it

@@ -784,7 +784,7 @@ std::string generate_header(const FileNode& file, const CppNameTable& symbols) {
     printer.print("#include <cstdint>\n");
     printer.print("#include <string_view>\n\n");
     printer.print("#include \"rapidproto/runtime.hpp\"\n");
-    // The schema's top-level enums live in the shared common header (one C++ type, shared with the
+    // The schema's TOP-LEVEL enums live in the shared common header (one C++ type, shared with the
     // arena decoder); include this file's own sibling common. The IWYU export makes a TU that includes
     // only this decoder still "directly provide" the shared enums (which used to live here).
     printer.print("#include \"$c$\"  // IWYU pragma: export\n",
@@ -808,8 +808,8 @@ std::string generate_header(const FileNode& file, const CppNameTable& symbols) {
     }
 
     // Top-level enums live in the shared common header (one C++ type, shared with the arena decoder);
-    // alias each into this model namespace so `<pkg>::stream::Enum` resolves. Nested enums ride inside
-    // their message.
+    // alias each into this model namespace so `<prefix>::stream::<pkg>::Enum` resolves. Nested
+    // enums are aliased the same way, from inside their message's struct.
     for (const auto& node : file.enums) {
         printer.print("using $e$;\n", {{"e", cpp_type_name(symbols, node.fqn)}});
     }

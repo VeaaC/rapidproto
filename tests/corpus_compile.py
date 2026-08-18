@@ -100,8 +100,13 @@ def compile_one(binary: pathlib.Path, cxx: str,
                             capture_output=True, text=True, check=False)
         if cc.returncode == 0:
             return proto, "", True
-        # The temp dir dies with this scope, so rewrite its paths to something a reader can open.
-        return proto, cc.stderr[:1500].replace(str(out) + "/", "<generated>/"), True
+        # A non-zero exit with EMPTY stderr is still a failure -- a compiler killed by a signal
+        # (the OOM shape the 7 GB runners hit) writes nothing. The caller keys on this string being
+        # non-empty, so it must never be empty when the compile failed.
+        detail = cc.stderr[:1500].replace(str(out) + "/", "<generated>/")
+        if not detail.strip():
+            detail = f"{cxx} exited {cc.returncode} with no diagnostics (killed by a signal?)"
+        return proto, detail, True
 
 
 def main() -> int:
@@ -137,8 +142,8 @@ def main() -> int:
         print(f">> {proto.relative_to(CORPUS)} generates but does not compile:", file=sys.stderr)
         print("\n".join(err.splitlines()[:6]), file=sys.stderr)
     sources = len(compiled_sources)
-    print(f"corpus compile: {compiled}/{len(picked)} schemas compiled across {sources} sources, "
-          f"all models in one TU, {len(failures)} failed")
+    print(f"corpus compile: {compiled - len(failures)}/{len(picked)} schemas compiled clean across "
+          f"{sources} sources, all models in one TU, {len(failures)} failed")
     # Absence of failures is not a pass. A generator that rejects everything, or a sampler that
     # picks nothing, previously reported green here having never invoked the compiler. The floor is
     # "did we compile at all", not a rejection rate: the corpus legitimately holds schemas this

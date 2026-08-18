@@ -2,7 +2,7 @@
 // top-level `stream` collided with the model sub-namespace: the two headers would not compile
 // together, and a top-level ENUM of that name broke the streaming header on its own. Under
 // `<prefix>::<model>::<pkg>` nothing the generator invents lives in package scope, so these are
-// ordinary names -- which only a TU including BOTH models can demonstrate (see test_integration).
+// ordinary names -- which only a TU including BOTH models can demonstrate (see tests/test_coexistence.cpp).
 syntax = "proto3";
 package rn;
 

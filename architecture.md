@@ -74,7 +74,8 @@ Naming is kept consistent across the code and docs:
   serializer or a spec JSON codec.
 - **decoder.** The generated type a user calls (`rp::arena::pkg::Msg`, `rp::stream::pkg::Msg`).
   "Parser" is reserved for the schema front-end.
-- **common header.** `<stem>.rp.common.hpp`: the schema's top-level enums as one shared C++ type both
+- **common header.** `<stem>.rp.common.hpp`: the schema's enums -- top-level, plus the nested ones
+  through a namespace mirror -- as one shared C++ type both
   models include.
 - file extensions: **`.rp.hpp`** (arena), **`.rp.stream.hpp`** (streaming), **`.rp.dump.hpp`** (the
   debug dumper), **`.rp.common.hpp`** (the shared enums).
@@ -892,7 +893,7 @@ unit. Three pieces make that work:
   cannot collide with one. It also keeps generated code out of protoc's namespace, so a `.pb.h` and
   a `.rp.hpp` for one schema compile together. The shape is each model's permanent one, applied
   whether one model is generated or both, so adding the second never renames the first.
-- **Shared enums under their own root.** A schema's top-level enums are emitted ONCE into
+- **Shared enums under their own root.** A schema's enums are emitted ONCE into
   `<stem>.rp.common.hpp` at `<prefix>::enums::pkg`, by `codegen::emit_common_header`. Both decoders
   `#include` it (re-exported via an IWYU `export` pragma, so a TU that includes only the decoder still
   "directly provides" the enums) and each aliases every enum into its own model namespace, so

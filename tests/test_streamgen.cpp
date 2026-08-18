@@ -35,7 +35,7 @@
 // IWYU pragma: begin_keep
 #include "streamgen_golden/main.rp.stream.hpp"    // cross-file: pulls dep/forward/pub via #include
 #include "streamgen_golden/naming.rp.stream.hpp"  // identifier dedup + absolute names: must compile
-#include "streamgen_golden/nopkg.rp.stream.hpp"   // NO package: a top-level `namespace stream`
+#include "streamgen_golden/nopkg.rp.stream.hpp"   // NO package: types directly under rp::stream
 #include "streamgen_golden/rppkg.rp.stream.hpp"   // package `rapidproto` -> namespace rapidproto_
 #include "streamgen_golden/stdpkg.rp.stream.hpp"  // package `std` -> namespace std_, not namespace std
 #include "streamgen_golden/usewkt.rp.stream.hpp"    // WKT closure: pulls google/protobuf/* headers
@@ -116,7 +116,7 @@ TEST_CASE("streamgen: generated headers match the goldens", "[streamgen]") {
     };
     const std::string imports = corpus + "/imports";
     // Package shapes no other entry has: every other corpus file declares a single-component package.
-    // deep -> namespace rp::arena::com::example::deep::stream, nopkg -> a top-level `namespace stream` (types at
+    // deep -> namespace rp::stream::com::example::deep, nopkg -> rp::stream (types at
     // global scope), xpkg -> a cross-file reference INTO a dotted package.
     const std::string nsedge = corpus + "/nsedge";
     const std::vector<Case> cases = {
