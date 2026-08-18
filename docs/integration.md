@@ -20,7 +20,7 @@ rapidprotoc [options] <entry.proto>...
 | `--raw=<name>` | Arena: keep a message field's or type's payloads for deferred `decode()`s, inline. |
 | `-I <dir>` | Add an import search path (repeatable). |
 | `--out-dir <dir>` | Where to write the headers (and `rapidproto/runtime.hpp`, plus `arena_runtime.hpp` for `--arena` and `dump_runtime.hpp` for `--dump`). Default: the current directory. |
-| `--namespace-prefix <ns>` | Rename the root generated code lives under — `<ns>::arena::pkg::Msg` and so on (default `rp`; dot-separated, cannot be empty). See [using both models](using-both-models.md). |
+| `--namespace-prefix <ns>` | Rename the root GENERATED code lives under — `<ns>::arena::pkg::Msg` and so on (default `rp`; dot-separated, cannot be empty, and cannot be a name the generator would have to escape). The runtime stays in `rapidproto::` either way. See [using both models](using-both-models.md). |
 | `--no-wellknown` | Don't load the bundled well-known-type definitions. |
 | `--depfile <path>` | Write a Make/Ninja depfile (the entries' headers depend on **every** input `.proto` and profile file) so a build regenerates when any input changes. Used by the CMake helper; harmless otherwise. |
 | `-v`, `--verbose` | Log each written file (`wrote <path>`); output is otherwise silent on success. |

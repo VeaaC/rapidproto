@@ -13,14 +13,14 @@
 
 namespace rapidproto::dump_detail {
 
-inline const char* rp_dump_enum_name(::rp::enums::rapidproto_::WireType rp_e) {
+inline const char* rp_dump_enum_name(::rp::enums::rapidproto::WireType rp_e) {
   switch (static_cast<std::int32_t>(rp_e)) {
     case 0: return "A";
   }
   return nullptr;  // unknown (open enum): the caller renders UNKNOWN(<n>)
 }
 
-inline const char* rp_dump_enum_name(::rp::enums::rapidproto_::DecodeStatus rp_e) {
+inline const char* rp_dump_enum_name(::rp::enums::rapidproto::DecodeStatus rp_e) {
   switch (static_cast<std::int32_t>(rp_e)) {
     case 0: return "A";
   }
@@ -29,16 +29,16 @@ inline const char* rp_dump_enum_name(::rp::enums::rapidproto_::DecodeStatus rp_e
 
 }  // namespace rapidproto::dump_detail
 
-namespace rp::arena::rapidproto_ {
+namespace rp::arena::rapidproto {
 
 namespace rp_dump_detail {
 
-inline void rp_dump_write(const ::rp::arena::rapidproto_::wire& m, ::rapidproto::dump_detail::Writer& w);
-inline void rp_dump_write(const ::rp::arena::rapidproto_::Arena& m, ::rapidproto::dump_detail::Writer& w);
-inline void rp_dump_write(const ::rp::arena::rapidproto_::Tag& m, ::rapidproto::dump_detail::Writer& w);
-inline void rp_dump_write(const ::rp::arena::rapidproto_::ByteView& m, ::rapidproto::dump_detail::Writer& w);
+inline void rp_dump_write(const ::rp::arena::rapidproto::wire& m, ::rapidproto::dump_detail::Writer& w);
+inline void rp_dump_write(const ::rp::arena::rapidproto::Arena& m, ::rapidproto::dump_detail::Writer& w);
+inline void rp_dump_write(const ::rp::arena::rapidproto::Tag& m, ::rapidproto::dump_detail::Writer& w);
+inline void rp_dump_write(const ::rp::arena::rapidproto::ByteView& m, ::rapidproto::dump_detail::Writer& w);
 
-inline void rp_dump_write(const ::rp::arena::rapidproto_::wire& m, ::rapidproto::dump_detail::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::rapidproto::wire& m, ::rapidproto::dump_detail::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
@@ -51,7 +51,7 @@ inline void rp_dump_write(const ::rp::arena::rapidproto_::wire& m, ::rapidproto:
   });
 }
 
-inline void rp_dump_write(const ::rp::arena::rapidproto_::Arena& m, ::rapidproto::dump_detail::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::rapidproto::Arena& m, ::rapidproto::dump_detail::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
@@ -64,7 +64,7 @@ inline void rp_dump_write(const ::rp::arena::rapidproto_::Arena& m, ::rapidproto
   });
 }
 
-inline void rp_dump_write(const ::rp::arena::rapidproto_::Tag& m, ::rapidproto::dump_detail::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::rapidproto::Tag& m, ::rapidproto::dump_detail::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
@@ -77,7 +77,7 @@ inline void rp_dump_write(const ::rp::arena::rapidproto_::Tag& m, ::rapidproto::
   });
 }
 
-inline void rp_dump_write(const ::rp::arena::rapidproto_::ByteView& m, ::rapidproto::dump_detail::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::rapidproto::ByteView& m, ::rapidproto::dump_detail::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
@@ -92,28 +92,28 @@ inline void rp_dump_write(const ::rp::arena::rapidproto_::ByteView& m, ::rapidpr
 
 }  // namespace rp_dump_detail
 
-}  // namespace rp::arena::rapidproto_
+}  // namespace rp::arena::rapidproto
 
 namespace rapidproto::dump_detail {
 
 template <>
-struct dumper<::rp::arena::rapidproto_::wire> {
-  static void write(const ::rp::arena::rapidproto_::wire& m, Writer& w) { ::rp::arena::rapidproto_::rp_dump_detail::rp_dump_write(m, w); }
+struct dumper<::rp::arena::rapidproto::wire> {
+  static void write(const ::rp::arena::rapidproto::wire& m, Writer& w) { ::rp::arena::rapidproto::rp_dump_detail::rp_dump_write(m, w); }
 };
 
 template <>
-struct dumper<::rp::arena::rapidproto_::Arena> {
-  static void write(const ::rp::arena::rapidproto_::Arena& m, Writer& w) { ::rp::arena::rapidproto_::rp_dump_detail::rp_dump_write(m, w); }
+struct dumper<::rp::arena::rapidproto::Arena> {
+  static void write(const ::rp::arena::rapidproto::Arena& m, Writer& w) { ::rp::arena::rapidproto::rp_dump_detail::rp_dump_write(m, w); }
 };
 
 template <>
-struct dumper<::rp::arena::rapidproto_::Tag> {
-  static void write(const ::rp::arena::rapidproto_::Tag& m, Writer& w) { ::rp::arena::rapidproto_::rp_dump_detail::rp_dump_write(m, w); }
+struct dumper<::rp::arena::rapidproto::Tag> {
+  static void write(const ::rp::arena::rapidproto::Tag& m, Writer& w) { ::rp::arena::rapidproto::rp_dump_detail::rp_dump_write(m, w); }
 };
 
 template <>
-struct dumper<::rp::arena::rapidproto_::ByteView> {
-  static void write(const ::rp::arena::rapidproto_::ByteView& m, Writer& w) { ::rp::arena::rapidproto_::rp_dump_detail::rp_dump_write(m, w); }
+struct dumper<::rp::arena::rapidproto::ByteView> {
+  static void write(const ::rp::arena::rapidproto::ByteView& m, Writer& w) { ::rp::arena::rapidproto::rp_dump_detail::rp_dump_write(m, w); }
 };
 
 }  // namespace rapidproto::dump_detail

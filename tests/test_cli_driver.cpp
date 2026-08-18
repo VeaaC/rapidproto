@@ -277,5 +277,15 @@ TEST_CASE("driver: parse_args usage errors all exit 2", "[cli]") {
         CHECK(defaulted.options->namespace_prefix ==
               std::string(rapidproto::codegen::kDefaultNsPrefix));
     }
-    CHECK_FALSE(cli::valid_namespace_prefix(""));
+    CHECK_FALSE(cli::namespace_prefix_problem("").empty());
+    // A prefix the generator would have to rename is refused rather than silently altered --
+    // `--namespace-prefix=std` used to hand back `std_`, a namespace nobody asked for.
+    for (const char* bad : {"std", "class", "decode", "Value", "rp_x", "RP_FOO", "rapidproto"}) {
+        INFO("prefix " << bad);
+        CHECK_FALSE(cli::namespace_prefix_problem(bad).empty());
+        CHECK(parse({"--namespace-prefix", bad, "a.proto"}).exit_code == 2);
+    }
+    // ...while an ordinary name, and a dotted one, still pass.
+    CHECK(cli::namespace_prefix_problem("myco").empty());
+    CHECK(cli::namespace_prefix_problem("my.decoders").empty());
 }

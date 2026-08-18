@@ -30,7 +30,7 @@
 #include "rapidproto/arenagen/layout.hpp"
 #include "rapidproto/arenagen/modes.hpp"
 #include "rapidproto/codegen/naming.hpp"
-#include "rapidproto/dump_runtime.hpp"  // dump::Writer / DumpOptions: driven directly below
+#include "rapidproto/dump_runtime.hpp"  // dump_detail::Writer / DumpOptions: driven directly below
 #include "rapidproto/dumpgen/generator.hpp"
 #include "rapidproto/resolve.hpp"
 #include "rapidproto/resolver.hpp"

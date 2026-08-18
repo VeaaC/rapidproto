@@ -44,7 +44,7 @@
 #include "arenagen_golden/prefixed/main.rp.hpp"  // --namespace-prefix + imports (pulls prefixed dep/...)
 #include "arenagen_golden/proto2.rp.hpp"
 #include "arenagen_golden/proto3.rp.hpp"
-#include "arenagen_golden/rppkg.rp.hpp"      // package `rapidproto` -> namespace rapidproto_
+#include "arenagen_golden/rppkg.rp.hpp"      // package `rapidproto`: keeps its name under the roots
 #include "arenagen_golden/samepkg_a.rp.hpp"  // same-package multi-file (pulls samepkg_b): ODR guard
 #include "arenagen_golden/stdpkg.rp.hpp"     // package `std` -> namespace std_, not namespace std
 #include "arenagen_golden/weakmain.rp.hpp"  // weak import (pulls weakdep): filtered like a normal one

@@ -848,12 +848,13 @@ TEST_CASE("streamgen: colliding identifiers are de-duplicated and types bind abs
     CHECK(rp::stream::nm::Macros::RP_NOINLINE_::kName == "RP_NOINLINE");
     static_assert(rp::stream::nm::MacroEnum::RP_FLATTEN_ ==
                   static_cast<rp::stream::nm::MacroEnum>(0));
-    // A package named `rapidproto` collides with the runtime's namespace at the ROOT rather than
-    // shadowing from within: unescaped, `wire` would redeclare ::rapidproto::wire, and the top-level
-    // enum `WireType` would redeclare ::rapidproto::WireType in the shared common header.
-    static_assert(std::is_same_v<rp::stream::rapidproto_::wire::x::Value, std::int32_t>);
-    static_assert(rp::stream::rapidproto_::WireType::A ==
-                  static_cast<rp::stream::rapidproto_::WireType>(0));
+    // A package named `rapidproto` keeps its name. Under the roots it lands at
+    // `rp::stream::rapidproto`, three levels below the runtime's `::rapidproto`, so even a schema
+    // that names its messages `wire` and `Arena` cannot redeclare anything the runtime owns. Only
+    // the PREFIX could, and that is refused (cli::namespace_prefix_problem).
+    static_assert(std::is_same_v<rp::stream::rapidproto::wire::x::Value, std::int32_t>);
+    static_assert(rp::stream::rapidproto::WireType::A ==
+                  static_cast<rp::stream::rapidproto::WireType>(0));
     // A FIELD named `stream` keeps its name -- the model roots sit above the package, so `stream` is
     // an ordinary identifier everywhere below them.
     CHECK(rp::stream::nm::UsesStream::stream::kName == "stream");

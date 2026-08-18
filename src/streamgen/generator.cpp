@@ -163,8 +163,7 @@ void emit_map_arm(Printer& printer, const CppNameTable& symbols, const MapFieldN
     printer.indent();
     codegen::emit_dispatch_guards(
         printer, "rp_Callbacks", fname + ", " + fname + "::Key, " + fname + "::Value",
-        "map field '" + owner + "::" + fname + "'",
-        owner + "::" + fname + "::Key, " + owner + "::" + fname + "::Value");
+        "map field '" + owner + "::" + fname + "'", fname + "::Key, " + fname + "::Value");
     printer.print(
         "if constexpr ((false || ... ||"
         " ::rapidproto::handles_one<rp_Callbacks, $f$, $f$::Key, $f$::Value>)) {\n",
@@ -476,8 +475,7 @@ void emit_arm(Printer& printer, const std::string& fname, const FieldGen& gen, b
     printer.print("case $f$::kNumber:\n", {{"f", fname}});
     printer.indent();
     codegen::emit_dispatch_guards(printer, "rp_Callbacks", fname + ", " + fname + "::Value",
-                                  "field '" + owner + "::" + fname + "'",
-                                  owner + "::" + fname + "::Value");
+                                  "field '" + owner + "::" + fname + "'", fname + "::Value");
     printer.print(
         "if constexpr ((false || ... ||"
         " ::rapidproto::handles_one<rp_Callbacks, $f$, $f$::Value>)) {\n",
@@ -642,8 +640,7 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
         // The stray-callback / wrong-wire guards, emitted once per field: a threaded field has no
         // general-switch arm, so this label body is the sole site for them.
         codegen::emit_dispatch_guards(printer, "rp_Callbacks", fname + ", " + fname + "::Value",
-                                      "field '" + owner + "::" + fname + "'",
-                                      owner + "::" + fname + "::Value");
+                                      "field '" + owner + "::" + fname + "'", fname + "::Value");
         printer.print(
             "if constexpr ((false || ... ||"
             " ::rapidproto::handles_one<rp_Callbacks, $f$, $f$::Value>)) {\n",

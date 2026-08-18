@@ -503,8 +503,7 @@ job_format() {
 # renamed heading or a moved page rots silently; validate every relative link (file + anchor).
 job_doc_links() {
   python3 tests/check_doc_links.py || return 1
-  # Nothing compiles the code in the docs or the comments, so a namespace change rots them silently
-  # -- the roots change rotted five pages at once, one of whose only code block stopped compiling.
+  # Nothing compiles the code in the docs, so a namespace change rots it silently.
   # Grep for FAMILIES of spelling this generator cannot emit, not for the individual strings a past
   # cleanup happened to delete: a blocklist of literals only guards against re-introducing those
   # exact seven, which is not the failure being prevented. CHANGELOG.md is exempt -- its older
@@ -683,6 +682,7 @@ job_compile_fail() {
   command -v "$cf_cxx" >/dev/null 2>&1 || cf_cxx=c++
   if out=$(tests/streamgen_compile_fail.sh "$cf_cxx" 2>&1); then tail -1 <<<"$out"; else echo "$out"; rc=1; fi
   if out=$(tests/arenagen_compile_fail.sh "$cf_cxx" 2>&1); then tail -1 <<<"$out"; else echo "$out"; rc=1; fi
+  if out=$(tests/dumpgen_compile_fail.sh "$cf_cxx" 2>&1); then tail -1 <<<"$out"; else echo "$out"; rc=1; fi
   return "$rc"
 }
 

@@ -48,5 +48,5 @@ hybrid) is in [`examples/consumer`](../examples/consumer).
 Nothing to do: generated code lives under `rp::`, protoc's under your package, so `person.pb.h` and
 `person.rp.hpp` coexist in one TU — including for schemas importing a well-known type, where protoc
 also defines `google::protobuf::Timestamp`. Use protoc for serialization and RapidProto for the hot
-decode path. If your codebase already owns `rp`, rename the root with
-[`--namespace-prefix`](integration.md).
+decode path. If your codebase already declares a *type* at `rp::arena` (a plain `namespace rp` is fine —
+namespaces merge), rename the root with [`--namespace-prefix`](integration.md).

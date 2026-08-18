@@ -68,17 +68,25 @@ struct CppNameTable {
 CppNameTable build_cpp_names(const FileNode& file, const std::vector<FileNode>& all_files,
                              std::string ns_prefix, std::string model_namespace);
 
-// A resolved type FQN -> its absolute C++ name. Types in the set use their dedup-stable name;
-// anything not in the set (should not occur for a resolved type) falls back to a plain mapping.
-// That fallback is a guess, not a diagnostic, and since names are deduplicated per package it can
-// now return an id that BELONGS to a different type in the same namespace: `.p.decode` misses the
-// table and synthesizes `::p::decode_`, which is the id the real `message decode_` holds. Callers
-// pass FQNs straight from the AST (leading-dot form, `.pkg.Name`); a mis-spelled one gets a
-// plausible wrong answer rather than an error.
+// A resolved type FQN -> its absolute C++ name, from the table built for the whole resolved set.
+// `resolve()` guarantees every reference is indexed, so a miss is a bug in this library rather than
+// bad input -- and there is no correct name to guess, since messages and enums sit under different
+// roots and an FQN does not say which it is. A miss therefore yields a deliberately undeclared
+// identifier naming the FQN, so the bug surfaces as a compile error at the use site instead of a
+// silently wrong reference. Callers pass FQNs straight from the AST (leading-dot form, `.pkg.Name`).
 std::string cpp_type_name(const CppNameTable& names, std::string_view fqn);
 
 // proto package "a.b.c" -> C++ namespace "a::b::c" (empty package -> ""), each component sanitized.
 std::string namespace_of(std::string_view package);
+
+// Why `component` cannot serve as one dot-separated piece of a --namespace-prefix, or "" if it can.
+//
+// A prefix is an INSTRUCTION; a package is DATA. `namespace_of` escapes both through sanitize(),
+// which is right for a package -- the schema's author cannot be asked to avoid C++ keywords -- and
+// wrong for a prefix, where it silently hands back a namespace the user did not ask for
+// (`--namespace-prefix=std` quietly became `std_`). Callers that parse flags should reject instead.
+// Derived from sanitize() rather than restating it, so the two cannot drift apart.
+std::string ns_prefix_component_problem(std::string_view component);
 
 // Join two C++ namespace fragments with "::", dropping empties ("" + "a::b" -> "a::b").
 std::string join_ns(std::string_view a, std::string_view b);

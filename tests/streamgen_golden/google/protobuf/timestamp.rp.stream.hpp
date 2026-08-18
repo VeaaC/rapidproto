@@ -45,7 +45,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Timestamp::decode(rp_Callbacks&&... rp_cal
       static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Callbacks, seconds, seconds::Value>)) <= 1U, "field '::rp::stream::google::protobuf::Timestamp::seconds' is handled by more than one callback");
       static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Callbacks, seconds, seconds::Value>)) <= 1U, "field '::rp::stream::google::protobuf::Timestamp::seconds' is matched by more than one catch-all callback");
       static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Callbacks, seconds, seconds::Value>), "a callback for field '::rp::stream::google::protobuf::Timestamp::seconds' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
-      static_assert((true && ... && !(::rapidproto::targets<rp_Callbacks, seconds, seconds::Value> && !::rapidproto::specifically_handles<rp_Callbacks, seconds, seconds::Value>)), "a callback for field '::rp::stream::google::protobuf::Timestamp::seconds' has the wrong value type (expected ::rp::stream::google::protobuf::Timestamp::seconds::Value)");
+      static_assert((true && ... && !(::rapidproto::targets<rp_Callbacks, seconds, seconds::Value> && !::rapidproto::specifically_handles<rp_Callbacks, seconds, seconds::Value>)), "a callback for field '::rp::stream::google::protobuf::Timestamp::seconds' has the wrong value type (expected seconds::Value)");
       if constexpr ((false || ... || ::rapidproto::handles_one<rp_Callbacks, seconds, seconds::Value>)) {
         std::uint64_t rp_raw = 0;
         const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
@@ -67,7 +67,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Timestamp::decode(rp_Callbacks&&... rp_cal
       static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Callbacks, nanos, nanos::Value>)) <= 1U, "field '::rp::stream::google::protobuf::Timestamp::nanos' is handled by more than one callback");
       static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Callbacks, nanos, nanos::Value>)) <= 1U, "field '::rp::stream::google::protobuf::Timestamp::nanos' is matched by more than one catch-all callback");
       static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Callbacks, nanos, nanos::Value>), "a callback for field '::rp::stream::google::protobuf::Timestamp::nanos' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
-      static_assert((true && ... && !(::rapidproto::targets<rp_Callbacks, nanos, nanos::Value> && !::rapidproto::specifically_handles<rp_Callbacks, nanos, nanos::Value>)), "a callback for field '::rp::stream::google::protobuf::Timestamp::nanos' has the wrong value type (expected ::rp::stream::google::protobuf::Timestamp::nanos::Value)");
+      static_assert((true && ... && !(::rapidproto::targets<rp_Callbacks, nanos, nanos::Value> && !::rapidproto::specifically_handles<rp_Callbacks, nanos, nanos::Value>)), "a callback for field '::rp::stream::google::protobuf::Timestamp::nanos' has the wrong value type (expected nanos::Value)");
       if constexpr ((false || ... || ::rapidproto::handles_one<rp_Callbacks, nanos, nanos::Value>)) {
         std::uint64_t rp_raw = 0;
         const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);

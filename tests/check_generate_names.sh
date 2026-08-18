@@ -172,5 +172,44 @@ if [[ -n "$stray" ]]; then
   echo ">> a refused run still wrote:"; sed 's/^/   /' <<<"$stray"; fail=1
 fi
 
+# ...and the helper passes NAMESPACE_PREFIX through as the user wrote it. Nothing else in the tree
+# uses that keyword, so both halves of it were unexercised: the value reaching the CLI at all (it was
+# tested for TRUTH, and CMake reads `N`, `no`, `off`, `0` as false, so those were silently dropped
+# and generation fell back to the default), and the refusal of an explicit empty one.
+#
+# Configure-only, then read the generated build system: that is what the flag ends up in, and it
+# needs no compiler. A full build would cost minutes to check an argument.
+cmake_case() {
+  local label="$1" arg="$2" want="$3" dir="$WORK/cm_$label"
+  mkdir -p "$dir"
+  printf 'syntax = "proto3";\npackage cmp;\nmessage M { int32 x = 1; }\n' >"$dir/m.proto"
+  {
+    echo 'cmake_minimum_required(VERSION 3.16)'
+    echo 'project(cmp CXX)'
+    echo "include(\"$ROOT/cmake/rapidproto-generate.cmake\")"
+    echo "add_executable(rapidprotoc IMPORTED GLOBAL)"
+    echo "set_target_properties(rapidprotoc PROPERTIES IMPORTED_LOCATION \"$BIN\")"
+    echo "rapidproto_generate(gen PROTOS m.proto IMPORT_DIRS . $arg)"
+  } >"$dir/CMakeLists.txt"
+  local out
+  if ! out=$(cmake -S "$dir" -B "$dir/b" 2>&1); then
+    if [[ "$want" == "REFUSED" ]]; then echo "ok   [cmake $label]"; return; fi
+    echo ">> cmake $label: configure failed unexpectedly"; tail -3 <<<"$out"; fail=1; return
+  fi
+  if [[ "$want" == "REFUSED" ]]; then
+    echo ">> cmake $label: accepted a value the CLI refuses"; fail=1; return
+  fi
+  if grep -rqF -- "$want" "$dir/b" --include=build.ninja --include=build.make --include=link.txt \
+       --include='*.make' 2>/dev/null; then
+    echo "ok   [cmake $label]"
+  else
+    echo ">> cmake $label: the generated build system never passes '$want'"; fail=1
+  fi
+}
+
+cmake_case falsy-value   "NAMESPACE_PREFIX N"  "--namespace-prefix N"
+cmake_case ordinary      "NAMESPACE_PREFIX my.decoders" "--namespace-prefix my.decoders"
+cmake_case empty-refused 'NAMESPACE_PREFIX ""' REFUSED
+
 [[ $fail -eq 0 ]] || exit 1
-echo "generate names: ${#cases[@]} entry shapes match the CLI, ${#refusals[@]} ambiguous ones refused"
+echo "generate names: ${#cases[@]} entry shapes match the CLI, ${#refusals[@]} ambiguous ones refused, NAMESPACE_PREFIX passed through"

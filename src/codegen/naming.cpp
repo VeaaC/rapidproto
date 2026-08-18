@@ -182,41 +182,26 @@ bool expands_as_macro(std::string_view name) {
 
 namespace {
 
-// A resolved type FQN (".pkg.Outer.Inner") -> a fully `::`-rooted absolute C++ name
-// ("::ns_prefix::pkg::Outer::Inner"), each component sanitized, under `ns_prefix` (an already
-// `::`-joined C++ namespace, possibly empty). Used as the fallback for types not defined in the
-// file being generated (imported / well-known): we cannot see their scope's dedup decisions, so we
-// assume the plain sanitized name per component.
-// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): prefix vs fqn, distinct roles
-std::string fqn_to_absolute(std::string_view ns_prefix, std::string_view fqn) {
-    std::string out = "::";
-    std::string sep;  // "" before the first component, "::" between components
-    const auto append = [&](std::string_view component) {
-        out += sep;
-        out += sanitize(component);
-        sep = "::";
-    };
-    if (!ns_prefix.empty()) {
-        out += ns_prefix;  // already sanitized + "::"-joined by namespace_of
-        sep = "::";
-    }
-    std::string component;
+// A name for a resolved type FQN that is NOT in the name table. Deliberately one that cannot
+// compile.
+//
+// There used to be a fallback here that synthesized `::<prefix>::<pkg>::<Type>` by sanitizing each
+// component. It cannot be right any more, and could not be trusted before: the roots put messages
+// and enums under DIFFERENT ones (`<prefix>::arena::<pkg>` vs `<prefix>::enums::<pkg>`) and nothing
+// in an FQN says which kind it names, so every synthesized name is wrong. Even pre-roots it could
+// return an id belonging to a different real type -- names are deduped per package, so `.p.decode`
+// synthesized `::p::decode_`, which is what a sibling `message decode_` actually holds.
+//
+// Reaching this is a generator bug (`resolve()` guarantees every reference is indexed), so the goal
+// is to make that bug loud and traceable rather than to produce output. An undeclared identifier
+// carrying the FQN gives a compile error at the exact use site, naming the type that went missing.
+std::string unresolved_type_name(std::string_view fqn) {
+    std::string out = "rp_type_not_in_name_table__";
     for (const char ch : fqn) {
-        if (ch == '.') {
-            if (!component.empty()) {
-                append(component);
-                component.clear();
-            }
-        } else {
-            component += ch;
-        }
-    }
-    if (!component.empty()) {
-        append(component);
+        out += (ch == '.') ? '_' : ch;
     }
     return out;
 }
-
 // Records a scope member's collision-free C++ id into `names`: sanitize the proto name, then append
 // `_` until it is unique among `taken` (this scope's already-used identifiers). Returns the id.
 // Ids claimed ahead of the main pass, by node. Deliberately its own map rather than a lookup into
@@ -385,19 +370,11 @@ std::string namespace_of(std::string_view package) {
             if (!out.empty()) {
                 out += "::";
             }
-            // `rapidproto` is escaped HERE rather than in sanitize(), because it only clashes as
-            // a NAMESPACE COMPONENT -- and, since the roots, only when it is the PREFIX. This
-            // function renders both, so a `--namespace-prefix=rapidproto` would otherwise open
-            // `namespace rapidproto::arena`, merging generated types into the runtime's own
-            // namespace, where anything sharing a name with what the runtime declares (`wire`,
-            // `Arena`, `dump`, ... -- not a closed list) redeclares it.
-            //
-            // A PACKAGE of that name no longer can: it lands at `<prefix>::arena::rapidproto`,
-            // three levels below `::rapidproto`, and so does a package-less `message rapidproto`.
-            // The escape still renames those, which costs a schema that has one a gratuitous `_`.
-            // Narrowing it to the prefix is worth doing and is not this change; see the roadmap.
-            const std::string id = sanitize(component);
-            out += id == "rapidproto" ? "rapidproto_" : id;
+            // No `rapidproto` special case: under the roots a package of that name lands at
+            // `<prefix>::arena::rapidproto`, three levels below the runtime's `::rapidproto`, so it
+            // cannot merge into it. The only component that could is the PREFIX, and that is
+            // refused up front (ns_prefix_component_problem) rather than silently renamed.
+            out += sanitize(component);
             component.clear();
         }
     };
@@ -424,6 +401,20 @@ std::string join_ns(std::string_view a, std::string_view b) {
 
 std::string message_namespace(const CppNameTable& names, const FileNode& file) {
     return join_ns(join_ns(names.ns_prefix, names.model_namespace), namespace_of(file.package));
+}
+
+std::string ns_prefix_component_problem(std::string_view component) {
+    const std::string escaped = sanitize(component);
+    if (escaped != component) {
+        return "the generator would have to rename it to `" + escaped + "`";
+    }
+    if (component == "rapidproto") {
+        // Not sanitize()'s business: a PACKAGE of this name is harmless under the roots (it lands at
+        // `<prefix>::arena::rapidproto`), but as the prefix it would open `rapidproto::arena` and
+        // merge generated types into the runtime's own namespace.
+        return "it is the runtime's own namespace";
+    }
+    return {};
 }
 
 std::string effective_ns_prefix(std::string_view prefix) {
@@ -466,9 +457,10 @@ CppNameTable build_cpp_names(const FileNode& file, const std::vector<FileNode>& 
 std::string cpp_type_name(const CppNameTable& names, std::string_view fqn) {
     const auto found = names.absolute.find(std::string(fqn));
     // build_cpp_names indexes every type in the file set and resolve() guarantees every reference
-    // lands in it, so the lookup hits for any schema we actually generate from. The fqn_to_absolute
-    // fallback is defensive -- it synthesizes a name for an un-indexed FQN -- and so stays untested.
-    return found != names.absolute.end() ? found->second : fqn_to_absolute(names.ns_prefix, fqn);
+    // lands in it, so the lookup hits for any schema we actually generate from. A miss is a bug in
+    // this library, not bad input, and there is no correct name to fall back to -- see
+    // unresolved_type_name.
+    return found != names.absolute.end() ? found->second : unresolved_type_name(fqn);
 }
 
 }  // namespace rapidproto::codegen

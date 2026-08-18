@@ -89,33 +89,36 @@ for proto in "${protos[@]}"; do
   done
 done
 
-# Two byte-identical goldens INCLUDED BY THE SAME TU are both a lost test and a portability trap:
-# gcc's content-keyed `#pragma once` silently collapses them, clang rejects the second as a
+# Two byte-identical goldens reaching ONE translation unit are both a lost test and a portability
+# trap: gcc's content-keyed `#pragma once` silently collapses them, clang rejects the second as a
 # redefinition. This is why a `_prefixed` golden must use a NON-default prefix -- at the default it
-# is byte-for-byte its unprefixed twin, and tests/test_streamgen.cpp includes both.
+# is byte-for-byte its unprefixed twin, and tests/test_streamgen.cpp pulls in both.
+#
+# The include CLOSURE, from the preprocessor, not the `#include` lines: the headers that actually
+# collide are the shared `*.rp.common.hpp`, which no test names directly -- each decoder golden
+# pulls its own in. Reading the source would miss exactly the case this exists for. `-M -MG` costs
+# no codegen and treats a header it cannot find as a leaf rather than failing.
 #
 # Per TU, not tree-wide: identical goldens in DIFFERENT directories (arenagen_golden/x.rp.hpp and
-# dumpgen_golden/x.rp.hpp) are a known, deliberate duplication that no TU mixes, and flagging those
-# would be noise.
+# dumpgen_golden/x.rp.hpp) are a known, deliberate duplication that no single TU pulls in together.
 dupes=""
 for tu in tests/test_*.cpp; do
-  # `|| true` on the whole pipeline: a TU with no golden includes makes grep exit 1, and an
-  # assignment adopts the substitution's status, which under `set -e` ends the run right here.
-  hits="$( { grep -oE '#include "[^"]+_golden/[^"]+"' "$tu" || true; } 2>/dev/null | sed 's/#include "//; s/"$//' \
-          | while read -r inc; do
-              f="tests/$inc"
-              [[ -s "$f" ]] || continue
-              grep -qE '^(class|struct|enum class|inline|template)' "$f" || continue
-              echo "$(sha256sum "$f" | cut -d' ' -f1) $f"
-            done | sort | awk -v tu="$tu" '{ if ($1==prev) { print tu": "prevf" == "$2 } prev=$1; prevf=$2 }')"
-  # `if`, not `[[ ... ]] && ...`: as the loop body's last command the && form returns 1 when there
-  # are no duplicates, which under `set -e` exits the script silently with status 1.
+  closure="$( { g++ -std=c++17 -M -MG -I include -I tests -I tests/arenagen_golden \
+                    -I tests/streamgen_golden -I tests/dumpgen_golden -I tests/coexist_golden \
+                    "$tu" || true; } 2>/dev/null \
+              | tr ' \\' '\n\n' | { grep -E 'tests/.*golden.*\.hpp$' || true; } | sort -u)"
+  hits="$(while read -r f; do
+            [[ -s "$f" ]] || continue
+            grep -qE '^(class|struct|enum class|inline|template)' "$f" || continue
+            echo "$(sha256sum "$f" | cut -d' ' -f1) $f"
+          done <<<"$closure" \
+          | sort | awk -v tu="$tu" '{ if ($1==prev && $1!="") { print tu": "prevf" == "$2 } prev=$1; prevf=$2 }' || true)"
   if [[ -n "$hits" ]]; then
     dupes+="$hits"$'\n'
   fi
 done
 if [[ -n "${dupes// /}" ]]; then
-  echo ">> byte-identical goldens included by one TU -- clang rejects the second as a redefinition:"
+  echo ">> byte-identical goldens reach one TU -- clang rejects the second as a redefinition:"
   sed 's/^/   /' <<<"$dupes" | grep -v '^   $'
   missing=1
 fi

@@ -49,7 +49,7 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
 
   **Nested enums are now shared too.** A `Msg::Kind` used to be defined separately inside each
   model's class, so an enum read from the arena decoder was a different C++ type from the streaming
-  one and could not be compared or passed across — true of 88% of enums in real schemas. Both models
+  one and could not be compared or passed across. Both models
   now alias one definition, mirrored under `rp::enums`. The spelling you already write is unchanged.
 
   **The dumper's entry points moved with them.** `pkg::rp_dump_string(m, opts)` and

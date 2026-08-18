@@ -139,6 +139,9 @@ if (const ex::Address* a = p->address())           // sub-message: a pointer (nu
 g++ -std=c++17 -Iout my_consumer.cpp -o my_consumer
 ```
 
+Repeated, map and `oneof` fields, and `optional`, read differently — see
+[the arena model](docs/arena.md#what-each-field-kind-returns) before writing much against them.
+
 That's the arena model. To stream instead, pass `--stream` (or `--arena --stream` for both) and use
 the [callback API](docs/streaming.md).
 
