@@ -13,7 +13,7 @@
 
 namespace rapidproto::dump_detail {
 
-inline const char* rp_dump_enum_name(::rp::enums::dep::DepEnum rp_e) {
+inline const char* rp_dump_enum_name(::rp::common::dep::DepEnum rp_e) {
   switch (static_cast<std::int32_t>(rp_e)) {
     case 0: return "DEP_ZERO";
     case 1: return "DEP_ONE";

@@ -13,20 +13,20 @@
 
 namespace pfx::arena::dep {
 
-using ::pfx::enums::dep::DepEnum;
+using ::pfx::common::dep::DepEnum;
 
 class Dep;
 
 class Dep {
  public:
   std::optional<std::int32_t> v() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? std::optional<std::int32_t>(m_v) : std::nullopt; }
-  std::optional<::pfx::enums::dep::DepEnum> de() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 1)) != 0 ? std::optional<::pfx::enums::dep::DepEnum>(m_de) : std::nullopt; }
+  std::optional<::pfx::common::dep::DepEnum> de() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 1)) != 0 ? std::optional<::pfx::common::dep::DepEnum>(m_de) : std::nullopt; }
   [[nodiscard]] static const Dep* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class rp_T> friend bool ::rapidproto::arena_detail::decode_into(rp_T&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
   static bool rp_decode_into(Dep& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
   std::int32_t m_v;
-  ::pfx::enums::dep::DepEnum m_de;
+  ::pfx::common::dep::DepEnum m_de;
   std::uint8_t m_rp_mask;
 };
 static_assert(::std::is_trivially_destructible_v<Dep>);
@@ -61,7 +61,7 @@ RP_FLATTEN inline bool ::pfx::arena::dep::Dep::rp_decode_into([[maybe_unused]] :
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
       if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
       rp_c = rp_np;
-      out.m_de = static_cast<::pfx::enums::dep::DepEnum>(::rapidproto::varint_to_int32(rp_raw));
+      out.m_de = static_cast<::pfx::common::dep::DepEnum>(::rapidproto::varint_to_int32(rp_raw));
       out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 1));
       continue;
     }

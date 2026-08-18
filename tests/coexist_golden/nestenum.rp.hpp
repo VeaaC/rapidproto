@@ -17,25 +17,25 @@ class Outer;
 
 class Outer {
  public:
-  using Kind = ::rp::enums::ne::Outer::Kind;
+  using Kind = ::rp::common::ne::Outer::Kind;
   class Inner;
   class Inner {
    public:
-    using Deep = ::rp::enums::ne::Outer::Inner::Deep;
-    ::rp::enums::ne::Outer::Inner::Deep d() const noexcept { return m_d; }
+    using Deep = ::rp::common::ne::Outer::Inner::Deep;
+    ::rp::common::ne::Outer::Inner::Deep d() const noexcept { return m_d; }
     [[nodiscard]] static const Inner* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
    private:
     template <class rp_T> friend bool ::rapidproto::arena_detail::decode_into(rp_T&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
     static bool rp_decode_into(Inner& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
-    ::rp::enums::ne::Outer::Inner::Deep m_d;
+    ::rp::common::ne::Outer::Inner::Deep m_d;
   };
-  ::rp::enums::ne::Outer::Kind k() const noexcept { return m_k; }
+  ::rp::common::ne::Outer::Kind k() const noexcept { return m_k; }
   const ::rp::arena::ne::Outer::Inner* i() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? &m_i : nullptr; }
   [[nodiscard]] static const Outer* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class rp_T> friend bool ::rapidproto::arena_detail::decode_into(rp_T&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
   static bool rp_decode_into(Outer& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
-  ::rp::enums::ne::Outer::Kind m_k;
+  ::rp::common::ne::Outer::Kind m_k;
   ::rp::arena::ne::Outer::Inner m_i;
   std::uint8_t m_rp_mask;
 };
@@ -61,7 +61,7 @@ RP_FLATTEN inline bool ::rp::arena::ne::Outer::rp_decode_into([[maybe_unused]] :
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
       if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
       rp_c = rp_np;
-      out.m_k = static_cast<::rp::enums::ne::Outer::Kind>(::rapidproto::varint_to_int32(rp_raw));
+      out.m_k = static_cast<::rp::common::ne::Outer::Kind>(::rapidproto::varint_to_int32(rp_raw));
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(2, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_2; }
       continue;
     }
@@ -118,7 +118,7 @@ RP_FLATTEN inline bool ::rp::arena::ne::Outer::Inner::rp_decode_into([[maybe_unu
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
       if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
       rp_c = rp_np;
-      out.m_d = static_cast<::rp::enums::ne::Outer::Inner::Deep>(::rapidproto::varint_to_int32(rp_raw));
+      out.m_d = static_cast<::rp::common::ne::Outer::Inner::Deep>(::rapidproto::varint_to_int32(rp_raw));
       continue;
     }
     rp_field_general:;

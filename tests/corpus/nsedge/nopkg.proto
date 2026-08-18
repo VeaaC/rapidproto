@@ -1,6 +1,7 @@
-// No `package` at all: types land at global scope, so the dumper internals open a global-scope
-// `namespace rp_dump_detail` and qualify as `::rp_dump_detail::...`. The only corpus file without a
-// package.
+// No `package` at all. The types still land under the roots (`rp::arena::Root`, never global
+// scope), so this pins that the roots do not depend on a package being present -- the dumper
+// internals open `rp::arena::rp_dump_detail` and qualify against it. The only corpus file without
+// a package.
 syntax = "proto3";
 
 message Root {

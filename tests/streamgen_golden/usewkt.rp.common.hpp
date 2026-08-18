@@ -6,6 +6,6 @@
 #include "google/protobuf/timestamp.rp.common.hpp"
 #include "google/protobuf/duration.rp.common.hpp"
 
-namespace rp::enums::uw {
+namespace rp::common::uw {
 
-}  // namespace rp::enums::uw
+}  // namespace rp::common::uw

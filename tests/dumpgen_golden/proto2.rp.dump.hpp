@@ -13,7 +13,7 @@
 
 namespace rapidproto::dump_detail {
 
-inline const char* rp_dump_enum_name(::rp::enums::p2::Color rp_e) {
+inline const char* rp_dump_enum_name(::rp::common::p2::Color rp_e) {
   switch (static_cast<std::int32_t>(rp_e)) {
     case 0: return "UNKNOWN";
     case 1: return "RED";

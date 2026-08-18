@@ -40,10 +40,10 @@ RP_FLATTEN ::rapidproto::DecodeStatus Pub::decode(rp_Callbacks&&... rp_callbacks
     }
     goto rp_field_general;
     rp_do_1: {
-      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Callbacks, w, w::Value>)) <= 1U, "field '::rp::stream::pub::Pub::w' is handled by more than one callback");
-      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Callbacks, w, w::Value>)) <= 1U, "field '::rp::stream::pub::Pub::w' is matched by more than one catch-all callback");
-      static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Callbacks, w, w::Value>), "a callback for field '::rp::stream::pub::Pub::w' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
-      static_assert((true && ... && !(::rapidproto::targets<rp_Callbacks, w, w::Value> && !::rapidproto::specifically_handles<rp_Callbacks, w, w::Value>)), "a callback for field '::rp::stream::pub::Pub::w' has the wrong value type (expected w::Value)");
+      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Callbacks, w, w::Value>)) <= 1U, "field 'Pub::w' is handled by more than one callback");
+      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Callbacks, w, w::Value>)) <= 1U, "field 'Pub::w' is matched by more than one catch-all callback");
+      static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Callbacks, w, w::Value>), "a callback for field 'Pub::w' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+      static_assert((true && ... && !(::rapidproto::targets<rp_Callbacks, w, w::Value> && !::rapidproto::specifically_handles<rp_Callbacks, w, w::Value>)), "a callback for field 'Pub::w' has the wrong value type (expected w::Value)");
       if constexpr ((false || ... || ::rapidproto::handles_one<rp_Callbacks, w, w::Value>)) {
         std::uint64_t rp_raw = 0;
         const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);

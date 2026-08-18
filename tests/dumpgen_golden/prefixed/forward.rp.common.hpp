@@ -5,6 +5,6 @@
 #include <cstdint>
 #include "pub.rp.common.hpp"
 
-namespace pfx::enums::fwd {
+namespace pfx::common::fwd {
 
-}  // namespace pfx::enums::fwd
+}  // namespace pfx::common::fwd

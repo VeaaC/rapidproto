@@ -4,7 +4,7 @@
 
 #include <cstdint>
 
-namespace rp::enums::ne {
+namespace rp::common::ne {
 
 namespace Outer {
 enum class Kind : std::int32_t {
@@ -27,4 +27,4 @@ enum class Deep : std::int32_t {
 
 }  // namespace Outer
 
-}  // namespace rp::enums::ne
+}  // namespace rp::common::ne

@@ -4,6 +4,6 @@
 
 #include <cstdint>
 
-namespace rp::enums::sib::stream::logging::v1 {
+namespace rp::common::sib::stream::logging::v1 {
 
-}  // namespace rp::enums::sib::stream::logging::v1
+}  // namespace rp::common::sib::stream::logging::v1

@@ -4,6 +4,6 @@
 
 #include <cstdint>
 
-namespace rp::enums::pub {
+namespace rp::common::pub {
 
-}  // namespace rp::enums::pub
+}  // namespace rp::common::pub

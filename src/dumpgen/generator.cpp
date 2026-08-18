@@ -608,9 +608,7 @@ std::string generate_header(const FileNode& file, const CppNameTable& names,
     // The public surface is `rapidproto::dump(m)`, reached through the dumper<T> specializations
     // emitted after this block.
     const std::string ns = codegen::message_namespace(names, file);
-    if (!ns.empty()) {
-        p.print("namespace $ns$ {\n\n", {{"ns", ns}});
-    }
+    p.print("namespace $ns$ {\n\n", {{"ns", ns}});
     if (!file.messages.empty()) {
         p.print("namespace $d$ {\n\n", {{"d", kDetailNs}});
         for (const MessageNode& m : file.messages) {
@@ -622,9 +620,7 @@ std::string generate_header(const FileNode& file, const CppNameTable& names,
         }
         p.print("}  // namespace $d$\n\n", {{"d", kDetailNs}});
     }
-    if (!ns.empty()) {
-        p.print("}  // namespace $ns$\n\n", {{"ns", ns}});
-    }
+    p.print("}  // namespace $ns$\n\n", {{"ns", ns}});
     // The dumper<T> hooks, reopening the runtime's namespace after every core is defined.
     if (!file.messages.empty()) {
         p.print("namespace rapidproto::dump_detail {\n\n");

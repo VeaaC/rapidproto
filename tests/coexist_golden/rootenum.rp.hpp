@@ -13,21 +13,24 @@
 
 namespace rp::arena::re {
 
-using ::rp::enums::re::stream;
-using ::rp::enums::re::arena;
+using ::rp::common::re::stream;
+using ::rp::common::re::arena;
+using ::rp::common::re::common;
 
 class Holder;
 
 class Holder {
  public:
-  ::rp::enums::re::stream s() const noexcept { return m_s; }
-  ::rp::enums::re::arena a() const noexcept { return m_a; }
+  ::rp::common::re::stream s() const noexcept { return m_s; }
+  ::rp::common::re::arena a() const noexcept { return m_a; }
+  ::rp::common::re::common c() const noexcept { return m_c; }
   [[nodiscard]] static const Holder* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class rp_T> friend bool ::rapidproto::arena_detail::decode_into(rp_T&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
   static bool rp_decode_into(Holder& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
-  ::rp::enums::re::stream m_s;
-  ::rp::enums::re::arena m_a;
+  ::rp::common::re::stream m_s;
+  ::rp::common::re::arena m_a;
+  ::rp::common::re::common m_c;
 };
 static_assert(::std::is_trivially_destructible_v<Holder>);
 
@@ -43,6 +46,7 @@ RP_FLATTEN inline bool ::rp::arena::re::Holder::rp_decode_into([[maybe_unused]] 
     switch (*rp_c) {  // peek the 1-byte tag; threaded fields jump to their label
       case ::rapidproto::raw_tag(1, ::rapidproto::WireType::Varint): ++rp_c; goto rp_do_1;
       case ::rapidproto::raw_tag(2, ::rapidproto::WireType::Varint): ++rp_c; goto rp_do_2;
+      case ::rapidproto::raw_tag(3, ::rapidproto::WireType::Varint): ++rp_c; goto rp_do_3;
       default: break;
     }
     goto rp_field_general;
@@ -51,8 +55,9 @@ RP_FLATTEN inline bool ::rp::arena::re::Holder::rp_decode_into([[maybe_unused]] 
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
       if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
       rp_c = rp_np;
-      out.m_s = static_cast<::rp::enums::re::stream>(::rapidproto::varint_to_int32(rp_raw));
+      out.m_s = static_cast<::rp::common::re::stream>(::rapidproto::varint_to_int32(rp_raw));
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(2, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_2; }
+      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(3, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_3; }
       continue;
     }
     rp_do_2: {
@@ -60,7 +65,16 @@ RP_FLATTEN inline bool ::rp::arena::re::Holder::rp_decode_into([[maybe_unused]] 
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
       if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
       rp_c = rp_np;
-      out.m_a = static_cast<::rp::enums::re::arena>(::rapidproto::varint_to_int32(rp_raw));
+      out.m_a = static_cast<::rp::common::re::arena>(::rapidproto::varint_to_int32(rp_raw));
+      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(3, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_3; }
+      continue;
+    }
+    rp_do_3: {
+      std::uint64_t rp_raw = 0;
+      const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      rp_c = rp_np;
+      out.m_c = static_cast<::rp::common::re::common>(::rapidproto::varint_to_int32(rp_raw));
       continue;
     }
     rp_field_general:;
@@ -72,6 +86,7 @@ RP_FLATTEN inline bool ::rp::arena::re::Holder::rp_decode_into([[maybe_unused]] 
     switch (rp_tag.field_number) {
       case 1: { if (rp_tag.wire_type == ::rapidproto::WireType::Varint) { goto rp_do_1; } break; }
       case 2: { if (rp_tag.wire_type == ::rapidproto::WireType::Varint) { goto rp_do_2; } break; }
+      case 3: { if (rp_tag.wire_type == ::rapidproto::WireType::Varint) { goto rp_do_3; } break; }
       default: break;
     }
     std::size_t rp_fo = 0;

@@ -4,6 +4,6 @@
 
 #include <cstdint>
 
-namespace pfx::enums::pub {
+namespace pfx::common::pub {
 
-}  // namespace pfx::enums::pub
+}  // namespace pfx::common::pub

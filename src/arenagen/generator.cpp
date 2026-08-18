@@ -31,6 +31,7 @@ namespace {
 using codegen::cpp_type_name;
 using codegen::CppNameTable;
 using codegen::Printer;
+using codegen::relative_type_name;
 
 // ── small string helpers ─────────────────────────────────────────────────────────────────────────
 
@@ -295,8 +296,8 @@ void emit_oneof_accessors(const Emit& emit, const OneofPlan& o, const std::strin
         args += ", typename ";
         args += tagref;
         args += "::Value";
-        // The name a USER writes, not the local id: several corpus messages share a local name, so
-        // a bare one cannot say which reader rejected the handler.
+        // The message's name relative to its namespace, not the local id: several corpus messages
+        // share a local name, so a bare one cannot say which reader rejected the handler.
         std::string what = "oneof member '";
         what += owner;
         what += "::";
@@ -653,7 +654,7 @@ void emit_message_body(const Emit& emit, const MessageNode& message) {
         }
     }
     for (const OneofPlan& o : layout.oneofs) {
-        emit_oneof_accessors(emit, o, cpp_type_name(emit.names, layout.fqn));
+        emit_oneof_accessors(emit, o, relative_type_name(emit.names, layout.fqn));
     }
     if (layout.unknown_bit >= 0) {  // --unknown-present: a per-message "saw an unknown field" flag
         p.print("bool $h$() const noexcept { return $b$ != 0; }\n",
@@ -2002,9 +2003,7 @@ std::string generate_header(const FileNode& file, const CppNameTable& names,
     printer.print("\n");
 
     const std::string ns = codegen::message_namespace(names, file);
-    if (!ns.empty()) {
-        printer.print(profiled ? "namespace $ns$ {\n" : "namespace $ns$ {\n\n", {{"ns", ns}});
-    }
+    printer.print(profiled ? "namespace $ns$ {\n" : "namespace $ns$ {\n\n", {{"ns", ns}});
     if (profiled) {
         // The profile identity as an INLINE namespace: users still write pkg::Msg, but the
         // mangled type identity encodes the profile -- two TUs generated under different
@@ -2041,9 +2040,7 @@ std::string generate_header(const FileNode& file, const CppNameTable& names,
     if (profiled) {
         printer.print("}  // namespace rp_modes_$id$\n", {{"id", modes->profile_id}});
     }
-    if (!ns.empty()) {
-        printer.print("}  // namespace $ns$\n", {{"ns", ns}});
-    }
+    printer.print("}  // namespace $ns$\n", {{"ns", ns}});
     return printer.str();
 }
 

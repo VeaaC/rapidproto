@@ -8,12 +8,12 @@ package rn;
 
 message stream { int32 x = 1; }
 message arena { int32 x = 1; }
-message enums { int32 x = 1; }
+message common { int32 x = 1; }
 enum rp { RP_UNSET = 0; }
 
 message Holder {
   stream s = 1;
   arena a = 2;
-  enums e = 3;
+  common c = 3;
   rp r = 4;
 }

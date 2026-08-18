@@ -13,8 +13,8 @@
 
 namespace rp::arena::rapidproto {
 
-using ::rp::enums::rapidproto::WireType;
-using ::rp::enums::rapidproto::DecodeStatus;
+using ::rp::common::rapidproto::WireType;
+using ::rp::common::rapidproto::DecodeStatus;
 
 class wire;
 class Arena;

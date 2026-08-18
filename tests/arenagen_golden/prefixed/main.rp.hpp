@@ -34,18 +34,18 @@ class Main {
   const ::pfx::arena::dep::Dep* d() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? &m_d : nullptr; }
   const ::pfx::arena::pub::Pub* p() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 1)) != 0 ? &m_p : nullptr; }
   const ::pfx::arena::fwd::Fwd* f() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 2)) != 0 ? &m_f : nullptr; }
-  std::optional<::pfx::enums::dep::DepEnum> e() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 3)) != 0 ? std::optional<::pfx::enums::dep::DepEnum>(m_e) : std::nullopt; }
+  std::optional<::pfx::common::dep::DepEnum> e() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 3)) != 0 ? std::optional<::pfx::common::dep::DepEnum>(m_e) : std::nullopt; }
   ::rapidproto::ArrayView<::pfx::arena::dep::Dep> ds() const noexcept { return m_ds; }
   ::rapidproto::MapView<DmEntry> dm() const noexcept { return m_dm; }
   template <class... rp_Fs> void choice(rp_Fs&&... rp_fs) const {
-    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Fs, Choice::od, typename Choice::od::Value>)) <= 1U, "oneof member '::pfx::arena::main::Main::od' is handled by more than one callback");
-    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Fs, Choice::od, typename Choice::od::Value>)) <= 1U, "oneof member '::pfx::arena::main::Main::od' is matched by more than one catch-all callback");
-    static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Fs, Choice::od, typename Choice::od::Value>), "a callback for oneof member '::pfx::arena::main::Main::od' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
-    static_assert((true && ... && !(::rapidproto::targets<rp_Fs, Choice::od, typename Choice::od::Value> && !::rapidproto::specifically_handles<rp_Fs, Choice::od, typename Choice::od::Value>)), "a callback for oneof member '::pfx::arena::main::Main::od' has the wrong value type (expected Choice::od::Value)");
-    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Fs, Choice::oi, typename Choice::oi::Value>)) <= 1U, "oneof member '::pfx::arena::main::Main::oi' is handled by more than one callback");
-    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Fs, Choice::oi, typename Choice::oi::Value>)) <= 1U, "oneof member '::pfx::arena::main::Main::oi' is matched by more than one catch-all callback");
-    static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Fs, Choice::oi, typename Choice::oi::Value>), "a callback for oneof member '::pfx::arena::main::Main::oi' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
-    static_assert((true && ... && !(::rapidproto::targets<rp_Fs, Choice::oi, typename Choice::oi::Value> && !::rapidproto::specifically_handles<rp_Fs, Choice::oi, typename Choice::oi::Value>)), "a callback for oneof member '::pfx::arena::main::Main::oi' has the wrong value type (expected Choice::oi::Value)");
+    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Fs, Choice::od, typename Choice::od::Value>)) <= 1U, "oneof member 'Main::od' is handled by more than one callback");
+    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Fs, Choice::od, typename Choice::od::Value>)) <= 1U, "oneof member 'Main::od' is matched by more than one catch-all callback");
+    static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Fs, Choice::od, typename Choice::od::Value>), "a callback for oneof member 'Main::od' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+    static_assert((true && ... && !(::rapidproto::targets<rp_Fs, Choice::od, typename Choice::od::Value> && !::rapidproto::specifically_handles<rp_Fs, Choice::od, typename Choice::od::Value>)), "a callback for oneof member 'Main::od' has the wrong value type (expected Choice::od::Value)");
+    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Fs, Choice::oi, typename Choice::oi::Value>)) <= 1U, "oneof member 'Main::oi' is handled by more than one callback");
+    static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Fs, Choice::oi, typename Choice::oi::Value>)) <= 1U, "oneof member 'Main::oi' is matched by more than one catch-all callback");
+    static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Fs, Choice::oi, typename Choice::oi::Value>), "a callback for oneof member 'Main::oi' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+    static_assert((true && ... && !(::rapidproto::targets<rp_Fs, Choice::oi, typename Choice::oi::Value> && !::rapidproto::specifically_handles<rp_Fs, Choice::oi, typename Choice::oi::Value>)), "a callback for oneof member 'Main::oi' has the wrong value type (expected Choice::oi::Value)");
     static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Fs, std::monostate>)) <= 1U, "a oneof's unset (std::monostate) state is handled by more than one callback");
     static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Fs, std::monostate>)) <= 1U, "a oneof's unset (std::monostate) state is matched by more than one catch-all callback");
     static_assert((true && ... && !(::rapidproto::targets<rp_Fs, std::monostate> && !::rapidproto::specifically_handles<rp_Fs, std::monostate>)), "a callback for a oneof's unset (std::monostate) state must take exactly (std::monostate)");
@@ -84,7 +84,7 @@ class Main {
   rp_choice_union m_rp_choice;
   ::pfx::arena::pub::Pub m_p;
   ::pfx::arena::fwd::Fwd m_f;
-  ::pfx::enums::dep::DepEnum m_e;
+  ::pfx::common::dep::DepEnum m_e;
   std::uint8_t m_rp_choice_case;
   std::uint8_t m_rp_mask;
 };
@@ -171,7 +171,7 @@ RP_FLATTEN RP_NOINLINE inline bool ::pfx::arena::main::Main::rp_decode_into([[ma
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
       if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
       rp_c = rp_np;
-      out.m_e = static_cast<::pfx::enums::dep::DepEnum>(::rapidproto::varint_to_int32(rp_raw));
+      out.m_e = static_cast<::pfx::common::dep::DepEnum>(::rapidproto::varint_to_int32(rp_raw));
       out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 3));
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(5, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_5; }
       continue;

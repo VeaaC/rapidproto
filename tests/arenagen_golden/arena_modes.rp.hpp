@@ -15,7 +15,7 @@
 namespace rp::arena::fm {
 inline namespace rp_modes_lean_4ba94f51 {
 
-using ::rp::enums::fm::Level;
+using ::rp::common::fm::Level;
 
 class Blob;
 class Holder;
@@ -60,7 +60,7 @@ class Holder {
   ::rapidproto::StringArrayView blobs() const noexcept { return ::rapidproto::StringArrayView(m_blobs); }
   ::rapidproto::ArrayView<std::int32_t> samples() const noexcept { return m_samples; }
   ::rapidproto::ArrayView<std::int32_t> spread() const noexcept { return m_spread; }
-  std::optional<::rp::enums::fm::Level> level() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 2)) != 0 ? std::optional<::rp::enums::fm::Level>(m_level) : std::nullopt; }
+  std::optional<::rp::common::fm::Level> level() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 2)) != 0 ? std::optional<::rp::common::fm::Level>(m_level) : std::nullopt; }
   ::rapidproto::ByteView req_blob() const noexcept { return m_req_blob.view(); }
   std::optional<::rapidproto::ByteView> grp() const noexcept { return m_grp.data() != nullptr ? std::optional<::rapidproto::ByteView>(m_grp.view()) : std::nullopt; }
   ::rapidproto::MapView<By_nameEntry> by_name() const noexcept { return m_by_name; }
@@ -78,7 +78,7 @@ class Holder {
   std::int32_t m_keep;
   std::int32_t m_must;
   std::int32_t m_big_num;
-  ::rp::enums::fm::Level m_level;
+  ::rp::common::fm::Level m_level;
   std::uint8_t m_rp_mask;
 };
 static_assert(::std::is_trivially_destructible_v<Holder>);
@@ -329,7 +329,7 @@ RP_FLATTEN RP_NOINLINE inline bool ::rp::arena::fm::Holder::rp_decode_into([[may
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
       if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
       rp_c = rp_np;
-      out.m_level = static_cast<::rp::enums::fm::Level>(::rapidproto::varint_to_int32(rp_raw));
+      out.m_level = static_cast<::rp::common::fm::Level>(::rapidproto::varint_to_int32(rp_raw));
       out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 2));
       continue;
     }

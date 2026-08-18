@@ -4,7 +4,7 @@
 
 #include <cstdint>
 
-namespace pfx::enums::xr {
+namespace pfx::common::xr {
 
 enum class Version : std::int32_t {
   VERSION_1 = 0,
@@ -58,4 +58,4 @@ enum class Tag : std::int32_t {
 };
 }  // namespace CousinB
 
-}  // namespace pfx::enums::xr
+}  // namespace pfx::common::xr

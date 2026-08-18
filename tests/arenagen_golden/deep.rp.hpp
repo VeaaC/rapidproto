@@ -13,7 +13,7 @@
 
 namespace rp::arena::com::example::deep {
 
-using ::rp::enums::com::example::deep::Mode;
+using ::rp::common::com::example::deep::Mode;
 
 class Outer;
 
@@ -31,14 +31,14 @@ class Outer {
   };
   const ::rp::arena::com::example::deep::Outer::Inner* inner() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? &m_inner : nullptr; }
   const ::rp::arena::com::example::deep::Outer* self() const noexcept { return m_self; }
-  ::rp::enums::com::example::deep::Mode mode() const noexcept { return m_mode; }
+  ::rp::common::com::example::deep::Mode mode() const noexcept { return m_mode; }
   [[nodiscard]] static const Outer* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class rp_T> friend bool ::rapidproto::arena_detail::decode_into(rp_T&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
   static bool rp_decode_into(Outer& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
   const ::rp::arena::com::example::deep::Outer* m_self;
   ::rp::arena::com::example::deep::Outer::Inner m_inner;
-  ::rp::enums::com::example::deep::Mode m_mode;
+  ::rp::common::com::example::deep::Mode m_mode;
   std::uint8_t m_rp_mask;
 };
 static_assert(::std::is_trivially_destructible_v<Outer>);
@@ -85,7 +85,7 @@ RP_FLATTEN RP_NOINLINE inline bool ::rp::arena::com::example::deep::Outer::rp_de
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
       if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
       rp_c = rp_np;
-      out.m_mode = static_cast<::rp::enums::com::example::deep::Mode>(::rapidproto::varint_to_int32(rp_raw));
+      out.m_mode = static_cast<::rp::common::com::example::deep::Mode>(::rapidproto::varint_to_int32(rp_raw));
       continue;
     }
     rp_field_general:;

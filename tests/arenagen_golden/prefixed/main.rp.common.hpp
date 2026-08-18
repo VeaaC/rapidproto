@@ -6,6 +6,6 @@
 #include "dep.rp.common.hpp"
 #include "forward.rp.common.hpp"
 
-namespace pfx::enums::main {
+namespace pfx::common::main {
 
-}  // namespace pfx::enums::main
+}  // namespace pfx::common::main

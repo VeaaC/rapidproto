@@ -18,8 +18,12 @@ namespace rapidproto::codegen {
 // and the streaming decoder references each field tag by its message-qualified name, so a field named
 // like a decode() local no longer collides. The remaining non-keyword reservations are listed (with the
 // clash each prevents) below.
-std::string sanitize(std::string_view name) {
-    static const std::unordered_set<std::string_view> kReserved = {
+namespace {
+
+// Illegal or undefined as ANY C++ name, a namespace included -- so this is the half that also
+// governs a --namespace-prefix component. The keywords, plus `std`.
+const std::unordered_set<std::string_view>& cpp_reserved() {
+    static const std::unordered_set<std::string_view> kSet = {
         "alignas",
         "alignof",
         "and",
@@ -115,38 +119,51 @@ std::string sanitize(std::string_view name) {
         "co_return",
         "co_yield",
         "requires",
-        // Non-keyword reservations, each a real clash a field of that name would cause:
-        //  - Value/Key/kNumber/kName: a streaming tag `struct value { using Value = ...; }` etc. would
-        //    redeclare the injected-class-name.
-        //  - decode: the generated decode() method (a same-named nested tag / arena accessor clashes).
-        //  - std: the one namespace generated code LOOKS UP unrooted (`std::int32_t`,
-        //    `std::string_view`, `std::optional`). Any proto name that becomes a C++ TYPE would
-        //    shadow it from inside the class -- a message or enum at any depth, a package component
-        //    after the first, a streaming field/map tag struct, an arena oneof-member tag struct.
-        //    An arena accessor named `std` would NOT: a nested-name-specifier considers only
-        //    namespaces, types and class templates, so a member function is skipped. It is escaped
-        //    regardless, because one reserved set serves every role. A PACKAGE called `std` is the
-        //    worst case -- it would emit `namespace std { ... }`, undefined behaviour per
-        //    [namespace.std] that compiles without a diagnostic.
-        // The two modes are worth keeping apart: SHADOWING needs a name the output looks up
-        // unrooted (only `std`), while REDECLARATION needs a name the output already defines at the
-        // same scope. `rp_dump_detail` is out of reach via the `rp_` rule, and the model roots are
-        // out of reach by position -- they sit ABOVE every package, so no proto name can reach them.
-        // Every other name the emitters introduce is `rp_`-prefixed -- including the template
-        // parameter packs (`rp_Callbacks`, `rp_Fs`) and the friend/tag aliases (`rp_T`, `rp_Tag`),
-        // which are named that way SO THAT they need no entry here. Reserve a name below only when
-        // the identifier is public API a user writes and so cannot take the prefix.
-        "Value",
-        "Key",
-        "kNumber",
-        "kName",
-        "decode",
+        // `std`: the one namespace generated code LOOKS UP unrooted (`std::int32_t`,
+        // `std::string_view`, `std::optional`). Any proto name that becomes a C++ TYPE would shadow
+        // it from inside the class -- a message or enum at any depth, a package component after the
+        // first, a streaming field/map tag struct, an arena oneof-member tag struct. An arena
+        // accessor named `std` would NOT: a nested-name-specifier considers only namespaces, types
+        // and class templates, so a member function is skipped. It is escaped regardless, because
+        // one reserved set serves every role. A PACKAGE called `std` is the worst case -- it would
+        // emit `namespace std { ... }`, undefined behaviour per [namespace.std] that compiles
+        // without a diagnostic.
         "std",
     };
+    return kSet;
+}
+
+// Clash only with a generated MEMBER, so they are reserved for a proto name and for nothing else.
+// They are ordinary words in every other role: a namespace called `decode` or `Value` compiles, and
+// refusing one as a --namespace-prefix component rejected a name that works.
+//
+//  - Value/Key/kNumber/kName: a streaming tag `struct value { using Value = ...; }` etc. would
+//    redeclare the injected-class-name.
+//  - decode: the generated decode() method (a same-named nested tag / arena accessor clashes).
+//
+// REDECLARATION is the only mode here; SHADOWING (a name the output looks up unrooted) needs `std`,
+// which is in cpp_reserved() above because it is illegal as a namespace too. `rp_dump_detail` is out
+// of reach via the `rp_` rule, and the model roots are out of reach by position -- they sit ABOVE
+// every package, so no proto name can reach them. Every other name the emitters introduce is
+// `rp_`-prefixed -- including the template parameter packs (`rp_Callbacks`, `rp_Fs`) and the
+// friend/tag aliases (`rp_T`, `rp_Tag`), which are named that way SO THAT they need no entry here.
+// Reserve a name below only when the identifier is public API a user writes and so cannot take the
+// prefix.
+const std::unordered_set<std::string_view>& member_reserved() {
+    static const std::unordered_set<std::string_view> kSet = {
+        "Value", "Key", "kNumber", "kName", "decode",
+    };
+    return kSet;
+}
+
+}  // namespace
+
+std::string sanitize(std::string_view name) {
     std::string out(name);
     // `rp_`-prefixed: any proto name beginning with the generator-internal prefix. A single trailing
     // `_` makes it distinct from every emitted `rp_` local (which never end in `_`).
-    if (name.rfind("rp_", 0) == 0 || kReserved.count(name) != 0 || expands_as_macro(name)) {
+    if (name.rfind("rp_", 0) == 0 || cpp_reserved().count(name) != 0 ||
+        member_reserved().count(name) != 0 || expands_as_macro(name)) {
         out += '_';
     }
     return out;
@@ -187,7 +204,7 @@ namespace {
 //
 // There used to be a fallback here that synthesized `::<prefix>::<pkg>::<Type>` by sanitizing each
 // component. It cannot be right any more, and could not be trusted before: the roots put messages
-// and enums under DIFFERENT ones (`<prefix>::arena::<pkg>` vs `<prefix>::enums::<pkg>`) and nothing
+// and enums under DIFFERENT ones (`<prefix>::arena::<pkg>` vs `<prefix>::common::<pkg>`) and nothing
 // in an FQN says which kind it names, so every synthesized name is wrong. Even pre-roots it could
 // return an id belonging to a different real type -- names are deduped per package, so `.p.decode`
 // synthesized `::p::decode_`, which is what a sibling `message decode_` actually holds.
@@ -238,7 +255,7 @@ void index_message(CppNameTable& names, const MessageNode& message, const std::s
     // header that does not compile. The parent keeps its name; the child is the one deduped.
     taken.insert(names.local.at(&message));
     std::vector<std::pair<const MessageNode*, std::string>> children;
-    // A nested enum's canonical home is the MIRROR under the enums root, not this class: one C++
+    // A nested enum's canonical home is the MIRROR under the common root, not this class: one C++
     // type both models alias, instead of a copy per model. The mirror reuses the ids assigned here,
     // so its path is the model path with the root swapped -- which is why `taken` still governs both
     // and why no second dedup pass exists.
@@ -327,12 +344,12 @@ void claim_unescaped_toplevel(const CppNameTable& names, const FileNode& file,
 void index_file(CppNameTable& names, const FileNode& file, TakenByNamespace& taken_by_ns,
                 const ClaimedIds& claimed) {
     // Messages and enums are emitted under DIFFERENT roots -- `<prefix>::<model>::<pkg>` and
-    // `<prefix>::enums::<pkg>` -- so a top-level type of any name can no longer collide with a
+    // `<prefix>::common::<pkg>` -- so a top-level type of any name can no longer collide with a
     // generator-invented segment: there is none inside the package scope any more.
     const std::string msg_ns = message_namespace(names, file);
-    const std::string msg_root = msg_ns.empty() ? std::string() : "::" + msg_ns;
+    const std::string msg_root = "::" + msg_ns;
     const std::string enum_ns = enum_namespace(names, file);
-    const std::string enum_root = enum_ns.empty() ? std::string() : "::" + enum_ns;
+    const std::string enum_root = "::" + enum_ns;
     // ONE dedup scope for both, keyed on the PACKAGE namespace alone -- never on the root. The two
     // roots are separate C++ scopes, so a shared set is stricter than C++ requires; that is
     // deliberate. It keeps ids model-independent (the common header is shared, and ids differing
@@ -354,7 +371,7 @@ void index_file(CppNameTable& names, const FileNode& file, TakenByNamespace& tak
         tops.emplace_back(&message, std::move(abs));
     }
     for (const auto& [message, abs] : tops) {
-        // The mirror path for a top-level message: same id, enums root instead of the model root.
+        // The mirror path for a top-level message: same id, common root instead of the model root.
         index_message(names, *message, abs, enum_root + "::" + names.local.at(message), msg_ns,
                       claimed);
     }
@@ -404,14 +421,29 @@ std::string message_namespace(const CppNameTable& names, const FileNode& file) {
 }
 
 std::string ns_prefix_component_problem(std::string_view component) {
-    const std::string escaped = sanitize(component);
-    if (escaped != component) {
-        return "the generator would have to rename it to `" + escaped + "`";
+    // Deliberately NOT `sanitize(component) != component`. sanitize()'s set is calibrated for proto
+    // names, which become MEMBERS as well as namespaces, so deriving the rule from it refused
+    // `decode`, `Value`, `Key`, `kNumber` and `kName` -- every one of which is a working namespace
+    // name. A prefix is what the user asked their code to be called; refusing a name that compiles
+    // is as wrong an answer as silently renaming one that does not.
+    if (cpp_reserved().count(component) != 0) {
+        return "it is a C++ keyword or `std`";
+    }
+    // The generator's own prefix, in both spellings: `rp_` names its internals (rp_dump_detail and
+    // friends) and `RP_` its macros, so a prefix starting with either can collide with a name the
+    // output introduces for itself. Checked BEFORE the macro rule, which also matches every `RP_`
+    // name and would otherwise answer a prefix question with a claim about macro expansion.
+    if (component.rfind("rp_", 0) == 0 || component.rfind("RP_", 0) == 0) {
+        return "`rp_` and `RP_` are reserved for the generator's own names";
+    }
+    if (expands_as_macro(component)) {
+        return "it expands as a macro rather than compiling as a name";
     }
     if (component == "rapidproto") {
-        // Not sanitize()'s business: a PACKAGE of this name is harmless under the roots (it lands at
-        // `<prefix>::arena::rapidproto`), but as the prefix it would open `rapidproto::arena` and
-        // merge generated types into the runtime's own namespace.
+        // A PACKAGE of this name is harmless under the roots (it lands at
+        // `<prefix>::arena::rapidproto`), but a prefix component would put generated code inside a
+        // namespace named like the runtime's own, where an unqualified `rapidproto::` in any
+        // hand-written code near it resolves to the wrong one.
         return "it is the runtime's own namespace";
     }
     return {};
@@ -422,14 +454,14 @@ std::string effective_ns_prefix(std::string_view prefix) {
 }
 
 std::string enum_namespace(const CppNameTable& names, const FileNode& file) {
-    return join_ns(join_ns(names.ns_prefix, kEnumsRoot), namespace_of(file.package));
+    return join_ns(join_ns(names.ns_prefix, kCommonRoot), namespace_of(file.package));
 }
 
 CppNameTable build_cpp_names(const FileNode& file, const std::vector<FileNode>& all_files,
                              std::string ns_prefix, std::string model_namespace) {
     CppNameTable names;
     // Substituted HERE as well as in the convenience overloads: this is a public entry point, and an
-    // empty prefix would put the model roots -- `arena`, `stream`, `enums` -- at global scope, which
+    // empty prefix would put the model roots -- `arena`, `stream`, `common` -- at global scope, which
     // is exactly what the CLI and the CMake helper refuse. A library caller should not be able to
     // reach a layout the tools forbid.
     names.ns_prefix = ns_prefix.empty() ? namespace_of(kDefaultNsPrefix) : std::move(ns_prefix);
@@ -461,6 +493,16 @@ std::string cpp_type_name(const CppNameTable& names, std::string_view fqn) {
     // this library, not bad input, and there is no correct name to fall back to -- see
     // unresolved_type_name.
     return found != names.absolute.end() ? found->second : unresolved_type_name(fqn);
+}
+
+std::string relative_type_name(const CppNameTable& names, std::string_view fqn) {
+    std::string absolute = cpp_type_name(names, fqn);
+    const auto it = names.type_ns.find(std::string(fqn));
+    if (it == names.type_ns.end()) {
+        return absolute;  // not a message (or an unresolved reference): nothing to strip.
+    }
+    const std::string head = "::" + it->second + "::";
+    return absolute.rfind(head, 0) == 0 ? absolute.substr(head.size()) : absolute;
 }
 
 }  // namespace rapidproto::codegen

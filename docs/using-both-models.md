@@ -4,7 +4,7 @@
 [README](../README.md).*
 
 Each model has its **own root namespace**: arena at `rp::arena::<pkg>::Msg`, streaming at
-`rp::stream::<pkg>::Msg`, with the schema's enums as a single shared type at `rp::enums::<pkg>`,
+`rp::stream::<pkg>::Msg`, with the schema's enums as a single shared type at `rp::common::<pkg>`,
 aliased into both. Nothing the generator invents lands inside your package, so any schema coexists.
 Generate both (`--arena --stream`, or `GENERATOR both` in CMake) and use each where it fits:
 

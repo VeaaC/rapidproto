@@ -894,13 +894,13 @@ unit. Three pieces make that work:
   a `.rp.hpp` for one schema compile together. The shape is each model's permanent one, applied
   whether one model is generated or both, so adding the second never renames the first.
 - **Shared enums under their own root.** A schema's enums are emitted ONCE into
-  `<stem>.rp.common.hpp` at `<prefix>::enums::pkg`, by `codegen::emit_common_header`. Both decoders
+  `<stem>.rp.common.hpp` at `<prefix>::common::pkg`, by `codegen::emit_common_header`. Both decoders
   `#include` it (re-exported via an IWYU `export` pragma, so a TU that includes only the decoder still
   "directly provides" the enums) and each aliases every enum into its own model namespace, so
   `<prefix>::arena::pkg::State` and `<prefix>::stream::pkg::State` name one type. A third root rather
   than package scope keeps the ids model-independent while leaving package scope empty of anything
   the generator invented. NESTED enums are shared the same way, through a **namespace mirror** of the
-  message nesting (`rp::enums::pkg::Msg::Kind`), aliased back into each model's class. The mirror
+  message nesting (`rp::common::pkg::Msg::Kind`), aliased back into each model's class. The mirror
   reuses the ids the model already assigned, so its path is the model path with the root swapped and
   no second dedup pass exists; namespaces rather than scope structs, since a namespace cannot be
   named as a type and so cannot be mistaken for the message.

@@ -4,7 +4,7 @@
 
 #include <cstdint>
 
-namespace rp::enums::nm {
+namespace rp::common::nm {
 
 enum class E : std::int32_t {
   decode_ = 0,
@@ -47,4 +47,4 @@ enum class std_ : std::int32_t {
 };
 }  // namespace StdEnum
 
-}  // namespace rp::enums::nm
+}  // namespace rp::common::nm

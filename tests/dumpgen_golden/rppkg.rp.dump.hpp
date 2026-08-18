@@ -13,14 +13,14 @@
 
 namespace rapidproto::dump_detail {
 
-inline const char* rp_dump_enum_name(::rp::enums::rapidproto::WireType rp_e) {
+inline const char* rp_dump_enum_name(::rp::common::rapidproto::WireType rp_e) {
   switch (static_cast<std::int32_t>(rp_e)) {
     case 0: return "A";
   }
   return nullptr;  // unknown (open enum): the caller renders UNKNOWN(<n>)
 }
 
-inline const char* rp_dump_enum_name(::rp::enums::rapidproto::DecodeStatus rp_e) {
+inline const char* rp_dump_enum_name(::rp::common::rapidproto::DecodeStatus rp_e) {
   switch (static_cast<std::int32_t>(rp_e)) {
     case 0: return "A";
   }

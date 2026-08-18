@@ -4,6 +4,6 @@
 
 #include <cstdint>
 
-namespace rp::enums::ms {
+namespace rp::common::ms {
 
-}  // namespace rp::enums::ms
+}  // namespace rp::common::ms

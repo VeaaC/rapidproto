@@ -4,6 +4,6 @@
 
 #include <cstdint>
 
-namespace rp::enums::au {
+namespace rp::common::au {
 
-}  // namespace rp::enums::au
+}  // namespace rp::common::au

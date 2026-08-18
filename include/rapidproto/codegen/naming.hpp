@@ -40,7 +40,7 @@ struct CppNameTable {
     // prefix and the package: `<prefix>::<model>::<pkg>::Msg`. A root rather than a suffix so no
     // generator-invented name lands inside the user's package scope, where a top-level type of that
     // name would collide with it. Enums are never under it: they are shared, and live at
-    // `<prefix>::enums::<pkg>` (see kEnumsRoot). Must be a single valid C++ identifier -- it is
+    // `<prefix>::common::<pkg>` (see kCommonRoot). Must be a single valid C++ identifier -- it is
     // concatenated verbatim, not run through namespace_of.
     std::string model_namespace;
 };
@@ -76,6 +76,14 @@ CppNameTable build_cpp_names(const FileNode& file, const std::vector<FileNode>& 
 // silently wrong reference. Callers pass FQNs straight from the AST (leading-dot form, `.pkg.Name`).
 std::string cpp_type_name(const CppNameTable& names, std::string_view fqn);
 
+// A message's C++ name RELATIVE to the namespace it is emitted in ("Outer::Inner"): the absolute
+// name with its namespace head removed. For diagnostics emitted once per FIELD, where the absolute
+// head is identical for every message in the file and the nested path already says which message --
+// spelling it in full there costs a copy of `<prefix>::<model>::<package>::` per field guard, which
+// on a large schema is megabytes of header. Message-level diagnostics keep the absolute name, which
+// a reader may need to tell two same-named messages apart.
+std::string relative_type_name(const CppNameTable& names, std::string_view fqn);
+
 // proto package "a.b.c" -> C++ namespace "a::b::c" (empty package -> ""), each component sanitized.
 std::string namespace_of(std::string_view package);
 
@@ -91,10 +99,12 @@ std::string ns_prefix_component_problem(std::string_view component);
 // Join two C++ namespace fragments with "::", dropping empties ("" + "a::b" -> "a::b").
 std::string join_ns(std::string_view a, std::string_view b);
 
-// The root segment shared enums are emitted under, between the prefix and the package. `rp_`-free
-// on purpose: it is unreachable from a proto name because it sits above every package, not inside
-// one.
-inline constexpr std::string_view kEnumsRoot = "enums";
+// The root segment for entities SHARED by both decoder models, between the prefix and the package.
+// Today that is the schema's enums. Named for the role rather than the contents: a second shared
+// entity (a case tag, a field-number constant) then needs no rename, and a rename here changes every
+// generated name. `rp_`-free on purpose: it is unreachable from a proto name because it sits above
+// every package, not inside one.
+inline constexpr std::string_view kCommonRoot = "common";
 
 // The model root segments, the two legal values of `CppNameTable::model_namespace`.
 inline constexpr std::string_view kArenaRoot = "arena";
@@ -106,9 +116,10 @@ inline constexpr std::string_view kStreamRoot = "stream";
 inline constexpr std::string_view kDefaultNsPrefix = "rp";
 
 // The prefix a generator actually uses: `namespace_of(prefix)`, or the default when the caller gave
-// nothing. The CLI REJECTS an empty prefix (see cli::valid_namespace_prefix); the library entry
-// points substitute instead, because an empty one here would put the three root segments at global
-// scope for any embedder who left the argument off -- silently, and only in their build.
+// nothing. The two entry points answer an empty prefix differently on purpose: the CLI REFUSES it
+// (cli::namespace_prefix_problem), because someone typing it means something by it and the tool can
+// say so; the library SUBSTITUTES the default, because an embedder who simply left the argument off
+// would otherwise put the three root segments at global scope -- silently, and only in their build.
 std::string effective_ns_prefix(std::string_view prefix);
 
 // The C++ namespace a generated DECODER opens for its message types:
@@ -118,7 +129,7 @@ std::string effective_ns_prefix(std::string_view prefix);
 std::string message_namespace(const CppNameTable& names, const FileNode& file);
 
 // The C++ namespace the SHARED common header opens for this file's enums:
-// `<ns_prefix>::enums::<package>`. Model-independent by construction, which is what lets both
+// `<ns_prefix>::common::<package>`. Model-independent by construction, which is what lets both
 // decoders alias one enum type.
 std::string enum_namespace(const CppNameTable& names, const FileNode& file);
 

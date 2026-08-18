@@ -5,7 +5,7 @@
 #include <cstdint>
 #include "escdedup_b.rp.common.hpp"
 
-namespace rp::enums::escdedup {
+namespace rp::common::escdedup {
 
 enum class decode__ : std::int32_t {
   UNSET = 0,
@@ -16,4 +16,4 @@ enum class decode__ : std::int32_t {
   rp_non_exhaustive_max = INT32_MAX,
 };
 
-}  // namespace rp::enums::escdedup
+}  // namespace rp::common::escdedup

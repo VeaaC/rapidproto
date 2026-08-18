@@ -369,7 +369,7 @@ if(RAPIDPROTO_BUILD_TESTS)
   set(BENCH_GEN "${CMAKE_CURRENT_BINARY_DIR}/generated/bench")
   file(MAKE_DIRECTORY "${BENCH_GEN}")
   # One rapidprotoc invocation emits BOTH decoders under the `rp` prefix, sharing ONE common header
-  # (rp::enums::bench): arena at rp::arena::bench::Dataset, streaming at rp::stream::bench::Dataset,
+  # (rp::common::bench): arena at rp::arena::bench::Dataset, streaming at rp::stream::bench::Dataset,
   # both distinct from protoc's bench::Dataset -- all three coexist in one translation unit.
   add_custom_command(
     OUTPUT "${BENCH_GEN}/bench.rp.hpp" "${BENCH_GEN}/bench.rp.stream.hpp"

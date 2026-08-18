@@ -38,14 +38,14 @@ namespace rapidproto::cli {
 // would quietly become something else.
 //
 // Empty is rejected rather than meaning "no prefix". The generated models sit under per-model root
-// segments (`arena`, `stream`, `enums`), so an empty prefix would put those three ordinary words at
+// segments (`arena`, `stream`, `common`), so an empty prefix would put those three ordinary words at
 // GLOBAL scope, where a consumer's own `class arena` or `namespace stream` collides with them. The
 // prefix is what keeps them in one namespace the consumer can rename; `rp` is only its default.
 //
 // Returns "" when `p` is usable, else the reason, ready to print.
 inline std::string namespace_prefix_problem(std::string_view p) {
     if (p.empty()) {
-        return "it cannot be empty: the arena/stream/enums roots would land at global scope. Pass "
+        return "it cannot be empty: the arena/stream/common roots would land at global scope. Pass "
                "a "
                "name instead (default: " +
                std::string(codegen::kDefaultNsPrefix) + ")";

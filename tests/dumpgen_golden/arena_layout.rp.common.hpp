@@ -4,7 +4,7 @@
 
 #include <cstdint>
 
-namespace rp::enums::al {
+namespace rp::common::al {
 
 enum class Color : std::int32_t {
   RED = 0,
@@ -16,4 +16,4 @@ enum class Color : std::int32_t {
   rp_non_exhaustive_max = INT32_MAX,
 };
 
-}  // namespace rp::enums::al
+}  // namespace rp::common::al

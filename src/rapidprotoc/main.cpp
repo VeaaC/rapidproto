@@ -6,7 +6,7 @@
 // models include) per file, plus a self-contained copy of each model's runtime. Parsing once and
 // emitting both models from one name analysis is what lets the two decoders coexist in a single TU
 // (arena at `rp::arena::pkg::Msg`, streaming at `rp::stream::pkg::Msg`, enums shared at
-// `rp::enums::pkg::State`). A thin driver
+// `rp::common::pkg::State`). A thin driver
 // over the library; not linted. The shared flag parsing / resolve-analyze / file writing live in
 // rapidproto/cli/driver.hpp.
 

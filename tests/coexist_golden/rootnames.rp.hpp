@@ -13,11 +13,11 @@
 
 namespace rp::arena::rn {
 
-using ::rp::enums::rn::rp;
+using ::rp::common::rn::rp;
 
 class stream;
 class arena;
-class enums;
+class common;
 class Holder;
 
 class stream {
@@ -42,31 +42,31 @@ class arena {
 };
 static_assert(::std::is_trivially_destructible_v<arena>);
 
-class enums {
+class common {
  public:
   std::int32_t x() const noexcept { return m_x; }
-  [[nodiscard]] static const enums* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
+  [[nodiscard]] static const common* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class rp_T> friend bool ::rapidproto::arena_detail::decode_into(rp_T&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
-  static bool rp_decode_into(enums& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
+  static bool rp_decode_into(common& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
   std::int32_t m_x;
 };
-static_assert(::std::is_trivially_destructible_v<enums>);
+static_assert(::std::is_trivially_destructible_v<common>);
 
 class Holder {
  public:
   const ::rp::arena::rn::stream* s() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? &m_s : nullptr; }
   const ::rp::arena::rn::arena* a() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 1)) != 0 ? &m_a : nullptr; }
-  const ::rp::arena::rn::enums* e() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 2)) != 0 ? &m_e : nullptr; }
-  ::rp::enums::rn::rp r() const noexcept { return m_r; }
+  const ::rp::arena::rn::common* c() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 2)) != 0 ? &m_c : nullptr; }
+  ::rp::common::rn::rp r() const noexcept { return m_r; }
   [[nodiscard]] static const Holder* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class rp_T> friend bool ::rapidproto::arena_detail::decode_into(rp_T&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
   static bool rp_decode_into(Holder& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
   ::rp::arena::rn::stream m_s;
   ::rp::arena::rn::arena m_a;
-  ::rp::arena::rn::enums m_e;
-  ::rp::enums::rn::rp m_r;
+  ::rp::arena::rn::common m_c;
+  ::rp::common::rn::rp m_r;
   std::uint8_t m_rp_mask;
 };
 static_assert(::std::is_trivially_destructible_v<Holder>);
@@ -166,7 +166,7 @@ inline const ::rp::arena::rn::arena* ::rp::arena::rn::arena::decode(::rapidproto
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-RP_FLATTEN inline bool ::rp::arena::rn::enums::rp_decode_into([[maybe_unused]] ::rp::arena::rn::enums& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN inline bool ::rp::arena::rn::common::rp_decode_into([[maybe_unused]] ::rp::arena::rn::common& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(body);
   const std::uint8_t* const rp_cend = rp_c + body.size();
@@ -204,9 +204,9 @@ RP_FLATTEN inline bool ::rp::arena::rn::enums::rp_decode_into([[maybe_unused]] :
   }
   return true;
 }
-inline const ::rp::arena::rn::enums* ::rp::arena::rn::enums::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+inline const ::rp::arena::rn::common* ::rp::arena::rn::common::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
-  ::rp::arena::rn::enums* const rp_root = arena.create<::rp::arena::rn::enums>();
+  ::rp::arena::rn::common* const rp_root = arena.create<::rp::arena::rn::common>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
   return rp_root;
@@ -253,7 +253,7 @@ RP_FLATTEN RP_NOINLINE inline bool ::rp::arena::rn::Holder::rp_decode_into([[may
       if ((out.m_rp_mask & (std::uint8_t{1} << 2)) != 0) { ::rapidproto::rp_fail_repeated_singular(err, 3); return false; }
       ::rapidproto::ByteView rp_v;
       { const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_v, &rp_we); if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; } rp_c = rp_np; }
-      if (!::rapidproto::arena_detail::decode_into(out.m_e, rp_v, arena, depth + 1, err)) { return false; }
+      if (!::rapidproto::arena_detail::decode_into(out.m_c, rp_v, arena, depth + 1, err)) { return false; }
       out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 2));
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(4, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_4; }
       continue;
@@ -263,7 +263,7 @@ RP_FLATTEN RP_NOINLINE inline bool ::rp::arena::rn::Holder::rp_decode_into([[may
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
       if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
       rp_c = rp_np;
-      out.m_r = static_cast<::rp::enums::rn::rp>(::rapidproto::varint_to_int32(rp_raw));
+      out.m_r = static_cast<::rp::common::rn::rp>(::rapidproto::varint_to_int32(rp_raw));
       continue;
     }
     rp_field_general:;

@@ -13,13 +13,13 @@
 
 namespace rp::arena::ed23 {
 
-using ::rp::enums::ed23::E;
+using ::rp::common::ed23::E;
 
 class M;
 
 class M {
  public:
-  using Inner = ::rp::enums::ed23::M::Inner;
+  using Inner = ::rp::common::ed23::M::Inner;
   std::int32_t implicit_scalar() const noexcept { return m_implicit_scalar; }
   std::optional<std::int32_t> explicit_scalar() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? std::optional<std::int32_t>(m_explicit_scalar) : std::nullopt; }
   const ::rp::arena::ed23::M* child() const noexcept { return m_child; }

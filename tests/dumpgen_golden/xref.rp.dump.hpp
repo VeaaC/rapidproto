@@ -13,7 +13,7 @@
 
 namespace rapidproto::dump_detail {
 
-inline const char* rp_dump_enum_name(::rp::enums::xr::Version rp_e) {
+inline const char* rp_dump_enum_name(::rp::common::xr::Version rp_e) {
   switch (static_cast<std::int32_t>(rp_e)) {
     case 0: return "VERSION_1";
     case 1: return "VERSION_2";
@@ -21,7 +21,7 @@ inline const char* rp_dump_enum_name(::rp::enums::xr::Version rp_e) {
   return nullptr;  // unknown (open enum): the caller renders UNKNOWN(<n>)
 }
 
-inline const char* rp_dump_enum_name(::rp::enums::xr::Mixed rp_e) {
+inline const char* rp_dump_enum_name(::rp::common::xr::Mixed rp_e) {
   switch (static_cast<std::int32_t>(rp_e)) {
     case 0: return "MIXED_A";
     case 1: return "OTHER";
@@ -29,7 +29,7 @@ inline const char* rp_dump_enum_name(::rp::enums::xr::Mixed rp_e) {
   return nullptr;  // unknown (open enum): the caller renders UNKNOWN(<n>)
 }
 
-inline const char* rp_dump_enum_name(::rp::enums::xr::Stream rp_e) {
+inline const char* rp_dump_enum_name(::rp::common::xr::Stream rp_e) {
   switch (static_cast<std::int32_t>(rp_e)) {
     case 0: return "STREAM_OK";
     case 1: return "STREAM_EOF";
@@ -37,7 +37,7 @@ inline const char* rp_dump_enum_name(::rp::enums::xr::Stream rp_e) {
   return nullptr;  // unknown (open enum): the caller renders UNKNOWN(<n>)
 }
 
-inline const char* rp_dump_enum_name(::rp::enums::xr::Nested::Def::Kind rp_e) {
+inline const char* rp_dump_enum_name(::rp::common::xr::Nested::Def::Kind rp_e) {
   switch (static_cast<std::int32_t>(rp_e)) {
     case 0: return "UNKNOWN";
     case 1: return "A";
@@ -45,7 +45,7 @@ inline const char* rp_dump_enum_name(::rp::enums::xr::Nested::Def::Kind rp_e) {
   return nullptr;  // unknown (open enum): the caller renders UNKNOWN(<n>)
 }
 
-inline const char* rp_dump_enum_name(::rp::enums::xr::CousinB::Tag rp_e) {
+inline const char* rp_dump_enum_name(::rp::common::xr::CousinB::Tag rp_e) {
   switch (static_cast<std::int32_t>(rp_e)) {
     case 0: return "NONE";
     case 1: return "X";

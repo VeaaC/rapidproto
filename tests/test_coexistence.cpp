@@ -42,17 +42,19 @@
 #include "coexist_golden/sibpkg.rp.stream.hpp"
 
 TEST_CASE("coexistence: types named after the model roots", "[coexistence]") {
-    // Messages named `stream` / `arena` / `enums`, both models in scope. Under the previous layout
+    // Messages named `stream` / `arena` / `common`, both models in scope. Under the previous layout
     // the streaming header's `namespace rn::stream` and the arena header's `class rn::stream` were
     // the same name, and this TU did not compile.
     static_assert(!std::is_same_v<rp::arena::rn::stream, rp::stream::rn::stream>);
     static_assert(!std::is_same_v<rp::arena::rn::arena, rp::stream::rn::arena>);
-    static_assert(!std::is_same_v<rp::arena::rn::enums, rp::stream::rn::enums>);
+    static_assert(!std::is_same_v<rp::arena::rn::common, rp::stream::rn::common>);
     // ...and a top-level enum of that name is ONE type, reached identically through either model.
     static_assert(std::is_same_v<rp::arena::re::stream, rp::stream::re::stream>);
-    static_assert(std::is_same_v<rp::arena::re::arena, rp::enums::re::arena>);
+    static_assert(std::is_same_v<rp::arena::re::arena, rp::common::re::arena>);
+    // An enum named after the shared root itself: rp::common::re::common.
+    static_assert(std::is_same_v<rp::arena::re::common, rp::common::re::common>);
     // A top-level enum named `rp`, the default prefix itself.
-    static_assert(std::is_same_v<rp::arena::rn::rp, rp::enums::rn::rp>);
+    static_assert(std::is_same_v<rp::arena::rn::rp, rp::common::rn::rp>);
     CHECK(true);  // the compile is the assertion
 }
 
@@ -61,12 +63,12 @@ TEST_CASE("coexistence: a NESTED enum is one type across both models", "[coexist
     // were two unrelated types, one defined inside each model's class, so a value read from one
     // decoder could not be compared with or passed to code expecting the other.
     static_assert(std::is_same_v<rp::arena::ne::Outer::Kind, rp::stream::ne::Outer::Kind>);
-    static_assert(std::is_same_v<rp::arena::ne::Outer::Kind, rp::enums::ne::Outer::Kind>);
+    static_assert(std::is_same_v<rp::arena::ne::Outer::Kind, rp::common::ne::Outer::Kind>);
     // ...at depth, through the mirror's nested namespaces.
     static_assert(
         std::is_same_v<rp::arena::ne::Outer::Inner::Deep, rp::stream::ne::Outer::Inner::Deep>);
     static_assert(
-        std::is_same_v<rp::arena::ne::Outer::Inner::Deep, rp::enums::ne::Outer::Inner::Deep>);
+        std::is_same_v<rp::arena::ne::Outer::Inner::Deep, rp::common::ne::Outer::Inner::Deep>);
     // Enumerators reach through the alias, which a bare type-identity check would not prove.
     CHECK(static_cast<int>(rp::stream::ne::Outer::Kind::B) == 1);
 }

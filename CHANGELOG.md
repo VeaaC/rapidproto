@@ -14,23 +14,23 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
   |---|---|---|
   | arena | `pkg::Msg` | `rp::arena::pkg::Msg` |
   | streaming | `pkg::stream::Msg` | `rp::stream::pkg::Msg` |
-  | enums | `pkg::Enum`, `pkg::Msg::Kind` | `rp::enums::pkg::Enum`, `rp::enums::pkg::Msg::Kind`, aliased into both models |
+  | enums | `pkg::Enum`, `pkg::Msg::Kind` | `rp::common::pkg::Enum`, `rp::common::pkg::Msg::Kind`, aliased into both models |
 
   A namespace alias per file leaves most bodies unchanged — one shape per model you use:
 
   ```cpp
   namespace pkg { using namespace rp::arena::pkg; }           // arena only
-  namespace pkg { using namespace rp::enums::pkg;             // streaming only
+  namespace pkg { using namespace rp::common::pkg;             // streaming only
                   namespace stream = rp::stream::pkg; }
   namespace pkg { using namespace rp::arena::pkg;             // both
                   namespace stream = rp::stream::pkg; }
   ```
 
-  The streaming row needs the enums root because a streaming codebase spelled top-level enums at
+  The streaming row needs the common root because a streaming codebase spelled top-level enums at
   package scope (`pkg::Status`), which only the arena model's alias brings back. A package-less
   schema takes the same shapes at global scope. Put the alias in a `.cpp`: at file scope in a header
   it leaks to every includer. Do not combine two rows — `using namespace rp::arena::pkg;` beside
-  `using namespace rp::enums::pkg;` makes `pkg::Msg` ambiguous between the arena class and the
+  `using namespace rp::common::pkg;` makes `pkg::Msg` ambiguous between the arena class and the
   mirror namespace.
 
   Two things the alias does not carry over, both compile errors rather than silent:
@@ -45,12 +45,14 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
   `rp::pkg::Msg` to `rp::arena::pkg::Msg` — and the flag is no longer needed for that purpose. The root is named by
   `--namespace-prefix`, which now defaults to `rp` and **no longer accepts an empty value** — the
   three root segments would otherwise land at global scope. Pass `--namespace-prefix=myco` if your
-  codebase already owns `rp`.
+  codebase already owns `rp`. A prefix component is refused rather than silently renamed when it
+  would not compile as written (a keyword, `std`, a name that macro-expands), when it starts with
+  `rp_`/`RP_`, or when it is `rapidproto` — the generator's and the runtime's own names.
 
   **Nested enums are now shared too.** A `Msg::Kind` used to be defined separately inside each
   model's class, so an enum read from the arena decoder was a different C++ type from the streaming
   one and could not be compared or passed across. Both models
-  now alias one definition, mirrored under `rp::enums`. The spelling you already write is unchanged.
+  now alias one definition, mirrored under `rp::common`. The spelling you already write is unchanged.
 
   **The dumper's entry points moved with them.** `pkg::rp_dump_string(m, opts)` and
   `pkg::rp_dump_write(os, m, opts)` become `rapidproto::dump(m, opts)` and

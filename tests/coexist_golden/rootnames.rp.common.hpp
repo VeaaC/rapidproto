@@ -4,7 +4,7 @@
 
 #include <cstdint>
 
-namespace rp::enums::rn {
+namespace rp::common::rn {
 
 enum class rp : std::int32_t {
   UNSET = 0,
@@ -14,4 +14,4 @@ enum class rp : std::int32_t {
   rp_non_exhaustive_max = INT32_MAX,
 };
 
-}  // namespace rp::enums::rn
+}  // namespace rp::common::rn

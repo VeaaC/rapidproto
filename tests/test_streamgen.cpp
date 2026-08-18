@@ -131,7 +131,7 @@ TEST_CASE("streamgen: generated headers match the goldens", "[streamgen]") {
         {"nopkg", nsedge},         // no package at all
         {"xpkg", nsedge},          // cross-file reference into a dotted package
         {"stdpkg", nsedge},        // package `std` -> namespace std_, never namespace std
-        {"rppkg", nsedge}};        // package `rapidproto` -> namespace rapidproto_
+        {"rppkg", nsedge}};        // package `rapidproto`, below the runtime's own namespace
 
     // NOLINTNEXTLINE(concurrency-mt-unsafe): single-threaded test, opt-in regeneration only
     const bool regen = std::getenv("RAPIDPROTO_REGEN_GOLDEN") != nullptr;
@@ -170,7 +170,7 @@ TEST_CASE("streamgen: namespace prefix nests the generated namespace", "[streamg
           std::string::npos);  // message refs: prefixed + nested
     // The shared enum is prefixed but not model-nested (it lives in the common header at package scope,
     // aliased into the model namespace) -- the load-bearing coexistence invariant.
-    CHECK(prefixed.find("::rp::dec::enums::p3::State") != std::string::npos);
+    CHECK(prefixed.find("::rp::dec::common::p3::State") != std::string::npos);
     CHECK(prefixed.find("::rp::dec::stream::p3::State") == std::string::npos);
     const std::string plain = streamgen::generate_header(p3set.files.back(), p3set.files);
     CHECK(plain.find("namespace rp::stream::p3 {") !=

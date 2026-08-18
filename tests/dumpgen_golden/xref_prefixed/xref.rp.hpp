@@ -13,9 +13,9 @@
 
 namespace pfx::arena::xr {
 
-using ::pfx::enums::xr::Version;
-using ::pfx::enums::xr::Mixed;
-using ::pfx::enums::xr::Stream;
+using ::pfx::common::xr::Version;
+using ::pfx::common::xr::Mixed;
+using ::pfx::common::xr::Stream;
 
 class A;
 class B;
@@ -60,7 +60,7 @@ class Nested {
   class Q;
   class Def {
    public:
-    using Kind = ::pfx::enums::xr::Nested::Def::Kind;
+    using Kind = ::pfx::common::xr::Nested::Def::Kind;
     class Inner;
     class Inner {
      public:
@@ -84,7 +84,7 @@ class Nested {
    public:
     struct Pick {
       struct chosen { using Value = ::pfx::arena::xr::Nested::Def; };
-      struct tagged { using Value = ::pfx::enums::xr::Nested::Def::Kind; };
+      struct tagged { using Value = ::pfx::common::xr::Nested::Def::Kind; };
     };
     struct By_nameEntry {
       std::string_view key() const noexcept { return rp_key.view(); }
@@ -96,29 +96,29 @@ class Nested {
     };
     struct RankedEntry {
       std::int32_t key() const noexcept { return rp_key; }
-      ::pfx::enums::xr::Nested::Def::Kind value() const noexcept { return rp_value; }
+      ::pfx::common::xr::Nested::Def::Kind value() const noexcept { return rp_value; }
       friend class User;
      private:
       std::int32_t rp_key;
-      ::pfx::enums::xr::Nested::Def::Kind rp_value;
+      ::pfx::common::xr::Nested::Def::Kind rp_value;
     };
     const ::pfx::arena::xr::Nested::Def* single() const noexcept { return m_single; }
     ::rapidproto::ArrayView<::pfx::arena::xr::Nested::Def> many() const noexcept { return m_many; }
-    ::pfx::enums::xr::Nested::Def::Kind kind() const noexcept { return m_kind; }
-    ::rapidproto::ArrayView<::pfx::enums::xr::Nested::Def::Kind> kinds() const noexcept { return m_kinds; }
+    ::pfx::common::xr::Nested::Def::Kind kind() const noexcept { return m_kind; }
+    ::rapidproto::ArrayView<::pfx::common::xr::Nested::Def::Kind> kinds() const noexcept { return m_kinds; }
     const ::pfx::arena::xr::Nested::Def::Inner* inner() const noexcept { return m_inner; }
     ::rapidproto::ArrayView<::pfx::arena::xr::Nested::Def::Inner> inners() const noexcept { return m_inners; }
     ::rapidproto::MapView<By_nameEntry> by_name() const noexcept { return m_by_name; }
     ::rapidproto::MapView<RankedEntry> ranked() const noexcept { return m_ranked; }
     template <class... rp_Fs> void pick(rp_Fs&&... rp_fs) const {
-      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Fs, Pick::chosen, typename Pick::chosen::Value>)) <= 1U, "oneof member '::pfx::arena::xr::Nested::User::chosen' is handled by more than one callback");
-      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Fs, Pick::chosen, typename Pick::chosen::Value>)) <= 1U, "oneof member '::pfx::arena::xr::Nested::User::chosen' is matched by more than one catch-all callback");
-      static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Fs, Pick::chosen, typename Pick::chosen::Value>), "a callback for oneof member '::pfx::arena::xr::Nested::User::chosen' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
-      static_assert((true && ... && !(::rapidproto::targets<rp_Fs, Pick::chosen, typename Pick::chosen::Value> && !::rapidproto::specifically_handles<rp_Fs, Pick::chosen, typename Pick::chosen::Value>)), "a callback for oneof member '::pfx::arena::xr::Nested::User::chosen' has the wrong value type (expected Pick::chosen::Value)");
-      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Fs, Pick::tagged, typename Pick::tagged::Value>)) <= 1U, "oneof member '::pfx::arena::xr::Nested::User::tagged' is handled by more than one callback");
-      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Fs, Pick::tagged, typename Pick::tagged::Value>)) <= 1U, "oneof member '::pfx::arena::xr::Nested::User::tagged' is matched by more than one catch-all callback");
-      static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Fs, Pick::tagged, typename Pick::tagged::Value>), "a callback for oneof member '::pfx::arena::xr::Nested::User::tagged' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
-      static_assert((true && ... && !(::rapidproto::targets<rp_Fs, Pick::tagged, typename Pick::tagged::Value> && !::rapidproto::specifically_handles<rp_Fs, Pick::tagged, typename Pick::tagged::Value>)), "a callback for oneof member '::pfx::arena::xr::Nested::User::tagged' has the wrong value type (expected Pick::tagged::Value)");
+      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Fs, Pick::chosen, typename Pick::chosen::Value>)) <= 1U, "oneof member 'Nested::User::chosen' is handled by more than one callback");
+      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Fs, Pick::chosen, typename Pick::chosen::Value>)) <= 1U, "oneof member 'Nested::User::chosen' is matched by more than one catch-all callback");
+      static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Fs, Pick::chosen, typename Pick::chosen::Value>), "a callback for oneof member 'Nested::User::chosen' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+      static_assert((true && ... && !(::rapidproto::targets<rp_Fs, Pick::chosen, typename Pick::chosen::Value> && !::rapidproto::specifically_handles<rp_Fs, Pick::chosen, typename Pick::chosen::Value>)), "a callback for oneof member 'Nested::User::chosen' has the wrong value type (expected Pick::chosen::Value)");
+      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Fs, Pick::tagged, typename Pick::tagged::Value>)) <= 1U, "oneof member 'Nested::User::tagged' is handled by more than one callback");
+      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Fs, Pick::tagged, typename Pick::tagged::Value>)) <= 1U, "oneof member 'Nested::User::tagged' is matched by more than one catch-all callback");
+      static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Fs, Pick::tagged, typename Pick::tagged::Value>), "a callback for oneof member 'Nested::User::tagged' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+      static_assert((true && ... && !(::rapidproto::targets<rp_Fs, Pick::tagged, typename Pick::tagged::Value> && !::rapidproto::specifically_handles<rp_Fs, Pick::tagged, typename Pick::tagged::Value>)), "a callback for oneof member 'Nested::User::tagged' has the wrong value type (expected Pick::tagged::Value)");
       static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Fs, std::monostate>)) <= 1U, "a oneof's unset (std::monostate) state is handled by more than one callback");
       static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Fs, std::monostate>)) <= 1U, "a oneof's unset (std::monostate) state is matched by more than one catch-all callback");
       static_assert((true && ... && !(::rapidproto::targets<rp_Fs, std::monostate> && !::rapidproto::specifically_handles<rp_Fs, std::monostate>)), "a callback for a oneof's unset (std::monostate) state must take exactly (std::monostate)");
@@ -148,7 +148,7 @@ class Nested {
     static bool rp_decode_into(User& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
     union rp_pick_union {
       const ::pfx::arena::xr::Nested::Def* chosen;
-      ::pfx::enums::xr::Nested::Def::Kind tagged;
+      ::pfx::common::xr::Nested::Def::Kind tagged;
       rp_pick_union() noexcept {}
     };
     const ::pfx::arena::xr::Nested::Def* m_single;
@@ -156,10 +156,10 @@ class Nested {
     const ::pfx::arena::xr::Nested::Def::Inner* m_inner;
     ::rapidproto::ArrayView<::pfx::arena::xr::Nested::Def> m_many;
     ::rapidproto::MapView<By_nameEntry> m_by_name;
-    ::rapidproto::ArrayView<::pfx::enums::xr::Nested::Def::Kind> m_kinds;
+    ::rapidproto::ArrayView<::pfx::common::xr::Nested::Def::Kind> m_kinds;
     ::rapidproto::MapView<RankedEntry> m_ranked;
     ::rapidproto::ArrayView<::pfx::arena::xr::Nested::Def::Inner> m_inners;
-    ::pfx::enums::xr::Nested::Def::Kind m_kind;
+    ::pfx::common::xr::Nested::Def::Kind m_kind;
     std::uint8_t m_rp_pick_case;
   };
   class P {
@@ -208,10 +208,10 @@ class FwdMsg {
     ::rapidproto::ArrayView<::pfx::arena::xr::FwdMsg::Target> many() const noexcept { return m_many; }
     ::rapidproto::MapView<By_idEntry> by_id() const noexcept { return m_by_id; }
     template <class... rp_Fs> void pick(rp_Fs&&... rp_fs) const {
-      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Fs, Pick::chosen, typename Pick::chosen::Value>)) <= 1U, "oneof member '::pfx::arena::xr::FwdMsg::Ref::chosen' is handled by more than one callback");
-      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Fs, Pick::chosen, typename Pick::chosen::Value>)) <= 1U, "oneof member '::pfx::arena::xr::FwdMsg::Ref::chosen' is matched by more than one catch-all callback");
-      static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Fs, Pick::chosen, typename Pick::chosen::Value>), "a callback for oneof member '::pfx::arena::xr::FwdMsg::Ref::chosen' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
-      static_assert((true && ... && !(::rapidproto::targets<rp_Fs, Pick::chosen, typename Pick::chosen::Value> && !::rapidproto::specifically_handles<rp_Fs, Pick::chosen, typename Pick::chosen::Value>)), "a callback for oneof member '::pfx::arena::xr::FwdMsg::Ref::chosen' has the wrong value type (expected Pick::chosen::Value)");
+      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Fs, Pick::chosen, typename Pick::chosen::Value>)) <= 1U, "oneof member 'FwdMsg::Ref::chosen' is handled by more than one callback");
+      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Fs, Pick::chosen, typename Pick::chosen::Value>)) <= 1U, "oneof member 'FwdMsg::Ref::chosen' is matched by more than one catch-all callback");
+      static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Fs, Pick::chosen, typename Pick::chosen::Value>), "a callback for oneof member 'FwdMsg::Ref::chosen' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+      static_assert((true && ... && !(::rapidproto::targets<rp_Fs, Pick::chosen, typename Pick::chosen::Value> && !::rapidproto::specifically_handles<rp_Fs, Pick::chosen, typename Pick::chosen::Value>)), "a callback for oneof member 'FwdMsg::Ref::chosen' has the wrong value type (expected Pick::chosen::Value)");
       static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Fs, std::monostate>)) <= 1U, "a oneof's unset (std::monostate) state is handled by more than one callback");
       static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Fs, std::monostate>)) <= 1U, "a oneof's unset (std::monostate) state is matched by more than one catch-all callback");
       static_assert((true && ... && !(::rapidproto::targets<rp_Fs, std::monostate> && !::rapidproto::specifically_handles<rp_Fs, std::monostate>)), "a callback for a oneof's unset (std::monostate) state must take exactly (std::monostate)");
@@ -264,7 +264,7 @@ static_assert(::std::is_trivially_destructible_v<FwdMsg>);
 
 class CousinB {
  public:
-  using Tag = ::pfx::enums::xr::CousinB::Tag;
+  using Tag = ::pfx::common::xr::CousinB::Tag;
   class Thing;
   class Thing {
    public:
@@ -289,14 +289,14 @@ class CousinA {
    public:
     const ::pfx::arena::xr::CousinB::Thing* thing() const noexcept { return m_thing; }
     ::rapidproto::ArrayView<::pfx::arena::xr::CousinB::Thing> things() const noexcept { return m_things; }
-    ::pfx::enums::xr::CousinB::Tag tag() const noexcept { return m_tag; }
+    ::pfx::common::xr::CousinB::Tag tag() const noexcept { return m_tag; }
     [[nodiscard]] static const Use* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
    private:
     template <class rp_T> friend bool ::rapidproto::arena_detail::decode_into(rp_T&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
     static bool rp_decode_into(Use& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
     const ::pfx::arena::xr::CousinB::Thing* m_thing;
     ::rapidproto::ArrayView<::pfx::arena::xr::CousinB::Thing> m_things;
-    ::pfx::enums::xr::CousinB::Tag m_tag;
+    ::pfx::common::xr::CousinB::Tag m_tag;
   };
   [[nodiscard]] static const CousinA* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
@@ -518,13 +518,13 @@ RP_FLATTEN RP_NOINLINE inline bool ::pfx::arena::xr::Nested::User::rp_decode_int
     }
     return &rp_acc_many[rp_n_many++];
   };
-  ::pfx::enums::xr::Nested::Def::Kind* rp_acc_kinds = nullptr;
+  ::pfx::common::xr::Nested::Def::Kind* rp_acc_kinds = nullptr;
   std::size_t rp_n_kinds = 0;
   std::size_t rp_cap_kinds = 0;
-  const auto rp_slot_kinds = [&]() noexcept -> ::pfx::enums::xr::Nested::Def::Kind* {
+  const auto rp_slot_kinds = [&]() noexcept -> ::pfx::common::xr::Nested::Def::Kind* {
     if (rp_n_kinds == rp_cap_kinds) {
       const std::size_t rp_nc = rp_cap_kinds == 0 ? std::size_t{4} : rp_cap_kinds * 2;
-      ::pfx::enums::xr::Nested::Def::Kind* const rp_nb = arena.allocate_array<::pfx::enums::xr::Nested::Def::Kind>(rp_nc);
+      ::pfx::common::xr::Nested::Def::Kind* const rp_nb = arena.allocate_array<::pfx::common::xr::Nested::Def::Kind>(rp_nc);
       if (rp_nb == nullptr) { return nullptr; }
       for (std::size_t rp_i = 0; rp_i < rp_n_kinds; ++rp_i) { rp_nb[rp_i] = rp_acc_kinds[rp_i]; }
       rp_acc_kinds = rp_nb;
@@ -620,19 +620,19 @@ RP_FLATTEN RP_NOINLINE inline bool ::pfx::arena::xr::Nested::User::rp_decode_int
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
       if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
       rp_c = rp_np;
-      out.m_kind = static_cast<::pfx::enums::xr::Nested::Def::Kind>(::rapidproto::varint_to_int32(rp_raw));
+      out.m_kind = static_cast<::pfx::common::xr::Nested::Def::Kind>(::rapidproto::varint_to_int32(rp_raw));
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(6, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_6; }
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(9, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_9; }
       continue;
     }
     rp_do_6: {
-      ::pfx::enums::xr::Nested::Def::Kind* const rp_slot = rp_slot_kinds();
+      ::pfx::common::xr::Nested::Def::Kind* const rp_slot = rp_slot_kinds();
       if (rp_slot == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
       if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
       rp_c = rp_np;
-      *rp_slot = static_cast<::pfx::enums::xr::Nested::Def::Kind>(::rapidproto::varint_to_int32(rp_raw));
+      *rp_slot = static_cast<::pfx::common::xr::Nested::Def::Kind>(::rapidproto::varint_to_int32(rp_raw));
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(6, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_6; }  // another element of the same field
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(9, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_9; }
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(10, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_10; }
@@ -644,7 +644,7 @@ RP_FLATTEN RP_NOINLINE inline bool ::pfx::arena::xr::Nested::User::rp_decode_int
       const std::size_t rp_ub = rp_p.size();
       if (rp_ub != 0 && rp_cap_kinds < rp_n_kinds + rp_ub) {
         const std::size_t rp_nc = rp_n_kinds + rp_ub;
-        ::pfx::enums::xr::Nested::Def::Kind* const rp_nb = arena.allocate_array<::pfx::enums::xr::Nested::Def::Kind>(rp_nc);
+        ::pfx::common::xr::Nested::Def::Kind* const rp_nb = arena.allocate_array<::pfx::common::xr::Nested::Def::Kind>(rp_nc);
         if (rp_nb == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }
         for (std::size_t rp_i = 0; rp_i < rp_n_kinds; ++rp_i) { rp_nb[rp_i] = rp_acc_kinds[rp_i]; }
         rp_acc_kinds = rp_nb;
@@ -653,15 +653,15 @@ RP_FLATTEN RP_NOINLINE inline bool ::pfx::arena::xr::Nested::User::rp_decode_int
       const std::uint8_t* rp_vp = ::rapidproto::wire::byte_ptr(rp_p);
       const std::uint8_t* const rp_ve = rp_vp + rp_p.size();
       if (rp_p.size() >= 256) {
-        const std::size_t rp_dc = ::rapidproto::arena_detail::decode_packed_varints_large<::pfx::enums::xr::Nested::Def::Kind, ::rapidproto::wire::conv_enum<::pfx::enums::xr::Nested::Def::Kind>>(rp_vp, rp_ve, rp_acc_kinds + rp_n_kinds, err);
+        const std::size_t rp_dc = ::rapidproto::arena_detail::decode_packed_varints_large<::pfx::common::xr::Nested::Def::Kind, ::rapidproto::wire::conv_enum<::pfx::common::xr::Nested::Def::Kind>>(rp_vp, rp_ve, rp_acc_kinds + rp_n_kinds, err);
         if (rp_dc == static_cast<std::size_t>(-1)) { return false; }
         rp_n_kinds += rp_dc;
       } else {
-        const std::size_t rp_dc = ::rapidproto::arena_detail::decode_packed_varints_small<::pfx::enums::xr::Nested::Def::Kind, ::rapidproto::wire::conv_enum<::pfx::enums::xr::Nested::Def::Kind>>(rp_vp, rp_ve, rp_acc_kinds + rp_n_kinds, err);
+        const std::size_t rp_dc = ::rapidproto::arena_detail::decode_packed_varints_small<::pfx::common::xr::Nested::Def::Kind, ::rapidproto::wire::conv_enum<::pfx::common::xr::Nested::Def::Kind>>(rp_vp, rp_ve, rp_acc_kinds + rp_n_kinds, err);
         if (rp_dc == static_cast<std::size_t>(-1)) { return false; }
         rp_n_kinds += rp_dc;
       }
-      arena.shrink_last(rp_acc_kinds, rp_cap_kinds * sizeof(::pfx::enums::xr::Nested::Def::Kind), rp_n_kinds * sizeof(::pfx::enums::xr::Nested::Def::Kind));
+      arena.shrink_last(rp_acc_kinds, rp_cap_kinds * sizeof(::pfx::common::xr::Nested::Def::Kind), rp_n_kinds * sizeof(::pfx::common::xr::Nested::Def::Kind));
       rp_cap_kinds = rp_n_kinds;
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(9, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_9; }
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(10, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_10; }
@@ -771,7 +771,7 @@ RP_FLATTEN RP_NOINLINE inline bool ::pfx::arena::xr::Nested::User::rp_decode_int
               const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_ec, rp_ee, &rp_raw, &rp_we);
               if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_ec - ::rapidproto::wire::byte_ptr(rp_ent))); return false; }
               rp_ec = rp_np;
-              rp_slot->rp_value = static_cast<::pfx::enums::xr::Nested::Def::Kind>(::rapidproto::varint_to_int32(rp_raw));
+              rp_slot->rp_value = static_cast<::pfx::common::xr::Nested::Def::Kind>(::rapidproto::varint_to_int32(rp_raw));
             } else {
               std::size_t rp_fo = 0;
               const std::uint8_t* const rp_sp = ::rapidproto::wire::skip_value(rp_ec, rp_ee, ::rapidproto::wire::byte_ptr(rp_ent), rp_et, 0, &rp_we, &rp_fo);
@@ -803,7 +803,7 @@ RP_FLATTEN RP_NOINLINE inline bool ::pfx::arena::xr::Nested::User::rp_decode_int
           const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
           if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
           rp_c = rp_np;
-          out.m_rp_pick.tagged = static_cast<::pfx::enums::xr::Nested::Def::Kind>(::rapidproto::varint_to_int32(rp_raw));
+          out.m_rp_pick.tagged = static_cast<::pfx::common::xr::Nested::Def::Kind>(::rapidproto::varint_to_int32(rp_raw));
           out.m_rp_pick_case = 2;
           continue;
         }
@@ -817,7 +817,7 @@ RP_FLATTEN RP_NOINLINE inline bool ::pfx::arena::xr::Nested::User::rp_decode_int
     rp_c = rp_sp;
   }
   out.m_many = ::rapidproto::ArrayView<::pfx::arena::xr::Nested::Def>(rp_acc_many, rp_n_many);
-  out.m_kinds = ::rapidproto::ArrayView<::pfx::enums::xr::Nested::Def::Kind>(rp_acc_kinds, rp_n_kinds);
+  out.m_kinds = ::rapidproto::ArrayView<::pfx::common::xr::Nested::Def::Kind>(rp_acc_kinds, rp_n_kinds);
   out.m_inners = ::rapidproto::ArrayView<::pfx::arena::xr::Nested::Def::Inner>(rp_acc_inners, rp_n_inners);
   out.m_by_name = ::rapidproto::MapView<By_nameEntry>(::rapidproto::ArrayView<By_nameEntry>(rp_acc_by_name, rp_n_by_name));
   out.m_ranked = ::rapidproto::MapView<RankedEntry>(::rapidproto::ArrayView<RankedEntry>(rp_acc_ranked, rp_n_ranked));
@@ -1439,7 +1439,7 @@ RP_FLATTEN RP_NOINLINE inline bool ::pfx::arena::xr::CousinA::Use::rp_decode_int
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
       if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
       rp_c = rp_np;
-      out.m_tag = static_cast<::pfx::enums::xr::CousinB::Tag>(::rapidproto::varint_to_int32(rp_raw));
+      out.m_tag = static_cast<::pfx::common::xr::CousinB::Tag>(::rapidproto::varint_to_int32(rp_raw));
       continue;
     }
     rp_field_general:;

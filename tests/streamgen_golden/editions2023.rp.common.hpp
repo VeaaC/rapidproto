@@ -4,7 +4,7 @@
 
 #include <cstdint>
 
-namespace rp::enums::ed23 {
+namespace rp::common::ed23 {
 
 enum class E : std::int32_t {
   ZERO = 0,
@@ -25,4 +25,4 @@ enum class Inner : std::int32_t {
 };
 }  // namespace M
 
-}  // namespace rp::enums::ed23
+}  // namespace rp::common::ed23

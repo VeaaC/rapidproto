@@ -4,6 +4,6 @@
 
 #include <cstdint>
 
-namespace rp::enums::sib {
+namespace rp::common::sib {
 
-}  // namespace rp::enums::sib
+}  // namespace rp::common::sib

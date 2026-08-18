@@ -64,11 +64,21 @@ for proto in "${protos[@]}"; do
   fi
 
   # -s, not -f: an empty golden is not a golden.
+  #
+  # A golden FILE is not coverage: what pins the fixture is a test that byte-compares it. Checking
+  # only for the file let a stem be dropped from a suite's case list while this stage kept printing
+  # its usual totals -- and the fixture it hid that way was `stdpkg` (`package std`), whose whole
+  # point is that no compiler catches it. So each golden is required to be named by the suite that
+  # compares it, the same way the coexistence branch above requires check_pair's stem list.
   if [[ $coexist -eq 0 ]]; then
-    for want in "tests/streamgen_golden/$stem.rp.stream.hpp|--stream" \
-                "tests/arenagen_golden/$stem.rp.hpp|--arena"; do
-      if [[ ! -s "${want%%|*}" ]]; then
-        echo ">> $proto has no ${want##*|} golden (${want%%|*})"
+    for want in "tests/streamgen_golden/$stem.rp.stream.hpp|--stream|tests/test_streamgen.cpp" \
+                "tests/arenagen_golden/$stem.rp.hpp|--arena|tests/test_arenagen.cpp"; do
+      IFS='|' read -r path model suite <<<"$want"
+      if [[ ! -s "$path" ]]; then
+        echo ">> $proto has no $model golden ($path)"
+        missing=1
+      elif ! grep -q "\"$stem\"" "$suite"; then
+        echo ">> $proto has a $model golden that $suite never compares (no \"$stem\" case)"
         missing=1
       fi
     done
@@ -101,12 +111,21 @@ done
 #
 # Per TU, not tree-wide: identical goldens in DIFFERENT directories (arenagen_golden/x.rp.hpp and
 # dumpgen_golden/x.rp.hpp) are a known, deliberate duplication that no single TU pulls in together.
+#
+# The preprocessor's exit status is CHECKED, not swallowed. Discarding it made every failure look
+# like an empty closure -- no g++, a wrapper that exits non-zero, a renamed golden dir -- so the
+# scan compared nothing and the stage passed on a tree that had the very defect it looks for.
 dupes=""
 for tu in tests/test_*.cpp; do
-  closure="$( { g++ -std=c++17 -M -MG -I include -I tests -I tests/arenagen_golden \
-                    -I tests/streamgen_golden -I tests/dumpgen_golden -I tests/coexist_golden \
-                    "$tu" || true; } 2>/dev/null \
-              | tr ' \\' '\n\n' | { grep -E 'tests/.*golden.*\.hpp$' || true; } | sort -u)"
+  if ! raw="$(g++ -std=c++17 -M -MG -I include -I tests -I tests/arenagen_golden \
+                  -I tests/streamgen_golden -I tests/dumpgen_golden -I tests/coexist_golden \
+                  "$tu" 2>&1)"; then
+    echo ">> the duplicate-golden scan could not preprocess $tu -- it checked nothing:"
+    sed 's/^/   /' <<<"$raw" | head -3
+    missing=1
+    continue
+  fi
+  closure="$(tr ' \\' '\n\n' <<<"$raw" | { grep -E 'tests/.*golden.*\.hpp$' || true; } | sort -u)"
   hits="$(while read -r f; do
             [[ -s "$f" ]] || continue
             grep -qE '^(class|struct|enum class|inline|template)' "$f" || continue

@@ -41,10 +41,10 @@ RP_FLATTEN ::rapidproto::DecodeStatus Ref::decode(rp_Callbacks&&... rp_callbacks
     }
     goto rp_field_general;
     rp_do_1: {
-      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Callbacks, target, target::Value>)) <= 1U, "field '::rp::stream::other::Ref::target' is handled by more than one callback");
-      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Callbacks, target, target::Value>)) <= 1U, "field '::rp::stream::other::Ref::target' is matched by more than one catch-all callback");
-      static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Callbacks, target, target::Value>), "a callback for field '::rp::stream::other::Ref::target' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
-      static_assert((true && ... && !(::rapidproto::targets<rp_Callbacks, target, target::Value> && !::rapidproto::specifically_handles<rp_Callbacks, target, target::Value>)), "a callback for field '::rp::stream::other::Ref::target' has the wrong value type (expected target::Value)");
+      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Callbacks, target, target::Value>)) <= 1U, "field 'Ref::target' is handled by more than one callback");
+      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Callbacks, target, target::Value>)) <= 1U, "field 'Ref::target' is matched by more than one catch-all callback");
+      static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Callbacks, target, target::Value>), "a callback for field 'Ref::target' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+      static_assert((true && ... && !(::rapidproto::targets<rp_Callbacks, target, target::Value> && !::rapidproto::specifically_handles<rp_Callbacks, target, target::Value>)), "a callback for field 'Ref::target' has the wrong value type (expected target::Value)");
       if constexpr ((false || ... || ::rapidproto::handles_one<rp_Callbacks, target, target::Value>)) {
         ::rapidproto::ByteView rp_val;
         const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_val, &rp_we);

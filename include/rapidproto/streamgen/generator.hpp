@@ -30,7 +30,7 @@ std::string generate_header(const FileNode& file, const codegen::CppNameTable& s
 // `namespace_prefix` (dot-separated, e.g. "rp" or "my.decoders") is the ROOT the generated code
 // lives under: a proto `package a.b` becomes `namespace prefix::stream::a::b`. Empty means the
 // default (`rp`), NOT "no prefix" -- see codegen::effective_ns_prefix, which substitutes it, and
-// cli::valid_namespace_prefix, which rejects empty at the CLI. Coexistence with protoc's headers
+// cli::namespace_prefix_problem, which rejects empty at the CLI. Coexistence with protoc's headers
 // needs no flag: the roots keep every generated name clear of protoc's `a::b`.
 std::string generate_header(const FileNode& file, const std::vector<FileNode>& all_files,
                             const std::string& namespace_prefix = {});

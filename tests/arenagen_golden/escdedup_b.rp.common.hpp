@@ -4,6 +4,6 @@
 
 #include <cstdint>
 
-namespace rp::enums::escdedup {
+namespace rp::common::escdedup {
 
-}  // namespace rp::enums::escdedup
+}  // namespace rp::common::escdedup

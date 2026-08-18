@@ -7,8 +7,10 @@ package re;
 
 enum stream { STREAM_UNSET = 0; }
 enum arena { ARENA_UNSET = 0; }
+enum common { COMMON_UNSET = 0; }
 
 message Holder {
   stream s = 1;
   arena a = 2;
+  common c = 3;
 }

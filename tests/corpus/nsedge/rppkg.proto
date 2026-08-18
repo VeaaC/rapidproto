@@ -1,11 +1,9 @@
-// A package named `rapidproto`, the runtime's own namespace. Unlike `std` (nsedge/stdpkg.proto),
-// which is shadowed from INSIDE a class, this collides at the ROOT: the schema's types would be
-// merged into `::rapidproto`, and any sharing a name with a runtime type is redeclared as a
-// different kind of entity. The names below are exactly those types, so none of the three headers
-// compiles unless the package component is escaped to `rapidproto_`. Messages reach the arena and
-// dump models (their types sit directly in the package namespace); top-level ENUMS reach the
-// streaming model too, since they stay at package scope in the shared common header rather than
-// descending into `<pkg>::stream`.
+// A package named `rapidproto`, the runtime's own namespace. Under the roots it lands at
+// `<prefix>::arena::rapidproto` -- three levels below `::rapidproto`, so it cannot merge into it,
+// and the names below are free to be exactly the runtime's own types. That is what this fixture
+// pins: the package needs no escape, and every reference from generated code still reaches the
+// RUNTIME's type rather than the schema's same-named one. Before the roots the two were one
+// namespace, and each name below redeclared a runtime type as a different kind of entity.
 syntax = "proto3";
 package rapidproto;
 

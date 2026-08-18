@@ -4,7 +4,7 @@
 
 #include <cstdint>
 
-namespace rp::enums::fm {
+namespace rp::common::fm {
 
 enum class Level : std::int32_t {
   L_ZERO = 0,
@@ -15,4 +15,4 @@ enum class Level : std::int32_t {
   rp_non_exhaustive_max = INT32_MAX,
 };
 
-}  // namespace rp::enums::fm
+}  // namespace rp::common::fm

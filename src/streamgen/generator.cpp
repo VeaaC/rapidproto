@@ -567,9 +567,11 @@ bool is_threaded_field(const FieldNode& field, const FieldGen& gen) {
 void emit_decode_def(Printer& printer, const CppNameTable& symbols, const MessageNode& message,
                      const std::string& qualifier) {
     const auto fields = collect_fields(symbols, message);
-    // The name a USER writes for this message, for diagnostics only -- the out-of-line qualifier
-    // above must stay relative. Corpus schemas hold several messages called `M`, so a bare local
-    // name cannot say which decode() rejected the callback.
+    // The name a USER writes for this message, for the MESSAGE-level guard below only. Corpus
+    // schemas hold several messages called `M`, so a bare local name cannot say which decode()
+    // rejected the callback. The per-field guards instead take `qualifier` (the same name relative
+    // to this file's namespace): it is emitted once per field, and the absolute head is a constant
+    // for the whole file -- on a large schema, repeating it costs megabytes of header.
     const std::string owner = cpp_type_name(symbols, message.fqn);
     printer.print("template <class... rp_Callbacks>\n");
     // RP_FLATTEN: inline the wire primitives / dispatch / sub-decodes into this one function. GCC's
@@ -640,7 +642,8 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
         // The stray-callback / wrong-wire guards, emitted once per field: a threaded field has no
         // general-switch arm, so this label body is the sole site for them.
         codegen::emit_dispatch_guards(printer, "rp_Callbacks", fname + ", " + fname + "::Value",
-                                      "field '" + owner + "::" + fname + "'", fname + "::Value");
+                                      "field '" + qualifier + "::" + fname + "'",
+                                      fname + "::Value");
         printer.print(
             "if constexpr ((false || ... ||"
             " ::rapidproto::handles_one<rp_Callbacks, $f$, $f$::Value>)) {\n",
@@ -703,11 +706,11 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
             codegen::emit_threaded_general_case(
                 printer, {field->number, field->is_repeated, packable, std::string(gen.wire_type)});
         } else {
-            emit_arm(printer, symbols.local.at(field), gen, field->is_repeated, owner);
+            emit_arm(printer, symbols.local.at(field), gen, field->is_repeated, qualifier);
         }
     }
     for (const auto& map : message.map_fields) {
-        emit_map_arm(printer, symbols, map, owner);
+        emit_map_arm(printer, symbols, map, qualifier);
     }
     // `default` = a field number not in the schema. If the caller passed a callback that
     // specifically handles UnknownField, deliver the raw field to it; otherwise (including when
@@ -800,9 +803,7 @@ std::string generate_header(const FileNode& file, const CppNameTable& symbols) {
     printer.print("\n");
 
     const std::string ns = codegen::message_namespace(symbols, file);
-    if (!ns.empty()) {
-        printer.print("namespace $ns$ {\n\n", {{"ns", ns}});
-    }
+    printer.print("namespace $ns$ {\n\n", {{"ns", ns}});
 
     // Top-level enums live in the shared common header (one C++ type, shared with the arena decoder);
     // alias each into this model namespace so `<prefix>::stream::<pkg>::Enum` resolves. Nested
@@ -828,9 +829,7 @@ std::string generate_header(const FileNode& file, const CppNameTable& symbols) {
         emit_decode_def(printer, symbols, message, symbols.local.at(&message));
     }
 
-    if (!ns.empty()) {
-        printer.print("}  // namespace $ns$\n", {{"ns", ns}});
-    }
+    printer.print("}  // namespace $ns$\n", {{"ns", ns}});
     return printer.str();
 }
 

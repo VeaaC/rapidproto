@@ -190,18 +190,14 @@ inline std::string emit_common_header(const FileNode& file, const CppNameTable& 
     }
     printer.print("\n");
     const std::string ns = enum_namespace(names, file);
-    if (!ns.empty()) {
-        printer.print("namespace $ns$ {\n\n", {{"ns", ns}});
-    }
+    printer.print("namespace $ns$ {\n\n", {{"ns", ns}});
     for (const auto& node : file.enums) {
         emit_enum(printer, names, node, /*trailing_blank=*/true);
     }
     for (const auto& message : file.messages) {
         emit_enum_mirror(printer, names, message);
     }
-    if (!ns.empty()) {
-        printer.print("}  // namespace $ns$\n", {{"ns", ns}});
-    }
+    printer.print("}  // namespace $ns$\n", {{"ns", ns}});
     return printer.str();
 }
 

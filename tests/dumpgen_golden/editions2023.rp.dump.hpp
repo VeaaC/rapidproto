@@ -13,7 +13,7 @@
 
 namespace rapidproto::dump_detail {
 
-inline const char* rp_dump_enum_name(::rp::enums::ed23::E rp_e) {
+inline const char* rp_dump_enum_name(::rp::common::ed23::E rp_e) {
   switch (static_cast<std::int32_t>(rp_e)) {
     case 0: return "ZERO";
     case 1: return "ONE";
@@ -21,7 +21,7 @@ inline const char* rp_dump_enum_name(::rp::enums::ed23::E rp_e) {
   return nullptr;  // unknown (open enum): the caller renders UNKNOWN(<n>)
 }
 
-inline const char* rp_dump_enum_name(::rp::enums::ed23::M::Inner rp_e) {
+inline const char* rp_dump_enum_name(::rp::common::ed23::M::Inner rp_e) {
   switch (static_cast<std::int32_t>(rp_e)) {
     case 0: return "ZERO";
   }

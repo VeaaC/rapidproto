@@ -13,7 +13,7 @@
 
 namespace rapidproto::dump_detail {
 
-inline const char* rp_dump_enum_name(::rp::enums::nm::E rp_e) {
+inline const char* rp_dump_enum_name(::rp::common::nm::E rp_e) {
   switch (static_cast<std::int32_t>(rp_e)) {
     case 0: return "decode_";
     case 1: return "decode__";
@@ -21,7 +21,7 @@ inline const char* rp_dump_enum_name(::rp::enums::nm::E rp_e) {
   return nullptr;  // unknown (open enum): the caller renders UNKNOWN(<n>)
 }
 
-inline const char* rp_dump_enum_name(::rp::enums::nm::MacroEnum rp_e) {
+inline const char* rp_dump_enum_name(::rp::common::nm::MacroEnum rp_e) {
   switch (static_cast<std::int32_t>(rp_e)) {
     case 0: return "RP_FLATTEN_";
     case 1: return "MACRO_ENUM_OTHER";
@@ -29,14 +29,14 @@ inline const char* rp_dump_enum_name(::rp::enums::nm::MacroEnum rp_e) {
   return nullptr;  // unknown (open enum): the caller renders UNKNOWN(<n>)
 }
 
-inline const char* rp_dump_enum_name(::rp::enums::nm::Shadow::Inner::Shadow rp_e) {
+inline const char* rp_dump_enum_name(::rp::common::nm::Shadow::Inner::Shadow rp_e) {
   switch (static_cast<std::int32_t>(rp_e)) {
     case 0: return "X";
   }
   return nullptr;  // unknown (open enum): the caller renders UNKNOWN(<n>)
 }
 
-inline const char* rp_dump_enum_name(::rp::enums::nm::StdEnum::std_ rp_e) {
+inline const char* rp_dump_enum_name(::rp::common::nm::StdEnum::std_ rp_e) {
   switch (static_cast<std::int32_t>(rp_e)) {
     case 0: return "X";
   }

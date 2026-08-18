@@ -5,6 +5,6 @@
 #include <cstdint>
 #include "pub.rp.common.hpp"
 
-namespace rp::enums::fwd {
+namespace rp::common::fwd {
 
-}  // namespace rp::enums::fwd
+}  // namespace rp::common::fwd

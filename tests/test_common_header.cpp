@@ -81,6 +81,34 @@ TEST_CASE("common-header: golden output (enums + import includes)", "[common]") 
     check_golden("dep", common_header(corpus + "/imports", "dep.proto"));
 }
 
+TEST_CASE("common-header: identical whichever model asked for it", "[common]") {
+    // The header both decoders include must not depend on which one triggered generation. Emitting
+    // it per model and comparing the TEXT is what pins that: the enum-name checks elsewhere in this
+    // file compare names the table resolves, and would still pass if the header's includes, its
+    // namespace, or the mirror's shape differed between the two runs.
+    //
+    // A schema with both a top-level enum and a nested one (the mirror), plus imports, so the
+    // comparison covers every part of the header rather than a bare enum block.
+    for (const char* entry : {"editions2023.proto", "naming.proto", "proto2.proto"}) {
+        INFO("schema " << entry);
+        const ResolvedFileSet set = resolve_set(RAPIDPROTO_CORPUS_DIR, entry);
+        const std::string prefix = codegen::effective_ns_prefix({});
+        const std::string from_arena = codegen::emit_common_header(
+            set.files.back(), codegen::build_cpp_names(set.files.back(), set.files, prefix,
+                                                       std::string(codegen::kArenaRoot)));
+        const std::string from_stream = codegen::emit_common_header(
+            set.files.back(), codegen::build_cpp_names(set.files.back(), set.files, prefix,
+                                                       std::string(codegen::kStreamRoot)));
+        CHECK(from_arena == from_stream);
+        // Not vacuous: two empty strings compare equal too. The header must carry the shared root
+        // and NEITHER model root -- text equality alone would still hold if both runs emitted the
+        // model they were asked for and the comparison were made against the wrong pair.
+        CHECK(from_arena.find("namespace rp::common") != std::string::npos);
+        CHECK(from_arena.find("rp::arena") == std::string::npos);
+        CHECK(from_arena.find("rp::stream") == std::string::npos);
+    }
+}
+
 TEST_CASE("naming: same-package files share one dedup scope, and real names win", "[common]") {
     // escdedup_a declares `enum decode`, which is reserved (the decoders expose a static decode()),
     // so it sanitizes onto `decode_` -- the name escdedup_b really gives a message. Deduping per
@@ -96,7 +124,7 @@ TEST_CASE("naming: same-package files share one dedup scope, and real names win"
     CHECK(enum_name != message_name);
     // The literal identifier keeps its spelling; the escape is what moves.
     CHECK(message_name == "::rp::arena::escdedup::decode_");
-    CHECK(enum_name == "::rp::enums::escdedup::decode__");
+    CHECK(enum_name == "::rp::common::escdedup::decode__");
 
     // ...and that does not depend on the order the files are indexed in. Reversing the set used to
     // hand the contested id to whichever file came first, so one schema generated two different
@@ -134,7 +162,7 @@ TEST_CASE("common-header: model_namespace nests messages, not enums", "[common]"
     CHECK(codegen::cpp_type_name(nested, enum_fqn).find("::stream::") == std::string::npos);
 
     // The arena root: messages sit under `<prefix>::arena::<pkg>` while the enum keeps its own
-    // `<prefix>::enums::<pkg>` home, identical from either model -- the coexistence invariant.
+    // `<prefix>::common::<pkg>` home, identical from either model -- the coexistence invariant.
     const codegen::CppNameTable plain =
         codegen::build_cpp_names(set.files.front(), set.files, codegen::effective_ns_prefix({}),
                                  std::string(codegen::kArenaRoot));
@@ -142,13 +170,13 @@ TEST_CASE("common-header: model_namespace nests messages, not enums", "[common]"
     CHECK(codegen::cpp_type_name(nested, enum_fqn) == codegen::cpp_type_name(plain, enum_fqn));
 
     // --namespace-prefix wraps the ROOTS: ::rp::stream::p3::Msg, and the enum keeps its own root
-    // at ::rp::enums::p3::State -- model-independent, which is what lets both models alias one type.
+    // at ::rp::common::p3::State -- model-independent, which is what lets both models alias one type.
     const codegen::CppNameTable prefixed =
         codegen::build_cpp_names(set.files.front(), set.files, codegen::namespace_of("rp"),
                                  std::string(codegen::kStreamRoot));
     CHECK(codegen::cpp_type_name(prefixed, msg_fqn).find("::rp::stream::p3::") !=
           std::string::npos);
-    CHECK(codegen::cpp_type_name(prefixed, enum_fqn).find("::rp::enums::p3::") !=
+    CHECK(codegen::cpp_type_name(prefixed, enum_fqn).find("::rp::common::p3::") !=
           std::string::npos);
     CHECK(codegen::cpp_type_name(prefixed, enum_fqn).find("::stream::") == std::string::npos);
 }
@@ -177,9 +205,9 @@ TEST_CASE("common-header: model_namespace nests every message (incl. imported), 
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): a flat sweep over every nested enum
-TEST_CASE("common-header: a nested enum is shared, mirrored under the enums root", "[common]") {
+TEST_CASE("common-header: a nested enum is shared, mirrored under the common root", "[common]") {
     // A nested enum is DEFINED once in the common header's namespace mirror and aliased into each
-    // model, so its absolute name carries the enums root and is byte-identical whichever model asked
+    // model, so its absolute name carries the common root and is byte-identical whichever model asked
     // -- the property that makes one enum usable across both decoders.
     const ResolvedFileSet set = resolve_set(RAPIDPROTO_CORPUS_DIR, "editions2023.proto");
     const codegen::CppNameTable stream_names =
@@ -195,7 +223,7 @@ TEST_CASE("common-header: a nested enum is shared, mirrored under the enums root
                 INFO("nested enum " << nested_enum.fqn);
                 const std::string from_stream =
                     codegen::cpp_type_name(stream_names, nested_enum.fqn);
-                CHECK(from_stream.find("::enums::") != std::string::npos);
+                CHECK(from_stream.find("::common::") != std::string::npos);
                 CHECK(from_stream.find("::stream::") == std::string::npos);
                 CHECK(from_stream == codegen::cpp_type_name(arena_names, nested_enum.fqn));
                 saw_nested_enum = true;

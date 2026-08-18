@@ -14,20 +14,20 @@
 
 namespace rp::arena::escdedup {
 
-using ::rp::enums::escdedup::decode__;
+using ::rp::common::escdedup::decode__;
 
 class Holder;
 
 class Holder {
  public:
   const ::rp::arena::escdedup::decode_* ref() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? &m_ref : nullptr; }
-  ::rp::enums::escdedup::decode__ kind() const noexcept { return m_kind; }
+  ::rp::common::escdedup::decode__ kind() const noexcept { return m_kind; }
   [[nodiscard]] static const Holder* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class rp_T> friend bool ::rapidproto::arena_detail::decode_into(rp_T&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
   static bool rp_decode_into(Holder& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
   ::rp::arena::escdedup::decode_ m_ref;
-  ::rp::enums::escdedup::decode__ m_kind;
+  ::rp::common::escdedup::decode__ m_kind;
   std::uint8_t m_rp_mask;
 };
 static_assert(::std::is_trivially_destructible_v<Holder>);
@@ -61,7 +61,7 @@ RP_FLATTEN inline bool ::rp::arena::escdedup::Holder::rp_decode_into([[maybe_unu
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
       if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
       rp_c = rp_np;
-      out.m_kind = static_cast<::rp::enums::escdedup::decode__>(::rapidproto::varint_to_int32(rp_raw));
+      out.m_kind = static_cast<::rp::common::escdedup::decode__>(::rapidproto::varint_to_int32(rp_raw));
       continue;
     }
     rp_field_general:;
