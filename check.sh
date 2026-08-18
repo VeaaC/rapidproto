@@ -25,8 +25,8 @@
 # RAPIDPROTO_GATE_SERIAL=1 runs stages one at a time (the default under GITHUB_ACTIONS).
 #
 # The independent stages (format, doc-links, fixture-coverage, gcc build+test, clang build+test,
-# compile-fail, fuzz-compile, clang-tidy) run concurrently; each build is a parallel build and
-# clang-tidy is parallelized across files. Four run after that block: corpus, the CMake-helper name
+# fuzz-compile, clang-tidy) run concurrently; each build is a parallel build and clang-tidy is
+# parallelized across files. Five run after that block: compile-fail, corpus, the CMake-helper name
 # check and the differential all consume the gcc stage's binaries (corpus only when asked for), and
 # the C++20/23 smoke needs the goldens. Per-stage output is captured and printed in a fixed order so
 # nothing interleaves. Exits non-zero if anything is not clean.
@@ -197,6 +197,13 @@ fi
 if [[ "${1:-}" == "deep" ]]; then
   CXX=clang++-20; CC=clang-20
   FUZZ_TIME=${FUZZ_TIME:-30}   # seconds per fuzz target
+  # Validated for the same reason as COV_FLOOR below: libFuzzer reads a non-numeric
+  # -max_total_time as 0, which means NO limit, so a typo runs each target until the CI job's
+  # six-hour ceiling kills it.
+  if ! [[ "$FUZZ_TIME" =~ ^[0-9]+$ ]]; then
+    echo ">> FUZZ_TIME='$FUZZ_TIME' is not a number: libFuzzer would read it as 'no limit'" >&2
+    exit 2
+  fi
   COV_FLOOR=${COV_FLOOR:-85}   # minimum library line-coverage %
   # Validated: awk reads a non-numeric floor as 0, which every coverage figure clears, so the gate
   # printed "at or above floor" while enforcing nothing.
@@ -435,18 +442,22 @@ if [[ "${1:-}" == "deep" ]]; then
   # Skipped on a tree that already has uncommitted changes under tests/, where a diff afterwards
   # says nothing about the scripts.
   section "goldens reproduce from the regen scripts"
-  if ! git diff --quiet -- tests/ || ! git diff --cached --quiet -- tests/; then
+  # `git status --porcelain`, not `git diff`: a regen script that CREATES a file (a generator that
+  # starts emitting an additional header) leaves it untracked, which `git diff` does not see.
+  if [[ -n "$(git status --porcelain -- tests/)" ]]; then
     echo "uncommitted changes under tests/ -- skipped"
     deep_skipped+=("golden regen")
   elif ! tests/regen_goldens.sh >/dev/null 2>&1; then
     echo ">> tests/regen_goldens.sh failed"; deep_fail=1
     git checkout -- tests/ 2>/dev/null || true
-  elif git diff --quiet -- tests/; then
+  elif [[ -z "$(git status --porcelain -- tests/)" ]]; then
     echo "the checked-in goldens are exactly what the regen scripts produce"
   else
     echo ">> the regen scripts no longer reproduce the checked-in goldens:"
-    git diff --stat -- tests/ | tail -5
-    git checkout -- tests/ 2>/dev/null || true   # leave the tree as it was found
+    git status --porcelain -- tests/ | head -5
+    # Restore BOTH directions -- checkout alone leaves behind any file the regen created.
+    git checkout -- tests/ 2>/dev/null || true
+    git clean -fdq -- tests/ 2>/dev/null || true
     deep_fail=1
   fi
 
@@ -586,9 +597,13 @@ job_doc_links() {
   # `(ident::)+stream::`, not one component: `com::example::deep::stream::Msg` is the same defect
   # and was invisible. The exclusion is ANCHORED -- an unanchored `rp::stream::` matched any package
   # ending in `rp` (`corp`, `erp`).
-  if rot_scan "pre-roots streaming" grep -noE '(^|[^:[:alnum:]_])([A-Za-z_][A-Za-z0-9_]*::)+stream::' \
+  # The match starts at an identifier and grep prints `file:line:match`, so the live spellings are
+  # excluded by anchoring on that separator and the end of the fragment. Testing the character
+  # BEFORE the match cannot work here: at column 0 the preceding character is grep's own `:`, so a
+  # doc line that STARTS with a live `rp::stream::` was reported as stale.
+  if rot_scan "pre-roots streaming" grep -noE '([A-Za-z_][A-Za-z0-9_]*::)+stream::' \
        "${doc_files[@]}"; then
-    if hit=$(grep -vE '(^|[^:[:alnum:]_])(rp|rapidproto|prefix|<prefix>|pfx|sib)::stream::' <<<"$hit"); then
+    if hit=$(grep -vE ':(rp|rapidproto|prefix|pfx|sib)::stream::$' <<<"$hit"); then
       echo ">> a pre-roots streaming spelling (<pkg>::stream::) -- the model root goes BEFORE the package:"
       sed 's/^/   /' <<<"$hit" | head -5
       stale=1

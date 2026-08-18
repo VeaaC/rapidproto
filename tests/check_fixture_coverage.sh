@@ -116,6 +116,7 @@ done
 # like an empty closure -- no g++, a wrapper that exits non-zero, a renamed golden dir -- so the
 # scan compared nothing and the stage passed on a tree that had the very defect it looks for.
 dupes=""
+seen_goldens=0
 for tu in tests/test_*.cpp; do
   if ! raw="$(g++ -std=c++17 -M -MG -I include -I tests -I tests/arenagen_golden \
                   -I tests/streamgen_golden -I tests/dumpgen_golden -I tests/coexist_golden \
@@ -126,6 +127,10 @@ for tu in tests/test_*.cpp; do
     continue
   fi
   closure="$(tr ' \\' '\n\n' <<<"$raw" | { grep -E 'tests/.*golden.*\.hpp$' || true; } | sort -u)"
+  # `|| true`: grep -c prints 0 and EXITS 1 for an empty closure, and an assignment adopts its
+  # command substitution's status, so under `set -e` that killed the script mid-scan.
+  n_in_tu=$(grep -c . <<<"$closure" || true)
+  seen_goldens=$((seen_goldens + n_in_tu))
   hits="$(while read -r f; do
             [[ -s "$f" ]] || continue
             grep -qE '^(class|struct|enum class|inline|template)' "$f" || continue
@@ -136,6 +141,15 @@ for tu in tests/test_*.cpp; do
     dupes+="$hits"$'\n'
   fi
 done
+# A floor on what the scan actually saw. A preprocessor that exits 0 printing nothing yields empty
+# closures and zero comparisons, which is indistinguishable from "no duplicates" without this.
+# 237 golden headers reach the test TUs today; the floor is set well below that so ordinary churn
+# does not trip it.
+if [[ $seen_goldens -lt 100 ]]; then
+  echo ">> the duplicate-golden scan saw only $seen_goldens golden headers across the test TUs --"
+  echo "   it cannot have compared anything meaningful (expected well over 100)"
+  missing=1
+fi
 if [[ -n "${dupes// /}" ]]; then
   echo ">> byte-identical goldens reach one TU -- clang rejects the second as a redefinition:"
   sed 's/^/   /' <<<"$dupes" | grep -v '^   $'

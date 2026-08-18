@@ -750,11 +750,13 @@ a name is readability, never trust. The unknown-fields selection folds into the 
 `--unknown-present` contributes one stable `unknown *` line (so its id doesn't shift as the schema
 gains messages, and it subsumes any redundant per-message entries) — closing the ODR gap for a flag
 that changes a message's struct but used to leave its type name untouched. Qualified use stays
-`rp::arena::pkg::Msg`; mixed-profile TUs hold distinct types and fail to **link** at any exchange point instead of
-silently violating the ODR (`tests/arena_modes_link.sh` pins every direction in the default gate,
-including `--unknown-present` with-vs-without). The common header (shared
-enums) stays outside the namespace, so a profiled arena header still coexists with the streaming
-header. A no-profile run is byte-identical to unprofiled output, and an all-excluded profile degrades
+`rp::arena::pkg::Msg`; mixed-profile TUs hold distinct types and fail to **link** wherever the
+profiled type appears in a mangled signature, instead of silently violating the ODR
+(`tests/arena_modes_link.sh` pins every direction in the default gate, including
+`--unknown-present` with-vs-without). Mangling covers a function's parameters but not its return
+type, so that guard has a boundary — see [docs/profiles.md](docs/profiles.md#decode-profiles-drop-raw-and-unknown-fields).
+The common header (shared enums) stays outside the PROFILE's inline namespace, so a profiled arena
+header still coexists with the streaming header. A no-profile run is byte-identical to unprofiled output, and an all-excluded profile degrades
 to exactly that. Known cut, deliberately deferred: no `materialize` directive to narrow a type-level
 entry (additive when needed).
 

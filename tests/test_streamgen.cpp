@@ -168,8 +168,9 @@ TEST_CASE("streamgen: namespace prefix nests the generated namespace", "[streamg
     CHECK(prefixed.find("namespace rp::dec::stream::p3 {") != std::string::npos);
     CHECK(prefixed.find("::rp::dec::stream::p3::Msg") !=
           std::string::npos);  // message refs: prefixed + nested
-    // The shared enum is prefixed but not model-nested (it lives in the common header at package scope,
-    // aliased into the model namespace) -- the load-bearing coexistence invariant.
+    // The shared enum is prefixed but carries the COMMON root, not the model one (it lives in the
+    // common header under `<prefix>::common::<pkg>`, aliased into each model) -- the load-bearing
+    // coexistence invariant.
     CHECK(prefixed.find("::rp::dec::common::p3::State") != std::string::npos);
     CHECK(prefixed.find("::rp::dec::stream::p3::State") == std::string::npos);
     const std::string plain = streamgen::generate_header(p3set.files.back(), p3set.files);

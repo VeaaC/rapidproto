@@ -16,7 +16,16 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
   | streaming | `pkg::stream::Msg` | `rp::stream::pkg::Msg` |
   | enums | `pkg::Enum`, `pkg::Msg::Kind` | `rp::common::pkg::Enum`, `rp::common::pkg::Msg::Kind`, aliased into both models |
 
-  A namespace alias per file leaves most bodies unchanged — one shape per model you use:
+  If your own headers mention generated types, a plain alias is the shape to reach for — it is
+  header-safe, leaks nothing, and needs no `using namespace`:
+
+  ```cpp
+  namespace pkg = rp::arena::pkg;   // pkg::Msg, pkg::Status and pkg::Msg::Kind all resolve
+  ```
+
+  It needs the name to be free in your build, so it does not fit the protoc-coexistence case where
+  `pkg` is already protoc's namespace. There, a using-directive per file leaves most bodies
+  unchanged — one shape per model you use:
 
   ```cpp
   namespace pkg { using namespace rp::arena::pkg; }           // arena only
@@ -33,13 +42,15 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
   `using namespace rp::common::pkg;` makes `pkg::Msg` ambiguous between the arena class and the
   mirror namespace.
 
-  Two things the alias does not carry over, both compile errors rather than silent:
+  Three things the alias does not carry over, all compile errors rather than silent:
 
   - **A helper you wrote in `namespace pkg` for ADL** — `operator<<`, `to_string` — is no longer
     found, because lookup now searches `rp::arena::pkg`. Move it there, or call it qualified.
   - **A `namespace pkg::stream` of your own** collides with the streaming row's alias. Rename one.
   - A leftover `namespace pkg { class Msg; }` forward declaration wins over the using-directive and
-    rebinds `pkg::Msg` to an empty class. Delete it; generated types cannot be forward-declared.
+    rebinds `pkg::Msg` to an empty class. Delete it; generated types cannot be forward-declared. The
+    enum form (`namespace pkg { enum class Status : int; }`) reports further from the cause —
+    `'OK' is not a member of 'pkg::Status'`.
 
   If you already passed `--namespace-prefix=rp` for protoc coexistence, your types move from
   `rp::pkg::Msg` to `rp::arena::pkg::Msg` — and the flag is no longer needed for that purpose. The root is named by

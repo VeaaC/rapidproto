@@ -1,5 +1,6 @@
 #include "rapidproto/codegen/naming.hpp"
 
+#include <cctype>
 #include <cstddef>
 #include <string>
 #include <string_view>
@@ -185,14 +186,19 @@ bool expands_as_macro(std::string_view name) {
     // included in the CONSUMER's TU, so what matters is every macro THEY may have defined first.
     // `ERROR`/`TRUE`/`FALSE` come in via windows.h, `NAN`/`INFINITY` via <cmath> -- none is defined
     // by anything rapidproto includes, and all five stay. Deliberately not exhaustive in the other
-    // direction either (<cerrno>, <climits> and the GNU predefined `linux`/`unix` are not here); a
-    // list can only ever cover the names a SCREAMING_SNAKE enum value realistically hits.
+    // direction (<cerrno> and <climits> are not here); a list can only ever cover the names a
+    // SCREAMING_SNAKE enum value realistically hits.
+    //
+    // `linux` and `unix` are the exception to that shape: gcc and clang predefine them under GNU
+    // extensions, which is the DEFAULT when a consumer passes no `-std`. They are lowercase, so an
+    // ordinary package or field of that name hits them -- `namespace linux` and `int linux;` both
+    // become `namespace 1` and `int 1;`.
     // Enum-prefix stripping additionally refuses to strip any enum whose bare remainder lands here
     // (see emit_enum), so one `*_ERROR` value keeps its whole enum unstripped.
     static const std::unordered_set<std::string_view> kMacros = {
-        "EOF",      "NULL",     "NAN",          "INFINITY",     "ERROR",    "TRUE",
-        "FALSE",    "BUFSIZ",   "EXIT_SUCCESS", "EXIT_FAILURE", "RAND_MAX", "SEEK_SET",
-        "SEEK_CUR", "SEEK_END", "errno",        "stdin",        "stdout",   "stderr",
+        "EOF",    "NULL",         "NAN",          "INFINITY", "ERROR",    "TRUE",     "FALSE",
+        "BUFSIZ", "EXIT_SUCCESS", "EXIT_FAILURE", "RAND_MAX", "SEEK_SET", "SEEK_CUR", "SEEK_END",
+        "errno",  "stdin",        "stdout",       "stderr",   "linux",    "unix",
     };
     return name.rfind("RP_", 0) == 0 || kMacros.count(name) != 0;
 }
@@ -438,6 +444,16 @@ std::string ns_prefix_component_problem(std::string_view component) {
     }
     if (expands_as_macro(component)) {
         return "it expands as a macro rather than compiling as a name";
+    }
+    // Reserved to the implementation in every scope: `__x`, and `_X` with a capital. Some are
+    // ordinary identifiers, but the predefined macros live here too (`--namespace-prefix=__LINE__`
+    // emitted `namespace __LINE__::common::pkg`, which cannot compile), and no list would keep up
+    // with a toolchain's spellings. A proto NAME of this shape is data and stays sanitize()'s
+    // business; a prefix is an instruction, so it is refused.
+    if (component.rfind("__", 0) == 0 ||
+        (component.size() >= 2 && component[0] == '_' &&
+         std::isupper(static_cast<unsigned char>(component[1])) != 0)) {
+        return "identifiers starting with `__` or `_` + a capital are reserved to the compiler";
     }
     if (component == "rapidproto") {
         // A PACKAGE of this name is harmless under the roots (it lands at

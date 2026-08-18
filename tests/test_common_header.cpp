@@ -1,7 +1,8 @@
 // Tests for the shared common header (codegen::emit_common_header) and the name table's
-// model_namespace hook (WS2 of the coexistence work). The common header holds a schema's top-level
-// enums, shared by both decoder models; model_namespace nests top-level messages (the decoders) so the
-// two coexist in one TU. The decoders' use of these is covered later (the arena/stream golden suites +
+// model_namespace hook. The common header holds a schema's enums -- top-level ones directly, nested
+// ones through the namespace mirror -- shared by both decoder models under `<prefix>::common`;
+// model_namespace is the ROOT each decoder's messages sit under (`<prefix>::arena` /
+// `<prefix>::stream`), which is what lets the two coexist in one TU. The decoders' use of these is covered later (the arena/stream golden suites +
 // the same-TU consumer test); here we test the emitter and the hook in isolation.
 
 #include <catch_amalgamated.hpp>

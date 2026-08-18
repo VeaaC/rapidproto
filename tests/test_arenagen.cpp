@@ -283,9 +283,10 @@ TEST_CASE("arenagen: generated headers match the goldens", "[arenagen]") {
     check_golden("rppkg", generate(nsedge, "rppkg.proto"));
 }
 
-// The --namespace-prefix nests every generated namespace under the prefix, so the arena types coexist
-// with protoc's (and the streamgen) headers in one TU. xref_prefixed (also #included above) proves
-// the prefixed output is valid C++ and is a distinct type from the unprefixed one.
+// --namespace-prefix names the root every generated namespace sits under. Coexistence with protoc's
+// headers no longer depends on it -- the model roots deliver that on their own -- so what this pins
+// is the flag itself: xref_prefixed (also #included above) proves the prefixed output is valid C++
+// and is a distinct type from the unprefixed one.
 // The two names arenagen SYNTHESIZES from a proto name, rather than taking from the name table.
 // Both re-check for macro expansion: the oneof visit tag because sanitize() never saw the raw name,
 // the map entry because capitalize() can MANUFACTURE a reserved prefix out of a sanitized id

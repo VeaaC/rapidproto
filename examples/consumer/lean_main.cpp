@@ -5,8 +5,9 @@
 // view is exactly what Point::decode() accepts, so the tree is built only when -- and if -- the
 // consumer asks: the deferred-decode pattern the profile exists for. The profile also stamps the
 // generated header: the types live in an inline rp_modes_* namespace (reachable as demo::Shape),
-// so a TU generated under a DIFFERENT profile cannot silently exchange trees with this one -- it
-// fails to link.
+// so a TU generated under a DIFFERENT profile cannot silently exchange trees with this one through
+// a function PARAMETER -- it fails to link. (Mangling does not cover a return type; see
+// docs/profiles.md.)
 
 #include <cstdio>
 

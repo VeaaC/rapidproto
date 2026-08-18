@@ -48,5 +48,17 @@ hybrid) is in [`examples/consumer`](../examples/consumer).
 Nothing to do: generated code lives under `rp::`, protoc's under your package, so `person.pb.h` and
 `person.rp.hpp` coexist in one TU — including for schemas importing a well-known type, where protoc
 also defines `google::protobuf::Timestamp`. Use protoc for serialization and RapidProto for the hot
-decode path. If your codebase already declares a *type* at `rp::arena` (a plain `namespace rp` is fine —
-namespaces merge), rename the root with [`--namespace-prefix`](integration.md).
+decode path.
+
+One schema shape is the exception, and it is the same rule in both directions: a *type* may not sit
+where a root namespace goes. That means your own code declaring a type at `rp::arena` (a plain
+`namespace rp` is fine — namespaces merge), and it means **the schema itself** declaring one there
+via protoc — `package rp;` with a top-level `message`/`enum` named `arena`, `stream` or `common`, or
+a package-less schema with one named `rp`:
+
+```
+c.rp.common.hpp: error: 'namespace rp::common { }' redeclared as different kind of entity
+```
+
+Both are fixed by renaming the root with [`--namespace-prefix`](integration.md). Nested types and
+sub-packages are unaffected — protoc mangles a nested type to `Outer_Inner`, and namespaces merge.
