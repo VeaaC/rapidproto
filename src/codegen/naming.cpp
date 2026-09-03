@@ -397,25 +397,40 @@ void index_message(CppNameTable& names, const MessageNode& message, const std::s
 // that includes both headers.
 using TakenByNamespace = std::unordered_map<std::string, std::unordered_set<std::string>>;
 
-// Zeroth pass over the file set: every package component claims its id in the PARENT package's
-// dedup scope, before any type is named.
+// Claim every namespace-scope id in the file set, up front and in ONE deterministic order:
 //
-// A child package is a NAMESPACE in the parent's C++ scope, and its id comes from sanitize()
-// alone -- package namespaces must agree across every file that mentions them, so they can never
-// be deduped. A top-level TYPE whose sanitized id lands on that name must therefore be the one to
-// move: `package a.linux` opens `namespace linux_` inside `a`, where a sibling file's
-// `message linux_` (protoc-valid -- the proto names differ) would otherwise redeclare that
-// namespace as a class under every model root, and its enum mirror would merge into the package's
-// namespace in the common header, colliding enum by enum. Seeding makes the type take a further
-// `_`, by the rule that already settles nested-vs-parent contests ("the parent keeps its name;
-// the child is the one deduped"). A RAW collision -- a type and a package literally sharing one
-// proto name -- is rejected by protoc, so for protoc-valid input this fires only when sanitize()
-// itself creates the alias.
+//   1. PACKAGE COMPONENTS, into their parent package's scope. A child package is a namespace in
+//      the parent's C++ scope whose id comes from sanitize() alone -- every file naming it must
+//      agree on it -- so it can never yield. A top-level type whose sanitized id lands on it must
+//      be the one to move: `package a.linux` opens `namespace linux_` inside `a`, where a sibling
+//      file's `message linux_` (protoc-valid -- the proto names differ) would otherwise redeclare
+//      that namespace as a class under every model root, and its enum mirror would merge into the
+//      package's namespace in the common header, colliding enum by enum. A RAW collision (type
+//      and package literally sharing a proto name) is rejected by protoc, so for protoc-valid
+//      input a package blocks a type only when sanitize() itself created the alias.
+//   2. LITERALS -- names sanitize() leaves alone -- so a user's spelling wins wherever possible:
+//      `message decode_` keeps `decode_` and the escape from `enum decode` moves to `decode__`,
+//      never the other way round.
+//   3. Literals a package component BLOCKED, escalated next -- still ahead of every escape.
+//   4. ESCAPES -- names sanitize() changed -- escalated until free.
+//
+// Within each group the order is the proto FQN, a property of the schema -- so the ids cannot
+// depend on the order files arrive in. Only groups 3 and 4 ever contest an id: two literals reach
+// one id only as identical names in one package (rejected before codegen), and sanitize() appends
+// a single `_`, so an escape meets an escape the same way. index_file below then finds every
+// top-level node pre-claimed; nested scopes keep their own per-class dedup.
+//
+// What this deliberately does NOT settle: two distinct PACKAGES that sanitize to one C++
+// namespace (`p.decode` and `p.decode_`) put two literal names in one scope and simply merge.
+// Both spellings compile -- the colliding TYPES inside are deduped here like any others -- so
+// rejecting the aliasing would be a schema-level diagnostic, not a naming concern.
+// Group 1 of claim_toplevel_ids: one file's package components, each claimed in its PARENT
+// package's scope.
 void claim_package_components(const CppNameTable& names, const FileNode& file,
                               TakenByNamespace& taken_by_ns) {
     std::string parent;  // the dotted package prefix seen so far ("" = global scope)
     std::string component;
-    const auto claim = [&] {
+    const auto claim_component = [&] {
         if (component.empty()) {
             return;
         }
@@ -428,82 +443,65 @@ void claim_package_components(const CppNameTable& names, const FileNode& file,
     };
     for (const char ch : file.package) {
         if (ch == '.') {
-            claim();
+            claim_component();
         } else {
             component += ch;
         }
     }
-    claim();
+    claim_component();
 }
 
-// First pass over the file set: every top-level name that sanitize() leaves ALONE claims its id
-// before any escaped name is placed.
-//
-// Two reasons. A user's literal identifier keeps its spelling -- `message decode_` stays `decode_`
-// and the escape from `enum decode` moves to `decode__`, rather than the other way round. And an
-// escape stops depending on the order files are indexed in: without this, `x.proto y.proto` and
-// `y.proto x.proto` gave the same schema different C++ names, because whoever was indexed first
-// took the contested id. Escapes cannot collide with each OTHER -- sanitize() appends one `_`, so
-// two distinct proto names reach one id only when one of them already IS that id, and this pass
-// claims it -- and two identical names in a package are rejected before codegen.
-//
-// What this does NOT settle: two distinct PACKAGES that sanitize to one C++ namespace (`p.decode`
-// and `p.decode_`, or `std` and `std_`) put two literal names in one scope, which is decided here
-// by iteration order. Both spellings compile either way -- the loser takes a `_` -- so the output
-// is valid but not order-stable. Fixing it means tie-breaking on the proto FQN, or rejecting the
-// aliasing outright, which is a schema-level diagnostic rather than a naming one.
-// A literal top-level name whose pass-1 claim FAILED because a package component (pass 0) already
-// holds its id. Escalated in a pass of their own (1b) rather than left to fall through to
-// assign_id: the second pass places names in file order, so a blocked literal raced other files'
-// ESCAPES for the escalated id and `x.proto y.proto` vs `y.proto x.proto` named the same schema
-// differently -- the very instability pass 1 exists to prevent. The FQN is the order key because
-// it is a property of the schema, not of the entry list.
-struct BlockedLiteral {
-    const void* node;
-    std::string id;   // the literal id a package component holds
-    std::string fqn;  // deterministic tie-break, independent of file order
-    std::unordered_set<std::string>* taken;
-};
+void claim_toplevel_ids(const CppNameTable& names, const std::vector<const FileNode*>& files,
+                        TakenByNamespace& taken_by_ns, ClaimedIds& claimed) {
+    // 1. Package components.
+    for (const FileNode* file : files) {
+        claim_package_components(names, *file, taken_by_ns);
+    }
 
-void claim_unescaped_toplevel(const CppNameTable& names, const FileNode& file,
-                              TakenByNamespace& taken_by_ns, ClaimedIds& claimed,
-                              std::vector<BlockedLiteral>& blocked) {
-    std::unordered_set<std::string>& taken =
-        taken_by_ns[join_ns(names.ns_prefix, namespace_of(file.package))];
-    // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): a node's raw name and its FQN
-    const auto claim = [&](const void* node, const std::string& raw, const std::string& fqn) {
-        std::string id = sanitize(raw);
-        if (id != raw) {
-            return;  // needs an escape: second pass
-        }
-        if (!taken.insert(id).second) {
-            // A package component holds this literal's id (two identical literal names in one
-            // package are rejected before codegen, so pass 0 is the only other claimant).
-            blocked.push_back({node, std::move(id), fqn, &taken});
-            return;
-        }
-        claimed.emplace(node, std::move(id));
+    // One entry per top-level type, FQN-sorted once for groups 2-4.
+    struct Claimant {
+        const void* node;
+        const std::string* raw;
+        const std::string* fqn;
+        std::unordered_set<std::string>* taken;
     };
-    for (const auto& node : file.enums) {
-        claim(&node, node.name, node.fqn);
-    }
-    for (const auto& message : file.messages) {
-        claim(&message, message.name, message.fqn);
-    }
-}
-
-// Pass 1b: escalate the blocked literals, in FQN order. Each keeps priority over every pass-2
-// escape (its id is claimed before any escape is placed), and the FQN ordering makes the result
-// identical whatever order the files arrived in.
-void claim_blocked_literals(std::vector<BlockedLiteral>& blocked, ClaimedIds& claimed) {
-    std::sort(blocked.begin(), blocked.end(),
-              [](const BlockedLiteral& a, const BlockedLiteral& b) { return a.fqn < b.fqn; });
-    for (BlockedLiteral& entry : blocked) {
-        std::string id = std::move(entry.id) + '_';
-        while (!entry.taken->insert(id).second) {
-            id += '_';
+    std::vector<Claimant> literals;
+    std::vector<Claimant> escapes;
+    for (const FileNode* file : files) {
+        std::unordered_set<std::string>& taken =
+            taken_by_ns[join_ns(names.ns_prefix, namespace_of(file->package))];
+        const auto collect = [&](const void* node, const std::string& raw, const std::string& fqn) {
+            (sanitize(raw) == raw ? literals : escapes).push_back({node, &raw, &fqn, &taken});
+        };
+        for (const auto& node : file->enums) {
+            collect(&node, node.name, node.fqn);
         }
-        claimed.emplace(entry.node, std::move(id));
+        for (const auto& message : file->messages) {
+            collect(&message, message.name, message.fqn);
+        }
+    }
+    const auto by_fqn = [](const Claimant& a, const Claimant& b) { return *a.fqn < *b.fqn; };
+    std::sort(literals.begin(), literals.end(), by_fqn);
+    std::sort(escapes.begin(), escapes.end(), by_fqn);
+
+    // 2. Literals; a package component may hold one's id (see group 1), deferring it to group 3.
+    std::vector<Claimant> blocked;
+    for (const Claimant& entry : literals) {
+        if (entry.taken->insert(*entry.raw).second) {
+            claimed.emplace(entry.node, *entry.raw);
+        } else {
+            blocked.push_back(entry);
+        }
+    }
+    // 3. Blocked literals, then 4. escapes: escalate with `_` until the id is free.
+    for (const std::vector<Claimant>* group : {&blocked, &escapes}) {
+        for (const Claimant& entry : *group) {
+            std::string id = sanitize(*entry.raw) + '_';
+            while (!entry.taken->insert(id).second) {
+                id += '_';
+            }
+            claimed.emplace(entry.node, std::move(id));
+        }
     }
 }
 
@@ -684,23 +682,17 @@ CppNameTable build_cpp_names(const FileNode& file, const std::vector<FileNode>& 
     // ids are stable across files and across models.
     TakenByNamespace taken_by_ns;
     ClaimedIds claimed;
-    std::vector<BlockedLiteral> blocked;
+    std::vector<const FileNode*> file_set;
     if (all_files.empty()) {
-        claim_package_components(names, file, taken_by_ns);
-        claim_unescaped_toplevel(names, file, taken_by_ns, claimed, blocked);
-        claim_blocked_literals(blocked, claimed);
-        index_file(names, file, taken_by_ns, claimed);
+        file_set.push_back(&file);
     } else {
         for (const auto& dep : all_files) {  // includes `file`
-            claim_package_components(names, dep, taken_by_ns);
+            file_set.push_back(&dep);
         }
-        for (const auto& dep : all_files) {
-            claim_unescaped_toplevel(names, dep, taken_by_ns, claimed, blocked);
-        }
-        claim_blocked_literals(blocked, claimed);
-        for (const auto& dep : all_files) {
-            index_file(names, dep, taken_by_ns, claimed);
-        }
+    }
+    claim_toplevel_ids(names, file_set, taken_by_ns, claimed);
+    for (const FileNode* dep : file_set) {
+        index_file(names, *dep, taken_by_ns, claimed);
     }
     return names;
 }

@@ -11,19 +11,17 @@
 
 #include <cstdint>
 #include <cstdlib>
-#include <filesystem>
 #include <fstream>
 #include <ios>
 #include <map>
-#include <set>
 #include <sstream>
 #include <string>
-#include <string_view>
 #include <type_traits>
 #include <utility>
 #include <vector>
 
 #include "arena_modes_profile.hpp"
+#include "common_golden_sweep.hpp"
 #include "rapidproto/arena_runtime.hpp"  // MapView, asserted on below
 #include "rapidproto/arenagen/generator.hpp"
 #include "rapidproto/arenagen/layout.hpp"
@@ -209,36 +207,6 @@ void check_golden(const std::string& name, const std::string& actual) {
     CHECK(actual == read_file(golden));
 }
 
-// Byte-compare the `<stem>.rp.common.hpp` beside a model golden. The model goldens byte-pin the
-// decoders; the common header each of them #includes -- where every enum and the nesting mirror
-// live -- was compiled by this TU but compared by nothing here, so it could drift (or be
-// hand-edited) with the suite green as long as it still compiled. The common header is
-// profile-independent, so the modes/unknown variants reuse their base entry's generation.
-// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): golden name, include dir, entry, prefix
-void check_common_golden(const std::string& name, const std::string& dir, const std::string& entry,
-                         const std::string& prefix = {}) {
-    ResolverConfig config;
-    config.include_paths = {dir};
-    auto resolved = resolve(dir + "/" + entry, config);
-    REQUIRE(resolved.is_ok());
-    ResolvedFileSet set = std::move(resolved).value();
-    REQUIRE(analyze(set).is_ok());
-    const codegen::CppNameTable names =
-        codegen::build_cpp_names(set.files.back(), set.files, codegen::effective_ns_prefix(prefix),
-                                 std::string(codegen::kArenaRoot));
-    const std::string actual = codegen::emit_common_header(set.files.back(), names);
-    const std::string golden =
-        std::string(RAPIDPROTO_ARENAGEN_GOLDEN_DIR) + "/" + name + ".rp.common.hpp";
-    // NOLINTNEXTLINE(concurrency-mt-unsafe): single-threaded test, opt-in regeneration only
-    if (std::getenv("RAPIDPROTO_REGEN_GOLDEN") != nullptr) {
-        std::ofstream(golden, std::ios::binary) << actual;
-        WARN("regenerated arenagen common golden: " << name);
-        return;
-    }
-    INFO("common golden: " << name);
-    CHECK(actual == read_file(golden));
-}
-
 }  // namespace
 
 TEST_CASE("arenagen: generated headers match the goldens", "[arenagen]") {
@@ -322,78 +290,13 @@ TEST_CASE("arenagen: generated headers match the goldens", "[arenagen]") {
     check_golden("rppkg", generate(nsedge, "rppkg.proto"));
 }
 
+// Every `<stem>.rp.common.hpp` beside the model goldens, directory-driven (see
+// common_golden_sweep.hpp for why not a hand-maintained case list).
 TEST_CASE("arenagen: the common headers beside the goldens match too", "[arenagen]") {
-    const std::string corpus = RAPIDPROTO_CORPUS_DIR;
-    const std::string imports = corpus + "/imports";
-    const std::string nsedge = corpus + "/nsedge";
-    struct CommonCase {
-        std::string name;    // golden path stem under arenagen_golden/
-        std::string dir;     // include dir
-        std::string entry;   // entry proto
-        std::string prefix;  // --namespace-prefix ("" = default)
-    };
-    const std::vector<CommonCase> cases = {
-        {"arena_layout", corpus, "arena_layout.proto", ""},
-        {"arena_manyreq", corpus, "arena_manyreq.proto", ""},
-        // The profile variants share their base entry's common: the common header is
-        // profile-independent by design (tested directly in test_common_header.cpp).
-        {"arena_modes", corpus, "arena_modes.proto", ""},
-        {"arena_naming", corpus, "arena_naming.proto", ""},
-        {"naming", corpus, "naming.proto", ""},
-        {"arena_unknown", corpus, "arena_unknown.proto", ""},
-        {"messageset", corpus, "messageset.proto", ""},
-        // The unknown/ variant is generated under prefix `unk` (regen_arenagen_goldens.sh), which
-        // keeps its common from being byte-identical to the plain twin in the same TU.
-        {"unknown/messageset", corpus, "messageset.proto", "unk"},
-        {"proto2", corpus, "proto2.proto", ""},
-        {"proto3", corpus, "proto3.proto", ""},
-        {"editions2023", corpus, "editions2023.proto", ""},
-        {"editions2024", corpus, "editions2024.proto", ""},
-        {"xref", corpus, "xref.proto", ""},
-        {"xref_prefixed/xref", corpus, "xref.proto", "pfx"},
-        {"wire_all", RAPIDPROTO_WIRE_FIXTURE_DIR, "wire_all.proto", ""},
-        {"dep", imports, "dep.proto", ""},
-        {"pub", imports, "pub.proto", ""},
-        {"forward", imports, "forward.proto", ""},
-        {"main", imports, "main.proto", ""},
-        {"samepkg_a", imports, "samepkg_a.proto", ""},
-        {"samepkg_b", imports, "samepkg_b.proto", ""},
-        {"escdedup_a", imports, "escdedup_a.proto", ""},
-        {"escdedup_b", imports, "escdedup_b.proto", ""},
-        {"weakdep", imports, "weakdep.proto", ""},
-        {"weakmain", imports, "weakmain.proto", ""},
-        {"prefixed/dep", imports, "dep.proto", "pfx"},
-        {"prefixed/pub", imports, "pub.proto", "pfx"},
-        {"prefixed/forward", imports, "forward.proto", "pfx"},
-        {"prefixed/main", imports, "main.proto", "pfx"},
-        {"deep", nsedge, "deep.proto", ""},
-        {"nopkg", nsedge, "nopkg.proto", ""},
-        {"xpkg", nsedge, "xpkg.proto", ""},
-        {"stdpkg", nsedge, "stdpkg.proto", ""},
-        {"rppkg", nsedge, "rppkg.proto", ""},
-    };
-    for (const CommonCase& test : cases) {
-        check_common_golden(test.name, test.dir, test.entry, test.prefix);
-    }
-    // Completeness: every common golden in the directory must be a case above. The list is
-    // hand-maintained and the fixture-coverage gate cannot tell a stem here from the same stem in
-    // the MODEL case list, so a forgotten (or deleted) entry would leave that common
-    // compiled-but-uncompared with everything green -- the exact hole this TEST_CASE closes.
-    std::set<std::string> covered;
-    for (const CommonCase& test : cases) {
-        covered.insert(test.name);
-    }
-    const std::filesystem::path root{std::string(RAPIDPROTO_ARENAGEN_GOLDEN_DIR)};
-    for (const auto& entry : std::filesystem::recursive_directory_iterator(root)) {
-        const std::string name = entry.path().lexically_relative(root).generic_string();
-        constexpr std::string_view kExt = ".rp.common.hpp";
-        if (name.size() <= kExt.size() ||
-            name.compare(name.size() - kExt.size(), kExt.size(), kExt) != 0) {
-            continue;
-        }
-        INFO("arenagen_golden/" << name << " has no entry in the common-case list above");
-        CHECK(covered.count(name.substr(0, name.size() - kExt.size())) == 1);
-    }
+    test::check_all_common_goldens(
+        RAPIDPROTO_ARENAGEN_GOLDEN_DIR,
+        {RAPIDPROTO_CORPUS_DIR, std::string(RAPIDPROTO_CORPUS_DIR) + "/imports",
+         std::string(RAPIDPROTO_CORPUS_DIR) + "/nsedge", RAPIDPROTO_WIRE_FIXTURE_DIR});
 }
 
 // The zeroth naming pass claims package components globally, and pass 1b escalates literals it

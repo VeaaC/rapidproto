@@ -14,12 +14,10 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
-#include <filesystem>
 #include <fstream>
 #include <ios>
 #include <limits>
 #include <locale>
-#include <set>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -28,11 +26,11 @@
 #include <vector>
 
 #include "arena_modes_profile.hpp"
+#include "common_golden_sweep.hpp"
 #include "rapidproto/arena_runtime.hpp"  // Arena: decode the fixtures for the runtime-output tests
 #include "rapidproto/arenagen/generator.hpp"
 #include "rapidproto/arenagen/layout.hpp"
 #include "rapidproto/arenagen/modes.hpp"
-#include "rapidproto/codegen/emit.hpp"
 #include "rapidproto/codegen/naming.hpp"
 #include "rapidproto/dump_runtime.hpp"  // dump_detail::Writer / DumpOptions: driven directly below
 #include "rapidproto/dumpgen/generator.hpp"
@@ -339,89 +337,13 @@ TEST_CASE("dumpgen: generated headers match the goldens", "[dumpgen]") {
     check_golden("prefixed/forward", generate(imports, "forward.proto", "pfx"));
 }
 
-// Byte-compare the `<stem>.rp.common.hpp` beside each dump golden: compiled by this TU (every
-// dump header pulls its arena header, which pulls the common), previously compared by nothing in
-// this suite. The common header is profile-independent, so the modes/unknown variants reuse their
-// base entry's generation.
-// NOLINTNEXTLINE(readability-function-cognitive-complexity): one case loop + a completeness glob
+// Every `<stem>.rp.common.hpp` beside the dump goldens, directory-driven (see
+// common_golden_sweep.hpp for why not a hand-maintained case list).
 TEST_CASE("dumpgen: the common headers beside the goldens match too", "[dumpgen]") {
-    const std::string corpus = RAPIDPROTO_CORPUS_DIR;
-    const std::string imports = corpus + "/imports";
-    const std::string nsedge = corpus + "/nsedge";
-    struct CommonCase {
-        std::string name;
-        std::string dir;
-        std::string entry;
-        std::string prefix;
-    };
-    const std::vector<CommonCase> cases = {
-        {"arena_layout", corpus, "arena_layout.proto", ""},
-        {"arena_manyreq", corpus, "arena_manyreq.proto", ""},
-        {"arena_modes", corpus, "arena_modes.proto", ""},
-        {"arena_naming", corpus, "arena_naming.proto", ""},
-        {"arena_unknown", corpus, "arena_unknown.proto", ""},
-        {"naming", corpus, "naming.proto", ""},
-        {"proto2", corpus, "proto2.proto", ""},
-        {"proto3", corpus, "proto3.proto", ""},
-        {"editions2023", corpus, "editions2023.proto", ""},
-        {"editions2024", corpus, "editions2024.proto", ""},
-        {"xref", corpus, "xref.proto", ""},
-        {"xref_prefixed/xref", corpus, "xref.proto", "pfx"},
-        {"wire_all", RAPIDPROTO_WIRE_FIXTURE_DIR, "wire_all.proto", ""},
-        {"dep", imports, "dep.proto", ""},
-        {"pub", imports, "pub.proto", ""},
-        {"forward", imports, "forward.proto", ""},
-        {"main", imports, "main.proto", ""},
-        {"samepkg_a", imports, "samepkg_a.proto", ""},
-        {"samepkg_b", imports, "samepkg_b.proto", ""},
-        {"weakdep", imports, "weakdep.proto", ""},
-        {"weakmain", imports, "weakmain.proto", ""},
-        {"prefixed/dep", imports, "dep.proto", "pfx"},
-        {"prefixed/pub", imports, "pub.proto", "pfx"},
-        {"prefixed/forward", imports, "forward.proto", "pfx"},
-        {"prefixed/main", imports, "main.proto", "pfx"},
-        {"stdpkg", nsedge, "stdpkg.proto", ""},
-        {"rppkg", nsedge, "rppkg.proto", ""},
-    };
-    for (const CommonCase& test : cases) {
-        ResolverConfig config;
-        config.include_paths = {test.dir};
-        auto resolved = resolve(test.dir + "/" + test.entry, config);
-        REQUIRE(resolved.is_ok());
-        ResolvedFileSet set = std::move(resolved).value();
-        REQUIRE(analyze(set).is_ok());
-        const codegen::CppNameTable names = codegen::build_cpp_names(
-            set.files.back(), set.files, codegen::effective_ns_prefix(test.prefix),
-            std::string(codegen::kArenaRoot));
-        const std::string actual = codegen::emit_common_header(set.files.back(), names);
-        const std::string golden =
-            std::string(RAPIDPROTO_DUMPGEN_GOLDEN_DIR) + "/" + test.name + ".rp.common.hpp";
-        // NOLINTNEXTLINE(concurrency-mt-unsafe): single-threaded test, opt-in regeneration only
-        if (std::getenv("RAPIDPROTO_REGEN_GOLDEN") != nullptr) {
-            std::ofstream(golden, std::ios::binary) << actual;
-            WARN("regenerated dumpgen common golden: " << test.name);
-            continue;
-        }
-        INFO("common golden: " << test.name);
-        CHECK(actual == read_file(golden));
-    }
-    // Completeness: every common golden in the directory must be a case above (see
-    // test_arenagen.cpp's twin for why a hand-maintained list needs this).
-    std::set<std::string> covered;
-    for (const CommonCase& test : cases) {
-        covered.insert(test.name);
-    }
-    const std::filesystem::path root{std::string(RAPIDPROTO_DUMPGEN_GOLDEN_DIR)};
-    for (const auto& entry : std::filesystem::recursive_directory_iterator(root)) {
-        const std::string name = entry.path().lexically_relative(root).generic_string();
-        constexpr std::string_view kExt = ".rp.common.hpp";
-        if (name.size() <= kExt.size() ||
-            name.compare(name.size() - kExt.size(), kExt.size(), kExt) != 0) {
-            continue;
-        }
-        INFO("dumpgen_golden/" << name << " has no entry in the common-case list above");
-        CHECK(covered.count(name.substr(0, name.size() - kExt.size())) == 1);
-    }
+    test::check_all_common_goldens(
+        RAPIDPROTO_DUMPGEN_GOLDEN_DIR,
+        {RAPIDPROTO_CORPUS_DIR, std::string(RAPIDPROTO_CORPUS_DIR) + "/imports",
+         std::string(RAPIDPROTO_CORPUS_DIR) + "/nsedge", RAPIDPROTO_WIRE_FIXTURE_DIR});
 }
 
 // A MULTI-component prefix through the dump generator (every prefixed golden is
