@@ -1,0 +1,8 @@
+// Order-independence pin, reverse order -- see pkgorder_a.proto.
+syntax = "proto3";
+
+package po.wrap_b;
+
+import "pkgorder_pkg.proto";
+import "pkgorder_t2.proto";
+import "pkgorder_t1.proto";

@@ -134,11 +134,13 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
 - **Names that hit a predefined or ever-present macro are escaped, two groups more than before.**
   `linux` and `unix` — gcc/clang predefined macros under GNU extensions, the default when no
   `-std` is passed — are lowercase, so an ordinary package, field or enum value of that name
-  macro-expanded into non-compiling output. And `<cstdint>`'s limit macros (`INT32_MAX`,
-  `SIZE_MAX`, ...) broke **unconditionally**, because every generated header includes `<cstdint>`
-  itself: `enum { LIM_INT32_MAX = 1 }` (via prefix stripping) or a field named `INT32_MIN`
-  produced a header that could not compile anywhere. All of them now take the usual `_` escape,
-  and enum-prefix stripping refuses to strip an enum whose bare remainder would land on one.
+  macro-expanded into non-compiling output. And `<cstdint>`'s macros broke **unconditionally**,
+  because every generated header includes `<cstdint>` itself: the limit macros (`INT32_MAX`,
+  `SIZE_MAX`, ...) expand anywhere — `enum { LIM_INT32_MAX = 1 }` (via prefix stripping) or a
+  field named `INT32_MIN` produced a header that could not compile — and the function-like
+  `INT8_C` family expands exactly where an accessor declaration puts the name, before a `(`. All
+  of them now take the usual `_` escape, and enum-prefix stripping refuses to strip an enum whose
+  bare remainder would land on one.
 
 - **A top-level type whose sanitized name collides with a sibling package's is now deduplicated
   instead of emitting a broken header.** `package a.linux` opens `namespace linux_` inside `a` —
@@ -146,7 +148,10 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
   id, redeclaring the namespace as a class in every root and colliding its mirrored enums with the
   package's in the common header. Package components now claim their ids first, so the type takes
   a further `_` (`linux__`), by the same parent-keeps-its-name rule that already settles
-  nested-type contests. The helper
+  nested-type contests. Which name yields is decided by the schema (proto FQN order), never by
+  the order files are passed in.
+
+- **`rapidproto_generate(NAMESPACE_PREFIX N)` no longer silently ignores the prefix.** The helper
   tested the value for truth, and CMake reads `N`, `no`, `off`, `false` and `0` as false — so those
   prefixes were dropped and headers were generated under the default while the build file said
   otherwise. It now tests whether the keyword was given at all.

@@ -1,0 +1,11 @@
+// One of the pkgorder trio (see pkgorder_a.proto): an ESCAPE contesting the same ids -- `linux`
+// sanitizes to `linux_` and escalates behind the blocked literal, to `linux___`. protoc rejects
+// this file beside pkgorder_pkg.proto (a raw type/package collision), which is exactly why it is
+// here: the generator still accepts it, and what it accepts must be named deterministically.
+syntax = "proto3";
+
+package po;
+
+message linux {
+  int32 v = 1;
+}

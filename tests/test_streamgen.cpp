@@ -16,6 +16,7 @@
 #include <fstream>
 #include <ios>
 #include <optional>
+#include <set>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -127,6 +128,7 @@ void put_float(std::string& b, float f) {
 
 }  // namespace
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): one case loop + a completeness glob
 TEST_CASE("streamgen: generated headers match the goldens", "[streamgen]") {
     const std::string corpus = RAPIDPROTO_CORPUS_DIR;
     const std::string fixtures = RAPIDPROTO_WIRE_FIXTURE_DIR;
@@ -173,6 +175,38 @@ TEST_CASE("streamgen: generated headers match the goldens", "[streamgen]") {
         INFO("golden: " << test.name);
         CHECK(actual == read_file(golden));
         CHECK(actual_common == read_file(common_golden));
+    }
+
+    // Completeness: every common golden in the directory must be compared by SOMETHING -- this
+    // loop, the well-known-type closure loop (usewkt + google/protobuf/*), or the xref_prefixed
+    // block. The lists are hand-maintained, so a dropped case would leave its common
+    // compiled-but-uncompared with everything green.
+    std::set<std::string> covered{"xref_prefixed/xref"};
+    for (const Case& test : cases) {
+        covered.insert(test.name);
+    }
+    {
+        ResolverConfig config;
+        config.include_paths = {corpus};
+        auto resolved = resolve(corpus + "/usewkt.proto", config);
+        REQUIRE(resolved.is_ok());
+        const ResolvedFileSet set = std::move(resolved).value();
+        for (const FileNode& file : set.files) {
+            std::filesystem::path stem = file.filename;
+            stem.replace_extension();
+            covered.insert(stem.generic_string());
+        }
+    }
+    const std::filesystem::path root{std::string(RAPIDPROTO_STREAMGEN_GOLDEN_DIR)};
+    for (const auto& entry : std::filesystem::recursive_directory_iterator(root)) {
+        const std::string name = entry.path().lexically_relative(root).generic_string();
+        constexpr std::string_view kExt = ".rp.common.hpp";
+        if (name.size() <= kExt.size() ||
+            name.compare(name.size() - kExt.size(), kExt.size(), kExt) != 0) {
+            continue;
+        }
+        INFO("streamgen_golden/" << name << " is compared by no case list in this suite");
+        CHECK(covered.count(name.substr(0, name.size() - kExt.size())) == 1);
     }
 }
 

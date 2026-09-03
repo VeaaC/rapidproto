@@ -67,6 +67,21 @@ enum GnuEnum {
   linux = 1;  // a bare lowercase value: escaped rather than macro-expanded
 }
 
+// <cstdint> is included by every generated header ITSELF, so its macro names break with no help
+// from the consumer's include order: the limit macros expand anywhere, and the INT8_C()
+// function-like family expands exactly where an accessor declaration puts the name -- before a
+// `(`. Like Gnu above, the suite's -std=c++17 build cannot catch a missing escape by compiling;
+// the golden byte-compare is the pin.
+message Stdint {
+  optional int32 INT32_MAX = 1;  // object-like limit macro -> INT32_MAX_
+  optional int32 INT8_C = 2;     // function-like: the accessor `INT8_C()` would expand -> INT8_C_
+}
+
+enum StdintEnum {
+  STDINT_ENUM_UNSET = 0;
+  STDINT_ENUM_SIZE_MAX = 1;  // stripping would expose bare SIZE_MAX: the whole enum stays unstripped
+}
+
 // The streaming struct holds its bytes in an `rp_`-prefixed private member, which sanitize() puts
 // out of reach of any proto name -- so `m_bytes` is an ordinary identifier here, in all three roles.
 message m_bytes {

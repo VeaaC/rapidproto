@@ -11,10 +11,14 @@
 
 #include <cstdint>
 #include <cstdlib>
+#include <filesystem>
 #include <fstream>
 #include <ios>
+#include <map>
+#include <set>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -241,6 +245,10 @@ TEST_CASE("arenagen: generated headers match the goldens", "[arenagen]") {
     check_golden("arena_layout", generate_corpus("arena_layout.proto"));
     check_golden("arena_manyreq", generate_corpus("arena_manyreq.proto"));
     check_golden("arena_naming", generate_corpus("arena_naming.proto"));
+    // naming.proto's ARENA model was byte-compared nowhere: dumpgen_golden's copy of naming.rp.hpp
+    // is compile-smoked only, so an arenagen-local divergence on the escape fixtures (linux/unix,
+    // the cstdint macros, the escaped mirror) surfaced only at the next manual regen.
+    check_golden("naming", generate_corpus("naming.proto"));
     check_golden("messageset", generate_corpus("messageset.proto"));
     // The same schema under --unknown-present + a namespace prefix: pins the modes inline
     // namespace (the ODR guard) as well as the unknown bit the decode test asserts on.
@@ -331,6 +339,7 @@ TEST_CASE("arenagen: the common headers beside the goldens match too", "[arenage
         // profile-independent by design (tested directly in test_common_header.cpp).
         {"arena_modes", corpus, "arena_modes.proto", ""},
         {"arena_naming", corpus, "arena_naming.proto", ""},
+        {"naming", corpus, "naming.proto", ""},
         {"arena_unknown", corpus, "arena_unknown.proto", ""},
         {"messageset", corpus, "messageset.proto", ""},
         // The unknown/ variant is generated under prefix `unk` (regen_arenagen_goldens.sh), which
@@ -366,6 +375,64 @@ TEST_CASE("arenagen: the common headers beside the goldens match too", "[arenage
     for (const CommonCase& test : cases) {
         check_common_golden(test.name, test.dir, test.entry, test.prefix);
     }
+    // Completeness: every common golden in the directory must be a case above. The list is
+    // hand-maintained and the fixture-coverage gate cannot tell a stem here from the same stem in
+    // the MODEL case list, so a forgotten (or deleted) entry would leave that common
+    // compiled-but-uncompared with everything green -- the exact hole this TEST_CASE closes.
+    std::set<std::string> covered;
+    for (const CommonCase& test : cases) {
+        covered.insert(test.name);
+    }
+    const std::filesystem::path root{std::string(RAPIDPROTO_ARENAGEN_GOLDEN_DIR)};
+    for (const auto& entry : std::filesystem::recursive_directory_iterator(root)) {
+        const std::string name = entry.path().lexically_relative(root).generic_string();
+        constexpr std::string_view kExt = ".rp.common.hpp";
+        if (name.size() <= kExt.size() ||
+            name.compare(name.size() - kExt.size(), kExt.size(), kExt) != 0) {
+            continue;
+        }
+        INFO("arenagen_golden/" << name << " has no entry in the common-case list above");
+        CHECK(covered.count(name.substr(0, name.size() - kExt.size())) == 1);
+    }
+}
+
+// The zeroth naming pass claims package components globally, and pass 1b escalates literals it
+// blocked in FQN order -- so the ids a schema gets cannot depend on the order its files arrive
+// in. The two wrappers import the same trio (a package seeding `linux_`, the literal of that id,
+// an escape contesting it) in OPPOSITE orders; every shared file must generate byte-identically
+// from both closures. Before pass 1b, the blocked literal fell into the file-ordered second pass
+// and swapped escalated ids with the escape between the two orders.
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): one helper, two closures, a diff
+TEST_CASE("arenagen: generated ids do not depend on file-set order", "[arenagen]") {
+    const std::string imports = std::string(RAPIDPROTO_CORPUS_DIR) + "/imports";
+    const auto generate_shared = [&](const std::string& entry) {
+        ResolverConfig config;
+        config.include_paths = {imports};
+        auto resolved = resolve(imports + "/" + entry, config);
+        REQUIRE(resolved.is_ok());
+        ResolvedFileSet set = std::move(resolved).value();
+        auto analyzed = analyze(set);
+        REQUIRE(analyzed.is_ok());
+        const SymbolTable symbols = std::move(analyzed).value();
+        std::map<std::string, std::string> by_file;
+        for (const FileNode& file : set.files) {
+            if (file.filename.find("pkgorder_a") != std::string::npos ||
+                file.filename.find("pkgorder_b") != std::string::npos) {
+                continue;  // the wrappers differ by design; the SHARED files must not
+            }
+            by_file[file.filename] = arenagen::generate_header(file, set, symbols);
+        }
+        return by_file;
+    };
+    const auto forward = generate_shared("pkgorder_a.proto");
+    const auto reverse = generate_shared("pkgorder_b.proto");
+    REQUIRE(forward.size() == 3);
+    CHECK(forward == reverse);
+    // The contested ids landed where FQN order puts them: the literal ahead of the escape.
+    const auto& t1 = forward.at("pkgorder_t1.proto");
+    const auto& t2 = forward.at("pkgorder_t2.proto");
+    CHECK(t1.find("class linux__ ") != std::string::npos);
+    CHECK(t2.find("class linux___ ") != std::string::npos);
 }
 
 // --namespace-prefix names the root every generated namespace sits under. Coexistence with protoc's

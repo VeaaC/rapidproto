@@ -1,0 +1,11 @@
+// Order-independence pin, forward order. This wrapper and pkgorder_b.proto import the same three
+// files -- a package seeding `linux_`, the literal of that id, and an escape contesting it -- in
+// OPPOSITE orders. Every shared file must generate byte-identically from both closures: who keeps
+// which escalated id is decided by FQN (pass 1b), never by the order files arrive in.
+syntax = "proto3";
+
+package po.wrap_a;
+
+import "pkgorder_t1.proto";
+import "pkgorder_t2.proto";
+import "pkgorder_pkg.proto";

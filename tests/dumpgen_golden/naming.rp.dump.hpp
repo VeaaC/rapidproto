@@ -29,6 +29,14 @@ inline const char* rp_dump_enum_name(::rp::common::nm::GnuEnum rp_e) {
   return nullptr;  // unknown (open enum): the caller renders UNKNOWN(<n>)
 }
 
+inline const char* rp_dump_enum_name(::rp::common::nm::StdintEnum rp_e) {
+  switch (static_cast<std::int32_t>(rp_e)) {
+    case 0: return "STDINT_ENUM_UNSET";
+    case 1: return "STDINT_ENUM_SIZE_MAX";
+  }
+  return nullptr;  // unknown (open enum): the caller renders UNKNOWN(<n>)
+}
+
 inline const char* rp_dump_enum_name(::rp::common::nm::MacroEnum rp_e) {
   switch (static_cast<std::int32_t>(rp_e)) {
     case 0: return "RP_FLATTEN_";
@@ -70,6 +78,7 @@ inline void rp_dump_write(const ::rp::arena::nm::Outer::Outer_& m, ::rapidproto:
 inline void rp_dump_write(const ::rp::arena::nm::Outer& m, ::rapidproto::dump_detail::Writer& w);
 inline void rp_dump_write(const ::rp::arena::nm::Gnu::linux_& m, ::rapidproto::dump_detail::Writer& w);
 inline void rp_dump_write(const ::rp::arena::nm::Gnu& m, ::rapidproto::dump_detail::Writer& w);
+inline void rp_dump_write(const ::rp::arena::nm::Stdint& m, ::rapidproto::dump_detail::Writer& w);
 inline void rp_dump_write(const ::rp::arena::nm::m_bytes& m, ::rapidproto::dump_detail::Writer& w);
 inline void rp_dump_write(const ::rp::arena::nm::UsesMBytes& m, ::rapidproto::dump_detail::Writer& w);
 inline void rp_dump_write(const ::rp::arena::nm::Shadow::Inner& m, ::rapidproto::dump_detail::Writer& w);
@@ -208,6 +217,24 @@ inline void rp_dump_write(const ::rp::arena::nm::Gnu& m, ::rapidproto::dump_deta
     }
     if (const auto rp_v = m.unix_()) {
       if (w.begin_field(rp_first, "unix")) {
+        ::rapidproto::dump_detail::write_int(w.os(), *rp_v);
+      }
+    }
+    (void)rp_first;
+  });
+}
+
+inline void rp_dump_write(const ::rp::arena::nm::Stdint& m, ::rapidproto::dump_detail::Writer& w) {
+  (void)m;
+  w.group('{', '}', [&] {
+    bool rp_first = true;
+    if (const auto rp_v = m.INT32_MAX_()) {
+      if (w.begin_field(rp_first, "INT32_MAX")) {
+        ::rapidproto::dump_detail::write_int(w.os(), *rp_v);
+      }
+    }
+    if (const auto rp_v = m.INT8_C_()) {
+      if (w.begin_field(rp_first, "INT8_C")) {
         ::rapidproto::dump_detail::write_int(w.os(), *rp_v);
       }
     }
@@ -573,6 +600,11 @@ struct dumper<::rp::arena::nm::Gnu::linux_> {
 template <>
 struct dumper<::rp::arena::nm::Gnu> {
   static void write(const ::rp::arena::nm::Gnu& m, Writer& w) { ::rp::arena::nm::rp_dump_detail::rp_dump_write(m, w); }
+};
+
+template <>
+struct dumper<::rp::arena::nm::Stdint> {
+  static void write(const ::rp::arena::nm::Stdint& m, Writer& w) { ::rp::arena::nm::rp_dump_detail::rp_dump_write(m, w); }
 };
 
 template <>

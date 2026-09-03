@@ -202,7 +202,7 @@ if [[ "${1:-}" == "deep" ]]; then
   # six-hour ceiling kills it. A literal 0 is refused for the same reason -- it IS that no-limit
   # value, so admitting it would let a truncated env var do exactly what this check exists to stop.
   if ! [[ "$FUZZ_TIME" =~ ^[1-9][0-9]*$ ]]; then
-    echo ">> FUZZ_TIME='$FUZZ_TIME' is not a positive number: libFuzzer reads anything else as 'no limit'" >&2
+    echo ">> FUZZ_TIME='$FUZZ_TIME' is not a positive number (libFuzzer reads 0, or a value it cannot parse, as 'no limit')" >&2
     exit 2
   fi
   COV_FLOOR=${COV_FLOOR:-85}   # minimum library line-coverage %
@@ -597,21 +597,26 @@ job_doc_links() {
 
   # grep exits 1 for "no match" and >=2 for an ERROR. Collapsing those makes a scan that cannot run
   # look like a scan that found nothing, which is the failure this gate exists to prevent.
+  # One stderr spool for every rot_scan, CHECKED: an unchecked per-call mktemp meant a full or
+  # unwritable TMPDIR made the redirect fail with grep's own rc=1 -- which reads as "no match", so
+  # a broken /tmp silently disarmed all three scan families. That is the exact silent-pass class
+  # this helper exists to close, so a failed mktemp is a red stage, not a quiet green.
+  local rot_err
+  if ! rot_err=$(mktemp); then
+    echo ">> cannot create a temp file for the doc scans -- they would misreport failure as 'no match'"
+    return 1
+  fi
   rot_scan() {  # <description> <grep args...> -- sets `hit`, returns 0 when something matched
     local what="$1"; shift
     # stderr kept apart from the matches: merged, a grep WARNING on an otherwise-successful scan
     # would be reported as a stale-spelling hit.
-    local err_file
-    err_file=$(mktemp)
-    hit=$("$@" 2>"$err_file"); rc=$?
+    hit=$("$@" 2>"$rot_err"); rc=$?
     if [[ $rc -ge 2 ]]; then
       echo ">> the $what scan could not run (grep exit $rc):"
-      sed 's/^/   /' "$err_file" | head -3
-      rm -f "$err_file"
+      sed 's/^/   /' "$rot_err" | head -3
       stale=1
       return 1
     fi
-    rm -f "$err_file"
     [[ $rc -eq 0 ]]
   }
 
@@ -685,6 +690,7 @@ job_doc_links() {
     done
   done
 
+  rm -f "$rot_err"
   [[ $stale -eq 0 ]] || {
     echo ">> update the text, or add an exemption here if the spelling came back"
     return 1

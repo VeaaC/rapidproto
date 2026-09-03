@@ -24,6 +24,15 @@ enum class GnuEnum : std::int32_t {
   rp_non_exhaustive_max = INT32_MAX,
 };
 
+enum class StdintEnum : std::int32_t {
+  STDINT_ENUM_UNSET = 0,
+  STDINT_ENUM_SIZE_MAX = 1,
+  rp_known_min = 0,
+  rp_known_max = 1,
+  rp_non_exhaustive_min = INT32_MIN,
+  rp_non_exhaustive_max = INT32_MAX,
+};
+
 enum class MacroEnum : std::int32_t {
   RP_FLATTEN_ = 0,
   MACRO_ENUM_OTHER = 1,

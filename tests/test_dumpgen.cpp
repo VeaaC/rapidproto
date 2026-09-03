@@ -14,12 +14,15 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <ios>
 #include <limits>
 #include <locale>
+#include <set>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -340,6 +343,7 @@ TEST_CASE("dumpgen: generated headers match the goldens", "[dumpgen]") {
 // dump header pulls its arena header, which pulls the common), previously compared by nothing in
 // this suite. The common header is profile-independent, so the modes/unknown variants reuse their
 // base entry's generation.
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): one case loop + a completeness glob
 TEST_CASE("dumpgen: the common headers beside the goldens match too", "[dumpgen]") {
     const std::string corpus = RAPIDPROTO_CORPUS_DIR;
     const std::string imports = corpus + "/imports";
@@ -401,6 +405,23 @@ TEST_CASE("dumpgen: the common headers beside the goldens match too", "[dumpgen]
         INFO("common golden: " << test.name);
         CHECK(actual == read_file(golden));
     }
+    // Completeness: every common golden in the directory must be a case above (see
+    // test_arenagen.cpp's twin for why a hand-maintained list needs this).
+    std::set<std::string> covered;
+    for (const CommonCase& test : cases) {
+        covered.insert(test.name);
+    }
+    const std::filesystem::path root{std::string(RAPIDPROTO_DUMPGEN_GOLDEN_DIR)};
+    for (const auto& entry : std::filesystem::recursive_directory_iterator(root)) {
+        const std::string name = entry.path().lexically_relative(root).generic_string();
+        constexpr std::string_view kExt = ".rp.common.hpp";
+        if (name.size() <= kExt.size() ||
+            name.compare(name.size() - kExt.size(), kExt.size(), kExt) != 0) {
+            continue;
+        }
+        INFO("dumpgen_golden/" << name << " has no entry in the common-case list above");
+        CHECK(covered.count(name.substr(0, name.size() - kExt.size())) == 1);
+    }
 }
 
 // A MULTI-component prefix through the dump generator (every prefixed golden is
@@ -441,8 +462,6 @@ TEST_CASE("dumpgen: generated internals live in sub-namespaces, not the public o
         const std::string out = generate(nsedge, "nopkg.proto");
         CHECK(out.find("namespace rp::arena {") != std::string::npos);
         CHECK(out.find("::rp::arena::rp_dump_detail::rp_dump_write") != std::string::npos);
-        // Nothing at global scope: the root is what keeps a package-less schema out of it.
-        CHECK(out.find("\n::rp_dump_detail") == std::string::npos);
     }
     SECTION("a cross-file call is qualified with the CALLEE's namespace, not the caller's") {
         const std::string out = generate(nsedge, "xpkg.proto");

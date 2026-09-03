@@ -1,5 +1,6 @@
 #include "rapidproto/codegen/naming.hpp"
 
+#include <algorithm>
 #include <cctype>
 #include <cstddef>
 #include <string>
@@ -190,10 +191,12 @@ bool expands_as_macro(std::string_view name) {
     // SCREAMING_SNAKE enum value realistically hits.
     //
     // Two groups are NOT a probability call like the rest:
-    //  - <cstdint>'s object-like limit macros (`INT32_MAX`, `SIZE_MAX`, ...): every generated
-    //    header includes <cstdint> ITSELF, so these break unconditionally -- no consumer include
-    //    order avoids them. The whole set is listed; the `INT8_C(x)`-style function-like macros are
-    //    left out because a bare identifier does not expand them.
+    //  - <cstdint>'s macros: every generated header includes <cstdint> ITSELF, so these break
+    //    unconditionally -- no consumer include order avoids them. The limit macros
+    //    (`INT32_MAX`, `SIZE_MAX`, ...) expand anywhere; the function-like `INT8_C(x)` family
+    //    expands wherever the name is followed by `(` -- which is exactly what an accessor
+    //    declaration (`std::int32_t INT8_C() const`) and a generated constructor are. Both
+    //    groups are listed in full.
     //  - `linux` and `unix`: gcc and clang predefine them under GNU extensions, which is the
     //    DEFAULT when a consumer passes no `-std`. They are lowercase, so an ordinary package or
     //    field of that name hits them -- `namespace linux` and `int linux;` both become
@@ -273,6 +276,16 @@ bool expands_as_macro(std::string_view name) {
         "WCHAR_MAX",
         "WINT_MIN",
         "WINT_MAX",
+        "INT8_C",
+        "INT16_C",
+        "INT32_C",
+        "INT64_C",
+        "INTMAX_C",
+        "UINT8_C",
+        "UINT16_C",
+        "UINT32_C",
+        "UINT64_C",
+        "UINTMAX_C",
     };
     return name.rfind("RP_", 0) == 0 || kMacros.count(name) != 0;
 }
@@ -439,22 +452,58 @@ void claim_package_components(const CppNameTable& names, const FileNode& file,
 // by iteration order. Both spellings compile either way -- the loser takes a `_` -- so the output
 // is valid but not order-stable. Fixing it means tie-breaking on the proto FQN, or rejecting the
 // aliasing outright, which is a schema-level diagnostic rather than a naming one.
+// A literal top-level name whose pass-1 claim FAILED because a package component (pass 0) already
+// holds its id. Escalated in a pass of their own (1b) rather than left to fall through to
+// assign_id: the second pass places names in file order, so a blocked literal raced other files'
+// ESCAPES for the escalated id and `x.proto y.proto` vs `y.proto x.proto` named the same schema
+// differently -- the very instability pass 1 exists to prevent. The FQN is the order key because
+// it is a property of the schema, not of the entry list.
+struct BlockedLiteral {
+    const void* node;
+    std::string id;   // the literal id a package component holds
+    std::string fqn;  // deterministic tie-break, independent of file order
+    std::unordered_set<std::string>* taken;
+};
+
 void claim_unescaped_toplevel(const CppNameTable& names, const FileNode& file,
-                              TakenByNamespace& taken_by_ns, ClaimedIds& claimed) {
+                              TakenByNamespace& taken_by_ns, ClaimedIds& claimed,
+                              std::vector<BlockedLiteral>& blocked) {
     std::unordered_set<std::string>& taken =
         taken_by_ns[join_ns(names.ns_prefix, namespace_of(file.package))];
-    const auto claim = [&](const void* node, const std::string& raw) {
+    // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): a node's raw name and its FQN
+    const auto claim = [&](const void* node, const std::string& raw, const std::string& fqn) {
         std::string id = sanitize(raw);
-        if (id != raw || !taken.insert(id).second) {
-            return;  // needs an escape, or an identical name already claimed it: second pass
+        if (id != raw) {
+            return;  // needs an escape: second pass
+        }
+        if (!taken.insert(id).second) {
+            // A package component holds this literal's id (two identical literal names in one
+            // package are rejected before codegen, so pass 0 is the only other claimant).
+            blocked.push_back({node, std::move(id), fqn, &taken});
+            return;
         }
         claimed.emplace(node, std::move(id));
     };
     for (const auto& node : file.enums) {
-        claim(&node, node.name);
+        claim(&node, node.name, node.fqn);
     }
     for (const auto& message : file.messages) {
-        claim(&message, message.name);
+        claim(&message, message.name, message.fqn);
+    }
+}
+
+// Pass 1b: escalate the blocked literals, in FQN order. Each keeps priority over every pass-2
+// escape (its id is claimed before any escape is placed), and the FQN ordering makes the result
+// identical whatever order the files arrived in.
+void claim_blocked_literals(std::vector<BlockedLiteral>& blocked, ClaimedIds& claimed) {
+    std::sort(blocked.begin(), blocked.end(),
+              [](const BlockedLiteral& a, const BlockedLiteral& b) { return a.fqn < b.fqn; });
+    for (BlockedLiteral& entry : blocked) {
+        std::string id = std::move(entry.id) + '_';
+        while (!entry.taken->insert(id).second) {
+            id += '_';
+        }
+        claimed.emplace(entry.node, std::move(id));
     }
 }
 
@@ -635,17 +684,20 @@ CppNameTable build_cpp_names(const FileNode& file, const std::vector<FileNode>& 
     // ids are stable across files and across models.
     TakenByNamespace taken_by_ns;
     ClaimedIds claimed;
+    std::vector<BlockedLiteral> blocked;
     if (all_files.empty()) {
         claim_package_components(names, file, taken_by_ns);
-        claim_unescaped_toplevel(names, file, taken_by_ns, claimed);
+        claim_unescaped_toplevel(names, file, taken_by_ns, claimed, blocked);
+        claim_blocked_literals(blocked, claimed);
         index_file(names, file, taken_by_ns, claimed);
     } else {
         for (const auto& dep : all_files) {  // includes `file`
             claim_package_components(names, dep, taken_by_ns);
         }
         for (const auto& dep : all_files) {
-            claim_unescaped_toplevel(names, dep, taken_by_ns, claimed);
+            claim_unescaped_toplevel(names, dep, taken_by_ns, claimed, blocked);
         }
+        claim_blocked_literals(blocked, claimed);
         for (const auto& dep : all_files) {
             index_file(names, dep, taken_by_ns, claimed);
         }

@@ -59,75 +59,83 @@ endfunction()
 # inside an import string (`import "sub//x.proto";` -- a spelling the CLI accepts) is path, not
 # comment, and a stripper that cannot tell ate from mid-string to end of line, splicing the next
 # import into a phantom output path with a newline in it -- a declared OUTPUT nothing ever writes,
-# i.e. a target that regenerates on every build forever. Line-oriented, because a proto string
-# literal cannot span lines; only the block-comment state crosses them. Backslash-escaped quotes
-# inside a string are not modeled -- an import path containing a quote has no header path worth
-# predicting.
+# i.e. a target that regenerates on every build forever.
+#
+# A position scan over the ONE string, never a `\n`->list split: CMake list encoding turns a raw
+# trailing backslash (a Windows path in a comment) into an escaped separator, merging two lines --
+# which handed a `//` comment the next line's import to swallow. A string literal still ends at
+# its line (proto strings cannot span lines), so an unterminated one cannot swallow code either.
+# Backslash-escaped quotes inside a string are not modeled -- an import path containing a quote
+# has no header path worth predicting.
 function(_rapidproto_strip_comments out_var text)
-  # Protect real semicolons before splitting into a line list, or every proto statement terminator
-  # becomes a list separator.
-  string(REPLACE ";" "\\;" _protected "${text}")
-  string(REPLACE "\n" ";" _lines "${_protected}")
   set(_clean "")
-  set(_in_block FALSE)
-  foreach(_line IN LISTS _lines)
-    set(_out "")
-    while(NOT _line STREQUAL "")
-      if(_in_block)
-        string(FIND "${_line}" "*/" _pos)
-        if(_pos EQUAL -1)
-          set(_line "")
-        else()
-          math(EXPR _pos "${_pos} + 2")
-          string(SUBSTRING "${_line}" ${_pos} -1 _line)
-          set(_in_block FALSE)
-        endif()
-        continue()
+  set(_rest "${text}")
+  while(NOT _rest STREQUAL "")
+    # The EARLIEST of the four significant tokens decides: a quote before a `//` means the
+    # slashes are inside the string, and vice versa.
+    set(_next -1)
+    set(_kind "")
+    foreach(_tok "//" "/*" "\"" "'")
+      string(FIND "${_rest}" "${_tok}" _pos)
+      if(NOT _pos EQUAL -1 AND (_next EQUAL -1 OR _pos LESS _next))
+        set(_next ${_pos})
+        set(_kind "${_tok}")
       endif()
-      # The EARLIEST of the four significant tokens decides: a quote before a `//` means the
-      # slashes are inside the string, and vice versa.
-      set(_next -1)
-      set(_kind "")
-      foreach(_tok "//" "/*" "\"" "'")
-        string(FIND "${_line}" "${_tok}" _pos)
-        if(NOT _pos EQUAL -1 AND (_next EQUAL -1 OR _pos LESS _next))
-          set(_next ${_pos})
-          set(_kind "${_tok}")
-        endif()
-      endforeach()
-      if(_next EQUAL -1)
-        string(APPEND _out "${_line}")
-        set(_line "")
-      elseif(_kind STREQUAL "//")
-        string(SUBSTRING "${_line}" 0 ${_next} _head)
-        string(APPEND _out "${_head}")
-        set(_line "")
-      elseif(_kind STREQUAL "/*")
-        string(SUBSTRING "${_line}" 0 ${_next} _head)
-        string(APPEND _out "${_head}")
-        math(EXPR _skip "${_next} + 2")
-        string(SUBSTRING "${_line}" ${_skip} -1 _line)
-        set(_in_block TRUE)
+    endforeach()
+    if(_next EQUAL -1)
+      string(APPEND _clean "${_rest}")
+      break()
+    endif()
+    string(SUBSTRING "${_rest}" 0 ${_next} _head)
+    string(APPEND _clean "${_head}")
+    math(EXPR _skip "${_next} + 2")
+    if(_kind STREQUAL "//")
+      # Dead to the next newline; the newline itself survives (it may terminate an unclosed
+      # string on the line above, and MATCHALL treats it as whitespace anyway).
+      string(SUBSTRING "${_rest}" ${_next} -1 _rest)
+      string(FIND "${_rest}" "\n" _eol)
+      if(_eol EQUAL -1)
+        set(_rest "")
       else()
-        # A string literal: copy it through verbatim, up to the matching close quote.
-        math(EXPR _start "${_next} + 1")
-        string(SUBSTRING "${_line}" 0 ${_start} _head)
-        string(APPEND _out "${_head}")
-        string(SUBSTRING "${_line}" ${_start} -1 _rest)
-        string(FIND "${_rest}" "${_kind}" _close)
-        if(_close EQUAL -1)
-          string(APPEND _out "${_rest}")  # unterminated: the CLI will reject the file anyway
-          set(_line "")
-        else()
-          math(EXPR _len "${_close} + 1")
-          string(SUBSTRING "${_rest}" 0 ${_len} _body)
-          string(APPEND _out "${_body}")
-          string(SUBSTRING "${_rest}" ${_len} -1 _line)
-        endif()
+        string(SUBSTRING "${_rest}" ${_eol} -1 _rest)
       endif()
-    endwhile()
-    string(APPEND _clean "${_out}\n")
-  endforeach()
+    elseif(_kind STREQUAL "/*")
+      string(SUBSTRING "${_rest}" ${_skip} -1 _rest)
+      string(FIND "${_rest}" "*/" _end)
+      if(_end EQUAL -1)
+        set(_rest "")  # unterminated block comment: the rest of the file is dead
+      else()
+        math(EXPR _end "${_end} + 2")
+        string(SUBSTRING "${_rest}" ${_end} -1 _rest)
+      endif()
+      string(APPEND _clean " ")  # a comment separates tokens, as in the CLI's lexer
+    else()
+      # A string literal: copy it through verbatim, up to the matching close quote -- but never
+      # past the end of the line, because a proto string cannot span lines and an unterminated
+      # one must not swallow the next line's code (the CLI rejects the file; the scan's job is
+      # only to not mis-declare outputs on the way).
+      math(EXPR _start "${_next} + 1")
+      string(SUBSTRING "${_rest}" ${_start} -1 _rest)
+      string(APPEND _clean "${_kind}")
+      string(FIND "${_rest}" "${_kind}" _close)
+      string(FIND "${_rest}" "\n" _eol)
+      if(_close EQUAL -1 OR (NOT _eol EQUAL -1 AND _eol LESS _close))
+        if(_eol EQUAL -1)
+          string(APPEND _clean "${_rest}")
+          set(_rest "")
+        else()
+          string(SUBSTRING "${_rest}" 0 ${_eol} _body)
+          string(APPEND _clean "${_body}")
+          string(SUBSTRING "${_rest}" ${_eol} -1 _rest)
+        endif()
+      else()
+        math(EXPR _len "${_close} + 1")
+        string(SUBSTRING "${_rest}" 0 ${_len} _body)
+        string(APPEND _clean "${_body}")
+        string(SUBSTRING "${_rest}" ${_len} -1 _rest)
+      endif()
+    endif()
+  endwhile()
   set(${out_var} "${_clean}" PARENT_SCOPE)
 endfunction()
 
@@ -159,8 +167,16 @@ function(_rapidproto_import_closure out_imports out_scanned protos_abs import_di
     # MATCHALL, not a per-line match: two imports on one line, and `import"x.proto";` with no space
     # after the keyword, are both valid proto that a line-anchored pattern misses. Both quote
     # styles: `import 'x.proto';` is valid proto too, and the CLI generates from it.
-    string(REGEX MATCHALL "import[ \t\r\n]*(public|weak)?[ \t\r\n]*(\"[^\"]*\"|'[^']*')" _stmts
-           "${_text}")
+    #
+    # Anchored on STATEMENT position -- start of file, or after `;`/`{`/`}` -- because string
+    # literals survive the comment strip: unanchored, the word `import` inside an option string
+    # (`option (note) = "made by import";`) paired with the string's own closing quote and
+    # swallowed the next real import. A guard `;` that lands inside a match merely splits the list
+    # element; the quoted path the extraction below wants survives the split. Residual: a string
+    # containing a full `; import "x"` statement still fools this -- a lexer-grade scan is the
+    # CLI's job, not a configure step's.
+    string(REGEX MATCHALL "(^|[;{}])[ \t\r\n]*import[ \t\r\n]*(public|weak)?[ \t\r\n]*(\"[^\"]*\"|'[^']*')"
+           _stmts "${_text}")
     foreach(_stmt IN LISTS _stmts)
       string(REGEX MATCH "[\"']([^\"']*)[\"']" _quoted "${_stmt}")
       _rapidproto_normalize_import(_imp "${CMAKE_MATCH_1}")
@@ -518,9 +534,16 @@ function(rapidproto_generate target)
 
   # Everything that shapes a generated file's CONTENT besides its own source: the namespace prefix
   # and the arena-shaping flags. Joined with commas into one token -- it becomes part of each
-  # claim's fingerprint (see _rapidproto_claim_output).
+  # claim's fingerprint (see _rapidproto_claim_output). The EFFECTIVE prefix, not the raw
+  # argument: an explicit `NAMESPACE_PREFIX rp` and an omitted one generate identical bytes, so
+  # fingerprinting the spelling refused a legitimate share as "different flags".
   list(JOIN _model_flags "," _flags_token)
-  set(_content_flags "${RPG_NAMESPACE_PREFIX}|${_flags_token}")
+  if(DEFINED RPG_NAMESPACE_PREFIX)
+    set(_fp_prefix "${RPG_NAMESPACE_PREFIX}")
+  else()
+    set(_fp_prefix "rp")  # the CLI's default
+  endif()
+  set(_content_flags "${_fp_prefix}|${_flags_token}")
   set(_shared_owners "")
 
   # Entries are named by canonical_entry_name, which _rapidproto_output_header mirrors; their
@@ -559,6 +582,22 @@ function(rapidproto_generate target)
     endforeach()
     if(_is_entry)
       continue()
+    endif()
+    # An unreadable embedded well-known type degrades the scan SILENTLY -- its own imports (and
+    # their headers) go undeclared, which is the pre-wellknown-dir bug returning without a word.
+    # That happens when this .cmake file was copied somewhere without the wellknown/ sources
+    # beside it (the shipped source tree and the install rule both provide them), so say so once.
+    if(_imp MATCHES "^google/protobuf/" AND _imp_source MATCHES "^embedded:"
+       AND _wellknown_dir STREQUAL "" AND NOT RPG_NO_WELLKNOWN)
+      get_property(_warned GLOBAL PROPERTY _rapidproto_wellknown_warned)
+      if(NOT _warned)
+        set_property(GLOBAL PROPERTY _rapidproto_wellknown_warned TRUE)
+        message(WARNING
+          "rapidproto_generate(${target}): ${_imp} resolves from the CLI's embedded sources, but "
+          "the shipped wellknown/*.proto were not found beside rapidproto-generate.cmake -- any "
+          "types it transitively imports will be generated without being declared as outputs "
+          "(deleting one of their headers then breaks the build until a full regeneration).")
+      endif()
     endif()
     string(REGEX REPLACE "\\.proto$" "" _stem "${_imp}")
     foreach(_ext IN LISTS _exts)
