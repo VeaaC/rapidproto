@@ -64,9 +64,10 @@ inline std::string namespace_prefix_problem(std::string_view p) {
                 return "it must be dot-separated C++ identifiers";
             }
         }
-        // A component the generator would escape is refused, not renamed: the prefix is what the
-        // user asked to be called, so handing back a different namespace is a wrong answer.
-        const std::string problem = codegen::ns_prefix_component_problem(comp);
+        // A component that cannot compile as written is refused, not renamed: the prefix is what
+        // the user asked to be called, so handing back a different namespace is a wrong answer.
+        // Everything accepted here is emitted VERBATIM (codegen::effective_ns_prefix).
+        const std::string problem = codegen::ns_prefix_component_problem(comp, start == 0);
         if (!problem.empty()) {
             return "`" + std::string(comp) + "` cannot be a prefix component: " + problem;
         }

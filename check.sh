@@ -199,9 +199,10 @@ if [[ "${1:-}" == "deep" ]]; then
   FUZZ_TIME=${FUZZ_TIME:-30}   # seconds per fuzz target
   # Validated for the same reason as COV_FLOOR below: libFuzzer reads a non-numeric
   # -max_total_time as 0, which means NO limit, so a typo runs each target until the CI job's
-  # six-hour ceiling kills it.
-  if ! [[ "$FUZZ_TIME" =~ ^[0-9]+$ ]]; then
-    echo ">> FUZZ_TIME='$FUZZ_TIME' is not a number: libFuzzer would read it as 'no limit'" >&2
+  # six-hour ceiling kills it. A literal 0 is refused for the same reason -- it IS that no-limit
+  # value, so admitting it would let a truncated env var do exactly what this check exists to stop.
+  if ! [[ "$FUZZ_TIME" =~ ^[1-9][0-9]*$ ]]; then
+    echo ">> FUZZ_TIME='$FUZZ_TIME' is not a positive number: libFuzzer reads anything else as 'no limit'" >&2
     exit 2
   fi
   COV_FLOOR=${COV_FLOOR:-85}   # minimum library line-coverage %
@@ -444,21 +445,41 @@ if [[ "${1:-}" == "deep" ]]; then
   section "goldens reproduce from the regen scripts"
   # `git status --porcelain`, not `git diff`: a regen script that CREATES a file (a generator that
   # starts emitting an additional header) leaves it untracked, which `git diff` does not see.
-  if [[ -n "$(git status --porcelain -- tests/)" ]]; then
+  # Its EXIT STATUS is checked both times it decides anything: a git that cannot run prints
+  # nothing, which reads as "clean" -- so a broken git turned this into a leg that compares
+  # nothing and reports the goldens reproduced.
+  tests_dirty() {
+    local out
+    out=$(git status --porcelain -- tests/) || { echo ">> git status failed"; return 2; }
+    [[ -n "$out" ]]
+  }
+  tests_dirty; dirty_rc=$?
+  if [[ $dirty_rc -eq 2 ]]; then
+    deep_fail=1
+  elif [[ $dirty_rc -eq 0 ]]; then
     echo "uncommitted changes under tests/ -- skipped"
     deep_skipped+=("golden regen")
   elif ! tests/regen_goldens.sh >/dev/null 2>&1; then
     echo ">> tests/regen_goldens.sh failed"; deep_fail=1
-    git checkout -- tests/ 2>/dev/null || true
-  elif [[ -z "$(git status --porcelain -- tests/)" ]]; then
-    echo "the checked-in goldens are exactly what the regen scripts produce"
-  else
-    echo ">> the regen scripts no longer reproduce the checked-in goldens:"
-    git status --porcelain -- tests/ | head -5
-    # Restore BOTH directions -- checkout alone leaves behind any file the regen created.
+    # Restore BOTH directions here too: a regen that died halfway may already have created
+    # untracked files, and checkout alone leaves them behind -- where they flip every later run
+    # of this leg into the "skipped" branch above, permanently.
     git checkout -- tests/ 2>/dev/null || true
     git clean -fdq -- tests/ 2>/dev/null || true
-    deep_fail=1
+  else
+    tests_dirty; dirty_rc=$?
+    if [[ $dirty_rc -eq 1 ]]; then
+      echo "the checked-in goldens are exactly what the regen scripts produce"
+    else
+      [[ $dirty_rc -eq 2 ]] || {
+        echo ">> the regen scripts no longer reproduce the checked-in goldens:"
+        git status --porcelain -- tests/ | head -5
+      }
+      # Restore BOTH directions -- checkout alone leaves behind any file the regen created.
+      git checkout -- tests/ 2>/dev/null || true
+      git clean -fdq -- tests/ 2>/dev/null || true
+      deep_fail=1
+    fi
   fi
 
   section "deep summary"
@@ -578,13 +599,19 @@ job_doc_links() {
   # look like a scan that found nothing, which is the failure this gate exists to prevent.
   rot_scan() {  # <description> <grep args...> -- sets `hit`, returns 0 when something matched
     local what="$1"; shift
-    hit=$("$@" 2>&1); rc=$?
+    # stderr kept apart from the matches: merged, a grep WARNING on an otherwise-successful scan
+    # would be reported as a stale-spelling hit.
+    local err_file
+    err_file=$(mktemp)
+    hit=$("$@" 2>"$err_file"); rc=$?
     if [[ $rc -ge 2 ]]; then
       echo ">> the $what scan could not run (grep exit $rc):"
-      sed 's/^/   /' <<<"$hit" | head -3
+      sed 's/^/   /' "$err_file" | head -3
+      rm -f "$err_file"
       stale=1
       return 1
     fi
+    rm -f "$err_file"
     [[ $rc -eq 0 ]]
   }
 
@@ -598,12 +625,15 @@ job_doc_links() {
   # and was invisible. The exclusion is ANCHORED -- an unanchored `rp::stream::` matched any package
   # ending in `rp` (`corp`, `erp`).
   # The match starts at an identifier and grep prints `file:line:match`, so the live spellings are
-  # excluded by anchoring on that separator and the end of the fragment. Testing the character
-  # BEFORE the match cannot work here: at column 0 the preceding character is grep's own `:`, so a
-  # doc line that STARTS with a live `rp::stream::` was reported as stale.
+  # excluded by anchoring on the WHOLE `file:line:` head and the end of the fragment. Testing the
+  # character BEFORE the match cannot work here: at column 0 the preceding character is grep's own
+  # `:`, so a doc line that STARTS with a live `rp::stream::` was reported as stale. Nor can a bare
+  # `:` before the allowed root: that also matches the second colon of any interior `::`, so the
+  # STALE `com::example::rp::stream::` was excluded as if it were live. The head is spelled out --
+  # path (colon-free), line number, separator -- so only a fragment that IS a live spelling passes.
   if rot_scan "pre-roots streaming" grep -noE '([A-Za-z_][A-Za-z0-9_]*::)+stream::' \
        "${doc_files[@]}"; then
-    if hit=$(grep -vE ':(rp|rapidproto|prefix|pfx|sib)::stream::$' <<<"$hit"); then
+    if hit=$(grep -vE '^([^:]*:)?[0-9]+:(rp|rapidproto|prefix|pfx|sib)::stream::$' <<<"$hit"); then
       echo ">> a pre-roots streaming spelling (<pkg>::stream::) -- the model root goes BEFORE the package:"
       sed 's/^/   /' <<<"$hit" | head -5
       stale=1

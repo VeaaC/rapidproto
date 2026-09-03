@@ -21,6 +21,14 @@ inline const char* rp_dump_enum_name(::rp::common::fm::Level rp_e) {
   return nullptr;  // unknown (open enum): the caller renders UNKNOWN(<n>)
 }
 
+inline const char* rp_dump_enum_name(::rp::common::fm::Blob::Kind rp_e) {
+  switch (static_cast<std::int32_t>(rp_e)) {
+    case 0: return "K_UNSET";
+    case 1: return "K_INLINE";
+  }
+  return nullptr;  // unknown (open enum): the caller renders UNKNOWN(<n>)
+}
+
 }  // namespace rapidproto::dump_detail
 
 namespace rp::arena::fm {
@@ -38,6 +46,13 @@ inline void rp_dump_write(const ::rp::arena::fm::Blob& m, ::rapidproto::dump_det
     if (const auto rp_v = m.payload()) {
       if (w.begin_field(rp_first, "payload")) {
         w.os() << '"'; ::rapidproto::dump_detail::write_hex(w.os(), *rp_v); w.os() << '"';
+      }
+    }
+    if (const auto rp_v = m.kind()) {
+      if (w.begin_field(rp_first, "kind")) {
+        { const auto rp_e = *rp_v;
+        if (const char* rp_nm = ::rapidproto::dump_detail::rp_dump_enum_name(rp_e)) { w.os() << '"' << rp_nm << '"'; }
+        else { w.os() << "\"UNKNOWN("; ::rapidproto::dump_detail::write_int(w.os(), static_cast<std::int32_t>(rp_e)); w.os() << ")\""; } }
       }
     }
     (void)rp_first;

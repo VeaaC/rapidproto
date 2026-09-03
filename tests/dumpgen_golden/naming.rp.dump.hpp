@@ -21,10 +21,25 @@ inline const char* rp_dump_enum_name(::rp::common::nm::E rp_e) {
   return nullptr;  // unknown (open enum): the caller renders UNKNOWN(<n>)
 }
 
+inline const char* rp_dump_enum_name(::rp::common::nm::GnuEnum rp_e) {
+  switch (static_cast<std::int32_t>(rp_e)) {
+    case 0: return "GNU_ENUM_ZERO";
+    case 1: return "linux_";
+  }
+  return nullptr;  // unknown (open enum): the caller renders UNKNOWN(<n>)
+}
+
 inline const char* rp_dump_enum_name(::rp::common::nm::MacroEnum rp_e) {
   switch (static_cast<std::int32_t>(rp_e)) {
     case 0: return "RP_FLATTEN_";
     case 1: return "MACRO_ENUM_OTHER";
+  }
+  return nullptr;  // unknown (open enum): the caller renders UNKNOWN(<n>)
+}
+
+inline const char* rp_dump_enum_name(::rp::common::nm::Outer::Outer_::K rp_e) {
+  switch (static_cast<std::int32_t>(rp_e)) {
+    case 0: return "K0";
   }
   return nullptr;  // unknown (open enum): the caller renders UNKNOWN(<n>)
 }
@@ -53,6 +68,8 @@ inline void rp_dump_write(const ::rp::arena::nm::M::int_& m, ::rapidproto::dump_
 inline void rp_dump_write(const ::rp::arena::nm::M& m, ::rapidproto::dump_detail::Writer& w);
 inline void rp_dump_write(const ::rp::arena::nm::Outer::Outer_& m, ::rapidproto::dump_detail::Writer& w);
 inline void rp_dump_write(const ::rp::arena::nm::Outer& m, ::rapidproto::dump_detail::Writer& w);
+inline void rp_dump_write(const ::rp::arena::nm::Gnu::linux_& m, ::rapidproto::dump_detail::Writer& w);
+inline void rp_dump_write(const ::rp::arena::nm::Gnu& m, ::rapidproto::dump_detail::Writer& w);
 inline void rp_dump_write(const ::rp::arena::nm::m_bytes& m, ::rapidproto::dump_detail::Writer& w);
 inline void rp_dump_write(const ::rp::arena::nm::UsesMBytes& m, ::rapidproto::dump_detail::Writer& w);
 inline void rp_dump_write(const ::rp::arena::nm::Shadow::Inner& m, ::rapidproto::dump_detail::Writer& w);
@@ -139,6 +156,13 @@ inline void rp_dump_write(const ::rp::arena::nm::Outer::Outer_& m, ::rapidproto:
         ::rapidproto::dump_detail::write_int(w.os(), *rp_v);
       }
     }
+    if (const auto rp_v = m.k()) {
+      if (w.begin_field(rp_first, "k")) {
+        { const auto rp_e = *rp_v;
+        if (const char* rp_nm = ::rapidproto::dump_detail::rp_dump_enum_name(rp_e)) { w.os() << '"' << rp_nm << '"'; }
+        else { w.os() << "\"UNKNOWN("; ::rapidproto::dump_detail::write_int(w.os(), static_cast<std::int32_t>(rp_e)); w.os() << ")\""; } }
+      }
+    }
     (void)rp_first;
   });
 }
@@ -152,6 +176,39 @@ inline void rp_dump_write(const ::rp::arena::nm::Outer& m, ::rapidproto::dump_de
         w.push_path("inner");
         ::rp::arena::nm::rp_dump_detail::rp_dump_write(*rp_p, w);
         w.pop_path();
+      }
+    }
+    (void)rp_first;
+  });
+}
+
+inline void rp_dump_write(const ::rp::arena::nm::Gnu::linux_& m, ::rapidproto::dump_detail::Writer& w) {
+  (void)m;
+  w.group('{', '}', [&] {
+    bool rp_first = true;
+    if (const auto rp_v = m.a()) {
+      if (w.begin_field(rp_first, "a")) {
+        ::rapidproto::dump_detail::write_int(w.os(), *rp_v);
+      }
+    }
+    (void)rp_first;
+  });
+}
+
+inline void rp_dump_write(const ::rp::arena::nm::Gnu& m, ::rapidproto::dump_detail::Writer& w) {
+  (void)m;
+  w.group('{', '}', [&] {
+    bool rp_first = true;
+    if (const auto* rp_p = m.l()) {
+      if (w.begin_field(rp_first, "l")) {
+        w.push_path("l");
+        ::rp::arena::nm::rp_dump_detail::rp_dump_write(*rp_p, w);
+        w.pop_path();
+      }
+    }
+    if (const auto rp_v = m.unix_()) {
+      if (w.begin_field(rp_first, "unix")) {
+        ::rapidproto::dump_detail::write_int(w.os(), *rp_v);
       }
     }
     (void)rp_first;
@@ -506,6 +563,16 @@ struct dumper<::rp::arena::nm::Outer::Outer_> {
 template <>
 struct dumper<::rp::arena::nm::Outer> {
   static void write(const ::rp::arena::nm::Outer& m, Writer& w) { ::rp::arena::nm::rp_dump_detail::rp_dump_write(m, w); }
+};
+
+template <>
+struct dumper<::rp::arena::nm::Gnu::linux_> {
+  static void write(const ::rp::arena::nm::Gnu::linux_& m, Writer& w) { ::rp::arena::nm::rp_dump_detail::rp_dump_write(m, w); }
+};
+
+template <>
+struct dumper<::rp::arena::nm::Gnu> {
+  static void write(const ::rp::arena::nm::Gnu& m, Writer& w) { ::rp::arena::nm::rp_dump_detail::rp_dump_write(m, w); }
 };
 
 template <>

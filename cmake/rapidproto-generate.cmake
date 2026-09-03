@@ -55,6 +55,82 @@ endfunction()
 # permanently out of date: it regenerates on every build, forever, while the real header stays
 # undeclared. Ninja does not even warn.
 #
+# Strip `//` and `/* */` comments from proto source WITHOUT reaching into string literals: `//`
+# inside an import string (`import "sub//x.proto";` -- a spelling the CLI accepts) is path, not
+# comment, and a stripper that cannot tell ate from mid-string to end of line, splicing the next
+# import into a phantom output path with a newline in it -- a declared OUTPUT nothing ever writes,
+# i.e. a target that regenerates on every build forever. Line-oriented, because a proto string
+# literal cannot span lines; only the block-comment state crosses them. Backslash-escaped quotes
+# inside a string are not modeled -- an import path containing a quote has no header path worth
+# predicting.
+function(_rapidproto_strip_comments out_var text)
+  # Protect real semicolons before splitting into a line list, or every proto statement terminator
+  # becomes a list separator.
+  string(REPLACE ";" "\\;" _protected "${text}")
+  string(REPLACE "\n" ";" _lines "${_protected}")
+  set(_clean "")
+  set(_in_block FALSE)
+  foreach(_line IN LISTS _lines)
+    set(_out "")
+    while(NOT _line STREQUAL "")
+      if(_in_block)
+        string(FIND "${_line}" "*/" _pos)
+        if(_pos EQUAL -1)
+          set(_line "")
+        else()
+          math(EXPR _pos "${_pos} + 2")
+          string(SUBSTRING "${_line}" ${_pos} -1 _line)
+          set(_in_block FALSE)
+        endif()
+        continue()
+      endif()
+      # The EARLIEST of the four significant tokens decides: a quote before a `//` means the
+      # slashes are inside the string, and vice versa.
+      set(_next -1)
+      set(_kind "")
+      foreach(_tok "//" "/*" "\"" "'")
+        string(FIND "${_line}" "${_tok}" _pos)
+        if(NOT _pos EQUAL -1 AND (_next EQUAL -1 OR _pos LESS _next))
+          set(_next ${_pos})
+          set(_kind "${_tok}")
+        endif()
+      endforeach()
+      if(_next EQUAL -1)
+        string(APPEND _out "${_line}")
+        set(_line "")
+      elseif(_kind STREQUAL "//")
+        string(SUBSTRING "${_line}" 0 ${_next} _head)
+        string(APPEND _out "${_head}")
+        set(_line "")
+      elseif(_kind STREQUAL "/*")
+        string(SUBSTRING "${_line}" 0 ${_next} _head)
+        string(APPEND _out "${_head}")
+        math(EXPR _skip "${_next} + 2")
+        string(SUBSTRING "${_line}" ${_skip} -1 _line)
+        set(_in_block TRUE)
+      else()
+        # A string literal: copy it through verbatim, up to the matching close quote.
+        math(EXPR _start "${_next} + 1")
+        string(SUBSTRING "${_line}" 0 ${_start} _head)
+        string(APPEND _out "${_head}")
+        string(SUBSTRING "${_line}" ${_start} -1 _rest)
+        string(FIND "${_rest}" "${_kind}" _close)
+        if(_close EQUAL -1)
+          string(APPEND _out "${_rest}")  # unterminated: the CLI will reject the file anyway
+          set(_line "")
+        else()
+          math(EXPR _len "${_close} + 1")
+          string(SUBSTRING "${_rest}" 0 ${_len} _body)
+          string(APPEND _out "${_body}")
+          string(SUBSTRING "${_rest}" ${_len} -1 _line)
+        endif()
+      endif()
+    endwhile()
+    string(APPEND _clean "${_out}\n")
+  endforeach()
+  set(${out_var} "${_clean}" PARENT_SCOPE)
+endfunction()
+
 # The CLI's EMBEDDED well-known types need no special case for NAMING -- the header path follows
 # from the import string alone -- but their own imports do: `api.proto` pulls in `type.proto`,
 # `source_context.proto` and (through type) `any.proto`, and the CLI writes a header set for each.
@@ -74,17 +150,19 @@ function(_rapidproto_import_closure out_imports out_scanned protos_abs import_di
     if(NOT EXISTS "${_cur}")
       continue()  # an entry another rule generates: not readable yet, and not ours to scan
     endif()
-    # Comments are stripped before matching. A commented-out import is not an import, and declaring
-    # its headers is the permanently-out-of-date failure described above -- a `/* ... */` around an
-    # import statement is the realistic way that happens.
+    # Comments are stripped before matching (string-aware -- see _rapidproto_strip_comments). A
+    # commented-out import is not an import, and declaring its headers is the permanently-
+    # out-of-date failure described above -- a `/* ... */` around an import statement is the
+    # realistic way that happens.
     file(READ "${_cur}" _text)
-    string(REGEX REPLACE "/\\*[^*]*\\*+([^/*][^*]*\\*+)*/" "" _text "${_text}")
-    string(REGEX REPLACE "//[^\n]*" "" _text "${_text}")
+    _rapidproto_strip_comments(_text "${_text}")
     # MATCHALL, not a per-line match: two imports on one line, and `import"x.proto";` with no space
-    # after the keyword, are both valid proto that a line-anchored pattern misses.
-    string(REGEX MATCHALL "import[ \t\r\n]*(public|weak)?[ \t\r\n]*\"[^\"]*\"" _stmts "${_text}")
+    # after the keyword, are both valid proto that a line-anchored pattern misses. Both quote
+    # styles: `import 'x.proto';` is valid proto too, and the CLI generates from it.
+    string(REGEX MATCHALL "import[ \t\r\n]*(public|weak)?[ \t\r\n]*(\"[^\"]*\"|'[^']*')" _stmts
+           "${_text}")
     foreach(_stmt IN LISTS _stmts)
-      string(REGEX MATCH "\"([^\"]*)\"" _quoted "${_stmt}")
+      string(REGEX MATCH "[\"']([^\"']*)[\"']" _quoted "${_stmt}")
       _rapidproto_normalize_import(_imp "${CMAKE_MATCH_1}")
       if(_imp STREQUAL "")
         continue()
@@ -117,19 +195,49 @@ endfunction()
 # claimed it. Two targets writing to one OUT_DIR share the runtime headers, and share the headers of
 # any schema they both import; declaring one file from two commands is a hard error under Ninja
 # ("multiple rules generate ...") that configure does not catch, and a silently overridden recipe
-# under Make. The first claimer owns the file -- so a shared header deleted by hand comes back when
-# that target is built, which is what an ordinary `cmake --build` does.
+# under Make.
 #
-# The registry is a list of the PATHS themselves, not per-path properties keyed on a mangling of the
-# path: MAKE_C_IDENTIFIER collapses every non-identifier character to `_`, so `a-b.rp.hpp` and
-# `a_b.rp.hpp` shared one key and the second file was silently never declared -- the very
-# under-declaration this function exists to prevent.
-function(_rapidproto_claim_output out_list path)
-  get_property(_claimed GLOBAL PROPERTY _rapidproto_claimed_outputs)
-  if("${path}" IN_LIST _claimed)
+# A path collision is only SHARING when both claimants would write the same bytes, which is what
+# `fingerprint` pins: the resolved source the file is generated from, plus every content-shaping
+# flag. Without it, two targets generating different schemas that happen to share a stem -- or the
+# same schema under different NAMESPACE_PREFIXes -- "shared" the file, and whichever built last
+# won, silently. That is worse than the hard error this function replaces, so a fingerprint
+# mismatch is a configure error naming both targets.
+#
+# On a genuine share, the first claimer's command writes the file and the owner's name is appended
+# to `out_owners`, so the caller can build-order itself after the owner -- a shared header deleted
+# by hand must come back when EITHER claimant is built, not only the first.
+#
+# The registry is three parallel GLOBAL list properties indexed by the PATHS themselves, not
+# per-path properties keyed on a mangling of the path: MAKE_C_IDENTIFIER collapses every
+# non-identifier character to `_`, so `a-b.rp.hpp` and `a_b.rp.hpp` shared one key and the second
+# file was silently never declared -- the very under-declaration this function exists to prevent.
+function(_rapidproto_claim_output out_list out_owners path fingerprint target)
+  # One list ELEMENT per fingerprint: a raw semicolon would split it and shear the three lists
+  # out of alignment.
+  string(REPLACE ";" "," _fp "${fingerprint}")
+  get_property(_paths GLOBAL PROPERTY _rapidproto_claimed_outputs)
+  list(FIND _paths "${path}" _idx)
+  if(NOT _idx EQUAL -1)
+    get_property(_fps GLOBAL PROPERTY _rapidproto_claimed_fingerprints)
+    get_property(_owners GLOBAL PROPERTY _rapidproto_claimed_owners)
+    list(GET _fps ${_idx} _prev_fp)
+    list(GET _owners ${_idx} _owner)
+    if(NOT _prev_fp STREQUAL "${_fp}")
+      message(FATAL_ERROR
+        "rapidproto_generate(${target}): ${path} is already generated by target '${_owner}', from "
+        "a different source or under different flags. The two invocations would overwrite each "
+        "other's header, decided by build order. Give the targets distinct OUT_DIRs, or make "
+        "their sources and generation flags agree.")
+    endif()
+    set(_local "${${out_owners}}")
+    list(APPEND _local "${_owner}")
+    set(${out_owners} "${_local}" PARENT_SCOPE)
     return()
   endif()
   set_property(GLOBAL APPEND PROPERTY _rapidproto_claimed_outputs "${path}")
+  set_property(GLOBAL APPEND PROPERTY _rapidproto_claimed_fingerprints "${_fp}")
+  set_property(GLOBAL APPEND PROPERTY _rapidproto_claimed_owners "${target}")
   set(_local "${${out_list}}")
   list(APPEND _local "${path}")
   set(${out_list} "${_local}" PARENT_SCOPE)
@@ -408,21 +516,38 @@ function(rapidproto_generate target)
   # enum.
   list(APPEND _exts ".rp.common.hpp")
 
-  # Entries are named by canonical_entry_name, which _rapidproto_output_header mirrors.
+  # Everything that shapes a generated file's CONTENT besides its own source: the namespace prefix
+  # and the arena-shaping flags. Joined with commas into one token -- it becomes part of each
+  # claim's fingerprint (see _rapidproto_claim_output).
+  list(JOIN _model_flags "," _flags_token)
+  set(_content_flags "${RPG_NAMESPACE_PREFIX}|${_flags_token}")
+  set(_shared_owners "")
+
+  # Entries are named by canonical_entry_name, which _rapidproto_output_header mirrors; their
+  # fingerprint carries the resolved entry path, so two targets listing the SAME schema with the
+  # same flags share, and two different schemas colliding on a stem are a configure error.
   foreach(_proto_abs IN LISTS _protos_abs)
+    get_filename_component(_entry_real "${_proto_abs}" REALPATH)
     foreach(_ext IN LISTS _exts)
       _rapidproto_output_header(_h "${_proto_abs}" "${_ext}" "${RPG_OUT_DIR}" "${_import_dirs_abs}")
-      _rapidproto_claim_output(_outputs "${_h}")
+      _rapidproto_claim_output(_outputs _shared_owners "${_h}"
+        "${_entry_real}|${_content_flags}" "${target}")
     endforeach()
   endforeach()
-  # Imports are named by the import STRING (see _rapidproto_import_closure). A file that is both
-  # listed and imported keeps its entry name -- the resolver registers the entry first -- so its
-  # import spelling is skipped rather than declared a second time under a different path.
+  # Imports are named by the import STRING (see _rapidproto_import_closure), and fingerprinted by
+  # what the string RESOLVES to -- two targets can share one import string while their IMPORT_DIRS
+  # hand it different files, and that is a stem collision, not a share. A file that is both listed
+  # and imported keeps its entry name (the resolver registers entries first), so its import
+  # spelling is skipped rather than declared a second time under a different path; when the
+  # entry's canonical name and the import string do agree, the entry claim above already owns the
+  # path and this loop's claim is a same-fingerprint no-op.
   foreach(_imp IN LISTS _import_strings)
     set(_is_entry FALSE)
+    set(_imp_source "embedded:${_imp}")  # unresolved = the CLI's embedded copy (or a build error)
     foreach(_dir IN LISTS _import_dirs_abs)
       if(EXISTS "${_dir}/${_imp}")
         get_filename_component(_imp_real "${_dir}/${_imp}" REALPATH)
+        set(_imp_source "${_imp_real}")
         foreach(_proto_abs IN LISTS _protos_abs)
           get_filename_component(_entry_real "${_proto_abs}" REALPATH)
           if(_imp_real STREQUAL _entry_real)
@@ -437,19 +562,24 @@ function(rapidproto_generate target)
     endif()
     string(REGEX REPLACE "\\.proto$" "" _stem "${_imp}")
     foreach(_ext IN LISTS _exts)
-      _rapidproto_claim_output(_outputs "${RPG_OUT_DIR}/${_stem}${_ext}")
+      _rapidproto_claim_output(_outputs _shared_owners "${RPG_OUT_DIR}/${_stem}${_ext}"
+        "${_imp_source}|${_content_flags}" "${target}")
     endforeach()
   endforeach()
   # The runtime the CLI drops beside the headers so the generated tree is self-contained (see the
   # file header). Written on every run, included by every generated header, and no flag turns it
   # off -- so it is an output on the same footing as the headers, for the same reason: deleted and
-  # undeclared, it never comes back.
-  _rapidproto_claim_output(_outputs "${RPG_OUT_DIR}/rapidproto/runtime.hpp")
+  # undeclared, it never comes back. Its content depends on nothing a target chooses, so the
+  # fingerprint is a constant: any two targets sharing an OUT_DIR share these.
+  _rapidproto_claim_output(_outputs _shared_owners "${RPG_OUT_DIR}/rapidproto/runtime.hpp"
+    "runtime" "${target}")
   if("arena" IN_LIST _jobs)
-    _rapidproto_claim_output(_outputs "${RPG_OUT_DIR}/rapidproto/arena_runtime.hpp")
+    _rapidproto_claim_output(_outputs _shared_owners "${RPG_OUT_DIR}/rapidproto/arena_runtime.hpp"
+      "runtime" "${target}")
   endif()
   if(RPG_DUMP)
-    _rapidproto_claim_output(_outputs "${RPG_OUT_DIR}/rapidproto/dump_runtime.hpp")
+    _rapidproto_claim_output(_outputs _shared_owners "${RPG_OUT_DIR}/rapidproto/dump_runtime.hpp"
+      "runtime" "${target}")
   endif()
   if(NOT _outputs)
     message(FATAL_ERROR
@@ -483,6 +613,17 @@ function(rapidproto_generate target)
   # plus the C++17 floor -- without it a consumer inherits the toolchain's default standard, and the
   # generated headers happen to compile only where that default is >= 17.
   add_custom_target(${target}_generate DEPENDS ${_outputs})
+  # Shared files are declared by (and rebuilt through) their first claimer's command, so this
+  # target must build-order itself after each owner: without the edge, `cmake --build --target
+  # <this consumer>` leaves a hand-deleted shared header missing until something happens to build
+  # the owner. Target-level dependencies, which work across directories on every generator --
+  # file-level dependencies on another directory's custom-command output do not under Make.
+  if(_shared_owners)
+    list(REMOVE_DUPLICATES _shared_owners)
+    foreach(_owner IN LISTS _shared_owners)
+      add_dependencies(${target}_generate ${_owner}_generate)
+    endforeach()
+  endif()
   add_library(${target} INTERFACE)
   add_dependencies(${target} ${target}_generate)
   target_include_directories(${target} INTERFACE "${RPG_OUT_DIR}")

@@ -189,16 +189,90 @@ bool expands_as_macro(std::string_view name) {
     // direction (<cerrno> and <climits> are not here); a list can only ever cover the names a
     // SCREAMING_SNAKE enum value realistically hits.
     //
-    // `linux` and `unix` are the exception to that shape: gcc and clang predefine them under GNU
-    // extensions, which is the DEFAULT when a consumer passes no `-std`. They are lowercase, so an
-    // ordinary package or field of that name hits them -- `namespace linux` and `int linux;` both
-    // become `namespace 1` and `int 1;`.
+    // Two groups are NOT a probability call like the rest:
+    //  - <cstdint>'s object-like limit macros (`INT32_MAX`, `SIZE_MAX`, ...): every generated
+    //    header includes <cstdint> ITSELF, so these break unconditionally -- no consumer include
+    //    order avoids them. The whole set is listed; the `INT8_C(x)`-style function-like macros are
+    //    left out because a bare identifier does not expand them.
+    //  - `linux` and `unix`: gcc and clang predefine them under GNU extensions, which is the
+    //    DEFAULT when a consumer passes no `-std`. They are lowercase, so an ordinary package or
+    //    field of that name hits them -- `namespace linux` and `int linux;` both become
+    //    `namespace 1` and `int 1;`.
     // Enum-prefix stripping additionally refuses to strip any enum whose bare remainder lands here
     // (see emit_enum), so one `*_ERROR` value keeps its whole enum unstripped.
     static const std::unordered_set<std::string_view> kMacros = {
-        "EOF",    "NULL",         "NAN",          "INFINITY", "ERROR",    "TRUE",     "FALSE",
-        "BUFSIZ", "EXIT_SUCCESS", "EXIT_FAILURE", "RAND_MAX", "SEEK_SET", "SEEK_CUR", "SEEK_END",
-        "errno",  "stdin",        "stdout",       "stderr",   "linux",    "unix",
+        "EOF",
+        "NULL",
+        "NAN",
+        "INFINITY",
+        "ERROR",
+        "TRUE",
+        "FALSE",
+        "BUFSIZ",
+        "EXIT_SUCCESS",
+        "EXIT_FAILURE",
+        "RAND_MAX",
+        "SEEK_SET",
+        "SEEK_CUR",
+        "SEEK_END",
+        "errno",
+        "stdin",
+        "stdout",
+        "stderr",
+        "linux",
+        "unix",
+        // <cstdint>, included by every generated header (see above).
+        "INT8_MIN",
+        "INT16_MIN",
+        "INT32_MIN",
+        "INT64_MIN",
+        "INT8_MAX",
+        "INT16_MAX",
+        "INT32_MAX",
+        "INT64_MAX",
+        "UINT8_MAX",
+        "UINT16_MAX",
+        "UINT32_MAX",
+        "UINT64_MAX",
+        "INT_LEAST8_MIN",
+        "INT_LEAST16_MIN",
+        "INT_LEAST32_MIN",
+        "INT_LEAST64_MIN",
+        "INT_LEAST8_MAX",
+        "INT_LEAST16_MAX",
+        "INT_LEAST32_MAX",
+        "INT_LEAST64_MAX",
+        "UINT_LEAST8_MAX",
+        "UINT_LEAST16_MAX",
+        "UINT_LEAST32_MAX",
+        "UINT_LEAST64_MAX",
+        "INT_FAST8_MIN",
+        "INT_FAST16_MIN",
+        "INT_FAST32_MIN",
+        "INT_FAST64_MIN",
+        "INT_FAST8_MAX",
+        "INT_FAST16_MAX",
+        "INT_FAST32_MAX",
+        "INT_FAST64_MAX",
+        "UINT_FAST8_MAX",
+        "UINT_FAST16_MAX",
+        "UINT_FAST32_MAX",
+        "UINT_FAST64_MAX",
+        "INTPTR_MIN",
+        "INTPTR_MAX",
+        "UINTPTR_MAX",
+        "INTMAX_MIN",
+        "INTMAX_MAX",
+        "UINTMAX_MAX",
+        "PTRDIFF_MIN",
+        "PTRDIFF_MAX",
+        "SIZE_MAX",
+        "SIG_ATOMIC_MIN",
+        "SIG_ATOMIC_MAX",
+        "WCHAR_MIN",
+        "WCHAR_MAX",
+        "WINT_MIN",
+        "WINT_MAX",
     };
     return name.rfind("RP_", 0) == 0 || kMacros.count(name) != 0;
 }
@@ -310,6 +384,45 @@ void index_message(CppNameTable& names, const MessageNode& message, const std::s
 // that includes both headers.
 using TakenByNamespace = std::unordered_map<std::string, std::unordered_set<std::string>>;
 
+// Zeroth pass over the file set: every package component claims its id in the PARENT package's
+// dedup scope, before any type is named.
+//
+// A child package is a NAMESPACE in the parent's C++ scope, and its id comes from sanitize()
+// alone -- package namespaces must agree across every file that mentions them, so they can never
+// be deduped. A top-level TYPE whose sanitized id lands on that name must therefore be the one to
+// move: `package a.linux` opens `namespace linux_` inside `a`, where a sibling file's
+// `message linux_` (protoc-valid -- the proto names differ) would otherwise redeclare that
+// namespace as a class under every model root, and its enum mirror would merge into the package's
+// namespace in the common header, colliding enum by enum. Seeding makes the type take a further
+// `_`, by the rule that already settles nested-vs-parent contests ("the parent keeps its name;
+// the child is the one deduped"). A RAW collision -- a type and a package literally sharing one
+// proto name -- is rejected by protoc, so for protoc-valid input this fires only when sanitize()
+// itself creates the alias.
+void claim_package_components(const CppNameTable& names, const FileNode& file,
+                              TakenByNamespace& taken_by_ns) {
+    std::string parent;  // the dotted package prefix seen so far ("" = global scope)
+    std::string component;
+    const auto claim = [&] {
+        if (component.empty()) {
+            return;
+        }
+        taken_by_ns[join_ns(names.ns_prefix, namespace_of(parent))].insert(sanitize(component));
+        if (!parent.empty()) {
+            parent += '.';
+        }
+        parent += component;
+        component.clear();
+    };
+    for (const char ch : file.package) {
+        if (ch == '.') {
+            claim();
+        } else {
+            component += ch;
+        }
+    }
+    claim();
+}
+
 // First pass over the file set: every top-level name that sanitize() leaves ALONE claims its id
 // before any escaped name is placed.
 //
@@ -385,7 +498,11 @@ void index_file(CppNameTable& names, const FileNode& file, TakenByNamespace& tak
 
 }  // namespace
 
-std::string namespace_of(std::string_view package) {
+namespace {
+
+// Split `dotted` on '.', run each component through `escape`, join with "::".
+template <typename Escape>
+std::string dotted_to_ns(std::string_view dotted, Escape escape) {
     std::string out;
     std::string component;
     const auto flush = [&] {
@@ -393,15 +510,11 @@ std::string namespace_of(std::string_view package) {
             if (!out.empty()) {
                 out += "::";
             }
-            // No `rapidproto` special case: under the roots a package of that name lands at
-            // `<prefix>::arena::rapidproto`, three levels below the runtime's `::rapidproto`, so it
-            // cannot merge into it. The only component that could is the PREFIX, and that is
-            // refused up front (ns_prefix_component_problem) rather than silently renamed.
-            out += sanitize(component);
+            out += escape(component);
             component.clear();
         }
     };
-    for (const char ch : package) {
+    for (const char ch : dotted) {
         if (ch == '.') {
             flush();
         } else {
@@ -410,6 +523,32 @@ std::string namespace_of(std::string_view package) {
     }
     flush();
     return out;
+}
+
+// The escape for a --namespace-prefix component. A prefix is an INSTRUCTION, vetted by
+// ns_prefix_component_problem at the CLI, so a component that validation accepts must be emitted
+// VERBATIM -- the member-reserved words (`decode`, `Value`, ...) clash only with generated class
+// members and are working namespace names, and running them through sanitize() here silently
+// renamed exactly what the validation had just accepted (`--namespace-prefix=Value` emitted
+// `namespace Value_`). The rules that remain are a safety net for LIBRARY callers, who reach this
+// without the CLI's validation: what cannot compile as a namespace (or is generator-reserved)
+// still takes the `_`.
+std::string sanitize_prefix_component(const std::string& name) {
+    std::string out(name);
+    if (name.rfind("rp_", 0) == 0 || cpp_reserved().count(name) != 0 || expands_as_macro(name)) {
+        out += '_';
+    }
+    return out;
+}
+
+}  // namespace
+
+std::string namespace_of(std::string_view package) {
+    // No `rapidproto` special case: under the roots a package of that name lands at
+    // `<prefix>::arena::rapidproto`, three levels below the runtime's `::rapidproto`, so it
+    // cannot merge into it. The only component that could is the PREFIX, and that is
+    // refused up front (ns_prefix_component_problem) rather than silently renamed.
+    return dotted_to_ns(package, [](const std::string& component) { return sanitize(component); });
 }
 
 std::string join_ns(std::string_view a, std::string_view b) {
@@ -426,7 +565,7 @@ std::string message_namespace(const CppNameTable& names, const FileNode& file) {
     return join_ns(join_ns(names.ns_prefix, names.model_namespace), namespace_of(file.package));
 }
 
-std::string ns_prefix_component_problem(std::string_view component) {
+std::string ns_prefix_component_problem(std::string_view component, bool first) {
     // Deliberately NOT `sanitize(component) != component`. sanitize()'s set is calibrated for proto
     // names, which become MEMBERS as well as namespaces, so deriving the rule from it refused
     // `decode`, `Value`, `Key`, `kNumber` and `kName` -- every one of which is a working namespace
@@ -455,6 +594,14 @@ std::string ns_prefix_component_problem(std::string_view component) {
          std::isupper(static_cast<unsigned char>(component[1])) != 0)) {
         return "identifiers starting with `__` or `_` + a capital are reserved to the compiler";
     }
+    // The FIRST component becomes a global-namespace name, and [lex.name] reserves EVERY
+    // `_`-initial identifier there -- so `_x` is refused in that position and accepted after a dot
+    // (`my._x` is fine). The rule above covers the spellings reserved in all scopes; this one is
+    // the position-dependent remainder.
+    if (first && !component.empty() && component[0] == '_') {
+        return "a leading `_` is reserved in the global namespace, where the first prefix "
+               "component lands";
+    }
     if (component == "rapidproto") {
         // A PACKAGE of this name is harmless under the roots (it lands at
         // `<prefix>::arena::rapidproto`), but a prefix component would put generated code inside a
@@ -466,7 +613,7 @@ std::string ns_prefix_component_problem(std::string_view component) {
 }
 
 std::string effective_ns_prefix(std::string_view prefix) {
-    return namespace_of(prefix.empty() ? kDefaultNsPrefix : prefix);
+    return dotted_to_ns(prefix.empty() ? kDefaultNsPrefix : prefix, sanitize_prefix_component);
 }
 
 std::string enum_namespace(const CppNameTable& names, const FileNode& file) {
@@ -489,10 +636,14 @@ CppNameTable build_cpp_names(const FileNode& file, const std::vector<FileNode>& 
     TakenByNamespace taken_by_ns;
     ClaimedIds claimed;
     if (all_files.empty()) {
+        claim_package_components(names, file, taken_by_ns);
         claim_unescaped_toplevel(names, file, taken_by_ns, claimed);
         index_file(names, file, taken_by_ns, claimed);
     } else {
         for (const auto& dep : all_files) {  // includes `file`
+            claim_package_components(names, dep, taken_by_ns);
+        }
+        for (const auto& dep : all_files) {
             claim_unescaped_toplevel(names, dep, taken_by_ns, claimed);
         }
         for (const auto& dep : all_files) {

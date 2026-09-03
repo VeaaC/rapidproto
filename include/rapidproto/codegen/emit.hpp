@@ -154,8 +154,6 @@ inline bool holds_enum(const MessageNode& message) {
 // here can be mistaken for the message. The ids are the MODEL's, verbatim -- including any escape
 // the model applied (`message Outer { message Outer {} }` mirrors to `Outer::Outer_`), which is
 // what makes the mirror path the model path with the root swapped, and needs no second dedup.
-// The ids are the ones the model already assigned, so this path is the model path with the root
-// swapped.
 inline void emit_enum_mirror(Printer& printer, const CppNameTable& names,
                              const MessageNode& message) {
     if (!holds_enum(message)) {

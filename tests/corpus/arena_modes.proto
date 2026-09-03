@@ -9,6 +9,16 @@ package fm;
 
 message Blob {
   optional bytes payload = 1;
+
+  // A nested enum inside a type the profile keeps RAW: the common header is profile-independent,
+  // so the mirror still carries it and the in-class alias still resolves, even though no decoder
+  // in this profile materializes a field of it.
+  enum Kind {
+    K_UNSET = 0;
+    K_INLINE = 1;
+  }
+
+  optional Kind kind = 2;
 }
 
 enum Level {

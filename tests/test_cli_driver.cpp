@@ -282,8 +282,12 @@ TEST_CASE("driver: parse_args usage errors all exit 2", "[cli]") {
     // `--namespace-prefix=std` used to hand back `std_`, a namespace nobody asked for -- as is one
     // that reaches into the generator's own names. `rapidproto` is refused in any position: as a
     // component it names a namespace like the runtime's own.
+    // `__x`/`_X` are reserved to the implementation in every scope (`__LINE__` emitted
+    // `namespace __LINE__::...`); `linux`/`unix` macro-expand under the GNU default; `_x` is
+    // reserved only in the GLOBAL namespace, which is exactly where the FIRST component lands.
     for (const char* bad :
-         {"std", "class", "int", "EOF", "rp_x", "RP_FOO", "rapidproto", "my.rapidproto"}) {
+         {"std", "class", "int", "EOF", "rp_x", "RP_FOO", "rapidproto", "my.rapidproto", "__x",
+          "_Xy", "my.__x", "__LINE__", "linux", "unix", "_x", "_"}) {
         INFO("prefix " << bad);
         CHECK_FALSE(cli::namespace_prefix_problem(bad).empty());
         CHECK(parse({"--namespace-prefix", bad, "a.proto"}).exit_code == 2);
@@ -296,7 +300,15 @@ TEST_CASE("driver: parse_args usage errors all exit 2", "[cli]") {
         CHECK(cli::namespace_prefix_problem(fine).empty());
         CHECK(parse({"--namespace-prefix", fine, "a.proto"}).exit_code == 0);
     }
-    // ...while an ordinary name, and a dotted one, still pass.
+    // ...and what validation accepts is emitted VERBATIM: an accepted member-reserved word must
+    // not be silently renamed on the way out (`Value` once became `namespace Value_`).
+    CHECK(rapidproto::codegen::effective_ns_prefix("Value") == "Value");
+    CHECK(rapidproto::codegen::effective_ns_prefix("my.decode") == "my::decode");
+    // The library safety net still escapes what could never compile, for callers that skip the
+    // CLI's validation.
+    CHECK(rapidproto::codegen::effective_ns_prefix("class") == "class_");
+    // An ordinary name, a dotted one, and `_x` AFTER a dot (global-scope-reserved only) pass.
     CHECK(cli::namespace_prefix_problem("myco").empty());
     CHECK(cli::namespace_prefix_problem("my.decoders").empty());
+    CHECK(cli::namespace_prefix_problem("my._x").empty());
 }

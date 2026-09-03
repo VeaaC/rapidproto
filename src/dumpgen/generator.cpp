@@ -31,9 +31,10 @@ using codegen::Printer;
 // consult, emit as declared" (nullptr) in the member lookup below. Never dereferenced.
 const arenagen::MemberPlan kDropped;
 
-// The sub-namespace holding a file's generated INTERNALS, so the message's own namespace exposes only
-// the public entry point (rapidproto::dump). The `_detail` naming
-// follows the runtime's own `arena_detail` / `swar_detail` / `dump::detail` convention.
+// The sub-namespace holding a file's generated INTERNALS. Nothing public lands in the message's
+// own namespace -- the entry point is `rapidproto::dump`, reached through the dumper<T>
+// specializations in `rapidproto::dump_detail`. The `_detail` naming follows the runtime's own
+// `arena_detail` / `swar_detail` / `dump_detail` convention.
 constexpr std::string_view kDetailNs = "rp_dump_detail";
 
 // The namespace a message type's CORE dumper (the Writer-threaded rp_dump_write) lives in: the
@@ -48,8 +49,17 @@ constexpr std::string_view kDetailNs = "rp_dump_detail";
 // with the `message_namespace()` the header actually opens.
 std::string dump_detail_ns(const CppNameTable& names, const std::string& fqn) {
     const auto it = names.type_ns.find(fqn);
-    return "::" +
-           codegen::join_ns(it != names.type_ns.end() ? it->second : names.ns_prefix, kDetailNs);
+    if (it == names.type_ns.end()) {
+        // A generator bug (resolve() indexes every message), not bad input. The same policy as
+        // cpp_type_name's unresolved_type_name: no plausible-but-wrong qualified call -- an
+        // undeclared identifier carrying the FQN fails to compile at the use site instead.
+        std::string loud = "rp_type_ns_not_in_name_table__";
+        for (const char ch : fqn) {
+            loud += (ch == '.') ? '_' : ch;
+        }
+        return loud;
+    }
+    return "::" + codegen::join_ns(it->second, kDetailNs);
 }
 
 // How the debug writer must treat a field's VALUE, derived straight from the FieldNode (mirrors the

@@ -29,10 +29,11 @@
 
 namespace rapidproto::dump_detail {
 
-// Internals. A generated dumper does reach in here (for is_positive_zero, and for the value-name
-// tables dumpgen emits into this namespace), but a CONSUMER's supported surface is only
-// write_bool / write_int / write_float / write_json_escaped / write_hex / Writer / DumpOptions --
-// so anything below may change with the generator that calls it.
+// Internals, all of them: nothing in `dump_detail` is a consumer's supported surface -- that is
+// `rapidproto::dump` and `rapidproto::DumpOptions`, at the bottom of this file. A generated
+// dumper reaches in here (Writer, the write_* helpers, is_positive_zero, and the value-name
+// tables dumpgen emits into this namespace), so everything below may change with the generator
+// that calls it.
 namespace detail {
 
 // The 16 lowercase hex digits. std::string_view (not a C array) so it is a plain object, not a

@@ -274,9 +274,121 @@ for rel in "${generated[@]}"; do
     echo ">> declared outputs: ${rel#./} is written by the CLI but is not a declared OUTPUT --"
     echo "   deleting it leaves the build permanently broken"
     fail=1
-    cmake --build "$outputs_dir/b" --target schema_generate >/dev/null 2>&1  # restore for the rest
+    # Restore for the rest of the loop. An input edit, not a bare rebuild: the deleted file being
+    # UNDECLARED is the very failure just reported, so nothing is out of date and a plain rebuild
+    # does not re-run the generator.
+    touch "$outputs_dir/proto/use.proto"
+    cmake --build "$outputs_dir/b" --target schema_generate >/dev/null 2>&1
   fi
 done
 
+# ── import-scanner shapes ───────────────────────────────────────────────────────────────────────
+# The closure scan must read imports the way the CLI's lexer does. Three shapes pin it, each of
+# which broke a different way with a regex-only scan: `//` INSIDE an import string is path, not
+# comment (a stripper that cannot tell ate to end of line and spliced the next import into a
+# phantom declared output -- a permanently out-of-date target); a single-quoted import is valid
+# proto (invisible to a `"`-only match, so its headers went undeclared); and a block-commented
+# import is NOT an import (declaring its headers is the phantom-output failure again). Checked
+# end-to-end like everything above: the second build must be a no-op, deleted headers must come
+# back, and the ghost must not exist.
+scanner_dir="$WORK/scanner"
+mkdir -p "$scanner_dir/proto/sub"
+printf 'syntax = "proto3";\npackage sx;\nmessage X { int32 a = 1; }\n' >"$scanner_dir/proto/sub/x.proto"
+printf 'syntax = "proto3";\npackage sq;\nmessage Q { int32 a = 1; }\n' >"$scanner_dir/proto/sq.proto"
+{
+  printf 'syntax = "proto3";\npackage u;\n'
+  printf '/* a commented-out import:\nimport "ghost.proto";\n*/\n'
+  printf 'import "sub//x.proto";\n'
+  printf "import 'sq.proto';\n"
+  printf 'message U { sx.X x = 1; sq.Q q = 2; }\n'
+} >"$scanner_dir/proto/use.proto"
+{
+  echo 'cmake_minimum_required(VERSION 3.16)'
+  echo 'project(scanner CXX)'
+  echo "add_executable(rapidproto::rapidprotoc IMPORTED GLOBAL)"
+  echo "set_target_properties(rapidproto::rapidprotoc PROPERTIES IMPORTED_LOCATION \"$BIN\")"
+  echo "include(\"$ROOT/cmake/rapidproto-generate.cmake\")"
+  echo 'rapidproto_generate(schema PROTOS proto/use.proto IMPORT_DIRS proto)'
+} >"$scanner_dir/CMakeLists.txt"
+if ! cmake -S "$scanner_dir" -B "$scanner_dir/b" >/dev/null 2>&1 ||
+   ! cmake --build "$scanner_dir/b" --target schema_generate >/dev/null 2>&1; then
+  echo ">> import scanner: the fixture project does not configure/build"; exit 1
+fi
+if cmake --build "$scanner_dir/b" --target schema_generate 2>&1 | grep -q "rapidproto: schema"; then
+  echo ">> import scanner: the target regenerates on every build -- a scanner shape declared an"
+  echo "   output the CLI never writes (a comment-eaten or ghost import)"
+  fail=1
+fi
+for rel in rapidproto/schema/sub/x.rp.hpp rapidproto/schema/sq.rp.hpp; do
+  rm -f "$scanner_dir/b/$rel"
+  cmake --build "$scanner_dir/b" --target schema_generate >/dev/null 2>&1
+  if [[ ! -f "$scanner_dir/b/$rel" ]]; then
+    echo ">> import scanner: $rel was not restored -- its import spelling is invisible to the scan"
+    fail=1
+  fi
+done
+if compgen -G "$scanner_dir/b/rapidproto/schema/ghost*" >/dev/null; then
+  echo ">> import scanner: a block-commented import produced output"; fail=1
+fi
+
+# ── shared out-dir ──────────────────────────────────────────────────────────────────────────────
+# Two targets writing one OUT_DIR: legitimate sharing (same import, same flags) must configure,
+# declare each shared file ONCE, and restore a deleted shared file when EITHER claimant is built
+# -- while a stem COLLISION (same output path, different source or flags) must be a configure
+# error, not a silent last-writer-wins overwrite.
+share_dir="$WORK/share"
+mkdir -p "$share_dir/proto"
+printf 'syntax = "proto3";\npackage d;\nmessage D { int32 x = 1; }\n' >"$share_dir/proto/dep.proto"
+printf 'syntax = "proto3";\npackage pa1;\nimport "dep.proto";\nmessage A { d.D d = 1; }\n' >"$share_dir/proto/a.proto"
+printf 'syntax = "proto3";\npackage pb1;\nimport "dep.proto";\nmessage B { d.D d = 1; }\n' >"$share_dir/proto/b.proto"
+{
+  echo 'cmake_minimum_required(VERSION 3.16)'
+  echo 'project(share CXX)'
+  echo "add_executable(rapidproto::rapidprotoc IMPORTED GLOBAL)"
+  echo "set_target_properties(rapidproto::rapidprotoc PROPERTIES IMPORTED_LOCATION \"$BIN\")"
+  echo "include(\"$ROOT/cmake/rapidproto-generate.cmake\")"
+  echo "rapidproto_generate(t1 PROTOS proto/a.proto IMPORT_DIRS proto OUT_DIR \"$share_dir/gen\")"
+  echo "rapidproto_generate(t2 PROTOS proto/b.proto IMPORT_DIRS proto OUT_DIR \"$share_dir/gen\")"
+} >"$share_dir/CMakeLists.txt"
+if ! cmake -S "$share_dir" -B "$share_dir/b" >/dev/null 2>&1 ||
+   ! cmake --build "$share_dir/b" >/dev/null 2>&1; then
+  echo ">> shared out-dir: two targets legitimately sharing one OUT_DIR fail to configure/build"
+  fail=1
+else
+  rm -f "$share_dir/gen/dep.rp.hpp" "$share_dir/gen/rapidproto/runtime.hpp"
+  # Build only the SECOND claimant: the shared files belong to t1's command, so this passes only
+  # through the cross-target dependency on the owner.
+  cmake --build "$share_dir/b" --target t2_generate >/dev/null 2>&1
+  for f in dep.rp.hpp rapidproto/runtime.hpp; do
+    if [[ ! -f "$share_dir/gen/$f" ]]; then
+      echo ">> shared out-dir: $f (owned by t1) was not restored by building t2 alone"
+      fail=1
+    fi
+  done
+fi
+# The collision half: same stem, different schemas. Configure must refuse.
+clash_dir="$WORK/clash"
+mkdir -p "$clash_dir/c1" "$clash_dir/c2"
+printf 'syntax = "proto3";\npackage m1;\nmessage M1 { int32 x = 1; }\n' >"$clash_dir/c1/dup.proto"
+printf 'syntax = "proto3";\npackage m2;\nmessage M2 { int32 x = 1; }\n' >"$clash_dir/c2/dup.proto"
+{
+  echo 'cmake_minimum_required(VERSION 3.16)'
+  echo 'project(clash CXX)'
+  echo "add_executable(rapidproto::rapidprotoc IMPORTED GLOBAL)"
+  echo "set_target_properties(rapidproto::rapidprotoc PROPERTIES IMPORTED_LOCATION \"$BIN\")"
+  echo "include(\"$ROOT/cmake/rapidproto-generate.cmake\")"
+  echo "rapidproto_generate(t1 PROTOS c1/dup.proto IMPORT_DIRS c1 OUT_DIR \"$clash_dir/gen\")"
+  echo "rapidproto_generate(t2 PROTOS c2/dup.proto IMPORT_DIRS c2 OUT_DIR \"$clash_dir/gen\")"
+} >"$clash_dir/CMakeLists.txt"
+if clash_out=$(cmake -S "$clash_dir" -B "$clash_dir/b" 2>&1); then
+  echo ">> shared out-dir: two DIFFERENT schemas colliding on one output path configured cleanly --"
+  echo "   whichever target builds last silently overwrites the other's header"
+  fail=1
+elif ! grep -q "already generated by target" <<<"$clash_out"; then
+  echo ">> shared out-dir: the stem collision was refused, but not by the claim registry:"
+  tail -3 <<<"$clash_out"
+  fail=1
+fi
+
 [[ $fail -eq 0 ]] || exit 1
-echo "generate names: ${#cases[@]} entry shapes match the CLI, ${#refusals[@]} ambiguous ones refused, NAMESPACE_PREFIX passed through, ${#generated[@]} declared outputs restored when deleted"
+echo "generate names: ${#cases[@]} entry shapes match the CLI, ${#refusals[@]} ambiguous ones refused, NAMESPACE_PREFIX passed through, ${#generated[@]} declared outputs restored when deleted, scanner + shared-out-dir shapes pinned"

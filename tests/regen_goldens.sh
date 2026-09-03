@@ -121,7 +121,8 @@ for entry in tests/corpus/nsedge/rootnames.proto \
              tests/corpus/nsedge/rootenum.proto \
              tests/corpus/nsedge/sibparent.proto \
              tests/corpus/nsedge/sibpkg.proto \
-             tests/corpus/nsedge/nestenum.proto; do
+             tests/corpus/nsedge/nestenum.proto \
+             tests/corpus/nsedge/pkgalias.proto; do
   "$BIN" --arena --stream -Itests/corpus/nsedge --out-dir="$T/coexist" "$entry" >/dev/null
 done
 rm -rf "$T/coexist/rapidproto"  # the runtime copy; the test TU uses the repo's own headers

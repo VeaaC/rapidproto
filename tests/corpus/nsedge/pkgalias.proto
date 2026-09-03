@@ -1,0 +1,23 @@
+// A top-level type and a SIBLING PACKAGE whose sanitized ids ALIAS. `message linux_` holds the
+// literal spelling; the imported `package pa.linux` -- protoc-valid, the proto names differ --
+// sanitizes its component to the same `linux_`. The package's namespace can never move (every file
+// that mentions it must agree on it), so the TYPE is the one deduped: `linux__` under every root,
+// its enum mirror following that id instead of merging into the package's namespace in the common
+// header, where the two `E`s would otherwise collide enum by enum. A RAW collision (type and
+// package literally sharing a proto name) is rejected by protoc; sanitize() creating the alias is
+// the only way a valid schema reaches this.
+syntax = "proto3";
+
+package pa;
+
+import "pkgaliasdep.proto";
+
+message linux_ {
+  enum E {
+    E0 = 0;
+  }
+
+  E e = 1;
+  pa.linux.Sub sub = 2;  // must resolve into the PACKAGE scope: ::rp::arena::pa::linux_::Sub
+  pa.linux.E f = 3;      // the package's E, distinct from this message's mirrored E
+}

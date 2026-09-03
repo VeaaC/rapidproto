@@ -29,6 +29,7 @@
 #include "rapidproto/arenagen/generator.hpp"
 #include "rapidproto/arenagen/layout.hpp"
 #include "rapidproto/arenagen/modes.hpp"
+#include "rapidproto/codegen/emit.hpp"
 #include "rapidproto/codegen/naming.hpp"
 #include "rapidproto/dump_runtime.hpp"  // dump_detail::Writer / DumpOptions: driven directly below
 #include "rapidproto/dumpgen/generator.hpp"
@@ -331,6 +332,84 @@ TEST_CASE("dumpgen: generated headers match the goldens", "[dumpgen]") {
     // same deduped SynthNames the arena header declared, so the prefixed closure compiles.
     check_golden("prefixed/main", generate(imports, "main.proto", "pfx"));
     check_golden("prefixed/dep", generate(imports, "dep.proto", "pfx"));
+    check_golden("prefixed/pub", generate(imports, "pub.proto", "pfx"));
+    check_golden("prefixed/forward", generate(imports, "forward.proto", "pfx"));
+}
+
+// Byte-compare the `<stem>.rp.common.hpp` beside each dump golden: compiled by this TU (every
+// dump header pulls its arena header, which pulls the common), previously compared by nothing in
+// this suite. The common header is profile-independent, so the modes/unknown variants reuse their
+// base entry's generation.
+TEST_CASE("dumpgen: the common headers beside the goldens match too", "[dumpgen]") {
+    const std::string corpus = RAPIDPROTO_CORPUS_DIR;
+    const std::string imports = corpus + "/imports";
+    const std::string nsedge = corpus + "/nsedge";
+    struct CommonCase {
+        std::string name;
+        std::string dir;
+        std::string entry;
+        std::string prefix;
+    };
+    const std::vector<CommonCase> cases = {
+        {"arena_layout", corpus, "arena_layout.proto", ""},
+        {"arena_manyreq", corpus, "arena_manyreq.proto", ""},
+        {"arena_modes", corpus, "arena_modes.proto", ""},
+        {"arena_naming", corpus, "arena_naming.proto", ""},
+        {"arena_unknown", corpus, "arena_unknown.proto", ""},
+        {"naming", corpus, "naming.proto", ""},
+        {"proto2", corpus, "proto2.proto", ""},
+        {"proto3", corpus, "proto3.proto", ""},
+        {"editions2023", corpus, "editions2023.proto", ""},
+        {"editions2024", corpus, "editions2024.proto", ""},
+        {"xref", corpus, "xref.proto", ""},
+        {"xref_prefixed/xref", corpus, "xref.proto", "pfx"},
+        {"wire_all", RAPIDPROTO_WIRE_FIXTURE_DIR, "wire_all.proto", ""},
+        {"dep", imports, "dep.proto", ""},
+        {"pub", imports, "pub.proto", ""},
+        {"forward", imports, "forward.proto", ""},
+        {"main", imports, "main.proto", ""},
+        {"samepkg_a", imports, "samepkg_a.proto", ""},
+        {"samepkg_b", imports, "samepkg_b.proto", ""},
+        {"weakdep", imports, "weakdep.proto", ""},
+        {"weakmain", imports, "weakmain.proto", ""},
+        {"prefixed/dep", imports, "dep.proto", "pfx"},
+        {"prefixed/pub", imports, "pub.proto", "pfx"},
+        {"prefixed/forward", imports, "forward.proto", "pfx"},
+        {"prefixed/main", imports, "main.proto", "pfx"},
+        {"stdpkg", nsedge, "stdpkg.proto", ""},
+        {"rppkg", nsedge, "rppkg.proto", ""},
+    };
+    for (const CommonCase& test : cases) {
+        ResolverConfig config;
+        config.include_paths = {test.dir};
+        auto resolved = resolve(test.dir + "/" + test.entry, config);
+        REQUIRE(resolved.is_ok());
+        ResolvedFileSet set = std::move(resolved).value();
+        REQUIRE(analyze(set).is_ok());
+        const codegen::CppNameTable names = codegen::build_cpp_names(
+            set.files.back(), set.files, codegen::effective_ns_prefix(test.prefix),
+            std::string(codegen::kArenaRoot));
+        const std::string actual = codegen::emit_common_header(set.files.back(), names);
+        const std::string golden =
+            std::string(RAPIDPROTO_DUMPGEN_GOLDEN_DIR) + "/" + test.name + ".rp.common.hpp";
+        // NOLINTNEXTLINE(concurrency-mt-unsafe): single-threaded test, opt-in regeneration only
+        if (std::getenv("RAPIDPROTO_REGEN_GOLDEN") != nullptr) {
+            std::ofstream(golden, std::ios::binary) << actual;
+            WARN("regenerated dumpgen common golden: " << test.name);
+            continue;
+        }
+        INFO("common golden: " << test.name);
+        CHECK(actual == read_file(golden));
+    }
+}
+
+// A MULTI-component prefix through the dump generator (every prefixed golden is
+// single-component): the dotted spelling must split in the opening namespace and in the fully
+// qualified core calls. streamgen and arenagen carry the twins of this check.
+TEST_CASE("dumpgen: a dotted namespace prefix splits into nested namespaces", "[dumpgen]") {
+    const std::string dotted = generate_corpus("xref.proto", "rp.dec");
+    CHECK(dotted.find("namespace rp::dec::arena::xr {") != std::string::npos);
+    CHECK(dotted.find("::rp::dec::arena::xr::rp_dump_detail::rp_dump_write") != std::string::npos);
 }
 
 // ── generated namespace layout ───────────────────────────────────────────────────────────────────
@@ -354,10 +433,16 @@ TEST_CASE("dumpgen: generated internals live in sub-namespaces, not the public o
               std::string::npos);
         CHECK(out.find("Outer::rp_dump_detail") == std::string::npos);
     }
-    SECTION("a file with NO package opens the detail namespace at global scope") {
+    SECTION("a file with NO package still opens the model root, and qualifies against it") {
+        // The FULLY QUALIFIED spellings, both of them: the bare-substring checks this section used
+        // to make (`namespace rp_dump_detail {`, `::rp_dump_detail::rp_dump_write`) are contained
+        // in every dump header's `...arena::rp_dump_detail::...` and matched the pre-roots
+        // global-scope layout exactly as well -- a section that could not fail.
         const std::string out = generate(nsedge, "nopkg.proto");
-        CHECK(out.find("namespace rp_dump_detail {") != std::string::npos);
-        CHECK(out.find("::rp_dump_detail::rp_dump_write") != std::string::npos);
+        CHECK(out.find("namespace rp::arena {") != std::string::npos);
+        CHECK(out.find("::rp::arena::rp_dump_detail::rp_dump_write") != std::string::npos);
+        // Nothing at global scope: the root is what keeps a package-less schema out of it.
+        CHECK(out.find("\n::rp_dump_detail") == std::string::npos);
     }
     SECTION("a cross-file call is qualified with the CALLEE's namespace, not the caller's") {
         const std::string out = generate(nsedge, "xpkg.proto");

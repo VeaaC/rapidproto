@@ -56,9 +56,11 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
   `rp::pkg::Msg` to `rp::arena::pkg::Msg` — and the flag is no longer needed for that purpose. The root is named by
   `--namespace-prefix`, which now defaults to `rp` and **no longer accepts an empty value** — the
   three root segments would otherwise land at global scope. Pass `--namespace-prefix=myco` if your
-  codebase already owns `rp`. A prefix component is refused rather than silently renamed when it
-  would not compile as written (a keyword, `std`, a name that macro-expands), when it starts with
-  `rp_`/`RP_`, or when it is `rapidproto` — the generator's and the runtime's own names.
+  codebase already owns `rp`. What the flag accepts it emits verbatim; a component is refused
+  rather than silently renamed when it would not compile as written (a keyword, `std`, a name that
+  macro-expands, a reserved identifier — `__x`, `_X...`, or a leading `_` in the first component,
+  which lands in the global namespace), when it starts with `rp_`/`RP_`, or when it is
+  `rapidproto` — the generator's and the runtime's own names.
 
   **Nested enums are now shared too.** A `Msg::Kind` used to be defined separately inside each
   model's class, so an enum read from the arena decoder was a different C++ type from the streaming
@@ -129,7 +131,22 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
 
 ### Fixed
 
-- **`rapidproto_generate(NAMESPACE_PREFIX N)` no longer silently ignores the prefix.** The helper
+- **Names that hit a predefined or ever-present macro are escaped, two groups more than before.**
+  `linux` and `unix` — gcc/clang predefined macros under GNU extensions, the default when no
+  `-std` is passed — are lowercase, so an ordinary package, field or enum value of that name
+  macro-expanded into non-compiling output. And `<cstdint>`'s limit macros (`INT32_MAX`,
+  `SIZE_MAX`, ...) broke **unconditionally**, because every generated header includes `<cstdint>`
+  itself: `enum { LIM_INT32_MAX = 1 }` (via prefix stripping) or a field named `INT32_MIN`
+  produced a header that could not compile anywhere. All of them now take the usual `_` escape,
+  and enum-prefix stripping refuses to strip an enum whose bare remainder would land on one.
+
+- **A top-level type whose sanitized name collides with a sibling package's is now deduplicated
+  instead of emitting a broken header.** `package a.linux` opens `namespace linux_` inside `a` —
+  and a sibling file's `message linux_` (protoc-valid: the proto names differ) landed on the same
+  id, redeclaring the namespace as a class in every root and colliding its mirrored enums with the
+  package's in the common header. Package components now claim their ids first, so the type takes
+  a further `_` (`linux__`), by the same parent-keeps-its-name rule that already settles
+  nested-type contests. The helper
   tested the value for truth, and CMake reads `N`, `no`, `off`, `false` and `0` as false — so those
   prefixes were dropped and headers were generated under the default while the build file said
   otherwise. It now tests whether the keyword was given at all.
@@ -141,8 +158,12 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
   (well-known types included, transitively: `api.proto` pulls in `type`, `source_context` and
   `any`), and the runtime copies under `rapidproto/`. Removing any undeclared one (or losing it to
   a partial clean) left `fatal error: ... No such file or directory` until something unrelated
-  invalidated the batch. Two targets sharing an `OUT_DIR` declare each shared file once — both
-  building and coexisting was previously a hard error under Ninja (`multiple rules generate ...`).
+  invalidated the batch. Two targets sharing an `OUT_DIR` declare each shared file once, each
+  later claimant build-orders itself after the file's owner (so building either target restores a
+  deleted shared header), and a *collision* — one output path claimed for different sources or
+  under different generation flags, where whichever target built last would silently win — is a
+  configure error naming both targets. The import scan reads proto the way the CLI's lexer does:
+  `//` inside an import string is path, not comment, and single-quoted imports count.
 
 - **A "maximum nesting depth exceeded" error now points at the token that exceeded it.** The
   parser reports positions as token indices, which the resolver maps back to `file:line:col`; this

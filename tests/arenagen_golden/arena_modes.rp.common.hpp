@@ -15,4 +15,15 @@ enum class Level : std::int32_t {
   rp_non_exhaustive_max = INT32_MAX,
 };
 
+namespace Blob {
+enum class Kind : std::int32_t {
+  K_UNSET = 0,
+  K_INLINE = 1,
+  rp_known_min = 0,
+  rp_known_max = 1,
+  rp_non_exhaustive_min = INT32_MIN,
+  rp_non_exhaustive_max = INT32_MAX,
+};
+}  // namespace Blob
+
 }  // namespace rp::common::fm

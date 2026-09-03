@@ -31,7 +31,8 @@ link here instead of restating.*
   where protoc would route an unrecognized closed-enum value to unknown fields, RapidProto delivers
   the raw value — so do not rely on closed-enum semantics.
 - **Enumerator names drop the enum's own prefix**, all-or-nothing per enum: `enum Status
-  { STATUS_OK = 0; }` yields `Status::OK`, matching what protobuf's own Go and Rust generators do.
+  { STATUS_OK = 0; }` yields `Status::OK`, the same idea as protobuf's own Rust generator (which
+  strips per value, where RapidProto strips only when every value can).
   The strip is refused for the whole enum if any value would be left with a name that is not a clean
   identifier — one missing the prefix, a numeric remainder (`VERSION_2` → `2`), a keyword, or a
   macro (`STATUS_EOF` → `EOF`). **So adding a value can rename the others**: appending

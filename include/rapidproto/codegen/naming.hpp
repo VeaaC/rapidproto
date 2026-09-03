@@ -87,14 +87,18 @@ std::string relative_type_name(const CppNameTable& names, std::string_view fqn);
 // proto package "a.b.c" -> C++ namespace "a::b::c" (empty package -> ""), each component sanitized.
 std::string namespace_of(std::string_view package);
 
-// Why `component` cannot serve as one dot-separated piece of a --namespace-prefix, or "" if it can.
+// Why `component` cannot serve as one dot-separated piece of a --namespace-prefix, or "" if it
+// can. `first` marks the leading component, which lands in the GLOBAL namespace -- where every
+// `_`-initial identifier is reserved, so `_x` is refused there and accepted after a dot.
 //
-// A prefix is an INSTRUCTION; a package is DATA. `namespace_of` escapes both through sanitize(),
-// which is right for a package -- the schema's author cannot be asked to avoid C++ keywords -- and
-// wrong for a prefix, where it silently hands back a namespace the user did not ask for
-// (`--namespace-prefix=std` quietly became `std_`). Callers that parse flags should reject instead.
-// Derived from sanitize() rather than restating it, so the two cannot drift apart.
-std::string ns_prefix_component_problem(std::string_view component);
+// A prefix is an INSTRUCTION; a package is DATA. A package is escaped through sanitize() -- the
+// schema's author cannot be asked to avoid C++ keywords -- but a prefix the user typed is either
+// emitted VERBATIM (effective_ns_prefix) or refused here: silently handing back a namespace the
+// user did not ask for (`--namespace-prefix=std` once quietly became `std_`) is as wrong as
+// refusing one that compiles. The refusal list is therefore NARROWER than sanitize()'s: the
+// member-reserved words (`decode`, `Value`, ...) clash only with generated class members, are
+// working namespace names, and pass.
+std::string ns_prefix_component_problem(std::string_view component, bool first);
 
 // Join two C++ namespace fragments with "::", dropping empties ("" + "a::b" -> "a::b").
 std::string join_ns(std::string_view a, std::string_view b);

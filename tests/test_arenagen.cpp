@@ -24,6 +24,7 @@
 #include "rapidproto/arenagen/generator.hpp"
 #include "rapidproto/arenagen/layout.hpp"
 #include "rapidproto/arenagen/modes.hpp"
+#include "rapidproto/ast.hpp"  // FileNode, for the empty-prefix substitution check
 #include "rapidproto/codegen/emit.hpp"
 #include "rapidproto/codegen/naming.hpp"
 #include "rapidproto/resolve.hpp"
@@ -204,6 +205,36 @@ void check_golden(const std::string& name, const std::string& actual) {
     CHECK(actual == read_file(golden));
 }
 
+// Byte-compare the `<stem>.rp.common.hpp` beside a model golden. The model goldens byte-pin the
+// decoders; the common header each of them #includes -- where every enum and the nesting mirror
+// live -- was compiled by this TU but compared by nothing here, so it could drift (or be
+// hand-edited) with the suite green as long as it still compiled. The common header is
+// profile-independent, so the modes/unknown variants reuse their base entry's generation.
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): golden name, include dir, entry, prefix
+void check_common_golden(const std::string& name, const std::string& dir, const std::string& entry,
+                         const std::string& prefix = {}) {
+    ResolverConfig config;
+    config.include_paths = {dir};
+    auto resolved = resolve(dir + "/" + entry, config);
+    REQUIRE(resolved.is_ok());
+    ResolvedFileSet set = std::move(resolved).value();
+    REQUIRE(analyze(set).is_ok());
+    const codegen::CppNameTable names =
+        codegen::build_cpp_names(set.files.back(), set.files, codegen::effective_ns_prefix(prefix),
+                                 std::string(codegen::kArenaRoot));
+    const std::string actual = codegen::emit_common_header(set.files.back(), names);
+    const std::string golden =
+        std::string(RAPIDPROTO_ARENAGEN_GOLDEN_DIR) + "/" + name + ".rp.common.hpp";
+    // NOLINTNEXTLINE(concurrency-mt-unsafe): single-threaded test, opt-in regeneration only
+    if (std::getenv("RAPIDPROTO_REGEN_GOLDEN") != nullptr) {
+        std::ofstream(golden, std::ios::binary) << actual;
+        WARN("regenerated arenagen common golden: " << name);
+        return;
+    }
+    INFO("common golden: " << name);
+    CHECK(actual == read_file(golden));
+}
+
 }  // namespace
 
 TEST_CASE("arenagen: generated headers match the goldens", "[arenagen]") {
@@ -283,6 +314,60 @@ TEST_CASE("arenagen: generated headers match the goldens", "[arenagen]") {
     check_golden("rppkg", generate(nsedge, "rppkg.proto"));
 }
 
+TEST_CASE("arenagen: the common headers beside the goldens match too", "[arenagen]") {
+    const std::string corpus = RAPIDPROTO_CORPUS_DIR;
+    const std::string imports = corpus + "/imports";
+    const std::string nsedge = corpus + "/nsedge";
+    struct CommonCase {
+        std::string name;    // golden path stem under arenagen_golden/
+        std::string dir;     // include dir
+        std::string entry;   // entry proto
+        std::string prefix;  // --namespace-prefix ("" = default)
+    };
+    const std::vector<CommonCase> cases = {
+        {"arena_layout", corpus, "arena_layout.proto", ""},
+        {"arena_manyreq", corpus, "arena_manyreq.proto", ""},
+        // The profile variants share their base entry's common: the common header is
+        // profile-independent by design (tested directly in test_common_header.cpp).
+        {"arena_modes", corpus, "arena_modes.proto", ""},
+        {"arena_naming", corpus, "arena_naming.proto", ""},
+        {"arena_unknown", corpus, "arena_unknown.proto", ""},
+        {"messageset", corpus, "messageset.proto", ""},
+        // The unknown/ variant is generated under prefix `unk` (regen_arenagen_goldens.sh), which
+        // keeps its common from being byte-identical to the plain twin in the same TU.
+        {"unknown/messageset", corpus, "messageset.proto", "unk"},
+        {"proto2", corpus, "proto2.proto", ""},
+        {"proto3", corpus, "proto3.proto", ""},
+        {"editions2023", corpus, "editions2023.proto", ""},
+        {"editions2024", corpus, "editions2024.proto", ""},
+        {"xref", corpus, "xref.proto", ""},
+        {"xref_prefixed/xref", corpus, "xref.proto", "pfx"},
+        {"wire_all", RAPIDPROTO_WIRE_FIXTURE_DIR, "wire_all.proto", ""},
+        {"dep", imports, "dep.proto", ""},
+        {"pub", imports, "pub.proto", ""},
+        {"forward", imports, "forward.proto", ""},
+        {"main", imports, "main.proto", ""},
+        {"samepkg_a", imports, "samepkg_a.proto", ""},
+        {"samepkg_b", imports, "samepkg_b.proto", ""},
+        {"escdedup_a", imports, "escdedup_a.proto", ""},
+        {"escdedup_b", imports, "escdedup_b.proto", ""},
+        {"weakdep", imports, "weakdep.proto", ""},
+        {"weakmain", imports, "weakmain.proto", ""},
+        {"prefixed/dep", imports, "dep.proto", "pfx"},
+        {"prefixed/pub", imports, "pub.proto", "pfx"},
+        {"prefixed/forward", imports, "forward.proto", "pfx"},
+        {"prefixed/main", imports, "main.proto", "pfx"},
+        {"deep", nsedge, "deep.proto", ""},
+        {"nopkg", nsedge, "nopkg.proto", ""},
+        {"xpkg", nsedge, "xpkg.proto", ""},
+        {"stdpkg", nsedge, "stdpkg.proto", ""},
+        {"rppkg", nsedge, "rppkg.proto", ""},
+    };
+    for (const CommonCase& test : cases) {
+        check_common_golden(test.name, test.dir, test.entry, test.prefix);
+    }
+}
+
 // --namespace-prefix names the root every generated namespace sits under. Coexistence with protoc's
 // headers no longer depends on it -- the model roots deliver that on their own -- so what this pins
 // is the flag itself: xref_prefixed (also #included above) proves the prefixed output is valid C++
@@ -314,6 +399,20 @@ TEST_CASE("arenagen: namespace prefix nests the generated namespace", "[arenagen
     CHECK(plain.find("namespace rp::arena::xr {") != std::string::npos);
     CHECK(plain.find("pfx::arena::xr") == std::string::npos);
     static_assert(!std::is_same_v<pfx::arena::xr::A, xr::A>);  // distinct, coexisting types
+
+    // A MULTI-component prefix through this generator (every prefixed golden is single-component):
+    // the dotted spelling must split into nested namespaces, in the opening and in every
+    // absolute reference. streamgen has the twin of this check; without one here a dotted-prefix
+    // bug in the arena path would pass the whole suite.
+    const std::string dotted = generate_corpus("xref.proto", "rp.dec");
+    CHECK(dotted.find("namespace rp::dec::arena::xr {") != std::string::npos);
+    CHECK(dotted.find("const ::rp::dec::arena::xr::B*") != std::string::npos);
+    // An EMPTY prefix at the library entry point substitutes the default rather than putting the
+    // roots at global scope -- the layout the CLI and the CMake helper refuse must be unreachable
+    // from here too.
+    const FileNode no_file{};
+    CHECK(codegen::build_cpp_names(no_file, {}, "", std::string(codegen::kArenaRoot)).ns_prefix ==
+          "rp");
 
     // --namespace-prefix combined with imports: user types nest under rp::, but the cross-file
     // decoder call stays the absolute ::rapidproto::arena_detail::decode_into, so the prefix can't

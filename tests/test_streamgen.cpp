@@ -24,6 +24,8 @@
 #include <vector>
 
 #include "rapidproto/ast.hpp"
+#include "rapidproto/codegen/emit.hpp"
+#include "rapidproto/codegen/naming.hpp"
 #include "rapidproto/resolve.hpp"
 #include "rapidproto/resolver.hpp"
 #include "rapidproto/runtime.hpp"
@@ -77,6 +79,24 @@ std::string generate_at(const std::string& proto_path, const std::string& includ
     return streamgen::generate_header(set.files.back(), set.files);
 }
 
+// The shared common header for the same entry, compared beside each model golden below. The model
+// golden byte-pins the decoder; the `<stem>.rp.common.hpp` it #includes -- where every enum and
+// the nesting mirror live -- was compiled by this TU but compared by nothing in this suite, so it
+// could drift (or be hand-edited) with the suite green as long as it still compiled.
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): entry path vs include dir, distinct roles
+std::string common_header_at(const std::string& proto_path, const std::string& include_dir) {
+    ResolverConfig config;
+    config.include_paths = {include_dir};
+    auto resolved = resolve(proto_path, config);
+    REQUIRE(resolved.is_ok());
+    ResolvedFileSet set = std::move(resolved).value();
+    REQUIRE(analyze(set).is_ok());
+    const codegen::CppNameTable names =
+        codegen::build_cpp_names(set.files.back(), set.files, codegen::effective_ns_prefix({}),
+                                 std::string(codegen::kStreamRoot));
+    return codegen::emit_common_header(set.files.back(), names);
+}
+
 // --- hand-built wire-buffer builders for the decode tests below ---
 void put_varint(std::string& b, std::uint64_t v) {
     while (v >= 0x80U) {
@@ -116,8 +136,8 @@ TEST_CASE("streamgen: generated headers match the goldens", "[streamgen]") {
     };
     const std::string imports = corpus + "/imports";
     // Package shapes no other entry has: every other corpus file declares a single-component package.
-    // deep -> namespace rp::stream::com::example::deep, nopkg -> rp::stream (types at
-    // global scope), xpkg -> a cross-file reference INTO a dotted package.
+    // deep -> namespace rp::stream::com::example::deep, nopkg -> types directly under rp::stream
+    // (the root, never global scope), xpkg -> a cross-file reference INTO a dotted package.
     const std::string nsedge = corpus + "/nsedge";
     const std::vector<Case> cases = {
         {"proto2", corpus},       {"proto3", corpus},     {"xref", corpus},
@@ -138,15 +158,21 @@ TEST_CASE("streamgen: generated headers match the goldens", "[streamgen]") {
     for (const Case& test : cases) {
         const std::string actual =
             generate_at(test.include + "/" + test.name + ".proto", test.include);
+        const std::string actual_common =
+            common_header_at(test.include + "/" + test.name + ".proto", test.include);
         const std::string golden =
             std::string(RAPIDPROTO_STREAMGEN_GOLDEN_DIR) + "/" + test.name + ".rp.stream.hpp";
+        const std::string common_golden =
+            std::string(RAPIDPROTO_STREAMGEN_GOLDEN_DIR) + "/" + test.name + ".rp.common.hpp";
         if (regen) {
             std::ofstream(golden, std::ios::binary) << actual;
+            std::ofstream(common_golden, std::ios::binary) << actual_common;
             WARN("regenerated streamgen golden: " << test.name);
             continue;
         }
         INFO("golden: " << test.name);
         CHECK(actual == read_file(golden));
+        CHECK(actual_common == read_file(common_golden));
     }
 }
 
@@ -188,11 +214,21 @@ TEST_CASE("streamgen: namespace prefix nests the generated namespace", "[streamg
         streamgen::generate_header(xrset.files.back(), xrset.files, "pfx");
     const std::string golden =
         std::string(RAPIDPROTO_STREAMGEN_GOLDEN_DIR) + "/xref_prefixed/xref.rp.stream.hpp";
+    // The prefixed common header too: it is the reason this golden lives in its own subdir (its
+    // `pfx::common::xr` enums would otherwise collide with the unprefixed xref common's).
+    const codegen::CppNameTable xr_names = codegen::build_cpp_names(
+        xrset.files.back(), xrset.files, codegen::effective_ns_prefix("pfx"),
+        std::string(codegen::kStreamRoot));
+    const std::string xr_common = codegen::emit_common_header(xrset.files.back(), xr_names);
+    const std::string common_golden =
+        std::string(RAPIDPROTO_STREAMGEN_GOLDEN_DIR) + "/xref_prefixed/xref.rp.common.hpp";
     // NOLINTNEXTLINE(concurrency-mt-unsafe): single-threaded test, opt-in regeneration only
     if (std::getenv("RAPIDPROTO_REGEN_GOLDEN") != nullptr) {
         std::ofstream(golden, std::ios::binary) << xr_prefixed;
+        std::ofstream(common_golden, std::ios::binary) << xr_common;
     } else {
         CHECK(xr_prefixed == read_file(golden));
+        CHECK(xr_common == read_file(common_golden));
     }
 
     // Coexistence in one TU: the prefixed `pfx::stream::xr::A` and the unprefixed `rp::stream::xr::A` (both #included
@@ -782,6 +818,7 @@ TEST_CASE("streamgen: a generated decoder reports malformed input and callback a
 // The CLI generates the whole resolved closure (entry + transitive imports + well-known
 // types), so a schema using google.protobuf.* compiles standalone. This regenerates every file in
 // usewkt.proto's closure (including the embedded WKT sources) and golden-checks each.
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): one loop, two golden comparisons
 TEST_CASE("streamgen: well-known-type closure generates self-contained headers", "[streamgen]") {
     ResolverConfig config;
     config.include_paths = {std::string(RAPIDPROTO_CORPUS_DIR)};
@@ -799,14 +836,24 @@ TEST_CASE("streamgen: well-known-type closure generates self-contained headers",
             std::filesystem::path(RAPIDPROTO_STREAMGEN_GOLDEN_DIR) /
             (stem.string() + ".rp.stream.hpp");
         const std::string actual = streamgen::generate_header(file, set.files);
+        // Each file's shared common header too -- the embedded WKT sources have enums of their
+        // own (google.protobuf.Field.Kind etc.), and nothing else compares their commons.
+        const codegen::CppNameTable names = codegen::build_cpp_names(
+            file, set.files, codegen::effective_ns_prefix({}), std::string(codegen::kStreamRoot));
+        const std::string actual_common = codegen::emit_common_header(file, names);
+        const std::filesystem::path common_golden =
+            std::filesystem::path(RAPIDPROTO_STREAMGEN_GOLDEN_DIR) /
+            (stem.string() + ".rp.common.hpp");
         if (regen) {
             std::filesystem::create_directories(golden.parent_path());
             std::ofstream(golden, std::ios::binary) << actual;
+            std::ofstream(common_golden, std::ios::binary) << actual_common;
             WARN("regenerated streamgen golden: " << stem.string());
             continue;
         }
         INFO("golden: " << stem.string());
         CHECK(actual == read_file(golden.string()));
+        CHECK(actual_common == read_file(common_golden.string()));
     }
 }
 
