@@ -134,10 +134,15 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
   prefixes were dropped and headers were generated under the default while the build file said
   otherwise. It now tests whether the keyword was given at all.
 
-- **A deleted `<stem>.rp.common.hpp` is regenerated instead of breaking the build for good.** The
-  CMake helper declared the decoder headers as outputs but not the shared common header, so removing
-  it (or losing it to a partial clean) left `fatal error: <stem>.rp.common.hpp: No such file or
-  directory` until something unrelated invalidated the batch.
+- **Every file the CLI writes is now a declared output of `rapidproto_generate()`, so deleting any
+  of them regenerates it instead of breaking the build for good.** The helper declared only the
+  listed schemas' decoder headers, but the CLI writes a full header set for every file in the
+  resolved import closure — the shared `<stem>.rp.common.hpp`, every *imported* schema's headers
+  (well-known types included, transitively: `api.proto` pulls in `type`, `source_context` and
+  `any`), and the runtime copies under `rapidproto/`. Removing any undeclared one (or losing it to
+  a partial clean) left `fatal error: ... No such file or directory` until something unrelated
+  invalidated the batch. Two targets sharing an `OUT_DIR` declare each shared file once — both
+  building and coexisting was previously a hard error under Ninja (`multiple rules generate ...`).
 
 - **A "maximum nesting depth exceeded" error now points at the token that exceeded it.** The
   parser reports positions as token indices, which the resolver maps back to `file:line:col`; this

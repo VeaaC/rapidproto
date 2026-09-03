@@ -268,6 +268,12 @@ if(RAPIDPROTO_INSTALL)
     ${CMAKE_CURRENT_BINARY_DIR}/rapidprotoConfigVersion.cmake
     ${CMAKE_CURRENT_SOURCE_DIR}/cmake/rapidproto-generate.cmake
     DESTINATION ${RAPIDPROTO_INSTALL_CMAKEDIR})
+  # The well-known-type sources, beside the helper: rapidproto_generate() reads them to follow the
+  # EMBEDDED types' own imports (api.proto pulls in type/source_context/any), so the headers those
+  # produce can be declared as outputs. The CLI never reads this copy -- its own is compiled in.
+  install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wellknown/
+    DESTINATION ${RAPIDPROTO_INSTALL_CMAKEDIR}/wellknown
+    FILES_MATCHING PATTERN "*.proto")
   # Apache-2.0 redistribution: NOTICE (and the third-party attributions) must travel with the
   # installed prefix, not just the source tree.
   install(FILES

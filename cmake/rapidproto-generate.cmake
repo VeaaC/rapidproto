@@ -9,6 +9,21 @@
 
 include_guard(GLOBAL)
 
+# Where the well-known-type SOURCES live: beside this file's parent in the source tree, beside this
+# file in an installed prefix. The CLI embeds wellknown/*.proto as `google/protobuf/<name>.proto`
+# (wellknown/embed_wellknown.py), and two of them import others (type.proto, api.proto) -- so the
+# import-closure scan below must be able to READ them, or the transitively pulled-in headers go
+# undeclared. A GLOBAL property, not a variable: include_guard(GLOBAL) means this file runs in ONE
+# directory scope, and a directory variable set here is invisible to rapidproto_generate() calls
+# made from sibling directories.
+foreach(_rapidproto_wk_cand "${CMAKE_CURRENT_LIST_DIR}/../wellknown" "${CMAKE_CURRENT_LIST_DIR}/wellknown")
+  if(EXISTS "${_rapidproto_wk_cand}/type.proto")
+    set_property(GLOBAL PROPERTY _rapidproto_wellknown_dir "${_rapidproto_wk_cand}")
+    break()
+  endif()
+endforeach()
+unset(_rapidproto_wk_cand)
+
 # The header path the CLI writes for `proto_abs`, computed so it can be a custom command's OUTPUT. This
 # mirrors the generator exactly (resolver.cpp canonical_entry_name + driver.hpp header_path): the entry's
 # path relative to the first import dir that contains it, else its basename, with ".proto" -> `ext`,
@@ -40,9 +55,12 @@ endfunction()
 # permanently out of date: it regenerates on every build, forever, while the real header stays
 # undeclared. Ninja does not even warn.
 #
-# This also covers the CLI's EMBEDDED well-known types: their sources cannot be read here, but the
-# header path follows from the import string alone, so they need no special case.
-function(_rapidproto_import_closure out_imports out_scanned protos_abs import_dirs_abs)
+# The CLI's EMBEDDED well-known types need no special case for NAMING -- the header path follows
+# from the import string alone -- but their own imports do: `api.proto` pulls in `type.proto`,
+# `source_context.proto` and (through type) `any.proto`, and the CLI writes a header set for each.
+# `wellknown_dir` is where their shipped sources live (see the probe at the top of this file; ""
+# under NO_WELLKNOWN), consulted after the user's import dirs -- the same order as read_import.
+function(_rapidproto_import_closure out_imports out_scanned protos_abs import_dirs_abs wellknown_dir)
   set(_imports "")
   set(_scanned "")
   set(_queue ${protos_abs})
@@ -74,12 +92,21 @@ function(_rapidproto_import_closure out_imports out_scanned protos_abs import_di
       if(NOT "${_imp}" IN_LIST _imports)
         list(APPEND _imports "${_imp}")
       endif()
+      set(_found FALSE)
       foreach(_dir IN LISTS import_dirs_abs)
         if(EXISTS "${_dir}/${_imp}")
           list(APPEND _queue "${_dir}/${_imp}")
+          set(_found TRUE)
           break()  # first import dir that has it owns it, as read_import does
         endif()
       endforeach()
+      # The embedded copy is flat: `google/protobuf/<name>.proto` ships as `<name>.proto`.
+      if(NOT _found AND wellknown_dir AND _imp MATCHES "^google/protobuf/[^/]+\\.proto$")
+        get_filename_component(_wk_name "${_imp}" NAME)
+        if(EXISTS "${wellknown_dir}/${_wk_name}")
+          list(APPEND _queue "${wellknown_dir}/${_wk_name}")
+        endif()
+      endif()
     endforeach()
   endwhile()
   set(${out_imports} "${_imports}" PARENT_SCOPE)
@@ -92,13 +119,17 @@ endfunction()
 # ("multiple rules generate ...") that configure does not catch, and a silently overridden recipe
 # under Make. The first claimer owns the file -- so a shared header deleted by hand comes back when
 # that target is built, which is what an ordinary `cmake --build` does.
-function(_rapidproto_claim_output out_list path target)
-  string(MAKE_C_IDENTIFIER "${path}" _key)
-  get_property(_owner GLOBAL PROPERTY _rapidproto_output_owner_${_key})
-  if(_owner)
+#
+# The registry is a list of the PATHS themselves, not per-path properties keyed on a mangling of the
+# path: MAKE_C_IDENTIFIER collapses every non-identifier character to `_`, so `a-b.rp.hpp` and
+# `a_b.rp.hpp` shared one key and the second file was silently never declared -- the very
+# under-declaration this function exists to prevent.
+function(_rapidproto_claim_output out_list path)
+  get_property(_claimed GLOBAL PROPERTY _rapidproto_claimed_outputs)
+  if("${path}" IN_LIST _claimed)
     return()
   endif()
-  set_property(GLOBAL PROPERTY _rapidproto_output_owner_${_key} "${target}")
+  set_property(GLOBAL APPEND PROPERTY _rapidproto_claimed_outputs "${path}")
   set(_local "${${out_list}}")
   list(APPEND _local "${path}")
   set(${out_list} "${_local}" PARENT_SCOPE)
@@ -349,7 +380,12 @@ function(rapidproto_generate target)
     get_filename_component(_proto_abs "${_proto}" ABSOLUTE)
     list(APPEND _protos_abs "${_proto_abs}")
   endforeach()
-  _rapidproto_import_closure(_import_strings _scanned_protos "${_protos_abs}" "${_import_dirs_abs}")
+  set(_wellknown_dir "")
+  if(NOT RPG_NO_WELLKNOWN)
+    get_property(_wellknown_dir GLOBAL PROPERTY _rapidproto_wellknown_dir)
+  endif()
+  _rapidproto_import_closure(_import_strings _scanned_protos
+    "${_protos_abs}" "${_import_dirs_abs}" "${_wellknown_dir}")
   # The import scan runs at CONFIGURE time, so CMake must re-run when an import statement changes.
   # Without this, adding an import leaves the new file's headers undeclared, and removing one leaves
   # a declared output nothing writes -- a target that regenerates on every build, forever.
@@ -376,7 +412,7 @@ function(rapidproto_generate target)
   foreach(_proto_abs IN LISTS _protos_abs)
     foreach(_ext IN LISTS _exts)
       _rapidproto_output_header(_h "${_proto_abs}" "${_ext}" "${RPG_OUT_DIR}" "${_import_dirs_abs}")
-      _rapidproto_claim_output(_outputs "${_h}" "${target}")
+      _rapidproto_claim_output(_outputs "${_h}")
     endforeach()
   endforeach()
   # Imports are named by the import STRING (see _rapidproto_import_closure). A file that is both
@@ -401,19 +437,19 @@ function(rapidproto_generate target)
     endif()
     string(REGEX REPLACE "\\.proto$" "" _stem "${_imp}")
     foreach(_ext IN LISTS _exts)
-      _rapidproto_claim_output(_outputs "${RPG_OUT_DIR}/${_stem}${_ext}" "${target}")
+      _rapidproto_claim_output(_outputs "${RPG_OUT_DIR}/${_stem}${_ext}")
     endforeach()
   endforeach()
   # The runtime the CLI drops beside the headers so the generated tree is self-contained (see the
   # file header). Written on every run, included by every generated header, and no flag turns it
   # off -- so it is an output on the same footing as the headers, for the same reason: deleted and
   # undeclared, it never comes back.
-  _rapidproto_claim_output(_outputs "${RPG_OUT_DIR}/rapidproto/runtime.hpp" "${target}")
+  _rapidproto_claim_output(_outputs "${RPG_OUT_DIR}/rapidproto/runtime.hpp")
   if("arena" IN_LIST _jobs)
-    _rapidproto_claim_output(_outputs "${RPG_OUT_DIR}/rapidproto/arena_runtime.hpp" "${target}")
+    _rapidproto_claim_output(_outputs "${RPG_OUT_DIR}/rapidproto/arena_runtime.hpp")
   endif()
   if(RPG_DUMP)
-    _rapidproto_claim_output(_outputs "${RPG_OUT_DIR}/rapidproto/dump_runtime.hpp" "${target}")
+    _rapidproto_claim_output(_outputs "${RPG_OUT_DIR}/rapidproto/dump_runtime.hpp")
   endif()
   if(NOT _outputs)
     message(FATAL_ERROR
