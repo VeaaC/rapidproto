@@ -9,256 +9,10 @@
 
 include_guard(GLOBAL)
 
-# Where the well-known-type SOURCES live: beside this file's parent in the source tree, beside this
-# file in an installed prefix. The CLI embeds wellknown/*.proto as `google/protobuf/<name>.proto`
-# (wellknown/embed_wellknown.py), and two of them import others (type.proto, api.proto) -- so the
-# import-closure scan below must be able to READ them, or the transitively pulled-in headers go
-# undeclared. A GLOBAL property, not a variable: include_guard(GLOBAL) means this file runs in ONE
-# directory scope, and a directory variable set here is invisible to rapidproto_generate() calls
-# made from sibling directories.
-foreach(_rapidproto_wk_cand "${CMAKE_CURRENT_LIST_DIR}/../wellknown" "${CMAKE_CURRENT_LIST_DIR}/wellknown")
-  if(EXISTS "${_rapidproto_wk_cand}/type.proto")
-    set_property(GLOBAL PROPERTY _rapidproto_wellknown_dir "${_rapidproto_wk_cand}")
-    break()
-  endif()
-endforeach()
-unset(_rapidproto_wk_cand)
-
 # The header path the CLI writes for `proto_abs`, computed so it can be a custom command's OUTPUT. This
 # mirrors the generator exactly (resolver.cpp canonical_entry_name + driver.hpp header_path): the entry's
 # path relative to the first import dir that contains it, else its basename, with ".proto" -> `ext`,
 # under `out_dir`. `import_dirs_abs` is the absolute import dirs in -I order.
-# An import string, normalized the way canonical_import_path does (std::filesystem
-# lexically_normal): "./dep.proto" -> "dep.proto", "a//b.proto" -> "a/b.proto". Purely lexical --
-# rebasing on a synthetic root collapses `.` and `..` without touching the filesystem or resolving
-# symlinks, which is what the CLI does too.
-function(_rapidproto_normalize_import out_var import_string)
-  get_filename_component(_abs "${import_string}" ABSOLUTE BASE_DIR "/rapidproto-import-base")
-  file(RELATIVE_PATH _rel "/rapidproto-import-base" "${_abs}")
-  set(${out_var} "${_rel}" PARENT_SCOPE)
-endfunction()
-
-# The transitive import closure of `protos_abs`, as IMPORT STRINGS (`out_imports`) plus every file
-# scanned (`out_scanned`).
-#
-# The CLI writes a full header set for EVERY file in the resolved set, not only the listed ones, so
-# an imported schema's headers are outputs as much as an entry's are. An undeclared header that is
-# deleted never comes back: the build fails on the missing include and keeps failing, because
-# nothing tells the build system that command should re-run.
-#
-# Import strings, not resolved paths, because that is what the header is NAMED from. An ENTRY is
-# named by canonical_entry_name (resolve symlinks, relativize against the first import dir that
-# holds it); an IMPORT is named by the import string itself -- canonical_import_path normalizes it
-# and never rebases it on an import dir (src/rapidprotoc/main.cpp). Naming imports by the entry rule
-# declares a path the CLI never writes whenever the two differ -- `IMPORT_DIRS inc inc/sub` with
-# `import "dep.proto"` is enough -- and an output that is never written leaves the command
-# permanently out of date: it regenerates on every build, forever, while the real header stays
-# undeclared. Ninja does not even warn.
-#
-# Strip `//` and `/* */` comments from proto source WITHOUT reaching into string literals: `//`
-# inside an import string (`import "sub//x.proto";` -- a spelling the CLI accepts) is path, not
-# comment, and a stripper that cannot tell ate from mid-string to end of line, splicing the next
-# import into a phantom output path with a newline in it -- a declared OUTPUT nothing ever writes,
-# i.e. a target that regenerates on every build forever.
-#
-# A position scan over the ONE string, never a `\n`->list split: CMake list encoding turns a raw
-# trailing backslash (a Windows path in a comment) into an escaped separator, merging two lines --
-# which handed a `//` comment the next line's import to swallow. A string literal still ends at
-# its line (proto strings cannot span lines), so an unterminated one cannot swallow code either.
-# Backslash-escaped quotes inside a string are not modeled -- an import path containing a quote
-# has no header path worth predicting.
-function(_rapidproto_strip_comments out_var text)
-  set(_clean "")
-  set(_rest "${text}")
-  while(NOT _rest STREQUAL "")
-    # The EARLIEST of the four significant tokens decides: a quote before a `//` means the
-    # slashes are inside the string, and vice versa.
-    set(_next -1)
-    set(_kind "")
-    foreach(_tok "//" "/*" "\"" "'")
-      string(FIND "${_rest}" "${_tok}" _pos)
-      if(NOT _pos EQUAL -1 AND (_next EQUAL -1 OR _pos LESS _next))
-        set(_next ${_pos})
-        set(_kind "${_tok}")
-      endif()
-    endforeach()
-    if(_next EQUAL -1)
-      string(APPEND _clean "${_rest}")
-      break()
-    endif()
-    string(SUBSTRING "${_rest}" 0 ${_next} _head)
-    string(APPEND _clean "${_head}")
-    math(EXPR _skip "${_next} + 2")
-    if(_kind STREQUAL "//")
-      # Dead to the next newline; the newline itself survives (it may terminate an unclosed
-      # string on the line above, and MATCHALL treats it as whitespace anyway).
-      string(SUBSTRING "${_rest}" ${_next} -1 _rest)
-      string(FIND "${_rest}" "\n" _eol)
-      if(_eol EQUAL -1)
-        set(_rest "")
-      else()
-        string(SUBSTRING "${_rest}" ${_eol} -1 _rest)
-      endif()
-    elseif(_kind STREQUAL "/*")
-      string(SUBSTRING "${_rest}" ${_skip} -1 _rest)
-      string(FIND "${_rest}" "*/" _end)
-      if(_end EQUAL -1)
-        set(_rest "")  # unterminated block comment: the rest of the file is dead
-      else()
-        math(EXPR _end "${_end} + 2")
-        string(SUBSTRING "${_rest}" ${_end} -1 _rest)
-      endif()
-      string(APPEND _clean " ")  # a comment separates tokens, as in the CLI's lexer
-    else()
-      # A string literal: copy it through verbatim, up to the matching close quote -- but never
-      # past the end of the line, because a proto string cannot span lines and an unterminated
-      # one must not swallow the next line's code (the CLI rejects the file; the scan's job is
-      # only to not mis-declare outputs on the way).
-      math(EXPR _start "${_next} + 1")
-      string(SUBSTRING "${_rest}" ${_start} -1 _rest)
-      string(APPEND _clean "${_kind}")
-      string(FIND "${_rest}" "${_kind}" _close)
-      string(FIND "${_rest}" "\n" _eol)
-      if(_close EQUAL -1 OR (NOT _eol EQUAL -1 AND _eol LESS _close))
-        if(_eol EQUAL -1)
-          string(APPEND _clean "${_rest}")
-          set(_rest "")
-        else()
-          string(SUBSTRING "${_rest}" 0 ${_eol} _body)
-          string(APPEND _clean "${_body}")
-          string(SUBSTRING "${_rest}" ${_eol} -1 _rest)
-        endif()
-      else()
-        math(EXPR _len "${_close} + 1")
-        string(SUBSTRING "${_rest}" 0 ${_len} _body)
-        string(APPEND _clean "${_body}")
-        string(SUBSTRING "${_rest}" ${_len} -1 _rest)
-      endif()
-    endif()
-  endwhile()
-  set(${out_var} "${_clean}" PARENT_SCOPE)
-endfunction()
-
-# The CLI's EMBEDDED well-known types need no special case for NAMING -- the header path follows
-# from the import string alone -- but their own imports do: `api.proto` pulls in `type.proto`,
-# `source_context.proto` and (through type) `any.proto`, and the CLI writes a header set for each.
-# `wellknown_dir` is where their shipped sources live (see the probe at the top of this file; ""
-# under NO_WELLKNOWN), consulted after the user's import dirs -- the same order as read_import.
-function(_rapidproto_import_closure out_imports out_scanned protos_abs import_dirs_abs wellknown_dir)
-  set(_imports "")
-  set(_scanned "")
-  set(_queue ${protos_abs})
-  while(_queue)
-    list(GET _queue 0 _cur)
-    list(REMOVE_AT _queue 0)
-    if("${_cur}" IN_LIST _scanned)
-      continue()
-    endif()
-    list(APPEND _scanned "${_cur}")
-    if(NOT EXISTS "${_cur}")
-      continue()  # an entry another rule generates: not readable yet, and not ours to scan
-    endif()
-    # Comments are stripped before matching (string-aware -- see _rapidproto_strip_comments). A
-    # commented-out import is not an import, and declaring its headers is the permanently-
-    # out-of-date failure described above -- a `/* ... */` around an import statement is the
-    # realistic way that happens.
-    file(READ "${_cur}" _text)
-    _rapidproto_strip_comments(_text "${_text}")
-    # MATCHALL, not a per-line match: two imports on one line, and `import"x.proto";` with no space
-    # after the keyword, are both valid proto that a line-anchored pattern misses. Both quote
-    # styles: `import 'x.proto';` is valid proto too, and the CLI generates from it.
-    #
-    # Anchored on STATEMENT position -- start of file, or after `;`/`{`/`}` -- because string
-    # literals survive the comment strip: unanchored, the word `import` inside an option string
-    # (`option (note) = "made by import";`) paired with the string's own closing quote and
-    # swallowed the next real import. A guard `;` that lands inside a match merely splits the list
-    # element; the quoted path the extraction below wants survives the split. Residual: a string
-    # containing a full `; import "x"` statement still fools this -- a lexer-grade scan is the
-    # CLI's job, not a configure step's.
-    string(REGEX MATCHALL "(^|[;{}])[ \t\r\n]*import[ \t\r\n]*(public|weak)?[ \t\r\n]*(\"[^\"]*\"|'[^']*')"
-           _stmts "${_text}")
-    foreach(_stmt IN LISTS _stmts)
-      string(REGEX MATCH "[\"']([^\"']*)[\"']" _quoted "${_stmt}")
-      _rapidproto_normalize_import(_imp "${CMAKE_MATCH_1}")
-      if(_imp STREQUAL "")
-        continue()
-      endif()
-      if(NOT "${_imp}" IN_LIST _imports)
-        list(APPEND _imports "${_imp}")
-      endif()
-      set(_found FALSE)
-      foreach(_dir IN LISTS import_dirs_abs)
-        if(EXISTS "${_dir}/${_imp}")
-          list(APPEND _queue "${_dir}/${_imp}")
-          set(_found TRUE)
-          break()  # first import dir that has it owns it, as read_import does
-        endif()
-      endforeach()
-      # The embedded copy is flat: `google/protobuf/<name>.proto` ships as `<name>.proto`.
-      if(NOT _found AND wellknown_dir AND _imp MATCHES "^google/protobuf/[^/]+\\.proto$")
-        get_filename_component(_wk_name "${_imp}" NAME)
-        if(EXISTS "${wellknown_dir}/${_wk_name}")
-          list(APPEND _queue "${wellknown_dir}/${_wk_name}")
-        endif()
-      endif()
-    endforeach()
-  endwhile()
-  set(${out_imports} "${_imports}" PARENT_SCOPE)
-  set(${out_scanned} "${_scanned}" PARENT_SCOPE)
-endfunction()
-
-# Declare `path` as an output of THIS target, unless another rapidproto_generate() call already
-# claimed it. Two targets writing to one OUT_DIR share the runtime headers, and share the headers of
-# any schema they both import; declaring one file from two commands is a hard error under Ninja
-# ("multiple rules generate ...") that configure does not catch, and a silently overridden recipe
-# under Make.
-#
-# A path collision is only SHARING when both claimants would write the same bytes, which is what
-# `fingerprint` pins: the resolved source the file is generated from, plus every content-shaping
-# flag. Without it, two targets generating different schemas that happen to share a stem -- or the
-# same schema under different NAMESPACE_PREFIXes -- "shared" the file, and whichever built last
-# won, silently. That is worse than the hard error this function replaces, so a fingerprint
-# mismatch is a configure error naming both targets.
-#
-# On a genuine share, the first claimer's command writes the file and the owner's name is appended
-# to `out_owners`, so the caller can build-order itself after the owner -- a shared header deleted
-# by hand must come back when EITHER claimant is built, not only the first.
-#
-# The registry is three parallel GLOBAL list properties indexed by the PATHS themselves, not
-# per-path properties keyed on a mangling of the path: MAKE_C_IDENTIFIER collapses every
-# non-identifier character to `_`, so `a-b.rp.hpp` and `a_b.rp.hpp` shared one key and the second
-# file was silently never declared -- the very under-declaration this function exists to prevent.
-function(_rapidproto_claim_output out_list out_owners path fingerprint target)
-  # One list ELEMENT per fingerprint: a raw semicolon would split it and shear the three lists
-  # out of alignment.
-  string(REPLACE ";" "," _fp "${fingerprint}")
-  get_property(_paths GLOBAL PROPERTY _rapidproto_claimed_outputs)
-  list(FIND _paths "${path}" _idx)
-  if(NOT _idx EQUAL -1)
-    get_property(_fps GLOBAL PROPERTY _rapidproto_claimed_fingerprints)
-    get_property(_owners GLOBAL PROPERTY _rapidproto_claimed_owners)
-    list(GET _fps ${_idx} _prev_fp)
-    list(GET _owners ${_idx} _owner)
-    if(NOT _prev_fp STREQUAL "${_fp}")
-      message(FATAL_ERROR
-        "rapidproto_generate(${target}): ${path} is already generated by target '${_owner}', from "
-        "a different source or under different flags. The two invocations would overwrite each "
-        "other's header, decided by build order. Give the targets distinct OUT_DIRs, or make "
-        "their sources and generation flags agree.")
-    endif()
-    set(_local "${${out_owners}}")
-    list(APPEND _local "${_owner}")
-    set(${out_owners} "${_local}" PARENT_SCOPE)
-    return()
-  endif()
-  set_property(GLOBAL APPEND PROPERTY _rapidproto_claimed_outputs "${path}")
-  set_property(GLOBAL APPEND PROPERTY _rapidproto_claimed_fingerprints "${_fp}")
-  set_property(GLOBAL APPEND PROPERTY _rapidproto_claimed_owners "${target}")
-  set(_local "${${out_list}}")
-  list(APPEND _local "${path}")
-  set(${out_list} "${_local}" PARENT_SCOPE)
-endfunction()
-
 function(_rapidproto_output_header out_var proto_abs ext out_dir import_dirs_abs)
   # Resolve symlinks (REALPATH) for the import-relative test, matching canonical_entry_name, which
   # weakly_canonical()s both the entry and the include dir before relativizing. file(RELATIVE_PATH)
@@ -367,7 +121,7 @@ function(rapidproto_generate target)
     # Caught here because cmake_parse_arguments leaves the variable UNSET for an explicit empty value,
     # which would otherwise look exactly like omitting the keyword and silently use the default.
     message(FATAL_ERROR
-      "rapidproto_generate(${target}): NAMESPACE_PREFIX cannot be empty -- the arena/stream/common "
+      "rapidproto_generate(${target}): NAMESPACE_PREFIX cannot be empty -- the arena/stream/enums "
       "roots would land at global scope. Pass a name instead (default: rp).")
   endif()
 
@@ -503,129 +257,26 @@ function(rapidproto_generate target)
   foreach(_proto IN LISTS RPG_PROTOS)
     get_filename_component(_proto_abs "${_proto}" ABSOLUTE)
     list(APPEND _protos_abs "${_proto_abs}")
-  endforeach()
-  set(_wellknown_dir "")
-  if(NOT RPG_NO_WELLKNOWN)
-    get_property(_wellknown_dir GLOBAL PROPERTY _rapidproto_wellknown_dir)
-  endif()
-  _rapidproto_import_closure(_import_strings _scanned_protos
-    "${_protos_abs}" "${_import_dirs_abs}" "${_wellknown_dir}")
-  # The import scan runs at CONFIGURE time, so CMake must re-run when an import statement changes.
-  # Without this, adding an import leaves the new file's headers undeclared, and removing one leaves
-  # a declared output nothing writes -- a target that regenerates on every build, forever.
-  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_scanned_protos})
-
-  set(_exts "")
-  if("arena" IN_LIST _jobs)
-    list(APPEND _exts ".rp.hpp")
-  endif()
-  if("stream" IN_LIST _jobs)
-    list(APPEND _exts ".rp.stream.hpp")
-  endif()
-  if(RPG_DUMP)
-    list(APPEND _exts ".rp.dump.hpp")
-  endif()
-  # The shared common header is an output too. Undeclared, deleting it did not re-run the command
-  # -- the build stayed broken on `fatal error: <stem>.rp.common.hpp: No such file or directory`
-  # until something else invalidated the batch. It carries every enum in the schema (nested ones
-  # included), so it is load-bearing for nearly every schema rather than the few with a top-level
-  # enum.
-  list(APPEND _exts ".rp.common.hpp")
-
-  # Everything that shapes a generated file's CONTENT besides its own source: the namespace prefix
-  # and the arena-shaping flags. Joined with commas into one token -- it becomes part of each
-  # claim's fingerprint (see _rapidproto_claim_output). The EFFECTIVE prefix, not the raw
-  # argument: an explicit `NAMESPACE_PREFIX rp` and an omitted one generate identical bytes, so
-  # fingerprinting the spelling refused a legitimate share as "different flags".
-  list(JOIN _model_flags "," _flags_token)
-  if(DEFINED RPG_NAMESPACE_PREFIX)
-    set(_fp_prefix "${RPG_NAMESPACE_PREFIX}")
-  else()
-    set(_fp_prefix "rp")  # the CLI's default
-  endif()
-  set(_content_flags "${_fp_prefix}|${_flags_token}")
-  set(_shared_owners "")
-
-  # Entries are named by canonical_entry_name, which _rapidproto_output_header mirrors; their
-  # fingerprint carries the resolved entry path, so two targets listing the SAME schema with the
-  # same flags share, and two different schemas colliding on a stem are a configure error.
-  foreach(_proto_abs IN LISTS _protos_abs)
-    get_filename_component(_entry_real "${_proto_abs}" REALPATH)
-    foreach(_ext IN LISTS _exts)
-      _rapidproto_output_header(_h "${_proto_abs}" "${_ext}" "${RPG_OUT_DIR}" "${_import_dirs_abs}")
-      _rapidproto_claim_output(_outputs _shared_owners "${_h}"
-        "${_entry_real}|${_content_flags}" "${target}")
-    endforeach()
-  endforeach()
-  # Imports are named by the import STRING (see _rapidproto_import_closure), and fingerprinted by
-  # what the string RESOLVES to -- two targets can share one import string while their IMPORT_DIRS
-  # hand it different files, and that is a stem collision, not a share. A file that is both listed
-  # and imported keeps its entry name (the resolver registers entries first), so its import
-  # spelling is skipped rather than declared a second time under a different path; when the
-  # entry's canonical name and the import string do agree, the entry claim above already owns the
-  # path and this loop's claim is a same-fingerprint no-op.
-  foreach(_imp IN LISTS _import_strings)
-    set(_is_entry FALSE)
-    set(_imp_source "embedded:${_imp}")  # unresolved = the CLI's embedded copy (or a build error)
-    foreach(_dir IN LISTS _import_dirs_abs)
-      if(EXISTS "${_dir}/${_imp}")
-        get_filename_component(_imp_real "${_dir}/${_imp}" REALPATH)
-        set(_imp_source "${_imp_real}")
-        foreach(_proto_abs IN LISTS _protos_abs)
-          get_filename_component(_entry_real "${_proto_abs}" REALPATH)
-          if(_imp_real STREQUAL _entry_real)
-            set(_is_entry TRUE)
-          endif()
-        endforeach()
-        break()
-      endif()
-    endforeach()
-    if(_is_entry)
-      continue()
+    if("arena" IN_LIST _jobs)
+      _rapidproto_output_header(_h "${_proto_abs}" ".rp.hpp" "${RPG_OUT_DIR}" "${_import_dirs_abs}")
+      list(APPEND _outputs "${_h}")
     endif()
-    # An unreadable embedded well-known type degrades the scan SILENTLY -- its own imports (and
-    # their headers) go undeclared, which is the pre-wellknown-dir bug returning without a word.
-    # That happens when this .cmake file was copied somewhere without the wellknown/ sources
-    # beside it (the shipped source tree and the install rule both provide them), so say so once.
-    if(_imp MATCHES "^google/protobuf/" AND _imp_source MATCHES "^embedded:"
-       AND _wellknown_dir STREQUAL "" AND NOT RPG_NO_WELLKNOWN)
-      get_property(_warned GLOBAL PROPERTY _rapidproto_wellknown_warned)
-      if(NOT _warned)
-        set_property(GLOBAL PROPERTY _rapidproto_wellknown_warned TRUE)
-        message(WARNING
-          "rapidproto_generate(${target}): ${_imp} resolves from the CLI's embedded sources, but "
-          "the shipped wellknown/*.proto were not found beside rapidproto-generate.cmake -- any "
-          "types it transitively imports will be generated without being declared as outputs "
-          "(deleting one of their headers then breaks the build until a full regeneration).")
-      endif()
+    if("stream" IN_LIST _jobs)
+      _rapidproto_output_header(_h "${_proto_abs}" ".rp.stream.hpp" "${RPG_OUT_DIR}" "${_import_dirs_abs}")
+      list(APPEND _outputs "${_h}")
     endif()
-    string(REGEX REPLACE "\\.proto$" "" _stem "${_imp}")
-    foreach(_ext IN LISTS _exts)
-      _rapidproto_claim_output(_outputs _shared_owners "${RPG_OUT_DIR}/${_stem}${_ext}"
-        "${_imp_source}|${_content_flags}" "${target}")
-    endforeach()
+    if(RPG_DUMP)
+      _rapidproto_output_header(_h "${_proto_abs}" ".rp.dump.hpp" "${RPG_OUT_DIR}" "${_import_dirs_abs}")
+      list(APPEND _outputs "${_h}")
+    endif()
+    # The shared common header is an output too. Undeclared, deleting it did not re-run the command
+    # -- the build stayed broken on `fatal error: <stem>.rp.common.hpp: No such file or directory`
+    # until something else invalidated the batch. It carries every enum in the schema (nested ones
+    # included), so it is load-bearing for nearly every schema rather than the few with a top-level
+    # enum.
+    _rapidproto_output_header(_h "${_proto_abs}" ".rp.common.hpp" "${RPG_OUT_DIR}" "${_import_dirs_abs}")
+    list(APPEND _outputs "${_h}")
   endforeach()
-  # The runtime the CLI drops beside the headers so the generated tree is self-contained (see the
-  # file header). Written on every run, included by every generated header, and no flag turns it
-  # off -- so it is an output on the same footing as the headers, for the same reason: deleted and
-  # undeclared, it never comes back. Its content depends on nothing a target chooses, so the
-  # fingerprint is a constant: any two targets sharing an OUT_DIR share these.
-  _rapidproto_claim_output(_outputs _shared_owners "${RPG_OUT_DIR}/rapidproto/runtime.hpp"
-    "runtime" "${target}")
-  if("arena" IN_LIST _jobs)
-    _rapidproto_claim_output(_outputs _shared_owners "${RPG_OUT_DIR}/rapidproto/arena_runtime.hpp"
-      "runtime" "${target}")
-  endif()
-  if(RPG_DUMP)
-    _rapidproto_claim_output(_outputs _shared_owners "${RPG_OUT_DIR}/rapidproto/dump_runtime.hpp"
-      "runtime" "${target}")
-  endif()
-  if(NOT _outputs)
-    message(FATAL_ERROR
-      "rapidproto_generate(${target}): every output this target would declare is already claimed by "
-      "another rapidproto_generate() call writing to ${RPG_OUT_DIR}")
-  endif()
-
   # Name the depfile off the first header; the CLI lists every entry's decoder header as a target
   # in it (so each output node gets the import edges), and re-running regenerates the whole batch.
   list(GET _outputs 0 _anchor)
@@ -652,17 +303,6 @@ function(rapidproto_generate target)
   # plus the C++17 floor -- without it a consumer inherits the toolchain's default standard, and the
   # generated headers happen to compile only where that default is >= 17.
   add_custom_target(${target}_generate DEPENDS ${_outputs})
-  # Shared files are declared by (and rebuilt through) their first claimer's command, so this
-  # target must build-order itself after each owner: without the edge, `cmake --build --target
-  # <this consumer>` leaves a hand-deleted shared header missing until something happens to build
-  # the owner. Target-level dependencies, which work across directories on every generator --
-  # file-level dependencies on another directory's custom-command output do not under Make.
-  if(_shared_owners)
-    list(REMOVE_DUPLICATES _shared_owners)
-    foreach(_owner IN LISTS _shared_owners)
-      add_dependencies(${target}_generate ${_owner}_generate)
-    endforeach()
-  endif()
   add_library(${target} INTERFACE)
   add_dependencies(${target} ${target}_generate)
   target_include_directories(${target} INTERFACE "${RPG_OUT_DIR}")

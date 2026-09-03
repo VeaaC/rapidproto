@@ -212,33 +212,20 @@ cmake_case ordinary      "NAMESPACE_PREFIX my.decoders" "--namespace-prefix my.d
 cmake_case empty-refused 'NAMESPACE_PREFIX ""' REFUSED
 
 # ── declared outputs ────────────────────────────────────────────────────────────────────────────
-# Every file the CLI writes must be a declared OUTPUT of the custom command. The cases above check
-# WHERE a header lands; this checks that the helper declares ALL of them. Two sets have no entry in
-# PROTOS and so were missed: an IMPORTED schema gets a full header set of its own, and the CLI drops
-# its runtime beside the headers on every run.
+# The helper declares each LISTED schema's model headers plus its shared common header as the
+# custom command's OUTPUTs. Both directions are checked end-to-end: a second build must be a no-op
+# (an over-declared OUTPUT that is never written leaves the command permanently out of date, which
+# also disarms the delete check below), and deleting each declared file must have the build put it
+# back (an undeclared one is never restored -- the build just fails on the missing include).
 #
-# Deleting an undeclared output is unrecoverable in a way that reads like a broken checkout: the
-# build fails on the missing include and keeps failing, because nothing tells the build system that
-# generation should re-run. So the check is end-to-end rather than a comparison of two lists --
-# delete each generated file in turn and require the build to put it back. That covers any cause,
-# including ones no list comparison would model.
-#
-# The fixture imports a well-known type too -- and specifically api.proto, the embedded type with
-# TRANSITIVE imports: the CLI writes header sets for type.proto, source_context.proto and (through
-# type) any.proto as well, which the helper can only learn by reading the shipped wellknown
-# sources. timestamp.proto would pass with that scan broken, being the shape with no imports.
-#
-# Both directions are checked. Deleting a file catches an UNDER-declaration; it cannot catch an
-# OVER-declaration, and worse, an over-declared path disarms the delete loop entirely -- a declared
-# output that is never written leaves the command permanently out of date, so every build re-runs it
-# and restores whatever was deleted, whether or not it was declared. The second build below is the
-# other half: it must do nothing.
+# Deliberately NOT covered: imported schemas' headers and the runtime copies the CLI drops beside
+# them. The CLI writes those too, and they are undeclared -- deleting one breaks the build until a
+# manual regeneration. Declaring them correctly means predicting the CLI's whole resolved closure,
+# which is the CLI's job, not this helper's -- see the roadmap's --list-outputs item.
 outputs_dir="$WORK/outputs"
 mkdir -p "$outputs_dir/proto"
 printf 'syntax = "proto3";\npackage d;\nenum K { K0 = 0; }\nmessage D { int32 x = 1; }\n' \
-  >"$outputs_dir/proto/dep.proto"
-printf 'syntax = "proto3";\npackage u;\nimport "dep.proto";\nimport "google/protobuf/api.proto";\nmessage U { d.D dd = 1; d.K k = 2; google.protobuf.Api a = 3; }\n' \
-  >"$outputs_dir/proto/use.proto"
+  >"$outputs_dir/proto/m.proto"
 {
   echo 'cmake_minimum_required(VERSION 3.16)'
   echo 'project(outputs CXX)'
@@ -247,189 +234,39 @@ printf 'syntax = "proto3";\npackage u;\nimport "dep.proto";\nimport "google/prot
   echo "add_executable(rapidproto::rapidprotoc IMPORTED GLOBAL)"
   echo "set_target_properties(rapidproto::rapidprotoc PROPERTIES IMPORTED_LOCATION \"$BIN\")"
   echo "include(\"$ROOT/cmake/rapidproto-generate.cmake\")"
-  echo 'rapidproto_generate(schema PROTOS proto/use.proto IMPORT_DIRS proto GENERATOR both DUMP)'
+  echo 'rapidproto_generate(schema PROTOS proto/m.proto IMPORT_DIRS proto GENERATOR both DUMP)'
 } >"$outputs_dir/CMakeLists.txt"
 
 if ! cmake -S "$outputs_dir" -B "$outputs_dir/b" >/dev/null 2>&1 ||
    ! cmake --build "$outputs_dir/b" --target schema_generate >/dev/null 2>&1; then
   echo ">> declared outputs: the fixture project does not configure/build"; exit 1
 fi
-# An over-declared output makes the command permanently out of date. Checked BEFORE the delete
-# loop, because that is exactly what would make the loop pass vacuously.
 rebuild="$(cmake --build "$outputs_dir/b" --target schema_generate 2>&1)"
 if grep -q "rapidproto: schema" <<<"$rebuild"; then
   echo ">> declared outputs: the target regenerates on every build -- a declared OUTPUT is never"
   echo "   written, which also makes the delete check below pass without testing anything"
   fail=1
 fi
-mapfile -t generated < <(cd "$outputs_dir/b" && find . -name '*.hpp' | sort)
-# A fixture that generated nothing would pass every check below without testing anything.
-if [[ ${#generated[@]} -lt 8 ]]; then
-  echo ">> declared outputs: expected at least 8 generated headers, found ${#generated[@]}"; exit 1
-fi
-for rel in "${generated[@]}"; do
-  rm -f "$outputs_dir/b/$rel"
+declared=(m.rp.hpp m.rp.stream.hpp m.rp.dump.hpp m.rp.common.hpp)
+for rel in "${declared[@]}"; do
+  path="$outputs_dir/b/rapidproto/schema/$rel"
+  if [[ ! -f "$path" ]]; then
+    echo ">> declared outputs: $rel was never generated -- the fixture is not testing anything"
+    fail=1
+    continue
+  fi
+  rm -f "$path"
   cmake --build "$outputs_dir/b" --target schema_generate >/dev/null 2>&1
-  if [[ ! -f "$outputs_dir/b/$rel" ]]; then
-    echo ">> declared outputs: ${rel#./} is written by the CLI but is not a declared OUTPUT --"
+  if [[ ! -f "$path" ]]; then
+    echo ">> declared outputs: $rel is written by the CLI but is not a declared OUTPUT --"
     echo "   deleting it leaves the build permanently broken"
     fail=1
-    # Restore for the rest of the loop. An input edit, not a bare rebuild: the deleted file being
-    # UNDECLARED is the very failure just reported, so nothing is out of date and a plain rebuild
-    # does not re-run the generator.
-    touch "$outputs_dir/proto/use.proto"
+    # Restore for the rest of the loop: an undeclared deletion does not dirty the target, so only
+    # an input edit re-runs the generator.
+    touch "$outputs_dir/proto/m.proto"
     cmake --build "$outputs_dir/b" --target schema_generate >/dev/null 2>&1
   fi
 done
-
-# ── import-scanner shapes ───────────────────────────────────────────────────────────────────────
-# The closure scan must read imports the way the CLI's lexer does. Three shapes pin it, each of
-# which broke a different way with a regex-only scan: `//` INSIDE an import string is path, not
-# comment (a stripper that cannot tell ate to end of line and spliced the next import into a
-# phantom declared output -- a permanently out-of-date target); a single-quoted import is valid
-# proto (invisible to a `"`-only match, so its headers went undeclared); and a block-commented
-# import is NOT an import (declaring its headers is the phantom-output failure again). Checked
-# end-to-end like everything above: the second build must be a no-op, deleted headers must come
-# back, and the ghost must not exist.
-scanner_dir="$WORK/scanner"
-mkdir -p "$scanner_dir/proto/sub"
-printf 'syntax = "proto3";\npackage sx;\nmessage X { int32 a = 1; }\n' >"$scanner_dir/proto/sub/x.proto"
-printf 'syntax = "proto3";\npackage sq;\nmessage Q { int32 a = 1; }\n' >"$scanner_dir/proto/sq.proto"
-{
-  printf 'syntax = "proto3";\npackage u;\n'
-  printf '/* a commented-out import:\nimport "ghost.proto";\n*/\n'
-  printf 'import "sub//x.proto";\n'
-  printf "import 'sq.proto';\n"
-  printf 'message U { sx.X x = 1; sq.Q q = 2; }\n'
-} >"$scanner_dir/proto/use.proto"
-{
-  echo 'cmake_minimum_required(VERSION 3.16)'
-  echo 'project(scanner CXX)'
-  echo "add_executable(rapidproto::rapidprotoc IMPORTED GLOBAL)"
-  echo "set_target_properties(rapidproto::rapidprotoc PROPERTIES IMPORTED_LOCATION \"$BIN\")"
-  echo "include(\"$ROOT/cmake/rapidproto-generate.cmake\")"
-  echo 'rapidproto_generate(schema PROTOS proto/use.proto IMPORT_DIRS proto)'
-} >"$scanner_dir/CMakeLists.txt"
-if ! cmake -S "$scanner_dir" -B "$scanner_dir/b" >/dev/null 2>&1 ||
-   ! cmake --build "$scanner_dir/b" --target schema_generate >/dev/null 2>&1; then
-  echo ">> import scanner: the fixture project does not configure/build"; exit 1
-fi
-if cmake --build "$scanner_dir/b" --target schema_generate 2>&1 | grep -q "rapidproto: schema"; then
-  echo ">> import scanner: the target regenerates on every build -- a scanner shape declared an"
-  echo "   output the CLI never writes (a comment-eaten or ghost import)"
-  fail=1
-fi
-for rel in rapidproto/schema/sub/x.rp.hpp rapidproto/schema/sq.rp.hpp; do
-  rm -f "$scanner_dir/b/$rel"
-  cmake --build "$scanner_dir/b" --target schema_generate >/dev/null 2>&1
-  if [[ ! -f "$scanner_dir/b/$rel" ]]; then
-    echo ">> import scanner: $rel was not restored -- its import spelling is invisible to the scan"
-    fail=1
-  fi
-done
-if compgen -G "$scanner_dir/b/rapidproto/schema/ghost*" >/dev/null; then
-  echo ">> import scanner: a block-commented import produced output"; fail=1
-fi
-
-# ── shared out-dir ──────────────────────────────────────────────────────────────────────────────
-# Two targets writing one OUT_DIR: legitimate sharing (same import, same flags) must configure,
-# declare each shared file ONCE, and restore a deleted shared file when EITHER claimant is built
-# -- while a stem COLLISION (same output path, different source or flags) must be a configure
-# error, not a silent last-writer-wins overwrite.
-share_dir="$WORK/share"
-mkdir -p "$share_dir/proto"
-printf 'syntax = "proto3";\npackage d;\nmessage D { int32 x = 1; }\n' >"$share_dir/proto/dep.proto"
-printf 'syntax = "proto3";\npackage pa1;\nimport "dep.proto";\nmessage A { d.D d = 1; }\n' >"$share_dir/proto/a.proto"
-printf 'syntax = "proto3";\npackage pb1;\nimport "dep.proto";\nmessage B { d.D d = 1; }\n' >"$share_dir/proto/b.proto"
-{
-  echo 'cmake_minimum_required(VERSION 3.16)'
-  echo 'project(share CXX)'
-  echo "add_executable(rapidproto::rapidprotoc IMPORTED GLOBAL)"
-  echo "set_target_properties(rapidproto::rapidprotoc PROPERTIES IMPORTED_LOCATION \"$BIN\")"
-  echo "include(\"$ROOT/cmake/rapidproto-generate.cmake\")"
-  echo "rapidproto_generate(t1 PROTOS proto/a.proto IMPORT_DIRS proto OUT_DIR \"$share_dir/gen\")"
-  echo "rapidproto_generate(t2 PROTOS proto/b.proto IMPORT_DIRS proto OUT_DIR \"$share_dir/gen\")"
-} >"$share_dir/CMakeLists.txt"
-# BOTH generate targets built explicitly, and to a no-op, before anything is deleted: the generate
-# targets are not in `all`, so a bare `cmake --build` builds neither -- an earlier version of this
-# check did exactly that, and then "restored" files only because t2's FIRST build ran its CLI
-# anyway, which passes with the owner-dependency machinery deleted outright. Only a delete against
-# two UP-TO-DATE targets, rebuilt through the non-owner alone, exercises the cross-target edge.
-if ! cmake -S "$share_dir" -B "$share_dir/b" >/dev/null 2>&1 ||
-   ! cmake --build "$share_dir/b" --target t1_generate >/dev/null 2>&1 ||
-   ! cmake --build "$share_dir/b" --target t2_generate >/dev/null 2>&1; then
-  echo ">> shared out-dir: two targets legitimately sharing one OUT_DIR fail to configure/build"
-  fail=1
-else
-  rm -f "$share_dir/gen/dep.rp.hpp" "$share_dir/gen/rapidproto/runtime.hpp"
-  # Build only the SECOND claimant: the shared files belong to t1's command, so this passes only
-  # through the cross-target dependency on the owner.
-  cmake --build "$share_dir/b" --target t2_generate >/dev/null 2>&1
-  for f in dep.rp.hpp rapidproto/runtime.hpp; do
-    if [[ ! -f "$share_dir/gen/$f" ]]; then
-      echo ">> shared out-dir: $f (owned by t1) was not restored by building t2 alone"
-      fail=1
-    fi
-  done
-fi
-# The collision half: same stem, different schemas. Configure must refuse.
-clash_dir="$WORK/clash"
-mkdir -p "$clash_dir/c1" "$clash_dir/c2"
-printf 'syntax = "proto3";\npackage m1;\nmessage M1 { int32 x = 1; }\n' >"$clash_dir/c1/dup.proto"
-printf 'syntax = "proto3";\npackage m2;\nmessage M2 { int32 x = 1; }\n' >"$clash_dir/c2/dup.proto"
-{
-  echo 'cmake_minimum_required(VERSION 3.16)'
-  echo 'project(clash CXX)'
-  echo "add_executable(rapidproto::rapidprotoc IMPORTED GLOBAL)"
-  echo "set_target_properties(rapidproto::rapidprotoc PROPERTIES IMPORTED_LOCATION \"$BIN\")"
-  echo "include(\"$ROOT/cmake/rapidproto-generate.cmake\")"
-  echo "rapidproto_generate(t1 PROTOS c1/dup.proto IMPORT_DIRS c1 OUT_DIR \"$clash_dir/gen\")"
-  echo "rapidproto_generate(t2 PROTOS c2/dup.proto IMPORT_DIRS c2 OUT_DIR \"$clash_dir/gen\")"
-} >"$clash_dir/CMakeLists.txt"
-if clash_out=$(cmake -S "$clash_dir" -B "$clash_dir/b" 2>&1); then
-  echo ">> shared out-dir: two DIFFERENT schemas colliding on one output path configured cleanly --"
-  echo "   whichever target builds last silently overwrites the other's header"
-  fail=1
-elif ! grep -q "already generated by target" <<<"$clash_out"; then
-  echo ">> shared out-dir: the stem collision was refused, but not by the claim registry:"
-  tail -3 <<<"$clash_out"
-  fail=1
-fi
-# The FLAGS half of the fingerprint: one source shared under two prefixes writes two different
-# headers to one path. Without this case, dropping every flag from the fingerprint (leaving only
-# the source) passed the suite while restoring silent last-writer-wins for exactly this shape.
-flagclash_dir="$WORK/flagclash"
-mkdir -p "$flagclash_dir/proto"
-printf 'syntax = "proto3";\npackage d;\nmessage D { int32 x = 1; }\n' >"$flagclash_dir/proto/dep.proto"
-printf 'syntax = "proto3";\npackage fa;\nimport "dep.proto";\nmessage A { d.D d = 1; }\n' >"$flagclash_dir/proto/a.proto"
-printf 'syntax = "proto3";\npackage fb;\nimport "dep.proto";\nmessage B { d.D d = 1; }\n' >"$flagclash_dir/proto/b.proto"
-{
-  echo 'cmake_minimum_required(VERSION 3.16)'
-  echo 'project(flagclash CXX)'
-  echo "add_executable(rapidproto::rapidprotoc IMPORTED GLOBAL)"
-  echo "set_target_properties(rapidproto::rapidprotoc PROPERTIES IMPORTED_LOCATION \"$BIN\")"
-  echo "include(\"$ROOT/cmake/rapidproto-generate.cmake\")"
-  echo "rapidproto_generate(t1 PROTOS proto/a.proto IMPORT_DIRS proto OUT_DIR \"$flagclash_dir/gen\")"
-  echo "rapidproto_generate(t2 PROTOS proto/b.proto IMPORT_DIRS proto OUT_DIR \"$flagclash_dir/gen\" NAMESPACE_PREFIX other)"
-} >"$flagclash_dir/CMakeLists.txt"
-if flag_out=$(cmake -S "$flagclash_dir" -B "$flagclash_dir/b" 2>&1); then
-  echo ">> shared out-dir: one import shared under two NAMESPACE_PREFIXes configured cleanly --"
-  echo "   the shared header's namespace flips with whichever target built last"
-  fail=1
-elif ! grep -q "already generated by target" <<<"$flag_out"; then
-  echo ">> shared out-dir: the prefix clash was refused, but not by the claim registry:"
-  tail -3 <<<"$flag_out"
-  fail=1
-fi
-# ...while an EXPLICIT `NAMESPACE_PREFIX rp` and an omitted one are the same generation and must
-# SHARE: the fingerprint carries the effective prefix, not the spelling of the argument.
-sed -i 's| NAMESPACE_PREFIX other)| NAMESPACE_PREFIX rp)|' "$flagclash_dir/CMakeLists.txt"
-rm -rf "$flagclash_dir/b" "$flagclash_dir/gen"
-if ! cmake -S "$flagclash_dir" -B "$flagclash_dir/b" >/dev/null 2>&1; then
-  echo ">> shared out-dir: an explicit default prefix (NAMESPACE_PREFIX rp) was refused a share"
-  echo "   with an omitted one, though both generate identical bytes"
-  fail=1
-fi
 
 # ── prefix verbatim + dotted, compiled ──────────────────────────────────────────────────────────
 # A member-reserved word as a prefix component is accepted and emitted VERBATIM, and a dotted
@@ -452,4 +289,4 @@ else
 fi
 
 [[ $fail -eq 0 ]] || exit 1
-echo "generate names: ${#cases[@]} entry shapes match the CLI, ${#refusals[@]} ambiguous ones refused, NAMESPACE_PREFIX passed through, ${#generated[@]} declared outputs restored when deleted, scanner + shared-out-dir shapes pinned"
+echo "generate names: ${#cases[@]} entry shapes match the CLI, ${#refusals[@]} ambiguous ones refused, NAMESPACE_PREFIX passed through, ${#declared[@]} declared outputs restored when deleted, prefixed output compiled"
