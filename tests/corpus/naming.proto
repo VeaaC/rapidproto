@@ -33,11 +33,61 @@ message M {
 // A nested type may not take its ENCLOSING class's name: C++ forbids a member with the same name as
 // its class, so the child is deduped and the parent keeps its name. protoc accepts this, and it is
 // the shared naming table's job (both models emit these classes), not an arena-only concern.
+// The enum inside the deduped class pins the MIRROR's id reuse: its common-header home must be
+// `nm::Outer::Outer_` -- the model's escaped id, not a re-derivation from the raw proto name,
+// which would open `namespace Outer` twice and collide with the class.
 message Outer {
   message Outer {
     optional int32 v = 1;
+
+    enum K {
+      K0 = 0;
+    }
+
+    optional K k = 2;  // must resolve to ::nm::Outer::Outer_::K (aliasing the mirror)
   }
   optional Outer inner = 1;  // must resolve to ::nm::Outer::Outer_
+}
+
+// `linux` and `unix` are PREDEFINED macros under GNU extensions (`-std=gnu++17`, gcc's and clang's
+// default when a consumer passes no -std) -- and lowercase, so ordinary names hit them. The test
+// suite compiles with -std=c++17, where neither expands, so only the golden byte-compare pins the
+// escape; that is why these live here rather than in a compile-only check.
+message Gnu {
+  message linux {
+    optional int32 a = 1;
+  }
+
+  optional linux l = 1;   // value type must reference ::nm::Gnu::linux_
+  optional int32 unix = 2;  // accessor/tag escaped to unix_
+}
+
+enum GnuEnum {
+  GNU_ENUM_ZERO = 0;
+  linux = 1;  // a bare lowercase value: escaped rather than macro-expanded
+}
+
+// <cstdint> is included by every generated header ITSELF, so its macro names break with no help
+// from the consumer's include order: the limit macros expand anywhere, and the INT8_C()
+// function-like family expands exactly where an accessor declaration puts the name -- before a
+// `(`. Like Gnu above, the suite's -std=c++17 build cannot catch a missing escape by compiling;
+// the golden byte-compare is the pin.
+message Stdint {
+  optional int32 INT32_MAX = 1;  // object-like limit macro -> INT32_MAX_
+  optional int32 INT8_C = 2;     // function-like: the accessor `INT8_C()` would expand -> INT8_C_
+}
+
+enum StdintEnum {
+  STDINT_ENUM_UNSET = 0;
+  STDINT_ENUM_SIZE_MAX = 1;  // stripping would expose bare SIZE_MAX: the whole enum stays unstripped
+}
+
+// An UNCONTESTED top-level escape: nothing else in this package wants `unix_`, so the escape must
+// take exactly `sanitize(raw)` -- one trailing `_`, the same as a nested name or a field. Every
+// other escaped top-level name in the fixtures is contested (escdedup, pkgorder), so without this
+// one a naming pass that over-escalated free escapes (`unix__`) left every golden unchanged.
+message unix {
+  optional int32 a = 1;
 }
 
 // The streaming struct holds its bytes in an `rp_`-prefixed private member, which sanitize() puts

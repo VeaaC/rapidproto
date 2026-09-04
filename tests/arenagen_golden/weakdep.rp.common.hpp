@@ -4,6 +4,6 @@
 
 #include <cstdint>
 
-namespace wd {
+namespace rp::common::wd {
 
-}  // namespace wd
+}  // namespace rp::common::wd

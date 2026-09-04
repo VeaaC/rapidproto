@@ -32,7 +32,7 @@ T="$(mktemp -d)"
 trap 'rm -rf "$T"' EXIT
 
 # Each corpus entry is single-file (no imports) so the CLI writes exactly <stem>.rp.hpp.
-for entry in arena_layout arena_manyreq arena_naming messageset proto2 proto3 editions2023 editions2024 xref; do
+for entry in arena_layout arena_manyreq arena_naming naming messageset proto2 proto3 editions2023 editions2024 xref; do
   "$BIN" --arena -Itests/corpus --out-dir="$T" "tests/corpus/$entry.proto" >/dev/null
 done
 "$BIN" --arena -Itests/wire_fixtures --out-dir="$T" tests/wire_fixtures/wire_all.proto >/dev/null
@@ -70,17 +70,17 @@ done
 # A package named `std` -> `namespace std_`. `namespace std` is UB that compiles QUIETLY, so no
 # compiler would catch a regression here -- the golden is the only thing that would.
 "$BIN" --arena -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/stdpkg.proto >/dev/null
-# A package named `rapidproto` -> `namespace rapidproto_`; unescaped it merges the schema's
+# A package named `rapidproto` keeps its spelling: under the roots it cannot merge the schema's
 # types into the runtime's own namespace.
 "$BIN" --arena -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/rppkg.proto >/dev/null
 # --namespace-prefix + imports: the prefixed closure into a subdir, so its relative #includes resolve
 # to the prefixed siblings (not the unprefixed ones, which share the same filenames).
-"$BIN" --arena --namespace-prefix=rp -Itests/corpus/imports --out-dir="$T/prefixed" tests/corpus/imports/main.proto >/dev/null
+"$BIN" --arena --namespace-prefix=pfx -Itests/corpus/imports --out-dir="$T/prefixed" tests/corpus/imports/main.proto >/dev/null
 # xref under a namespace prefix -> its own subdir golden. It must be a subdir (not a flat
 # xref_prefixed.rp.hpp) so its prefixed common header (holding rp::xr enums) stays isolated: the decoder
 # includes its common by stem ("xref.rp.common.hpp"), which on a flat layout would collide with the
 # un-prefixed xref's common of the same name.
-"$BIN" --arena -Itests/corpus --namespace-prefix=rp --out-dir="$T/xref_prefixed" tests/corpus/xref.proto >/dev/null
+"$BIN" --arena -Itests/corpus --namespace-prefix=pfx --out-dir="$T/xref_prefixed" tests/corpus/xref.proto >/dev/null
 
 # Copy a fresh version over every checked-in golden; a golden with no fresh version means this script
 # needs a new entry above.

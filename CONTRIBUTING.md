@@ -41,10 +41,12 @@ cmake --build --preset gcc
 - `./check.sh fix`: apply clang-format first, then run the full gate.
 - `./check.sh quick`: gcc-only build + test for the inner loop (not the commit bar).
 - `./check.sh deep` is the heavy tier: ASan + UBSan, a library coverage floor, the real-world corpus
-  sweep, and a fuzz smoke over the four targets (see [Fuzzing](#fuzzing)).
+  sweep plus a bounded corpus-compile sample, a check that the regen scripts reproduce the
+  checked-in goldens, and a fuzz smoke over the four targets (see [Fuzzing](#fuzzing)).
 
-CI runs `./check.sh`, `./check.sh deep`, and a Release `-O3 -Werror` build on **every push and pull
-request**.
+CI runs the gate's stages spread across several jobs, `./check.sh deep`, and a Release `-O3 -Werror`
+build on **every push and pull request**. Running `./check.sh` locally is the superset: it is the
+only place the `names` stage runs outside a release tag.
 
 ## The real-world schema corpus
 

@@ -1,8 +1,10 @@
-message .fm.Blob size=16 align=4 fixed=no decode=flatten cost=1
+message .fm.Blob size=20 align=4 fixed=no decode=flatten cost=2
   field payload num=1 borrow-string ArenaString off=0 size=12 align=4 presence=bit0
-  mask off=12 size=1 align=1 bits=1
+  field kind num=2 inline-enum .fm.Blob.Kind off=12 size=4 align=4 presence=bit1
+  mask off=16 size=1 align=1 bits=2
     bit 0 presence payload
-message .fm.Holder size=104 align=4 fixed=no decode=noinline cost=12
+    bit 1 presence kind
+message .fm.Holder size=104 align=4 fixed=no decode=noinline cost=13
   field blob num=7 raw-payload ArenaString off=0 size=12 align=4 presence=data
   field blobs num=8 raw-payload ArrayView<ArenaString> off=12 size=12 align=4 presence=empty
   field samples num=9 repeated ArrayView<int32> off=24 size=12 align=4 presence=empty

@@ -4,6 +4,6 @@
 
 #include <cstdint>
 
-namespace unk::ms {
+namespace unk::common::ms {
 
-}  // namespace unk::ms
+}  // namespace unk::common::ms

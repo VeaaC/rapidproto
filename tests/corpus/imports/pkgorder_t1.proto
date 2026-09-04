@@ -1,0 +1,9 @@
+// One of the pkgorder trio (see pkgorder_a.proto): the LITERAL `linux_`, blocked by the package
+// component's claim and escalated deterministically, in FQN order, to `linux__`.
+syntax = "proto3";
+
+package po;
+
+message linux_ {
+  int32 v = 1;
+}

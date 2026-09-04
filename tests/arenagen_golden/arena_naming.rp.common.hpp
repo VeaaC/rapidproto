@@ -4,6 +4,6 @@
 
 #include <cstdint>
 
-namespace an {
+namespace rp::common::an {
 
-}  // namespace an
+}  // namespace rp::common::an

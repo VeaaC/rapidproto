@@ -9,7 +9,7 @@
 #include "weakmain.rp.common.hpp"  // IWYU pragma: export
 #include "weakdep.rp.stream.hpp"
 
-namespace wm::stream {
+namespace rp::stream::wm {
 
 struct WMain;
 
@@ -17,7 +17,7 @@ struct WMain {
   explicit WMain(::rapidproto::ByteView bytes) noexcept : rp_span(bytes) {}
   ::rapidproto::ByteView rp_bytes() const noexcept { return rp_span; }
 
-  struct d { using Value = ::wd::stream::WDep; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "d"; };
+  struct d { using Value = ::rp::stream::wd::WDep; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "d"; };
 
   template <class... rp_Callbacks>
   [[nodiscard]] ::rapidproto::DecodeStatus decode(rp_Callbacks&&... rp_callbacks) const;
@@ -27,7 +27,7 @@ struct WMain {
 
 template <class... rp_Callbacks>
 RP_FLATTEN ::rapidproto::DecodeStatus WMain::decode(rp_Callbacks&&... rp_callbacks) const {
-  static_assert((true && ... && !::rapidproto::is_stray_callback<rp_Callbacks, d>), "a callback matches no field of 'WMain' (and is not a catch-all or unknown-field handler)");
+  static_assert((true && ... && !::rapidproto::is_stray_callback<rp_Callbacks, d>), "a callback matches no field of '::rp::stream::wm::WMain' (and is not a catch-all or unknown-field handler)");
   [[maybe_unused]] auto rp_dispatch = ::rapidproto::combine(static_cast<rp_Callbacks&&>(rp_callbacks)...);
   const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(rp_span);
   const std::uint8_t* const rp_cend = rp_c + rp_span.size();
@@ -41,16 +41,16 @@ RP_FLATTEN ::rapidproto::DecodeStatus WMain::decode(rp_Callbacks&&... rp_callbac
     }
     goto rp_field_general;
     rp_do_1: {
-      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Callbacks, d, d::Value>)) <= 1U, "field 'd' is handled by more than one callback");
-      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Callbacks, d, d::Value>)) <= 1U, "field 'd' is matched by more than one catch-all callback");
-      static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Callbacks, d, d::Value>), "a callback for field 'd' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
-      static_assert((true && ... && !(::rapidproto::targets<rp_Callbacks, d, d::Value> && !::rapidproto::specifically_handles<rp_Callbacks, d, d::Value>)), "a callback for field 'd' has the wrong value type (expected d::Value)");
+      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Callbacks, d, d::Value>)) <= 1U, "field 'WMain::d' is handled by more than one callback");
+      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Callbacks, d, d::Value>)) <= 1U, "field 'WMain::d' is matched by more than one catch-all callback");
+      static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Callbacks, d, d::Value>), "a callback for field 'WMain::d' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+      static_assert((true && ... && !(::rapidproto::targets<rp_Callbacks, d, d::Value> && !::rapidproto::specifically_handles<rp_Callbacks, d, d::Value>)), "a callback for field 'WMain::d' has the wrong value type (expected d::Value)");
       if constexpr ((false || ... || ::rapidproto::handles_one<rp_Callbacks, d, d::Value>)) {
         ::rapidproto::ByteView rp_val;
         const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_val, &rp_we);
         if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_np;
-        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, d{}, ::wd::stream::WDep{rp_val}); !rp_status.ok()) {
+        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, d{}, ::rp::stream::wd::WDep{rp_val}); !rp_status.ok()) {
           return rp_status;
         }
       } else {  // no callback for this field -> skip its value (compile-time wire)
@@ -90,4 +90,4 @@ RP_FLATTEN ::rapidproto::DecodeStatus WMain::decode(rp_Callbacks&&... rp_callbac
   }
 }
 
-}  // namespace wm::stream
+}  // namespace rp::stream::wm

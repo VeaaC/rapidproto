@@ -4,6 +4,6 @@
 
 #include <cstdint>
 
-namespace samepkg {
+namespace rp::common::samepkg {
 
-}  // namespace samepkg
+}  // namespace rp::common::samepkg

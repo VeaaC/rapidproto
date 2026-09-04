@@ -97,18 +97,18 @@ TEST_CASE("generator: header carries the namespace and a decoder per message", "
 
     CHECK(header.find("#pragma once") != std::string::npos);
     CHECK(header.find("#include \"rapidproto/runtime.hpp\"") != std::string::npos);
-    CHECK(header.find("namespace a::b::stream {") != std::string::npos);
+    CHECK(header.find("namespace rp::stream::a::b {") != std::string::npos);
     CHECK(header.find("struct Foo {") != std::string::npos);
     CHECK(header.find("struct Bar {") != std::string::npos);
-    CHECK(header.find("}  // namespace a::b::stream") != std::string::npos);
+    CHECK(header.find("}  // namespace rp::stream::a::b") != std::string::npos);
 }
 
 TEST_CASE("generator: a package-less file still nests under the model namespace", "[printer]") {
     const FileNode file = parse_file_text(R"(syntax = "proto3"; message Solo {})");
     const std::string header = rapidproto::streamgen::generate_header(file);
-    // Streaming always nests under `stream` (so it coexists with the arena model's global `Solo`),
-    // even with no package: the namespace is just `stream`.
-    CHECK(header.find("namespace stream {") != std::string::npos);
+    // Streaming always sits under its own root (so it coexists with the arena model's `Solo`),
+    // even with no package: the namespace is just prefix + root.
+    CHECK(header.find("namespace rp::stream {") != std::string::npos);
     CHECK(header.find("struct Solo {") != std::string::npos);
 }
 

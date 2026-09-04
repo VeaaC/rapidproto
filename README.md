@@ -116,16 +116,18 @@ an `Arena`, call `decode()`, then navigate the returned tree:
 ```cpp
 #include "person.rp.hpp"
 
+namespace ex = rp::arena::example;   // generated types live under rp::arena; alias it once
+
 std::string buf = /* the serialized Person bytes */;
 
 rapidproto::Arena arena;
 rapidproto::ArenaDecodeError err;
-const example::Person* p = example::Person::decode(rapidproto::ByteView(buf), arena, &err);
+const ex::Person* p = ex::Person::decode(rapidproto::ByteView(buf), arena, &err);
 if (p == nullptr) { /* malformed input: see err.code / err.wire / err.offset */ }
 
 std::uint32_t id = p->id();                        // scalar, by value
 std::string_view name = p->name();                 // string, a view into the input buffer
-if (const example::Address* a = p->address())      // sub-message: a pointer (nullptr if absent)
+if (const ex::Address* a = p->address())           // sub-message: a pointer (nullptr if absent)
     std::string_view city = a->city();
 ```
 
@@ -136,6 +138,9 @@ if (const example::Address* a = p->address())      // sub-message: a pointer (nu
 ```sh
 g++ -std=c++17 -Iout my_consumer.cpp -o my_consumer
 ```
+
+Repeated, map and `oneof` fields, and `optional`, read differently — see
+[the arena model](docs/arena.md#what-each-field-kind-returns) before writing much against them.
 
 That's the arena model. To stream instead, pass `--stream` (or `--arena --stream` for both) and use
 the [callback API](docs/streaming.md).

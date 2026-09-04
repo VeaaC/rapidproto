@@ -5,6 +5,6 @@
 #include <cstdint>
 #include "deep.rp.common.hpp"
 
-namespace other {
+namespace rp::common::other {
 
-}  // namespace other
+}  // namespace rp::common::other

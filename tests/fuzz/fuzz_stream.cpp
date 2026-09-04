@@ -14,21 +14,25 @@
 #include "streamgen_golden/proto3.rp.stream.hpp"
 #include "streamgen_golden/wire_all.rp.stream.hpp"
 
+// The generated types live under one root per model; alias each package once so the
+// bodies below read as they did before the roots existed. This file uses the stream model only.
+namespace ed23 = rp::stream::ed23;
+namespace p3 = rp::stream::p3;
+
 namespace {
 
 constexpr int kMaxWalkDepth = 32;
 
 // Recurse into both message-typed fields (LEN-framed `child`, group-framed `delim`); past the
 // depth cap the sub-decoder is left undecoded (its bytes were already validated by the framing).
-rapidproto::DecodeStatus walk(ed23::stream::M m, int depth, volatile std::size_t& sink) {
+rapidproto::DecodeStatus walk(ed23::M m, int depth, volatile std::size_t& sink) {
     if (depth >= kMaxWalkDepth) {
         return rapidproto::DecodeStatus::success();
     }
-    return m.decode(
-        [&](ed23::stream::M::child, ed23::stream::M sub) { return walk(sub, depth + 1, sink); },
-        [&](ed23::stream::M::delim, ed23::stream::M sub) { return walk(sub, depth + 1, sink); },
-        [&](auto /*tag*/, auto&& /*value*/) { sink += 1; },
-        [&](rapidproto::UnknownField uf) { sink += uf.bytes.size(); });
+    return m.decode([&](ed23::M::child, ed23::M sub) { return walk(sub, depth + 1, sink); },
+                    [&](ed23::M::delim, ed23::M sub) { return walk(sub, depth + 1, sink); },
+                    [&](auto /*tag*/, auto&& /*value*/) { sink += 1; },
+                    [&](rapidproto::UnknownField uf) { sink += uf.bytes.size(); });
 }
 
 }  // namespace
@@ -36,12 +40,12 @@ rapidproto::DecodeStatus walk(ed23::stream::M m, int depth, volatile std::size_t
 extern "C" int LLVMFuzzerTestOneInput(const std::uint8_t* data, std::size_t size) {
     const rapidproto::ByteView input(reinterpret_cast<const char*>(data), size);
     volatile std::size_t sink = 0;
-    (void)p3::stream::Msg{input}.decode(
+    (void)p3::Msg{input}.decode(
         [&](auto /*tag*/, auto&& /*value*/) { sink += 1; },              // catch-all (known fields)
         [&](rapidproto::UnknownField uf) { sink += uf.bytes.size(); });  // not-in-schema fields
-    (void)wire::stream::AllWire{input}.decode(
+    (void)rp::stream::wire::AllWire{input}.decode(
         [&](auto /*tag*/, auto&& /*value*/) { sink += 1; },
         [&](rapidproto::UnknownField uf) { sink += uf.bytes.size(); });
-    (void)walk(ed23::stream::M{input}, 0, sink);
+    (void)walk(ed23::M{input}, 0, sink);
     return 0;
 }

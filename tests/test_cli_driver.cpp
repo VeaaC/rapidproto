@@ -17,6 +17,7 @@
 
 #include "rapidproto/ast.hpp"  // FileNode, constructed directly for header_path
 #include "rapidproto/cli/driver.hpp"
+#include "rapidproto/codegen/naming.hpp"
 #include "rapidproto/resolver.hpp"
 #include "rapidproto/version.hpp"
 #include "temp_dir.hpp"
@@ -250,6 +251,7 @@ TEST_CASE("driver: parse_args --verbose / -v set verbose (quiet is the default)"
     CHECK(short_form.options.value().verbose);
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): a flat list of usage errors
 TEST_CASE("driver: parse_args usage errors all exit 2", "[cli]") {
     // A flag missing its value, no entry files at all, and a malformed --namespace-prefix (which
     // reports through its own error path, not usage_error) must all agree on exit code 2.
@@ -258,4 +260,55 @@ TEST_CASE("driver: parse_args usage errors all exit 2", "[cli]") {
     const cli::ParseResult bad_prefix = parse({"--namespace-prefix", "not:valid", "a.proto"});
     CHECK_FALSE(bad_prefix.options.has_value());
     CHECK(bad_prefix.exit_code == 2);
+    // Empty is refused too, and by its own branch: it is not a typo but what someone tries to get
+    // the pre-roots layout back, and it would put `arena`/`stream`/`common` at global scope. Both
+    // spellings, because the split-argument form takes a different path than `--flag=value`.
+    for (const std::vector<const char*>& form :
+         {std::vector<const char*>{"--namespace-prefix", "", "a.proto"},
+          std::vector<const char*>{"--namespace-prefix=", "a.proto"}}) {
+        const cli::ParseResult empty_prefix = parse(form);
+        CHECK_FALSE(empty_prefix.options.has_value());
+        CHECK(empty_prefix.exit_code == 2);
+    }
+    // ...and the default is a real prefix, so a caller that never passes the flag still gets roots.
+    const cli::ParseResult defaulted = parse({"a.proto"});
+    REQUIRE(defaulted.options.has_value());
+    if (defaulted.options.has_value()) {
+        CHECK(defaulted.options->namespace_prefix ==
+              std::string(rapidproto::codegen::kDefaultNsPrefix));
+    }
+    CHECK_FALSE(cli::namespace_prefix_problem("").empty());
+    // A prefix that would not COMPILE as written is refused rather than silently altered --
+    // `--namespace-prefix=std` used to hand back `std_`, a namespace nobody asked for -- as is one
+    // that reaches into the generator's own names. `rapidproto` is refused in any position: as a
+    // component it names a namespace like the runtime's own.
+    // `__x`/`_X` are reserved to the implementation in every scope (`__LINE__` emitted
+    // `namespace __LINE__::...`); `linux`/`unix` macro-expand under the GNU default; `_x` is
+    // reserved only in the GLOBAL namespace, which is exactly where the FIRST component lands.
+    for (const char* bad :
+         {"std", "class", "int", "EOF", "rp_x", "RP_FOO", "rapidproto", "my.rapidproto", "__x",
+          "_Xy", "my.__x", "__LINE__", "linux", "unix", "_x", "_"}) {
+        INFO("prefix " << bad);
+        CHECK_FALSE(cli::namespace_prefix_problem(bad).empty());
+        CHECK(parse({"--namespace-prefix", bad, "a.proto"}).exit_code == 2);
+    }
+    // Reserved for a proto NAME is not reserved for a namespace. These clash only with a generated
+    // member, so refusing them as a prefix rejected names that compile -- the mirror image of the
+    // silent-rename bug above, and just as wrong an answer.
+    for (const char* fine : {"decode", "Value", "Key", "kNumber", "kName", "arena", "override"}) {
+        INFO("prefix " << fine);
+        CHECK(cli::namespace_prefix_problem(fine).empty());
+        CHECK(parse({"--namespace-prefix", fine, "a.proto"}).exit_code == 0);
+    }
+    // ...and what validation accepts is emitted VERBATIM: an accepted member-reserved word must
+    // not be silently renamed on the way out (`Value` once became `namespace Value_`).
+    CHECK(rapidproto::codegen::effective_ns_prefix("Value") == "Value");
+    CHECK(rapidproto::codegen::effective_ns_prefix("my.decode") == "my::decode");
+    // The library safety net still escapes what could never compile, for callers that skip the
+    // CLI's validation.
+    CHECK(rapidproto::codegen::effective_ns_prefix("class") == "class_");
+    // An ordinary name, a dotted one, and `_x` AFTER a dot (global-scope-reserved only) pass.
+    CHECK(cli::namespace_prefix_problem("myco").empty());
+    CHECK(cli::namespace_prefix_problem("my.decoders").empty());
+    CHECK(cli::namespace_prefix_problem("my._x").empty());
 }

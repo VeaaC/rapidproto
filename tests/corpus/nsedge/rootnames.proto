@@ -1,0 +1,19 @@
+// Top-level types named after the generator's own root segments. Before the roots existed, a
+// top-level `stream` collided with the model sub-namespace: the two headers would not compile
+// together, and a top-level ENUM of that name broke the streaming header on its own. Under
+// `<prefix>::<model>::<pkg>` nothing the generator invents lives in package scope, so these are
+// ordinary names -- which only a TU including BOTH models can demonstrate (see tests/test_coexistence.cpp).
+syntax = "proto3";
+package rn;
+
+message stream { int32 x = 1; }
+message arena { int32 x = 1; }
+message common { int32 x = 1; }
+enum rp { RP_UNSET = 0; }
+
+message Holder {
+  stream s = 1;
+  arena a = 2;
+  common c = 3;
+  rp r = 4;
+}

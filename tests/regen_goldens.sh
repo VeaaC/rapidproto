@@ -51,18 +51,19 @@ trap 'rm -rf "$T"' EXIT
 "$BIN" --stream -Itests/corpus/imports --out-dir="$T" tests/corpus/imports/weakmain.proto >/dev/null
 # Package SHAPES the rest of the corpus never exercises (every other entry has a single-component
 # package): a dotted package -> namespace com::example::deep::stream, and NO package at all -> a
-# top-level `namespace stream`. xpkg pulls deep, pinning a cross-file reference into a dotted package.
+# `rp::stream` with no package component. xpkg pulls deep, pinning a cross-file reference into a
+# dotted package.
 "$BIN" --stream -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/nopkg.proto >/dev/null
 "$BIN" --stream -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/xpkg.proto >/dev/null
 # A package named `std` -> `namespace std_`, never `namespace std` (which would be UB).
 "$BIN" --stream -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/stdpkg.proto >/dev/null
-# A package named `rapidproto` -> `namespace rapidproto_`; unescaped it merges the schema's
-# types into the runtime's own namespace.
+# A package named `rapidproto` keeps its spelling: under the roots it sits three levels below
+# the runtime's own namespace and cannot merge into it.
 "$BIN" --stream -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/rppkg.proto >/dev/null
 "$BIN" --stream -Itests/wire_fixtures --out-dir="$T" tests/wire_fixtures/wire_all.proto >/dev/null
 # xref under a namespace prefix -> its own subdir golden, isolating its prefixed common header (rp::xr
 # enums) from the un-prefixed xref's common of the same stem (see regen_arenagen_goldens.sh).
-"$BIN" --stream -Itests/corpus --namespace-prefix=rp --out-dir="$T/xref_prefixed" tests/corpus/xref.proto >/dev/null
+"$BIN" --stream -Itests/corpus --namespace-prefix=pfx --out-dir="$T/xref_prefixed" tests/corpus/xref.proto >/dev/null
 
 # Copy a fresh version over every currently-checked-in golden (preserving subdirs). Fail loudly if an
 # existing golden was not regenerated -- a new golden means this script needs a new entry above.
@@ -101,6 +102,32 @@ echo "[3/5] regenerating arenagen + dumpgen goldens via rapidprotoc --arena / --
 # the CLI directly.
 tests/regen_arenagen_goldens.sh >/dev/null
 tests/regen_dumpgen_goldens.sh >/dev/null
+
+# [3b/5] Coexistence goldens: BOTH models from ONE invocation into ONE dir, which is what a consumer
+# does and the only shape with a single shared common header. Generating them per-model instead gives
+# two copies of that header, and a TU including both fails on duplicate enum definitions -- which is
+# exactly what tests/test_coexistence.cpp holds in one TU.
+#
+# BEFORE [4/5], and generating into "$T" first, for two reasons that both bit:
+#   - test_coexistence.cpp is compiled INTO the test binary, so a generator change that stops the old
+#     coexist goldens compiling fails [4/5] -- and a step after it would never run, exactly when you
+#     need it. Same chicken-and-egg this script's header describes for streamgen.
+#   - `rm -rf` on the tracked directory before generating destroys checked-in goldens the moment any
+#     schema fails, under `set -e`. Stage into the trap-cleaned temp dir and swap in only on success.
+echo "[3b/5] coexistence goldens (both models, one out-dir)"
+# Listed one per line, not looped over stems: check_fixture_coverage.sh greps this file for each
+# fixture's path, and a loop variable would hide them from it.
+for entry in tests/corpus/nsedge/rootnames.proto \
+             tests/corpus/nsedge/rootenum.proto \
+             tests/corpus/nsedge/sibparent.proto \
+             tests/corpus/nsedge/sibpkg.proto \
+             tests/corpus/nsedge/nestenum.proto \
+             tests/corpus/nsedge/pkgalias.proto; do
+  "$BIN" --arena --stream -Itests/corpus/nsedge --out-dir="$T/coexist" "$entry" >/dev/null
+done
+rm -rf "$T/coexist/rapidproto"  # the runtime copy; the test TU uses the repo's own headers
+rm -rf tests/coexist_golden
+cp -a "$T/coexist" tests/coexist_golden
 
 echo "[4/5] building the test binary (the fresh streamgen + arenagen + dumpgen goldens now compile) ..."
 # Target checked before building: `cmake --build --target X` degenerates to `make X` under

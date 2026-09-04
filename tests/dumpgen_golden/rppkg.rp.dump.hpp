@@ -11,79 +11,79 @@
 #include "rppkg.rp.hpp"  // IWYU pragma: export
 #include "rapidproto/dump_runtime.hpp"
 
-namespace rapidproto::dump::detail {
+namespace rapidproto::dump_detail {
 
-inline const char* rp_dump_enum_name(::rapidproto_::WireType rp_e) {
+inline const char* rp_dump_enum_name(::rp::common::rapidproto::WireType rp_e) {
   switch (static_cast<std::int32_t>(rp_e)) {
     case 0: return "A";
   }
   return nullptr;  // unknown (open enum): the caller renders UNKNOWN(<n>)
 }
 
-inline const char* rp_dump_enum_name(::rapidproto_::DecodeStatus rp_e) {
+inline const char* rp_dump_enum_name(::rp::common::rapidproto::DecodeStatus rp_e) {
   switch (static_cast<std::int32_t>(rp_e)) {
     case 0: return "A";
   }
   return nullptr;  // unknown (open enum): the caller renders UNKNOWN(<n>)
 }
 
-}  // namespace rapidproto::dump::detail
+}  // namespace rapidproto::dump_detail
 
-namespace rapidproto_ {
+namespace rp::arena::rapidproto {
 
 namespace rp_dump_detail {
 
-inline void rp_dump_write(const ::rapidproto_::wire& m, ::rapidproto::dump::Writer& w);
-inline void rp_dump_write(const ::rapidproto_::Arena& m, ::rapidproto::dump::Writer& w);
-inline void rp_dump_write(const ::rapidproto_::Tag& m, ::rapidproto::dump::Writer& w);
-inline void rp_dump_write(const ::rapidproto_::ByteView& m, ::rapidproto::dump::Writer& w);
+inline void rp_dump_write(const ::rp::arena::rapidproto::wire& m, ::rapidproto::dump_detail::Writer& w);
+inline void rp_dump_write(const ::rp::arena::rapidproto::Arena& m, ::rapidproto::dump_detail::Writer& w);
+inline void rp_dump_write(const ::rp::arena::rapidproto::Tag& m, ::rapidproto::dump_detail::Writer& w);
+inline void rp_dump_write(const ::rp::arena::rapidproto::ByteView& m, ::rapidproto::dump_detail::Writer& w);
 
-inline void rp_dump_write(const ::rapidproto_::wire& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::rapidproto::wire& m, ::rapidproto::dump_detail::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
     if (const auto rp_v = m.x(); rp_v != decltype(rp_v){}) {
       if (w.begin_field(rp_first, "x")) {
-        ::rapidproto::dump::write_int(w.os(), rp_v);
+        ::rapidproto::dump_detail::write_int(w.os(), rp_v);
       }
     }
     (void)rp_first;
   });
 }
 
-inline void rp_dump_write(const ::rapidproto_::Arena& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::rapidproto::Arena& m, ::rapidproto::dump_detail::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
     if (const auto rp_v = m.y(); rp_v != decltype(rp_v){}) {
       if (w.begin_field(rp_first, "y")) {
-        ::rapidproto::dump::write_int(w.os(), rp_v);
+        ::rapidproto::dump_detail::write_int(w.os(), rp_v);
       }
     }
     (void)rp_first;
   });
 }
 
-inline void rp_dump_write(const ::rapidproto_::Tag& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::rapidproto::Tag& m, ::rapidproto::dump_detail::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
     if (const auto rp_v = m.s(); rp_v != decltype(rp_v){}) {
       if (w.begin_field(rp_first, "s")) {
-        w.os() << '"'; ::rapidproto::dump::write_json_escaped(w.os(), rp_v); w.os() << '"';
+        w.os() << '"'; ::rapidproto::dump_detail::write_json_escaped(w.os(), rp_v); w.os() << '"';
       }
     }
     (void)rp_first;
   });
 }
 
-inline void rp_dump_write(const ::rapidproto_::ByteView& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::rapidproto::ByteView& m, ::rapidproto::dump_detail::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
     if (const auto rp_v = m.b(); rp_v != decltype(rp_v){}) {
       if (w.begin_field(rp_first, "b")) {
-        w.os() << '"'; ::rapidproto::dump::write_hex(w.os(), rp_v); w.os() << '"';
+        w.os() << '"'; ::rapidproto::dump_detail::write_hex(w.os(), rp_v); w.os() << '"';
       }
     }
     (void)rp_first;
@@ -92,40 +92,28 @@ inline void rp_dump_write(const ::rapidproto_::ByteView& m, ::rapidproto::dump::
 
 }  // namespace rp_dump_detail
 
-inline void rp_dump_write(std::ostream& rp_os, const ::rapidproto_::wire& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::rapidproto_::rp_dump_detail::rp_dump_write(m, w);
-}
+}  // namespace rp::arena::rapidproto
 
-inline std::string rp_dump_string(const ::rapidproto_::wire& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
-}
+namespace rapidproto::dump_detail {
 
-inline void rp_dump_write(std::ostream& rp_os, const ::rapidproto_::Arena& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::rapidproto_::rp_dump_detail::rp_dump_write(m, w);
-}
+template <>
+struct dumper<::rp::arena::rapidproto::wire> {
+  static void write(const ::rp::arena::rapidproto::wire& m, Writer& w) { ::rp::arena::rapidproto::rp_dump_detail::rp_dump_write(m, w); }
+};
 
-inline std::string rp_dump_string(const ::rapidproto_::Arena& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
-}
+template <>
+struct dumper<::rp::arena::rapidproto::Arena> {
+  static void write(const ::rp::arena::rapidproto::Arena& m, Writer& w) { ::rp::arena::rapidproto::rp_dump_detail::rp_dump_write(m, w); }
+};
 
-inline void rp_dump_write(std::ostream& rp_os, const ::rapidproto_::Tag& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::rapidproto_::rp_dump_detail::rp_dump_write(m, w);
-}
+template <>
+struct dumper<::rp::arena::rapidproto::Tag> {
+  static void write(const ::rp::arena::rapidproto::Tag& m, Writer& w) { ::rp::arena::rapidproto::rp_dump_detail::rp_dump_write(m, w); }
+};
 
-inline std::string rp_dump_string(const ::rapidproto_::Tag& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
-}
+template <>
+struct dumper<::rp::arena::rapidproto::ByteView> {
+  static void write(const ::rp::arena::rapidproto::ByteView& m, Writer& w) { ::rp::arena::rapidproto::rp_dump_detail::rp_dump_write(m, w); }
+};
 
-inline void rp_dump_write(std::ostream& rp_os, const ::rapidproto_::ByteView& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::rapidproto_::rp_dump_detail::rp_dump_write(m, w);
-}
-
-inline std::string rp_dump_string(const ::rapidproto_::ByteView& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
-}
-
-}  // namespace rapidproto_
+}  // namespace rapidproto::dump_detail

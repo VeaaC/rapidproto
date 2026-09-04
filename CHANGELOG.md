@@ -7,6 +7,80 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
 
 ### Changed
 
+- **Breaking: generated types moved under per-model roots.** Every spelling changes, so **regenerate
+  and update your call sites**:
+
+  | | before | after |
+  |---|---|---|
+  | arena | `pkg::Msg` | `rp::arena::pkg::Msg` |
+  | streaming | `pkg::stream::Msg` | `rp::stream::pkg::Msg` |
+  | enums | `pkg::Enum`, `pkg::Msg::Kind` | `rp::common::pkg::Enum`, `rp::common::pkg::Msg::Kind`, aliased into both models |
+
+  If your own headers mention generated types, a plain alias is the shape to reach for — it is
+  header-safe, leaks nothing, and needs no `using namespace`:
+
+  ```cpp
+  namespace pkg = rp::arena::pkg;   // pkg::Msg, pkg::Status and pkg::Msg::Kind all resolve
+  ```
+
+  It needs the name to be free in your build, so it does not fit the protoc-coexistence case where
+  `pkg` is already protoc's namespace. There, a using-directive per file leaves most bodies
+  unchanged — one shape per model you use:
+
+  ```cpp
+  namespace pkg { using namespace rp::arena::pkg; }           // arena only
+  namespace pkg { using namespace rp::common::pkg;             // streaming only
+                  namespace stream = rp::stream::pkg; }
+  namespace pkg { using namespace rp::arena::pkg;             // both
+                  namespace stream = rp::stream::pkg; }
+  ```
+
+  The streaming row needs the common root because a streaming codebase spelled top-level enums at
+  package scope (`pkg::Status`), which only the arena model's alias brings back. A package-less
+  schema takes the same shapes at global scope. Put the alias in a `.cpp`: at file scope in a header
+  it leaks to every includer. Do not combine two rows — `using namespace rp::arena::pkg;` beside
+  `using namespace rp::common::pkg;` makes `pkg::Msg` ambiguous between the arena class and the
+  mirror namespace.
+
+  Three things the alias does not carry over, all compile errors rather than silent:
+
+  - **A helper you wrote in `namespace pkg` for ADL** — `operator<<`, `to_string` — is no longer
+    found, because lookup now searches `rp::arena::pkg`. Move it there, or call it qualified.
+  - **A `namespace pkg::stream` of your own** collides with the streaming row's alias. Rename one.
+  - A leftover `namespace pkg { class Msg; }` forward declaration wins over the using-directive and
+    rebinds `pkg::Msg` to an empty class. Delete it; generated types cannot be forward-declared. The
+    enum form (`namespace pkg { enum class Status : int; }`) reports further from the cause —
+    `'OK' is not a member of 'pkg::Status'`.
+
+  If you already passed `--namespace-prefix=rp` for protoc coexistence, your types move from
+  `rp::pkg::Msg` to `rp::arena::pkg::Msg` — and the flag is no longer needed for that purpose. The root is named by
+  `--namespace-prefix`, which now defaults to `rp` and **no longer accepts an empty value** — the
+  three root segments would otherwise land at global scope. Pass `--namespace-prefix=myco` if your
+  codebase already owns `rp`. What the flag accepts it emits verbatim; a component is refused
+  rather than silently renamed when it would not compile as written (a keyword, `std`, a name that
+  macro-expands, a reserved identifier — `__x`, `_X...`, or a leading `_` in the first component,
+  which lands in the global namespace), when it starts with `rp_`/`RP_`, or when it is
+  `rapidproto` — the generator's and the runtime's own names.
+
+  **Nested enums are now shared too.** A `Msg::Kind` used to be defined separately inside each
+  model's class, so an enum read from the arena decoder was a different C++ type from the streaming
+  one and could not be compared or passed across. Both models
+  now alias one definition, mirrored under `rp::common`. The spelling you already write is unchanged.
+
+  What this buys: a schema can now declare a top-level type named `stream` (previously the two
+  headers collided, and a top-level *enum* of that name broke the streaming header on its own); a
+  package and a sibling `pkg.stream.*` package no longer collide; and generated headers coexist with
+  protoc's `.pb.h` for the same schema **by default**, including the well-known types, where
+  RapidProto previously redefined `google::protobuf::Timestamp` for any schema importing one.
+
+- **Breaking: the debug dumper's entry points are model-independent.**
+  `pkg::rp_dump_string(m, opts)` and `pkg::rp_dump_write(os, m, opts)` become
+  `rapidproto::dump(m, opts)` and `rapidproto::dump(os, m, opts)` — one spelling for every schema,
+  usable from generic code — and `rapidproto::dump::DumpOptions` becomes `rapidproto::DumpOptions`.
+  Calling `dump` on a type with no generated dumper now names the fix in a `static_assert` instead
+  of failing on an incomplete type. `Writer` and the `write_*` helpers move to
+  `rapidproto::dump_detail`; they were never documented.
+
 - **Breaking: `MapView::find` returns an iterator, not a pointer.** It now compares against `end()`
   the way `std::map` does. Previously it returned `nullptr` on a miss while `end()` was
   one-past-the-end, so the habitual `find(k) != end()` compiled clean under `-Wall -Wextra`, was
@@ -32,8 +106,8 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
   literal keeps its spelling and the escape moves, so that schema emits `decode_` (the message) and
   `decode__` (the enum) where it previously emitted `decode_` (the enum) and `decode__` (the
   message). That applies to single-file schemas too, not only the cross-file case that failed to
-  compile. Names INSIDE a message (nested types, fields, oneofs, map entries) are unaffected: there
-  the escape still keeps `decode_` and the literal takes `decode__`. And because the dedup scope is
+  compile. Names INSIDE a message (nested types, fields, oneofs, map entries) are unaffected:
+  they still dedup first-come in declaration order. And because the dedup scope is
   now the whole resolved file set, adding a file to a package can shift an escaped id in a sibling
   file — including in a header a previous generator run already wrote, which is a compile error
   rather than a silent mismatch.
@@ -48,8 +122,11 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
   three were never on it, which is why `oneof RpFs` failed to compile rather than being escaped.
 
   The principle: reserve a name only when it is public API a user writes and so cannot take the
-  prefix. That leaves `Value`, `Key`, `kNumber`, `kName`, `decode` and the namespace `std`
-  (`rapidproto` is escaped only as a namespace component, where it actually collides).
+  prefix. That leaves `Value`, `Key`, `kNumber`, `kName`, `decode` and the namespace `std`.
+  `rapidproto` needs no escape anywhere any more: a package of that name lands at
+  `rp::arena::rapidproto`, three levels below the runtime's `::rapidproto`, so it keeps its
+  spelling (it was `rapidproto_` before the roots); only `--namespace-prefix=rapidproto` is
+  refused, since the prefix is the one component that would open the runtime's own namespace.
 
   Only the streaming decoder's *declaration* changes shape (`template <class... rp_Callbacks>`);
   callbacks are deduced, so calling code is unaffected — unless your schema actually spells a name
@@ -57,6 +134,38 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
   **Regenerate** to pick it up.
 
 ### Fixed
+
+- **Names that hit a predefined or ever-present macro are escaped, two groups more than before.**
+  `linux` and `unix` — gcc/clang predefined macros under GNU extensions, the default when no
+  `-std` is passed — are lowercase, so an ordinary package, field or enum value of that name
+  macro-expanded into non-compiling output. And `<cstdint>`'s macros broke **unconditionally**,
+  because every generated header includes `<cstdint>` itself: the limit macros (`INT32_MAX`,
+  `SIZE_MAX`, ...) expand anywhere — `enum { LIM_INT32_MAX = 1 }` (via prefix stripping) or a
+  field named `INT32_MIN` produced a header that could not compile — and the function-like
+  `INT8_C` family expands exactly where an accessor declaration puts the name, before a `(`. All
+  of them now take the usual `_` escape, and enum-prefix stripping refuses to strip an enum whose
+  bare remainder would land on one.
+
+- **A top-level type whose sanitized name collides with a sibling package's is now deduplicated
+  instead of emitting a broken header.** `package a.linux` opens `namespace linux_` inside `a` —
+  and a sibling file's `message linux_` (protoc-valid: the proto names differ) landed on the same
+  id, redeclaring the namespace as a class in every root and colliding its mirrored enums with the
+  package's in the common header. Package components now claim their ids first, so the type takes
+  a further `_` (`linux__`), by the same parent-keeps-its-name rule that already settles
+  nested-type contests. Which name yields is decided by the schema (proto FQN order), never by
+  the order files are passed in.
+
+- **`rapidproto_generate(NAMESPACE_PREFIX N)` no longer silently ignores the prefix.** The helper
+  tested the value for truth, and CMake reads `N`, `no`, `off`, `false` and `0` as false — so those
+  prefixes were dropped and headers were generated under the default while the build file said
+  otherwise. It now tests whether the keyword was given at all.
+
+- **A deleted `<stem>.rp.common.hpp` is regenerated instead of breaking the build for good.** The
+  CMake helper declared the decoder headers as outputs but not the shared common header, so removing
+  it (or losing it to a partial clean) left `fatal error: <stem>.rp.common.hpp: No such file or
+  directory` until something unrelated invalidated the batch. (Imported schemas' headers and the
+  runtime copies the CLI drops beside them are still undeclared — deleting one of those requires a
+  regeneration to recover.)
 
 - **A "maximum nesting depth exceeded" error now points at the token that exceeded it.** The
   parser reports positions as token indices, which the resolver maps back to `file:line:col`; this

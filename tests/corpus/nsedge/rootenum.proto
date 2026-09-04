@@ -1,0 +1,16 @@
+// A top-level ENUM named after a model root. Distinct from rootnames.proto's messages: an enum
+// lands in the shared common header, so before the roots existed this broke the streaming header
+// on its OWN -- no arena model, no second header, nothing to coexist with. That makes it the one
+// variant a single-model TU can catch, which is why it is a separate fixture.
+syntax = "proto3";
+package re;
+
+enum stream { STREAM_UNSET = 0; }
+enum arena { ARENA_UNSET = 0; }
+enum common { COMMON_UNSET = 0; }
+
+message Holder {
+  stream s = 1;
+  arena a = 2;
+  common c = 3;
+}

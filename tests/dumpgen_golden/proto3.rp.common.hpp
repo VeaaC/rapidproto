@@ -4,7 +4,7 @@
 
 #include <cstdint>
 
-namespace p3 {
+namespace rp::common::p3 {
 
 enum class State : std::int32_t {
   UNKNOWN = 0,
@@ -15,4 +15,4 @@ enum class State : std::int32_t {
   rp_non_exhaustive_max = INT32_MAX,
 };
 
-}  // namespace p3
+}  // namespace rp::common::p3

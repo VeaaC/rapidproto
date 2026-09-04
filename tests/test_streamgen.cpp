@@ -1,7 +1,7 @@
 // Generated-decoder tests. (1) A golden test that regenerates the streaming header for
 // proto2.proto and compares it byte-for-byte to the checked-in copy. (2) A compile-and-run test
 // that includes that checked-in generated header and decodes the `scalars.bin` wire fixture
-// through the generated `p2::stream::Scalars` decoder, asserting every singular scalar.
+// through the generated `rp::stream::p2::Scalars` decoder, asserting every singular scalar.
 //
 // Regenerate the goldens after an intentional generator change with: tests/regen_goldens.sh
 // (the in-test RAPIDPROTO_REGEN_GOLDEN mode can't rebuild this binary when a change breaks the
@@ -16,6 +16,7 @@
 #include <fstream>
 #include <ios>
 #include <optional>
+#include <set>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -24,6 +25,8 @@
 #include <vector>
 
 #include "rapidproto/ast.hpp"
+#include "rapidproto/codegen/emit.hpp"
+#include "rapidproto/codegen/naming.hpp"
 #include "rapidproto/resolve.hpp"
 #include "rapidproto/resolver.hpp"
 #include "rapidproto/runtime.hpp"
@@ -35,20 +38,20 @@
 // IWYU pragma: begin_keep
 #include "streamgen_golden/main.rp.stream.hpp"    // cross-file: pulls dep/forward/pub via #include
 #include "streamgen_golden/naming.rp.stream.hpp"  // identifier dedup + absolute names: must compile
-#include "streamgen_golden/nopkg.rp.stream.hpp"   // NO package: a top-level `namespace stream`
-#include "streamgen_golden/rppkg.rp.stream.hpp"   // package `rapidproto` -> namespace rapidproto_
+#include "streamgen_golden/nopkg.rp.stream.hpp"   // NO package: types directly under rp::stream
+#include "streamgen_golden/rppkg.rp.stream.hpp"  // package `rapidproto`: keeps its name under the roots
 #include "streamgen_golden/stdpkg.rp.stream.hpp"  // package `std` -> namespace std_, not namespace std
 #include "streamgen_golden/usewkt.rp.stream.hpp"    // WKT closure: pulls google/protobuf/* headers
 #include "streamgen_golden/weakmain.rp.stream.hpp"  // weak import: pulls weakdep via #include
 #include "streamgen_golden/xpkg.rp.stream.hpp"  // dotted package (pulls deep): com::example::deep
 #include "streamgen_golden/xref.rp.stream.hpp"  // mutually-cyclic A<->B: must compile
-#include "streamgen_golden/xref_prefixed/xref.rp.stream.hpp"  // --namespace-prefix=rp -> namespace rp::xr
+#include "streamgen_golden/xref_prefixed/xref.rp.stream.hpp"  // --namespace-prefix=pfx -> namespace pfx::stream::xr
 // IWYU pragma: end_keep
 #include "streamgen_golden/wire_all.rp.stream.hpp"  // group + packed coverage
 #include "streamgen_golden/packed.rp.stream.hpp"    // packed fixed-width (I32/I64) element decode
 #include "streamgen_golden/editions2023.rp.stream.hpp"  // editions DELIMITED + presence features
 #include "streamgen_golden/editions2024.rp.stream.hpp"  // IWYU pragma: keep -- 2024 compile-smoke
-#include "streamgen_golden/dep.rp.stream.hpp"  // cross-file decode target (dep::stream::Dep; also via main)
+#include "streamgen_golden/dep.rp.stream.hpp"  // cross-file decode target (rp::stream::dep::Dep; also via main)
 #include "streamgen_golden/pub.rp.stream.hpp"      // re-exported cross-file decode target
 #include "streamgen_golden/forward.rp.stream.hpp"  // public-import cross-file decode target
 #include "streamgen_golden/weakdep.rp.stream.hpp"  // weak-import decode target (also via weakmain)
@@ -75,6 +78,24 @@ std::string generate_at(const std::string& proto_path, const std::string& includ
     ResolvedFileSet set = std::move(resolved).value();
     REQUIRE(analyze(set).is_ok());
     return streamgen::generate_header(set.files.back(), set.files);
+}
+
+// The shared common header for the same entry, compared beside each model golden below. The model
+// golden byte-pins the decoder; the `<stem>.rp.common.hpp` it #includes -- where every enum and
+// the nesting mirror live -- was compiled by this TU but compared by nothing in this suite, so it
+// could drift (or be hand-edited) with the suite green as long as it still compiled.
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): entry path vs include dir, distinct roles
+std::string common_header_at(const std::string& proto_path, const std::string& include_dir) {
+    ResolverConfig config;
+    config.include_paths = {include_dir};
+    auto resolved = resolve(proto_path, config);
+    REQUIRE(resolved.is_ok());
+    ResolvedFileSet set = std::move(resolved).value();
+    REQUIRE(analyze(set).is_ok());
+    const codegen::CppNameTable names =
+        codegen::build_cpp_names(set.files.back(), set.files, codegen::effective_ns_prefix({}),
+                                 std::string(codegen::kStreamRoot));
+    return codegen::emit_common_header(set.files.back(), names);
 }
 
 // --- hand-built wire-buffer builders for the decode tests below ---
@@ -107,6 +128,7 @@ void put_float(std::string& b, float f) {
 
 }  // namespace
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): one case loop + a completeness glob
 TEST_CASE("streamgen: generated headers match the goldens", "[streamgen]") {
     const std::string corpus = RAPIDPROTO_CORPUS_DIR;
     const std::string fixtures = RAPIDPROTO_WIRE_FIXTURE_DIR;
@@ -116,8 +138,8 @@ TEST_CASE("streamgen: generated headers match the goldens", "[streamgen]") {
     };
     const std::string imports = corpus + "/imports";
     // Package shapes no other entry has: every other corpus file declares a single-component package.
-    // deep -> namespace com::example::deep::stream, nopkg -> a top-level `namespace stream` (types at
-    // global scope), xpkg -> a cross-file reference INTO a dotted package.
+    // deep -> namespace rp::stream::com::example::deep, nopkg -> types directly under rp::stream
+    // (the root, never global scope), xpkg -> a cross-file reference INTO a dotted package.
     const std::string nsedge = corpus + "/nsedge";
     const std::vector<Case> cases = {
         {"proto2", corpus},       {"proto3", corpus},     {"xref", corpus},
@@ -131,22 +153,60 @@ TEST_CASE("streamgen: generated headers match the goldens", "[streamgen]") {
         {"nopkg", nsedge},         // no package at all
         {"xpkg", nsedge},          // cross-file reference into a dotted package
         {"stdpkg", nsedge},        // package `std` -> namespace std_, never namespace std
-        {"rppkg", nsedge}};        // package `rapidproto` -> namespace rapidproto_
+        {"rppkg", nsedge}};        // package `rapidproto`, below the runtime's own namespace
 
     // NOLINTNEXTLINE(concurrency-mt-unsafe): single-threaded test, opt-in regeneration only
     const bool regen = std::getenv("RAPIDPROTO_REGEN_GOLDEN") != nullptr;
     for (const Case& test : cases) {
         const std::string actual =
             generate_at(test.include + "/" + test.name + ".proto", test.include);
+        const std::string actual_common =
+            common_header_at(test.include + "/" + test.name + ".proto", test.include);
         const std::string golden =
             std::string(RAPIDPROTO_STREAMGEN_GOLDEN_DIR) + "/" + test.name + ".rp.stream.hpp";
+        const std::string common_golden =
+            std::string(RAPIDPROTO_STREAMGEN_GOLDEN_DIR) + "/" + test.name + ".rp.common.hpp";
         if (regen) {
             std::ofstream(golden, std::ios::binary) << actual;
+            std::ofstream(common_golden, std::ios::binary) << actual_common;
             WARN("regenerated streamgen golden: " << test.name);
             continue;
         }
         INFO("golden: " << test.name);
         CHECK(actual == read_file(golden));
+        CHECK(actual_common == read_file(common_golden));
+    }
+
+    // Completeness: every common golden in the directory must be compared by SOMETHING -- this
+    // loop, the well-known-type closure loop (usewkt + google/protobuf/*), or the xref_prefixed
+    // block. The lists are hand-maintained, so a dropped case would leave its common
+    // compiled-but-uncompared with everything green.
+    std::set<std::string> covered{"xref_prefixed/xref"};
+    for (const Case& test : cases) {
+        covered.insert(test.name);
+    }
+    {
+        ResolverConfig config;
+        config.include_paths = {corpus};
+        auto resolved = resolve(corpus + "/usewkt.proto", config);
+        REQUIRE(resolved.is_ok());
+        const ResolvedFileSet set = std::move(resolved).value();
+        for (const FileNode& file : set.files) {
+            std::filesystem::path stem = file.filename;
+            stem.replace_extension();
+            covered.insert(stem.generic_string());
+        }
+    }
+    const std::filesystem::path root{std::string(RAPIDPROTO_STREAMGEN_GOLDEN_DIR)};
+    for (const auto& entry : std::filesystem::recursive_directory_iterator(root)) {
+        const std::string name = entry.path().lexically_relative(root).generic_string();
+        constexpr std::string_view kExt = ".rp.common.hpp";
+        if (name.size() <= kExt.size() ||
+            name.compare(name.size() - kExt.size(), kExt.size(), kExt) != 0) {
+            continue;
+        }
+        INFO("streamgen_golden/" << name << " is compared by no case list in this suite");
+        CHECK(covered.count(name.substr(0, name.size() - kExt.size())) == 1);
     }
 }
 
@@ -165,15 +225,16 @@ TEST_CASE("streamgen: namespace prefix nests the generated namespace", "[streamg
     REQUIRE(analyze(p3set).is_ok());
     const std::string prefixed =
         streamgen::generate_header(p3set.files.back(), p3set.files, "rp.dec");
-    CHECK(prefixed.find("namespace rp::dec::p3::stream {") != std::string::npos);
-    CHECK(prefixed.find("::rp::dec::p3::stream::Msg") !=
+    CHECK(prefixed.find("namespace rp::dec::stream::p3 {") != std::string::npos);
+    CHECK(prefixed.find("::rp::dec::stream::p3::Msg") !=
           std::string::npos);  // message refs: prefixed + nested
-    // The shared enum is prefixed but not model-nested (it lives in the common header at package scope,
-    // aliased into the model namespace) -- the load-bearing coexistence invariant.
-    CHECK(prefixed.find("::rp::dec::p3::State") != std::string::npos);
-    CHECK(prefixed.find("::rp::dec::p3::stream::State") == std::string::npos);
+    // The shared enum is prefixed but carries the COMMON root, not the model one (it lives in the
+    // common header under `<prefix>::common::<pkg>`, aliased into each model) -- the load-bearing
+    // coexistence invariant.
+    CHECK(prefixed.find("::rp::dec::common::p3::State") != std::string::npos);
+    CHECK(prefixed.find("::rp::dec::stream::p3::State") == std::string::npos);
     const std::string plain = streamgen::generate_header(p3set.files.back(), p3set.files);
-    CHECK(plain.find("namespace p3::stream {") !=
+    CHECK(plain.find("namespace rp::stream::p3 {") !=
           std::string::npos);  // default (no prefix) still nests under stream
     CHECK(plain.find("rp::dec") == std::string::npos);
 
@@ -184,19 +245,29 @@ TEST_CASE("streamgen: namespace prefix nests the generated namespace", "[streamg
     ResolvedFileSet xrset = std::move(xr).value();
     REQUIRE(analyze(xrset).is_ok());
     const std::string xr_prefixed =
-        streamgen::generate_header(xrset.files.back(), xrset.files, "rp");
+        streamgen::generate_header(xrset.files.back(), xrset.files, "pfx");
     const std::string golden =
         std::string(RAPIDPROTO_STREAMGEN_GOLDEN_DIR) + "/xref_prefixed/xref.rp.stream.hpp";
+    // The prefixed common header too: it is the reason this golden lives in its own subdir (its
+    // `pfx::common::xr` enums would otherwise collide with the unprefixed xref common's).
+    const codegen::CppNameTable xr_names = codegen::build_cpp_names(
+        xrset.files.back(), xrset.files, codegen::effective_ns_prefix("pfx"),
+        std::string(codegen::kStreamRoot));
+    const std::string xr_common = codegen::emit_common_header(xrset.files.back(), xr_names);
+    const std::string common_golden =
+        std::string(RAPIDPROTO_STREAMGEN_GOLDEN_DIR) + "/xref_prefixed/xref.rp.common.hpp";
     // NOLINTNEXTLINE(concurrency-mt-unsafe): single-threaded test, opt-in regeneration only
     if (std::getenv("RAPIDPROTO_REGEN_GOLDEN") != nullptr) {
         std::ofstream(golden, std::ios::binary) << xr_prefixed;
+        std::ofstream(common_golden, std::ios::binary) << xr_common;
     } else {
         CHECK(xr_prefixed == read_file(golden));
+        CHECK(xr_common == read_file(common_golden));
     }
 
-    // Coexistence in one TU: the prefixed `rp::xr::stream::A` and the unprefixed `xr::stream::A` (both #included
+    // Coexistence in one TU: the prefixed `pfx::stream::xr::A` and the unprefixed `rp::stream::xr::A` (both #included
     // above) are distinct, usable types -- the same shape as coexisting with a protoc header.
-    static_assert(!std::is_same_v<rp::xr::stream::A, xr::stream::A>);
+    static_assert(!std::is_same_v<pfx::stream::xr::A, rp::stream::xr::A>);
 }
 
 // An unknown-field handler (a 1-arg `[](rapidproto::UnknownField){}`) receives fields whose number
@@ -225,9 +296,9 @@ TEST_CASE("streamgen: an unknown-field handler receives only non-schema fields",
     std::int32_t known = 0;
     std::vector<std::uint32_t> unknown_numbers;
     std::string unknown_len_bytes;
-    const p3::stream::Msg msg{ByteView(buf)};
+    const rp::stream::p3::Msg msg{ByteView(buf)};
     const DecodeStatus s =
-        msg.decode([&](p3::stream::Msg::implicit_i,
+        msg.decode([&](rp::stream::p3::Msg::implicit_i,
                        std::int32_t v) { known = v; },  // a known field (field 2 unhandled)
                    [&](UnknownField uf) {
                        unknown_numbers.push_back(uf.field_number);
@@ -267,7 +338,7 @@ TEST_CASE("streamgen: a field catch-all does not receive unknown fields", "[stre
     put_varint(buf, 7);
     put_varint(buf, (99U << 3) | 0U);  // field 99 (varint): unknown number
     put_varint(buf, 42);
-    const p3::stream::Msg msg{ByteView(buf)};
+    const rp::stream::p3::Msg msg{ByteView(buf)};
 
     // Catch-all only: it sees the known field but not the unknown one (which is skipped).
     int catchall_calls = 0;
@@ -317,11 +388,11 @@ TEST_CASE("streamgen: packed fixed-width repeated fields decode per element", "[
     std::vector<double> pd;
     std::vector<std::int32_t> psf;
     std::vector<float> pf;
-    const pk::stream::Packed p{ByteView(buf)};
+    const rp::stream::pk::Packed p{ByteView(buf)};
     const DecodeStatus s =
-        p.decode([&](pk::stream::Packed::pd, double v) { pd.push_back(v); },
-                 [&](pk::stream::Packed::psf, std::int32_t v) { psf.push_back(v); },
-                 [&](pk::stream::Packed::pf, float v) { pf.push_back(v); });
+        p.decode([&](rp::stream::pk::Packed::pd, double v) { pd.push_back(v); },
+                 [&](rp::stream::pk::Packed::psf, std::int32_t v) { psf.push_back(v); },
+                 [&](rp::stream::pk::Packed::pf, float v) { pf.push_back(v); });
     CHECK(s.ok());
     CHECK(pd == std::vector<double>{1.5, -2.25});
     CHECK(psf == std::vector<std::int32_t>{7, -3});
@@ -346,15 +417,15 @@ TEST_CASE("streamgen: editions DELIMITED field decodes via group wire format", "
 
     std::int32_t child_inner = 0;
     std::int32_t delim_inner = 0;
-    const ed23::stream::M m{ByteView(buf)};
+    const rp::stream::ed23::M m{ByteView(buf)};
     const DecodeStatus s = m.decode(
-        [&](ed23::stream::M::child, ed23::stream::M c) -> DecodeStatus {
+        [&](rp::stream::ed23::M::child, rp::stream::ed23::M c) -> DecodeStatus {
             return c.decode(
-                [&](ed23::stream::M::implicit_scalar, std::int32_t v) { child_inner = v; });
+                [&](rp::stream::ed23::M::implicit_scalar, std::int32_t v) { child_inner = v; });
         },
-        [&](ed23::stream::M::delim, ed23::stream::M d) -> DecodeStatus {
+        [&](rp::stream::ed23::M::delim, rp::stream::ed23::M d) -> DecodeStatus {
             return d.decode(
-                [&](ed23::stream::M::implicit_scalar, std::int32_t v) { delim_inner = v; });
+                [&](rp::stream::ed23::M::implicit_scalar, std::int32_t v) { delim_inner = v; });
         });
     CHECK(s.ok());
     CHECK(child_inner == 42);
@@ -374,10 +445,12 @@ TEST_CASE("streamgen: oneof members fire per occurrence in wire order", "[stream
     put_varint(buf, 2);
 
     std::vector<std::string> events;
-    const p3::stream::Msg m{ByteView(buf)};
+    const rp::stream::p3::Msg m{ByteView(buf)};
     const DecodeStatus s = m.decode(
-        [&](p3::stream::Msg::a, std::int32_t v) { events.push_back("a=" + std::to_string(v)); },
-        [&](p3::stream::Msg::b, std::string_view v) { events.push_back("b=" + std::string(v)); });
+        [&](rp::stream::p3::Msg::a, std::int32_t v) { events.push_back("a=" + std::to_string(v)); },
+        [&](rp::stream::p3::Msg::b, std::string_view v) {
+            events.push_back("b=" + std::string(v));
+        });
     CHECK(s.ok());
     CHECK(events == std::vector<std::string>{"a=1", "b=hi", "a=2"});  // wire order, no dedup
 }
@@ -397,11 +470,12 @@ TEST_CASE("streamgen: a repeated message field fires per element", "[streamgen]"
     buf.push_back('\x16');
 
     std::vector<std::int32_t> xs;
-    const p2::stream::Container c{ByteView(buf)};
-    const DecodeStatus s = c.decode([&](p2::stream::Container::items,
-                                        p2::stream::Container::Nested n) -> DecodeStatus {
-        return n.decode([&](p2::stream::Container::Nested::x, std::int32_t v) { xs.push_back(v); });
-    });
+    const rp::stream::p2::Container c{ByteView(buf)};
+    const DecodeStatus s = c.decode(
+        [&](rp::stream::p2::Container::items, rp::stream::p2::Container::Nested n) -> DecodeStatus {
+            return n.decode(
+                [&](rp::stream::p2::Container::Nested::x, std::int32_t v) { xs.push_back(v); });
+        });
     CHECK(s.ok());
     CHECK(xs == std::vector<std::int32_t>{11, 22});  // one callback per element, in wire order
 }
@@ -423,11 +497,12 @@ TEST_CASE("streamgen: a singular sub-message occurring twice fires per occurrenc
     buf.push_back('\x02');  // = 2
 
     std::vector<std::int32_t> seen;
-    const p3::stream::Msg m{ByteView(buf)};
-    const DecodeStatus s = m.decode([&](p3::stream::Msg::self,
-                                        p3::stream::Msg self) -> DecodeStatus {
-        return self.decode([&](p3::stream::Msg::implicit_i, std::int32_t v) { seen.push_back(v); });
-    });
+    const rp::stream::p3::Msg m{ByteView(buf)};
+    const DecodeStatus s =
+        m.decode([&](rp::stream::p3::Msg::self, rp::stream::p3::Msg self) -> DecodeStatus {
+            return self.decode(
+                [&](rp::stream::p3::Msg::implicit_i, std::int32_t v) { seen.push_back(v); });
+        });
     CHECK(s.ok());  // no error: unlike the arena model, this is not a rejection
     CHECK(seen == std::vector<std::int32_t>{1, 2});
 
@@ -448,9 +523,9 @@ TEST_CASE("streamgen: a singular sub-message occurring twice fires per occurrenc
     flat += "BBB";
     std::vector<std::int32_t> ints;
     std::vector<std::string> names;
-    const DecodeStatus s2 = p3::stream::Msg{ByteView(flat)}.decode(
-        [&](p3::stream::Msg::implicit_i, std::int32_t v) { ints.push_back(v); },
-        [&](p3::stream::Msg::name, std::string_view v) { names.emplace_back(v); });
+    const DecodeStatus s2 = rp::stream::p3::Msg{ByteView(flat)}.decode(
+        [&](rp::stream::p3::Msg::implicit_i, std::int32_t v) { ints.push_back(v); },
+        [&](rp::stream::p3::Msg::name, std::string_view v) { names.emplace_back(v); });
     CHECK(s2.ok());
     CHECK(ints == std::vector<std::int32_t>{1, 2});
     CHECK(names == std::vector<std::string>{"AAA", "BBB"});
@@ -474,9 +549,9 @@ TEST_CASE("streamgen: a singular sub-message occurring twice fires per occurrenc
     put_varint(mbuf, entry.size());
     mbuf += entry;
     std::vector<std::string> pairs;
-    const DecodeStatus s3 = p3::stream::Msg{ByteView(mbuf)}.decode(
-        [&](p3::stream::Msg::counts, p3::stream::Msg::counts::Key k,
-            p3::stream::Msg::counts::Value v) {
+    const DecodeStatus s3 = rp::stream::p3::Msg{ByteView(mbuf)}.decode(
+        [&](rp::stream::p3::Msg::counts, rp::stream::p3::Msg::counts::Key k,
+            rp::stream::p3::Msg::counts::Value v) {
             pairs.push_back(std::string(k) + "=" + std::to_string(v));
         });
     CHECK(s3.ok());
@@ -496,7 +571,7 @@ TEST_CASE("streamgen: map and group decoders report malformed input", "[streamge
         buf.push_back('\x02');  // entry length 2 (envelope is valid)
         buf.push_back('\x10');  // entry field 2 (value), varint
         buf.push_back('\x80');  // continuation bit set, but the entry ends here -> truncated
-        const p2::stream::Container c{ByteView(buf)};
+        const rp::stream::p2::Container c{ByteView(buf)};
         const DecodeStatus s = c.decode([&](auto, auto&&...) {});
         CHECK_FALSE(s.ok());
         CHECK(s.wire == WireError::TruncatedVarint);  // raised by the entry sub-reader
@@ -504,7 +579,7 @@ TEST_CASE("streamgen: map and group decoders report malformed input", "[streamge
     SECTION("unterminated group") {
         std::string buf;  // p2.WithGroup MyGroup (field 1, group): SGROUP with no matching EGROUP
         put_tag(buf, 1, 3);
-        const p2::stream::WithGroup w{ByteView(buf)};
+        const rp::stream::p2::WithGroup w{ByteView(buf)};
         const DecodeStatus s = w.decode([&](auto, auto&&...) {});
         CHECK_FALSE(s.ok());
         CHECK(s.wire == WireError::UnterminatedGroup);
@@ -520,7 +595,7 @@ TEST_CASE("streamgen: an extension field surfaces as an unknown field", "[stream
     put_varint(buf, 9);
 
     std::vector<std::uint32_t> unknown;
-    const p2::stream::WithGroup w{ByteView(buf)};
+    const rp::stream::p2::WithGroup w{ByteView(buf)};
     const DecodeStatus s = w.decode([&](UnknownField uf) { unknown.push_back(uf.field_number); });
     CHECK(s.ok());
     CHECK(unknown == std::vector<std::uint32_t>{100});  // the extension number is not in the schema
@@ -547,12 +622,13 @@ TEST_CASE("streamgen: well-known-type and cross-file decoders run", "[streamgen]
         put_varint(ts, 7);
         std::int64_t tsec = 0;
         std::int32_t tnanos = 0;
-        CHECK(
-            google::protobuf::stream::Timestamp{ByteView(ts)}
-                .decode(
-                    [&](google::protobuf::stream::Timestamp::seconds, std::int64_t v) { tsec = v; },
-                    [&](google::protobuf::stream::Timestamp::nanos, std::int32_t v) { tnanos = v; })
-                .ok());
+        CHECK(rp::stream::google::protobuf::Timestamp{ByteView(ts)}
+                  .decode([&](rp::stream::google::protobuf::Timestamp::seconds,
+                              std::int64_t v) { tsec = v; },
+                          [&](rp::stream::google::protobuf::Timestamp::nanos, std::int32_t v) {
+                              tnanos = v;
+                          })
+                  .ok());
         CHECK(tsec == 5);
         CHECK(tnanos == 7);
 
@@ -560,8 +636,8 @@ TEST_CASE("streamgen: well-known-type and cross-file decoders run", "[streamgen]
         put_tag(du, 1, 0);
         put_varint(du, 3);
         std::int64_t dsec = 0;
-        CHECK(google::protobuf::stream::Duration{ByteView(du)}
-                  .decode([&](google::protobuf::stream::Duration::seconds, std::int64_t v) {
+        CHECK(rp::stream::google::protobuf::Duration{ByteView(du)}
+                  .decode([&](rp::stream::google::protobuf::Duration::seconds, std::int64_t v) {
                       dsec = v;
                   })
                   .ok());
@@ -575,16 +651,16 @@ TEST_CASE("streamgen: well-known-type and cross-file decoders run", "[streamgen]
         std::int32_t dv = 0;
         std::int32_t pw = 0;
         std::int32_t fz = 0;
-        const main::stream::Main mn{ByteView(buf)};
+        const rp::stream::main::Main mn{ByteView(buf)};
         const DecodeStatus s = mn.decode(
-            [&](main::stream::Main::d, dep::stream::Dep d) -> DecodeStatus {
-                return d.decode([&](dep::stream::Dep::v, std::int32_t v) { dv = v; });
+            [&](rp::stream::main::Main::d, rp::stream::dep::Dep d) -> DecodeStatus {
+                return d.decode([&](rp::stream::dep::Dep::v, std::int32_t v) { dv = v; });
             },
-            [&](main::stream::Main::p, pub::stream::Pub p) -> DecodeStatus {
-                return p.decode([&](pub::stream::Pub::w, std::int32_t v) { pw = v; });
+            [&](rp::stream::main::Main::p, rp::stream::pub::Pub p) -> DecodeStatus {
+                return p.decode([&](rp::stream::pub::Pub::w, std::int32_t v) { pw = v; });
             },
-            [&](main::stream::Main::f, fwd::stream::Fwd f) -> DecodeStatus {
-                return f.decode([&](fwd::stream::Fwd::z, std::int32_t v) { fz = v; });
+            [&](rp::stream::main::Main::f, rp::stream::fwd::Fwd f) -> DecodeStatus {
+                return f.decode([&](rp::stream::fwd::Fwd::z, std::int32_t v) { fz = v; });
             });
         CHECK(s.ok());
         CHECK(dv == 9);
@@ -595,10 +671,10 @@ TEST_CASE("streamgen: well-known-type and cross-file decoders run", "[streamgen]
         std::string buf;  // wm.WMain { d: wd.WDep{v=5} }
         sub_i32(buf, 1, 5);
         std::int32_t v = 0;
-        const wm::stream::WMain w{ByteView(buf)};
+        const rp::stream::wm::WMain w{ByteView(buf)};
         const DecodeStatus s =
-            w.decode([&](wm::stream::WMain::d, wd::stream::WDep d) -> DecodeStatus {
-                return d.decode([&](wd::stream::WDep::v, std::int32_t inner) { v = inner; });
+            w.decode([&](rp::stream::wm::WMain::d, rp::stream::wd::WDep d) -> DecodeStatus {
+                return d.decode([&](rp::stream::wd::WDep::v, std::int32_t inner) { v = inner; });
             });
         CHECK(s.ok());
         CHECK(v == 5);
@@ -620,9 +696,9 @@ TEST_CASE("streamgen: exact-match dispatch routes catch-all and specific callbac
 
     std::int32_t a = 0;    // routed to the specific callback
     int other_fields = 0;  // routed to the catch-all
-    const p3::stream::Msg msg{ByteView(bin)};
+    const rp::stream::p3::Msg msg{ByteView(bin)};
     const DecodeStatus status = msg.decode(
-        [&](p3::stream::Msg::a, std::int32_t v) { a = v; },           // specific
+        [&](rp::stream::p3::Msg::a, std::int32_t v) { a = v; },       // specific
         [&](auto /*tag*/, auto&&... /*value*/) { ++other_fields; });  // generic catch-all
 
     CHECK(status.ok());
@@ -641,7 +717,7 @@ TEST_CASE("streamgen: a catch-all can introspect the tag's kName/kNumber", "[str
     }
     int fields = 0;
     std::string a_name;
-    const p3::stream::Msg msg{ByteView(bin)};
+    const rp::stream::p3::Msg msg{ByteView(bin)};
     const DecodeStatus status = msg.decode([&](auto tag, auto&& /*value*/) {
         ++fields;
         if (tag.kNumber == 10) {
@@ -656,14 +732,14 @@ TEST_CASE("streamgen: a catch-all can introspect the tag's kName/kNumber", "[str
 
 namespace {
 struct CbExactA {
-    void operator()(p3::stream::Msg::a /*tag*/, std::int32_t /*v*/) const {}
+    void operator()(rp::stream::p3::Msg::a /*tag*/, std::int32_t /*v*/) const {}
 };
 struct CbWrongA {
-    void operator()(p3::stream::Msg::a /*tag*/, double /*v*/) const {
+    void operator()(rp::stream::p3::Msg::a /*tag*/, double /*v*/) const {
     }  // convertible-but-wrong type
 };
 struct CbOptionalA {
-    void operator()(p3::stream::Msg::a /*tag*/, std::optional<std::int32_t> /*v*/) const {
+    void operator()(rp::stream::p3::Msg::a /*tag*/, std::optional<std::int32_t> /*v*/) const {
     }  // wrapper of V
 };
 struct CbCatchAll {
@@ -672,7 +748,7 @@ struct CbCatchAll {
 };
 struct CbPartialValue {  // concrete tag, generic value -> partially generic (rejected)
     template <class V>
-    void operator()(p3::stream::Msg::a /*tag*/, V /*v*/) const {}
+    void operator()(rp::stream::p3::Msg::a /*tag*/, V /*v*/) const {}
 };
 struct CbPartialTag {  // generic tag, concrete value -> partially generic (rejected)
     template <class T>
@@ -700,8 +776,8 @@ struct
 // must fail to compile" cases live in tests/streamgen_compile_fail.sh (run by check.sh).
 TEST_CASE("streamgen: the exact-match dispatch gate accepts and rejects the right types",
           "[streamgen]") {
-    using A = p3::stream::Msg::a;
-    using V = p3::stream::Msg::a::Value;  // std::int32_t
+    using A = rp::stream::p3::Msg::a;
+    using V = rp::stream::p3::Msg::a::Value;  // std::int32_t
     // An exact callback handles the field; a convertible-but-wrong one and a wrapper-of-V one do
     // not (they would silently narrow / silently wrap):
     static_assert(handles_one<CbExactA, A, V>);
@@ -752,19 +828,19 @@ TEST_CASE("streamgen: a generated decoder reports malformed input and callback a
         // field 1 (implicit_i, varint), then a varint byte with the continuation bit set and no
         // continuation: the value read fails with TruncatedVarint.
         const std::string truncated("\x08\x80", 2);
-        const p3::stream::Msg msg{ByteView(truncated)};
+        const rp::stream::p3::Msg msg{ByteView(truncated)};
         bool fired = false;
         const DecodeStatus s =
-            msg.decode([&](p3::stream::Msg::implicit_i, std::int32_t) { fired = true; });
+            msg.decode([&](rp::stream::p3::Msg::implicit_i, std::int32_t) { fired = true; });
         CHECK_FALSE(s.ok());
         CHECK(s.wire == WireError::TruncatedVarint);
         CHECK_FALSE(fired);  // a failed read never invokes the callback
     }
     SECTION("callback abort -> aborted status") {
         const std::string valid("\x08\x0a", 2);  // field 1 (implicit_i) = 10
-        const p3::stream::Msg msg{ByteView(valid)};
+        const rp::stream::p3::Msg msg{ByteView(valid)};
         const DecodeStatus s =
-            msg.decode([&](p3::stream::Msg::implicit_i, std::int32_t) -> DecodeStatus {
+            msg.decode([&](rp::stream::p3::Msg::implicit_i, std::int32_t) -> DecodeStatus {
                 return DecodeStatus::abort();
             });
         CHECK_FALSE(s.ok());
@@ -776,6 +852,7 @@ TEST_CASE("streamgen: a generated decoder reports malformed input and callback a
 // The CLI generates the whole resolved closure (entry + transitive imports + well-known
 // types), so a schema using google.protobuf.* compiles standalone. This regenerates every file in
 // usewkt.proto's closure (including the embedded WKT sources) and golden-checks each.
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): one loop, two golden comparisons
 TEST_CASE("streamgen: well-known-type closure generates self-contained headers", "[streamgen]") {
     ResolverConfig config;
     config.include_paths = {std::string(RAPIDPROTO_CORPUS_DIR)};
@@ -793,14 +870,24 @@ TEST_CASE("streamgen: well-known-type closure generates self-contained headers",
             std::filesystem::path(RAPIDPROTO_STREAMGEN_GOLDEN_DIR) /
             (stem.string() + ".rp.stream.hpp");
         const std::string actual = streamgen::generate_header(file, set.files);
+        // Each file's shared common header too -- the embedded WKT sources have enums of their
+        // own (google.protobuf.Field.Kind etc.), and nothing else compares their commons.
+        const codegen::CppNameTable names = codegen::build_cpp_names(
+            file, set.files, codegen::effective_ns_prefix({}), std::string(codegen::kStreamRoot));
+        const std::string actual_common = codegen::emit_common_header(file, names);
+        const std::filesystem::path common_golden =
+            std::filesystem::path(RAPIDPROTO_STREAMGEN_GOLDEN_DIR) /
+            (stem.string() + ".rp.common.hpp");
         if (regen) {
             std::filesystem::create_directories(golden.parent_path());
             std::ofstream(golden, std::ios::binary) << actual;
+            std::ofstream(common_golden, std::ios::binary) << actual_common;
             WARN("regenerated streamgen golden: " << stem.string());
             continue;
         }
         INFO("golden: " << stem.string());
         CHECK(actual == read_file(golden.string()));
+        CHECK(actual_common == read_file(common_golden.string()));
     }
 }
 
@@ -810,49 +897,55 @@ TEST_CASE("streamgen: well-known-type closure generates self-contained headers",
 TEST_CASE("streamgen: colliding identifiers are de-duplicated and types bind absolutely",
           "[streamgen]") {
     // Field tag `decode` -> decode_, sibling `decode_` -> decode__, oneof `decode__` -> decode___.
-    static_assert(nm::stream::M::decode_::kNumber == 1);
-    static_assert(nm::stream::M::decode__::kNumber == 2);
-    static_assert(nm::stream::M::decode___::kNumber == 6);
-    CHECK(nm::stream::M::decode_::kName == "decode");  // identifier deduped, wire name preserved
-    CHECK(nm::stream::M::decode__::kName == "decode_");
-    CHECK(nm::stream::M::decode___::kName == "decode__");
+    static_assert(rp::stream::nm::M::decode_::kNumber == 1);
+    static_assert(rp::stream::nm::M::decode__::kNumber == 2);
+    static_assert(rp::stream::nm::M::decode___::kNumber == 6);
+    CHECK(rp::stream::nm::M::decode_::kName ==
+          "decode");  // identifier deduped, wire name preserved
+    CHECK(rp::stream::nm::M::decode__::kName == "decode_");
+    CHECK(rp::stream::nm::M::decode___::kName == "decode__");
     // Nested type `int` keeps `int_` (indexed first); field `int_` becomes `int__`.
-    static_assert(std::is_same_v<nm::stream::M::int_field::Value, nm::stream::M::int_>);
-    static_assert(nm::stream::M::int__::kName[0] ==
+    static_assert(std::is_same_v<rp::stream::nm::M::int_field::Value, rp::stream::nm::M::int_>);
+    static_assert(rp::stream::nm::M::int__::kName[0] ==
                   'i');  // the field, distinct from the nested type
     // Enum value `decode` -> decode_, `decode_` -> decode__; type reference is fully ::-rooted.
-    static_assert(nm::stream::E::decode_ == static_cast<nm::stream::E>(0));
-    static_assert(nm::stream::E::decode__ == static_cast<nm::stream::E>(1));
-    static_assert(std::is_same_v<nm::stream::M::e::Value, nm::stream::E>);
+    static_assert(rp::stream::nm::E::decode_ == static_cast<rp::stream::nm::E>(0));
+    static_assert(rp::stream::nm::E::decode__ == static_cast<rp::stream::nm::E>(1));
+    static_assert(std::is_same_v<rp::stream::nm::M::e::Value, rp::stream::nm::E>);
     // `std` is escaped in every role. Unescaped, each shadows the namespace the generated members
     // name unrooted (`std::int32_t`, `std::string_view`), and the class stops compiling -- so these
     // bindings existing at all is the regression test; the kName checks pin the wire name.
-    static_assert(std::is_same_v<nm::stream::Std::s::Value, nm::stream::Std::std_>);  // nested type
     static_assert(
-        std::is_same_v<nm::stream::StdEnum::e::Value, nm::stream::StdEnum::std_>);  // enum
-    CHECK(nm::stream::StdField::std_::kName == "std");                              // field
-    CHECK(nm::stream::StdMap::std_::kName == "std");                                // map field
+        std::is_same_v<rp::stream::nm::Std::s::Value, rp::stream::nm::Std::std_>);  // nested type
+    static_assert(
+        std::is_same_v<rp::stream::nm::StdEnum::e::Value, rp::stream::nm::StdEnum::std_>);  // enum
+    CHECK(rp::stream::nm::StdField::std_::kName == "std");                                  // field
+    CHECK(rp::stream::nm::StdMap::std_::kName == "std");  // map field
     // A package named `std` is escaped the same way; `namespace std` would be undefined behaviour.
-    static_assert(std::is_same_v<std_::stream::Types::n::Value, std::int32_t>);
+    static_assert(std::is_same_v<rp::stream::std_::Types::n::Value, std::int32_t>);
     // `RP_`-prefixed names are escaped like the lowercase `rp_` ones: RP_FLATTEN and RP_NOINLINE are
     // object-like macros, so an unescaped name here would macro-expand rather than compile.
-    static_assert(std::is_same_v<nm::stream::Macros::m::Value, nm::stream::Macros::RP_FLATTEN_>);
-    CHECK(nm::stream::Macros::RP_NOINLINE_::kName == "RP_NOINLINE");
-    static_assert(nm::stream::MacroEnum::RP_FLATTEN_ == static_cast<nm::stream::MacroEnum>(0));
-    // A package named `rapidproto` collides with the runtime's namespace at the ROOT rather than
-    // shadowing from within: unescaped, `wire` would redeclare ::rapidproto::wire, and the top-level
-    // enum `WireType` would redeclare ::rapidproto::WireType in the shared common header.
-    static_assert(std::is_same_v<rapidproto_::stream::wire::x::Value, std::int32_t>);
-    static_assert(rapidproto_::WireType::A == static_cast<rapidproto_::WireType>(0));
-    // A FIELD named `stream` keeps its name: the model sub-namespace `nm::stream` is a different
-    // scope from the class members, so nothing collides.
-    CHECK(nm::stream::UsesStream::stream::kName == "stream");
+    static_assert(
+        std::is_same_v<rp::stream::nm::Macros::m::Value, rp::stream::nm::Macros::RP_FLATTEN_>);
+    CHECK(rp::stream::nm::Macros::RP_NOINLINE_::kName == "RP_NOINLINE");
+    static_assert(rp::stream::nm::MacroEnum::RP_FLATTEN_ ==
+                  static_cast<rp::stream::nm::MacroEnum>(0));
+    // A package named `rapidproto` keeps its name. Under the roots it lands at
+    // `rp::stream::rapidproto`, three levels below the runtime's `::rapidproto`, so even a schema
+    // that names its messages `wire` and `Arena` cannot redeclare anything the runtime owns. Only
+    // the PREFIX could, and that is refused (cli::namespace_prefix_problem).
+    static_assert(std::is_same_v<rp::stream::rapidproto::wire::x::Value, std::int32_t>);
+    static_assert(rp::stream::rapidproto::WireType::A ==
+                  static_cast<rp::stream::rapidproto::WireType>(0));
+    // A FIELD named `stream` keeps its name -- the model roots sit above the package, so `stream` is
+    // an ordinary identifier everywhere below them.
+    CHECK(rp::stream::nm::UsesStream::stream::kName == "stream");
     // Names the emitters no longer reserve, because their own identifiers took the `rp_` prefix.
     // These compile only if the proto name survived unescaped.
-    static_assert(nm::stream::Freed::Callbacks::kNumber == 1);
-    static_assert(nm::stream::Freed::RpFs::kNumber == 2);
-    static_assert(nm::stream::Freed::RpT::kNumber == 3);
-    static_assert(nm::stream::Freed::RpTag::kNumber == 4);
+    static_assert(rp::stream::nm::Freed::Callbacks::kNumber == 1);
+    static_assert(rp::stream::nm::Freed::RpFs::kNumber == 2);
+    static_assert(rp::stream::nm::Freed::RpT::kNumber == 3);
+    static_assert(rp::stream::nm::Freed::RpTag::kNumber == 4);
     SUCCEED("dedup + absolute-binding bindings compiled");
 }
 
@@ -864,20 +957,20 @@ TEST_CASE("streamgen: cross-file type references resolve through emitted include
     // dep/fwd/pub are reached transitively via main.rp.stream.hpp's emitted includes -- that chain
     // is exactly what this test exercises, so the indirect references are intentional.
     // NOLINTBEGIN(misc-include-cleaner)
+    static_assert(std::is_same_v<rp::stream::main::Main::d::Value,
+                                 ::rp::stream::dep::Dep>);  // standard import
+    static_assert(std::is_same_v<rp::stream::main::Main::e::Value,
+                                 ::rp::stream::dep::DepEnum>);  // imported enum
     static_assert(
-        std::is_same_v<main::stream::Main::d::Value, ::dep::stream::Dep>);  // standard import
-    static_assert(
-        std::is_same_v<main::stream::Main::e::Value, ::dep::stream::DepEnum>);  // imported enum
-    static_assert(
-        std::is_same_v<main::stream::Main::f::Value, ::fwd::stream::Fwd>);  // forward.proto
-    static_assert(
-        std::is_same_v<main::stream::Main::p::Value, ::pub::stream::Pub>);  // public re-export
-    static_assert(std::is_same_v<wm::stream::WMain::d::Value,
-                                 ::wd::stream::WDep>);  // weak import, type still usable
-    static_assert(std::is_same_v<uw::stream::Event::at::Value,
-                                 ::google::protobuf::stream::Timestamp>);  // WKT
-    static_assert(
-        std::is_same_v<uw::stream::Event::took::Value, ::google::protobuf::stream::Duration>);
+        std::is_same_v<rp::stream::main::Main::f::Value, ::rp::stream::fwd::Fwd>);  // forward.proto
+    static_assert(std::is_same_v<rp::stream::main::Main::p::Value,
+                                 ::rp::stream::pub::Pub>);  // public re-export
+    static_assert(std::is_same_v<rp::stream::wm::WMain::d::Value,
+                                 ::rp::stream::wd::WDep>);  // weak import, type still usable
+    static_assert(std::is_same_v<rp::stream::uw::Event::at::Value,
+                                 ::rp::stream::google::protobuf::Timestamp>);  // WKT
+    static_assert(std::is_same_v<rp::stream::uw::Event::took::Value,
+                                 ::rp::stream::google::protobuf::Duration>);
     // NOLINTEND(misc-include-cleaner)
     SUCCEED("cross-file include chain compiled");
 }
@@ -906,23 +999,23 @@ TEST_CASE("streamgen: a generated decoder decodes a wire fixture", "[streamgen]"
     float fl = 0;
     double db = 0;
 
-    const p2::stream::Scalars decoder{ByteView(bin)};
-    const DecodeStatus status =
-        decoder.decode([&](p2::stream::Scalars::i32, std::int32_t v) { i32 = v; },
-                       [&](p2::stream::Scalars::i64, std::int64_t v) { i64 = v; },
-                       [&](p2::stream::Scalars::u32, std::uint32_t v) { u32 = v; },
-                       [&](p2::stream::Scalars::u64, std::uint64_t v) { u64 = v; },
-                       [&](p2::stream::Scalars::s32, std::int32_t v) { s32 = v; },
-                       [&](p2::stream::Scalars::s64, std::int64_t v) { s64 = v; },
-                       [&](p2::stream::Scalars::f32, std::uint32_t v) { f32 = v; },
-                       [&](p2::stream::Scalars::f64, std::uint64_t v) { f64 = v; },
-                       [&](p2::stream::Scalars::sf32, std::int32_t v) { sf32 = v; },
-                       [&](p2::stream::Scalars::sf64, std::int64_t v) { sf64 = v; },
-                       [&](p2::stream::Scalars::b, bool v) { b = v; },
-                       [&](p2::stream::Scalars::s, std::string_view v) { s = std::string(v); },
-                       [&](p2::stream::Scalars::by, std::string_view v) { by = std::string(v); },
-                       [&](p2::stream::Scalars::fl, float v) { fl = v; },
-                       [&](p2::stream::Scalars::db, double v) { db = v; });
+    const rp::stream::p2::Scalars decoder{ByteView(bin)};
+    const DecodeStatus status = decoder.decode(
+        [&](rp::stream::p2::Scalars::i32, std::int32_t v) { i32 = v; },
+        [&](rp::stream::p2::Scalars::i64, std::int64_t v) { i64 = v; },
+        [&](rp::stream::p2::Scalars::u32, std::uint32_t v) { u32 = v; },
+        [&](rp::stream::p2::Scalars::u64, std::uint64_t v) { u64 = v; },
+        [&](rp::stream::p2::Scalars::s32, std::int32_t v) { s32 = v; },
+        [&](rp::stream::p2::Scalars::s64, std::int64_t v) { s64 = v; },
+        [&](rp::stream::p2::Scalars::f32, std::uint32_t v) { f32 = v; },
+        [&](rp::stream::p2::Scalars::f64, std::uint64_t v) { f64 = v; },
+        [&](rp::stream::p2::Scalars::sf32, std::int32_t v) { sf32 = v; },
+        [&](rp::stream::p2::Scalars::sf64, std::int64_t v) { sf64 = v; },
+        [&](rp::stream::p2::Scalars::b, bool v) { b = v; },
+        [&](rp::stream::p2::Scalars::s, std::string_view v) { s = std::string(v); },
+        [&](rp::stream::p2::Scalars::by, std::string_view v) { by = std::string(v); },
+        [&](rp::stream::p2::Scalars::fl, float v) { fl = v; },
+        [&](rp::stream::p2::Scalars::db, double v) { db = v; });
 
     CHECK(status.ok());  // color (enum) + repeated fields are skipped, not errors
     CHECK(i32 == -7);
@@ -968,9 +1061,11 @@ TEST_CASE("streamgen: raw-byte fast path matches the general path across the 15/
         pv(buf, 2);  // color (enum), 2-byte tag 0x80 0x01
         std::int32_t i32 = 0;
         int color = -1;
-        const DecodeStatus s = p2::stream::Scalars{ByteView(buf)}.decode(
-            [&](p2::stream::Scalars::i32, std::int32_t v) { i32 = v; },
-            [&](p2::stream::Scalars::color, ::p2::Color v) { color = static_cast<int>(v); });
+        const DecodeStatus s = rp::stream::p2::Scalars{ByteView(buf)}.decode(
+            [&](rp::stream::p2::Scalars::i32, std::int32_t v) { i32 = v; },
+            [&](rp::stream::p2::Scalars::color, ::rp::stream::p2::Color v) {
+                color = static_cast<int>(v);
+            });
         CHECK(s.ok());
         CHECK(i32 == 123);
         CHECK(color == 2);
@@ -991,9 +1086,11 @@ TEST_CASE("streamgen: raw-byte fast path matches the general path across the 15/
         std::int32_t i32 = -1;
         int color = -1;
         std::vector<std::uint32_t> unknown;
-        const DecodeStatus s = p2::stream::Scalars{ByteView(buf)}.decode(
-            [&](p2::stream::Scalars::i32, std::int32_t v) { i32 = v; },
-            [&](p2::stream::Scalars::color, ::p2::Color v) { color = static_cast<int>(v); },
+        const DecodeStatus s = rp::stream::p2::Scalars{ByteView(buf)}.decode(
+            [&](rp::stream::p2::Scalars::i32, std::int32_t v) { i32 = v; },
+            [&](rp::stream::p2::Scalars::color, ::rp::stream::p2::Color v) {
+                color = static_cast<int>(v);
+            },
             [&](UnknownField uf) { unknown.push_back(uf.field_number); });
         CHECK(s.ok());
         CHECK(i32 == -1);        // wrong-wire fast field skipped, callback not fired
@@ -1009,10 +1106,10 @@ TEST_CASE("streamgen: raw-byte fast path matches the general path across the 15/
         pv(one, tag(1, 6));  // 1-byte reserved-wire tag
         std::string two;
         pv(two, tag(16, 6));  // 2-byte reserved-wire tag
-        const DecodeStatus s1 = p2::stream::Scalars{ByteView(one)}.decode(
-            [](p2::stream::Scalars::i32, std::int32_t) {});
-        const DecodeStatus s2 = p2::stream::Scalars{ByteView(two)}.decode(
-            [](p2::stream::Scalars::i32, std::int32_t) {});
+        const DecodeStatus s1 = rp::stream::p2::Scalars{ByteView(one)}.decode(
+            [](rp::stream::p2::Scalars::i32, std::int32_t) {});
+        const DecodeStatus s2 = rp::stream::p2::Scalars{ByteView(two)}.decode(
+            [](rp::stream::p2::Scalars::i32, std::int32_t) {});
         CHECK_FALSE(s1.ok());
         CHECK_FALSE(s2.ok());
     }
@@ -1029,8 +1126,8 @@ TEST_CASE("streamgen: raw-byte fast path matches the general path across the 15/
         pv(buf, 55);
         std::int32_t i32 = -1;
         std::vector<std::uint32_t> unknown;
-        const DecodeStatus s = p2::stream::Scalars{ByteView(buf)}.decode(
-            [&](p2::stream::Scalars::i32, std::int32_t v) { i32 = v; },
+        const DecodeStatus s = rp::stream::p2::Scalars{ByteView(buf)}.decode(
+            [&](rp::stream::p2::Scalars::i32, std::int32_t v) { i32 = v; },
             [&](UnknownField uf) { unknown.push_back(uf.field_number); });
         CHECK(s.ok());
         CHECK(i32 == 55);  // value delivered on the general path
@@ -1069,16 +1166,16 @@ TEST_CASE("streamgen: non-minimal tags decode identically across fast field kind
         over += "hello";
         std::string got_over;
         std::vector<std::uint32_t> unknown;
-        const DecodeStatus so = p2::stream::Scalars{ByteView(over)}.decode(
-            [&](p2::stream::Scalars::s, std::string_view v) { got_over = std::string(v); },
+        const DecodeStatus so = rp::stream::p2::Scalars{ByteView(over)}.decode(
+            [&](rp::stream::p2::Scalars::s, std::string_view v) { got_over = std::string(v); },
             [&](UnknownField uf) { unknown.push_back(uf.field_number); });
         std::string canon;
         pv(canon, tg(12, 2));
         pv(canon, 5);
         canon += "hello";
         std::string got_canon;
-        const DecodeStatus sc = p2::stream::Scalars{ByteView(canon)}.decode(
-            [&](p2::stream::Scalars::s, std::string_view v) { got_canon = std::string(v); });
+        const DecodeStatus sc = rp::stream::p2::Scalars{ByteView(canon)}.decode(
+            [&](rp::stream::p2::Scalars::s, std::string_view v) { got_canon = std::string(v); });
         CHECK(so.ok());
         CHECK(sc.ok());
         CHECK(got_over == got_canon);
@@ -1097,10 +1194,11 @@ TEST_CASE("streamgen: non-minimal tags decode identically across fast field kind
         pv(over, nested.size());
         over += nested;
         std::int32_t cn_x = 0;
-        const DecodeStatus s = p2::stream::Container{ByteView(over)}.decode(
-            [&](p2::stream::Container::cn, p2::stream::Container::Nested v) -> DecodeStatus {
+        const DecodeStatus s = rp::stream::p2::Container{ByteView(over)}.decode(
+            [&](rp::stream::p2::Container::cn,
+                rp::stream::p2::Container::Nested v) -> DecodeStatus {
                 return v.decode(
-                    [&](p2::stream::Container::Nested::x, std::int32_t xv) { cn_x = xv; });
+                    [&](rp::stream::p2::Container::Nested::x, std::int32_t xv) { cn_x = xv; });
             });
         CHECK(s.ok());
         CHECK(cn_x == 42);  // over-long oneof-submessage tag decoded through the sub-decoder
@@ -1125,11 +1223,12 @@ TEST_CASE("streamgen: non-minimal tags decode identically across fast field kind
         pv(buf, n2.size());
         buf += n2;
         std::vector<std::int32_t> xs;
-        const DecodeStatus s = p2::stream::Container{ByteView(buf)}.decode(
-            [&](p2::stream::Container::items, p2::stream::Container::Nested v) -> DecodeStatus {
+        const DecodeStatus s = rp::stream::p2::Container{ByteView(buf)}.decode(
+            [&](rp::stream::p2::Container::items,
+                rp::stream::p2::Container::Nested v) -> DecodeStatus {
                 std::int32_t x = 0;
-                const DecodeStatus sub =
-                    v.decode([&](p2::stream::Container::Nested::x, std::int32_t xv) { x = xv; });
+                const DecodeStatus sub = v.decode(
+                    [&](rp::stream::p2::Container::Nested::x, std::int32_t xv) { x = xv; });
                 xs.push_back(x);
                 return sub;
             });
@@ -1152,44 +1251,44 @@ TEST_CASE("streamgen: a generated decoder decodes enum, sub-message, and oneof f
     std::int32_t implicit_i = 0;
     std::int32_t a = 0;
     std::int32_t self_implicit = 0;
-    p3::stream::State state = p3::stream::State::UNKNOWN;
+    rp::stream::p3::State state = rp::stream::p3::State::UNKNOWN;
     bool saw_self = false;
-    std::vector<std::int32_t> nums;         // repeated int32 (packed on the wire)
-    std::vector<std::int32_t> unpacked;     // repeated int32 [packed=false] (expanded)
-    std::vector<p3::stream::State> states;  // repeated enum (packed)
+    std::vector<std::int32_t> nums;             // repeated int32 (packed on the wire)
+    std::vector<std::int32_t> unpacked;         // repeated int32 [packed=false] (expanded)
+    std::vector<rp::stream::p3::State> states;  // repeated enum (packed)
     std::vector<std::pair<std::string, std::int32_t>> counts;  // map<string,int32>, per entry
 
-    const p3::stream::Msg msg{ByteView(bin)};
+    const rp::stream::p3::Msg msg{ByteView(bin)};
     const DecodeStatus status = msg.decode(
-        [&](p3::stream::Msg::implicit_i, std::int32_t v) { implicit_i = v; },
-        [&](p3::stream::Msg::state, p3::stream::State v) { state = v; },  // open enum value
-        [&](p3::stream::Msg::self,
-            p3::stream::Msg sub) -> DecodeStatus {  // sub-decoder, read recursively
+        [&](rp::stream::p3::Msg::implicit_i, std::int32_t v) { implicit_i = v; },
+        [&](rp::stream::p3::Msg::state, rp::stream::p3::State v) { state = v; },  // open enum value
+        [&](rp::stream::p3::Msg::self,
+            rp::stream::p3::Msg sub) -> DecodeStatus {  // sub-decoder, read recursively
             saw_self = true;
             return sub.decode(
-                [&](p3::stream::Msg::implicit_i, std::int32_t v) { self_implicit = v; });
+                [&](rp::stream::p3::Msg::implicit_i, std::int32_t v) { self_implicit = v; });
         },
-        [&](p3::stream::Msg::nums, std::int32_t v) { nums.push_back(v); },  // fires per element
-        [&](p3::stream::Msg::unpacked, std::int32_t v) {
+        [&](rp::stream::p3::Msg::nums, std::int32_t v) { nums.push_back(v); },  // fires per element
+        [&](rp::stream::p3::Msg::unpacked, std::int32_t v) {
             unpacked.push_back(v);
         },  // expanded, per element
-        [&](p3::stream::Msg::states, p3::stream::State v) { states.push_back(v); },
-        [&](p3::stream::Msg::counts, std::string_view k,
+        [&](rp::stream::p3::Msg::states, rp::stream::p3::State v) { states.push_back(v); },
+        [&](rp::stream::p3::Msg::counts, std::string_view k,
             std::int32_t v) {  // map entry: (Tag, Key, Value)
             counts.emplace_back(std::string(k), v);
         },
-        [&](p3::stream::Msg::a, std::int32_t v) { a = v; });
+        [&](rp::stream::p3::Msg::a, std::int32_t v) { a = v; });
 
     CHECK(status.ok());
     CHECK(implicit_i == 10);
-    CHECK(state == p3::stream::State::ON);
+    CHECK(state == rp::stream::p3::State::ON);
     CHECK(a == 7);  // the oneof member that is set
     CHECK(saw_self);
     CHECK(self_implicit == 99);  // nested message decoded through the sub-decoder
     CHECK(nums == std::vector<std::int32_t>{1, 2, 3});   // packed scalar -> per element
     CHECK(unpacked == std::vector<std::int32_t>{4, 5});  // expanded scalar -> per element
-    CHECK(states ==
-          std::vector<p3::stream::State>{p3::stream::State::ON, p3::stream::State::UNKNOWN});
+    CHECK(states == std::vector<rp::stream::p3::State>{rp::stream::p3::State::ON,
+                                                       rp::stream::p3::State::UNKNOWN});
     CHECK(counts == std::vector<std::pair<std::string, std::int32_t>>{{"x", 1}, {"y", 2}});
 }
 
@@ -1203,17 +1302,17 @@ TEST_CASE("streamgen: a generated decoder decodes message-value and enum-value m
     }
 
     std::vector<std::pair<std::string, std::int32_t>> by_name;  // map<string, Nested> -> (key, x)
-    std::vector<std::pair<std::int32_t, p2::stream::Color>> by_id;  // map<int32, Color>
+    std::vector<std::pair<std::int32_t, rp::stream::p2::Color>> by_id;  // map<int32, Color>
     DecodeStatus nested_status = DecodeStatus::success();
 
-    const p2::stream::Container container{ByteView(bin)};
+    const rp::stream::p2::Container container{ByteView(bin)};
     const DecodeStatus status = container.decode(
         // Message-value map: the value arrives as a Nested sub-decoder, read recursively.
-        [&](p2::stream::Container::by_name, std::string_view k,
-            p2::stream::Container::Nested v) -> DecodeStatus {
+        [&](rp::stream::p2::Container::by_name, std::string_view k,
+            rp::stream::p2::Container::Nested v) -> DecodeStatus {
             std::int32_t x = 0;
             const DecodeStatus sub =
-                v.decode([&](p2::stream::Container::Nested::x, std::int32_t xv) { x = xv; });
+                v.decode([&](rp::stream::p2::Container::Nested::x, std::int32_t xv) { x = xv; });
             if (!sub.ok()) {
                 nested_status = sub;
             }
@@ -1221,7 +1320,7 @@ TEST_CASE("streamgen: a generated decoder decodes message-value and enum-value m
             return DecodeStatus::success();
         },
         // Enum-value map: open enum, COLOR_NEG is a negative (10-byte) varint on the wire.
-        [&](p2::stream::Container::by_id, std::int32_t k, p2::stream::Color v) {
+        [&](rp::stream::p2::Container::by_id, std::int32_t k, rp::stream::p2::Color v) {
             by_id.emplace_back(k, v);
         });
 
@@ -1229,8 +1328,8 @@ TEST_CASE("streamgen: a generated decoder decodes message-value and enum-value m
     CHECK(nested_status.ok());
     CHECK(by_name ==
           std::vector<std::pair<std::string, std::int32_t>>{{"alpha", 11}, {"beta", 22}});
-    CHECK(by_id == std::vector<std::pair<std::int32_t, p2::stream::Color>>{
-                       {1, p2::stream::Color::RED}, {2, p2::stream::Color::NEG}});
+    CHECK(by_id == std::vector<std::pair<std::int32_t, rp::stream::p2::Color>>{
+                       {1, rp::stream::p2::Color::RED}, {2, rp::stream::p2::Color::NEG}});
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): one callback per field
@@ -1251,23 +1350,25 @@ TEST_CASE("streamgen: a generated decoder decodes packed-repeated and group fiel
     std::vector<std::int32_t> packed;
     bool saw_group = false;
 
-    const ::wire::stream::AllWire all{ByteView(bin)};
+    const ::rp::stream::wire::AllWire all{ByteView(bin)};
     const DecodeStatus status = all.decode(
-        [&](::wire::stream::AllWire::zz, std::int64_t v) { zz = v; },  // sint64 (zigzag)
-        [&](::wire::stream::AllWire::fx, std::uint32_t v) { fx = v; },
-        [&](::wire::stream::AllWire::s, std::string_view v) { s = std::string(v); },
-        [&](::wire::stream::AllWire::nested, ::wire::stream::AllWire sub) -> DecodeStatus {
-            return sub.decode([&](::wire::stream::AllWire::zz, std::int64_t v) { nested_zz = v; });
+        [&](::rp::stream::wire::AllWire::zz, std::int64_t v) { zz = v; },  // sint64 (zigzag)
+        [&](::rp::stream::wire::AllWire::fx, std::uint32_t v) { fx = v; },
+        [&](::rp::stream::wire::AllWire::s, std::string_view v) { s = std::string(v); },
+        [&](::rp::stream::wire::AllWire::nested, ::rp::stream::wire::AllWire sub) -> DecodeStatus {
+            return sub.decode(
+                [&](::rp::stream::wire::AllWire::zz, std::int64_t v) { nested_zz = v; });
         },
-        [&](::wire::stream::AllWire::packed, std::int32_t v) {
+        [&](::rp::stream::wire::AllWire::packed, std::int32_t v) {
             packed.push_back(v);
         },  // packed repeated
-        [&](::wire::stream::AllWire::g,
-            ::wire::stream::AllWire::G grp) -> DecodeStatus {  // group sub-decoder
+        [&](::rp::stream::wire::AllWire::g,
+            ::rp::stream::wire::AllWire::G grp) -> DecodeStatus {  // group sub-decoder
             saw_group = true;
-            return grp.decode([&](::wire::stream::AllWire::G::a, std::int32_t v) { group_a = v; });
+            return grp.decode(
+                [&](::rp::stream::wire::AllWire::G::a, std::int32_t v) { group_a = v; });
         },
-        [&](::wire::stream::AllWire::oi, std::int32_t v) { oi = v; });
+        [&](::rp::stream::wire::AllWire::oi, std::int32_t v) { oi = v; });
 
     CHECK(status.ok());
     CHECK(zz == -1234567890123);
@@ -1327,13 +1428,13 @@ TEST_CASE("streamgen: rp_bytes() exposes the exact undecoded span", "[streamgen]
 
     rapidproto::ByteView len_span;
     rapidproto::ByteView group_span;
-    REQUIRE(ed23::stream::M{rapidproto::ByteView(len_buf)}
-                .decode([&](ed23::stream::M::child, ed23::stream::M inner) {
+    REQUIRE(rp::stream::ed23::M{rapidproto::ByteView(len_buf)}
+                .decode([&](rp::stream::ed23::M::child, rp::stream::ed23::M inner) {
                     len_span = inner.rp_bytes();
                 })
                 .ok());
-    REQUIRE(ed23::stream::M{rapidproto::ByteView(group_buf)}
-                .decode([&](ed23::stream::M::delim, ed23::stream::M inner) {
+    REQUIRE(rp::stream::ed23::M{rapidproto::ByteView(group_buf)}
+                .decode([&](rp::stream::ed23::M::delim, rp::stream::ed23::M inner) {
                     group_span = inner.rp_bytes();
                 })
                 .ok());
@@ -1343,6 +1444,6 @@ TEST_CASE("streamgen: rp_bytes() exposes the exact undecoded span", "[streamgen]
     CHECK(len_span.data() == len_buf.data() + 2);      // after the 1-byte tag + 1-byte length
     CHECK(group_span.data() == group_buf.data() + 1);  // after the 1-byte SGROUP tag
     // The root decoder's span is the whole input.
-    CHECK(ed23::stream::M{rapidproto::ByteView(len_buf)}.rp_bytes() ==
+    CHECK(rp::stream::ed23::M{rapidproto::ByteView(len_buf)}.rp_bytes() ==
           rapidproto::ByteView(len_buf));
 }

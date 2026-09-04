@@ -4,7 +4,7 @@
 
 #include <cstdint>
 
-namespace com::example::deep {
+namespace rp::common::com::example::deep {
 
 enum class Mode : std::int32_t {
   OFF = 0,
@@ -15,4 +15,4 @@ enum class Mode : std::int32_t {
   rp_non_exhaustive_max = INT32_MAX,
 };
 
-}  // namespace com::example::deep
+}  // namespace rp::common::com::example::deep

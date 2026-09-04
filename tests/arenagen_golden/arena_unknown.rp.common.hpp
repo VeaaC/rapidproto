@@ -4,6 +4,6 @@
 
 #include <cstdint>
 
-namespace au {
+namespace rp::common::au {
 
-}  // namespace au
+}  // namespace rp::common::au

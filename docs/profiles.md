@@ -15,7 +15,8 @@ unknown field" flag, exposed as `has_unknown_fields()`:
 
 The selection is part of the [decode profile](#decode-profiles-drop-raw-and-unknown-fields): it
 folds into the profile identity, so two TUs that disagree about which messages carry the flag **fail to
-link** rather than silently holding mismatched layouts of the same type.
+link** rather than silently holding mismatched layouts of the same type — within the boundary
+described [below](#decode-profiles-drop-raw-and-unknown-fields).
 
 ## Decode profiles: `drop`, `raw`, and `unknown-fields`
 
@@ -38,8 +39,8 @@ every field of that message type), or per message (for `unknown-fields`):
   just as the `const T*` does; a `required` field (proto2, or editions `LEGACY_REQUIRED`) has no
   presence to carry, so it returns a bare `ByteView`. Decode semantics are otherwise unchanged
   (`required` validation, duplicate-singular rejection). Scalars, strings, and enums can't go raw
-  (no payload a later `decode()` could consume — they're cheap to materialize or drop), nor can maps (their entry
-  type is generated internals). To defer a huge *packed scalar* array, wrap it in a sub-message
+  (no payload a later `decode()` could consume — they're cheap to materialize or drop), nor can maps
+  (their entry type is generated internals). To defer a huge *packed scalar* array, wrap it in a sub-message
   schema-side, or walk it with the streaming decoder.
 
 Profiles come from a file (one `drop <name>` / `raw <name>` / `unknown-fields <message>` per line, `#`
@@ -59,15 +60,23 @@ raw  demo.Shape.origin
 ```
 
 ```cpp
+namespace demo = rp::arena::demo;                           // arena types live under rp::arena
 const demo::Shape* s = demo::Shape::decode(bytes, arena);   // s->sides() does not compile
 if (s->origin()) {                                          // the Point payload (borrowed from the input)
     const demo::Point* p = demo::Point::decode(*s->origin(), arena);  // deferred: only now
 }
 ```
 
-A profile **changes the generated types**, so you still write `demo::Shape`, but two TUs generated
+A profile **changes the generated types**, so you still write `rp::arena::demo::Shape`, but two TUs generated
 under different profiles (including differing only in which messages reserve the unknown-fields bit)
-hold distinct types and **fail to link** rather than silently exchanging mismatched layouts. One
-practical consequence: don't forward-declare generated types yourself — under a profile, a plain
-`namespace demo { class Shape; }` declares a *different* class. See
+hold distinct types and **fail to link** rather than silently exchanging mismatched layouts.
+
+That guard is C++ name mangling, so it reaches exactly as far as mangling does — a function's
+**parameters**, not its **return type**. `Shape make();` compiled under two profiles links, and the
+caller reads the result with the layout it was built against. A signature whose only generated types
+are enums is unguarded for a different reason: enums are one type across profiles by design, shared
+through the common header. Cross a profile boundary through a parameter, or keep it inside one TU.
+
+One practical consequence: don't forward-declare generated types yourself — under a profile,
+`namespace rp::arena::demo { class Shape; }` declares a *different* class. See
 [`examples/consumer/lean_main.cpp`](../examples/consumer/lean_main.cpp) for the full pattern.

@@ -4,7 +4,7 @@
 
 #include <cstdint>
 
-namespace p2 {
+namespace rp::common::p2 {
 
 enum class Color : std::int32_t {
   UNKNOWN = 0,
@@ -17,4 +17,4 @@ enum class Color : std::int32_t {
   rp_non_exhaustive_max = INT32_MAX,
 };
 
-}  // namespace p2
+}  // namespace rp::common::p2

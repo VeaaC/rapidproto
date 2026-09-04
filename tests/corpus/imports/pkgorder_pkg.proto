@@ -1,0 +1,9 @@
+// One of the pkgorder trio (see pkgorder_a.proto): the package whose component `linux` sanitizes
+// to `linux_`, seeding that id in `po`'s scope before any file's types are named.
+syntax = "proto3";
+
+package po.linux;
+
+message Sub {
+  int32 v = 1;
+}

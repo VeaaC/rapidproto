@@ -1,7 +1,7 @@
 // Generated debug-dumper tests. Two kinds of oracle: (1) a golden test that regenerates each
 // *.rp.dump.hpp and compares byte-for-byte to the checked-in copy; (2) runtime-output tests that
 // decode real wire fixtures through the arena decoder and assert the EXACT dumped string from
-// rp_dump_string. The compile-smoke below (#including every generated debug golden) also makes the
+// rapidproto::dump. The compile-smoke below (#including every generated debug golden) also makes the
 // generated dumpers -- and, transitively, the arena headers they include -- valid C++.
 //
 // Regenerate after an intentional generator change with: tests/regen_goldens.sh (the in-test
@@ -20,23 +20,25 @@
 #include <locale>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 #include <vector>
 
 #include "arena_modes_profile.hpp"
+#include "common_golden_sweep.hpp"
 #include "rapidproto/arena_runtime.hpp"  // Arena: decode the fixtures for the runtime-output tests
 #include "rapidproto/arenagen/generator.hpp"
 #include "rapidproto/arenagen/layout.hpp"
 #include "rapidproto/arenagen/modes.hpp"
 #include "rapidproto/codegen/naming.hpp"
-#include "rapidproto/dump_runtime.hpp"  // dump::Writer / DumpOptions: driven directly below
+#include "rapidproto/dump_runtime.hpp"  // dump_detail::Writer / DumpOptions: driven directly below
 #include "rapidproto/dumpgen/generator.hpp"
 #include "rapidproto/resolve.hpp"
 #include "rapidproto/resolver.hpp"
 #include "rapidproto/runtime.hpp"  // ByteView
 // Checked-in generated debug headers (compile-smoke: they -- and the arena headers they #include --
-// must be valid C++). These also supply the rp_dump_string overloads the runtime tests call.
+// must be valid C++). These also supply the dumper<T> hooks the runtime tests dump through.
 // IWYU pragma: begin_keep
 #include "dumpgen_golden/arena_layout.rp.dump.hpp"
 #include "dumpgen_golden/arena_manyreq.rp.dump.hpp"  // >64 required
@@ -52,13 +54,21 @@
 #include "dumpgen_golden/prefixed/main.rp.dump.hpp"  // --namespace-prefix + imports
 #include "dumpgen_golden/proto2.rp.dump.hpp"
 #include "dumpgen_golden/proto3.rp.dump.hpp"
-#include "dumpgen_golden/rppkg.rp.dump.hpp"      // package `rapidproto` -> namespace rapidproto_
+#include "dumpgen_golden/rppkg.rp.dump.hpp"  // package `rapidproto`: keeps its name under the roots
 #include "dumpgen_golden/samepkg_a.rp.dump.hpp"  // same-package multi-file (pulls samepkg_b)
 #include "dumpgen_golden/stdpkg.rp.dump.hpp"  // package `std` -> namespace std_, not namespace std
 #include "dumpgen_golden/weakmain.rp.dump.hpp"  // weak import (pulls weakdep)
 #include "dumpgen_golden/wire_all.rp.dump.hpp"  // group + packed (dumped as a group)
 #include "dumpgen_golden/xref.rp.dump.hpp"
-#include "dumpgen_golden/xref_prefixed/xref.rp.dump.hpp"  // --namespace-prefix=rp -> namespace rp::xr
+#include "dumpgen_golden/xref_prefixed/xref.rp.dump.hpp"  // --namespace-prefix=pfx -> namespace pfx::arena::xr
+
+// The generated types live under one root per model; alias each package once so the
+// bodies below read as they did before the roots existed. This file uses the arena model only.
+namespace au = rp::arena::au;
+namespace fm = rp::arena::fm;
+namespace nm = rp::arena::nm;
+namespace p2 = rp::arena::p2;
+namespace p3 = rp::arena::p3;
 // IWYU pragma: end_keep
 
 using namespace rapidproto;  // NOLINT(google-build-using-namespace): test convenience
@@ -89,7 +99,8 @@ std::string generate(const std::string& dir, const std::string& entry,
     REQUIRE(analyzed.is_ok());
     const SymbolTable symbols = std::move(analyzed).value();
     const codegen::CppNameTable names =
-        codegen::build_cpp_names(set.files.front(), set.files, codegen::namespace_of(prefix));
+        codegen::build_cpp_names(set.files.front(), set.files, codegen::effective_ns_prefix(prefix),
+                                 std::string(codegen::kArenaRoot));
     const arenagen::FieldModes modes;  // inactive: every field materializes
     arenagen::LayoutOptions options;
     options.modes = &modes;
@@ -112,7 +123,9 @@ std::string generate_modes_golden() {
     REQUIRE(analyzed.is_ok());
     const SymbolTable symbols = std::move(analyzed).value();
     const arenagen::FieldModes modes = test::arena_modes_profile(set, symbols);
-    const codegen::CppNameTable names = codegen::build_cpp_names(set.files.front(), set.files, "");
+    const codegen::CppNameTable names =
+        codegen::build_cpp_names(set.files.front(), set.files, codegen::effective_ns_prefix({}),
+                                 std::string(codegen::kArenaRoot));
     arenagen::LayoutOptions options;
     options.modes = &modes;
     const arenagen::LayoutSet layouts = arenagen::plan_layouts(set, symbols, options);
@@ -135,7 +148,9 @@ std::string generate_unknown_present_golden() {
     auto resolved_modes = arenagen::resolve_field_modes(spec, set, symbols);
     REQUIRE(resolved_modes.is_ok());
     const arenagen::FieldModes modes = std::move(resolved_modes).value();
-    const codegen::CppNameTable names = codegen::build_cpp_names(set.files.front(), set.files, "");
+    const codegen::CppNameTable names =
+        codegen::build_cpp_names(set.files.front(), set.files, codegen::effective_ns_prefix({}),
+                                 std::string(codegen::kArenaRoot));
     arenagen::LayoutOptions options;
     options.modes = &modes;
     const arenagen::LayoutSet layouts = arenagen::plan_layouts(set, symbols, options);
@@ -186,7 +201,7 @@ void check_golden(const std::string& name, const std::string& actual) {
 std::string dump_entries(const std::vector<std::string>& cells, std::size_t width, char open = '[',
                          char close = ']') {
     std::ostringstream os;
-    rapidproto::dump::Writer w(os, width);
+    rapidproto::dump_detail::Writer w(os, width);
     w.group(open, close, [&] {
         bool first = true;
         for (const std::string& cell : cells) {
@@ -264,7 +279,7 @@ std::string dump_through_hostile_stream(std::size_t width) {
     os.imbue(grouping);
     os << std::hex << std::showpos << std::uppercase << std::showbase;
     const std::ios::fmtflags flags = os.flags();
-    p2::rp_dump_write(os, *m, width);
+    rapidproto::dump(os, *m, width);
     CHECK(os.getloc() == grouping);
     CHECK(os.flags() == flags);
     return os.str();
@@ -288,7 +303,8 @@ TEST_CASE("dumpgen: generated headers match the goldens", "[dumpgen]") {
     check_golden("arena_naming", generate_corpus("arena_naming.proto"));
     check_golden("naming", generate_corpus("naming.proto"));
     // Package shapes: `namespace std` would be UB that compiles silently, so the byte-compare
-    // is the only thing that catches a regression; `rapidproto` is a hard redeclaration.
+    // is the only thing that catches a regression; a package named `rapidproto` keeps its
+    // spelling under the roots, clear of the runtime's own namespace.
     const std::string nsedge_dir = std::string(RAPIDPROTO_CORPUS_DIR) + "/nsedge";
     check_golden("stdpkg", generate(nsedge_dir, "stdpkg.proto"));
     check_golden("rppkg", generate(nsedge_dir, "rppkg.proto"));
@@ -301,7 +317,7 @@ TEST_CASE("dumpgen: generated headers match the goldens", "[dumpgen]") {
     // --unknown-present: the "has_unknown_fields": true marker is emitted per message.
     check_golden("arena_unknown", generate_unknown_present_golden());
     check_golden("xref", generate_corpus("xref.proto"));
-    check_golden("xref_prefixed/xref", generate_corpus("xref.proto", "rp"));
+    check_golden("xref_prefixed/xref", generate_corpus("xref.proto", "pfx"));
     check_golden("wire_all", generate(RAPIDPROTO_WIRE_FIXTURE_DIR, "wire_all.proto"));
     // Cross-file imports (distinct packages): a debug header #includes only its own arena header
     // (which transitively pulls the deps' arena headers), so each file gets its own dumper.
@@ -316,8 +332,28 @@ TEST_CASE("dumpgen: generated headers match the goldens", "[dumpgen]") {
     check_golden("weakmain", generate(imports, "weakmain.proto"));
     // --namespace-prefix + imports: the oneof visit-tag structs the dumper references come from the
     // same deduped SynthNames the arena header declared, so the prefixed closure compiles.
-    check_golden("prefixed/main", generate(imports, "main.proto", "rp"));
-    check_golden("prefixed/dep", generate(imports, "dep.proto", "rp"));
+    check_golden("prefixed/main", generate(imports, "main.proto", "pfx"));
+    check_golden("prefixed/dep", generate(imports, "dep.proto", "pfx"));
+    check_golden("prefixed/pub", generate(imports, "pub.proto", "pfx"));
+    check_golden("prefixed/forward", generate(imports, "forward.proto", "pfx"));
+}
+
+// Every `<stem>.rp.common.hpp` beside the dump goldens, directory-driven (see
+// common_golden_sweep.hpp for why not a hand-maintained case list).
+TEST_CASE("dumpgen: the common headers beside the goldens match too", "[dumpgen]") {
+    test::check_all_common_goldens(
+        RAPIDPROTO_DUMPGEN_GOLDEN_DIR,
+        {RAPIDPROTO_CORPUS_DIR, std::string(RAPIDPROTO_CORPUS_DIR) + "/imports",
+         std::string(RAPIDPROTO_CORPUS_DIR) + "/nsedge", RAPIDPROTO_WIRE_FIXTURE_DIR});
+}
+
+// A MULTI-component prefix through the dump generator (every prefixed golden is
+// single-component): the dotted spelling must split in the opening namespace and in the fully
+// qualified core calls. streamgen and arenagen carry the twins of this check.
+TEST_CASE("dumpgen: a dotted namespace prefix splits into nested namespaces", "[dumpgen]") {
+    const std::string dotted = generate_corpus("xref.proto", "rp.dec");
+    CHECK(dotted.find("namespace rp::dec::arena::xr {") != std::string::npos);
+    CHECK(dotted.find("::rp::dec::arena::xr::rp_dump_detail::rp_dump_write") != std::string::npos);
 }
 
 // ── generated namespace layout ───────────────────────────────────────────────────────────────────
@@ -333,40 +369,51 @@ TEST_CASE("dumpgen: generated internals live in sub-namespaces, not the public o
 
     SECTION("a multi-component package qualifies against the FULL package namespace") {
         const std::string out = generate(nsedge, "deep.proto");
-        CHECK(out.find("namespace com::example::deep {") != std::string::npos);
+        CHECK(out.find("namespace rp::arena::com::example::deep {") != std::string::npos);
         CHECK(out.find("namespace rp_dump_detail {") != std::string::npos);
         // The nested Inner is a CLASS member, so its dumper is still qualified with the PACKAGE
-        // namespace -- never `::com::example::deep::Outer::rp_dump_detail`.
-        CHECK(out.find("::com::example::deep::rp_dump_detail::rp_dump_write") != std::string::npos);
+        // namespace -- never `rp::arena::com::example::deep::Outer::rp_dump_detail`.
+        CHECK(out.find("::rp::arena::com::example::deep::rp_dump_detail::rp_dump_write") !=
+              std::string::npos);
         CHECK(out.find("Outer::rp_dump_detail") == std::string::npos);
     }
-    SECTION("a file with NO package opens the detail namespace at global scope") {
+    SECTION("a file with NO package still opens the model root, and qualifies against it") {
+        // The FULLY QUALIFIED spellings, both of them: the bare-substring checks this section used
+        // to make (`namespace rp_dump_detail {`, `::rp_dump_detail::rp_dump_write`) are contained
+        // in every dump header's `...arena::rp_dump_detail::...` and matched the pre-roots
+        // global-scope layout exactly as well -- a section that could not fail.
         const std::string out = generate(nsedge, "nopkg.proto");
-        CHECK(out.find("namespace rp_dump_detail {") != std::string::npos);
-        CHECK(out.find("::rp_dump_detail::rp_dump_write") != std::string::npos);
+        CHECK(out.find("namespace rp::arena {") != std::string::npos);
+        CHECK(out.find("::rp::arena::rp_dump_detail::rp_dump_write") != std::string::npos);
     }
     SECTION("a cross-file call is qualified with the CALLEE's namespace, not the caller's") {
         const std::string out = generate(nsedge, "xpkg.proto");
-        CHECK(out.find("namespace other {") != std::string::npos);
-        CHECK(out.find("::com::example::deep::rp_dump_detail::rp_dump_write") != std::string::npos);
-    }
-    SECTION("--namespace-prefix is carried into the qualified call") {
-        const std::string out = generate(nsedge, "xpkg.proto", "rp");
-        CHECK(out.find("::rp::com::example::deep::rp_dump_detail::rp_dump_write") !=
+        CHECK(out.find("namespace rp::arena::other {") != std::string::npos);
+        CHECK(out.find("::rp::arena::com::example::deep::rp_dump_detail::rp_dump_write") !=
               std::string::npos);
     }
-    SECTION("the public entry points stay OUT of the detail namespace") {
+    SECTION("--namespace-prefix is carried into the qualified call") {
+        // A NON-DEFAULT prefix, or this asserts the same string the unprefixed sections above do
+        // and says nothing about the flag.
+        const std::string out = generate(nsedge, "xpkg.proto", "pfx");
+        CHECK(out.find("::pfx::arena::com::example::deep::rp_dump_detail::rp_dump_write") !=
+              std::string::npos);
+        CHECK(out.find("::rp::arena::com::example::deep::") == std::string::npos);
+    }
+    SECTION("the dumper<T> hooks are emitted after every core they forward to") {
         const std::string out = generate(nsedge, "deep.proto");
         const auto detail_close = out.find("}  // namespace rp_dump_detail");
-        const auto dump_string = out.find("inline std::string rp_dump_string");
+        const auto hook = out.find("struct dumper<");
         REQUIRE(detail_close != std::string::npos);
-        REQUIRE(dump_string != std::string::npos);
-        CHECK(detail_close < dump_string);  // rp_dump_string is emitted after the detail ns closes
-        // deep.proto defines an enum, so a name table IS emitted -- into the runtime's detail
-        // namespace, never its public one.
-        CHECK(out.find("namespace rapidproto::dump::detail {") != std::string::npos);
-        CHECK(out.find("namespace rapidproto::dump {") == std::string::npos);
-        CHECK(out.find("::rapidproto::dump::detail::rp_dump_enum_name") != std::string::npos);
+        REQUIRE(hook != std::string::npos);
+        // Order is the whole reason this is a class template rather than an overload set: the hook
+        // names the core in a qualified call, so the core must already be declared.
+        CHECK(detail_close < hook);
+        // deep.proto defines an enum, so a name table IS emitted -- into the runtime's internals
+        // namespace. Generated code never opens `rapidproto` itself: that is the public surface.
+        CHECK(out.find("namespace rapidproto::dump_detail {") != std::string::npos);
+        CHECK(out.find("namespace rapidproto {") == std::string::npos);
+        CHECK(out.find("::rapidproto::dump_detail::rp_dump_enum_name") != std::string::npos);
     }
 }
 
@@ -398,7 +445,7 @@ TEST_CASE("dumpgen: scalars fixture dumps every scalar kind (bytes->hex, enum by
   "packed_nums": [1, 2, 300],
   "expanded_nums": [3, 4]
 })";
-    CHECK(p2::rp_dump_string(*m) == expected);
+    CHECK(rapidproto::dump(*m) == expected);
 }
 
 TEST_CASE("dumpgen: msg fixture dumps nested msg, repeated, map, oneof (defaults omitted)",
@@ -421,7 +468,7 @@ TEST_CASE("dumpgen: msg fixture dumps nested msg, repeated, map, oneof (defaults
   "counts": {"x": 1, "y": 2},
   "a": 7
 })";
-    CHECK(p3::rp_dump_string(*m) == expected);
+    CHECK(rapidproto::dump(*m) == expected);
 }
 
 TEST_CASE("dumpgen: container fixture dumps map-of-messages and an array of objects", "[dumpgen]") {
@@ -432,13 +479,13 @@ TEST_CASE("dumpgen: container fixture dumps map-of-messages and an array of obje
     // Fits within the default width -> single compact line.
     const std::string expected =
         R"({"by_name": {"alpha": {"x": 11}, "beta": {"x": 22}}, "by_id": {"1": "RED", "2": "NEG"}})";
-    CHECK(p2::rp_dump_string(*c) == expected);
+    CHECK(rapidproto::dump(*c) == expected);
 }
 
 TEST_CASE("dumpgen: all_wire fixture dumps a group field (delimited sub-message)", "[dumpgen]") {
     const std::string bin = fixture("all_wire.bin");
     Arena arena;
-    const ::wire::AllWire* m = ::wire::AllWire::decode(ByteView(bin), arena);
+    const ::rp::arena::wire::AllWire* m = ::rp::arena::wire::AllWire::decode(ByteView(bin), arena);
     REQUIRE(m != nullptr);
     // `g` is a group -- decoded through the identical nested-message accessor, dumped like any msg.
     const std::string expected = R"({
@@ -452,7 +499,7 @@ TEST_CASE("dumpgen: all_wire fixture dumps a group field (delimited sub-message)
   "g": {"a": 99},
   "oi": 5
 })";
-    CHECK(::wire::rp_dump_string(*m) == expected);
+    CHECK(rapidproto::dump(*m) == expected);
 }
 
 // The width knob drives the adaptive compact/multi-line choice PER group. At width 20 the top object
@@ -484,7 +531,7 @@ TEST_CASE("dumpgen: width knob drives the adaptive nested-group layout", "[dumpg
   },
   "a": 7
 })";
-    CHECK(p3::rp_dump_string(*m, 20) == expected);
+    CHECK(rapidproto::dump(*m, 20) == expected);
 }
 
 TEST_CASE("dumpgen: DumpOptions.skip omits fields by qualified path", "[dumpgen]") {
@@ -493,22 +540,22 @@ TEST_CASE("dumpgen: DumpOptions.skip omits fields by qualified path", "[dumpgen]
     const p3::Msg* m = p3::Msg::decode(ByteView(bin), arena);
     REQUIRE(m != nullptr);
     SECTION("skip across kinds (scalar, message, repeated, map) -> the rest stays") {
-        rapidproto::dump::DumpOptions opt;
+        rapidproto::DumpOptions opt;
         opt.skip = {"implicit_i", "name", "state", "self", "nums", "unpacked", "states", "counts"};
-        CHECK(p3::rp_dump_string(*m, opt) == R"({"explicit_i": 20, "a": 7})");
+        CHECK(rapidproto::dump(*m, opt) == R"({"explicit_i": 20, "a": 7})");
     }
     SECTION("a qualified path skips a NESTED field (self.implicit_i) -> self dumps empty") {
-        rapidproto::dump::DumpOptions opt;
+        rapidproto::DumpOptions opt;
         opt.skip = {"implicit_i", "explicit_i", "name",   "state", "nums",
                     "unpacked",   "states",     "counts", "a",     "self.implicit_i"};
-        CHECK(p3::rp_dump_string(*m, opt) == R"({"self": {}})");
+        CHECK(rapidproto::dump(*m, opt) == R"({"self": {}})");
     }
     SECTION("a leaf name skips it only at that path, not the same name nested elsewhere") {
         // "implicit_i" (top-level) is skipped, but "self.implicit_i" is a different path and stays.
-        rapidproto::dump::DumpOptions opt;
+        rapidproto::DumpOptions opt;
         opt.skip = {"implicit_i", "explicit_i", "name",   "state", "nums",
                     "unpacked",   "states",     "counts", "a"};
-        CHECK(p3::rp_dump_string(*m, opt) == R"({"self": {"implicit_i": 99}})");
+        CHECK(rapidproto::dump(*m, opt) == R"({"self": {"implicit_i": 99}})");
     }
 }
 
@@ -520,7 +567,7 @@ TEST_CASE("dumpgen: DumpOptions.indent starts the dump at a nesting level", "[du
     // Force multi-line (width 20) and start two levels deep: the opening brace sits at the caller's
     // cursor, every continuation line indents two extra levels (4 spaces), and the closing brace aligns
     // to the start level -- so the block drops cleanly under a surrounding `"key": ` at that indent.
-    rapidproto::dump::DumpOptions opt;
+    rapidproto::DumpOptions opt;
     opt.width = 20;
     opt.indent = 2;
     const std::string expected = R"({
@@ -547,7 +594,7 @@ TEST_CASE("dumpgen: DumpOptions.indent starts the dump at a nesting level", "[du
       },
       "a": 7
     })";
-    CHECK(p3::rp_dump_string(*m, opt) == expected);
+    CHECK(rapidproto::dump(*m, opt) == expected);
 }
 
 // An array too wide for one line is laid out in as many aligned COLUMNS as fit, rather than one entry
@@ -619,7 +666,7 @@ TEST_CASE("dumpgen: a group the column grid can't handle falls back unchanged", 
 TEST_CASE("dumpgen: an array of objects grids them as whole cells", "[dumpgen]") {
     {
         std::ostringstream os;
-        rapidproto::dump::Writer w(os, 26);
+        rapidproto::dump_detail::Writer w(os, 26);
         w.group('[', ']', [&] {
             bool first = true;
             for (int i = 1; i <= 4; ++i) {
@@ -643,7 +690,7 @@ TEST_CASE("dumpgen: an array of objects grids them as whole cells", "[dumpgen]")
 TEST_CASE("dumpgen: a field after a column grid resumes at the enclosing indent", "[dumpgen]") {
     {
         std::ostringstream os;
-        rapidproto::dump::Writer w(os, 30);
+        rapidproto::dump_detail::Writer w(os, 30);
         w.group('{', '}', [&] {
             bool first = true;
             w.entry_sep(first);
@@ -676,7 +723,7 @@ TEST_CASE("dumpgen: an array past the cell cap falls back without dropping eleme
         // grid would silently swallow entries. It must fall back to one per line instead.
         constexpr int kCount = 5000;
         std::ostringstream os;
-        rapidproto::dump::Writer w(os, 200);
+        rapidproto::dump_detail::Writer w(os, 200);
         w.group('[', ']', [&] {
             bool first = true;
             for (int i = 0; i < kCount; ++i) {
@@ -698,7 +745,7 @@ TEST_CASE("dumpgen: a message with no set fields dumps as an empty object", "[du
     // An empty p3::Msg: all fields absent / at their (omitted) implicit defaults -> {}.
     const p3::Msg* m = p3::Msg::decode(ByteView(std::string()), arena);
     REQUIRE(m != nullptr);
-    CHECK(p3::rp_dump_string(*m) == "{}");
+    CHECK(rapidproto::dump(*m) == "{}");
 }
 
 TEST_CASE("dumpgen: two enum values that sanitize alike still dump differently", "[dumpgen]") {
@@ -713,7 +760,7 @@ TEST_CASE("dumpgen: two enum values that sanitize alike still dump differently",
         Arena arena;
         const nm::M* m = nm::M::decode(ByteView(buf), arena);
         REQUIRE(m != nullptr);
-        return nm::rp_dump_string(*m);
+        return rapidproto::dump(*m);
     };
     CHECK(dump_of(0) == R"({"e": "decode_"})");
     CHECK(dump_of(1) == R"({"e": "decode__"})");
@@ -729,7 +776,7 @@ TEST_CASE("dumpgen: an open-enum value outside the schema dumps as UNKNOWN(<n>)"
     Arena arena;
     const p3::Msg* m = p3::Msg::decode(ByteView(buf), arena);
     REQUIRE(m != nullptr);
-    const std::string dump = p3::rp_dump_string(*m);
+    const std::string dump = rapidproto::dump(*m);
     CHECK(dump.find("\"UNKNOWN(99)\"") != std::string::npos);
     CHECK(dump == R"j({"state": "UNKNOWN(99)"})j");
 }
@@ -754,9 +801,9 @@ TEST_CASE("dumpgen: a bool renders true/false inside a COMPACT group", "[dumpgen
     Arena arena;
     const p2::WithGroup* m = p2::WithGroup::decode(ByteView(buf), arena);
     REQUIRE(m != nullptr);
-    CHECK(p2::rp_dump_string(*m) == R"({"mygroup": {"a": 5, "inner": {"flag": true}}})");
+    CHECK(rapidproto::dump(*m) == R"({"mygroup": {"a": 5, "inner": {"flag": true}}})");
     // The same value on the multi-line path (width 0 forces every group to expand) reads the same.
-    CHECK(p2::rp_dump_string(*m, 0).find("\"flag\": true") != std::string::npos);
+    CHECK(rapidproto::dump(*m, 0).find("\"flag\": true") != std::string::npos);
 }
 
 TEST_CASE("dumpgen: a bool map KEY renders as true/false, not 1/0", "[dumpgen]") {
@@ -779,9 +826,9 @@ TEST_CASE("dumpgen: a bool map KEY renders as true/false, not 1/0", "[dumpgen]")
     Arena arena;
     const p3::Msg* m = p3::Msg::decode(ByteView(buf), arena);
     REQUIRE(m != nullptr);
-    CHECK(p3::rp_dump_string(*m) == R"({"flags": {"true": "on", "false": "off"}})");
+    CHECK(rapidproto::dump(*m) == R"({"flags": {"true": "on", "false": "off"}})");
     // Both layout paths agree: width 0 forces the map object onto multiple lines.
-    const std::string wide = p3::rp_dump_string(*m, 0);
+    const std::string wide = rapidproto::dump(*m, 0);
     CHECK(wide.find("\"true\": \"on\"") != std::string::npos);
     CHECK(wide.find("\"1\":") == std::string::npos);
 }
@@ -825,7 +872,7 @@ TEST_CASE("dumpgen: bools and floats render through their writers in every conta
     Arena arena;
     const p3::Msg* m = p3::Msg::decode(ByteView(buf), arena);
     REQUIRE(m != nullptr);
-    CHECK(p3::rp_dump_string(*m) ==
+    CHECK(rapidproto::dump(*m) ==
           R"({"bools": [true, false], "toggles": {"t": true}, "ratios": {"r": 0.5}})");
 }
 
@@ -834,7 +881,7 @@ TEST_CASE("dumpgen: a bool/double oneof member renders through its writer", "[du
         Arena arena;
         const p3::Msg* m = p3::Msg::decode(ByteView(buf), arena);
         REQUIRE(m != nullptr);
-        return p3::rp_dump_string(*m);
+        return rapidproto::dump(*m);
     };
     std::string pick_bool;
     put_tag(pick_bool, 15, 0);  // pick.c: Varint
@@ -859,7 +906,7 @@ TEST_CASE("dumpgen: float/double edge values keep their exact bits", "[dumpgen]"
         Arena arena;
         const p2::Scalars* m = p2::Scalars::decode(ByteView(buf), arena);
         REQUIRE(m != nullptr);
-        return p2::rp_dump_string(*m);
+        return rapidproto::dump(*m);
     };
     // A float needs up to 9 significant digits to read back exactly; this one needs all 9. Paired
     // with -0.0, whose sign survives only because the round-trip check compares bit patterns.
@@ -883,8 +930,8 @@ TEST_CASE("dumpgen: a double keeps its precision on the multi-line path too", "[
     Arena arena;
     const p3::Msg* m = p3::Msg::decode(ByteView(buf), arena);
     REQUIRE(m != nullptr);
-    CHECK(p3::rp_dump_string(*m) == R"({"reals": [3.141592653589793, 2.718281828459045]})");
-    const std::string wide = p3::rp_dump_string(*m, 0);
+    CHECK(rapidproto::dump(*m) == R"({"reals": [3.141592653589793, 2.718281828459045]})");
+    const std::string wide = rapidproto::dump(*m, 0);
     CHECK(wide.find("3.141592653589793") != std::string::npos);
     CHECK(wide.find("2.718281828459045") != std::string::npos);
 }
@@ -900,7 +947,7 @@ TEST_CASE("dumpgen: a double keeps every digit it needs to read back", "[dumpgen
     Arena arena;
     const p2::Scalars* m = p2::Scalars::decode(ByteView(buf), arena);
     REQUIRE(m != nullptr);
-    CHECK(p2::rp_dump_string(*m) == R"({"i32": 1, "db": 3.141592653589793})");
+    CHECK(rapidproto::dump(*m) == R"({"i32": 1, "db": 3.141592653589793})");
 }
 
 TEST_CASE("dumpgen: a float/double renders no more digits than it carries", "[dumpgen]") {
@@ -916,7 +963,7 @@ TEST_CASE("dumpgen: a float/double renders no more digits than it carries", "[du
     Arena arena;
     const p2::Scalars* m = p2::Scalars::decode(ByteView(buf), arena);
     REQUIRE(m != nullptr);
-    CHECK(p2::rp_dump_string(*m) == R"({"i32": 1, "fl": 0.1, "db": 0.1})");
+    CHECK(rapidproto::dump(*m) == R"({"i32": 1, "fl": 0.1, "db": 0.1})");
 }
 
 TEST_CASE("dumpgen: an implicit-presence -0.0 is printed, not omitted as a default", "[dumpgen]") {
@@ -933,7 +980,7 @@ TEST_CASE("dumpgen: an implicit-presence -0.0 is printed, not omitted as a defau
         Arena arena;
         const p3::Msg* m = p3::Msg::decode(ByteView(buf), arena);
         REQUIRE(m != nullptr);
-        return p3::rp_dump_string(*m);
+        return rapidproto::dump(*m);
     };
     CHECK(dump_of(-0.0, -0.0F) == R"({"ratio": -0, "scale": -0})");
     CHECK(dump_of(0.0, 0.0F) == "{}");  // positive zero IS the default -- still omitted
@@ -954,7 +1001,7 @@ TEST_CASE("dumpgen: non-finite floats render as JSON strings, not bare nan/inf",
         Arena arena;
         const p2::Scalars* m = p2::Scalars::decode(ByteView(buf), arena);
         REQUIRE(m != nullptr);
-        return p2::rp_dump_string(*m);
+        return rapidproto::dump(*m);
     };
     CHECK(dump_of(std::numeric_limits<double>::quiet_NaN(),
                   -std::numeric_limits<float>::infinity()) ==
@@ -982,7 +1029,7 @@ TEST_CASE("dumpgen: dumping does not change the caller's stream formatting", "[d
     REQUIRE(m != nullptr);
     std::ostringstream os;
     const std::ios::fmtflags before = os.flags();
-    p2::rp_dump_write(os, *m);
+    rapidproto::dump(os, *m);
     CHECK(os.flags() == before);
     os.str(std::string());
     os << true;  // the stream's own default numeric rendering, not `true`
@@ -1004,7 +1051,7 @@ TEST_CASE("dumpgen: a string field escapes JSON control/quote/backslash characte
     Arena arena;
     const p3::Msg* m = p3::Msg::decode(ByteView(buf), arena);
     REQUIRE(m != nullptr);
-    const std::string dump = p3::rp_dump_string(*m);
+    const std::string dump = rapidproto::dump(*m);
     CHECK(dump == R"({"name": "q\"b\\\n\t\u0001"})");
 }
 
@@ -1037,7 +1084,7 @@ TEST_CASE("dumpgen: field-modes dump omits dropped fields and renders raw payloa
     Arena arena;
     const fm::Holder* h = fm::Holder::decode(ByteView(buf), arena);
     REQUIRE(h != nullptr);
-    const std::string dump = fm::rp_dump_string(*h);
+    const std::string dump = rapidproto::dump(*h);
     // The dropped field is absent; keep/must are materialized; raw payloads are the body's hex
     // (0a 03 01 02 ff = tag(1,Len) len=3 <01 02 ff>).
     CHECK(dump.find("\"debug\"") == std::string::npos);
@@ -1053,7 +1100,7 @@ TEST_CASE("dumpgen: --unknown-present message reports has_unknown_fields", "[dum
     Arena arena;
     const au::Holder* h = au::Holder::decode(ByteView(buf), arena);
     REQUIRE(h != nullptr);
-    const std::string dump = au::rp_dump_string(*h);
+    const std::string dump = rapidproto::dump(*h);
     CHECK(dump.find("\"has_unknown_fields\": true") != std::string::npos);
     CHECK(dump == R"({"has_unknown_fields": true})");
 }

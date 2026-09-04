@@ -134,8 +134,9 @@ int main(int argc, char** argv) {
         std::cerr << "error: " << entry << " resolved to no files\n";
         return 1;
     }
-    const rapidproto::codegen::CppNameTable names =
-        rapidproto::codegen::build_cpp_names(set.files.front(), set.files, "", "");
+    const rapidproto::codegen::CppNameTable names = rapidproto::codegen::build_cpp_names(
+        set.files.front(), set.files, rapidproto::codegen::effective_ns_prefix({}),
+        std::string(rapidproto::codegen::kArenaRoot));
 
     // The ENTRY file is the last in the resolved set (imports come first), matching how the CLI
     // picks the file to emit for.
@@ -201,7 +202,7 @@ void run(const std::vector<std::string>& payloads) {
             std::cout << "!decode-failed\n";
             continue;
         }
-        std::cout << rp_dump_string(*message, kOneLine) << '\n';  // found by ADL on T
+        std::cout << ::rapidproto::dump(*message, kOneLine) << '\n';
     }
 }
 

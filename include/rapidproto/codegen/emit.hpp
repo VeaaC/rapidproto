@@ -139,12 +139,42 @@ inline void emit_enum(Printer& printer, const CppNameTable& names, const EnumNod
     printer.print(trailing_blank ? "};\n\n" : "};\n");
 }
 
+// Does `message` hold an enum anywhere beneath it? Decides whether the mirror opens a namespace for
+// it: a message with no enum in its whole subtree contributes nothing to share.
+inline bool holds_enum(const MessageNode& message) {
+    if (!message.enums.empty()) {
+        return true;
+    }
+    return std::any_of(message.nested_messages.begin(), message.nested_messages.end(),
+                       [](const MessageNode& nested) { return holds_enum(nested); });
+}
+
+// Mirror `message`'s nesting as NAMESPACES so its nested enums have one canonical home both models
+// alias. Namespaces rather than scope structs: a namespace cannot be named as a type, so nothing
+// here can be mistaken for the message. The ids are the MODEL's, verbatim -- including any escape
+// the model applied (`message Outer { message Outer {} }` mirrors to `Outer::Outer_`), which is
+// what makes the mirror path the model path with the root swapped, and needs no second dedup.
+inline void emit_enum_mirror(Printer& printer, const CppNameTable& names,
+                             const MessageNode& message) {
+    if (!holds_enum(message)) {
+        return;
+    }
+    printer.print("namespace $id$ {\n", {{"id", names.local.at(&message)}});
+    for (const auto& nested_enum : message.enums) {
+        emit_enum(printer, names, nested_enum, /*trailing_blank=*/false);
+    }
+    for (const auto& nested : message.nested_messages) {
+        emit_enum_mirror(printer, names, nested);
+    }
+    printer.print("}  // namespace $id$\n\n", {{"id", names.local.at(&message)}});
+}
+
 // Emit the shared "common header" for `file`: `#pragma once`, `<cstdint>`, an include of each
 // (non-option) import's common header, the package namespace, and one `enum class` per TOP-LEVEL enum
-// (via emit_enum). This is the single home for the schema's enums: both the streaming and arena decoder
-// headers `#include` it -- so the same proto enum is ONE C++ type shared across the two models, instead
-// of each decoder defining the enums and colliding when included together. Nested enums are NOT here;
-// they ride with their message in each decoder. The import includes use the fixed ".rp.common.hpp"
+// (via emit_enum), plus a NAMESPACE MIRROR of the message nesting carrying the nested ones
+// (emit_enum_mirror). This is the single home for the schema's enums: both decoder headers
+// `#include` it and alias every enum back into their own scope, so one proto enum is ONE C++ type
+// across both models rather than a copy per model. The import includes use the fixed ".rp.common.hpp"
 // suffix (the common header's own name).
 inline std::string emit_common_header(const FileNode& file, const CppNameTable& names) {
     Printer printer;
@@ -159,17 +189,15 @@ inline std::string emit_common_header(const FileNode& file, const CppNameTable& 
         }
     }
     printer.print("\n");
-    const std::string ns = join_ns(names.ns_prefix, namespace_of(file.package));
-    if (!ns.empty()) {
-        printer.print("namespace $ns$ {\n\n", {{"ns", ns}});
-    }
-    for (const auto& node :
-         file.enums) {  // top-level enums only; nested enums ride with the message
+    const std::string ns = enum_namespace(names, file);
+    printer.print("namespace $ns$ {\n\n", {{"ns", ns}});
+    for (const auto& node : file.enums) {
         emit_enum(printer, names, node, /*trailing_blank=*/true);
     }
-    if (!ns.empty()) {
-        printer.print("}  // namespace $ns$\n", {{"ns", ns}});
+    for (const auto& message : file.messages) {
+        emit_enum_mirror(printer, names, message);
     }
+    printer.print("}  // namespace $ns$\n", {{"ns", ns}});
     return printer.str();
 }
 

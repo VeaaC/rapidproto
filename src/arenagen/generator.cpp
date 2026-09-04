@@ -30,9 +30,8 @@ namespace {
 
 using codegen::cpp_type_name;
 using codegen::CppNameTable;
-using codegen::join_ns;
-using codegen::namespace_of;
 using codegen::Printer;
+using codegen::relative_type_name;
 
 // ── small string helpers ─────────────────────────────────────────────────────────────────────────
 
@@ -275,7 +274,7 @@ void emit_oneof_union(const Emit& emit, const OneofPlan& o) {
     p.print("};\n");
 }
 
-void emit_oneof_accessors(const Emit& emit, const OneofPlan& o) {
+void emit_oneof_accessors(const Emit& emit, const OneofPlan& o, const std::string& owner) {
     Printer& p = emit.printer;
     const std::string tag = emit.synth.case_tag.at(o.oneof);
     // The oneof reader, named after the oneof -- deduped in the class scope like every other member,
@@ -297,7 +296,11 @@ void emit_oneof_accessors(const Emit& emit, const OneofPlan& o) {
         args += ", typename ";
         args += tagref;
         args += "::Value";
+        // The message's name relative to its namespace, not the local id: several corpus messages
+        // share a local name, so a bare one cannot say which reader rejected the handler.
         std::string what = "oneof member '";
+        what += owner;
+        what += "::";
         what += id;
         what += '\'';
         std::string expected = tagref;
@@ -611,8 +614,11 @@ void emit_message_body(const Emit& emit, const MessageNode& message) {
     p.print(" public:\n");
     p.indent();
 
+    // A nested enum is DEFINED once in the common header's mirror; the class only aliases it, so the
+    // spelling a user already writes still resolves and both models name one type.
     for (const EnumNode& nested : message.enums) {
-        codegen::emit_enum(emit.printer, emit.names, nested, false);
+        p.print("using $E$ = $A$;\n", {{"E", emit.names.local.at(&nested)},
+                                       {"A", cpp_type_name(emit.names, nested.fqn)}});
     }
     // Forward-declare nested messages first, so any sibling cross-reference -- a pointer, repeated, map
     // value, or oneof member, and even a cycle -- names a declared type regardless of definition order.
@@ -648,7 +654,7 @@ void emit_message_body(const Emit& emit, const MessageNode& message) {
         }
     }
     for (const OneofPlan& o : layout.oneofs) {
-        emit_oneof_accessors(emit, o);
+        emit_oneof_accessors(emit, o, relative_type_name(emit.names, layout.fqn));
     }
     if (layout.unknown_bit >= 0) {  // --unknown-present: a per-message "saw an unknown field" flag
         p.print("bool $h$() const noexcept { return $b$ != 0; }\n",
@@ -1984,7 +1990,7 @@ std::string generate_header(const FileNode& file, const CppNameTable& names,
     printer.print("#include <type_traits>\n");
     printer.print("#include <variant>\n\n");  // std::monostate = a oneof reader's unset state
     printer.print("#include \"rapidproto/arena_runtime.hpp\"\n");
-    // The schema's top-level enums live in the shared common header (one C++ type, shared with the
+    // The schema's TOP-LEVEL enums live in the shared common header (one C++ type, shared with the
     // streaming decoder); include this file's own sibling common. The IWYU export makes a TU that
     // includes only this decoder still "directly provide" the shared enums (which used to live here).
     printer.print("#include \"$c$\"  // IWYU pragma: export\n",
@@ -1996,10 +2002,8 @@ std::string generate_header(const FileNode& file, const CppNameTable& names,
     }
     printer.print("\n");
 
-    const std::string ns = join_ns(names.ns_prefix, namespace_of(file.package));
-    if (!ns.empty()) {
-        printer.print(profiled ? "namespace $ns$ {\n" : "namespace $ns$ {\n\n", {{"ns", ns}});
-    }
+    const std::string ns = codegen::message_namespace(names, file);
+    printer.print(profiled ? "namespace $ns$ {\n" : "namespace $ns$ {\n\n", {{"ns", ns}});
     if (profiled) {
         // The profile identity as an INLINE namespace: users still write pkg::Msg, but the
         // mangled type identity encodes the profile -- two TUs generated under different
@@ -2007,7 +2011,16 @@ std::string generate_header(const FileNode& file, const CppNameTable& names,
         // the boundary is a LINK error instead of a silent ODR violation.
         printer.print("inline namespace rp_modes_$id$ {\n\n", {{"id", modes->profile_id}});
     }
-    // Top-level enums are emitted by the common header above; nested enums ride with their message.
+    // Top-level enums live in the shared common header under their own root (one C++ type, shared
+    // with the streaming decoder); alias each into this model namespace so `<prefix>::arena::<pkg>::
+    // Enum` resolves and the two models spell one enum the same way. Nested enums are aliased the
+    // same way, from inside their message's class.
+    for (const auto& node : file.enums) {
+        printer.print("using $e$;\n", {{"e", cpp_type_name(names, node.fqn)}});
+    }
+    if (!file.enums.empty()) {
+        printer.print("\n");
+    }
     for (const auto& message : file.messages) {  // forward-declare for pointer cross-references
         printer.print("class $T$;\n", {{"T", names.local.at(&message)}});
     }
@@ -2027,16 +2040,15 @@ std::string generate_header(const FileNode& file, const CppNameTable& names,
     if (profiled) {
         printer.print("}  // namespace rp_modes_$id$\n", {{"id", modes->profile_id}});
     }
-    if (!ns.empty()) {
-        printer.print("}  // namespace $ns$\n", {{"ns", ns}});
-    }
+    printer.print("}  // namespace $ns$\n", {{"ns", ns}});
     return printer.str();
 }
 
 std::string generate_header(const FileNode& file, const ResolvedFileSet& set,
                             const SymbolTable& symbols, const std::string& namespace_prefix) {
     const CppNameTable names =
-        codegen::build_cpp_names(file, set.files, namespace_of(namespace_prefix));
+        codegen::build_cpp_names(file, set.files, codegen::effective_ns_prefix(namespace_prefix),
+                                 std::string(codegen::kArenaRoot));
     const LayoutSet layouts = plan_layouts(set, symbols);
     return generate_header(file, names, layouts, symbols);
 }

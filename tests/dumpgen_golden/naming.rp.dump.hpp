@@ -11,9 +11,9 @@
 #include "naming.rp.hpp"  // IWYU pragma: export
 #include "rapidproto/dump_runtime.hpp"
 
-namespace rapidproto::dump::detail {
+namespace rapidproto::dump_detail {
 
-inline const char* rp_dump_enum_name(::nm::E rp_e) {
+inline const char* rp_dump_enum_name(::rp::common::nm::E rp_e) {
   switch (static_cast<std::int32_t>(rp_e)) {
     case 0: return "decode_";
     case 1: return "decode__";
@@ -21,7 +21,23 @@ inline const char* rp_dump_enum_name(::nm::E rp_e) {
   return nullptr;  // unknown (open enum): the caller renders UNKNOWN(<n>)
 }
 
-inline const char* rp_dump_enum_name(::nm::MacroEnum rp_e) {
+inline const char* rp_dump_enum_name(::rp::common::nm::GnuEnum rp_e) {
+  switch (static_cast<std::int32_t>(rp_e)) {
+    case 0: return "GNU_ENUM_ZERO";
+    case 1: return "linux_";
+  }
+  return nullptr;  // unknown (open enum): the caller renders UNKNOWN(<n>)
+}
+
+inline const char* rp_dump_enum_name(::rp::common::nm::StdintEnum rp_e) {
+  switch (static_cast<std::int32_t>(rp_e)) {
+    case 0: return "STDINT_ENUM_UNSET";
+    case 1: return "STDINT_ENUM_SIZE_MAX";
+  }
+  return nullptr;  // unknown (open enum): the caller renders UNKNOWN(<n>)
+}
+
+inline const char* rp_dump_enum_name(::rp::common::nm::MacroEnum rp_e) {
   switch (static_cast<std::int32_t>(rp_e)) {
     case 0: return "RP_FLATTEN_";
     case 1: return "MACRO_ENUM_OTHER";
@@ -29,100 +45,111 @@ inline const char* rp_dump_enum_name(::nm::MacroEnum rp_e) {
   return nullptr;  // unknown (open enum): the caller renders UNKNOWN(<n>)
 }
 
-inline const char* rp_dump_enum_name(::nm::Shadow::Inner::Shadow rp_e) {
+inline const char* rp_dump_enum_name(::rp::common::nm::Outer::Outer_::K rp_e) {
+  switch (static_cast<std::int32_t>(rp_e)) {
+    case 0: return "K0";
+  }
+  return nullptr;  // unknown (open enum): the caller renders UNKNOWN(<n>)
+}
+
+inline const char* rp_dump_enum_name(::rp::common::nm::Shadow::Inner::Shadow rp_e) {
   switch (static_cast<std::int32_t>(rp_e)) {
     case 0: return "X";
   }
   return nullptr;  // unknown (open enum): the caller renders UNKNOWN(<n>)
 }
 
-inline const char* rp_dump_enum_name(::nm::StdEnum::std_ rp_e) {
+inline const char* rp_dump_enum_name(::rp::common::nm::StdEnum::std_ rp_e) {
   switch (static_cast<std::int32_t>(rp_e)) {
     case 0: return "X";
   }
   return nullptr;  // unknown (open enum): the caller renders UNKNOWN(<n>)
 }
 
-}  // namespace rapidproto::dump::detail
+}  // namespace rapidproto::dump_detail
 
-namespace nm {
+namespace rp::arena::nm {
 
 namespace rp_dump_detail {
 
-inline void rp_dump_write(const ::nm::M::int_& m, ::rapidproto::dump::Writer& w);
-inline void rp_dump_write(const ::nm::M& m, ::rapidproto::dump::Writer& w);
-inline void rp_dump_write(const ::nm::Outer::Outer_& m, ::rapidproto::dump::Writer& w);
-inline void rp_dump_write(const ::nm::Outer& m, ::rapidproto::dump::Writer& w);
-inline void rp_dump_write(const ::nm::m_bytes& m, ::rapidproto::dump::Writer& w);
-inline void rp_dump_write(const ::nm::UsesMBytes& m, ::rapidproto::dump::Writer& w);
-inline void rp_dump_write(const ::nm::Shadow::Inner& m, ::rapidproto::dump::Writer& w);
-inline void rp_dump_write(const ::nm::Shadow& m, ::rapidproto::dump::Writer& w);
-inline void rp_dump_write(const ::nm::Deep::Deep_::Deep& m, ::rapidproto::dump::Writer& w);
-inline void rp_dump_write(const ::nm::Deep::Deep_& m, ::rapidproto::dump::Writer& w);
-inline void rp_dump_write(const ::nm::Deep& m, ::rapidproto::dump::Writer& w);
-inline void rp_dump_write(const ::nm::Std::std_& m, ::rapidproto::dump::Writer& w);
-inline void rp_dump_write(const ::nm::Std& m, ::rapidproto::dump::Writer& w);
-inline void rp_dump_write(const ::nm::StdEnum& m, ::rapidproto::dump::Writer& w);
-inline void rp_dump_write(const ::nm::StdField& m, ::rapidproto::dump::Writer& w);
-inline void rp_dump_write(const ::nm::StdMap& m, ::rapidproto::dump::Writer& w);
-inline void rp_dump_write(const ::nm::Macros::RP_FLATTEN_& m, ::rapidproto::dump::Writer& w);
-inline void rp_dump_write(const ::nm::Macros& m, ::rapidproto::dump::Writer& w);
-inline void rp_dump_write(const ::nm::OneofTags& m, ::rapidproto::dump::Writer& w);
-inline void rp_dump_write(const ::nm::UsesStream& m, ::rapidproto::dump::Writer& w);
-inline void rp_dump_write(const ::nm::Freed& m, ::rapidproto::dump::Writer& w);
-inline void rp_dump_write(const ::nm::FreedOneof& m, ::rapidproto::dump::Writer& w);
+inline void rp_dump_write(const ::rp::arena::nm::M::int_& m, ::rapidproto::dump_detail::Writer& w);
+inline void rp_dump_write(const ::rp::arena::nm::M& m, ::rapidproto::dump_detail::Writer& w);
+inline void rp_dump_write(const ::rp::arena::nm::Outer::Outer_& m, ::rapidproto::dump_detail::Writer& w);
+inline void rp_dump_write(const ::rp::arena::nm::Outer& m, ::rapidproto::dump_detail::Writer& w);
+inline void rp_dump_write(const ::rp::arena::nm::Gnu::linux_& m, ::rapidproto::dump_detail::Writer& w);
+inline void rp_dump_write(const ::rp::arena::nm::Gnu& m, ::rapidproto::dump_detail::Writer& w);
+inline void rp_dump_write(const ::rp::arena::nm::Stdint& m, ::rapidproto::dump_detail::Writer& w);
+inline void rp_dump_write(const ::rp::arena::nm::unix_& m, ::rapidproto::dump_detail::Writer& w);
+inline void rp_dump_write(const ::rp::arena::nm::m_bytes& m, ::rapidproto::dump_detail::Writer& w);
+inline void rp_dump_write(const ::rp::arena::nm::UsesMBytes& m, ::rapidproto::dump_detail::Writer& w);
+inline void rp_dump_write(const ::rp::arena::nm::Shadow::Inner& m, ::rapidproto::dump_detail::Writer& w);
+inline void rp_dump_write(const ::rp::arena::nm::Shadow& m, ::rapidproto::dump_detail::Writer& w);
+inline void rp_dump_write(const ::rp::arena::nm::Deep::Deep_::Deep& m, ::rapidproto::dump_detail::Writer& w);
+inline void rp_dump_write(const ::rp::arena::nm::Deep::Deep_& m, ::rapidproto::dump_detail::Writer& w);
+inline void rp_dump_write(const ::rp::arena::nm::Deep& m, ::rapidproto::dump_detail::Writer& w);
+inline void rp_dump_write(const ::rp::arena::nm::Std::std_& m, ::rapidproto::dump_detail::Writer& w);
+inline void rp_dump_write(const ::rp::arena::nm::Std& m, ::rapidproto::dump_detail::Writer& w);
+inline void rp_dump_write(const ::rp::arena::nm::StdEnum& m, ::rapidproto::dump_detail::Writer& w);
+inline void rp_dump_write(const ::rp::arena::nm::StdField& m, ::rapidproto::dump_detail::Writer& w);
+inline void rp_dump_write(const ::rp::arena::nm::StdMap& m, ::rapidproto::dump_detail::Writer& w);
+inline void rp_dump_write(const ::rp::arena::nm::Macros::RP_FLATTEN_& m, ::rapidproto::dump_detail::Writer& w);
+inline void rp_dump_write(const ::rp::arena::nm::Macros& m, ::rapidproto::dump_detail::Writer& w);
+inline void rp_dump_write(const ::rp::arena::nm::OneofTags& m, ::rapidproto::dump_detail::Writer& w);
+inline void rp_dump_write(const ::rp::arena::nm::UsesStream& m, ::rapidproto::dump_detail::Writer& w);
+inline void rp_dump_write(const ::rp::arena::nm::Freed& m, ::rapidproto::dump_detail::Writer& w);
+inline void rp_dump_write(const ::rp::arena::nm::FreedOneof& m, ::rapidproto::dump_detail::Writer& w);
 
-inline void rp_dump_write(const ::nm::M::int_& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::nm::M::int_& m, ::rapidproto::dump_detail::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
     if (const auto rp_v = m.x()) {
       if (w.begin_field(rp_first, "x")) {
-        ::rapidproto::dump::write_int(w.os(), *rp_v);
+        ::rapidproto::dump_detail::write_int(w.os(), *rp_v);
       }
     }
     (void)rp_first;
   });
 }
 
-inline void rp_dump_write(const ::nm::M& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::nm::M& m, ::rapidproto::dump_detail::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
     if (const auto rp_v = m.decode_()) {
       if (w.begin_field(rp_first, "decode")) {
-        ::rapidproto::dump::write_int(w.os(), *rp_v);
+        ::rapidproto::dump_detail::write_int(w.os(), *rp_v);
       }
     }
     if (const auto rp_v = m.decode__()) {
       if (w.begin_field(rp_first, "decode_")) {
-        ::rapidproto::dump::write_int(w.os(), *rp_v);
+        ::rapidproto::dump_detail::write_int(w.os(), *rp_v);
       }
     }
     if (const auto* rp_p = m.int_field()) {
       if (w.begin_field(rp_first, "int_field")) {
         w.push_path("int_field");
-        ::nm::rp_dump_detail::rp_dump_write(*rp_p, w);
+        ::rp::arena::nm::rp_dump_detail::rp_dump_write(*rp_p, w);
         w.pop_path();
       }
     }
     if (const auto rp_v = m.int__()) {
       if (w.begin_field(rp_first, "int_")) {
-        ::rapidproto::dump::write_int(w.os(), *rp_v);
+        ::rapidproto::dump_detail::write_int(w.os(), *rp_v);
       }
     }
     if (const auto rp_v = m.e()) {
       if (w.begin_field(rp_first, "e")) {
         { const auto rp_e = *rp_v;
-        if (const char* rp_nm = ::rapidproto::dump::detail::rp_dump_enum_name(rp_e)) { w.os() << '"' << rp_nm << '"'; }
-        else { w.os() << "\"UNKNOWN("; ::rapidproto::dump::write_int(w.os(), static_cast<std::int32_t>(rp_e)); w.os() << ")\""; } }
+        if (const char* rp_nm = ::rapidproto::dump_detail::rp_dump_enum_name(rp_e)) { w.os() << '"' << rp_nm << '"'; }
+        else { w.os() << "\"UNKNOWN("; ::rapidproto::dump_detail::write_int(w.os(), static_cast<std::int32_t>(rp_e)); w.os() << ")\""; } }
       }
     }
     m.pick([&](auto rp_tag, const auto& rp_v) {
       using rp_Tag = std::decay_t<decltype(rp_tag)>;
-      if constexpr (std::is_same_v<rp_Tag, ::nm::M::Pick::decode___>) {
+      if constexpr (std::is_same_v<rp_Tag, ::rp::arena::nm::M::Pick::decode___>) {
         if (w.begin_field(rp_first, "decode__")) {
-          ::rapidproto::dump::write_int(w.os(), rp_v);
+          ::rapidproto::dump_detail::write_int(w.os(), rp_v);
         }
       }
     });
@@ -130,27 +157,34 @@ inline void rp_dump_write(const ::nm::M& m, ::rapidproto::dump::Writer& w) {
   });
 }
 
-inline void rp_dump_write(const ::nm::Outer::Outer_& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::nm::Outer::Outer_& m, ::rapidproto::dump_detail::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
     if (const auto rp_v = m.v()) {
       if (w.begin_field(rp_first, "v")) {
-        ::rapidproto::dump::write_int(w.os(), *rp_v);
+        ::rapidproto::dump_detail::write_int(w.os(), *rp_v);
+      }
+    }
+    if (const auto rp_v = m.k()) {
+      if (w.begin_field(rp_first, "k")) {
+        { const auto rp_e = *rp_v;
+        if (const char* rp_nm = ::rapidproto::dump_detail::rp_dump_enum_name(rp_e)) { w.os() << '"' << rp_nm << '"'; }
+        else { w.os() << "\"UNKNOWN("; ::rapidproto::dump_detail::write_int(w.os(), static_cast<std::int32_t>(rp_e)); w.os() << ")\""; } }
       }
     }
     (void)rp_first;
   });
 }
 
-inline void rp_dump_write(const ::nm::Outer& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::nm::Outer& m, ::rapidproto::dump_detail::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
     if (const auto* rp_p = m.inner()) {
       if (w.begin_field(rp_first, "inner")) {
         w.push_path("inner");
-        ::nm::rp_dump_detail::rp_dump_write(*rp_p, w);
+        ::rp::arena::nm::rp_dump_detail::rp_dump_write(*rp_p, w);
         w.pop_path();
       }
     }
@@ -158,60 +192,124 @@ inline void rp_dump_write(const ::nm::Outer& m, ::rapidproto::dump::Writer& w) {
   });
 }
 
-inline void rp_dump_write(const ::nm::m_bytes& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::nm::Gnu::linux_& m, ::rapidproto::dump_detail::Writer& w) {
+  (void)m;
+  w.group('{', '}', [&] {
+    bool rp_first = true;
+    if (const auto rp_v = m.a()) {
+      if (w.begin_field(rp_first, "a")) {
+        ::rapidproto::dump_detail::write_int(w.os(), *rp_v);
+      }
+    }
+    (void)rp_first;
+  });
+}
+
+inline void rp_dump_write(const ::rp::arena::nm::Gnu& m, ::rapidproto::dump_detail::Writer& w) {
+  (void)m;
+  w.group('{', '}', [&] {
+    bool rp_first = true;
+    if (const auto* rp_p = m.l()) {
+      if (w.begin_field(rp_first, "l")) {
+        w.push_path("l");
+        ::rp::arena::nm::rp_dump_detail::rp_dump_write(*rp_p, w);
+        w.pop_path();
+      }
+    }
+    if (const auto rp_v = m.unix_()) {
+      if (w.begin_field(rp_first, "unix")) {
+        ::rapidproto::dump_detail::write_int(w.os(), *rp_v);
+      }
+    }
+    (void)rp_first;
+  });
+}
+
+inline void rp_dump_write(const ::rp::arena::nm::Stdint& m, ::rapidproto::dump_detail::Writer& w) {
+  (void)m;
+  w.group('{', '}', [&] {
+    bool rp_first = true;
+    if (const auto rp_v = m.INT32_MAX_()) {
+      if (w.begin_field(rp_first, "INT32_MAX")) {
+        ::rapidproto::dump_detail::write_int(w.os(), *rp_v);
+      }
+    }
+    if (const auto rp_v = m.INT8_C_()) {
+      if (w.begin_field(rp_first, "INT8_C")) {
+        ::rapidproto::dump_detail::write_int(w.os(), *rp_v);
+      }
+    }
+    (void)rp_first;
+  });
+}
+
+inline void rp_dump_write(const ::rp::arena::nm::unix_& m, ::rapidproto::dump_detail::Writer& w) {
+  (void)m;
+  w.group('{', '}', [&] {
+    bool rp_first = true;
+    if (const auto rp_v = m.a()) {
+      if (w.begin_field(rp_first, "a")) {
+        ::rapidproto::dump_detail::write_int(w.os(), *rp_v);
+      }
+    }
+    (void)rp_first;
+  });
+}
+
+inline void rp_dump_write(const ::rp::arena::nm::m_bytes& m, ::rapidproto::dump_detail::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
     if (const auto rp_v = m.v()) {
       if (w.begin_field(rp_first, "v")) {
-        ::rapidproto::dump::write_int(w.os(), *rp_v);
+        ::rapidproto::dump_detail::write_int(w.os(), *rp_v);
       }
     }
     (void)rp_first;
   });
 }
 
-inline void rp_dump_write(const ::nm::UsesMBytes& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::nm::UsesMBytes& m, ::rapidproto::dump_detail::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
     if (const auto rp_v = m.m_bytes()) {
       if (w.begin_field(rp_first, "m_bytes")) {
-        ::rapidproto::dump::write_int(w.os(), *rp_v);
+        ::rapidproto::dump_detail::write_int(w.os(), *rp_v);
       }
     }
     if (const auto rp_v = m.other()) {
       if (w.begin_field(rp_first, "other")) {
-        w.os() << '"'; ::rapidproto::dump::write_json_escaped(w.os(), *rp_v); w.os() << '"';
+        w.os() << '"'; ::rapidproto::dump_detail::write_json_escaped(w.os(), *rp_v); w.os() << '"';
       }
     }
     (void)rp_first;
   });
 }
 
-inline void rp_dump_write(const ::nm::Shadow::Inner& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::nm::Shadow::Inner& m, ::rapidproto::dump_detail::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
     if (const auto rp_v = m.e()) {
       if (w.begin_field(rp_first, "e")) {
         { const auto rp_e = *rp_v;
-        if (const char* rp_nm = ::rapidproto::dump::detail::rp_dump_enum_name(rp_e)) { w.os() << '"' << rp_nm << '"'; }
-        else { w.os() << "\"UNKNOWN("; ::rapidproto::dump::write_int(w.os(), static_cast<std::int32_t>(rp_e)); w.os() << ")\""; } }
+        if (const char* rp_nm = ::rapidproto::dump_detail::rp_dump_enum_name(rp_e)) { w.os() << '"' << rp_nm << '"'; }
+        else { w.os() << "\"UNKNOWN("; ::rapidproto::dump_detail::write_int(w.os(), static_cast<std::int32_t>(rp_e)); w.os() << ")\""; } }
       }
     }
     (void)rp_first;
   });
 }
 
-inline void rp_dump_write(const ::nm::Shadow& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::nm::Shadow& m, ::rapidproto::dump_detail::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
     if (const auto* rp_p = m.inner()) {
       if (w.begin_field(rp_first, "inner")) {
         w.push_path("inner");
-        ::nm::rp_dump_detail::rp_dump_write(*rp_p, w);
+        ::rp::arena::nm::rp_dump_detail::rp_dump_write(*rp_p, w);
         w.pop_path();
       }
     }
@@ -219,27 +317,27 @@ inline void rp_dump_write(const ::nm::Shadow& m, ::rapidproto::dump::Writer& w) 
   });
 }
 
-inline void rp_dump_write(const ::nm::Deep::Deep_::Deep& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::nm::Deep::Deep_::Deep& m, ::rapidproto::dump_detail::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
     if (const auto rp_v = m.x()) {
       if (w.begin_field(rp_first, "x")) {
-        ::rapidproto::dump::write_int(w.os(), *rp_v);
+        ::rapidproto::dump_detail::write_int(w.os(), *rp_v);
       }
     }
     (void)rp_first;
   });
 }
 
-inline void rp_dump_write(const ::nm::Deep::Deep_& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::nm::Deep::Deep_& m, ::rapidproto::dump_detail::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
     if (const auto* rp_p = m.inner()) {
       if (w.begin_field(rp_first, "inner")) {
         w.push_path("inner");
-        ::nm::rp_dump_detail::rp_dump_write(*rp_p, w);
+        ::rp::arena::nm::rp_dump_detail::rp_dump_write(*rp_p, w);
         w.pop_path();
       }
     }
@@ -247,14 +345,14 @@ inline void rp_dump_write(const ::nm::Deep::Deep_& m, ::rapidproto::dump::Writer
   });
 }
 
-inline void rp_dump_write(const ::nm::Deep& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::nm::Deep& m, ::rapidproto::dump_detail::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
     if (const auto* rp_p = m.mid()) {
       if (w.begin_field(rp_first, "mid")) {
         w.push_path("mid");
-        ::nm::rp_dump_detail::rp_dump_write(*rp_p, w);
+        ::rp::arena::nm::rp_dump_detail::rp_dump_write(*rp_p, w);
         w.pop_path();
       }
     }
@@ -262,27 +360,27 @@ inline void rp_dump_write(const ::nm::Deep& m, ::rapidproto::dump::Writer& w) {
   });
 }
 
-inline void rp_dump_write(const ::nm::Std::std_& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::nm::Std::std_& m, ::rapidproto::dump_detail::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
     if (const auto rp_v = m.a()) {
       if (w.begin_field(rp_first, "a")) {
-        ::rapidproto::dump::write_int(w.os(), *rp_v);
+        ::rapidproto::dump_detail::write_int(w.os(), *rp_v);
       }
     }
     (void)rp_first;
   });
 }
 
-inline void rp_dump_write(const ::nm::Std& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::nm::Std& m, ::rapidproto::dump_detail::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
     if (const auto* rp_p = m.s()) {
       if (w.begin_field(rp_first, "s")) {
         w.push_path("s");
-        ::nm::rp_dump_detail::rp_dump_write(*rp_p, w);
+        ::rp::arena::nm::rp_dump_detail::rp_dump_write(*rp_p, w);
         w.pop_path();
       }
     }
@@ -290,35 +388,35 @@ inline void rp_dump_write(const ::nm::Std& m, ::rapidproto::dump::Writer& w) {
   });
 }
 
-inline void rp_dump_write(const ::nm::StdEnum& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::nm::StdEnum& m, ::rapidproto::dump_detail::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
     if (const auto rp_v = m.e()) {
       if (w.begin_field(rp_first, "e")) {
         { const auto rp_e = *rp_v;
-        if (const char* rp_nm = ::rapidproto::dump::detail::rp_dump_enum_name(rp_e)) { w.os() << '"' << rp_nm << '"'; }
-        else { w.os() << "\"UNKNOWN("; ::rapidproto::dump::write_int(w.os(), static_cast<std::int32_t>(rp_e)); w.os() << ")\""; } }
+        if (const char* rp_nm = ::rapidproto::dump_detail::rp_dump_enum_name(rp_e)) { w.os() << '"' << rp_nm << '"'; }
+        else { w.os() << "\"UNKNOWN("; ::rapidproto::dump_detail::write_int(w.os(), static_cast<std::int32_t>(rp_e)); w.os() << ")\""; } }
       }
     }
     (void)rp_first;
   });
 }
 
-inline void rp_dump_write(const ::nm::StdField& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::nm::StdField& m, ::rapidproto::dump_detail::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
     if (const auto rp_v = m.std_()) {
       if (w.begin_field(rp_first, "std")) {
-        ::rapidproto::dump::write_int(w.os(), *rp_v);
+        ::rapidproto::dump_detail::write_int(w.os(), *rp_v);
       }
     }
     (void)rp_first;
   });
 }
 
-inline void rp_dump_write(const ::nm::StdMap& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::nm::StdMap& m, ::rapidproto::dump_detail::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
@@ -328,8 +426,8 @@ inline void rp_dump_write(const ::nm::StdMap& m, ::rapidproto::dump::Writer& w) 
           bool rp_efirst = true;
           for (const auto& rp_ent : rp_mp) {
             w.entry_sep(rp_efirst);
-            w.os() << '"'; ::rapidproto::dump::write_json_escaped(w.os(), rp_ent.key()); w.os() << "\": ";
-            ::rapidproto::dump::write_int(w.os(), rp_ent.value());
+            w.os() << '"'; ::rapidproto::dump_detail::write_json_escaped(w.os(), rp_ent.key()); w.os() << "\": ";
+            ::rapidproto::dump_detail::write_int(w.os(), rp_ent.value());
             if (w.overflowed()) { break; }
           }
         });
@@ -339,33 +437,33 @@ inline void rp_dump_write(const ::nm::StdMap& m, ::rapidproto::dump::Writer& w) 
   });
 }
 
-inline void rp_dump_write(const ::nm::Macros::RP_FLATTEN_& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::nm::Macros::RP_FLATTEN_& m, ::rapidproto::dump_detail::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
     if (const auto rp_v = m.a()) {
       if (w.begin_field(rp_first, "a")) {
-        ::rapidproto::dump::write_int(w.os(), *rp_v);
+        ::rapidproto::dump_detail::write_int(w.os(), *rp_v);
       }
     }
     (void)rp_first;
   });
 }
 
-inline void rp_dump_write(const ::nm::Macros& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::nm::Macros& m, ::rapidproto::dump_detail::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
     if (const auto* rp_p = m.m()) {
       if (w.begin_field(rp_first, "m")) {
         w.push_path("m");
-        ::nm::rp_dump_detail::rp_dump_write(*rp_p, w);
+        ::rp::arena::nm::rp_dump_detail::rp_dump_write(*rp_p, w);
         w.pop_path();
       }
     }
     if (const auto rp_v = m.RP_NOINLINE_()) {
       if (w.begin_field(rp_first, "RP_NOINLINE")) {
-        ::rapidproto::dump::write_int(w.os(), *rp_v);
+        ::rapidproto::dump_detail::write_int(w.os(), *rp_v);
       }
     }
     if (const auto& rp_mp = m.rP_x(); !rp_mp.empty()) {
@@ -374,8 +472,8 @@ inline void rp_dump_write(const ::nm::Macros& m, ::rapidproto::dump::Writer& w) 
           bool rp_efirst = true;
           for (const auto& rp_ent : rp_mp) {
             w.entry_sep(rp_efirst);
-            w.os() << '"'; ::rapidproto::dump::write_json_escaped(w.os(), rp_ent.key()); w.os() << "\": ";
-            ::rapidproto::dump::write_int(w.os(), rp_ent.value());
+            w.os() << '"'; ::rapidproto::dump_detail::write_json_escaped(w.os(), rp_ent.key()); w.os() << "\": ";
+            ::rapidproto::dump_detail::write_int(w.os(), rp_ent.value());
             if (w.overflowed()) { break; }
           }
         });
@@ -385,31 +483,31 @@ inline void rp_dump_write(const ::nm::Macros& m, ::rapidproto::dump::Writer& w) 
   });
 }
 
-inline void rp_dump_write(const ::nm::OneofTags& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::nm::OneofTags& m, ::rapidproto::dump_detail::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
     m.EOF_([&](auto rp_tag, const auto& rp_v) {
       using rp_Tag = std::decay_t<decltype(rp_tag)>;
-      if constexpr (std::is_same_v<rp_Tag, ::nm::OneofTags::EOF__::a>) {
+      if constexpr (std::is_same_v<rp_Tag, ::rp::arena::nm::OneofTags::EOF__::a>) {
         if (w.begin_field(rp_first, "a")) {
-          ::rapidproto::dump::write_int(w.os(), rp_v);
+          ::rapidproto::dump_detail::write_int(w.os(), rp_v);
         }
       }
     });
     m.value([&](auto rp_tag, const auto& rp_v) {
       using rp_Tag = std::decay_t<decltype(rp_tag)>;
-      if constexpr (std::is_same_v<rp_Tag, ::nm::OneofTags::Value::b>) {
+      if constexpr (std::is_same_v<rp_Tag, ::rp::arena::nm::OneofTags::Value::b>) {
         if (w.begin_field(rp_first, "b")) {
-          ::rapidproto::dump::write_int(w.os(), rp_v);
+          ::rapidproto::dump_detail::write_int(w.os(), rp_v);
         }
       }
     });
     m.RP_FLATTEN_([&](auto rp_tag, const auto& rp_v) {
       using rp_Tag = std::decay_t<decltype(rp_tag)>;
-      if constexpr (std::is_same_v<rp_Tag, ::nm::OneofTags::RP_FLATTEN__::c>) {
+      if constexpr (std::is_same_v<rp_Tag, ::rp::arena::nm::OneofTags::RP_FLATTEN__::c>) {
         if (w.begin_field(rp_first, "c")) {
-          ::rapidproto::dump::write_int(w.os(), rp_v);
+          ::rapidproto::dump_detail::write_int(w.os(), rp_v);
         }
       }
     });
@@ -417,48 +515,48 @@ inline void rp_dump_write(const ::nm::OneofTags& m, ::rapidproto::dump::Writer& 
   });
 }
 
-inline void rp_dump_write(const ::nm::UsesStream& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::nm::UsesStream& m, ::rapidproto::dump_detail::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
     if (const auto rp_v = m.stream()) {
       if (w.begin_field(rp_first, "stream")) {
-        ::rapidproto::dump::write_int(w.os(), *rp_v);
+        ::rapidproto::dump_detail::write_int(w.os(), *rp_v);
       }
     }
     (void)rp_first;
   });
 }
 
-inline void rp_dump_write(const ::nm::Freed& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::nm::Freed& m, ::rapidproto::dump_detail::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
     if (const auto rp_v = m.Callbacks()) {
       if (w.begin_field(rp_first, "Callbacks")) {
-        ::rapidproto::dump::write_int(w.os(), *rp_v);
+        ::rapidproto::dump_detail::write_int(w.os(), *rp_v);
       }
     }
     if (const auto rp_v = m.RpFs()) {
       if (w.begin_field(rp_first, "RpFs")) {
-        ::rapidproto::dump::write_int(w.os(), *rp_v);
+        ::rapidproto::dump_detail::write_int(w.os(), *rp_v);
       }
     }
     if (const auto rp_v = m.RpT()) {
       if (w.begin_field(rp_first, "RpT")) {
-        ::rapidproto::dump::write_int(w.os(), *rp_v);
+        ::rapidproto::dump_detail::write_int(w.os(), *rp_v);
       }
     }
     if (const auto rp_v = m.RpTag()) {
       if (w.begin_field(rp_first, "RpTag")) {
-        ::rapidproto::dump::write_int(w.os(), *rp_v);
+        ::rapidproto::dump_detail::write_int(w.os(), *rp_v);
       }
     }
     m.RpFs_oneof([&](auto rp_tag, const auto& rp_v) {
       using rp_Tag = std::decay_t<decltype(rp_tag)>;
-      if constexpr (std::is_same_v<rp_Tag, ::nm::Freed::RpFs_oneof_::x>) {
+      if constexpr (std::is_same_v<rp_Tag, ::rp::arena::nm::Freed::RpFs_oneof_::x>) {
         if (w.begin_field(rp_first, "x")) {
-          ::rapidproto::dump::write_int(w.os(), rp_v);
+          ::rapidproto::dump_detail::write_int(w.os(), rp_v);
         }
       }
     });
@@ -466,15 +564,15 @@ inline void rp_dump_write(const ::nm::Freed& m, ::rapidproto::dump::Writer& w) {
   });
 }
 
-inline void rp_dump_write(const ::nm::FreedOneof& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::nm::FreedOneof& m, ::rapidproto::dump_detail::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
     m.RpFs([&](auto rp_tag, const auto& rp_v) {
       using rp_Tag = std::decay_t<decltype(rp_tag)>;
-      if constexpr (std::is_same_v<rp_Tag, ::nm::FreedOneof::RpFs_::a>) {
+      if constexpr (std::is_same_v<rp_Tag, ::rp::arena::nm::FreedOneof::RpFs_::a>) {
         if (w.begin_field(rp_first, "a")) {
-          ::rapidproto::dump::write_int(w.os(), rp_v);
+          ::rapidproto::dump_detail::write_int(w.os(), rp_v);
         }
       }
     });
@@ -484,202 +582,138 @@ inline void rp_dump_write(const ::nm::FreedOneof& m, ::rapidproto::dump::Writer&
 
 }  // namespace rp_dump_detail
 
-inline void rp_dump_write(std::ostream& rp_os, const ::nm::M::int_& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::nm::rp_dump_detail::rp_dump_write(m, w);
-}
+}  // namespace rp::arena::nm
 
-inline std::string rp_dump_string(const ::nm::M::int_& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
-}
+namespace rapidproto::dump_detail {
 
-inline void rp_dump_write(std::ostream& rp_os, const ::nm::M& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::nm::rp_dump_detail::rp_dump_write(m, w);
-}
+template <>
+struct dumper<::rp::arena::nm::M::int_> {
+  static void write(const ::rp::arena::nm::M::int_& m, Writer& w) { ::rp::arena::nm::rp_dump_detail::rp_dump_write(m, w); }
+};
 
-inline std::string rp_dump_string(const ::nm::M& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
-}
+template <>
+struct dumper<::rp::arena::nm::M> {
+  static void write(const ::rp::arena::nm::M& m, Writer& w) { ::rp::arena::nm::rp_dump_detail::rp_dump_write(m, w); }
+};
 
-inline void rp_dump_write(std::ostream& rp_os, const ::nm::Outer::Outer_& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::nm::rp_dump_detail::rp_dump_write(m, w);
-}
+template <>
+struct dumper<::rp::arena::nm::Outer::Outer_> {
+  static void write(const ::rp::arena::nm::Outer::Outer_& m, Writer& w) { ::rp::arena::nm::rp_dump_detail::rp_dump_write(m, w); }
+};
 
-inline std::string rp_dump_string(const ::nm::Outer::Outer_& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
-}
+template <>
+struct dumper<::rp::arena::nm::Outer> {
+  static void write(const ::rp::arena::nm::Outer& m, Writer& w) { ::rp::arena::nm::rp_dump_detail::rp_dump_write(m, w); }
+};
 
-inline void rp_dump_write(std::ostream& rp_os, const ::nm::Outer& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::nm::rp_dump_detail::rp_dump_write(m, w);
-}
+template <>
+struct dumper<::rp::arena::nm::Gnu::linux_> {
+  static void write(const ::rp::arena::nm::Gnu::linux_& m, Writer& w) { ::rp::arena::nm::rp_dump_detail::rp_dump_write(m, w); }
+};
 
-inline std::string rp_dump_string(const ::nm::Outer& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
-}
+template <>
+struct dumper<::rp::arena::nm::Gnu> {
+  static void write(const ::rp::arena::nm::Gnu& m, Writer& w) { ::rp::arena::nm::rp_dump_detail::rp_dump_write(m, w); }
+};
 
-inline void rp_dump_write(std::ostream& rp_os, const ::nm::m_bytes& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::nm::rp_dump_detail::rp_dump_write(m, w);
-}
+template <>
+struct dumper<::rp::arena::nm::Stdint> {
+  static void write(const ::rp::arena::nm::Stdint& m, Writer& w) { ::rp::arena::nm::rp_dump_detail::rp_dump_write(m, w); }
+};
 
-inline std::string rp_dump_string(const ::nm::m_bytes& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
-}
+template <>
+struct dumper<::rp::arena::nm::unix_> {
+  static void write(const ::rp::arena::nm::unix_& m, Writer& w) { ::rp::arena::nm::rp_dump_detail::rp_dump_write(m, w); }
+};
 
-inline void rp_dump_write(std::ostream& rp_os, const ::nm::UsesMBytes& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::nm::rp_dump_detail::rp_dump_write(m, w);
-}
+template <>
+struct dumper<::rp::arena::nm::m_bytes> {
+  static void write(const ::rp::arena::nm::m_bytes& m, Writer& w) { ::rp::arena::nm::rp_dump_detail::rp_dump_write(m, w); }
+};
 
-inline std::string rp_dump_string(const ::nm::UsesMBytes& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
-}
+template <>
+struct dumper<::rp::arena::nm::UsesMBytes> {
+  static void write(const ::rp::arena::nm::UsesMBytes& m, Writer& w) { ::rp::arena::nm::rp_dump_detail::rp_dump_write(m, w); }
+};
 
-inline void rp_dump_write(std::ostream& rp_os, const ::nm::Shadow::Inner& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::nm::rp_dump_detail::rp_dump_write(m, w);
-}
+template <>
+struct dumper<::rp::arena::nm::Shadow::Inner> {
+  static void write(const ::rp::arena::nm::Shadow::Inner& m, Writer& w) { ::rp::arena::nm::rp_dump_detail::rp_dump_write(m, w); }
+};
 
-inline std::string rp_dump_string(const ::nm::Shadow::Inner& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
-}
+template <>
+struct dumper<::rp::arena::nm::Shadow> {
+  static void write(const ::rp::arena::nm::Shadow& m, Writer& w) { ::rp::arena::nm::rp_dump_detail::rp_dump_write(m, w); }
+};
 
-inline void rp_dump_write(std::ostream& rp_os, const ::nm::Shadow& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::nm::rp_dump_detail::rp_dump_write(m, w);
-}
+template <>
+struct dumper<::rp::arena::nm::Deep::Deep_::Deep> {
+  static void write(const ::rp::arena::nm::Deep::Deep_::Deep& m, Writer& w) { ::rp::arena::nm::rp_dump_detail::rp_dump_write(m, w); }
+};
 
-inline std::string rp_dump_string(const ::nm::Shadow& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
-}
+template <>
+struct dumper<::rp::arena::nm::Deep::Deep_> {
+  static void write(const ::rp::arena::nm::Deep::Deep_& m, Writer& w) { ::rp::arena::nm::rp_dump_detail::rp_dump_write(m, w); }
+};
 
-inline void rp_dump_write(std::ostream& rp_os, const ::nm::Deep::Deep_::Deep& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::nm::rp_dump_detail::rp_dump_write(m, w);
-}
+template <>
+struct dumper<::rp::arena::nm::Deep> {
+  static void write(const ::rp::arena::nm::Deep& m, Writer& w) { ::rp::arena::nm::rp_dump_detail::rp_dump_write(m, w); }
+};
 
-inline std::string rp_dump_string(const ::nm::Deep::Deep_::Deep& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
-}
+template <>
+struct dumper<::rp::arena::nm::Std::std_> {
+  static void write(const ::rp::arena::nm::Std::std_& m, Writer& w) { ::rp::arena::nm::rp_dump_detail::rp_dump_write(m, w); }
+};
 
-inline void rp_dump_write(std::ostream& rp_os, const ::nm::Deep::Deep_& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::nm::rp_dump_detail::rp_dump_write(m, w);
-}
+template <>
+struct dumper<::rp::arena::nm::Std> {
+  static void write(const ::rp::arena::nm::Std& m, Writer& w) { ::rp::arena::nm::rp_dump_detail::rp_dump_write(m, w); }
+};
 
-inline std::string rp_dump_string(const ::nm::Deep::Deep_& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
-}
+template <>
+struct dumper<::rp::arena::nm::StdEnum> {
+  static void write(const ::rp::arena::nm::StdEnum& m, Writer& w) { ::rp::arena::nm::rp_dump_detail::rp_dump_write(m, w); }
+};
 
-inline void rp_dump_write(std::ostream& rp_os, const ::nm::Deep& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::nm::rp_dump_detail::rp_dump_write(m, w);
-}
+template <>
+struct dumper<::rp::arena::nm::StdField> {
+  static void write(const ::rp::arena::nm::StdField& m, Writer& w) { ::rp::arena::nm::rp_dump_detail::rp_dump_write(m, w); }
+};
 
-inline std::string rp_dump_string(const ::nm::Deep& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
-}
+template <>
+struct dumper<::rp::arena::nm::StdMap> {
+  static void write(const ::rp::arena::nm::StdMap& m, Writer& w) { ::rp::arena::nm::rp_dump_detail::rp_dump_write(m, w); }
+};
 
-inline void rp_dump_write(std::ostream& rp_os, const ::nm::Std::std_& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::nm::rp_dump_detail::rp_dump_write(m, w);
-}
+template <>
+struct dumper<::rp::arena::nm::Macros::RP_FLATTEN_> {
+  static void write(const ::rp::arena::nm::Macros::RP_FLATTEN_& m, Writer& w) { ::rp::arena::nm::rp_dump_detail::rp_dump_write(m, w); }
+};
 
-inline std::string rp_dump_string(const ::nm::Std::std_& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
-}
+template <>
+struct dumper<::rp::arena::nm::Macros> {
+  static void write(const ::rp::arena::nm::Macros& m, Writer& w) { ::rp::arena::nm::rp_dump_detail::rp_dump_write(m, w); }
+};
 
-inline void rp_dump_write(std::ostream& rp_os, const ::nm::Std& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::nm::rp_dump_detail::rp_dump_write(m, w);
-}
+template <>
+struct dumper<::rp::arena::nm::OneofTags> {
+  static void write(const ::rp::arena::nm::OneofTags& m, Writer& w) { ::rp::arena::nm::rp_dump_detail::rp_dump_write(m, w); }
+};
 
-inline std::string rp_dump_string(const ::nm::Std& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
-}
+template <>
+struct dumper<::rp::arena::nm::UsesStream> {
+  static void write(const ::rp::arena::nm::UsesStream& m, Writer& w) { ::rp::arena::nm::rp_dump_detail::rp_dump_write(m, w); }
+};
 
-inline void rp_dump_write(std::ostream& rp_os, const ::nm::StdEnum& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::nm::rp_dump_detail::rp_dump_write(m, w);
-}
+template <>
+struct dumper<::rp::arena::nm::Freed> {
+  static void write(const ::rp::arena::nm::Freed& m, Writer& w) { ::rp::arena::nm::rp_dump_detail::rp_dump_write(m, w); }
+};
 
-inline std::string rp_dump_string(const ::nm::StdEnum& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
-}
+template <>
+struct dumper<::rp::arena::nm::FreedOneof> {
+  static void write(const ::rp::arena::nm::FreedOneof& m, Writer& w) { ::rp::arena::nm::rp_dump_detail::rp_dump_write(m, w); }
+};
 
-inline void rp_dump_write(std::ostream& rp_os, const ::nm::StdField& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::nm::rp_dump_detail::rp_dump_write(m, w);
-}
-
-inline std::string rp_dump_string(const ::nm::StdField& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
-}
-
-inline void rp_dump_write(std::ostream& rp_os, const ::nm::StdMap& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::nm::rp_dump_detail::rp_dump_write(m, w);
-}
-
-inline std::string rp_dump_string(const ::nm::StdMap& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
-}
-
-inline void rp_dump_write(std::ostream& rp_os, const ::nm::Macros::RP_FLATTEN_& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::nm::rp_dump_detail::rp_dump_write(m, w);
-}
-
-inline std::string rp_dump_string(const ::nm::Macros::RP_FLATTEN_& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
-}
-
-inline void rp_dump_write(std::ostream& rp_os, const ::nm::Macros& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::nm::rp_dump_detail::rp_dump_write(m, w);
-}
-
-inline std::string rp_dump_string(const ::nm::Macros& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
-}
-
-inline void rp_dump_write(std::ostream& rp_os, const ::nm::OneofTags& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::nm::rp_dump_detail::rp_dump_write(m, w);
-}
-
-inline std::string rp_dump_string(const ::nm::OneofTags& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
-}
-
-inline void rp_dump_write(std::ostream& rp_os, const ::nm::UsesStream& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::nm::rp_dump_detail::rp_dump_write(m, w);
-}
-
-inline std::string rp_dump_string(const ::nm::UsesStream& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
-}
-
-inline void rp_dump_write(std::ostream& rp_os, const ::nm::Freed& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::nm::rp_dump_detail::rp_dump_write(m, w);
-}
-
-inline std::string rp_dump_string(const ::nm::Freed& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
-}
-
-inline void rp_dump_write(std::ostream& rp_os, const ::nm::FreedOneof& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::nm::rp_dump_detail::rp_dump_write(m, w);
-}
-
-inline std::string rp_dump_string(const ::nm::FreedOneof& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
-}
-
-}  // namespace nm
+}  // namespace rapidproto::dump_detail

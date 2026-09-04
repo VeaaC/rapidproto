@@ -12,19 +12,19 @@
 #include "rapidproto/dump_runtime.hpp"
 #include "pub.rp.dump.hpp"
 
-namespace rp::fwd {
+namespace pfx::arena::fwd {
 
 namespace rp_dump_detail {
 
-inline void rp_dump_write(const ::rp::fwd::Fwd& m, ::rapidproto::dump::Writer& w);
+inline void rp_dump_write(const ::pfx::arena::fwd::Fwd& m, ::rapidproto::dump_detail::Writer& w);
 
-inline void rp_dump_write(const ::rp::fwd::Fwd& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::pfx::arena::fwd::Fwd& m, ::rapidproto::dump_detail::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
     if (const auto rp_v = m.z()) {
       if (w.begin_field(rp_first, "z")) {
-        ::rapidproto::dump::write_int(w.os(), *rp_v);
+        ::rapidproto::dump_detail::write_int(w.os(), *rp_v);
       }
     }
     (void)rp_first;
@@ -33,13 +33,13 @@ inline void rp_dump_write(const ::rp::fwd::Fwd& m, ::rapidproto::dump::Writer& w
 
 }  // namespace rp_dump_detail
 
-inline void rp_dump_write(std::ostream& rp_os, const ::rp::fwd::Fwd& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::rp::fwd::rp_dump_detail::rp_dump_write(m, w);
-}
+}  // namespace pfx::arena::fwd
 
-inline std::string rp_dump_string(const ::rp::fwd::Fwd& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
-}
+namespace rapidproto::dump_detail {
 
-}  // namespace rp::fwd
+template <>
+struct dumper<::pfx::arena::fwd::Fwd> {
+  static void write(const ::pfx::arena::fwd::Fwd& m, Writer& w) { ::pfx::arena::fwd::rp_dump_detail::rp_dump_write(m, w); }
+};
+
+}  // namespace rapidproto::dump_detail

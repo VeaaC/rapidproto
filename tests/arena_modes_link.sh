@@ -22,23 +22,23 @@ fail=0
 "$BIN" --arena '--drop=fm.Holder.debug' '--raw=fm.Blob' \
   -I"$ROOT/tests/corpus" --out-dir="$T/other" "$ROOT/tests/corpus/arena_modes.proto" >/dev/null
 
-# provider.cpp defines holder_must(const fm::Holder*); consumer.cpp decodes (the decoder is
+# provider.cpp defines holder_must(const rp::arena::fm::Holder*); consumer.cpp decodes (the decoder is
 # header-inline, so each TU has its own) and passes the tree across. The Holder must be a
 # PARAMETER: mangling ignores an ordinary function's return type, so only a parameter carries
-# the rp_modes namespace into the symbol. The shared prototype spells the type as fm::Holder,
+# the rp_modes namespace into the symbol. The shared prototype spells the type as rp::arena::fm::Holder,
 # which each TU resolves through its own header's inline namespace.
 cat >"$T/provider.cpp" <<'EOF'
 #include "arena_modes.rp.hpp"
-int holder_must(const fm::Holder* h) { return h != nullptr ? h->must() : -1; }
+int holder_must(const rp::arena::fm::Holder* h) { return h != nullptr ? h->must() : -1; }
 EOF
 cat >"$T/consumer.cpp" <<'EOF'
 #include "arena_modes.rp.hpp"
-int holder_must(const fm::Holder* h);
+int holder_must(const rp::arena::fm::Holder* h);
 int main() {
     rapidproto::Arena arena;
     // must=1 and a req_blob record: the minimal wire bytes a Holder decode accepts.
     const char wire[] = {0x28, 0x01, 0x6A, 0x00};
-    const fm::Holder* h = fm::Holder::decode(rapidproto::ByteView(wire, sizeof wire), arena);
+    const rp::arena::fm::Holder* h = rp::arena::fm::Holder::decode(rapidproto::ByteView(wire, sizeof wire), arena);
     return holder_must(h) == 1 ? 0 : 1;
 }
 EOF
@@ -80,7 +80,7 @@ else
 fi
 
 # --unknown-present now folds into the profile identity as well: a TU generated WITH the flag and one
-# WITHOUT hold distinct au::Holder types (the flag changes the struct, and now the type name too), so
+# WITHOUT hold distinct rp::arena::au::Holder types (the flag changes the struct, and now the type name too), so
 # exchanging one across the boundary is a link error instead of the former silent ODR violation.
 "$BIN" --arena --unknown-present \
   -I"$ROOT/tests/corpus" --out-dir="$T/uk_on" "$ROOT/tests/corpus/arena_unknown.proto" >/dev/null
@@ -88,11 +88,11 @@ fi
   -I"$ROOT/tests/corpus" --out-dir="$T/uk_off" "$ROOT/tests/corpus/arena_unknown.proto" >/dev/null
 cat >"$T/uk_provider.cpp" <<'EOF'
 #include "arena_unknown.rp.hpp"
-int holder_n(const au::Holder* h) { return h != nullptr ? h->n() : -1; }
+int holder_n(const rp::arena::au::Holder* h) { return h != nullptr ? h->n() : -1; }
 EOF
 cat >"$T/uk_consumer.cpp" <<'EOF'
 #include "arena_unknown.rp.hpp"
-int holder_n(const au::Holder* h);
+int holder_n(const rp::arena::au::Holder* h);
 int main() { return holder_n(nullptr) == -1 ? 0 : 1; }
 EOF
 compile uk_on  uk_provider.cpp uk_provider.o
@@ -108,7 +108,7 @@ else
   echo "ok   [unknown-present fold: with-vs-without links fail on the exchanged symbol]"
 fi
 
-# The per-message --unknown=<msg> flag yields its own distinct identity: exchanging an au::Holder
+# The per-message --unknown=<msg> flag yields its own distinct identity: exchanging an rp::arena::au::Holder
 # between a --unknown=au.Holder TU and the plain TU is a link error too (exercises the CLI --unknown
 # path, which no other test drives, and confirms per-message != global identity).
 "$BIN" --arena '--unknown=au.Holder' \

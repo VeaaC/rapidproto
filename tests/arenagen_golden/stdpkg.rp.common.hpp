@@ -4,6 +4,6 @@
 
 #include <cstdint>
 
-namespace std_ {
+namespace rp::common::std_ {
 
-}  // namespace std_
+}  // namespace rp::common::std_

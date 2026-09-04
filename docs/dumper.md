@@ -6,14 +6,12 @@
 `--dump` emits a third header that prints a decoded arena tree as human-readable, JSON-*like* text — a
 **debugging and logging aid**, not a spec-compliant JSON codec and not a wire serializer. It reads the
 [arena decoder](arena.md)'s public accessors (no reflection, no `descriptor.proto`), so `--dump`
-**implies `--arena`** and dumps whatever the arena header exposes. For each message `Foo` in namespace
-`example` it emits two free functions:
+**implies `--arena`** and dumps whatever the arena header exposes. For each message in the schema it
+teaches `rapidproto::dump` how to print it:
 
 ```cpp
-void        example::rp_dump_write(std::ostream& os, const example::Foo& m,
-                                   const rapidproto::dump::DumpOptions& opts = {});
-std::string example::rp_dump_string(const example::Foo& m,
-                                   const rapidproto::dump::DumpOptions& opts = {});
+std::string rapidproto::dump(const T& m, const rapidproto::DumpOptions& opts = {});
+void        rapidproto::dump(std::ostream& os, const T& m, const rapidproto::DumpOptions& opts = {});
 ```
 
 ```sh
@@ -25,19 +23,20 @@ std::string example::rp_dump_string(const example::Foo& m,
 #include "person.rp.hpp"
 #include "person.rp.dump.hpp"
 
-const example::Person* p = example::Person::decode(rapidproto::ByteView(buf), arena);
-std::cout << example::rp_dump_string(*p) << '\n';         // or: rp_dump_write(std::cout, *p, 120);
+namespace ex = rp::arena::example;
+const ex::Person* p = ex::Person::decode(rapidproto::ByteView(buf), arena);
+std::cout << rapidproto::dump(*p) << '\n';           // or: rapidproto::dump(std::cout, *p, 120);
 ```
 
 `DumpOptions` tunes a dump. Every field has a default and an integer converts to a width, so
-`rp_dump_string(m, 120)` and `rp_dump_write(std::cout, *p, 120)` above are whole-options calls:
+`dump(m, 120)` and `dump(std::cout, *p, 120)` above are whole-options calls:
 
 ```cpp
-rapidproto::dump::DumpOptions opts;
+rapidproto::DumpOptions opts;
 opts.width  = 100;                              // line-width budget (compact vs one-entry-per-line)
 opts.indent = 2;                                // start two nesting levels in, to nest under other output
 opts.skip   = {"email", "address.zip"};         // omit these fields by qualified path (subtree and all)
-std::cout << example::rp_dump_string(*p, opts);
+std::cout << rapidproto::dump(*p, opts);
 ```
 
 - **`skip`** names fields by their **dotted path** from the message root (`"address.zip"`, not just

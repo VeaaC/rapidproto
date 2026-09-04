@@ -4,11 +4,29 @@
 
 #include <cstdint>
 
-namespace nm {
+namespace rp::common::nm {
 
 enum class E : std::int32_t {
   decode_ = 0,
   decode__ = 1,
+  rp_known_min = 0,
+  rp_known_max = 1,
+  rp_non_exhaustive_min = INT32_MIN,
+  rp_non_exhaustive_max = INT32_MAX,
+};
+
+enum class GnuEnum : std::int32_t {
+  GNU_ENUM_ZERO = 0,
+  linux_ = 1,
+  rp_known_min = 0,
+  rp_known_max = 1,
+  rp_non_exhaustive_min = INT32_MIN,
+  rp_non_exhaustive_max = INT32_MAX,
+};
+
+enum class StdintEnum : std::int32_t {
+  STDINT_ENUM_UNSET = 0,
+  STDINT_ENUM_SIZE_MAX = 1,
   rp_known_min = 0,
   rp_known_max = 1,
   rp_non_exhaustive_min = INT32_MIN,
@@ -24,4 +42,40 @@ enum class MacroEnum : std::int32_t {
   rp_non_exhaustive_max = INT32_MAX,
 };
 
-}  // namespace nm
+namespace Outer {
+namespace Outer_ {
+enum class K : std::int32_t {
+  K0 = 0,
+  rp_known_min = 0,
+  rp_known_max = 0,
+  rp_non_exhaustive_min = INT32_MIN,
+  rp_non_exhaustive_max = INT32_MAX,
+};
+}  // namespace Outer_
+
+}  // namespace Outer
+
+namespace Shadow {
+namespace Inner {
+enum class Shadow : std::int32_t {
+  X = 0,
+  rp_known_min = 0,
+  rp_known_max = 0,
+  rp_non_exhaustive_min = INT32_MIN,
+  rp_non_exhaustive_max = INT32_MAX,
+};
+}  // namespace Inner
+
+}  // namespace Shadow
+
+namespace StdEnum {
+enum class std_ : std::int32_t {
+  X = 0,
+  rp_known_min = 0,
+  rp_known_max = 0,
+  rp_non_exhaustive_min = INT32_MIN,
+  rp_non_exhaustive_max = INT32_MAX,
+};
+}  // namespace StdEnum
+
+}  // namespace rp::common::nm

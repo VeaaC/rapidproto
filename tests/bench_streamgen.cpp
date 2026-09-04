@@ -10,7 +10,7 @@
 //
 // Each scenario decodes a large buffer that stresses one decode path (focused) or several at once
 // (mixed), comparing three decoders over the same bytes:
-//   generated: the rapidproto-generated decoder (p2::stream::Scalars; the product)
+//   generated: the rapidproto-generated decoder (p2::Scalars; the product)
 //   wire:      a hand loop on the rapidproto::wire primitives, feature-equivalent (dispatch + validate)
 //   protozero: mapbox protozero, an established minimal-overhead pull parser (yardstick; its
 //                wire-type checks are protozero_assert()s compiled out under NDEBUG, so it validates
@@ -29,15 +29,20 @@
 #include <string_view>
 #include <vector>
 
-#include "bench.rp.stream.hpp"  // generated rp::bench::stream::Big (int64 numbers); -I<BENCH_GEN>
+#include "bench.rp.stream.hpp"  // generated bench::Big (int64 numbers); -I<BENCH_GEN>
 #include "bench_harness.hpp"  // rpbench: the shared measurement harness (also used by the arena bench)
 #include "bench_two_tier.hpp"  // micro-vs-large-TU decode (out-of-line-primitive penalty)
 #include "bench_varint.hpp"    // repeated-varint sweep builders (shared with the arena bench)
-#include "proto2.rp.stream.hpp"  // generated p2::stream::Scalars; -Itests/streamgen_golden (pulls runtime.hpp)
+#include "proto2.rp.stream.hpp"  // generated p2::Scalars; -Itests/streamgen_golden (pulls runtime.hpp)
 #include "rapidproto/runtime.hpp"
 
 #if __has_include(<protozero/pbf_reader.hpp>)
 #include <protozero/pbf_reader.hpp>
+
+// The generated types live under one root per model; alias each package once so the
+// bodies below read as they did before the roots existed. This file uses the stream model only.
+namespace bench = rp::stream::bench;
+namespace p2 = rp::stream::p2;
 #define RAPIDPROTO_HAVE_PROTOZERO 1
 #endif
 
@@ -131,9 +136,8 @@ int scenario_varint_1byte() {
         {"generated",
          [](ByteView b) -> std::uint64_t {
              std::uint64_t s = 0;
-             (void)p2::stream::Scalars{b}.decode([&](p2::stream::Scalars::i32, std::int32_t v) {
-                 s += static_cast<std::uint32_t>(v);
-             });
+             (void)p2::Scalars{b}.decode(
+                 [&](p2::Scalars::i32, std::int32_t v) { s += static_cast<std::uint32_t>(v); });
              return s;
          }},
         {"wire",
@@ -196,9 +200,8 @@ int scenario_varint_multibyte() {
         {"generated",
          [](ByteView b) -> std::uint64_t {
              std::uint64_t s = 0;
-             (void)p2::stream::Scalars{b}.decode([&](p2::stream::Scalars::i32, std::int32_t v) {
-                 s += static_cast<std::uint32_t>(v);
-             });
+             (void)p2::Scalars{b}.decode(
+                 [&](p2::Scalars::i32, std::int32_t v) { s += static_cast<std::uint32_t>(v); });
              return s;
          }},
         {"wire",
@@ -262,9 +265,8 @@ int scenario_zigzag() {
         {"generated",
          [](ByteView b) -> std::uint64_t {
              std::uint64_t s = 0;
-             (void)p2::stream::Scalars{b}.decode([&](p2::stream::Scalars::s64, std::int64_t v) {
-                 s += static_cast<std::uint64_t>(v);
-             });
+             (void)p2::Scalars{b}.decode(
+                 [&](p2::Scalars::s64, std::int64_t v) { s += static_cast<std::uint64_t>(v); });
              return s;
          }},
         {"wire",
@@ -327,8 +329,7 @@ int scenario_fixed32() {
         {"generated",
          [](ByteView b) -> std::uint64_t {
              std::uint64_t s = 0;
-             (void)p2::stream::Scalars{b}.decode(
-                 [&](p2::stream::Scalars::fl, float v) { s += float_bits(v); });
+             (void)p2::Scalars{b}.decode([&](p2::Scalars::fl, float v) { s += float_bits(v); });
              return s;
          }},
         {"wire",
@@ -391,8 +392,7 @@ int scenario_fixed64() {
         {"generated",
          [](ByteView b) -> std::uint64_t {
              std::uint64_t s = 0;
-             (void)p2::stream::Scalars{b}.decode(
-                 [&](p2::stream::Scalars::db, double v) { s += double_bits(v); });
+             (void)p2::Scalars{b}.decode([&](p2::Scalars::db, double v) { s += double_bits(v); });
              return s;
          }},
         {"wire",
@@ -456,8 +456,8 @@ int scenario_string() {
         {"generated",
          [](ByteView b) -> std::uint64_t {
              std::uint64_t s = 0;
-             (void)p2::stream::Scalars{b}.decode(
-                 [&](p2::stream::Scalars::s, std::string_view v) { s += v.size(); });
+             (void)p2::Scalars{b}.decode(
+                 [&](p2::Scalars::s, std::string_view v) { s += v.size(); });
              return s;
          }},
         {"wire",
@@ -523,10 +523,9 @@ int scenario_packed() {
         {"generated",
          [](ByteView b) -> std::uint64_t {
              std::uint64_t s = 0;
-             (void)p2::stream::Scalars{b}.decode(
-                 [&](p2::stream::Scalars::packed_nums, std::int32_t v) {
-                     s += static_cast<std::uint32_t>(v);
-                 });
+             (void)p2::Scalars{b}.decode([&](p2::Scalars::packed_nums, std::int32_t v) {
+                 s += static_cast<std::uint32_t>(v);
+             });
              return s;
          }},
         {"wire",
@@ -591,7 +590,7 @@ int scenario_packed() {
     return run("packed-int32", ByteView(buf), arms);
 }
 
-// Repeated-varint sweep: the packed int64 decode path (rp::bench::stream::Big.numbers, field 1) across
+// Repeated-varint sweep: the packed int64 decode path (bench::Big.numbers, field 1) across
 // element byte width (fixed 1..10, uniform, 90/10 skew) x element count (10 .. 1,000,000). The arena
 // bench sweeps the SAME shapes; together they map the packed-varint decode surface for both decoders.
 int scenario_repeated_varint() {
@@ -628,10 +627,9 @@ int scenario_repeated_varint() {
                 {"generated",
                  [](ByteView b) -> std::uint64_t {
                      std::uint64_t s = 0;
-                     (void)rp::bench::stream::Big{b}.decode(
-                         [&](rp::bench::stream::Big::numbers, std::int64_t v) {
-                             s += static_cast<std::uint64_t>(v);
-                         });
+                     (void)bench::Big{b}.decode([&](bench::Big::numbers, std::int64_t v) {
+                         s += static_cast<std::uint64_t>(v);
+                     });
                      return s;
                  }},
                 {"wire",
@@ -711,9 +709,8 @@ int scenario_skip_heavy() {
         {"generated",
          [](ByteView b) -> std::uint64_t {
              std::uint64_t s = 0;
-             (void)p2::stream::Scalars{b}.decode([&](p2::stream::Scalars::i32, std::int32_t v) {
-                 s += static_cast<std::uint32_t>(v);
-             });
+             (void)p2::Scalars{b}.decode(
+                 [&](p2::Scalars::i32, std::int32_t v) { s += static_cast<std::uint32_t>(v); });
              return s;
          }},
         {"wire",
@@ -783,15 +780,11 @@ int scenario_mixed() {
         {"generated",
          [](ByteView b) -> std::uint64_t {
              std::uint64_t s = 0;
-             (void)p2::stream::Scalars{b}.decode(
-                 [&](p2::stream::Scalars::i32, std::int32_t v) {
-                     s += static_cast<std::uint32_t>(v);
-                 },
-                 [&](p2::stream::Scalars::s64, std::int64_t v) {
-                     s += static_cast<std::uint64_t>(v);
-                 },
-                 [&](p2::stream::Scalars::db, double v) { s += double_bits(v); },
-                 [&](p2::stream::Scalars::s, std::string_view v) { s += v.size(); });
+             (void)p2::Scalars{b}.decode(
+                 [&](p2::Scalars::i32, std::int32_t v) { s += static_cast<std::uint32_t>(v); },
+                 [&](p2::Scalars::s64, std::int64_t v) { s += static_cast<std::uint64_t>(v); },
+                 [&](p2::Scalars::db, double v) { s += double_bits(v); },
+                 [&](p2::Scalars::s, std::string_view v) { s += v.size(); });
              return s;
          }},
         {"wire",
@@ -889,10 +882,9 @@ int scenario_multibyte_tag() {
         {"generated",
          [](ByteView b) -> std::uint64_t {
              std::uint64_t s = 0;
-             (void)p2::stream::Scalars{b}.decode(
-                 [&](p2::stream::Scalars::expanded_nums, std::int32_t v) {
-                     s += static_cast<std::uint32_t>(v);
-                 });
+             (void)p2::Scalars{b}.decode([&](p2::Scalars::expanded_nums, std::int32_t v) {
+                 s += static_cast<std::uint32_t>(v);
+             });
              return s;
          }},
         {"wire",
@@ -961,12 +953,11 @@ int scenario_nested() {
         {"generated",
          [](ByteView b) -> std::uint64_t {
              std::uint64_t s = 0;
-             (void)p2::stream::Container{b}.decode(
-                 [&](p2::stream::Container::items, p2::stream::Container::Nested sub) {
-                     (void)sub.decode([&](p2::stream::Container::Nested::x, std::int32_t v) {
-                         s += static_cast<std::uint32_t>(v);
-                     });
+             (void)p2::Container{b}.decode([&](p2::Container::items, p2::Container::Nested sub) {
+                 (void)sub.decode([&](p2::Container::Nested::x, std::int32_t v) {
+                     s += static_cast<std::uint32_t>(v);
                  });
+             });
              return s;
          }},
         {"wire",
@@ -1065,12 +1056,11 @@ int scenario_groups() {
         {"generated",
          [](ByteView b) -> std::uint64_t {
              std::uint64_t s = 0;
-             (void)p2::stream::WithGroup{b}.decode(
-                 [&](p2::stream::WithGroup::mygroup, p2::stream::WithGroup::MyGroup sub) {
-                     (void)sub.decode([&](p2::stream::WithGroup::MyGroup::a, std::int32_t v) {
-                         s += static_cast<std::uint32_t>(v);
-                     });
+             (void)p2::WithGroup{b}.decode([&](p2::WithGroup::mygroup, p2::WithGroup::MyGroup sub) {
+                 (void)sub.decode([&](p2::WithGroup::MyGroup::a, std::int32_t v) {
+                     s += static_cast<std::uint32_t>(v);
                  });
+             });
              return s;
          }},
         {"wire",
@@ -1152,9 +1142,8 @@ int scenario_sparse() {
         {"generated",
          [](ByteView b) -> std::uint64_t {
              std::uint64_t s = 0;
-             (void)p2::stream::Scalars{b}.decode([&](p2::stream::Scalars::i32, std::int32_t v) {
-                 s += static_cast<std::uint32_t>(v);
-             });
+             (void)p2::Scalars{b}.decode(
+                 [&](p2::Scalars::i32, std::int32_t v) { s += static_cast<std::uint32_t>(v); });
              return s;
          }},
         {"wire",
@@ -1405,9 +1394,9 @@ int scenario_records_dense() {
     const Arm arms[] = {
         {"generated",
          [](ByteView b) -> std::uint64_t {
-             using rp::bench::stream::Record;
-             using rp::bench::stream::RecordSet;
-             using rp::bench::stream::Sample;
+             using bench::Record;
+             using bench::RecordSet;
+             using bench::Sample;
              std::uint64_t s = 0;
              const auto sample = [&](Sample sub) {
                  (void)sub.decode(
@@ -1486,8 +1475,8 @@ int scenario_records_sparse() {
     const Arm arms[] = {
         {"generated",
          [](ByteView b) -> std::uint64_t {
-             using rp::bench::stream::Record;
-             using rp::bench::stream::RecordSet;
+             using bench::Record;
+             using bench::RecordSet;
              std::uint64_t s = 0;
              (void)RecordSet{b}.decode([&](RecordSet::records, Record r) {
                  (void)r.decode(

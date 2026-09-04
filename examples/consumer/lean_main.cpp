@@ -5,14 +5,18 @@
 // view is exactly what Point::decode() accepts, so the tree is built only when -- and if -- the
 // consumer asks: the deferred-decode pattern the profile exists for. The profile also stamps the
 // generated header: the types live in an inline rp_modes_* namespace (reachable as demo::Shape),
-// so a TU generated under a DIFFERENT profile cannot silently exchange trees with this one -- it
-// fails to link.
+// so a TU generated under a DIFFERENT profile cannot silently exchange trees with this one through
+// a function PARAMETER -- it fails to link. (Mangling does not cover a return type; see
+// docs/profiles.md.)
 
 #include <cstdio>
 
 #include "message.rp.hpp"  // arena decoder, generated UNDER the lean profile
 #include "rapidproto/arena_runtime.hpp"
 #include "rapidproto/runtime.hpp"
+
+// Arena types live under `rp::arena::<package>`; alias it once and the body stays short.
+namespace demo = rp::arena::demo;
 
 int main() {
     // The same wire bytes as main.cpp: demo.Shape{ name: "hi", origin: {3,4}, kind: KIND_CIRCLE,
@@ -29,7 +33,7 @@ int main() {
         return 1;
     }
     // shape->sides() does not exist under this profile; shape->origin() is the Point payload
-    // (0x08 0x03 0x10 0x04), owned by the arena -- `buf` may go away.
+    // (0x08 0x03 0x10 0x04), borrowed from the input -- `buf` must outlive it.
     if (!shape->origin().has_value()) {
         std::fprintf(stderr, "lean consumer: origin payload missing\n");
         return 1;

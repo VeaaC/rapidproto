@@ -4,6 +4,6 @@
 
 #include <cstdint>
 
-namespace rp::pub {
+namespace pfx::common::pub {
 
-}  // namespace rp::pub
+}  // namespace pfx::common::pub

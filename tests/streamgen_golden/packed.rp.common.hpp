@@ -4,6 +4,6 @@
 
 #include <cstdint>
 
-namespace pk {
+namespace rp::common::pk {
 
-}  // namespace pk
+}  // namespace rp::common::pk

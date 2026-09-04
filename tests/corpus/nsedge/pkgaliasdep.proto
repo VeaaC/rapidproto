@@ -1,0 +1,14 @@
+// The package half of the pkgalias pair (see pkgalias.proto): `linux` sanitizes to `linux_` --
+// the literal spelling of the sibling file's top-level message -- so this package's namespace and
+// that type contest one id in `pa`'s scope, and the package must win.
+syntax = "proto3";
+
+package pa.linux;
+
+enum E {
+  F0 = 0;
+}
+
+message Sub {
+  E f = 1;
+}

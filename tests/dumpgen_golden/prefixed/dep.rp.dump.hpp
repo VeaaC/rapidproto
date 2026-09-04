@@ -11,9 +11,9 @@
 #include "dep.rp.hpp"  // IWYU pragma: export
 #include "rapidproto/dump_runtime.hpp"
 
-namespace rapidproto::dump::detail {
+namespace rapidproto::dump_detail {
 
-inline const char* rp_dump_enum_name(::rp::dep::DepEnum rp_e) {
+inline const char* rp_dump_enum_name(::pfx::common::dep::DepEnum rp_e) {
   switch (static_cast<std::int32_t>(rp_e)) {
     case 0: return "DEP_ZERO";
     case 1: return "DEP_ONE";
@@ -21,28 +21,28 @@ inline const char* rp_dump_enum_name(::rp::dep::DepEnum rp_e) {
   return nullptr;  // unknown (open enum): the caller renders UNKNOWN(<n>)
 }
 
-}  // namespace rapidproto::dump::detail
+}  // namespace rapidproto::dump_detail
 
-namespace rp::dep {
+namespace pfx::arena::dep {
 
 namespace rp_dump_detail {
 
-inline void rp_dump_write(const ::rp::dep::Dep& m, ::rapidproto::dump::Writer& w);
+inline void rp_dump_write(const ::pfx::arena::dep::Dep& m, ::rapidproto::dump_detail::Writer& w);
 
-inline void rp_dump_write(const ::rp::dep::Dep& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::pfx::arena::dep::Dep& m, ::rapidproto::dump_detail::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
     if (const auto rp_v = m.v()) {
       if (w.begin_field(rp_first, "v")) {
-        ::rapidproto::dump::write_int(w.os(), *rp_v);
+        ::rapidproto::dump_detail::write_int(w.os(), *rp_v);
       }
     }
     if (const auto rp_v = m.de()) {
       if (w.begin_field(rp_first, "de")) {
         { const auto rp_e = *rp_v;
-        if (const char* rp_nm = ::rapidproto::dump::detail::rp_dump_enum_name(rp_e)) { w.os() << '"' << rp_nm << '"'; }
-        else { w.os() << "\"UNKNOWN("; ::rapidproto::dump::write_int(w.os(), static_cast<std::int32_t>(rp_e)); w.os() << ")\""; } }
+        if (const char* rp_nm = ::rapidproto::dump_detail::rp_dump_enum_name(rp_e)) { w.os() << '"' << rp_nm << '"'; }
+        else { w.os() << "\"UNKNOWN("; ::rapidproto::dump_detail::write_int(w.os(), static_cast<std::int32_t>(rp_e)); w.os() << ")\""; } }
       }
     }
     (void)rp_first;
@@ -51,13 +51,13 @@ inline void rp_dump_write(const ::rp::dep::Dep& m, ::rapidproto::dump::Writer& w
 
 }  // namespace rp_dump_detail
 
-inline void rp_dump_write(std::ostream& rp_os, const ::rp::dep::Dep& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::rp::dep::rp_dump_detail::rp_dump_write(m, w);
-}
+}  // namespace pfx::arena::dep
 
-inline std::string rp_dump_string(const ::rp::dep::Dep& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
-}
+namespace rapidproto::dump_detail {
 
-}  // namespace rp::dep
+template <>
+struct dumper<::pfx::arena::dep::Dep> {
+  static void write(const ::pfx::arena::dep::Dep& m, Writer& w) { ::pfx::arena::dep::rp_dump_detail::rp_dump_write(m, w); }
+};
+
+}  // namespace rapidproto::dump_detail

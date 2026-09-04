@@ -172,5 +172,122 @@ if [[ -n "$stray" ]]; then
   echo ">> a refused run still wrote:"; sed 's/^/   /' <<<"$stray"; fail=1
 fi
 
+# ...and the helper passes NAMESPACE_PREFIX through as the user wrote it. Nothing else in the tree
+# uses that keyword, so both halves of it were unexercised: the value reaching the CLI at all (it was
+# tested for TRUTH, and CMake reads `N`, `no`, `off`, `0` as false, so those were silently dropped
+# and generation fell back to the default), and the refusal of an explicit empty one.
+#
+# Configure-only, then read the generated build system: that is what the flag ends up in, and it
+# needs no compiler. A full build would cost minutes to check an argument.
+cmake_case() {
+  local label="$1" arg="$2" want="$3" dir="$WORK/cm_$label"
+  mkdir -p "$dir"
+  printf 'syntax = "proto3";\npackage cmp;\nmessage M { int32 x = 1; }\n' >"$dir/m.proto"
+  {
+    echo 'cmake_minimum_required(VERSION 3.16)'
+    echo 'project(cmp CXX)'
+    echo "include(\"$ROOT/cmake/rapidproto-generate.cmake\")"
+    echo "add_executable(rapidprotoc IMPORTED GLOBAL)"
+    echo "set_target_properties(rapidprotoc PROPERTIES IMPORTED_LOCATION \"$BIN\")"
+    echo "rapidproto_generate(gen PROTOS m.proto IMPORT_DIRS . $arg)"
+  } >"$dir/CMakeLists.txt"
+  local out
+  if ! out=$(cmake -S "$dir" -B "$dir/b" 2>&1); then
+    if [[ "$want" == "REFUSED" ]]; then echo "ok   [cmake $label]"; return; fi
+    echo ">> cmake $label: configure failed unexpectedly"; tail -3 <<<"$out"; fail=1; return
+  fi
+  if [[ "$want" == "REFUSED" ]]; then
+    echo ">> cmake $label: accepted a value the CLI refuses"; fail=1; return
+  fi
+  if grep -rqF -- "$want" "$dir/b" --include=build.ninja --include=build.make --include=link.txt \
+       --include='*.make' 2>/dev/null; then
+    echo "ok   [cmake $label]"
+  else
+    echo ">> cmake $label: the generated build system never passes '$want'"; fail=1
+  fi
+}
+
+cmake_case falsy-value   "NAMESPACE_PREFIX N"  "--namespace-prefix N"
+cmake_case ordinary      "NAMESPACE_PREFIX my.decoders" "--namespace-prefix my.decoders"
+cmake_case empty-refused 'NAMESPACE_PREFIX ""' REFUSED
+
+# ── declared outputs ────────────────────────────────────────────────────────────────────────────
+# The helper declares each LISTED schema's model headers plus its shared common header as the
+# custom command's OUTPUTs. Both directions are checked end-to-end: a second build must be a no-op
+# (an over-declared OUTPUT that is never written leaves the command permanently out of date, which
+# also disarms the delete check below), and deleting each declared file must have the build put it
+# back (an undeclared one is never restored -- the build just fails on the missing include).
+#
+# Deliberately NOT covered: imported schemas' headers and the runtime copies the CLI drops beside
+# them. The CLI writes those too, and they are undeclared -- deleting one breaks the build until a
+# manual regeneration. Declaring them correctly means predicting the CLI's whole resolved closure,
+# which is the CLI's job, not this helper's: the durable design is a CLI flag that lists the
+# outputs for the helper to declare, so only one implementation of the resolution rules exists.
+outputs_dir="$WORK/outputs"
+mkdir -p "$outputs_dir/proto"
+printf 'syntax = "proto3";\npackage d;\nenum K { K0 = 0; }\nmessage D { int32 x = 1; }\n' \
+  >"$outputs_dir/proto/m.proto"
+{
+  echo 'cmake_minimum_required(VERSION 3.16)'
+  echo 'project(outputs CXX)'
+  # The NAMESPACED name the helper actually invokes: unnamespaced, CMake leaves it unresolved and
+  # the literal `rapidproto::rapidprotoc` reaches the makefile, where its colons are a syntax error.
+  echo "add_executable(rapidproto::rapidprotoc IMPORTED GLOBAL)"
+  echo "set_target_properties(rapidproto::rapidprotoc PROPERTIES IMPORTED_LOCATION \"$BIN\")"
+  echo "include(\"$ROOT/cmake/rapidproto-generate.cmake\")"
+  echo 'rapidproto_generate(schema PROTOS proto/m.proto IMPORT_DIRS proto GENERATOR both DUMP)'
+} >"$outputs_dir/CMakeLists.txt"
+
+if ! cmake -S "$outputs_dir" -B "$outputs_dir/b" >/dev/null 2>&1 ||
+   ! cmake --build "$outputs_dir/b" --target schema_generate >/dev/null 2>&1; then
+  echo ">> declared outputs: the fixture project does not configure/build"; exit 1
+fi
+rebuild="$(cmake --build "$outputs_dir/b" --target schema_generate 2>&1)"
+if grep -q "rapidproto: schema" <<<"$rebuild"; then
+  echo ">> declared outputs: the target regenerates on every build -- a declared OUTPUT is never"
+  echo "   written, which also makes the delete check below pass without testing anything"
+  fail=1
+fi
+declared=(m.rp.hpp m.rp.stream.hpp m.rp.dump.hpp m.rp.common.hpp)
+for rel in "${declared[@]}"; do
+  path="$outputs_dir/b/rapidproto/schema/$rel"
+  if [[ ! -f "$path" ]]; then
+    echo ">> declared outputs: $rel was never generated -- the fixture is not testing anything"
+    fail=1
+    continue
+  fi
+  rm -f "$path"
+  cmake --build "$outputs_dir/b" --target schema_generate >/dev/null 2>&1
+  if [[ ! -f "$path" ]]; then
+    echo ">> declared outputs: $rel is written by the CLI but is not a declared OUTPUT --"
+    echo "   deleting it leaves the build permanently broken"
+    fail=1
+    # Restore for the rest of the loop: an undeclared deletion does not dirty the target, so only
+    # an input edit re-runs the generator.
+    touch "$outputs_dir/proto/m.proto"
+    cmake --build "$outputs_dir/b" --target schema_generate >/dev/null 2>&1
+  fi
+done
+
+# ── prefix verbatim + dotted, compiled ──────────────────────────────────────────────────────────
+# A member-reserved word as a prefix component is accepted and emitted VERBATIM, and a dotted
+# prefix splits into nested namespaces -- the unit tests pin both as strings only. This is the
+# compile half: an unbalanced namespace or a mis-qualified reference in any generator would pass
+# every substring check while producing uncompilable output.
+pfx_cc=g++
+command -v "$pfx_cc" >/dev/null 2>&1 || pfx_cc=c++
+pfx_dir="$WORK/prefix_compile"
+mkdir -p "$pfx_dir"
+printf 'syntax = "proto3";\npackage pc;\nenum E { E0 = 0; }\nmessage M { int32 x = 1; E e = 2; M m = 3; }\n' >"$pfx_dir/m.proto"
+if ! "$BIN" --arena --stream --dump --namespace-prefix Value.decode -I "$pfx_dir" --out-dir "$pfx_dir/gen" "$pfx_dir/m.proto" >/dev/null 2>&1; then
+  echo ">> prefix compile: generation under --namespace-prefix Value.decode failed"; fail=1
+else
+  printf '#include "m.rp.hpp"\n#include "m.rp.stream.hpp"\n#include "m.rp.dump.hpp"\nint main() { return static_cast<int>(::Value::decode::common::pc::E::E0); }\n' >"$pfx_dir/tu.cpp"
+  if ! "$pfx_cc" -std=gnu++17 -fsyntax-only -I "$pfx_dir/gen" "$pfx_dir/tu.cpp" 2>"$pfx_dir/cc.log"; then
+    echo ">> prefix compile: output under a dotted member-reserved prefix does not compile:"
+    head -5 "$pfx_dir/cc.log"; fail=1
+  fi
+fi
+
 [[ $fail -eq 0 ]] || exit 1
-echo "generate names: ${#cases[@]} entry shapes match the CLI, ${#refusals[@]} ambiguous ones refused"
+echo "generate names: ${#cases[@]} entry shapes match the CLI, ${#refusals[@]} ambiguous ones refused, NAMESPACE_PREFIX passed through, ${#declared[@]} declared outputs restored when deleted, prefixed output compiled"

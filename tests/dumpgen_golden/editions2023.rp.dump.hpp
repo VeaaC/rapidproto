@@ -11,9 +11,9 @@
 #include "editions2023.rp.hpp"  // IWYU pragma: export
 #include "rapidproto/dump_runtime.hpp"
 
-namespace rapidproto::dump::detail {
+namespace rapidproto::dump_detail {
 
-inline const char* rp_dump_enum_name(::ed23::E rp_e) {
+inline const char* rp_dump_enum_name(::rp::common::ed23::E rp_e) {
   switch (static_cast<std::int32_t>(rp_e)) {
     case 0: return "ZERO";
     case 1: return "ONE";
@@ -21,39 +21,39 @@ inline const char* rp_dump_enum_name(::ed23::E rp_e) {
   return nullptr;  // unknown (open enum): the caller renders UNKNOWN(<n>)
 }
 
-inline const char* rp_dump_enum_name(::ed23::M::Inner rp_e) {
+inline const char* rp_dump_enum_name(::rp::common::ed23::M::Inner rp_e) {
   switch (static_cast<std::int32_t>(rp_e)) {
     case 0: return "ZERO";
   }
   return nullptr;  // unknown (open enum): the caller renders UNKNOWN(<n>)
 }
 
-}  // namespace rapidproto::dump::detail
+}  // namespace rapidproto::dump_detail
 
-namespace ed23 {
+namespace rp::arena::ed23 {
 
 namespace rp_dump_detail {
 
-inline void rp_dump_write(const ::ed23::M& m, ::rapidproto::dump::Writer& w);
+inline void rp_dump_write(const ::rp::arena::ed23::M& m, ::rapidproto::dump_detail::Writer& w);
 
-inline void rp_dump_write(const ::ed23::M& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::ed23::M& m, ::rapidproto::dump_detail::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
     if (const auto rp_v = m.implicit_scalar(); rp_v != decltype(rp_v){}) {
       if (w.begin_field(rp_first, "implicit_scalar")) {
-        ::rapidproto::dump::write_int(w.os(), rp_v);
+        ::rapidproto::dump_detail::write_int(w.os(), rp_v);
       }
     }
     if (const auto rp_v = m.explicit_scalar()) {
       if (w.begin_field(rp_first, "explicit_scalar")) {
-        ::rapidproto::dump::write_int(w.os(), *rp_v);
+        ::rapidproto::dump_detail::write_int(w.os(), *rp_v);
       }
     }
     if (const auto* rp_p = m.child()) {
       if (w.begin_field(rp_first, "child")) {
         w.push_path("child");
-        ::ed23::rp_dump_detail::rp_dump_write(*rp_p, w);
+        ::rp::arena::ed23::rp_dump_detail::rp_dump_write(*rp_p, w);
         w.pop_path();
       }
     }
@@ -63,7 +63,7 @@ inline void rp_dump_write(const ::ed23::M& m, ::rapidproto::dump::Writer& w) {
           bool rp_efirst = true;
           for (const auto& rp_el : rp_r) {
             w.entry_sep(rp_efirst);
-            ::rapidproto::dump::write_int(w.os(), rp_el);
+            ::rapidproto::dump_detail::write_int(w.os(), rp_el);
             if (w.overflowed()) { break; }
           }
         });
@@ -75,7 +75,7 @@ inline void rp_dump_write(const ::ed23::M& m, ::rapidproto::dump::Writer& w) {
           bool rp_efirst = true;
           for (const auto& rp_el : rp_r) {
             w.entry_sep(rp_efirst);
-            ::rapidproto::dump::write_int(w.os(), rp_el);
+            ::rapidproto::dump_detail::write_int(w.os(), rp_el);
             if (w.overflowed()) { break; }
           }
         });
@@ -84,7 +84,7 @@ inline void rp_dump_write(const ::ed23::M& m, ::rapidproto::dump::Writer& w) {
     if (const auto* rp_p = m.delim()) {
       if (w.begin_field(rp_first, "delim")) {
         w.push_path("delim");
-        ::ed23::rp_dump_detail::rp_dump_write(*rp_p, w);
+        ::rp::arena::ed23::rp_dump_detail::rp_dump_write(*rp_p, w);
         w.pop_path();
       }
     }
@@ -94,13 +94,13 @@ inline void rp_dump_write(const ::ed23::M& m, ::rapidproto::dump::Writer& w) {
 
 }  // namespace rp_dump_detail
 
-inline void rp_dump_write(std::ostream& rp_os, const ::ed23::M& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::ed23::rp_dump_detail::rp_dump_write(m, w);
-}
+}  // namespace rp::arena::ed23
 
-inline std::string rp_dump_string(const ::ed23::M& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
-}
+namespace rapidproto::dump_detail {
 
-}  // namespace ed23
+template <>
+struct dumper<::rp::arena::ed23::M> {
+  static void write(const ::rp::arena::ed23::M& m, Writer& w) { ::rp::arena::ed23::rp_dump_detail::rp_dump_write(m, w); }
+};
+
+}  // namespace rapidproto::dump_detail

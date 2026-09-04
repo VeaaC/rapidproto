@@ -4,3 +4,6 @@
 
 #include <cstdint>
 
+namespace rp::common {
+
+}  // namespace rp::common

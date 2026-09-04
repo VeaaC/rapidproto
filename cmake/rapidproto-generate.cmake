@@ -93,7 +93,7 @@ endfunction()
 #   [GENERATOR arena|stream|both]   # which decoder(s) to emit (default: arena -- the default model)
 #   [DUMP]                          # also emit the JSON-like debug dumper (<stem>.rp.dump.hpp); needs arena
 #   [IMPORT_DIRS <dir>...]          # -I import search roots (the root your .proto tree imports against)
-#   [NAMESPACE_PREFIX <ns>]         # nest generated namespaces under <ns> (e.g. to coexist with protoc)
+#   [NAMESPACE_PREFIX <ns>]         # rename the root the generated code lives under (default: rp)
 #   [OUT_DIR <dir>]                 # where headers are written (default: a private dir under the build)
 #   [UNKNOWN_PRESENT]               # arena: reserve the "unknown fields present" bit on every message
 #   [UNKNOWN <message>...]          # arena: reserve that bit on these messages only
@@ -107,14 +107,23 @@ endfunction()
 # `#include "<schema-stem>.rp.stream.hpp"` (or ".rp.hpp") resolves.
 #
 # GENERATOR both writes both headers into one OUT_DIR and they COEXIST in a single translation unit:
-# the arena types live at `pkg::Msg`, the streaming types at `pkg::stream::Msg`, and the schema's enums
-# are ONE shared type in `<stem>.rp.common.hpp` that both #include. So a TU can use both models at once
+# the arena types live at `rp::arena::pkg::Msg`, the streaming types at `rp::stream::pkg::Msg`, and
+# the schema's enums are ONE shared type in `<stem>.rp.common.hpp` that both #include. So a TU can use both models at once
 # (examples/consumer decodes the same bytes both ways to prove it).
 function(rapidproto_generate target)
   set(_options UNKNOWN_PRESENT NO_WELLKNOWN DUMP)
   set(_one OUT_DIR GENERATOR NAMESPACE_PREFIX)
   set(_multi PROTOS IMPORT_DIRS FIELD_MODES DROP RAW UNKNOWN)
   cmake_parse_arguments(RPG "${_options}" "${_one}" "${_multi}" ${ARGN})
+
+  if("NAMESPACE_PREFIX" IN_LIST RPG_KEYWORDS_MISSING_VALUES)
+    # Empty is not "no prefix": the generated roots would land at global scope, so the CLI rejects it.
+    # Caught here because cmake_parse_arguments leaves the variable UNSET for an explicit empty value,
+    # which would otherwise look exactly like omitting the keyword and silently use the default.
+    message(FATAL_ERROR
+      "rapidproto_generate(${target}): NAMESPACE_PREFIX cannot be empty -- the arena/stream/common "
+      "roots would land at global scope. Pass a name instead (default: rp).")
+  endif()
 
   if(RPG_UNPARSED_ARGUMENTS)
     message(FATAL_ERROR "rapidproto_generate(${target}): unexpected arguments: ${RPG_UNPARSED_ARGUMENTS}")
@@ -150,7 +159,10 @@ function(rapidproto_generate target)
     list(APPEND _import_dirs_abs "${_dir_abs}")
     list(APPEND _common "-I${_dir_abs}")
   endforeach()
-  if(RPG_NAMESPACE_PREFIX)
+  # DEFINED, not truthiness: CMake reads `NAMESPACE_PREFIX N` (or `no`/`off`/`false`/`0`) as false,
+  # so a truthiness test silently dropped the flag and generated under the default instead. `N` is a
+  # plausible short namespace.
+  if(DEFINED RPG_NAMESPACE_PREFIX)
     list(APPEND _common "--namespace-prefix" "${RPG_NAMESPACE_PREFIX}")
   endif()
   if(RPG_NO_WELLKNOWN)
@@ -257,6 +269,13 @@ function(rapidproto_generate target)
       _rapidproto_output_header(_h "${_proto_abs}" ".rp.dump.hpp" "${RPG_OUT_DIR}" "${_import_dirs_abs}")
       list(APPEND _outputs "${_h}")
     endif()
+    # The shared common header is an output too. Undeclared, deleting it did not re-run the command
+    # -- the build stayed broken on `fatal error: <stem>.rp.common.hpp: No such file or directory`
+    # until something else invalidated the batch. It carries every enum in the schema (nested ones
+    # included), so it is load-bearing for nearly every schema rather than the few with a top-level
+    # enum.
+    _rapidproto_output_header(_h "${_proto_abs}" ".rp.common.hpp" "${RPG_OUT_DIR}" "${_import_dirs_abs}")
+    list(APPEND _outputs "${_h}")
   endforeach()
   # Name the depfile off the first header; the CLI lists every entry's decoder header as a target
   # in it (so each output node gets the import edges), and re-running regenerates the whole batch.

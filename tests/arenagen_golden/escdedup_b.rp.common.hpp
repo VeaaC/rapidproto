@@ -4,6 +4,6 @@
 
 #include <cstdint>
 
-namespace escdedup {
+namespace rp::common::escdedup {
 
-}  // namespace escdedup
+}  // namespace rp::common::escdedup

@@ -69,9 +69,9 @@ fi
   echo '#include <cstdint>'
   echo 'long consume(rapidproto::ByteView b) {'
   echo '    long sum = 0;'
-  echo '    (void)stress::stream::Stress{b}.decode('
+  echo '    (void)rp::stream::stress::Stress{b}.decode('
   for i in $(seq 1 "$N"); do
-    printf '        [&](stress::stream::Stress::f%d, std::int32_t v) { sum += v; }' "$i"
+    printf '        [&](rp::stream::stress::Stress::f%d, std::int32_t v) { sum += v; }' "$i"
     if [[ "$i" -lt "$N" ]]; then echo ','; else echo ');'; fi
   done
   echo '    return sum;'

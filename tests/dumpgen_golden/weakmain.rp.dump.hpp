@@ -12,20 +12,20 @@
 #include "rapidproto/dump_runtime.hpp"
 #include "weakdep.rp.dump.hpp"
 
-namespace wm {
+namespace rp::arena::wm {
 
 namespace rp_dump_detail {
 
-inline void rp_dump_write(const ::wm::WMain& m, ::rapidproto::dump::Writer& w);
+inline void rp_dump_write(const ::rp::arena::wm::WMain& m, ::rapidproto::dump_detail::Writer& w);
 
-inline void rp_dump_write(const ::wm::WMain& m, ::rapidproto::dump::Writer& w) {
+inline void rp_dump_write(const ::rp::arena::wm::WMain& m, ::rapidproto::dump_detail::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
     bool rp_first = true;
     if (const auto* rp_p = m.d()) {
       if (w.begin_field(rp_first, "d")) {
         w.push_path("d");
-        ::wd::rp_dump_detail::rp_dump_write(*rp_p, w);
+        ::rp::arena::wd::rp_dump_detail::rp_dump_write(*rp_p, w);
         w.pop_path();
       }
     }
@@ -35,13 +35,13 @@ inline void rp_dump_write(const ::wm::WMain& m, ::rapidproto::dump::Writer& w) {
 
 }  // namespace rp_dump_detail
 
-inline void rp_dump_write(std::ostream& rp_os, const ::wm::WMain& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  ::rapidproto::dump::Writer w(rp_os, rp_opts.width, rp_opts.indent, &rp_opts.skip);
-  ::wm::rp_dump_detail::rp_dump_write(m, w);
-}
+}  // namespace rp::arena::wm
 
-inline std::string rp_dump_string(const ::wm::WMain& m, const ::rapidproto::dump::DumpOptions& rp_opts = {}) {
-  std::ostringstream rp_ss; rp_dump_write(rp_ss, m, rp_opts); return rp_ss.str();
-}
+namespace rapidproto::dump_detail {
 
-}  // namespace wm
+template <>
+struct dumper<::rp::arena::wm::WMain> {
+  static void write(const ::rp::arena::wm::WMain& m, Writer& w) { ::rp::arena::wm::rp_dump_detail::rp_dump_write(m, w); }
+};
+
+}  // namespace rapidproto::dump_detail

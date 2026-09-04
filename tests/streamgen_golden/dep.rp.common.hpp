@@ -4,7 +4,7 @@
 
 #include <cstdint>
 
-namespace dep {
+namespace rp::common::dep {
 
 enum class DepEnum : std::int32_t {
   DEP_ZERO = 0,
@@ -15,4 +15,4 @@ enum class DepEnum : std::int32_t {
   rp_non_exhaustive_max = INT32_MAX,
 };
 
-}  // namespace dep
+}  // namespace rp::common::dep

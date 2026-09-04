@@ -4,7 +4,7 @@
 
 #include <cstdint>
 
-namespace ed23 {
+namespace rp::common::ed23 {
 
 enum class E : std::int32_t {
   ZERO = 0,
@@ -15,4 +15,14 @@ enum class E : std::int32_t {
   rp_non_exhaustive_max = INT32_MAX,
 };
 
-}  // namespace ed23
+namespace M {
+enum class Inner : std::int32_t {
+  ZERO = 0,
+  rp_known_min = 0,
+  rp_known_max = 0,
+  rp_non_exhaustive_min = INT32_MIN,
+  rp_non_exhaustive_max = INT32_MAX,
+};
+}  // namespace M
+
+}  // namespace rp::common::ed23

@@ -35,11 +35,13 @@ struct CppNameTable {
     // generator emitting a cross-file QUALIFIED call needs the callee's namespace exactly -- guessing
     // it breaks when a package segment collides with a message name.
     std::unordered_map<std::string, std::string> type_ns;
-    std::string ns_prefix;  // C++ namespace prefix prepended to every file's package namespace
-    // Per-model sub-namespace for TOP-LEVEL messages (the decoders), e.g. "stream", so the streaming
-    // and arena types coexist in one TU; empty (the default / arena model) keeps messages at package
-    // scope. Top-level enums are never nested under it -- they are shared, in the common header. Must
-    // be a single valid C++ identifier: it is concatenated verbatim (not run through namespace_of).
+    std::string ns_prefix;  // C++ namespace prefix prepended to every root (never empty)
+    // Per-model ROOT segment for this table's messages -- "arena" or "stream" -- sitting BETWEEN the
+    // prefix and the package: `<prefix>::<model>::<pkg>::Msg`. A root rather than a suffix so no
+    // generator-invented name lands inside the user's package scope, where a top-level type of that
+    // name would collide with it. Enums are never under it: they are shared, and live at
+    // `<prefix>::common::<pkg>` (see kCommonRoot). Must be a single valid C++ identifier -- it is
+    // concatenated verbatim, not run through namespace_of.
     std::string model_namespace;
 };
 
@@ -56,34 +58,86 @@ struct CppNameTable {
 // scope a literal identifier keeps its spelling and only escapes move. Member scopes (nested types,
 // fields, oneofs, map entries) are unchanged: they dedup per message, first-come. When `all_files` is empty, only `file` is indexed (the single-file
 // convenience path, valid when `file` has no cross-file type references). `ns_prefix` is an already
-// `::`-joined C++ namespace (see `namespace_of`), possibly empty. `model_namespace` (e.g. "stream")
-// nests TOP-LEVEL messages under that extra segment so the two decoder models coexist; empty leaves
-// them at package scope (top-level enums are never nested). Built ONCE per set and reused for every
-// file's `generate_header`.
+// `::`-joined C++ namespace (see `namespace_of`), never empty. `model_namespace` is the model ROOT
+// (`kArenaRoot` / `kStreamRoot`) that messages sit under, between the prefix and the package.
+//
+// `model_namespace` has NO default on purpose. It used to default to "arena's" empty string, and a
+// caller that forgot it silently produced rootless names that collide with protoc and with a
+// consumer's own scope -- a wrong answer rather than a diagnostic. Making it explicit turns that
+// mistake into a compile error. Built ONCE per set and reused for every file's `generate_header`.
 CppNameTable build_cpp_names(const FileNode& file, const std::vector<FileNode>& all_files,
-                             std::string ns_prefix, std::string model_namespace = {});
+                             std::string ns_prefix, std::string model_namespace);
 
-// A resolved type FQN -> its absolute C++ name. Types in the set use their dedup-stable name;
-// anything not in the set (should not occur for a resolved type) falls back to a plain mapping.
-// That fallback is a guess, not a diagnostic, and since names are deduplicated per package it can
-// now return an id that BELONGS to a different type in the same namespace: `.p.decode` misses the
-// table and synthesizes `::p::decode_`, which is the id the real `message decode_` holds. Callers
-// pass FQNs straight from the AST (leading-dot form, `.pkg.Name`); a mis-spelled one gets a
-// plausible wrong answer rather than an error.
+// A resolved type FQN -> its absolute C++ name, from the table built for the whole resolved set.
+// `resolve()` guarantees every reference is indexed, so a miss is a bug in this library rather than
+// bad input -- and there is no correct name to guess, since messages and enums sit under different
+// roots and an FQN does not say which it is. A miss therefore yields a deliberately undeclared
+// identifier naming the FQN, so the bug surfaces as a compile error at the use site instead of a
+// silently wrong reference. Callers pass FQNs straight from the AST (leading-dot form, `.pkg.Name`).
 std::string cpp_type_name(const CppNameTable& names, std::string_view fqn);
+
+// A message's C++ name RELATIVE to the namespace it is emitted in ("Outer::Inner"): the absolute
+// name with its namespace head removed. For diagnostics emitted once per FIELD, where the absolute
+// head is identical for every message in the file and the nested path already says which message --
+// spelling it in full there costs a copy of `<prefix>::<model>::<package>::` per field guard, which
+// on a large schema is megabytes of header. Message-level diagnostics keep the absolute name, which
+// a reader may need to tell two same-named messages apart.
+std::string relative_type_name(const CppNameTable& names, std::string_view fqn);
 
 // proto package "a.b.c" -> C++ namespace "a::b::c" (empty package -> ""), each component sanitized.
 std::string namespace_of(std::string_view package);
 
+// Why `component` cannot serve as one dot-separated piece of a --namespace-prefix, or "" if it
+// can. `first` marks the leading component, which lands in the GLOBAL namespace -- where every
+// `_`-initial identifier is reserved, so `_x` is refused there and accepted after a dot.
+//
+// A prefix is an INSTRUCTION; a package is DATA. A package is escaped through sanitize() -- the
+// schema's author cannot be asked to avoid C++ keywords -- but a prefix the user typed is either
+// emitted VERBATIM (effective_ns_prefix) or refused here: silently handing back a namespace the
+// user did not ask for (`--namespace-prefix=std` once quietly became `std_`) is as wrong as
+// refusing one that compiles. The refusal list is therefore NARROWER than sanitize()'s: the
+// member-reserved words (`decode`, `Value`, ...) clash only with generated class members, are
+// working namespace names, and pass.
+std::string ns_prefix_component_problem(std::string_view component, bool first);
+
 // Join two C++ namespace fragments with "::", dropping empties ("" + "a::b" -> "a::b").
 std::string join_ns(std::string_view a, std::string_view b);
 
-// The C++ namespace a generated DECODER opens for its message types: the file's package namespace
-// (under `ns_prefix`) plus `model_namespace`, e.g. "rp::pkg::stream" (empty for a no-package,
-// default-model file). The single source of truth shared by the name table and the generators, so a
-// decoder's `namespace ... {` always matches the absolute message names in `names`. Top-level enums
-// use the package namespace WITHOUT the model segment (the common header) -- one shared enum type.
+// The root segment for entities SHARED by both decoder models, between the prefix and the package.
+// Today that is the schema's enums. Named for the role rather than the contents: a second shared
+// entity (a case tag, a field-number constant) then needs no rename, and a rename here changes every
+// generated name. `rp_`-free on purpose: it is unreachable from a proto name because it sits above
+// every package, not inside one.
+inline constexpr std::string_view kCommonRoot = "common";
+
+// The model root segments, the two legal values of `CppNameTable::model_namespace`.
+inline constexpr std::string_view kArenaRoot = "arena";
+inline constexpr std::string_view kStreamRoot = "stream";
+
+// The default `--namespace-prefix`. One source of truth: the CLI, the library entry points that
+// take a prefix, and the CMake helper all mean this same string, and a build where they disagreed
+// would emit headers that cannot see each other's types.
+inline constexpr std::string_view kDefaultNsPrefix = "rp";
+
+// The prefix a generator actually uses: the dot-separated components ::-joined, each emitted
+// VERBATIM unless it is a keyword, `std`, a macro name, or `rp_`-prefixed (the narrow library
+// safety net -- naming.cpp's sanitize_prefix_component), or the default when the caller gave
+// nothing. The two entry points answer an empty prefix differently on purpose: the CLI REFUSES it
+// (cli::namespace_prefix_problem), because someone typing it means something by it and the tool can
+// say so; the library SUBSTITUTES the default, because an embedder who simply left the argument off
+// would otherwise put the three root segments at global scope -- silently, and only in their build.
+std::string effective_ns_prefix(std::string_view prefix);
+
+// The C++ namespace a generated DECODER opens for its message types:
+// `<ns_prefix>::<model_namespace>::<package>`, e.g. "rp::stream::pkg". The single source of truth
+// shared by the name table and the generators, so a decoder's `namespace ... {` always matches the
+// absolute message names in `names`.
 std::string message_namespace(const CppNameTable& names, const FileNode& file);
+
+// The C++ namespace the SHARED common header opens for this file's enums:
+// `<ns_prefix>::common::<package>`. Model-independent by construction, which is what lets both
+// decoders alias one enum type.
+std::string enum_namespace(const CppNameTable& names, const FileNode& file);
 
 // A proto name -> a collision-free C++ identifier: append `_` if it collides with a keyword, any
 // `rp_`- or `RP_`-prefixed identifier (generator-internal names and the runtime's macros), or one of

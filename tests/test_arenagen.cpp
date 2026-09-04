@@ -13,6 +13,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <ios>
+#include <map>
 #include <sstream>
 #include <string>
 #include <type_traits>
@@ -20,10 +21,12 @@
 #include <vector>
 
 #include "arena_modes_profile.hpp"
+#include "common_golden_sweep.hpp"
 #include "rapidproto/arena_runtime.hpp"  // MapView, asserted on below
 #include "rapidproto/arenagen/generator.hpp"
 #include "rapidproto/arenagen/layout.hpp"
 #include "rapidproto/arenagen/modes.hpp"
+#include "rapidproto/ast.hpp"  // FileNode, for the empty-prefix substitution check
 #include "rapidproto/codegen/emit.hpp"
 #include "rapidproto/codegen/naming.hpp"
 #include "rapidproto/resolve.hpp"
@@ -40,19 +43,24 @@
 #include "arenagen_golden/escdedup_a.rp.hpp"    // same-package escape collision (pulls escdedup_b)
 #include "arenagen_golden/main.rp.hpp"  // cross-file imports: transitively pulls dep/forward/pub
 #include "arenagen_golden/messageset.rp.hpp"  // MessageSet: accepted, decodes as unknown
-#include "arenagen_golden/nopkg.rp.hpp"       // NO package: types land at global scope
+#include "arenagen_golden/nopkg.rp.hpp"       // NO package: types land directly under rp::arena
 #include "arenagen_golden/prefixed/main.rp.hpp"  // --namespace-prefix + imports (pulls prefixed dep/...)
 #include "arenagen_golden/proto2.rp.hpp"
 #include "arenagen_golden/proto3.rp.hpp"
-#include "arenagen_golden/rppkg.rp.hpp"      // package `rapidproto` -> namespace rapidproto_
+#include "arenagen_golden/rppkg.rp.hpp"      // package `rapidproto`: keeps its name under the roots
 #include "arenagen_golden/samepkg_a.rp.hpp"  // same-package multi-file (pulls samepkg_b): ODR guard
 #include "arenagen_golden/stdpkg.rp.hpp"     // package `std` -> namespace std_, not namespace std
 #include "arenagen_golden/weakmain.rp.hpp"  // weak import (pulls weakdep): filtered like a normal one
 #include "arenagen_golden/wire_all.rp.hpp"  // group + packed (generated from the fixtures dir)
 #include "arenagen_golden/xpkg.rp.hpp"  // dotted package (pulls deep): namespace com::example::deep
 #include "arenagen_golden/xref.rp.hpp"
-#include "arenagen_golden/xref_prefixed/xref.rp.hpp"  // --namespace-prefix=rp -> namespace rp::xr
+#include "arenagen_golden/xref_prefixed/xref.rp.hpp"  // --namespace-prefix=pfx -> namespace pfx::arena::xr
 #include "dumpgen_golden/naming.rp.hpp"  // synthesized-name escapes (see the test below)
+
+// The generated types live under one root per model; alias each package once so the
+// bodies below read as they did before the roots existed. This file uses the arena model only.
+namespace nm = rp::arena::nm;
+namespace xr = rp::arena::xr;
 // IWYU pragma: end_keep
 
 using namespace rapidproto;  // NOLINT(google-build-using-namespace): test convenience
@@ -101,7 +109,9 @@ ModesOutput generate_modes_golden() {
     REQUIRE(analyzed.is_ok());
     const SymbolTable symbols = std::move(analyzed).value();
     const arenagen::FieldModes modes = test::arena_modes_profile(set, symbols);
-    const codegen::CppNameTable names = codegen::build_cpp_names(set.files.back(), set.files, "");
+    const codegen::CppNameTable names =
+        codegen::build_cpp_names(set.files.back(), set.files, codegen::effective_ns_prefix({}),
+                                 std::string(codegen::kArenaRoot));
     arenagen::LayoutOptions options;
     options.modes = &modes;
     const arenagen::LayoutSet layouts = arenagen::plan_layouts(set, symbols, options);
@@ -129,8 +139,9 @@ std::string generate_unknown_present(const std::string& entry, const std::string
     auto resolved_modes = arenagen::resolve_field_modes(spec, set, symbols);
     REQUIRE(resolved_modes.is_ok());
     const arenagen::FieldModes modes = std::move(resolved_modes).value();
-    const codegen::CppNameTable names =
-        codegen::build_cpp_names(set.files.back(), set.files, codegen::namespace_of(ns_prefix));
+    const codegen::CppNameTable names = codegen::build_cpp_names(
+        set.files.back(), set.files, codegen::effective_ns_prefix(ns_prefix),
+        std::string(codegen::kArenaRoot));
     arenagen::LayoutOptions options;
     options.modes = &modes;
     const arenagen::LayoutSet layouts = arenagen::plan_layouts(set, symbols, options);
@@ -151,7 +162,9 @@ std::string generate_unknown_present_golden() {
     auto resolved_modes = arenagen::resolve_field_modes(spec, set, symbols);
     REQUIRE(resolved_modes.is_ok());
     const arenagen::FieldModes modes = std::move(resolved_modes).value();
-    const codegen::CppNameTable names = codegen::build_cpp_names(set.files.back(), set.files, "");
+    const codegen::CppNameTable names =
+        codegen::build_cpp_names(set.files.back(), set.files, codegen::effective_ns_prefix({}),
+                                 std::string(codegen::kArenaRoot));
     arenagen::LayoutOptions options;
     options.modes = &modes;
     const arenagen::LayoutSet layouts = arenagen::plan_layouts(set, symbols, options);
@@ -200,6 +213,10 @@ TEST_CASE("arenagen: generated headers match the goldens", "[arenagen]") {
     check_golden("arena_layout", generate_corpus("arena_layout.proto"));
     check_golden("arena_manyreq", generate_corpus("arena_manyreq.proto"));
     check_golden("arena_naming", generate_corpus("arena_naming.proto"));
+    // naming.proto's ARENA model was byte-compared nowhere: dumpgen_golden's copy of naming.rp.hpp
+    // is compile-smoked only, so an arenagen-local divergence on the escape fixtures (linux/unix,
+    // the cstdint macros, the escaped mirror) surfaced only at the next manual regen.
+    check_golden("naming", generate_corpus("naming.proto"));
     check_golden("messageset", generate_corpus("messageset.proto"));
     // The same schema under --unknown-present + a namespace prefix: pins the modes inline
     // namespace (the ODR guard) as well as the unknown bit the decode test asserts on.
@@ -230,7 +247,7 @@ TEST_CASE("arenagen: generated headers match the goldens", "[arenagen]") {
     // profile identity (inline rp_modes_<id>). Byte-pinned so that fold cannot drift silently.
     check_golden("arena_unknown", generate_unknown_present_golden());
     check_golden("xref", generate_corpus("xref.proto"));
-    check_golden("xref_prefixed/xref", generate_corpus("xref.proto", "rp"));
+    check_golden("xref_prefixed/xref", generate_corpus("xref.proto", "pfx"));
     check_golden("wire_all", generate(RAPIDPROTO_WIRE_FIXTURE_DIR, "wire_all.proto"));
     // Cross-file imports (distinct packages): the closure regenerates stably and (via the compile-smoke
     // #include above) compiles -- guarding cross-file message-field decoding through the decoder.
@@ -254,8 +271,10 @@ TEST_CASE("arenagen: generated headers match the goldens", "[arenagen]") {
     check_golden("weakmain", generate(imports, "weakmain.proto"));
     // --namespace-prefix + imports: the prefixed cross-file closure regenerates stably and (via the
     // compile-smoke #include) compiles -- guarding prefixed cross-file emission, not just substring checks.
-    check_golden("prefixed/main", generate(imports, "main.proto", "rp"));
-    check_golden("prefixed/dep", generate(imports, "dep.proto", "rp"));
+    check_golden("prefixed/main", generate(imports, "main.proto", "pfx"));
+    check_golden("prefixed/dep", generate(imports, "dep.proto", "pfx"));
+    check_golden("prefixed/pub", generate(imports, "pub.proto", "pfx"));
+    check_golden("prefixed/forward", generate(imports, "forward.proto", "pfx"));
     // Package SHAPES no other entry has: every other corpus file declares a single-component package.
     // deep -> `namespace com::example::deep`, nopkg -> types at GLOBAL scope, and xpkg -> a cross-file
     // reference INTO a dotted package. A namespace derived from a type FQN rather than looked up
@@ -268,14 +287,63 @@ TEST_CASE("arenagen: generated headers match the goldens", "[arenagen]") {
     // emits `namespace std`, which is undefined behaviour that COMPILES -- so the golden, not the
     // compile smoke, is what catches a regression.
     check_golden("stdpkg", generate(nsedge, "stdpkg.proto"));
-    // A package named `rapidproto` collides with the runtime's namespace at the root instead; here
-    // the compile smoke below IS the check, since the clash is a hard redeclaration error.
+    // A package named `rapidproto` keeps its spelling: under the roots it sits three levels
+    // below the runtime's own namespace, and the compile smoke proves the two stay apart.
     check_golden("rppkg", generate(nsedge, "rppkg.proto"));
 }
 
-// The --namespace-prefix nests every generated namespace under the prefix, so the arena types coexist
-// with protoc's (and the streamgen) headers in one TU. xref_prefixed (also #included above) proves
-// the prefixed output is valid C++ and is a distinct type from the unprefixed one.
+// Every `<stem>.rp.common.hpp` beside the model goldens, directory-driven (see
+// common_golden_sweep.hpp for why not a hand-maintained case list).
+TEST_CASE("arenagen: the common headers beside the goldens match too", "[arenagen]") {
+    test::check_all_common_goldens(
+        RAPIDPROTO_ARENAGEN_GOLDEN_DIR,
+        {RAPIDPROTO_CORPUS_DIR, std::string(RAPIDPROTO_CORPUS_DIR) + "/imports",
+         std::string(RAPIDPROTO_CORPUS_DIR) + "/nsedge", RAPIDPROTO_WIRE_FIXTURE_DIR});
+}
+
+// claim_toplevel_ids claims package components globally and escalates the literals they block
+// in FQN order -- so the ids a schema gets cannot depend on the order its files arrive in. The
+// two wrappers import the same trio (a package seeding `linux_`, the literal of that id, an
+// escape contesting it) in OPPOSITE orders; every shared file must generate byte-identically
+// from both closures. A blocked literal escalated in file order instead swaps ids with the
+// escape between the two orders.
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): one helper, two closures, a diff
+TEST_CASE("arenagen: generated ids do not depend on file-set order", "[arenagen]") {
+    const std::string imports = std::string(RAPIDPROTO_CORPUS_DIR) + "/imports";
+    const auto generate_shared = [&](const std::string& entry) {
+        ResolverConfig config;
+        config.include_paths = {imports};
+        auto resolved = resolve(imports + "/" + entry, config);
+        REQUIRE(resolved.is_ok());
+        ResolvedFileSet set = std::move(resolved).value();
+        auto analyzed = analyze(set);
+        REQUIRE(analyzed.is_ok());
+        const SymbolTable symbols = std::move(analyzed).value();
+        std::map<std::string, std::string> by_file;
+        for (const FileNode& file : set.files) {
+            if (file.filename.find("pkgorder_a") != std::string::npos ||
+                file.filename.find("pkgorder_b") != std::string::npos) {
+                continue;  // the wrappers differ by design; the SHARED files must not
+            }
+            by_file[file.filename] = arenagen::generate_header(file, set, symbols);
+        }
+        return by_file;
+    };
+    const auto forward = generate_shared("pkgorder_a.proto");
+    const auto reverse = generate_shared("pkgorder_b.proto");
+    REQUIRE(forward.size() == 3);
+    CHECK(forward == reverse);
+    // The contested ids landed where FQN order puts them: the literal ahead of the escape.
+    const auto& t1 = forward.at("pkgorder_t1.proto");
+    const auto& t2 = forward.at("pkgorder_t2.proto");
+    CHECK(t1.find("class linux__ ") != std::string::npos);
+    CHECK(t2.find("class linux___ ") != std::string::npos);
+}
+
+// --namespace-prefix names the root every generated namespace sits under. Coexistence with protoc's
+// headers no longer depends on it -- the model roots deliver that on their own -- so what this pins
+// is the flag itself: xref_prefixed (also #included above) proves the prefixed output is valid C++
+// and is a distinct type from the unprefixed one.
 // The two names arenagen SYNTHESIZES from a proto name, rather than taking from the name table.
 // Both re-check for macro expansion: the oneof visit tag because sanitize() never saw the raw name,
 // the map entry because capitalize() can MANUFACTURE a reserved prefix out of a sanitized id
@@ -296,21 +364,35 @@ TEST_CASE("arenagen: synthesized type names escape what would macro-expand", "[a
 }
 
 TEST_CASE("arenagen: namespace prefix nests the generated namespace", "[arenagen]") {
-    const std::string prefixed = generate_corpus("xref.proto", "rp");
-    CHECK(prefixed.find("namespace rp::xr {") != std::string::npos);
-    CHECK(prefixed.find("const ::rp::xr::B*") != std::string::npos);  // refs are prefixed
+    const std::string prefixed = generate_corpus("xref.proto", "pfx");
+    CHECK(prefixed.find("namespace pfx::arena::xr {") != std::string::npos);
+    CHECK(prefixed.find("const ::pfx::arena::xr::B*") != std::string::npos);  // refs are prefixed
     const std::string plain = generate_corpus("xref.proto");
-    CHECK(plain.find("namespace xr {") != std::string::npos);
-    CHECK(plain.find("rp::xr") == std::string::npos);
-    static_assert(!std::is_same_v<rp::xr::A, xr::A>);  // distinct, coexisting types
+    CHECK(plain.find("namespace rp::arena::xr {") != std::string::npos);
+    CHECK(plain.find("pfx::arena::xr") == std::string::npos);
+    static_assert(!std::is_same_v<pfx::arena::xr::A, xr::A>);  // distinct, coexisting types
+
+    // A MULTI-component prefix through this generator (every prefixed golden is single-component):
+    // the dotted spelling must split into nested namespaces, in the opening and in every
+    // absolute reference. streamgen has the twin of this check; without one here a dotted-prefix
+    // bug in the arena path would pass the whole suite.
+    const std::string dotted = generate_corpus("xref.proto", "rp.dec");
+    CHECK(dotted.find("namespace rp::dec::arena::xr {") != std::string::npos);
+    CHECK(dotted.find("const ::rp::dec::arena::xr::B*") != std::string::npos);
+    // An EMPTY prefix at the library entry point substitutes the default rather than putting the
+    // roots at global scope -- the layout the CLI and the CMake helper refuse must be unreachable
+    // from here too.
+    const FileNode no_file{};
+    CHECK(codegen::build_cpp_names(no_file, {}, "", std::string(codegen::kArenaRoot)).ns_prefix ==
+          "rp");
 
     // --namespace-prefix combined with imports: user types nest under rp::, but the cross-file
     // decoder call stays the absolute ::rapidproto::arena_detail::decode_into, so the prefix can't
     // break it (the forwarder lives in the runtime, not under the prefixed namespace).
     const std::string main_rp =
-        generate(std::string(RAPIDPROTO_CORPUS_DIR) + "/imports", "main.proto", "rp");
-    CHECK(main_rp.find("namespace rp::main {") != std::string::npos);
-    CHECK(main_rp.find("const ::rp::dep::Dep*") !=
+        generate(std::string(RAPIDPROTO_CORPUS_DIR) + "/imports", "main.proto", "pfx");
+    CHECK(main_rp.find("namespace pfx::arena::main {") != std::string::npos);
+    CHECK(main_rp.find("const ::pfx::arena::dep::Dep*") !=
           std::string::npos);  // cross-file ref is prefixed
     CHECK(main_rp.find("::rapidproto::arena_detail::decode_into(out.m_d") != std::string::npos);
 }

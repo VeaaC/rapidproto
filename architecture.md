@@ -6,11 +6,11 @@ two complementary decode **models**:
 
 - **Streaming** (the `streamgen` emitter). A message's `decode()` walks the wire once and hands each
   field to a callback. Nothing is materialized, and it's allocation-free. Types live at
-  `pkg::stream::Msg`.
+  `<prefix>::stream::pkg::Msg`.
 - **Arena** (the `arenagen` emitter). `decode()` builds a fully-allocated, read-only object tree in a
   bump arena, navigated by accessor. It's built to beat `protoc` + `google::protobuf::Arena` on
   decode
-  time and memory. Types live at `pkg::Msg`.
+  time and memory. Types live at `<prefix>::arena::pkg::Msg`.
 
 A third, optional emitter — the **debug dumper** (`dumpgen`, gated on `--dump`) — rides on the arena
 model: it prints a decoded arena tree as human-readable, JSON-*like* text over the arena decoder's
@@ -68,13 +68,14 @@ Naming is kept consistent across the code and docs:
   `arenagen` (→ the arena model), plus **`dumpgen`** (→ the arena debug dumper). All are driven by
   the
   single CLI, **`rapidprotoc`**.
-- **debug dumper.** The `dumpgen` emitter's output (`<stem>.rp.dump.hpp`): per arena message, free
-  functions that print the decoded tree as JSON-*like* text for human inspection. A debugging aid,
+- **debug dumper.** The `dumpgen` emitter's output (`<stem>.rp.dump.hpp`): per arena message, a
+  `rapidproto::dump_detail::dumper<>` specialization that `rapidproto::dump()` prints the tree through for human inspection. A debugging aid,
   not a
   serializer or a spec JSON codec.
-- **decoder.** The generated type a user calls (`pkg::Msg` arena, `pkg::stream::Msg` streaming).
+- **decoder.** The generated type a user calls (`rp::arena::pkg::Msg`, `rp::stream::pkg::Msg`).
   "Parser" is reserved for the schema front-end.
-- **common header.** `<stem>.rp.common.hpp`: the schema's top-level enums as one shared C++ type both
+- **common header.** `<stem>.rp.common.hpp`: the schema's enums -- top-level, plus the nested ones
+  through a namespace mirror -- as one shared C++ type both
   models include.
 - file extensions: **`.rp.hpp`** (arena), **`.rp.stream.hpp`** (streaming), **`.rp.dump.hpp`** (the
   debug dumper), **`.rp.common.hpp`** (the shared enums).
@@ -749,21 +750,22 @@ a name is readability, never trust. The unknown-fields selection folds into the 
 `--unknown-present` contributes one stable `unknown *` line (so its id doesn't shift as the schema
 gains messages, and it subsumes any redundant per-message entries) — closing the ODR gap for a flag
 that changes a message's struct but used to leave its type name untouched. Qualified use stays
-`pkg::Msg`; mixed-profile TUs hold distinct types and fail to **link** at any exchange point instead of
-silently violating the ODR (`tests/arena_modes_link.sh` pins every direction in the default gate,
-including `--unknown-present` with-vs-without). The common header (shared
-enums) stays outside the namespace, so a profiled arena header still coexists with the streaming
-header. A no-profile run is byte-identical to unprofiled output, and an all-excluded profile degrades
+`rp::arena::pkg::Msg`; mixed-profile TUs hold distinct types and fail to **link** wherever the
+profiled type appears in a mangled signature, instead of silently violating the ODR
+(`tests/arena_modes_link.sh` pins every direction in the default gate, including
+`--unknown-present` with-vs-without). Mangling covers a function's parameters but not its return
+type, so that guard has a boundary — see [docs/profiles.md](docs/profiles.md#decode-profiles-drop-raw-and-unknown-fields).
+The common header (shared enums) stays outside the PROFILE's inline namespace, so a profiled arena
+header still coexists with the streaming header. A no-profile run is byte-identical to unprofiled output, and an all-excluded profile degrades
 to exactly that. Known cut, deliberately deferred: no `materialize` directive to narrow a type-level
 entry (additive when needed).
 
 ## Debug dumper emitter
 
 The `dumpgen` emitter (`src/dumpgen/`) turns the AST into `<stem>.rp.dump.hpp`: per arena message
-`Foo` in namespace `pkg`, a pair of free functions that print a decoded arena tree as human-readable,
-JSON-*like* text — `pkg::rp_dump_write(std::ostream&, const Foo&, const dump::DumpOptions& = {})` and
-`pkg::rp_dump_string(const Foo&, ...)`, where `DumpOptions` carries the line-width budget, a start
-indent, and the skip-paths. It's a **debugging aid**, explicitly not a spec-compliant JSON codec and
+`Foo`, a `rapidproto::dump_detail::dumper<Foo>` specialization that prints a decoded arena tree as
+human-readable, JSON-*like* text. Users call `rapidproto::dump(m, opts)` (or the `ostream` overload),
+where `rapidproto::DumpOptions` carries the line-width budget, a start indent, and the skip-paths. It's a **debugging aid**, explicitly not a spec-compliant JSON codec and
 not a wire serializer; `--dump` implies `--arena`, since the dumper reads the arena header.
 
 - **Accessors, not reflection.** The dumper walks the arena decoder's **public accessors** — no
@@ -813,15 +815,15 @@ not a wire serializer; `--dump` implies `--arena`, since the dumper reads the ar
   beside the arena runtime on a `--dump` invocation, so a generated `<stem>.rp.dump.hpp` resolves
   its
   `#include` standalone.
-- **Generated internals stay out of the public namespaces.** Only the two public entry points land in
-  the message's own namespace; the `Writer`-threaded core each one forwards to lives a level down,
-  in
-  `pkg::rp_dump_detail`, and the generated enum value-name tables go to `rapidproto::dump::detail`
-  rather than the runtime's public `rapidproto::dump` (the `arena_detail` / `swar_detail`
-  convention).
+- **Generated internals stay out of the public namespaces.** Nothing public lands in the message's
+  own namespace: the entry point is the runtime's `rapidproto::dump`, reached through a
+  `dumper<T>` specialization. The `Writer`-threaded core it forwards to lives in
+  `rp::arena::pkg::rp_dump_detail`, and the specializations and enum value-name tables go to
+  `rapidproto::dump_detail` -- never `rapidproto` itself, which is the public surface (the
+  `arena_detail` / `swar_detail` convention).
   Because ADL never looks inside a sub-namespace, every recursive call — including cross-file ones
   like
-  `::dep::rp_dump_detail::rp_dump_write` — is emitted **fully qualified** instead of relying on
+  `::rp::arena::dep::rp_dump_detail::rp_dump_write` — is emitted **fully qualified** instead of relying on
   argument-dependent lookup. The callee's namespace is derived from its resolved type FQN by
   stripping
   trailing components while the remainder is still a known type; what is left is the proto package.
@@ -885,32 +887,27 @@ each invocation.
 `rapidprotoc` emits both decode models for one schema so they compile together in a single translation
 unit. Three pieces make that work:
 
-- **Model namespacing.** The arena model is the default and sits where a user expects, `pkg::Msg`; the
-  streaming model nests one level deeper, at `pkg::stream::Msg`. The two `Msg` types are therefore
-  distinct — except where a top-level type is itself named `stream` and collides with the
-  sub-namespace, which `sanitize()`'s reserved set deliberately does not cover (it is scoped by name,
-  not by nesting depth, so reserving `stream` would rename every nested type and field of that name
-  too). This is driven by a `model_namespace` field on the C++ name table
-  (`CppNameTable`) —
-  empty for arena and `"stream"` for streaming, threaded through `build_cpp_names`. Only
-  *messages* nest
-  under it; enums do not (below). The nesting is each model's permanent shape, applied whether one
-  model is
-  generated or both, so adding the second never renames the first.
-- **Shared enums in a common header.** A schema's top-level enums are emitted ONCE into
-  `<stem>.rp.common.hpp` at package scope (`pkg::State`), by `codegen::emit_common_header`. Both
-  decoders
-  `#include` it (re-exported via an IWYU `export` pragma, so a TU that includes only the decoder
-  still
-  "directly provides" the enums). The streaming decoder additionally aliases each enum into its
-  model
-  namespace (`using ::pkg::State;` inside `namespace pkg::stream`), so `pkg::stream::State`
-  resolves too.
-  One proto enum is thus ONE C++ type shared across both models — no duplicate definition to
-  collide. Package scope is also why a top-level enum named `stream` is the worse half of the
-  collision above: it defeats the streaming header on its own, with no arena model involved.
-  NESTED enums are not shared; they ride with their message inside each model's decoder (distinct
-  fully-qualified names, no clash).
+- **Per-model ROOTS.** Each model owns a root segment between the prefix and the package:
+  `<prefix>::arena::pkg::Msg` and `<prefix>::stream::pkg::Msg`, driven by `model_namespace` on
+  `CppNameTable` (`kArenaRoot` / `kStreamRoot`, threaded through `build_cpp_names`). Roots rather
+  than a sub-namespace *inside* the package is what makes coexistence unconditional: the generator
+  introduces no name into package scope, so a top-level type of any name — including `stream` —
+  cannot collide with one. It also keeps generated code out of protoc's namespace, so a `.pb.h` and
+  a `.rp.hpp` for one schema compile together (one narrow exception -- protoc putting a TYPE
+  exactly where a root opens -- is documented in docs/using-both-models.md). The shape is each
+  model's permanent one, applied whether one model is generated or both, so adding the second
+  never renames the first.
+- **Shared enums under their own root.** A schema's enums are emitted ONCE into
+  `<stem>.rp.common.hpp` at `<prefix>::common::pkg`, by `codegen::emit_common_header`. Both decoders
+  `#include` it (re-exported via an IWYU `export` pragma, so a TU that includes only the decoder still
+  "directly provides" the enums) and each aliases every enum into its own model namespace, so
+  `<prefix>::arena::pkg::State` and `<prefix>::stream::pkg::State` name one type. A third root rather
+  than package scope keeps the ids model-independent while leaving package scope empty of anything
+  the generator invented. NESTED enums are shared the same way, through a **namespace mirror** of the
+  message nesting (`rp::common::pkg::Msg::Kind`), aliased back into each model's class. The mirror
+  reuses the ids the model already assigned, so its path is the model path with the root swapped and
+  no second dedup pass exists; namespaces rather than scope structs, since a namespace cannot be
+  named as a type and so cannot be mistaken for the message.
 - **Parse once, emit per model.** `rapidprotoc` runs the front-end once, builds a name table per selected
   model, and emits the common header plus the selected decoders into one out-dir. The common
   header is
@@ -921,8 +918,10 @@ together with the other — so a consumer adds the second model without touching
 suites assert this (regenerating with `rapidprotoc --arena` or `--stream` produces no change), and
 `examples/consumer` decodes the same bytes with both models in one TU as an end-to-end check.
 
-To coexist with `protoc`-generated headers instead, `--namespace-prefix=<ns>` nests everything under an
-extra prefix (`ns::pkg::Msg`), keeping RapidProto's types clear of protoc's `pkg::Msg`.
+Coexistence with `protoc`-generated headers needs no flag: the roots keep every generated type clear
+of protoc's `pkg::Msg`, including the well-known types (for the one exception -- a protoc type
+landing exactly where a root opens -- see docs/using-both-models.md).
+`--namespace-prefix` renames the root for a codebase that already owns `rp`.
 
 ---
 

@@ -11,7 +11,7 @@
 #include "rapidproto/arena_runtime.hpp"
 #include "stdpkg.rp.common.hpp"  // IWYU pragma: export
 
-namespace std_ {
+namespace rp::arena::std_ {
 
 class Types;
 
@@ -31,7 +31,7 @@ class Types {
 static_assert(::std::is_trivially_destructible_v<Types>);
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-RP_FLATTEN inline bool ::std_::Types::rp_decode_into([[maybe_unused]] ::std_::Types& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN inline bool ::rp::arena::std_::Types::rp_decode_into([[maybe_unused]] ::rp::arena::std_::Types& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   std::int64_t* rp_acc_many = nullptr;
   std::size_t rp_n_many = 0;
@@ -138,12 +138,12 @@ RP_FLATTEN inline bool ::std_::Types::rp_decode_into([[maybe_unused]] ::std_::Ty
   out.m_many = ::rapidproto::ArrayView<std::int64_t>(rp_acc_many, rp_n_many);
   return true;
 }
-inline const ::std_::Types* ::std_::Types::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+inline const ::rp::arena::std_::Types* ::rp::arena::std_::Types::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
-  ::std_::Types* const rp_root = arena.create<::std_::Types>();
+  ::rp::arena::std_::Types* const rp_root = arena.create<::rp::arena::std_::Types>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
   return rp_root;
 }
 
-}  // namespace std_
+}  // namespace rp::arena::std_

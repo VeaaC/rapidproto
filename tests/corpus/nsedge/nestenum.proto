@@ -1,0 +1,17 @@
+// A NESTED enum, which is the shape the enum mirror exists for: it is defined once in the shared
+// common header under `<prefix>::common::<pkg>` and aliased into both models, so the two spellings
+// name one type. Only a TU holding both models can assert that -- and well over four of every
+// five enums in the fetched corpus are nested (84-88% depending on how duplicate schemas are
+// counted), so this is the common case, not the edge one.
+syntax = "proto3";
+package ne;
+
+message Outer {
+  enum Kind { KIND_A = 0; KIND_B = 1; }
+  message Inner {
+    enum Deep { DEEP_A = 0; }
+    Deep d = 1;
+  }
+  Kind k = 1;
+  Inner i = 2;
+}

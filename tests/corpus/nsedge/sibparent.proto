@@ -1,0 +1,5 @@
+// The parent package of sibpkg.proto, declaring the type that used to collide with it.
+syntax = "proto3";
+package sib;
+
+message logging { int32 x = 1; }

@@ -4,6 +4,6 @@
 
 #include <cstdint>
 
-namespace wire {
+namespace rp::common::wire {
 
-}  // namespace wire
+}  // namespace rp::common::wire

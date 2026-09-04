@@ -12,7 +12,7 @@
 #include "forward.rp.common.hpp"  // IWYU pragma: export
 #include "pub.rp.hpp"
 
-namespace rp::fwd {
+namespace pfx::arena::fwd {
 
 class Fwd;
 
@@ -29,7 +29,7 @@ class Fwd {
 static_assert(::std::is_trivially_destructible_v<Fwd>);
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-RP_FLATTEN inline bool ::rp::fwd::Fwd::rp_decode_into([[maybe_unused]] ::rp::fwd::Fwd& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+RP_FLATTEN inline bool ::pfx::arena::fwd::Fwd::rp_decode_into([[maybe_unused]] ::pfx::arena::fwd::Fwd& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
   const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(body);
   const std::uint8_t* const rp_cend = rp_c + body.size();
@@ -68,12 +68,12 @@ RP_FLATTEN inline bool ::rp::fwd::Fwd::rp_decode_into([[maybe_unused]] ::rp::fwd
   }
   return true;
 }
-inline const ::rp::fwd::Fwd* ::rp::fwd::Fwd::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
+inline const ::pfx::arena::fwd::Fwd* ::pfx::arena::fwd::Fwd::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
-  ::rp::fwd::Fwd* const rp_root = arena.create<::rp::fwd::Fwd>();
+  ::pfx::arena::fwd::Fwd* const rp_root = arena.create<::pfx::arena::fwd::Fwd>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
   if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
   return rp_root;
 }
 
-}  // namespace rp::fwd
+}  // namespace pfx::arena::fwd

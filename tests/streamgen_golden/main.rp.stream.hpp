@@ -10,7 +10,7 @@
 #include "dep.rp.stream.hpp"
 #include "forward.rp.stream.hpp"
 
-namespace main::stream {
+namespace rp::stream::main {
 
 struct Main;
 
@@ -18,14 +18,14 @@ struct Main {
   explicit Main(::rapidproto::ByteView bytes) noexcept : rp_span(bytes) {}
   ::rapidproto::ByteView rp_bytes() const noexcept { return rp_span; }
 
-  struct d { using Value = ::dep::stream::Dep; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "d"; };
-  struct p { using Value = ::pub::stream::Pub; static constexpr std::uint32_t kNumber = 2; static constexpr std::string_view kName = "p"; };
-  struct f { using Value = ::fwd::stream::Fwd; static constexpr std::uint32_t kNumber = 3; static constexpr std::string_view kName = "f"; };
-  struct e { using Value = ::dep::DepEnum; static constexpr std::uint32_t kNumber = 4; static constexpr std::string_view kName = "e"; };
-  struct ds { using Value = ::dep::stream::Dep; static constexpr std::uint32_t kNumber = 5; static constexpr std::string_view kName = "ds"; };
-  struct od { using Value = ::dep::stream::Dep; static constexpr std::uint32_t kNumber = 7; static constexpr std::string_view kName = "od"; };
+  struct d { using Value = ::rp::stream::dep::Dep; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "d"; };
+  struct p { using Value = ::rp::stream::pub::Pub; static constexpr std::uint32_t kNumber = 2; static constexpr std::string_view kName = "p"; };
+  struct f { using Value = ::rp::stream::fwd::Fwd; static constexpr std::uint32_t kNumber = 3; static constexpr std::string_view kName = "f"; };
+  struct e { using Value = ::rp::common::dep::DepEnum; static constexpr std::uint32_t kNumber = 4; static constexpr std::string_view kName = "e"; };
+  struct ds { using Value = ::rp::stream::dep::Dep; static constexpr std::uint32_t kNumber = 5; static constexpr std::string_view kName = "ds"; };
+  struct od { using Value = ::rp::stream::dep::Dep; static constexpr std::uint32_t kNumber = 7; static constexpr std::string_view kName = "od"; };
   struct oi { using Value = std::int32_t; static constexpr std::uint32_t kNumber = 8; static constexpr std::string_view kName = "oi"; };
-  struct dm { using Key = std::int32_t; using Value = ::dep::stream::Dep; static constexpr std::uint32_t kNumber = 6; static constexpr std::string_view kName = "dm"; };
+  struct dm { using Key = std::int32_t; using Value = ::rp::stream::dep::Dep; static constexpr std::uint32_t kNumber = 6; static constexpr std::string_view kName = "dm"; };
 
   template <class... rp_Callbacks>
   [[nodiscard]] ::rapidproto::DecodeStatus decode(rp_Callbacks&&... rp_callbacks) const;
@@ -35,7 +35,7 @@ struct Main {
 
 template <class... rp_Callbacks>
 RP_FLATTEN ::rapidproto::DecodeStatus Main::decode(rp_Callbacks&&... rp_callbacks) const {
-  static_assert((true && ... && !::rapidproto::is_stray_callback<rp_Callbacks, d, p, f, e, ds, od, oi, dm>), "a callback matches no field of 'Main' (and is not a catch-all or unknown-field handler)");
+  static_assert((true && ... && !::rapidproto::is_stray_callback<rp_Callbacks, d, p, f, e, ds, od, oi, dm>), "a callback matches no field of '::rp::stream::main::Main' (and is not a catch-all or unknown-field handler)");
   [[maybe_unused]] auto rp_dispatch = ::rapidproto::combine(static_cast<rp_Callbacks&&>(rp_callbacks)...);
   const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(rp_span);
   const std::uint8_t* const rp_cend = rp_c + rp_span.size();
@@ -55,16 +55,16 @@ RP_FLATTEN ::rapidproto::DecodeStatus Main::decode(rp_Callbacks&&... rp_callback
     }
     goto rp_field_general;
     rp_do_1: {
-      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Callbacks, d, d::Value>)) <= 1U, "field 'd' is handled by more than one callback");
-      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Callbacks, d, d::Value>)) <= 1U, "field 'd' is matched by more than one catch-all callback");
-      static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Callbacks, d, d::Value>), "a callback for field 'd' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
-      static_assert((true && ... && !(::rapidproto::targets<rp_Callbacks, d, d::Value> && !::rapidproto::specifically_handles<rp_Callbacks, d, d::Value>)), "a callback for field 'd' has the wrong value type (expected d::Value)");
+      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Callbacks, d, d::Value>)) <= 1U, "field 'Main::d' is handled by more than one callback");
+      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Callbacks, d, d::Value>)) <= 1U, "field 'Main::d' is matched by more than one catch-all callback");
+      static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Callbacks, d, d::Value>), "a callback for field 'Main::d' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+      static_assert((true && ... && !(::rapidproto::targets<rp_Callbacks, d, d::Value> && !::rapidproto::specifically_handles<rp_Callbacks, d, d::Value>)), "a callback for field 'Main::d' has the wrong value type (expected d::Value)");
       if constexpr ((false || ... || ::rapidproto::handles_one<rp_Callbacks, d, d::Value>)) {
         ::rapidproto::ByteView rp_val;
         const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_val, &rp_we);
         if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_np;
-        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, d{}, ::dep::stream::Dep{rp_val}); !rp_status.ok()) {
+        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, d{}, ::rp::stream::dep::Dep{rp_val}); !rp_status.ok()) {
           return rp_status;
         }
       } else {  // no callback for this field -> skip its value (compile-time wire)
@@ -78,16 +78,16 @@ RP_FLATTEN ::rapidproto::DecodeStatus Main::decode(rp_Callbacks&&... rp_callback
       continue;
     }
     rp_do_2: {
-      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Callbacks, p, p::Value>)) <= 1U, "field 'p' is handled by more than one callback");
-      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Callbacks, p, p::Value>)) <= 1U, "field 'p' is matched by more than one catch-all callback");
-      static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Callbacks, p, p::Value>), "a callback for field 'p' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
-      static_assert((true && ... && !(::rapidproto::targets<rp_Callbacks, p, p::Value> && !::rapidproto::specifically_handles<rp_Callbacks, p, p::Value>)), "a callback for field 'p' has the wrong value type (expected p::Value)");
+      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Callbacks, p, p::Value>)) <= 1U, "field 'Main::p' is handled by more than one callback");
+      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Callbacks, p, p::Value>)) <= 1U, "field 'Main::p' is matched by more than one catch-all callback");
+      static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Callbacks, p, p::Value>), "a callback for field 'Main::p' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+      static_assert((true && ... && !(::rapidproto::targets<rp_Callbacks, p, p::Value> && !::rapidproto::specifically_handles<rp_Callbacks, p, p::Value>)), "a callback for field 'Main::p' has the wrong value type (expected p::Value)");
       if constexpr ((false || ... || ::rapidproto::handles_one<rp_Callbacks, p, p::Value>)) {
         ::rapidproto::ByteView rp_val;
         const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_val, &rp_we);
         if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_np;
-        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, p{}, ::pub::stream::Pub{rp_val}); !rp_status.ok()) {
+        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, p{}, ::rp::stream::pub::Pub{rp_val}); !rp_status.ok()) {
           return rp_status;
         }
       } else {  // no callback for this field -> skip its value (compile-time wire)
@@ -101,16 +101,16 @@ RP_FLATTEN ::rapidproto::DecodeStatus Main::decode(rp_Callbacks&&... rp_callback
       continue;
     }
     rp_do_3: {
-      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Callbacks, f, f::Value>)) <= 1U, "field 'f' is handled by more than one callback");
-      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Callbacks, f, f::Value>)) <= 1U, "field 'f' is matched by more than one catch-all callback");
-      static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Callbacks, f, f::Value>), "a callback for field 'f' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
-      static_assert((true && ... && !(::rapidproto::targets<rp_Callbacks, f, f::Value> && !::rapidproto::specifically_handles<rp_Callbacks, f, f::Value>)), "a callback for field 'f' has the wrong value type (expected f::Value)");
+      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Callbacks, f, f::Value>)) <= 1U, "field 'Main::f' is handled by more than one callback");
+      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Callbacks, f, f::Value>)) <= 1U, "field 'Main::f' is matched by more than one catch-all callback");
+      static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Callbacks, f, f::Value>), "a callback for field 'Main::f' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+      static_assert((true && ... && !(::rapidproto::targets<rp_Callbacks, f, f::Value> && !::rapidproto::specifically_handles<rp_Callbacks, f, f::Value>)), "a callback for field 'Main::f' has the wrong value type (expected f::Value)");
       if constexpr ((false || ... || ::rapidproto::handles_one<rp_Callbacks, f, f::Value>)) {
         ::rapidproto::ByteView rp_val;
         const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_val, &rp_we);
         if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_np;
-        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, f{}, ::fwd::stream::Fwd{rp_val}); !rp_status.ok()) {
+        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, f{}, ::rp::stream::fwd::Fwd{rp_val}); !rp_status.ok()) {
           return rp_status;
         }
       } else {  // no callback for this field -> skip its value (compile-time wire)
@@ -124,16 +124,16 @@ RP_FLATTEN ::rapidproto::DecodeStatus Main::decode(rp_Callbacks&&... rp_callback
       continue;
     }
     rp_do_4: {
-      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Callbacks, e, e::Value>)) <= 1U, "field 'e' is handled by more than one callback");
-      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Callbacks, e, e::Value>)) <= 1U, "field 'e' is matched by more than one catch-all callback");
-      static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Callbacks, e, e::Value>), "a callback for field 'e' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
-      static_assert((true && ... && !(::rapidproto::targets<rp_Callbacks, e, e::Value> && !::rapidproto::specifically_handles<rp_Callbacks, e, e::Value>)), "a callback for field 'e' has the wrong value type (expected e::Value)");
+      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Callbacks, e, e::Value>)) <= 1U, "field 'Main::e' is handled by more than one callback");
+      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Callbacks, e, e::Value>)) <= 1U, "field 'Main::e' is matched by more than one catch-all callback");
+      static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Callbacks, e, e::Value>), "a callback for field 'Main::e' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+      static_assert((true && ... && !(::rapidproto::targets<rp_Callbacks, e, e::Value> && !::rapidproto::specifically_handles<rp_Callbacks, e, e::Value>)), "a callback for field 'Main::e' has the wrong value type (expected e::Value)");
       if constexpr ((false || ... || ::rapidproto::handles_one<rp_Callbacks, e, e::Value>)) {
         std::uint64_t rp_raw = 0;
         const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
         if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_np;
-        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, e{}, static_cast<::dep::DepEnum>(::rapidproto::varint_to_int32(rp_raw))); !rp_status.ok()) {
+        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, e{}, static_cast<::rp::common::dep::DepEnum>(::rapidproto::varint_to_int32(rp_raw))); !rp_status.ok()) {
           return rp_status;
         }
       } else {  // no callback for this field -> skip its value (compile-time wire)
@@ -147,16 +147,16 @@ RP_FLATTEN ::rapidproto::DecodeStatus Main::decode(rp_Callbacks&&... rp_callback
       continue;
     }
     rp_do_5: {
-      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Callbacks, ds, ds::Value>)) <= 1U, "field 'ds' is handled by more than one callback");
-      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Callbacks, ds, ds::Value>)) <= 1U, "field 'ds' is matched by more than one catch-all callback");
-      static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Callbacks, ds, ds::Value>), "a callback for field 'ds' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
-      static_assert((true && ... && !(::rapidproto::targets<rp_Callbacks, ds, ds::Value> && !::rapidproto::specifically_handles<rp_Callbacks, ds, ds::Value>)), "a callback for field 'ds' has the wrong value type (expected ds::Value)");
+      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Callbacks, ds, ds::Value>)) <= 1U, "field 'Main::ds' is handled by more than one callback");
+      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Callbacks, ds, ds::Value>)) <= 1U, "field 'Main::ds' is matched by more than one catch-all callback");
+      static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Callbacks, ds, ds::Value>), "a callback for field 'Main::ds' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+      static_assert((true && ... && !(::rapidproto::targets<rp_Callbacks, ds, ds::Value> && !::rapidproto::specifically_handles<rp_Callbacks, ds, ds::Value>)), "a callback for field 'Main::ds' has the wrong value type (expected ds::Value)");
       if constexpr ((false || ... || ::rapidproto::handles_one<rp_Callbacks, ds, ds::Value>)) {
         ::rapidproto::ByteView rp_val;
         const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_val, &rp_we);
         if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_np;
-        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, ds{}, ::dep::stream::Dep{rp_val}); !rp_status.ok()) {
+        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, ds{}, ::rp::stream::dep::Dep{rp_val}); !rp_status.ok()) {
           return rp_status;
         }
       } else {  // no callback for this field -> skip its value (compile-time wire)
@@ -171,16 +171,16 @@ RP_FLATTEN ::rapidproto::DecodeStatus Main::decode(rp_Callbacks&&... rp_callback
       continue;
     }
     rp_do_7: {
-      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Callbacks, od, od::Value>)) <= 1U, "field 'od' is handled by more than one callback");
-      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Callbacks, od, od::Value>)) <= 1U, "field 'od' is matched by more than one catch-all callback");
-      static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Callbacks, od, od::Value>), "a callback for field 'od' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
-      static_assert((true && ... && !(::rapidproto::targets<rp_Callbacks, od, od::Value> && !::rapidproto::specifically_handles<rp_Callbacks, od, od::Value>)), "a callback for field 'od' has the wrong value type (expected od::Value)");
+      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Callbacks, od, od::Value>)) <= 1U, "field 'Main::od' is handled by more than one callback");
+      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Callbacks, od, od::Value>)) <= 1U, "field 'Main::od' is matched by more than one catch-all callback");
+      static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Callbacks, od, od::Value>), "a callback for field 'Main::od' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+      static_assert((true && ... && !(::rapidproto::targets<rp_Callbacks, od, od::Value> && !::rapidproto::specifically_handles<rp_Callbacks, od, od::Value>)), "a callback for field 'Main::od' has the wrong value type (expected od::Value)");
       if constexpr ((false || ... || ::rapidproto::handles_one<rp_Callbacks, od, od::Value>)) {
         ::rapidproto::ByteView rp_val;
         const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_val, &rp_we);
         if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_np;
-        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, od{}, ::dep::stream::Dep{rp_val}); !rp_status.ok()) {
+        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, od{}, ::rp::stream::dep::Dep{rp_val}); !rp_status.ok()) {
           return rp_status;
         }
       } else {  // no callback for this field -> skip its value (compile-time wire)
@@ -193,10 +193,10 @@ RP_FLATTEN ::rapidproto::DecodeStatus Main::decode(rp_Callbacks&&... rp_callback
       continue;
     }
     rp_do_8: {
-      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Callbacks, oi, oi::Value>)) <= 1U, "field 'oi' is handled by more than one callback");
-      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Callbacks, oi, oi::Value>)) <= 1U, "field 'oi' is matched by more than one catch-all callback");
-      static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Callbacks, oi, oi::Value>), "a callback for field 'oi' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
-      static_assert((true && ... && !(::rapidproto::targets<rp_Callbacks, oi, oi::Value> && !::rapidproto::specifically_handles<rp_Callbacks, oi, oi::Value>)), "a callback for field 'oi' has the wrong value type (expected oi::Value)");
+      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Callbacks, oi, oi::Value>)) <= 1U, "field 'Main::oi' is handled by more than one callback");
+      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Callbacks, oi, oi::Value>)) <= 1U, "field 'Main::oi' is matched by more than one catch-all callback");
+      static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Callbacks, oi, oi::Value>), "a callback for field 'Main::oi' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+      static_assert((true && ... && !(::rapidproto::targets<rp_Callbacks, oi, oi::Value> && !::rapidproto::specifically_handles<rp_Callbacks, oi, oi::Value>)), "a callback for field 'Main::oi' has the wrong value type (expected oi::Value)");
       if constexpr ((false || ... || ::rapidproto::handles_one<rp_Callbacks, oi, oi::Value>)) {
         std::uint64_t rp_raw = 0;
         const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
@@ -228,10 +228,10 @@ RP_FLATTEN ::rapidproto::DecodeStatus Main::decode(rp_Callbacks&&... rp_callback
       case 7: { if (rp_tag.wire_type == ::rapidproto::WireType::Len) { goto rp_do_7; } break; }
       case 8: { if (rp_tag.wire_type == ::rapidproto::WireType::Varint) { goto rp_do_8; } break; }
       case dm::kNumber:
-        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Callbacks, dm, dm::Key, dm::Value>)) <= 1U, "map field 'dm' is handled by more than one callback");
-        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Callbacks, dm, dm::Key, dm::Value>)) <= 1U, "map field 'dm' is matched by more than one catch-all callback");
-        static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Callbacks, dm, dm::Key, dm::Value>), "a callback for map field 'dm' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
-        static_assert((true && ... && !(::rapidproto::targets<rp_Callbacks, dm, dm::Key, dm::Value> && !::rapidproto::specifically_handles<rp_Callbacks, dm, dm::Key, dm::Value>)), "a callback for map field 'dm' has the wrong value type (expected dm::Key, dm::Value)");
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Callbacks, dm, dm::Key, dm::Value>)) <= 1U, "map field 'Main::dm' is handled by more than one callback");
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Callbacks, dm, dm::Key, dm::Value>)) <= 1U, "map field 'Main::dm' is matched by more than one catch-all callback");
+        static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Callbacks, dm, dm::Key, dm::Value>), "a callback for map field 'Main::dm' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+        static_assert((true && ... && !(::rapidproto::targets<rp_Callbacks, dm, dm::Key, dm::Value> && !::rapidproto::specifically_handles<rp_Callbacks, dm, dm::Key, dm::Value>)), "a callback for map field 'Main::dm' has the wrong value type (expected dm::Key, dm::Value)");
         if constexpr ((false || ... || ::rapidproto::handles_one<rp_Callbacks, dm, dm::Key, dm::Value>)) {
           if (rp_tag.wire_type == ::rapidproto::WireType::Len) {
             ::rapidproto::ByteView rp_entry;
@@ -258,7 +258,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Main::decode(rp_Callbacks&&... rp_callback
                 const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_ec, rp_ee, &rp_val, &rp_we);
                 if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_ec - ::rapidproto::wire::byte_ptr(rp_entry))}; }
                 rp_ec = rp_np;
-                rp_value = ::dep::stream::Dep{rp_val};
+                rp_value = ::rp::stream::dep::Dep{rp_val};
               } else {
                 std::size_t rp_efo = 0;
                 const std::uint8_t* const rp_esp = ::rapidproto::wire::skip_value(rp_ec, rp_ee, ::rapidproto::wire::byte_ptr(rp_entry), rp_et, 0, &rp_we, &rp_efo);
@@ -294,4 +294,4 @@ RP_FLATTEN ::rapidproto::DecodeStatus Main::decode(rp_Callbacks&&... rp_callback
   }
 }
 
-}  // namespace main::stream
+}  // namespace rp::stream::main

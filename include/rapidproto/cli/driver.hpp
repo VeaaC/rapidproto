@@ -23,6 +23,7 @@
 #include <utility>
 #include <vector>
 
+#include "rapidproto/codegen/naming.hpp"
 #include "rapidproto/resolve.hpp"
 #include "rapidproto/resolver.hpp"
 #include "rapidproto/result.hpp"
@@ -31,12 +32,23 @@
 
 namespace rapidproto::cli {
 
-// A --namespace-prefix is empty (no prefix) or a dot-separated list of C++ identifiers
-// (`[A-Za-z_][A-Za-z0-9_]*`). This catches CLI typos (e.g. `rp:`) up front instead of emitting
-// uncompilable generated code.
-inline bool valid_namespace_prefix(std::string_view p) {
+// A --namespace-prefix is a NON-EMPTY dot-separated list of C++ identifiers
+// (`[A-Za-z_][A-Za-z0-9_]*`), none of which the generator would have to rename. This catches CLI
+// typos (`rp:`) up front instead of emitting uncompilable generated code, and refuses values that
+// would quietly become something else.
+//
+// Empty is rejected rather than meaning "no prefix". The generated models sit under per-model root
+// segments (`arena`, `stream`, `common`), so an empty prefix would put those three ordinary words at
+// GLOBAL scope, where a consumer's own `class arena` or `namespace stream` collides with them. The
+// prefix is what keeps them in one namespace the consumer can rename; `rp` is only its default.
+//
+// Returns "" when `p` is usable, else the reason, ready to print.
+inline std::string namespace_prefix_problem(std::string_view p) {
     if (p.empty()) {
-        return true;
+        return "it cannot be empty: the arena/stream/common roots would land at global scope. Pass "
+               "a "
+               "name instead (default: " +
+               std::string(codegen::kDefaultNsPrefix) + ")";
     }
     std::size_t start = 0;
     while (true) {
@@ -45,15 +57,22 @@ inline bool valid_namespace_prefix(std::string_view p) {
             p.substr(start, dot == std::string_view::npos ? std::string_view::npos : dot - start);
         if (comp.empty() ||
             (std::isalpha(static_cast<unsigned char>(comp[0])) == 0 && comp[0] != '_')) {
-            return false;
+            return "it must be dot-separated C++ identifiers";
         }
         for (const char ch : comp) {
             if (std::isalnum(static_cast<unsigned char>(ch)) == 0 && ch != '_') {
-                return false;
+                return "it must be dot-separated C++ identifiers";
             }
         }
+        // A component that cannot compile as written is refused, not renamed: the prefix is what
+        // the user asked to be called, so handing back a different namespace is a wrong answer.
+        // Everything accepted here is emitted VERBATIM (codegen::effective_ns_prefix).
+        const std::string problem = codegen::ns_prefix_component_problem(comp, start == 0);
+        if (!problem.empty()) {
+            return "`" + std::string(comp) + "` cannot be a prefix component: " + problem;
+        }
         if (dot == std::string_view::npos) {
-            return true;
+            return {};
         }
         start = dot + 1;
     }
@@ -61,11 +80,13 @@ inline bool valid_namespace_prefix(std::string_view p) {
 
 // The flags shared by every generator CLI.
 struct Options {
-    ResolverConfig config;         // -I include paths, --no-wellknown
-    std::string out_dir = ".";     // --out-dir
-    std::string namespace_prefix;  // --namespace-prefix (dotted, prepended to each C++ namespace)
-    std::string depfile;           // --depfile (emit a Make/Ninja depfile for incremental codegen)
-    bool verbose = false;          // --verbose / -v: log each written file
+    ResolverConfig config;      // -I include paths, --no-wellknown
+    std::string out_dir = ".";  // --out-dir
+    // --namespace-prefix (dotted, prepended to each C++ namespace). See
+    // namespace_prefix_problem for what is refused and why.
+    std::string namespace_prefix{codegen::kDefaultNsPrefix};
+    std::string depfile;   // --depfile (emit a Make/Ninja depfile for incremental codegen)
+    bool verbose = false;  // --verbose / -v: log each written file
     std::vector<std::string> entries;
 };
 
@@ -168,9 +189,10 @@ inline ParseResult parse_args(int argc, char** argv, std::string_view usage,
     if (opts.entries.empty()) {
         return usage_error();
     }
-    if (!valid_namespace_prefix(opts.namespace_prefix)) {
-        std::cerr << "error: --namespace-prefix must be dot-separated C++ identifiers, got '"
-                  << opts.namespace_prefix << "'\n";
+    if (const std::string problem = namespace_prefix_problem(opts.namespace_prefix);
+        !problem.empty()) {
+        std::cerr << "error: --namespace-prefix '" << opts.namespace_prefix << "': " << problem
+                  << "\n";
         return {std::nullopt, 2};
     }
     return {std::move(opts), 0};
