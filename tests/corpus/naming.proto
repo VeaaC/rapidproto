@@ -82,6 +82,14 @@ enum StdintEnum {
   STDINT_ENUM_SIZE_MAX = 1;  // stripping would expose bare SIZE_MAX: the whole enum stays unstripped
 }
 
+// An UNCONTESTED top-level escape: nothing else in this package wants `unix_`, so the escape must
+// take exactly `sanitize(raw)` -- one trailing `_`, the same as a nested name or a field. Every
+// other escaped top-level name in the fixtures is contested (escdedup, pkgorder), so without this
+// one a naming pass that over-escalated free escapes (`unix__`) left every golden unchanged.
+message unix {
+  optional int32 a = 1;
+}
+
 // The streaming struct holds its bytes in an `rp_`-prefixed private member, which sanitize() puts
 // out of reach of any proto name -- so `m_bytes` is an ordinary identifier here, in all three roles.
 message m_bytes {

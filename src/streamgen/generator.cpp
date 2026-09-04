@@ -837,7 +837,7 @@ std::string generate_header(const FileNode& file, const std::vector<FileNode>& a
                             const std::string& namespace_prefix) {
     // Convenience: build the name table here. A caller emitting a whole resolved set should instead
     // build it ONCE with build_cpp_names and call the (file, names) overload per file. The prefix
-    // is dot-separated (proto convention); namespace_of sanitizes + ::-joins it.
+    // is dot-separated (proto convention); effective_ns_prefix ::-joins it, verbatim.
     return generate_header(
         file, build_cpp_names(file, all_files, codegen::effective_ns_prefix(namespace_prefix),
                               std::string(codegen::kStreamRoot)));

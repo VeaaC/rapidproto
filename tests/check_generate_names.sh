@@ -221,7 +221,8 @@ cmake_case empty-refused 'NAMESPACE_PREFIX ""' REFUSED
 # Deliberately NOT covered: imported schemas' headers and the runtime copies the CLI drops beside
 # them. The CLI writes those too, and they are undeclared -- deleting one breaks the build until a
 # manual regeneration. Declaring them correctly means predicting the CLI's whole resolved closure,
-# which is the CLI's job, not this helper's -- see the roadmap's --list-outputs item.
+# which is the CLI's job, not this helper's: the durable design is a CLI flag that lists the
+# outputs for the helper to declare, so only one implementation of the resolution rules exists.
 outputs_dir="$WORK/outputs"
 mkdir -p "$outputs_dir/proto"
 printf 'syntax = "proto3";\npackage d;\nenum K { K0 = 0; }\nmessage D { int32 x = 1; }\n' \

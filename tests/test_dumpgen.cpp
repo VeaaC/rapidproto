@@ -54,7 +54,7 @@
 #include "dumpgen_golden/prefixed/main.rp.dump.hpp"  // --namespace-prefix + imports
 #include "dumpgen_golden/proto2.rp.dump.hpp"
 #include "dumpgen_golden/proto3.rp.dump.hpp"
-#include "dumpgen_golden/rppkg.rp.dump.hpp"      // package `rapidproto` -> namespace rapidproto_
+#include "dumpgen_golden/rppkg.rp.dump.hpp"  // package `rapidproto`: keeps its name under the roots
 #include "dumpgen_golden/samepkg_a.rp.dump.hpp"  // same-package multi-file (pulls samepkg_b)
 #include "dumpgen_golden/stdpkg.rp.dump.hpp"  // package `std` -> namespace std_, not namespace std
 #include "dumpgen_golden/weakmain.rp.dump.hpp"  // weak import (pulls weakdep)
@@ -303,7 +303,8 @@ TEST_CASE("dumpgen: generated headers match the goldens", "[dumpgen]") {
     check_golden("arena_naming", generate_corpus("arena_naming.proto"));
     check_golden("naming", generate_corpus("naming.proto"));
     // Package shapes: `namespace std` would be UB that compiles silently, so the byte-compare
-    // is the only thing that catches a regression; `rapidproto` is a hard redeclaration.
+    // is the only thing that catches a regression; a package named `rapidproto` keeps its
+    // spelling under the roots, clear of the runtime's own namespace.
     const std::string nsedge_dir = std::string(RAPIDPROTO_CORPUS_DIR) + "/nsedge";
     check_golden("stdpkg", generate(nsedge_dir, "stdpkg.proto"));
     check_golden("rppkg", generate(nsedge_dir, "rppkg.proto"));

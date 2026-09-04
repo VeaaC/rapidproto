@@ -57,8 +57,8 @@ trap 'rm -rf "$T"' EXIT
 "$BIN" --stream -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/xpkg.proto >/dev/null
 # A package named `std` -> `namespace std_`, never `namespace std` (which would be UB).
 "$BIN" --stream -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/stdpkg.proto >/dev/null
-# A package named `rapidproto` -> `namespace rapidproto_`; unescaped it merges the schema's
-# types into the runtime's own namespace.
+# A package named `rapidproto` keeps its spelling: under the roots it sits three levels below
+# the runtime's own namespace and cannot merge into it.
 "$BIN" --stream -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/rppkg.proto >/dev/null
 "$BIN" --stream -Itests/wire_fixtures --out-dir="$T" tests/wire_fixtures/wire_all.proto >/dev/null
 # xref under a namespace prefix -> its own subdir golden, isolating its prefixed common header (rp::xr

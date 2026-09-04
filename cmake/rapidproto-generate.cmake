@@ -121,7 +121,7 @@ function(rapidproto_generate target)
     # Caught here because cmake_parse_arguments leaves the variable UNSET for an explicit empty value,
     # which would otherwise look exactly like omitting the keyword and silently use the default.
     message(FATAL_ERROR
-      "rapidproto_generate(${target}): NAMESPACE_PREFIX cannot be empty -- the arena/stream/enums "
+      "rapidproto_generate(${target}): NAMESPACE_PREFIX cannot be empty -- the arena/stream/common "
       "roots would land at global scope. Pass a name instead (default: rp).")
   endif()
 

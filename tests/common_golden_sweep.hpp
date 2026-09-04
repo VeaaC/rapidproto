@@ -40,7 +40,35 @@ namespace rapidproto::test {
 inline void check_all_common_goldens(const std::string& golden_dir,
                                      const std::vector<std::string>& entry_dirs) {
     int seen = 0;
+    int models_seen = 0;
     const std::filesystem::path root{golden_dir};
+    // Every arena/dump model golden in THIS directory must have its sibling common beside it
+    // (test_streamgen.cpp's hand-maintained list covers the streaming dir the same way). This is
+    // the "a golden must exist to be compared" direction a directory walk alone loses: a deleted
+    // common simply stops being visited, where the model header it belonged to is still here to
+    // miss it.
+    for (const auto& dir_entry : std::filesystem::recursive_directory_iterator(root)) {
+        const std::string path = dir_entry.path().generic_string();
+        constexpr std::string_view kHpp = ".rp.hpp";
+        constexpr std::string_view kDump = ".rp.dump.hpp";
+        std::size_t cut = 0;
+        if (path.size() > kDump.size() &&
+            path.compare(path.size() - kDump.size(), kDump.size(), kDump) == 0) {
+            cut = kDump.size();
+        } else if (path.size() > kHpp.size() &&
+                   path.compare(path.size() - kHpp.size(), kHpp.size(), kHpp) == 0) {
+            cut = kHpp.size();
+        } else {
+            continue;
+        }
+        const std::string sibling = path.substr(0, path.size() - cut) + ".rp.common.hpp";
+        INFO(path << " has no sibling common golden -- deleted, or never regenerated");
+        CHECK(std::filesystem::exists(sibling));
+        ++models_seen;
+    }
+    // Anti-vacuity, same reasoning as the compare loop's floor below: a walk that matched no
+    // model golden at all checked nothing.
+    CHECK(models_seen >= 10);
     for (const auto& dir_entry : std::filesystem::recursive_directory_iterator(root)) {
         const std::string rel = dir_entry.path().lexically_relative(root).generic_string();
         constexpr std::string_view kExt = ".rp.common.hpp";

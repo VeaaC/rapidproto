@@ -178,8 +178,8 @@ for tu in tests/test_*.cpp; do
 done
 # A floor on what the scan actually saw. A preprocessor that exits 0 printing nothing yields empty
 # closures and zero comparisons, which is indistinguishable from "no duplicates" without this.
-# 237 golden headers reach the test TUs today; the floor is set well below that so ordinary churn
-# does not trip it.
+# Roughly 250 golden headers reach the test TUs today; the floor is set well below that so
+# ordinary churn does not trip it.
 if [[ $seen_goldens -lt 100 ]]; then
   echo ">> the duplicate-golden scan saw only $seen_goldens golden headers across the test TUs --"
   echo "   it cannot have compared anything meaningful (expected well over 100)"

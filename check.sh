@@ -638,7 +638,7 @@ job_doc_links() {
   # path (colon-free), line number, separator -- so only a fragment that IS a live spelling passes.
   if rot_scan "pre-roots streaming" grep -noE '([A-Za-z_][A-Za-z0-9_]*::)+stream::' \
        "${doc_files[@]}"; then
-    if hit=$(grep -vE '^([^:]*:)?[0-9]+:(rp|rapidproto|prefix|pfx|sib)::stream::$' <<<"$hit"); then
+    if hit=$(grep -vE '^([^:]*:)?[0-9]+:(rp|rapidproto)::stream::$' <<<"$hit"); then
       echo ">> a pre-roots streaming spelling (<pkg>::stream::) -- the model root goes BEFORE the package:"
       sed 's/^/   /' <<<"$hit" | head -5
       stale=1

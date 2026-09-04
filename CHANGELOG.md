@@ -67,18 +67,19 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
   one and could not be compared or passed across. Both models
   now alias one definition, mirrored under `rp::common`. The spelling you already write is unchanged.
 
-  **The dumper's entry points moved with them.** `pkg::rp_dump_string(m, opts)` and
-  `pkg::rp_dump_write(os, m, opts)` become `rapidproto::dump(m, opts)` and
-  `rapidproto::dump(os, m, opts)` — one spelling for every schema, usable from generic code — and
-  `rapidproto::dump::DumpOptions` becomes `rapidproto::DumpOptions`. Calling `dump` on a type with no
-  generated dumper now names the fix in a `static_assert` instead of failing on an incomplete type.
-  `Writer` and the `write_*` helpers move to `rapidproto::dump_detail`; they were never documented.
-
   What this buys: a schema can now declare a top-level type named `stream` (previously the two
   headers collided, and a top-level *enum* of that name broke the streaming header on its own); a
   package and a sibling `pkg.stream.*` package no longer collide; and generated headers coexist with
   protoc's `.pb.h` for the same schema **by default**, including the well-known types, where
   RapidProto previously redefined `google::protobuf::Timestamp` for any schema importing one.
+
+- **Breaking: the debug dumper's entry points are model-independent.**
+  `pkg::rp_dump_string(m, opts)` and `pkg::rp_dump_write(os, m, opts)` become
+  `rapidproto::dump(m, opts)` and `rapidproto::dump(os, m, opts)` — one spelling for every schema,
+  usable from generic code — and `rapidproto::dump::DumpOptions` becomes `rapidproto::DumpOptions`.
+  Calling `dump` on a type with no generated dumper now names the fix in a `static_assert` instead
+  of failing on an incomplete type. `Writer` and the `write_*` helpers move to
+  `rapidproto::dump_detail`; they were never documented.
 
 - **Breaking: `MapView::find` returns an iterator, not a pointer.** It now compares against `end()`
   the way `std::map` does. Previously it returned `nullptr` on a miss while `end()` was
@@ -105,8 +106,8 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
   literal keeps its spelling and the escape moves, so that schema emits `decode_` (the message) and
   `decode__` (the enum) where it previously emitted `decode_` (the enum) and `decode__` (the
   message). That applies to single-file schemas too, not only the cross-file case that failed to
-  compile. Names INSIDE a message (nested types, fields, oneofs, map entries) are unaffected: there
-  the escape still keeps `decode_` and the literal takes `decode__`. And because the dedup scope is
+  compile. Names INSIDE a message (nested types, fields, oneofs, map entries) are unaffected:
+  they still dedup first-come in declaration order. And because the dedup scope is
   now the whole resolved file set, adding a file to a package can shift an escaped id in a sibling
   file — including in a header a previous generator run already wrote, which is a compile error
   rather than a silent mismatch.
@@ -121,8 +122,11 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
   three were never on it, which is why `oneof RpFs` failed to compile rather than being escaped.
 
   The principle: reserve a name only when it is public API a user writes and so cannot take the
-  prefix. That leaves `Value`, `Key`, `kNumber`, `kName`, `decode` and the namespace `std`
-  (`rapidproto` is escaped only as a namespace component, where it actually collides).
+  prefix. That leaves `Value`, `Key`, `kNumber`, `kName`, `decode` and the namespace `std`.
+  `rapidproto` needs no escape anywhere any more: a package of that name lands at
+  `rp::arena::rapidproto`, three levels below the runtime's `::rapidproto`, so it keeps its
+  spelling (it was `rapidproto_` before the roots); only `--namespace-prefix=rapidproto` is
+  refused, since the prefix is the one component that would open the runtime's own namespace.
 
   Only the streaming decoder's *declaration* changes shape (`template <class... rp_Callbacks>`);
   callbacks are deduced, so calling code is unaffected — unless your schema actually spells a name

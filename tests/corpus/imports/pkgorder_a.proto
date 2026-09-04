@@ -1,7 +1,7 @@
 // Order-independence pin, forward order. This wrapper and pkgorder_b.proto import the same three
 // files -- a package seeding `linux_`, the literal of that id, and an escape contesting it -- in
 // OPPOSITE orders. Every shared file must generate byte-identically from both closures: who keeps
-// which escalated id is decided by FQN (pass 1b), never by the order files arrive in.
+// which escalated id is decided by FQN (claim_toplevel_ids), never by the order files arrive in.
 syntax = "proto3";
 
 package po.wrap_a;

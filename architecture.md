@@ -893,8 +893,10 @@ unit. Three pieces make that work:
   than a sub-namespace *inside* the package is what makes coexistence unconditional: the generator
   introduces no name into package scope, so a top-level type of any name — including `stream` —
   cannot collide with one. It also keeps generated code out of protoc's namespace, so a `.pb.h` and
-  a `.rp.hpp` for one schema compile together. The shape is each model's permanent one, applied
-  whether one model is generated or both, so adding the second never renames the first.
+  a `.rp.hpp` for one schema compile together (one narrow exception -- protoc putting a TYPE
+  exactly where a root opens -- is documented in docs/using-both-models.md). The shape is each
+  model's permanent one, applied whether one model is generated or both, so adding the second
+  never renames the first.
 - **Shared enums under their own root.** A schema's enums are emitted ONCE into
   `<stem>.rp.common.hpp` at `<prefix>::common::pkg`, by `codegen::emit_common_header`. Both decoders
   `#include` it (re-exported via an IWYU `export` pragma, so a TU that includes only the decoder still
@@ -917,7 +919,8 @@ suites assert this (regenerating with `rapidprotoc --arena` or `--stream` produc
 `examples/consumer` decodes the same bytes with both models in one TU as an end-to-end check.
 
 Coexistence with `protoc`-generated headers needs no flag: the roots keep every generated type clear
-of protoc's `pkg::Msg`, including the well-known types.
+of protoc's `pkg::Msg`, including the well-known types (for the one exception -- a protoc type
+landing exactly where a root opens -- see docs/using-both-models.md).
 `--namespace-prefix` renames the root for a codebase that already owns `rp`.
 
 ---

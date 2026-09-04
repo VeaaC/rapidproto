@@ -70,7 +70,7 @@ done
 # A package named `std` -> `namespace std_`. `namespace std` is UB that compiles QUIETLY, so no
 # compiler would catch a regression here -- the golden is the only thing that would.
 "$BIN" --arena -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/stdpkg.proto >/dev/null
-# A package named `rapidproto` -> `namespace rapidproto_`; unescaped it merges the schema's
+# A package named `rapidproto` keeps its spelling: under the roots it cannot merge the schema's
 # types into the runtime's own namespace.
 "$BIN" --arena -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/rppkg.proto >/dev/null
 # --namespace-prefix + imports: the prefixed closure into a subdir, so its relative #includes resolve

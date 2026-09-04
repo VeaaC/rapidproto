@@ -173,7 +173,7 @@ TEST_CASE("common-header: model_namespace nests messages, not enums", "[common]"
     // --namespace-prefix wraps the ROOTS: ::rp::stream::p3::Msg, and the enum keeps its own root
     // at ::rp::common::p3::State -- model-independent, which is what lets both models alias one type.
     const codegen::CppNameTable prefixed =
-        codegen::build_cpp_names(set.files.front(), set.files, codegen::namespace_of("rp"),
+        codegen::build_cpp_names(set.files.front(), set.files, codegen::effective_ns_prefix("rp"),
                                  std::string(codegen::kStreamRoot));
     CHECK(codegen::cpp_type_name(prefixed, msg_fqn).find("::rp::stream::p3::") !=
           std::string::npos);

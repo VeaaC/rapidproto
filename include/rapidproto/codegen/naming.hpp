@@ -119,7 +119,9 @@ inline constexpr std::string_view kStreamRoot = "stream";
 // would emit headers that cannot see each other's types.
 inline constexpr std::string_view kDefaultNsPrefix = "rp";
 
-// The prefix a generator actually uses: `namespace_of(prefix)`, or the default when the caller gave
+// The prefix a generator actually uses: the dot-separated components ::-joined, each emitted
+// VERBATIM unless it is a keyword, `std`, a macro name, or `rp_`-prefixed (the narrow library
+// safety net -- naming.cpp's sanitize_prefix_component), or the default when the caller gave
 // nothing. The two entry points answer an empty prefix differently on purpose: the CLI REFUSES it
 // (cli::namespace_prefix_problem), because someone typing it means something by it and the tool can
 // say so; the library SUBSTITUTES the default, because an embedder who simply left the argument off

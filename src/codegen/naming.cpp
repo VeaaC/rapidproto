@@ -321,7 +321,7 @@ using ClaimedIds = std::unordered_map<const void*, std::string>;
 
 const std::string& assign_id(CppNameTable& names, std::unordered_set<std::string>& taken,
                              const ClaimedIds& claimed, const void* node, std::string_view raw) {
-    // Claimed by the unescaped-names pass: keep that id rather than deduping it against the entry
+    // Claimed by claim_toplevel_ids: keep that id rather than deduping it against the entry
     // it made itself.
     if (const auto found = claimed.find(node); found != claimed.end()) {
         return names.local.emplace(node, found->second).first->second;
@@ -337,7 +337,7 @@ const std::string& assign_id(CppNameTable& names, std::unordered_set<std::string
 // member, so it shares it verbatim (see CppNameTable::type_ns).
 // `abs` is a full `::a::b::C` type name, `msg_ns` a bare `a::b` namespace -- distinct shapes, and both
 // are internal to this file's single recursion.
-// `enum_abs` is the same path as `abs` under the enums root; a swap shows up in every golden.
+// `enum_abs` is the same path as `abs` under the common root; a swap shows up in every golden.
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 void index_message(CppNameTable& names, const MessageNode& message, const std::string& abs,
                    const std::string& enum_abs, const std::string& msg_ns,
@@ -397,33 +397,6 @@ void index_message(CppNameTable& names, const MessageNode& message, const std::s
 // that includes both headers.
 using TakenByNamespace = std::unordered_map<std::string, std::unordered_set<std::string>>;
 
-// Claim every namespace-scope id in the file set, up front and in ONE deterministic order:
-//
-//   1. PACKAGE COMPONENTS, into their parent package's scope. A child package is a namespace in
-//      the parent's C++ scope whose id comes from sanitize() alone -- every file naming it must
-//      agree on it -- so it can never yield. A top-level type whose sanitized id lands on it must
-//      be the one to move: `package a.linux` opens `namespace linux_` inside `a`, where a sibling
-//      file's `message linux_` (protoc-valid -- the proto names differ) would otherwise redeclare
-//      that namespace as a class under every model root, and its enum mirror would merge into the
-//      package's namespace in the common header, colliding enum by enum. A RAW collision (type
-//      and package literally sharing a proto name) is rejected by protoc, so for protoc-valid
-//      input a package blocks a type only when sanitize() itself created the alias.
-//   2. LITERALS -- names sanitize() leaves alone -- so a user's spelling wins wherever possible:
-//      `message decode_` keeps `decode_` and the escape from `enum decode` moves to `decode__`,
-//      never the other way round.
-//   3. Literals a package component BLOCKED, escalated next -- still ahead of every escape.
-//   4. ESCAPES -- names sanitize() changed -- escalated until free.
-//
-// Within each group the order is the proto FQN, a property of the schema -- so the ids cannot
-// depend on the order files arrive in. Only groups 3 and 4 ever contest an id: two literals reach
-// one id only as identical names in one package (rejected before codegen), and sanitize() appends
-// a single `_`, so an escape meets an escape the same way. index_file below then finds every
-// top-level node pre-claimed; nested scopes keep their own per-class dedup.
-//
-// What this deliberately does NOT settle: two distinct PACKAGES that sanitize to one C++
-// namespace (`p.decode` and `p.decode_`) put two literal names in one scope and simply merge.
-// Both spellings compile -- the colliding TYPES inside are deduped here like any others -- so
-// rejecting the aliasing would be a schema-level diagnostic, not a naming concern.
 // Group 1 of claim_toplevel_ids: one file's package components, each claimed in its PARENT
 // package's scope.
 void claim_package_components(const CppNameTable& names, const FileNode& file,
@@ -451,6 +424,33 @@ void claim_package_components(const CppNameTable& names, const FileNode& file,
     claim_component();
 }
 
+// Claim every namespace-scope id in the file set, up front and in ONE deterministic order:
+//
+//   1. PACKAGE COMPONENTS, into their parent package's scope. A child package is a namespace in
+//      the parent's C++ scope whose id comes from sanitize() alone -- every file naming it must
+//      agree on it -- so it can never yield. A top-level type whose sanitized id lands on it must
+//      be the one to move: `package a.linux` opens `namespace linux_` inside `a`, where a sibling
+//      file's `message linux_` (protoc-valid -- the proto names differ) would otherwise redeclare
+//      that namespace as a class under every model root, and its enum mirror would merge into the
+//      package's namespace in the common header, colliding enum by enum. A RAW collision (type
+//      and package literally sharing a proto name) is rejected by protoc, so for protoc-valid
+//      input a package blocks a type only when sanitize() itself created the alias.
+//   2. LITERALS -- names sanitize() leaves alone -- so a user's spelling wins wherever possible:
+//      `message decode_` keeps `decode_` and the escape from `enum decode` moves to `decode__`,
+//      never the other way round.
+//   3. Literals a package component BLOCKED, escalated next -- still ahead of every escape.
+//   4. ESCAPES -- names sanitize() changed -- escalated until free.
+//
+// Within each group the order is the proto FQN, a property of the schema -- so the ids cannot
+// depend on the order files arrive in. Only groups 3 and 4 ever contest an id: two literals reach
+// one id only as identical names in one package (rejected before codegen), and sanitize() appends
+// a single `_`, so an escape meets an escape the same way. index_file below then finds every
+// top-level node pre-claimed; nested scopes keep their own per-class dedup.
+//
+// What this deliberately does NOT settle: two distinct PACKAGES that sanitize to one C++
+// namespace (`p.decode` and `p.decode_`) put two literal names in one scope and simply merge.
+// Both spellings compile -- the colliding TYPES inside are deduped here like any others -- so
+// rejecting the aliasing would be a schema-level diagnostic, not a naming concern.
 void claim_toplevel_ids(const CppNameTable& names, const std::vector<const FileNode*>& files,
                         TakenByNamespace& taken_by_ns, ClaimedIds& claimed) {
     // 1. Package components.
@@ -493,10 +493,13 @@ void claim_toplevel_ids(const CppNameTable& names, const std::vector<const FileN
             blocked.push_back(entry);
         }
     }
-    // 3. Blocked literals, then 4. escapes: escalate with `_` until the id is free.
+    // 3. Blocked literals, then 4. escapes: from the sanitized id, escalate with `_` until free.
+    // The starting id must be sanitize(raw) itself, NOT one step past it: an UNCONTESTED escape
+    // takes `sanitize(raw)` (`enum decode` alone is `decode_`, exactly as inside a class), and a
+    // blocked literal's sanitize(raw) == raw is already in `taken`, so the loop escalates it.
     for (const std::vector<Claimant>* group : {&blocked, &escapes}) {
         for (const Claimant& entry : *group) {
-            std::string id = sanitize(*entry.raw) + '_';
+            std::string id = sanitize(*entry.raw);
             while (!entry.taken->insert(id).second) {
                 id += '_';
             }
@@ -577,9 +580,10 @@ std::string dotted_to_ns(std::string_view dotted, Escape escape) {
 // VERBATIM -- the member-reserved words (`decode`, `Value`, ...) clash only with generated class
 // members and are working namespace names, and running them through sanitize() here silently
 // renamed exactly what the validation had just accepted (`--namespace-prefix=Value` emitted
-// `namespace Value_`). The rules that remain are a safety net for LIBRARY callers, who reach this
-// without the CLI's validation: what cannot compile as a namespace (or is generator-reserved)
-// still takes the `_`.
+// `namespace Value_`). The rules that remain are a PARTIAL safety net for LIBRARY callers, who
+// reach this without the CLI's validation: keywords, `std`, macro names and `rp_` take the `_`,
+// but reserved identifiers (`__x`, `_X...`) and `rapidproto` pass through verbatim -- only the
+// CLI refuses those, so a library caller owns the validity of what it passes.
 std::string sanitize_prefix_component(const std::string& name) {
     std::string out(name);
     if (name.rfind("rp_", 0) == 0 || cpp_reserved().count(name) != 0 || expands_as_macro(name)) {

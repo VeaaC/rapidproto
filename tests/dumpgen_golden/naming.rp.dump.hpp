@@ -79,6 +79,7 @@ inline void rp_dump_write(const ::rp::arena::nm::Outer& m, ::rapidproto::dump_de
 inline void rp_dump_write(const ::rp::arena::nm::Gnu::linux_& m, ::rapidproto::dump_detail::Writer& w);
 inline void rp_dump_write(const ::rp::arena::nm::Gnu& m, ::rapidproto::dump_detail::Writer& w);
 inline void rp_dump_write(const ::rp::arena::nm::Stdint& m, ::rapidproto::dump_detail::Writer& w);
+inline void rp_dump_write(const ::rp::arena::nm::unix_& m, ::rapidproto::dump_detail::Writer& w);
 inline void rp_dump_write(const ::rp::arena::nm::m_bytes& m, ::rapidproto::dump_detail::Writer& w);
 inline void rp_dump_write(const ::rp::arena::nm::UsesMBytes& m, ::rapidproto::dump_detail::Writer& w);
 inline void rp_dump_write(const ::rp::arena::nm::Shadow::Inner& m, ::rapidproto::dump_detail::Writer& w);
@@ -235,6 +236,19 @@ inline void rp_dump_write(const ::rp::arena::nm::Stdint& m, ::rapidproto::dump_d
     }
     if (const auto rp_v = m.INT8_C_()) {
       if (w.begin_field(rp_first, "INT8_C")) {
+        ::rapidproto::dump_detail::write_int(w.os(), *rp_v);
+      }
+    }
+    (void)rp_first;
+  });
+}
+
+inline void rp_dump_write(const ::rp::arena::nm::unix_& m, ::rapidproto::dump_detail::Writer& w) {
+  (void)m;
+  w.group('{', '}', [&] {
+    bool rp_first = true;
+    if (const auto rp_v = m.a()) {
+      if (w.begin_field(rp_first, "a")) {
         ::rapidproto::dump_detail::write_int(w.os(), *rp_v);
       }
     }
@@ -605,6 +619,11 @@ struct dumper<::rp::arena::nm::Gnu> {
 template <>
 struct dumper<::rp::arena::nm::Stdint> {
   static void write(const ::rp::arena::nm::Stdint& m, Writer& w) { ::rp::arena::nm::rp_dump_detail::rp_dump_write(m, w); }
+};
+
+template <>
+struct dumper<::rp::arena::nm::unix_> {
+  static void write(const ::rp::arena::nm::unix_& m, Writer& w) { ::rp::arena::nm::rp_dump_detail::rp_dump_write(m, w); }
 };
 
 template <>

@@ -39,13 +39,13 @@
 #include "streamgen_golden/main.rp.stream.hpp"    // cross-file: pulls dep/forward/pub via #include
 #include "streamgen_golden/naming.rp.stream.hpp"  // identifier dedup + absolute names: must compile
 #include "streamgen_golden/nopkg.rp.stream.hpp"   // NO package: types directly under rp::stream
-#include "streamgen_golden/rppkg.rp.stream.hpp"   // package `rapidproto` -> namespace rapidproto_
+#include "streamgen_golden/rppkg.rp.stream.hpp"  // package `rapidproto`: keeps its name under the roots
 #include "streamgen_golden/stdpkg.rp.stream.hpp"  // package `std` -> namespace std_, not namespace std
 #include "streamgen_golden/usewkt.rp.stream.hpp"    // WKT closure: pulls google/protobuf/* headers
 #include "streamgen_golden/weakmain.rp.stream.hpp"  // weak import: pulls weakdep via #include
 #include "streamgen_golden/xpkg.rp.stream.hpp"  // dotted package (pulls deep): com::example::deep
 #include "streamgen_golden/xref.rp.stream.hpp"  // mutually-cyclic A<->B: must compile
-#include "streamgen_golden/xref_prefixed/xref.rp.stream.hpp"  // --namespace-prefix=pfx -> namespace pfx::arena::xr
+#include "streamgen_golden/xref_prefixed/xref.rp.stream.hpp"  // --namespace-prefix=pfx -> namespace pfx::stream::xr
 // IWYU pragma: end_keep
 #include "streamgen_golden/wire_all.rp.stream.hpp"  // group + packed coverage
 #include "streamgen_golden/packed.rp.stream.hpp"    // packed fixed-width (I32/I64) element decode

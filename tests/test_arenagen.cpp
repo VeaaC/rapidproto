@@ -273,6 +273,8 @@ TEST_CASE("arenagen: generated headers match the goldens", "[arenagen]") {
     // compile-smoke #include) compiles -- guarding prefixed cross-file emission, not just substring checks.
     check_golden("prefixed/main", generate(imports, "main.proto", "pfx"));
     check_golden("prefixed/dep", generate(imports, "dep.proto", "pfx"));
+    check_golden("prefixed/pub", generate(imports, "pub.proto", "pfx"));
+    check_golden("prefixed/forward", generate(imports, "forward.proto", "pfx"));
     // Package SHAPES no other entry has: every other corpus file declares a single-component package.
     // deep -> `namespace com::example::deep`, nopkg -> types at GLOBAL scope, and xpkg -> a cross-file
     // reference INTO a dotted package. A namespace derived from a type FQN rather than looked up
@@ -285,8 +287,8 @@ TEST_CASE("arenagen: generated headers match the goldens", "[arenagen]") {
     // emits `namespace std`, which is undefined behaviour that COMPILES -- so the golden, not the
     // compile smoke, is what catches a regression.
     check_golden("stdpkg", generate(nsedge, "stdpkg.proto"));
-    // A package named `rapidproto` collides with the runtime's namespace at the root instead; here
-    // the compile smoke below IS the check, since the clash is a hard redeclaration error.
+    // A package named `rapidproto` keeps its spelling: under the roots it sits three levels
+    // below the runtime's own namespace, and the compile smoke proves the two stay apart.
     check_golden("rppkg", generate(nsedge, "rppkg.proto"));
 }
 
@@ -299,12 +301,12 @@ TEST_CASE("arenagen: the common headers beside the goldens match too", "[arenage
          std::string(RAPIDPROTO_CORPUS_DIR) + "/nsedge", RAPIDPROTO_WIRE_FIXTURE_DIR});
 }
 
-// The zeroth naming pass claims package components globally, and pass 1b escalates literals it
-// blocked in FQN order -- so the ids a schema gets cannot depend on the order its files arrive
-// in. The two wrappers import the same trio (a package seeding `linux_`, the literal of that id,
-// an escape contesting it) in OPPOSITE orders; every shared file must generate byte-identically
-// from both closures. Before pass 1b, the blocked literal fell into the file-ordered second pass
-// and swapped escalated ids with the escape between the two orders.
+// claim_toplevel_ids claims package components globally and escalates the literals they block
+// in FQN order -- so the ids a schema gets cannot depend on the order its files arrive in. The
+// two wrappers import the same trio (a package seeding `linux_`, the literal of that id, an
+// escape contesting it) in OPPOSITE orders; every shared file must generate byte-identically
+// from both closures. A blocked literal escalated in file order instead swaps ids with the
+// escape between the two orders.
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): one helper, two closures, a diff
 TEST_CASE("arenagen: generated ids do not depend on file-set order", "[arenagen]") {
     const std::string imports = std::string(RAPIDPROTO_CORPUS_DIR) + "/imports";
