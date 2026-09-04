@@ -3,13 +3,15 @@
 #pragma once
 
 // CLI helpers for rapidprotoc: shared flag parsing, the resolve -> analyze pipeline, and writing the
-// generated headers (and depfile) into the out-dir. The model-specific parts (which decoder text
-// to emit, which runtime header(s) to drop) live in the CLI main. Header-only, like the main that
+// generated headers (and depfile) into the out-dir. The output PLAN -- every path an invocation
+// writes, in its contract-bearing order -- lives here too (plan_outputs); only the model-specific
+// CONTENT (which decoder text fills each planned file) lives in the CLI main. Header-only, like the main that
 // includes it.
 
 #include <algorithm>
 #include <cctype>
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <functional>
@@ -87,6 +89,15 @@ struct Options {
     std::string namespace_prefix{codegen::kDefaultNsPrefix};
     std::string depfile;   // --depfile (emit a Make/Ninja depfile for incremental codegen)
     bool verbose = false;  // --verbose / -v: log each written file
+    // Dry runs for build systems, mutually exclusive with each other and with --depfile: the full
+    // resolve/validate pipeline runs (so a broken schema fails here exactly as generation would),
+    // then one list prints and NOTHING is written. `list_outputs` prints every path generation
+    // would write, one per line, relative to --out-dir -- the single source of truth a build
+    // system needs to declare them, instead of mirroring the resolver's rules (which is how the
+    // CMake helper once drifted). `list_inputs` prints the on-disk .proto closure (absolute;
+    // embedded well-known types excluded), the files whose EDITS can change the output list.
+    bool list_outputs = false;  // --list-outputs
+    bool list_inputs = false;   // --list-inputs
     std::vector<std::string> entries;
 };
 
@@ -161,6 +172,10 @@ inline ParseResult parse_args(int argc, char** argv, std::string_view usage,
             opts.depfile = args[i];
         } else if (arg.rfind("--depfile=", 0) == 0) {
             opts.depfile = arg.substr(std::string_view("--depfile=").size());
+        } else if (arg == "--list-outputs") {
+            opts.list_outputs = true;
+        } else if (arg == "--list-inputs") {
+            opts.list_inputs = true;
         } else if (arg == "--verbose" || arg == "-v") {
             opts.verbose = true;
         } else if (extra && extra(arg)) {
@@ -188,6 +203,14 @@ inline ParseResult parse_args(int argc, char** argv, std::string_view usage,
     }
     if (opts.entries.empty()) {
         return usage_error();
+    }
+    // One question per invocation: a combined listing would need markers to be parseable, and a
+    // depfile is a generation artifact a dry run must not write.
+    if ((opts.list_outputs && opts.list_inputs) ||
+        ((opts.list_outputs || opts.list_inputs) && !opts.depfile.empty())) {
+        std::cerr << "error: --list-outputs / --list-inputs are dry runs -- pass one of them, and "
+                     "no --depfile\n";
+        return {std::nullopt, 2};
     }
     if (const std::string problem = namespace_prefix_problem(opts.namespace_prefix);
         !problem.empty()) {
@@ -250,9 +273,9 @@ inline std::optional<std::pair<ResolvedFileSet, SymbolTable>> resolve_and_analyz
 
 // Like write_file (same nullopt-after-error contract), but skips the write when `path` already
 // holds exactly `content`. For the shared,
-// fixed-content runtime drops, which every invocation writes into a possibly shared out-dir: skipping
-// avoids truncate+rewriting the file under a concurrent reader (a GENERATOR=both target, or two targets
-// sharing an out-dir) and avoids bumping its mtime, which would force needless consumer recompiles. Do
+// fixed-content runtime drops, which every invocation rewrites: skipping avoids truncate+rewriting
+// the file under a concurrent reader and avoids bumping its mtime, which would force needless
+// consumer recompiles. Do
 // NOT use for a tracked build output, whose mtime must advance each run.
 [[nodiscard]] inline std::optional<std::filesystem::path> write_shared_file(
     const std::filesystem::path& path, std::string_view content, bool log_write = false) {
@@ -309,16 +332,6 @@ inline std::filesystem::path header_path(const std::string& out_dir, const FileN
                        [](const std::filesystem::path& part) { return part == ".."; });
 }
 
-// Write a generated header for `file` under `out_dir` (path per header_path). Returns the path, or
-// nullopt after printing an error (see write_file).
-[[nodiscard]] inline std::optional<std::filesystem::path> write_header(const std::string& out_dir,
-                                                                       const FileNode& file,
-                                                                       std::string_view extension,
-                                                                       std::string_view content,
-                                                                       bool log_write = false) {
-    return write_file(header_path(out_dir, file, extension), content, log_write);
-}
-
 // `path` made absolute (against the cwd) and lexically normalized, but WITHOUT resolving symlinks --
 // matching how CMake and Ninja canonicalize depfile paths (lexically). Produced this way, a depfile
 // entry compares equal to the same file as CMake/Ninja name it, so the dependency edge connects.
@@ -332,6 +345,94 @@ inline std::filesystem::path lexically_absolute(const std::filesystem::path& pat
 // every import found under an include path. Well-known types loaded from the embedded definitions
 // are not on disk, so the include-path search misses them and they are correctly excluded --
 // unless the user shadows a WKT with their own copy on an include path, in which case that copy
+// Which generators one invocation runs; groups what would otherwise be three adjacent bool
+// parameters (--dump implies --arena at the flag layer, so callers never build an inconsistent
+// selection here).
+struct SelectedModels {
+    bool arena = false;
+    bool stream = false;
+    bool dump = false;
+};
+
+// One planned output file: its path relative to --out-dir (header_path with an empty out-dir is
+// exactly that relative path), which schema it belongs to, and what content fills it.
+enum class OutputKind : std::uint8_t {
+    Arena,
+    Stream,
+    Dump,
+    Common,
+    Runtime,
+    ArenaRuntime,
+    DumpRuntime
+};
+
+struct PlannedOutput {
+    std::filesystem::path rel;
+    const FileNode* file = nullptr;  // null for the runtime copies
+    OutputKind kind = OutputKind::Runtime;
+    bool entry = false;  // a LISTED schema, as opposed to an import pulled in by one
+};
+
+// Everything one invocation writes, in the order generation writes it -- the single enumeration
+// behind the write loop, --list-outputs, AND the depfile's target list, so none of the three can
+// disagree.
+//
+// The ORDER is a contract, not taste: listed entries first (in `entries` order, deduplicated),
+// the remaining resolved files after them; per file the selected decoders, then the shared
+// common header; the runtime copies last. The FIRST planned path is therefore the first entry's
+// first selected decoder header -- the same file the depfile names as its first target (Ninja
+// accepts a depfile only when its first target is the rule's first output), and a write_file
+// output whose mtime advances every run (a build rule anchored on a skip-identical
+// write_shared_file output re-runs forever under Make once any input is newer). The CMake helper
+// anchors its custom command on line 1 of --list-outputs, which prints this plan verbatim.
+inline std::vector<PlannedOutput> plan_outputs(const Options& opts, const ResolvedFileSet& set,
+                                               SelectedModels models) {
+    std::vector<PlannedOutput> plan;
+    const auto plan_file = [&](const FileNode& file, bool entry) {
+        if (models.arena) {
+            plan.push_back({header_path("", file, ".rp.hpp"), &file, OutputKind::Arena, entry});
+        }
+        if (models.stream) {
+            plan.push_back(
+                {header_path("", file, ".rp.stream.hpp"), &file, OutputKind::Stream, entry});
+        }
+        if (models.dump) {
+            plan.push_back({header_path("", file, ".rp.dump.hpp"), &file, OutputKind::Dump, entry});
+        }
+        plan.push_back({header_path("", file, ".rp.common.hpp"), &file, OutputKind::Common, entry});
+    };
+    std::vector<const FileNode*> entry_files;
+    for (const std::string& entry : opts.entries) {
+        const auto it = set.file_index.find(canonical_entry_name(entry, opts.config.include_paths));
+        if (it == set.file_index.end()) {
+            continue;  // unreachable: every entry resolves into the set
+        }
+        const FileNode& file = set.files[it->second];
+        if (std::find(entry_files.begin(), entry_files.end(), &file) == entry_files.end()) {
+            entry_files.push_back(&file);
+        }
+    }
+    for (const FileNode* file : entry_files) {
+        plan_file(*file, /*entry=*/true);
+    }
+    for (const FileNode& file : set.files) {
+        if (std::find(entry_files.begin(), entry_files.end(), &file) == entry_files.end()) {
+            plan_file(file, /*entry=*/false);
+        }
+    }
+    plan.push_back(
+        {std::filesystem::path("rapidproto") / "runtime.hpp", nullptr, OutputKind::Runtime, false});
+    if (models.arena) {
+        plan.push_back({std::filesystem::path("rapidproto") / "arena_runtime.hpp", nullptr,
+                        OutputKind::ArenaRuntime, false});
+    }
+    if (models.dump) {
+        plan.push_back({std::filesystem::path("rapidproto") / "dump_runtime.hpp", nullptr,
+                        OutputKind::DumpRuntime, false});
+    }
+    return plan;
+}
+
 // IS a real dependency and is listed. These are the depfile's prerequisites.
 inline std::vector<std::filesystem::path> disk_proto_paths(const std::vector<std::string>& entries,
                                                            const ResolvedFileSet& set,
@@ -414,9 +515,10 @@ inline void dedup_sorted(std::vector<std::filesystem::path>& paths) {
 // a caller that swapped them would emit an inverted rule. Measured, a swap is NOT loud: the first
 // target becomes a .proto path, Ninja's first-target comparison mismatches and short-circuits before
 // it ever validates the remaining names, so the result is the same silent rebuild-every-time as the
-// bug this order exists to prevent. What actually catches it is the depfile stage in check.sh
-// (tests/depfile_norebuild.sh), which builds a generated target twice and requires the second build
-// to do nothing. Kept as two parameters: one call site, and that stage covers it. (The check stopped
+// bug this order exists to prevent. What actually catches it
+// is tests/check_generate_names.sh's declared-outputs fixture, which builds a generated target
+// twice (under Ninja where available -- Make cannot see this failure) and requires the second
+// build to be a no-op. Kept as two parameters: one call site, and that fixture covers it. (The check stopped
 // suppressing this when the two stopped being passed to the same dedup helper: outputs must keep
 // their order, prerequisites may be sorted. Bracketed rather than a next-line suppression because
 // the diagnostic is reported on the second PARAMETER's line, not the declaration's first line --

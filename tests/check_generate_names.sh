@@ -1,6 +1,16 @@
 #!/usr/bin/env bash
 #
-# The CMake helper must predict the header path the CLI actually writes.
+# The `names` stage's whole body: everything that keeps the CLI and the CMake helper agreeing
+# about generated files, end to end.
+#
+#   1. Prediction parity -- in FALLBACK mode (no generator binary at configure) the helper must
+#      PREDICT the header path the CLI actually writes; 13 shapes compare the two rules.
+#   2. The CLI's refusals of inputs it cannot name unambiguously.
+#   3. NAMESPACE_PREFIX plumbing through the helper, including the refusal of an empty one.
+#   4. The declared-outputs contract in BOTH modes -- query (--list-outputs) delete/restore and
+#      no-op rebuilds, and the fallback's reduced declaration set -- plus the configure-time
+#      refusals (broken schema, broken install, shared OUT_DIR) and the generated-entry fallback.
+#   5. A compile of generated output under a dotted member-reserved prefix.
 #
 # `rapidproto_generate()` declares those paths as a custom command's OUTPUT, so a disagreement is not
 # a cosmetic difference: the declared output is never created, and the target regenerates on every
@@ -172,6 +182,53 @@ if [[ -n "$stray" ]]; then
   echo ">> a refused run still wrote:"; sed 's/^/   /' <<<"$stray"; fail=1
 fi
 
+# Write a fixture project into <dir>: the generator target in one of its two real shapes --
+# `imported` (find_package consumers: the query path) or `alias` (in-tree/FetchContent: the
+# fallback path) -- or an explicit IMPORTED_LOCATION for broken-install shapes; then the include
+# and the caller's lines. ONE authority for this boilerplate: it drifted once (an unnamespaced
+# target name in a single fixture), invisible until the helper started introspecting the target.
+write_fixture() {
+  local dir="$1" shape="$2"
+  shift 2
+  mkdir -p "$dir"
+  {
+    echo 'cmake_minimum_required(VERSION 3.16)'
+    echo 'project(fixture CXX)'  # a fixed name: a dir-derived one smuggles the dir's spelling
+                                # (spaces, leaked variables) into project()'s language list
+    case "$shape" in
+      imported)
+        echo "add_executable(rapidproto::rapidprotoc IMPORTED GLOBAL)"
+        echo "set_target_properties(rapidproto::rapidprotoc PROPERTIES IMPORTED_LOCATION \"$BIN\")"
+        ;;
+      alias)
+        printf 'int main() { return 0; }\n' >"$dir/dummy.cpp"
+        echo "add_executable(rapidprotoc_local dummy.cpp)"
+        echo "add_executable(rapidproto::rapidprotoc ALIAS rapidprotoc_local)"
+        ;;
+      *)  # an explicit location, e.g. a path that does not exist
+        echo "add_executable(rapidproto::rapidprotoc IMPORTED GLOBAL)"
+        echo "set_target_properties(rapidproto::rapidprotoc PROPERTIES IMPORTED_LOCATION \"$shape\")"
+        ;;
+    esac
+    echo "include(\"$HELPER\")"
+    printf '%s\n' "$@"
+  } >"$dir/CMakeLists.txt"
+}
+
+# Configure <dir> expecting FAILURE whose output contains <fragment>; a clean configure or a
+# different diagnostic is a finding. The WHY of each expected failure lives at the call site.
+expect_configure_failure() {
+  local dir="$1" fragment="$2" label="$3" out
+  if out=$(cmake -S "$dir" -B "$dir/b" 2>&1); then
+    echo ">> $label: configured cleanly, but must be refused"
+    fail=1
+  elif ! grep -q "$fragment" <<<"$out"; then
+    echo ">> $label: refused, but not with the expected diagnostic ('$fragment'):"
+    tail -3 <<<"$out"
+    fail=1
+  fi
+}
+
 # ...and the helper passes NAMESPACE_PREFIX through as the user wrote it. Nothing else in the tree
 # uses that keyword, so both halves of it were unexercised: the value reaching the CLI at all (it was
 # tested for TRUTH, and CMake reads `N`, `no`, `off`, `0` as false, so those were silently dropped
@@ -180,17 +237,14 @@ fi
 # Configure-only, then read the generated build system: that is what the flag ends up in, and it
 # needs no compiler. A full build would cost minutes to check an argument.
 cmake_case() {
-  local label="$1" arg="$2" want="$3" dir="$WORK/cm_$label"
+  local label="$1" arg="$2" want="$3"
+  # A separate statement on purpose: in `local a="$1" b="$a"`, bash expands BOTH words before
+  # `local` assigns either, so `b` silently picks up whatever OUTER `a` leaked from an earlier
+  # loop -- which is exactly how these three cases once shared one mislabeled directory.
+  local dir="$WORK/cm_$label"
   mkdir -p "$dir"
   printf 'syntax = "proto3";\npackage cmp;\nmessage M { int32 x = 1; }\n' >"$dir/m.proto"
-  {
-    echo 'cmake_minimum_required(VERSION 3.16)'
-    echo 'project(cmp CXX)'
-    echo "include(\"$ROOT/cmake/rapidproto-generate.cmake\")"
-    echo "add_executable(rapidprotoc IMPORTED GLOBAL)"
-    echo "set_target_properties(rapidprotoc PROPERTIES IMPORTED_LOCATION \"$BIN\")"
-    echo "rapidproto_generate(gen PROTOS m.proto IMPORT_DIRS . $arg)"
-  } >"$dir/CMakeLists.txt"
+  write_fixture "$dir" imported "rapidproto_generate(gen PROTOS m.proto IMPORT_DIRS . $arg)"
   local out
   if ! out=$(cmake -S "$dir" -B "$dir/b" 2>&1); then
     if [[ "$want" == "REFUSED" ]]; then echo "ok   [cmake $label]"; return; fi
@@ -211,63 +265,156 @@ cmake_case falsy-value   "NAMESPACE_PREFIX N"  "--namespace-prefix N"
 cmake_case ordinary      "NAMESPACE_PREFIX my.decoders" "--namespace-prefix my.decoders"
 cmake_case empty-refused 'NAMESPACE_PREFIX ""' REFUSED
 
-# ── declared outputs ────────────────────────────────────────────────────────────────────────────
-# The helper declares each LISTED schema's model headers plus its shared common header as the
-# custom command's OUTPUTs. Both directions are checked end-to-end: a second build must be a no-op
-# (an over-declared OUTPUT that is never written leaves the command permanently out of date, which
-# also disarms the delete check below), and deleting each declared file must have the build put it
-# back (an undeclared one is never restored -- the build just fails on the missing include).
-#
-# Deliberately NOT covered: imported schemas' headers and the runtime copies the CLI drops beside
-# them. The CLI writes those too, and they are undeclared -- deleting one breaks the build until a
-# manual regeneration. Declaring them correctly means predicting the CLI's whole resolved closure,
-# which is the CLI's job, not this helper's: the durable design is a CLI flag that lists the
-# outputs for the helper to declare, so only one implementation of the resolution rules exists.
+# ── declared outputs (query mode) ──────────────────────────────────────────────────────────────
+# With an IMPORTED generator -- every find_package consumer, and this fixture -- the helper asks
+# the CLI (`--list-outputs`) for the exact output list, so EVERYTHING the CLI writes must be a
+# declared OUTPUT: the listed schemas' headers, an imported schema's, the embedded well-known
+# types' transitive closure (api.proto pulls in type/source_context/any), and the runtime copies.
+# Both directions are checked end-to-end: a second build must be a no-op (an over-declared OUTPUT
+# that is never written leaves the command permanently out of date, which also disarms the delete
+# check below), and deleting EACH generated file must have the build put it back.
 outputs_dir="$WORK/outputs"
 mkdir -p "$outputs_dir/proto"
 printf 'syntax = "proto3";\npackage d;\nenum K { K0 = 0; }\nmessage D { int32 x = 1; }\n' \
-  >"$outputs_dir/proto/m.proto"
-{
-  echo 'cmake_minimum_required(VERSION 3.16)'
-  echo 'project(outputs CXX)'
-  # The NAMESPACED name the helper actually invokes: unnamespaced, CMake leaves it unresolved and
-  # the literal `rapidproto::rapidprotoc` reaches the makefile, where its colons are a syntax error.
-  echo "add_executable(rapidproto::rapidprotoc IMPORTED GLOBAL)"
-  echo "set_target_properties(rapidproto::rapidprotoc PROPERTIES IMPORTED_LOCATION \"$BIN\")"
-  echo "include(\"$ROOT/cmake/rapidproto-generate.cmake\")"
-  echo 'rapidproto_generate(schema PROTOS proto/m.proto IMPORT_DIRS proto GENERATOR both DUMP)'
-} >"$outputs_dir/CMakeLists.txt"
+  >"$outputs_dir/proto/dep.proto"
+printf 'syntax = "proto3";\npackage u;\nimport "dep.proto";\nimport "google/protobuf/api.proto";\nmessage U { d.D dd = 1; d.K k = 2; google.protobuf.Api a = 3; }\n' \
+  >"$outputs_dir/proto/use.proto"
+write_fixture "$outputs_dir" imported \
+  'rapidproto_generate(schema PROTOS proto/use.proto IMPORT_DIRS proto GENERATOR both DUMP)'
 
-if ! cmake -S "$outputs_dir" -B "$outputs_dir/b" >/dev/null 2>&1 ||
+# Ninja when available: it is the generator whose depfile handling rejects a wrong first OUTPUT
+# (rebuild-forever), which Make cannot see -- a Make-only run of this fixture once passed while
+# every Ninja consumer rebuilt everything on every build.
+gen_flag=()
+command -v ninja >/dev/null 2>&1 && gen_flag=(-G Ninja)
+if ! cmake "${gen_flag[@]}" -S "$outputs_dir" -B "$outputs_dir/b" >/dev/null 2>&1 ||
    ! cmake --build "$outputs_dir/b" --target schema_generate >/dev/null 2>&1; then
   echo ">> declared outputs: the fixture project does not configure/build"; exit 1
 fi
 rebuild="$(cmake --build "$outputs_dir/b" --target schema_generate 2>&1)"
 if grep -q "rapidproto: schema" <<<"$rebuild"; then
   echo ">> declared outputs: the target regenerates on every build -- a declared OUTPUT is never"
-  echo "   written, which also makes the delete check below pass without testing anything"
+  echo "   written (or the depfile anchor is not the rule's first output), which also makes the"
+  echo "   delete check below pass without testing anything"
   fail=1
 fi
-declared=(m.rp.hpp m.rp.stream.hpp m.rp.dump.hpp m.rp.common.hpp)
-for rel in "${declared[@]}"; do
-  path="$outputs_dir/b/rapidproto/schema/$rel"
-  if [[ ! -f "$path" ]]; then
-    echo ">> declared outputs: $rel was never generated -- the fixture is not testing anything"
-    fail=1
-    continue
-  fi
-  rm -f "$path"
+# ...and after an INPUT edit, exactly one regeneration: an anchor whose mtime does not advance
+# with the run (a skip-identical shared header) leaves the target forever older than the edited
+# proto, which is the Make spelling of the same defect.
+touch "$outputs_dir/proto/use.proto"
+cmake --build "$outputs_dir/b" --target schema_generate >/dev/null 2>&1
+rebuild="$(cmake --build "$outputs_dir/b" --target schema_generate 2>&1)"
+if grep -q "rapidproto: schema" <<<"$rebuild"; then
+  echo ">> declared outputs: still regenerating on the SECOND build after an input edit -- the"
+  echo "   anchor output's mtime did not advance with the run"
+  fail=1
+fi
+mapfile -t generated < <(cd "$outputs_dir/b" && find . -name '*.hpp' | sort)
+# A fixture that generated nothing would pass every check below without testing anything.
+if [[ ${#generated[@]} -lt 20 ]]; then
+  echo ">> declared outputs: expected the api.proto closure (>=20 headers), found ${#generated[@]}"
+  exit 1
+fi
+for rel in "${generated[@]}"; do
+  rm -f "$outputs_dir/b/$rel"
   cmake --build "$outputs_dir/b" --target schema_generate >/dev/null 2>&1
-  if [[ ! -f "$path" ]]; then
-    echo ">> declared outputs: $rel is written by the CLI but is not a declared OUTPUT --"
+  if [[ ! -f "$outputs_dir/b/$rel" ]]; then
+    echo ">> declared outputs: ${rel#./} is written by the CLI but is not a declared OUTPUT --"
     echo "   deleting it leaves the build permanently broken"
     fail=1
     # Restore for the rest of the loop: an undeclared deletion does not dirty the target, so only
     # an input edit re-runs the generator.
-    touch "$outputs_dir/proto/m.proto"
+    touch "$outputs_dir/proto/use.proto"
     cmake --build "$outputs_dir/b" --target schema_generate >/dev/null 2>&1
   fi
 done
+
+# A schema error must surface AT CONFIGURE, with the CLI's own diagnostic: the query runs the real
+# resolver, so a build system learns of a broken schema before any build starts.
+badschema_dir="$WORK/badschema"
+mkdir -p "$badschema_dir/proto"
+printf 'syntax = "proto3";\nmessage B { unknown.Type t = 1; }\n' >"$badschema_dir/proto/bad.proto"
+write_fixture "$badschema_dir" imported \
+  'rapidproto_generate(schema PROTOS proto/bad.proto IMPORT_DIRS proto)'
+expect_configure_failure "$badschema_dir" "unresolved type" "query mode, broken schema"
+
+# Two targets sharing one OUT_DIR -- refused LOUDLY at configure, never resolved by whichever
+# target happens to build last. DISJOINT schemas on purpose: their only overlap is the runtime
+# copies, which are SECONDARY outputs that CMake's own conflict check never sees (it checks only
+# a custom command's first OUTPUT) -- so this exact shape once configured cleanly everywhere,
+# then Ninja hard-errored at build while Make silently kept whichever target built last.
+clash_dir="$WORK/clash"
+mkdir -p "$clash_dir/proto"
+printf 'syntax = "proto3";\npackage a1;\nmessage A { int32 x = 1; }\n' >"$clash_dir/proto/a.proto"
+printf 'syntax = "proto3";\npackage b1;\nmessage B { int32 x = 1; }\n' >"$clash_dir/proto/b.proto"
+write_fixture "$clash_dir" imported \
+  "rapidproto_generate(t1 PROTOS proto/a.proto IMPORT_DIRS proto OUT_DIR \"$clash_dir/gen\")" \
+  "rapidproto_generate(t2 PROTOS proto/b.proto IMPORT_DIRS proto OUT_DIR \"$clash_dir/gen\")"
+expect_configure_failure "$clash_dir" "must not share an OUT_DIR" "shared OUT_DIR (query mode)"
+
+# A broken INSTALL -- an imported generator whose binary is missing -- must be a configure error,
+# never a silent degrade to the smaller fallback declaration set.
+broken_dir="$WORK/broken"
+mkdir -p "$broken_dir/proto"
+printf 'syntax = "proto3";\npackage k;\nmessage K { int32 x = 1; }\n' >"$broken_dir/proto/k.proto"
+write_fixture "$broken_dir" "$WORK/does-not-exist/rapidprotoc" \
+  'rapidproto_generate(schema PROTOS proto/k.proto IMPORT_DIRS proto)'
+expect_configure_failure "$broken_dir" "broken or was moved" "broken install"
+
+# An entry another build rule produces does not exist at configure, so the query cannot run --
+# the helper must fall back (configure succeeds, entry headers predicted) rather than FATAL on a
+# shape the fallback has always served.
+genentry_dir="$WORK/genentry"
+mkdir -p "$genentry_dir"
+write_fixture "$genentry_dir" imported \
+  'add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/made.proto"' \
+  '  COMMAND "${CMAKE_COMMAND}" -E echo_append "" > /dev/null)' \
+  'rapidproto_generate(schema PROTOS "${CMAKE_CURRENT_BINARY_DIR}/made.proto" IMPORT_DIRS .)'
+if ! cmake -S "$genentry_dir" -B "$genentry_dir/b" >/dev/null 2>&1; then
+  echo ">> generated entry: a rule-produced .proto (absent at configure) no longer configures --"
+  echo "   the query must fall back for inputs that do not exist yet"
+  fail=1
+fi
+
+# ── declared outputs (fallback mode) ────────────────────────────────────────────────────────────
+# With a NON-IMPORTED generator (the in-tree ALIAS and FetchContent: this buildsystem builds the
+# tool, so there is nothing to ask at configure), the helper falls back to declaring the LISTED
+# schemas' headers, their commons, and the constant-path runtime copies -- and nothing else. The
+# fixture builds the real shape: an ordinary executable target behind the rapidproto alias.
+# Configure-only; the declaration set is decided at configure and read back from the build files.
+fallback_dir="$WORK/fallback"
+mkdir -p "$fallback_dir/proto"
+printf 'syntax = "proto3";\npackage d;\nmessage D { int32 x = 1; }\n' >"$fallback_dir/proto/dep.proto"
+printf 'syntax = "proto3";\npackage u;\nimport "dep.proto";\nmessage U { d.D d = 1; }\n' >"$fallback_dir/proto/use.proto"
+write_fixture "$fallback_dir" alias \
+  'rapidproto_generate(schema PROTOS proto/use.proto IMPORT_DIRS proto GENERATOR both)'
+if ! cmake -S "$fallback_dir" -B "$fallback_dir/b" >/dev/null 2>&1; then
+  echo ">> fallback mode: the fixture does not configure"; fail=1
+else
+  rules=$(cat "$fallback_dir/b/CMakeFiles/schema_generate.dir/build.make" 2>/dev/null \
+            "$fallback_dir/b/build.ninja" 2>/dev/null)
+  for want in use.rp.hpp use.rp.stream.hpp use.rp.common.hpp rapidproto/runtime.hpp; do
+    if ! grep -q "$want" <<<"$rules"; then
+      echo ">> fallback mode: $want is not a declared output"; fail=1
+    fi
+  done
+  if grep -q "dep.rp" <<<"$rules"; then
+    echo ">> fallback mode: an IMPORTED schema's header is declared -- the fallback has no way to"
+    echo "   know the closure, so a declared import means a resolver mirror grew back"
+    fail=1
+  fi
+fi
+
+# The shared-OUT_DIR refusal holds in FALLBACK mode too (the overlap check sits above the two
+# modes' split): two non-imported-generator targets with one OUT_DIR must fail configure.
+fbclash_dir="$WORK/fbclash"
+mkdir -p "$fbclash_dir/proto"
+printf 'syntax = "proto3";\npackage fa;\nmessage A { int32 x = 1; }\n' >"$fbclash_dir/proto/a.proto"
+printf 'syntax = "proto3";\npackage fb;\nmessage B { int32 x = 1; }\n' >"$fbclash_dir/proto/b.proto"
+write_fixture "$fbclash_dir" alias \
+  "rapidproto_generate(t1 PROTOS proto/a.proto IMPORT_DIRS proto OUT_DIR \"$fbclash_dir/gen\")" \
+  "rapidproto_generate(t2 PROTOS proto/b.proto IMPORT_DIRS proto OUT_DIR \"$fbclash_dir/gen\")"
+expect_configure_failure "$fbclash_dir" "must not share an OUT_DIR" "shared OUT_DIR (fallback mode)"
 
 # ── prefix verbatim + dotted, compiled ──────────────────────────────────────────────────────────
 # A member-reserved word as a prefix component is accepted and emitted VERBATIM, and a dotted
@@ -290,4 +437,4 @@ else
 fi
 
 [[ $fail -eq 0 ]] || exit 1
-echo "generate names: ${#cases[@]} entry shapes match the CLI, ${#refusals[@]} ambiguous ones refused, NAMESPACE_PREFIX passed through, ${#declared[@]} declared outputs restored when deleted, prefixed output compiled"
+echo "generate names: ${#cases[@]} entry shapes match the CLI, ${#refusals[@]} ambiguous ones refused, NAMESPACE_PREFIX passed through, ${#generated[@]} queried outputs restored when deleted, fallback + clash + configure-error shapes pinned, prefixed output compiled"

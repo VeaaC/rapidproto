@@ -10,6 +10,7 @@
 // over the library; not linted. The shared flag parsing / resolve-analyze / file writing live in
 // rapidproto/cli/driver.hpp.
 
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <ios>
@@ -55,6 +56,10 @@ int main(int argc, char** argv) {
         "  --namespace-prefix <ns>  root namespace for generated code (dot-separated; "
         "default: rp; cannot be empty)\n"
         "  --depfile <file>         write a Make/Ninja depfile covering every input .proto\n"
+        "  --list-outputs           dry run: print every path generation would write, relative\n"
+        "                           to --out-dir, one per line; write nothing\n"
+        "  --list-inputs            dry run: print the on-disk .proto closure (absolute paths;\n"
+        "                           embedded well-known types excluded); write nothing\n"
         "  --no-wellknown           don't load the bundled well-known-type definitions\n"
         "  -v, --verbose            log each written file\n"
         "  -h, --help               show this help\n"
@@ -266,31 +271,92 @@ int main(int argc, char** argv) {
         layouts = rapidproto::arenagen::plan_layouts(set, symbols, options);
     }
 
-    for (const rapidproto::FileNode& file : set.files) {
-        // The shared common header (the schema's enums, nested ones via the mirror) every
-        // selected decoder includes.
-        if (!rapidproto::cli::write_shared_file(
-                rapidproto::cli::header_path(opts->out_dir, file, ".rp.common.hpp"),
-                rapidproto::codegen::emit_common_header(file, names), opts->verbose)) {
-            return 1;
+    // ONE enumeration of everything this invocation writes -- see cli::plan_outputs for the
+    // ordering contract it carries (the CMake helper anchors on the first path; the depfile's
+    // targets are derived from it below).
+    const std::vector<rapidproto::cli::PlannedOutput> plan = rapidproto::cli::plan_outputs(
+        *opts, set, {/*arena=*/arena, /*stream=*/stream, /*dump=*/dump});
+
+    // The dry runs exit here: everything above ran (resolve, analyze, the out-dir and collision
+    // refusals, field-modes resolution), so a schema that cannot generate fails a listing the
+    // same way -- which is the point, a build system learns of the error at configure time.
+    if (opts->list_outputs) {
+        for (const rapidproto::cli::PlannedOutput& out : plan) {
+            std::cout << out.rel.generic_string() << '\n';
         }
-        if (arena && !rapidproto::cli::write_header(opts->out_dir, file, ".rp.hpp",
-                                                    rapidproto::arenagen::generate_header(
-                                                        file, names, *layouts, symbols, &modes),
-                                                    opts->verbose)) {
-            return 1;
+        return 0;
+    }
+    if (opts->list_inputs) {
+        std::vector<std::string> inputs;
+        for (const std::filesystem::path& in :
+             rapidproto::cli::disk_proto_paths(opts->entries, set, opts->config)) {
+            // Absolutized: an import resolved through a relative -I comes back relative to the
+            // CWD, and a build system consuming this list (CMAKE_CONFIGURE_DEPENDS) would anchor
+            // it somewhere else. Deduplicated after absolutizing, the same way the depfile dedups
+            // its prerequisites: one file reached under two spellings is one input.
+            inputs.push_back(std::filesystem::absolute(in).lexically_normal().generic_string());
         }
-        if (stream &&
-            !rapidproto::cli::write_header(
-                opts->out_dir, file, ".rp.stream.hpp",
-                rapidproto::streamgen::generate_header(file, names_stream), opts->verbose)) {
-            return 1;
+        std::sort(inputs.begin(), inputs.end());
+        inputs.erase(std::unique(inputs.begin(), inputs.end()), inputs.end());
+        for (const std::string& in : inputs) {
+            std::cout << in << '\n';
         }
-        if (dump &&
-            !rapidproto::cli::write_header(
-                opts->out_dir, file, ".rp.dump.hpp",
-                rapidproto::dumpgen::generate_header(file, names, *layouts), opts->verbose)) {
-            // --dump implies --arena, so `layouts` is always engaged here.
+        return 0;
+    }
+
+    for (const rapidproto::cli::PlannedOutput& out : plan) {
+        const std::filesystem::path path = std::filesystem::path(opts->out_dir) / out.rel;
+        bool ok = true;
+        switch (out.kind) {
+            case rapidproto::cli::OutputKind::Common:
+                // The shared common header (the schema's enums, nested ones via the mirror) every
+                // selected decoder includes.
+                ok = rapidproto::cli::write_shared_file(
+                         path, rapidproto::codegen::emit_common_header(*out.file, names),
+                         opts->verbose)
+                         .has_value();
+                break;
+            case rapidproto::cli::OutputKind::Arena:
+                ok = rapidproto::cli::write_file(path,
+                                                 rapidproto::arenagen::generate_header(
+                                                     *out.file, names, *layouts, symbols, &modes),
+                                                 opts->verbose)
+                         .has_value();
+                break;
+            case rapidproto::cli::OutputKind::Stream:
+                ok = rapidproto::cli::write_file(
+                         path, rapidproto::streamgen::generate_header(*out.file, names_stream),
+                         opts->verbose)
+                         .has_value();
+                break;
+            case rapidproto::cli::OutputKind::Dump:
+                // --dump implies --arena, so `layouts` is always engaged here.
+                ok = rapidproto::cli::write_file(
+                         path, rapidproto::dumpgen::generate_header(*out.file, names, *layouts),
+                         opts->verbose)
+                         .has_value();
+                break;
+            // The self-contained runtime copies, so the generated #includes resolve with no
+            // rapidproto build-tree dependency. runtime.hpp serves both models;
+            // arena_runtime.hpp (which #includes runtime.hpp) only the arena decoder;
+            // dump_runtime.hpp the debug dumper's escaper/hex/Writer support.
+            case rapidproto::cli::OutputKind::Runtime:
+                ok = rapidproto::cli::write_shared_file(path, rapidproto::codegen::runtime_header(),
+                                                        opts->verbose)
+                         .has_value();
+                break;
+            case rapidproto::cli::OutputKind::ArenaRuntime:
+                ok = rapidproto::cli::write_shared_file(
+                         path, rapidproto::arenagen::arena_runtime_header(), opts->verbose)
+                         .has_value();
+                break;
+            case rapidproto::cli::OutputKind::DumpRuntime:
+                ok = rapidproto::cli::write_shared_file(
+                         path, rapidproto::dumpgen::dump_runtime_header(), opts->verbose)
+                         .has_value();
+                break;
+        }
+        if (!ok) {
             return 1;
         }
     }
@@ -300,51 +366,22 @@ int main(int argc, char** argv) {
         // The depfile's targets are the ENTRIES' selected decoder headers (one batch = one rule
         // producing them all); imports' headers regenerate with them, so their staleness rides on
         // the entry targets, mirroring what the CMake helper declares as the command's OUTPUT.
-        for (const std::string& entry : opts->entries) {
-            const std::string name =
-                rapidproto::canonical_entry_name(entry, opts->config.include_paths);
-            const auto it = set.file_index.find(name);
-            if (it == set.file_index.end()) {
-                continue;  // unreachable: every entry resolves into the set
-            }
-            const rapidproto::FileNode& file = set.files[it->second];
-            if (arena) {
-                targets.push_back(rapidproto::cli::header_path(opts->out_dir, file, ".rp.hpp"));
-            }
-            if (stream) {
-                targets.push_back(
-                    rapidproto::cli::header_path(opts->out_dir, file, ".rp.stream.hpp"));
-            }
-            if (dump) {
-                targets.push_back(
-                    rapidproto::cli::header_path(opts->out_dir, file, ".rp.dump.hpp"));
+        // DERIVED from the plan rather than re-enumerated, so the depfile's first target is the
+        // plan's first path by construction -- the anchor contract plan_outputs documents.
+        for (const rapidproto::cli::PlannedOutput& out : plan) {
+            // POSITIVE filter: only the decoder kinds may ever be depfile targets, so a future
+            // per-file kind added to plan_outputs stays out until someone decides otherwise.
+            const bool decoder = out.kind == rapidproto::cli::OutputKind::Arena ||
+                                 out.kind == rapidproto::cli::OutputKind::Stream ||
+                                 out.kind == rapidproto::cli::OutputKind::Dump;
+            if (out.entry && decoder) {
+                targets.push_back(std::filesystem::path(opts->out_dir) / out.rel);
             }
         }
         prereqs = rapidproto::cli::disk_proto_paths(opts->entries, set, opts->config);
         // Editing a decode profile changes the generated shape, so profiles are prerequisites
         // exactly like the .proto inputs.
         prereqs.insert(prereqs.end(), modes_files.begin(), modes_files.end());
-    }
-
-    // Drop the self-contained runtime headers so the generated #includes resolve with no rapidproto
-    // build-tree dependency. runtime.hpp serves both models; arena_runtime.hpp (which #includes
-    // runtime.hpp) only the arena decoder.
-    const std::filesystem::path dir = std::filesystem::path(opts->out_dir) / "rapidproto";
-    if (!rapidproto::cli::write_shared_file(dir / "runtime.hpp",
-                                            rapidproto::codegen::runtime_header(), opts->verbose)) {
-        return 1;
-    }
-    if (arena && !rapidproto::cli::write_shared_file(dir / "arena_runtime.hpp",
-                                                     rapidproto::arenagen::arena_runtime_header(),
-                                                     opts->verbose)) {
-        return 1;
-    }
-    // The debug dumper's own header-only runtime (the escaper/hex/Writer support), so a generated
-    // <stem>.rp.dump.hpp's #include "rapidproto/dump_runtime.hpp" resolves from the out-dir.
-    if (dump &&
-        !rapidproto::cli::write_shared_file(
-            dir / "dump_runtime.hpp", rapidproto::dumpgen::dump_runtime_header(), opts->verbose)) {
-        return 1;
     }
 
     if (!opts->depfile.empty() &&
