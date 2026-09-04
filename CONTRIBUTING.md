@@ -45,8 +45,8 @@ cmake --build --preset gcc
   checked-in goldens, and a fuzz smoke over the four targets (see [Fuzzing](#fuzzing)).
 
 CI runs the gate's stages spread across several jobs, `./check.sh deep`, and a Release `-O3 -Werror`
-build on **every push and pull request**. Running `./check.sh` locally is the superset: it is the
-only place the `names` stage runs outside a release tag.
+build on **every push and pull request**. Running `./check.sh` locally covers the same stages in
+one command (CI additionally compiles a corpus sample, which locally is a deep-tier leg).
 
 ## The real-world schema corpus
 
