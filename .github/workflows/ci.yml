@@ -1,11 +1,12 @@
 # Continuous integration: the project's quality bar on every push to the default branch and every
 # pull request. Parallel jobs -- the default gate's build/test stages, its clang-tidy stage as a
-# three-shard matrix (tidy is ~80% of the gate's CPU, so it gets its own runners), a corpus job that
-# sweeps ~8000 real third-party schemas (its own runner: it needs a ~100 MB fetch), an arm64
-# build/test job (the SWAR decode kernels lower to native AArch64 instructions x86 can't exercise),
-# the heavy "deep" tier (sanitizers + coverage floor + corpus sweep + fuzz smoke), a Release -O3 -Werror build on
-# both compilers, and the consumer job (install -> find_package -> newer-standard header compiles) --
-# so wall-clock is the slowest runner, not the sum.
+# three-shard matrix (tidy is 45-55% of the gate's CPU, so it gets its own runners), a corpus job
+# that sweeps ~8000 real third-party schemas and compiles a bounded sample of them (its own runner:
+# it needs a ~100 MB fetch), an arm64 build/test job (the SWAR decode kernels lower to native
+# AArch64 instructions x86 can't exercise), the heavy "deep" tier (sanitizers + coverage floor +
+# fuzz smoke; its corpus legs live in the corpus job, which has the fetch), a Release -O3 -Werror
+# build on both compilers, and the consumer job (install -> find_package -> newer-standard header
+# compiles) -- so wall-clock is the slowest runner, not the sum.
 name: CI
 
 on:
@@ -19,8 +20,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # `differential` rides here rather than in its own job: it reuses the gcc build this job already
-  # makes, and needs only protoc + the protobuf Python bindings, which setup-toolchain installs.
+  # `differential` and `names` ride here rather than in their own jobs: both reuse the gcc build
+  # this job already makes. `differential` needs only protoc + the protobuf Python bindings, which
+  # setup-toolchain installs; `names` is what keeps the CMake helper's output paths in step with
+  # the CLI (plus the declared-outputs delete/restore loop and a compiled prefixed TU), and used to
+  # run only locally and on release tags -- a PR that broke it went green.
   gate:
     name: gate (format + dual-compiler build/test)
     runs-on: ubuntu-24.04
@@ -28,7 +32,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-toolchain
       - name: Quality gate minus tidy (./check.sh)
-        run: RAPIDPROTO_GATE_STAGES='format docs fixtures gcc clang cf fuzz cxx20 differential' ./check.sh
+        run: RAPIDPROTO_GATE_STAGES='format docs fixtures gcc clang cf fuzz cxx20 names differential' ./check.sh
 
   # The real-world compatibility check (see tests/corpus_gate.py for what it covers and why).
   # Its own job because it needs a ~100 MB fetch the other jobs don't, keeping that off the main
@@ -37,10 +41,10 @@ jobs:
   # tests/fetch_corpus.py), and the 'gcc' stage is here to produce the rapidprotoc the sweep drives
   # -- which re-runs the unit tests and consumer examples the `gate` job already ran. Splitting a
   # build-only stage out of job_build_test would fix that if it ever matters.
-  # Expect minutes rather than the ~3 min a 20-core dev box sees: the sweep is ~38 CPU-minutes, so a
-  # 2-core runner is the constraint.
+  # Expect minutes rather than the ~3 min a 20-core dev box sees: the sweep is ~48 CPU-minutes and
+  # the compile sample ~13 more, so a 2-core runner is the constraint.
   corpus:
-    name: corpus (real-world schema sweep)
+    name: corpus (real-world schema sweep + compile sample)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -49,6 +53,13 @@ jobs:
         run: python3 tests/fetch_corpus.py
       - name: Sweep it (./check.sh; gcc builds the rapidprotoc the sweep drives)
         run: RAPIDPROTO_GATE_STAGES='gcc corpus' ./check.sh
+      # The deep tier's other corpus leg, run here because this is the job with the fetch: the
+      # sweep above GENERATES every schema and compiles none, so this compiles a bounded sample,
+      # both models in one TU -- the only shape that can catch a collision between them. In the
+      # deep job it self-skips (exit 77, no corpus); duplicating the fetch there would re-run the
+      # ~48 CPU-minute sweep for nothing.
+      - name: Compile a bounded sample of it (both models in one TU)
+        run: python3 tests/corpus_compile.py --rapidprotoc ./build/gcc/rapidprotoc --jobs "$(nproc)"
 
   # arm64 build + test on both pinned compilers. The packed-varint SWAR kernels are the reason: on
   # AArch64 they lower to native instructions the x86 gate never sees (ctz -> rbit+clz, popcount ->
@@ -79,8 +90,11 @@ jobs:
           RAPIDPROTO_TIDY_SHARD='${{ matrix.shard }}/3'
           ./check.sh
 
+  # The corpus legs of `./check.sh deep` self-skip here (exit 77 -- no fetch); they run in the
+  # corpus job above, which is the one with the corpus. The deep summary names them as skipped,
+  # which is the expected output of this job, not a gap.
   deep:
-    name: deep (ASan/UBSan + coverage + corpus + fuzz smoke)
+    name: deep (ASan/UBSan + coverage + fuzz smoke)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
