@@ -1,8 +1,8 @@
-// Tests for the shared CLI driver's --depfile support (rapidproto/cli/driver.hpp): disk_proto_paths
-// reports the on-disk .proto closure (entry + transitive imports) and excludes well-known types that
-// come from the embedded definitions, and write_depfile emits a well-formed `outputs : prereqs` Make
-// depfile. The CLIs' end-to-end depfile + incremental regeneration is exercised by the consumer
-// example the gate builds.
+// Tests for the shared CLI driver (rapidproto/cli/driver.hpp): flag parsing and its refusals,
+// the output PLAN and its ordering contract (plan_outputs), the on-disk .proto closure
+// (disk_proto_paths, embedded well-known types excluded), the writers' failure reporting, and the
+// `outputs : prereqs` depfile (write_depfile). The CLIs' end-to-end depfile + incremental
+// regeneration is exercised by the consumer example the gate builds.
 
 #include <catch_amalgamated.hpp>
 
@@ -197,6 +197,80 @@ cli::ParseResult parse(std::vector<const char*> args) {
 }
 
 }  // namespace
+
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): a dozen positional CHECKs, one loop
+TEST_CASE("driver: plan_outputs' order is the anchor contract", "[cli]") {
+    // The CMake helper anchors its custom command on the FIRST planned path, and the depfile's
+    // target list is derived from the same plan (entry rows of decoder kind) -- so both the ORDER
+    // and the kind/entry tags are contracts. The shell guard pins them end-to-end only where
+    // Ninja exists; this pins them everywhere.
+    const std::string imports = std::string(RAPIDPROTO_CORPUS_DIR) + "/imports";
+    cli::Options opts;
+    opts.config.include_paths = {imports};
+    // forward.proto is LAST in main.proto's resolve order and listed twice: hoisting it to plan
+    // position 3 (right after main's rows) is what proves entries precede imports -- an entry
+    // early in resolve order would land there anyway -- and the duplicate must collapse.
+    opts.entries = {imports + "/main.proto", imports + "/forward.proto",
+                    imports + "/forward.proto"};
+    auto resolved = resolve(opts.entries[0], opts.config);
+    REQUIRE(resolved.is_ok());
+    const ResolvedFileSet set = std::move(resolved).value();
+    const auto plan = cli::plan_outputs(opts, set,
+                                        {/*arena=*/true, /*stream=*/true,
+                                         /*dump=*/false});
+    REQUIRE(plan.size() >= 8);
+    // The anchor: first entry's first selected decoder.
+    CHECK(plan[0].rel == std::filesystem::path("main.rp.hpp"));
+    CHECK(plan[0].entry);
+    CHECK(plan[0].kind == cli::OutputKind::Arena);
+    // Per file: decoders before the common header, each row carrying its real kind -- the depfile
+    // derivation selects on kind, so a mistagged common would silently join the targets.
+    CHECK(plan[1].rel == std::filesystem::path("main.rp.stream.hpp"));
+    CHECK(plan[1].kind == cli::OutputKind::Stream);
+    CHECK(plan[2].rel == std::filesystem::path("main.rp.common.hpp"));
+    CHECK(plan[2].kind == cli::OutputKind::Common);
+    // Second listed entry HOISTED ahead of the imports -- once, despite being listed twice.
+    CHECK(plan[3].rel == std::filesystem::path("forward.rp.hpp"));
+    CHECK(plan[3].entry);
+    int forward_arena_count = 0;
+    bool seen_non_entry = false;  // entries first as a GLOBAL property: no entry row may follow
+                                  // a non-entry row (runtime rows are non-entry, pinned too)
+    for (const cli::PlannedOutput& out : plan) {
+        if (out.rel == std::filesystem::path("forward.rp.hpp")) {
+            ++forward_arena_count;
+        }
+        if (!out.entry) {
+            seen_non_entry = true;
+        } else {
+            CHECK_FALSE(seen_non_entry);
+        }
+    }
+    CHECK(forward_arena_count == 1);
+    // Runtime copies close the plan, non-entry (or they would leak into the depfile targets);
+    // no dump_runtime without --dump.
+    CHECK(plan[plan.size() - 2].rel == std::filesystem::path("rapidproto/runtime.hpp"));
+    CHECK_FALSE(plan[plan.size() - 2].entry);
+    CHECK(plan.back().rel == std::filesystem::path("rapidproto/arena_runtime.hpp"));
+    CHECK_FALSE(plan.back().entry);
+}
+
+TEST_CASE("driver: the list dry-runs parse alone and refuse to combine", "[cli]") {
+    const cli::ParseResult outs = parse({"--list-outputs", "a.proto"});
+    REQUIRE(outs.options.has_value());
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access): guarded by the REQUIRE above
+    CHECK(outs.options->list_outputs);
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access): guarded by the REQUIRE above
+    CHECK_FALSE(outs.options->list_inputs);
+    const cli::ParseResult ins = parse({"--list-inputs", "a.proto"});
+    REQUIRE(ins.options.has_value());
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access): guarded by the REQUIRE above
+    CHECK(ins.options->list_inputs);
+    // One question per invocation, and a dry run writes no depfile: both combinations are usage
+    // errors rather than a silently ignored flag.
+    CHECK(parse({"--list-outputs", "--list-inputs", "a.proto"}).exit_code == 2);
+    CHECK(parse({"--list-outputs", "--depfile", "x.d", "a.proto"}).exit_code == 2);
+    CHECK(parse({"--list-inputs", "--depfile=x.d", "a.proto"}).exit_code == 2);
+}
 
 TEST_CASE("driver: parse_args rejects an unknown flag instead of treating it as a file", "[cli]") {
     // A typo'd flag used to fall through to the entry list and fail later with a baffling

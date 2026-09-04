@@ -1,16 +1,22 @@
 # rapidproto-generate.cmake -- defines rapidproto_generate(), the helper that turns .proto schemas into
 # a linkable, header-only target by driving the rapidproto code generators.
 #
-# It works the same way whether rapidproto is used in-tree (the main project include()s this file and the
+# It works whether rapidproto is used in-tree (the main project include()s this file and the
 # generator is the rapidproto::rapidprotoc ALIAS) or from an installed package
-# (find_package(rapidproto) include()s the installed copy and the same target names are imported). The
-# generated output is self-contained -- the CLIs drop a std-only copy of the runtime beside the headers,
-# so a consumer needs only the OUT_DIR on its include path.
+# (find_package(rapidproto) include()s the installed copy and the same target names are imported).
+# What differs is how much the build system is told about the generated files: with an installed
+# (imported) generator the helper ASKS it for the exact output list at configure time
+# (`--list-outputs`); in-tree the tool does not exist yet, so a smaller list is declared -- see
+# the two modes where the OUTPUT list is built, below. (Cross-compilation additionally REQUIRES
+# the imported form -- see _rapidproto_require_host_tool.) The generated output is self-contained --
+# the CLIs drop a std-only copy of the runtime beside the headers, so a consumer needs only the
+# OUT_DIR on its include path.
 
 include_guard(GLOBAL)
 
-# The header path the CLI writes for `proto_abs`, computed so it can be a custom command's OUTPUT. This
-# mirrors the generator exactly (resolver.cpp canonical_entry_name + driver.hpp header_path): the entry's
+# FALLBACK-MODE ONLY (the query mode asks the CLI instead): the header path the CLI writes for
+# `proto_abs`, computed so it can be a custom command's OUTPUT. Mirrors the generator's ENTRY rule
+# (resolver.cpp canonical_entry_name + driver.hpp header_path) -- and only that rule: the entry's
 # path relative to the first import dir that contains it, else its basename, with ".proto" -> `ext`,
 # under `out_dir`. `import_dirs_abs` is the absolute import dirs in -I order.
 function(_rapidproto_output_header out_var proto_abs ext out_dir import_dirs_abs)
@@ -66,6 +72,56 @@ function(_rapidproto_output_header out_var proto_abs ext out_dir import_dirs_abs
   endif()
   string(REGEX REPLACE "\\.proto$" "" _rel "${_rel}")
   set(${out_var} "${out_dir}/${_rel}${ext}" PARENT_SCOPE)
+endfunction()
+
+# The generator's on-disk binary, when one can exist at CONFIGURE time. An IMPORTED target
+# (find_package consumers) must yield one -- IMPORTED_LOCATION, possibly per-configuration -- and
+# a location that does not exist on disk is a broken install, refused here rather than silently
+# degrading to the smaller fallback declaration set. Empty ONLY for a non-imported target (the
+# in-tree ALIAS: this project's own build, or a FetchContent consumer), which this very
+# buildsystem builds and so cannot exist yet.
+function(_rapidproto_tool_location out_var tool)
+  if(NOT TARGET "${tool}")
+    # Without this, the literal target name reached the generated makefile, where its colons are a
+    # syntax error a consumer cannot trace back to the missing find_package/add_subdirectory.
+    message(FATAL_ERROR
+      "rapidproto_generate(): no `${tool}` target -- find_package(rapidproto) first, or add the "
+      "rapidproto source tree before calling this")
+  endif()
+  set(_resolved "${tool}")
+  get_target_property(_alias "${tool}" ALIASED_TARGET)
+  if(_alias)
+    set(_resolved "${_alias}")
+  endif()
+  get_target_property(_imported "${_resolved}" IMPORTED)
+  if(NOT _imported)
+    set(${out_var} "" PARENT_SCOPE)
+    return()
+  endif()
+  set(_locations "")
+  get_target_property(_loc "${_resolved}" IMPORTED_LOCATION)
+  if(_loc)
+    list(APPEND _locations "${_loc}")
+  endif()
+  get_target_property(_configs "${_resolved}" IMPORTED_CONFIGURATIONS)
+  if(_configs)
+    foreach(_cfg IN LISTS _configs)
+      get_target_property(_loc "${_resolved}" IMPORTED_LOCATION_${_cfg})
+      if(_loc)
+        list(APPEND _locations "${_loc}")
+      endif()
+    endforeach()
+  endif()
+  foreach(_loc IN LISTS _locations)
+    if(EXISTS "${_loc}")
+      set(${out_var} "${_loc}" PARENT_SCOPE)
+      return()
+    endif()
+  endforeach()
+  message(FATAL_ERROR
+    "rapidproto_generate(): `${tool}` is an imported target but none of its IMPORTED_LOCATION"
+    " properties names an existing file (checked: '${_locations}') -- the rapidproto install is "
+    "broken or was moved")
 endfunction()
 
 # Error unless `tool` is an imported target (came from find_package) -- under cross-compilation that is a
@@ -252,33 +308,134 @@ function(rapidproto_generate target)
   # imports parse once, and a FIELD_MODES profile resolves against every proto's symbols at once,
   # so one profile can span the target's schemas). The cost: touching any listed proto re-runs
   # generation for the whole target.
-  set(_outputs "")
   set(_protos_abs "")
   foreach(_proto IN LISTS RPG_PROTOS)
     get_filename_component(_proto_abs "${_proto}" ABSOLUTE)
     list(APPEND _protos_abs "${_proto_abs}")
-    if("arena" IN_LIST _jobs)
-      _rapidproto_output_header(_h "${_proto_abs}" ".rp.hpp" "${RPG_OUT_DIR}" "${_import_dirs_abs}")
-      list(APPEND _outputs "${_h}")
+  endforeach()
+
+  # The OUTPUT list, two modes:
+  #
+  # ASK THE GENERATOR (find_package consumers -- the tool exists at configure time). The CLI's
+  # `--list-outputs` dry-runs the real resolver and prints every path a generation would write, so
+  # the declared list is exact by construction: imported schemas' headers, the embedded well-known
+  # types' whole closure, and the runtime copies included. Predicting that list here instead means
+  # mirroring the resolver's lexing and naming rules in CMake, which is how this helper once
+  # accumulated ~380 lines that drifted from the CLI in six different ways. A schema error
+  # surfaces right here at configure time, with the CLI's own diagnostic. `--list-inputs` is the
+  # matching on-disk .proto closure: CONFIGURE_DEPENDS on it, so an added or removed import
+  # re-runs this query instead of leaving the declared list stale. Sharing an OUT_DIR between two
+  # targets is not a supported layout; the explicit overlap check below the two modes is what
+  # refuses it (CMake's own conflict detection does not -- see there).
+  #
+  # ENTRIES-ONLY FALLBACK (the in-tree ALIAS and FetchContent -- this buildsystem builds the tool,
+  # so there is nothing to ask yet). The listed schemas' headers, their common headers, and the
+  # runtime copies (whose paths are constant) are declared; an IMPORTED schema's headers are
+  # generated but undeclared, so deleting one of those needs a regeneration (touch an entry, or
+  # rebuild from clean) to recover. This is the released behavior, kept deliberately small rather
+  # than grown back into a resolver mirror.
+  set(_outputs "")
+  _rapidproto_tool_location(_cli_bin ${_cli})
+  # An entry another build rule produces does not exist at configure time, so the generator cannot
+  # be asked about it yet -- that shape takes the fallback, like a not-yet-built in-tree tool.
+  # The cost, disclosed in the docs: a TYPO'D entry is indistinguishable from a generated one, so
+  # its "entry file not found" surfaces at build rather than configure.
+  if(_cli_bin)
+    foreach(_proto_abs IN LISTS _protos_abs)
+      if(NOT EXISTS "${_proto_abs}")
+        set(_cli_bin "")
+        break()
+      endif()
+    endforeach()
+  endif()
+  if(_cli_bin)
+    # The queries carry exactly the generation command's content flags plus --out-dir, so a
+    # refusal's diagnostic names the consumer's real directory. NOTE the newline->list split
+    # cannot represent a path containing `;`; the CLI accepts such a .proto name, this helper
+    # does not.
+    execute_process(
+      COMMAND "${_cli_bin}" ${_common} ${_model_flags} --out-dir "${RPG_OUT_DIR}"
+              --list-outputs ${_protos_abs}
+      OUTPUT_VARIABLE _listed ERROR_VARIABLE _list_err RESULT_VARIABLE _list_rc)
+    if(NOT _list_rc EQUAL 0)
+      # RESULT_VARIABLE included: a child that cannot even launch (non-executable file, a
+      # target-arch binary) reports the reason there, with stderr empty.
+      message(FATAL_ERROR
+        "rapidproto_generate(${target}): ${_cli_bin} --list-outputs failed (${_list_rc}):\n"
+        "${_list_err}")
     endif()
-    if("stream" IN_LIST _jobs)
-      _rapidproto_output_header(_h "${_proto_abs}" ".rp.stream.hpp" "${RPG_OUT_DIR}" "${_import_dirs_abs}")
+    string(REPLACE "\n" ";" _listed "${_listed}")
+    foreach(_rel IN LISTS _listed)
+      if(NOT _rel STREQUAL "")
+        list(APPEND _outputs "${RPG_OUT_DIR}/${_rel}")
+      endif()
+    endforeach()
+    execute_process(
+      COMMAND "${_cli_bin}" ${_common} ${_model_flags} --out-dir "${RPG_OUT_DIR}"
+              --list-inputs ${_protos_abs}
+      OUTPUT_VARIABLE _inputs ERROR_VARIABLE _in_err RESULT_VARIABLE _in_rc)
+    if(NOT _in_rc EQUAL 0)
+      message(FATAL_ERROR
+        "rapidproto_generate(${target}): ${_cli_bin} --list-inputs failed (${_in_rc}):\n"
+        "${_in_err}")
+    endif()
+    string(REPLACE "\n" ";" _inputs "${_inputs}")
+    # The BINARY is a configure input too: upgrading an installed rapidproto in place must re-run
+    # the query, or a version emitting a different file set leaves the declared list stale.
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_inputs} "${_cli_bin}")
+  else()
+    foreach(_proto_abs IN LISTS _protos_abs)
+      if("arena" IN_LIST _jobs)
+        _rapidproto_output_header(_h "${_proto_abs}" ".rp.hpp" "${RPG_OUT_DIR}" "${_import_dirs_abs}")
+        list(APPEND _outputs "${_h}")
+      endif()
+      if("stream" IN_LIST _jobs)
+        _rapidproto_output_header(_h "${_proto_abs}" ".rp.stream.hpp" "${RPG_OUT_DIR}" "${_import_dirs_abs}")
+        list(APPEND _outputs "${_h}")
+      endif()
+      if(RPG_DUMP)
+        _rapidproto_output_header(_h "${_proto_abs}" ".rp.dump.hpp" "${RPG_OUT_DIR}" "${_import_dirs_abs}")
+        list(APPEND _outputs "${_h}")
+      endif()
+      # The shared common header is an output too. Undeclared, deleting it did not re-run the
+      # command -- the build stayed broken on `fatal error: <stem>.rp.common.hpp: No such file or
+      # directory` until something else invalidated the batch.
+      _rapidproto_output_header(_h "${_proto_abs}" ".rp.common.hpp" "${RPG_OUT_DIR}" "${_import_dirs_abs}")
       list(APPEND _outputs "${_h}")
+    endforeach()
+    # The runtime copies need no prediction -- their paths are constant -- so the fallback
+    # declares them too.
+    list(APPEND _outputs "${RPG_OUT_DIR}/rapidproto/runtime.hpp")
+    if("arena" IN_LIST _jobs)
+      list(APPEND _outputs "${RPG_OUT_DIR}/rapidproto/arena_runtime.hpp")
     endif()
     if(RPG_DUMP)
-      _rapidproto_output_header(_h "${_proto_abs}" ".rp.dump.hpp" "${RPG_OUT_DIR}" "${_import_dirs_abs}")
-      list(APPEND _outputs "${_h}")
+      list(APPEND _outputs "${RPG_OUT_DIR}/rapidproto/dump_runtime.hpp")
     endif()
-    # The shared common header is an output too. Undeclared, deleting it did not re-run the command
-    # -- the build stayed broken on `fatal error: <stem>.rp.common.hpp: No such file or directory`
-    # until something else invalidated the batch. It carries every enum in the schema (nested ones
-    # included), so it is load-bearing for nearly every schema rather than the few with a top-level
-    # enum.
-    _rapidproto_output_header(_h "${_proto_abs}" ".rp.common.hpp" "${RPG_OUT_DIR}" "${_import_dirs_abs}")
-    list(APPEND _outputs "${_h}")
+  endif()
+  # No two rapidproto_generate() calls may declare one path: CMake conflict-checks only a custom
+  # command's FIRST output, so overlapping SECONDARY outputs (with a shared OUT_DIR, always at
+  # least rapidproto/runtime.hpp) configure cleanly everywhere -- then Ninja hard-errors at build
+  # ("multiple rules generate") while Make SILENTLY resolves them by whichever target builds last.
+  # Refused in both modes, at configure -- give each target its own OUT_DIR.
+  get_property(_taken GLOBAL PROPERTY _rapidproto_declared_outputs)
+  foreach(_out IN LISTS _outputs)
+    if("${_out}" IN_LIST _taken)
+      message(FATAL_ERROR
+        "rapidproto_generate(${target}): ${_out} is already generated by another "
+        "rapidproto_generate() target -- two targets must not share an OUT_DIR")
+    endif()
   endforeach()
-  # Name the depfile off the first header; the CLI lists every entry's decoder header as a target
-  # in it (so each output node gets the import edges), and re-running regenerates the whole batch.
+  set_property(GLOBAL APPEND PROPERTY _rapidproto_declared_outputs ${_outputs})
+
+  # Name the depfile off the first header -- in BOTH modes the first entry's first decoder header:
+  # the CLI plans entries before imports and decoders before the common header precisely so that
+  # this anchor is the depfile's own first target (Ninja accepts a depfile only when its first
+  # target is the rule's first output) and a write_file output whose mtime advances every run
+  # (Make re-runs a rule forever when its target stays older than an edited prerequisite, which a
+  # skip-identical common header would). The CLI lists every entry's decoder header as a depfile
+  # target (so each output node gets the import edges), and re-running regenerates the whole
+  # batch.
   list(GET _outputs 0 _anchor)
   set(_depfile_cli "")
   set(_depfile_cmd "")

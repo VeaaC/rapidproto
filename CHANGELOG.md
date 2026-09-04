@@ -133,6 +133,30 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
   `Callbacks`, whose generated identifier goes back from `Callbacks_` to `Callbacks`.
   **Regenerate** to pick it up.
 
+### Added
+
+- **`rapidprotoc --list-outputs` and `--list-inputs`: dry runs for build systems.** The first
+  prints every path a generation would write (relative to `--out-dir`, one per line), the second
+  the on-disk `.proto` closure; nothing is written, and a schema or flag error fails the listing
+  exactly as it would fail generation (only filesystem errors — an unwritable out-dir — are
+  generation's alone, since a listing touches no filesystem). `rapidproto_generate()` uses them whenever the generator exists at
+  configure time — every `find_package` consumer — to declare **every** generated file as a build
+  output: deleting an imported schema's header (or a well-known type's, or a runtime copy) now
+  regenerates it, a schema error fails `cmake` itself with the generator's own diagnostic, and
+  adding or removing an `import` re-runs the query automatically. (One class stays a build-time
+  error: an entry `.proto` that does not exist at configure is indistinguishable from one another
+  build rule will generate, so it takes the reduced path below rather than failing configure.) In-tree and FetchContent builds
+  (a non-imported generator: your own buildsystem builds it, so there is nothing to ask yet) keep
+  the previous behavior, plus the runtime copies — whose paths need no prediction — now being
+  declared there too; a `.proto` entry produced by another build rule (absent at configure) also
+  takes that path. **Two behavior changes ride along**: two `rapidproto_generate()` targets
+  sharing an `OUT_DIR` are now refused at configure in every mode (their runtime copies always
+  overlap as secondary outputs CMake's own conflict check never sees: Ninja errored at build,
+  Make resolved the duplicates by build order, silently), and an *imported*
+  generator whose binary is missing on disk is a configure error (a broken install used to
+  degrade silently). A missing `rapidproto::rapidprotoc` target is a configure error naming the
+  fix instead of a cryptic makefile syntax error.
+
 ### Fixed
 
 - **Names that hit a predefined or ever-present macro are escaped, two groups more than before.**
@@ -163,9 +187,8 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
 - **A deleted `<stem>.rp.common.hpp` is regenerated instead of breaking the build for good.** The
   CMake helper declared the decoder headers as outputs but not the shared common header, so removing
   it (or losing it to a partial clean) left `fatal error: <stem>.rp.common.hpp: No such file or
-  directory` until something unrelated invalidated the batch. (Imported schemas' headers and the
-  runtime copies the CLI drops beside them are still undeclared — deleting one of those requires a
-  regeneration to recover.)
+  directory` until something unrelated invalidated the batch. (What else is declared depends on
+  how the generator is integrated — see the `--list-outputs` entry above.)
 
 - **A "maximum nesting depth exceeded" error now points at the token that exceeded it.** The
   parser reports positions as token indices, which the resolver maps back to `file:line:col`; this

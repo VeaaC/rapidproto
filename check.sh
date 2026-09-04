@@ -859,9 +859,11 @@ job_cxx20_smoke() {
   return $rc
 }
 
-# The CMake helper declares the CLI's output paths as a custom command's OUTPUT, so the two rules
-# must agree exactly or the declared file is never produced and the target regenerates forever. They
-# are written in different languages and have drifted once already.
+# The CMake helper declares the CLI's output paths as a custom command's OUTPUT -- asked from the
+# CLI when a generator binary and every entry exist at configure, predicted by the fallback
+# otherwise --
+# and prediction and CLI must agree exactly or the declared file is never produced and the target
+# regenerates forever. They are written in different languages and have drifted once already.
 job_generate_names() {
   ensure_gcc_binaries rapidprotoc || return 1
   tests/check_generate_names.sh build/gcc/rapidprotoc
