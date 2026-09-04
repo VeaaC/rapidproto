@@ -60,6 +60,7 @@ def anchors_of(path, cache={}):
 
 def main():
     errors = 0
+    checked = 0
     files = doc_files()
     # A zero-file run is a broken invocation, not a pass: the gate stage would report success
     # having checked nothing (the same case tests/check_fixture_coverage.sh guards).
@@ -82,6 +83,7 @@ def main():
                 tfile = os.path.normpath(os.path.join(base, tpath))
             else:
                 tfile, frag = os.path.normpath(os.path.join(base, target)), None
+            checked += 1
             if not os.path.exists(tfile):
                 print(f">> {rel}: broken link ({target}): no such file")
                 errors += 1
@@ -90,7 +92,17 @@ def main():
                 errors += 1
     if errors:
         return 1
-    print(f"doc links ok ({len(files)} files)")
+    # A LINK floor, not only the file floor above: the docs cross-link heavily today (~150
+    # relative links), and a migration to reference-style links -- which the inline `](...)`
+    # pattern does not match -- would leave this green having validated nothing. 100, not a
+    # comfortable 50: architecture.md alone carries ~50, so a lower floor tolerated losing every
+    # OTHER page's links. (A per-file floor would be stronger still, but two pages --
+    # SECURITY.md, THIRD_PARTY_NOTICES.md -- legitimately carry zero relative links.)
+    if checked < 100:
+        print(f">> only {checked} relative links matched the inline pattern -- the docs' link "
+              "style changed, and this check no longer sees them")
+        return 1
+    print(f"doc links ok ({len(files)} files, {checked} links)")
     return 0
 
 

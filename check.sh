@@ -162,6 +162,14 @@ if [[ "${1:-}" == "quick" ]]; then
   # that returned non-zero. Text alone called a segfaulting binary clean.
   if [[ $test_rc -eq 0 ]] && grep -qE 'All tests passed' <<<"$test_out"; then
     grep -oE 'All tests passed.*' <<<"$test_out"
+    # Instant (a --list-tests, no execution), and quick is where an emptied test file is most
+    # likely to be introduced -- the full gate would catch it hours later otherwise. Same shape
+    # as job_build_test's copy of this block.
+    if ! contrib_out=$(tests/check_test_contribution.sh ./build/gcc/rapidproto_tests 2>&1); then
+      echo "$contrib_out"
+      exit 1
+    fi
+    tail -1 <<<"$contrib_out"
     echo ">> quick OK (gcc only -- run ./check.sh for the full gate before committing)"
     exit 0
   fi
@@ -755,6 +763,14 @@ job_build_test() {  # $1 = preset; parallel build, then run the test binary
   # that returned non-zero. Text alone called a segfaulting binary clean.
   if [[ $test_rc -eq 0 ]] && grep -qE 'All tests passed' <<<"$test_out"; then
     grep -oE 'All tests passed.*' <<<"$test_out"
+    # A green run proves the cases that EXIST pass; this proves every test source still supplies
+    # some -- an emptied or #if 0'd tests/test_*.cpp stays listed, compiled and green otherwise.
+    local contrib_out
+    if ! contrib_out=$(tests/check_test_contribution.sh "./build/$preset/rapidproto_tests" 2>&1); then
+      echo "$contrib_out"
+      return 1
+    fi
+    tail -1 <<<"$contrib_out"
   else
     echo ">> tests failed ($preset):"
     # -A3 so the value lines that FOLLOW 'with expansion:' survive; the totals are printed OUTSIDE
