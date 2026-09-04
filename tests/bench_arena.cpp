@@ -530,8 +530,9 @@ std::uint64_t checksum_big_arena_kinds(const rp::arena::bench::Big* b) {
 // The packed int64 fill (rp::arena::bench::Big.numbers) across element byte width (fixed 1..10, uniform, 90/10
 // skew) x element count (10 .. 1,000,000): arena-warm vs protoc (and protozero as a raw-parse
 // yardstick). The streaming bench sweeps the SAME shapes, so the two map the packed-varint decode
-// surface for both decoders.
-void sweep_repeated_varint() {
+// surface for both decoders. Returns the count of arms whose checksum disagreed.
+int sweep_repeated_varint() {
+    int bad = 0;
     for (const auto& dist : rpbench::varint_dists()) {
         for (const int count : rpbench::varint_lengths()) {
             // Name first, so a scenario filter can skip the POOL BUILD below, not merely the
@@ -585,9 +586,10 @@ void sweep_repeated_varint() {
                  }},
 #endif
             };
-            (void)rpbench::run(name.c_str(), avg_bytes, arms);
+            bad += rpbench::run(name.c_str(), avg_bytes, arms);
         }
     }
+    return bad;
 }
 
 // Packed sint64 (`zz`, field 3) and packed enum (`kinds`, field 4) carry the SAME packed-varint wire as
@@ -595,8 +597,9 @@ void sweep_repeated_varint() {
 // for sint64, an int32 cast for enum, vs ~identity for int64). This focused sweep decodes those two at
 // 1M elements so the conv cost is directly comparable to the "rv <dist> 1M" int64 rows. sint64 covers
 // every width; enum stays on the int32-safe narrow widths (a >4-byte value would truncate, and protoc
-// vs our decoders could then disagree -- and real enums are small anyway).
-void sweep_repeated_varint_types() {
+// vs our decoders could then disagree -- and real enums are small anyway). Returns the count of
+// arms whose checksum disagreed.
+int sweep_repeated_varint_types() {
     constexpr int kCount = 1'000'000;
     const auto run_type = [&](const rpbench::VarintDist& dist, int field_number, const char* tag,
                               auto arena_sum, auto protoc_sum, auto protozero_sum) {
@@ -604,7 +607,7 @@ void sweep_repeated_varint_types() {
         // measurement (same reason as sweep_repeated_varint).
         const std::string name = std::string("rv-") + tag + " " + dist.label + " 1M";
         if (!rpbench::scenario_selected(name.c_str())) {
-            return;
+            return 0;
         }
         const long est = static_cast<long>(kCount) * 10 + 16;
         const int pool_n =
@@ -644,7 +647,7 @@ void sweep_repeated_varint_types() {
              }},
 #endif
         };
-        (void)rpbench::run(name.c_str(), avg_bytes, arms);
+        return rpbench::run(name.c_str(), avg_bytes, arms);
     };
 #ifdef RAPIDPROTO_HAVE_PROTOZERO
     const auto zz_pz = rpbaseline::protozero_big_zz;
@@ -653,15 +656,17 @@ void sweep_repeated_varint_types() {
     const auto zz_pz = [](rapidproto::ByteView) { return std::uint64_t{0}; };
     const auto kinds_pz = [](rapidproto::ByteView) { return std::uint64_t{0}; };
 #endif
+    int bad = 0;
     for (const auto& dist : rpbench::varint_dists()) {
-        run_type(dist, 3, "zz", checksum_big_arena_zz, rpbaseline::protoc_big_zz, zz_pz);
+        bad += run_type(dist, 3, "zz", checksum_big_arena_zz, rpbaseline::protoc_big_zz, zz_pz);
         const bool narrow = dist.label == "fx1" || dist.label == "fx2" || dist.label == "fx3" ||
                             dist.label == "mix12" || dist.label == "mix13";
         if (narrow) {
-            run_type(dist, 4, "enum", checksum_big_arena_kinds, rpbaseline::protoc_big_kinds,
-                     kinds_pz);
+            bad += run_type(dist, 4, "enum", checksum_big_arena_kinds, rpbaseline::protoc_big_kinds,
+                            kinds_pz);
         }
     }
+    return bad;
 }
 
 }  // namespace
@@ -726,7 +731,11 @@ int main() {
 #ifdef RAPIDPROTO_HAVE_PROTOZERO
     arms.push_back({"protozero", [&]() { return rpbaseline::protozero_dataset(view); }});
 #endif
-    (void)rpbench::run("Dataset", static_cast<double>(buf.size()), arms);
+    // From here on `bad` carries the harness's per-run mismatch counts to the exit code, same
+    // shape as bench_streamgen.cpp -- bench.yml's every-scenario-cross-checks claim is only true
+    // because these verdicts reach main's return.
+    int bad = 0;
+    bad += rpbench::run("Dataset", static_cast<double>(buf.size()), arms);
 
 #ifdef RAPIDPROTO_BENCH_COMPUTE
     // The large real-world schema arm lives in its OWN translation unit (bench_arm_compute.cpp):
@@ -777,12 +786,12 @@ int main() {
                  return checksum_arena_big(rp::arena::bench::BigSet::decode(v, w));
              }},
         };
-        (void)rpbench::run(name, static_cast<double>(b.size()), a);
+        return rpbench::run(name, static_cast<double>(b.size()), a);
     };
-    bench_bigset("packed int64(varint)", make_big_varint(200, 1000));  // 200k varint elements
-    bench_bigset("packed double(fixed)", make_big_fixed(200, 1000));   // 200k fixed-width elements
-    bench_bigset("osm: sint64 deltas + enum", make_big_osm(200, 1000));  // realistic packed witness
-    bench_bigset("few msgs, big arrays", make_big(30, 10000));           // 30 msgs x 20k elements
+    bad += bench_bigset("packed int64(varint)", make_big_varint(200, 1000));    // 200k varint elems
+    bad += bench_bigset("packed double(fixed)", make_big_fixed(200, 1000));     // 200k fixed elems
+    bad += bench_bigset("osm: sint64 deltas + enum", make_big_osm(200, 1000));  // packed witness
+    bad += bench_bigset("few msgs, big arrays", make_big(30, 10000));  // 30 msgs x 20k elements
     {
         const std::string wbuf = make_wide(50000);  // 50k msgs x tiny arrays -- same ~600k elements
         rapidproto::ByteView v(wbuf);
@@ -795,7 +804,7 @@ int main() {
                  return checksum_arena_wide(rp::arena::bench::WideSet::decode(v, w));
              }},
         };
-        (void)rpbench::run("many msgs, tiny arrays", static_cast<double>(wbuf.size()), a);
+        bad += rpbench::run("many msgs, tiny arrays", static_cast<double>(wbuf.size()), a);
     }
     {
         // Scalar-heavy records (no strings/packed/maps): decode time is dominated by per-field tag
@@ -812,20 +821,22 @@ int main() {
                  return checksum_arena_record(rp::arena::bench::RecordSet::decode(v, w));
              }},
         };
-        (void)rpbench::run("scalar records (dispatch-bound)", static_cast<double>(rbuf.size()), a);
+        bad += rpbench::run("scalar records (dispatch-bound)", static_cast<double>(rbuf.size()), a);
     }
 
     // Repeated-varint sweep: the packed int64 decode surface across element byte width x count. Part of
     // the machine-readable comparison (runs in JSON mode too), so it precedes the early return below.
-    sweep_repeated_varint();
+    bad += sweep_repeated_varint();
     // Packed sint64 / enum at 1M: same wire+kernels, measuring the zigzag / enum-cast conversion cost.
-    sweep_repeated_varint_types();
+    bad += sweep_repeated_varint_types();
 
     // Chunk-cap sweep: held/used (the arena's growth + chunk-tail waste) and parse time across shapes
     // and sizes up to ~32 MB. Arena only; this tunes the Arena's chunk-growth policy. It is deep
     // analysis, not part of the machine-readable comparison, so JSON mode skips it entirely.
     if (rpbench::json_mode()) {
-        return 0;  // the sweep (which feeds g_sink) is skipped; harness checksums guard the arms
+        // A mismatch is also carried per-arm as "ok":false in this run's NDJSON output (bench.py
+        // echoes it on failure); keep the exit code too.
+        return bad != 0 ? 1 : 0;  // the chunk-cap sweep (which feeds g_sink) is skipped
     }
     std::printf("\n=== arena chunk-cap sweep (held/use = growth + chunk-tail waste) ===\n");
     sweep_shape(
@@ -857,5 +868,14 @@ int main() {
         },
         {6000, 60000, 250000, 500000});
 
-    return g_sink == 0 ? 2 : 0;  // touch the sink so nothing is optimized away
+    if (bad != 0) {
+        std::printf("\nFAIL: %d checksum mismatch(es)\n", bad);
+        return 1;
+    }
+    if (g_sink == 0) {  // the sink is what stops the sweeps being optimized away
+        std::puts("\nFAIL: sweep sink untouched -- the measured work was optimized away");
+        return 2;
+    }
+    std::puts("\nall checksums agree.");
+    return 0;
 }

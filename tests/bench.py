@@ -137,13 +137,20 @@ def build_and_run(build_dir, core, repeat=DEFAULT_REPEAT):
     protobuf_version = None
     meta, chosen_by_key = [], {}  # key -> the one run kept for this arm
     runs_by_key = {}  # key -> [record per run], so the kept one carries its own run's counters
-    other, mismatched = {}, set()  # non-arm records (one kept); arms that mismatched in ANY run
+    other = {}  # non-arm records (`mem` etc.): keep one, never aggregate
     for decoder, target in BENCHES:
         binary = os.path.join(build_dir, target)
         where = "unpinned" if no_pin else f"pinned to core {core}"
         for r in range(repeat):
             print(f"running {decoder} ({binary}) {where} [{r + 1}/{repeat}] ...", file=sys.stderr)
-            out = subprocess.check_output([*pin, binary], env=env, text=True)
+            try:
+                out = subprocess.check_output([*pin, binary], env=env, text=True)
+            except subprocess.CalledProcessError as e:
+                # The binaries exit nonzero on a checksum mismatch, and WHICH scenario/arm diverged
+                # is in their captured output ('"ok":false' per arm in json mode) -- without this
+                # echo, a red CI bench run would say only "exit status 1".
+                sys.stderr.write(e.output or "")
+                raise
             for line in out.splitlines():
                 if not line.startswith("{"):
                     continue
@@ -164,10 +171,6 @@ def build_and_run(build_dir, core, repeat=DEFAULT_REPEAT):
                     chosen_by_key.setdefault(key, rec)
                     continue
                 runs_by_key.setdefault(key, []).append(rec)
-                # A checksum mismatch in ANY run is a correctness signal; keeping only the chosen
-                # run's flag would hide a 1-in-K divergence whenever a clean run was selected.
-                if not rec.get("ok", True):
-                    mismatched.add(key)
     for key, records in runs_by_key.items():
         v = [r["gb_s"] for r in records]  # run order
         ordered = sorted(range(len(v)), key=lambda i: v[i])
@@ -177,8 +180,9 @@ def build_and_run(build_dir, core, repeat=DEFAULT_REPEAT):
         chosen_by_key[key] = chosen
         chosen["runs"] = len(v)
         chosen["gb_s_runs"] = v  # run order, not sorted: a whole-run effect is visible only in order
-        if key in mismatched:
-            chosen["ok"] = False
+        # No mismatch handling here: a binary with ANY mismatched arm exits nonzero, so check_output
+        # raises above and no snapshot is written. (`render` still reads "ok" -- older snapshots,
+        # written before the binaries' verdicts reached their exit codes, can carry ok:false.)
         # Two-sided dispersion about the median: the interquartile range, relative to the median.
         #
         # The recorded value is the median, so what matters is how much the MIDDLE of the

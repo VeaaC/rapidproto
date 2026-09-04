@@ -326,7 +326,10 @@ inline Stat stat(std::vector<double> v) {
 // Measure every arm over one op of `byte_size` bytes and print a table. Arm 0 is the BASELINE; each
 // other arm is reported as an absolute rate AND as a drift-invariant cost ratio to the baseline with
 // a significance verdict. Returns the count of arms whose checksum disagreed with arm 0.
-inline int run(const char* scenario, double byte_size, const std::vector<Arm>& arms) {
+// [[nodiscard]]: a silently dropped verdict is exactly how the arena bench's cross-check claim once
+// went false -- make the next dropped one a warning, which the gate's build-output check fails on
+// (the benches are not -Werror builds).
+[[nodiscard]] inline int run(const char* scenario, double byte_size, const std::vector<Arm>& arms) {
     if (!scenario_selected(scenario)) {
         return 0;
     }

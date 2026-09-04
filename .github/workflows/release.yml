@@ -1,7 +1,11 @@
-# Release: on a version tag, re-run the full quality gate against the tagged commit, build an
-# optimized rapidprotoc, and publish a GitHub Release carrying that binary (the source archive is
-# GitHub's own). Tags don't trigger ci.yml (its push filter is branch-only), so the gate here is
-# what stands between a tag and its release.
+# Release: on a version tag, verify the tagged commit is on main -- the branch where every push runs
+# ci.yml's full matrix (corpus sweep, arm64, sanitizers, tidy shards, consumer); tags alone don't
+# trigger ci.yml, so this check is what stops a tag on an unvetted commit from shipping. Ancestry
+# proves the commit went through main, not that its matrix run finished green (a push superseded
+# quickly enough gets its run cancelled, and stays an ancestor) -- confirming the run is on whoever
+# tags. Then re-run the default gate against the commit, build an optimized rapidprotoc, and publish
+# a GitHub Release carrying that binary (the source archive is GitHub's own). The ./check.sh below
+# is deliberately the DEFAULT stages, not the matrix: the rest is main's job.
 name: Release
 
 on:
@@ -16,8 +20,19 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # the ancestor check below needs main's history, not a depth-1 tag
+      - name: Require the tagged commit to be on main (ci.yml's matrix gated it there)
+        # HEAD, not GITHUB_SHA: on an annotated-tag push the latter can name the TAG OBJECT;
+        # checkout has already peeled HEAD to the commit, so HEAD sidesteps the quirk entirely.
+        run: |
+          git merge-base --is-ancestor HEAD origin/main || {
+            echo "::error::tag ${GITHUB_REF_NAME} points at $(git rev-parse HEAD), which is not on"
+            echo "::error::main -- no full CI matrix has gated it; merge it via a PR first."
+            exit 1
+          }
       - uses: ./.github/actions/setup-toolchain
-      - name: Quality gate (./check.sh)
+      - name: Quality gate (./check.sh, default stages)
         run: ./check.sh
       - name: Build the release binary
         run: |
