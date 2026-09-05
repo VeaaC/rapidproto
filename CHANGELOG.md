@@ -151,7 +151,7 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
   architecture-sensitive stages on linux-arm64, a system-compiler build + test + compile-fail run
   on macOS), and a failed leg blocks the whole release rather than publishing without one binary.
   CI now also builds and tests every push/PR on macOS (AppleClang + libc++). The macOS binary is
-  unsigned/un-notarized: clear the quarantine flag after downloading
+  unsigned/un-notarized: if Gatekeeper blocks it after extracting, clear the quarantine flag
   (`xattr -d com.apple.quarantine rapidprotoc`).
 
 - **`rapidprotoc --list-outputs` and `--list-inputs`: dry runs for build systems.** The first

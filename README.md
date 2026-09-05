@@ -76,8 +76,9 @@ Using CMake? The [`rapidproto_generate()` helper](docs/integration.md#cmake-inte
 generation into your build in a few lines. This section drives the tool by hand so each step is
 visible. Grab a prebuilt `rapidprotoc` from the
 [releases page](https://github.com/VeaaC/rapidproto/releases) (prebuilt Linux and macOS
-tarballs, license files included; the macOS binary is unsigned — clear the quarantine flag with
-`xattr -d com.apple.quarantine rapidprotoc` after extracting) — or build it once:
+tarballs, license files included; the macOS binary is unsigned — if Gatekeeper blocks it after
+extracting, clear the quarantine flag: `xattr -d com.apple.quarantine rapidprotoc`) — or build it
+once:
 
 ```sh
 cmake --preset release                               # system compiler, optimized

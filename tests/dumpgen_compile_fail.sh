@@ -18,7 +18,9 @@ CXX="${1:-c++}"
 # Shared expect_fail / expect_pass (and the CXX convention): tests/compile_fail_lib.sh.
 source "$(dirname "$0")/compile_fail_lib.sh"
 # Overridable so a caller that built elsewhere tests ITS binary, not a stale build/gcc one --
-# tests/system_build_test.sh points this at build/default (same shape as check_generate_names.sh).
+# tests/system_build_test.sh points this at build/default. An env var rather than a positional
+# because $1 is already the compiler; check.sh pins it at ITS call site so an ambient value
+# cannot redirect the gate.
 BIN="${RAPIDPROTOC:-$ROOT/build/gcc/rapidprotoc}"
 
 if [[ ! -x "$BIN" ]]; then
@@ -26,7 +28,8 @@ if [[ ! -x "$BIN" ]]; then
 fi
 # A template, not bare `mktemp -d`: the no-argument form is a GNU extension; BSD/macOS mktemp
 # requires one, and this script is on the macOS CI path.
-WORK="$(mktemp -d "${TMPDIR:-/tmp}/rp-dumpgen.XXXXXX")" || { echo ">> cannot create a work dir"; exit 1; }
+TMP_BASE="${TMPDIR:-/tmp}"
+WORK="$(mktemp -d "${TMP_BASE%/}/rp-dumpgen.XXXXXX")" || { echo ">> cannot create a work dir"; exit 1; }
 trap 'rm -rf "$WORK"' EXIT
 
 cat > "$WORK/d.proto" <<'PROTO'

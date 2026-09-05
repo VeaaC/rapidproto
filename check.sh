@@ -40,7 +40,9 @@
 set -uo pipefail
 
 # The floor is a fact three comments state; enforce it so a stock-macOS bash 3.2 gets this
-# sentence instead of an obscure `local -n` syntax error. (4.4: namerefs, globstar, mapfile -d.)
+# sentence instead of what it otherwise does: globstar fails NON-fatally, the ** globs silently
+# under-match, mapfile is command-not-found, and `local -n` errors at runtime hundreds of lines
+# later. (4.4: namerefs, globstar, mapfile -d.)
 if ((BASH_VERSINFO[0] < 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] < 4))); then
   echo ">> check.sh needs bash >= 4.4 (this is ${BASH_VERSION}). On macOS, run" >&2
   echo "   tests/system_build_test.sh instead -- the system-compiler build/test sequence." >&2
@@ -769,16 +771,18 @@ job_doc_links() {
 }
 
 job_fixtures() {
-  # Syntax-check every shell script first: tests/*.sh includes scripts no gate stage EXECUTES on
-  # this platform (tests/system_build_test.sh runs only on the macOS legs), so without this a
-  # broken one merges green and fails where it is hardest to debug.
+  # Syntax-check every tracked shell script first: some are EXECUTED by no gate stage on this
+  # platform (tests/system_build_test.sh runs only on the macOS legs), so a parse error would
+  # otherwise merge green and fail where it is hardest to debug. Via git ls-files so the
+  # obligation follows the rule, not a directory list. bash -n under the gate's bash proves
+  # PARSEABILITY only -- the macOS jobs are what prove system_build_test.sh's bash-3.2 claim.
   local _sh
-  for _sh in check.sh tests/*.sh; do
+  while IFS= read -r _sh; do
     if ! bash -n "$_sh" 2>&1; then
       echo ">> $_sh does not parse"
       return 1
     fi
-  done
+  done < <(git ls-files '*.sh')
 
   # Every tests/test_*.cpp must be IN the test binary. A file added to tests/ but never added to
   # CMakeLists.txt is compiled by nothing and run by nothing: the format stage checks it, tidy
@@ -905,7 +909,10 @@ job_compile_fail() {
   command -v "$cf_cxx" >/dev/null 2>&1 || cf_cxx=c++
   if out=$(tests/streamgen_compile_fail.sh "$cf_cxx" 2>&1); then tail -1 <<<"$out"; else echo "$out"; rc=1; fi
   if out=$(tests/arenagen_compile_fail.sh "$cf_cxx" 2>&1); then tail -1 <<<"$out"; else echo "$out"; rc=1; fi
-  if out=$(tests/dumpgen_compile_fail.sh "$cf_cxx" 2>&1); then tail -1 <<<"$out"; else echo "$out"; rc=1; fi
+  # RAPIDPROTOC pinned: the script honors it as an override, and an inherited value from the
+  # developer's environment would silently grade a DIFFERENT generator than the one
+  # ensure_gcc_binaries just proved fresh (the same ambient-env hazard as RAPIDPROTO_REGEN_GOLDEN).
+  if out=$(RAPIDPROTOC="$PWD/build/gcc/rapidprotoc" tests/dumpgen_compile_fail.sh "$cf_cxx" 2>&1); then tail -1 <<<"$out"; else echo "$out"; rc=1; fi
   return "$rc"
 }
 
@@ -1184,7 +1191,7 @@ stage_title() {
   case $1 in
     format)       echo "clang-format (check)" ;;
     docs)         echo "doc links + stale spellings" ;;
-    fixtures)     echo "corpus fixture coverage" ;;
+    fixtures)     echo "script syntax + corpus fixture coverage" ;;
     gcc)          echo "build + test (gcc)" ;;
     clang)        echo "build + test (clang)" ;;
     cf)           echo "compile-fail (generated decoder rejects misuse)" ;;

@@ -26,8 +26,7 @@ cmake --build --preset default -j"$JOBS" || exit 1
 echo "=== tests (ctest: unit suite + both example decodes) ==="
 out=$(ctest --preset default 2>&1)
 rc=$?
-printf '%s\n' "$out" | tail -3
-[ "$rc" -eq 0 ] || { printf '%s\n' "$out"; exit 1; }
+if [ "$rc" -eq 0 ]; then printf '%s\n' "$out" | tail -3; else printf '%s\n' "$out"; exit 1; fi
 # Anti-vacuity: a dropped or renamed test target shrinks the ctest list silently -- green with
 # less run. Floor at the three registered tests (unit + the two consumer-example decodes).
 total=$(printf '%s\n' "$out" | sed -n 's/.*tests passed, .* out of \([0-9][0-9]*\).*/\1/p')
