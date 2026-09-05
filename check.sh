@@ -11,6 +11,8 @@
 #                     # corpus sweep -- see `deep`.
 #   ./check.sh fix    # first apply clang-format, then run the full gate
 #   ./check.sh quick  # fast inner loop: apply formatting + gcc build+test only (no clang/tidy)
+#   ./check.sh compilers  # the architecture-sensitive stages only (build+test on both compilers,
+#                     # compile-fail, fuzz-compile) -- what CI's arm64 legs run; see below
 #   ./check.sh deep   # OPT-IN heavy tier (CI / end-of-phase, NOT the inner loop): ASan+UBSan over the
 #                     # full suite, coverage with a line floor, the real-world corpus sweep plus a
 #                     # bounded corpus-compile sample, a goldens-reproduce-from-the-regen-scripts
@@ -93,13 +95,26 @@ section() { printf '\n=== %s ===\n' "$1"; }
 # `./check.sh deeep` used to run the default gate and report ALL GREEN -- the one place a typo gives
 # false confidence about which tier ran.
 case "${1:-}" in
-  ""|fix|quick|deep) ;;
-  *) echo ">> unknown argument '$1' -- expected one of: fix, quick, deep (or no argument)" >&2
+  ""|fix|quick|deep|compilers) ;;
+  *) echo ">> unknown argument '$1' -- expected one of: fix, quick, deep, compilers (or no argument)" >&2
      exit 2 ;;
 esac
 if [[ $# -gt 1 ]]; then   # otherwise `./check.sh deep --fast` silently runs plain `deep`
   echo ">> check.sh takes at most one argument; got: $*" >&2
   exit 2
+fi
+
+# `compilers` = THE home of the architecture-sensitive stage subset, spelled once here for both
+# CI arm64 legs (ci.yml's arm64 job, release.yml's arm64 leg) -- a stage list hand-copied into a
+# workflow once left `names` running locally and never in CI. Implemented as a translation to
+# RAPIDPROTO_GATE_STAGES so it composes with the normal stage validation; setting the variable
+# AND asking for the mode is two stage selections, refused like GATE_STAGES + GATE_SKIP.
+if [[ "${1:-}" == "compilers" ]]; then
+  if [[ -n "${RAPIDPROTO_GATE_STAGES+set}" ]]; then
+    echo ">> './check.sh compilers' and RAPIDPROTO_GATE_STAGES are both stage selections -- use one" >&2
+    exit 2
+  fi
+  export RAPIDPROTO_GATE_STAGES='gcc clang cf fuzz'
 fi
 
 ensure_targets() {  # $1 = build dir; $@ = the targets THIS stage consumes

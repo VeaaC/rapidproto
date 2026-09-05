@@ -73,7 +73,9 @@ messages, keep `protoc` for that side and use RapidProto for the hot decode path
 
 Using CMake? The [`rapidproto_generate()` helper](docs/integration.md#cmake-integration) wires
 generation into your build in a few lines. This section drives the tool by hand so each step is
-visible. Build it once:
+visible. Grab a prebuilt `rapidprotoc` from the
+[releases page](https://github.com/VeaaC/rapidproto/releases) (Linux `x86_64` and `arm64`
+tarballs, license files included) — or build it once:
 
 ```sh
 cmake --preset release                               # system compiler, optimized
