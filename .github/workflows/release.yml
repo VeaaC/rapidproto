@@ -58,8 +58,11 @@ jobs:
           }
       - uses: ./.github/actions/setup-toolchain
       - name: Quality gate (./check.sh ${{ matrix.gate }})
-        # An empty gate renders to a bare `./check.sh` (word-split drops the empty argument),
-        # which is the full default set.
+        # The expression is substituted into the script TEXT, so an empty gate makes this line a
+        # bare `./check.sh` -- the full default set. (check.sh also accepts an explicit empty
+        # argument as the default, so a quoted form would be safe too. Textual substitution also
+        # means a gate value with shell metacharacters would be injected verbatim -- both values
+        # are literals in this file; keep them that way.)
         run: ./check.sh ${{ matrix.gate }}
       - name: Build the release binary
         run: |
