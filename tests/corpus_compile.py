@@ -26,23 +26,23 @@ import sys
 import tempfile
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from fetch_corpus import SOURCES  # noqa: E402  -- each source's declared include_root
+import fetch_corpus  # noqa: E402  -- owns which sources are usable and each file's -I root
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
 CORPUS = REPO / "build" / "corpus"
 NOT_FETCHED = 77
-INCLUDE_ROOT = {s.name: s.include_root for s in SOURCES}
 
 
-def schemas(sample: int) -> list[pathlib.Path]:
+def schemas(sample: int, sources: list) -> list[pathlib.Path]:
     """A sample spread evenly WITHIN EACH corpus source, so a run covers every source's package and
     feature shapes. Sampling the flat sorted list does not: googleapis is 7993 of 8018 files, so an
     evenly-spaced global sample never reaches protobuf's own test schemas -- descriptor.proto, the
     editions files, the groups/extensions shapes -- which sort last. Deterministic (no RNG), so a
     failure reproduces from the same --sample."""
     by_source: dict[str, list[pathlib.Path]] = {}
-    for proto in sorted(CORPUS.rglob("*.proto")):
-        by_source.setdefault(proto.relative_to(CORPUS).parts[0], []).append(proto)
+    for source in sources:  # only the pin-verified sources; a bare rglob sampled stale ones
+        for proto in sorted((CORPUS / source.name).rglob("*.proto")):
+            by_source.setdefault(source.name, []).append(proto)
     if sample <= 0:
         return [p for group in by_source.values() for p in group]
     # Proportional to each source's size, with a floor so a small source is never sampled away:
@@ -69,16 +69,9 @@ def compile_one(binary: pathlib.Path, cxx: str,
     the caller can tell "nothing to compile" from "compiled clean" -- reporting a count of SAMPLED
     schemas would let this leg print green having invoked the compiler zero times."""
     rel = proto.relative_to(CORPUS)
-    # The -I each source DECLARES, not its checkout root: protobuf's schemas import relative to
-    # `src` and the benchmarks' to `benchmarks`, so rooting at the checkout made every cross-import
-    # schema fail to generate -- silently, since a rejected schema is corpus_gate.py's business.
-    # That threw away most of what sampling the small sources was for (the group and deep-nesting
-    # shapes). tests/corpus_gate.py has always honoured this; this leg did not.
-    #
-    # Files OUTSIDE that root (protobuf keeps its editions/conformance schemas beside `src`, not in
-    # it) fall back to the source root, which is what they import relative to.
-    declared = CORPUS / rel.parts[0] / INCLUDE_ROOT.get(rel.parts[0], ".")
-    root = declared if declared in proto.parents else CORPUS / rel.parts[0]
+    # The fetcher owns the -I rule (declared include_root, checkout-root fallback for files
+    # outside it); asking it keeps this leg and corpus_gate.py answering identically.
+    root = fetch_corpus.include_root_for(CORPUS, proto)
     with tempfile.TemporaryDirectory(prefix="rp_cc_") as tmp:
         out = pathlib.Path(tmp)
         gen = subprocess.run(
@@ -118,15 +111,28 @@ def main() -> int:
     ap.add_argument("--jobs", type=int, default=8)
     args = ap.parse_args()
 
-    if not CORPUS.is_dir():
+    present, stale, absent = fetch_corpus.fetched_sources(CORPUS)
+    if stale:
+        # A wrong-commit checkout must not be quietly sampled: the summary would claim corpus
+        # coverage the pinned corpus never got (corpus_gate treats this the same way).
+        print(f">> corpus sources not at their pinned refs: {', '.join(stale)} -- "
+              f"re-run tests/fetch_corpus.py", file=sys.stderr)
+        return 1
+    if not present:
         print("corpus compile: not fetched (run tests/fetch_corpus.py) -- skipped")
         return NOT_FETCHED
+    if absent:
+        # Partial is an ERROR, not a smaller run (the 0.1-era lesson: a corpus 0.09% present
+        # passed identically to a full one). All-absent above is the one legitimate skip.
+        print(f">> corpus partially fetched (missing: {', '.join(absent)}) -- "
+              f"re-run tests/fetch_corpus.py", file=sys.stderr)
+        return 1
     binary = pathlib.Path(args.rapidprotoc).resolve()
     if not binary.is_file():
         print(f">> {binary} not found", file=sys.stderr)
         return 1
 
-    picked = schemas(args.sample)
+    picked = schemas(args.sample, present)
     failures = []
     compiled = 0
     compiled_sources: set[str] = set()

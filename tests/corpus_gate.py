@@ -79,27 +79,9 @@ def load_expected(path: Path) -> dict[str, str]:
     return expected
 
 
-def fetched_sources(corpus: Path) -> tuple[list[fetch_corpus.Source], list[str], list[str]]:
-    """Split the declared sources into (present-and-at-their-pin, stale, absent).
-
-    Reuses fetch_corpus's own staleness check -- stamp AND `git rev-parse HEAD` against the
-    pinned commit -- rather than trusting that a directory exists. Deriving the source list
-    from fetch_corpus.SOURCES (instead of a local copy) means a source added to the fetcher
-    cannot be silently left out of the sweep.
-
-    Stale and absent are separate because they mean opposite things to the caller: nothing
-    fetched at all is a legitimate skip (the corpus is optional and CI's deep job runs without
-    it), while a checkout sitting at the wrong commit is the loudest failure this gate has.
-    """
-    present, stale, absent = [], [], []
-    for source in fetch_corpus.SOURCES:
-        if fetch_corpus.is_current(corpus, source):
-            present.append(source)
-        elif (corpus / source.name).is_dir():
-            stale.append(source.name)
-        else:
-            absent.append(source.name)
-    return present, stale, absent
+def fetched_sources(corpus: Path) -> tuple[list, list[str], list[str]]:
+    """Delegates to fetch_corpus.fetched_sources -- the fetcher owns "what is usable"."""
+    return fetch_corpus.fetched_sources(corpus)
 
 
 def schemas(corpus: Path, sources: list[fetch_corpus.Source]) -> list[tuple[str, Path, Path]]:
@@ -107,9 +89,11 @@ def schemas(corpus: Path, sources: list[fetch_corpus.Source]) -> list[tuple[str,
     found = []
     for source in sources:
         base = corpus / source.name
-        root = (base / source.include_root).resolve()
         for path in sorted(base.rglob("*.proto")):
-            found.append((str(path.relative_to(corpus)), root, path))
+            # The fetcher owns the -I rule (declared include_root, checkout-root fallback for
+            # files outside it) so this sweep and the compile sample cannot disagree on it.
+            found.append((str(path.relative_to(corpus)), fetch_corpus.include_root_for(corpus, path),
+                          path))
     return found
 
 

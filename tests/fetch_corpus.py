@@ -213,6 +213,43 @@ def is_current(dest: Path, source: Source) -> bool:
         return False  # not a usable checkout, whatever the stamp says
     return head == source.sha
 
+def fetched_sources(dest: Path) -> "tuple[list[Source], list[str], list[str]]":
+    """Split SOURCES into (present-and-at-their-pin, stale, absent) under `dest`.
+
+    THE answer to "which corpus sources are usable" -- corpus_gate, corpus_compile and
+    compile_bench all ask here rather than re-deriving it (one of them used to trust a bare
+    directory listing, which sampled a stale or half-fetched corpus silently). Stale and absent
+    stay separate because they mean opposite things: nothing fetched is a legitimate skip, a
+    checkout at the wrong commit is the loudest failure the corpus consumers have.
+    """
+    present, stale, absent = [], [], []
+    for source in SOURCES:
+        if is_current(dest, source):
+            present.append(source)
+        elif (dest / source.name).is_dir():
+            stale.append(source.name)
+        else:
+            absent.append(source.name)
+    return present, stale, absent
+
+
+def include_root_for(dest: Path, proto: Path) -> Path:
+    """The -I root a corpus file is generated with, in ONE place.
+
+    The source's DECLARED include_root (protobuf's schemas import relative to `src`, the
+    benchmarks' to `benchmarks`), falling back to the source's checkout root for files that live
+    OUTSIDE it (protobuf keeps its editions/conformance schemas beside `src`, and those import
+    relative to the checkout). corpus_gate and corpus_compile used to answer this independently
+    and differed on exactly the outside-root files.
+    """
+    rel = proto.relative_to(dest)
+    source_dir = dest / rel.parts[0]
+    declared_rel = next((s.include_root for s in SOURCES if s.name == rel.parts[0]), ".")
+    declared = (source_dir / declared_rel).resolve()
+    return declared if declared in proto.resolve().parents else source_dir.resolve()
+
+
+
 
 def is_ours(path: Path) -> bool:
     """Whether `path` looks like a checkout this script created (and may therefore delete)."""

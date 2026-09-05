@@ -77,6 +77,8 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 SNAPDIR = REPO / "bench_snapshots"
 CORPUS = REPO / "build" / "corpus"
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import fetch_corpus  # noqa: E402  -- owns the corpus pins and each source's -I root
 
 # Arena decode entry points, e.g. `inline const Outer::Inner* Outer::Inner::decode(...)`. The
 # qualified name is what a call site needs, and it is the same inside the streaming namespace.
@@ -109,10 +111,11 @@ class Case:
     name: str
     # schema/include are unused when chain_depth is set: that case is synthesized into a temp
     # directory instead of read from the tree.
-    schema: str = ""  # relative to REPO, or to CORPUS when needs_corpus
-    include: str = ""  # -I root, same convention
+    schema: str = ""  # relative to REPO, or to CORPUS when corpus_source is set
+    include: str = ""  # -I root, same convention; EMPTY for corpus cases (derived from the
+    # source's declared include_root, so this file cannot restate it wrongly)
     max_messages: int | None = None
-    needs_corpus: bool = False
+    corpus_source: str | None = None  # fetch_corpus source name; None = in-repo schema
     chain_depth: int | None = None
 
 
@@ -132,9 +135,9 @@ CASES: list[Case] = [
     # (the first decoder already drags in the closure and the rest reuse it). compute.proto is wide
     # and shallow (103k lines, 2223 decoders), where the cap is doing real work.
     Case("descriptor", "protobuf/src/google/protobuf/descriptor.proto",
-         "protobuf/src", max_messages=5, needs_corpus=True),
+         max_messages=5, corpus_source="protobuf"),
     Case("compute", "googleapis/google/cloud/compute/v1beta/compute.proto",
-         "googleapis", max_messages=10, needs_corpus=True),
+         max_messages=10, corpus_source="googleapis"),
 ]
 
 DEFAULT_COMPILERS = ["g++-13", "clang++-20"]
@@ -251,13 +254,19 @@ def emit_tu(path: Path, header: str, namespace: str, names: list[str], model: st
 
 def run_case(tool: Path, case: Case, compiler: str, work: Path) -> list[dict]:
     """Generate once, then measure both models over the SAME decoder set."""
-    root = CORPUS if case.needs_corpus else REPO
+    root = CORPUS if case.corpus_source else REPO
     if case.chain_depth is not None:
         schema, include = write_chain(work, case.chain_depth), work
     else:
-        schema, include = root / case.schema, root / case.include
+        schema = root / case.schema
+        if case.corpus_source:
+            # The fetcher owns each source's -I root; main() already verified the pin, so a
+            # missing schema here is a moved file, not a drifted checkout.
+            include = fetch_corpus.include_root_for(CORPUS, schema)
+        else:
+            include = root / case.include
         if not schema.is_file():
-            raise SystemExit(f"{case.name}: {schema} not found (corpus pin drifted?)")
+            raise SystemExit(f"{case.name}: {schema} not found (moved upstream?)")
 
     out = work / f"gen-{case.name}"
     out.mkdir(parents=True, exist_ok=True)
@@ -274,6 +283,20 @@ def run_case(tool: Path, case: Case, compiler: str, work: Path) -> list[dict]:
             f"{case.name}: found no decoders in {arena_header.name}. The generated shape no "
             f"longer matches DECODE_DEF, so this would have measured an empty translation unit."
         )
+    # The per-model roots (PR #50) made the out-of-line spellings ABSOLUTE (`::rp::arena::p3::M`).
+    # Strip the arena header's own namespace so `names` is model-agnostic again -- each model's TU
+    # below re-qualifies against ITS header's root, which is what lets one captured list drive
+    # both models (re-qualifying the absolute names doubled the root and broke every TU).
+    arena_ns = namespace_of(arena_header)
+    prefix = f"::{arena_ns}::" if arena_ns else "::"
+    relative = []
+    for name in names:
+        if not name.startswith(prefix):
+            raise SystemExit(
+                f"{case.name}: decoder {name} is outside {arena_header.name}'s own namespace "
+                f"({arena_ns}) -- DECODE_DEF drifted from the generator's spelling.")
+        relative.append(name[len(prefix):])
+    names = relative
     capped = names[: case.max_messages] if case.max_messages else names
     digest = hashlib.sha256("\n".join(capped).encode()).hexdigest()[:12]
 
@@ -317,8 +340,20 @@ def cmd_run(args: argparse.Namespace) -> int:
         if unknown:
             raise SystemExit(f"unknown case(s): {', '.join(unknown)}")
     # Record what was left out, in the snapshot itself: a case that vanishes silently is how a
-    # shrinking benchmark comes to look like a passing one.
-    skipped = [c.name for c in cases if c.needs_corpus and not CORPUS.is_dir()]
+    # shrinking benchmark comes to look like a passing one. Availability is PER SOURCE via the
+    # fetcher's own pin check -- `CORPUS.is_dir()` used to pass with one source fetched and then
+    # die inside the other source's case where a skip was intended -- and a present-but-stale
+    # checkout is an error, not a skip (the numbers would claim a corpus they never saw).
+    source_by_name = {s.name: s for s in fetch_corpus.SOURCES}
+    stale = sorted({c.corpus_source for c in cases
+                    if c.corpus_source and (CORPUS / c.corpus_source).is_dir()
+                    and not fetch_corpus.is_current(CORPUS, source_by_name[c.corpus_source])})
+    if stale:
+        raise SystemExit(f"corpus sources not at their pinned refs: {', '.join(stale)} -- "
+                         f"re-run tests/fetch_corpus.py")
+    skipped = [c.name for c in cases
+               if c.corpus_source
+               and not fetch_corpus.is_current(CORPUS, source_by_name[c.corpus_source])]
     cases = [c for c in cases if c.name not in skipped]
     if not cases:
         raise SystemExit("no cases to run (corpus not fetched? see tests/fetch_corpus.py)")

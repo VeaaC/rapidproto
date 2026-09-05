@@ -6,6 +6,11 @@ rapidproto::wellknown_source() (declared in include/rapidproto/wellknown.hpp). T
 generated file is checked in; re-run this script whenever the vendored sources change:
 
     python3 wellknown/embed_wellknown.py
+
+`--check` renders without writing and exits 1 on drift. check.sh's fixtures stage runs it, so
+"re-run whenever the sources change" is a gate, not a memory: editing a vendored .proto without
+regenerating used to ship a silently stale embed (test_wellknown pins the 11 names, which
+catches a REMOVAL but not an edit or an addition).
 """
 
 import pathlib
@@ -18,7 +23,7 @@ DELIM = "RPWKT"  # raw-string delimiter; must not appear as )RPWKT" in any sourc
 IMPORT_PREFIX = "google/protobuf/"
 
 
-def main() -> None:
+def render() -> str:
     protos = sorted(SRC_DIR.glob("*.proto"))
     if not protos:
         sys.exit("embed_wellknown: no .proto files in wellknown/")
@@ -54,8 +59,21 @@ def main() -> None:
     out.append("}\n\n")
     out.append("}  // namespace rapidproto\n")
 
-    OUT.write_text("".join(out), encoding="utf-8")
-    print(f"embed_wellknown: wrote {OUT.relative_to(REPO)} ({len(protos)} types)")
+    return "".join(out)
+
+
+def main() -> None:
+    text = render()
+    count = text.count("constexpr std::string_view")
+    if "--check" in sys.argv[1:]:
+        current = OUT.read_text(encoding="utf-8") if OUT.is_file() else ""
+        if current != text:
+            sys.exit(f"embed_wellknown: {OUT.relative_to(REPO)} is STALE against wellknown/*.proto"
+                     f" -- re-run wellknown/embed_wellknown.py and commit the result")
+        print(f"embed_wellknown: {OUT.relative_to(REPO)} is current ({count} types)")
+        return
+    OUT.write_text(text, encoding="utf-8")
+    print(f"embed_wellknown: wrote {OUT.relative_to(REPO)} ({count} types)")
 
 
 if __name__ == "__main__":
