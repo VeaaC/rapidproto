@@ -16,13 +16,18 @@ decoded tree into data a script can walk, and the dumper is the only thing that 
 through the same public accessors a consumer would, so a wrong decoded VALUE still shows up here;
 only a dumper formatting bug could produce a false mismatch, and those the golden tests pin.
 
+Payloads are not only what protobuf's serializer emits: any payload the wire shuffler can change
+is also decoded in its shuffled form (records permuted, packed <-> expanded re-encoded, a
+singular scalar duplicated -- see the wire-shape mutation section), so out-of-order tags, both
+packings and last-one-wins get their VALUES compared here rather than only their crash-safety
+fuzzed.
+
 What this cannot cover, by construction:
   - extensions, which RapidProto never materializes -- the generator below skips them
   - unknown fields, since payloads are built from the same schema that decodes them
-  - wire shapes protobuf's serializer never emits. Every payload is canonical: fields in tag order,
-    each repeated field in its declared packing, no field repeated for a singular slot. So the
-    in-order fast path is what gets exercised here; out-of-order tags, packed/expanded mismatches and
-    last-one-wins are pinned by the wire tests and the fuzzers instead.
+  - the wire shapes the mutation section leaves alone (map-entry body order, duplicated LEN
+    records, non-minimal varints ...) -- see there for which are fuzzer-covered and which are
+    excluded as documented divergences
 
 Editions schemas skip unless the local protoc and protobuf bindings are new enough for them
 (editions went GA in protoc v27), and that is accepted rather than worked around. Editions do not
@@ -230,6 +235,186 @@ def fill_random(message, rng: random.Random, depth: int = 0) -> None:
             continue
 
         setattr(message, field.name, _random_scalar(field, rng))
+
+
+# ── wire-shape mutation ──────────────────────────────────────────────────────────────────────────
+#
+# protobuf's serializer emits ONE canonical shape: fields in tag order, each repeated field in its
+# declared packing, no tag repeated for a singular slot. Feeding only that would leave the arena
+# decoder's in-order fast path as the only path this test value-compares. So every payload is also
+# checked in a shuffled variant that any protobuf parser must accept with identical semantics:
+#   - one singular scalar record duplicated, the perturbed copy inserted BEFORE the original --
+#     so last-one-wins is load-bearing, not vacuously satisfied by equal values
+#   - repeated scalar fields re-encoded packed <-> expanded (parsers must accept either form
+#     regardless of the declared packing)
+#   - the top-level records permuted, preserving relative order WITHIN each field number -- that
+#     order is semantics: repeated element order, and which duplicate wins
+# The oracle needs no changes; it re-parses whatever bytes it is handed. Mutating the top level
+# covers nested messages too -- a nested message shares its decode loop with the top-level entry
+# point check_message drives for its type -- with two exceptions: map-ENTRY bodies are dispatch
+# loops of their own, inlined into the parent's decoder, so value-before-key, duplicated keys and
+# absent halves stay with the fuzzers; and imported types that are no corpus schema of their own
+# (usewkt.proto's well-known types) are never driven as a top level, so their loops see only
+# canonical bytes. Also left to the fuzzers: duplicated string/bytes records, cross-member oneof
+# duplicates, and non-minimal varints.
+#
+# Two duplications are excluded because they would MANUFACTURE a documented decode divergence
+# (docs/semantics.md), not add coverage -- the mutation must not produce records whose meaning
+# the two sides define differently, even where the duplicate loses. Enum records: an unknown
+# number in a closed enum becomes an unknown field in protobuf, while RapidProto treats every
+# enum as open. Singular sub-message records: protobuf merges the duplicates, RapidProto rejects
+# them. (Packed<->expanded re-encoding preserves every element byte-for-byte, so enums do take
+# part in that.)
+
+
+def _read_varint(buf: bytes, pos: int) -> tuple[int, int]:
+    result = shift = 0
+    while True:
+        byte = buf[pos]
+        pos += 1
+        result |= (byte & 0x7F) << shift
+        if not byte & 0x80:
+            return result, pos
+        shift += 7
+
+
+def _encode_varint(value: int) -> bytes:
+    out = bytearray()
+    while True:
+        byte = value & 0x7F
+        value >>= 7
+        out.append(byte | (0x80 if value else 0))
+        if not value:
+            return bytes(out)
+
+
+def _record_end(buf: bytes, pos: int, wire: int) -> int:
+    """The end of one record's value starting at `pos`. Input comes from protobuf's serializer,
+    so malformed framing is a bug here, not input to tolerate."""
+    if wire == 0:
+        return _read_varint(buf, pos)[1]
+    if wire == 1:
+        return pos + 8
+    if wire == 5:
+        return pos + 4
+    if wire == 2:
+        length, pos = _read_varint(buf, pos)
+        return pos + length
+    if wire == 3:  # group: records until the matching end-group, nesting included
+        while True:
+            tag, pos = _read_varint(buf, pos)
+            if tag & 7 == 4:
+                return pos
+            pos = _record_end(buf, pos, tag & 7)
+    raise ValueError(f"unexpected wire type {wire}")
+
+
+def wire_records(buf: bytes) -> list[tuple[int, int, bytes]]:
+    """Split serialized bytes into top-level (field_number, wire_type, record_bytes) records;
+    record_bytes includes the tag."""
+    records, pos = [], 0
+    while pos < len(buf):
+        tag, value_start = _read_varint(buf, pos)
+        end = _record_end(buf, value_start, tag & 7)
+        records.append((tag >> 3, tag & 7, buf[pos:end]))
+        pos = end
+    return records
+
+
+def _dup_singular_scalar(records, descriptor, rng: random.Random):
+    """Insert a value-perturbed copy of one singular numeric record before the original."""
+    from google.protobuf.descriptor import FieldDescriptor as FD
+
+    fields = {f.number: f for f in descriptor.fields}
+    candidates = []
+    for index, (number, wire, _) in enumerate(records):
+        field = fields.get(number)
+        if (wire in (0, 1, 5) and field is not None
+                and field.label != FD.LABEL_REPEATED and field.type != FD.TYPE_ENUM):
+            candidates.append(index)
+    if not candidates:
+        return records
+    index = rng.choice(candidates)
+    number, wire, raw = records[index]
+    _, value_start = _read_varint(raw, 0)
+    if wire == 0:
+        value, _ = _read_varint(raw, value_start)
+        # ^1 keeps the value in every integer field's range (and flips a serialized bool cleanly).
+        mutated = raw[:value_start] + _encode_varint(value ^ 1)
+    else:  # fixed32/64: flip the low bit of the last value byte
+        mutated = raw[:-1] + bytes([raw[-1] ^ 1])
+    return records[:index] + [(number, wire, mutated)] + records[index:]
+
+
+def _split_packed(payload: bytes, elem_wire: int) -> list[bytes]:
+    pieces, pos = [], 0
+    size = {1: 8, 5: 4}.get(elem_wire)
+    while pos < len(payload):
+        end = _read_varint(payload, pos)[1] if size is None else pos + size
+        pieces.append(payload[pos:end])
+        pos = end
+    return pieces
+
+
+def _flip_packing(records, descriptor, rng: random.Random):
+    """Re-encode ~half the repeated packable scalar fields present: packed records split into
+    per-element records, expanded records merged into one packed record at the first's position."""
+    from google.protobuf.descriptor import FieldDescriptor as FD
+
+    fixed = {FD.TYPE_FLOAT: 5, FD.TYPE_FIXED32: 5, FD.TYPE_SFIXED32: 5,
+             FD.TYPE_DOUBLE: 1, FD.TYPE_FIXED64: 1, FD.TYPE_SFIXED64: 1}
+    flip = {}  # field number -> that field's scalar element wire type
+    for field in descriptor.fields:
+        if (field.label == FD.LABEL_REPEATED and field.type != FD.TYPE_STRING
+                and field.type != FD.TYPE_BYTES and not is_message(field)
+                and rng.random() < 0.5):
+            flip[field.number] = fixed.get(field.type, 0)
+    elements = {}  # expanded records' value bytes per flipped field, in order
+    for number, wire, raw in records:
+        if number in flip and wire != 2:
+            elements.setdefault(number, []).append(raw[_read_varint(raw, 0)[1]:])
+    out, packed_done = [], set()
+    for number, wire, raw in records:
+        elem_wire = flip.get(number)
+        if elem_wire is None:
+            out.append((number, wire, raw))
+        elif wire == 2:  # packed -> expanded
+            _, pos = _read_varint(raw, 0)
+            length, pos = _read_varint(raw, pos)
+            tag = _encode_varint(number << 3 | elem_wire)
+            for piece in _split_packed(raw[pos:pos + length], elem_wire):
+                out.append((number, elem_wire, tag + piece))
+        elif number not in packed_done:  # expanded -> packed
+            packed_done.add(number)
+            payload = b"".join(elements[number])
+            out.append((number, 2,
+                        _encode_varint(number << 3 | 2) + _encode_varint(len(payload)) + payload))
+    return out
+
+
+def _permute_records(records, rng: random.Random):
+    order = list(range(len(records)))
+    rng.shuffle(order)
+    permuted = [records[i] for i in order]
+    # Restore relative order within each field number: same-field records land in whatever
+    # positions the shuffle gave that field, but in their original sequence.
+    positions: dict[int, list[int]] = {}
+    for slot, (number, _, _) in enumerate(permuted):
+        positions.setdefault(number, []).append(slot)
+    originals: dict[int, list] = {}
+    for record in records:
+        originals.setdefault(record[0], []).append(record)
+    for number, slots in positions.items():
+        for slot, record in zip(slots, originals[number]):
+            permuted[slot] = record
+    return permuted
+
+
+def shuffle_wire(encoded: bytes, descriptor, rng: random.Random) -> bytes:
+    records = wire_records(encoded)
+    records = _dup_singular_scalar(records, descriptor, rng)
+    records = _flip_packing(records, descriptor, rng)
+    return b"".join(raw for _, _, raw in _permute_records(records, rng))
 
 
 # ── canonical forms ──────────────────────────────────────────────────────────────────────────────
@@ -449,17 +634,38 @@ def check_message(harness: Path, work: Path, factory, descriptor, meta, count: i
         except Exception as error:  # noqa: BLE001 - report and move on
             return ["%s: protobuf could not serialize a generated message: %s"
                     % (descriptor.full_name, error)]
-        blob += struct.pack("<I", len(encoded)) + encoded
-        # The oracle is protobuf's own DECODE of these bytes, not the message we filled in: both
-        # sides then answer the same question, and a protobuf round-trip disagreement cannot pass
-        # for agreement.
-        expected.append((message_class.FromString(encoded), encoded))
+        # A payload the wire shuffler can change is decoded twice: as serialized, and shuffled
+        # (see the mutation section above) -- otherwise the canonical shape is the only one whose
+        # VALUES are ever compared. Single-record payloads often shuffle to themselves; decoding
+        # identical bytes twice proves nothing, so those variants are dropped.
+        try:
+            shuffled = shuffle_wire(encoded, descriptor, rng) if encoded else encoded
+        except Exception as error:  # noqa: BLE001 - a crashed wire mutator must not kill the sweep
+            return ["%s: the wire mutator crashed: %r\n    payload: %s"
+                    % (descriptor.full_name, error, encoded.hex())]
+        variants = [("serialized", encoded)]
+        if shuffled != encoded:
+            variants.append(("shuffled", shuffled))
+        for label, payload in variants:
+            blob += struct.pack("<I", len(payload)) + payload
+            # The oracle is protobuf's own DECODE of these bytes, not the message we filled in:
+            # both sides then answer the same question, a protobuf round-trip disagreement cannot
+            # pass for agreement -- and the mutator gets no say in what its shuffle "should" mean.
+            try:
+                expected.append((message_class.FromString(payload), payload, label))
+            except Exception as error:  # noqa: BLE001 - a broken mutator must name itself
+                if label == "serialized":
+                    raise  # protobuf rejecting its own serializer's bytes is not ours to classify
+                return ["%s: protobuf rejected a shuffled payload -- the wire mutator broke "
+                        "framing: %s\n    payload: %s"
+                        % (descriptor.full_name, error, payload.hex())]
     payload_file.write_bytes(bytes(blob))
     if seed_dir is not None:
         # One file per payload, for use as a fuzzer seed corpus (see check.sh's fuzz smoke). These
-        # are valid messages over real schemas, which is what a mutation-based fuzzer needs to reach
+        # are valid messages over real schemas -- the shuffled variants included, so non-canonical
+        # shapes seed the fuzzers too -- which is what a mutation-based fuzzer needs to reach
         # decoder arms it would otherwise take a very long time to stumble into.
-        for index, (_, encoded) in enumerate(expected):
+        for index, (_, encoded, _) in enumerate(expected):
             (seed_dir / f"{descriptor.full_name}.{index}.bin").write_bytes(encoded)
 
     result = run([str(harness), "." + descriptor.full_name, str(payload_file)])
@@ -471,21 +677,22 @@ def check_message(harness: Path, work: Path, factory, descriptor, meta, count: i
                 % (descriptor.full_name, len(lines), len(expected))]
 
     failures = []
-    for index, (line, (message, encoded)) in enumerate(zip(lines, expected)):
+    for index, (line, (message, encoded, label)) in enumerate(zip(lines, expected)):
         if line == "!decode-failed":
-            failures.append("%s #%d: RapidProto rejected bytes protobuf produced\n    payload: %s"
-                            % (descriptor.full_name, index, encoded.hex()))
+            failures.append("%s #%d (%s): RapidProto rejected bytes protobuf accepts"
+                            "\n    payload: %s"
+                            % (descriptor.full_name, index, label, encoded.hex()))
             continue
         try:
             dumped = canon_dump(parse_dump(line), descriptor, meta["enums"])
         except (ValueError, AssertionError) as error:
-            failures.append("%s #%d: dump not usable (%s)\n    dump: %s"
-                            % (descriptor.full_name, index, error, line[:400]))
+            failures.append("%s #%d (%s): dump not usable (%s)\n    dump: %s"
+                            % (descriptor.full_name, index, label, error, line[:400]))
             continue
         wanted = canon_protobuf(message)
         if dumped != wanted:
-            failures.append("%s #%d: fields differ\n    %s\n    payload: %s"
-                            % (descriptor.full_name, index,
+            failures.append("%s #%d (%s): fields differ\n    %s\n    payload: %s"
+                            % (descriptor.full_name, index, label,
                                describe_difference(wanted, dumped), encoded.hex()))
     return failures
 
@@ -621,20 +828,24 @@ def main() -> int:
         print("   skipped " + reason)
     for failure in failures:
         print(">> " + failure)
-    # Harness failures are counted apart from mismatches: one means our tools broke, the other
+    # Tool failures are counted apart from mismatches: one means our tools broke, the other
     # means a decode disagreed with protobuf, and reporting a tool failure as a "mismatch" sends
-    # the reader looking for a decode bug that is not there.
-    harness_failures = sum(1 for f in failures if "rejects a protoc-valid schema" in f
-                           or "diffgen failed" in f or "harness does not compile" in f)
-    mismatches = len(failures) - harness_failures
-    print("differential: %d message types over %d schemas, %d payloads each, %d mismatches "
-          "(%d schemas skipped%s)" % (checked, len(schemas) - len(skipped) - harness_failures,
+    # the reader looking for a decode bug that is not there. Build-level failures abort their
+    # whole schema (build_schema raises), so they alone subtract from the schema count; a wire
+    # mutator failure is per message type and leaves the rest of its schema checked.
+    build_failures = sum(1 for f in failures if "rejects a protoc-valid schema" in f
+                         or "diffgen failed" in f or "harness does not compile" in f)
+    tool_failures = build_failures + sum(1 for f in failures if "wire mutator" in f)
+    mismatches = len(failures) - tool_failures
+    print("differential: %d message types over %d schemas, %d payloads each (plus wire-shuffled "
+          "variants), %d mismatches "
+          "(%d schemas skipped%s)" % (checked, len(schemas) - len(skipped) - build_failures,
                                       args.messages, mismatches, len(skipped),
-                                      ", %d harness failure%s"
-                                      % (harness_failures, "" if harness_failures == 1 else "s")
-                                      if harness_failures else ""))
+                                      ", %d tool failure%s"
+                                      % (tool_failures, "" if tool_failures == 1 else "s")
+                                      if tool_failures else ""))
     if checked == 0:
-        why = ("every schema hit a harness failure" if harness_failures else "every schema skipped")
+        why = ("every schema hit a tool failure" if tool_failures else "every schema skipped")
         print(">> nothing was checked: %s. Something upstream is broken -- a green result here "
               "would mean only that the test ran, not that anything decoded." % why)
         return 1

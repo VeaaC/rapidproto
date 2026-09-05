@@ -1,0 +1,98 @@
+// The protoc-VALID subset of arena_naming.proto, so its naming shapes run differentially. That
+// fixture is rejected by protoc as a whole (its Collide.FooEntry deliberately collides with the
+// map entry protoc synthesizes), which kept every shape in it out of tests/differential.py. The
+// protoc-valid naming.proto already exercises reserved-name escaping, keyword escaping and
+// parent/child dedup differentially; what decoded NOWHERE until this file are the oneof reader
+// renames (the `config_()` reader, the `Callback_` tag struct), the map-entry rename
+// (`FooEntry_`), the derived-storage dedups (m_x, Sibling, MaskOneof, Bytes) and the
+// C++20-keyword accessors. Same shapes minus the three protoc refuses: the FooEntry collision,
+// and two proto3 JSON camel-case conflicts -- the a/A oneof and the concept_/concept dedup (see
+// the inline note) -- which stay pinned by the arena_naming goldens. A package of its own so
+// both files' generated headers can coexist in one program.
+syntax = "proto3";
+
+package anv;
+
+message Collide {
+  optional int32 x = 1;        // explicit presence -> x() returns std::optional<int32> (no has_x())
+  int32 has_x = 2;             // a field literally named has_x -> plain has_x() accessor
+  map<string, int32> foo = 3;  // synthesizes a FooEntry struct (no user collision here)
+
+  oneof pick {  // reader: pick(...)
+    int32 p1 = 4;
+    int32 p2 = 5;
+  }
+  int32 pick_case = 6;  // a field named pick_case -> pick_case(); coexists with the pick() reader
+
+  // (arena_naming.proto's `letters` oneof -- same-typed members a/A distinguishable only by
+  // case-sensitive tags -- is proto3-invalid to protoc: the JSON camel-case names collide. With
+  // renamed members it would only repeat what `pick` above covers, so it is omitted.)
+  int32 decode = 9;  // reserved (the decode() entry point) -> `decode_`
+}
+
+message Callback {  // a oneof capitalizing to its own class's name -> tag struct `Callback_`
+  oneof callback {
+    string python_code = 1;
+  }
+  bool disabled = 2;
+}
+
+message FooEntry {             // a map whose entry type would take the class's name
+  map<string, int32> foo = 1;  // -> `FooEntry_`
+}
+
+message Outer {  // a nested message named like its parent -> the CHILD is deduped, `Outer_`
+  message Outer {
+    int32 v = 1;
+  }
+  Outer inner = 1;  // still resolves to the nested type, now spelled Outer_
+}
+
+message m_x {  // storage for `x` would be `m_x` == the class -> `m_x_`
+  int32 x = 1;
+}
+
+message Sibling {
+  int32 foo = 1;  // storage `m_foo` would collide with the accessor of the next field
+  int32 m_foo = 2;
+}
+
+message config {  // the oneof READER method would take the class's name -> `config_`
+  oneof config {
+    string a = 1;
+  }
+}
+
+message MaskOneof {  // a oneof named `mask` would derive `m_rp_mask` == the presence mask
+  oneof mask {
+    int32 a = 1;
+  }
+  optional int32 present = 2;
+}
+
+message Bytes {  // storage for `bytes` is `m_bytes`; the sibling accessor keeps its name
+  bytes bytes = 1;
+  int32 m_bytes = 2;
+}
+
+// C++ keywords are legal proto field names; every escaped accessor below is one diffgen and the
+// dumper must SPELL, not merely compile. The C++20 keywords are escaped unconditionally too (the
+// generator cannot know the consumer's standard), so their renamed accessors are just as
+// exercisable at the -std=c++17 this harness builds at.
+message Keywords {
+  int32 static_cast = 1;
+  int32 const_cast = 2;
+  int32 dynamic_cast = 3;
+  int32 reinterpret_cast = 4;
+  int32 static_assert = 5;
+  int32 concept = 6;
+  int32 requires = 7;
+  int32 consteval = 8;
+  int32 constinit = 9;
+  int32 co_await = 10;
+  int32 co_return = 11;
+  int32 co_yield = 12;
+  int32 char8_t = 13;
+  // (arena_naming.proto's `concept_` field, deduping against the escaped `concept`, is
+  // proto3-invalid to protoc: their JSON camel-case names collide.)
+}
