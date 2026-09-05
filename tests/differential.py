@@ -860,12 +860,11 @@ def main() -> int:
     mismatches = len(failures) - tool_failures
     # Anti-vacuity for the wire mutator: a shuffler that stopped producing distinct variants (a
     # stale predicate, an early return) would silently drop every non-canonical shape from
-    # coverage while the summary stayed green. ~75% of payloads shuffle distinct in practice, so
-    # zero across a whole run is a broken mutator, not a quiet day.
-    if checked > 0 and args.messages > 0 and shuffled == 0:
-        print(">> no payload produced a distinct wire-shuffled variant: the mutator is not "
-              "mutating, so the non-canonical decode paths were not compared")
-        return 1
+    # coverage while the summary stayed green. Scoped to MULTI-schema runs: across the corpus
+    # ~75% of payloads shuffle distinct, so zero is a broken mutator -- but a single --schema run
+    # of a fixture with no scalar to duplicate, nothing packable and one-record messages
+    # (nsedge/xpkg is one) is legitimately zero-shuffle, and must not read as breakage.
+    mutator_dead = len(schemas) > 1 and checked > 0 and shuffled == 0
     print("differential: %d message types over %d schemas, %d payloads each (+%d wire-shuffled "
           "variants), %d mismatches "
           "(%d schemas skipped%s)" % (checked, len(schemas) - len(skipped) - build_failures,
@@ -873,6 +872,10 @@ def main() -> int:
                                       ", %d tool failure%s"
                                       % (tool_failures, "" if tool_failures == 1 else "s")
                                       if tool_failures else ""))
+    if mutator_dead:
+        print(">> no payload in the whole run produced a distinct wire-shuffled variant: the "
+              "mutator is not mutating, so the non-canonical decode paths were not compared")
+        return 1
     if checked == 0:
         why = ("every schema hit a tool failure" if tool_failures else "every schema skipped")
         print(">> nothing was checked: %s. Something upstream is broken -- a green result here "

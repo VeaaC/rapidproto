@@ -192,7 +192,7 @@ every run decodes the same bytes.
 matters is how much the middle of the distribution moves, not how far the extremes reach, and an IQR
 ignores one outlier in either direction. Both choices are measurable rather than assumed: re-derived
 from one pair of 5-run snapshots of the same binary (485 gated arms across both benches as then
-measured -- the suite has grown since; `bench.py diff` reports the live count -- via the
+measured -- the suite has grown since; the arm counts in a live `bench.py diff` reflect it -- via the
 stored `gb_s_runs`), the largest apparent change on unchanged code is **−3.7%**, where keeping each
 arm's *fastest* run instead gives **−46.9%** — the fastest run records an upward fluke the next
 snapshot has no reason to repeat.

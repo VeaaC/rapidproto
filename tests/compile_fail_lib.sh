@@ -4,8 +4,10 @@
 # Shared helpers for the three compile-fail scripts (arenagen/streamgen/dumpgen_compile_fail.sh).
 # `expect_fail` was byte-identical in all three; `expect_pass` had reached only two -- dumpgen
 # hand-rolled its positive control WITHOUT capturing compiler output (a successful control still
-# spilled chatter into the caller's log) and defaulted CXX differently. Sourced, not executed;
-# callers provide $CXX, $FLAGS[] and $fail.
+# spilled chatter into the caller's log) and defaulted CXX differently (g++ where the others
+# took the system c++; unification settled all three on ${1:-c++}, a behavior change for a
+# bare dumpgen_compile_fail.sh run on hosts where c++ is not g++ -- the gate always passes an
+# explicit compiler). Sourced, not executed; callers provide $CXX, $FLAGS[] and $fail.
 
 # expect_fail <name> <expected-message-fragment> <source> -- the snippet must FAIL to compile,
 # and with the intended diagnostic (an unrelated error must not pass for the guard firing).

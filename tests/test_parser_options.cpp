@@ -17,8 +17,6 @@ namespace {
 using rapidproto::test::parse_ok;
 using rapidproto::test::parse_rejects;
 
-// Lex `src`, run `fn` over the full token stream, require success + full
-// consumption, and return the produced (self-owning) value. The LexResult is kept
 }  // namespace
 
 // --- option names -----------------------------------------------------------

@@ -55,9 +55,12 @@ struct CppNameTable {
 // ESCAPED because of a name in a different file, and adding a file to the set can therefore change
 // a sibling's id -- including one an earlier run already emitted, so a split generation over one
 // package can leave headers that disagree. Package components claim their ids first, then literal
-// identifiers, so a literal keeps its spelling unless a package component took it -- in which case
-// the blocked literal escalates like an escape. Member scopes (nested types,
-// fields, oneofs, map entries) are unchanged: they dedup per message, first-come. When `all_files` is empty, only `file` is indexed (the single-file
+// identifiers, so a literal keeps its spelling unless a package component took it. A blocked
+// literal then escalates the way an escape does (append `_` until free) but AHEAD of every real
+// escape -- the four claim groups run in order (components, free literals, blocked literals,
+// escapes), so a literal always beats an escape contending for the same id. Member scopes (nested
+// types, fields, oneofs, map entries) are unchanged: they dedup per message, first-come.
+// When `all_files` is empty, only `file` is indexed (the single-file
 // convenience path, valid when `file` has no cross-file type references). `ns_prefix` is an already
 // `::`-joined C++ namespace (see `namespace_of`), never empty. `model_namespace` is the model ROOT
 // (`kArenaRoot` / `kStreamRoot`) that messages sit under, between the prefix and the package.

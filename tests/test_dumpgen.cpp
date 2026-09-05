@@ -14,7 +14,6 @@
 
 #include <algorithm>
 #include <cstdint>
-#include <cstdlib>
 #include <cstring>
 #include <ios>
 #include <limits>
@@ -154,7 +153,6 @@ std::string generate_unknown_present_golden() {
     return dumpgen::generate_header(set.files.back(), names, layouts);
 }
 
-// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): expected vs actual, distinct roles
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): golden name vs generated content
 void check_golden(const std::string& name, const std::string& actual) {
     test::check_golden(std::string(RAPIDPROTO_DUMPGEN_GOLDEN_DIR) + "/" + name + ".rp.dump.hpp",

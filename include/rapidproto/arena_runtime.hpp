@@ -670,7 +670,8 @@ inline constexpr bool kFixedIsNativeLE = wire::kIsLittleEndian;
 // grown to fit; this decodes into `dst` (= acc + n) and returns the element count, or SIZE_MAX on a
 // malformed varint (`err` set). `dst` is passed by value (no caller address escapes -> no spill). Guarded
 // to spans >= wire::kPackedKernelMinSpan by the caller -- decode_packed_varints's own kernel-vs-byte-loop threshold --
-// so the kernels always engage here (a sub-256 span would only run the byte-loop tail, done inline).
+// so the kernels always engage here (a below-threshold span would only run the byte-loop tail,
+// done inline).
 template <class Elem, class Conv>
 RP_NOINLINE std::size_t decode_packed_varints_large(const std::uint8_t* vp, const std::uint8_t* ve,
                                                     Elem* dst, ArenaDecodeError* err) noexcept {
@@ -689,7 +690,8 @@ RP_NOINLINE std::size_t decode_packed_varints_large(const std::uint8_t* vp, cons
 // generated decode(): a small array is the common repeated-field shape, and inlining keeps its decode a
 // handful of instructions with no call and no kernel-dispatch setup. This is byte-for-byte
 // decode_packed_varints's own tail (same array_sink read/convert/store, same span-relative fail offset),
-// just without the kernel scaffold a sub-256 span can't use. Decodes into `dst`; returns the element
+// just without the kernel scaffold a below-threshold span can't use. Decodes into `dst`; returns the
+// element
 // count or SIZE_MAX on a malformed varint (`err` set).
 template <class Elem, class Conv>
 RP_FLATTEN std::size_t decode_packed_varints_small(const std::uint8_t* vp, const std::uint8_t* ve,

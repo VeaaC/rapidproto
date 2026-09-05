@@ -8,13 +8,11 @@
 
 #include <algorithm>
 #include <filesystem>
-#include <fstream>
-#include <ios>
-#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include "golden_file.hpp"
 #include "rapidproto/ast.hpp"  // FileNode, constructed directly for header_path
 #include "rapidproto/cli/driver.hpp"
 #include "rapidproto/codegen/naming.hpp"
@@ -49,10 +47,7 @@ std::vector<std::filesystem::path> deps_of(const std::string& dir, const std::st
 }
 
 std::string read_text(const std::filesystem::path& path) {
-    const std::ifstream in(path, std::ios::binary);
-    std::ostringstream buffer;
-    buffer << in.rdbuf();
-    return buffer.str();
+    return test::read_file(path.string());
 }
 
 }  // namespace

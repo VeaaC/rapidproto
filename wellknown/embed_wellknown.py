@@ -63,6 +63,11 @@ def render() -> str:
 
 
 def main() -> None:
+    # Reject anything but the one flag: a typo'd `--chek` must not silently fall through to the
+    # WRITE branch and overwrite the checked-in file where the caller meant to verify it.
+    unknown = [a for a in sys.argv[1:] if a != "--check"]
+    if unknown:
+        sys.exit(f"embed_wellknown: unknown argument(s) {unknown}; the only flag is --check")
     text = render()
     count = text.count("constexpr std::string_view")
     if "--check" in sys.argv[1:]:

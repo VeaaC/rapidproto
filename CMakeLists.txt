@@ -121,6 +121,14 @@ target_link_libraries(rapidproto_cli PRIVATE rapidproto_lib rapidproto_strict)
 # -Werror), suppressed per generated TU.
 function(_rapidproto_embed_runtime out_var header ns func decl)
   get_filename_component(_stem "${header}" NAME_WE)
+  # NAME_WE keys the output file: two headers sharing a stem would silently share one OUTPUT
+  # (Makefiles pick an arbitrary rule), so refuse the collision at configure time.
+  get_property(_used GLOBAL PROPERTY RAPIDPROTO_EMBED_STEMS)
+  if("${_stem}" IN_LIST _used)
+    message(FATAL_ERROR "_rapidproto_embed_runtime: a second header with stem '${_stem}' "
+                        "(from ${header}) would overwrite the first embed's output rule")
+  endif()
+  set_property(GLOBAL APPEND PROPERTY RAPIDPROTO_EMBED_STEMS "${_stem}")
   set(_out "${CMAKE_CURRENT_BINARY_DIR}/generated/${_stem}_embedded.cpp")
   add_custom_command(
     OUTPUT "${_out}"
@@ -347,6 +355,9 @@ if(RAPIDPROTO_BUILD_TESTS)
   set(BENCH_PROTO "${CMAKE_CURRENT_SOURCE_DIR}/tests/bench/bench.proto")
   set(BENCH_PROTO_DIR "${CMAKE_CURRENT_SOURCE_DIR}/tests/bench")
   set(BENCH_GEN "${CMAKE_CURRENT_BINARY_DIR}/generated/bench")
+  # protoc's --cpp_out below does NOT create its output directory (rapidprotoc does, but the two
+  # rules are independent and either can run first): make it at configure time.
+  file(MAKE_DIRECTORY "${BENCH_GEN}")
   # Through the helper, not a hand-rolled add_custom_command: the hand rule under-declared its
   # outputs (the common header and both runtime drops were written but undeclared, so deleting
   # one broke the build with no rule to restore it) -- the exact defect rapidproto_generate()
@@ -484,6 +495,9 @@ if(RAPIDPROTO_BUILD_TESTS)
         "${COMPUTE_PAYLOAD}")
       # After rapidproto_bench_schema (bench.rp.* stay with BENCH_GEN's runtime copy); the
       # compute TU includes its header by the import-relative path, unique to COMPUTE_OUT.
+      # COMPUTE_OUT's own runtime drop is byte-identical to BENCH_GEN's, so the order is safe;
+      # were bench.proto ever to import a WKT, its BENCH_GEN header (embedded definitions) would
+      # shadow COMPUTE_OUT's (pinned-corpus definitions) -- keep the two schemas import-disjoint.
       target_link_libraries(rapidproto_arena_bench PRIVATE rapidproto_compute_schema)
       target_compile_definitions(rapidproto_arena_bench PRIVATE
         RAPIDPROTO_BENCH_COMPUTE

@@ -93,7 +93,9 @@ inline bool is_packable_wire(std::string_view wire) {
 
 // The wire-enumerator -> {scalar reader, raw local type} mapping for the three numeric wire
 // shapes. One home for a fact both decode generators and the streaming skip arm used to spell
-// independently. Callers handle Len (and groups) themselves -- those have dedicated readers.
+// independently. Callers handle Len (and groups) themselves -- those have dedicated readers --
+// and any string other than I32/I64 falls through to the varint row rather than being refused:
+// exactly the fallthrough the skip arm's old copy had, kept so the two stay behavior-identical.
 struct WireRead {
     std::string_view reader;    // ::rapidproto::wire::<reader>
     std::string_view raw_type;  // the local integer the reader fills

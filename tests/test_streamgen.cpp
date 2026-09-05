@@ -12,7 +12,6 @@
 #include "golden_file.hpp"
 
 #include <cstdint>
-#include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -243,14 +242,8 @@ TEST_CASE("streamgen: namespace prefix nests the generated namespace", "[streamg
     const std::string xr_common = codegen::emit_common_header(xrset.files.back(), xr_names);
     const std::string common_golden =
         std::string(RAPIDPROTO_STREAMGEN_GOLDEN_DIR) + "/xref_prefixed/xref.rp.common.hpp";
-    // NOLINTNEXTLINE(concurrency-mt-unsafe): single-threaded test, opt-in regeneration only
-    if (std::getenv("RAPIDPROTO_REGEN_GOLDEN") != nullptr) {
-        std::ofstream(golden, std::ios::binary) << xr_prefixed;
-        std::ofstream(common_golden, std::ios::binary) << xr_common;
-    } else {
-        CHECK(xr_prefixed == read_file(golden));
-        CHECK(xr_common == read_file(common_golden));
-    }
+    test::check_golden(golden, "xref_prefixed stream header", xr_prefixed);
+    test::check_golden(common_golden, "xref_prefixed common header", xr_common);
 
     // Coexistence in one TU: the prefixed `pfx::stream::xr::A` and the unprefixed `rp::stream::xr::A` (both #included
     // above) are distinct, usable types -- the same shape as coexisting with a protoc header.

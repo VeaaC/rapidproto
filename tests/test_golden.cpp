@@ -9,7 +9,6 @@
 
 #include <catch_amalgamated.hpp>
 
-#include <cstdlib>
 #include <string>
 #include <utility>
 #include <vector>
@@ -51,8 +50,6 @@ std::string produce_dump(const Scenario& scenario) {
     return astdump::dump_ast(set, analyzed.value());
 }
 
-// Locate the first line that differs, for a readable failure message on large dumps.
-// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): expected vs actual, distinct roles
 }  // namespace
 
 TEST_CASE("golden: corpus AST dumps match expectations", "[golden]") {

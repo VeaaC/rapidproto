@@ -7,19 +7,25 @@
 # the stale-binary defence around building rapidprotoc, and the sync-the-goldens tail.
 # Sourced, not executed; callers run under `set -euo pipefail` from the repo root.
 
-# Build a fresh rapidprotoc, refusing to proceed on a renamed/dropped target. `cmake --build
-# --target X` degenerates to `make X` under Makefiles, so a renamed target with build/gcc/X
-# still on disk prints "Nothing to be done" and exits 0 -- and every golden would then be
-# regenerated from that stale binary. `-DRAPIDPROTO_BUILD_TESTS=ON` explicitly: the option
-# defaults ON for a top-level build, but a cache configured otherwise must not silently decide.
-ensure_rapidprotoc() {
-  cmake --preset gcc -DRAPIDPROTO_BUILD_TESTS=ON >/dev/null
-  if ! grep -qE '(^|\.\.\. )rapidprotoc$' <<<"$(cmake --build --preset gcc --target help 2>/dev/null)"; then
-    echo ">> 'rapidprotoc' is not a target of build/gcc -- the goldens would be regenerated from a" >&2
+# Build a fresh <target> under build/gcc, refusing to proceed on a renamed/dropped target.
+# `cmake --build --target X` degenerates to `make X` under Makefiles, so a renamed target with
+# build/gcc/X still on disk prints "Nothing to be done" and exits 0 -- and every golden would
+# then be regenerated from that stale binary.
+ensure_gcc_target() {
+  local target=$1
+  if ! grep -qE "(^|\\.\\.\\. )${target}\$" <<<"$(cmake --build --preset gcc --target help 2>/dev/null)"; then
+    echo ">> '${target}' is not a target of build/gcc -- the goldens would be regenerated from a" >&2
     echo "   stale binary. Re-run cmake --preset gcc." >&2
     exit 1
   fi
-  cmake --build --preset gcc --target rapidprotoc -j"${JOBS:-$(nproc)}" >/dev/null
+  cmake --build --preset gcc --target "$target" -j"${JOBS:-$(nproc)}" >/dev/null
+}
+
+# The generator CLI. `-DRAPIDPROTO_BUILD_TESTS=ON` explicitly: the option defaults ON for a
+# top-level build, but a cache configured otherwise must not silently decide.
+ensure_rapidprotoc() {
+  cmake --preset gcc -DRAPIDPROTO_BUILD_TESTS=ON >/dev/null
+  ensure_gcc_target rapidprotoc
 }
 
 # Sync freshly generated files over the checked-in goldens:

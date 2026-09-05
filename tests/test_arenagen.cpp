@@ -10,7 +10,6 @@
 #include <catch_amalgamated.hpp>
 
 #include <cstdint>
-#include <cstdlib>
 #include <map>
 #include <string>
 #include <type_traits>

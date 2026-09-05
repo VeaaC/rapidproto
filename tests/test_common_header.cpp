@@ -9,7 +9,6 @@
 
 #include "golden_file.hpp"
 
-#include <cstdlib>
 #include <string>
 #include <utility>
 #include <vector>

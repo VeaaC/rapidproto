@@ -27,9 +27,10 @@ enum class TokenKind : std::uint8_t {
     FloatLiteral,
     StringLiteral,
 
-    // Keywords. The count is pinned in src/lexer.cpp: a static_assert derives it from the
+    // Keywords. The count is pinned in src/lexer.cpp: an assert derives it from the
     // KwSyntax..KwNan enumerator range and compares it to the table's size, so an enumerator
-    // added without a table entry (which would lex as Identifier, silently) fails the build.
+    // added without a table entry (which would lex as Identifier, silently) trips every debug
+    // lexer-test run. (A runtime assert, not a static_assert -- map sizes are not constexpr.)
     KwSyntax,  // KEEP FIRST of the keyword block (the count assertion anchors here)
     KwEdition,
     KwPackage,

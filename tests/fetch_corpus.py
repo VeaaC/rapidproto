@@ -213,6 +213,7 @@ def is_current(dest: Path, source: Source) -> bool:
         return False  # not a usable checkout, whatever the stamp says
     return head == source.sha
 
+
 def fetched_sources(dest: Path) -> "tuple[list[Source], list[str], list[str]]":
     """Split SOURCES into (present-and-at-their-pin, stale, absent) under `dest`.
 
@@ -240,13 +241,19 @@ def include_root_for(dest: Path, proto: Path) -> Path:
     benchmarks' to `benchmarks`), falling back to the source's checkout root for files that live
     OUTSIDE it (protobuf keeps its editions/conformance schemas beside `src`, and those import
     relative to the checkout). corpus_gate and corpus_compile used to answer this independently
-    and differed on exactly the outside-root files.
+    and differed on exactly the outside-root files -- unifying MOVED corpus_gate's root for the
+    three protobuf conformance schemas beside src/ (from .../protobuf/src to .../protobuf;
+    verified: identical accept/reject results, and the expected-failure reasons carry no paths).
     """
     rel = proto.relative_to(dest)
     source_dir = dest / rel.parts[0]
     declared_rel = next((s.include_root for s in SOURCES if s.name == rel.parts[0]), ".")
-    declared = (source_dir / declared_rel).resolve()
-    return declared if declared in proto.resolve().parents else source_dir.resolve()
+    declared = source_dir / declared_rel
+    # Resolve INSIDE the containment test only (symlink-safe there), and return the UNRESOLVED
+    # path: callers do `proto.relative_to(root)` on unresolved protos, which a resolved return
+    # value breaks the moment build/ is a symlink.
+    inside = declared.resolve() in proto.resolve().parents
+    return declared if inside else source_dir
 
 
 

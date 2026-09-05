@@ -20,11 +20,7 @@ bool file_rejects(std::string src) {
 }
 
 bool file_accepts(std::string src) {
-    auto lr = lex(std::move(src));
-    REQUIRE(lr.is_ok());
-    const LexResult lexed = std::move(lr).value();
-    auto r = parse_file(Range<Token>(lexed.tokens));
-    return r.is_ok() && r.value().remaining.empty();
+    return !test::parse_file_rejects(std::move(src));
 }
 
 // Build a schema with `depth` nested messages (innermost holds a field), to probe the parser's

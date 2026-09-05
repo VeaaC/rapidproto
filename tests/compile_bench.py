@@ -172,7 +172,9 @@ def write_chain(directory: Path, depth: int) -> Path:
 
 
 def namespace_of(header: Path) -> str:
-    """The header's namespace, or "" for a package-less schema (types land at global scope).
+    """The header's top-level namespace (a package-less schema still yields the model root,
+    e.g. "rp::arena" -- generated types never land at global scope; the "" return survives
+    only for a header with no namespace at all, which no current generator emits).
 
     The generator emits exactly one top-level namespace per header (imports land in their own
     included headers), and every call site here depends on that. Assert it rather than take the

@@ -2,11 +2,13 @@
 // Copyright 2026 Christian Vetter
 #pragma once
 
-// The one home for the golden-file protocol every golden suite shares: read the pinned bytes,
+// The one home for the golden-file protocol the golden suites share: read the pinned bytes,
 // compare with a line-level diagnostic, and honor RAPIDPROTO_REGEN_GOLDEN. Before this header the
 // suites carried nine copies of read_file, five of first_difference, and six open-codings of the
 // regen-or-compare dance -- and the copies had drifted (two suites compared multi-hundred-line
-// headers with no diagnostic at all).
+// headers with no diagnostic at all). Two readers deliberately stay outside it: test_wire and
+// test_integration return std::optional to tell a MISSING fixture from an empty one, which
+// read_file's returns-empty contract cannot.
 
 #include <cstdlib>
 #include <fstream>
@@ -55,6 +57,18 @@ inline bool regen_goldens() {
     return std::getenv("RAPIDPROTO_REGEN_GOLDEN") != nullptr;
 }
 
+// The compare half alone: byte-compare with the line diagnostic, NO regen path. For goldens whose
+// author is someone else (the coexistence set is written by the rapidprotoc CLI via
+// regen_goldens.sh): letting the test overwrite them would replace the CLI-vs-library cross-check
+// with the library agreeing with itself.
+inline void compare_golden(const std::string& golden_path, const std::string& label,
+                           const std::string& actual) {
+    const std::string expected = read_file(golden_path);
+    INFO("golden: " << label);
+    INFO(first_difference(expected, actual));
+    CHECK(actual == expected);
+}
+
 // The regen-or-compare protocol: overwrite the golden under RAPIDPROTO_REGEN_GOLDEN (warning so a
 // regen run is visibly not a verification), otherwise byte-compare with the line diagnostic.
 // `label` names the case in both paths.
@@ -65,10 +79,7 @@ inline void check_golden(const std::string& golden_path, const std::string& labe
         WARN("regenerated golden: " << label);
         return;
     }
-    const std::string expected = read_file(golden_path);
-    INFO("golden: " << label);
-    INFO(first_difference(expected, actual));
-    CHECK(actual == expected);
+    compare_golden(golden_path, label, actual);
 }
 
 }  // namespace rapidproto::test

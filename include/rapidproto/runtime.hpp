@@ -194,12 +194,6 @@ inline const std::uint8_t* read_varint(const std::uint8_t* p, const std::uint8_t
     return nullptr;
 }
 
-// ── SWAR packed-varint decode (word-at-a-time, branchless) ─────────────────────────────────────────
-// Decodes one varint by inspecting a whole 8-byte word at once, so the per-byte continuation-bit branch
-// that mispredicts on mixed-width data does not exist. Portable: no PEXT/SIMD -- the byte-mask is a
-// multiply, the 7-bit gather is shift/mask. Used ONLY for packed repeated varints: the 8-byte word read
-// is issued only with >= 8 in-span bytes remaining, so the load stays INSIDE the span (never past `end`);
-// the caller scalar-decodes the last < 8 bytes. There is no reliance on readable slack past the span.
 // THE byte-order probe: swar_detail::load64's #if repeats the identical condition (a constexpr
 // bool cannot steer a preprocessor branch, so the textual pair lives a few lines apart in this
 // file), and arena_runtime.hpp's kFixedIsNativeLE derives from this constant -- the two files can
@@ -210,6 +204,13 @@ inline constexpr bool kIsLittleEndian =
 #else
     false;  // big-endian, or an unknown toolchain: take the safe byte-reversing/per-element paths
 #endif
+
+// ── SWAR packed-varint decode (word-at-a-time, branchless) ─────────────────────────────────────────
+// Decodes one varint by inspecting a whole 8-byte word at once, so the per-byte continuation-bit branch
+// that mispredicts on mixed-width data does not exist. Portable: no PEXT/SIMD -- the byte-mask is a
+// multiply, the 7-bit gather is shift/mask. Used ONLY for packed repeated varints: the 8-byte word read
+// is issued only with >= 8 in-span bytes remaining, so the load stays INSIDE the span (never past `end`);
+// the caller scalar-decodes the last < 8 bytes. There is no reliance on readable slack past the span.
 
 namespace swar_detail {
 inline constexpr std::uint64_t kMSB = 0x8080808080808080ULL;   // MSB of each byte

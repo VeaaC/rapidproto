@@ -22,7 +22,9 @@
 # you piped past can be read back instead of re-running the gate. The summary names the stages that
 # failed, how long each took, and how many ran -- `./check.sh | tail -20` is enough to triage.
 #
-# RAPIDPROTO_GATE_STAGES='gcc tidy' runs a subset (space-separated; an unknown key is an error).
+# RAPIDPROTO_GATE_STAGES='gcc tidy' runs a subset; RAPIDPROTO_GATE_SKIP='tidy' runs the default
+# stages minus these (how CI's gate job derives its list). Space-separated; an unknown key, an
+# empty value, or setting both is an error.
 # RAPIDPROTO_GATE_SERIAL=1 runs stages one at a time (the default under GITHUB_ACTIONS).
 #
 # The independent stages (format, doc-links, fixture-coverage, gcc build+test, clang build+test,
@@ -45,9 +47,10 @@ export CLANG_TIDY
 # exemption list, not in per-file enumeration. A new file under any of these roots is covered the
 # moment it exists; previously two hand lists (LIB_SRC's 14 paths, HEADERS' six subdirs) meant a
 # new directory or source silently escaped BOTH format and tidy -- the exact gap the SRC_HDR
-# comment below records having hit once already. Only VENDORED code (tests/catch_amalgamated.*)
-# and GENERATED code (src/wellknown_generated.cpp, the *_golden/ headers, build/) are exempt,
-# since formatting them would fight their vendor/generator.
+# comment below records having hit once already. Exempt because formatting would fight their
+# vendor/generator: FORMAT_EXEMPT lists the vendored/generated files living INSIDE globbed roots
+# (catch_amalgamated.*, wellknown_generated.cpp); the golden dirs and build/ stay out simply by
+# not being globbed.
 shopt -s globstar nullglob
 FORMAT_EXEMPT=(tests/catch_amalgamated.hpp tests/catch_amalgamated.cpp src/wellknown_generated.cpp)
 # clang-tidy runs on the narrower LIB_SRC + TEST_SRC: the thin CLI drivers (src/*/main.cpp and the
@@ -79,7 +82,10 @@ done
 # private parser header sat unlinted until a review caught it.
 SRC_HDR=(src/**/*.hpp)
 FORMAT_FILES=("${HEADERS[@]}" "${SRC_HDR[@]}" "${LIB_SRC[@]}" "${TEST_SRC[@]}" "${CLI_SRC[@]}" "${EXTRA_SRC[@]}" "${TEST_HDR[@]}")
-shopt -u globstar
+# BOTH options off again: nullglob in particular must not leak into the rest of the file --
+# under it, `for f in tests/fuzz/*.cpp` over a moved directory iterates zero times and the fuzz
+# stage prints its success line, where the unmatched literal pattern used to fail the compile.
+shopt -u globstar nullglob
 
 section() { printf '\n=== %s ===\n' "$1"; }
 
@@ -199,10 +205,6 @@ if [[ "${1:-}" == "quick" ]]; then
     echo ">> cmake configure failed"
     exit 1
   fi
-  # Same check as the full gate: quick runs this binary, so a renamed or excluded target would
-  # hand it the previous build. Before the build so a missing target is named rather than
-  # surfacing as an unrelated failure later.
-  ensure_targets build/gcc rapidproto_tests || exit 1
   build_out=$(cmake --build --preset gcc -j"$JOBS" 2>&1)
   if [[ $? -ne 0 ]] || grep -qE 'error:|warning:' <<<"$build_out"; then
     echo ">> build problems (gcc):"
@@ -210,6 +212,11 @@ if [[ "${1:-}" == "quick" ]]; then
     exit 1
   fi
   echo "build clean (gcc)"
+  # AFTER the build, same order as job_build_test: ensure_targets itself builds the named target,
+  # so running it first would compile the tree with its output swallowed and leave the warning
+  # grep above nothing to see. Here it only proves the TARGET still exists (a renamed or excluded
+  # target hands the run a stale binary).
+  ensure_targets build/gcc rapidproto_tests || exit 1
   run_test_binary ./build/gcc/rapidproto_tests gcc || exit 1
   echo ">> quick OK (gcc only -- run ./check.sh for the full gate before committing)"
   exit 0
@@ -1072,10 +1079,10 @@ job_differential() {
 }
 
 # THE stage table. Validation, aggregation and the summary read from it. Five lists still spell
-# stages out -- DEFAULT_STAGES, NON_DEFAULT_STAGES, the serial and parallel run loops, and the
-# log-print loop -- so a new stage needs a key, a title, a job and a line in each. Omitting it from
-# a run loop fails loudly (`FAILURES: <key>`, no .rc recorded); omitting it from DEFAULT_STAGES
-# used to disable it in silence, which the NON_DEFAULT_STAGES check rejects before any stage runs.
+# stages out -- DEFAULT_STAGES/NON_DEFAULT_STAGES and PARALLEL_STAGES/SEQUENTIAL_STAGES (the run
+# loops and the print loop derive from the latter pair) -- so a new stage needs a key, a title, a
+# job, and one entry in each pair. Both pairs are validated as partitions of STAGE_KEYS before any
+# stage runs, so an omission or duplicate is an exit-2, never silence.
 readonly STAGE_KEYS=(format docs fixtures gcc clang cf fuzz tidy corpus cxx20 names differential)
 
 # What a bare ./check.sh runs. `corpus` is deliberately absent: sweeping ~8000 third-party schemas is
@@ -1088,12 +1095,28 @@ readonly DEFAULT_STAGES=(format docs fixtures gcc clang cf fuzz tidy cxx20 names
 # forgot-a-list failure the single table was introduced to end.
 readonly NON_DEFAULT_STAGES=(corpus)
 # HOW the stages run: the first group builds independently (parallelizable), the second consumes
-# the gcc stage's binaries and runs serially after it, in this order. Validated below as a
-# PARTITION of STAGE_KEYS, so a stage cannot fall out of both run loops (that would fail loudly
-# via the missing-.rc check) or -- the quiet one -- out of the PRINT loop, which used to be a
-# fourth hand list whose omission silently dropped a stage's captured log.
+# the gcc stage's binaries and runs serially after it, in this order. Validated below as a true
+# partition of STAGE_KEYS (counts + both containments), so a stage cannot fall out of a run loop,
+# run twice, or -- the quiet one -- drop out of the PRINT loop, which used to be a fourth hand
+# list whose omission silently dropped a stage's captured log.
 readonly PARALLEL_STAGES=(format docs fixtures gcc clang fuzz tidy)
 readonly SEQUENTIAL_STAGES=(cf corpus cxx20 names differential)
+# A true PARTITION check, all three directions: every key in exactly one run list, and no run-list
+# entry outside STAGE_KEYS (such a stage would run, fail in stage_job's default arm, and then be
+# invisible to the summary loop -- error printed, ALL GREEN anyway).
+if [[ $(( ${#PARALLEL_STAGES[@]} + ${#SEQUENTIAL_STAGES[@]} )) -ne ${#STAGE_KEYS[@]} ]]; then
+  echo ">> PARALLEL_STAGES + SEQUENTIAL_STAGES (${#PARALLEL_STAGES[@]}+${#SEQUENTIAL_STAGES[@]})" >&2
+  echo "   do not partition STAGE_KEYS (${#STAGE_KEYS[@]}): a stage is missing, duplicated, or" >&2
+  echo "   listed in both" >&2
+  exit 2
+fi
+for _key in "${PARALLEL_STAGES[@]}" "${SEQUENTIAL_STAGES[@]}"; do
+  if [[ " ${STAGE_KEYS[*]} " != *" $_key "* ]]; then
+    echo ">> stage '$_key' is in a run list but not in STAGE_KEYS (it would run and fail" >&2
+    echo "   invisibly to the summary)" >&2
+    exit 2
+  fi
+done
 for _key in "${STAGE_KEYS[@]}"; do
   if [[ " ${PARALLEL_STAGES[*]} ${SEQUENTIAL_STAGES[*]} " != *" $_key "* ]]; then
     echo ">> stage '$_key' is in STAGE_KEYS but in neither PARALLEL_STAGES nor SEQUENTIAL_STAGES" >&2

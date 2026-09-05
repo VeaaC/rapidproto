@@ -13,8 +13,8 @@
 # Every input is REQUIRED: the old defaults duplicated the codegen call site's values in a second
 # place, and made a forgotten -D produce a silently mis-namespaced TU instead of an error.
 foreach(_required RUNTIME_HPP OUTPUT_CPP EMBED_NS EMBED_FUNC EMBED_DECL)
-  if(NOT DEFINED ${_required})
-    message(FATAL_ERROR "embed_runtime.cmake: -D${_required}=... is required")
+  if(NOT DEFINED ${_required} OR "${${_required}}" STREQUAL "")
+    message(FATAL_ERROR "embed_runtime.cmake: -D${_required}=... is required (and must be non-empty)")
   endif()
 endforeach()
 
@@ -31,8 +31,9 @@ endif()
 # compilers to support (both gcc and clang accept far larger; only clang's pedantic -Woverlength-strings
 # flags it), so the TUs that compile this file suppress that warning -- see CMakeLists.txt. This file is
 # internal to rapidprotoc; the runtime the CLI writes for consumers is the plain header, not this embed.
+get_filename_component(_header_name "${RUNTIME_HPP}" NAME)
 file(WRITE "${OUTPUT_CPP}"
-"// GENERATED at build time from include/rapidproto/runtime.hpp (cmake/embed_runtime.cmake). DO NOT EDIT.
+"// GENERATED at build time from include/rapidproto/${_header_name} (cmake/embed_runtime.cmake). DO NOT EDIT.
 // Carries the runtime header text so the generator can drop a self-contained copy beside its output.
 
 #include \"${EMBED_DECL}\"

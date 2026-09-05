@@ -20,16 +20,13 @@
 
 #include <catch_amalgamated.hpp>
 
-#include <cstdlib>
 #include <filesystem>
-#include <fstream>
-#include <ios>
-#include <sstream>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
 
+#include "golden_file.hpp"
 #include "rapidproto/codegen/emit.hpp"
 #include "rapidproto/codegen/naming.hpp"
 #include "rapidproto/resolve.hpp"
@@ -113,17 +110,7 @@ inline void check_all_common_goldens(const std::string& golden_dir,
             set.files.back(), set.files, codegen::effective_ns_prefix(prefix),
             std::string(codegen::kArenaRoot));
         const std::string actual = codegen::emit_common_header(set.files.back(), names);
-        const std::string golden_path = golden_dir + "/" + rel;
-        // NOLINTNEXTLINE(concurrency-mt-unsafe): single-threaded test, opt-in regeneration only
-        if (std::getenv("RAPIDPROTO_REGEN_GOLDEN") != nullptr) {
-            std::ofstream(golden_path, std::ios::binary) << actual;
-            WARN("regenerated common golden: " << rel);
-            ++seen;
-            continue;
-        }
-        std::ostringstream buffer;
-        buffer << std::ifstream(golden_path, std::ios::binary).rdbuf();
-        CHECK(actual == buffer.str());
+        check_golden(golden_dir + "/" + rel, "common " + rel, actual);
         ++seen;
     }
     // Anti-vacuity: a moved or emptied golden directory must not read as "all compared".
