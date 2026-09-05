@@ -929,8 +929,8 @@ instantaneous frequency, sampled adaptively until each ratio's significance is s
 (`tests/bench_harness.hpp`) — so a real few-percent win is separable from placement noise. Streaming is
 compared against a hand-written value-threaded loop and mapbox/protozero (`tests/bench_streamgen.cpp` →
 `rapidproto_bench`); arena against `protoc` + `google::protobuf::Arena` (`tests/bench_arena.cpp` →
-`rapidproto_arena_bench`). Both are driven by `tests/bench.py` (subcommand reference:
-[`docs/benchmarks.md`](docs/benchmarks.md), which owns it). The **current headline numbers**
+`rapidproto_arena_bench`). Both are driven by `tests/bench.py` (`run`/`table`/`diff`/`experiment`;
+the subcommand reference lives in [`docs/benchmarks.md`](docs/benchmarks.md)). The **current headline numbers**
 — which decoder is how much faster than which baseline, against which libprotobuf — live in
 [`docs/benchmarks.md`](docs/benchmarks.md), their source of truth (the README's lead repeats the
 headline claims and moves with it); the bench prints its libprotobuf baseline version at
@@ -1125,8 +1125,8 @@ reflected (a documented simplification; decoders accept both wire forms).
     mapbox protozero across the wire-path scenarios (one per field shape; the suite grows).
   - `rapidproto_arena_bench` (`bench_arena.cpp`, built only when `protobuf` is found): arena vs `protoc` +
     `Arena` vs streaming on a realistic payload, plus the chunk-cap shape/size sweep.
-  - `tests/bench.py` drives both; its subcommands are documented in
-    [`docs/benchmarks.md`](docs/benchmarks.md), which owns that reference.
+  - `tests/bench.py` drives both (`run`/`table`/`diff`/`experiment`); the subcommand reference
+    lives in [`docs/benchmarks.md`](docs/benchmarks.md).
 
   See [Decoder performance](#decoder-performance) for how to read the numbers (and the placement
   noise floor).
