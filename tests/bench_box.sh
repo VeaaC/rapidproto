@@ -147,7 +147,9 @@ status)
     fi
     ;;
 *)
-    sed -n '5,9p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+    # Print the header's usage block BY CONTENT, not by line number: a comment added above it
+    # used to shift a hardcoded '5,9p' onto the wrong lines with nothing noticing.
+    sed -n '/^# Quiesce this machine/,/bench_box.sh status/p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
     echo
     echo "current:"
     status

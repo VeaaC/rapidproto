@@ -9,36 +9,13 @@
 set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CXX="${1:-c++}"
+# Shared expect_fail / expect_pass (and the CXX convention): tests/compile_fail_lib.sh.
+source "$(dirname "$0")/compile_fail_lib.sh"
 FLAGS=(-std=c++17 -fsyntax-only -I"${ROOT}/include" -I"${ROOT}/tests/arenagen_golden")
 fail=0
 
 # expect_fail <name> <expected-substring> <source> -- MUST fail to compile, and the diagnostic MUST
 # contain <want> (so a snippet that fails for an unrelated reason is not mistaken for the rejection).
-expect_fail() {
-  local name="$1" want="$2" src="$3" err
-  if err=$(printf '%s\n' "$src" | "$CXX" "${FLAGS[@]}" -xc++ - 2>&1); then
-    echo "FAIL [$name]: expected a compile error, but it compiled"
-    fail=1
-  elif ! grep -qF "$want" <<<"$err"; then
-    echo "FAIL [$name]: failed to compile but without the expected message '$want'"
-    fail=1
-  else
-    echo "ok   [$name]"
-  fi
-}
-
-# expect_pass <name> <source> -- positive control: a correct snippet MUST compile.
-expect_pass() {
-  local name="$1" src="$2" err
-  if err=$(printf '%s\n' "$src" | "$CXX" "${FLAGS[@]}" -xc++ - 2>&1); then
-    echo "ok   [$name]"
-  else
-    echo "FAIL [$name]: a correct snippet failed to compile (broken setup?):"
-    echo "$err" | head -3
-    fail=1
-  fi
-}
-
 expect_pass control-correct '
 #include "proto3.rp.hpp"
 void f(rapidproto::ByteView b, rapidproto::Arena& a) {

@@ -15,22 +15,15 @@
 # NOTE: the AST goldens have no behavioral backstop (see test_golden.cpp) -- review the diff.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+# shellcheck source=tests/regen_lib.sh
+source tests/regen_lib.sh
 
 JOBS="$(nproc 2>/dev/null || echo 4)"
 GOLDEN=tests/streamgen_golden
 BIN=build/gcc/rapidprotoc
 
 echo "[1/5] building rapidprotoc ..."
-cmake --preset gcc -DRAPIDPROTO_BUILD_TESTS=ON >/dev/null
-# Target checked before building: `cmake --build --target X` degenerates to `make X` under
-# Makefiles, so a renamed target with build/gcc/X still on disk prints "Nothing to be done" and
-# exits 0 -- and every golden below would then be regenerated from that stale binary.
-if ! grep -qE '(^|\.\.\. )rapidprotoc$' <<<"$(cmake --build --preset gcc --target help 2>/dev/null)"; then
-  echo ">> 'rapidprotoc' is not a target of build/gcc -- the goldens would be regenerated from a" >&2
-  echo "   stale binary. Re-run cmake --preset gcc." >&2
-  exit 1
-fi
-cmake --build --preset gcc --target rapidprotoc -j"$JOBS" >/dev/null
+ensure_rapidprotoc
 
 echo "[2/5] regenerating streamgen goldens via the CLI ..."
 T="$(mktemp -d)"
@@ -65,37 +58,10 @@ trap 'rm -rf "$T"' EXIT
 # enums) from the un-prefixed xref's common of the same stem (see regen_arenagen_goldens.sh).
 "$BIN" --stream -Itests/corpus --namespace-prefix=pfx --out-dir="$T/xref_prefixed" tests/corpus/xref.proto >/dev/null
 
-# Copy a fresh version over every currently-checked-in golden (preserving subdirs). Fail loudly if an
-# existing golden was not regenerated -- a new golden means this script needs a new entry above.
-miss=0
-while IFS= read -r g; do
-  rel="${g#"$GOLDEN"/}"
-  if [[ -f "$T/$rel" ]]; then
-    cp "$T/$rel" "$g"
-  else
-    echo ">> MISSING in regen: $rel (add its entry to this script)"
-    miss=1
-  fi
-done < <(find "$GOLDEN" -name '*.rp.stream.hpp')
-# A zero-match find regenerates nothing and reports success: with the goldens moved or the
-# name pattern stale, this printed "0 streamgen goldens regenerated" and exited 0.
-if [[ $(find "$GOLDEN" -name '*.rp.stream.hpp' | wc -l) -eq 0 ]]; then
-  echo ">> no streamgen goldens found under $GOLDEN -- nothing was regenerated" >&2
-  exit 1
-fi
-[[ $miss -eq 0 ]] || exit 1
+# Sync (regen_lib.sh): fresh over checked-in .rp.stream.hpp, orphans loud, zero-match loud; then
+# co-locate each decoder's shared common beside it, mirroring the CLI's real output.
+sync_goldens "$GOLDEN" "$T" '*.rp.stream.hpp' '*.rp.common.hpp'
 echo "    $(find "$GOLDEN" -name '*.rp.stream.hpp' | wc -l) streamgen goldens regenerated"
-
-# Co-locate each streaming decoder's shared common header beside it (the decoder #includes its own), so
-# the compile-smoke resolves it -- mirroring the CLI's real output (decoder + common side by side in one
-# out-dir). Wipe first: unlike the decoders above there's no curated list to flag orphans against, so a
-# proto dropped from this script must not leave a stale common behind.
-find "$GOLDEN" -name '*.rp.common.hpp' -delete
-while IFS= read -r c; do
-  rel="${c#"$T"/}"
-  mkdir -p "$GOLDEN/$(dirname "$rel")"
-  cp "$c" "$GOLDEN/$rel"
-done < <(find "$T" -name '*.rp.common.hpp')
 
 echo "[3/5] regenerating arenagen + dumpgen goldens via rapidprotoc --arena / --dump ..."
 # Same chicken-and-egg as streamgen (test_arenagen.cpp / test_dumpgen.cpp #include these), so drive

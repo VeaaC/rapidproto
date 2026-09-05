@@ -178,7 +178,7 @@ done
 if [[ $seen_goldens -lt 100 ]]; then
   echo ">> the duplicate-golden scan saw only $seen_goldens golden headers across the test TUs --"
   echo "   it cannot have compared anything meaningful (expected well over 100)"
-  missing=1
+  tooling=1  # a broken scan, not a fixture finding: the fixture guidance below must not print
 fi
 if [[ -n "${dupes// /}" ]]; then
   echo ">> byte-identical goldens reach one TU -- clang rejects the second as a redefinition:"
