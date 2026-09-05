@@ -1,0 +1,23 @@
+// EXPANDED repeated scalars (proto2's default packing) across the encoding classes: material for
+// the differential's expanded -> packed wire re-encoding, which the rest of the corpus only ever
+// feeds int32 (proto3 serializes packable fields packed, so expanded records are rare there).
+// Corpus-only on purpose -- packed.proto is golden-pinned, so growing IT would churn its
+// streamgen golden and its arena-layout golden for fields whose value is the wire shape, not
+// the generated code.
+syntax = "proto2";
+
+package xp;
+
+message Expanded {
+  repeated sint64 uzz = 1;    // zigzag varint elements
+  repeated bool ub = 2;       // bool varint elements
+  repeated Kind uk = 3;       // enum varint elements
+  repeated fixed64 ufx = 4;   // I64 elements
+  repeated sfixed32 usf = 5;  // I32 elements
+
+  enum Kind {
+    A = 0;
+    B = 1;
+    C = 5;
+  }
+}
