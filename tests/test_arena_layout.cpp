@@ -7,6 +7,8 @@
 // the diff CAREFULLY -- like the AST goldens, these have no behavioral backstop yet.
 
 #include <catch_amalgamated.hpp>
+
+#include <cstddef>
 #include "golden_file.hpp"
 
 #include <initializer_list>
