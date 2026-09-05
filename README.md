@@ -69,7 +69,8 @@ messages, keep `protoc` for that side and use RapidProto for the hot decode path
 
 ## Quick start
 
-**Requirements:** C++17 and a recent GCC or Clang. Header-only — nothing to link.
+**Requirements:** C++17 and a recent GCC or Clang (AppleClang included — Linux and macOS are both
+CI-covered). Header-only — nothing to link.
 
 Using CMake? The [`rapidproto_generate()` helper](docs/integration.md#cmake-integration) wires
 generation into your build in a few lines. This section drives the tool by hand so each step is

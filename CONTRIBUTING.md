@@ -51,7 +51,9 @@ CI runs the gate's stages spread across several jobs, `./check.sh deep`, and a R
 build on **every pull request and every push to the default branch** (feature-branch pushes are
 gated by their PR run). Running `./check.sh` locally covers the same stages in one command; what
 CI adds beyond it: the corpus-compile sample (locally a deep-tier leg), an arm64 build/test job,
-and the consumer job (install -> `find_package` -> C++20/23 header compiles).
+a macOS build/test job (AppleClang + libc++, via `tests/system_build_test.sh` — the system-compiler
+sequence shared with the release workflow's macOS leg), and the consumer job (install ->
+`find_package` -> C++20/23 header compiles).
 
 ## The real-world schema corpus
 

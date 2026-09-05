@@ -23,25 +23,34 @@ permissions:
 
 jobs:
   build:
-    name: build (${{ matrix.arch }})
+    name: build (${{ matrix.os }}-${{ matrix.arch }})
     strategy:
-      # Both legs' verdicts in one run: a release tag is expensive to re-cut, and nothing ships
-      # on failure anyway, so letting the second leg finish costs nothing and saves a re-tag
-      # cycle when both would have failed.
+      # Every leg's verdict in one run: a release tag is expensive to re-cut, and nothing ships
+      # on failure anyway, so letting the other legs finish costs nothing and saves a re-tag
+      # cycle when several would have failed.
       fail-fast: false
       matrix:
         include:
-          # gate: the check.sh invocation mode verifying the tag on this runner. x86_64 runs the
-          # full default set (empty = no argument); arm64 runs only the architecture-sensitive
-          # subset -- `compilers` is check.sh's name for it, the same mode ci.yml's arm64 job
-          # runs, so the stage list lives once in check.sh. The rest of the default gate is
-          # architecture-independent and runs on the x86_64 leg.
-          - arch: x86_64
+          # verify: the command that verifies the tag on this runner. linux-x86_64 runs the full
+          # default gate (a bare ./check.sh); linux-arm64 the architecture-sensitive subset --
+          # `compilers` is check.sh's name for it, the same mode ci.yml's arm64 job runs, so that
+          # stage list lives once in check.sh; macos runs tests/system_build_test.sh, the one
+          # home for the system-compiler sequence shared with ci.yml's macos job (check.sh needs
+          # bash >= 4.3 and pinned compilers; macOS runners have neither). Everything
+          # architecture- and platform-independent (format, tidy, docs, ...) runs on the
+          # linux-x86_64 leg.
+          - os: linux
+            arch: x86_64
             runner: ubuntu-24.04
-            gate: ''
-          - arch: arm64
+            verify: './check.sh'
+          - os: linux
+            arch: arm64
             runner: ubuntu-24.04-arm
-            gate: 'compilers'
+            verify: './check.sh compilers'
+          - os: macos
+            arch: arm64
+            runner: macos-15
+            verify: 'tests/system_build_test.sh'
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
@@ -57,29 +66,31 @@ jobs:
             exit 1
           }
       - uses: ./.github/actions/setup-toolchain
-      - name: Quality gate (./check.sh ${{ matrix.gate }})
-        # The expression is substituted into the script TEXT, so an empty gate makes this line a
-        # bare `./check.sh` -- the full default set. (check.sh also accepts an explicit empty
-        # argument as the default, so a quoted form would be safe too. Textual substitution also
-        # means a gate value with shell metacharacters would be injected verbatim -- both values
-        # are literals in this file; keep them that way.)
-        run: ./check.sh ${{ matrix.gate }}
+        # apt-based; the macos leg's verify script needs only the image's cmake + AppleClang.
+        if: runner.os == 'Linux'
+      - name: Verify the tag (${{ matrix.verify }})
+        # The expression is substituted into the script TEXT before the shell runs -- which also
+        # means a verify value with shell metacharacters would be injected verbatim. All values
+        # are literals in this file; keep them that way.
+        run: ${{ matrix.verify }}
       - name: Build the release binary
         run: |
           set -euxo pipefail
           # WERROR off: this build runs on the un-pinned runner compiler, and a new compiler's
-          # warnings must not block a release the pinned-toolchain gate above already passed.
+          # warnings must not block a release the verification above already passed.
           cmake -S . -B build/rel -DCMAKE_BUILD_TYPE=Release -DRAPIDPROTO_BUILD_TESTS=OFF \
             -DRAPIDPROTO_WERROR=OFF
-          cmake --build build/rel -j"$(nproc)"
+          # getconf, not nproc: this step runs on macOS too, which has no nproc.
+          cmake --build build/rel -j"$(getconf _NPROCESSORS_ONLN)"
           # A mis-tagged push must not ship a binary whose --version contradicts its tag.
           test "$(./build/rel/rapidprotoc --version)" = "rapidprotoc ${GITHUB_REF_NAME#v}"
           # Apache-2.0: the NOTICE and attributions travel with the redistributed binary.
-          tar -czf "rapidprotoc-${GITHUB_REF_NAME}-linux-${{ matrix.arch }}.tar.gz" \
+          tar -czf "rapidprotoc-${GITHUB_REF_NAME}-${{ matrix.os }}-${{ matrix.arch }}.tar.gz" \
             -C build/rel rapidprotoc -C "$GITHUB_WORKSPACE" LICENSE NOTICE THIRD_PARTY_NOTICES.md
       - uses: actions/upload-artifact@v4
         with:
-          name: rapidprotoc-${{ matrix.arch }}
+          # os AND arch: linux-arm64 and macos-arm64 must not collide on one artifact name.
+          name: rapidprotoc-${{ matrix.os }}-${{ matrix.arch }}
           path: rapidprotoc-*.tar.gz
           if-no-files-found: error
 
