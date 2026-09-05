@@ -36,7 +36,9 @@
 
 namespace rapidproto {
 
-// Max message-nesting depth honored by generated decoders on untrusted input (mirrors kMaxGroupDepth).
+// Max message-nesting depth honored by generated decoders on untrusted input. An independent
+// guard from the wire layer's kMaxGroupDepth (they answer different questions: message recursion
+// here, group-skip nesting there) that happens to share its value today.
 inline constexpr int kMaxDecodeDepth = 100;
 
 // ── Arena ────────────────────────────────────────────────────────────────────────────────────────
@@ -561,7 +563,8 @@ struct ArenaDecodeError {
     Code code = Code::None;
     WireError wire = WireError::None;  // valid when code == Wire
     std::size_t offset = 0;            // byte offset of a wire failure
-    std::uint32_t field_number = 0;    // the missing field, when code == MissingRequired
+    std::uint32_t field_number = 0;    // the field, when code == MissingRequired
+                                       // or RepeatedSingularMessage
 
     [[nodiscard]] constexpr bool ok() const noexcept { return code == Code::None; }
 };

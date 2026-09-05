@@ -56,8 +56,6 @@
 #include <string_view>
 #include <vector>
 
-#include <google/protobuf/arena.h>
-
 #include "bench.pb.h"           // protoc: bench::Dataset / WideSet / BigSet
 #include "bench.rp.hpp"         // arenagen: rp::arena::bench::Dataset / WideSet / BigSet
 #include "bench.rp.stream.hpp"  // streamgen: rp::stream::bench::Dataset
@@ -422,9 +420,6 @@ std::uint64_t checksum_stream(rapidproto::ByteView buf) {
     return st.ok() ? s : 0;
 }
 
-#ifdef RAPIDPROTO_HAVE_PROTOZERO
-#endif
-
 // ── timing ────────────────────────────────────────────────────────────────────────────────────────
 
 volatile std::uint64_t g_sink = 0;
@@ -501,8 +496,6 @@ std::uint64_t checksum_big_arena(const rp::arena::bench::Big* b) {
     }
     return s;
 }
-#ifdef RAPIDPROTO_HAVE_PROTOZERO
-#endif
 
 // Same shape for the packed sint64 `zz` (field 3) and enum `kinds` (field 4) type-comparison arms: the
 // wire is identical packed varints, so the only difference from `numbers` is the zigzag / enum-cast conv.
@@ -524,8 +517,6 @@ std::uint64_t checksum_big_arena_kinds(const rp::arena::bench::Big* b) {
     }
     return s;
 }
-#ifdef RAPIDPROTO_HAVE_PROTOZERO
-#endif
 
 // The packed int64 fill (rp::arena::bench::Big.numbers) across element byte width (fixed 1..10, uniform, 90/10
 // skew) x element count (10 .. 1,000,000): arena-warm vs protoc (and protozero as a raw-parse

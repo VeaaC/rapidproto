@@ -2,8 +2,8 @@
 // free readers -- walk every tag with read_tag_or_end and skip its value with skip_value (exercising
 // the recursive group walk + length handling). ASan + UBSan catch any out-of-bounds / overflow / UB.
 // Build:
-//   clang++-20 -std=c++17 -O1 -g -Iinclude -fsanitize=fuzzer,address,undefined \
-//     tests/fuzz/fuzz_wire.cpp -o build/fuzz_wire
+//   clang++-20 -std=c++17 -O1 -g -Iinclude -Itests -fsanitize=fuzzer,address,undefined \
+//     tests/fuzz/fuzz_wire.cpp -o build/fuzz/fuzz_wire
 #include <cstddef>
 #include <cstdint>
 

@@ -11,7 +11,7 @@ name: CI
 
 on:
   push:
-    branches: [master, main]  # feature-branch pushes are gated by their PR run, not double-run
+    branches: [main]  # feature-branch pushes are gated by their PR run, not double-run
   pull_request:
 
 # A newer push to the same ref cancels an in-progress run, so only the latest commit is gated.
@@ -92,9 +92,10 @@ jobs:
 
   # The corpus legs of `./check.sh deep` self-skip here (exit 77 -- no fetch); they run in the
   # corpus job above, which is the one with the corpus. The deep summary names them as skipped,
-  # which is the expected output of this job, not a gap.
+  # which is the expected output of this job, not a gap. The golden-regen leg DOES run here --
+  # this clean checkout is the only place the checked-in goldens are proven reproducible.
   deep:
-    name: deep (ASan/UBSan + coverage + fuzz smoke)
+    name: deep (ASan/UBSan + coverage + fuzz smoke + golden regen)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4

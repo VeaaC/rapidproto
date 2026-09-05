@@ -22,9 +22,9 @@ namespace rapidproto::codegen {
 //   2. Distinct proto names can sanitize to one C++ identifier (e.g. sibling fields `read` and
 //      `read_`, or a nested type `int` beside a field `int_`) and redefine a struct -> each scope
 //      dedups its members, appending `_` until unique (`local`).
-// Within a message's struct scope the members are: nested enums, nested messages, field tags, and
-// map tags. Nested types are assigned first so their names stay plain-sanitized where possible,
-// keeping absolute references stable.
+// Within a message's struct scope the members are: nested enums, nested messages, field tags,
+// oneofs (their reader shares the scope), and map tags. Nested types are assigned first so their
+// names stay plain-sanitized where possible, keeping absolute references stable.
 struct CppNameTable {
     std::unordered_map<std::string, std::string> absolute;  // type fqn -> "::a::b::Local"
     std::unordered_map<const void*, std::string> local;     // member node -> unqualified C++ id
@@ -54,8 +54,9 @@ struct CppNameTable {
 // of the same package really uses. Two consequences worth knowing at the call site: an id can be
 // ESCAPED because of a name in a different file, and adding a file to the set can therefore change
 // a sibling's id -- including one an earlier run already emitted, so a split generation over one
-// package can leave headers that disagree. Names that need no escape are claimed first, so at this
-// scope a literal identifier keeps its spelling and only escapes move. Member scopes (nested types,
+// package can leave headers that disagree. Package components claim their ids first, then literal
+// identifiers, so a literal keeps its spelling unless a package component took it -- in which case
+// the blocked literal escalates like an escape. Member scopes (nested types,
 // fields, oneofs, map entries) are unchanged: they dedup per message, first-come. When `all_files` is empty, only `file` is indexed (the single-file
 // convenience path, valid when `file` has no cross-file type references). `ns_prefix` is an already
 // `::`-joined C++ namespace (see `namespace_of`), never empty. `model_namespace` is the model ROOT

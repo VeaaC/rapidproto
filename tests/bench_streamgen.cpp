@@ -36,13 +36,14 @@
 #include "proto2.rp.stream.hpp"  // generated p2::Scalars; -Itests/streamgen_golden (pulls runtime.hpp)
 #include "rapidproto/runtime.hpp"
 
-#if __has_include(<protozero/pbf_reader.hpp>)
-#include <protozero/pbf_reader.hpp>
-
 // The generated types live under one root per model; alias each package once so the
 // bodies below read as they did before the roots existed. This file uses the stream model only.
+// OUTSIDE the protozero guard: every arm needs the aliases, protozero present or not.
 namespace bench = rp::stream::bench;
 namespace p2 = rp::stream::p2;
+
+#if __has_include(<protozero/pbf_reader.hpp>)
+#include <protozero/pbf_reader.hpp>
 #define RAPIDPROTO_HAVE_PROTOZERO 1
 #endif
 

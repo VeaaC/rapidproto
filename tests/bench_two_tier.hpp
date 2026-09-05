@@ -21,9 +21,6 @@
 #include "proto2.rp.stream.hpp"  // generated rp::stream::p2::Scalars (comprehensive: 18 field kinds)
 #include "rapidproto/runtime.hpp"
 
-// The generated types live under one root per model; alias each package once so the
-// bodies below read as they did before the roots existed. This file uses the stream model only.
-
 // A comprehensive, varint-heavy decode: a mix of varint scalars + a large packed varint array (where
 // the out-of-line read_varint penalty bites) + a string. `fn` is the generated function name.
 #define RP_BENCH_DEFINE_SCALARS_DECODE(fn)                                             \
@@ -58,15 +55,18 @@
         return sum;                                                       \
     }
 
+// One varint writer for both buffer builders below (it was duplicated per builder once).
+inline void rp_bench_put_varint(std::string& b, std::uint64_t v) {
+    while (v >= 0x80U) {
+        b.push_back(static_cast<char>(0x80U | (v & 0x7FU)));
+        v >>= 7U;
+    }
+    b.push_back(static_cast<char>(v));
+}
+
 // Build a buffer matching the decode above: a few varint scalars, a large packed_nums array, a string.
 inline std::string rp_bench_scalars_buffer(int packed_count) {
-    const auto put_varint = [](std::string& b, std::uint64_t v) {
-        while (v >= 0x80U) {
-            b.push_back(static_cast<char>(0x80U | (v & 0x7FU)));
-            v >>= 7U;
-        }
-        b.push_back(static_cast<char>(v));
-    };
+    const auto put_varint = &rp_bench_put_varint;
     const auto put_tag = [&](std::string& b, std::uint32_t field, std::uint32_t wire) {
         put_varint(b, (static_cast<std::uint64_t>(field) << 3U) | wire);
     };
@@ -93,13 +93,7 @@ inline std::string rp_bench_scalars_buffer(int packed_count) {
 
 // Build a buffer for RP_BENCH_DEFINE_MBTAG_DECODE: `count` records of {2-byte tag, 1-byte varint}.
 inline std::string rp_bench_mbtag_buffer(int count) {
-    const auto put_varint = [](std::string& b, std::uint64_t v) {
-        while (v >= 0x80U) {
-            b.push_back(static_cast<char>(0x80U | (v & 0x7FU)));
-            v >>= 7U;
-        }
-        b.push_back(static_cast<char>(v));
-    };
+    const auto put_varint = &rp_bench_put_varint;
     std::string buf;
     for (int i = 0; i < count; ++i) {
         put_varint(buf,

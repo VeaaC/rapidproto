@@ -2,9 +2,9 @@
 
 // Result<T>: a success-or-error value used as the return type of every parser
 // and pipeline pass. On failure it carries an Error: which source buffer, the
-// byte offset into that source, and a human-readable message. (The byte offset
-// could be turned into line:col from the source text, though no renderer currently
-// does so — the CLI prints the message as-is.)
+// byte offset into that source, and a human-readable message. (render_error in
+// source.hpp turns the offset into "file:line:col: message"; both CLI entry
+// points print through it.)
 //
 // RP_TRY(target, expr) unwraps a Result: on error it returns the error from the
 // enclosing function (which must itself return some Result<...>); on success it

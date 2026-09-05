@@ -12,9 +12,10 @@
 #   ./check.sh fix    # first apply clang-format, then run the full gate
 #   ./check.sh quick  # fast inner loop: apply formatting + gcc build+test only (no clang/tidy)
 #   ./check.sh deep   # OPT-IN heavy tier (CI / end-of-phase, NOT the inner loop): ASan+UBSan over the
-#                     # full suite, coverage with a line floor, the real-world corpus sweep, and a
-#                     # fuzz smoke over the four targets
-#                     # (three decode paths + the schema front-end). Slow (three instrumented builds).
+#                     # full suite, coverage with a line floor, the real-world corpus sweep plus a
+#                     # bounded corpus-compile sample, a goldens-reproduce-from-the-regen-scripts
+#                     # leg, and a fuzz smoke over the four targets (three decode paths + the schema
+#                     # front-end). Slow (three instrumented builds).
 #                     # Override: FUZZ_TIME=120 COV_FLOOR=88.
 #
 # Every stage's output is captured to build/gate-logs/<stage> and kept after the run, so a failure
@@ -147,17 +148,17 @@ if [[ "${1:-}" == "quick" ]]; then
     echo ">> cmake configure failed"
     exit 1
   fi
-  build_out=$(cmake --build --preset gcc -j"$JOBS" 2>&1)
   # Same check as the full gate: quick runs this binary, so a renamed or excluded target would
-  # hand it the previous build. (Placed before the build-output check so a missing target is
-  # named rather than surfacing as an unrelated failure later.)
+  # hand it the previous build. Before the build so a missing target is named rather than
+  # surfacing as an unrelated failure later.
+  ensure_targets build/gcc rapidproto_tests || exit 1
+  build_out=$(cmake --build --preset gcc -j"$JOBS" 2>&1)
   if [[ $? -ne 0 ]] || grep -qE 'error:|warning:' <<<"$build_out"; then
     echo ">> build problems (gcc):"
     grep -E 'error:|warning:' <<<"$build_out" | head -30
     exit 1
   fi
   echo "build clean (gcc)"
-  ensure_targets build/gcc rapidproto_tests || exit 1
   test_out=$(./build/gcc/rapidproto_tests  2>&1); test_rc=$?
   # BOTH: Catch2 prints its summary before the process exits, so an at-exit failure (LeakSanitizer,
   # a static-destructor crash, an atexit abort) leaves "All tests passed" in the output of a run

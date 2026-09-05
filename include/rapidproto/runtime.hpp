@@ -781,8 +781,7 @@ inline const std::uint8_t* read_length_delimited(const std::uint8_t* p, const st
     if (np == nullptr) {
         return nullptr;
     }
-    if constexpr (sizeof(std::size_t) <
-                  sizeof(std::uint64_t)) {  // 32-bit hosts only (see read_length_delimited)
+    if constexpr (sizeof(std::size_t) < sizeof(std::uint64_t)) {  // 32-bit hosts only
         if (len > std::numeric_limits<std::size_t>::max()) {
             *err = WireError::LengthTooLarge;
             return nullptr;
