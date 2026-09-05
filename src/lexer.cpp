@@ -125,6 +125,11 @@ TokenKind keyword_or_identifier(std::string_view text) {
         {"max", TokenKind::KwMax},           {"inf", TokenKind::KwInf},
         {"nan", TokenKind::KwNan},
     };
+    // Both sides of the keyword mirror in one place: an enumerator without a table entry would
+    // lex as Identifier with nothing failing, so derive the expected count from the enum range
+    // (map sizes are not constexpr, hence assert rather than static_assert).
+    assert(kKeywords.size() == static_cast<std::size_t>(TokenKind::KwNan) -
+                                   static_cast<std::size_t>(TokenKind::KwSyntax) + 1);
     const auto it = kKeywords.find(text);
     return it == kKeywords.end() ? TokenKind::Identifier : it->second;
 }

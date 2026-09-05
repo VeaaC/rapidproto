@@ -94,7 +94,7 @@ RP_FLATTEN inline bool ::rp::arena::ed24::M::rp_decode_into([[maybe_unused]] ::r
       }
       const std::uint8_t* rp_vp = ::rapidproto::wire::byte_ptr(rp_p);
       const std::uint8_t* const rp_ve = rp_vp + rp_p.size();
-      if (rp_p.size() >= 256) {
+      if (rp_p.size() >= ::rapidproto::wire::kPackedKernelMinSpan) {
         const std::size_t rp_dc = ::rapidproto::arena_detail::decode_packed_varints_large<std::int32_t, ::rapidproto::wire::conv_int32>(rp_vp, rp_ve, rp_acc_b + rp_n_b, err);
         if (rp_dc == static_cast<std::size_t>(-1)) { return false; }
         rp_n_b += rp_dc;

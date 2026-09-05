@@ -27,8 +27,10 @@ enum class TokenKind : std::uint8_t {
     FloatLiteral,
     StringLiteral,
 
-    // Keywords (43)
-    KwSyntax,
+    // Keywords. The count is pinned in src/lexer.cpp: a static_assert derives it from the
+    // KwSyntax..KwNan enumerator range and compares it to the table's size, so an enumerator
+    // added without a table entry (which would lex as Identifier, silently) fails the build.
+    KwSyntax,  // KEEP FIRST of the keyword block (the count assertion anchors here)
     KwEdition,
     KwPackage,
     KwImport,
@@ -70,7 +72,7 @@ enum class TokenKind : std::uint8_t {
     KwTo,
     KwMax,
     KwInf,
-    KwNan,
+    KwNan,  // KEEP LAST of the keyword block (the count assertion anchors here)
 
     // Symbols. The spec defines 15 punctuation tokens; `Plus` ('+') is a deliberate
     // extension — '+' is not a standalone token in the spec (it appears only inside a

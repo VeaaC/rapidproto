@@ -1050,9 +1050,10 @@ void emit_packed_fill(const Emit& emit, const FieldNode& field) {
         // address never escapes (the kernel takes `acc + n` by value), so neither compiler spills it. The
         // per-element conversion is a NAMED functor so the template instantiates once per proto type
         // (shared across fields and TUs), not once per field; enums use conv_enum<TheEnum> (a cast --
-        // open-enum semantics, any value stored as-is, identical to the per-element read). 256 is
-        // decode_packed_varints's own kernel-vs-byte-loop threshold, so the kernels always engage in the
-        // out-of-line arm (a sub-256 span would only run the byte-loop tail, done inline below).
+        // open-enum semantics, any value stored as-is, identical to the per-element read). The
+        // emitted guard is wire::kPackedKernelMinSpan -- decode_packed_varints's own kernel-vs-
+        // byte-loop threshold -- so the kernels always engage in the out-of-line arm (a smaller
+        // span would only run the byte-loop tail, done inline below).
         const std::string conv = field.is_enum_type
                                      ? "::rapidproto::wire::conv_enum<" + elem + ">"
                                      : std::string(scalar_wire(field.type_name).packed_conv);
@@ -1074,7 +1075,7 @@ void emit_packed_fill(const Emit& emit, const FieldNode& field) {
         p.print("}\n");
         p.print("const std::uint8_t* rp_vp = ::rapidproto::wire::byte_ptr(rp_p);\n");
         p.print("const std::uint8_t* const rp_ve = rp_vp + rp_p.size();\n");
-        p.print("if (rp_p.size() >= 256) {\n");
+        p.print("if (rp_p.size() >= ::rapidproto::wire::kPackedKernelMinSpan) {\n");
         p.indent();
         p.print(
             "const std::size_t rp_dc = ::rapidproto::arena_detail::decode_packed_varints_large<$E$,"

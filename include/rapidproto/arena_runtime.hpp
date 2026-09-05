@@ -654,18 +654,10 @@ template <class T>
 
 // True when this platform's byte order matches protobuf's fixed32/64 wire encoding (little-endian),
 // so a packed fixed-width array's wire bytes ARE its in-memory image and the decoder can bulk-copy
-// the span in one memcpy instead of reading each element. On a big-endian (or unknown-endian)
-// target this is false and the decoder falls back to the byte-swapping per-element read. C++17 has
-// no std::endian; __BYTE_ORDER__ is defined by every supported compiler, Windows is always
-// little-endian, and anything else conservatively takes the safe per-element path.
-#if defined(__BYTE_ORDER__) && defined(__ORDER_LITTLE_ENDIAN__)
-// NOLINTNEXTLINE(misc-redundant-expression): the two macros are equal on a LE build -- that IS the test
-inline constexpr bool kFixedIsNativeLE = __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__;
-#elif defined(_WIN32)
-inline constexpr bool kFixedIsNativeLE = true;
-#else
-inline constexpr bool kFixedIsNativeLE = false;
-#endif
+// the span in one memcpy instead of reading each element. Otherwise the decoder falls back to the
+// byte-swapping per-element read. Derived from the wire layer's single byte-order probe
+// (wire::kIsLittleEndian, runtime.hpp) rather than probing again here.
+inline constexpr bool kFixedIsNativeLE = wire::kIsLittleEndian;
 
 // The SWAR-kernel packed-varint decode for a LARGE span, pulled OUT of line -- shared across every
 // `repeated <varint-type>` field of this element type (and across messages/TUs, since the instantiation
@@ -677,7 +669,7 @@ inline constexpr bool kFixedIsNativeLE = false;
 // (the common repeated-field case), and the trim inline, so tiny arrays pay no call. The array is already
 // grown to fit; this decodes into `dst` (= acc + n) and returns the element count, or SIZE_MAX on a
 // malformed varint (`err` set). `dst` is passed by value (no caller address escapes -> no spill). Guarded
-// to spans >= 256 by the caller, which is also decode_packed_varints's own kernel-vs-byte-loop threshold,
+// to spans >= wire::kPackedKernelMinSpan by the caller -- decode_packed_varints's own kernel-vs-byte-loop threshold --
 // so the kernels always engage here (a sub-256 span would only run the byte-loop tail, done inline).
 template <class Elem, class Conv>
 RP_NOINLINE std::size_t decode_packed_varints_large(const std::uint8_t* vp, const std::uint8_t* ve,
@@ -692,7 +684,7 @@ RP_NOINLINE std::size_t decode_packed_varints_large(const std::uint8_t* vp, cons
     return dc;
 }
 
-// The validating byte-loop for a SMALL packed-varint span (< 256 bytes, below decode_packed_varints's
+// The validating byte-loop for a SMALL packed-varint span (under wire::kPackedKernelMinSpan, below decode_packed_varints's
 // kernel threshold -- a large-span kernel would never engage). RP_FLATTEN so it INLINES into the
 // generated decode(): a small array is the common repeated-field shape, and inlining keeps its decode a
 // handful of instructions with no call and no kernel-dispatch setup. This is byte-for-byte

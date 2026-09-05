@@ -231,7 +231,7 @@ comment; the behaviors that are not obvious from it:
 - `alt` reports the **farthest** child error (best-match diagnostics) and stops early on a `fatal` error.
 - `cut` marks the point a production is unambiguously entered, converting later failures into fatal errors
   so they propagate past `alt`/`opt`/`many` instead of backtracking.
-- `many`/`many1`/`separated_list` have zero-width-progress guards (no infinite loops).
+- `many`/`separated_list` have zero-width-progress guards (no infinite loops).
 - **A hub's combinator type must not leak into enclosing instantiation names.** A grammar hub (a
   `many(alt(...))` over rich branches — `message_element`, `file_element`, the lexer's token
   alternates, …) and any deep-chain branch feeding one are plain functions with the signature

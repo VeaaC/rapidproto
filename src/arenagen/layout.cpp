@@ -49,6 +49,9 @@ static_assert(sizeof(ArenaString) == kStringSize && alignof(ArenaString) == kStr
 static_assert(sizeof(ArrayView<int>) == kViewSize && alignof(ArrayView<int>) == kViewAlign);
 static_assert(sizeof(MapView<ArenaString>) == kViewSize &&
               alignof(MapView<ArenaString>) == kViewAlign);
+// This TU sees both sides of the deliberate AST/wire-layer constant duplication (ast.hpp keeps no
+// wire dep), so it is the place their agreement is pinned.
+static_assert(kMaxMessageFieldNumber == static_cast<std::int32_t>(kMaxFieldNumber));
 
 std::size_t align_up(std::size_t n, std::size_t align) {
     return (n + align - 1) & ~(align - 1);  // align is always a power of two here

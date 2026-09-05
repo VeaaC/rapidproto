@@ -652,7 +652,7 @@ RP_FLATTEN RP_NOINLINE inline bool ::pfx::arena::xr::Nested::User::rp_decode_int
       }
       const std::uint8_t* rp_vp = ::rapidproto::wire::byte_ptr(rp_p);
       const std::uint8_t* const rp_ve = rp_vp + rp_p.size();
-      if (rp_p.size() >= 256) {
+      if (rp_p.size() >= ::rapidproto::wire::kPackedKernelMinSpan) {
         const std::size_t rp_dc = ::rapidproto::arena_detail::decode_packed_varints_large<::pfx::common::xr::Nested::Def::Kind, ::rapidproto::wire::conv_enum<::pfx::common::xr::Nested::Def::Kind>>(rp_vp, rp_ve, rp_acc_kinds + rp_n_kinds, err);
         if (rp_dc == static_cast<std::size_t>(-1)) { return false; }
         rp_n_kinds += rp_dc;
