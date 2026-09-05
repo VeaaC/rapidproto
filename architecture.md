@@ -93,18 +93,18 @@ src/                  implementations + main.cpp (schema-inspection CLI) + wellk
   (generated); codegen/; streamgen/; arenagen/; dumpgen/; rapidprotoc/main.cpp (the CLI)
 cmake/                embed_runtime.cmake (build-time: embeds each emitter's runtime header into the CLI)
 wellknown/            vendored WKT .proto sources + embed_wellknown.py
-tests/                Catch2 unit tests + the golden harnesses (AST, wire, streamgen, arenagen, arena
-  layout) + corpus/ + benchmarks; regen_goldens.sh; the compile-fail + stress harnesses
+tests/                Catch2 unit tests + the golden harnesses (AST, wire, streamgen, arenagen,
+  dumpgen, coexistence, arena layout) + corpus/ + benchmarks; regen_goldens.sh; the
+  compile-fail + stress harnesses
 CMakeLists.txt · CMakePresets.json · check.sh
 ```
 
 - **Build.** `cmake --preset gcc` (or `clang`) configures a dual-compiler build (gcc-13, clang-20) with
   `-Werror`. Targets: `rapidprotoc` (the CLI), `rapidproto_tests`.
-- **The gate.** `./check.sh` is the one-stop quality bar: clang-format, a docs link check, build + test
-  on both compilers, clang-tidy (strict on the library, relaxed on tests), the compile-fail
-  harnesses
-  (the generated API rejects misuse), and a dispatch-gate stress compile. It **must be green
-  before any commit**.
+- **The gate.** `./check.sh` is the one-stop quality bar; it **must be green before any
+  commit**. The stage-by-stage reference lives in
+  [CONTRIBUTING.md](CONTRIBUTING.md#the-quality-gate), which owns it (four prose copies of the
+  stage list once disagreed with each other and with `check.sh`).
   `./check.sh fix` formats first; `./check.sh quick` is gcc-only for the inner loop (not the
   commit bar).
 - **Goldens.** Much of the suite is golden tests (the analyzed AST, the wire structure, each emitter's
@@ -404,7 +404,8 @@ header comments.
 **Single-level decode.** A LEN payload (string/bytes/sub-message/packed array — indistinguishable without
 type info) and a group body (`read_group`) are returned as opaque `ByteView` spans the caller re-parses.
 The only internal recursion is finding a group's matching `EGROUP`, bounded by `kMaxGroupDepth`.
-Inline-hot-path throughput is ~1.7 GB/s (≈570 M fields/s, `-O3`).
+(Throughput numbers live in [`docs/benchmarks.md`](docs/benchmarks.md), tied to named scenarios
+and reproducible snapshots -- not here.)
 
 ---
 
@@ -779,15 +780,9 @@ not a wire serializer; `--dump` implies `--arena`, since the dumper reads the ar
   same way (a colliding schema can't spell a name the arena header didn't). Its inputs are
   therefore the
   arena's `CppNameTable`, `LayoutSet`, and the `SymbolTable` (for enum value → name).
-- **What it renders.** Scalars; `string`; `bytes` as lowercase hex; enums by their prefix-stripped name
-  (matching the generated `enum class`, `UNKNOWN(<n>)` for an open-enum value outside the schema's
-  declared range); nested sub-messages; repeated fields as arrays; maps as objects; the active
-  member of
-  a oneof. Groups dump through the identical nested-message accessor. Default-valued implicit
-  (proto3
-  singular) fields and empty repeated/maps are omitted; explicit-presence fields print when set;
-  `required` always prints. A message that reserves the unknown-fields bit prints
-  `"has_unknown_fields": true` when set — a bit only, as the arena retains no unknown-field *data*.
+- **What it renders** is the user-facing contract and lives in
+  [`docs/dumper.md`](docs/dumper.md), which owns it (this page duplicated the whole eight-fact
+  list once, and a rendering change then had two pages to miss).
 - **Width-adaptive layout.** The runtime `Writer` renders each object/array compact (one line) if it fits
   a column budget (`width`, default 120), else one entry per line; a group goes multi-line only
   when it
@@ -934,9 +929,8 @@ instantaneous frequency, sampled adaptively until each ratio's significance is s
 (`tests/bench_harness.hpp`) — so a real few-percent win is separable from placement noise. Streaming is
 compared against a hand-written value-threaded loop and mapbox/protozero (`tests/bench_streamgen.cpp` →
 `rapidproto_bench`); arena against `protoc` + `google::protobuf::Arena` (`tests/bench_arena.cpp` →
-`rapidproto_arena_bench`). Both are driven by `tests/bench.py` (`run` builds and executes both pinned
-to one core and writes an NDJSON snapshot, `table` renders/compares snapshots, `diff` is the GB/s
-regression gate, `experiment` snapshots two git refs and diffs them). The **current headline numbers**
+`rapidproto_arena_bench`). Both are driven by `tests/bench.py` (subcommand reference:
+[`docs/benchmarks.md`](docs/benchmarks.md), which owns it). The **current headline numbers**
 — which decoder is how much faster than which baseline, against which libprotobuf — live in
 [`docs/benchmarks.md`](docs/benchmarks.md), their source of truth (the README's lead repeats the
 headline claims and moves with it); the bench prints its libprotobuf baseline version at
@@ -1006,15 +1000,10 @@ constant, and reproduce rather than quote. What the results mean structurally:
   `memcpy` a *single* fixed-width field, by contrast, showed no effect under the same control — the
   discipline is what tells a real win from a placement artifact.
 
-**The `protoc` baseline version matters — and is selectable without vendoring protobuf.** The arena
-bench's `protoc` arm is whatever `find_package(Protobuf)` resolves; libprotobuf's own decoder has sped
-up markedly across releases (measured here, **3.21 → 25.3 is ~10–40% fewer cycles/byte** on these
-shapes, most on many-small-messages), so an old baseline flatters the arena. The recipe for building a
-specific protobuf release into a local prefix and pointing CMake at it is in
-[`docs/benchmarks.md`](docs/benchmarks.md#choosing-the-protoc-baseline). The bench CMake prefers the
-protobuf **CONFIG** package (whose `protobuf::libprotobuf` target carries the Abseil link deps 22+
-needs) and falls back to the **FindProtobuf module** for a system 3.x install; `protoc` and
-`libprotobuf` come matched from the same prefix.
+**The `protoc` baseline version matters — and is selectable without vendoring protobuf.** An old
+baseline flatters the arena (libprotobuf's own decoder has sped up markedly across releases). The
+numbers, the selection recipe, and the CONFIG-vs-module resolution details all live in
+[`docs/benchmarks.md`](docs/benchmarks.md#choosing-the-protoc-baseline), which owns them.
 
 **The benchmarking caveat that matters most.** Decode hot loops run at ~1–8 GB/s
 (1–2 ns/field), so throughput is dominated by **code placement**: which address a function lands at and
@@ -1079,13 +1068,9 @@ reflected (a documented simplification; decoders accept both wire forms).
   with `-Werror`. Library sources compile strict + clang-tidy; the CLI is built strict but
   excluded from
   tidy/format; vendored Catch2 and generated sources are excluded.
-- **`./check.sh`** is the single quality gate (see [Orientation](#orientation)):
-  clang-format, a docs link check (`tests/check_doc_links.py`: every relative link's file and
-  heading
-  anchor must resolve), build + test on both compilers, clang-tidy, the per-emitter compile-fail
-  harnesses (each
-  proves the generated API rejects misuse, e.g. assigning to a read-only arena accessor), and a
-  dispatch-gate worst-case compile. `./check.sh fix` formats first; `./check.sh quick` is gcc-only.
+- **`./check.sh`** is the single quality gate; the stage list lives once, in
+  [CONTRIBUTING.md](CONTRIBUTING.md#the-quality-gate). `./check.sh fix` formats first;
+  `./check.sh quick` is gcc-only.
 - **Regenerating goldens.** After an intentional change to an emitter / AST dumper / wire dumper / layout
   dumper, run **`tests/regen_goldens.sh`** (then `./check.sh`, review the diff). It drives
   `rapidprotoc`
@@ -1137,15 +1122,11 @@ reflected (a documented simplification; decoders accept both wire forms).
   test binary on purpose (measuring decoders inside the large binary is placement-sensitive). Run
   pinned:
   - `rapidproto_bench` (`bench_streamgen.cpp`): streaming decoder vs a hand-written value-threaded loop vs
-    mapbox protozero across ~13 wire-path scenarios.
+    mapbox protozero across the wire-path scenarios (one per field shape; the suite grows).
   - `rapidproto_arena_bench` (`bench_arena.cpp`, built only when `protobuf` is found): arena vs `protoc` +
     `Arena` vs streaming on a realistic payload, plus the chunk-cap shape/size sweep.
-  - `tests/bench.py` drives both: `run` builds and executes them pinned and writes an NDJSON snapshot,
-  `table` renders/compares snapshots, `diff OLD NEW` is the GB/s regression gate (past the larger
-  of a
-  ~10% placement floor and the arm's own measured spread), `experiment BASELINE [VARIANT]`
-  snapshots
-    two git refs and diffs them.
+  - `tests/bench.py` drives both; its subcommands are documented in
+    [`docs/benchmarks.md`](docs/benchmarks.md), which owns that reference.
 
   See [Decoder performance](#decoder-performance) for how to read the numbers (and the placement
   noise floor).
@@ -1212,12 +1193,9 @@ decode-relevant may be approximated or rejected.
   and no merge pass over an already-materialized subtree. It is declined on cost: a prototype added
   `.text` to every decoder carrying such a field, even with the merge path kept out of line, for an
   idiom few need, plus tail work for groups and the `raw` field mode. Rejecting instead reports the
-  case rather than decoding to a tree protobuf
-  would not produce. That covers a sub-message **oneof** member repeating while the oneof still holds
-  it, and a map entry repeating its `value`; a oneof whose members alternate still decodes, since the
-  different member clears the oneof and protobuf likewise starts the later occurrence fresh. The
-  streaming model applies no policy of its own: it reports each occurrence and lets you combine them,
-  except inside a map entry, where the `(key, value)` callback carries only that entry's last of each.
+  case rather than decoding to a tree protobuf would not produce. The per-shape behavior
+  enumeration (oneof members, map entries, the streaming model's per-occurrence policy) lives in
+  [`docs/semantics.md`](docs/semantics.md), which owns it; this page keeps only the rationale.
 - **gRPC is out of scope.** `service`/`rpc` are parsed past and dropped (no `ServiceNode`; a file's
   messages still decode).
 - **`extend` / extension fields are retained but not emitted.** The AST keeps the extension registry

@@ -129,7 +129,7 @@ treat the magnitudes as illustrative and the *method* as the transferable part. 
 statistic is
 `spread_pct`, defined further down.
 
-**Quiescing.** Same binary, five runs on an otherwise idle box, over the arena bench's 259
+**Quiescing.** Same binary, five runs on an otherwise idle box, over the arena bench's then-259
 gated arms:
 
 | | median range | arms over 5% |
@@ -191,7 +191,8 @@ every run decodes the same bytes.
 — printed as the `noise` column — is that run set's interquartile range relative to the median. What
 matters is how much the middle of the distribution moves, not how far the extremes reach, and an IQR
 ignores one outlier in either direction. Both choices are measurable rather than assumed: re-derived
-from one pair of 5-run snapshots of the same binary (485 gated arms across both benches, via the
+from one pair of 5-run snapshots of the same binary (485 gated arms across both benches as then
+measured -- the suite has grown since; `bench.py diff` reports the live count -- via the
 stored `gb_s_runs`), the largest apparent change on unchanged code is **−3.7%**, where keeping each
 arm's *fastest* run instead gives **−46.9%** — the fastest run records an upward fluke the next
 snapshot has no reason to repeat.

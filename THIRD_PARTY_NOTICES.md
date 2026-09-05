@@ -49,8 +49,8 @@ and are not part of what it distributes.
 
 ### protozero
 
-- **Use:** referenced only by `tests/bench_streamgen.cpp` (the decode benchmark),
-  via a system/dev install. It is not linked into the library or its output.
+- **Use:** referenced only by the benchmark sources (`tests/bench_*`), via a system/dev
+  install. It is not linked into the library or its output.
 - **Copyright:** Mapbox.
 - **License:** BSD 2-Clause.
 
@@ -58,8 +58,9 @@ and are not part of what it distributes.
 
 - **Use:** `.proto` schemas fetched by `tests/fetch_corpus.py` into the gitignored
   `build/corpus/` for the integration tests. Nothing is committed here or redistributed.
-  Conformance-suite message schemas, `descriptor.proto` and `compiler/plugin.proto` at
-  `v35.1`; benchmark schemas and datasets at `v21.12`.
+  Conformance-suite message schemas, `descriptor.proto` and `compiler/plugin.proto`, plus
+  benchmark schemas and datasets; pinned by tag -- the exact refs live in
+  `tests/fetch_corpus.py`, as the Google APIs entry below already does.
 - **Copyright:** 2008 Google Inc.
 - **License:** BSD 3-Clause.
 

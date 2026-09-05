@@ -89,7 +89,11 @@ Get the helper and the `rapidproto::rapidprotoc` tool it drives, either way:
 include(FetchContent)
 FetchContent_Declare(rapidproto
   GIT_REPOSITORY https://github.com/VeaaC/rapidproto
-  GIT_TAG        v0.3.1)                       # pin the release you want
+  GIT_TAG        v0.3.1)                       # pin the release you want -- but NOTE: v0.3.1
+                                               # predates the rp:: model roots this manual
+                                               # documents (its names are `pkg::Msg`, not
+                                               # `rp::arena::pkg::Msg`); until 0.4.0 is
+                                               # released, pin a commit from main instead
 FetchContent_MakeAvailable(rapidproto)         # defines rapidproto_generate() + rapidproto::rapidprotoc
 
 # …or use an installed RapidProto (cmake --install <build> --prefix <prefix>):

@@ -45,8 +45,10 @@ cmake --build --preset gcc
   checked-in goldens, and a fuzz smoke over the four targets (see [Fuzzing](#fuzzing)).
 
 CI runs the gate's stages spread across several jobs, `./check.sh deep`, and a Release `-O3 -Werror`
-build on **every push and pull request**. Running `./check.sh` locally covers the same stages in
-one command (CI additionally compiles a corpus sample, which locally is a deep-tier leg).
+build on **every pull request and every push to the default branch** (feature-branch pushes are
+gated by their PR run). Running `./check.sh` locally covers the same stages in one command; what
+CI adds beyond it: the corpus-compile sample (locally a deep-tier leg), an arm64 build/test job,
+and the consumer job (install -> `find_package` -> C++20/23 header compiles).
 
 ## The real-world schema corpus
 
@@ -63,7 +65,7 @@ Nothing is vendored and nothing is redistributed, and everything corpus-related 
 *nothing* has been fetched, so you never have to download it to run the gate. A **partially** fetched
 corpus is a hard failure instead: sweeping a fraction of the schemas while reporting the same green
 result is worse than not sweeping at all. Once fetched, `./check.sh deep` sweeps every schema
-through `rapidprotoc` (~3 min on 20 cores, ~38 CPU-minutes of work). It is out of the default gate
+through `rapidprotoc` (tens of CPU-minutes; wall time scales with cores). It is out of the default gate
 deliberately -- it is a compatibility check, not fast feedback -- and CI runs it in its own job on
 every PR.
 
@@ -73,7 +75,7 @@ too (so fixing a limitation deletes its lines in the same change), and a listed 
 **different reason** than recorded fails as well. Keep it small — every line is a documented gap
 between RapidProto and protoc.
 
-The deep sweep (`rapidproto_tests [sweep]`, ~47s) lex+parses every schema on its own. It is excluded
+The deep sweep (`rapidproto_tests [sweep]`, under a minute) lex+parses every schema on its own. It is excluded
 from the gate because `rapidprotoc` already parses all of them; run it directly when you want
 per-file front-end diagnostics rather than one error per pipeline run.
 
