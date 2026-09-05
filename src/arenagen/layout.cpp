@@ -19,6 +19,7 @@
 #include "rapidproto/ast.hpp"
 #include "rapidproto/resolve.hpp"
 #include "rapidproto/resolver.hpp"
+#include "rapidproto/runtime.hpp"  // kMaxFieldNumber (the static_assert pin below)
 
 namespace rapidproto::arenagen {
 namespace {
@@ -91,7 +92,7 @@ std::string elem_repr(const FieldNode& field) {
     if (is_string_field(field)) {
         return "ArenaString";
     }
-    return std::string(field.type_name);  // scalar keywords label themselves
+    return {field.type_name.begin(), field.type_name.end()};  // scalar keywords label themselves
 }
 
 // The padding-minimizing slot order: alignment desc, size desc, then a stable tiebreak (field number

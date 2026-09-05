@@ -7,9 +7,6 @@
 #include <vector>
 
 #include "rapidproto/ast.hpp"
-#include "rapidproto/lexer.hpp"
-#include "rapidproto/parser.hpp"
-#include "rapidproto/range.hpp"
 #include "rapidproto/resolve.hpp"
 #include "rapidproto/resolver.hpp"
 #include "rapidproto/result.hpp"

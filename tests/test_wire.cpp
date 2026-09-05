@@ -659,17 +659,18 @@ std::optional<std::string> read_fixture(const std::string& name) {
 
 TEST_CASE("wire: protoc Scalars fixture decodes", "[wire]") {
     const std::optional<std::string> bin = read_fixture("scalars.bin");
-    // Checked-in fixture: absence is a broken checkout, never a reason to pass.
-    REQUIRE(bin.has_value());
-    const std::vector<Field> fields = must(walk(ByteView(*bin)));
+    // Checked-in fixture: absence is a broken checkout, never a reason to pass. must() carries
+    // the guard clang-tidy's optional model can see (REQUIRE is opaque to it).
+    const std::string bytes = must(bin);
+    const std::vector<Field> fields = must(walk(ByteView(bytes)));
     CHECK_FALSE(fields.empty());
 }
 
 TEST_CASE("wire: protoc AllWire fixture decodes with a group", "[wire]") {
     const std::optional<std::string> bin = read_fixture("all_wire.bin");
-    // Checked-in fixture: absence is a broken checkout, never a reason to pass.
-    REQUIRE(bin.has_value());
-    const std::vector<Field> fields = must(walk(ByteView(*bin)));
+    // Checked-in fixture: absence is a broken checkout, never a reason to pass (must() as above).
+    const std::string bytes = must(bin);
+    const std::vector<Field> fields = must(walk(ByteView(bytes)));
     bool saw_group = false;
     for (const Field& field : fields) {
         if (field.wire_type == WireType::SGroup) {

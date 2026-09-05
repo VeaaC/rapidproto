@@ -317,10 +317,10 @@ int main(int argc, char** argv) {
                          .has_value();
                 break;
             case rapidproto::cli::OutputKind::Arena:
-                ok = rapidproto::cli::write_file(path,
-                                                 rapidproto::arenagen::generate_header(
-                                                     *out.file, names, *layouts, &modes),
-                                                 opts->verbose)
+                ok = rapidproto::cli::write_file(
+                         path,
+                         rapidproto::arenagen::generate_header(*out.file, names, *layouts, &modes),
+                         opts->verbose)
                          .has_value();
                 break;
             case rapidproto::cli::OutputKind::Stream:

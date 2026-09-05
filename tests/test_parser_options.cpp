@@ -5,14 +5,10 @@
 #include <cmath>
 #include <cstdint>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include "rapidproto/ast.hpp"
-#include "rapidproto/lexer.hpp"
 #include "rapidproto/parser.hpp"
-#include "rapidproto/range.hpp"
-#include "rapidproto/result.hpp"
 
 using namespace rapidproto;  // NOLINT(google-build-using-namespace): test convenience
 

@@ -10,9 +10,6 @@
 #include <catch_amalgamated.hpp>
 
 #include <cstdlib>
-#include <fstream>
-#include <ios>
-#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>

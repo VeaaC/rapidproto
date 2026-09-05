@@ -9,9 +9,6 @@
 
 #include "rapidproto/ast.hpp"
 #include "rapidproto/interpret.hpp"
-#include "rapidproto/lexer.hpp"
-#include "rapidproto/parser.hpp"
-#include "rapidproto/range.hpp"
 #include "rapidproto/resolve.hpp"
 #include "rapidproto/result.hpp"
 

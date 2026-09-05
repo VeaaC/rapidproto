@@ -10,13 +10,10 @@
 #include "golden_file.hpp"
 
 #include <cstdint>
-#include <cstring>  // std::memcpy: build little-endian fixed-width packed test bytes
-#include <fstream>
+#include <cstring>           // std::memcpy: build little-endian fixed-width packed test bytes
 #include <initializer_list>  // packed({...}) test-vector helper
-#include <ios>
-#include <memory>    // std::shared_ptr: decode_owned's self-contained handle
-#include <optional>  // std::nullopt: absent explicit-presence reads
-#include <sstream>
+#include <memory>            // std::shared_ptr: decode_owned's self-contained handle
+#include <optional>          // std::nullopt: absent explicit-presence reads
 #include <string>
 #include <string_view>
 #include <type_traits>  // is_same_v: the inline-namespace transparency pin

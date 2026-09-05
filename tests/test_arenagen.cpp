@@ -11,10 +11,7 @@
 
 #include <cstdint>
 #include <cstdlib>
-#include <fstream>
-#include <ios>
 #include <map>
-#include <sstream>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -67,8 +64,6 @@ namespace xr = rp::arena::xr;
 using namespace rapidproto;  // NOLINT(google-build-using-namespace): test convenience
 
 namespace {
-
-using rapidproto::test::read_file;
 
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): include dir, entry file, namespace prefix
 std::string generate(const std::string& dir, const std::string& entry,
@@ -141,7 +136,6 @@ std::string generate_unknown_present(const std::string& entry, const std::string
     return arenagen::generate_header(set.files.back(), names, layouts, &modes);
 }
 
-// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): expected vs actual, distinct roles
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): golden name vs generated content
 void check_golden(const std::string& name, const std::string& actual) {
     test::check_golden(std::string(RAPIDPROTO_ARENAGEN_GOLDEN_DIR) + "/" + name + ".rp.hpp", name,
