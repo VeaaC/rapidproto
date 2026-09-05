@@ -10,6 +10,7 @@
 #include "rapidproto/ast.hpp"
 #include "rapidproto/resolver.hpp"
 #include "rapidproto/result.hpp"
+#include "rapidproto/scalar.hpp"
 
 namespace rapidproto {
 namespace {
@@ -27,10 +28,12 @@ const OptionValue* find_option(const std::vector<Option>& options, std::string_v
 
 void interpret_field(FieldNode& field) {
     // [packed = true/false] overrides the syntax-default repeated encoding, on packable scalars
-    // only (matching the feature pass). The is_message/is_enum guard requires the type-resolution
-    // pass to have run first, so this never clobbers its enum/message -> Expanded fixup.
+    // only -- gated on the SAME predicate the feature pass and the parser's syntax default use
+    // (scalar.hpp's is_packable_scalar), so the three passes cannot disagree; it also excludes
+    // string/bytes, which the resolved-kind flags alone would let through. A user type shadowing
+    // a scalar name never matches the predicate, mirroring resolve_field's scalar-first order.
     // true/false are retained as identifiers since the parser does not interpret bools.
-    if (field.is_repeated && !field.is_message_type && !field.is_enum_type) {
+    if (field.is_repeated && is_packable_scalar(field.type_name)) {
         if (const OptionValue* packed = find_option(field.options, "packed")) {
             if (const auto* value = std::get_if<Identifier>(&packed->value)) {
                 if (value->name == "true") {

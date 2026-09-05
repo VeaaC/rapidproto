@@ -67,6 +67,16 @@ TEST_CASE("interpret: no packed option leaves the syntax default in place") {
     CHECK(p3.messages[0].fields[0].repeated_encoding == RepeatedEncoding::Packed);
 }
 
+TEST_CASE("interpret: [packed = true] on a non-packable field is ignored") {
+    // string/bytes are repeated-but-not-packable: the wire format has no packed form for
+    // length-delimited elements, and the feature pass refuses the equivalent feature. The
+    // interpreter must gate on the same is_packable_scalar predicate -- before it did, this
+    // exact shape flipped repeated_encoding to Packed while resolve_features said Expanded.
+    FileNode f = interpret_ok(
+        R"(syntax = "proto3"; message M { repeated string s = 1 [packed = true]; })");
+    CHECK(f.messages[0].fields[0].repeated_encoding == RepeatedEncoding::Expanded);
+}
+
 TEST_CASE("interpret: proto2 [default] is captured as the typed default_value") {
     FileNode f = interpret_ok(R"(
         syntax = "proto2";
