@@ -690,9 +690,8 @@ RP_NOINLINE std::size_t decode_packed_varints_large(const std::uint8_t* vp, cons
 // generated decode(): a small array is the common repeated-field shape, and inlining keeps its decode a
 // handful of instructions with no call and no kernel-dispatch setup. This is byte-for-byte
 // decode_packed_varints's own tail (same array_sink read/convert/store, same span-relative fail offset),
-// just without the kernel scaffold a below-threshold span can't use. Decodes into `dst`; returns the
-// element
-// count or SIZE_MAX on a malformed varint (`err` set).
+// just without the kernel scaffold a below-threshold span can't use. Decodes into `dst`; returns
+// the element count or SIZE_MAX on a malformed varint (`err` set).
 template <class Elem, class Conv>
 RP_FLATTEN std::size_t decode_packed_varints_small(const std::uint8_t* vp, const std::uint8_t* ve,
                                                    Elem* dst, ArenaDecodeError* err) noexcept {

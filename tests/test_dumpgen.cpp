@@ -13,6 +13,7 @@
 #include "golden_file.hpp"
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <ios>

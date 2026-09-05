@@ -121,19 +121,22 @@ target_link_libraries(rapidproto_cli PRIVATE rapidproto_lib rapidproto_strict)
 # -Werror), suppressed per generated TU.
 function(_rapidproto_embed_runtime out_var header ns func decl)
   get_filename_component(_stem "${header}" NAME_WE)
-  # NAME_WE keys the output file: two headers sharing a stem would silently share one OUTPUT
-  # (Makefiles pick an arbitrary rule), so refuse the collision at configure time.
+  # NAME_WE keys the output file, so two same-dir calls with headers sharing a stem would collide
+  # on one OUTPUT. CMake diagnoses a duplicate first output itself, but names only the build-dir
+  # path; refuse it here with the header named instead. Keyed per binary dir, matching where the
+  # collision is real.
   get_property(_used GLOBAL PROPERTY RAPIDPROTO_EMBED_STEMS)
-  if("${_stem}" IN_LIST _used)
+  if("${CMAKE_CURRENT_BINARY_DIR}|${_stem}" IN_LIST _used)
     message(FATAL_ERROR "_rapidproto_embed_runtime: a second header with stem '${_stem}' "
-                        "(from ${header}) would overwrite the first embed's output rule")
+                        "(from ${header}) would collide with the first embed's output rule")
   endif()
-  set_property(GLOBAL APPEND PROPERTY RAPIDPROTO_EMBED_STEMS "${_stem}")
+  set_property(GLOBAL APPEND PROPERTY RAPIDPROTO_EMBED_STEMS "${CMAKE_CURRENT_BINARY_DIR}|${_stem}")
   set(_out "${CMAKE_CURRENT_BINARY_DIR}/generated/${_stem}_embedded.cpp")
   add_custom_command(
     OUTPUT "${_out}"
     COMMAND ${CMAKE_COMMAND}
       -DRUNTIME_HPP=${CMAKE_CURRENT_SOURCE_DIR}/${header}
+      -DRUNTIME_REL=${header}
       -DOUTPUT_CPP=${_out}
       -DEMBED_NS=${ns}
       -DEMBED_FUNC=${func}

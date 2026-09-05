@@ -6,9 +6,11 @@
 // success AND full consumption for the ok path, and defining "rejected" as "errored OR left tokens
 // unconsumed" for the negative one. Before this header those two definitions were restated in
 // ~18 per-file helpers (three of which spelled rejection `!r.is_ok()` and five `r.is_err()`);
-// each suite now keeps only its one-line domain wrapper. One deliberate outsider: the
+// each suite now keeps only its one-line domain wrapper. Two deliberate outsiders: the
 // test_integration corpus sweep re-states the pipeline inline because it ACCUMULATES per-file
-// failure strings instead of REQUIREing on the first (the whole-corpus report is the point).
+// failure strings instead of REQUIREing on the first (the whole-corpus report is the point),
+// and test_parser_errors' depth-cap SECTIONs do too because they pin the error MESSAGE, which
+// these bool/FileNode-returning helpers cannot carry.
 
 #include <string>
 #include <utility>

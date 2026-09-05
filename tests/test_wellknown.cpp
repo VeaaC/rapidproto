@@ -39,8 +39,8 @@ TEST_CASE("wellknown: unknown paths return nullopt") {
 TEST_CASE("wellknown: embedded descriptor.proto is itself parseable") {
     const auto src = wellknown_source("google/protobuf/descriptor.proto");
     REQUIRE(src.has_value());
-    // NOLINTNEXTLINE(bugprone-unchecked-optional-access): guarded by the REQUIRE above
-    const FileNode file = test::parse_file_ok(std::string(*src));
+    const FileNode file =
+        test::parse_file_ok(std::string(src.value_or(std::string_view{})));  // value_or: tidy-safe
     // descriptor.proto is proto2 with extension ranges + extend.
     CHECK(file.syntax_level == SyntaxLevel::Proto2);
     CHECK_FALSE(file.messages.empty());

@@ -195,8 +195,8 @@ inline const std::uint8_t* read_varint(const std::uint8_t* p, const std::uint8_t
 }
 
 // THE byte-order probe: swar_detail::load64's #if repeats the identical condition (a constexpr
-// bool cannot steer a preprocessor branch, so the textual pair lives a few lines apart in this
-// file), and arena_runtime.hpp's kFixedIsNativeLE derives from this constant -- the two files can
+// bool cannot steer a preprocessor branch, so the textual pair lives some fifty lines apart in
+// this file), and arena_runtime.hpp's kFixedIsNativeLE derives from this constant -- the two files can
 // never answer the endianness question differently.
 inline constexpr bool kIsLittleEndian =
 #if (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__) || defined(_WIN32)

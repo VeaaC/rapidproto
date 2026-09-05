@@ -48,9 +48,10 @@ export CLANG_TIDY
 # moment it exists; previously two hand lists (LIB_SRC's 14 paths, HEADERS' six subdirs) meant a
 # new directory or source silently escaped BOTH format and tidy -- the exact gap the SRC_HDR
 # comment below records having hit once already. Exempt because formatting would fight their
-# vendor/generator: FORMAT_EXEMPT lists the vendored/generated files living INSIDE globbed roots
-# (catch_amalgamated.*, wellknown_generated.cpp); the golden dirs and build/ stay out simply by
-# not being globbed.
+# vendor/generator: FORMAT_EXEMPT filters ONLY the tests/*.hpp walk (catch_amalgamated.hpp is the
+# entry that fires today; the .cpp and wellknown_generated.cpp entries are insurance for a widened
+# glob -- the former matches no current glob, the latter is dropped from LIB_SRC by
+# TIDY_EXEMPT_SRC). The golden dirs and build/ stay out simply by not being globbed.
 shopt -s globstar nullglob
 FORMAT_EXEMPT=(tests/catch_amalgamated.hpp tests/catch_amalgamated.cpp src/wellknown_generated.cpp)
 # clang-tidy runs on the narrower LIB_SRC + TEST_SRC: the thin CLI drivers (src/*/main.cpp and the
@@ -214,8 +215,8 @@ if [[ "${1:-}" == "quick" ]]; then
   echo "build clean (gcc)"
   # AFTER the build, same order as job_build_test: ensure_targets itself builds the named target,
   # so running it first would compile the tree with its output swallowed and leave the warning
-  # grep above nothing to see. Here it only proves the TARGET still exists (a renamed or excluded
-  # target hands the run a stale binary).
+  # grep above nothing to see. After a full clean build it is a no-op that only proves the TARGET
+  # still exists (a renamed target hands the run a stale binary).
   ensure_targets build/gcc rapidproto_tests || exit 1
   run_test_binary ./build/gcc/rapidproto_tests gcc || exit 1
   echo ">> quick OK (gcc only -- run ./check.sh for the full gate before committing)"
@@ -1078,11 +1079,12 @@ job_differential() {
   python3 tests/differential.py --build-dir ./build/gcc --jobs "$JOBS"
 }
 
-# THE stage table. Validation, aggregation and the summary read from it. Five lists still spell
-# stages out -- DEFAULT_STAGES/NON_DEFAULT_STAGES and PARALLEL_STAGES/SEQUENTIAL_STAGES (the run
-# loops and the print loop derive from the latter pair) -- so a new stage needs a key, a title, a
-# job, and one entry in each pair. Both pairs are validated as partitions of STAGE_KEYS before any
-# stage runs, so an omission or duplicate is an exit-2, never silence.
+# THE stage table. Validation, aggregation and the summary read from it. Two list PAIRS still
+# spell stages out -- DEFAULT_STAGES/NON_DEFAULT_STAGES and PARALLEL_STAGES/SEQUENTIAL_STAGES (the
+# run loops and the print loop derive from the latter pair) -- so a new stage needs a key, a
+# title, a job, and one entry in each pair. Both pairs are validated as true partitions of a
+# duplicate-free STAGE_KEYS before any stage runs, so an omission, a duplicate, or a typo'd key
+# in any list is an exit-2, never silence.
 readonly STAGE_KEYS=(format docs fixtures gcc clang cf fuzz tidy corpus cxx20 names differential)
 
 # What a bare ./check.sh runs. `corpus` is deliberately absent: sweeping ~8000 third-party schemas is
@@ -1101,34 +1103,39 @@ readonly NON_DEFAULT_STAGES=(corpus)
 # list whose omission silently dropped a stage's captured log.
 readonly PARALLEL_STAGES=(format docs fixtures gcc clang fuzz tidy)
 readonly SEQUENTIAL_STAGES=(cf corpus cxx20 names differential)
-# A true PARTITION check, all three directions: every key in exactly one run list, and no run-list
-# entry outside STAGE_KEYS (such a stage would run, fail in stage_job's default arm, and then be
-# invisible to the summary loop -- error printed, ALL GREEN anyway).
-if [[ $(( ${#PARALLEL_STAGES[@]} + ${#SEQUENTIAL_STAGES[@]} )) -ne ${#STAGE_KEYS[@]} ]]; then
-  echo ">> PARALLEL_STAGES + SEQUENTIAL_STAGES (${#PARALLEL_STAGES[@]}+${#SEQUENTIAL_STAGES[@]})" >&2
-  echo "   do not partition STAGE_KEYS (${#STAGE_KEYS[@]}): a stage is missing, duplicated, or" >&2
-  echo "   listed in both" >&2
+# ONE partition check, applied to both pairs (all three directions: counts, list entries exist in
+# STAGE_KEYS, every key in some list). What each direction prevents: a key out of both run lists
+# never runs and its log never prints; a run-list entry outside STAGE_KEYS runs, fails in
+# stage_job's default arm, and is then invisible to the summary loop (error printed, ALL GREEN
+# anyway); a key in both DEFAULT_STAGES and NON_DEFAULT_STAGES makes run_stage's skip message lie.
+# The count direction is sound only over a duplicate-free STAGE_KEYS, so that is checked first.
+if [[ $(printf '%s\n' "${STAGE_KEYS[@]}" | sort -u | wc -l) -ne ${#STAGE_KEYS[@]} ]]; then
+  echo ">> STAGE_KEYS contains a duplicate key" >&2
   exit 2
 fi
-for _key in "${PARALLEL_STAGES[@]}" "${SEQUENTIAL_STAGES[@]}"; do
-  if [[ " ${STAGE_KEYS[*]} " != *" $_key "* ]]; then
-    echo ">> stage '$_key' is in a run list but not in STAGE_KEYS (it would run and fail" >&2
-    echo "   invisibly to the summary)" >&2
+_check_partition() {
+  local -n _half_a=$1 _half_b=$2
+  if [[ $(( ${#_half_a[@]} + ${#_half_b[@]} )) -ne ${#STAGE_KEYS[@]} ]]; then
+    echo ">> $1 + $2 (${#_half_a[@]}+${#_half_b[@]}) do not partition STAGE_KEYS" >&2
+    echo "   (${#STAGE_KEYS[@]}): a stage is missing, duplicated, or listed in both" >&2
     exit 2
   fi
-done
-for _key in "${STAGE_KEYS[@]}"; do
-  if [[ " ${PARALLEL_STAGES[*]} ${SEQUENTIAL_STAGES[*]} " != *" $_key "* ]]; then
-    echo ">> stage '$_key' is in STAGE_KEYS but in neither PARALLEL_STAGES nor SEQUENTIAL_STAGES" >&2
-    echo "   (it would never run, and its log would never print)" >&2
-    exit 2
-  fi
-  if [[ " ${DEFAULT_STAGES[*]} ${NON_DEFAULT_STAGES[*]} " != *" $_key "* ]]; then
-    echo ">> stage '$_key' is in STAGE_KEYS but in neither DEFAULT_STAGES nor NON_DEFAULT_STAGES;" >&2
-    echo "   it would never run. Add it to one of them." >&2
-    exit 2
-  fi
-done
+  local _key
+  for _key in "${_half_a[@]}" "${_half_b[@]}"; do
+    if [[ " ${STAGE_KEYS[*]} " != *" $_key "* ]]; then
+      echo ">> stage '$_key' is in $1/$2 but not in STAGE_KEYS" >&2
+      exit 2
+    fi
+  done
+  for _key in "${STAGE_KEYS[@]}"; do
+    if [[ " ${_half_a[*]} ${_half_b[*]} " != *" $_key "* ]]; then
+      echo ">> stage '$_key' is in STAGE_KEYS but in neither $1 nor $2" >&2
+      exit 2
+    fi
+  done
+}
+_check_partition PARALLEL_STAGES SEQUENTIAL_STAGES
+_check_partition DEFAULT_STAGES NON_DEFAULT_STAGES
 
 stage_title() {
   case $1 in

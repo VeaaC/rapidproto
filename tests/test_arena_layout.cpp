@@ -8,9 +8,9 @@
 
 #include <catch_amalgamated.hpp>
 
-#include <cstddef>
 #include "golden_file.hpp"
 
+#include <cstddef>
 #include <initializer_list>
 #include <string>
 #include <utility>

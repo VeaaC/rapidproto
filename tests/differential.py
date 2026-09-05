@@ -860,11 +860,11 @@ def main() -> int:
     mismatches = len(failures) - tool_failures
     # Anti-vacuity for the wire mutator: a shuffler that stopped producing distinct variants (a
     # stale predicate, an early return) would silently drop every non-canonical shape from
-    # coverage while the summary stayed green. Scoped to MULTI-schema runs: across the corpus
-    # ~75% of payloads shuffle distinct, so zero is a broken mutator -- but a single --schema run
-    # of a fixture with no scalar to duplicate, nothing packable and one-record messages
-    # (nsedge/xpkg is one) is legitimately zero-shuffle, and must not read as breakage.
-    mutator_dead = len(schemas) > 1 and checked > 0 and shuffled == 0
+    # coverage while the summary stayed green. Scoped to the FULL corpus sweep (no --schema):
+    # there ~75% of payloads shuffle distinct, so zero is a broken mutator -- but a --schema run
+    # can name only fixtures with no scalar to duplicate, nothing packable and one-record
+    # messages (nsedge/xpkg is one), which are legitimately zero-shuffle, not breakage.
+    mutator_dead = args.schema is None and checked > 0 and shuffled == 0
     print("differential: %d message types over %d schemas, %d payloads each (+%d wire-shuffled "
           "variants), %d mismatches "
           "(%d schemas skipped%s)" % (checked, len(schemas) - len(skipped) - build_failures,

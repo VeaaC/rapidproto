@@ -5,10 +5,10 @@
 // The hand-built wire for the `scalar records (dispatch-bound)` scenario, shared by BOTH
 // benches. NOT byte-identical to protoc's serialization: proto3 omits zero-valued implicit
 // fields this builder writes explicitly (a wire shape protoc parsers accept; the decoded VALUES
-// are equal). bench_arena.cpp asserts that value equality on every run (in main(), before any
-// result is reported) by re-serializing a protoc
-// parse of these bytes -- before that check the two constructions were an unpinned two-binary
-// mirror kept equal by care alone, under a comment that wrongly claimed byte identity.
+// are equal). bench_arena.cpp asserts that value equality on every run, in main() immediately
+// before the scalar-records scenario is measured, by re-serializing a protoc parse of these
+// bytes -- before that check the two constructions were an unpinned two-binary mirror kept equal
+// by care alone, under a comment that wrongly claimed byte identity.
 
 #include <cstdint>
 #include <string>

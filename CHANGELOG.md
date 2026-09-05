@@ -133,10 +133,11 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
   `Callbacks`, whose generated identifier goes back from `Callbacks_` to `Callbacks`.
   **Regenerate** to pick it up.
 
-- **`rapidproto_generate()` refuses an empty `GENERATOR` or `OUT_DIR` value.** An explicitly
-  empty value (typically an unset variable: `GENERATOR ${TYPO}`) is indistinguishable to CMake
-  from omitting the keyword, so it silently generated the arena default into the private build
-  dir; both now fail at configure naming the keyword. Omitting a keyword still takes its default.
+- **`rapidproto_generate()` refuses an empty `NAMESPACE_PREFIX`, `GENERATOR` or `OUT_DIR`
+  value.** An explicitly empty value (typically an unset variable: `GENERATOR ${TYPO}`) is
+  indistinguishable to CMake from omitting the keyword, so each silently took its default -- the
+  `rp` prefix, the arena generator, the private build dir -- while the build file said otherwise.
+  All three now fail at configure naming the keyword. Omitting a keyword still takes its default.
 
 - **Generated text housekeeping — regenerate to keep goldens/diffs quiet.** Generated headers name
   the packed-kernel span threshold via `wire::kPackedKernelMinSpan` instead of a bare `256`; dump

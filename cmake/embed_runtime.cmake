@@ -1,7 +1,7 @@
 # Embed a runtime header into a generated C++ translation unit, at build time.
 #
-# Run via:  cmake -DRUNTIME_HPP=<path> -DOUTPUT_CPP=<path> [-DEMBED_NS=<ns>] [-DEMBED_FUNC=<fn>]
-#           [-DEMBED_DECL=<decl-header>] -P cmake/embed_runtime.cmake
+# Run via:  cmake -DRUNTIME_HPP=<path> -DRUNTIME_REL=<repo-relative path> -DOUTPUT_CPP=<path>
+#           -DEMBED_NS=<ns> -DEMBED_FUNC=<fn> -DEMBED_DECL=<decl-header> -P cmake/embed_runtime.cmake
 # Invoked by an add_custom_command keyed on the runtime header, so the embedded copy is regenerated
 # whenever it changes -- there is no checked-in copy to keep in sync. Pure CMake: no external tool.
 #
@@ -12,7 +12,7 @@
 
 # Every input is REQUIRED: the old defaults duplicated the codegen call site's values in a second
 # place, and made a forgotten -D produce a silently mis-namespaced TU instead of an error.
-foreach(_required RUNTIME_HPP OUTPUT_CPP EMBED_NS EMBED_FUNC EMBED_DECL)
+foreach(_required RUNTIME_HPP RUNTIME_REL OUTPUT_CPP EMBED_NS EMBED_FUNC EMBED_DECL)
   if(NOT DEFINED ${_required} OR "${${_required}}" STREQUAL "")
     message(FATAL_ERROR "embed_runtime.cmake: -D${_required}=... is required (and must be non-empty)")
   endif()
@@ -31,9 +31,8 @@ endif()
 # compilers to support (both gcc and clang accept far larger; only clang's pedantic -Woverlength-strings
 # flags it), so the TUs that compile this file suppress that warning -- see CMakeLists.txt. This file is
 # internal to rapidprotoc; the runtime the CLI writes for consumers is the plain header, not this embed.
-get_filename_component(_header_name "${RUNTIME_HPP}" NAME)
 file(WRITE "${OUTPUT_CPP}"
-"// GENERATED at build time from include/rapidproto/${_header_name} (cmake/embed_runtime.cmake). DO NOT EDIT.
+"// GENERATED at build time from ${RUNTIME_REL} (cmake/embed_runtime.cmake). DO NOT EDIT.
 // Carries the runtime header text so the generator can drop a self-contained copy beside its output.
 
 #include \"${EMBED_DECL}\"

@@ -11,7 +11,7 @@
 # a dump header means two golden dirs on one include path, and their shared `*.rp.common.hpp` are
 # byte-identical, which clang rejects as a redefinition (see tests/check_fixture_coverage.sh).
 #
-#   tests/dumpgen_compile_fail.sh [c++-compiler]
+#   tests/dumpgen_compile_fail.sh [compiler]   # default compiler: c++
 set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CXX="${1:-c++}"
