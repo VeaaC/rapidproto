@@ -58,8 +58,29 @@ def anchors_of(path, cache={}):
     return cache[path]
 
 
-def main():
+def check_index_coverage():
+    """Both manual indexes -- README.md's Documentation table and docs/README.md's list -- must
+    link every docs/*.md page. The two carry independently-phrased descriptions on purpose (each
+    serves its own reader), so wording is free; what must not drift is COVERAGE: a new page
+    forgotten in either index is unreachable from that entry point, silently."""
     errors = 0
+    pages = {os.path.basename(p)
+             for p in glob.glob(os.path.join(ROOT, "docs", "*.md"))} - {"README.md"}
+    for index, link_shape in ((os.path.join(ROOT, "README.md"), "docs/{page}"),
+                              (os.path.join(ROOT, "docs", "README.md"), "{page}")):
+        with open(index, encoding="utf-8") as f:
+            text = strip_code(f.read())
+        rel = os.path.relpath(index, ROOT)
+        for page in sorted(pages):
+            if "](" + link_shape.format(page=page) not in text:
+                print(f">> {rel}: does not link {page} -- every docs/ page must appear in both "
+                      "manual indexes (descriptions may differ; coverage may not)")
+                errors += 1
+    return errors
+
+
+def main():
+    errors = check_index_coverage()
     checked = 0
     files = doc_files()
     # A zero-file run is a broken invocation, not a pass: the gate stage would report success
