@@ -75,8 +75,9 @@ CI-covered). Header-only — nothing to link.
 Using CMake? The [`rapidproto_generate()` helper](docs/integration.md#cmake-integration) wires
 generation into your build in a few lines. This section drives the tool by hand so each step is
 visible. Grab a prebuilt `rapidprotoc` from the
-[releases page](https://github.com/VeaaC/rapidproto/releases) (prebuilt Linux tarballs, license
-files included) — or build it once:
+[releases page](https://github.com/VeaaC/rapidproto/releases) (prebuilt Linux and macOS
+tarballs, license files included; the macOS binary is unsigned — clear the quarantine flag with
+`xattr -d com.apple.quarantine rapidprotoc` after extracting) — or build it once:
 
 ```sh
 cmake --preset release                               # system compiler, optimized

@@ -38,6 +38,14 @@
 # nothing interleaves. Exits non-zero if anything is not clean.
 
 set -uo pipefail
+
+# The floor is a fact three comments state; enforce it so a stock-macOS bash 3.2 gets this
+# sentence instead of an obscure `local -n` syntax error. (4.4: namerefs, globstar, mapfile -d.)
+if ((BASH_VERSINFO[0] < 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] < 4))); then
+  echo ">> check.sh needs bash >= 4.4 (this is ${BASH_VERSION}). On macOS, run" >&2
+  echo "   tests/system_build_test.sh instead -- the system-compiler build/test sequence." >&2
+  exit 2
+fi
 cd "$(dirname "$0")"
 
 CLANG_FORMAT="${CLANG_FORMAT:-clang-format-20}"   # overridable so the gate can be tested against a broken tool
@@ -761,6 +769,17 @@ job_doc_links() {
 }
 
 job_fixtures() {
+  # Syntax-check every shell script first: tests/*.sh includes scripts no gate stage EXECUTES on
+  # this platform (tests/system_build_test.sh runs only on the macOS legs), so without this a
+  # broken one merges green and fails where it is hardest to debug.
+  local _sh
+  for _sh in check.sh tests/*.sh; do
+    if ! bash -n "$_sh" 2>&1; then
+      echo ">> $_sh does not parse"
+      return 1
+    fi
+  done
+
   # Every tests/test_*.cpp must be IN the test binary. A file added to tests/ but never added to
   # CMakeLists.txt is compiled by nothing and run by nothing: the format stage checks it, tidy
   # exits 0 on a TU absent from the compile database, and the suite prints its usual assertion

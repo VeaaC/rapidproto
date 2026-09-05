@@ -3,11 +3,11 @@
 # three-shard matrix (tidy is 45-55% of the gate's CPU, so it gets its own runners), a corpus job
 # that sweeps ~8000 real third-party schemas and compiles a bounded sample of them (its own runner:
 # it needs a ~100 MB fetch), an arm64 build/test job (the SWAR decode kernels lower to native
-# AArch64 instructions x86 can't exercise), a macos build/test job (AppleClang + libc++), the
-# heavy "deep" tier (sanitizers + coverage floor +
-# fuzz smoke; its corpus legs live in the corpus job, which has the fetch), a Release -O3 -Werror
-# build on both compilers, and the consumer job (install -> find_package -> newer-standard header
-# compiles) -- so wall-clock is the slowest runner, not the sum.
+# AArch64 instructions x86 can't exercise), a macos build/test job (AppleClang + libc++), the heavy
+# "deep" tier (sanitizers + coverage floor + fuzz smoke; its corpus legs live in the corpus job,
+# which has the fetch), a Release -O3 -Werror build on both compilers, and the consumer job
+# (install -> find_package -> newer-standard header compiles) -- so wall-clock is the slowest
+# runner, not the sum.
 name: CI
 
 on:
@@ -86,7 +86,7 @@ jobs:
   # call: once releases ship a macOS binary, a platform nothing verifies would be a claimed
   # platform, and that flips the trade. Runs tests/system_build_test.sh -- the one home for the
   # system-compiler sequence, shared with release.yml's macos leg -- not check.sh, which needs
-  # bash >= 4.3 (macOS ships 3.2) and pins compilers this image doesn't have.
+  # bash >= 4.4 (macOS ships 3.2) and pins compilers this image doesn't have.
   macos:
     name: macos (build/test, AppleClang)
     runs-on: macos-15

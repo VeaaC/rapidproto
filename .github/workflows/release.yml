@@ -36,7 +36,7 @@ jobs:
           # `compilers` is check.sh's name for it, the same mode ci.yml's arm64 job runs, so that
           # stage list lives once in check.sh; macos runs tests/system_build_test.sh, the one
           # home for the system-compiler sequence shared with ci.yml's macos job (check.sh needs
-          # bash >= 4.3 and pinned compilers; macOS runners have neither). Everything
+          # bash >= 4.4 and pinned compilers; macOS runners have neither). Everything
           # architecture- and platform-independent (format, tidy, docs, ...) runs on the
           # linux-x86_64 leg.
           - os: linux
@@ -85,6 +85,10 @@ jobs:
           # A mis-tagged push must not ship a binary whose --version contradicts its tag.
           test "$(./build/rel/rapidprotoc --version)" = "rapidprotoc ${GITHUB_REF_NAME#v}"
           # Apache-2.0: the NOTICE and attributions travel with the redistributed binary.
+          # COPYFILE_DISABLE: macOS bsdtar otherwise embeds AppleDouble ._ metadata entries
+          # (com.apple.provenance from the --version run above), breaking the same-layout-
+          # everywhere property. A no-op on Linux.
+          COPYFILE_DISABLE=1 \
           tar -czf "rapidprotoc-${GITHUB_REF_NAME}-${{ matrix.os }}-${{ matrix.arch }}.tar.gz" \
             -C build/rel rapidprotoc -C "$GITHUB_WORKSPACE" LICENSE NOTICE THIRD_PARTY_NOTICES.md
       - uses: actions/upload-artifact@v4

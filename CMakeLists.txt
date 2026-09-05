@@ -352,6 +352,11 @@ if(RAPIDPROTO_BUILD_TESTS)
   # inside the large test binary makes results layout-sensitive (see tests/bench_streamgen.cpp).
   # Built at -O3 -DNDEBUG even under the Debug preset so its numbers are meaningful; no -Werror
   # (it is not linked against rapidproto_strict). Run pinned: taskset -c 0 ./rapidproto_bench
+  # LINUX-ONLY, whole section: tests/bench_harness.hpp is built on perf_event self-monitoring and
+  # #errors anywhere else by design -- an unguarded bench in `all` made every macOS build fail.
+  # The platform fact lives here (not in a CI target list) so `cmake --build` works for macOS
+  # contributors, not just CI.
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
   # The bench schema's decoders (arena + streaming, under the `rp` prefix), shared by BOTH benches so
   # they decode the same shapes. Generating it needs only rapidprotoc (no protobuf), so it is emitted
   # unconditionally -- the streaming bench uses rp::stream::bench::Big for the repeated-varint sweep.
@@ -507,4 +512,5 @@ if(RAPIDPROTO_BUILD_TESTS)
         RAPIDPROTO_COMPUTE_PAYLOAD="${COMPUTE_PAYLOAD}")
     endif()
   endif()
+  endif()  # Linux-only benches
 endif()
