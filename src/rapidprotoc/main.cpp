@@ -319,7 +319,7 @@ int main(int argc, char** argv) {
             case rapidproto::cli::OutputKind::Arena:
                 ok = rapidproto::cli::write_file(path,
                                                  rapidproto::arenagen::generate_header(
-                                                     *out.file, names, *layouts, symbols, &modes),
+                                                     *out.file, names, *layouts, &modes),
                                                  opts->verbose)
                          .has_value();
                 break;

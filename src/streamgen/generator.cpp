@@ -392,19 +392,11 @@ std::string emit_vt_read(Printer& printer, const FieldGen& gen, const std::strin
         return gen.decode_pre + "rp_val" + gen.decode_post;
     }
     // Varint / I32 / I64: a numeric-or-enum read into a raw integer.
-    std::string vt = "read_varint";
-    std::string rawty = "std::uint64_t";
-    if (gen.wire_type == "I32") {
-        vt = "read_fixed32";
-        rawty = "std::uint32_t";
-    } else if (gen.wire_type == "I64") {
-        vt = "read_fixed64";
-        rawty = "std::uint64_t";
-    }
-    printer.print("$R$ rp_raw = 0;\n", {{"R", rawty}});
+    const codegen::WireRead rd = codegen::wire_read(gen.wire_type);
+    printer.print("$R$ rp_raw = 0;\n", {{"R", std::string(rd.raw_type)}});
     printer.print(
         "const std::uint8_t* const rp_np = ::rapidproto::wire::$vt$($c$, $e$, &rp_raw, &rp_we);\n",
-        {{"vt", vt}, {"c", cur}, {"e", end}});
+        {{"vt", std::string(rd.reader)}, {"c", cur}, {"e", end}});
     printer.print(fail);
     printer.print("$c$ = rp_np;\n", {{"c", cur}});
     return gen.decode_pre + "rp_raw" + gen.decode_post;
@@ -525,21 +517,13 @@ void emit_vt_skip(Printer& printer, std::string_view wire) {
         printer.print(
             "const std::uint8_t* const rp_sp ="
             " ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_skipview, &rp_we);\n");
-    } else if (wire == "I32") {
-        printer.print("std::uint32_t rp_skip = 0;\n");
+    } else {  // Varint / I32 / I64: the shared scalar-reader mapping
+        const codegen::WireRead rd = codegen::wire_read(wire);
+        printer.print("$R$ rp_skip = 0;\n", {{"R", std::string(rd.raw_type)}});
         printer.print(
             "const std::uint8_t* const rp_sp ="
-            " ::rapidproto::wire::read_fixed32(rp_c, rp_cend, &rp_skip, &rp_we);\n");
-    } else if (wire == "I64") {
-        printer.print("std::uint64_t rp_skip = 0;\n");
-        printer.print(
-            "const std::uint8_t* const rp_sp ="
-            " ::rapidproto::wire::read_fixed64(rp_c, rp_cend, &rp_skip, &rp_we);\n");
-    } else {  // Varint
-        printer.print("std::uint64_t rp_skip = 0;\n");
-        printer.print(
-            "const std::uint8_t* const rp_sp ="
-            " ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_skip, &rp_we);\n");
+            " ::rapidproto::wire::$vt$(rp_c, rp_cend, &rp_skip, &rp_we);\n",
+            {{"vt", std::string(rd.reader)}});
     }
     printer.print(fail);
     printer.print("rp_c = rp_sp;\n");
@@ -769,10 +753,6 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
 }
 
 // An import path -> the generated header it produces: "foo/bar.proto" -> "foo/bar.rp.stream.hpp".
-std::string import_header(std::string_view path) {
-    return codegen::import_header(path, ".rp.stream.hpp");
-}
-
 }  // namespace
 
 std::string generate_header(const FileNode& file, const CppNameTable& symbols) {
@@ -795,11 +775,7 @@ std::string generate_header(const FileNode& file, const CppNameTable& symbols) {
     // every import's symbols visible as field types EXCEPT option-only imports, so we mirror that:
     // include all but `Option` (a weak import's type is still usable, so it still needs its
     // header).
-    for (const auto& import : file.imports) {
-        if (import.kind != ImportKind::Option) {
-            printer.print("#include \"$h$\"\n", {{"h", import_header(import.path)}});
-        }
-    }
+    codegen::emit_import_includes(printer, file, ".rp.stream.hpp");
     printer.print("\n");
 
     const std::string ns = codegen::message_namespace(symbols, file);

@@ -582,12 +582,7 @@ std::string generate_header(const FileNode& file, const CppNameTable& names,
     // includes stayed necessary when recursion moved off ADL onto qualified lookup, which likewise
     // needs the callee declared. The parallel of the arena header's cross-file includes, keeping every
     // debug header self-contained.
-    for (const auto& import : file.imports) {
-        if (import.kind != ImportKind::Option) {
-            p.print("#include \"$h$\"\n",
-                    {{"h", codegen::import_header(import.path, ".rp.dump.hpp")}});
-        }
-    }
+    codegen::emit_import_includes(p, file, ".rp.dump.hpp");
     p.print("\n");
 
     // Enum name tables: rp_dump_enum_name(E) for each enum DEFINED in this file, in namespace

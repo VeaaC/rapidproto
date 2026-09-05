@@ -91,6 +91,23 @@ inline bool is_packable_wire(std::string_view wire) {
     return wire != "Len" && wire != "SGroup";
 }
 
+// The wire-enumerator -> {scalar reader, raw local type} mapping for the three numeric wire
+// shapes. One home for a fact both decode generators and the streaming skip arm used to spell
+// independently. Callers handle Len (and groups) themselves -- those have dedicated readers.
+struct WireRead {
+    std::string_view reader;    // ::rapidproto::wire::<reader>
+    std::string_view raw_type;  // the local integer the reader fills
+};
+inline WireRead wire_read(std::string_view wire) {
+    if (wire == "I32") {
+        return {"read_fixed32", "std::uint32_t"};
+    }
+    if (wire == "I64") {
+        return {"read_fixed64", "std::uint64_t"};
+    }
+    return {"read_varint", "std::uint64_t"};  // Varint
+}
+
 // The generated header file name for an imported .proto path: strip the ".proto" suffix and append
 // the generator's own extension (e.g. ".rp.stream.hpp" / ".rp.hpp").
 inline std::string import_header(std::string_view path, std::string_view extension) {

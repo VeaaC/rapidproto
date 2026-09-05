@@ -115,7 +115,7 @@ ModesOutput generate_modes_golden() {
     arenagen::LayoutOptions options;
     options.modes = &modes;
     const arenagen::LayoutSet layouts = arenagen::plan_layouts(set, symbols, options);
-    return {arenagen::generate_header(set.files.back(), names, layouts, symbols, &modes),
+    return {arenagen::generate_header(set.files.back(), names, layouts, &modes),
             codegen::emit_common_header(set.files.back(), names)};
 }
 
@@ -145,7 +145,7 @@ std::string generate_unknown_present(const std::string& entry, const std::string
     arenagen::LayoutOptions options;
     options.modes = &modes;
     const arenagen::LayoutSet layouts = arenagen::plan_layouts(set, symbols, options);
-    return arenagen::generate_header(set.files.back(), names, layouts, symbols, &modes);
+    return arenagen::generate_header(set.files.back(), names, layouts, &modes);
 }
 
 std::string generate_unknown_present_golden() {
@@ -168,7 +168,7 @@ std::string generate_unknown_present_golden() {
     arenagen::LayoutOptions options;
     options.modes = &modes;
     const arenagen::LayoutSet layouts = arenagen::plan_layouts(set, symbols, options);
-    return arenagen::generate_header(set.files.back(), names, layouts, symbols, &modes);
+    return arenagen::generate_header(set.files.back(), names, layouts, &modes);
 }
 
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): expected vs actual, distinct roles

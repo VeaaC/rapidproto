@@ -312,25 +312,33 @@ std::string unresolved_type_name(std::string_view fqn) {
     }
     return out;
 }
-// Records a scope member's collision-free C++ id into `names`: sanitize the proto name, then append
-// `_` until it is unique among `taken` (this scope's already-used identifiers). Returns the id.
-// Ids claimed ahead of the main pass, by node. Deliberately its own map rather than a lookup into
-// `names.local`: that one holds every scope's ids, so keying off it would let a future pre-claim of
-// a NESTED or member node bypass that scope's own dedup without anything noticing.
+// Ids claimed ahead of the main pass, by node. Only TOP-LEVEL nodes are ever claimed
+// (claim_toplevel_ids collects file->enums and file->messages and nothing else), so only
+// index_file consults this map; the per-class member pass below never can hit it and does not
+// take it. Deliberately its own map rather than a lookup into `names.local`: that one holds every
+// scope's ids, so keying off it would let a claim bypass a scope's own dedup without notice.
 using ClaimedIds = std::unordered_map<const void*, std::string>;
 
+// Records a scope member's collision-free C++ id into `names`: sanitize the proto name, then append
+// `_` until it is unique among `taken` (this scope's already-used identifiers). Returns the id.
 const std::string& assign_id(CppNameTable& names, std::unordered_set<std::string>& taken,
-                             const ClaimedIds& claimed, const void* node, std::string_view raw) {
-    // Claimed by claim_toplevel_ids: keep that id rather than deduping it against the entry
-    // it made itself.
-    if (const auto found = claimed.find(node); found != claimed.end()) {
-        return names.local.emplace(node, found->second).first->second;
-    }
+                             const void* node, std::string_view raw) {
     std::string id = sanitize(raw);
     while (!taken.insert(id).second) {
         id += '_';
     }
     return names.local.emplace(node, std::move(id)).first->second;
+}
+
+// index_file's variant: a top-level node keeps the id claim_toplevel_ids assigned it, rather than
+// deduping it against the entry it made itself.
+const std::string& assign_toplevel_id(CppNameTable& names, std::unordered_set<std::string>& taken,
+                                      const ClaimedIds& claimed, const void* node,
+                                      std::string_view raw) {
+    if (const auto found = claimed.find(node); found != claimed.end()) {
+        return names.local.emplace(node, found->second).first->second;
+    }
+    return assign_id(names, taken, node, raw);
 }
 
 // `msg_ns` is the namespace the whole top-level scope is emitted in; a nested message is a CLASS
@@ -340,8 +348,7 @@ const std::string& assign_id(CppNameTable& names, std::unordered_set<std::string
 // `enum_abs` is the same path as `abs` under the common root; a swap shows up in every golden.
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 void index_message(CppNameTable& names, const MessageNode& message, const std::string& abs,
-                   const std::string& enum_abs, const std::string& msg_ns,
-                   const ClaimedIds& claimed) {
+                   const std::string& enum_abs, const std::string& msg_ns) {
     std::unordered_set<std::string> taken;
     // Seed with the class's OWN name: C++ forbids a member with the same name as its class
     // ([class.mem]), so `message Outer { message Outer {} }` -- which protoc accepts -- would emit a
@@ -355,11 +362,11 @@ void index_message(CppNameTable& names, const MessageNode& message, const std::s
     for (const auto& nested_enum : message.enums) {
         names.absolute.emplace(
             nested_enum.fqn,
-            enum_abs + "::" + assign_id(names, taken, claimed, &nested_enum, nested_enum.name));
+            enum_abs + "::" + assign_id(names, taken, &nested_enum, nested_enum.name));
     }
     std::vector<std::string> child_enum_abs;
     for (const auto& nested : message.nested_messages) {
-        const std::string id = assign_id(names, taken, claimed, &nested, nested.name);
+        const std::string id = assign_id(names, taken, &nested, nested.name);
         std::string child_abs = abs;
         child_abs.append("::").append(id);
         names.absolute.emplace(nested.fqn, child_abs);
@@ -370,23 +377,22 @@ void index_message(CppNameTable& names, const MessageNode& message, const std::s
         children.emplace_back(&nested, std::move(child_abs));
     }
     for (const auto& field : message.fields) {
-        assign_id(names, taken, claimed, &field, field.name);
+        assign_id(names, taken, &field, field.name);
     }
     for (const auto& oneof : message.oneofs) {
         // The oneof itself gets an id too: arenagen emits a reader method named after it, and that
         // shares the class scope with everything else here -- including the class's own name, which
         // `message config { oneof config { ... } }` (protoc-valid) would otherwise collide with.
-        assign_id(names, taken, claimed, &oneof, oneof.name);
+        assign_id(names, taken, &oneof, oneof.name);
         for (const auto& field : oneof.fields) {
-            assign_id(names, taken, claimed, &field, field.name);
+            assign_id(names, taken, &field, field.name);
         }
     }
     for (const auto& map : message.map_fields) {
-        assign_id(names, taken, claimed, &map, map.name);
+        assign_id(names, taken, &map, map.name);
     }
     for (std::size_t i = 0; i < children.size(); ++i) {
-        index_message(names, *children[i].first, children[i].second, child_enum_abs[i], msg_ns,
-                      claimed);
+        index_message(names, *children[i].first, children[i].second, child_enum_abs[i], msg_ns);
     }
 }
 
@@ -530,19 +536,19 @@ void index_file(CppNameTable& names, const FileNode& file, TakenByNamespace& tak
     std::vector<std::pair<const MessageNode*, std::string>> tops;
     for (const auto& node : file.enums) {
         names.absolute.emplace(
-            node.fqn, enum_root + "::" + assign_id(names, taken, claimed, &node, node.name));
+            node.fqn,
+            enum_root + "::" + assign_toplevel_id(names, taken, claimed, &node, node.name));
     }
     for (const auto& message : file.messages) {
         std::string abs =
-            msg_root + "::" + assign_id(names, taken, claimed, &message, message.name);
+            msg_root + "::" + assign_toplevel_id(names, taken, claimed, &message, message.name);
         names.absolute.emplace(message.fqn, abs);
         names.type_ns.emplace(message.fqn, msg_ns);
         tops.emplace_back(&message, std::move(abs));
     }
     for (const auto& [message, abs] : tops) {
         // The mirror path for a top-level message: same id, common root instead of the model root.
-        index_message(names, *message, abs, enum_root + "::" + names.local.at(message), msg_ns,
-                      claimed);
+        index_message(names, *message, abs, enum_root + "::" + names.local.at(message), msg_ns);
     }
 }
 

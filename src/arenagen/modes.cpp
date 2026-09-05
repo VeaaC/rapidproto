@@ -54,12 +54,22 @@ bool is_identifier(std::string_view s) {
 }
 
 const char* mode_word(FieldMode mode) {
-    return mode == FieldMode::Raw ? "raw" : "drop";
+    switch (mode) {
+        case FieldMode::Raw:
+            return "raw";
+        case FieldMode::Drop:
+            return "drop";
+        case FieldMode::Materialize:  // apply_entry rejects it before any path that stores a mode,
+            break;                    // but a total mapping must not silently mislabel it "drop"
+    }
+    return "materialize";
 }
 
-// A dotted name normalized to the FQN spelling the symbol table uses (leading dot).
+// A dotted name normalized to the FQN spelling the symbol table uses (leading dot). Total on any
+// input, including empty -- callers reject empty names for their own reasons, but this function
+// must not be the thing that makes that guard load-bearing.
 std::string normalize_name(std::string_view name) {
-    return name.front() == '.' ? std::string(name) : "." + std::string(name);
+    return (!name.empty() && name.front() == '.') ? std::string(name) : "." + std::string(name);
 }
 
 // FNV-1a 64 over the normalized entry lines: the default profile identity. Stable across
@@ -152,6 +162,17 @@ std::optional<Error> field_entry_error(const ModeEntry& entry, const FieldHit& h
     return std::nullopt;
 }
 
+// Split an FQN into (parent message, leaf) and look the leaf up as a field of the parent -- the
+// one resolution rule both the mode entries and the unknown-fields entries use.
+FieldHit find_field_by_fqn(const SymbolTable& symbols, const std::string& fqn) {
+    const std::size_t dot = fqn.rfind('.');
+    const std::string parent = dot == 0 ? std::string{} : fqn.substr(0, dot);
+    const auto parent_it = symbols.messages.find(parent);
+    return parent_it != symbols.messages.end()
+               ? find_field(*parent_it->second, std::string_view(fqn).substr(dot + 1))
+               : FieldHit{};
+}
+
 // Resolve one entry into `sel`; nullopt on success.
 std::optional<Error> apply_entry(const ModeEntry& entry, const SymbolTable& symbols,
                                  Selection& sel) {
@@ -190,12 +211,7 @@ std::optional<Error> apply_entry(const ModeEntry& entry, const SymbolTable& symb
         return std::nullopt;
     }
     // A field: parent FQN + field name.
-    const std::size_t dot = fqn.rfind('.');
-    const std::string parent = dot == 0 ? std::string{} : fqn.substr(0, dot);
-    const std::string_view leaf = std::string_view(fqn).substr(dot + 1);
-    const auto parent_it = symbols.messages.find(parent);
-    const FieldHit hit =
-        parent_it != symbols.messages.end() ? find_field(*parent_it->second, leaf) : FieldHit{};
+    const FieldHit hit = find_field_by_fqn(symbols, fqn);
     if (hit.field == nullptr && hit.map_field == nullptr) {
         return Error{0, entry.origin + ": unknown field or type '" + entry.name +
                             "' (a silently ignored selection would be a footgun)"};
@@ -308,15 +324,9 @@ std::optional<Error> apply_unknown_entry(const UnknownEntry& entry, const Symbol
                                 "' is an enum; unknown-fields applies to a message (it reserves "
                                 "that message's has_unknown_fields() bit)"};
         }
-        // An existing FIELD name? Say so, rather than claiming the whole name is unknown -- the fix
-        // is to name its parent message instead. (Mirrors apply_entry's parent-split resolution.)
-        const std::size_t dot = fqn.rfind('.');
-        const std::string parent = dot == 0 ? std::string{} : fqn.substr(0, dot);
-        const auto parent_it = symbols.messages.find(parent);
-        const FieldHit hit =
-            parent_it != symbols.messages.end()
-                ? find_field(*parent_it->second, std::string_view(fqn).substr(dot + 1))
-                : FieldHit{};
+        // An existing FIELD name? Say so, rather than claiming the whole name is unknown -- the
+        // fix is to name its parent message instead.
+        const FieldHit hit = find_field_by_fqn(symbols, fqn);
         if (hit.field != nullptr || hit.map_field != nullptr) {
             return Error{0, entry.origin + ": '" + entry.name +
                                 "' is a field; unknown-fields names the message whose "

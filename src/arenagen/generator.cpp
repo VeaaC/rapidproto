@@ -91,7 +91,6 @@ struct Emit {
     const CppNameTable& names;
     const LayoutSet& layouts;
     const SynthNames& synth;
-    const SymbolTable& types;
     // NOLINTEND(cppcoreguidelines-avoid-const-or-ref-data-members)
 };
 
@@ -101,14 +100,16 @@ std::string member_id(const Emit& emit, const MemberPlan& m) {
 
 // The private storage member for a field/map node -- deduped in the class scope (see
 // SynthNames::storage), so it is NOT simply "m_" + the member's id.
-std::string storage_of(const Emit& emit, const void* node) {
-    return emit.synth.storage.at(node);
-}
-
 std::string storage_id(const Emit& emit, const MemberPlan& m) {
     const void* node = m.field != nullptr ? static_cast<const void*>(m.field)
                                           : static_cast<const void*>(m.map_field);
     return emit.synth.storage.at(node);
+}
+
+// The oneof union's TYPE name, spelled from the raw proto name in one place: `rp_`-prefixed, so
+// sanitize() guarantees no user name can collide and it needs no dedup entry.
+std::string oneof_union_type(const OneofNode& oneof) {
+    return "rp_" + oneof.name + "_union";
 }
 
 std::string repeated_elem_type(const Emit& emit, const FieldNode& field) {
@@ -155,9 +156,13 @@ std::string oneof_member_storage(const Emit& emit, const OneofMemberPlan& m) {
             return cpp_type_name(emit.names, m.target_fqn);
         case FieldKind::PointerSubMsg:
             return "const " + cpp_type_name(emit.names, m.target_fqn) + "*";
-        default:
+        case FieldKind::InlineScalar:
+        case FieldKind::Repeated:  // no repeated/map member exists in a oneof, and field-modes
+        case FieldKind::Map:       // reject raw there -- the planner never produces these; the
+        case FieldKind::Raw:       // scalar spelling keeps the switch total without a default
             return cpp_scalar(m.field->type_name);
     }
+    return cpp_scalar(m.field->type_name);  // unreachable; keeps -Wreturn-type quiet
 }
 
 // ── nested map-entry struct ──────────────────────────────────────────────────────────────────────
@@ -178,7 +183,10 @@ void emit_map_entry(const Emit& emit, const MemberPlan& m, const std::string& en
         case FieldKind::PointerSubMsg:
             val_store = cpp_type_name(emit.names, e.value_fqn);
             break;
-        default:
+        case FieldKind::InlineScalar:
+        case FieldKind::Repeated:  // a map value is never repeated/map/raw; the scalar spelling
+        case FieldKind::Map:       // keeps the switch total without a default
+        case FieldKind::Raw:
             val_store = cpp_scalar(m.map_field->value_type);
     }
     const std::string key_decl = key_store + " rp_key;";
@@ -206,7 +214,11 @@ void emit_map_entry(const Emit& emit, const MemberPlan& m, const std::string& en
             p.print("const $T$* value() const noexcept { return &rp_value; }\n",
                     {{"T", val_store}});
             break;
-        default:
+        case FieldKind::InlineScalar:
+        case FieldKind::InlineEnum:
+        case FieldKind::Repeated:  // repeated/map/raw: never a map value (see val_store above)
+        case FieldKind::Map:
+        case FieldKind::Raw:
             p.print("$T$ value() const noexcept { return rp_value; }\n", {{"T", val_store}});
     }
     p.print("friend class $E$;\n", {{"E", enclosing}});
@@ -263,13 +275,13 @@ void emit_oneof_visit_tags(const Emit& emit, const OneofPlan& o) {
 // discriminant to 0 (the unset state); default-init (::new (mem) T) would leave the case indeterminate.
 void emit_oneof_union(const Emit& emit, const OneofPlan& o) {
     Printer& p = emit.printer;
-    p.print("union rp_$o$_union {\n", {{"o", o.oneof->name}});
+    p.print("union $U$ {\n", {{"U", oneof_union_type(*o.oneof)}});
     p.indent();
     for (const OneofMemberPlan& member : o.members) {
         p.print("$T$ $m$;\n", {{"T", oneof_member_storage(emit, member)},
                                {"m", emit.names.local.at(member.field)}});
     }
-    p.print("rp_$o$_union() noexcept {}\n", {{"o", o.oneof->name}});
+    p.print("$U$() noexcept {}\n", {{"U", oneof_union_type(*o.oneof)}});
     p.outdent();
     p.print("};\n");
 }
@@ -503,8 +515,8 @@ void emit_storage(const Emit& emit, const MessageLayout& layout) {
     for (const OneofPlan& o : layout.oneofs) {
         slots.emplace_back(o.disc_offset,
                            "std::uint8_t " + emit.synth.case_member.at(o.oneof) + ";");
-        slots.emplace_back(o.union_offset, "rp_" + o.oneof->name + "_union " +
-                                               emit.synth.storage.at(o.oneof) + ";");
+        slots.emplace_back(o.union_offset,
+                           oneof_union_type(*o.oneof) + " " + emit.synth.storage.at(o.oneof) + ";");
     }
     if (layout.mask_size > 0) {
         const std::string& mask = emit.synth.mask.at(layout.fqn);
@@ -547,7 +559,10 @@ void collect_must_precede(const Emit& emit, const MessageNode& message,
             case FieldKind::InlineEnum:  // a nested enum needs its enclosing message complete
                 enclosing.insert(fqn);
                 break;
-            default:
+            case FieldKind::InlineScalar:
+            case FieldKind::BorrowString:
+            case FieldKind::Map:  // the caller classifies the entry's VALUE kind separately
+            case FieldKind::Raw:  // raw payloads are ArenaString views; no target type is named
                 break;
         }
     };
@@ -592,7 +607,7 @@ std::vector<const MessageNode*> ordered_siblings(const Emit& emit,
     return codegen::topo_order_siblings(siblings, depends_on);
 }
 
-void emit_message(const Emit& emit, const MessageNode& message);  // recursion
+void emit_message_body(const Emit& emit, const MessageNode& message);  // recursion
 
 // Index a layout's members by their field/map node pointer, for accessor/arm lookup by node.
 std::unordered_map<const void*, const MemberPlan*> by_node_map(const MessageLayout& layout) {
@@ -629,7 +644,7 @@ void emit_message_body(const Emit& emit, const MessageNode& message) {
         p.print("class $N$;\n", {{"N", emit.names.local.at(&nested)}});
     }
     for (const MessageNode* nested : ordered_siblings(emit, message.nested_messages)) {
-        emit_message(emit, *nested);
+        emit_message_body(emit, *nested);
     }
     for (const OneofPlan& o : layout.oneofs) {
         emit_oneof_visit_tags(emit, o);
@@ -689,10 +704,6 @@ void emit_message_body(const Emit& emit, const MessageNode& message) {
     emit_storage(emit, layout);
     p.outdent();
     p.print("};\n");
-}
-
-void emit_message(const Emit& emit, const MessageNode& message) {
-    emit_message_body(emit, message);
 }
 
 // Assign every synthesized identifier for `message` a name unique within its class scope (seeded
@@ -1173,7 +1184,7 @@ void emit_repeated_finalize(const Emit& emit, const FieldNode& field) {
     const std::string id = emit.names.local.at(&field);
     emit.printer.print(
         "out.$s$ = ::rapidproto::ArrayView<$E$>(rp_acc_$id$, rp_n_$id$);\n",
-        {{"s", storage_of(emit, &field)}, {"id", id}, {"E", repeated_elem_type(emit, field)}});
+        {{"s", emit.synth.storage.at(&field)}, {"id", id}, {"E", repeated_elem_type(emit, field)}});
 }
 
 // ── field-modes `raw` (see modes.hpp): store the message field's payload, decode later ──────────
@@ -1309,15 +1320,9 @@ void emit_vt_scalar_read(const Emit& emit, FieldKind kind, std::string_view prot
                 {{"t", target}, {"E", cpp_type_name(emit.names, enum_fqn)}});
     } else {
         const codegen::ScalarWire& info = scalar_wire(proto_type);
-        std::string vt = "read_varint";
-        std::string rawty = "std::uint64_t";
-        if (info.wire == "I32") {
-            vt = "read_fixed32";
-            rawty = "std::uint32_t";
-        } else if (info.wire == "I64") {
-            vt = "read_fixed64";
-            rawty = "std::uint64_t";
-        }
+        const codegen::WireRead rd = codegen::wire_read(info.wire);
+        const std::string vt{rd.reader};
+        const std::string rawty{rd.raw_type};
         p.print("$R$ rp_raw = 0;\n", {{"R", rawty}});
         p.print(
             "const std::uint8_t* const rp_np = ::rapidproto::wire::$vt$($c$, $e$, &rp_raw, "
@@ -1948,10 +1953,6 @@ void emit_decode_def(const Emit& emit, const MessageNode& message) {
 }
 
 // An import path -> the arena header it produces: "foo/bar.proto" -> "foo/bar.rp.hpp".
-std::string import_header(std::string_view path) {
-    return codegen::import_header(path, ".rp.hpp");
-}
-
 }  // namespace
 
 SynthNames build_synth_names(const CppNameTable& names, const LayoutSet& layouts,
@@ -1964,11 +1965,10 @@ SynthNames build_synth_names(const CppNameTable& names, const LayoutSet& layouts
 }
 
 std::string generate_header(const FileNode& file, const CppNameTable& names,
-                            const LayoutSet& layouts, const SymbolTable& symbols,
-                            const FieldModes* modes) {
+                            const LayoutSet& layouts, const FieldModes* modes) {
     Printer printer;
     const SynthNames synth = build_synth_names(names, layouts, file);
-    const Emit emit{printer, names, layouts, synth, symbols};
+    const Emit emit{printer, names, layouts, synth};
     const bool profiled = modes != nullptr && modes->active();
     printer.print("// Generated by rapidprotoc $v$. DO NOT EDIT.\n", {{"v", kVersion}});
     printer.print(
@@ -1995,11 +1995,7 @@ std::string generate_header(const FileNode& file, const CppNameTable& names,
     // includes only this decoder still "directly provide" the shared enums (which used to live here).
     printer.print("#include \"$c$\"  // IWYU pragma: export\n",
                   {{"c", codegen::common_sibling_include(file.filename)}});
-    for (const auto& import : file.imports) {
-        if (import.kind != ImportKind::Option) {
-            printer.print("#include \"$h$\"\n", {{"h", import_header(import.path)}});
-        }
-    }
+    codegen::emit_import_includes(printer, file, ".rp.hpp");
     printer.print("\n");
 
     const std::string ns = codegen::message_namespace(names, file);
@@ -2028,7 +2024,7 @@ std::string generate_header(const FileNode& file, const CppNameTable& names,
         printer.print("\n");
     }
     for (const MessageNode* message : ordered_siblings(emit, file.messages)) {
-        emit_message(emit, *message);
+        emit_message_body(emit, *message);
         printer.print("static_assert(::std::is_trivially_destructible_v<$T$>);\n\n",
                       {{"T", names.local.at(message)}});
     }
@@ -2050,7 +2046,7 @@ std::string generate_header(const FileNode& file, const ResolvedFileSet& set,
         codegen::build_cpp_names(file, set.files, codegen::effective_ns_prefix(namespace_prefix),
                                  std::string(codegen::kArenaRoot));
     const LayoutSet layouts = plan_layouts(set, symbols);
-    return generate_header(file, names, layouts, symbols);
+    return generate_header(file, names, layouts);
 }
 
 }  // namespace rapidproto::arenagen
