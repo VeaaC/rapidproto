@@ -659,20 +659,16 @@ std::optional<std::string> read_fixture(const std::string& name) {
 
 TEST_CASE("wire: protoc Scalars fixture decodes", "[wire]") {
     const std::optional<std::string> bin = read_fixture("scalars.bin");
-    if (!bin) {
-        SUCCEED("fixture scalars.bin not present; skipping");
-        return;
-    }
+    // Checked-in fixture: absence is a broken checkout, never a reason to pass.
+    REQUIRE(bin.has_value());
     const std::vector<Field> fields = must(walk(ByteView(*bin)));
     CHECK_FALSE(fields.empty());
 }
 
 TEST_CASE("wire: protoc AllWire fixture decodes with a group", "[wire]") {
     const std::optional<std::string> bin = read_fixture("all_wire.bin");
-    if (!bin) {
-        SUCCEED("fixture all_wire.bin not present; skipping");
-        return;
-    }
+    // Checked-in fixture: absence is a broken checkout, never a reason to pass.
+    REQUIRE(bin.has_value());
     const std::vector<Field> fields = must(walk(ByteView(*bin)));
     bool saw_group = false;
     for (const Field& field : fields) {

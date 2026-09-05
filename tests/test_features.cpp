@@ -1,5 +1,7 @@
 #include <catch_amalgamated.hpp>
 
+#include "parse_helpers.hpp"
+
 #include <string>
 #include <utility>
 
@@ -15,13 +17,7 @@ using namespace rapidproto;  // NOLINT(google-build-using-namespace): test conve
 namespace {
 
 FileNode parse_file_ok(std::string src) {
-    auto lr = lex(std::move(src));
-    REQUIRE(lr.is_ok());
-    const LexResult lexed = std::move(lr).value();
-    auto r = parse_file(Range<Token>(lexed.tokens));
-    REQUIRE(r.is_ok());
-    CHECK(r.value().remaining.empty());
-    return std::move(r.value().value);
+    return test::parse_file_ok(std::move(src));
 }
 
 // resolve_features returns a Result because it refuses an edition whose feature defaults it does not
@@ -183,9 +179,20 @@ TEST_CASE("features: LEGACY_REQUIRED resolves to Required") {
 }
 
 TEST_CASE("features: edition 2024 uses the same decode defaults as 2023") {
-    FileNode f = parse_file_ok(R"(edition = "2024"; message M { int32 a = 1; })");
+    // All four decode-relevant defaults, so the case is the parity pin its name promises --
+    // asserting presence alone left the other three free to drift between the two editions.
+    FileNode f = parse_file_ok(R"(edition = "2024"; message M {
+        int32 a = 1;
+        repeated int32 r = 2;
+        E e = 3;
+        M m = 4;
+        enum E { X = 0; }
+    })");
     resolve_ok(f);
     CHECK(f.messages[0].fields[0].presence == FieldPresence::Explicit);  // 2024 default EXPLICIT
+    CHECK(f.messages[0].fields[1].repeated_encoding == RepeatedEncoding::Packed);
+    CHECK(f.messages[0].fields[3].message_encoding == MessageEncoding::LengthPrefixed);
+    CHECK(f.messages[0].enums[0].openness == EnumOpenness::Open);
 }
 
 TEST_CASE("features: the aggregate 'option features = { ... }' form is honored") {
@@ -247,15 +254,17 @@ TEST_CASE("features: an edition with unknown defaults is rejected, not assumed")
         CHECK(resolved.error().message.find("unknown edition") != std::string::npos);
         // The message names the editions that ARE known, so the reader learns what to do next.
         CHECK(resolved.error().message.find("2023") != std::string::npos);
-        // Points at the edition string itself, not at offset 0.
+        // Anchored where FileNode recorded the edition string (the two reads of one value can
+        // only diverge if resolve_features stops reading file.edition_offset).
         CHECK(resolved.error().byte_offset == f.edition_offset);
         CHECK(f.edition_offset > 0);
     }
 }
 
 TEST_CASE("features: every known edition resolves") {
-    // Guards the list in features.cpp against drifting from what the fixtures and goldens assume:
-    // adding an edition there without checking its defaults is exactly the mistake this prevents.
+    // Catches a REMOVAL from features.cpp's list (an edition the fixtures assume going dark).
+    // An ADDITION is caught by the unknown-edition case below, whose rejection list includes
+    // "2025" -- this loop iterates its own hardcoded editions and cannot see a new one.
     for (const char* edition : {"2023", "2024"}) {
         FileNode f = parse_file_ok(R"(edition = ")" + std::string(edition) +
                                    R"("; message M { int32 a = 1; })");

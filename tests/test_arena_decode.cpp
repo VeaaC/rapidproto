@@ -7,6 +7,8 @@
 
 #include <catch_amalgamated.hpp>
 
+#include "golden_file.hpp"
+
 #include <cstdint>
 #include <cstring>  // std::memcpy: build little-endian fixed-width packed test bytes
 #include <fstream>
@@ -70,12 +72,8 @@ static_assert(std::is_same_v<fm::Holder, fm::rp_modes_lean_4ba94f51::Holder>);
 
 namespace {
 
-std::string read_file(const std::string& path) {
-    const std::ifstream file(path, std::ios::binary);
-    std::ostringstream buffer;
-    buffer << file.rdbuf();
-    return buffer.str();
-}
+using rapidproto::test::read_file;
+
 std::string fixture(const std::string& name) {
     return read_file(std::string(RAPIDPROTO_WIRE_FIXTURE_DIR) + "/" + name);
 }
@@ -89,6 +87,14 @@ void put_varint(std::string& b, std::uint64_t v) {
 }
 void put_tag(std::string& b, std::uint32_t field, std::uint32_t wire) {
     put_varint(b, (static_cast<std::uint64_t>(field) << 3U) | wire);
+}
+
+// Append the low `width` bytes of `value`, little-endian (fixed32/fixed64 test payloads).
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): value bits vs byte count, distinct roles
+void put_le(std::string& b, std::uint64_t value, int width) {
+    for (int i = 0; i < width; ++i) {
+        b.push_back(static_cast<char>((value >> (8U * static_cast<unsigned>(i))) & 0xFFU));
+    }
 }
 void put_len(std::string& b, std::uint32_t field, std::string_view bytes) {
     put_tag(b, field, 2);
@@ -185,20 +191,10 @@ TEST_CASE("arena-decode: decode_owned returns a self-contained handle", "[arena-
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): four independent buffers in one case
 TEST_CASE("arena-decode: raw-byte fast path matches the general path across the 15/16 boundary",
           "[arena-decode]") {
-    const auto pv = [](std::string& b, std::uint64_t v) {
-        while (v >= 0x80U) {
-            b.push_back(static_cast<char>(0x80U | (v & 0x7FU)));
-            v >>= 7U;
-        }
-        b.push_back(static_cast<char>(v));
-    };
-    const auto tag = [](std::uint32_t f, std::uint32_t w) {
-        return (static_cast<std::uint64_t>(f) << 3U) | w;
-    };
     const auto with_req = [&](const std::string& extra) {  // valid required i32 (field 1) prefix
         std::string b;
-        pv(b, tag(1, 0));
-        pv(b, 7);
+        put_tag(b, 1, 0);
+        put_varint(b, 7);
         b += extra;
         return b;
     };
@@ -206,12 +202,12 @@ TEST_CASE("arena-decode: raw-byte fast path matches the general path across the 
     // (1) Boundary: i64 (field 2, <=15, fast) + packed_nums (field 17, >=16, general) both decode.
     {
         std::string e;
-        pv(e, tag(2, 0));
-        pv(e, 99);
-        pv(e, tag(17, 2));
-        pv(e, 2);
-        pv(e, 5);
-        pv(e, 6);  // packed_nums = [5, 6]
+        put_tag(e, 2, 0);
+        put_varint(e, 99);
+        put_tag(e, 17, 2);
+        put_varint(e, 2);
+        put_varint(e, 5);
+        put_varint(e, 6);  // packed_nums = [5, 6]
         const std::string buf = with_req(e);
         Arena arena;
         const p2::Scalars* m = p2::Scalars::decode(ByteView(buf), arena);
@@ -227,11 +223,11 @@ TEST_CASE("arena-decode: raw-byte fast path matches the general path across the 
     //     and the general field (color) -- and is not an error (i32 required still satisfied).
     {
         std::string e;
-        pv(e, tag(2, 2));  // i64 (fast) as LEN -- wrong wire
-        pv(e, 1);
+        put_tag(e, 2, 2);  // i64 (fast) as LEN -- wrong wire
+        put_varint(e, 1);
         e += "x";
-        pv(e, tag(16, 2));  // color (general) as LEN -- wrong wire
-        pv(e, 1);
+        put_tag(e, 16, 2);  // color (general) as LEN -- wrong wire
+        put_varint(e, 1);
         e += "y";
         const std::string buf = with_req(e);
         Arena arena;
@@ -249,9 +245,9 @@ TEST_CASE("arena-decode: raw-byte fast path matches the general path across the 
         Arena ctrl;
         REQUIRE(p2::Scalars::decode(ByteView(with_req("")), ctrl) != nullptr);  // baseline succeeds
         std::string one_e;
-        pv(one_e, tag(2, 6));  // 1-byte reserved-wire tag
+        put_tag(one_e, 2, 6);  // 1-byte reserved-wire tag
         std::string two_e;
-        pv(two_e, tag(16, 6));  // 2-byte reserved-wire tag
+        put_tag(two_e, 16, 6);  // 2-byte reserved-wire tag
         const std::string one = with_req(one_e);
         const std::string two = with_req(two_e);
         Arena a1;
@@ -269,10 +265,10 @@ TEST_CASE("arena-decode: raw-byte fast path matches the general path across the 
         std::string over;
         over.push_back('\x90');
         over.push_back('\x00');  // over-long tag: field 2, Varint
-        pv(over, 123);
+        put_varint(over, 123);
         std::string canon;
-        pv(canon, tag(2, 0));  // canonical 1-byte tag
-        pv(canon, 123);
+        put_tag(canon, 2, 0);  // canonical 1-byte tag
+        put_varint(canon, 123);
         Arena a_over;
         Arena a_canon;
         const p2::Scalars* m_over = p2::Scalars::decode(ByteView(with_req(over)), a_over);
@@ -290,7 +286,7 @@ TEST_CASE("arena-decode: raw-byte fast path matches the general path across the 
         std::string buf;
         buf.push_back('\x88');
         buf.push_back('\x00');  // over-long tag: field 1 (required i32), Varint
-        pv(buf, 42);
+        put_varint(buf, 42);
         Arena arena;
         const p2::Scalars* m = p2::Scalars::decode(ByteView(buf), arena);
         REQUIRE(m != nullptr);  // required i32 satisfied by the non-minimal tag
@@ -306,13 +302,6 @@ TEST_CASE("arena-decode: raw-byte fast path matches the general path across the 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): one independent parity block per kind
 TEST_CASE("arena-decode: non-minimal tags decode identically across fast field kinds",
           "[arena-decode]") {
-    const auto pv = [](std::string& b, std::uint64_t v) {
-        while (v >= 0x80U) {
-            b.push_back(static_cast<char>(0x80U | (v & 0x7FU)));
-            v >>= 7U;
-        }
-        b.push_back(static_cast<char>(v));
-    };
     const auto tag = [](std::uint32_t f, std::uint32_t w) {
         return (static_cast<std::uint64_t>(f) << 3U) | w;
     };
@@ -321,16 +310,9 @@ TEST_CASE("arena-decode: non-minimal tags decode identically across fast field k
         b.push_back(static_cast<char>(0x80U | (t & 0x7FU)));
         b.push_back(static_cast<char>(t >> 7U));  // 0x00 for t < 128
     };
-    // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): value bits vs byte count, distinct roles
-    const auto le = [](std::string& b, std::uint64_t bits,
-                       int bytes) {  // little-endian fixed width
-        for (int i = 0; i < bytes; ++i) {
-            b.push_back(static_cast<char>((bits >> (8U * static_cast<unsigned>(i))) & 0xFFU));
-        }
-    };
     const auto req = [&](std::string& b) {  // valid required i32 (field 1) prefix
-        pv(b, tag(1, 0));
-        pv(b, 7);
+        put_tag(b, 1, 0);
+        put_varint(b, 7);
     };
 
     // string s (field 12, wire LEN): the BorrowString reader (length read + borrowed view).
@@ -338,12 +320,12 @@ TEST_CASE("arena-decode: non-minimal tags decode identically across fast field k
         std::string over;
         req(over);
         over2(over, 12, 2);
-        pv(over, 5);
+        put_varint(over, 5);
         over += "hello";
         std::string canon;
         req(canon);
-        pv(canon, tag(12, 2));
-        pv(canon, 5);
+        put_tag(canon, 12, 2);
+        put_varint(canon, 5);
         canon += "hello";
         Arena ao;
         Arena ac;
@@ -362,11 +344,11 @@ TEST_CASE("arena-decode: non-minimal tags decode identically across fast field k
         std::string over;
         req(over);
         over2(over, 8, 1);
-        le(over, bits, 8);
+        put_le(over, bits, 8);
         std::string canon;
         req(canon);
-        pv(canon, tag(8, 1));
-        le(canon, bits, 8);
+        put_tag(canon, 8, 1);
+        put_le(canon, bits, 8);
         Arena ao;
         Arena ac;
         const p2::Scalars* mo = p2::Scalars::decode(ByteView(over), ao);
@@ -383,11 +365,11 @@ TEST_CASE("arena-decode: non-minimal tags decode identically across fast field k
         std::string over;
         req(over);
         over2(over, 11, 0);
-        pv(over, 1);
+        put_varint(over, 1);
         std::string canon;
         req(canon);
-        pv(canon, tag(11, 0));
-        pv(canon, 1);
+        put_tag(canon, 11, 0);
+        put_varint(canon, 1);
         Arena ao;
         Arena ac;
         const p2::Scalars* mo = p2::Scalars::decode(ByteView(over), ao);
@@ -403,10 +385,10 @@ TEST_CASE("arena-decode: non-minimal tags decode identically across fast field k
     {
         std::string over;
         over2(over, 4, 0);
-        pv(over, 1);  // STATE_ON
+        put_varint(over, 1);  // STATE_ON
         std::string canon;
-        pv(canon, tag(4, 0));
-        pv(canon, 1);
+        put_tag(canon, 4, 0);
+        put_varint(canon, 1);
         Arena ao;
         Arena ac;
         const p3::Msg* mo = p3::Msg::decode(ByteView(over), ao);
@@ -421,16 +403,16 @@ TEST_CASE("arena-decode: non-minimal tags decode identically across fast field k
     {
         std::string over;
         over2(over, 6, 2);
-        pv(over, 3);
-        pv(over, 5);
-        pv(over, 6);
-        pv(over, 7);  // packed [5, 6, 7]
+        put_varint(over, 3);
+        put_varint(over, 5);
+        put_varint(over, 6);
+        put_varint(over, 7);  // packed [5, 6, 7]
         std::string canon;
-        pv(canon, tag(6, 2));
-        pv(canon, 3);
-        pv(canon, 5);
-        pv(canon, 6);
-        pv(canon, 7);
+        put_tag(canon, 6, 2);
+        put_varint(canon, 3);
+        put_varint(canon, 5);
+        put_varint(canon, 6);
+        put_varint(canon, 7);
         Arena ao;
         Arena ac;
         const p3::Msg* mo = p3::Msg::decode(ByteView(over), ao);
@@ -448,9 +430,9 @@ TEST_CASE("arena-decode: non-minimal tags decode identically across fast field k
     {
         std::string buf;
         over2(buf, 7, 0);
-        pv(buf, 8);
-        pv(buf, tag(7, 0));  // canonical element tag
-        pv(buf, 9);
+        put_varint(buf, 8);
+        put_tag(buf, 7, 0);  // canonical element tag
+        put_varint(buf, 9);
         Arena arena;
         const p3::Msg* m = p3::Msg::decode(ByteView(buf), arena);
         REQUIRE(m != nullptr);
@@ -495,22 +477,15 @@ TEST_CASE("arena-decode: submessage, repeated, map, oneof fixture", "[arena-deco
 // a malformed span whose length is not a whole multiple of the element width.
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): a flat list of accessor assertions
 TEST_CASE("arena-decode: packed fixed-width scalars (bulk-copy path)", "[arena-decode]") {
-    // append the low `width` bytes of `value`, little-endian
-    // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): a local test byte-emitter
-    const auto le = [](std::string& b, std::uint64_t value, int width) {
-        for (int i = 0; i < width; ++i) {
-            b.push_back(static_cast<char>((value >> (8U * static_cast<unsigned>(i))) & 0xFFU));
-        }
-    };
     std::string reals;  // three doubles, exactly representable so == is safe
     for (const double d : {1.5, -2.0, 3.25}) {
         std::uint64_t bitpat = 0;
         std::memcpy(&bitpat, &d, sizeof bitpat);
-        le(reals, bitpat, 8);
+        put_le(reals, bitpat, 8);
     }
     std::string codes;  // four fixed32
     for (const std::uint32_t c : {10U, 20U, 30U, 40U}) {
-        le(codes, c, 4);
+        put_le(codes, c, 4);
     }
     std::string buf;
     put_len(buf, 12, reals);  // Msg.reals (packed double)

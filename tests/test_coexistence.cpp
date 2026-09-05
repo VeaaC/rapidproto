@@ -14,12 +14,18 @@
 
 #include <catch_amalgamated.hpp>
 
+#include "golden_file.hpp"
+
+#include <algorithm>
+#include <filesystem>
 #include <fstream>
 #include <ios>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 #include "rapidproto/arenagen/generator.hpp"
 #include "rapidproto/codegen/emit.hpp"
@@ -105,12 +111,7 @@ TEST_CASE("coexistence: a type and a sibling package with one sanitized id", "[c
 
 namespace {
 
-std::string read_file(const std::string& path) {
-    const std::ifstream in(path, std::ios::binary);
-    std::ostringstream ss;
-    ss << in.rdbuf();
-    return ss.str();
-}
+using rapidproto::test::read_file;
 
 // Regenerate one fixture through the library and compare byte-for-byte against the checked-in
 // golden. The includes above prove these headers COMPILE together; without this they were not
@@ -145,8 +146,26 @@ void check_pair(const std::string& stem) {
 
 TEST_CASE("coexistence: the goldens this TU compiles are the ones the generator emits",
           "[coexistence]") {
-    for (const char* stem :
-         {"rootnames", "rootenum", "sibparent", "sibpkg", "nestenum", "pkgalias", "pkgaliasdep"}) {
+    // The stem list is DERIVED from the golden directory, so a fixture added there cannot sit
+    // compiled-but-uncompared. (The #include list above stays hand-written -- an include cannot
+    // be globbed -- and keeps its check_fixture_coverage.sh clause; the hand-maintained stem
+    // list that clause also policed is gone.)
+    std::vector<std::string> stems;
+    constexpr std::string_view kArenaExt = ".rp.hpp";
+    for (const auto& entry :
+         std::filesystem::directory_iterator(std::string(RAPIDPROTO_COEXIST_GOLDEN_DIR))) {
+        const std::string name = entry.path().filename().string();
+        // Exact-suffix test: ".rp.stream.hpp" / ".rp.common.hpp" do not end in ".rp.hpp".
+        if (name.size() > kArenaExt.size() &&
+            name.compare(name.size() - kArenaExt.size(), kArenaExt.size(), kArenaExt) == 0) {
+            stems.push_back(name.substr(0, name.size() - kArenaExt.size()));
+        }
+    }
+    std::sort(stems.begin(), stems.end());
+    // Anti-vacuity: an empty or relocated golden directory must read as a broken walk, never as
+    // a small fixture set that happens to pass.
+    REQUIRE(stems.size() >= 7);
+    for (const std::string& stem : stems) {
         check_pair(stem);
     }
 }

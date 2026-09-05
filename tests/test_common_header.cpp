@@ -7,6 +7,8 @@
 
 #include <catch_amalgamated.hpp>
 
+#include "golden_file.hpp"
+
 #include <cstdlib>
 #include <fstream>
 #include <ios>
@@ -24,13 +26,6 @@
 using namespace rapidproto;  // NOLINT(google-build-using-namespace): test convenience
 
 namespace {
-
-std::string read_file(const std::string& path) {
-    const std::ifstream file(path, std::ios::binary);
-    std::ostringstream buffer;
-    buffer << file.rdbuf();
-    return buffer.str();
-}
 
 // Resolve + analyze `dir/entry` and its import closure; the entry is set.files.back().
 ResolvedFileSet resolve_set(const std::string& dir, const std::string& entry) {
@@ -53,16 +48,8 @@ std::string common_header(const std::string& dir, const std::string& entry) {
 
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): golden name vs content, distinct roles
 void check_golden(const std::string& name, const std::string& actual) {
-    const std::string golden =
-        std::string(RAPIDPROTO_COMMON_GOLDEN_DIR) + "/" + name + ".rp.common.hpp";
-    // NOLINTNEXTLINE(concurrency-mt-unsafe): single-threaded test, opt-in regeneration only
-    if (std::getenv("RAPIDPROTO_REGEN_GOLDEN") != nullptr) {
-        std::ofstream(golden, std::ios::binary) << actual;
-        WARN("regenerated common golden: " << name);
-        return;
-    }
-    INFO("golden: " << name);
-    CHECK(actual == read_file(golden));
+    test::check_golden(std::string(RAPIDPROTO_COMMON_GOLDEN_DIR) + "/" + name + ".rp.common.hpp",
+                       name, actual);
 }
 
 }  // namespace

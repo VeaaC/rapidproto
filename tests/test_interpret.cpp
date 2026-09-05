@@ -1,5 +1,7 @@
 #include <catch_amalgamated.hpp>
 
+#include "parse_helpers.hpp"
+
 #include <cstdint>
 #include <string>
 #include <utility>
@@ -18,13 +20,7 @@ using namespace rapidproto;  // NOLINT(google-build-using-namespace): test conve
 namespace {
 
 FileNode parse_only(std::string src) {
-    auto lr = lex(std::move(src));
-    REQUIRE(lr.is_ok());
-    const LexResult lexed = std::move(lr).value();
-    auto r = parse_file(Range<Token>(lexed.tokens));
-    REQUIRE(r.is_ok());
-    CHECK(r.value().remaining.empty());
-    return std::move(r.value().value);
+    return test::parse_file_ok(std::move(src));
 }
 
 FileNode interpret_ok(std::string src) {
@@ -72,8 +68,8 @@ TEST_CASE("interpret: [packed = true] on a non-packable field is ignored") {
     // length-delimited elements, and the feature pass refuses the equivalent feature. The
     // interpreter must gate on the same is_packable_scalar predicate -- before it did, this
     // exact shape flipped repeated_encoding to Packed while resolve_features said Expanded.
-    FileNode f = interpret_ok(
-        R"(syntax = "proto3"; message M { repeated string s = 1 [packed = true]; })");
+    FileNode f =
+        interpret_ok(R"(syntax = "proto3"; message M { repeated string s = 1 [packed = true]; })");
     CHECK(f.messages[0].fields[0].repeated_encoding == RepeatedEncoding::Expanded);
 }
 

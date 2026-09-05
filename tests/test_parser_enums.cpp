@@ -1,5 +1,7 @@
 #include <catch_amalgamated.hpp>
 
+#include "parse_helpers.hpp"
+
 #include <cstdint>
 #include <string>
 #include <utility>
@@ -16,25 +18,16 @@ using namespace rapidproto;  // NOLINT(google-build-using-namespace): test conve
 namespace {
 
 EnumNode parse_enum_ok(std::string src, SyntaxLevel syntax) {
-    auto lr = lex(std::move(src));
-    REQUIRE(lr.is_ok());
-    const LexResult lexed = std::move(lr).value();
     ParseContext ctx;
     ctx.syntax_level = syntax;
-    auto r = parse_enum(Range<Token>(lexed.tokens), ctx);
-    REQUIRE(r.is_ok());
-    CHECK(r.value().remaining.empty());
-    return std::move(r.value().value);
+    return test::parse_ok(std::move(src), [&](Range<Token> in) { return parse_enum(in, ctx); });
 }
 
 bool enum_rejects(std::string src, SyntaxLevel syntax) {
-    auto lr = lex(std::move(src));
-    REQUIRE(lr.is_ok());
-    const LexResult lexed = std::move(lr).value();
     ParseContext ctx;
     ctx.syntax_level = syntax;
-    auto r = parse_enum(Range<Token>(lexed.tokens), ctx);
-    return r.is_err() || !r.value().remaining.empty();
+    return test::parse_rejects(std::move(src),
+                               [&](Range<Token> in) { return parse_enum(in, ctx); });
 }
 
 }  // namespace

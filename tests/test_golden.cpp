@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "ast_dump.hpp"
+#include "golden_file.hpp"
 #include "rapidproto/resolve.hpp"
 #include "rapidproto/resolver.hpp"
 #include "rapidproto/result.hpp"
@@ -31,13 +32,6 @@ struct Scenario {
     std::string entry;                         // entry file, relative to the corpus dir
     std::vector<std::string> include_subdirs;  // include paths relative to corpus dir (empty=root)
 };
-
-std::string read_file(const std::string& path) {
-    const std::ifstream file(path, std::ios::binary);
-    std::ostringstream buffer;
-    buffer << file.rdbuf();
-    return buffer.str();
-}
 
 std::string corpus_path(const std::string& rel) {
     return std::string(RAPIDPROTO_CORPUS_DIR) + "/" + rel;
@@ -62,27 +56,6 @@ std::string produce_dump(const Scenario& scenario) {
 
 // Locate the first line that differs, for a readable failure message on large dumps.
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): expected vs actual, distinct roles
-std::string first_difference(const std::string& expected, const std::string& actual) {
-    std::istringstream exp(expected);
-    std::istringstream act(actual);
-    std::string exp_line;
-    std::string act_line;
-    int number = 1;
-    while (true) {
-        const bool exp_ok = static_cast<bool>(std::getline(exp, exp_line));
-        const bool act_ok = static_cast<bool>(std::getline(act, act_line));
-        if (!exp_ok && !act_ok) {
-            return "(no line difference; trailing-newline mismatch?)";
-        }
-        if (exp_ok != act_ok || exp_line != act_line) {
-            return "first diff at line " + std::to_string(number) +
-                   ":\n  expected: " + (exp_ok ? exp_line : "<eof>") +
-                   "\n  actual:   " + (act_ok ? act_line : "<eof>");
-        }
-        ++number;
-    }
-}
-
 }  // namespace
 
 TEST_CASE("golden: corpus AST dumps match expectations", "[golden]") {
@@ -95,23 +68,8 @@ TEST_CASE("golden: corpus AST dumps match expectations", "[golden]") {
         {"imports", "imports/main.proto", {"imports"}},
     };
 
-    // NOLINTNEXTLINE(concurrency-mt-unsafe): single-threaded test, opt-in regeneration only
-    const bool regen = std::getenv("RAPIDPROTO_REGEN_GOLDEN") != nullptr;
-
     for (const auto& scenario : scenarios) {
-        const std::string actual = produce_dump(scenario);
-        const std::string golden =
-            std::string(RAPIDPROTO_GOLDEN_DIR) + "/" + scenario.name + ".txt";
-
-        if (regen) {
-            std::ofstream(golden, std::ios::binary) << actual;
-            WARN("regenerated golden: " << scenario.name);
-            continue;
-        }
-
-        const std::string expected = read_file(golden);
-        INFO("scenario: " << scenario.name);
-        INFO(first_difference(expected, actual));
-        CHECK(actual == expected);
+        test::check_golden(std::string(RAPIDPROTO_GOLDEN_DIR) + "/" + scenario.name + ".txt",
+                           scenario.name, produce_dump(scenario));
     }
 }

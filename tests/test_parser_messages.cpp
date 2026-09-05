@@ -1,5 +1,7 @@
 #include <catch_amalgamated.hpp>
 
+#include "parse_helpers.hpp"
+
 #include <string>
 #include <utility>
 
@@ -15,34 +17,18 @@ namespace {
 
 // True if the file fails to parse, either outright or by leaving input unconsumed.
 bool file_rejects(const std::string& src) {
-    auto lr = lex(src);
-    REQUIRE(lr.is_ok());
-    const LexResult lexed = std::move(lr).value();
-    auto r = parse_file(Range<Token>(lexed.tokens));
-    return !r.is_ok() || !r.value().remaining.empty();
+    return test::parse_file_rejects(src);
 }
 
 // Lex `src`, parse the whole file, require success + full consumption, return the FileNode.
 FileNode file_ok(std::string src) {
-    auto lr = lex(std::move(src));
-    REQUIRE(lr.is_ok());
-    const LexResult lexed = std::move(lr).value();
-    auto r = parse_file(Range<Token>(lexed.tokens));
-    REQUIRE(r.is_ok());
-    CHECK(r.value().remaining.empty());
-    return std::move(r.value().value);
+    return test::parse_file_ok(std::move(src));
 }
 
 MessageNode message_ok(std::string src, SyntaxLevel syntax) {
-    auto lr = lex(std::move(src));
-    REQUIRE(lr.is_ok());
-    const LexResult lexed = std::move(lr).value();
     ParseContext ctx;
     ctx.syntax_level = syntax;
-    auto r = parse_message(Range<Token>(lexed.tokens), ctx);
-    REQUIRE(r.is_ok());
-    CHECK(r.value().remaining.empty());
-    return std::move(r.value().value);
+    return test::parse_ok(std::move(src), [&](Range<Token> in) { return parse_message(in, ctx); });
 }
 
 }  // namespace
