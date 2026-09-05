@@ -40,6 +40,9 @@ cmake --build --preset gcc
   differential against protobuf.
 - `./check.sh fix`: apply clang-format first, then run the full gate.
 - `./check.sh quick`: gcc-only build + test for the inner loop (not the commit bar).
+- `./check.sh compilers`: only the architecture-sensitive stages (build + test on both compilers,
+  compile-fail, fuzz-compile) — what CI's arm64 job and the release workflow's arm64 leg run; the
+  stage list lives in `check.sh`.
 - `./check.sh deep` is the heavy tier: ASan + UBSan, a library coverage floor, the real-world corpus
   sweep plus a bounded corpus-compile sample, a check that the regen scripts reproduce the
   checked-in goldens, and a fuzz smoke over the four targets (see [Fuzzing](#fuzzing)).

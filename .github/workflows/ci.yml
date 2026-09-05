@@ -67,16 +67,17 @@ jobs:
   # arm64 build + test on both pinned compilers. The packed-varint SWAR kernels are the reason: on
   # AArch64 they lower to native instructions the x86 gate never sees (ctz -> rbit+clz, popcount ->
   # cnt, and the big-endian load64 path -> rev), and a byte loop that vectorizes on x86 may not on
-  # NEON. Format + tidy are architecture-independent, so they stay on the x86 jobs; this runs only
-  # the compiler-visible stages (build/test on gcc + clang, compile-fail, fuzz-harness compile).
+  # NEON. Format + tidy are architecture-independent, so they stay on the x86 jobs; `compilers` is
+  # check.sh's name for the architecture-sensitive subset (build/test on gcc + clang, compile-fail,
+  # fuzz-harness compile) -- the list lives THERE, shared with release.yml's arm64 leg.
   arm64:
     name: arm64 (build/test, gcc + clang)
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-toolchain
-      - name: Build + test on arm64 (./check.sh, arch-sensitive stages)
-        run: RAPIDPROTO_GATE_STAGES='gcc clang cf fuzz' ./check.sh
+      - name: Build + test on arm64 (./check.sh compilers)
+        run: ./check.sh compilers
 
   tidy:
     # The shard count lives ONCE, in the matrix list: name and denominator derive from

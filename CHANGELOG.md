@@ -146,6 +146,10 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
 
 ### Added
 
+- **Releases ship a `linux-arm64` binary alongside `linux-x86_64`.** Same tarball layout; both
+  legs re-verify the tag (the full default gate on x86_64, the architecture-sensitive stages on
+  arm64), and a failed leg blocks the whole release rather than publishing without one binary.
+
 - **`rapidprotoc --list-outputs` and `--list-inputs`: dry runs for build systems.** The first
   prints every path a generation would write (relative to `--out-dir`, one per line), the second
   the on-disk `.proto` closure; nothing is written, and a schema or flag error fails the listing
