@@ -2,9 +2,12 @@
 # VMs, so the GB/s numbers are a ROUGH sanity signal (are we beating protoc/protozero, did a change
 # swing things a lot), not the pinned-P-core measurement tests/bench.py's methodology needs -- treat a
 # CI number as +/- tens of percent. Its value is (1) seeing arm64 numbers you have no other way to get,
-# and (2) a quick before/after eyeball. Every scenario cross-checks its decode against protoc/protozero,
-# so a mismatch also flags an arm64 correctness divergence as a bonus. Trigger it by hand from the Actions
-# tab; results upload as artifacts (per arch x compiler) and a compact summary prints to the log.
+# and (2) a quick before/after eyeball. "NOT a gate" is about the NUMBERS; correctness still fails the
+# job: every scenario cross-checks its arms' decode checksums (against protoc/protozero where they have
+# an arm, RapidProto against RapidProto where they don't), both bench mains exit nonzero on a mismatch,
+# and this job propagates that -- so a red run flags an arm64 correctness divergence as a bonus.
+# Trigger it by hand from the Actions tab; results upload as artifacts (per arch x compiler) and a
+# compact summary prints to the log.
 name: Benchmark (on-demand)
 
 on:
@@ -29,7 +32,7 @@ jobs:
         run: cmake -S . -B build/bench -DCMAKE_CXX_COMPILER='${{ matrix.cxx }}'
       - name: Benchmark + summarize (informational)
         run: |
-          set -uxo pipefail
+          set -euxo pipefail
           mkdir -p bench-out
           tag='${{ matrix.arch }}-${{ matrix.cc }}'
           out="bench-out/bench.$tag.ndjson"
@@ -37,8 +40,11 @@ jobs:
           # (--repeat 1: this snapshot is never diffed, so repeats would only cost wall time), tags
           # every record with its decoder (arena|stream), and merges to one snapshot. A shared runner
           # spins to a steady frequency but still can't be trusted for tight deltas -- read as rough.
-          python3 tests/bench.py run --repeat 1 --build-dir build/bench --core 0 --out "$out" || true
-          [ -s "$out" ] || { echo "no benchmark output produced"; exit 0; }
+          # No `|| true`, no empty-output exit 0: a bench build failure, a crashed binary, or a
+          # checksum mismatch (the binaries exit nonzero; bench.py's check_output propagates it)
+          # must turn this job red, or the header's correctness claim is a lie.
+          python3 tests/bench.py run --repeat 1 --build-dir build/bench --core 0 --out "$out"
+          [ -s "$out" ] || { echo "no benchmark output produced"; exit 1; }
           python3 - "$tag" "$out" <<'PY'
           import json, sys
           tag, files = sys.argv[1], sys.argv[2:]

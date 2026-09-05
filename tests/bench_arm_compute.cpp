@@ -130,7 +130,11 @@ bool run_arm() {
                      google::cloud::compute::v1beta::Instance::decode(cview, cwarm));
              }},
         };
-        (void)rpbench::run("compute Instance", static_cast<double>(cbuf.size()), carms);
+        // No protoc arm here, so the cross-check is cold vs warm (plus the nonzero-checksum
+        // guard above); a disagreement still must reach the exit code.
+        if (rpbench::run("compute Instance", static_cast<double>(cbuf.size()), carms) != 0) {
+            return false;
+        }
     }
 
     return true;

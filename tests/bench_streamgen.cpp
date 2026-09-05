@@ -94,7 +94,7 @@ std::uint64_t float_bits(float f) {
 // Adapter: the scenarios below build arms as pure Fn(ByteView); the shared harness takes nullary
 // closures (so it can also drive stateful decoders, e.g. the arena bench). Bind the buffer here.
 template <std::size_t N>
-int run(const char* scenario, ByteView bytes, const Arm (&arms)[N]) {
+[[nodiscard]] int run(const char* scenario, ByteView bytes, const Arm (&arms)[N]) {
     std::vector<rpbench::Arm> wrapped;
     wrapped.reserve(N);
     for (const auto& a : arms) {
@@ -109,8 +109,8 @@ int run(const char* scenario, ByteView bytes, const Arm (&arms)[N]) {
 // keeps its own index; the harness calls all arms the same number of times, so they stay in lockstep
 // and the per-round checksum cross-check still holds. `avg_bytes` is the pool's mean buffer size.
 template <std::size_t N>
-int run_pool(const char* scenario, const std::vector<ByteView>& views, double avg_bytes,
-             const Arm (&arms)[N]) {
+[[nodiscard]] int run_pool(const char* scenario, const std::vector<ByteView>& views,
+                           double avg_bytes, const Arm (&arms)[N]) {
     std::vector<rpbench::Arm> wrapped;
     wrapped.reserve(N);
     for (const auto& a : arms) {
