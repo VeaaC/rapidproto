@@ -124,12 +124,15 @@ inline std::string import_header(std::string_view path, std::string_view extensi
 // dependency, even when the decoder is nested under a subdir (e.g. a well-known type under
 // google/protobuf/). `filename` is the file's import path (possibly subdir'd or absolute); its last
 // path component names the sibling.
-inline std::string common_sibling_include(std::string_view filename) {
+inline std::string sibling_include(std::string_view filename, std::string_view extension) {
     const auto slash = filename.find_last_of('/');
     if (slash != std::string_view::npos) {
         filename.remove_prefix(slash + 1);
     }
-    return import_header(filename, ".rp.common.hpp");
+    return import_header(filename, extension);
+}
+inline std::string common_sibling_include(std::string_view filename) {
+    return sibling_include(filename, ".rp.common.hpp");
 }
 
 }  // namespace rapidproto::codegen
