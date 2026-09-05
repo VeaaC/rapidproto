@@ -86,9 +86,10 @@ inline bool enum_prefix_strippable(const EnumNode& node, std::string_view prefix
 inline std::vector<std::string> enum_value_names(const EnumNode& node) {
     const std::string prefix = enum_value_prefix(node.name);
     const bool strip = enum_prefix_strippable(node, prefix);
-    // Seeded with the sentinels emit_enum appends, which a proto value could otherwise collide with.
-    std::unordered_set<std::string> taken = {"rp_known_min", "rp_known_max",
-                                             "rp_non_exhaustive_min", "rp_non_exhaustive_max"};
+    // No sentinel seeding: every name below is sanitize() output, and sanitize() escapes anything
+    // spelled rp_*, so no produced name (nor any of its `_`-escalations) can land on the
+    // rp_known_min/rp_known_max/rp_non_exhaustive_* sentinels emit_enum appends.
+    std::unordered_set<std::string> taken;
     std::vector<std::string> out;
     out.reserve(node.values.size());
     for (const auto& value : node.values) {
@@ -169,6 +170,19 @@ inline void emit_enum_mirror(Printer& printer, const CppNameTable& names,
     printer.print("}  // namespace $id$\n\n", {{"id", names.local.at(&message)}});
 }
 
+// One include line per direct import, filtered the way the resolver resolves: every import's
+// symbols are visible as field types EXCEPT option-only imports (a weak import's types are still
+// usable, so its header is still needed). All four generated-header emitters route through this
+// so the filter rule lives once; only the extension differs.
+inline void emit_import_includes(Printer& printer, const FileNode& file,
+                                 std::string_view extension) {
+    for (const auto& import : file.imports) {
+        if (import.kind != ImportKind::Option) {
+            printer.print("#include \"$h$\"\n", {{"h", import_header(import.path, extension)}});
+        }
+    }
+}
+
 // Emit the shared "common header" for `file`: `#pragma once`, `<cstdint>`, an include of each
 // (non-option) import's common header, the package namespace, and one `enum class` per TOP-LEVEL enum
 // (via emit_enum), plus a NAMESPACE MIRROR of the message nesting carrying the nested ones
@@ -182,12 +196,7 @@ inline std::string emit_common_header(const FileNode& file, const CppNameTable& 
     printer.print("// Shared schema types (enums) for the generated decoders (Apache-2.0).\n");
     printer.print("#pragma once\n\n");
     printer.print("#include <cstdint>\n");
-    for (const auto& import : file.imports) {
-        if (import.kind != ImportKind::Option) {
-            printer.print("#include \"$h$\"\n",
-                          {{"h", import_header(import.path, ".rp.common.hpp")}});
-        }
-    }
+    emit_import_includes(printer, file, ".rp.common.hpp");
     printer.print("\n");
     const std::string ns = enum_namespace(names, file);
     printer.print("namespace $ns$ {\n\n", {{"ns", ns}});

@@ -1,7 +1,8 @@
 # clang-tidy-20 — strict root config for the library (include/, src/).
 # Nearly everything is on. The tests/ subtree has its own .clang-tidy that relaxes
 # a few checks that are pure test-fixture noise (C arrays, magic numbers, array
-# decay, pointer arithmetic). Run against the clang compile DB, e.g.:
+# decay, pointer arithmetic) and -- the big one -- the whole static analyzer, which
+# Catch2's amalgam trips at TU level where HeaderFilterRegex cannot scope it out. Run against the clang compile DB, e.g.:
 #   clang-tidy-20 -p build/clang src/header_self_contained.cpp   # strict, library
 #   clang-tidy-20 -p build/clang tests/test_range.cpp            # relaxed, tests
 #
@@ -39,5 +40,8 @@ Checks: >
   -misc-non-private-member-variables-in-classes,
   -modernize-use-trailing-return-type,
   -readability-identifier-length
-HeaderFilterRegex: 'include/rapidproto/.*'
+# The SAME string check.sh passes on the command line (clang-tidy < 20.1.8 ignores the config
+# value, which is why check.sh passes it at all): src/ private headers are linted too. The two
+# used to differ -- an editor run saw clean where the gate flagged src/ headers.
+HeaderFilterRegex: '(include/rapidproto|src)/.*\.hpp'
 WarningsAsErrors: ''

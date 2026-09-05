@@ -47,6 +47,12 @@
 #include <sys/ioctl.h>
 #include <sys/syscall.h>
 #include <unistd.h>
+#else
+// Say so instead of half-porting: the perf_event macros are used UNGUARDED below (a default
+// argument, metric_fds' configs), so the old per-function #else fallbacks never made a non-Linux
+// build possible -- they only looked like they did. The benches are Linux measurement tools;
+// the shipped runtime has no such restriction.
+#error "bench_harness.hpp is Linux-only (perf_event self-monitoring)"
 #endif
 
 namespace rpbench {
@@ -149,7 +155,6 @@ inline void prepare_env() {
 // Opportunistic per-process hardware counter (cycles or instructions), if the kernel allows
 // unprivileged self-monitoring. Returns a perf fd, or -1 to fall back / omit.
 inline int open_counter(std::uint64_t config, std::uint32_t type = PERF_TYPE_HARDWARE) {
-#if defined(__linux__)
     perf_event_attr attr;
     std::memset(&attr, 0, sizeof attr);
     attr.type = type;
@@ -159,11 +164,6 @@ inline int open_counter(std::uint64_t config, std::uint32_t type = PERF_TYPE_HAR
     attr.exclude_kernel = 1;
     attr.exclude_hv = 1;
     return static_cast<int>(syscall(SYS_perf_event_open, &attr, 0, -1, -1, 0UL));
-#else
-    (void)config;
-    (void)type;
-    return -1;
-#endif
 }
 
 // RAPIDPROTO_BENCH_EVENT=<name> adds ONE extra counter, measured over exactly the region the
@@ -175,7 +175,6 @@ inline int open_counter(std::uint64_t config, std::uint32_t type = PERF_TYPE_HAR
 //
 // Names map to the portable PERF_TYPE_HW_CACHE encoding (cache id | op << 8 | result << 16).
 inline int open_named_event(const char* name) {
-#if defined(__linux__)
     const auto cache = [](std::uint64_t id, std::uint64_t op, std::uint64_t result) {
         return id | (op << 8) | (result << 16);
     };
@@ -203,10 +202,6 @@ inline int open_named_event(const char* name) {
                  "dtlb-miss, branch-miss)\n",
                  name);
     return -1;
-#else
-    (void)name;
-    return -1;
-#endif
 }
 
 // Cycles are frequency-invariant but NOT placement-invariant (a function's cyc/B shifts with its
@@ -363,23 +358,34 @@ inline Stat stat(std::vector<double> v) {
     const auto start = Clock::now();
     bool converged = false;
     for (std::size_t round = 0; !converged; ++round) {
-        std::vector<double> prim(n);  // this round's primary cost per arm
+        std::vector<Cost> costs(n);
         for (std::size_t j = 0; j < n; ++j) {
             const std::size_t k = (j + round) % n;  // rotate start each round: cancels slot bias
             std::uint64_t s = 0;
-            const Cost cost = sample(cnt, arms[k].fn, s);
+            costs[k] = sample(cnt, arms[k].fn, s);
             sums[k] = s;
-            ns_s[k].push_back(cost.ns);
+            ns_s[k].push_back(costs[k].ns);
             if (cyc) {
-                cyc_s[k].push_back(cost.cyc);
+                cyc_s[k].push_back(costs[k].cyc);
             }
             if (ins) {
-                instr_s[k].push_back(cost.instr);
+                instr_s[k].push_back(costs[k].instr);
             }
-            if (cost.xtra >= 0) {
-                xtra_s[k].push_back(cost.xtra);
+            if (costs[k].xtra >= 0) {
+                xtra_s[k].push_back(costs[k].xtra);
             }
-            prim[k] = cyc ? cost.cyc : cost.ns;
+        }
+        // A counter can OPEN and still never count (VMs without an exposed PMU read 0); all-zero
+        // cycles otherwise left every ratio vector empty and the median of an empty vector is
+        // out-of-bounds. The fallback to wall time is WHOLE-round: one arm reading 0 cycles while
+        // another reads real ones must not put ns over cycles in the same ratio.
+        bool cyc_ok = cyc;
+        for (std::size_t k = 0; cyc_ok && k < n; ++k) {
+            cyc_ok = costs[k].cyc > 0;
+        }
+        std::vector<double> prim(n);  // this round's primary cost per arm
+        for (std::size_t k = 0; k < n; ++k) {
+            prim[k] = cyc_ok ? costs[k].cyc : costs[k].ns;
         }
         for (std::size_t k = 1; k < n; ++k) {
             if (prim[0] > 0) {

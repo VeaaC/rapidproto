@@ -1,5 +1,7 @@
 #include <catch_amalgamated.hpp>
 
+#include "parse_helpers.hpp"
+
 #include <cstddef>
 #include <string>
 #include <utility>
@@ -15,25 +17,14 @@ using namespace rapidproto;  // NOLINT(google-build-using-namespace): test conve
 
 namespace {
 
-template <typename Fn>
-auto parse_ok(std::string src, Fn fn) {
-    auto lr = lex(std::move(src));
-    REQUIRE(lr.is_ok());
-    const LexResult lexed = std::move(lr).value();
-    auto r = fn(Range<Token>(lexed.tokens));
-    REQUIRE(r.is_ok());
-    CHECK(r.value().remaining.empty());
-    return std::move(r.value().value);
-}
+using rapidproto::test::parse_ok;
+using rapidproto::test::parse_rejects;
 
 // True if the message body fails to parse, either outright or by leaving input unconsumed.
 bool rejects(const std::string& body) {
-    auto lr = lex("message Holder { " + body + " }");
-    REQUIRE(lr.is_ok());
-    const LexResult lexed = std::move(lr).value();
     const ParseContext ctx;
-    auto r = parse_message(Range<Token>(lexed.tokens), ctx);
-    return !r.is_ok() || !r.value().remaining.empty();
+    return parse_rejects("message Holder { " + body + " }",
+                         [&](Range<Token> in) { return parse_message(in, ctx); });
 }
 
 // Index of the first cardinality keyword, i.e. where a oneof label error must be reported.
@@ -69,13 +60,9 @@ FieldNode field_ok(std::string src, SyntaxLevel syntax) {
 }
 
 bool field_rejects(std::string src, SyntaxLevel syntax) {
-    auto lr = lex(std::move(src));
-    REQUIRE(lr.is_ok());
-    const LexResult lexed = std::move(lr).value();
     ParseContext ctx;
     ctx.syntax_level = syntax;
-    auto r = parse_field(Range<Token>(lexed.tokens), ctx);
-    return r.is_err() || !r.value().remaining.empty();
+    return parse_rejects(std::move(src), [&](Range<Token> in) { return parse_field(in, ctx); });
 }
 
 }  // namespace
@@ -209,16 +196,15 @@ TEST_CASE("map field: key-type validity is not enforced (parser only)") {
 }
 
 TEST_CASE("map field: malformed declarations are rejected") {
-    auto rejects = [](std::string src) {
-        auto lr = lex(std::move(src));
-        REQUIRE(lr.is_ok());
-        const LexResult lexed = std::move(lr).value();
-        auto r = parse_map_field(Range<Token>(lexed.tokens));
-        return r.is_err() || !r.value().remaining.empty();
+    // map_rejects, not `rejects`: the file-scope `rejects` wraps its argument in a Holder
+    // MESSAGE and parses that; this one hands the source to parse_map_field verbatim. One name
+    // for two grammars invited moving a CHECK between cases and silently changing what it tests.
+    auto map_rejects = [](std::string src) {
+        return parse_rejects(std::move(src), parse_map_field);
     };
-    CHECK(rejects("map<string> m = 1;"));         // missing value type
-    CHECK(rejects("map string, int32> m = 1;"));  // missing '<'
-    CHECK(rejects("map<string, int32> m = 1"));   // missing ';'
+    CHECK(map_rejects("map<string> m = 1;"));         // missing value type
+    CHECK(map_rejects("map string, int32> m = 1;"));  // missing '<'
+    CHECK(map_rejects("map<string, int32> m = 1"));   // missing ';'
 }
 
 // --- oneofs -----------------------------------------------------------------

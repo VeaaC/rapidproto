@@ -21,7 +21,6 @@ namespace rapidproto {
 // openness normalization (editions are refined later by the feature pass).
 struct ParseContext {
     SyntaxLevel syntax_level = SyntaxLevel::Proto2;  // absent syntax/edition decl => proto2
-    std::string edition;
 };
 
 // OptionValue = ScalarValue | MessageLiteral | ListLiteral

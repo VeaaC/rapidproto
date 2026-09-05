@@ -10,11 +10,7 @@
 #include <catch_amalgamated.hpp>
 
 #include <cstdint>
-#include <cstdlib>
-#include <fstream>
-#include <ios>
 #include <map>
-#include <sstream>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -22,6 +18,7 @@
 
 #include "arena_modes_profile.hpp"
 #include "common_golden_sweep.hpp"
+#include "golden_file.hpp"
 #include "rapidproto/arena_runtime.hpp"  // MapView, asserted on below
 #include "rapidproto/arenagen/generator.hpp"
 #include "rapidproto/arenagen/layout.hpp"
@@ -67,13 +64,6 @@ using namespace rapidproto;  // NOLINT(google-build-using-namespace): test conve
 
 namespace {
 
-std::string read_file(const std::string& path) {
-    const std::ifstream file(path, std::ios::binary);
-    std::ostringstream buffer;
-    buffer << file.rdbuf();
-    return buffer.str();
-}
-
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): include dir, entry file, namespace prefix
 std::string generate(const std::string& dir, const std::string& entry,
                      const std::string& prefix = {}) {
@@ -115,15 +105,12 @@ ModesOutput generate_modes_golden() {
     arenagen::LayoutOptions options;
     options.modes = &modes;
     const arenagen::LayoutSet layouts = arenagen::plan_layouts(set, symbols, options);
-    return {arenagen::generate_header(set.files.back(), names, layouts, symbols, &modes),
+    return {arenagen::generate_header(set.files.back(), names, layouts, &modes),
             codegen::emit_common_header(set.files.back(), names)};
 }
 
-// Generate arena_unknown.rp.hpp under --unknown-present (unknown_all): every message reserves its
-// has_unknown_fields() bit, and the flag folds into the profile identity (an inline rp_modes_<id>
-// namespace). Byte-pinning this golden guards the fold -- the banner id and the inline namespace must
-// not drift silently, since a mismatch is exactly the ODR hazard the fold closes.
-// As above, for any corpus entry and an optional namespace prefix.
+// Generate any corpus entry under --unknown-present (unknown_all), with an optional namespace
+// prefix.
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): entry path vs namespace prefix, distinct
 std::string generate_unknown_present(const std::string& entry, const std::string& ns_prefix) {
     ResolverConfig config;
@@ -145,66 +132,13 @@ std::string generate_unknown_present(const std::string& entry, const std::string
     arenagen::LayoutOptions options;
     options.modes = &modes;
     const arenagen::LayoutSet layouts = arenagen::plan_layouts(set, symbols, options);
-    return arenagen::generate_header(set.files.back(), names, layouts, symbols, &modes);
-}
-
-std::string generate_unknown_present_golden() {
-    ResolverConfig config;
-    config.include_paths = {RAPIDPROTO_CORPUS_DIR};
-    auto resolved = resolve(std::string(RAPIDPROTO_CORPUS_DIR) + "/arena_unknown.proto", config);
-    REQUIRE(resolved.is_ok());
-    ResolvedFileSet set = std::move(resolved).value();
-    auto analyzed = analyze(set);
-    REQUIRE(analyzed.is_ok());
-    const SymbolTable symbols = std::move(analyzed).value();
-    arenagen::FieldModesSpec spec;
-    spec.unknown_all = true;
-    auto resolved_modes = arenagen::resolve_field_modes(spec, set, symbols);
-    REQUIRE(resolved_modes.is_ok());
-    const arenagen::FieldModes modes = std::move(resolved_modes).value();
-    const codegen::CppNameTable names =
-        codegen::build_cpp_names(set.files.back(), set.files, codegen::effective_ns_prefix({}),
-                                 std::string(codegen::kArenaRoot));
-    arenagen::LayoutOptions options;
-    options.modes = &modes;
-    const arenagen::LayoutSet layouts = arenagen::plan_layouts(set, symbols, options);
-    return arenagen::generate_header(set.files.back(), names, layouts, symbols, &modes);
-}
-
-// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): expected vs actual, distinct roles
-std::string first_difference(const std::string& expected, const std::string& actual) {
-    std::istringstream exp(expected);
-    std::istringstream act(actual);
-    std::string exp_line;
-    std::string act_line;
-    int number = 1;
-    while (true) {
-        const bool exp_ok = static_cast<bool>(std::getline(exp, exp_line));
-        const bool act_ok = static_cast<bool>(std::getline(act, act_line));
-        if (!exp_ok && !act_ok) {
-            return "(no line difference; trailing-newline mismatch?)";
-        }
-        if (exp_ok != act_ok || exp_line != act_line) {
-            return "first diff at line " + std::to_string(number) +
-                   ":\n  expected: " + (exp_ok ? exp_line : "<eof>") +
-                   "\n  actual:   " + (act_ok ? act_line : "<eof>");
-        }
-        ++number;
-    }
+    return arenagen::generate_header(set.files.back(), names, layouts, &modes);
 }
 
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): golden name vs generated content
 void check_golden(const std::string& name, const std::string& actual) {
-    const std::string golden = std::string(RAPIDPROTO_ARENAGEN_GOLDEN_DIR) + "/" + name + ".rp.hpp";
-    // NOLINTNEXTLINE(concurrency-mt-unsafe): single-threaded test, opt-in regeneration only
-    if (std::getenv("RAPIDPROTO_REGEN_GOLDEN") != nullptr) {
-        std::ofstream(golden, std::ios::binary) << actual;
-        WARN("regenerated arenagen golden: " << name);
-        return;
-    }
-    INFO("golden: " << name);
-    INFO(first_difference(read_file(golden), actual));
-    CHECK(actual == read_file(golden));
+    test::check_golden(std::string(RAPIDPROTO_ARENAGEN_GOLDEN_DIR) + "/" + name + ".rp.hpp", name,
+                       actual);
 }
 
 }  // namespace
@@ -234,18 +168,17 @@ TEST_CASE("arenagen: generated headers match the goldens", "[arenagen]") {
     {
         const std::string common =
             std::string(RAPIDPROTO_ARENAGEN_GOLDEN_DIR) + "/arena_modes.rp.common.hpp";
-        // NOLINTNEXTLINE(concurrency-mt-unsafe): single-threaded test, opt-in regeneration only
-        if (std::getenv("RAPIDPROTO_REGEN_GOLDEN") != nullptr) {
-            std::ofstream(common, std::ios::binary) << modes.common;
-            WARN("regenerated arenagen golden: arena_modes.rp.common.hpp");
-        } else {
-            INFO(first_difference(read_file(common), modes.common));
-            CHECK(modes.common == read_file(common));
-        }
+        test::check_golden(common, "arena_modes.rp.common.hpp", modes.common);
     }
     // --unknown-present: every message gets has_unknown_fields(), and the flag folds into the
     // profile identity (inline rp_modes_<id>). Byte-pinned so that fold cannot drift silently.
-    check_golden("arena_unknown", generate_unknown_present_golden());
+    // arena_unknown.rp.hpp under --unknown-present: every message reserves its
+    // has_unknown_fields() bit, and the flag folds into the profile identity (an inline
+    // rp_modes_<id> namespace). Byte-pinning guards the fold -- the banner id and the inline
+    // namespace must not drift silently; a mismatch is exactly the ODR hazard the fold closes.
+    check_golden(
+        "arena_unknown",
+        generate_unknown_present(std::string(RAPIDPROTO_CORPUS_DIR) + "/arena_unknown.proto", ""));
     check_golden("xref", generate_corpus("xref.proto"));
     check_golden("xref_prefixed/xref", generate_corpus("xref.proto", "pfx"));
     check_golden("wire_all", generate(RAPIDPROTO_WIRE_FIXTURE_DIR, "wire_all.proto"));

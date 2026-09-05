@@ -7,10 +7,10 @@
 
 #include <catch_amalgamated.hpp>
 
-#include <cstdlib>
+#include "golden_file.hpp"
+
 #include <fstream>
 #include <ios>
-#include <sstream>
 #include <string>
 #include <vector>
 
@@ -21,38 +21,11 @@ using namespace rapidproto;  // NOLINT(google-build-using-namespace): test conve
 
 namespace {
 
-std::string read_file(const std::string& path) {
-    const std::ifstream file(path, std::ios::binary);
-    std::ostringstream buffer;
-    buffer << file.rdbuf();
-    return buffer.str();
-}
+using rapidproto::test::read_file;
 
 bool file_exists(const std::string& path) {
     const std::ifstream file(path, std::ios::binary);
     return file.good();
-}
-
-// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): expected vs actual, distinct roles
-std::string first_difference(const std::string& expected, const std::string& actual) {
-    std::istringstream exp(expected);
-    std::istringstream act(actual);
-    std::string exp_line;
-    std::string act_line;
-    int number = 1;
-    while (true) {
-        const bool exp_ok = static_cast<bool>(std::getline(exp, exp_line));
-        const bool act_ok = static_cast<bool>(std::getline(act, act_line));
-        if (!exp_ok && !act_ok) {
-            return "(no line difference)";
-        }
-        if (exp_ok != act_ok || exp_line != act_line) {
-            return "first diff at line " + std::to_string(number) +
-                   ":\n  expected: " + (exp_ok ? exp_line : "<eof>") +
-                   "\n  actual:   " + (act_ok ? act_line : "<eof>");
-        }
-        ++number;
-    }
 }
 
 }  // namespace
@@ -60,29 +33,15 @@ std::string first_difference(const std::string& expected, const std::string& act
 TEST_CASE("wire-golden: fixture dumps match expectations", "[wire-golden]") {
     const std::vector<std::string> scenarios = {"scalars", "msg", "all_wire"};
 
-    // NOLINTNEXTLINE(concurrency-mt-unsafe): single-threaded test, opt-in regeneration only
-    const bool regen = std::getenv("RAPIDPROTO_REGEN_GOLDEN") != nullptr;
-
     for (const std::string& name : scenarios) {
         const std::string bin = std::string(RAPIDPROTO_WIRE_FIXTURE_DIR) + "/" + name + ".bin";
         const std::string golden = std::string(RAPIDPROTO_WIRE_GOLDEN_DIR) + "/" + name + ".txt";
-        if (!file_exists(bin)) {
-            SUCCEED("fixture " + name + ".bin not present; skipping");
-            continue;
-        }
+        // The fixtures are CHECKED IN: a missing one is a broken checkout or a bad move, and
+        // must fail loudly -- a skip here read as green when a fixture vanished.
+        INFO("fixture: " << bin);
+        REQUIRE(file_exists(bin));
 
         const std::string bytes = read_file(bin);
-        const std::string actual = wiredump::dump_wire(ByteView(bytes));
-
-        if (regen) {
-            std::ofstream(golden, std::ios::binary) << actual;
-            WARN("regenerated wire golden: " << name);
-            continue;
-        }
-
-        const std::string expected = read_file(golden);
-        INFO("scenario: " << name);
-        INFO(first_difference(expected, actual));
-        CHECK(actual == expected);
+        test::check_golden(golden, name, wiredump::dump_wire(ByteView(bytes)));
     }
 }

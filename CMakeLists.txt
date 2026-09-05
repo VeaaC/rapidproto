@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(rapidproto VERSION 0.3.1 LANGUAGES CXX)
+project(rapidproto VERSION 0.4.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -80,9 +80,10 @@ target_include_directories(rapidproto INTERFACE
   "${CMAKE_CURRENT_BINARY_DIR}/generated/include")
 target_compile_features(rapidproto INTERFACE cxx_std_17)
 
-# Installable public runtime: only the two std-library-only headers generated code includes
-# (runtime.hpp + arena_runtime.hpp). The CLIs also drop a copy beside their output, so this target is
-# for consumers who prefer the installed form; the install interface exposes nothing else from include/.
+# Installable public runtime: the three std-library-only headers generated code includes
+# (runtime.hpp + arena_runtime.hpp, and dump_runtime.hpp for --dump output). The CLIs also drop a
+# copy beside their output, so this target is for consumers who prefer the installed form; the
+# install interface exposes nothing else from include/.
 add_library(rapidproto_runtime INTERFACE)
 target_include_directories(rapidproto_runtime INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -111,28 +112,47 @@ target_link_libraries(rapidproto_cli PRIVATE rapidproto_lib rapidproto_strict)
 # Generator-agnostic codegen layer (rapidproto::codegen): the C++ naming/type tables, the Printer,
 # the shared scalar-wire facts (codegen/wire.hpp), and the embedded runtime.hpp text. Both code
 # generators build on this; neither depends on the other.
-# runtime_embedded.cpp carries the text of include/rapidproto/runtime.hpp (so a CLI can drop it next
-# to its output). It is GENERATED at build time from runtime.hpp by cmake/embed_runtime.cmake --
-# regenerated automatically whenever runtime.hpp changes, so there is nothing to keep in sync by hand.
-set(RUNTIME_EMBEDDED_CPP "${CMAKE_CURRENT_BINARY_DIR}/generated/runtime_embedded.cpp")
-add_custom_command(
-  OUTPUT "${RUNTIME_EMBEDDED_CPP}"
-  COMMAND ${CMAKE_COMMAND}
-    -DRUNTIME_HPP=${CMAKE_CURRENT_SOURCE_DIR}/include/rapidproto/runtime.hpp
-    -DOUTPUT_CPP=${RUNTIME_EMBEDDED_CPP}
-    -DEMBED_NS=rapidproto::codegen
-    -DEMBED_FUNC=runtime_header
-    -DEMBED_DECL=rapidproto/codegen/runtime_embedded.hpp
-    -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_runtime.cmake
-  DEPENDS
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/rapidproto/runtime.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_runtime.cmake
-  COMMENT "Embedding runtime.hpp -> runtime_embedded.cpp"
-  VERBATIM)
-# The embedded runtime is one raw string literal exceeding the 65536-char minimum the standard requires
-# (both compilers accept it; clang's pedantic -Woverlength-strings would flag it under -Werror). Suppress
-# it for this generated, internal-only TU.
-set_source_files_properties(${RUNTIME_EMBEDDED_CPP} PROPERTIES COMPILE_OPTIONS "-Wno-overlength-strings")
+# One rule for the three runtime embeds (codegen/arenagen/dumpgen): each header's text becomes a
+# generated TU via cmake/embed_runtime.cmake. A function rather than three copied 20-line blocks --
+# each copy carried two silent-failure modes (dropping the DEPENDS on embed_runtime.cmake yields a
+# stale embed; a fourth emitter added by copy-paste inherits whichever copy its author picked).
+# The embedded runtime is one raw string literal exceeding the 65536-char minimum the standard
+# requires (both compilers accept it; clang's pedantic -Woverlength-strings would flag it under
+# -Werror), suppressed per generated TU.
+function(_rapidproto_embed_runtime out_var header ns func decl)
+  get_filename_component(_stem "${header}" NAME_WE)
+  # NAME_WE keys the output file, so two same-dir calls with headers sharing a stem would collide
+  # on one OUTPUT. CMake diagnoses a duplicate first output itself, but names only the build-dir
+  # path; refuse it here with the header named instead. Keyed per binary dir, matching where the
+  # collision is real.
+  get_property(_used GLOBAL PROPERTY RAPIDPROTO_EMBED_STEMS)
+  if("${CMAKE_CURRENT_BINARY_DIR}|${_stem}" IN_LIST _used)
+    message(FATAL_ERROR "_rapidproto_embed_runtime: a second header with stem '${_stem}' "
+                        "(from ${header}) would collide with the first embed's output rule")
+  endif()
+  set_property(GLOBAL APPEND PROPERTY RAPIDPROTO_EMBED_STEMS "${CMAKE_CURRENT_BINARY_DIR}|${_stem}")
+  set(_out "${CMAKE_CURRENT_BINARY_DIR}/generated/${_stem}_embedded.cpp")
+  add_custom_command(
+    OUTPUT "${_out}"
+    COMMAND ${CMAKE_COMMAND}
+      -DRUNTIME_HPP=${CMAKE_CURRENT_SOURCE_DIR}/${header}
+      -DRUNTIME_REL=${header}
+      -DOUTPUT_CPP=${_out}
+      -DEMBED_NS=${ns}
+      -DEMBED_FUNC=${func}
+      -DEMBED_DECL=${decl}
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_runtime.cmake
+    DEPENDS
+      ${CMAKE_CURRENT_SOURCE_DIR}/${header}
+      ${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_runtime.cmake
+    COMMENT "Embedding ${header} -> ${_stem}_embedded.cpp"
+    VERBATIM)
+  set_source_files_properties("${_out}" PROPERTIES COMPILE_OPTIONS "-Wno-overlength-strings")
+  set(${out_var} "${_out}" PARENT_SCOPE)
+endfunction()
+
+_rapidproto_embed_runtime(RUNTIME_EMBEDDED_CPP include/rapidproto/runtime.hpp
+  rapidproto::codegen runtime_header rapidproto/codegen/runtime_embedded.hpp)
 add_library(rapidproto_codegen_lib STATIC
   src/codegen/naming.cpp
   ${RUNTIME_EMBEDDED_CPP})
@@ -153,23 +173,8 @@ target_link_libraries(rapidproto_streamgen_lib PUBLIC rapidproto_lib rapidproto_
 # arena_runtime.hpp is embedded at build time (reusing embed_runtime.cmake with arenagen's namespace/
 # function) so the CLI can drop a self-contained copy beside its output, exactly as the codegen layer
 # does for runtime.hpp. The CLI drops BOTH headers (arena_runtime.hpp #includes runtime.hpp).
-set(ARENA_RUNTIME_EMBEDDED_CPP "${CMAKE_CURRENT_BINARY_DIR}/generated/arena_runtime_embedded.cpp")
-add_custom_command(
-  OUTPUT "${ARENA_RUNTIME_EMBEDDED_CPP}"
-  COMMAND ${CMAKE_COMMAND}
-    -DRUNTIME_HPP=${CMAKE_CURRENT_SOURCE_DIR}/include/rapidproto/arena_runtime.hpp
-    -DOUTPUT_CPP=${ARENA_RUNTIME_EMBEDDED_CPP}
-    -DEMBED_NS=rapidproto::arenagen
-    -DEMBED_FUNC=arena_runtime_header
-    -DEMBED_DECL=rapidproto/arenagen/runtime_embedded.hpp
-    -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_runtime.cmake
-  DEPENDS
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/rapidproto/arena_runtime.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_runtime.cmake
-  COMMENT "Embedding arena_runtime.hpp -> arena_runtime_embedded.cpp"
-  VERBATIM)
-set_source_files_properties(${ARENA_RUNTIME_EMBEDDED_CPP}
-  PROPERTIES COMPILE_OPTIONS "-Wno-overlength-strings")  # same over-length embed literal as above
+_rapidproto_embed_runtime(ARENA_RUNTIME_EMBEDDED_CPP include/rapidproto/arena_runtime.hpp
+  rapidproto::arenagen arena_runtime_header rapidproto/arenagen/runtime_embedded.hpp)
 add_library(rapidproto_arenagen_lib STATIC
   src/arenagen/layout.cpp
   src/arenagen/modes.cpp
@@ -184,23 +189,8 @@ target_link_libraries(rapidproto_arenagen_lib PUBLIC rapidproto_lib rapidproto_c
 # only on the header-only dump runtime (rapidproto/dump_runtime.hpp) plus the arena header it dumps.
 # dump_runtime.hpp is embedded at build time (reusing embed_runtime.cmake with dumpgen's namespace/
 # function) so the CLI can drop a self-contained copy beside its output, exactly as the other layers do.
-set(DUMP_RUNTIME_EMBEDDED_CPP "${CMAKE_CURRENT_BINARY_DIR}/generated/dump_runtime_embedded.cpp")
-add_custom_command(
-  OUTPUT "${DUMP_RUNTIME_EMBEDDED_CPP}"
-  COMMAND ${CMAKE_COMMAND}
-    -DRUNTIME_HPP=${CMAKE_CURRENT_SOURCE_DIR}/include/rapidproto/dump_runtime.hpp
-    -DOUTPUT_CPP=${DUMP_RUNTIME_EMBEDDED_CPP}
-    -DEMBED_NS=rapidproto::dumpgen
-    -DEMBED_FUNC=dump_runtime_header
-    -DEMBED_DECL=rapidproto/dumpgen/runtime_embedded.hpp
-    -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_runtime.cmake
-  DEPENDS
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/rapidproto/dump_runtime.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_runtime.cmake
-  COMMENT "Embedding dump_runtime.hpp -> dump_runtime_embedded.cpp"
-  VERBATIM)
-set_source_files_properties(${DUMP_RUNTIME_EMBEDDED_CPP}
-  PROPERTIES COMPILE_OPTIONS "-Wno-overlength-strings")  # same over-length embed literal as above
+_rapidproto_embed_runtime(DUMP_RUNTIME_EMBEDDED_CPP include/rapidproto/dump_runtime.hpp
+  rapidproto::dumpgen dump_runtime_header rapidproto/dumpgen/runtime_embedded.hpp)
 add_library(rapidproto_dumpgen_lib STATIC
   src/dumpgen/generator.cpp
   ${DUMP_RUNTIME_EMBEDDED_CPP})
@@ -245,6 +235,7 @@ if(RAPIDPROTO_INSTALL)
   install(FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/include/rapidproto/runtime.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/rapidproto/arena_runtime.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/rapidproto/dump_runtime.hpp
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/rapidproto)
   install(EXPORT rapidprotoTargets
     NAMESPACE rapidproto::
@@ -367,22 +358,30 @@ if(RAPIDPROTO_BUILD_TESTS)
   set(BENCH_PROTO "${CMAKE_CURRENT_SOURCE_DIR}/tests/bench/bench.proto")
   set(BENCH_PROTO_DIR "${CMAKE_CURRENT_SOURCE_DIR}/tests/bench")
   set(BENCH_GEN "${CMAKE_CURRENT_BINARY_DIR}/generated/bench")
+  # protoc's --cpp_out below does NOT create its output directory (rapidprotoc does, but the two
+  # rules are independent and either can run first): make it at configure time.
   file(MAKE_DIRECTORY "${BENCH_GEN}")
-  # One rapidprotoc invocation emits BOTH decoders under the `rp` prefix, sharing ONE common header
-  # (rp::common::bench): arena at rp::arena::bench::Dataset, streaming at rp::stream::bench::Dataset,
-  # both distinct from protoc's bench::Dataset -- all three coexist in one translation unit.
-  add_custom_command(
-    OUTPUT "${BENCH_GEN}/bench.rp.hpp" "${BENCH_GEN}/bench.rp.stream.hpp"
-    COMMAND rapidprotoc --arena --stream -I${BENCH_PROTO_DIR} --namespace-prefix=rp
-            --out-dir=${BENCH_GEN} ${BENCH_PROTO}
-    DEPENDS rapidprotoc ${BENCH_PROTO}
-    COMMENT "rapidprotoc --arena --stream bench.proto -> bench.rp.{hpp,stream.hpp}" VERBATIM)
+  # Through the helper, not a hand-rolled add_custom_command: the hand rule under-declared its
+  # outputs (the common header and both runtime drops were written but undeclared, so deleting
+  # one broke the build with no rule to restore it) -- the exact defect rapidproto_generate()
+  # exists to prevent, re-implemented 150 lines below its include(). One invocation emits BOTH
+  # decoders under the `rp` prefix, sharing ONE common header (rp::common::bench): all three of
+  # rp::arena::bench::Dataset / rp::stream::bench::Dataset / protoc's bench::Dataset coexist in
+  # one translation unit.
+  rapidproto_generate(rapidproto_bench_schema
+    GENERATOR both
+    NAMESPACE_PREFIX rp
+    PROTOS "${BENCH_PROTO}"
+    IMPORT_DIRS "${BENCH_PROTO_DIR}"
+    OUT_DIR "${BENCH_GEN}")
 
-  add_executable(rapidproto_bench tests/bench_streamgen.cpp tests/bench_stream_isolated.cpp
-    "${BENCH_GEN}/bench.rp.stream.hpp")
-  target_link_libraries(rapidproto_bench PRIVATE rapidproto)
+  add_executable(rapidproto_bench tests/bench_streamgen.cpp tests/bench_stream_isolated.cpp)
+  # Schema target FIRST: its OUT_DIR (carrying the CLI's own runtime drop) must precede
+  # rapidproto's include/ in the search order, so every include site resolves the ONE generated
+  # copy -- the pre-helper -I order did the same.
+  target_link_libraries(rapidproto_bench PRIVATE rapidproto_bench_schema rapidproto)
   target_include_directories(rapidproto_bench PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/tests/streamgen_golden "${BENCH_GEN}")
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/streamgen_golden)
   target_compile_options(rapidproto_bench PRIVATE -O3 -DNDEBUG)
 
   # Arena benchmark: decode the SAME realistic buffer up to four ways -- the arenagen decoder, protoc +
@@ -417,11 +416,13 @@ if(RAPIDPROTO_BUILD_TESTS)
       # the decoders let OUR code's size change THEIR codegen (see tests/bench_baselines.hpp).
       tests/bench_baselines.cpp
       tests/bench_protoc.cpp
-      "${BENCH_GEN}/bench.pb.cc"
-      "${BENCH_GEN}/bench.rp.hpp"
-      "${BENCH_GEN}/bench.rp.stream.hpp")
-    # protobuf::libprotobuf carries protobuf's include dirs and (on 22+) its Abseil deps transitively.
-    target_link_libraries(rapidproto_arena_bench PRIVATE rapidproto protobuf::libprotobuf)
+      "${BENCH_GEN}/bench.pb.cc")
+    # protobuf::libprotobuf carries protobuf's include dirs and (on 22+) its Abseil deps transitively;
+    # rapidproto_bench_schema generates the rapidproto headers and adds BENCH_GEN to the includes
+    # (still needed directly too, for protoc's bench.pb.h beside them).
+    # Schema target first, as above: one runtime copy for every include site.
+    target_link_libraries(rapidproto_arena_bench PRIVATE rapidproto_bench_schema rapidproto
+                                                         protobuf::libprotobuf)
     target_include_directories(rapidproto_arena_bench PRIVATE "${BENCH_GEN}")
     # -O3 for the measured code; protobuf's generated headers trip our strict warnings, so the bench
     # is NOT linked against rapidproto_strict (it is a standalone measurement, like rapidproto_bench).
@@ -451,16 +452,20 @@ if(RAPIDPROTO_BUILD_TESTS)
         "Run python3 tests/fetch_corpus.py, then re-run cmake. Note that fetching alone does "
         "NOT re-trigger this check: the guard is configure-time.")
     else()
-      set(COMPUTE_GEN "${BENCH_GEN}/google/cloud/compute/v1beta/compute.rp.hpp")
-      add_custom_command(
-        OUTPUT "${COMPUTE_GEN}"
-        COMMAND rapidprotoc --arena -I${CORPUS_DIR}/googleapis -I${CORPUS_DIR}/protobuf/src
-                --namespace-prefix=rp --depfile=${BENCH_GEN}/compute.d
-                --out-dir=${BENCH_GEN} ${COMPUTE_PROTO}
-        DEPFILE "${BENCH_GEN}/compute.d"
-        DEPENDS rapidprotoc "${COMPUTE_PROTO}"
-        COMMENT "rapidprotoc --arena compute.proto -> compute.rp.hpp (large-schema bench arm)"
-        VERBATIM)
+      # Its OWN out-dir: the compute closure drops runtime copies and commons like any
+      # generation, and two rapidproto_generate targets sharing one OUT_DIR is exactly the
+      # overlap the helper refuses (the hand-rolled rule this replaces shared BENCH_GEN and
+      # survived only because its writes were undeclared). The helper also owns the depfile
+      # (with the CMake-version/generator gating the hand rule lacked).
+      set(COMPUTE_OUT "${CMAKE_CURRENT_BINARY_DIR}/generated/bench-compute")
+      rapidproto_generate(rapidproto_compute_schema
+        GENERATOR arena
+        NAMESPACE_PREFIX rp
+        PROTOS "${COMPUTE_PROTO}"
+        IMPORT_DIRS "${CORPUS_DIR}/googleapis" "${CORPUS_DIR}/protobuf/src"
+        OUT_DIR "${COMPUTE_OUT}")
+      # The entry's generated header, named for the payload rule's file-level dependency below.
+      set(COMPUTE_GEN "${COMPUTE_OUT}/google/cloud/compute/v1beta/compute.rp.hpp")
 
       # The payload: a synthesized Instance, text-format -> wire bytes via protoc at build time,
       # so nothing derived is committed and a corpus pin bump cannot leave a stale payload.
@@ -469,7 +474,7 @@ if(RAPIDPROTO_BUILD_TESTS)
       # the protoc call so it can write atomically (a shell `>` redirect leaves a zero-byte file
       # when the encode fails) and filter protoc's lint about compute.proto's own unused import,
       # which would otherwise trip the gate's build-output warning check.
-      set(COMPUTE_PAYLOAD "${BENCH_GEN}/compute_instance.pb")
+      set(COMPUTE_PAYLOAD "${COMPUTE_OUT}/compute_instance.pb")
       set(COMPUTE_PAYLOAD_SCRIPT
           "${CMAKE_CURRENT_SOURCE_DIR}/tests/bench/make_compute_payload.py")
       add_custom_command(
@@ -490,7 +495,13 @@ if(RAPIDPROTO_BUILD_TESTS)
         # Its own TU: measured variants sharing one re-time each other on any edit (see
         # tests/bench_arm_compute.hpp).
         tests/bench_arm_compute.cpp
-        "${COMPUTE_GEN}" "${COMPUTE_PAYLOAD}")
+        "${COMPUTE_PAYLOAD}")
+      # After rapidproto_bench_schema (bench.rp.* stay with BENCH_GEN's runtime copy); the
+      # compute TU includes its header by the import-relative path, unique to COMPUTE_OUT.
+      # COMPUTE_OUT's own runtime drop is byte-identical to BENCH_GEN's, so the order is safe;
+      # were bench.proto ever to import a WKT, its BENCH_GEN header (embedded definitions) would
+      # shadow COMPUTE_OUT's (pinned-corpus definitions) -- keep the two schemas import-disjoint.
+      target_link_libraries(rapidproto_arena_bench PRIVATE rapidproto_compute_schema)
       target_compile_definitions(rapidproto_arena_bench PRIVATE
         RAPIDPROTO_BENCH_COMPUTE
         RAPIDPROTO_COMPUTE_PAYLOAD="${COMPUTE_PAYLOAD}")

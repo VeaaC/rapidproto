@@ -2,13 +2,9 @@
 
 #include <string>
 #include <string_view>
-#include <utility>
 
+#include "parse_helpers.hpp"
 #include "rapidproto/ast.hpp"
-#include "rapidproto/lexer.hpp"
-#include "rapidproto/parser.hpp"
-#include "rapidproto/range.hpp"
-#include "rapidproto/result.hpp"
 #include "rapidproto/wellknown.hpp"
 
 using namespace rapidproto;  // NOLINT(google-build-using-namespace): test convenience
@@ -43,13 +39,9 @@ TEST_CASE("wellknown: unknown paths return nullopt") {
 TEST_CASE("wellknown: embedded descriptor.proto is itself parseable") {
     const auto src = wellknown_source("google/protobuf/descriptor.proto");
     REQUIRE(src.has_value());
-    auto lr = lex(std::string(src.value_or(std::string_view{})));
-    REQUIRE(lr.is_ok());
-    const LexResult lexed = std::move(lr).value();
-    auto r = parse_file(Range<Token>(lexed.tokens));
-    REQUIRE(r.is_ok());
-    CHECK(r.value().remaining.empty());
+    const FileNode file =
+        test::parse_file_ok(std::string(src.value_or(std::string_view{})));  // value_or: tidy-safe
     // descriptor.proto is proto2 with extension ranges + extend.
-    CHECK(r.value().value.syntax_level == SyntaxLevel::Proto2);
-    CHECK_FALSE(r.value().value.messages.empty());
+    CHECK(file.syntax_level == SyntaxLevel::Proto2);
+    CHECK_FALSE(file.messages.empty());
 }

@@ -194,12 +194,24 @@ inline const std::uint8_t* read_varint(const std::uint8_t* p, const std::uint8_t
     return nullptr;
 }
 
+// THE byte-order probe: swar_detail::load64's #if repeats the identical condition (a constexpr
+// bool cannot steer a preprocessor branch, so the textual pair lives some fifty lines apart in
+// this file), and arena_runtime.hpp's kFixedIsNativeLE derives from this constant -- the two files can
+// never answer the endianness question differently.
+inline constexpr bool kIsLittleEndian =
+#if (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__) || defined(_WIN32)
+    true;
+#else
+    false;  // big-endian, or an unknown toolchain: take the safe byte-reversing/per-element paths
+#endif
+
 // ── SWAR packed-varint decode (word-at-a-time, branchless) ─────────────────────────────────────────
 // Decodes one varint by inspecting a whole 8-byte word at once, so the per-byte continuation-bit branch
 // that mispredicts on mixed-width data does not exist. Portable: no PEXT/SIMD -- the byte-mask is a
 // multiply, the 7-bit gather is shift/mask. Used ONLY for packed repeated varints: the 8-byte word read
 // is issued only with >= 8 in-span bytes remaining, so the load stays INSIDE the span (never past `end`);
 // the caller scalar-decodes the last < 8 bytes. There is no reliance on readable slack past the span.
+
 namespace swar_detail {
 inline constexpr std::uint64_t kMSB = 0x8080808080808080ULL;   // MSB of each byte
 inline constexpr std::uint64_t kLow7 = 0x7F7F7F7F7F7F7F7FULL;  // low 7 bits of each byte
@@ -233,6 +245,7 @@ static_assert(low_byte_mask<8>() == ~std::uint64_t{0});
 // aligned-agnostic load; on a big-endian host it is byte-reversed back to that logical order. The
 // reverse prefers the compiler intrinsic (gcc/clang -> a `rev`/`bswap` instruction) but falls back to
 // portable shifts for any other compiler, so no supported build is left without a definition.
+// (The #if condition is wire::kIsLittleEndian's probe, repeated textually -- see there.)
 inline std::uint64_t load64(const std::uint8_t* p) noexcept {
 #if (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__) || defined(_WIN32)
     // Known little-endian: the raw 8-byte load IS the logical value. One `mov` on x86/ARM64.
@@ -303,10 +316,16 @@ enum class PackedKernel : std::uint8_t {
 // Classify the width regime from the first 64-byte window. Reads 64 bytes at p, so is only entered when
 // span is comfortably above that. Homogeneous width == equal gaps between terminators. For a Fixed
 // (homogeneous 3..10-byte) result, `*width` is that width; it is unspecified otherwise.
+// The span floor below which the packed-varint KERNELS never engage: the classify scan and the
+// kernel dispatch are not amortized under it, so tiny spans take the plain byte loop. One
+// constant, three former spellings: packed_strategy, decode_packed_varints' inline guard, and the
+// literal the arena generator prints into every decoder's packed arm.
+inline constexpr std::size_t kPackedKernelMinSpan = 256;
+
 inline PackedKernel packed_strategy(const std::uint8_t* p, std::size_t span, int* width) noexcept {
     *width =
         0;  // defined for every return; only a Fixed result overwrites it (localizes the contract)
-    if (span < 256) {
+    if (span < kPackedKernelMinSpan) {
         // Only tiny spans skip the kernels: below this the classify scan and kernel-switch aren't
         // amortized. (This floor is about dispatch cost, NOT branch prediction -- a real decode sees each
         // buffer once, so the byte loop mispredicts at its steady-state rate at any element count; the
@@ -491,7 +510,7 @@ RP_FLATTEN inline std::size_t decode_packed_varints(const std::uint8_t* p, const
     // field of a few packed elements (a small repeated-int array in a record-heavy payload) must cost no
     // more than the plain per-element loop, not a classify + 5-way kernel dispatch. packed_strategy would
     // return ByteLoop here anyway; the guard just elides the scaffold that a tiny array can't amortize.
-    if (static_cast<std::size_t>(end - p) >= 256) {
+    if (static_cast<std::size_t>(end - p) >= kPackedKernelMinSpan) {
         for (;;) {
             const std::uint8_t* const q_start = q;
             int width = 0;
@@ -781,8 +800,7 @@ inline const std::uint8_t* read_length_delimited(const std::uint8_t* p, const st
     if (np == nullptr) {
         return nullptr;
     }
-    if constexpr (sizeof(std::size_t) <
-                  sizeof(std::uint64_t)) {  // 32-bit hosts only (see read_length_delimited)
+    if constexpr (sizeof(std::size_t) < sizeof(std::uint64_t)) {  // 32-bit hosts only
         if (len > std::numeric_limits<std::size_t>::max()) {
             *err = WireError::LengthTooLarge;
             return nullptr;

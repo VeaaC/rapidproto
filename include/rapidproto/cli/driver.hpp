@@ -4,9 +4,10 @@
 
 // CLI helpers for rapidprotoc: shared flag parsing, the resolve -> analyze pipeline, and writing the
 // generated headers (and depfile) into the out-dir. The output PLAN -- every path an invocation
-// writes, in its contract-bearing order -- lives here too (plan_outputs); only the model-specific
-// CONTENT (which decoder text fills each planned file) lives in the CLI main. Header-only, like the main that
-// includes it.
+// writes, in its contract-bearing order -- lives here too (plan_outputs). The CLI main keeps the
+// model-specific CONTENT (which decoder text fills each planned file) plus its own input-refusal
+// policies, the depfile-target derivation and the --list-inputs normalization. Header-only, like
+// the main that includes it.
 
 #include <algorithm>
 #include <cctype>
@@ -275,8 +276,9 @@ inline std::optional<std::pair<ResolvedFileSet, SymbolTable>> resolve_and_analyz
 // holds exactly `content`. For the shared,
 // fixed-content runtime drops, which every invocation rewrites: skipping avoids truncate+rewriting
 // the file under a concurrent reader and avoids bumping its mtime, which would force needless
-// consumer recompiles. Do
-// NOT use for a tracked build output, whose mtime must advance each run.
+// consumer recompiles. Do NOT use for the depfile ANCHOR (plan[0] / a rule's first declared
+// output), whose mtime must advance each run; secondary declared outputs may skip -- see
+// plan_outputs' ordering contract.
 [[nodiscard]] inline std::optional<std::filesystem::path> write_shared_file(
     const std::filesystem::path& path, std::string_view content, bool log_write = false) {
     std::error_code error;
@@ -341,10 +343,6 @@ inline std::filesystem::path lexically_absolute(const std::filesystem::path& pat
     return (error ? path : abs).lexically_normal();
 }
 
-// The on-disk .proto files `set` (the union closure of `entries`) was built from: each entry plus
-// every import found under an include path. Well-known types loaded from the embedded definitions
-// are not on disk, so the include-path search misses them and they are correctly excluded --
-// unless the user shadows a WKT with their own copy on an include path, in which case that copy
 // Which generators one invocation runs; groups what would otherwise be three adjacent bool
 // parameters (--dump implies --arena at the flag layer, so callers never build an inconsistent
 // selection here).
@@ -433,6 +431,10 @@ inline std::vector<PlannedOutput> plan_outputs(const Options& opts, const Resolv
     return plan;
 }
 
+// The on-disk .proto files `set` (the union closure of `entries`) was built from: each entry plus
+// every import found under an include path. Well-known types loaded from the embedded definitions
+// are not on disk, so the include-path search misses them and they are correctly excluded --
+// unless the user shadows a WKT with their own copy on an include path, in which case that copy
 // IS a real dependency and is listed. These are the depfile's prerequisites.
 inline std::vector<std::filesystem::path> disk_proto_paths(const std::vector<std::string>& entries,
                                                            const ResolvedFileSet& set,

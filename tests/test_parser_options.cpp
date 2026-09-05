@@ -1,44 +1,21 @@
 #include <catch_amalgamated.hpp>
 
+#include "parse_helpers.hpp"
+
 #include <cmath>
 #include <cstdint>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include "rapidproto/ast.hpp"
-#include "rapidproto/lexer.hpp"
 #include "rapidproto/parser.hpp"
-#include "rapidproto/range.hpp"
-#include "rapidproto/result.hpp"
 
 using namespace rapidproto;  // NOLINT(google-build-using-namespace): test convenience
 
 namespace {
 
-// Lex `src`, run `fn` over the full token stream, require success + full
-// consumption, and return the produced (self-owning) value. The LexResult is kept
-// alive for the parse; the returned AST copies all strings, so it outlives it.
-template <typename Fn>
-auto parse_ok(std::string src, Fn fn) {
-    auto lr = lex(std::move(src));
-    REQUIRE(lr.is_ok());
-    const LexResult lexed = std::move(lr).value();
-    auto r = fn(Range<Token>(lexed.tokens));
-    REQUIRE(r.is_ok());
-    CHECK(r.value().remaining.empty());  // consumed every token
-    return std::move(r.value().value);
-}
-
-// True if parsing fails outright, or succeeds but leaves tokens unconsumed.
-template <typename Fn>
-bool parse_rejects(std::string src, Fn fn) {
-    auto lr = lex(std::move(src));
-    REQUIRE(lr.is_ok());
-    const LexResult lexed = std::move(lr).value();
-    auto r = fn(Range<Token>(lexed.tokens));
-    return r.is_err() || !r.value().remaining.empty();
-}
+using rapidproto::test::parse_ok;
+using rapidproto::test::parse_rejects;
 
 }  // namespace
 

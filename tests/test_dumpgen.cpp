@@ -10,11 +10,12 @@
 
 #include <catch_amalgamated.hpp>
 
+#include "golden_file.hpp"
+
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
-#include <cstdlib>
 #include <cstring>
-#include <fstream>
 #include <ios>
 #include <limits>
 #include <locale>
@@ -75,12 +76,8 @@ using namespace rapidproto;  // NOLINT(google-build-using-namespace): test conve
 
 namespace {
 
-std::string read_file(const std::string& path) {
-    const std::ifstream file(path, std::ios::binary);
-    std::ostringstream buffer;
-    buffer << file.rdbuf();
-    return buffer.str();
-}
+using rapidproto::test::read_file;
+
 std::string fixture(const std::string& name) {
     return read_file(std::string(RAPIDPROTO_WIRE_FIXTURE_DIR) + "/" + name);
 }
@@ -157,41 +154,10 @@ std::string generate_unknown_present_golden() {
     return dumpgen::generate_header(set.files.back(), names, layouts);
 }
 
-// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): expected vs actual, distinct roles
-std::string first_difference(const std::string& expected, const std::string& actual) {
-    std::istringstream exp(expected);
-    std::istringstream act(actual);
-    std::string exp_line;
-    std::string act_line;
-    int number = 1;
-    while (true) {
-        const bool exp_ok = static_cast<bool>(std::getline(exp, exp_line));
-        const bool act_ok = static_cast<bool>(std::getline(act, act_line));
-        if (!exp_ok && !act_ok) {
-            return "(no line difference; trailing-newline mismatch?)";
-        }
-        if (exp_ok != act_ok || exp_line != act_line) {
-            return "first diff at line " + std::to_string(number) +
-                   ":\n  expected: " + (exp_ok ? exp_line : "<eof>") +
-                   "\n  actual:   " + (act_ok ? act_line : "<eof>");
-        }
-        ++number;
-    }
-}
-
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): golden name vs generated content
 void check_golden(const std::string& name, const std::string& actual) {
-    const std::string golden =
-        std::string(RAPIDPROTO_DUMPGEN_GOLDEN_DIR) + "/" + name + ".rp.dump.hpp";
-    // NOLINTNEXTLINE(concurrency-mt-unsafe): single-threaded test, opt-in regeneration only
-    if (std::getenv("RAPIDPROTO_REGEN_GOLDEN") != nullptr) {
-        std::ofstream(golden, std::ios::binary) << actual;
-        WARN("regenerated dumpgen golden: " << name);
-        return;
-    }
-    INFO("golden: " << name);
-    INFO(first_difference(read_file(golden), actual));
-    CHECK(actual == read_file(golden));
+    test::check_golden(std::string(RAPIDPROTO_DUMPGEN_GOLDEN_DIR) + "/" + name + ".rp.dump.hpp",
+                       name, actual);
 }
 
 // Drive the runtime Writer the way generated array code does (group + entry_sep + a raw value), so

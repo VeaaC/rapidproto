@@ -189,19 +189,6 @@ TEST_CASE("many guards against non-consuming sub-parsers") {
     CHECK(p(Range<char>(s)).is_err());
 }
 
-TEST_CASE("many1 requires at least one") {
-    const auto p = rapidproto::many1(rapidproto::one(is_digit));
-
-    const std::string ok = "12a";
-    auto r = p(Range<char>(ok));
-    REQUIRE(r.is_ok());
-    CHECK(r.value().value == std::vector<char>{'1', '2'});
-    CHECK(sv(r.value().remaining) == "a");
-
-    const std::string bad = "ab";
-    CHECK(p(Range<char>(bad)).is_err());
-}
-
 TEST_CASE("map transforms the output") {
     const auto p = rapidproto::map(rapidproto::take_while1(is_digit),
                                    [](Range<char> r) { return std::stoi(std::string(sv(r))); });
@@ -363,12 +350,6 @@ TEST_CASE("separated_list reports a mid-list item failure offset") {
     CHECK(e2.error().byte_offset == 2);
 }
 
-TEST_CASE("many1 guards against non-consuming sub-parsers") {
-    const auto p = rapidproto::many1(rapidproto::take_while(is_digit));
-    const std::string s = "abc";  // take_while matches nothing -> guard fires
-    CHECK(p(Range<char>(s)).is_err());
-}
-
 TEST_CASE("alt with three branches; all fail at offset 0") {
     const auto p =
         rapidproto::alt(rapidproto::tag("aa"), rapidproto::tag("bb"), rapidproto::tag("cc"));
@@ -434,7 +415,6 @@ TEST_CASE("combinators on empty input") {
     const std::string empty;
 
     CHECK(rapidproto::many(rapidproto::one(is_digit))(Range<char>(empty)).is_ok());
-    CHECK(rapidproto::many1(rapidproto::one(is_digit))(Range<char>(empty)).is_err());
     CHECK(rapidproto::all_consuming(rapidproto::opt(rapidproto::tag("x")))(Range<char>(empty))
               .is_ok());
     CHECK(rapidproto::separated_list(rapidproto::take_while1(is_alpha),

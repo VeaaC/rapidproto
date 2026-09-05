@@ -620,20 +620,26 @@ def build_schema(schema: Path, work: Path, tools: dict[str, Path], cxx: str):
 
 
 def check_message(harness: Path, work: Path, factory, descriptor, meta, count: int,
-                  rng: random.Random, seed_dir: Path | None = None) -> list[str]:
-    """Round-trip `count` random messages of one type. Returns a list of mismatch reports."""
+                  rng: random.Random, seed_dir: Path | None = None) -> tuple[list, int]:
+    """Round-trip `count` random messages of one type.
+
+    Returns (failures, shuffled_count). Each failure is a (category, text) pair -- the category is
+    assigned HERE, where the failure is produced, so the summary's tool-vs-mismatch split cannot
+    silently misclassify when a message is reworded. shuffled_count feeds the anti-vacuity floor:
+    a mutator that stopped mutating must not leave the sweep quietly canonical-only."""
     message_class = factory.GetPrototype(descriptor)
     payload_file = work / "payloads.bin"
     blob = bytearray()
     expected = []
+    shuffled_count = 0
     for _ in range(count):
         message = message_class()
         fill_random(message, rng)
         try:
             encoded = message.SerializeToString()
         except Exception as error:  # noqa: BLE001 - report and move on
-            return ["%s: protobuf could not serialize a generated message: %s"
-                    % (descriptor.full_name, error)]
+            return [("tool", "%s: protobuf could not serialize a generated message: %s"
+                     % (descriptor.full_name, error))], shuffled_count
         # A payload the wire shuffler can change is decoded twice: as serialized, and shuffled
         # (see the mutation section above) -- otherwise the canonical shape is the only one whose
         # VALUES are ever compared. Single-record payloads often shuffle to themselves; decoding
@@ -641,11 +647,12 @@ def check_message(harness: Path, work: Path, factory, descriptor, meta, count: i
         try:
             shuffled = shuffle_wire(encoded, descriptor, rng) if encoded else encoded
         except Exception as error:  # noqa: BLE001 - a crashed wire mutator must not kill the sweep
-            return ["%s: the wire mutator crashed: %r\n    payload: %s"
-                    % (descriptor.full_name, error, encoded.hex())]
+            return [("tool", "%s: the wire mutator crashed: %r\n    payload: %s"
+                     % (descriptor.full_name, error, encoded.hex()))], shuffled_count
         variants = [("serialized", encoded)]
         if shuffled != encoded:
             variants.append(("shuffled", shuffled))
+            shuffled_count += 1
         for label, payload in variants:
             blob += struct.pack("<I", len(payload)) + payload
             # The oracle is protobuf's own DECODE of these bytes, not the message we filled in:
@@ -656,9 +663,9 @@ def check_message(harness: Path, work: Path, factory, descriptor, meta, count: i
             except Exception as error:  # noqa: BLE001 - a broken mutator must name itself
                 if label == "serialized":
                     raise  # protobuf rejecting its own serializer's bytes is not ours to classify
-                return ["%s: protobuf rejected a shuffled payload -- the wire mutator broke "
-                        "framing: %s\n    payload: %s"
-                        % (descriptor.full_name, error, payload.hex())]
+                return [("tool", "%s: protobuf rejected a shuffled payload -- the wire mutator "
+                         "broke framing: %s\n    payload: %s"
+                         % (descriptor.full_name, error, payload.hex()))], shuffled_count
     payload_file.write_bytes(bytes(blob))
     if seed_dir is not None:
         # One file per payload, for use as a fuzzer seed corpus (see check.sh's fuzz smoke). These
@@ -670,31 +677,32 @@ def check_message(harness: Path, work: Path, factory, descriptor, meta, count: i
 
     result = run([str(harness), "." + descriptor.full_name, str(payload_file)])
     if result.returncode != 0:
-        return ["%s: harness failed: %s" % (descriptor.full_name, result.stderr.strip())]
+        return [("tool", "%s: harness failed: %s"
+                 % (descriptor.full_name, result.stderr.strip()))], shuffled_count
     lines = result.stdout.splitlines()
     if len(lines) != len(expected):
-        return ["%s: harness printed %d dumps for %d payloads"
-                % (descriptor.full_name, len(lines), len(expected))]
+        return [("tool", "%s: harness printed %d dumps for %d payloads"
+                 % (descriptor.full_name, len(lines), len(expected)))], shuffled_count
 
     failures = []
     for index, (line, (message, encoded, label)) in enumerate(zip(lines, expected)):
         if line == "!decode-failed":
-            failures.append("%s #%d (%s): RapidProto rejected bytes protobuf accepts"
-                            "\n    payload: %s"
-                            % (descriptor.full_name, index, label, encoded.hex()))
+            failures.append(("mismatch", "%s #%d (%s): RapidProto rejected bytes protobuf accepts"
+                             "\n    payload: %s"
+                             % (descriptor.full_name, index, label, encoded.hex())))
             continue
         try:
             dumped = canon_dump(parse_dump(line), descriptor, meta["enums"])
         except (ValueError, AssertionError) as error:
-            failures.append("%s #%d (%s): dump not usable (%s)\n    dump: %s"
-                            % (descriptor.full_name, index, label, error, line[:400]))
+            failures.append(("mismatch", "%s #%d (%s): dump not usable (%s)\n    dump: %s"
+                             % (descriptor.full_name, index, label, error, line[:400])))
             continue
         wanted = canon_protobuf(message)
         if dumped != wanted:
-            failures.append("%s #%d (%s): fields differ\n    %s\n    payload: %s"
-                            % (descriptor.full_name, index, label,
-                               describe_difference(wanted, dumped), encoded.hex()))
-    return failures
+            failures.append(("mismatch", "%s #%d (%s): fields differ\n    %s\n    payload: %s"
+                             % (descriptor.full_name, index, label,
+                                describe_difference(wanted, dumped), encoded.hex())))
+    return failures, shuffled_count
 
 
 def describe_difference(wanted, got, path: str = "") -> str:
@@ -718,8 +726,10 @@ def describe_difference(wanted, got, path: str = "") -> str:
 
 
 def check_schema(schema: Path, tools: dict[str, Path], cxx: str, seed: int, messages: int,
-                 seed_dir: Path | None) -> tuple[int, str | None, list[str]]:
-    """One schema end to end: (messages checked, skip reason or None, mismatch descriptions).
+                 seed_dir: Path | None) -> tuple[int, str | None, list, int]:
+    """One schema end to end: (messages checked, skip reason or None, (category, text) failures,
+    shuffled-variant count). A "build" failure aborts the whole schema -- that categorization is
+    what lets main() subtract exactly those from the schema count.
 
     Runs in a worker process, so every argument is picklable and nothing is shared but `seed_dir`
     (whose files are named after the message FQN, unique across schemas).
@@ -732,20 +742,23 @@ def check_schema(schema: Path, tools: dict[str, Path], cxx: str, seed: int, mess
         try:
             harness, pool, meta = build_schema(schema, work, tools, cxx)
         except Skip as reason:
-            return 0, f"{schema.name}: {reason}", []
+            return 0, f"{schema.name}: {reason}", [], 0
         except HarnessError as error:
-            return 0, None, [f"{schema.name}: {error}"]
+            return 0, None, [("build", f"{schema.name}: {error}")], 0
         factory = message_factory.MessageFactory(pool)
         checked = 0
-        failures: list[str] = []
+        failures: list = []
+        shuffled = 0
         for fqn in meta["messages"]:
             descriptor = pool.FindMessageTypeByName(fqn.lstrip("."))
             if descriptor.GetOptions().map_entry:
                 continue  # synthesized map entries are not decoded on their own
             checked += 1
-            failures += check_message(harness, work, factory, descriptor, meta, messages, rng,
-                                      seed_dir)
-        return checked, None, failures
+            message_failures, message_shuffled = check_message(harness, work, factory, descriptor,
+                                                               meta, messages, rng, seed_dir)
+            failures += message_failures
+            shuffled += message_shuffled
+        return checked, None, failures, shuffled
 
 
 def main() -> int:
@@ -765,6 +778,13 @@ def main() -> int:
     parser.add_argument("--jobs", type=int, default=os.cpu_count() or 4,
                         help="schemas to check in parallel (default: CPU count)")
     args = parser.parse_args()
+
+    # A zero or negative count/parallelism is a run that reports success having compared nothing
+    # (bench.py refuses the same shape for --repeat).
+    if args.messages < 1:
+        raise SystemExit("--messages must be >= 1")
+    if args.jobs < 1:
+        raise SystemExit("--jobs must be >= 1")
 
     try:
         import google.protobuf.message_factory  # noqa: F401  (presence check; workers re-import)
@@ -809,13 +829,15 @@ def main() -> int:
     # so processes (not threads) to escape the GIL. map() yields in input order, which keeps the
     # skip/failure lines identical run to run regardless of who finishes first.
     checked = 0
+    shuffled = 0
     skipped: list[str] = []
-    failures: list[str] = []
+    failures: list = []  # (category, text): tagged at the producer, so no substring re-derivation
     with concurrent.futures.ProcessPoolExecutor(max_workers=args.jobs) as pool_exec:
         results = pool_exec.map(check_schema, schemas, repeat(tools), repeat(args.cxx),
                                 repeat(args.seed), repeat(args.messages), repeat(seed_dir))
-        for schema, (count, skip, schema_failures) in zip(schemas, results):
+        for schema, (count, skip, schema_failures, schema_shuffled) in zip(schemas, results):
             checked += count
+            shuffled += schema_shuffled
             if skip is not None:
                 skipped.append(skip)
             failures += schema_failures
@@ -826,24 +848,34 @@ def main() -> int:
     # coverage, and the count drifting is the thing worth noticing.
     for reason in skipped:
         print("   skipped " + reason)
-    for failure in failures:
-        print(">> " + failure)
+    for _, text in failures:
+        print(">> " + text)
     # Tool failures are counted apart from mismatches: one means our tools broke, the other
     # means a decode disagreed with protobuf, and reporting a tool failure as a "mismatch" sends
-    # the reader looking for a decode bug that is not there. Build-level failures abort their
-    # whole schema (build_schema raises), so they alone subtract from the schema count; a wire
-    # mutator failure is per message type and leaves the rest of its schema checked.
-    build_failures = sum(1 for f in failures if "rejects a protoc-valid schema" in f
-                         or "diffgen failed" in f or "harness does not compile" in f)
-    tool_failures = build_failures + sum(1 for f in failures if "wire mutator" in f)
+    # the reader looking for a decode bug that is not there. "build" failures abort their whole
+    # schema (build_schema raises), so they alone subtract from the schema count; the other tool
+    # failures are per message type and leave the rest of their schema checked.
+    build_failures = sum(1 for category, _ in failures if category == "build")
+    tool_failures = build_failures + sum(1 for category, _ in failures if category == "tool")
     mismatches = len(failures) - tool_failures
-    print("differential: %d message types over %d schemas, %d payloads each (plus wire-shuffled "
+    # Anti-vacuity for the wire mutator: a shuffler that stopped producing distinct variants (a
+    # stale predicate, an early return) would silently drop every non-canonical shape from
+    # coverage while the summary stayed green. Scoped to the FULL corpus sweep (no --schema):
+    # there ~75% of payloads shuffle distinct, so zero is a broken mutator -- but a --schema run
+    # can name only fixtures with no scalar to duplicate, nothing packable and one-record
+    # messages (nsedge/xpkg is one), which are legitimately zero-shuffle, not breakage.
+    mutator_dead = args.schema is None and checked > 0 and shuffled == 0
+    print("differential: %d message types over %d schemas, %d payloads each (+%d wire-shuffled "
           "variants), %d mismatches "
           "(%d schemas skipped%s)" % (checked, len(schemas) - len(skipped) - build_failures,
-                                      args.messages, mismatches, len(skipped),
+                                      args.messages, shuffled, mismatches, len(skipped),
                                       ", %d tool failure%s"
                                       % (tool_failures, "" if tool_failures == 1 else "s")
                                       if tool_failures else ""))
+    if mutator_dead:
+        print(">> no payload in the whole run produced a distinct wire-shuffled variant: the "
+              "mutator is not mutating, so the non-canonical decode paths were not compared")
+        return 1
     if checked == 0:
         why = ("every schema hit a tool failure" if tool_failures else "every schema skipped")
         print(">> nothing was checked: %s. Something upstream is broken -- a green result here "

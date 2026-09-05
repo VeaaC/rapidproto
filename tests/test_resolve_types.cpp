@@ -1,13 +1,12 @@
 #include <catch_amalgamated.hpp>
 
+#include "parse_helpers.hpp"
+
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "rapidproto/ast.hpp"
-#include "rapidproto/lexer.hpp"
-#include "rapidproto/parser.hpp"
-#include "rapidproto/range.hpp"
 #include "rapidproto/resolve.hpp"
 #include "rapidproto/resolver.hpp"
 #include "rapidproto/result.hpp"
@@ -17,13 +16,7 @@ using namespace rapidproto;  // NOLINT(google-build-using-namespace): test conve
 namespace {
 
 FileNode parse_only(std::string src) {
-    auto lr = lex(std::move(src));
-    REQUIRE(lr.is_ok());
-    const LexResult lexed = std::move(lr).value();
-    auto r = parse_file(Range<Token>(lexed.tokens));
-    REQUIRE(r.is_ok());
-    CHECK(r.value().remaining.empty());
-    return std::move(r.value().value);
+    return test::parse_file_ok(std::move(src));
 }
 
 // Build a ResolvedFileSet from (canonical-name, source) pairs and run FQN computation, leaving it

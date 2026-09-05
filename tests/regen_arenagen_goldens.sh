@@ -10,22 +10,15 @@
 # exactly when you need to regenerate. The CLI is build-independent of the goldens.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+# shellcheck source=tests/regen_lib.sh
+source tests/regen_lib.sh
 
 JOBS="$(nproc 2>/dev/null || echo 4)"
 GOLDEN=tests/arenagen_golden
 BIN=build/gcc/rapidprotoc
 
 echo "[1/3] building rapidprotoc ..."
-cmake --preset gcc >/dev/null
-# Target checked before building: `cmake --build --target X` degenerates to `make X` under
-# Makefiles, so a renamed target with build/gcc/X still on disk prints "Nothing to be done" and
-# exits 0 -- and every golden below would then be regenerated from that stale binary.
-if ! grep -qE '(^|\.\.\. )rapidprotoc$' <<<"$(cmake --build --preset gcc --target help 2>/dev/null)"; then
-  echo ">> 'rapidprotoc' is not a target of build/gcc -- the goldens would be regenerated from a" >&2
-  echo "   stale binary. Re-run cmake --preset gcc." >&2
-  exit 1
-fi
-cmake --build --preset gcc --target rapidprotoc -j"$JOBS" >/dev/null
+ensure_rapidprotoc
 
 echo "[2/3] regenerating arenagen goldens via the CLI ..."
 T="$(mktemp -d)"
@@ -82,37 +75,9 @@ done
 # un-prefixed xref's common of the same name.
 "$BIN" --arena -Itests/corpus --namespace-prefix=pfx --out-dir="$T/xref_prefixed" tests/corpus/xref.proto >/dev/null
 
-# Copy a fresh version over every checked-in golden; a golden with no fresh version means this script
-# needs a new entry above.
-miss=0
-while IFS= read -r g; do
-  rel="${g#"$GOLDEN"/}"
-  if [[ -f "$T/$rel" ]]; then
-    cp "$T/$rel" "$g"
-  else
-    echo ">> MISSING in regen: $rel (add its entry to this script)"
-    miss=1
-  fi
-done < <(find "$GOLDEN" -name '*.rp.hpp')
-# A zero-match find regenerates nothing and reports success: with the goldens moved or the
-# name pattern stale, this printed "0 arenagen goldens regenerated" and exited 0.
-if [[ $(find "$GOLDEN" -name '*.rp.hpp' | wc -l) -eq 0 ]]; then
-  echo ">> no arenagen goldens found under $GOLDEN -- nothing was regenerated" >&2
-  exit 1
-fi
-[[ $miss -eq 0 ]] || exit 1
-
-# Co-locate each file's shared common header (the decoder #includes its own) beside the decoder
-# goldens, so the compile-smoke resolves it relative to the decoder -- mirroring the CLI's real output
-# (decoder + common dropped side by side in one out-dir). Wipe first: unlike the decoders above there's
-# no curated golden list to flag orphans against, so a proto dropped from this script must not leave a
-# stale common behind.
-find "$GOLDEN" -name '*.rp.common.hpp' -delete
-while IFS= read -r c; do
-  rel="${c#"$T"/}"
-  mkdir -p "$GOLDEN/$(dirname "$rel")"
-  cp "$c" "$GOLDEN/$rel"
-done < <(find "$T" -name '*.rp.common.hpp')
+# Sync (regen_lib.sh): fresh over checked-in .rp.hpp, orphans loud, zero-match loud; then
+# co-locate each decoder's shared common beside it, mirroring the CLI's real output.
+sync_goldens "$GOLDEN" "$T" '*.rp.hpp' '*.rp.common.hpp'
 
 echo "[3/3] done -- $(find "$GOLDEN" -name '*.rp.hpp' | wc -l) arenagen goldens regenerated."
 echo "review the diff (git diff), then run ./check.sh to confirm."

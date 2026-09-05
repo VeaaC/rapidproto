@@ -62,13 +62,8 @@ for proto in "${protos[@]}"; do
         missing=1
       fi
     done
-    # Being INCLUDED only proves it compiles. check_pair's stem list is what byte-compares it, and
-    # that list is hand-maintained -- trimming it leaves the golden unpinned with the suite green.
-    if ! grep -q "\"$stem\"" < <(live tests/test_coexistence.cpp); then
-      echo ">> $proto is included by tests/test_coexistence.cpp but absent from check_pair's stem"
-      echo "   list, so its goldens are compiled and never compared"
-      missing=1
-    fi
+    # No stem-list clause here any more: test_coexistence derives its compare list from a walk
+    # of the golden DIRECTORY (with a size floor), so a golden cannot be compiled-but-uncompared.
     # Only the per-model golden check is skipped; regeneration is still verified below.
     coexist=1
   else
@@ -183,7 +178,7 @@ done
 if [[ $seen_goldens -lt 100 ]]; then
   echo ">> the duplicate-golden scan saw only $seen_goldens golden headers across the test TUs --"
   echo "   it cannot have compared anything meaningful (expected well over 100)"
-  missing=1
+  tooling=1  # a broken scan, not a fixture finding: the fixture guidance below must not print
 fi
 if [[ -n "${dupes// /}" ]]; then
   echo ">> byte-identical goldens reach one TU -- clang rejects the second as a redefinition:"

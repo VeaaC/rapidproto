@@ -133,6 +133,17 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
   `Callbacks`, whose generated identifier goes back from `Callbacks_` to `Callbacks`.
   **Regenerate** to pick it up.
 
+- **`rapidproto_generate()` refuses an empty `NAMESPACE_PREFIX`, `GENERATOR` or `OUT_DIR`
+  value.** An explicitly empty value (typically an unset variable: `GENERATOR ${TYPO}`) is
+  indistinguishable to CMake from omitting the keyword, so each silently took its default -- the
+  `rp` prefix, the arena generator, the private build dir -- while the build file said otherwise.
+  All three now fail at configure naming the keyword. Omitting a keyword still takes its default.
+
+- **Generated text housekeeping — regenerate to keep goldens/diffs quiet.** Generated headers name
+  the packed-kernel span threshold via `wire::kPackedKernelMinSpan` instead of a bare `256`; dump
+  headers spell `dump_detail::is_positive_zero` (hoisted out of a redundant nested `detail`
+  namespace) and drop three unused includes. Decode behavior is unchanged.
+
 ### Added
 
 - **`rapidprotoc --list-outputs` and `--list-inputs`: dry runs for build systems.** The first
@@ -158,6 +169,10 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
   fix instead of a cryptic makefile syntax error.
 
 ### Fixed
+
+- **`make install` ships `dump_runtime.hpp`.** The install rule listed the other runtime headers
+  but not the dumper's, so an installed package could compile a generated dump header only by
+  falling back to the CLI's dropped copy.
 
 - **Names that hit a predefined or ever-present macro are escaped, two groups more than before.**
   `linux` and `unix` — gcc/clang predefined macros under GNU extensions, the default when no

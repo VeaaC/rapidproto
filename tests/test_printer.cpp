@@ -6,11 +6,9 @@
 #include <string>
 #include <utility>
 
+#include "parse_helpers.hpp"
 #include "rapidproto/ast.hpp"
 #include "rapidproto/codegen/printer.hpp"
-#include "rapidproto/lexer.hpp"
-#include "rapidproto/parser.hpp"
-#include "rapidproto/range.hpp"
 #include "rapidproto/streamgen/generator.hpp"
 
 using namespace rapidproto;          // NOLINT(google-build-using-namespace): test convenience
@@ -19,11 +17,7 @@ using rapidproto::codegen::Printer;  // NOLINT(misc-include-cleaner)
 namespace {
 
 FileNode parse_file_text(std::string source) {
-    auto lexed = lex(std::move(source));
-    REQUIRE(lexed.is_ok());
-    auto parsed = parse_file(Range<Token>(lexed.value().tokens));
-    REQUIRE(parsed.is_ok());
-    return std::move(parsed.value().value);
+    return test::parse_file_ok(std::move(source));
 }
 
 }  // namespace

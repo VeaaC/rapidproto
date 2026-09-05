@@ -8,11 +8,9 @@
 #include <utility>
 #include <vector>
 
+#include "parse_helpers.hpp"
 #include "rapidproto/arenagen/modes.hpp"
 #include "rapidproto/ast.hpp"
-#include "rapidproto/lexer.hpp"
-#include "rapidproto/parser.hpp"
-#include "rapidproto/range.hpp"
 #include "rapidproto/resolve.hpp"
 #include "rapidproto/resolver.hpp"
 #include "rapidproto/result.hpp"
@@ -54,13 +52,8 @@ struct Analyzed {
 };
 
 Analyzed analyze_schema() {
-    auto lr = lex(kSchema);
-    REQUIRE(lr.is_ok());
-    const LexResult lexed = std::move(lr).value();
-    auto parsed = parse_file(Range<Token>(lexed.tokens));
-    REQUIRE(parsed.is_ok());
     Analyzed out;
-    FileNode file = std::move(parsed.value().value);
+    FileNode file = test::parse_file_ok(kSchema);
     file.filename = "modes.proto";
     out.set.file_index["modes.proto"] = 0;
     out.set.files.push_back(std::move(file));

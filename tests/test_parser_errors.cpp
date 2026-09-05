@@ -1,5 +1,7 @@
 #include <catch_amalgamated.hpp>
 
+#include "parse_helpers.hpp"
+
 #include <string>
 #include <utility>
 
@@ -14,19 +16,11 @@ namespace {
 
 // A file is "rejected" if parse_file errors OR leaves tokens unconsumed.
 bool file_rejects(std::string src) {
-    auto lr = lex(std::move(src));
-    REQUIRE(lr.is_ok());
-    const LexResult lexed = std::move(lr).value();
-    auto r = parse_file(Range<Token>(lexed.tokens));
-    return r.is_err() || !r.value().remaining.empty();
+    return test::parse_file_rejects(std::move(src));
 }
 
 bool file_accepts(std::string src) {
-    auto lr = lex(std::move(src));
-    REQUIRE(lr.is_ok());
-    const LexResult lexed = std::move(lr).value();
-    auto r = parse_file(Range<Token>(lexed.tokens));
-    return r.is_ok() && r.value().remaining.empty();
+    return !test::parse_file_rejects(std::move(src));
 }
 
 // Build a schema with `depth` nested messages (innermost holds a field), to probe the parser's
@@ -87,7 +81,14 @@ TEST_CASE("file errors: pathologically deep nesting fails cleanly (no stack over
     }
 
     SECTION("nested option-literal aggregates far over the cap are rejected, not crashed") {
-        CHECK(file_rejects(nested_aggregate(5000)));
+        // Same shape as the messages SECTION above: pin the REASON, not just "some error" -- a
+        // bare file_rejects() stayed green with the parse_value DepthGuard deleted outright.
+        auto lr = lex(nested_aggregate(5000));
+        REQUIRE(lr.is_ok());
+        const LexResult lexed = std::move(lr).value();
+        auto r = parse_file(Range<Token>(lexed.tokens));
+        REQUIRE(r.is_err());
+        CHECK(r.error().message.find("nesting depth") != std::string::npos);
     }
 }
 

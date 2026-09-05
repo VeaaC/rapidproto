@@ -11,10 +11,12 @@
 # a dump header means two golden dirs on one include path, and their shared `*.rp.common.hpp` are
 # byte-identical, which clang rejects as a redefinition (see tests/check_fixture_coverage.sh).
 #
-#   tests/dumpgen_compile_fail.sh [c++-compiler]
+#   tests/dumpgen_compile_fail.sh [compiler]   # default compiler: c++
 set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-CXX="${1:-g++}"
+CXX="${1:-c++}"
+# Shared expect_fail / expect_pass (and the CXX convention): tests/compile_fail_lib.sh.
+source "$(dirname "$0")/compile_fail_lib.sh"
 BIN="$ROOT/build/gcc/rapidprotoc"
 
 if [[ ! -x "$BIN" ]]; then
@@ -38,19 +40,6 @@ PROTO
 FLAGS=(-std=c++17 -fsyntax-only -I"$WORK/gen")
 fail=0
 
-expect_fail() {
-  local name="$1" want="$2" src="$3" err
-  if err=$(printf '%s\n' "$src" | "$CXX" "${FLAGS[@]}" -xc++ - 2>&1); then
-    echo "FAIL [$name]: expected a compile error, but it compiled"
-    fail=1
-  elif ! grep -qF "$want" <<<"$err"; then
-    echo "FAIL [$name]: failed to compile but without the expected message '$want'"
-    fail=1
-  else
-    echo "ok   [$name]"
-  fi
-}
-
 # A streaming type has no dumper: the models are one root segment apart, so this is easy to reach.
 expect_fail streaming-type "no generated dumper for this type" '
 #include "d.rp.hpp"
@@ -67,16 +56,10 @@ void f(const rp::arena::df::M* p) { (void)rapidproto::dump(p); }
 '
 
 # The positive control: without it, a harness that never compiles anything reports all-clear.
-if ! printf '%s\n' '
+expect_pass control-correct '
 #include "d.rp.hpp"
 #include "d.rp.dump.hpp"
-void f(const rp::arena::df::M& m) { (void)rapidproto::dump(m); }
-' | "$CXX" "${FLAGS[@]}" -xc++ - 2>&1; then
-  echo "FAIL [expect_pass]: the correct spelling does not compile"
-  fail=1
-else
-  echo "ok   [expect_pass]"
-fi
+void f(const rp::arena::df::M& m) { (void)rapidproto::dump(m); }'
 
 [[ $fail -eq 0 ]] || exit 1
 echo "dumpgen compile-fail: misuse rejected with the intended message"

@@ -7,11 +7,18 @@
   },
   "configurePresets": [
     {
+      "name": "rp-debug-base",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
       "name": "default",
       "displayName": "System compiler (Debug)",
+      "inherits": "rp-debug-base",
       "binaryDir": "${sourceDir}/build/default",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
         "RAPIDPROTO_WERROR": "OFF"
       }
     },
@@ -27,25 +34,23 @@
     {
       "name": "gcc",
       "displayName": "GCC 13 (Debug, -Werror)",
+      "inherits": "rp-debug-base",
       "binaryDir": "${sourceDir}/build/gcc",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_C_COMPILER": "gcc-13",
         "CMAKE_CXX_COMPILER": "g++-13",
-        "CMAKE_CXX_FLAGS": "-gsplit-dwarf",
-        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+        "CMAKE_CXX_FLAGS": "-gsplit-dwarf"
       }
     },
     {
       "name": "clang",
       "displayName": "Clang 20 (Debug, -Werror)",
+      "inherits": "rp-debug-base",
       "binaryDir": "${sourceDir}/build/clang",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_C_COMPILER": "clang-20",
         "CMAKE_CXX_COMPILER": "clang++-20",
-        "CMAKE_CXX_FLAGS": "-gsplit-dwarf",
-        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+        "CMAKE_CXX_FLAGS": "-gsplit-dwarf"
       }
     }
   ],
@@ -69,32 +74,31 @@
   ],
   "testPresets": [
     {
-      "name": "default",
+      "name": "rp-test-base",
+      "hidden": true,
       "configurePreset": "default",
       "output": {
         "outputOnFailure": true
       }
     },
     {
+      "name": "default",
+      "inherits": "rp-test-base"
+    },
+    {
       "name": "release",
-      "configurePreset": "release",
-      "output": {
-        "outputOnFailure": true
-      }
+      "inherits": "rp-test-base",
+      "configurePreset": "release"
     },
     {
       "name": "gcc",
-      "configurePreset": "gcc",
-      "output": {
-        "outputOnFailure": true
-      }
+      "inherits": "rp-test-base",
+      "configurePreset": "gcc"
     },
     {
       "name": "clang",
-      "configurePreset": "clang",
-      "output": {
-        "outputOnFailure": true
-      }
+      "inherits": "rp-test-base",
+      "configurePreset": "clang"
     }
   ]
 }

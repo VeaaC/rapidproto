@@ -45,23 +45,11 @@ jobs:
           # must turn this job red, or the header's correctness claim is a lie.
           python3 tests/bench.py run --repeat 1 --build-dir build/bench --core 0 --out "$out"
           [ -s "$out" ] || { echo "no benchmark output produced"; exit 1; }
-          python3 - "$tag" "$out" <<'PY'
-          import json, sys
-          tag, files = sys.argv[1], sys.argv[2:]
-          rows = [json.loads(l) for f in files for l in open(f) if json.loads(l).get('rec') == 'arm']
-          idx = {(a['decoder'], a['scenario'], a['arm']): a for a in rows}
-          print(f"\n=== {tag}: packed-varint decode GB/s @1M (informational, noisy CI) ===")
-          print(f"  {'regime':<9}{'arena':>8}{'xprotoc':>9}{'stream':>9}{'xprotoz':>9}")
-          for d in ('fx1', 'fx2', 'fx8', 'unif', 'skew', 'mix12', 'mix13'):
-              aw = idx.get(('arena', f'rv {d} 1M', 'arena-warm'))
-              pc = idx.get(('arena', f'rv {d} 1M', 'protoc'))
-              gn = idx.get(('stream', f'rv {d} 1M', 'generated'))
-              pz = idx.get(('stream', f'rv {d} 1M', 'protozero'))
-              def g(x): return x['gb_s'] if x else 0.0
-              xpc = g(aw) / g(pc) if pc and g(pc) else 0.0
-              xpz = g(gn) / g(pz) if pz and g(pz) else 0.0
-              print(f"  {d:<9}{g(aw):>8.2f}{xpc:>8.1f}x{g(gn):>9.2f}{xpz:>8.1f}x")
-          PY
+          # bench.py's own renderer, not a hand-rolled summary: the inline script this replaces
+          # hardcoded seven scenario labels while varint_dists() emits fifteen -- fx3..fx10 and
+          # mix13out were silently absent from every CI summary, with nothing linking the lists.
+          echo "=== $tag (informational, noisy CI) ==="
+          python3 tests/bench.py table "$out"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

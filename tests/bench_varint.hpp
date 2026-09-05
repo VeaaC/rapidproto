@@ -12,6 +12,7 @@
 // bench schema's `Big.numbers` -- so the decode is dominated by the packed-varint fill and nothing else.
 // Value generation is deterministic (a fixed-seed PRNG), so ins/B is reproducible run to run.
 
+#include <algorithm>
 #include <cstdint>
 #include <random>
 #include <string>
@@ -40,6 +41,11 @@ inline std::int64_t varint_of_width(int width, std::uint64_t salt) {
 struct VarintDist {
     std::string label;
     int mode;
+    // Narrow enough for the enum type-comparison sweep (every value comfortably int32; the
+    // sweep's historical set is the <=3-byte widths plus the narrow mixes). ON the dist rather
+    // than restated as a label list at the call site, where a new narrow dist added here was
+    // silently skipped.
+    bool enum_narrow = false;
 };
 
 // The distributions the sweep covers: fixed 1..10, uniform(1..10), the 90/10 skew, the common
@@ -50,12 +56,12 @@ inline std::vector<VarintDist> varint_dists() {
     std::vector<VarintDist> out;
     out.reserve(15);
     for (int w = 1; w <= 10; ++w) {
-        out.push_back({"fx" + std::to_string(w), w});
+        out.push_back({"fx" + std::to_string(w), w, /*enum_narrow=*/w <= 3});
     }
     out.push_back({"unif", 0});
     out.push_back({"skew", -1});
-    out.push_back({"mix12", -2});  // uniform 1..2 byte
-    out.push_back({"mix13", -3});  // uniform 1..3 byte
+    out.push_back({"mix12", -2, /*enum_narrow=*/true});  // uniform 1..2 byte
+    out.push_back({"mix13", -3, /*enum_narrow=*/true});  // uniform 1..3 byte
     out.push_back(
         {"mix13out", -4});  // 1..3 byte with a 1% 10-byte outlier (a resync/sentinel value)
     return out;
@@ -114,6 +120,12 @@ inline std::vector<std::int64_t> varint_values(const VarintDist& dist, int count
     return out;
 }
 
+// The `rv <dist> <count>` scenario-name format, in its one C++ home (tests/bench.py parses it:
+// overhead_dominated keys on the "rv " prefix and the trailing count tag).
+inline std::string rv_scenario_name(const VarintDist& dist, int count) {
+    return "rv " + dist.label + " " + length_tag(count);
+}
+
 // The wire bytes of a message carrying one packed varint field (`field_number`, wire type 2) with these
 // values as raw varints -- field 1 is bench.Big.numbers (int64); passing field 3 (sint64 `zz`) or 4
 // (enum `kinds`) reuses the IDENTICAL payload bytes to measure the zigzag / enum-cast conversion cost
@@ -136,6 +148,32 @@ inline std::string make_packed_i64(const std::vector<std::int64_t>& values, int 
     put_varint(buf, payload.size());
     buf += payload;
     return buf;
+}
+
+// A pool of distinct-seed packed-varint buffers with one shape, plus their mean size -- the
+// build every sweep rotates over so no arm replays a single memorized width sequence. Pool size:
+// ~64 MB budget, >= 8 buffers (defeat the predictor at small counts), <= 64 (bound setup). Each
+// element is <= 10 bytes, so count*10 over-estimates a buffer; that only makes the pool smaller,
+// never unsafe. Returns the strings ONLY -- the caller builds its ByteView vector over them
+// after the vector is fully populated (a returned view container would dangle on SSO buffers).
+// This arithmetic existed in three copies across the two benches before it lived here.
+struct VarintPool {
+    std::vector<std::string> buffers;
+    double avg_bytes = 0;
+};
+inline VarintPool build_varint_pool(const VarintDist& dist, int count, int field_number = 1) {
+    const long est = static_cast<long>(count) * 10 + 16;
+    const int pool_n = static_cast<int>(std::min<long>(64, std::max<long>(8, (64L << 20) / est)));
+    VarintPool pool;
+    pool.buffers.reserve(static_cast<std::size_t>(pool_n));
+    double total_bytes = 0;
+    for (int s = 0; s < pool_n; ++s) {
+        pool.buffers.push_back(make_packed_i64(
+            varint_values(dist, count, static_cast<std::uint64_t>(s) + 1), field_number));
+        total_bytes += static_cast<double>(pool.buffers.back().size());
+    }
+    pool.avg_bytes = total_bytes / static_cast<double>(pool_n);
+    return pool;
 }
 
 }  // namespace rpbench

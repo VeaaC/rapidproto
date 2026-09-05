@@ -9,15 +9,13 @@
 
 #include <catch_amalgamated.hpp>
 
+#include "golden_file.hpp"
+
 #include <cstdint>
-#include <cstdlib>
 #include <cstring>
 #include <filesystem>
-#include <fstream>
-#include <ios>
 #include <optional>
 #include <set>
-#include <sstream>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -62,12 +60,7 @@ using namespace rapidproto;  // NOLINT(google-build-using-namespace): test conve
 
 namespace {
 
-std::string read_file(const std::string& path) {
-    const std::ifstream file(path, std::ios::binary);
-    std::ostringstream buffer;
-    buffer << file.rdbuf();
-    return buffer.str();
-}
+using rapidproto::test::read_file;
 
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): proto path vs include dir, distinct roles
 std::string generate_at(const std::string& proto_path, const std::string& include_dir) {
@@ -155,8 +148,6 @@ TEST_CASE("streamgen: generated headers match the goldens", "[streamgen]") {
         {"stdpkg", nsedge},        // package `std` -> namespace std_, never namespace std
         {"rppkg", nsedge}};        // package `rapidproto`, below the runtime's own namespace
 
-    // NOLINTNEXTLINE(concurrency-mt-unsafe): single-threaded test, opt-in regeneration only
-    const bool regen = std::getenv("RAPIDPROTO_REGEN_GOLDEN") != nullptr;
     for (const Case& test : cases) {
         const std::string actual =
             generate_at(test.include + "/" + test.name + ".proto", test.include);
@@ -166,15 +157,8 @@ TEST_CASE("streamgen: generated headers match the goldens", "[streamgen]") {
             std::string(RAPIDPROTO_STREAMGEN_GOLDEN_DIR) + "/" + test.name + ".rp.stream.hpp";
         const std::string common_golden =
             std::string(RAPIDPROTO_STREAMGEN_GOLDEN_DIR) + "/" + test.name + ".rp.common.hpp";
-        if (regen) {
-            std::ofstream(golden, std::ios::binary) << actual;
-            std::ofstream(common_golden, std::ios::binary) << actual_common;
-            WARN("regenerated streamgen golden: " << test.name);
-            continue;
-        }
-        INFO("golden: " << test.name);
-        CHECK(actual == read_file(golden));
-        CHECK(actual_common == read_file(common_golden));
+        test::check_golden(golden, test.name, actual);
+        test::check_golden(common_golden, test.name + " (common)", actual_common);
     }
 
     // Completeness: every common golden in the directory must be compared by SOMETHING -- this
@@ -256,14 +240,8 @@ TEST_CASE("streamgen: namespace prefix nests the generated namespace", "[streamg
     const std::string xr_common = codegen::emit_common_header(xrset.files.back(), xr_names);
     const std::string common_golden =
         std::string(RAPIDPROTO_STREAMGEN_GOLDEN_DIR) + "/xref_prefixed/xref.rp.common.hpp";
-    // NOLINTNEXTLINE(concurrency-mt-unsafe): single-threaded test, opt-in regeneration only
-    if (std::getenv("RAPIDPROTO_REGEN_GOLDEN") != nullptr) {
-        std::ofstream(golden, std::ios::binary) << xr_prefixed;
-        std::ofstream(common_golden, std::ios::binary) << xr_common;
-    } else {
-        CHECK(xr_prefixed == read_file(golden));
-        CHECK(xr_common == read_file(common_golden));
-    }
+    test::check_golden(golden, "xref_prefixed stream header", xr_prefixed);
+    test::check_golden(common_golden, "xref_prefixed common header", xr_common);
 
     // Coexistence in one TU: the prefixed `pfx::stream::xr::A` and the unprefixed `rp::stream::xr::A` (both #included
     // above) are distinct, usable types -- the same shape as coexisting with a protoc header.
@@ -275,13 +253,6 @@ TEST_CASE("streamgen: namespace prefix nests the generated namespace", "[streamg
 // to it (it is simply skipped). Only truly non-schema field numbers are.
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): one buffer build + one decode
 TEST_CASE("streamgen: an unknown-field handler receives only non-schema fields", "[streamgen]") {
-    const auto put_varint = [](std::string& b, std::uint32_t v) {
-        while (v >= 0x80U) {
-            b.push_back(static_cast<char>(0x80U | (v & 0x7FU)));
-            v >>= 7U;
-        }
-        b.push_back(static_cast<char>(v));
-    };
     std::string buf;
     buf.push_back('\x08');  // field 1 (implicit_i, varint): known, handled
     put_varint(buf, 7);
@@ -326,13 +297,6 @@ TEST_CASE("streamgen: an unknown-field handler receives only non-schema fields",
 // fields; those reach only an explicit [](UnknownField) handler.
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): one buffer build + three decodes
 TEST_CASE("streamgen: a field catch-all does not receive unknown fields", "[streamgen]") {
-    const auto put_varint = [](std::string& b, std::uint32_t v) {
-        while (v >= 0x80U) {
-            b.push_back(static_cast<char>(0x80U | (v & 0x7FU)));
-            v >>= 7U;
-        }
-        b.push_back(static_cast<char>(v));
-    };
     std::string buf;
     buf.push_back('\x08');  // field 1 (implicit_i, varint): known
     put_varint(buf, 7);
@@ -689,10 +653,8 @@ TEST_CASE("streamgen: well-known-type and cross-file decoders run", "[streamgen]
 TEST_CASE("streamgen: exact-match dispatch routes catch-all and specific callbacks",
           "[streamgen]") {
     const std::string bin = read_file(std::string(RAPIDPROTO_WIRE_FIXTURE_DIR) + "/msg.bin");
-    if (bin.empty()) {
-        SUCCEED("fixture msg.bin not present; skipping");
-        return;
-    }
+    // Checked-in fixture: absence is a broken checkout, never a reason to pass.
+    REQUIRE_FALSE(bin.empty());
 
     std::int32_t a = 0;    // routed to the specific callback
     int other_fields = 0;  // routed to the catch-all
@@ -711,10 +673,8 @@ TEST_CASE("streamgen: exact-match dispatch routes catch-all and specific callbac
 // the dispatch probed the catch-all's tag slot with a member-less type.)
 TEST_CASE("streamgen: a catch-all can introspect the tag's kName/kNumber", "[streamgen]") {
     const std::string bin = read_file(std::string(RAPIDPROTO_WIRE_FIXTURE_DIR) + "/msg.bin");
-    if (bin.empty()) {
-        SUCCEED("fixture msg.bin not present; skipping");
-        return;
-    }
+    // Checked-in fixture: absence is a broken checkout, never a reason to pass.
+    REQUIRE_FALSE(bin.empty());
     int fields = 0;
     std::string a_name;
     const rp::stream::p3::Msg msg{ByteView(bin)};
@@ -861,8 +821,6 @@ TEST_CASE("streamgen: well-known-type closure generates self-contained headers",
     ResolvedFileSet set = std::move(resolved).value();
     REQUIRE(analyze(set).is_ok());
 
-    // NOLINTNEXTLINE(concurrency-mt-unsafe): single-threaded test, opt-in regeneration only
-    const bool regen = std::getenv("RAPIDPROTO_REGEN_GOLDEN") != nullptr;
     for (const FileNode& file : set.files) {
         std::filesystem::path stem = file.filename;
         stem.replace_extension();  // "google/protobuf/timestamp.proto" -> ".../timestamp"
@@ -878,16 +836,11 @@ TEST_CASE("streamgen: well-known-type closure generates self-contained headers",
         const std::filesystem::path common_golden =
             std::filesystem::path(RAPIDPROTO_STREAMGEN_GOLDEN_DIR) /
             (stem.string() + ".rp.common.hpp");
-        if (regen) {
-            std::filesystem::create_directories(golden.parent_path());
-            std::ofstream(golden, std::ios::binary) << actual;
-            std::ofstream(common_golden, std::ios::binary) << actual_common;
-            WARN("regenerated streamgen golden: " << stem.string());
-            continue;
+        if (test::regen_goldens()) {
+            std::filesystem::create_directories(golden.parent_path());  // google/protobuf subdir
         }
-        INFO("golden: " << stem.string());
-        CHECK(actual == read_file(golden.string()));
-        CHECK(actual_common == read_file(common_golden.string()));
+        test::check_golden(golden.string(), stem.string(), actual);
+        test::check_golden(common_golden.string(), stem.string() + " (common)", actual_common);
     }
 }
 
@@ -978,10 +931,8 @@ TEST_CASE("streamgen: cross-file type references resolve through emitted include
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): one callback per scalar field
 TEST_CASE("streamgen: a generated decoder decodes a wire fixture", "[streamgen]") {
     const std::string bin = read_file(std::string(RAPIDPROTO_WIRE_FIXTURE_DIR) + "/scalars.bin");
-    if (bin.empty()) {
-        SUCCEED("fixture scalars.bin not present; skipping");
-        return;
-    }
+    // Checked-in fixture: absence is a broken checkout, never a reason to pass.
+    REQUIRE_FALSE(bin.empty());
 
     std::int32_t i32 = 0;
     std::int64_t i64 = 0;
@@ -1040,25 +991,14 @@ TEST_CASE("streamgen: a generated decoder decodes a wire fixture", "[streamgen]"
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): three independent buffers in one case
 TEST_CASE("streamgen: raw-byte fast path matches the general path across the 15/16 boundary",
           "[streamgen]") {
-    const auto pv = [](std::string& b, std::uint64_t v) {
-        while (v >= 0x80U) {
-            b.push_back(static_cast<char>(0x80U | (v & 0x7FU)));
-            v >>= 7U;
-        }
-        b.push_back(static_cast<char>(v));
-    };
-    const auto tag = [](std::uint32_t f, std::uint32_t w) {
-        return (static_cast<std::uint64_t>(f) << 3U) | w;
-    };
-
     // (1) Boundary: a <=15 field (i32, 1-byte tag, fast path) and a >=16 field (color, 2-byte tag,
     //     general path) both decode in one message.
     {
         std::string buf;
-        pv(buf, tag(1, 0));
-        pv(buf, 123);  // i32
-        pv(buf, tag(16, 0));
-        pv(buf, 2);  // color (enum), 2-byte tag 0x80 0x01
+        put_tag(buf, 1, 0);
+        put_varint(buf, 123);  // i32
+        put_tag(buf, 16, 0);
+        put_varint(buf, 2);  // color (enum), 2-byte tag 0x80 0x01
         std::int32_t i32 = 0;
         int color = -1;
         const DecodeStatus s = rp::stream::p2::Scalars{ByteView(buf)}.decode(
@@ -1077,11 +1017,11 @@ TEST_CASE("streamgen: raw-byte fast path matches the general path across the 15/
     //     the field arm's wire-type guard on the general path.
     {
         std::string buf;
-        pv(buf, tag(1, 2));  // i32 (fast) as LEN -- wrong wire
-        pv(buf, 1);
+        put_tag(buf, 1, 2);  // i32 (fast) as LEN -- wrong wire
+        put_varint(buf, 1);
         buf += "x";
-        pv(buf, tag(16, 2));  // color (general) as LEN -- wrong wire
-        pv(buf, 1);
+        put_tag(buf, 16, 2);  // color (general) as LEN -- wrong wire
+        put_varint(buf, 1);
         buf += "y";
         std::int32_t i32 = -1;
         int color = -1;
@@ -1103,9 +1043,9 @@ TEST_CASE("streamgen: raw-byte fast path matches the general path across the 15/
     //     validating read_tag_or_end and fail.
     {
         std::string one;
-        pv(one, tag(1, 6));  // 1-byte reserved-wire tag
+        put_tag(one, 1, 6);  // 1-byte reserved-wire tag
         std::string two;
-        pv(two, tag(16, 6));  // 2-byte reserved-wire tag
+        put_tag(two, 16, 6);  // 2-byte reserved-wire tag
         const DecodeStatus s1 = rp::stream::p2::Scalars{ByteView(one)}.decode(
             [](rp::stream::p2::Scalars::i32, std::int32_t) {});
         const DecodeStatus s2 = rp::stream::p2::Scalars{ByteView(two)}.decode(
@@ -1123,7 +1063,7 @@ TEST_CASE("streamgen: raw-byte fast path matches the general path across the 15/
         std::string buf;
         buf.push_back('\x88');
         buf.push_back('\x00');  // over-long tag: field 1, Varint
-        pv(buf, 55);
+        put_varint(buf, 55);
         std::int32_t i32 = -1;
         std::vector<std::uint32_t> unknown;
         const DecodeStatus s = rp::stream::p2::Scalars{ByteView(buf)}.decode(
@@ -1142,13 +1082,6 @@ TEST_CASE("streamgen: raw-byte fast path matches the general path across the 15/
 // arm. over2() re-encodes a <=15 field's one-byte tag as a 2-byte non-minimal varint.
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): one independent parity block per kind
 TEST_CASE("streamgen: non-minimal tags decode identically across fast field kinds", "[streamgen]") {
-    const auto pv = [](std::string& b, std::uint64_t v) {
-        while (v >= 0x80U) {
-            b.push_back(static_cast<char>(0x80U | (v & 0x7FU)));
-            v >>= 7U;
-        }
-        b.push_back(static_cast<char>(v));
-    };
     const auto tg = [](std::uint32_t f, std::uint32_t w) {
         return (static_cast<std::uint64_t>(f) << 3U) | w;
     };
@@ -1162,7 +1095,7 @@ TEST_CASE("streamgen: non-minimal tags decode identically across fast field kind
     {
         std::string over;
         over2(over, 12, 2);
-        pv(over, 5);
+        put_varint(over, 5);
         over += "hello";
         std::string got_over;
         std::vector<std::uint32_t> unknown;
@@ -1170,8 +1103,8 @@ TEST_CASE("streamgen: non-minimal tags decode identically across fast field kind
             [&](rp::stream::p2::Scalars::s, std::string_view v) { got_over = std::string(v); },
             [&](UnknownField uf) { unknown.push_back(uf.field_number); });
         std::string canon;
-        pv(canon, tg(12, 2));
-        pv(canon, 5);
+        put_tag(canon, 12, 2);
+        put_varint(canon, 5);
         canon += "hello";
         std::string got_canon;
         const DecodeStatus sc = rp::stream::p2::Scalars{ByteView(canon)}.decode(
@@ -1187,11 +1120,11 @@ TEST_CASE("streamgen: non-minimal tags decode identically across fast field kind
     // recursion; the over-long tag fires the sub-decoder with the same nested value.
     {
         std::string nested;  // Nested { x = 42 }
-        pv(nested, tg(1, 0));
-        pv(nested, 42);
+        put_tag(nested, 1, 0);
+        put_varint(nested, 42);
         std::string over;
         over2(over, 4, 2);
-        pv(over, nested.size());
+        put_varint(over, nested.size());
         over += nested;
         std::int32_t cn_x = 0;
         const DecodeStatus s = rp::stream::p2::Container{ByteView(over)}.decode(
@@ -1209,18 +1142,18 @@ TEST_CASE("streamgen: non-minimal tags decode identically across fast field kind
     {
         const auto nested = [&](std::int32_t x) {
             std::string n;
-            pv(n, tg(1, 0));
-            pv(n, static_cast<std::uint64_t>(x));
+            put_tag(n, 1, 0);
+            put_varint(n, static_cast<std::uint64_t>(x));
             return n;
         };
         const std::string n1 = nested(7);
         const std::string n2 = nested(8);
         std::string buf;
         over2(buf, 5, 2);  // over-long element tag
-        pv(buf, n1.size());
+        put_varint(buf, n1.size());
         buf += n1;
-        pv(buf, tg(5, 2));  // canonical element tag
-        pv(buf, n2.size());
+        put_tag(buf, 5, 2);  // canonical element tag
+        put_varint(buf, n2.size());
         buf += n2;
         std::vector<std::int32_t> xs;
         const DecodeStatus s = rp::stream::p2::Container{ByteView(buf)}.decode(
@@ -1243,10 +1176,8 @@ TEST_CASE("streamgen: non-minimal tags decode identically across fast field kind
 TEST_CASE("streamgen: a generated decoder decodes enum, sub-message, and oneof fields",
           "[streamgen]") {
     const std::string bin = read_file(std::string(RAPIDPROTO_WIRE_FIXTURE_DIR) + "/msg.bin");
-    if (bin.empty()) {
-        SUCCEED("fixture msg.bin not present; skipping");
-        return;
-    }
+    // Checked-in fixture: absence is a broken checkout, never a reason to pass.
+    REQUIRE_FALSE(bin.empty());
 
     std::int32_t implicit_i = 0;
     std::int32_t a = 0;
@@ -1296,10 +1227,8 @@ TEST_CASE("streamgen: a generated decoder decodes enum, sub-message, and oneof f
 TEST_CASE("streamgen: a generated decoder decodes message-value and enum-value maps",
           "[streamgen]") {
     const std::string bin = read_file(std::string(RAPIDPROTO_WIRE_FIXTURE_DIR) + "/container.bin");
-    if (bin.empty()) {
-        SUCCEED("fixture container.bin not present; skipping");
-        return;
-    }
+    // Checked-in fixture: absence is a broken checkout, never a reason to pass.
+    REQUIRE_FALSE(bin.empty());
 
     std::vector<std::pair<std::string, std::int32_t>> by_name;  // map<string, Nested> -> (key, x)
     std::vector<std::pair<std::int32_t, rp::stream::p2::Color>> by_id;  // map<int32, Color>
@@ -1336,10 +1265,8 @@ TEST_CASE("streamgen: a generated decoder decodes message-value and enum-value m
 TEST_CASE("streamgen: a generated decoder decodes packed-repeated and group fields",
           "[streamgen]") {
     const std::string bin = read_file(std::string(RAPIDPROTO_WIRE_FIXTURE_DIR) + "/all_wire.bin");
-    if (bin.empty()) {
-        SUCCEED("fixture all_wire.bin not present; skipping");
-        return;
-    }
+    // Checked-in fixture: absence is a broken checkout, never a reason to pass.
+    REQUIRE_FALSE(bin.empty());
 
     std::int64_t zz = 0;
     std::uint32_t fx = 0;

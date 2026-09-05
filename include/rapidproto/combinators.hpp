@@ -223,7 +223,7 @@ auto seq(Ps... ps) {
 }
 
 // Commit: mark a parser's failure as fatal so the backtracking combinators
-// (alt/many/many1/opt/separated_list) propagate it instead of swallowing it. Use
+// (alt/many/opt/separated_list) propagate it instead of swallowing it. Use
 // it once a construct is unambiguously entered (e.g. after an opening quote) so a
 // later failure becomes a precise, propagating error rather than a silent backtrack.
 template <typename P>
@@ -281,52 +281,6 @@ auto many(const P& p) {
             const std::size_t adv = detail::consumed(rest, r.value().remaining);
             if (adv == 0) {
                 return Result<Ok>(Error{base, "many: sub-parser consumed no input"});
-            }
-            out.push_back(std::move(r.value().value));
-            rest = r.value().remaining;
-            base += adv;
-        }
-        return Result<Ok>(Ok{rest, std::move(out)});
-    };
-}
-
-// 1+ repetitions; fails (forwarding the sub-parser's error) if none match.
-template <typename P>
-auto many1(P p) {
-    return [p](auto in) {
-        using I = typename decltype(in)::value_type;
-        using O = detail::output_t<P, Range<I>>;
-        using Ok = Parsed<std::vector<O>, I>;
-        std::vector<O> out;
-        Range<I> rest = in;
-        std::size_t base = 0;
-        auto first = p(rest);
-        if (!first) {
-            return Result<Ok>(std::move(first.error()));
-        }
-        {
-            // Seed with the first element (parsed exactly once).
-            const std::size_t adv = detail::consumed(rest, first.value().remaining);
-            if (adv == 0) {
-                return Result<Ok>(Error{base, "many1: sub-parser consumed no input"});
-            }
-            out.push_back(std::move(first.value().value));
-            rest = first.value().remaining;
-            base += adv;
-        }
-        for (;;) {
-            auto r = p(rest);
-            if (!r) {
-                if (r.error().fatal) {
-                    Error e = std::move(r.error());
-                    e.byte_offset += base;  // lift the committed error to this parser's input
-                    return Result<Ok>(std::move(e));
-                }
-                break;
-            }
-            const std::size_t adv = detail::consumed(rest, r.value().remaining);
-            if (adv == 0) {
-                return Result<Ok>(Error{base, "many1: sub-parser consumed no input"});
             }
             out.push_back(std::move(r.value().value));
             rest = r.value().remaining;

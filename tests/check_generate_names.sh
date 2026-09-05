@@ -264,6 +264,10 @@ cmake_case() {
 cmake_case falsy-value   "NAMESPACE_PREFIX N"  "--namespace-prefix N"
 cmake_case ordinary      "NAMESPACE_PREFIX my.decoders" "--namespace-prefix my.decoders"
 cmake_case empty-refused 'NAMESPACE_PREFIX ""' REFUSED
+# The other one-value keywords refuse an explicit empty the same way: `GENERATOR ${UNSET_VAR}`
+# silently generated the arena default, and `OUT_DIR ""` silently used the private build dir.
+cmake_case empty-generator 'GENERATOR ""' REFUSED
+cmake_case empty-outdir    'OUT_DIR ""' REFUSED
 
 # ── declared outputs (query mode) ──────────────────────────────────────────────────────────────
 # With an IMPORTED generator -- every find_package consumer, and this fixture -- the helper asks
@@ -393,7 +397,10 @@ if ! cmake -S "$fallback_dir" -B "$fallback_dir/b" >/dev/null 2>&1; then
 else
   rules=$(cat "$fallback_dir/b/CMakeFiles/schema_generate.dir/build.make" 2>/dev/null \
             "$fallback_dir/b/build.ninja" 2>/dev/null)
-  for want in use.rp.hpp use.rp.stream.hpp use.rp.common.hpp rapidproto/runtime.hpp; do
+  # ALL the constant runtime drops, not just the first: a fallback that forgot
+  # arena_runtime.hpp used to pass this loop on runtime.hpp alone.
+  for want in use.rp.hpp use.rp.stream.hpp use.rp.common.hpp \
+              rapidproto/runtime.hpp rapidproto/arena_runtime.hpp; do
     if ! grep -q "$want" <<<"$rules"; then
       echo ">> fallback mode: $want is not a declared output"; fail=1
     fi
@@ -403,6 +410,24 @@ else
     echo "   know the closure, so a declared import means a resolver mirror grew back"
     fail=1
   fi
+fi
+
+# DUMP in fallback mode declares the dump header AND dump_runtime.hpp (the third runtime drop).
+fbdump_dir="$WORK/fbdump"
+mkdir -p "$fbdump_dir/proto"
+printf 'syntax = "proto3";\npackage fd;\nmessage M { int32 x = 1; }\n' >"$fbdump_dir/proto/d.proto"
+write_fixture "$fbdump_dir" alias \
+  'rapidproto_generate(schema PROTOS proto/d.proto IMPORT_DIRS proto GENERATOR arena DUMP)'
+if ! cmake -S "$fbdump_dir" -B "$fbdump_dir/b" >/dev/null 2>&1; then
+  echo ">> fallback dump: the fixture does not configure"; fail=1
+else
+  rules=$(cat "$fbdump_dir/b/CMakeFiles/schema_generate.dir/build.make" 2>/dev/null \
+            "$fbdump_dir/b/build.ninja" 2>/dev/null)
+  for want in d.rp.hpp d.rp.dump.hpp rapidproto/dump_runtime.hpp; do
+    if ! grep -q "$want" <<<"$rules"; then
+      echo ">> fallback dump: $want is not a declared output"; fail=1
+    fi
+  done
 fi
 
 # The shared-OUT_DIR refusal holds in FALLBACK mode too (the overlap check sits above the two

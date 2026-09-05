@@ -41,7 +41,7 @@ enum class Visibility : std::uint8_t { Default, Export, Local };
 
 // `to max` resolves to a different sentinel depending on context. kMaxMessageFieldNumber mirrors
 // runtime.hpp's kMaxFieldNumber (same 2^29-1 value), kept separate so the AST has no wire-layer
-// dep.
+// dep; a static_assert in src/arenagen/layout.cpp (which sees both headers) pins the agreement.
 inline constexpr std::int32_t kMaxMessageFieldNumber = 536870911;  // 2^29 - 1
 inline constexpr std::int32_t kMaxEnumNumber = INT32_MAX;
 

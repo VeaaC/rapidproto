@@ -8,11 +8,10 @@
 
 #include <catch_amalgamated.hpp>
 
-#include <cstdlib>
-#include <fstream>
+#include "golden_file.hpp"
+
+#include <cstddef>
 #include <initializer_list>
-#include <ios>
-#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -30,11 +29,11 @@ using namespace rapidproto;  // NOLINT(google-build-using-namespace): test conve
 
 namespace {
 
-std::string read_file(const std::string& path) {
-    const std::ifstream file(path, std::ios::binary);
-    std::ostringstream buffer;
-    buffer << file.rdbuf();
-    return buffer.str();
+// One golden protocol for the scenario loop AND the profile case below (it needed a profile
+// argument, so it used to open-code a second copy of this block).
+void check_layout_golden(const std::string& name, const std::string& actual) {
+    test::check_golden(std::string(RAPIDPROTO_ARENA_LAYOUT_GOLDEN_DIR) + "/" + name + ".txt", name,
+                       actual);
 }
 
 std::string corpus_path(const std::string& rel) {
@@ -52,29 +51,6 @@ std::string produce_dump(const std::string& entry) {
     const SymbolTable symbols = std::move(analyzed).value();
     const arenagen::LayoutSet layouts = arenagen::plan_layouts(set, symbols);
     return arenalayoutdump::dump_layouts(layouts);
-}
-
-// Locate the first differing line, for a readable failure on large dumps.
-// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): expected vs actual, distinct roles
-std::string first_difference(const std::string& expected, const std::string& actual) {
-    std::istringstream exp(expected);
-    std::istringstream act(actual);
-    std::string exp_line;
-    std::string act_line;
-    int number = 1;
-    while (true) {
-        const bool exp_ok = static_cast<bool>(std::getline(exp, exp_line));
-        const bool act_ok = static_cast<bool>(std::getline(act, act_line));
-        if (!exp_ok && !act_ok) {
-            return "(no line difference; trailing-newline mismatch?)";
-        }
-        if (exp_ok != act_ok || exp_line != act_line) {
-            return "first diff at line " + std::to_string(number) +
-                   ":\n  expected: " + (exp_ok ? exp_line : "<eof>") +
-                   "\n  actual:   " + (act_ok ? act_line : "<eof>");
-        }
-        ++number;
-    }
 }
 
 // A planned schema, kept together because a LayoutSet holds raw AST back-pointers (MessageLayout::
@@ -225,24 +201,8 @@ TEST_CASE("arena-layout: corpus layout dumps match expectations", "[arena-layout
         "arena_layout", "proto2", "proto3", "editions2023", "xref", "packed",
     };
 
-    // NOLINTNEXTLINE(concurrency-mt-unsafe): single-threaded test, opt-in regeneration only
-    const bool regen = std::getenv("RAPIDPROTO_REGEN_GOLDEN") != nullptr;
-
     for (const auto& name : scenarios) {
-        const std::string actual = produce_dump(name + ".proto");
-        const std::string golden =
-            std::string(RAPIDPROTO_ARENA_LAYOUT_GOLDEN_DIR) + "/" + name + ".txt";
-
-        if (regen) {
-            std::ofstream(golden, std::ios::binary) << actual;
-            WARN("regenerated arena-layout golden: " << name);
-            continue;
-        }
-
-        const std::string expected = read_file(golden);
-        INFO("scenario: " << name);
-        INFO(first_difference(expected, actual));
-        CHECK(actual == expected);
+        check_layout_golden(name, produce_dump(name + ".proto"));
     }
 }
 
@@ -263,16 +223,7 @@ TEST_CASE("arena-layout: field modes reshape the plan (raw members, dropped fiel
     const arenagen::LayoutSet layouts = arenagen::plan_layouts(set, symbols, options);
     const std::string actual = arenalayoutdump::dump_layouts(layouts);
 
-    const std::string golden = std::string(RAPIDPROTO_ARENA_LAYOUT_GOLDEN_DIR) + "/arena_modes.txt";
-    // NOLINTNEXTLINE(concurrency-mt-unsafe): single-threaded test, opt-in regeneration only
-    if (std::getenv("RAPIDPROTO_REGEN_GOLDEN") != nullptr) {
-        std::ofstream(golden, std::ios::binary) << actual;
-        WARN("regenerated arena-layout golden: arena_modes");
-        return;
-    }
-    const std::string expected = read_file(golden);
-    INFO(first_difference(expected, actual));
-    CHECK(actual == expected);
+    check_layout_golden("arena_modes", actual);
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): a linear pipeline of assertions

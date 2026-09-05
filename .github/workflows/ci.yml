@@ -11,7 +11,7 @@ name: CI
 
 on:
   push:
-    branches: [master, main]  # feature-branch pushes are gated by their PR run, not double-run
+    branches: [main]  # feature-branch pushes are gated by their PR run, not double-run
   pull_request:
 
 # A newer push to the same ref cancels an in-progress run, so only the latest commit is gated.
@@ -32,7 +32,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-toolchain
       - name: Quality gate minus tidy (./check.sh)
-        run: RAPIDPROTO_GATE_STAGES='format docs fixtures gcc clang cf fuzz cxx20 names differential' ./check.sh
+        # DERIVED from check.sh's DEFAULT_STAGES via the skip list, not a hand copy of it: a stage
+        # added to the default gate is in PR CI the moment it exists (a copied list once left
+        # `names` running only locally). tidy has its own sharded runners below.
+        run: RAPIDPROTO_GATE_SKIP=tidy ./check.sh
 
   # The real-world compatibility check (see tests/corpus_gate.py for what it covers and why).
   # Its own job because it needs a ~100 MB fetch the other jobs don't, keeping that off the main
@@ -76,7 +79,10 @@ jobs:
         run: RAPIDPROTO_GATE_STAGES='gcc clang cf fuzz' ./check.sh
 
   tidy:
-    name: tidy (shard ${{ matrix.shard }} of 3)
+    # The shard count lives ONCE, in the matrix list: name and denominator derive from
+    # strategy.job-total, so changing the fan-out is one edit (a stale hand-written /3 would
+    # leave a slice unlinted while every shard reported success).
+    name: tidy (shard ${{ matrix.shard }} of ${{ strategy.job-total }})
     runs-on: ubuntu-24.04
     strategy:
       matrix:
@@ -87,14 +93,15 @@ jobs:
       - name: clang-tidy shard
         run: >
           RAPIDPROTO_GATE_STAGES='tidy'
-          RAPIDPROTO_TIDY_SHARD='${{ matrix.shard }}/3'
+          RAPIDPROTO_TIDY_SHARD='${{ matrix.shard }}/${{ strategy.job-total }}'
           ./check.sh
 
   # The corpus legs of `./check.sh deep` self-skip here (exit 77 -- no fetch); they run in the
   # corpus job above, which is the one with the corpus. The deep summary names them as skipped,
-  # which is the expected output of this job, not a gap.
+  # which is the expected output of this job, not a gap. The golden-regen leg DOES run here --
+  # this clean checkout is the only place the checked-in goldens are proven reproducible.
   deep:
-    name: deep (ASan/UBSan + coverage + fuzz smoke)
+    name: deep (ASan/UBSan + coverage + fuzz smoke + golden regen)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4

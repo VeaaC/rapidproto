@@ -146,7 +146,11 @@ std::string round_trip_text(T value) {
     return text;
 }
 
-// Whether a float/double is POSITIVE zero, tested on the bit pattern so -0.0 is not.
+}  // namespace detail
+
+// Whether a float/double is POSITIVE zero, tested on the bit pattern so -0.0 is not. At the
+// dump_detail level, not in detail:: -- generated dumpers call it directly, like the write_*
+// helpers (it used to be the one generated call that reached a level deeper).
 //
 // This is what an implicit-presence field's "equals its default, so omit it" test must ask. Asking
 // it with `==` gets -0.0 wrong: `-0.0 == 0.0` is true, so the field is dropped even though protobuf
@@ -155,10 +159,8 @@ std::string round_trip_text(T value) {
 template <class T>
 bool is_positive_zero(T value) {
     static_assert(std::is_floating_point_v<T>, "float/double only");
-    return float_bits(value) == 0;
+    return detail::float_bits(value) == 0;
 }
-
-}  // namespace detail
 
 // Write a bool as the JSON literal `true`/`false`. Written out rather than streamed, so the result
 // does not depend on the sink's `boolalpha` flag -- the Writer renders a group into a scratch buffer

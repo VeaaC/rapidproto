@@ -1,5 +1,7 @@
 #include <catch_amalgamated.hpp>
 
+#include "parse_helpers.hpp"
+
 #include <cstdint>
 #include <string>
 #include <utility>
@@ -7,9 +9,6 @@
 
 #include "rapidproto/ast.hpp"
 #include "rapidproto/interpret.hpp"
-#include "rapidproto/lexer.hpp"
-#include "rapidproto/parser.hpp"
-#include "rapidproto/range.hpp"
 #include "rapidproto/resolve.hpp"
 #include "rapidproto/result.hpp"
 
@@ -18,13 +17,7 @@ using namespace rapidproto;  // NOLINT(google-build-using-namespace): test conve
 namespace {
 
 FileNode parse_only(std::string src) {
-    auto lr = lex(std::move(src));
-    REQUIRE(lr.is_ok());
-    const LexResult lexed = std::move(lr).value();
-    auto r = parse_file(Range<Token>(lexed.tokens));
-    REQUIRE(r.is_ok());
-    CHECK(r.value().remaining.empty());
-    return std::move(r.value().value);
+    return test::parse_file_ok(std::move(src));
 }
 
 FileNode interpret_ok(std::string src) {
@@ -65,6 +58,16 @@ TEST_CASE("interpret: no packed option leaves the syntax default in place") {
     CHECK(p2.messages[0].fields[0].repeated_encoding == RepeatedEncoding::Expanded);
     FileNode p3 = interpret_ok(R"(syntax = "proto3"; message M { repeated int32 a = 1; })");
     CHECK(p3.messages[0].fields[0].repeated_encoding == RepeatedEncoding::Packed);
+}
+
+TEST_CASE("interpret: [packed = true] on a non-packable field is ignored") {
+    // string/bytes are repeated-but-not-packable: the wire format has no packed form for
+    // length-delimited elements, and the feature pass refuses the equivalent feature. The
+    // interpreter must gate on the same is_packable_scalar predicate -- before it did, this
+    // exact shape flipped repeated_encoding to Packed while resolve_features said Expanded.
+    FileNode f =
+        interpret_ok(R"(syntax = "proto3"; message M { repeated string s = 1 [packed = true]; })");
+    CHECK(f.messages[0].fields[0].repeated_encoding == RepeatedEncoding::Expanded);
 }
 
 TEST_CASE("interpret: proto2 [default] is captured as the typed default_value") {

@@ -19,6 +19,7 @@
 #include "rapidproto/ast.hpp"
 #include "rapidproto/resolve.hpp"
 #include "rapidproto/resolver.hpp"
+#include "rapidproto/runtime.hpp"  // kMaxFieldNumber (the static_assert pin below)
 
 namespace rapidproto::arenagen {
 namespace {
@@ -49,29 +50,30 @@ static_assert(sizeof(ArenaString) == kStringSize && alignof(ArenaString) == kStr
 static_assert(sizeof(ArrayView<int>) == kViewSize && alignof(ArrayView<int>) == kViewAlign);
 static_assert(sizeof(MapView<ArenaString>) == kViewSize &&
               alignof(MapView<ArenaString>) == kViewAlign);
+// This TU sees both sides of the deliberate AST/wire-layer constant duplication (ast.hpp keeps no
+// wire dep), so it is the place their agreement is pinned.
+static_assert(kMaxMessageFieldNumber == static_cast<std::int32_t>(kMaxFieldNumber));
 
 std::size_t align_up(std::size_t n, std::size_t align) {
     return (n + align - 1) & ~(align - 1);  // align is always a power of two here
 }
 
-// proto scalar keyword -> {dump label, in-memory size, align, is bool}. string/bytes are NOT here
-// (they become an ArenaString, a borrowed view into the input); everything else is a fixed-size
-// numeric/bool.
+// proto scalar keyword -> {in-memory size, align, is bool}. string/bytes are NOT here (they
+// become an ArenaString, a borrowed view into the input); everything else is a fixed-size
+// numeric/bool. The layout dump labels a scalar member with its proto type keyword -- the map
+// KEY -- so there is no separate label column to drift from it.
 struct ScalarInfo {
-    std::string_view repr;
     std::size_t size;
     std::size_t align;
     bool is_bool;
 };
 const ScalarInfo* scalar_info(std::string_view type) {
     static const std::map<std::string_view, ScalarInfo> kTable = {
-        {"int32", {"int32", 4, 4, false}},       {"sint32", {"sint32", 4, 4, false}},
-        {"sfixed32", {"sfixed32", 4, 4, false}}, {"uint32", {"uint32", 4, 4, false}},
-        {"fixed32", {"fixed32", 4, 4, false}},   {"int64", {"int64", 8, 8, false}},
-        {"sint64", {"sint64", 8, 8, false}},     {"sfixed64", {"sfixed64", 8, 8, false}},
-        {"uint64", {"uint64", 8, 8, false}},     {"fixed64", {"fixed64", 8, 8, false}},
-        {"float", {"float", 4, 4, false}},       {"double", {"double", 8, 8, false}},
-        {"bool", {"bool", 1, 1, true}},
+        {"int32", {4, 4, false}},   {"sint32", {4, 4, false}},   {"sfixed32", {4, 4, false}},
+        {"uint32", {4, 4, false}},  {"fixed32", {4, 4, false}},  {"int64", {8, 8, false}},
+        {"sint64", {8, 8, false}},  {"sfixed64", {8, 8, false}}, {"uint64", {8, 8, false}},
+        {"fixed64", {8, 8, false}}, {"float", {4, 4, false}},    {"double", {8, 8, false}},
+        {"bool", {1, 1, true}},
     };
     const auto it = kTable.find(type);
     return it != kTable.end() ? &it->second : nullptr;
@@ -90,8 +92,7 @@ std::string elem_repr(const FieldNode& field) {
     if (is_string_field(field)) {
         return "ArenaString";
     }
-    const ScalarInfo* info = scalar_info(field.type_name);
-    return std::string(info != nullptr ? info->repr : field.type_name);
+    return {field.type_name.begin(), field.type_name.end()};  // scalar keywords label themselves
 }
 
 // The padding-minimizing slot order: alignment desc, size desc, then a stable tiebreak (field number
@@ -230,7 +231,7 @@ private:
             member.kind = FieldKind::InlineScalar;
             member.size = info->size;
             member.align = info->align;
-            member.repr = std::string(info->repr);
+            member.repr = std::string(field.type_name);
         }
     }
 
@@ -304,7 +305,7 @@ private:
             const ScalarInfo* info = scalar_info(field.type_name);
             assert(info != nullptr && "resolved non-message/enum field must be a known scalar");
             plan.kind = FieldKind::InlineScalar;
-            plan.repr = std::string(info->repr);
+            plan.repr = std::string(field.type_name);
             if (info->is_bool) {
                 plan.is_bool = true;  // a value bit, not a byte
             } else {
@@ -330,7 +331,7 @@ private:
             const ScalarInfo* info = scalar_info(map.key_type);
             assert(info != nullptr && "a map key must be a known scalar");
             entry.key_kind = FieldKind::InlineScalar;
-            entry.key_repr = std::string(info->repr);
+            entry.key_repr = std::string(map.key_type);
             key_size = info->size;
             key_align = info->align;
         }
@@ -360,7 +361,7 @@ private:
             assert(info != nullptr &&
                    "a resolved non-message/enum map value must be a known scalar");
             entry.value_kind = FieldKind::InlineScalar;
-            entry.value_repr = std::string(info->repr);
+            entry.value_repr = std::string(map.value_type);
             val_size = info->size;
             val_align = info->align;
         }
@@ -651,8 +652,12 @@ std::vector<std::size_t> inlined_targets(const MessageLayout& layout, const Layo
                     add(member.entry->value_fqn);
                 }
                 break;
-            default:
-                break;  // scalars, strings, enums and raw payloads decode no sub-message
+            case FieldKind::InlineScalar:
+            case FieldKind::InlineEnum:
+            case FieldKind::BorrowString:
+            case FieldKind::Raw:
+                break;  // scalars, strings, enums and raw payloads decode no sub-message; a new
+                        // message-referencing kind must be ADDED here or it escapes the budget
         }
     }
     for (const OneofPlan& oneof : layout.oneofs) {

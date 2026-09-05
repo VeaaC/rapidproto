@@ -1,24 +1,22 @@
 # Embed a runtime header into a generated C++ translation unit, at build time.
 #
-# Run via:  cmake -DRUNTIME_HPP=<path> -DOUTPUT_CPP=<path> [-DEMBED_NS=<ns>] [-DEMBED_FUNC=<fn>]
-#           [-DEMBED_DECL=<decl-header>] -P cmake/embed_runtime.cmake
+# Run via:  cmake -DRUNTIME_HPP=<path> -DRUNTIME_REL=<repo-relative path> -DOUTPUT_CPP=<path>
+#           -DEMBED_NS=<ns> -DEMBED_FUNC=<fn> -DEMBED_DECL=<decl-header> -P cmake/embed_runtime.cmake
 # Invoked by an add_custom_command keyed on the runtime header, so the embedded copy is regenerated
 # whenever it changes -- there is no checked-in copy to keep in sync. Pure CMake: no external tool.
 #
 # The output defines <EMBED_NS>::<EMBED_FUNC>() (declared in <EMBED_DECL>); the CLI writes that text
-# next to its output so generated headers are self-contained. Defaults target the base runtime.hpp
-# embed in the shared codegen layer; arenagen passes its own namespace/function/decl to embed
-# include/rapidproto/arena_runtime.hpp.
+# next to its output so generated headers are self-contained. Every input is passed explicitly by
+# CMakeLists' _rapidproto_embed_runtime() -- one call per embedded runtime (codegen's runtime.hpp,
+# arenagen's arena_runtime.hpp, dumpgen's dump_runtime.hpp).
 
-if(NOT DEFINED EMBED_NS)
-  set(EMBED_NS "rapidproto::codegen")
-endif()
-if(NOT DEFINED EMBED_FUNC)
-  set(EMBED_FUNC "runtime_header")
-endif()
-if(NOT DEFINED EMBED_DECL)
-  set(EMBED_DECL "rapidproto/codegen/runtime_embedded.hpp")
-endif()
+# Every input is REQUIRED: the old defaults duplicated the codegen call site's values in a second
+# place, and made a forgotten -D produce a silently mis-namespaced TU instead of an error.
+foreach(_required RUNTIME_HPP RUNTIME_REL OUTPUT_CPP EMBED_NS EMBED_FUNC EMBED_DECL)
+  if(NOT DEFINED ${_required} OR "${${_required}}" STREQUAL "")
+    message(FATAL_ERROR "embed_runtime.cmake: -D${_required}=... is required (and must be non-empty)")
+  endif()
+endforeach()
 
 file(READ "${RUNTIME_HPP}" RUNTIME_TEXT)
 
@@ -34,7 +32,7 @@ endif()
 # flags it), so the TUs that compile this file suppress that warning -- see CMakeLists.txt. This file is
 # internal to rapidprotoc; the runtime the CLI writes for consumers is the plain header, not this embed.
 file(WRITE "${OUTPUT_CPP}"
-"// GENERATED at build time from include/rapidproto/runtime.hpp (cmake/embed_runtime.cmake). DO NOT EDIT.
+"// GENERATED at build time from ${RUNTIME_REL} (cmake/embed_runtime.cmake). DO NOT EDIT.
 // Carries the runtime header text so the generator can drop a self-contained copy beside its output.
 
 #include \"${EMBED_DECL}\"
