@@ -61,7 +61,8 @@
 #include "bench.rp.stream.hpp"  // streamgen: rp::stream::bench::Dataset
 #include "bench_baselines.hpp"  // third-party baselines, in their own TUs (see that header)
 #include "bench_harness.hpp"  // rpbench: the shared measurement harness (also used by rapidproto_bench)
-#include "bench_varint.hpp"  // repeated-varint sweep builders (shared with the streaming bench)
+#include "bench_records.hpp"  // the hand-built RecordSet wire, asserted against protoc below
+#include "bench_varint.hpp"   // repeated-varint sweep builders (shared with the streaming bench)
 #include "rapidproto/arena_runtime.hpp"
 #include "rapidproto/runtime.hpp"
 
@@ -528,31 +529,20 @@ int sweep_repeated_varint() {
         for (const int count : rpbench::varint_lengths()) {
             // Name first, so a scenario filter can skip the POOL BUILD below, not merely the
             // measurement -- the pool is up to 64 MB and dominates a filtered run otherwise.
-            const std::string name = "rv " + dist.label + " " + rpbench::length_tag(count);
+            const std::string name = rpbench::rv_scenario_name(dist, count);
             if (!rpbench::scenario_selected(name.c_str())) {
                 continue;
             }
-            // Build a POOL of distinct-seed buffers with the same shape and rotate over it, so no arm
-            // replays a single memorized width sequence. Pool size: ~64 MB budget, >= 8 buffers (defeat
-            // the predictor at small counts), <= 64 (bound setup). Each element is <= 10 bytes, so
-            // count*10 over-estimates a buffer; that only makes the pool smaller, never unsafe.
-            const long est = static_cast<long>(count) * 10 + 16;
-            const int pool_n =
-                static_cast<int>(std::min<long>(64, std::max<long>(8, (64L << 20) / est)));
-            std::vector<std::string> pool;
+            // Distinct-seed pool, rotated so no arm replays one memorized width sequence
+            // (arithmetic + rationale: bench_varint.hpp).
+            const rpbench::VarintPool built = rpbench::build_varint_pool(dist, count);
+            const std::vector<std::string>& pool = built.buffers;
+            const double avg_bytes = built.avg_bytes;
             std::vector<rapidproto::ByteView> views;
-            pool.reserve(static_cast<std::size_t>(pool_n));
-            views.reserve(static_cast<std::size_t>(pool_n));
-            double total_bytes = 0;
-            for (int s = 0; s < pool_n; ++s) {
-                pool.push_back(rpbench::make_packed_i64(
-                    rpbench::varint_values(dist, count, static_cast<std::uint64_t>(s) + 1)));
-                total_bytes += static_cast<double>(pool.back().size());
-            }
+            views.reserve(pool.size());
             for (const auto& b : pool) {
-                views.emplace_back(b);  // pool strings are stable (reserved, no realloc)
+                views.emplace_back(b);  // pool strings are stable (fully built, no realloc)
             }
-            const double avg_bytes = total_bytes / static_cast<double>(pool_n);
             rapidproto::Arena warm;
             // Each arm keeps its own rotation index; the harness calls every arm the same number of
             // times, so all indices stay in lockstep and the per-round checksum cross-check still holds.
@@ -600,24 +590,14 @@ int sweep_repeated_varint_types() {
         if (!rpbench::scenario_selected(name.c_str())) {
             return 0;
         }
-        const long est = static_cast<long>(kCount) * 10 + 16;
-        const int pool_n =
-            static_cast<int>(std::min<long>(64, std::max<long>(8, (64L << 20) / est)));
-        std::vector<std::string> pool;
+        const rpbench::VarintPool built = rpbench::build_varint_pool(dist, kCount, field_number);
+        const std::vector<std::string>& pool = built.buffers;
+        const double avg_bytes = built.avg_bytes;
         std::vector<rapidproto::ByteView> views;
-        pool.reserve(static_cast<std::size_t>(pool_n));
-        views.reserve(static_cast<std::size_t>(pool_n));
-        double total_bytes = 0;
-        for (int s = 0; s < pool_n; ++s) {
-            pool.push_back(rpbench::make_packed_i64(
-                rpbench::varint_values(dist, kCount, static_cast<std::uint64_t>(s) + 1),
-                field_number));
-            total_bytes += static_cast<double>(pool.back().size());
-        }
+        views.reserve(pool.size());
         for (const auto& b : pool) {
             views.emplace_back(b);
         }
-        const double avg_bytes = total_bytes / static_cast<double>(pool_n);
         rapidproto::Arena warm;
         std::vector<rpbench::Arm> arms = {
             {"protoc",
@@ -650,9 +630,7 @@ int sweep_repeated_varint_types() {
     int bad = 0;
     for (const auto& dist : rpbench::varint_dists()) {
         bad += run_type(dist, 3, "zz", checksum_big_arena_zz, rpbaseline::protoc_big_zz, zz_pz);
-        const bool narrow = dist.label == "fx1" || dist.label == "fx2" || dist.label == "fx3" ||
-                            dist.label == "mix12" || dist.label == "mix13";
-        if (narrow) {
+        if (dist.enum_narrow) {
             bad += run_type(dist, 4, "enum", checksum_big_arena_kinds, rpbaseline::protoc_big_kinds,
                             kinds_pz);
         }
@@ -802,6 +780,23 @@ int main() {
         // dispatch, so this is the shape that isolates dispatch-shape wins (unlike the string/array-bound
         // shapes above). 20k records x ~34 bytes.
         const std::string rbuf = make_records(20000);
+        // The streaming bench decodes the SAME scenario from bench_records.hpp's hand-built
+        // wire. The two are NOT byte-identical -- proto3's serializer omits zero-valued implicit
+        // fields the hand-builder writes explicitly (adding this check exposed that the old
+        // "identical bytes" comment was false) -- so assert VALUE equality through protoc as the
+        // oracle: parsing the hand wire and re-serializing must reproduce protoc's own bytes.
+        // That is what makes the two binaries' checksums comparable, checked instead of hoped.
+        {
+            bench::RecordSet reparsed;
+            std::string canon;
+            if (!reparsed.ParseFromString(rpbench::make_records_wire(20000)) ||
+                !reparsed.SerializeToString(&canon) || canon != rbuf) {
+                std::printf(
+                    "FAIL: bench_records.hpp's hand-built RecordSet wire decodes to "
+                    "different values than protoc's serialization\n");
+                return 1;
+            }
+        }
         rapidproto::ByteView v(rbuf);
         rapidproto::Arena w;
         std::vector<rpbench::Arm> a = {

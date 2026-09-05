@@ -47,6 +47,12 @@
 #include <sys/ioctl.h>
 #include <sys/syscall.h>
 #include <unistd.h>
+#else
+// Say so instead of half-porting: the perf_event macros are used UNGUARDED below (a default
+// argument, metric_fds' configs), so the old per-function #else fallbacks never made a non-Linux
+// build possible -- they only looked like they did. The benches are Linux measurement tools;
+// the shipped runtime has no such restriction.
+#error "bench_harness.hpp is Linux-only (perf_event self-monitoring)"
 #endif
 
 namespace rpbench {
@@ -149,7 +155,6 @@ inline void prepare_env() {
 // Opportunistic per-process hardware counter (cycles or instructions), if the kernel allows
 // unprivileged self-monitoring. Returns a perf fd, or -1 to fall back / omit.
 inline int open_counter(std::uint64_t config, std::uint32_t type = PERF_TYPE_HARDWARE) {
-#if defined(__linux__)
     perf_event_attr attr;
     std::memset(&attr, 0, sizeof attr);
     attr.type = type;
@@ -159,11 +164,6 @@ inline int open_counter(std::uint64_t config, std::uint32_t type = PERF_TYPE_HAR
     attr.exclude_kernel = 1;
     attr.exclude_hv = 1;
     return static_cast<int>(syscall(SYS_perf_event_open, &attr, 0, -1, -1, 0UL));
-#else
-    (void)config;
-    (void)type;
-    return -1;
-#endif
 }
 
 // RAPIDPROTO_BENCH_EVENT=<name> adds ONE extra counter, measured over exactly the region the
@@ -175,7 +175,6 @@ inline int open_counter(std::uint64_t config, std::uint32_t type = PERF_TYPE_HAR
 //
 // Names map to the portable PERF_TYPE_HW_CACHE encoding (cache id | op << 8 | result << 16).
 inline int open_named_event(const char* name) {
-#if defined(__linux__)
     const auto cache = [](std::uint64_t id, std::uint64_t op, std::uint64_t result) {
         return id | (op << 8) | (result << 16);
     };
@@ -203,10 +202,6 @@ inline int open_named_event(const char* name) {
                  "dtlb-miss, branch-miss)\n",
                  name);
     return -1;
-#else
-    (void)name;
-    return -1;
-#endif
 }
 
 // Cycles are frequency-invariant but NOT placement-invariant (a function's cyc/B shifts with its
@@ -380,6 +375,12 @@ inline Stat stat(std::vector<double> v) {
                 xtra_s[k].push_back(cost.xtra);
             }
             prim[k] = cyc ? cost.cyc : cost.ns;
+            if (prim[k] <= 0) {
+                // A counter can OPEN and still never count (VMs without an exposed PMU read 0).
+                // Fall back to wall time for this round's ratio; all-zero cycles otherwise left
+                // every ratio vector empty and the median of an empty vector is out-of-bounds.
+                prim[k] = cost.ns;
+            }
         }
         for (std::size_t k = 1; k < n; ++k) {
             if (prim[0] > 0) {

@@ -31,6 +31,7 @@
 
 #include "bench.rp.stream.hpp"  // generated bench::Big (int64 numbers); -I<BENCH_GEN>
 #include "bench_harness.hpp"  // rpbench: the shared measurement harness (also used by the arena bench)
+#include "bench_records.hpp"
 #include "bench_two_tier.hpp"  // micro-vs-large-TU decode (out-of-line-primitive penalty)
 #include "bench_varint.hpp"    // repeated-varint sweep builders (shared with the arena bench)
 #include "proto2.rp.stream.hpp"  // generated p2::Scalars; -Itests/streamgen_golden (pulls runtime.hpp)
@@ -600,30 +601,20 @@ int scenario_repeated_varint() {
         for (const int count : rpbench::varint_lengths()) {
             // Name first, so a scenario filter can skip the POOL BUILD below, not merely the
             // measurement -- the pool is up to 64 MB and dominates a filtered run otherwise.
-            const std::string name = "rv " + dist.label + " " + rpbench::length_tag(count);
+            const std::string name = rpbench::rv_scenario_name(dist, count);
             if (!rpbench::scenario_selected(name.c_str())) {
                 continue;
             }
-            // Rotate over a pool of distinct-seed buffers (same shape) so no arm replays one memorized
-            // width sequence. Pool: ~64 MB budget, >= 8 buffers (defeat the predictor at small counts),
-            // <= 64 (bound setup). count*10 over-estimates a buffer (<= 10 bytes each), only shrinking it.
-            const long est = static_cast<long>(count) * 10 + 16;
-            const int pool_n =
-                static_cast<int>(std::min<long>(64, std::max<long>(8, (64L << 20) / est)));
-            std::vector<std::string> pool;
+            // Distinct-seed pool, rotated so no arm replays one memorized width sequence
+            // (arithmetic + rationale: bench_varint.hpp).
+            const rpbench::VarintPool built = rpbench::build_varint_pool(dist, count);
+            const std::vector<std::string>& pool = built.buffers;
+            const double avg_bytes = built.avg_bytes;
             std::vector<ByteView> views;
-            pool.reserve(static_cast<std::size_t>(pool_n));
-            views.reserve(static_cast<std::size_t>(pool_n));
-            double total_bytes = 0;
-            for (int s = 0; s < pool_n; ++s) {
-                pool.push_back(rpbench::make_packed_i64(
-                    rpbench::varint_values(dist, count, static_cast<std::uint64_t>(s) + 1)));
-                total_bytes += static_cast<double>(pool.back().size());
-            }
+            views.reserve(pool.size());
             for (const auto& b : pool) {
-                views.emplace_back(b);  // pool strings are stable (reserved, no realloc)
+                views.emplace_back(b);  // pool strings are stable (fully built, no realloc)
             }
-            const double avg_bytes = total_bytes / static_cast<double>(pool_n);
             const Arm arms[] = {
                 {"generated",
                  [](ByteView b) -> std::uint64_t {
@@ -1202,78 +1193,10 @@ int scenario_sparse() {
 // field is small so per-field cost is dominated by tag DISPATCH, isolating the streaming decoder's
 // dense-materialize (handle every field) vs sparse-extract (handle three, skip the rest) split. -----
 
-// Hand-build the wire for a RecordSet of `count` scalar-heavy Records, identical bytes to protoc's
-// SerializeToString of bench::RecordSet (ascending field order, every field set). Values match
-// bench_arena.cpp make_records so the checksums are directly comparable.
+// Hand-built wire for a RecordSet of `count` scalar-heavy Records -- now shared with the arena
+// bench (bench_records.hpp), which asserts it value-equal to protoc's serialization at startup.
 std::string make_records(int count) {
-    const auto sample = [](std::string& r, int base) {
-        put_tag(r, 1, 0);
-        put_varint(r, static_cast<std::uint64_t>(base & 63));  // a int32
-        put_tag(r, 2, 0);
-        put_varint(r, static_cast<std::uint64_t>((base + 1) & 63));  // b int32
-        put_tag(r, 3, 0);
-        put_varint(r, static_cast<std::uint64_t>((base + 2) & 63));  // c int64
-        put_tag(r, 4, 0);
-        put_varint(r, zigzag64((base + 3) & 63));  // d sint32
-        put_tag(r, 5, 0);
-        put_varint(r, static_cast<std::uint64_t>((base & 1) != 0 ? 1U : 0U));  // e bool
-        put_tag(r, 6, 0);
-        put_varint(r, static_cast<std::uint64_t>((base + 4) & 63));  // f uint32
-    };
-    std::string buf;
-    for (int i = 0; i < count; ++i) {
-        std::string rec;
-        put_tag(rec, 1, 0);
-        put_varint(rec, static_cast<std::uint64_t>(i & 63));  // f1 int32
-        put_tag(rec, 2, 0);
-        put_varint(rec, static_cast<std::uint64_t>((i + 1) & 63));  // f2
-        put_tag(rec, 3, 0);
-        put_varint(rec, static_cast<std::uint64_t>((i + 2) & 63));  // f3
-        put_tag(rec, 4, 0);
-        put_varint(rec, static_cast<std::uint64_t>((i + 3) & 63));  // f4 int64
-        put_tag(rec, 5, 0);
-        put_varint(rec, static_cast<std::uint64_t>((i + 4) & 63));  // f5 uint32
-        put_tag(rec, 6, 0);
-        put_varint(rec, zigzag64((i + 5) & 63));  // f6 sint32
-        put_tag(rec, 7, 0);
-        put_varint(rec, static_cast<std::uint64_t>((i & 1) != 0 ? 1U : 0U));  // f7 bool
-        put_tag(rec, 8, 0);
-        put_varint(rec, static_cast<std::uint64_t>((i + 6) & 63));  // f8 uint64
-        put_tag(rec, 9, 0);
-        put_varint(rec, static_cast<std::uint64_t>((i + 7) & 63));  // f9
-        put_tag(rec, 10, 0);
-        put_varint(rec, static_cast<std::uint64_t>((i + 8) & 63));  // f10
-        put_tag(rec, 11, 0);
-        put_varint(rec, static_cast<std::uint64_t>((i + 9) & 63));  // f11
-        put_tag(rec, 12, 0);
-        put_varint(rec, static_cast<std::uint64_t>((i + 10) & 63));  // f12
-        put_tag(rec, 13, 0);
-        put_varint(rec, static_cast<std::uint64_t>((i + 11) & 63));  // f13
-        put_tag(rec, 14, 0);
-        put_varint(rec, static_cast<std::uint64_t>((i + 12) & 63));  // f14
-        put_tag(rec, 15, 0);
-        put_varint(rec, static_cast<std::uint64_t>((i + 13) & 63));  // f15
-        std::string s1;
-        sample(s1, i + 20);
-        put_tag(rec, 16, 2);  // s1 Sample (LEN)
-        put_varint(rec, s1.size());
-        rec += s1;
-        std::string s2;
-        sample(s2, i + 30);
-        put_tag(rec, 17, 2);  // s2 Sample (LEN)
-        put_varint(rec, s2.size());
-        rec += s2;
-        put_tag(rec, 18, 0);
-        put_varint(rec, static_cast<std::uint64_t>((i + 14) & 63));  // f18
-        put_tag(rec, 19, 0);
-        put_varint(rec, static_cast<std::uint64_t>((i + 15) & 63));  // f19
-        put_tag(rec, 20, 0);
-        put_varint(rec, static_cast<std::uint64_t>((i + 16) & 63));  // f20
-        put_tag(buf, 1, 2);                                          // RecordSet::records (LEN)
-        put_varint(buf, rec.size());
-        buf += rec;
-    }
-    return buf;
+    return rpbench::make_records_wire(count);
 }
 
 // Sum every Sample field into the checksum, mirroring checksum_arena_record's `sample` lambda.
