@@ -172,14 +172,18 @@ function(rapidproto_generate target)
   set(_multi PROTOS IMPORT_DIRS FIELD_MODES DROP RAW UNKNOWN)
   cmake_parse_arguments(RPG "${_options}" "${_one}" "${_multi}" ${ARGN})
 
-  if("NAMESPACE_PREFIX" IN_LIST RPG_KEYWORDS_MISSING_VALUES)
-    # Empty is not "no prefix": the generated roots would land at global scope, so the CLI rejects it.
-    # Caught here because cmake_parse_arguments leaves the variable UNSET for an explicit empty value,
-    # which would otherwise look exactly like omitting the keyword and silently use the default.
-    message(FATAL_ERROR
-      "rapidproto_generate(${target}): NAMESPACE_PREFIX cannot be empty -- the arena/stream/common "
-      "roots would land at global scope. Pass a name instead (default: rp).")
-  endif()
+  # Every one-value keyword refuses an explicit empty value. cmake_parse_arguments leaves the
+  # variable UNSET for an empty value, which otherwise looks exactly like omitting the keyword --
+  # so `GENERATOR ${UNSET_VAR}` silently generated the arena default and `OUT_DIR ""` silently
+  # used the private build dir, when the caller plainly meant to pass something.
+  foreach(_kw NAMESPACE_PREFIX GENERATOR OUT_DIR)
+    if("${_kw}" IN_LIST RPG_KEYWORDS_MISSING_VALUES)
+      message(FATAL_ERROR
+        "rapidproto_generate(${target}): ${_kw} was given an empty value -- pass a value, or omit "
+        "the keyword for its default. (NAMESPACE_PREFIX in particular cannot be empty: the "
+        "arena/stream/common roots would land at global scope; default: rp.)")
+    endif()
+  endforeach()
 
   if(RPG_UNPARSED_ARGUMENTS)
     message(FATAL_ERROR "rapidproto_generate(${target}): unexpected arguments: ${RPG_UNPARSED_ARGUMENTS}")

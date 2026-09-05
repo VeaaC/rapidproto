@@ -6,19 +6,17 @@
 # whenever it changes -- there is no checked-in copy to keep in sync. Pure CMake: no external tool.
 #
 # The output defines <EMBED_NS>::<EMBED_FUNC>() (declared in <EMBED_DECL>); the CLI writes that text
-# next to its output so generated headers are self-contained. Defaults target the base runtime.hpp
-# embed in the shared codegen layer; arenagen passes its own namespace/function/decl to embed
-# include/rapidproto/arena_runtime.hpp.
+# next to its output so generated headers are self-contained. Every input is passed explicitly by
+# CMakeLists' _rapidproto_embed_runtime() -- one call per embedded runtime (codegen's runtime.hpp,
+# arenagen's arena_runtime.hpp, dumpgen's dump_runtime.hpp).
 
-if(NOT DEFINED EMBED_NS)
-  set(EMBED_NS "rapidproto::codegen")
-endif()
-if(NOT DEFINED EMBED_FUNC)
-  set(EMBED_FUNC "runtime_header")
-endif()
-if(NOT DEFINED EMBED_DECL)
-  set(EMBED_DECL "rapidproto/codegen/runtime_embedded.hpp")
-endif()
+# Every input is REQUIRED: the old defaults duplicated the codegen call site's values in a second
+# place, and made a forgotten -D produce a silently mis-namespaced TU instead of an error.
+foreach(_required RUNTIME_HPP OUTPUT_CPP EMBED_NS EMBED_FUNC EMBED_DECL)
+  if(NOT DEFINED ${_required})
+    message(FATAL_ERROR "embed_runtime.cmake: -D${_required}=... is required")
+  endif()
+endforeach()
 
 file(READ "${RUNTIME_HPP}" RUNTIME_TEXT)
 
