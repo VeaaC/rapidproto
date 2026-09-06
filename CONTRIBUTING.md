@@ -21,8 +21,8 @@ The quality gate pins specific versions, so install:
 - `tests/compile_bench.py` measures the other half of what a code generator costs its user: how long
   the generated decoders take to **compile**, how big the resulting `.text` is, and the compiler's
   peak RSS. Same `run` / `table` / `diff` shape. `bench.py run`/`experiment` embed this sweep into
-  their snapshots and **gate** it in `diff` (so it needs `/usr/bin/time`, `objdump`, and both
-  pinned compilers; `--no-compile` skips it); standalone it stays an investigation tool — a single
+  their snapshots with `--compile` (opt-in) and **gate** it in `diff` (it needs `/usr/bin/time`,
+  `objdump`, and both pinned compilers); standalone it stays an investigation tool — a single
   arena TU can take a minute on gcc, which is the point rather than a flaw.
 
 ## Building

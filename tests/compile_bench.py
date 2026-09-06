@@ -68,6 +68,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -225,9 +226,15 @@ def measure(compiler: str, tu: Path, include: Path) -> tuple[float, int, int]:
     # not observable from the parent process.
     argv = ["/usr/bin/time", "-f", "%M", compiler, *CXXFLAGS,
             f"-I{include}", "-c", str(tu), "-o", str(obj)]
+    # CCACHE_DISABLE: with the Debian masquerade PATH the compiler name resolves to a ccache
+    # shim, and a cache hit would report the LOOKUP's seconds/RSS as the compile's. Documented
+    # ccache behavior: with this set the shim execs the real compiler untouched. Other wrappers
+    # are refused up front in check_tools -- they have no such switch.
+    env = dict(os.environ, CCACHE_DISABLE="1")
     start = time.monotonic()
     try:
-        proc = subprocess.run(argv, capture_output=True, text=True, timeout=COMPILE_TIMEOUT_S)
+        proc = subprocess.run(argv, capture_output=True, text=True, timeout=COMPILE_TIMEOUT_S,
+                              env=env)
     except subprocess.TimeoutExpired:
         raise SystemExit(f"{compiler} exceeded {COMPILE_TIMEOUT_S}s on {tu.name}") from None
     elapsed = time.monotonic() - start
@@ -334,10 +341,25 @@ def run_case(tool: Path, case: Case, compiler: str, work: Path) -> list[dict]:
 
 
 def check_tools(compilers: list[str]) -> None:
-    """Refuse early when a compiler or measuring tool is absent."""
+    """Refuse early when a compiler or measuring tool is absent -- or WRAPPED.
+
+    Compiler-launcher shims corrupt two of the three metrics: on a cache hit the "compile" is a
+    lookup, so seconds and peak RSS measure the shim, not the compiler (.text stays correct --
+    the cached object is byte-identical). ccache is neutralized instead of refused: measure()
+    sets CCACHE_DISABLE=1, which ccache documents as a straight pass-through, so the standard
+    Debian masquerade PATH (/usr/lib/ccache first) still measures the real compiler. Other
+    wrappers (sccache, distcc, icecc) have no equivalent universal off switch, so a compiler
+    resolving to one is refused with the fix named."""
     for compiler in compilers:
-        if not shutil.which(compiler):
+        resolved = shutil.which(compiler)
+        if not resolved:
             raise SystemExit(f"{compiler} not found")
+        target = Path(resolved).resolve().name
+        if target in ("sccache", "distcc", "icecc"):
+            raise SystemExit(
+                f"{compiler} resolves to a {target} shim ({resolved}); compile seconds and peak "
+                f"RSS would measure the wrapper, not the compiler. Put the real compiler first "
+                f"on PATH for this run.")
     for binary in ("/usr/bin/time", "objdump"):
         if not shutil.which(binary):
             raise SystemExit(f"{binary} is required")

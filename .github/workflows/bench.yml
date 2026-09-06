@@ -43,10 +43,10 @@ jobs:
           # No `|| true`, no empty-output exit 0: a bench build failure, a crashed binary, or a
           # checksum mismatch (the binaries exit nonzero; bench.py's check_output propagates it)
           # must turn this job red, or the header's correctness claim is a lie.
-          # --no-compile on the clang legs: the embedded compile sweep always measures BOTH
+          # --compile on the gcc legs only: the sweep is opt-in, and it always measures BOTH
           # pinned compilers, so per arch it lands with the gcc leg once rather than twice.
           python3 tests/bench.py run --repeat 1 --build-dir build/bench --core 0 --out "$out" \
-            ${{ matrix.cc == 'clang' && '--no-compile' || '' }}
+            ${{ matrix.cc == 'gcc' && '--compile' || '' }}
           [ -s "$out" ] || { echo "no benchmark output produced"; exit 1; }
           # bench.py's own renderer, not a hand-rolled summary: the inline script this replaces
           # hardcoded seven scenario labels while varint_dists() emits fifteen -- fx3..fx10 and

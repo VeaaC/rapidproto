@@ -86,7 +86,8 @@ Four things to know before acting on a number:
 - **`run` executes each bench `--repeat` times (default 5)** and keeps the median run of each *arm*
   (one decoder variant within one scenario), because
   one run is not reproducible across process launches — see the appendix. Budget roughly five times
-  a single run plus ~2 min for the embedded [compile sweep](#compile-cost--what-the-throughput-costs-to-build);
+  a single run (plus ~2 min under
+  [`--compile`](#compile-cost--what-the-throughput-costs-to-build));
   `experiment` builds and measures two revisions, so about double all of it.
 - **Both snapshots must use the same `--repeat`.** The median's sampling variance falls with K, and
   at even K the harness keeps the upper of the two middle runs — so a mixed-K pair compares two
@@ -107,13 +108,16 @@ re-analysed without re-measuring. GB/s is the primary signal; cyc/B and ins/B ar
 ## Compile cost — what the throughput costs to build
 
 Decode speed is half of what a code generator costs its user; the other half is **compile time,
-`.text` size, and the compiler's peak RSS** for the generated decoders. Every `bench.py run` and
-`experiment` embeds that sweep into the snapshot (a ~2-minute ride-along; `--no-compile` skips
-it), measured by `tests/compile_bench.py`'s machinery — six schema shapes from a one-message
+`.text` size, and the compiler's peak RSS** for the generated decoders. `bench.py run` and
+`experiment` embed that sweep into the snapshot with **`--compile`** (opt-in — a ~2-minute
+ride-along per snapshot that a throughput-focused loop should not pay; pass it when the change
+under test touches codegen), measured by `tests/compile_bench.py`'s machinery — six schema shapes from a one-message
 baseline through a 10-deep nesting chain, `descriptor.proto`, and a 103k-line generated compute
 schema, each compiled per model per compiler as one TU with an external-linkage function per
 message (see that file's docstring for the methodology and its caveats). `table` renders the
-columns beside the throughput tables, and `diff`/`experiment` **gate** them at a tight
+columns beside the throughput tables (compiler launchers are neutralized: every measured compile
+sets `CCACHE_DISABLE`, and a compiler resolving to an sccache/distcc/icecc shim is refused up
+front), and `diff`/`experiment` **gate** them at a tight
 threshold: `.text` is deterministic and peak RSS nearly so, with no code-placement floor to hide
 behind (compile *seconds* is wall clock, load-sensitive like any timing) — so a codegen change
 that bloats `.text` fails the same experiment that would previously have reported only its

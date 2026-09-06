@@ -24,9 +24,11 @@ mispredicts show here, not in ins/B), and ins/B is deterministic retired-work (i
 for one binary+input, so it resolves a real sub-floor codegen change GB/s cannot -- but it is a rough
 proxy for work, blind to the stalls above, not a substitute for measured time).
 
-Snapshots also embed the COMPILE-COST sweep (rec:"compile": seconds / .text bytes / peak RSS per
-case x model x compiler; ~2 min; --no-compile skips it) -- what the throughput above costs the
-consumer's build, measured by tests/compile_bench.py's machinery so the two tools cannot drift.
+With --compile, snapshots also embed the COMPILE-COST sweep (rec:"compile": seconds / .text
+bytes / peak RSS per case x model x compiler; ~2 min per snapshot) -- what the throughput above
+costs the consumer's build, measured by tests/compile_bench.py's machinery so the two tools
+cannot drift. OPT-IN so a throughput-focused experiment loop does not pay the sweep's latency;
+pass it when the change under test touches codegen.
 `table` renders it, and `diff`/`experiment` gate it at a tight threshold: .text is deterministic
 and peak RSS nearly so, with no placement floor to hide behind (compile SECONDS is wall clock --
 load-sensitive like any timing, just without GB/s's cross-build placement problem).
@@ -287,7 +289,7 @@ def run(args):
     if os.environ.get("RAPIDPROTO_BENCH_ONLY"):
         print("WARNING: RAPIDPROTO_BENCH_ONLY is set -- this snapshot covers only part of the suite "
               "and `diff` will refuse it.", file=sys.stderr)
-    cases, skipped = compile_preflight(not args.no_compile)
+    cases, skipped = compile_preflight(args.compile)
     records, pv = build_and_run(args.build_dir, args.core, args.repeat)
     extra_header = {}
     if cases is not None:
@@ -465,7 +467,10 @@ def diff_compile(old_header, new_header, old_records, new_records):
     compile regression means. Asymmetric or non-comparable snapshots report and skip rather than
     gate: an archived baseline predating the embedding must not fail every diff against it."""
     if not old_records and not new_records:
-        return None, "neither snapshot embeds compile records"
+        # Both sides deliberately ran without --compile: silence, not a nag -- the sweep is
+        # opt-in, and stamping every throughput-only diff "NOT gated" would teach readers to
+        # ignore the tail that matters in the asymmetric cases below.
+        return None, None
     side = "old" if not old_records else "new"
     if not old_records or not new_records:
         print(f"\nnote: the {side} snapshot has no embedded compile records -- compile cost not "
@@ -673,7 +678,7 @@ def experiment(args):
         sys.exit("experiment: working tree is dirty -- commit or stash first (this checks out refs and "
                  "always restores, but refuses to risk uncommitted work)")
 
-    compile_cases, compile_skipped = compile_preflight(not args.no_compile)
+    compile_cases, compile_skipped = compile_preflight(args.compile)
 
     original = current_ref()
     snapdir = os.path.join(REPO, "bench_snapshots")
@@ -745,8 +750,9 @@ def main():
                    help=f"runs per snapshot, median run kept per arm (default {DEFAULT_REPEAT}; "
                         f"below {DEFAULT_REPEAT} there is no usable per-arm noise and the gate falls "
                         f"back to the flat threshold)")
-    r.add_argument("--no-compile", action="store_true",
-                   help="skip the embedded compile-cost sweep (~2 min; see tests/compile_bench.py)")
+    r.add_argument("--compile", action="store_true",
+                   help="also embed the compile-cost sweep (~2 min; see tests/compile_bench.py). "
+                        "Opt-in: a throughput-focused loop should not pay the sweep's latency")
     r.set_defaults(func=run)
 
     t = sub.add_parser("table", help="render one snapshot, or compare several")
@@ -772,8 +778,9 @@ def main():
                    help=f"runs per snapshot, median run kept per arm (default {DEFAULT_REPEAT})")
     e.add_argument("--threshold", type=float, default=10.0,
                    help="regression threshold in %% GB/s (default 10.0 = the cross-build placement-noise floor)")
-    e.add_argument("--no-compile", action="store_true",
-                   help="skip the embedded compile-cost sweep on both refs")
+    e.add_argument("--compile", action="store_true",
+                   help="also embed and gate the compile-cost sweep on both refs (~2 min each). "
+                        "Opt-in: pass it when the change under test touches codegen")
     e.set_defaults(func=experiment)
 
     args = ap.parse_args()
