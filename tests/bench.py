@@ -23,6 +23,13 @@ cyc/B and ins/B are kept as diagnostics: cyc/B is frequency-invariant timing (wh
 mispredicts show here, not in ins/B), and ins/B is deterministic retired-work (identical across machines
 for one binary+input, so it resolves a real sub-floor codegen change GB/s cannot -- but it is a rough
 proxy for work, blind to the stalls above, not a substitute for measured time).
+
+Snapshots also embed the COMPILE-COST sweep (rec:"compile": seconds / .text bytes / peak RSS per
+case x model x compiler; ~2 min; --no-compile skips it) -- what the throughput above costs the
+consumer's build, measured by tests/compile_bench.py's machinery so the two tools cannot drift.
+`table` renders it, and `diff`/`experiment` gate it at a tight threshold: compile metrics are
+near-deterministic, with no placement floor to hide behind, so unlike GB/s they gate honestly on
+an unquiesced box.
 """
 import argparse
 import json
@@ -31,6 +38,9 @@ import os
 import re
 import subprocess
 import sys
+from pathlib import Path
+
+import compile_bench  # the one home for the compile-cost machinery this tool embeds
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BENCHES = [("stream", "rapidproto_bench"), ("arena", "rapidproto_arena_bench")]
@@ -202,8 +212,9 @@ def build_and_run(build_dir, core, repeat=DEFAULT_REPEAT):
     return meta + list(other.values()) + list(chosen_by_key.values()), protobuf_version
 
 
-def write_snapshot(records, protobuf_version, build_dir, core, out_path):
-    """Write a snapshot (header + records) to out_path (defaulted from compiler+rev), returning it."""
+def write_snapshot(records, protobuf_version, build_dir, core, out_path, extra_header=None):
+    """Write a snapshot (header + records) to out_path (defaulted from compiler+rev), returning it.
+    `extra_header` carries the embedded compile sweep's comparability fields (see collect_compile)."""
     header = {
         "rec": "snapshot",
         "compiler": compiler_label(build_dir),
@@ -213,6 +224,7 @@ def write_snapshot(records, protobuf_version, build_dir, core, out_path):
         "core": core,
         # A filtered snapshot covers only part of the suite; `diff` refuses to gate on one.
         "scenario_filter": os.environ.get("RAPIDPROTO_BENCH_ONLY") or None,
+        **(extra_header or {}),
     }
     out_path = out_path or os.path.join(
         REPO, "bench_snapshots", f"{header['compiler']}-{header['git_rev']}.ndjson")
@@ -225,6 +237,31 @@ def write_snapshot(records, protobuf_version, build_dir, core, out_path):
     return out_path
 
 
+def collect_compile(build_dir):
+    """Build rapidprotoc in build_dir (so an `experiment` measures each REF's own generator) and
+    run the compile-cost cases, returning (records, header_fields). tests/compile_bench.py is the
+    one home for the machinery; this embeds its records -- rec:"compile" -- into the decode
+    snapshot so `table` and `diff` can show what the throughput COSTS. Full sweep measured at
+    ~2 min, beside a multi-minute bench run. Near-deterministic (no placement floor), so unlike
+    GB/s it needs no quiesced box and gates tightly."""
+    compile_bench.check_tools(compile_bench.DEFAULT_COMPILERS)
+    subprocess.check_call(["cmake", "--build", build_dir, "--target", "rapidprotoc"])
+    tool = Path(build_dir) / "rapidprotoc"
+    cases, skipped = compile_bench.prepare_cases(None)
+    print(f"measuring compile cost ({len(cases)} cases x "
+          f"{len(compile_bench.DEFAULT_COMPILERS)} compilers) ...", file=sys.stderr)
+    records = compile_bench.collect(
+        tool, compile_bench.DEFAULT_COMPILERS, cases,
+        on_record=lambda rec: print("  " + compile_bench.progress_line(rec), file=sys.stderr))
+    header_fields = {
+        "compile_compilers": compile_bench.DEFAULT_COMPILERS,
+        "compile_cxxflags": compile_bench.CXXFLAGS,
+        "compile_skipped_cases": skipped,
+        "compile_requested_cases": [c.name for c in cases],
+    }
+    return records, header_fields
+
+
 def run(args):
     if args.repeat < 1:  # repeat=0 would write a header-only snapshot and exit 0
         sys.exit("run: --repeat must be >= 1")
@@ -232,13 +269,17 @@ def run(args):
         print("WARNING: RAPIDPROTO_BENCH_ONLY is set -- this snapshot covers only part of the suite "
               "and `diff` will refuse it.", file=sys.stderr)
     records, pv = build_and_run(args.build_dir, args.core, args.repeat)
-    write_snapshot(records, pv, args.build_dir, args.core, args.out)
+    extra_header = {}
+    if not args.no_compile:
+        compile_records, extra_header = collect_compile(args.build_dir)
+        records = records + compile_records
+    write_snapshot(records, pv, args.build_dir, args.core, args.out, extra_header)
 
 
 # ── table: render / compare ───────────────────────────────────────────────────────────────────────
 
 def load(path):
-    header, arms, mems = None, [], []
+    header, arms, mems, compiles = None, [], [], []
     with open(path) as f:
         for line in f:
             line = line.strip()
@@ -252,7 +293,9 @@ def load(path):
                 arms.append(rec)
             elif kind == "mem":
                 mems.append(rec)
-    return header, arms, mems
+            elif kind == "compile":
+                compiles.append(rec)
+    return header, arms, mems, compiles
 
 
 def fmt(v, spec):
@@ -263,7 +306,7 @@ def fmt(v, spec):
 
 
 def render_one(path):
-    header, arms, mems = load(path)
+    header, arms, mems, compiles = load(path)
     h = header or {}
     print(f"snapshot: {h.get('compiler','?')} / protobuf {h.get('protobuf_version','?')} "
           f"/ rev {h.get('git_rev','?')}   ({os.path.basename(path)})")
@@ -292,6 +335,10 @@ def render_one(path):
             hx = m["arena_held"] / m["protoc_held"] if m["protoc_held"] else 0
             print(f"  {m['shape']:<14}{m['arena_used']:>12}{m['protoc_used']:>13}{ux:>8.2f}"
                   f"{m['arena_held']:>13}{m['protoc_held']:>13}{hx:>8.2f}")
+    if compiles:
+        print("\ncompile cost -- what the generated decoders cost to BUILD (near-deterministic; "
+              "no placement floor)")
+        compile_bench.render(compiles, indent="  ")
 
 
 def render_compare(paths):
@@ -301,12 +348,12 @@ def render_compare(paths):
     placement/frequency noise, so read small deltas with care. ins/B is shown below as deterministic
     context (lower = less retired work; a rough proxy, not measured time)."""
     snaps = [load(p) for p in paths]
-    labels = [(h or {}).get("compiler", os.path.basename(p)) for (h, _, _), p in zip(snaps, paths)]
+    labels = [(h or {}).get("compiler", os.path.basename(p)) for (h, *_), p in zip(snaps, paths)]
     for lab, p in zip(labels, paths):
         print(f"  {lab:<16} <- {os.path.basename(p)}")
 
     keys, index = [], {}
-    for si, (_, arms, _) in enumerate(snaps):
+    for si, (_, arms, _, _) in enumerate(snaps):
         for a in arms:
             k = (a["decoder"], a["scenario"], a["arm"])
             if k not in index:
@@ -347,6 +394,26 @@ def render_compare(paths):
     print("\nins/B  (deterministic context; lower = less retired work, a rough proxy -- not time)")
     print_rows("ins_b", delta=True, higher_better=False)
 
+    # Compile cost side by side, keyed like compile_bench does (case, model, compiler): what the
+    # throughput above COSTS. Only when every snapshot carries embedded compile records --
+    # a mixed set would render a half-empty table that reads as data.
+    if all(comp for (_, _, _, comp) in snaps):
+        by_key = [{compile_bench.key(r): r for r in comp} for (_, _, _, comp) in snaps]
+        ckeys = sorted({k for m in by_key for k in m})
+        for metric, title, spec in (("seconds", "compile seconds  (lower is better)", ">10.2f"),
+                                    ("text_bytes", ".text bytes  (lower is better)", ">10")):
+            print(f"\n{title}")
+            head = "".join(f"{lab[:14]:>15}" for lab in labels)
+            print(f"  {'case':<12}{'model':<8}{'compiler':<12}{head}")
+            for k in ckeys:
+                cells = "".join(
+                    f"{m[k][metric]:{spec}}".rjust(15) if k in m else f"{'-':>15}"
+                    for m in by_key)
+                print(f"  {k[0]:<12}{k[1]:<8}{k[2]:<12}{cells}")
+    elif any(comp for (_, _, _, comp) in snaps):
+        print("\nnote: some snapshots carry embedded compile records and some do not; "
+              "compile cost not compared (re-snapshot, or use compile_bench.py directly)")
+
 
 def table(args):
     if len(args.snapshots) == 1:
@@ -361,6 +428,46 @@ def overhead_dominated(scenario):
     and is meaningless to gate. Excluded from pass/fail (still shown in the report); the deterministic
     ins/B column still compares them fine. Only the sweep uses this `rv <dist> <count>` naming."""
     return scenario.startswith("rv ") and scenario.rsplit(" ", 1)[-1] in ("10", "100")
+
+
+COMPILE_THRESHOLD = 20.0  # % growth; compile metrics are near-deterministic, so far tighter
+                          # than the GB/s placement floor (matches compile_bench diff's default)
+
+
+def diff_compile(old_header, new_header, old_records, new_records):
+    """Gate the embedded compile records (if both snapshots carry them), returning True on a
+    regression. The comparison itself is compile_bench.compare -- the one home for what a compile
+    regression means. Asymmetric or non-comparable snapshots report and skip rather than gate:
+    an archived baseline predating the embedding must not fail every diff against it."""
+    if not old_records and not new_records:
+        return False
+    side = "old" if not old_records else "new"
+    if not old_records or not new_records:
+        print(f"\nnote: the {side} snapshot has no embedded compile records -- compile cost not "
+              f"compared (re-snapshot both sides with `bench.py run`)")
+        return False
+    for field in ("compile_cxxflags", "compile_requested_cases"):
+        if old_header.get(field) != new_header.get(field):
+            print(f"\nnote: {field} differs between the snapshots -- compile cost not compared "
+                  f"(the delta would be real but meaningless)")
+            return False
+    regressions, skipped, compared, vanished = compile_bench.compare(
+        old_records, new_records, COMPILE_THRESHOLD)
+    print(f"\ncompile cost (threshold {COMPILE_THRESHOLD:.1f}%; near-deterministic, no placement "
+          f"floor)")
+    for line in skipped:
+        print(f"  skipped (not the same measurement): {line}")
+    for line in regressions:
+        print(f"  >> REGRESSION {line}")
+    for missing in vanished:
+        print(f"  >> MISSING FROM NEW: {'/'.join(missing)}")
+    if compared == 0 and not vanished:
+        print("  note: 0 comparable pairs -- compile cost not gated")
+        return False
+    if not regressions and not vanished:
+        print(f"  OK: {compared} pairs compared, no compile regression beyond "
+              f"{COMPILE_THRESHOLD:.1f}%")
+    return bool(regressions or vanished)
 
 
 def diff(args):
@@ -380,7 +487,7 @@ def diff(args):
     n<=100 scenarios are excluded from pass/fail (too small to time meaningfully)."""
     if args.threshold < 0:  # a negative threshold would make the regression/improvement sets overlap
         sys.exit("diff: --threshold must be >= 0")
-    (ho, ao, _), (hn, an, _) = load(args.old), load(args.new)
+    (ho, ao, _, co), (hn, an, _, cn) = load(args.old), load(args.new)
     ho, hn = ho or {}, hn or {}
     tag = lambda h: f"{h.get('compiler', '?')} rev {h.get('git_rev', '?')}"
     print(f"diff: {tag(ho)}  ->  {tag(hn)}   (threshold {args.threshold:.1f}% GB/s)")
@@ -483,8 +590,12 @@ def diff(args):
         print(f"NOTE: a snapshot has no usable per-arm noise (archived, or --repeat < 5) -- gating "
               f"on the flat {t:.1f}% threshold alone, which is not reliable. Re-snapshot both sides "
               f"with `bench.py run --repeat {DEFAULT_REPEAT}`.")
+    compile_fail = diff_compile(ho, hn, co, cn)
     if regr:
         print(f"\nFAIL: {len(regr)} GB/s regression(s) exceed {t:.1f}%")
+        sys.exit(1)
+    if compile_fail:
+        print(f"\nFAIL: compile-cost regression(s) (listed above); GB/s itself is clean")
         sys.exit(1)
     if muted:
         print(f"\nOK: no gated regression -- but {len(muted)} arm(s) moved beyond {t:.1f}% and were "
@@ -546,8 +657,14 @@ def experiment(args):
         if not any(r.get("rec") == "arm" for r in records):
             sys.exit(f"experiment: ref '{ref}' emitted no NDJSON arm records -- it likely predates the "
                      "machine-readable bench harness; both refs must be able to emit NDJSON")
+        extra_header = {}
+        if not args.no_compile:
+            # The checked-out ref's OWN generator and headers: rapidprotoc is rebuilt in this
+            # build dir per ref, so the compile diff below measures the change's codegen cost.
+            compile_records, extra_header = collect_compile(args.build_dir)
+            records = records + compile_records
         return write_snapshot(records, pv, args.build_dir, args.core,
-                              os.path.join(snapdir, f"exp-{name}.ndjson"))
+                              os.path.join(snapdir, f"exp-{name}.ndjson"), extra_header)
 
     try:
         base_snap = snapshot_ref(baseline_sha, args.baseline, "baseline")
@@ -580,6 +697,8 @@ def main():
                    help=f"runs per snapshot, median run kept per arm (default {DEFAULT_REPEAT}; "
                         f"below {DEFAULT_REPEAT} there is no usable per-arm noise and the gate falls "
                         f"back to the flat threshold)")
+    r.add_argument("--no-compile", action="store_true",
+                   help="skip the embedded compile-cost sweep (~2 min; see tests/compile_bench.py)")
     r.set_defaults(func=run)
 
     t = sub.add_parser("table", help="render one snapshot, or compare several")
@@ -605,6 +724,8 @@ def main():
                    help=f"runs per snapshot, median run kept per arm (default {DEFAULT_REPEAT})")
     e.add_argument("--threshold", type=float, default=10.0,
                    help="regression threshold in %% GB/s (default 10.0 = the cross-build placement-noise floor)")
+    e.add_argument("--no-compile", action="store_true",
+                   help="skip the embedded compile-cost sweep on both refs")
     e.set_defaults(func=experiment)
 
     args = ap.parse_args()
