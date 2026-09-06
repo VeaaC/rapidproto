@@ -113,12 +113,16 @@ FloatClass classify(T value) {
 // machine-parseable, and an imbued locale would render the decimal separator as ','. The
 // parse-back below is a classic-locale stream too -- and that IS locale-proof: both libstdc++ and
 // libc++ implement num_get's float conversion via strtod_l with their cached C locale, so no
-// host setlocale can reach it. What is NOT reliable is the stream's failbit: libc++ raises it
-// whenever the underlying strtod sets ERANGE, and glibc/BSD both set ERANGE for representable
-// SUBNORMALS -- while the correctly rounded value is stored regardless. Consulting fail() here
-// therefore widened every subnormal to max_digits10 on macOS while Linux printed the narrow
-// form. So the check below reads the VALUE, never the flag; only finite values arrive (write_
-// float routes NaN/Inf away), so the sole reachable "failure" is exactly that deviation.
+// host setlocale can reach it. What is NOT portable is the stream's failbit; only finite values
+// arrive (write_float routes NaN/Inf away), and exactly TWO failures are reachable:
+// - libc++ raises failbit whenever strtod sets ERANGE, which glibc/BSD do for representable
+//   SUBNORMALS too -- while the correctly rounded value is stored. Consulting fail() for these
+//   widened every subnormal to max_digits10 on macOS while Linux printed the narrow form, so
+//   the check below reads the VALUE.
+// - A rendering of +/-max() at 15 digits rounds past the overflow threshold; libstdc++ then
+//   STORES +/-max() with failbit (its LWG-23 resolution; libc++ stores inf). That clamp equals
+//   the wanted bits exactly when value == +/-max(), so the flag must veto that one state or the
+//   loop accepts text every reader parses as Infinity.
 //
 // One caveat this does not cover: -ffast-math (and -Ofast) link a startup object that sets FTZ/DAZ
 // process-wide, under which the float->double widening `out << value` performs reads a SUBNORMAL
@@ -147,7 +151,12 @@ std::string round_trip_text(T value) {
         parse.imbue(std::locale::classic());
         T parsed{};
         parse >> parsed;
-        if (float_bits(parsed) == want) {
+        const Bits parsed_bits = float_bits(parsed);
+        // The one flag state that lies about the value: libstdc++'s overflow clamp (see above).
+        const bool overflow_clamp =
+            parse.fail() && (parsed_bits == float_bits(std::numeric_limits<T>::max()) ||
+                             parsed_bits == float_bits(-std::numeric_limits<T>::max()));
+        if (parsed_bits == want && !overflow_clamp) {
             break;
         }
     }

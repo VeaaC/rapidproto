@@ -5,7 +5,7 @@
 # tests). Operates only on our own sources -- never the vendored Catch2 amalgam or
 # the thin CLI driver src/main.cpp.
 #
-#   ./check.sh        # full gate: format check, doc links, nsedge fixture coverage, build+test on
+#   ./check.sh        # full gate: format check, doc links, script syntax + fixture coverage, build+test on
 #                     # both compilers, compile-fail, fuzz-compile, clang-tidy, the C++20/23 header
 #                     # smoke, the CMake-helper name check and the randomized differential. NOT the
 #                     # corpus sweep -- see `deep`.
@@ -776,13 +776,20 @@ job_fixtures() {
   # otherwise merge green and fail where it is hardest to debug. Via git ls-files so the
   # obligation follows the rule, not a directory list. bash -n under the gate's bash proves
   # PARSEABILITY only -- the macOS jobs are what prove system_build_test.sh's bash-3.2 claim.
-  local _sh
+  local _sh _sh_count=0
   while IFS= read -r _sh; do
     if ! bash -n "$_sh" 2>&1; then
       echo ">> $_sh does not parse"
       return 1
     fi
+    _sh_count=$((_sh_count + 1))
   done < <(git ls-files '*.sh')
+  # Anti-vacuity: process substitution swallows git's own exit status, so an empty or failed
+  # listing would pass green having parsed nothing. The tree has 16 tracked scripts today.
+  if [[ $_sh_count -lt 10 ]]; then
+    echo ">> script sweep found only $_sh_count scripts -- git ls-files failed or the tree moved"
+    return 1
+  fi
 
   # Every tests/test_*.cpp must be IN the test binary. A file added to tests/ but never added to
   # CMakeLists.txt is compiled by nothing and run by nothing: the format stage checks it, tidy

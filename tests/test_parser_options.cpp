@@ -218,9 +218,9 @@ TEST_CASE("scalar values: float overflow underflows to 0, overflows to inf") {
 
 TEST_CASE("scalar values: float literals parse bit-exact on every platform") {
     // These pin the parse against the compiler's own conversion on whichever standard library
-    // this suite runs under -- the macOS job runs them under libc++, whose float parse takes a
-    // different path than Linux's (see make_float). The denormal is the sharpest edge: a parse
-    // that misreports underflow flattens it to exact 0.
+    // this suite runs under -- the macOS job runs them under libc++, whose num_get differs from
+    // libstdc++'s in exactly the ways make_float documents. The denormal is the sharpest edge:
+    // a parse that misreports underflow flattens it to exact 0.
     CHECK(same_bits(std::get<double>(parse_ok("0.1", parse_value).value), 0.1));
     CHECK(same_bits(std::get<double>(parse_ok("3.14159e10", parse_value).value), 3.14159e10));
     CHECK(same_bits(std::get<double>(parse_ok("5e-324", parse_value).value),

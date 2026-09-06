@@ -33,7 +33,9 @@ cmake --build --preset gcc
 
 ## The quality gate
 
-`./check.sh` is the one-stop bar and **must be green before you commit**:
+`./check.sh` is the one-stop bar and **must be green before you commit** (on macOS, where the
+full gate cannot run — it needs bash >= 4.4 and the pinned gcc-13/clang-20 —
+`tests/system_build_test.sh` is the local bar, and CI's Linux jobs cover the rest on your PR):
 
 - `./check.sh`: clang-format, dual-compiler build + test, clang-tidy (strict on the library), the
   compile-fail harnesses, a docs link check, a dispatch-gate stress compile, and the randomized

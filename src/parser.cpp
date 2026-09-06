@@ -161,20 +161,22 @@ OptionValue make_int(std::string_view text, bool negative) {
     return OptionValue{mag};
 }
 
-// `text` is a lexer-validated float token (also reached by an over-2^64 integer literal, whose
-// hex form the stream harmlessly reads as 0 at the 'x'). ONE parse for every platform: an
-// istringstream pinned to the classic ("C") locale. That IS locale-proof -- both libstdc++ and
-// libc++ implement num_get's float conversion via strtod_l with their cached C locale, so no
-// host setlocale can reach it -- where <charconv>'s floating-point from_chars was never
-// implemented in libc++ (Apple's toolchain) at all. What is NOT portable is the failbit: libc++
-// raises it whenever strtod reports ERANGE, which glibc/BSD also do for representable
-// SUBNORMALS -- while storing the correctly rounded value regardless (measured on macOS CI:
-// trusting fail() flattened a valid "5e-324" to 0). So the value is read and the flag is
-// consulted only for the one case the standard defines a stored sentinel for: on OVERFLOW,
-// num_get stores the most positive representable value with failbit ([facet.num.get.virtuals];
-// libc++ deviates by storing inf, already the right answer). Underflow stores 0 -- with failbit
-// on libc++, without on libstdc++ -- correct either way. Bit-exact edges incl. the subnormal
-// are pinned in test_parser_options, which every CI platform runs.
+// `text` is a lexer-validated float token; it is also reached by an over-2^64 integer literal,
+// including hex form -- protoc-invalid input, where the two stdlibs legitimately differ (libc++
+// accumulates the 0x form and strtod reads a hex float; libstdc++ stops at the 'x' and yields
+// 0; any finite value is acceptable there). ONE parse for every platform: an istringstream
+// pinned to the classic ("C") locale. That IS locale-proof -- both libstdc++ and libc++
+// implement num_get's float conversion via strtod_l with their cached C locale, so no host
+// setlocale can reach it -- where floating-point from_chars is unavailable on Apple's shipped
+// libc++ (upstream only since LLVM 20, and availability-gated on macOS). What is NOT portable
+// is the failbit: libc++ raises it whenever strtod reports ERANGE, which glibc/BSD also do for
+// representable SUBNORMALS -- while storing the correctly rounded value regardless (measured on
+// macOS CI: trusting fail() flattened a valid "5e-324" to 0). So the value is read and the flag
+// is consulted only for OVERFLOW, where libstdc++ stores max() with failbit (its LWG-23
+// resolution -- the deviation) rather than the inf that [facet.num.get.virtuals] otherwise
+// implies and libc++ stores; `v >= max()` catches both. Underflow stores 0 -- with failbit on
+// libc++, without on libstdc++ -- correct either way. Bit-exact edges incl. the subnormal are
+// pinned in test_parser_options, which every CI platform runs.
 OptionValue make_float(std::string_view text, bool negative) {
     std::istringstream stream{std::string(text)};
     stream.imbue(std::locale::classic());

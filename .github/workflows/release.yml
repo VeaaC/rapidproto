@@ -1,12 +1,13 @@
 # Release: on a version tag, verify the tagged commit is on main -- the branch where every push runs
-# ci.yml's full matrix (corpus sweep, arm64, sanitizers, tidy shards, consumer); tags alone don't
+# ci.yml's full matrix (corpus sweep, arm64, macos, sanitizers, tidy shards, consumer); tags don't
 # trigger ci.yml, so this check is what stops a tag on an unvetted commit from shipping. Ancestry
 # proves the commit went through main, not that its matrix run finished green (a push superseded
 # quickly enough gets its run cancelled, and stays an ancestor) -- confirming the run is on whoever
-# tags. Then re-run the gate against the commit, build an optimized rapidprotoc per architecture,
-# and publish ONE GitHub Release carrying every binary (the source archive is GitHub's own).
+# tags. Then re-run the gate against the commit, build an optimized rapidprotoc per
+# platform/architecture, and publish ONE GitHub Release carrying every binary (the source
+# archive is GitHub's own).
 #
-# Split into a build matrix + a publish job: the architectures live once, in the matrix list, and
+# Split into a build matrix + a publish job: the platform/arch legs live once, in the matrix, and
 # publish waits on all of them -- so a failed build leg blocks the whole release instead of
 # publishing without its binary (two independent `gh release create` calls would race, and the
 # loser's upload could be lost with the release already public).
