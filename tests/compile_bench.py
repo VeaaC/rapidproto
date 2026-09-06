@@ -74,6 +74,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from typing import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -274,11 +275,16 @@ def run_case(tool: Path, case: Case, compiler: str, work: Path) -> list[dict]:
             raise SystemExit(f"{case.name}: {schema} not found (moved upstream?)")
 
     out = work / f"gen-{case.name}"
-    out.mkdir(parents=True, exist_ok=True)
-    gen = subprocess.run([str(tool), "--arena", "--stream", f"-I{include}",
-                          "--out-dir", str(out), str(schema)], capture_output=True, text=True)
-    if gen.returncode != 0:
-        raise SystemExit(f"generation failed ({case.name}):\n{gen.stderr[-1000:]}")
+    # Generated once PER CASE, not per compiler: collect() calls this for every compiler with the
+    # same work dir, and regenerating compute.proto's 103k lines twice bought nothing.
+    done_marker = out / ".generated"
+    if not done_marker.is_file():
+        out.mkdir(parents=True, exist_ok=True)
+        gen = subprocess.run([str(tool), "--arena", "--stream", f"-I{include}",
+                              "--out-dir", str(out), str(schema)], capture_output=True, text=True)
+        if gen.returncode != 0:
+            raise SystemExit(f"generation failed ({case.name}):\n{gen.stderr[-1000:]}")
+        done_marker.touch()
 
     stem = schema.relative_to(include).with_suffix("")
     arena_header, stream_header = out / f"{stem}.rp.hpp", out / f"{stem}.rp.stream.hpp"
@@ -368,7 +374,7 @@ def prepare_cases(case_filter: list[str] | None) -> tuple[list[Case], list[str]]
 
 
 def collect(tool: Path, compilers: list[str], cases: list[Case],
-            on_record=None) -> list[dict]:
+            on_record: Callable[[dict], None] | None = None) -> list[dict]:
     """Measure every (case, compiler, model), returning the records. THE one home for the
     measurement -- tests/bench.py embeds these records into its own snapshots through this
     function, so the two tools cannot drift on what a compile record means. `on_record` (if
@@ -457,7 +463,7 @@ def render(records: list[dict], indent: str = "") -> None:
         print(f"{indent}{rec['case']:<12}{rec['model']:<8}{rec['compiler']:<12}"
               f"{rec['seconds']:>9.2f}{rec['text_bytes']:>11}{rec['peak_rss_kb']:>10}"
               f"{rec['instantiated']:>7}")
-    print(f"{indent}note: streaming rows use a non-recursing catch-all, so they understate a "
+    print(f"{indent}  note: streaming rows use a non-recursing catch-all, so they understate a "
           "consumer that descends into sub-messages.")
 
 
@@ -470,6 +476,11 @@ def cmd_table(args: argparse.Namespace) -> int:
             print(f"  skipped: {', '.join(header['skipped_cases'])}")
         render(records)
     return 0
+
+
+# The regression threshold both this tool's `diff` and tests/bench.py's embedded compile gate
+# use -- one home, so the two cannot drift on what counts as a regression.
+DEFAULT_THRESHOLD = 20.0
 
 
 def compare(old_records: list[dict], new_records: list[dict],
@@ -581,8 +592,9 @@ def main() -> int:
     diff_parser = sub.add_parser("diff", help="regression check between two snapshots")
     diff_parser.add_argument("old", type=Path)
     diff_parser.add_argument("new", type=Path)
-    diff_parser.add_argument("--threshold", type=float, default=20.0,
-                             help="percent growth counting as a regression (default: 20)")
+    diff_parser.add_argument("--threshold", type=float, default=DEFAULT_THRESHOLD,
+                             help=f"percent growth counting as a regression "
+                                  f"(default: {DEFAULT_THRESHOLD:g})")
     diff_parser.set_defaults(func=cmd_diff)
 
     args = parser.parse_args()
