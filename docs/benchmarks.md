@@ -86,7 +86,9 @@ Four things to know before acting on a number:
 - **`run` executes each bench `--repeat` times (default 5)** and keeps the median run of each *arm*
   (one decoder variant within one scenario), because
   one run is not reproducible across process launches — see the appendix. Budget roughly five times
-  a single run; `experiment` builds and measures two revisions, so about ten.
+  a single run (plus ~2 min under
+  [`--compile`](#compile-cost--what-the-throughput-costs-to-build));
+  `experiment` builds and measures two revisions, so about double all of it.
 - **Both snapshots must use the same `--repeat`.** The median's sampling variance falls with K, and
   at even K the harness keeps the upper of the two middle runs — so a mixed-K pair compares two
   differently-behaved estimators. `diff` refuses, as it does for a snapshot written under
@@ -102,6 +104,27 @@ Four things to know before acting on a number:
 A snapshot is NDJSON tagged with the compiler, protobuf version, and git revision, so a number is
 never separated from what it was measured against, and it carries every run's GB/s so it can be
 re-analysed without re-measuring. GB/s is the primary signal; cyc/B and ins/B are diagnostics.
+
+## Compile cost — what the throughput costs to build
+
+Decode speed is half of what a code generator costs its user; the other half is **compile time,
+`.text` size, and the compiler's peak RSS** for the generated decoders. `bench.py run` and
+`experiment` embed that sweep into the snapshot with **`--compile`** (opt-in — a ~2-minute
+ride-along per snapshot that a throughput-focused loop should not pay; pass it when the change
+under test touches codegen), measured by `tests/compile_bench.py`'s machinery — six schema shapes from a one-message
+baseline through a 10-deep nesting chain, `descriptor.proto`, and a 103k-line generated compute
+schema, each compiled per model per compiler as one TU with an external-linkage function per
+message (see that file's docstring for the methodology and its caveats). `table` renders the
+columns beside the throughput tables (compiler launchers are neutralized: every measured compile
+sets `CCACHE_DISABLE`, and a compiler resolving to an sccache/distcc/icecc shim is refused up
+front), and `diff`/`experiment` **gate** them at a tight
+threshold: `.text` is deterministic and peak RSS nearly so, with no code-placement floor to hide
+behind (compile *seconds* is wall clock, load-sensitive like any timing) — so a codegen change
+that bloats `.text` fails the same experiment that would previously have reported only its
+(possibly invisible) speed effect. For magnitudes: an arena 10-message nesting chain costs ~4.7s and 174 KB
+of `.text` on gcc-13 against ~1.1s and 48 KB on clang-20 — build cost is strongly
+compiler-dependent, which is why the table always shows both. `tests/compile_bench.py` remains
+usable standalone (same `run`/`table`/`diff` shape) for compile-only investigation.
 
 ## Choosing the protoc baseline
 

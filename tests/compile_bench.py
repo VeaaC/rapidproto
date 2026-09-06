@@ -5,6 +5,9 @@
 
 Decode throughput is measured by tests/bench.py. This measures the other half of the bargain a
 code generator strikes with its user: build time, code size, and the compiler's peak memory.
+tests/bench.py embeds this sweep into its own snapshots through collect()/render()/compare()
+below -- one home for the machinery -- so its `table` and `diff` show and gate these numbers
+beside the throughput; this tool stays usable standalone for compile-only investigation.
 All three were invisible, and all three scale with the sub-message closure -- `RP_FLATTEN` on every
 message's `rp_decode_into` transitively inlines it, bounded by `LayoutOptions::flatten_budget`. On
 gcc a 10-message nesting chain takes ~4.7s and 174 KB of `.text` (unbounded: ~65s and 599 KB),
@@ -65,12 +68,14 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import shutil
 import subprocess
 import sys
 import tempfile
 import time
+from typing import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -221,9 +226,15 @@ def measure(compiler: str, tu: Path, include: Path) -> tuple[float, int, int]:
     # not observable from the parent process.
     argv = ["/usr/bin/time", "-f", "%M", compiler, *CXXFLAGS,
             f"-I{include}", "-c", str(tu), "-o", str(obj)]
+    # CCACHE_DISABLE: with the Debian masquerade PATH the compiler name resolves to a ccache
+    # shim, and a cache hit would report the LOOKUP's seconds/RSS as the compile's. Documented
+    # ccache behavior: with this set the shim execs the real compiler untouched. Other wrappers
+    # are refused up front in check_tools -- they have no such switch.
+    env = dict(os.environ, CCACHE_DISABLE="1")
     start = time.monotonic()
     try:
-        proc = subprocess.run(argv, capture_output=True, text=True, timeout=COMPILE_TIMEOUT_S)
+        proc = subprocess.run(argv, capture_output=True, text=True, timeout=COMPILE_TIMEOUT_S,
+                              env=env)
     except subprocess.TimeoutExpired:
         raise SystemExit(f"{compiler} exceeded {COMPILE_TIMEOUT_S}s on {tu.name}") from None
     elapsed = time.monotonic() - start
@@ -271,11 +282,16 @@ def run_case(tool: Path, case: Case, compiler: str, work: Path) -> list[dict]:
             raise SystemExit(f"{case.name}: {schema} not found (moved upstream?)")
 
     out = work / f"gen-{case.name}"
-    out.mkdir(parents=True, exist_ok=True)
-    gen = subprocess.run([str(tool), "--arena", "--stream", f"-I{include}",
-                          "--out-dir", str(out), str(schema)], capture_output=True, text=True)
-    if gen.returncode != 0:
-        raise SystemExit(f"generation failed ({case.name}):\n{gen.stderr[-1000:]}")
+    # Generated once PER CASE, not per compiler: collect() calls this for every compiler with the
+    # same work dir, and regenerating compute.proto's 103k lines twice bought nothing.
+    done_marker = out / ".generated"
+    if not done_marker.is_file():
+        out.mkdir(parents=True, exist_ok=True)
+        gen = subprocess.run([str(tool), "--arena", "--stream", f"-I{include}",
+                              "--out-dir", str(out), str(schema)], capture_output=True, text=True)
+        if gen.returncode != 0:
+            raise SystemExit(f"generation failed ({case.name}):\n{gen.stderr[-1000:]}")
+        done_marker.touch()
 
     stem = schema.relative_to(include).with_suffix("")
     arena_header, stream_header = out / f"{stem}.rp.hpp", out / f"{stem}.rp.stream.hpp"
@@ -324,28 +340,43 @@ def run_case(tool: Path, case: Case, compiler: str, work: Path) -> list[dict]:
     return records
 
 
-def cmd_run(args: argparse.Namespace) -> int:
-    tool = REPO / "build" / "gcc" / "rapidprotoc"
-    if not tool.is_file():
-        raise SystemExit(f"{tool} not found -- build it first (cmake --build --preset gcc)")
-    compilers = args.compiler or DEFAULT_COMPILERS
+def check_tools(compilers: list[str]) -> None:
+    """Refuse early when a compiler or measuring tool is absent -- or WRAPPED.
+
+    Compiler-launcher shims corrupt two of the three metrics: on a cache hit the "compile" is a
+    lookup, so seconds and peak RSS measure the shim, not the compiler (.text stays correct --
+    the cached object is byte-identical). ccache is neutralized instead of refused: measure()
+    sets CCACHE_DISABLE=1, which ccache documents as a straight pass-through, so the standard
+    Debian masquerade PATH (/usr/lib/ccache first) still measures the real compiler. Other
+    wrappers (sccache, distcc, icecc) have no equivalent universal off switch, so a compiler
+    resolving to one is refused with the fix named."""
     for compiler in compilers:
-        if not shutil.which(compiler):
+        resolved = shutil.which(compiler)
+        if not resolved:
             raise SystemExit(f"{compiler} not found")
+        target = Path(resolved).resolve().name
+        if target in ("sccache", "distcc", "icecc"):
+            raise SystemExit(
+                f"{compiler} resolves to a {target} shim ({resolved}); compile seconds and peak "
+                f"RSS would measure the wrapper, not the compiler. Put the real compiler first "
+                f"on PATH for this run.")
     for binary in ("/usr/bin/time", "objdump"):
         if not shutil.which(binary):
             raise SystemExit(f"{binary} is required")
 
-    cases = [c for c in CASES if not args.case or c.name in args.case]
-    if args.case:
-        unknown = sorted(set(args.case) - {c.name for c in CASES})
+
+def prepare_cases(case_filter: list[str] | None) -> tuple[list[Case], list[str]]:
+    """The runnable (cases, skipped-case-names) for this checkout. Skips must be RECORDED in the
+    snapshot by the caller: a case that vanishes silently is how a shrinking benchmark comes to
+    look like a passing one. Availability is PER SOURCE via the fetcher's own pin check --
+    `CORPUS.is_dir()` used to pass with one source fetched and then die inside the other source's
+    case where a skip was intended -- and a present-but-stale checkout is an error, not a skip
+    (the numbers would claim a corpus they never saw)."""
+    cases = [c for c in CASES if not case_filter or c.name in case_filter]
+    if case_filter:
+        unknown = sorted(set(case_filter) - {c.name for c in CASES})
         if unknown:
             raise SystemExit(f"unknown case(s): {', '.join(unknown)}")
-    # Record what was left out, in the snapshot itself: a case that vanishes silently is how a
-    # shrinking benchmark comes to look like a passing one. Availability is PER SOURCE via the
-    # fetcher's own pin check -- `CORPUS.is_dir()` used to pass with one source fetched and then
-    # die inside the other source's case where a skip was intended -- and a present-but-stale
-    # checkout is an error, not a skip (the numbers would claim a corpus they never saw).
     source_by_name = {s.name: s for s in fetch_corpus.SOURCES}
     stale = sorted({c.corpus_source for c in cases
                     if c.corpus_source and (CORPUS / c.corpus_source).is_dir()
@@ -361,6 +392,39 @@ def cmd_run(args: argparse.Namespace) -> int:
         raise SystemExit("no cases to run (corpus not fetched? see tests/fetch_corpus.py)")
     if skipped:
         print(f"note: skipping {', '.join(skipped)} (corpus not fetched)", file=sys.stderr)
+    return cases, skipped
+
+
+def collect(tool: Path, compilers: list[str], cases: list[Case],
+            on_record: Callable[[dict], None] | None = None) -> list[dict]:
+    """Measure every (case, compiler, model), returning the records. THE one home for the
+    measurement -- tests/bench.py embeds these records into its own snapshots through this
+    function, so the two tools cannot drift on what a compile record means. `on_record` (if
+    given) sees each record as it lands, for streaming progress/persistence."""
+    records = []
+    with tempfile.TemporaryDirectory(prefix="rpcompile-") as tmp:
+        for case in cases:
+            for compiler in compilers:
+                for rec in run_case(tool, case, compiler, Path(tmp)):
+                    records.append(rec)
+                    if on_record is not None:
+                        on_record(rec)
+    return records
+
+
+def progress_line(rec: dict) -> str:
+    return (f"{rec['case']:<12}{rec['model']:<8}{rec['compiler']:<12}"
+            f"{rec['seconds']:>8.2f}s  text={rec['text_bytes']:>9}  "
+            f"rss={rec['peak_rss_kb']:>8}KB  msgs={rec['instantiated']}")
+
+
+def cmd_run(args: argparse.Namespace) -> int:
+    tool = REPO / "build" / "gcc" / "rapidprotoc"
+    if not tool.is_file():
+        raise SystemExit(f"{tool} not found -- build it first (cmake --build --preset gcc)")
+    compilers = args.compiler or DEFAULT_COMPILERS
+    check_tools(compilers)
+    cases, skipped = prepare_cases(args.case)
 
     out = Path(args.out) if args.out else \
         SNAPDIR / f"compile-{'+'.join(compilers)}-{git_rev()}.ndjson"
@@ -381,17 +445,15 @@ def cmd_run(args: argparse.Namespace) -> int:
             "requested_cases": [c.name for c in cases],
         }) + "\n")
         handle.flush()
-        with tempfile.TemporaryDirectory(prefix="rpcompile-") as tmp:
-            for case in cases:
-                for compiler in compilers:
-                    for rec in run_case(tool, case, compiler, Path(tmp)):
-                        handle.write(json.dumps(rec) + "\n")
-                        handle.flush()  # survive an interrupt or an OOM kill
-                        written += 1
-                        print(f"{rec['case']:<12}{rec['model']:<8}{rec['compiler']:<12}"
-                              f"{rec['seconds']:>8.2f}s  text={rec['text_bytes']:>9}  "
-                              f"rss={rec['peak_rss_kb']:>8}KB  msgs={rec['instantiated']}",
-                              flush=True)
+
+        def persist(rec: dict) -> None:
+            nonlocal written
+            handle.write(json.dumps(rec) + "\n")
+            handle.flush()  # survive an interrupt or an OOM kill
+            written += 1
+            print(progress_line(rec), flush=True)
+
+        collect(tool, compilers, cases, on_record=persist)
     print(f"wrote {written} records -> {out}", file=sys.stderr)
     return 0
 
@@ -415,6 +477,18 @@ def key(rec: dict) -> tuple:
     return (rec["case"], rec["model"], rec["compiler"])
 
 
+def render(records: list[dict], indent: str = "") -> None:
+    """The compile-record table body; shared with tests/bench.py's embedded compile section."""
+    print(f"{indent}{'case':<12}{'model':<8}{'compiler':<12}{'seconds':>9}{'.text':>11}"
+          f"{'peakRSS':>10}{'msgs':>7}")
+    for rec in sorted(records, key=key):
+        print(f"{indent}{rec['case']:<12}{rec['model']:<8}{rec['compiler']:<12}"
+              f"{rec['seconds']:>9.2f}{rec['text_bytes']:>11}{rec['peak_rss_kb']:>10}"
+              f"{rec['instantiated']:>7}")
+    print(f"{indent}  note: streaming rows use a non-recursing catch-all, so they understate a "
+          "consumer that descends into sub-messages.")
+
+
 def cmd_table(args: argparse.Namespace) -> int:
     for path in args.snapshots:
         header, records = load(path)
@@ -422,15 +496,52 @@ def cmd_table(args: argparse.Namespace) -> int:
               f"{' '.join(header.get('cxxflags', []))}) ===")
         if header.get("skipped_cases"):
             print(f"  skipped: {', '.join(header['skipped_cases'])}")
-        print(f"{'case':<12}{'model':<8}{'compiler':<12}{'seconds':>9}{'.text':>11}"
-              f"{'peakRSS':>10}{'msgs':>7}")
-        for rec in sorted(records, key=key):
-            print(f"{rec['case']:<12}{rec['model']:<8}{rec['compiler']:<12}"
-                  f"{rec['seconds']:>9.2f}{rec['text_bytes']:>11}{rec['peak_rss_kb']:>10}"
-                  f"{rec['instantiated']:>7}")
-        print("  note: streaming rows use a non-recursing catch-all, so they understate a "
-              "consumer that descends into sub-messages.")
+        render(records)
     return 0
+
+
+# The regression threshold both this tool's `diff` and tests/bench.py's embedded compile gate
+# use -- one home, so the two cannot drift on what counts as a regression.
+DEFAULT_THRESHOLD = 20.0
+
+
+def compare(old_records: list[dict], new_records: list[dict],
+            threshold: float) -> tuple[list[str], list[str], int, list[tuple]]:
+    """Pairwise metric comparison, returning (regressions, skipped, compared, vanished). THE one
+    home for what a compile regression means; tests/bench.py's diff gates embedded compile
+    records through this too."""
+    old_index = {key(r): r for r in old_records}
+    regressions, skipped, compared = [], [], 0
+    for rec in new_records:
+        old = old_index.get(key(rec))
+        if old is None:
+            continue
+        # Comparing across a changed decoder SET is not a regression check. `instantiated`
+        # alone is not enough: a corpus pin bump can add a message that sorts into the capped
+        # prefix, keeping the count identical while sampling different code.
+        if (old.get("instantiated") != rec.get("instantiated")
+                or old.get("decoder_digest") != rec.get("decoder_digest")):
+            skipped.append(f"{'/'.join(key(rec))}: decoder set changed "
+                           f"({old.get('instantiated')} -> {rec.get('instantiated')} decoders)")
+            continue
+        checked = 0
+        for metric in METRICS:
+            before, after = old.get(metric), rec.get(metric)
+            if not before or not after or before <= 0:
+                continue
+            checked += 1
+            delta = (after - before) / before * 100.0
+            if delta > threshold:
+                regressions.append(
+                    f"{'/'.join(key(rec))} {metric}: {before} -> {after}  (+{delta:.1f}%)")
+        # Count pairs whose metrics were actually comparable. A renamed metric key would
+        # otherwise degrade diff to checking nothing while still reporting a pair count.
+        if checked:
+            compared += 1
+        else:
+            skipped.append(f"{'/'.join(key(rec))}: no comparable metrics")
+    vanished = sorted(set(old_index) - {key(r) for r in new_records})
+    return regressions, skipped, compared, vanished
 
 
 def cmd_diff(args: argparse.Namespace) -> int:
@@ -455,37 +566,7 @@ def cmd_diff(args: argparse.Namespace) -> int:
             f"compiler flags differ ({old_header.get('cxxflags')} vs "
             f"{new_header.get('cxxflags')}); the delta would be real but meaningless."
         )
-    old_index = {key(r): r for r in old_records}
-    regressions, skipped, compared = [], [], 0
-    for rec in new_records:
-        old = old_index.get(key(rec))
-        if old is None:
-            continue
-        # Comparing across a changed decoder SET is not a regression check. `instantiated`
-        # alone is not enough: a corpus pin bump can add a message that sorts into the capped
-        # prefix, keeping the count identical while sampling different code.
-        if (old.get("instantiated") != rec.get("instantiated")
-                or old.get("decoder_digest") != rec.get("decoder_digest")):
-            skipped.append(f"{'/'.join(key(rec))}: decoder set changed "
-                           f"({old.get('instantiated')} -> {rec.get('instantiated')} decoders)")
-            continue
-        checked = 0
-        for metric in METRICS:
-            before, after = old.get(metric), rec.get(metric)
-            if not before or not after or before <= 0:
-                continue
-            checked += 1
-            delta = (after - before) / before * 100.0
-            if delta > args.threshold:
-                regressions.append(
-                    f"{'/'.join(key(rec))} {metric}: {before} -> {after}  (+{delta:.1f}%)")
-        # Count pairs whose metrics were actually comparable. A renamed metric key would
-        # otherwise degrade diff to checking nothing while still reporting a pair count.
-        if checked:
-            compared += 1
-        else:
-            skipped.append(f"{'/'.join(key(rec))}: no comparable metrics")
-    vanished = sorted(set(old_index) - {key(r) for r in new_records})
+    regressions, skipped, compared, vanished = compare(old_records, new_records, args.threshold)
     for missing in vanished:
         print(f">> MISSING FROM NEW: {'/'.join(missing)}")
     for line in skipped:
@@ -533,8 +614,9 @@ def main() -> int:
     diff_parser = sub.add_parser("diff", help="regression check between two snapshots")
     diff_parser.add_argument("old", type=Path)
     diff_parser.add_argument("new", type=Path)
-    diff_parser.add_argument("--threshold", type=float, default=20.0,
-                             help="percent growth counting as a regression (default: 20)")
+    diff_parser.add_argument("--threshold", type=float, default=DEFAULT_THRESHOLD,
+                             help=f"percent growth counting as a regression "
+                                  f"(default: {DEFAULT_THRESHOLD:g})")
     diff_parser.set_defaults(func=cmd_diff)
 
     args = parser.parse_args()
