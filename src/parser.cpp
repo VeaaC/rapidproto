@@ -5,7 +5,10 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
+#include <locale>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -124,43 +127,6 @@ constexpr unsigned kInt64SignBitShift = 63;
 
 OptionValue make_float(std::string_view text, bool negative);
 
-// Coarse base-10 exponent of |text| (a valid float literal; sign already stripped),
-// used only to classify an out-of-range literal as overflow (>= 0) vs underflow.
-long approx_decimal_exponent(std::string_view text) {
-    long exp = 0;
-    std::string_view mantissa = text;
-    if (const auto e = text.find_first_of("eE"); e != std::string_view::npos) {
-        std::size_t epos = e + 1;
-        if (epos < text.size() && text[epos] == '+') {
-            ++epos;  // std::from_chars rejects a leading '+'
-        }
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic): from_chars range
-        std::from_chars(text.data() + epos, text.data() + text.size(), exp);
-        mantissa = text.substr(0, e);
-    }
-    const auto dot = mantissa.find('.');
-    const std::string_view int_part =
-        dot == std::string_view::npos ? mantissa : mantissa.substr(0, dot);
-    const std::string_view frac_part =
-        dot == std::string_view::npos ? std::string_view{} : mantissa.substr(dot + 1);
-
-    std::size_t i = 0;
-    while (i < int_part.size() && int_part[i] == '0') {
-        ++i;
-    }
-    if (i < int_part.size()) {  // leading significant digit is in the integer part
-        return static_cast<long>(int_part.size() - i) - 1 + exp;
-    }
-    std::size_t z = 0;
-    while (z < frac_part.size() && frac_part[z] == '0') {
-        ++z;
-    }
-    if (z < frac_part.size()) {  // leading significant digit is after the point
-        return -static_cast<long>(z + 1) + exp;
-    }
-    return exp;  // all-zero mantissa (value is exactly 0)
-}
-
 // Split an integer literal into (base, digits without the 0x/0 prefix).
 std::pair<int, std::string_view> split_int_literal(std::string_view text) {
     if (text.size() >= 2 && text[0] == '0' && (text[1] == 'x' || text[1] == 'X')) {
@@ -195,16 +161,29 @@ OptionValue make_int(std::string_view text, bool negative) {
     return OptionValue{mag};
 }
 
+// `text` is a lexer-validated float token; it is also reached by an over-2^64 integer literal,
+// including hex form -- protoc-invalid input, where the two stdlibs legitimately differ (libc++
+// accumulates the 0x form and strtod reads a hex float; libstdc++ stops at the 'x' and yields
+// 0; any finite value is acceptable there). ONE parse for every platform: an istringstream
+// pinned to the classic ("C") locale. That IS locale-proof -- both libstdc++ and libc++
+// implement num_get's float conversion via strtod_l with their cached C locale, so no host
+// setlocale can reach it -- where floating-point from_chars is unavailable on Apple's shipped
+// libc++ (upstream only since LLVM 20, and availability-gated on macOS). What is NOT portable
+// is the failbit: libc++ raises it whenever strtod reports ERANGE, which glibc/BSD also do for
+// representable SUBNORMALS -- while storing the correctly rounded value regardless (measured on
+// macOS CI: trusting fail() flattened a valid "5e-324" to 0). So the value is read and the flag
+// is consulted only for OVERFLOW, where libstdc++ stores max() with failbit (its LWG-23
+// resolution -- the deviation) rather than the inf that [facet.num.get.virtuals] otherwise
+// implies and libc++ stores; `v >= max()` catches both. Underflow stores 0 -- with failbit on
+// libc++, without on libstdc++ -- correct either way. Bit-exact edges incl. the subnormal are
+// pinned in test_parser_options, which every CI platform runs.
 OptionValue make_float(std::string_view text, bool negative) {
+    std::istringstream stream{std::string(text)};
+    stream.imbue(std::locale::classic());
     double v = 0;
-    // NOLINTNEXTLINE(bugprone-suspicious-stringview-data-usage): paired with size below
-    const char* first = text.data();
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic): from_chars needs a range
-    const char* last = first + text.size();
-    const auto ec = std::from_chars(first, last, v).ec;
-    if (ec == std::errc::result_out_of_range) {
-        // from_chars leaves v unmodified on out-of-range for both extremes; classify.
-        v = approx_decimal_exponent(text) >= 0 ? HUGE_VAL : 0.0;
+    stream >> v;
+    if (stream.fail() && v >= std::numeric_limits<double>::max()) {
+        v = HUGE_VAL;  // overflow saturates to +inf (the token carries no sign)
     }
     if (negative) {
         v = -v;

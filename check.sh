@@ -5,7 +5,7 @@
 # tests). Operates only on our own sources -- never the vendored Catch2 amalgam or
 # the thin CLI driver src/main.cpp.
 #
-#   ./check.sh        # full gate: format check, doc links, nsedge fixture coverage, build+test on
+#   ./check.sh        # full gate: format check, doc links, script syntax + fixture coverage, build+test on
 #                     # both compilers, compile-fail, fuzz-compile, clang-tidy, the C++20/23 header
 #                     # smoke, the CMake-helper name check and the randomized differential. NOT the
 #                     # corpus sweep -- see `deep`.
@@ -38,6 +38,16 @@
 # nothing interleaves. Exits non-zero if anything is not clean.
 
 set -uo pipefail
+
+# The floor is a fact three comments state; enforce it so a stock-macOS bash 3.2 gets this
+# sentence instead of what it otherwise does: globstar fails NON-fatally, the ** globs silently
+# under-match, mapfile is command-not-found, and `local -n` errors at runtime hundreds of lines
+# later. (4.4: namerefs, globstar, mapfile -d.)
+if ((BASH_VERSINFO[0] < 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] < 4))); then
+  echo ">> check.sh needs bash >= 4.4 (this is ${BASH_VERSION}). On macOS, run" >&2
+  echo "   tests/system_build_test.sh instead -- the system-compiler build/test sequence." >&2
+  exit 2
+fi
 cd "$(dirname "$0")"
 
 CLANG_FORMAT="${CLANG_FORMAT:-clang-format-20}"   # overridable so the gate can be tested against a broken tool
@@ -761,6 +771,26 @@ job_doc_links() {
 }
 
 job_fixtures() {
+  # Syntax-check every tracked shell script first: some are EXECUTED by no gate stage on this
+  # platform (tests/system_build_test.sh runs only on the macOS legs), so a parse error would
+  # otherwise merge green and fail where it is hardest to debug. Via git ls-files so the
+  # obligation follows the rule, not a directory list. bash -n under the gate's bash proves
+  # PARSEABILITY only -- the macOS jobs are what prove system_build_test.sh's bash-3.2 claim.
+  local _sh _sh_count=0
+  while IFS= read -r _sh; do
+    if ! bash -n "$_sh" 2>&1; then
+      echo ">> $_sh does not parse"
+      return 1
+    fi
+    _sh_count=$((_sh_count + 1))
+  done < <(git ls-files '*.sh')
+  # Anti-vacuity: process substitution swallows git's own exit status, so an empty or failed
+  # listing would pass green having parsed nothing. The tree has 16 tracked scripts today.
+  if [[ $_sh_count -lt 10 ]]; then
+    echo ">> script sweep found only $_sh_count scripts -- git ls-files failed or the tree moved"
+    return 1
+  fi
+
   # Every tests/test_*.cpp must be IN the test binary. A file added to tests/ but never added to
   # CMakeLists.txt is compiled by nothing and run by nothing: the format stage checks it, tidy
   # exits 0 on a TU absent from the compile database, and the suite prints its usual assertion
@@ -886,7 +916,10 @@ job_compile_fail() {
   command -v "$cf_cxx" >/dev/null 2>&1 || cf_cxx=c++
   if out=$(tests/streamgen_compile_fail.sh "$cf_cxx" 2>&1); then tail -1 <<<"$out"; else echo "$out"; rc=1; fi
   if out=$(tests/arenagen_compile_fail.sh "$cf_cxx" 2>&1); then tail -1 <<<"$out"; else echo "$out"; rc=1; fi
-  if out=$(tests/dumpgen_compile_fail.sh "$cf_cxx" 2>&1); then tail -1 <<<"$out"; else echo "$out"; rc=1; fi
+  # RAPIDPROTOC pinned: the script honors it as an override, and an inherited value from the
+  # developer's environment would silently grade a DIFFERENT generator than the one
+  # ensure_gcc_binaries just proved fresh (the same ambient-env hazard as RAPIDPROTO_REGEN_GOLDEN).
+  if out=$(RAPIDPROTOC="$PWD/build/gcc/rapidprotoc" tests/dumpgen_compile_fail.sh "$cf_cxx" 2>&1); then tail -1 <<<"$out"; else echo "$out"; rc=1; fi
   return "$rc"
 }
 
@@ -1165,7 +1198,7 @@ stage_title() {
   case $1 in
     format)       echo "clang-format (check)" ;;
     docs)         echo "doc links + stale spellings" ;;
-    fixtures)     echo "corpus fixture coverage" ;;
+    fixtures)     echo "script syntax + corpus fixture coverage" ;;
     gcc)          echo "build + test (gcc)" ;;
     clang)        echo "build + test (clang)" ;;
     cf)           echo "compile-fail (generated decoder rejects misuse)" ;;

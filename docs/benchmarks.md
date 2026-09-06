@@ -59,7 +59,9 @@ report), so measure your own payloads rather than trusting one ratio as universa
 ## Reproducing
 
 The benches need `libprotobuf-dev` (+ a matching `protoc`) and `protozero` installed;
-`rapidproto_arena_bench` is built only when protobuf is found.
+`rapidproto_arena_bench` is built only when protobuf is found — and both bench targets
+exist only on Linux (`tests/bench_harness.hpp` is built on `perf_event` self-monitoring
+and refuses other platforms).
 
 **Quiesce the box first.** `tests/bench_box.sh setup` disables SMT and turbo, sets the
 `performance` governor, and enables the hardware counters — saving whatever was there before, so

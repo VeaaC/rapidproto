@@ -146,9 +146,14 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
 
 ### Added
 
-- **Releases ship a `linux-arm64` binary alongside `linux-x86_64`.** Same tarball layout; both
-  legs re-verify the tag (the full default gate on x86_64, the architecture-sensitive stages on
-  arm64), and a failed leg blocks the whole release rather than publishing without one binary.
+- **Releases ship `linux-arm64` and `macos-arm64` binaries alongside `linux-x86_64`.** Same
+  tarball layout; every leg re-verifies the tag (the full default gate on linux-x86_64, the
+  architecture-sensitive stages on linux-arm64, a system-compiler build + test + compile-fail run
+  on macOS), and a failed leg blocks the whole release rather than publishing without one binary.
+  CI now also builds and tests on macOS (AppleClang + libc++) for every pull request and
+  push to the default branch. The macOS binary is
+  unsigned/un-notarized: if Gatekeeper blocks it after extracting, clear the quarantine flag
+  (`xattr -d com.apple.quarantine rapidprotoc`).
 
 - **`rapidprotoc --list-outputs` and `--list-inputs`: dry runs for build systems.** The first
   prints every path a generation would write (relative to `--out-dir`, one per line), the second
@@ -173,6 +178,10 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
   fix instead of a cryptic makefile syntax error.
 
 ### Fixed
+
+- **A float option literal whose exponent overflows the exponent's own integer type now yields
+  the value its sign implies.** `1e-99999999999999999999` parsed to `+inf` (the classifier read
+  an unparseable exponent as 0 and called it overflow); it now yields `0`, matching protoc.
 
 - **`make install` ships `dump_runtime.hpp`.** The install rule listed the other runtime headers
   but not the dumper's, so an installed package could compile a generated dump header only by

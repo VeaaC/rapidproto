@@ -69,13 +69,16 @@ messages, keep `protoc` for that side and use RapidProto for the hot decode path
 
 ## Quick start
 
-**Requirements:** C++17 and a recent GCC or Clang. Header-only — nothing to link.
+**Requirements:** C++17 and a recent GCC or Clang (AppleClang included — Linux and macOS are both
+CI-covered). Header-only — nothing to link.
 
 Using CMake? The [`rapidproto_generate()` helper](docs/integration.md#cmake-integration) wires
 generation into your build in a few lines. This section drives the tool by hand so each step is
 visible. Grab a prebuilt `rapidprotoc` from the
-[releases page](https://github.com/VeaaC/rapidproto/releases) (prebuilt Linux tarballs, license
-files included) — or build it once:
+[releases page](https://github.com/VeaaC/rapidproto/releases) (prebuilt Linux and macOS
+tarballs, license files included; the macOS binary is unsigned — if Gatekeeper blocks it after
+extracting, clear the quarantine flag: `xattr -d com.apple.quarantine rapidprotoc`) — or build it
+once:
 
 ```sh
 cmake --preset release                               # system compiler, optimized

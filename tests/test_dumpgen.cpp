@@ -881,6 +881,15 @@ TEST_CASE("dumpgen: float/double edge values keep their exact bits", "[dumpgen]"
     CHECK(dump_of(std::numeric_limits<double>::denorm_min(),
                   std::numeric_limits<float>::denorm_min()) ==
           R"({"i32": 1, "fl": 1.4013e-45, "db": 4.94065645841247e-324})");
+    // A double max() needs all 17 digits: its 15-digit rendering rounds UP past the overflow
+    // threshold,
+    // and libstdc++ then hands the parse-back a failbit with max() STORED -- the one flag state
+    // round_trip_text must veto, or this dumps text every reader parses as Infinity (a bug this
+    // pin caught on Linux while macOS was green: libc++ stores inf there, whose bits never match).
+    CHECK(dump_of(std::numeric_limits<double>::max(), std::numeric_limits<float>::max()) ==
+          R"({"i32": 1, "fl": 3.4028235e+38, "db": 1.7976931348623157e+308})");
+    CHECK(dump_of(-std::numeric_limits<double>::max(), -std::numeric_limits<float>::max()) ==
+          R"({"i32": 1, "fl": -3.4028235e+38, "db": -1.7976931348623157e+308})");
 }
 
 TEST_CASE("dumpgen: a double keeps its precision on the multi-line path too", "[dumpgen]") {

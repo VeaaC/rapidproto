@@ -33,7 +33,9 @@ cmake --build --preset gcc
 
 ## The quality gate
 
-`./check.sh` is the one-stop bar and **must be green before you commit**:
+`./check.sh` is the one-stop bar and **must be green before you commit** (on macOS, where the
+full gate cannot run — it needs bash >= 4.4 and the pinned gcc-13/clang-20 —
+`tests/system_build_test.sh` is the local bar, and CI's Linux jobs cover the rest on your PR):
 
 - `./check.sh`: clang-format, dual-compiler build + test, clang-tidy (strict on the library), the
   compile-fail harnesses, a docs link check, a dispatch-gate stress compile, and the randomized
@@ -51,7 +53,9 @@ CI runs the gate's stages spread across several jobs, `./check.sh deep`, and a R
 build on **every pull request and every push to the default branch** (feature-branch pushes are
 gated by their PR run). Running `./check.sh` locally covers the same stages in one command; what
 CI adds beyond it: the corpus-compile sample (locally a deep-tier leg), an arm64 build/test job,
-and the consumer job (install -> `find_package` -> C++20/23 header compiles).
+a macOS build/test job (AppleClang + libc++, via `tests/system_build_test.sh` — the system-compiler
+sequence shared with the release workflow's macOS leg), and the consumer job (install ->
+`find_package` -> C++20/23 header compiles).
 
 ## The real-world schema corpus
 
