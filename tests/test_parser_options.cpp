@@ -205,6 +205,12 @@ TEST_CASE("scalar values: float overflow underflows to 0, overflows to inf") {
     CHECK(std::get<double>(parse_ok("1e-400", parse_value).value) ==
           Catch::Approx(0.0));  // not inf
     CHECK(std::get<double>(parse_ok("-1e-400", parse_value).value) == Catch::Approx(0.0));
+    // An exponent too large for the EXPONENT'S own integer type must still classify by its sign:
+    // protoc accepts this literal and yields 0 (a former classify-by-reparse path returned +inf
+    // for it, because from_chars leaves its output unmodified on out-of-range).
+    CHECK(std::get<double>(parse_ok("1e-99999999999999999999", parse_value).value) ==
+          Catch::Approx(0.0));
+    CHECK(std::isinf(std::get<double>(parse_ok("1e99999999999999999999", parse_value).value)));
     // a decimal integer past 2^64 falls back to a (huge but finite) float.
     CHECK(std::get<double>(parse_ok("100000000000000000000", parse_value).value) ==
           Catch::Approx(1e20));

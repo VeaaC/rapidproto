@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <locale>
 #include <optional>
 #include <sstream>
@@ -126,43 +127,6 @@ constexpr unsigned kInt64SignBitShift = 63;
 
 OptionValue make_float(std::string_view text, bool negative);
 
-// Coarse base-10 exponent of |text| (a valid float literal; sign already stripped),
-// used only to classify an out-of-range literal as overflow (>= 0) vs underflow.
-long approx_decimal_exponent(std::string_view text) {
-    long exp = 0;
-    std::string_view mantissa = text;
-    if (const auto e = text.find_first_of("eE"); e != std::string_view::npos) {
-        std::size_t epos = e + 1;
-        if (epos < text.size() && text[epos] == '+') {
-            ++epos;  // std::from_chars rejects a leading '+'
-        }
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic): from_chars range
-        std::from_chars(text.data() + epos, text.data() + text.size(), exp);
-        mantissa = text.substr(0, e);
-    }
-    const auto dot = mantissa.find('.');
-    const std::string_view int_part =
-        dot == std::string_view::npos ? mantissa : mantissa.substr(0, dot);
-    const std::string_view frac_part =
-        dot == std::string_view::npos ? std::string_view{} : mantissa.substr(dot + 1);
-
-    std::size_t i = 0;
-    while (i < int_part.size() && int_part[i] == '0') {
-        ++i;
-    }
-    if (i < int_part.size()) {  // leading significant digit is in the integer part
-        return static_cast<long>(int_part.size() - i) - 1 + exp;
-    }
-    std::size_t z = 0;
-    while (z < frac_part.size() && frac_part[z] == '0') {
-        ++z;
-    }
-    if (z < frac_part.size()) {  // leading significant digit is after the point
-        return -static_cast<long>(z + 1) + exp;
-    }
-    return exp;  // all-zero mantissa (value is exactly 0)
-}
-
 // Split an integer literal into (base, digits without the 0x/0 prefix).
 std::pair<int, std::string_view> split_int_literal(std::string_view text) {
     if (text.size() >= 2 && text[0] == '0' && (text[1] == 'x' || text[1] == 'X')) {
@@ -197,24 +161,27 @@ OptionValue make_int(std::string_view text, bool negative) {
     return OptionValue{mag};
 }
 
-// `text` is a lexer-validated float token (digits/dot/exponent -- never whitespace, a sign, inf,
-// nan, or a hex float). ONE parse for every platform: an istringstream pinned to the classic
-// ("C") locale. Not <charconv>'s from_chars, because libc++ (Apple's toolchain) never
-// implemented the floating-point overloads; not a strtod fallback beside from_chars, because
-// that is a second code path with its own quirks (LC_NUMERIC decimal point; glibc flags
-// representable denormals ERANGE). Measured bit-exact against from_chars over 1M+ randomized
-// literals plus the denormal/extreme edges on libstdc++ (gcc-13 and clang-20); the same edges
-// are pinned in test_parser_options, which the macOS CI leg runs under libc++.
+// `text` is a lexer-validated float token (also reached by an over-2^64 integer literal, whose
+// hex form the stream harmlessly reads as 0 at the 'x'). ONE parse for every platform: an
+// istringstream pinned to the classic ("C") locale. That IS locale-proof -- both libstdc++ and
+// libc++ implement num_get's float conversion via strtod_l with their cached C locale, so no
+// host setlocale can reach it -- where <charconv>'s floating-point from_chars was never
+// implemented in libc++ (Apple's toolchain) at all. What is NOT portable is the failbit: libc++
+// raises it whenever strtod reports ERANGE, which glibc/BSD also do for representable
+// SUBNORMALS -- while storing the correctly rounded value regardless (measured on macOS CI:
+// trusting fail() flattened a valid "5e-324" to 0). So the value is read and the flag is
+// consulted only for the one case the standard defines a stored sentinel for: on OVERFLOW,
+// num_get stores the most positive representable value with failbit ([facet.num.get.virtuals];
+// libc++ deviates by storing inf, already the right answer). Underflow stores 0 -- with failbit
+// on libc++, without on libstdc++ -- correct either way. Bit-exact edges incl. the subnormal
+// are pinned in test_parser_options, which every CI platform runs.
 OptionValue make_float(std::string_view text, bool negative) {
     std::istringstream stream{std::string(text)};
     stream.imbue(std::locale::classic());
     double v = 0;
     stream >> v;
-    if (stream.fail()) {
-        // Out-of-range (the only failure a lexed token can produce). What num_get stores then
-        // varies by implementation (DBL_MAX, HUGE_VAL, or 0), so reclassify from the exponent.
-        // Underflow-to-zero may instead be reported as SUCCESS with 0 stored -- already correct.
-        v = approx_decimal_exponent(text) >= 0 ? HUGE_VAL : 0.0;
+    if (stream.fail() && v >= std::numeric_limits<double>::max()) {
+        v = HUGE_VAL;  // overflow saturates to +inf (the token carries no sign)
     }
     if (negative) {
         v = -v;
