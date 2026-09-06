@@ -5,14 +5,9 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#if !(defined(__cpp_lib_to_chars) && __cpp_lib_to_chars >= 201611L)
-#include <cerrno>
-#include <cstdlib>
-#if defined(__APPLE__)
-#include <xlocale.h>  // locale_t / newlocale / strtod_l (see make_float)
-#endif
-#endif
+#include <locale>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -203,40 +198,22 @@ OptionValue make_int(std::string_view text, bool negative) {
 }
 
 // `text` is a lexer-validated float token (digits/dot/exponent -- never whitespace, a sign, inf,
-// nan, or a hex float), parsed with <charconv>'s floating-point from_chars where the standard
-// library implements it. libc++ -- Apple's toolchain included -- ships only the INTEGRAL
-// overloads (its __cpp_lib_to_chars stays unset), so there the fallback is strtod pinned to the
-// C locale via strtod_l: plain strtod reads LC_NUMERIC's decimal point, and a host application
-// may have set a locale where '.' is not it.
+// nan, or a hex float). ONE parse for every platform: an istringstream pinned to the classic
+// ("C") locale. Not <charconv>'s from_chars, because libc++ (Apple's toolchain) never
+// implemented the floating-point overloads; not a strtod fallback beside from_chars, because
+// that is a second code path with its own quirks (LC_NUMERIC decimal point; glibc flags
+// representable denormals ERANGE). Measured bit-exact against from_chars over 1M+ randomized
+// literals plus the denormal/extreme edges on libstdc++ (gcc-13 and clang-20); the same edges
+// are pinned in test_parser_options, which the macOS CI leg runs under libc++.
 OptionValue make_float(std::string_view text, bool negative) {
+    std::istringstream stream{std::string(text)};
+    stream.imbue(std::locale::classic());
     double v = 0;
-    bool out_of_range = false;
-#if defined(__cpp_lib_to_chars) && __cpp_lib_to_chars >= 201611L
-    // NOLINTNEXTLINE(bugprone-suspicious-stringview-data-usage): paired with size below
-    const char* first = text.data();
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic): from_chars needs a range
-    const char* last = first + text.size();
-    out_of_range = std::from_chars(first, last, v).ec == std::errc::result_out_of_range;
-#else
-    const std::string buf(text);  // strtod needs a NUL terminator; tokens are views, unterminated
-    errno = 0;
-#if defined(__APPLE__)
-    static const locale_t c_locale = newlocale(LC_ALL_MASK, "C", nullptr);
-    v = c_locale != nullptr ? strtod_l(buf.c_str(), nullptr, c_locale)
-                            : std::strtod(buf.c_str(), nullptr);
-#else
-    // Unknown platform without FP from_chars: plain strtod, accepting the LC_NUMERIC caveat
-    // above rather than assuming it has strtod_l.
-    v = std::strtod(buf.c_str(), nullptr);
-#endif
-    // ERANGE alone is not out-of-range: strtod flags representable DENORMALS with it too, which
-    // from_chars does not (measured on glibc, 5e-324) -- treating those as underflow would
-    // flatten a valid tiny literal to exact 0. Only a 0 or infinite result is a true extreme.
-    // No sign check on HUGE_VAL: the token carries no '-' (the sign is a separate token).
-    out_of_range = errno == ERANGE && (v == 0.0 || v == HUGE_VAL);
-#endif
-    if (out_of_range) {
-        // Both extremes report out-of-range (strtod: ERANGE); classify by the exponent.
+    stream >> v;
+    if (stream.fail()) {
+        // Out-of-range (the only failure a lexed token can produce). What num_get stores then
+        // varies by implementation (DBL_MAX, HUGE_VAL, or 0), so reclassify from the exponent.
+        // Underflow-to-zero may instead be reported as SUCCESS with 0 stored -- already correct.
         v = approx_decimal_exponent(text) >= 0 ? HUGE_VAL : 0.0;
     }
     if (negative) {

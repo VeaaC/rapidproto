@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <cstring>
 #include <string>
 #include <vector>
 
@@ -16,6 +17,17 @@ namespace {
 
 using rapidproto::test::parse_ok;
 using rapidproto::test::parse_rejects;
+
+// Bit-pattern equality, because that is the claim under test (and -Wfloat-equal rightly rejects
+// a raw ==): the parse must produce the identical double the COMPILER produces for the literal.
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): commutative comparison, order irrelevant
+bool same_bits(double parsed, double literal) {
+    std::uint64_t p = 0;
+    std::uint64_t l = 0;
+    std::memcpy(&p, &parsed, sizeof p);
+    std::memcpy(&l, &literal, sizeof l);
+    return p == l;
+}
 
 }  // namespace
 
@@ -196,6 +208,22 @@ TEST_CASE("scalar values: float overflow underflows to 0, overflows to inf") {
     // a decimal integer past 2^64 falls back to a (huge but finite) float.
     CHECK(std::get<double>(parse_ok("100000000000000000000", parse_value).value) ==
           Catch::Approx(1e20));
+}
+
+TEST_CASE("scalar values: float literals parse bit-exact on every platform") {
+    // These pin the parse against the compiler's own conversion on whichever standard library
+    // this suite runs under -- the macOS job runs them under libc++, whose float parse takes a
+    // different path than Linux's (see make_float). The denormal is the sharpest edge: a parse
+    // that misreports underflow flattens it to exact 0.
+    CHECK(same_bits(std::get<double>(parse_ok("0.1", parse_value).value), 0.1));
+    CHECK(same_bits(std::get<double>(parse_ok("3.14159e10", parse_value).value), 3.14159e10));
+    CHECK(same_bits(std::get<double>(parse_ok("5e-324", parse_value).value),
+                    5e-324));  // min denormal
+    CHECK(same_bits(std::get<double>(parse_ok("2.2250738585072014e-308", parse_value).value),
+                    2.2250738585072014e-308));  // min normal
+    CHECK(same_bits(std::get<double>(parse_ok("1.7976931348623157e308", parse_value).value),
+                    1.7976931348623157e308));  // max double
+    CHECK(same_bits(std::get<double>(parse_ok("-2.5", parse_value).value), -2.5));
 }
 
 TEST_CASE("integer literals beyond 64-bit become doubles (protoc-validated schema)") {
