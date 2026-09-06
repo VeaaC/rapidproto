@@ -29,7 +29,9 @@ rc=$?
 if [ "$rc" -eq 0 ]; then printf '%s\n' "$out" | tail -3; else printf '%s\n' "$out"; exit 1; fi
 # Anti-vacuity: a dropped or renamed test target shrinks the ctest list silently -- green with
 # less run. Floor at the three registered tests (unit + the two consumer-example decodes).
-total=$(printf '%s\n' "$out" | sed -n 's/.*tests passed, .* out of \([0-9][0-9]*\).*/\1/p')
+# Both summary shapes ctest emits: "100% tests passed, 0 tests failed out of 3" and (newer
+# ctest, seen on the macOS image) "100% tests passed out of 3".
+total=$(printf '%s\n' "$out" | sed -n 's/.*tests passed.* out of \([0-9][0-9]*\).*/\1/p')
 if [ -z "$total" ] || [ "$total" -lt 3 ]; then
   echo ">> expected at least 3 ctest tests, saw '${total:-none}' -- a test target went missing"
   exit 1
