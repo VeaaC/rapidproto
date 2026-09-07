@@ -256,8 +256,8 @@ inline std::uint64_t checksum_dataset(rapidproto::ByteView buf) {
     State& s = state();
     upb_Arena* arena = upb_Arena_New();
     upb_Message* msg = upb_Message_New(s.dataset_table, arena);
-    const upb_DecodeStatus st =
-        upb_Decode(buf.data(), buf.size(), msg, s.dataset_table, nullptr, 0, arena);
+    const upb_DecodeStatus st = upb_Decode(buf.data(), buf.size(), msg, s.dataset_table, nullptr,
+                                           kUpb_DecodeOption_AliasString, arena);
     const std::uint64_t sum =
         st == kUpb_DecodeStatus_Ok ? message_sum(msg, s.dataset_def) : ~std::uint64_t{0};
     upb_Arena_Free(arena);
@@ -265,14 +265,17 @@ inline std::uint64_t checksum_dataset(rapidproto::ByteView buf) {
 }
 
 // The timed arm's body: pure decode into a fresh arena (upb has no arena reset-and-reuse, so
-// this matches the arena-cold arm's semantics). Returns whether decode succeeded; the arm
+// this matches the arena-cold arm's semantics). AliasString on every upb decode here: our arena
+// BORROWS strings from the input, so upb gets the same semantics (and the same
+// input-must-outlive-the-message constraint) rather than paying copies we don't -- measured
+// +5-11% for upb across the three shapes, all checksums still agreeing. Returns whether decode succeeded; the arm
 // lambda folds in the pre-validated checksum.
 inline bool decode_dataset(rapidproto::ByteView buf) {
     State& s = state();
     upb_Arena* arena = upb_Arena_New();
     upb_Message* msg = upb_Message_New(s.dataset_table, arena);
-    const upb_DecodeStatus st =
-        upb_Decode(buf.data(), buf.size(), msg, s.dataset_table, nullptr, 0, arena);
+    const upb_DecodeStatus st = upb_Decode(buf.data(), buf.size(), msg, s.dataset_table, nullptr,
+                                           kUpb_DecodeOption_AliasString, arena);
     upb_Arena_Free(arena);
     return st == kUpb_DecodeStatus_Ok;
 }

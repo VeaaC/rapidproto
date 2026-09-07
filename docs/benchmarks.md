@@ -46,11 +46,12 @@ on large **packed** arrays, which it decodes one element per callback — decode
 The arena bench also measures **upb** (protobuf's C parser, the engine under the Python/Ruby/PHP
 protobuf runtimes) on the same `Dataset`, cross-checked against every other decoder's checksum.
 The arm decodes through a **runtime-built MiniTable** (from an embedded descriptor, with upb's
-fasttable enabled) because upb's plugin-generated tables would require building protobuf's
-compiler from source. That configuration is **validated, not assumed**: a standalone
+fasttable enabled, and string ALIASING on -- the same borrow-from-the-input semantics our arena
+uses, worth +5-11% to upb over its default copying mode) because upb's plugin-generated tables
+would require building protobuf's compiler from source. That configuration is **validated, not assumed**: a standalone
 decode-vs-decode probe (2M back-to-back iterations per arm, no checksum walks) measures it at
 **2.16× protoc** on `google_message1` — the band upstream's own figures put upb in. The in-tree
-`google_message1` row below reads lower (+67% in the current table): the harness rotates arms in short batches, which
+`google_message1` row below reads lower (+73% in the current table): the harness rotates arms in short batches, which
 costs small-payload scenarios more than a straight-line loop, so the probe validates the
 *configuration* while the table is the like-for-like *comparison*. When upb shows weakly on the
 map- and string-heavy `Dataset` (maps never take upb's fast path), that is upb's genuine shape
@@ -72,7 +73,7 @@ baseline:
 |---|---|---|
 | streaming | **+122%** | **+181%** |
 | arena (warm) | **+103%** | **+42%** |
-| upb | +67% | **+91%** |
+| upb | +73% | **+93%** |
 | arena (cold) | +40% | +35% |
 
 Two honest readings: `google_message2` is proto2's home turf — one huge repeated *group* of

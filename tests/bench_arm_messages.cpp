@@ -992,8 +992,8 @@ int scenario(const char* name, const std::string& buf, ProtocFn protoc_sum, Aren
     if (upb_msg.table != nullptr) {
         upb_Arena* ua = upb_Arena_New();
         upb_Message* um = upb_Message_New(upb_msg.table, ua);
-        if (upb_Decode(buf.data(), buf.size(), um, upb_msg.table, nullptr, 0, ua) !=
-            kUpb_DecodeStatus_Ok) {
+        if (upb_Decode(buf.data(), buf.size(), um, upb_msg.table, nullptr,
+                       kUpb_DecodeOption_AliasString, ua) != kUpb_DecodeStatus_Ok) {
             mismatch = true;
         } else {
             c_upb = rpupb::message_sum(um, upb_msg.def);
@@ -1042,7 +1042,8 @@ int scenario(const char* name, const std::string& buf, ProtocFn protoc_sum, Aren
                             upb_Arena* a = upb_Arena_New();
                             upb_Message* um = upb_Message_New(table, a);
                             const bool ok = upb_Decode(buf.data(), buf.size(), um, table, nullptr,
-                                                       0, a) == kUpb_DecodeStatus_Ok;
+                                                       kUpb_DecodeOption_AliasString,
+                                                       a) == kUpb_DecodeStatus_Ok;
                             upb_Arena_Free(a);
                             return ok ? c_upb : ~std::uint64_t{0};
                         }});
