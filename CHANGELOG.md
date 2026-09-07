@@ -146,6 +146,17 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
 
 ### Added
 
+- **`bench.py --compile` embeds compile cost in snapshots, and `experiment` gates it.**
+  Opt-in on `run`/`experiment`: also measure what the generated decoders cost to BUILD --
+  compile seconds, `.text` bytes, peak compiler RSS, per schema shape x model x compiler
+  (`tests/compile_bench.py`'s cases; ~2 min per snapshot, which a throughput-focused loop
+  should not pay -- pass it when the change touches codegen). `table` renders the columns
+  beside the throughput tables and `diff`/`experiment` gate them at a tight threshold --
+  `.text` is deterministic with no placement floor, so a codegen change that bloats it fails
+  the same experiment that used to see only its speed effect. Compiler launchers cannot
+  distort the numbers: each measured compile sets `CCACHE_DISABLE`, and sccache/distcc/icecc
+  shims are refused.
+
 - **Releases ship `linux-arm64` and `macos-arm64` binaries alongside `linux-x86_64`.** Same
   tarball layout; every leg re-verifies the tag (the full default gate on linux-x86_64, the
   architecture-sensitive stages on linux-arm64, a system-compiler build + test + compile-fail run

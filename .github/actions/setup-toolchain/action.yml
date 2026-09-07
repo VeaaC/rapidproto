@@ -11,7 +11,7 @@ runs:
         set -euxo pipefail
         sudo apt-get update
         sudo apt-get install -y --no-install-recommends \
-          gcc-13 g++-13 cmake ninja-build \
+          gcc-13 g++-13 cmake ninja-build time \
           protobuf-compiler libprotobuf-dev libprotozero-dev python3-protobuf
         # The clang/LLVM-20 suite from apt.llvm.org -- the versioned -20 binaries the gate + presets pin
         # (clang/clang++ for builds, clang-format/clang-tidy for the gate, llvm-cov/profdata for the

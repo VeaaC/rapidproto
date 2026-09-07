@@ -790,6 +790,21 @@ job_fixtures() {
     echo ">> script sweep found only $_sh_count scripts -- git ls-files failed or the tree moved"
     return 1
   fi
+  # The Python tools too (bench.py, differential.py, the corpus/compile tooling): several are
+  # executed by no gate stage -- bench.py only ever runs by hand or in the on-demand workflow --
+  # so a syntax error there would otherwise merge green. Same floor rationale as above.
+  local _py _py_count=0
+  while IFS= read -r _py; do
+    if ! python3 -m py_compile "$_py" 2>&1; then
+      echo ">> $_py does not compile"
+      return 1
+    fi
+    _py_count=$((_py_count + 1))
+  done < <(git ls-files '*.py')
+  if [[ $_py_count -lt 8 ]]; then
+    echo ">> python sweep found only $_py_count files -- git ls-files failed or the tree moved"
+    return 1
+  fi
 
   # Every tests/test_*.cpp must be IN the test binary. A file added to tests/ but never added to
   # CMakeLists.txt is compiled by nothing and run by nothing: the format stage checks it, tidy
