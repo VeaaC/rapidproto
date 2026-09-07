@@ -148,9 +148,11 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
 
 - **The `google_message1`/`google_message2` scenarios.** Protobuf's own published benchmark
   payloads (fetched at a pinned tag, never vendored) join the arena bench: every arm --
-  protoc, arena cold/warm, streaming, upb -- decodes both and must agree on one checksum,
-  groups included. The honest-yardstick result is in docs/benchmarks.md: upb beats the arena
-  decoder on the group-heavy `google_message2`, and the streaming decoder leads everywhere.
+  protoc, arena cold/warm, streaming, upb -- decodes both, READS every present field (the same
+  checksum walk in every timed arm; upb's runs through the accessor layer its generated code
+  compiles to), and must agree on one checksum, groups included. Result tables in
+  docs/benchmarks.md: the streaming decoder leads everywhere, the arena decoder leads every
+  materializer, and the group-heavy `google_message2` is where its lead is smallest.
 
 - **The arena bench measures upb.** The C parser under protobuf's dynamic-language runtimes
   joins the `Dataset` comparison as its own arm, cross-checked against every decoder's checksum.

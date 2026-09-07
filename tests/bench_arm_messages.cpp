@@ -971,13 +971,710 @@ inline std::uint64_t gm2_stream(rapidproto::ByteView buf) {
 }  // namespace rpmessages
 
 namespace rpmessages {
+#ifdef RAPIDPROTO_HAVE_UPB
+namespace upbwalk {
+
+// GENERATED-BY-HAND-TOOLING NOTE: the handle structs and walks below were emitted
+// mechanically from the schema field lists (same source as the other walks), then
+// reviewed; the sub-message/group blocks are hand-written around them.
+
+struct UpbGmHandles {
+    const upb_MiniTableField* m1_field1 = nullptr;
+    const upb_MiniTableField* m1_field9 = nullptr;
+    const upb_MiniTableField* m1_field18 = nullptr;
+    const upb_MiniTableField* m1_field80 = nullptr;
+    const upb_MiniTableField* m1_field81 = nullptr;
+    const upb_MiniTableField* m1_field2 = nullptr;
+    const upb_MiniTableField* m1_field3 = nullptr;
+    const upb_MiniTableField* m1_field280 = nullptr;
+    const upb_MiniTableField* m1_field6 = nullptr;
+    const upb_MiniTableField* m1_field22 = nullptr;
+    const upb_MiniTableField* m1_field4 = nullptr;
+    const upb_MiniTableField* m1_field5 = nullptr;
+    const upb_MiniTableField* m1_field59 = nullptr;
+    const upb_MiniTableField* m1_field7 = nullptr;
+    const upb_MiniTableField* m1_field16 = nullptr;
+    const upb_MiniTableField* m1_field130 = nullptr;
+    const upb_MiniTableField* m1_field12 = nullptr;
+    const upb_MiniTableField* m1_field17 = nullptr;
+    const upb_MiniTableField* m1_field13 = nullptr;
+    const upb_MiniTableField* m1_field14 = nullptr;
+    const upb_MiniTableField* m1_field104 = nullptr;
+    const upb_MiniTableField* m1_field100 = nullptr;
+    const upb_MiniTableField* m1_field101 = nullptr;
+    const upb_MiniTableField* m1_field102 = nullptr;
+    const upb_MiniTableField* m1_field103 = nullptr;
+    const upb_MiniTableField* m1_field29 = nullptr;
+    const upb_MiniTableField* m1_field30 = nullptr;
+    const upb_MiniTableField* m1_field60 = nullptr;
+    const upb_MiniTableField* m1_field271 = nullptr;
+    const upb_MiniTableField* m1_field272 = nullptr;
+    const upb_MiniTableField* m1_field150 = nullptr;
+    const upb_MiniTableField* m1_field23 = nullptr;
+    const upb_MiniTableField* m1_field24 = nullptr;
+    const upb_MiniTableField* m1_field25 = nullptr;
+    const upb_MiniTableField* m1_field15 = nullptr;
+    const upb_MiniTableField* m1_field78 = nullptr;
+    const upb_MiniTableField* m1_field67 = nullptr;
+    const upb_MiniTableField* m1_field68 = nullptr;
+    const upb_MiniTableField* m1_field128 = nullptr;
+    const upb_MiniTableField* m1_field129 = nullptr;
+    const upb_MiniTableField* m1_field131 = nullptr;
+    const upb_MiniTableField* s1_field1 = nullptr;
+    const upb_MiniTableField* s1_field2 = nullptr;
+    const upb_MiniTableField* s1_field3 = nullptr;
+    const upb_MiniTableField* s1_field15 = nullptr;
+    const upb_MiniTableField* s1_field12 = nullptr;
+    const upb_MiniTableField* s1_field13 = nullptr;
+    const upb_MiniTableField* s1_field14 = nullptr;
+    const upb_MiniTableField* s1_field16 = nullptr;
+    const upb_MiniTableField* s1_field19 = nullptr;
+    const upb_MiniTableField* s1_field20 = nullptr;
+    const upb_MiniTableField* s1_field28 = nullptr;
+    const upb_MiniTableField* s1_field21 = nullptr;
+    const upb_MiniTableField* s1_field22 = nullptr;
+    const upb_MiniTableField* s1_field23 = nullptr;
+    const upb_MiniTableField* s1_field206 = nullptr;
+    const upb_MiniTableField* s1_field203 = nullptr;
+    const upb_MiniTableField* s1_field204 = nullptr;
+    const upb_MiniTableField* s1_field205 = nullptr;
+    const upb_MiniTableField* s1_field207 = nullptr;
+    const upb_MiniTableField* s1_field300 = nullptr;
+    const upb_MiniTableField* m2_field1 = nullptr;
+    const upb_MiniTableField* m2_field3 = nullptr;
+    const upb_MiniTableField* m2_field4 = nullptr;
+    const upb_MiniTableField* m2_field30 = nullptr;
+    const upb_MiniTableField* m2_field75 = nullptr;
+    const upb_MiniTableField* m2_field6 = nullptr;
+    const upb_MiniTableField* m2_field2 = nullptr;
+    const upb_MiniTableField* m2_field21 = nullptr;
+    const upb_MiniTableField* m2_field71 = nullptr;
+    const upb_MiniTableField* m2_field25 = nullptr;
+    const upb_MiniTableField* m2_field109 = nullptr;
+    const upb_MiniTableField* m2_field210 = nullptr;
+    const upb_MiniTableField* m2_field211 = nullptr;
+    const upb_MiniTableField* m2_field212 = nullptr;
+    const upb_MiniTableField* m2_field213 = nullptr;
+    const upb_MiniTableField* m2_field216 = nullptr;
+    const upb_MiniTableField* m2_field217 = nullptr;
+    const upb_MiniTableField* m2_field218 = nullptr;
+    const upb_MiniTableField* m2_field220 = nullptr;
+    const upb_MiniTableField* m2_field221 = nullptr;
+    const upb_MiniTableField* m2_field222 = nullptr;
+    const upb_MiniTableField* m2_field63 = nullptr;
+    const upb_MiniTableField* m2_group1 = nullptr;
+    const upb_MiniTableField* m2_field128 = nullptr;
+    const upb_MiniTableField* m2_field131 = nullptr;
+    const upb_MiniTableField* m2_field127 = nullptr;
+    const upb_MiniTableField* m2_field129 = nullptr;
+    const upb_MiniTableField* m2_field130 = nullptr;
+    const upb_MiniTableField* m2_field205 = nullptr;
+    const upb_MiniTableField* m2_field206 = nullptr;
+    const upb_MiniTableField* g2_field11 = nullptr;
+    const upb_MiniTableField* g2_field26 = nullptr;
+    const upb_MiniTableField* g2_field12 = nullptr;
+    const upb_MiniTableField* g2_field13 = nullptr;
+    const upb_MiniTableField* g2_field14 = nullptr;
+    const upb_MiniTableField* g2_field15 = nullptr;
+    const upb_MiniTableField* g2_field5 = nullptr;
+    const upb_MiniTableField* g2_field27 = nullptr;
+    const upb_MiniTableField* g2_field28 = nullptr;
+    const upb_MiniTableField* g2_field29 = nullptr;
+    const upb_MiniTableField* g2_field16 = nullptr;
+    const upb_MiniTableField* g2_field22 = nullptr;
+    const upb_MiniTableField* g2_field73 = nullptr;
+    const upb_MiniTableField* g2_field20 = nullptr;
+    const upb_MiniTableField* g2_field24 = nullptr;
+    const upb_MiniTableField* g2_field31 = nullptr;
+    const upb_MiniTableField* q2_field1 = nullptr;
+    const upb_MiniTableField* q2_field2 = nullptr;
+    const upb_MiniTableField* q2_field3 = nullptr;
+    const upb_MiniTableField* q2_field4 = nullptr;
+    const upb_MiniTableField* q2_field5 = nullptr;
+    const upb_MiniTableField* q2_field6 = nullptr;
+    const upb_MiniTableField* q2_field7 = nullptr;
+    const upb_MiniTableField* q2_field8 = nullptr;
+    const upb_MiniTableField* q2_field9 = nullptr;
+    const upb_MiniTableField* q2_field10 = nullptr;
+    const upb_MiniTableField* q2_field11 = nullptr;
+
+    const upb_MiniTable* gm1_table = nullptr;
+    const upb_MessageDef* gm1_def = nullptr;
+    const upb_MiniTable* gm2_table = nullptr;
+    const upb_MessageDef* gm2_def = nullptr;
+    bool ok = false;
+};
+
+inline UpbGmHandles& gm_handles() {
+    static UpbGmHandles h;
+    return h;
+}
+
+inline bool init_gm_handles() {
+    UpbGmHandles& h = gm_handles();
+    const rpupb::Found m1 = rpupb::find_message("benchmarks.proto2.GoogleMessage1");
+    const rpupb::Found s1 = rpupb::find_message("benchmarks.proto2.GoogleMessage1SubMessage");
+    const rpupb::Found m2 = rpupb::find_message("benchmarks.proto2.GoogleMessage2");
+    const rpupb::Found g2 = rpupb::find_message("benchmarks.proto2.GoogleMessage2.Group1");
+    const rpupb::Found q2 = rpupb::find_message("benchmarks.proto2.GoogleMessage2GroupedMessage");
+    if (!m1.table || !s1.def || !m2.table || !g2.def || !q2.def) {
+        return false;
+    }
+    h.gm1_table = m1.table;
+    h.gm1_def = m1.def;
+    h.gm2_table = m2.table;
+    h.gm2_def = m2.def;
+    using rpupb::field_handle;
+    h.m1_field1 = field_handle(m1.def, "field1");
+    h.m1_field9 = field_handle(m1.def, "field9");
+    h.m1_field18 = field_handle(m1.def, "field18");
+    h.m1_field80 = field_handle(m1.def, "field80");
+    h.m1_field81 = field_handle(m1.def, "field81");
+    h.m1_field2 = field_handle(m1.def, "field2");
+    h.m1_field3 = field_handle(m1.def, "field3");
+    h.m1_field280 = field_handle(m1.def, "field280");
+    h.m1_field6 = field_handle(m1.def, "field6");
+    h.m1_field22 = field_handle(m1.def, "field22");
+    h.m1_field4 = field_handle(m1.def, "field4");
+    h.m1_field5 = field_handle(m1.def, "field5");
+    h.m1_field59 = field_handle(m1.def, "field59");
+    h.m1_field7 = field_handle(m1.def, "field7");
+    h.m1_field16 = field_handle(m1.def, "field16");
+    h.m1_field130 = field_handle(m1.def, "field130");
+    h.m1_field12 = field_handle(m1.def, "field12");
+    h.m1_field17 = field_handle(m1.def, "field17");
+    h.m1_field13 = field_handle(m1.def, "field13");
+    h.m1_field14 = field_handle(m1.def, "field14");
+    h.m1_field104 = field_handle(m1.def, "field104");
+    h.m1_field100 = field_handle(m1.def, "field100");
+    h.m1_field101 = field_handle(m1.def, "field101");
+    h.m1_field102 = field_handle(m1.def, "field102");
+    h.m1_field103 = field_handle(m1.def, "field103");
+    h.m1_field29 = field_handle(m1.def, "field29");
+    h.m1_field30 = field_handle(m1.def, "field30");
+    h.m1_field60 = field_handle(m1.def, "field60");
+    h.m1_field271 = field_handle(m1.def, "field271");
+    h.m1_field272 = field_handle(m1.def, "field272");
+    h.m1_field150 = field_handle(m1.def, "field150");
+    h.m1_field23 = field_handle(m1.def, "field23");
+    h.m1_field24 = field_handle(m1.def, "field24");
+    h.m1_field25 = field_handle(m1.def, "field25");
+    h.m1_field15 = field_handle(m1.def, "field15");
+    h.m1_field78 = field_handle(m1.def, "field78");
+    h.m1_field67 = field_handle(m1.def, "field67");
+    h.m1_field68 = field_handle(m1.def, "field68");
+    h.m1_field128 = field_handle(m1.def, "field128");
+    h.m1_field129 = field_handle(m1.def, "field129");
+    h.m1_field131 = field_handle(m1.def, "field131");
+    h.s1_field1 = field_handle(s1.def, "field1");
+    h.s1_field2 = field_handle(s1.def, "field2");
+    h.s1_field3 = field_handle(s1.def, "field3");
+    h.s1_field15 = field_handle(s1.def, "field15");
+    h.s1_field12 = field_handle(s1.def, "field12");
+    h.s1_field13 = field_handle(s1.def, "field13");
+    h.s1_field14 = field_handle(s1.def, "field14");
+    h.s1_field16 = field_handle(s1.def, "field16");
+    h.s1_field19 = field_handle(s1.def, "field19");
+    h.s1_field20 = field_handle(s1.def, "field20");
+    h.s1_field28 = field_handle(s1.def, "field28");
+    h.s1_field21 = field_handle(s1.def, "field21");
+    h.s1_field22 = field_handle(s1.def, "field22");
+    h.s1_field23 = field_handle(s1.def, "field23");
+    h.s1_field206 = field_handle(s1.def, "field206");
+    h.s1_field203 = field_handle(s1.def, "field203");
+    h.s1_field204 = field_handle(s1.def, "field204");
+    h.s1_field205 = field_handle(s1.def, "field205");
+    h.s1_field207 = field_handle(s1.def, "field207");
+    h.s1_field300 = field_handle(s1.def, "field300");
+    h.m2_field1 = field_handle(m2.def, "field1");
+    h.m2_field3 = field_handle(m2.def, "field3");
+    h.m2_field4 = field_handle(m2.def, "field4");
+    h.m2_field30 = field_handle(m2.def, "field30");
+    h.m2_field75 = field_handle(m2.def, "field75");
+    h.m2_field6 = field_handle(m2.def, "field6");
+    h.m2_field2 = field_handle(m2.def, "field2");
+    h.m2_field21 = field_handle(m2.def, "field21");
+    h.m2_field71 = field_handle(m2.def, "field71");
+    h.m2_field25 = field_handle(m2.def, "field25");
+    h.m2_field109 = field_handle(m2.def, "field109");
+    h.m2_field210 = field_handle(m2.def, "field210");
+    h.m2_field211 = field_handle(m2.def, "field211");
+    h.m2_field212 = field_handle(m2.def, "field212");
+    h.m2_field213 = field_handle(m2.def, "field213");
+    h.m2_field216 = field_handle(m2.def, "field216");
+    h.m2_field217 = field_handle(m2.def, "field217");
+    h.m2_field218 = field_handle(m2.def, "field218");
+    h.m2_field220 = field_handle(m2.def, "field220");
+    h.m2_field221 = field_handle(m2.def, "field221");
+    h.m2_field222 = field_handle(m2.def, "field222");
+    h.m2_field63 = field_handle(m2.def, "field63");
+    h.m2_group1 = field_handle(m2.def, "group1");
+    h.m2_field128 = field_handle(m2.def, "field128");
+    h.m2_field131 = field_handle(m2.def, "field131");
+    h.m2_field127 = field_handle(m2.def, "field127");
+    h.m2_field129 = field_handle(m2.def, "field129");
+    h.m2_field130 = field_handle(m2.def, "field130");
+    h.m2_field205 = field_handle(m2.def, "field205");
+    h.m2_field206 = field_handle(m2.def, "field206");
+    h.g2_field11 = field_handle(g2.def, "field11");
+    h.g2_field26 = field_handle(g2.def, "field26");
+    h.g2_field12 = field_handle(g2.def, "field12");
+    h.g2_field13 = field_handle(g2.def, "field13");
+    h.g2_field14 = field_handle(g2.def, "field14");
+    h.g2_field15 = field_handle(g2.def, "field15");
+    h.g2_field5 = field_handle(g2.def, "field5");
+    h.g2_field27 = field_handle(g2.def, "field27");
+    h.g2_field28 = field_handle(g2.def, "field28");
+    h.g2_field29 = field_handle(g2.def, "field29");
+    h.g2_field16 = field_handle(g2.def, "field16");
+    h.g2_field22 = field_handle(g2.def, "field22");
+    h.g2_field73 = field_handle(g2.def, "field73");
+    h.g2_field20 = field_handle(g2.def, "field20");
+    h.g2_field24 = field_handle(g2.def, "field24");
+    h.g2_field31 = field_handle(g2.def, "field31");
+    h.q2_field1 = field_handle(q2.def, "field1");
+    h.q2_field2 = field_handle(q2.def, "field2");
+    h.q2_field3 = field_handle(q2.def, "field3");
+    h.q2_field4 = field_handle(q2.def, "field4");
+    h.q2_field5 = field_handle(q2.def, "field5");
+    h.q2_field6 = field_handle(q2.def, "field6");
+    h.q2_field7 = field_handle(q2.def, "field7");
+    h.q2_field8 = field_handle(q2.def, "field8");
+    h.q2_field9 = field_handle(q2.def, "field9");
+    h.q2_field10 = field_handle(q2.def, "field10");
+    h.q2_field11 = field_handle(q2.def, "field11");
+
+    // every handle resolved, or the arm is out
+    for (const upb_MiniTableField* f :
+         {h.m1_field1,   h.m1_field9,   h.m1_field18,  h.m1_field80,  h.m1_field81,  h.m1_field2,
+          h.m1_field3,   h.m1_field280, h.m1_field6,   h.m1_field22,  h.m1_field4,   h.m1_field5,
+          h.m1_field59,  h.m1_field7,   h.m1_field16,  h.m1_field130, h.m1_field12,  h.m1_field17,
+          h.m1_field13,  h.m1_field14,  h.m1_field104, h.m1_field100, h.m1_field101, h.m1_field102,
+          h.m1_field103, h.m1_field29,  h.m1_field30,  h.m1_field60,  h.m1_field271, h.m1_field272,
+          h.m1_field150, h.m1_field23,  h.m1_field24,  h.m1_field25,  h.m1_field15,  h.m1_field78,
+          h.m1_field67,  h.m1_field68,  h.m1_field128, h.m1_field129, h.m1_field131, h.s1_field1,
+          h.s1_field2,   h.s1_field3,   h.s1_field15,  h.s1_field12,  h.s1_field13,  h.s1_field14,
+          h.s1_field16,  h.s1_field19,  h.s1_field20,  h.s1_field28,  h.s1_field21,  h.s1_field22,
+          h.s1_field23,  h.s1_field206, h.s1_field203, h.s1_field204, h.s1_field205, h.s1_field207,
+          h.s1_field300, h.m2_field1,   h.m2_field3,   h.m2_field4,   h.m2_field30,  h.m2_field75,
+          h.m2_field6,   h.m2_field2,   h.m2_field21,  h.m2_field71,  h.m2_field25,  h.m2_field109,
+          h.m2_field210, h.m2_field211, h.m2_field212, h.m2_field213, h.m2_field216, h.m2_field217,
+          h.m2_field218, h.m2_field220, h.m2_field221, h.m2_field222, h.m2_field63,  h.m2_group1,
+          h.m2_field128, h.m2_field131, h.m2_field127, h.m2_field129, h.m2_field130, h.m2_field205,
+          h.m2_field206, h.g2_field11,  h.g2_field26,  h.g2_field12,  h.g2_field13,  h.g2_field14,
+          h.g2_field15,  h.g2_field5,   h.g2_field27,  h.g2_field28,  h.g2_field29,  h.g2_field16,
+          h.g2_field22,  h.g2_field73,  h.g2_field20,  h.g2_field24,  h.g2_field31,  h.q2_field1,
+          h.q2_field2,   h.q2_field3,   h.q2_field4,   h.q2_field5,   h.q2_field6,   h.q2_field7,
+          h.q2_field8,   h.q2_field9,   h.q2_field10,  h.q2_field11}) {
+        if (f == nullptr) {
+            return false;
+        }
+    }
+    h.ok = true;
+    return true;
+}
+
+// upb decode + accessor-walk checksum for GoogleMessage1: same work as every arm.
+inline std::uint64_t upb_sum_gm1(const std::string& buf) {
+    const UpbGmHandles& h = gm_handles();
+    upb_Arena* arena = upb_Arena_New();
+    upb_Message* m = upb_Message_New(h.gm1_table, arena);
+    if (upb_Decode(buf.data(), buf.size(), m, h.gm1_table, nullptr, kUpb_DecodeOption_AliasString,
+                   arena) != kUpb_DecodeStatus_Ok) {
+        upb_Arena_Free(arena);
+        return ~std::uint64_t{0};
+    }
+    const upb_StringView kNoStr = {nullptr, 0};
+    std::uint64_t s = 0;
+    s += upb_Message_GetString(m, h.m1_field1, kNoStr).size;
+    if (upb_Message_HasBaseField(m, h.m1_field9)) {
+        s += upb_Message_GetString(m, h.m1_field9, kNoStr).size;
+    }
+    if (upb_Message_HasBaseField(m, h.m1_field18)) {
+        s += upb_Message_GetString(m, h.m1_field18, kNoStr).size;
+    }
+    if (upb_Message_HasBaseField(m, h.m1_field80)) {
+        s += upb_Message_GetBool(m, h.m1_field80, false) ? 1U : 0U;
+    }
+    if (upb_Message_HasBaseField(m, h.m1_field81)) {
+        s += upb_Message_GetBool(m, h.m1_field81, false) ? 1U : 0U;
+    }
+    s += static_cast<std::uint32_t>(upb_Message_GetInt32(m, h.m1_field2, 0));
+    s += static_cast<std::uint32_t>(upb_Message_GetInt32(m, h.m1_field3, 0));
+    if (upb_Message_HasBaseField(m, h.m1_field280)) {
+        s += static_cast<std::uint32_t>(upb_Message_GetInt32(m, h.m1_field280, 0));
+    }
+    if (upb_Message_HasBaseField(m, h.m1_field6)) {
+        s += static_cast<std::uint32_t>(upb_Message_GetInt32(m, h.m1_field6, 0));
+    }
+    if (upb_Message_HasBaseField(m, h.m1_field22)) {
+        s += static_cast<std::uint64_t>(upb_Message_GetInt64(m, h.m1_field22, 0));
+    }
+    if (upb_Message_HasBaseField(m, h.m1_field4)) {
+        s += upb_Message_GetString(m, h.m1_field4, kNoStr).size;
+    }
+    if (const upb_Array* a_field5 = upb_Message_GetArray(m, h.m1_field5)) {
+        for (std::size_t z = 0, zn = upb_Array_Size(a_field5); z < zn; ++z) {
+            s += upb_Array_Get(a_field5, z).uint64_val;
+        }
+    }
+    if (upb_Message_HasBaseField(m, h.m1_field59)) {
+        s += upb_Message_GetBool(m, h.m1_field59, false) ? 1U : 0U;
+    }
+    if (upb_Message_HasBaseField(m, h.m1_field7)) {
+        s += upb_Message_GetString(m, h.m1_field7, kNoStr).size;
+    }
+    if (upb_Message_HasBaseField(m, h.m1_field16)) {
+        s += static_cast<std::uint32_t>(upb_Message_GetInt32(m, h.m1_field16, 0));
+    }
+    if (upb_Message_HasBaseField(m, h.m1_field130)) {
+        s += static_cast<std::uint32_t>(upb_Message_GetInt32(m, h.m1_field130, 0));
+    }
+    if (upb_Message_HasBaseField(m, h.m1_field12)) {
+        s += upb_Message_GetBool(m, h.m1_field12, false) ? 1U : 0U;
+    }
+    if (upb_Message_HasBaseField(m, h.m1_field17)) {
+        s += upb_Message_GetBool(m, h.m1_field17, false) ? 1U : 0U;
+    }
+    if (upb_Message_HasBaseField(m, h.m1_field13)) {
+        s += upb_Message_GetBool(m, h.m1_field13, false) ? 1U : 0U;
+    }
+    if (upb_Message_HasBaseField(m, h.m1_field14)) {
+        s += upb_Message_GetBool(m, h.m1_field14, false) ? 1U : 0U;
+    }
+    if (upb_Message_HasBaseField(m, h.m1_field104)) {
+        s += static_cast<std::uint32_t>(upb_Message_GetInt32(m, h.m1_field104, 0));
+    }
+    if (upb_Message_HasBaseField(m, h.m1_field100)) {
+        s += static_cast<std::uint32_t>(upb_Message_GetInt32(m, h.m1_field100, 0));
+    }
+    if (upb_Message_HasBaseField(m, h.m1_field101)) {
+        s += static_cast<std::uint32_t>(upb_Message_GetInt32(m, h.m1_field101, 0));
+    }
+    if (upb_Message_HasBaseField(m, h.m1_field102)) {
+        s += upb_Message_GetString(m, h.m1_field102, kNoStr).size;
+    }
+    if (upb_Message_HasBaseField(m, h.m1_field103)) {
+        s += upb_Message_GetString(m, h.m1_field103, kNoStr).size;
+    }
+    if (upb_Message_HasBaseField(m, h.m1_field29)) {
+        s += static_cast<std::uint32_t>(upb_Message_GetInt32(m, h.m1_field29, 0));
+    }
+    if (upb_Message_HasBaseField(m, h.m1_field30)) {
+        s += upb_Message_GetBool(m, h.m1_field30, false) ? 1U : 0U;
+    }
+    if (upb_Message_HasBaseField(m, h.m1_field60)) {
+        s += static_cast<std::uint32_t>(upb_Message_GetInt32(m, h.m1_field60, 0));
+    }
+    if (upb_Message_HasBaseField(m, h.m1_field271)) {
+        s += static_cast<std::uint32_t>(upb_Message_GetInt32(m, h.m1_field271, 0));
+    }
+    if (upb_Message_HasBaseField(m, h.m1_field272)) {
+        s += static_cast<std::uint32_t>(upb_Message_GetInt32(m, h.m1_field272, 0));
+    }
+    if (upb_Message_HasBaseField(m, h.m1_field150)) {
+        s += static_cast<std::uint32_t>(upb_Message_GetInt32(m, h.m1_field150, 0));
+    }
+    if (upb_Message_HasBaseField(m, h.m1_field23)) {
+        s += static_cast<std::uint32_t>(upb_Message_GetInt32(m, h.m1_field23, 0));
+    }
+    if (upb_Message_HasBaseField(m, h.m1_field24)) {
+        s += upb_Message_GetBool(m, h.m1_field24, false) ? 1U : 0U;
+    }
+    if (upb_Message_HasBaseField(m, h.m1_field25)) {
+        s += static_cast<std::uint32_t>(upb_Message_GetInt32(m, h.m1_field25, 0));
+    }
+    if (upb_Message_HasBaseField(m, h.m1_field78)) {
+        s += upb_Message_GetBool(m, h.m1_field78, false) ? 1U : 0U;
+    }
+    if (upb_Message_HasBaseField(m, h.m1_field67)) {
+        s += static_cast<std::uint32_t>(upb_Message_GetInt32(m, h.m1_field67, 0));
+    }
+    if (upb_Message_HasBaseField(m, h.m1_field68)) {
+        s += static_cast<std::uint32_t>(upb_Message_GetInt32(m, h.m1_field68, 0));
+    }
+    if (upb_Message_HasBaseField(m, h.m1_field128)) {
+        s += static_cast<std::uint32_t>(upb_Message_GetInt32(m, h.m1_field128, 0));
+    }
+    if (upb_Message_HasBaseField(m, h.m1_field129)) {
+        s += upb_Message_GetString(m, h.m1_field129, kNoStr).size;
+    }
+    if (upb_Message_HasBaseField(m, h.m1_field131)) {
+        s += static_cast<std::uint32_t>(upb_Message_GetInt32(m, h.m1_field131, 0));
+    }
+    if (const upb_Message* sub = upb_Message_GetMessage(m, h.m1_field15)) {
+        if (upb_Message_HasBaseField(sub, h.s1_field1)) {
+            s += static_cast<std::uint32_t>(upb_Message_GetInt32(sub, h.s1_field1, 0));
+        }
+        if (upb_Message_HasBaseField(sub, h.s1_field2)) {
+            s += static_cast<std::uint32_t>(upb_Message_GetInt32(sub, h.s1_field2, 0));
+        }
+        if (upb_Message_HasBaseField(sub, h.s1_field3)) {
+            s += static_cast<std::uint32_t>(upb_Message_GetInt32(sub, h.s1_field3, 0));
+        }
+        if (upb_Message_HasBaseField(sub, h.s1_field15)) {
+            s += upb_Message_GetString(sub, h.s1_field15, kNoStr).size;
+        }
+        if (upb_Message_HasBaseField(sub, h.s1_field12)) {
+            s += upb_Message_GetBool(sub, h.s1_field12, false) ? 1U : 0U;
+        }
+        if (upb_Message_HasBaseField(sub, h.s1_field13)) {
+            s += static_cast<std::uint64_t>(upb_Message_GetInt64(sub, h.s1_field13, 0));
+        }
+        if (upb_Message_HasBaseField(sub, h.s1_field14)) {
+            s += static_cast<std::uint64_t>(upb_Message_GetInt64(sub, h.s1_field14, 0));
+        }
+        if (upb_Message_HasBaseField(sub, h.s1_field16)) {
+            s += static_cast<std::uint32_t>(upb_Message_GetInt32(sub, h.s1_field16, 0));
+        }
+        if (upb_Message_HasBaseField(sub, h.s1_field19)) {
+            s += static_cast<std::uint32_t>(upb_Message_GetInt32(sub, h.s1_field19, 0));
+        }
+        if (upb_Message_HasBaseField(sub, h.s1_field20)) {
+            s += upb_Message_GetBool(sub, h.s1_field20, false) ? 1U : 0U;
+        }
+        if (upb_Message_HasBaseField(sub, h.s1_field28)) {
+            s += upb_Message_GetBool(sub, h.s1_field28, false) ? 1U : 0U;
+        }
+        if (upb_Message_HasBaseField(sub, h.s1_field21)) {
+            s += upb_Message_GetUInt64(sub, h.s1_field21, 0);
+        }
+        if (upb_Message_HasBaseField(sub, h.s1_field22)) {
+            s += static_cast<std::uint32_t>(upb_Message_GetInt32(sub, h.s1_field22, 0));
+        }
+        if (upb_Message_HasBaseField(sub, h.s1_field23)) {
+            s += upb_Message_GetBool(sub, h.s1_field23, false) ? 1U : 0U;
+        }
+        if (upb_Message_HasBaseField(sub, h.s1_field206)) {
+            s += upb_Message_GetBool(sub, h.s1_field206, false) ? 1U : 0U;
+        }
+        if (upb_Message_HasBaseField(sub, h.s1_field203)) {
+            s += upb_Message_GetUInt32(sub, h.s1_field203, 0);
+        }
+        if (upb_Message_HasBaseField(sub, h.s1_field204)) {
+            s += static_cast<std::uint32_t>(upb_Message_GetInt32(sub, h.s1_field204, 0));
+        }
+        if (upb_Message_HasBaseField(sub, h.s1_field205)) {
+            s += upb_Message_GetString(sub, h.s1_field205, kNoStr).size;
+        }
+        if (upb_Message_HasBaseField(sub, h.s1_field207)) {
+            s += upb_Message_GetUInt64(sub, h.s1_field207, 0);
+        }
+        if (upb_Message_HasBaseField(sub, h.s1_field300)) {
+            s += upb_Message_GetUInt64(sub, h.s1_field300, 0);
+        }
+    }
+    upb_Arena_Free(arena);
+    return s;
+}
+
+// upb decode + accessor-walk checksum for GoogleMessage2.
+inline std::uint64_t upb_sum_gm2(const std::string& buf) {
+    const UpbGmHandles& h = gm_handles();
+    upb_Arena* arena = upb_Arena_New();
+    upb_Message* m = upb_Message_New(h.gm2_table, arena);
+    if (upb_Decode(buf.data(), buf.size(), m, h.gm2_table, nullptr, kUpb_DecodeOption_AliasString,
+                   arena) != kUpb_DecodeStatus_Ok) {
+        upb_Arena_Free(arena);
+        return ~std::uint64_t{0};
+    }
+    const upb_StringView kNoStr = {nullptr, 0};
+    std::uint64_t s = 0;
+    if (upb_Message_HasBaseField(m, h.m2_field1)) {
+        s += upb_Message_GetString(m, h.m2_field1, kNoStr).size;
+    }
+    if (upb_Message_HasBaseField(m, h.m2_field3)) {
+        s += static_cast<std::uint64_t>(upb_Message_GetInt64(m, h.m2_field3, 0));
+    }
+    if (upb_Message_HasBaseField(m, h.m2_field4)) {
+        s += static_cast<std::uint64_t>(upb_Message_GetInt64(m, h.m2_field4, 0));
+    }
+    if (upb_Message_HasBaseField(m, h.m2_field30)) {
+        s += static_cast<std::uint64_t>(upb_Message_GetInt64(m, h.m2_field30, 0));
+    }
+    if (upb_Message_HasBaseField(m, h.m2_field75)) {
+        s += upb_Message_GetBool(m, h.m2_field75, false) ? 1U : 0U;
+    }
+    if (upb_Message_HasBaseField(m, h.m2_field6)) {
+        s += upb_Message_GetString(m, h.m2_field6, kNoStr).size;
+    }
+    if (upb_Message_HasBaseField(m, h.m2_field2)) {
+        s += upb_Message_GetString(m, h.m2_field2, kNoStr).size;
+    }
+    if (upb_Message_HasBaseField(m, h.m2_field21)) {
+        s += static_cast<std::uint32_t>(upb_Message_GetInt32(m, h.m2_field21, 0));
+    }
+    if (upb_Message_HasBaseField(m, h.m2_field71)) {
+        s += static_cast<std::uint32_t>(upb_Message_GetInt32(m, h.m2_field71, 0));
+    }
+    if (upb_Message_HasBaseField(m, h.m2_field25)) {
+        s += fbits(upb_Message_GetFloat(m, h.m2_field25, 0.0F));
+    }
+    if (upb_Message_HasBaseField(m, h.m2_field109)) {
+        s += static_cast<std::uint32_t>(upb_Message_GetInt32(m, h.m2_field109, 0));
+    }
+    if (upb_Message_HasBaseField(m, h.m2_field210)) {
+        s += static_cast<std::uint32_t>(upb_Message_GetInt32(m, h.m2_field210, 0));
+    }
+    if (upb_Message_HasBaseField(m, h.m2_field211)) {
+        s += static_cast<std::uint32_t>(upb_Message_GetInt32(m, h.m2_field211, 0));
+    }
+    if (upb_Message_HasBaseField(m, h.m2_field212)) {
+        s += static_cast<std::uint32_t>(upb_Message_GetInt32(m, h.m2_field212, 0));
+    }
+    if (upb_Message_HasBaseField(m, h.m2_field213)) {
+        s += static_cast<std::uint32_t>(upb_Message_GetInt32(m, h.m2_field213, 0));
+    }
+    if (upb_Message_HasBaseField(m, h.m2_field216)) {
+        s += static_cast<std::uint32_t>(upb_Message_GetInt32(m, h.m2_field216, 0));
+    }
+    if (upb_Message_HasBaseField(m, h.m2_field217)) {
+        s += static_cast<std::uint32_t>(upb_Message_GetInt32(m, h.m2_field217, 0));
+    }
+    if (upb_Message_HasBaseField(m, h.m2_field218)) {
+        s += static_cast<std::uint32_t>(upb_Message_GetInt32(m, h.m2_field218, 0));
+    }
+    if (upb_Message_HasBaseField(m, h.m2_field220)) {
+        s += static_cast<std::uint32_t>(upb_Message_GetInt32(m, h.m2_field220, 0));
+    }
+    if (upb_Message_HasBaseField(m, h.m2_field221)) {
+        s += static_cast<std::uint32_t>(upb_Message_GetInt32(m, h.m2_field221, 0));
+    }
+    if (upb_Message_HasBaseField(m, h.m2_field222)) {
+        s += fbits(upb_Message_GetFloat(m, h.m2_field222, 0.0F));
+    }
+    if (upb_Message_HasBaseField(m, h.m2_field63)) {
+        s += static_cast<std::uint32_t>(upb_Message_GetInt32(m, h.m2_field63, 0));
+    }
+    if (const upb_Array* a_field128 = upb_Message_GetArray(m, h.m2_field128)) {
+        for (std::size_t z = 0, zn = upb_Array_Size(a_field128); z < zn; ++z) {
+            s += upb_Array_Get(a_field128, z).str_val.size;
+        }
+    }
+    if (upb_Message_HasBaseField(m, h.m2_field131)) {
+        s += static_cast<std::uint64_t>(upb_Message_GetInt64(m, h.m2_field131, 0));
+    }
+    if (const upb_Array* a_field127 = upb_Message_GetArray(m, h.m2_field127)) {
+        for (std::size_t z = 0, zn = upb_Array_Size(a_field127); z < zn; ++z) {
+            s += upb_Array_Get(a_field127, z).str_val.size;
+        }
+    }
+    if (upb_Message_HasBaseField(m, h.m2_field129)) {
+        s += static_cast<std::uint32_t>(upb_Message_GetInt32(m, h.m2_field129, 0));
+    }
+    if (const upb_Array* a_field130 = upb_Message_GetArray(m, h.m2_field130)) {
+        for (std::size_t z = 0, zn = upb_Array_Size(a_field130); z < zn; ++z) {
+            s += static_cast<std::uint64_t>(upb_Array_Get(a_field130, z).int64_val);
+        }
+    }
+    if (upb_Message_HasBaseField(m, h.m2_field205)) {
+        s += upb_Message_GetBool(m, h.m2_field205, false) ? 1U : 0U;
+    }
+    if (upb_Message_HasBaseField(m, h.m2_field206)) {
+        s += upb_Message_GetBool(m, h.m2_field206, false) ? 1U : 0U;
+    }
+    if (const upb_Array* groups = upb_Message_GetArray(m, h.m2_group1)) {
+        for (std::size_t gi = 0, gn = upb_Array_Size(groups); gi < gn; ++gi) {
+            const upb_Message* g = upb_Array_Get(groups, gi).msg_val;
+            s += fbits(upb_Message_GetFloat(g, h.g2_field11, 0.0F));
+            if (upb_Message_HasBaseField(g, h.g2_field26)) {
+                s += fbits(upb_Message_GetFloat(g, h.g2_field26, 0.0F));
+            }
+            if (upb_Message_HasBaseField(g, h.g2_field12)) {
+                s += upb_Message_GetString(g, h.g2_field12, kNoStr).size;
+            }
+            if (upb_Message_HasBaseField(g, h.g2_field13)) {
+                s += upb_Message_GetString(g, h.g2_field13, kNoStr).size;
+            }
+            if (const upb_Array* a_field14 = upb_Message_GetArray(g, h.g2_field14)) {
+                for (std::size_t z = 0, zn = upb_Array_Size(a_field14); z < zn; ++z) {
+                    s += upb_Array_Get(a_field14, z).str_val.size;
+                }
+            }
+            s += upb_Message_GetUInt64(g, h.g2_field15, 0);
+            if (upb_Message_HasBaseField(g, h.g2_field5)) {
+                s += static_cast<std::uint32_t>(upb_Message_GetInt32(g, h.g2_field5, 0));
+            }
+            if (upb_Message_HasBaseField(g, h.g2_field27)) {
+                s += upb_Message_GetString(g, h.g2_field27, kNoStr).size;
+            }
+            if (upb_Message_HasBaseField(g, h.g2_field28)) {
+                s += static_cast<std::uint32_t>(upb_Message_GetInt32(g, h.g2_field28, 0));
+            }
+            if (upb_Message_HasBaseField(g, h.g2_field29)) {
+                s += upb_Message_GetString(g, h.g2_field29, kNoStr).size;
+            }
+            if (upb_Message_HasBaseField(g, h.g2_field16)) {
+                s += upb_Message_GetString(g, h.g2_field16, kNoStr).size;
+            }
+            if (const upb_Array* a_field22 = upb_Message_GetArray(g, h.g2_field22)) {
+                for (std::size_t z = 0, zn = upb_Array_Size(a_field22); z < zn; ++z) {
+                    s += upb_Array_Get(a_field22, z).str_val.size;
+                }
+            }
+            if (const upb_Array* a_field73 = upb_Message_GetArray(g, h.g2_field73)) {
+                for (std::size_t z = 0, zn = upb_Array_Size(a_field73); z < zn; ++z) {
+                    s += static_cast<std::uint32_t>(upb_Array_Get(a_field73, z).int32_val);
+                }
+            }
+            if (upb_Message_HasBaseField(g, h.g2_field20)) {
+                s += static_cast<std::uint32_t>(upb_Message_GetInt32(g, h.g2_field20, 0));
+            }
+            if (upb_Message_HasBaseField(g, h.g2_field24)) {
+                s += upb_Message_GetString(g, h.g2_field24, kNoStr).size;
+            }
+            if (const upb_Message* q = upb_Message_GetMessage(g, h.g2_field31)) {
+                if (upb_Message_HasBaseField(q, h.q2_field1)) {
+                    s += fbits(upb_Message_GetFloat(q, h.q2_field1, 0.0F));
+                }
+                if (upb_Message_HasBaseField(q, h.q2_field2)) {
+                    s += fbits(upb_Message_GetFloat(q, h.q2_field2, 0.0F));
+                }
+                if (upb_Message_HasBaseField(q, h.q2_field3)) {
+                    s += fbits(upb_Message_GetFloat(q, h.q2_field3, 0.0F));
+                }
+                if (upb_Message_HasBaseField(q, h.q2_field4)) {
+                    s += upb_Message_GetBool(q, h.q2_field4, false) ? 1U : 0U;
+                }
+                if (upb_Message_HasBaseField(q, h.q2_field5)) {
+                    s += upb_Message_GetBool(q, h.q2_field5, false) ? 1U : 0U;
+                }
+                if (upb_Message_HasBaseField(q, h.q2_field6)) {
+                    s += upb_Message_GetBool(q, h.q2_field6, false) ? 1U : 0U;
+                }
+                if (upb_Message_HasBaseField(q, h.q2_field7)) {
+                    s += upb_Message_GetBool(q, h.q2_field7, false) ? 1U : 0U;
+                }
+                if (upb_Message_HasBaseField(q, h.q2_field8)) {
+                    s += fbits(upb_Message_GetFloat(q, h.q2_field8, 0.0F));
+                }
+                if (upb_Message_HasBaseField(q, h.q2_field9)) {
+                    s += upb_Message_GetBool(q, h.q2_field9, false) ? 1U : 0U;
+                }
+                if (upb_Message_HasBaseField(q, h.q2_field10)) {
+                    s += fbits(upb_Message_GetFloat(q, h.q2_field10, 0.0F));
+                }
+                if (upb_Message_HasBaseField(q, h.q2_field11)) {
+                    s += static_cast<std::uint64_t>(upb_Message_GetInt64(q, h.q2_field11, 0));
+                }
+            }
+        }
+    }
+    upb_Arena_Free(arena);
+    return s;
+}
+
+}  // namespace upbwalk
+#endif  // RAPIDPROTO_HAVE_UPB
+
 namespace {
 
 // One scenario: cross-validate every decoder's checksum on `buf`, then measure the arms.
 // `name` follows the harness's scenario naming; upb joins when its descriptors loaded.
 template <class ArenaMsg, class ProtocFn, class ArenaWalk, class StreamFn>
 int scenario(const char* name, const std::string& buf, ProtocFn protoc_sum, ArenaWalk arena_walk,
-             StreamFn stream_sum, const char* upb_name) {
+             StreamFn stream_sum, const char* upb_name,
+             std::uint64_t (*upb_timed_sum)(const std::string&), bool gm_handles_ok) {
     const rapidproto::ByteView view(buf);
 
     rapidproto::Arena setup_arena;
@@ -987,9 +1684,12 @@ int scenario(const char* name, const std::string& buf, ProtocFn protoc_sum, Aren
     const std::uint64_t c_stream = stream_sum(view);
     bool mismatch = c_arena != c_protoc || c_arena != c_stream;
 #ifdef RAPIDPROTO_HAVE_UPB
+    // Two upb checksums, both validated: the generic REFLECTIVE walk (validation only) and the
+    // accessor walk the timed arm runs -- pinning the timed work equivalent before measuring.
     rpupb::Found upb_msg = rpupb::find_message(upb_name);
     std::uint64_t c_upb = 0;
-    if (upb_msg.table != nullptr) {
+    const bool upb_ready = upb_msg.table != nullptr && gm_handles_ok;
+    if (upb_ready) {
         upb_Arena* ua = upb_Arena_New();
         upb_Message* um = upb_Message_New(upb_msg.table, ua);
         if (upb_Decode(buf.data(), buf.size(), um, upb_msg.table, nullptr,
@@ -997,12 +1697,14 @@ int scenario(const char* name, const std::string& buf, ProtocFn protoc_sum, Aren
             mismatch = true;
         } else {
             c_upb = rpupb::message_sum(um, upb_msg.def);
-            mismatch = mismatch || c_arena != c_upb;
+            mismatch = mismatch || c_arena != c_upb || upb_timed_sum(buf) != c_upb;
         }
         upb_Arena_Free(ua);
     }
 #else
     (void)upb_name;
+    (void)gm_handles_ok;
+    (void)upb_timed_sum;
 #endif
     if (mismatch) {
         std::fprintf(stderr, "CHECKSUM MISMATCH (%s): arena=%llu protoc=%llu stream=%llu", name,
@@ -1034,19 +1736,11 @@ int scenario(const char* name, const std::string& buf, ProtocFn protoc_sum, Aren
         {"streamgen", [&]() { return stream_sum(view); }},
     };
 #ifdef RAPIDPROTO_HAVE_UPB
-    if (upb_msg.table != nullptr) {
-        // Pure decode returning the validated constant, exactly like the Dataset upb arm (the
-        // reflective walk would bill upb for interpreter overhead no real consumer pays).
-        const upb_MiniTable* table = upb_msg.table;
-        arms.push_back({"upb", [table, c_upb, &buf]() {
-                            upb_Arena* a = upb_Arena_New();
-                            upb_Message* um = upb_Message_New(table, a);
-                            const bool ok = upb_Decode(buf.data(), buf.size(), um, table, nullptr,
-                                                       kUpb_DecodeOption_AliasString,
-                                                       a) == kUpb_DecodeStatus_Ok;
-                            upb_Arena_Free(a);
-                            return ok ? c_upb : ~std::uint64_t{0};
-                        }});
+    if (upb_ready) {
+        // Decode + accessor-walk checksum: the SAME work every other arm does, through
+        // pre-resolved upb_MiniTableField accessors (what upb's generated code compiles to) --
+        // neither flattering upb by skipping the walk nor over-billing it with reflection.
+        arms.push_back({"upb", [&buf, upb_timed_sum]() { return upb_timed_sum(buf); }});
     }
 #endif
     return rpbench::run(name, static_cast<double>(buf.size()), arms);
@@ -1065,23 +1759,40 @@ int run_arm() {
                      "readable (corpus moved since configure?)\n");
         return 0;
     }
+    bool gm_handles_ok = false;
 #ifdef RAPIDPROTO_HAVE_UPB
     // Best effort: a failed load degrades to upb-less scenarios (find_message then fails and
     // the arm is skipped), consistent with the Dataset arm's degrade-not-abort rule.
     (void)rpupb::add_descriptor_set(rp_upb_gm1_desc, rp_upb_gm1_desc_len, "gm1.desc");
     (void)rpupb::add_descriptor_set(rp_upb_gm2_desc, rp_upb_gm2_desc_len, "gm2.desc");
+    gm_handles_ok = upbwalk::init_gm_handles();
+    if (!gm_handles_ok) {
+        std::fprintf(stderr, "note: upb accessor handles failed to resolve; upb arm skipped\n");
+    }
 #endif
     int bad = 0;
     const int r1 = scenario<am::GoogleMessage1>("google_message1", gm1, gm1_protoc,
                                                 gm1_arena_walk<am::GoogleMessage1>, gm1_stream,
-                                                "benchmarks.proto2.GoogleMessage1");
+                                                "benchmarks.proto2.GoogleMessage1",
+#ifdef RAPIDPROTO_HAVE_UPB
+                                                upbwalk::upb_sum_gm1,
+#else
+                                                nullptr,
+#endif
+                                                gm_handles_ok);
     if (r1 < 0) {
         return -1;
     }
     bad += r1;
     const int r2 = scenario<am::GoogleMessage2>("google_message2", gm2, gm2_protoc,
                                                 gm2_arena_walk<am::GoogleMessage2>, gm2_stream,
-                                                "benchmarks.proto2.GoogleMessage2");
+                                                "benchmarks.proto2.GoogleMessage2",
+#ifdef RAPIDPROTO_HAVE_UPB
+                                                upbwalk::upb_sum_gm2,
+#else
+                                                nullptr,
+#endif
+                                                gm_handles_ok);
     if (r2 < 0) {
         return -1;
     }

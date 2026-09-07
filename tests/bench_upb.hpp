@@ -64,11 +64,45 @@ namespace rpupb {
 
 // Owned for the process lifetime; set up once by init(). Not RAII -- a bench main has no
 // teardown worth modeling, and upb's def pool must outlive every MiniTable pointer taken.
+// The Dataset walk's pre-resolved accessor handles. upb_MiniTableField pointers looked up ONCE
+// at init by name; the timed walk then reads through upb's typed inline accessors -- exactly
+// what upb's generated .upb.h accessors compile to, so the walk cost matches what a codegen
+// consumer pays, with none of reflection's per-field name lookups.
+struct DatasetFields {
+    const upb_MiniTableField* name = nullptr;
+    const upb_MiniTableField* version = nullptr;
+    const upb_MiniTableField* people = nullptr;
+    const upb_MessageDef* person_def = nullptr;
+    const upb_MiniTableField* p_id = nullptr;
+    const upb_MiniTableField* p_name = nullptr;
+    const upb_MiniTableField* p_email = nullptr;
+    const upb_MiniTableField* p_active = nullptr;
+    const upb_MiniTableField* p_score = nullptr;
+    const upb_MiniTableField* p_created = nullptr;
+    const upb_MiniTableField* p_address = nullptr;
+    const upb_MiniTableField* p_tags = nullptr;
+    const upb_MiniTableField* p_history = nullptr;
+    const upb_MiniTableField* p_attributes = nullptr;
+    const upb_MiniTableField* p_counters = nullptr;
+    const upb_MiniTableField* a_street = nullptr;
+    const upb_MiniTableField* a_city = nullptr;
+    const upb_MiniTableField* a_zip = nullptr;
+    const upb_MiniTableField* at_key = nullptr;
+    const upb_MiniTableField* at_value = nullptr;
+};
+
 struct State {
     upb_DefPool* pool = nullptr;
     const upb_MessageDef* dataset_def = nullptr;
     const upb_MiniTable* dataset_table = nullptr;
+    DatasetFields ds;
 };
+
+// One field's accessor handle, by name; nullptr (never crashing) when the schema moved.
+inline const upb_MiniTableField* field_handle(const upb_MessageDef* md, const char* name) {
+    const upb_FieldDef* f = md != nullptr ? upb_MessageDef_FindFieldByName(md, name) : nullptr;
+    return f != nullptr ? upb_FieldDef_MiniTable(f) : nullptr;
+}
 
 inline State& state() {
     static State s;
@@ -151,7 +185,112 @@ inline bool init() {
     const Found f = find_message("bench.Dataset");
     s.dataset_def = f.def;
     s.dataset_table = f.table;
-    return f.table != nullptr;
+    if (f.table == nullptr) {
+        return false;
+    }
+    DatasetFields& d = s.ds;
+    d.name = field_handle(f.def, "name");
+    d.version = field_handle(f.def, "version");
+    d.people = field_handle(f.def, "people");
+    const Found person = find_message("bench.Person");
+    const Found address = find_message("bench.Address");
+    const Found attribute = find_message("bench.Attribute");
+    d.person_def = person.def;
+    d.p_id = field_handle(person.def, "id");
+    d.p_name = field_handle(person.def, "name");
+    d.p_email = field_handle(person.def, "email");
+    d.p_active = field_handle(person.def, "active");
+    d.p_score = field_handle(person.def, "score");
+    d.p_created = field_handle(person.def, "created");
+    d.p_address = field_handle(person.def, "address");
+    d.p_tags = field_handle(person.def, "tags");
+    d.p_history = field_handle(person.def, "history");
+    d.p_attributes = field_handle(person.def, "attributes");
+    d.p_counters = field_handle(person.def, "counters");
+    d.a_street = field_handle(address.def, "street");
+    d.a_city = field_handle(address.def, "city");
+    d.a_zip = field_handle(address.def, "zip");
+    d.at_key = field_handle(attribute.def, "key");
+    d.at_value = field_handle(attribute.def, "value");
+    for (const upb_MiniTableField* h :
+         {d.name, d.version, d.people, d.p_id, d.p_name, d.p_email, d.p_active, d.p_score,
+          d.p_created, d.p_address, d.p_tags, d.p_history, d.p_attributes, d.p_counters, d.a_street,
+          d.a_city, d.a_zip, d.at_key, d.at_value}) {
+        if (h == nullptr) {
+            std::fprintf(stderr, "upb arm: a Dataset field handle failed to resolve\n");
+            return false;
+        }
+    }
+    return true;
+}
+
+// Decode + ACCESSOR-walk checksum: the timed arm's whole body, doing the same work as every
+// other arm (decode, then read every present field into the checksum). Same contribution rule
+// as bench_arena.cpp's walks; validated at startup against both the reflective walk and
+// protoc's checksum.
+inline std::uint64_t decode_and_sum_dataset(rapidproto::ByteView buf) {
+    State& s = state();
+    const DatasetFields& d = s.ds;
+    upb_Arena* arena = upb_Arena_New();
+    upb_Message* msg = upb_Message_New(s.dataset_table, arena);
+    if (upb_Decode(buf.data(), buf.size(), msg, s.dataset_table, nullptr,
+                   kUpb_DecodeOption_AliasString, arena) != kUpb_DecodeStatus_Ok) {
+        upb_Arena_Free(arena);
+        return ~std::uint64_t{0};
+    }
+    const upb_StringView kNoStr = {nullptr, 0};
+    std::uint64_t sum = upb_Message_GetString(msg, d.name, kNoStr).size +
+                        static_cast<std::uint64_t>(upb_Message_GetInt64(msg, d.version, 0));
+    if (const upb_Array* people = upb_Message_GetArray(msg, d.people)) {
+        const std::size_t n = upb_Array_Size(people);
+        for (std::size_t i = 0; i < n; ++i) {
+            const upb_Message* p = upb_Array_Get(people, i).msg_val;
+            sum += static_cast<std::uint64_t>(upb_Message_GetInt64(p, d.p_id, 0));
+            sum += upb_Message_GetString(p, d.p_name, kNoStr).size;
+            sum += upb_Message_GetString(p, d.p_email, kNoStr).size;
+            sum += upb_Message_GetBool(p, d.p_active, false) ? 1U : 0U;
+            const double score = upb_Message_GetDouble(p, d.p_score, 0.0);
+            std::uint64_t bits = 0;
+            std::memcpy(&bits, &score, sizeof bits);
+            sum += bits;
+            sum += upb_Message_GetUInt64(p, d.p_created, 0);
+            if (const upb_Message* a = upb_Message_GetMessage(p, d.p_address)) {
+                sum += upb_Message_GetString(a, d.a_street, kNoStr).size;
+                sum += upb_Message_GetString(a, d.a_city, kNoStr).size;
+                sum += upb_Message_GetUInt32(a, d.a_zip, 0);
+            }
+            if (const upb_Array* tags = upb_Message_GetArray(p, d.p_tags)) {
+                const std::size_t tn = upb_Array_Size(tags);
+                for (std::size_t j = 0; j < tn; ++j) {
+                    sum += upb_Array_Get(tags, j).str_val.size;
+                }
+            }
+            if (const upb_Array* hist = upb_Message_GetArray(p, d.p_history)) {
+                const std::size_t hn = upb_Array_Size(hist);
+                for (std::size_t j = 0; j < hn; ++j) {
+                    sum += static_cast<std::uint32_t>(upb_Array_Get(hist, j).int32_val);
+                }
+            }
+            if (const upb_Array* attrs = upb_Message_GetArray(p, d.p_attributes)) {
+                const std::size_t an = upb_Array_Size(attrs);
+                for (std::size_t j = 0; j < an; ++j) {
+                    const upb_Message* at = upb_Array_Get(attrs, j).msg_val;
+                    sum += upb_Message_GetString(at, d.at_key, kNoStr).size;
+                    sum += upb_Message_GetString(at, d.at_value, kNoStr).size;
+                }
+            }
+            if (const upb_Map* counters = upb_Message_GetMap(p, d.p_counters)) {
+                std::size_t it = kUpb_Map_Begin;
+                upb_MessageValue mk;
+                upb_MessageValue mv;
+                while (upb_Map_Next(counters, &mk, &mv, &it)) {
+                    sum += mk.str_val.size + static_cast<std::uint32_t>(mv.int32_val);
+                }
+            }
+        }
+    }
+    upb_Arena_Free(arena);
+    return sum;
 }
 
 // ── the one-time reflection checksum (validation only, never timed) ──────────────────────────
@@ -262,22 +401,6 @@ inline std::uint64_t checksum_dataset(rapidproto::ByteView buf) {
         st == kUpb_DecodeStatus_Ok ? message_sum(msg, s.dataset_def) : ~std::uint64_t{0};
     upb_Arena_Free(arena);
     return sum;
-}
-
-// The timed arm's body: pure decode into a fresh arena (upb has no arena reset-and-reuse, so
-// this matches the arena-cold arm's semantics). AliasString on every upb decode here: our arena
-// BORROWS strings from the input, so upb gets the same semantics (and the same
-// input-must-outlive-the-message constraint) rather than paying copies we don't -- measured
-// +5-11% for upb across the three shapes, all checksums still agreeing. Returns whether decode succeeded; the arm
-// lambda folds in the pre-validated checksum.
-inline bool decode_dataset(rapidproto::ByteView buf) {
-    State& s = state();
-    upb_Arena* arena = upb_Arena_New();
-    upb_Message* msg = upb_Message_New(s.dataset_table, arena);
-    const upb_DecodeStatus st = upb_Decode(buf.data(), buf.size(), msg, s.dataset_table, nullptr,
-                                           kUpb_DecodeOption_AliasString, arena);
-    upb_Arena_Free(arena);
-    return st == kUpb_DecodeStatus_Ok;
 }
 
 }  // namespace rpupb

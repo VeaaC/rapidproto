@@ -677,7 +677,10 @@ int main() {
     std::uint64_t c_upb = 0;
     if (upb_ok) {
         c_upb = rpupb::checksum_dataset(view);
-        mismatch = mismatch || c_arena != c_upb;
+        // Both upb walks must agree with everyone: the generic REFLECTIVE one (validation
+        // only) and the accessor walk the timed arm runs -- so the timed arm's work is pinned
+        // equivalent before it is measured.
+        mismatch = mismatch || c_arena != c_upb || rpupb::decode_and_sum_dataset(view) != c_upb;
     } else {
         std::fprintf(stderr, "note: upb arm unavailable (init failed above); measuring the rest\n");
     }
@@ -726,13 +729,12 @@ int main() {
 #endif
 #ifdef RAPIDPROTO_HAVE_UPB
     if (upb_ok) {
-        // Pure decode into a fresh upb arena (arena-cold semantics; upb has no reset-and-reuse),
-        // returning the checksum VALIDATED at startup: the reflective walk the checksum needs
-        // would bill upb for interpreter overhead no real consumer pays, so it stays out of the
-        // timed lambda. Under-counts upb by the walk the other arms include -- flattering the
-        // baseline, the conservative direction (see bench_upb.hpp).
-        arms.push_back(
-            {"upb", [&]() { return rpupb::decode_dataset(view) ? c_upb : ~std::uint64_t{0}; }});
+        // Decode + accessor-walk checksum into a fresh upb arena (arena-cold semantics; upb has
+        // no reset-and-reuse): the SAME work every other arm does. The walk reads through
+        // pre-resolved upb_MiniTableField accessors -- what upb's generated code compiles to --
+        // not reflection, so upb is neither flattered (walk skipped) nor over-billed
+        // (per-field name lookups); see bench_upb.hpp.
+        arms.push_back({"upb", [&]() { return rpupb::decode_and_sum_dataset(view); }});
     }
 #endif
     // From here on `bad` carries the harness's per-run mismatch counts to the exit code, same
