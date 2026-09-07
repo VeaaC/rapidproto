@@ -5,12 +5,14 @@
 
 Decode throughput is measured by tests/bench.py. This measures the other half of the bargain a
 code generator strikes with its user: build time, code size, and the compiler's peak memory.
-tests/bench.py embeds this sweep into its own snapshots through collect()/render()/compare()
-below -- one home for the machinery -- so its `table` and `diff` show and gate these numbers
-beside the throughput; this tool stays usable standalone for compile-only investigation.
+tests/bench.py embeds this sweep into its own snapshots (opt-in: `run`/`experiment` --compile)
+through collect()/render()/compare() below -- one home for the machinery -- so its `table` and
+`diff` show and gate these numbers beside the throughput; this tool stays usable standalone for
+compile-only investigation.
 All three were invisible, and all three scale with the sub-message closure -- `RP_FLATTEN` on every
 message's `rp_decode_into` transitively inlines it, bounded by `LayoutOptions::flatten_budget`. On
-gcc a 10-message nesting chain takes ~4.7s and 174 KB of `.text` (unbounded: ~65s and 599 KB),
+gcc a 10-message nesting chain takes ~7.2s and 174 KB of `.text` (unbounded: ~65s and 599 KB,
+measured at the flatten-budget work),
 where clang takes ~1.1s and 48 KB.
 
 Methodology
@@ -36,8 +38,8 @@ near 1 GB on gcc, against 7 GB CI runners running parallel jobs.
 
 Caveats that the numbers do NOT capture:
   * The streaming rows use a catch-all callback, which does not recurse into sub-messages. A
-    recursing consumer over one chain10 message costs ~4.0s/47 KB against the 0.8s/21.6 KB
-    reported here for all ten, so the streaming column understates a nesting-heavy consumer and
+    recursing consumer over one chain10 message costs ~4.0s/47 KB (measured at the
+    flatten-budget work) against the ~1.9s/50.8 KB reported here for all ten, so the streaming column understates a nesting-heavy consumer and
     is flat in exactly the dimension flatten stresses. Every record carries `recurses: false`.
   * `.text` includes shared runtime and libstdc++ COMDAT code that is not attributable to the
     schema, and its size is COMPILER-dependent: a trivial one-message baseline measures ~10.0 KB
@@ -136,7 +138,8 @@ CASES: list[Case] = [
     Case("chain5", chain_depth=5),
     Case("chain10", chain_depth=10),
     # Real schemas. descriptor.proto is densely mutually recursive, so its decoders share one
-    # closure and a small cap loses little -- N=1/3/5 measure 7.4/7.7/7.7s on g++-13, i.e. FLAT
+    # closure and a small cap loses little -- N=5 measures 11.6s on g++-13 and N=1/3/5 were
+    # FLAT at the flatten-budget work (7.4/7.7/7.7s)
     # (the first decoder already drags in the closure and the rest reuse it). compute.proto is wide
     # and shallow (103k lines, 2223 decoders), where the cap is doing real work.
     Case("descriptor", "protobuf/src/google/protobuf/descriptor.proto",
@@ -295,6 +298,9 @@ def run_case(tool: Path, case: Case, compiler: str, work: Path) -> list[dict]:
 
     stem = schema.relative_to(include).with_suffix("")
     arena_header, stream_header = out / f"{stem}.rp.hpp", out / f"{stem}.rp.stream.hpp"
+    if not arena_header.is_file():
+        raise SystemExit(f"{case.name}: generation succeeded but {arena_header} does not exist "
+                         f"-- a generator with a different output layout (an old ref?)")
     names = sorted(set(DECODE_DEF.findall(arena_header.read_text())))
     if not names:
         raise SystemExit(
@@ -348,8 +354,10 @@ def check_tools(compilers: list[str]) -> None:
     the cached object is byte-identical). ccache is neutralized instead of refused: measure()
     sets CCACHE_DISABLE=1, which ccache documents as a straight pass-through, so the standard
     Debian masquerade PATH (/usr/lib/ccache first) still measures the real compiler. Other
-    wrappers (sccache, distcc, icecc) have no equivalent universal off switch, so a compiler
-    resolving to one is refused with the fix named."""
+    wrappers (sccache, distcc, icecc) have no off switch this tool relies on, so a compiler
+    RESOLVING to one is refused with the fix named. The limit of the defense: a wrapper SCRIPT
+    that merely looks like the compiler and execs a launcher is indistinguishable from the
+    compiler itself."""
     for compiler in compilers:
         resolved = shutil.which(compiler)
         if not resolved:
@@ -357,9 +365,9 @@ def check_tools(compilers: list[str]) -> None:
         target = Path(resolved).resolve().name
         if target in ("sccache", "distcc", "icecc"):
             raise SystemExit(
-                f"{compiler} resolves to a {target} shim ({resolved}); compile seconds and peak "
-                f"RSS would measure the wrapper, not the compiler. Put the real compiler first "
-                f"on PATH for this run.")
+                f"{compiler} resolves to a {target} shim ({resolved} -> "
+                f"{Path(resolved).resolve()}); compile seconds and peak RSS would measure the "
+                f"wrapper, not the compiler. Put the real compiler first on PATH for this run.")
     for binary in ("/usr/bin/time", "objdump"):
         if not shutil.which(binary):
             raise SystemExit(f"{binary} is required")
@@ -500,16 +508,20 @@ def cmd_table(args: argparse.Namespace) -> int:
     return 0
 
 
-# The regression threshold both this tool's `diff` and tests/bench.py's embedded compile gate
-# use -- one home, so the two cannot drift on what counts as a regression.
-DEFAULT_THRESHOLD = 20.0
+# The per-metric regression thresholds both this tool's `diff` and tests/bench.py's embedded
+# compile gate use -- one home, so the two cannot drift on what counts as a regression. Sized to
+# each metric's own reproducibility, measured across independent sweeps of identical code:
+# .text reproduced byte-identically (any real growth clears 5%), peak RSS within ~1%, and
+# seconds is wall clock, so it alone gets slack for machine load.
+METRIC_THRESHOLDS = {"text_bytes": 5.0, "peak_rss_kb": 10.0, "seconds": 20.0}
 
 
 def compare(old_records: list[dict], new_records: list[dict],
-            threshold: float) -> tuple[list[str], list[str], int, list[tuple]]:
+            thresholds: dict[str, float]) -> tuple[list[str], list[str], int, list[tuple]]:
     """Pairwise metric comparison, returning (regressions, skipped, compared, vanished). THE one
     home for what a compile regression means; tests/bench.py's diff gates embedded compile
-    records through this too."""
+    records through this too. `thresholds` maps each METRICS entry to its percent gate
+    (METRIC_THRESHOLDS unless the caller overrides)."""
     old_index = {key(r): r for r in old_records}
     regressions, skipped, compared = [], [], 0
     for rec in new_records:
@@ -531,9 +543,10 @@ def compare(old_records: list[dict], new_records: list[dict],
                 continue
             checked += 1
             delta = (after - before) / before * 100.0
-            if delta > threshold:
+            if delta > thresholds[metric]:
                 regressions.append(
-                    f"{'/'.join(key(rec))} {metric}: {before} -> {after}  (+{delta:.1f}%)")
+                    f"{'/'.join(key(rec))} {metric}: {before} -> {after}  "
+                    f"(+{delta:.1f}% > {thresholds[metric]:g}%)")
         # Count pairs whose metrics were actually comparable. A renamed metric key would
         # otherwise degrade diff to checking nothing while still reporting a pair count.
         if checked:
@@ -547,11 +560,11 @@ def compare(old_records: list[dict], new_records: list[dict],
 def cmd_diff(args: argparse.Namespace) -> int:
     """Regression check on compile seconds, .text and peak RSS between two snapshots.
 
-    All three are near-deterministic -- the same TU compiled twice varies by a few percent, with
-    no code-placement floor to hide behind -- so the threshold is far tighter than the decode
-    benchmark's ~10%.
+    All three are gated, each at its own threshold (METRIC_THRESHOLDS): .text is deterministic
+    and peak RSS nearly so, with no code-placement floor to hide behind, so those gate far
+    tighter than the decode benchmark's ~10%; seconds is wall clock and gets the slack.
     """
-    if args.threshold < 0:
+    if args.threshold is not None and args.threshold < 0:
         raise SystemExit("diff: --threshold must be >= 0")
     old_header, old_records = load(args.old)
     new_header, new_records = load(args.new)
@@ -566,7 +579,10 @@ def cmd_diff(args: argparse.Namespace) -> int:
             f"compiler flags differ ({old_header.get('cxxflags')} vs "
             f"{new_header.get('cxxflags')}); the delta would be real but meaningless."
         )
-    regressions, skipped, compared, vanished = compare(old_records, new_records, args.threshold)
+    # An explicit --threshold applies uniformly; the default is the per-metric table.
+    thresholds = ({m: args.threshold for m in METRICS} if args.threshold is not None
+                  else METRIC_THRESHOLDS)
+    regressions, skipped, compared, vanished = compare(old_records, new_records, thresholds)
     for missing in vanished:
         print(f">> MISSING FROM NEW: {'/'.join(missing)}")
     for line in skipped:
@@ -587,8 +603,10 @@ def cmd_diff(args: argparse.Namespace) -> int:
             f"diff compared 0 pairs ({len(skipped)} skipped). The snapshots share no comparable "
             f"(case, model, compiler) records -- this is not a regression check."
         )
+    gate_desc = (f"{args.threshold:g}% (uniform)" if args.threshold is not None else
+                 ", ".join(f"{m} {v:g}%" for m, v in thresholds.items()))
     print(f"OK: {compared} pairs compared ({len(skipped)} skipped), no regression beyond "
-          f"{args.threshold:.1f}%")
+          f"{gate_desc}")
     return 0
 
 
@@ -614,9 +632,9 @@ def main() -> int:
     diff_parser = sub.add_parser("diff", help="regression check between two snapshots")
     diff_parser.add_argument("old", type=Path)
     diff_parser.add_argument("new", type=Path)
-    diff_parser.add_argument("--threshold", type=float, default=DEFAULT_THRESHOLD,
-                             help=f"percent growth counting as a regression "
-                                  f"(default: {DEFAULT_THRESHOLD:g})")
+    diff_parser.add_argument("--threshold", type=float, default=None,
+                             help="uniform percent-growth gate for every metric (default: the "
+                                  "per-metric table -- .text 5, peak RSS 10, seconds 20)")
     diff_parser.set_defaults(func=cmd_diff)
 
     args = parser.parse_args()

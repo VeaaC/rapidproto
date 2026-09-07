@@ -1135,12 +1135,12 @@ reflected (a documented simplification; decoders accept both wire forms).
   the generated decoders cost to *build* — wall seconds, `.text` bytes, and the compiler's peak
   RSS — across
   a fixed set of schemas on both compilers; `bench.py run`/`experiment` embed the same sweep into
-  their snapshots and gate it, so a codegen cost regression fails the standard experiment. It
+  their snapshots under `--compile` (opt-in) and gate it, so a codegen-cost regression fails an
+  experiment run with that flag. It
   exists because those costs were invisible while scaling badly: `RP_FLATTEN` on every
   `rp_decode_into` transitively inlines the sub-message closure, bounded by the flatten budget
-  above; the magnitudes live in
-  [docs/benchmarks.md](docs/benchmarks.md#compile-cost--what-the-throughput-costs-to-build),
-  which owns them. Peak RSS is measured because it is the failure that actually stops a
+  above; the headline magnitudes live in
+  [docs/benchmarks.md](docs/benchmarks.md#compile-cost--what-the-throughput-costs-to-build). Peak RSS is measured because it is the failure that actually stops a
   build: one arena TU peaks near 1 GB on gcc.
 
   Each measured translation unit defines **one external-linkage function per message**, taking the

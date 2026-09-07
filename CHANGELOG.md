@@ -151,11 +151,13 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
   compile seconds, `.text` bytes, peak compiler RSS, per schema shape x model x compiler
   (`tests/compile_bench.py`'s cases; ~2 min per snapshot, which a throughput-focused loop
   should not pay -- pass it when the change touches codegen). `table` renders the columns
-  beside the throughput tables and `diff`/`experiment` gate them at a tight threshold --
-  `.text` is deterministic with no placement floor, so a codegen change that bloats it fails
-  the same experiment that used to see only its speed effect. Compiler launchers cannot
-  distort the numbers: each measured compile sets `CCACHE_DISABLE`, and sccache/distcc/icecc
-  shims are refused.
+  beside the throughput tables and `diff`/`experiment` gate all three, each at its own
+  threshold (`.text` 5% -- deterministic, byte-stable across sweeps -- peak RSS 10%, wall-clock
+  seconds 20%), so a codegen change that bloats `.text` fails the same experiment that used to
+  see only its speed effect. Known compiler-launcher masquerades cannot distort the numbers:
+  each measured compile sets `CCACHE_DISABLE`, and a compiler resolving to an
+  sccache/distcc/icecc shim is refused (a wrapper script that merely looks like the compiler
+  remains undetectable).
 
 - **Releases ship `linux-arm64` and `macos-arm64` binaries alongside `linux-x86_64`.** Same
   tarball layout; every leg re-verifies the tag (the full default gate on linux-x86_64, the
