@@ -467,9 +467,11 @@ def diff_compile(old_header, new_header, old_records, new_records):
     compile regression means. Asymmetric or non-comparable snapshots report and skip rather than
     gate: an archived baseline predating the embedding must not fail every diff against it."""
     if not old_records and not new_records:
-        # Both sides deliberately ran without --compile: silence, not a nag -- the sweep is
-        # opt-in, and stamping every throughput-only diff "NOT gated" would teach readers to
-        # ignore the tail that matters in the asymmetric cases below.
+        # Both sides deliberately ran without --compile: one low-key FYI line, and a clean
+        # verdict -- stamping the verdict itself "NOT gated" on every throughput-only diff
+        # would teach readers to ignore the tail that matters in the asymmetric cases below.
+        print("\nnote: compile cost not measured in either snapshot "
+              "(opt-in: `run`/`experiment` --compile)")
         return None, None
     side = "old" if not old_records else "new"
     if not old_records or not new_records:
