@@ -23,10 +23,11 @@
 // by the walk the others include, i.e. it flatters the BASELINE, which is the conservative
 // direction for RapidProto's own claims.
 //
-// The OTHER direction's caveat, equally deliberate: a runtime-built MiniTable gets only partial
-// fasttable coverage, so this arm is a FLOOR for upb, not its ceiling -- upb with
-// protoc-plugin-generated tables would be faster. docs/benchmarks.md carries the caveat beside
-// the numbers; never quote the upb row as "upb at its best".
+// The configuration is VALIDATED, not assumed: on google_message1 (the published-numbers shape,
+// no maps) this same runtime-MiniTable + fasttable setup measures 2.16x protoc (2026-09-07,
+// quiesced box) -- squarely in upb's published 2-3x band -- so a weak upb showing on the
+// map/string-heavy Dataset is upb's genuine shape behavior, not a mis-setup. Plugin-generated
+// tables might still buy upb a little; docs/benchmarks.md states this beside the numbers.
 
 #ifdef RAPIDPROTO_HAVE_UPB
 
