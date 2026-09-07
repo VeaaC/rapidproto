@@ -9,6 +9,7 @@
 #ifdef RAPIDPROTO_BENCH_MESSAGES
 
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <fstream>
 #include <sstream>
@@ -37,8 +38,8 @@ extern const unsigned rp_upb_gm2_desc_len;
 
 namespace rpmessages {
 
-namespace am1 = rp::arena::benchmarks::proto2;
-namespace sm1 = rp::stream::benchmarks::proto2;
+namespace am = rp::arena::benchmarks::proto2;  // both gm schemas share the package
+namespace sm = rp::stream::benchmarks::proto2;
 namespace pm = benchmarks::proto2;
 
 inline std::uint64_t bits64(double d) {
@@ -474,8 +475,8 @@ std::uint64_t gm1_arena_walk(const M1* m) {
 }
 
 inline std::uint64_t gm1_stream(rapidproto::ByteView buf) {
-    using M = sm1::GoogleMessage1;
-    using Sub = sm1::GoogleMessage1SubMessage;
+    using M = sm::GoogleMessage1;
+    using Sub = sm::GoogleMessage1SubMessage;
     std::uint64_t s = 0;
     const M m{buf};
     const rapidproto::DecodeStatus st = m.decode(
@@ -897,9 +898,9 @@ std::uint64_t gm2_arena_walk(const M2* m) {
 }
 
 inline std::uint64_t gm2_stream(rapidproto::ByteView buf) {
-    using M = sm1::GoogleMessage2;
-    using G = sm1::GoogleMessage2::Group1;
-    using GM = sm1::GoogleMessage2GroupedMessage;
+    using M = sm::GoogleMessage2;
+    using G = sm::GoogleMessage2::Group1;
+    using GM = sm::GoogleMessage2GroupedMessage;
     std::uint64_t s = 0;
     const M m{buf};
     const rapidproto::DecodeStatus st = m.decode(
@@ -968,7 +969,6 @@ inline std::uint64_t gm2_stream(rapidproto::ByteView buf) {
 }
 
 }  // namespace rpmessages
-#include <cstdio>
 
 namespace rpmessages {
 namespace {
@@ -1005,10 +1005,16 @@ int scenario(const char* name, const std::string& buf, ProtocFn protoc_sum, Aren
     (void)upb_name;
 #endif
     if (mismatch) {
-        std::fprintf(stderr, "CHECKSUM MISMATCH (%s): arena=%llu protoc=%llu stream=%llu\n", name,
+        std::fprintf(stderr, "CHECKSUM MISMATCH (%s): arena=%llu protoc=%llu stream=%llu", name,
                      static_cast<unsigned long long>(c_arena),
                      static_cast<unsigned long long>(c_protoc),
                      static_cast<unsigned long long>(c_stream));
+#ifdef RAPIDPROTO_HAVE_UPB
+        if (upb_msg.table != nullptr) {
+            std::fprintf(stderr, " upb=%llu", static_cast<unsigned long long>(c_upb));
+        }
+#endif
+        std::fprintf(stderr, "\n");
         return -1;
     }
 
@@ -1051,10 +1057,12 @@ int run_arm() {
     const std::string gm1 = load_payload(RAPIDPROTO_GM1_DATASET);
     const std::string gm2 = load_payload(RAPIDPROTO_GM2_DATASET);
     if (gm1.empty() || gm2.empty()) {
+        // Degrade, don't fail: the paths were baked at configure, and a corpus deleted since
+        // then should cost the SCENARIOS, not the whole bench run (same rule as the upb arm).
         std::fprintf(stderr,
-                     "google_message scenarios: dataset payloads not readable "
-                     "(corpus moved?)\n");
-        return -1;
+                     "note: google_message scenarios SKIPPED -- dataset payloads not "
+                     "readable (corpus moved since configure?)\n");
+        return 0;
     }
 #ifdef RAPIDPROTO_HAVE_UPB
     // Best effort: a failed load degrades to upb-less scenarios (find_message then fails and
@@ -1063,16 +1071,16 @@ int run_arm() {
     (void)rpupb::add_descriptor_set(rp_upb_gm2_desc, rp_upb_gm2_desc_len, "gm2.desc");
 #endif
     int bad = 0;
-    const int r1 = scenario<am1::GoogleMessage1>("google_message1", gm1, gm1_protoc,
-                                                 gm1_arena_walk<am1::GoogleMessage1>, gm1_stream,
-                                                 "benchmarks.proto2.GoogleMessage1");
+    const int r1 = scenario<am::GoogleMessage1>("google_message1", gm1, gm1_protoc,
+                                                gm1_arena_walk<am::GoogleMessage1>, gm1_stream,
+                                                "benchmarks.proto2.GoogleMessage1");
     if (r1 < 0) {
         return -1;
     }
     bad += r1;
-    const int r2 = scenario<am1::GoogleMessage2>("google_message2", gm2, gm2_protoc,
-                                                 gm2_arena_walk<am1::GoogleMessage2>, gm2_stream,
-                                                 "benchmarks.proto2.GoogleMessage2");
+    const int r2 = scenario<am::GoogleMessage2>("google_message2", gm2, gm2_protoc,
+                                                gm2_arena_walk<am::GoogleMessage2>, gm2_stream,
+                                                "benchmarks.proto2.GoogleMessage2");
     if (r2 < 0) {
         return -1;
     }

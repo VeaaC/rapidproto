@@ -157,9 +157,10 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
   Sources come from the corpus's pinned protobuf checkout (`fetch_corpus.py` now brings `upb/` +
   `third_party/utf8_range`; nothing vendored); the schema reaches upb as an embedded descriptor
   turned into a runtime MiniTable (fasttable enabled) -- no upb codegen plugin. The
-  configuration is validated against upb's published numbers (2.16x protoc on google_message1,
-  in the published 2-3x band), so a weak upb row on a map-heavy shape is upb's real behavior,
-  not a mis-setup; docs/benchmarks.md states this where the number is read.
+  configuration is validated by a standalone decode-vs-decode probe (2.16x protoc on
+  google_message1, the band upstream's own figures put upb in; the in-tree table's like-for-like
+  row reads lower for harness reasons docs/benchmarks.md explains where both numbers are read),
+  so a weak upb row on a map-heavy shape is upb's real behavior, not a mis-setup.
 
 - **`bench.py --compile` embeds compile cost in snapshots, and `experiment` gates it.**
   Opt-in on `run`/`experiment`: also measure what the generated decoders cost to BUILD --

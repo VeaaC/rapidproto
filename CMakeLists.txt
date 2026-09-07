@@ -457,7 +457,7 @@ if(RAPIDPROTO_BUILD_TESTS)
     target_compile_options(rapidproto_arena_bench PRIVATE -O3 -DNDEBUG)
 
     # ── upb baseline arm (roadmap 3.4) ─────────────────────────────────────────────────────────
-    # upb: the fastest widely-known C protobuf parser -- the honest materializing yardstick.
+    # upb: protobuf upstream's speed-focused C parser -- the honest materializing yardstick.
     # Compiled from the fetched corpus's protobuf checkout (fetch_corpus.py brings upb/ +
     # third_party/utf8_range at the SAME pin as the schemas): dev-only, never vendored --
     # protozero's model, plus compilation. No upb codegen plugin: the bench decodes through a
@@ -469,17 +469,23 @@ if(RAPIDPROTO_BUILD_TESTS)
       # The project is CXX-only; upb is C. Enabled here, inside the guard, so a build without
       # the corpus never requires a C compiler.
       enable_language(C)
-      # The runtime subset the decode + reflection path needs (json/io/text/conformance are
-      # not in it); test files and the stage0/stage1 bootstraps excluded. GLOB_RECURSE per
+      # The subdirectories the decode + reflection path draws from (json/io/text/conformance
+      # are not globbed; a handful of compiled-but-unreferenced TUs inside these roots is left
+      # to the static-lib linker). Test files and stage0/stage1 bootstraps excluded. GLOB_RECURSE per
       # design here: the corpus is PINNED, so the file set only changes on a deliberate pin
       # bump, where a build error is the desired signal.
       file(GLOB_RECURSE UPB_SOURCES
         "${UPB_ROOT}/base/*.c" "${UPB_ROOT}/hash/*.c" "${UPB_ROOT}/lex/*.c"
         "${UPB_ROOT}/mem/*.c" "${UPB_ROOT}/message/*.c" "${UPB_ROOT}/mini_descriptor/*.c"
         "${UPB_ROOT}/mini_table/*.c" "${UPB_ROOT}/reflection/*.c" "${UPB_ROOT}/wire/*.c")
-      list(FILTER UPB_SOURCES EXCLUDE REGEX "(_test|/test/|/stage0/|/stage1/)")
+      # Anchored under UPB_ROOT: an unanchored pattern matched the whole checkout path, so a
+      # repo cloned under a directory containing `_test` silently emptied the source list.
+      list(FILTER UPB_SOURCES EXCLUDE REGEX
+           "^${UPB_ROOT}/.*(_test|/test/|/stage0/|/stage1/)")
+      # The reflection glob already catches the pre-generated bootstrap
+      # (reflection/cmake/google/protobuf/descriptor.upb_minitable.c); only utf8_range lives
+      # outside the globbed roots and needs an explicit entry.
       list(APPEND UPB_SOURCES
-        "${UPB_ROOT}/reflection/cmake/google/protobuf/descriptor.upb_minitable.c"
         "${CORPUS_DIR}/protobuf/third_party/utf8_range/utf8_range.c")
 
       # bench.proto's FileDescriptorSet, embedded as a C array (cmake/embed_binary.cmake --
@@ -509,11 +515,16 @@ if(RAPIDPROTO_BUILD_TESTS)
         "${CORPUS_DIR}/protobuf/third_party/utf8_range")
       # Third-party C measured as shipped: -O3 like every arm, warnings are upstream's business.
       target_compile_options(rapidproto_upb_bench PRIVATE -O3 -DNDEBUG -w)
-      # Fasttable ON, and PUBLIC: at this pin upb builds fasttable entries for RUNTIME MiniTables
-      # too (mini_descriptor/decode.c + wire/decode_fast/select.c), and without it the arm times
-      # upb's generic interpreter -- not the configuration upb's own numbers are quoted at. The
-      # define changes upb struct layouts, so every includer must see it (hence PUBLIC).
-      target_compile_definitions(rapidproto_upb_bench PUBLIC UPB_ENABLE_FASTTABLE=1)
+      # Fasttable ON where upb supports it (x86-64/arm64 + GCC/Clang; upb #errors elsewhere
+      # when forced): at this pin upb builds fasttable entries for RUNTIME MiniTables too
+      # (mini_descriptor/decode.c + wire/decode_fast/select.c), and without it the arm times
+      # upb's generic interpreter -- not the configuration upb's own numbers are quoted at.
+      # PRIVATE, not PUBLIC: the define adds only a trailing flexible-array member (no sizeof or
+      # offset changes; upstream deliberately keeps it out of consumer code), and the decoder
+      # reading the fasttable is lib-internal. On other arches the arm still runs, interpreted.
+      if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|aarch64|arm64")
+        target_compile_definitions(rapidproto_upb_bench PRIVATE UPB_ENABLE_FASTTABLE=1)
+      endif()
       target_link_libraries(rapidproto_arena_bench PRIVATE rapidproto_upb_bench)
       target_compile_definitions(rapidproto_arena_bench PRIVATE RAPIDPROTO_HAVE_UPB)
     else()

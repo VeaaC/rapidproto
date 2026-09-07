@@ -683,10 +683,19 @@ int main() {
     }
 #endif
     if (mismatch) {
-        std::fprintf(stderr, "CHECKSUM MISMATCH arena=%llu protoc=%llu stream=%llu\n",
+        std::fprintf(stderr, "CHECKSUM MISMATCH arena=%llu protoc=%llu stream=%llu",
                      static_cast<unsigned long long>(c_arena),
                      static_cast<unsigned long long>(c_protoc),
                      static_cast<unsigned long long>(c_stream));
+#ifdef RAPIDPROTO_HAVE_PROTOZERO
+        std::fprintf(stderr, " protozero=%llu", static_cast<unsigned long long>(c_pz));
+#endif
+#ifdef RAPIDPROTO_HAVE_UPB
+        if (upb_ok) {
+            std::fprintf(stderr, " upb=%llu", static_cast<unsigned long long>(c_upb));
+        }
+#endif
+        std::fprintf(stderr, "\n");
         return 1;
     }
 

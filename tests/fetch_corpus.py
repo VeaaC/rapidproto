@@ -98,11 +98,16 @@ SOURCES: list[Source] = [
             # The two schemas real tooling consumes.
             "/src/google/protobuf/descriptor.proto",
             "/src/google/protobuf/compiler/plugin.proto",
-            # The upb C runtime + its pre-generated bootstrap (upb/cmake/) and the utf8_range
-            # dependency: the arena bench's upb baseline arm compiles these AT THE SAME PIN as
-            # the schemas above, so runtime and schemas move together on a bump. Source only --
-            # nothing here is linked into the library or its output, exactly like protozero.
+            # The upb C runtime + its pre-generated bootstrap (upb/reflection/cmake/) and the
+            # utf8_range dependency: the arena bench's upb baseline arm compiles these AT THE
+            # SAME PIN as the schemas above, so runtime and schemas move together on a bump.
+            # Source only -- nothing here is linked into the library or its output, exactly
+            # like protozero. The NEGATION keeps upstream's test .proto fixtures out of the
+            # tree: corpus_gate sweeps every fetched .proto under a must-parse assertion, and
+            # upb's fixtures include imports resolvable only in upstream's own build (the same
+            # reason the unittest*.proto family above is excluded).
             "/upb/**",
+            "!/upb/**/*.proto",
             "/third_party/utf8_range/*.c",
             "/third_party/utf8_range/*.h",
         ],
@@ -120,8 +125,8 @@ SOURCES: list[Source] = [
             "excluded on purpose: it carries a large transitive import closure and mixes in "
             "intentionally-invalid fixtures used for compiler error-path tests, which would "
             "produce false failures under a 'must parse' assertion. The upb/ C sources (plus "
-            "third_party/utf8_range) ride along for the arena bench's upb baseline arm -- the "
-            "fastest widely-known C protobuf parser, compiled from this same pin."
+            "third_party/utf8_range) ride along for the arena bench's upb baseline arm, "
+            "compiled from this same pin."
         ),
         probe="src/google/protobuf/descriptor.proto",
     ),
@@ -193,6 +198,24 @@ def capture(args: list[str], cwd: Path | None = None) -> str:
 
 def stamp_path(dest: Path, source: Source) -> Path:
     return dest / ".stamps" / f"{source.name}.json"
+
+
+def stale_reason(dest: Path, source: Source) -> str:
+    """Human words for WHY is_current() said no -- a wrong-pin checkout and a right-pin
+    checkout fetched with older patterns need different advice, and calling the second
+    'not at the pinned commit' (as the consumers once did) misdiagnoses it."""
+    stamp = stamp_path(dest, source)
+    if not stamp.is_file() or not (dest / source.name / source.probe).is_file():
+        return "not fetched"
+    try:
+        recorded = json.loads(stamp.read_text())
+    except (OSError, json.JSONDecodeError):
+        return "stamp unreadable"
+    if recorded.get("ref") != source.ref or recorded.get("sha") != source.sha:
+        return "not at the pinned commit"
+    if recorded.get("patterns") != source.patterns:
+        return "fetched with older sparse patterns"
+    return "checkout disagrees with its stamp"
 
 
 def is_current(dest: Path, source: Source) -> bool:

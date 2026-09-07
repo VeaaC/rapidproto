@@ -41,16 +41,20 @@ fields, nested messages, skip-heavy records), about even on single fixed-width s
 on large **packed** arrays, which it decodes one element per callback — decode those with the arena model
 (below).
 
-## The upb arm — a floor for the fastest C parser
+## The upb arm — validating the C-parser baseline
 
 The arena bench also measures **upb** (protobuf's C parser, the engine under the Python/Ruby/PHP
 protobuf runtimes) on the same `Dataset`, cross-checked against every other decoder's checksum.
 The arm decodes through a **runtime-built MiniTable** (from an embedded descriptor, with upb's
 fasttable enabled) because upb's plugin-generated tables would require building protobuf's
-compiler from source. That configuration is **validated, not assumed**: on `google_message1` —
-the shape upb's published numbers use, no maps — it measures **2.16× protoc**, squarely in the
-published 2–3× band. So when upb shows weakly on the map- and string-heavy `Dataset` (maps never
-take upb's fast path), that is upb's genuine shape behavior, not a mis-configured baseline —
+compiler from source. That configuration is **validated, not assumed**: a standalone
+decode-vs-decode probe (2M back-to-back iterations per arm, no checksum walks) measures it at
+**2.16× protoc** on `google_message1` — the band upstream's own figures put upb in. The in-tree
+`google_message1` row below reads lower (+67% in the current table): the harness rotates arms in short batches, which
+costs small-payload scenarios more than a straight-line loop, so the probe validates the
+*configuration* while the table is the like-for-like *comparison*. When upb shows weakly on the
+map- and string-heavy `Dataset` (maps never take upb's fast path), that is upb's genuine shape
+behavior, not a mis-configured baseline —
 which is the point of an honest yardstick: shapes where upb shines say so too — see the
 published-dataset scenarios below, where upb beats our arena on `google_message2`. upb's sources
 are fetched at the corpus's protobuf pin (`tests/fetch_corpus.py`), never vendored; without the
@@ -66,16 +70,17 @@ baseline:
 
 | | google_message1 (228 B) | google_message2 (84.5 KB, group-heavy) |
 |---|---|---|
-| streaming | **+126%** | **+160%** |
-| arena (warm) | **+96%** | **+24%** |
-| upb | +59% | **+75%** |
-| arena (cold) | +44% | +18% |
+| streaming | **+122%** | **+181%** |
+| arena (warm) | **+103%** | **+42%** |
+| upb | +67% | **+91%** |
+| arena (cold) | +40% | +35% |
 
 Two honest readings: `google_message2` is proto2's home turf — one huge repeated *group* of
 small mixed fields — and there **upb's materializer beats our arena**, while the streaming
 decoder still leads by a wide margin. And `google_message1` at 228 bytes shows the cold-arena
 setup cost that the warm row amortizes; a consumer decoding many small messages should reuse
-the arena.
+the arena. (Small-payload rows swing a few points between runs — the harness's short rotated
+batches magnify per-iteration overheads — so read coarse ratios, not decimals.)
 
 ## Arena vs streaming (the two RapidProto models)
 

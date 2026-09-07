@@ -172,8 +172,14 @@ def main() -> int:
     # pin -> INCOMPLETE, tested FIRST: when every source is stale, `present` is empty as well, and
     # testing the skip first reported the loudest state this gate has as a green self-skip.
     if stale:
+        # Name the actual cause per source: "not at the pinned commit" misdiagnosed a correct
+        # checkout fetched before a sparse-pattern widening (the upb sources joining the
+        # protobuf entry, say), and the wrong diagnosis is the first thing every developer hits.
+        by_name = {s.name: s for s in fetch_corpus.SOURCES}
+        reasons = ", ".join(
+            f"{name} ({fetch_corpus.stale_reason(corpus, by_name[name])})" for name in stale)
         raise SystemExit(
-            f"corpus is INCOMPLETE: {', '.join(stale)} not at the pinned commit.\n"
+            f"corpus is INCOMPLETE: {reasons}.\n"
             f"Sweeping a fraction of the schemas would report the same green result as a full "
             f"run. Re-run tests/fetch_corpus.py."
         )

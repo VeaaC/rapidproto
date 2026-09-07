@@ -2,8 +2,9 @@
 // Copyright 2026 Christian Vetter
 #pragma once
 
-// The arena bench's upb baseline arm (roadmap 3.4): upb is the fastest widely-known C protobuf
-// parser, so it is the honest yardstick for a materializing decode. Compiled from the corpus's
+// The arena bench's upb baseline arm (roadmap 3.4): upb is protobuf upstream's own
+// speed-focused C parser (the engine under its dynamic-language runtimes), which makes it the
+// honest yardstick for a materializing decode. Compiled from the corpus's
 // pinned protobuf checkout (tests/fetch_corpus.py) -- dev-only, never vendored, protozero's
 // model plus compilation; CMakeLists gates everything on RAPIDPROTO_HAVE_UPB.
 //
@@ -23,11 +24,15 @@
 // by the walk the others include, i.e. it flatters the BASELINE, which is the conservative
 // direction for RapidProto's own claims.
 //
-// The configuration is VALIDATED, not assumed: on google_message1 (the published-numbers shape,
-// no maps) this same runtime-MiniTable + fasttable setup measures 2.16x protoc (2026-09-07,
-// quiesced box) -- squarely in upb's published 2-3x band -- so a weak upb showing on the
-// map/string-heavy Dataset is upb's genuine shape behavior, not a mis-setup. Plugin-generated
-// tables might still buy upb a little; docs/benchmarks.md states this beside the numbers.
+// The configuration is VALIDATED, not assumed: a standalone decode-vs-decode probe (2M
+// back-to-back iterations per arm, no checksum walks, quiesced box, 2026-09-07) measured this
+// same runtime-MiniTable + fasttable setup at 2.16x protoc on google_message1 -- the band
+// upstream's own figures put upb in -- so a weak upb showing on the map/string-heavy Dataset is
+// upb's genuine shape behavior, not a mis-setup. The IN-TREE google_message1 row reads lower
+// (the harness rotates arms per round and measures short batches, which costs the small-payload
+// scenarios more than a straight-line loop); the probe validates the CONFIGURATION, the table
+// is the like-for-like comparison. Plugin-generated tables might still buy upb a little;
+// docs/benchmarks.md states this beside the numbers.
 
 #ifdef RAPIDPROTO_HAVE_UPB
 
@@ -86,15 +91,17 @@ inline bool add_descriptor_set(const unsigned char* bytes, unsigned len, const c
     std::uint32_t payload = 0;
     unsigned at = 1;
     int shift = 0;
-    while (at < len) {
+    bool terminated = false;
+    while (at < len && shift < 32) {  // bounded: a run of continuation bytes must not UB the shift
         const unsigned char b = bytes[at++];
         payload |= static_cast<std::uint32_t>(b & 0x7F) << shift;
         shift += 7;
         if ((b & 0x80) == 0) {
+            terminated = true;
             break;
         }
     }
-    if (at + payload != len) {
+    if (!terminated || payload != len - at) {
         std::fprintf(stderr, "upb arm: %s: descriptor framing mismatch (%u + %u != %u)\n", what, at,
                      payload, len);
         return false;
