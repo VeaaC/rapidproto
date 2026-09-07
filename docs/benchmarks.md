@@ -41,6 +41,20 @@ fields, nested messages, skip-heavy records), about even on single fixed-width s
 on large **packed** arrays, which it decodes one element per callback — decode those with the arena model
 (below).
 
+## The upb arm — a floor for the fastest C parser
+
+The arena bench also measures **upb** (protobuf's C parser, the engine under the Python/Ruby/PHP
+protobuf runtimes) on the same `Dataset`, cross-checked against every other decoder's checksum.
+One honest caveat, stated where the number is read: the arm decodes through a **runtime-built
+MiniTable** (from an embedded descriptor, with upb's fasttable enabled) because upb's peak
+configuration — protoc-plugin-generated tables — would require building protobuf's compiler
+from source. Runtime tables get only partial fasttable coverage, so **treat the upb row as a
+floor for upb, not its ceiling**; on the map- and string-heavy `Dataset` the gap between the two
+configurations is real. The arm exists so the comparison set includes the C yardstick at all —
+numbers land in the tables above after the next quiesced-box session. upb's sources are fetched
+at the corpus's protobuf pin (`tests/fetch_corpus.py`), never vendored; without the corpus the
+arm is skipped and says so.
+
 ## Arena vs streaming (the two RapidProto models)
 
 The streaming decoder is **~2.7× faster** than the

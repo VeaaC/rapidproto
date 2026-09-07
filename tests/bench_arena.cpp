@@ -62,6 +62,7 @@
 #include "bench_baselines.hpp"  // third-party baselines, in their own TUs (see that header)
 #include "bench_harness.hpp"  // rpbench: the shared measurement harness (also used by rapidproto_bench)
 #include "bench_records.hpp"  // the hand-built RecordSet wire, asserted against protoc below
+#include "bench_upb.hpp"      // upb baseline arm (whole header no-ops without RAPIDPROTO_HAVE_UPB)
 #include "bench_varint.hpp"   // repeated-varint sweep builders (shared with the streaming bench)
 #include "rapidproto/arena_runtime.hpp"
 #include "rapidproto/runtime.hpp"
@@ -667,6 +668,19 @@ int main() {
     const std::uint64_t c_pz = rpbaseline::protozero_dataset(view);
     mismatch = mismatch || c_arena != c_pz;
 #endif
+#ifdef RAPIDPROTO_HAVE_UPB
+    // upb joins the same cross-decoder bar: its REFLECTIVE checksum walk (bench_upb.hpp -- run
+    // once here, never timed) must agree with everyone else. A failed init degrades to a
+    // missing arm rather than a failed bench: the corpus pin, not this repo, owns upb's code.
+    const bool upb_ok = rpupb::init();
+    std::uint64_t c_upb = 0;
+    if (upb_ok) {
+        c_upb = rpupb::checksum_dataset(view);
+        mismatch = mismatch || c_arena != c_upb;
+    } else {
+        std::fprintf(stderr, "note: upb arm unavailable (init failed above); measuring the rest\n");
+    }
+#endif
     if (mismatch) {
         std::fprintf(stderr, "CHECKSUM MISMATCH arena=%llu protoc=%llu stream=%llu\n",
                      static_cast<unsigned long long>(c_arena),
@@ -699,6 +713,17 @@ int main() {
     };
 #ifdef RAPIDPROTO_HAVE_PROTOZERO
     arms.push_back({"protozero", [&]() { return rpbaseline::protozero_dataset(view); }});
+#endif
+#ifdef RAPIDPROTO_HAVE_UPB
+    if (upb_ok) {
+        // Pure decode into a fresh upb arena (arena-cold semantics; upb has no reset-and-reuse),
+        // returning the checksum VALIDATED at startup: the reflective walk the checksum needs
+        // would bill upb for interpreter overhead no real consumer pays, so it stays out of the
+        // timed lambda. Under-counts upb by the walk the other arms include -- flattering the
+        // baseline, the conservative direction (see bench_upb.hpp).
+        arms.push_back(
+            {"upb", [&]() { return rpupb::decode_dataset(view) ? c_upb : ~std::uint64_t{0}; }});
+    }
 #endif
     // From here on `bad` carries the harness's per-run mismatch counts to the exit code, same
     // shape as bench_streamgen.cpp -- bench.yml's every-scenario-cross-checks claim is only true

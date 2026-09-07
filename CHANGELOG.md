@@ -146,6 +146,14 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
 
 ### Added
 
+- **The arena bench measures upb.** The C parser under protobuf's dynamic-language runtimes
+  joins the `Dataset` comparison as its own arm, cross-checked against every decoder's checksum.
+  Sources come from the corpus's pinned protobuf checkout (`fetch_corpus.py` now brings `upb/` +
+  `third_party/utf8_range`; nothing vendored); the schema reaches upb as an embedded descriptor
+  turned into a runtime MiniTable (fasttable enabled) -- no upb codegen plugin. Runtime tables
+  are a FLOOR for upb, not its ceiling (generated tables would need protobuf's compiler built
+  from source); docs/benchmarks.md states the caveat where the number is read.
+
 - **`bench.py --compile` embeds compile cost in snapshots, and `experiment` gates it.**
   Opt-in on `run`/`experiment`: also measure what the generated decoders cost to BUILD --
   compile seconds, `.text` bytes, peak compiler RSS, per schema shape x model x compiler
