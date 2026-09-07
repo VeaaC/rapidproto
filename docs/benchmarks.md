@@ -47,17 +47,19 @@ The arena bench also measures **upb** (protobuf's C parser, the engine under the
 protobuf runtimes) on the same `Dataset`, cross-checked against every other decoder's checksum.
 The arm decodes through a **runtime-built MiniTable** (from an embedded descriptor, with upb's
 fasttable enabled, and string ALIASING on — the same borrow-from-the-input semantics our arena
-uses, worth +5-11% to upb over its default copying mode) because upb's plugin-generated tables
-would require building protobuf's compiler from source. That configuration is **validated, not
-assumed**: a standalone decode-vs-decode probe (2M back-to-back iterations per arm, no checksum
-walks) measures it at **2.16× protoc** on `google_message1` — the band upstream's own figures
-put upb in — so the decoder itself runs at full strength.
+uses, worth +5-11% to upb in pure-decode terms and ~1-4% on the walked table rows below)
+because upb's plugin-generated tables would require building protobuf's compiler from source.
+The decode configuration is **validated, not assumed**: a standalone decode-vs-decode probe (2M
+back-to-back iterations per arm, no checksum walks, run before aliasing landed — a strictly
+conservative variant, since aliasing only helps upb) measures it at **2.16× protoc** on
+`google_message1` — the band upstream's own figures put upb in — so the decoder itself runs at
+full strength.
 
 The in-tree rows read very differently, and deliberately so: **every arm's timed lambda decodes
 AND reads every present field** (the checksum walk — the work a real consumer does), and upb
 pays that walk through the same pre-resolved `upb_MiniTableField` accessors its generated code
 compiles to. Reading data OUT of a upb message costs measurably more than reading our arena's
-structs (per-field hasbit checks and offset indirection; upb's ins/B rises ~60% when the walk
+structs (per-field hasbit checks and offset indirection; upb's ins/B rises ~57-60% when the walk
 joins the timed loop), which is where most of the probe-vs-table gap goes. Maps never take
 upb's fast path, so the map-heavy `Dataset` is its weakest shape. upb's sources are fetched at
 the corpus's protobuf pin (`tests/fetch_corpus.py`), never vendored; without the corpus the arm
@@ -82,11 +84,14 @@ Every arm decodes **and reads every present field** (one shared checksum, cross-
 
 Two honest readings: `google_message2` is proto2's home turf — one huge repeated *group* of
 small mixed fields — and it is where our arena's lead over both protoc and upb is smallest (upb
-ties the cold-arena row there), while the streaming decoder leads by a wide margin everywhere.
+ties the cold-arena row there), while the streaming decoder leads every arm on both — by a wide
+margin on `google_message2`.
 And `google_message1` at 228 bytes shows the cold-arena setup cost that the warm row amortizes;
-a consumer decoding many small messages should reuse the arena. (Small-payload rows swing a few
-points between runs — the harness's short rotated batches magnify per-iteration overheads — so
-read coarse ratios, not decimals.)
+a consumer decoding many small messages should reuse the arena. (Read coarse ratios, not
+decimals: small-payload rows swing a few points between runs — short rotated batches magnify
+per-iteration overheads — and whenever the bench binary itself changes, EVERY row can shift by
+the ~10% cross-build placement floor the methodology notes document. Compare within one table,
+not across published revisions of it.)
 
 ## Arena vs streaming (the two RapidProto models)
 

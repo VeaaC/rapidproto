@@ -16,8 +16,9 @@
 // CHECKSUM CONVENTION: present fields only, every field of the schema walked. Proto2 defaults
 // are non-zero (field129's default is a 21-char string), and the streaming walk is wire-driven
 // -- it cannot see an absent field's default -- so reading defaults would disagree across
-// arms. upb's generic reflection walk (bench_upb.hpp) implements the same rule, which is what
-// lets one hand-written walk per decoder cross-check all of them.
+// arms. upb implements the rule twice -- a generic reflection walk (validation only) and the
+// hand-written accessor walks its timed arms run -- and startup pins every walk to one
+// checksum before anything is measured.
 //
 // google_message1 is 228 bytes decoded repeatedly (the official suite uses it the same way);
 // google_message2 is ~84.5 KB, 98% of it one repeated GROUP -- the shape protoc's proto2

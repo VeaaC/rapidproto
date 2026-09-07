@@ -15,24 +15,23 @@
 // needs only upb's C files plus its pre-generated descriptor bootstrap
 // (upb/reflection/cmake/ -- shipped precisely so reflection works without codegen).
 //
-// What the TIMED arm measures, and the deliberate asymmetry: every other arm's lambda decodes
-// AND walks the tree for its checksum; upb's walk would be REFLECTIVE (field-by-name lookups --
-// the generated accessors the other arms use don't exist without the plugin), which would bill
-// upb for interpreter overhead no real consumer pays. So the reflection walk runs ONCE at
-// startup -- it must equal protoc's checksum, same cross-decoder bar as every arm -- and the
-// timed lambda is pure decode returning that validated constant. That under-counts upb's total
-// by the walk the others include, i.e. it flatters the BASELINE, which is the conservative
-// direction for RapidProto's own claims.
+// What the TIMED arm measures -- the SAME work as every other arm: decode, then read every
+// present field into the checksum. upb pays its walk through upb_MiniTableField handles
+// resolved once at init and upb's typed inline accessors -- exactly what its generated .upb.h
+// accessors compile to -- so it is neither flattered (walk skipped) nor over-billed
+// (reflection's per-field FieldDef dispatch). The REFLECTIVE walk below exists for validation
+// only: at startup both upb walks and every other decoder must agree on one checksum, which
+// pins the timed walk equivalent before anything is measured.
 //
 // The configuration is VALIDATED, not assumed: a standalone decode-vs-decode probe (2M
-// back-to-back iterations per arm, no checksum walks, quiesced box, 2026-09-07) measured this
-// same runtime-MiniTable + fasttable setup at 2.16x protoc on google_message1 -- the band
-// upstream's own figures put upb in -- so a weak upb showing on the map/string-heavy Dataset is
-// upb's genuine shape behavior, not a mis-setup. The IN-TREE google_message1 row reads lower
-// (the harness rotates arms per round and measures short batches, which costs the small-payload
-// scenarios more than a straight-line loop); the probe validates the CONFIGURATION, the table
-// is the like-for-like comparison. Plugin-generated tables might still buy upb a little;
-// docs/benchmarks.md states this beside the numbers.
+// back-to-back iterations per arm, no checksum walks, aliasing off, quiesced box, 2026-09-07)
+// measured this runtime-MiniTable + fasttable setup at 2.16x protoc on google_message1 -- the
+// band upstream's own figures put upb in -- so a weak upb showing on the map/string-heavy
+// Dataset is upb's genuine shape behavior, not a mis-setup. The IN-TREE rows read lower mainly
+// because the timed arm also pays the read-out walk (reading fields OUT of a upb message costs
+// more than reading our arena's structs -- see docs/benchmarks.md), plus a smaller
+// short-rotated-batch effect on tiny payloads. The probe validates the CONFIGURATION; the
+// table is the like-for-like comparison. Plugin-generated tables might still buy upb a little.
 
 #ifdef RAPIDPROTO_HAVE_UPB
 
@@ -41,9 +40,11 @@
 
 #include "upb/base/descriptor_constants.h"
 #include "upb/mem/arena.h"
+#include "upb/message/accessors.h"
 #include "upb/message/array.h"
 #include "upb/message/map.h"
 #include "upb/message/message.h"
+#include "upb/mini_table/field.h"
 #include "upb/reflection/def.h"
 #include "upb/reflection/message.h"
 #include "upb/wire/decode.h"
@@ -62,8 +63,6 @@ extern const unsigned rp_upb_bench_desc_len;
 
 namespace rpupb {
 
-// Owned for the process lifetime; set up once by init(). Not RAII -- a bench main has no
-// teardown worth modeling, and upb's def pool must outlive every MiniTable pointer taken.
 // The Dataset walk's pre-resolved accessor handles. upb_MiniTableField pointers looked up ONCE
 // at init by name; the timed walk then reads through upb's typed inline accessors -- exactly
 // what upb's generated .upb.h accessors compile to, so the walk cost matches what a codegen
@@ -72,7 +71,6 @@ struct DatasetFields {
     const upb_MiniTableField* name = nullptr;
     const upb_MiniTableField* version = nullptr;
     const upb_MiniTableField* people = nullptr;
-    const upb_MessageDef* person_def = nullptr;
     const upb_MiniTableField* p_id = nullptr;
     const upb_MiniTableField* p_name = nullptr;
     const upb_MiniTableField* p_email = nullptr;
@@ -91,6 +89,8 @@ struct DatasetFields {
     const upb_MiniTableField* at_value = nullptr;
 };
 
+// Owned for the process lifetime; set up once by init(). Not RAII -- a bench main has no
+// teardown worth modeling, and upb's def pool must outlive every MiniTable pointer taken.
 struct State {
     upb_DefPool* pool = nullptr;
     const upb_MessageDef* dataset_def = nullptr;
@@ -195,7 +195,6 @@ inline bool init() {
     const Found person = find_message("bench.Person");
     const Found address = find_message("bench.Address");
     const Found attribute = find_message("bench.Attribute");
-    d.person_def = person.def;
     d.p_id = field_handle(person.def, "id");
     d.p_name = field_handle(person.def, "name");
     d.p_email = field_handle(person.def, "email");
