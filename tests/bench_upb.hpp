@@ -70,29 +70,24 @@ inline State& state() {
     return s;
 }
 
-// Load the embedded descriptor set and resolve bench.Dataset. False (with the reason on
-// stderr) rather than abort: the bench reports the arm as unavailable and measures the rest.
-inline bool init() {
+// Add one embedded FileDescriptorSet (cmake/embed_binary.cmake output) to the pool. The bytes
+// are the Set ENVELOPE -- one length-prefixed FileDescriptorProto in field 1 (every embedded
+// schema here is a single standalone file) -- and upb_DefPool_AddFile wants the bare
+// FileDescriptorProto, so strip the tag + varint length by hand. Tag 0x0A = (1 << 3) | LEN.
+inline bool add_descriptor_set(const unsigned char* bytes, unsigned len, const char* what) {
     State& s = state();
-    s.pool = upb_DefPool_New();
-    upb_Arena* tmp = upb_Arena_New();
-    // The embedded bytes are a FileDescriptorSet: one length-prefixed FileDescriptorProto per
-    // `file` entry (field 1). upb_DefPool_AddFile wants the FileDescriptorProto, not the Set
-    // envelope, so strip the tag + length by hand -- bench.proto is standalone, exactly one
-    // entry, payload running to the end. Tag 0x0A = (1 << 3) | LEN.
-    const unsigned char* p = rp_upb_bench_desc;
-    unsigned len = rp_upb_bench_desc_len;
-    if (len < 2 || p[0] != 0x0A) {
-        std::fprintf(stderr, "upb arm: embedded descriptor set has unexpected framing\n");
-        upb_Arena_Free(tmp);
+    if (s.pool == nullptr) {
+        s.pool = upb_DefPool_New();
+    }
+    if (len < 2 || bytes[0] != 0x0A) {
+        std::fprintf(stderr, "upb arm: %s: unexpected descriptor framing\n", what);
         return false;
     }
-    // Varint length after the tag.
     std::uint32_t payload = 0;
     unsigned at = 1;
     int shift = 0;
     while (at < len) {
-        const unsigned char b = p[at++];
+        const unsigned char b = bytes[at++];
         payload |= static_cast<std::uint32_t>(b & 0x7F) << shift;
         shift += 7;
         if ((b & 0x80) == 0) {
@@ -100,36 +95,56 @@ inline bool init() {
         }
     }
     if (at + payload != len) {
-        std::fprintf(stderr, "upb arm: descriptor framing mismatch (%u + %u != %u)\n", at, payload,
-                     len);
-        upb_Arena_Free(tmp);
+        std::fprintf(stderr, "upb arm: %s: descriptor framing mismatch (%u + %u != %u)\n", what, at,
+                     payload, len);
         return false;
     }
-    upb_StringView sv;
-    sv.data = reinterpret_cast<const char*>(p + at);
-    sv.size = payload;
-    google_protobuf_FileDescriptorProto* fdp =
-        google_protobuf_FileDescriptorProto_parse(sv.data, sv.size, tmp);
-    if (fdp == nullptr) {
-        std::fprintf(stderr, "upb arm: FileDescriptorProto parse failed\n");
-        upb_Arena_Free(tmp);
-        return false;
-    }
-    upb_Status status;
-    upb_Status_Clear(&status);
-    if (upb_DefPool_AddFile(s.pool, fdp, &status) == nullptr) {
-        std::fprintf(stderr, "upb arm: AddFile: %s\n", upb_Status_ErrorMessage(&status));
-        upb_Arena_Free(tmp);
-        return false;
+    upb_Arena* tmp = upb_Arena_New();
+    google_protobuf_FileDescriptorProto* fdp = google_protobuf_FileDescriptorProto_parse(
+        reinterpret_cast<const char*>(bytes + at), payload, tmp);
+    bool ok = fdp != nullptr;
+    if (!ok) {
+        std::fprintf(stderr, "upb arm: %s: FileDescriptorProto parse failed\n", what);
+    } else {
+        upb_Status status;
+        upb_Status_Clear(&status);
+        ok = upb_DefPool_AddFile(s.pool, fdp, &status) != nullptr;
+        if (!ok) {
+            std::fprintf(stderr, "upb arm: %s: AddFile: %s\n", what,
+                         upb_Status_ErrorMessage(&status));
+        }
     }
     upb_Arena_Free(tmp);
-    s.dataset_def = upb_DefPool_FindMessageByName(s.pool, "bench.Dataset");
-    if (s.dataset_def == nullptr) {
-        std::fprintf(stderr, "upb arm: bench.Dataset not found in the added file\n");
+    return ok;
+}
+
+// A message's (def, MiniTable) by full name, or {nullptr, nullptr} with the reason on stderr.
+struct Found {
+    const upb_MessageDef* def = nullptr;
+    const upb_MiniTable* table = nullptr;
+};
+inline Found find_message(const char* full_name) {
+    Found f;
+    f.def = upb_DefPool_FindMessageByName(state().pool, full_name);
+    if (f.def == nullptr) {
+        std::fprintf(stderr, "upb arm: %s not found in the added descriptors\n", full_name);
+        return f;
+    }
+    f.table = upb_MessageDef_MiniTable(f.def);
+    return f;
+}
+
+// Load the embedded bench.proto descriptor and resolve bench.Dataset. False (with the reason on
+// stderr) rather than abort: the bench reports the arm as unavailable and measures the rest.
+inline bool init() {
+    State& s = state();
+    if (!add_descriptor_set(rp_upb_bench_desc, rp_upb_bench_desc_len, "bench.desc")) {
         return false;
     }
-    s.dataset_table = upb_MessageDef_MiniTable(s.dataset_def);
-    return s.dataset_table != nullptr;
+    const Found f = find_message("bench.Dataset");
+    s.dataset_def = f.def;
+    s.dataset_table = f.table;
+    return f.table != nullptr;
 }
 
 // ── the one-time reflection checksum (validation only, never timed) ──────────────────────────
@@ -144,12 +159,13 @@ inline std::uint64_t message_sum(const upb_Message* m, const upb_MessageDef* md)
     const int n = upb_MessageDef_FieldCount(md);
     for (int i = 0; i < n; ++i) {
         const upb_FieldDef* f = upb_MessageDef_Field(md, i);
-        if (!upb_Message_HasFieldByDef(m, f) && !upb_FieldDef_IsRepeated(f)) {
-            // Implicit-presence scalars: read anyway (defaults contribute 0 to every rule
-            // below except bool false -> 0, so absent == default == no contribution).
-            if (upb_FieldDef_IsSubMessage(f)) {
-                continue;
-            }
+        // PRESENT-FIELDS-ONLY, the one convention every walk can implement: the streaming
+        // decoder is wire-driven and cannot see an absent field's default, and proto2 defaults
+        // are non-zero (google_message1's field129 defaults to a 21-char string). A field with
+        // presence that is absent contributes nothing; implicit-presence scalars (proto3
+        // Dataset) are read unconditionally -- absent means zero means no contribution.
+        if (upb_FieldDef_HasPresence(f) && !upb_Message_HasFieldByDef(m, f)) {
+            continue;
         }
         const upb_MessageValue v = upb_Message_GetFieldByDef(m, f);
         if (upb_FieldDef_IsMap(f)) {

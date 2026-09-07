@@ -366,6 +366,29 @@ if(RAPIDPROTO_BUILD_TESTS)
   # protoc's --cpp_out below does NOT create its output directory (rapidprotoc does, but the two
   # rules are independent and either can run first): make it at configure time.
   file(MAKE_DIRECTORY "${BENCH_GEN}")
+  # Matches tests/fetch_corpus.py's default. A corpus fetched with --dest elsewhere will not
+  # be found; the corpus-dependent arms below are skipped with a message rather than silently.
+  set(CORPUS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/build/corpus"
+      CACHE PATH "Fetched corpus root (tests/fetch_corpus.py)")
+  # google_message1/2 (roadmap 3.5): generated in the SAME batch as bench.proto -- one
+  # invocation, one OUT_DIR, one runtime copy. Separate rapidproto_generate calls would each
+  # drop a runtime beside their headers, and a TU mixing two generated trees then includes two
+  # distinct copies (a quoted include searches the includer's own directory first), which does
+  # not compile. The multi-entry batch is the CLI's designed answer.
+  set(GM1_DIR "${CORPUS_DIR}/protobuf-benchmarks/benchmarks/datasets/google_message1/proto2")
+  set(GM2_DIR "${CORPUS_DIR}/protobuf-benchmarks/benchmarks/datasets/google_message2")
+  set(BENCH_PROTOS "${BENCH_PROTO}")
+  set(BENCH_IMPORT_DIRS "${BENCH_PROTO_DIR}")
+  if(EXISTS "${GM1_DIR}/benchmark_message1_proto2.proto" AND
+     EXISTS "${GM2_DIR}/benchmark_message2.proto")
+    set(RAPIDPROTO_GM_PRESENT TRUE)
+    list(APPEND BENCH_PROTOS "${GM1_DIR}/benchmark_message1_proto2.proto"
+                             "${GM2_DIR}/benchmark_message2.proto")
+    list(APPEND BENCH_IMPORT_DIRS "${GM1_DIR}" "${GM2_DIR}")
+  else()
+    set(RAPIDPROTO_GM_PRESENT FALSE)
+  endif()
+
   # Through the helper, not a hand-rolled add_custom_command: the hand rule under-declared its
   # outputs (the common header and both runtime drops were written but undeclared, so deleting
   # one broke the build with no rule to restore it) -- the exact defect rapidproto_generate()
@@ -376,8 +399,8 @@ if(RAPIDPROTO_BUILD_TESTS)
   rapidproto_generate(rapidproto_bench_schema
     GENERATOR both
     NAMESPACE_PREFIX rp
-    PROTOS "${BENCH_PROTO}"
-    IMPORT_DIRS "${BENCH_PROTO_DIR}"
+    PROTOS ${BENCH_PROTOS}
+    IMPORT_DIRS ${BENCH_IMPORT_DIRS}
     OUT_DIR "${BENCH_GEN}")
 
   add_executable(rapidproto_bench tests/bench_streamgen.cpp tests/bench_stream_isolated.cpp)
@@ -432,11 +455,6 @@ if(RAPIDPROTO_BUILD_TESTS)
     # -O3 for the measured code; protobuf's generated headers trip our strict warnings, so the bench
     # is NOT linked against rapidproto_strict (it is a standalone measurement, like rapidproto_bench).
     target_compile_options(rapidproto_arena_bench PRIVATE -O3 -DNDEBUG)
-
-    # Matches tests/fetch_corpus.py's default. A corpus fetched with --dest elsewhere will not
-    # be found; the corpus-dependent arms below are skipped with a message rather than silently.
-    set(CORPUS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/build/corpus"
-        CACHE PATH "Fetched corpus root (tests/fetch_corpus.py)")
 
     # ── upb baseline arm (roadmap 3.4) ─────────────────────────────────────────────────────────
     # upb: the fastest widely-known C protobuf parser -- the honest materializing yardstick.
@@ -502,6 +520,59 @@ if(RAPIDPROTO_BUILD_TESTS)
       message(STATUS
         "arena bench: upb baseline arm SKIPPED -- corpus not fetched (or fetched before the "
         "upb patterns landed). Run: python3 tests/fetch_corpus.py")
+    endif()
+
+    # ── google_message1/2 scenarios (roadmap 3.5) ──────────────────────────────────────────────
+    # protobuf's own published benchmark payloads (the protobuf-benchmarks corpus source, a
+    # DIFFERENT pinned source than upb's): numbers third parties can check against protobuf's
+    # published cross-language figures. The rapidproto decoders were generated in the shared
+    # bench batch above (one runtime copy); this block adds the protoc arm's codegen, the upb
+    # descriptors, and the scenarios' translation unit. Wrapper unwrapping and the checksum
+    # convention live in tests/bench_arm_messages.hpp.
+    if(RAPIDPROTO_GM_PRESENT)
+      add_custom_command(
+        OUTPUT "${BENCH_GEN}/benchmark_message1_proto2.pb.cc"
+               "${BENCH_GEN}/benchmark_message1_proto2.pb.h" "${BENCH_GEN}/gm1.desc"
+        COMMAND ${Protobuf_PROTOC_EXECUTABLE} --cpp_out=${BENCH_GEN}
+                --descriptor_set_out=${BENCH_GEN}/gm1.desc
+                -I${GM1_DIR} ${GM1_DIR}/benchmark_message1_proto2.proto
+        DEPENDS "${GM1_DIR}/benchmark_message1_proto2.proto"
+        COMMENT "protoc benchmark_message1_proto2.proto" VERBATIM)
+      add_custom_command(
+        OUTPUT "${BENCH_GEN}/benchmark_message2.pb.cc" "${BENCH_GEN}/benchmark_message2.pb.h"
+               "${BENCH_GEN}/gm2.desc"
+        COMMAND ${Protobuf_PROTOC_EXECUTABLE} --cpp_out=${BENCH_GEN}
+                --descriptor_set_out=${BENCH_GEN}/gm2.desc
+                -I${GM2_DIR} ${GM2_DIR}/benchmark_message2.proto
+        DEPENDS "${GM2_DIR}/benchmark_message2.proto"
+        COMMENT "protoc benchmark_message2.proto" VERBATIM)
+      foreach(_gm gm1 gm2)
+        add_custom_command(
+          OUTPUT "${BENCH_GEN}/${_gm}_desc.c"
+          COMMAND ${CMAKE_COMMAND}
+            -DINPUT=${BENCH_GEN}/${_gm}.desc
+            -DOUTPUT_C=${BENCH_GEN}/${_gm}_desc.c
+            -DSYMBOL=rp_upb_${_gm}_desc
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_binary.cmake
+          DEPENDS "${BENCH_GEN}/${_gm}.desc" ${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_binary.cmake
+          COMMENT "embedding ${_gm}.desc" VERBATIM)
+      endforeach()
+      target_sources(rapidproto_arena_bench PRIVATE
+        tests/bench_arm_messages.cpp
+        "${BENCH_GEN}/benchmark_message1_proto2.pb.cc"
+        "${BENCH_GEN}/benchmark_message2.pb.cc")
+      if(TARGET rapidproto_upb_bench)
+        target_sources(rapidproto_arena_bench PRIVATE
+          "${BENCH_GEN}/gm1_desc.c" "${BENCH_GEN}/gm2_desc.c")
+      endif()
+      target_compile_definitions(rapidproto_arena_bench PRIVATE
+        RAPIDPROTO_BENCH_MESSAGES
+        RAPIDPROTO_GM1_DATASET="${GM1_DIR}/dataset.google_message1_proto2.pb"
+        RAPIDPROTO_GM2_DATASET="${GM2_DIR}/dataset.google_message2.pb")
+    else()
+      message(STATUS
+        "arena bench: google_message1/2 scenarios SKIPPED -- protobuf-benchmarks corpus not "
+        "fetched. Run: python3 tests/fetch_corpus.py")
     endif()
 
     # ── large real-world schema arm ────────────────────────────────────────────────────────────

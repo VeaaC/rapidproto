@@ -51,10 +51,31 @@ compiler from source. That configuration is **validated, not assumed**: on `goog
 the shape upb's published numbers use, no maps — it measures **2.16× protoc**, squarely in the
 published 2–3× band. So when upb shows weakly on the map- and string-heavy `Dataset` (maps never
 take upb's fast path), that is upb's genuine shape behavior, not a mis-configured baseline —
-which is the point of an honest yardstick: shapes where upb shines will say so too (the
-`google_message1/2` scenarios land with roadmap 3.5). upb's sources are fetched at the corpus's
-protobuf pin (`tests/fetch_corpus.py`), never vendored; without the corpus the arm is skipped
-and says so.
+which is the point of an honest yardstick: shapes where upb shines say so too — see the
+published-dataset scenarios below, where upb beats our arena on `google_message2`. upb's sources
+are fetched at the corpus's protobuf pin (`tests/fetch_corpus.py`), never vendored; without the
+corpus the arm is skipped and says so.
+
+## The published datasets — google_message1 and google_message2
+
+Protobuf's own cross-language benchmark payloads (anonymized real production shapes, fetched at
+a pinned tag by `tests/fetch_corpus.py`), decoded by every arm and cross-checked on one
+checksum, so these numbers are comparable with figures third parties already publish. Measured
+like the tables above (g++-13, protobuf 4.25.3, quiesced box), throughput vs the protoc
+baseline:
+
+| | google_message1 (228 B) | google_message2 (84.5 KB, group-heavy) |
+|---|---|---|
+| streaming | **+126%** | **+160%** |
+| arena (warm) | **+96%** | **+24%** |
+| upb | +59% | **+75%** |
+| arena (cold) | +44% | +18% |
+
+Two honest readings: `google_message2` is proto2's home turf — one huge repeated *group* of
+small mixed fields — and there **upb's materializer beats our arena**, while the streaming
+decoder still leads by a wide margin. And `google_message1` at 228 bytes shows the cold-arena
+setup cost that the warm row amortizes; a consumer decoding many small messages should reuse
+the arena.
 
 ## Arena vs streaming (the two RapidProto models)
 

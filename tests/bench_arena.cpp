@@ -56,10 +56,11 @@
 #include <string_view>
 #include <vector>
 
-#include "bench.pb.h"           // protoc: bench::Dataset / WideSet / BigSet
-#include "bench.rp.hpp"         // arenagen: rp::arena::bench::Dataset / WideSet / BigSet
-#include "bench.rp.stream.hpp"  // streamgen: rp::stream::bench::Dataset
-#include "bench_baselines.hpp"  // third-party baselines, in their own TUs (see that header)
+#include "bench.pb.h"              // protoc: bench::Dataset / WideSet / BigSet
+#include "bench.rp.hpp"            // arenagen: rp::arena::bench::Dataset / WideSet / BigSet
+#include "bench.rp.stream.hpp"     // streamgen: rp::stream::bench::Dataset
+#include "bench_arm_messages.hpp"  // google_message1/2 scenarios (declaration only; own TU)
+#include "bench_baselines.hpp"     // third-party baselines, in their own TUs (see that header)
 #include "bench_harness.hpp"  // rpbench: the shared measurement harness (also used by rapidproto_bench)
 #include "bench_records.hpp"  // the hand-built RecordSet wire, asserted against protoc below
 #include "bench_upb.hpp"      // upb baseline arm (whole header no-ops without RAPIDPROTO_HAVE_UPB)
@@ -730,6 +731,19 @@ int main() {
     // because these verdicts reach main's return.
     int bad = 0;
     bad += rpbench::run("Dataset", static_cast<double>(buf.size()), arms);
+
+#ifdef RAPIDPROTO_BENCH_MESSAGES
+    // google_message1/2 (own TU, same placement rule as the compute arm below): a negative
+    // return is a checksum mismatch or dataset-load failure, a positive one the harness's
+    // per-arm mismatch count.
+    {
+        const int messages_bad = rpmessages::run_arm();
+        if (messages_bad < 0) {
+            return 1;
+        }
+        bad += messages_bad;
+    }
+#endif
 
 #ifdef RAPIDPROTO_BENCH_COMPUTE
     // The large real-world schema arm lives in its OWN translation unit (bench_arm_compute.cpp):
