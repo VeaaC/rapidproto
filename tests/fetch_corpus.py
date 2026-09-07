@@ -98,6 +98,13 @@ SOURCES: list[Source] = [
             # The two schemas real tooling consumes.
             "/src/google/protobuf/descriptor.proto",
             "/src/google/protobuf/compiler/plugin.proto",
+            # The upb C runtime + its pre-generated bootstrap (upb/cmake/) and the utf8_range
+            # dependency: the arena bench's upb baseline arm compiles these AT THE SAME PIN as
+            # the schemas above, so runtime and schemas move together on a bump. Source only --
+            # nothing here is linked into the library or its output, exactly like protozero.
+            "/upb/**",
+            "/third_party/utf8_range/*.c",
+            "/third_party/utf8_range/*.h",
         ],
         # Import paths resolve against src/ (`google/protobuf/descriptor.proto`). The
         # conformance schemas are entries with no imports of their own (checked), and
@@ -112,7 +119,9 @@ SOURCES: list[Source] = [
             "not an arbitrary sample of the repository. The unittest*.proto family is "
             "excluded on purpose: it carries a large transitive import closure and mixes in "
             "intentionally-invalid fixtures used for compiler error-path tests, which would "
-            "produce false failures under a 'must parse' assertion."
+            "produce false failures under a 'must parse' assertion. The upb/ C sources (plus "
+            "third_party/utf8_range) ride along for the arena bench's upb baseline arm -- the "
+            "fastest widely-known C protobuf parser, compiled from this same pin."
         ),
         probe="src/google/protobuf/descriptor.proto",
     ),
@@ -204,6 +213,11 @@ def is_current(dest: Path, source: Source) -> bool:
     except (OSError, json.JSONDecodeError):
         return False
     if recorded.get("ref") != source.ref or recorded.get("sha") != source.sha:
+        return False
+    # The PATTERNS are part of what "fetched" means: widening them (the upb sources joining the
+    # protobuf entry, say) must refetch, or every existing corpus silently lacks the new paths
+    # while reporting up-to-date. Old stamps carry no patterns and correctly read as stale.
+    if recorded.get("patterns") != source.patterns:
         return False
     try:
         head = subprocess.run(
@@ -338,7 +352,8 @@ def fetch(dest: Path, source: Source) -> None:
     shutil.rmtree(dest / f"{source.name}.old", ignore_errors=True)
 
     stamp.parent.mkdir(parents=True, exist_ok=True)
-    stamp.write_text(json.dumps({"ref": source.ref, "sha": source.sha}, indent=2) + "\n")
+    stamp.write_text(json.dumps(
+        {"ref": source.ref, "sha": source.sha, "patterns": source.patterns}, indent=2) + "\n")
 
 
 def count_protos(root: Path) -> int:
