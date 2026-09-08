@@ -2,12 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2026 Christian Vetter
 #
-# Assemble the GitHub Pages site source into <dest-dir> (wiped first). The site is the repo's
-# documentation surface -- the closure of the manual's relative links: the root markdown pages,
-# docs/, the license files they reference, and examples/consumer (the runnable example the docs
-# link into). Staging an explicit list rather than the whole repo keeps source trees and test
-# fixtures off the published site, and makes an added top-level directory a conscious decision
-# here instead of a silent publish.
+# Assemble the GitHub Pages site source into <dest-dir> (wiped first). The site is the USER
+# MANUAL: the README as landing page, docs/, the consumer example the manual links into, and the
+# license files the README references. Contributor docs (architecture.md, CONTRIBUTING.md,
+# SECURITY.md, CHANGELOG.md) are deliberately NOT staged -- the manual links them as absolute
+# github.com URLs. Staging an explicit list rather than the whole repo keeps source trees and
+# test fixtures off the published site, and makes a new page a conscious decision here (and in
+# .github/pages/_data/nav.yml) instead of a silent publish.
 #
 # Used by .github/workflows/pages.yml; runnable locally against the same container -- see the
 # workflow's header comment.
@@ -23,17 +24,18 @@ if [[ -e "$dest/.git" || "$(cd "$dest" 2>/dev/null && pwd)" == "$root" ]]; then
   exit 1
 fi
 rm -rf "$dest"
-mkdir -p "$dest/examples" "$dest/assets"
+mkdir -p "$dest/examples"
 
-# CONTRIBUTING.md renders like the rest only because _config.yml lists it under `include:` --
-# jekyll-optional-front-matter refuses it by filename otherwise (see the comment there).
-cp "$root"/README.md "$root"/architecture.md "$root"/CONTRIBUTING.md "$root"/SECURITY.md \
-   "$root"/CHANGELOG.md "$root"/LICENSE "$root"/NOTICE "$root"/THIRD_PARTY_NOTICES.md "$dest/"
+cp "$root"/README.md "$root"/LICENSE "$root"/NOTICE "$root"/THIRD_PARTY_NOTICES.md "$dest/"
 cp -R "$root/docs" "$dest/docs"
 cp -R "$root/examples/consumer" "$dest/examples/consumer"
+
+# The site chrome: config, the sidebar layout + nav data, the stylesheet, the favicon the layout
+# links from every page, and the social card that doubles as every page's og:image (the
+# `defaults` block in _config.yml).
 cp "$root/.github/pages/_config.yml" "$dest/_config.yml"
-# _includes/head-custom.html links /favicon.ico from every page (the theme's own include is an
-# inert comment); the card doubles as every page's og:image (the `defaults` block in _config.yml).
-cp -R "$root/.github/pages/_includes" "$dest/_includes"
+cp -R "$root/.github/pages/_layouts" "$dest/_layouts"
+cp -R "$root/.github/pages/_data" "$dest/_data"
+cp -R "$root/.github/pages/assets" "$dest/assets"
 cp "$root/.github/pages/favicon.ico" "$dest/favicon.ico"
 cp "$root/.github/pages/social-preview.png" "$dest/assets/social-preview.png"

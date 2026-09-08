@@ -13,6 +13,6 @@ The user manual, one page per topic. New here? Start with the
 - [integration.md](integration.md) — the `rapidprotoc` CLI reference and the CMake helper
 - [benchmarks.md](benchmarks.md) — the numbers and how to reproduce them
 
-Contributor docs live at the repository root: [architecture.md](../architecture.md) (internals,
-invariants, design rationale), [CONTRIBUTING.md](../CONTRIBUTING.md),
-[SECURITY.md](../SECURITY.md), and [CHANGELOG.md](../CHANGELOG.md).
+Contributor docs live at the repository root: [architecture.md](https://github.com/VeaaC/rapidproto/blob/main/architecture.md) (internals,
+invariants, design rationale), [CONTRIBUTING.md](https://github.com/VeaaC/rapidproto/blob/main/CONTRIBUTING.md),
+[SECURITY.md](https://github.com/VeaaC/rapidproto/blob/main/SECURITY.md), and [CHANGELOG.md](https://github.com/VeaaC/rapidproto/blob/main/CHANGELOG.md).

@@ -7,7 +7,7 @@
 # workflow_dispatch of the main branch, the only other ref the deploy guard admits. Pull requests
 # run build + check only -- so a PR that renames a heading, moves a page, or adds a doc the
 # staging list misses goes red before merge, not 404 after. No path filter: the staged set spans
-# root markdown, docs/, examples/consumer and the license files, and a filter list that drifted
+# the README, docs/, examples/consumer and the license files, and a filter list that drifted
 # from tests/site_stage.sh would skip exactly the PRs it must catch. The build is ~a minute;
 # running it on every PR is cheaper than a gate that cannot fail.
 #

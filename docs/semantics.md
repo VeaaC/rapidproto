@@ -75,4 +75,4 @@ link here instead of restating.*
   so give each thread its own arena; the resulting read-only tree can then be shared.
 
 The full list of intentional non-goals and known limitations (what is deliberately *not* supported,
-and why) is in [architecture.md](../architecture.md#known-limitations-and-non-goals).
+and why) is in [architecture.md](https://github.com/VeaaC/rapidproto/blob/main/architecture.md#known-limitations-and-non-goals).

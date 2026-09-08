@@ -18,7 +18,8 @@ Failure modes this exists to catch:
   - a kramdown heading id that differs from the GitHub slug the source links were written for
   - a site-absolute URL missing the baseurl (the classic project-site breakage: theme assets or
     rewritten links resolving on <user>.github.io/ instead of <user>.github.io/<repo>/)
-  - a theme-emitted asset the site does not ship (a favicon or stylesheet 404 on every page)
+  - a layout-emitted asset the site does not ship (a favicon or stylesheet 404 on every page)
+  - a rendered page the sidebar does not list (_data/nav.yml drifted from the staged set)
 
 Usage: python3 tests/site_check.py <site-dir> --baseurl /rapidproto
 """
@@ -36,15 +37,20 @@ EXTERNAL = re.compile(r"^([A-Za-z][A-Za-z0-9+.\-]*:|//)")
 
 
 class PageScan(HTMLParser):
-    """Collect the ids a page defines and the URLs it references (links and page assets)."""
+    """Collect the ids a page defines, the URLs it references (links and page assets), and the
+    subset of links inside its <nav> (the sidebar)."""
 
     def __init__(self):
         super().__init__(convert_charrefs=True)
         self.ids = set()
         self.refs = []
+        self.nav_refs = []
+        self._nav_depth = 0
 
     def handle_starttag(self, tag, attrs):
         a = dict(attrs)
+        if tag == "nav":
+            self._nav_depth += 1
         if "id" in a:
             self.ids.add(a["id"])
         if tag == "a" and "name" in a:  # legacy anchors count as targets too
@@ -52,13 +58,26 @@ class PageScan(HTMLParser):
         for attr in ("href",) if tag in ("a", "link") else ("src",) if tag in ("script", "img") else ():
             if attr in a:
                 self.refs.append(a[attr])
+                if tag == "a" and self._nav_depth:
+                    self.nav_refs.append(a[attr])
+
+    def handle_endtag(self, tag):
+        if tag == "nav" and self._nav_depth:
+            self._nav_depth -= 1
 
 
 def scan(path):
     p = PageScan()
     with open(path, encoding="utf-8") as f:
         p.feed(f.read())
-    return p.ids, p.refs
+    return p.ids, p.refs, p.nav_refs
+
+
+# Rendered pages (site-relative) that may stay off the sidebar: the license notices, and the
+# manual's own index (docs/README.md -- github.com's view of the manual, reachable here via the
+# README's docs/ link; ON the site the sidebar is that index). Everything else must be navigable
+# -- a published-but-unreachable page is the drift this rule exists to catch.
+NAV_EXEMPT = {"THIRD_PARTY_NOTICES.html", "docs/index.html"}
 
 
 def resolve(site, baseurl, page_rel, ref):
@@ -92,7 +111,7 @@ def main():
     site = args.site
     baseurl = args.baseurl.rstrip("/")
 
-    pages = {}  # site-relative path -> (ids, refs)
+    pages = {}  # site-relative path -> (ids, refs, nav_refs)
     for dirpath, _, files in os.walk(site):
         for name in files:
             if name.endswith(".html"):
@@ -102,7 +121,14 @@ def main():
         sys.exit(f"site_check: no index.html in {site} -- README.md was not served as the index")
 
     errors, checked = [], 0
-    for page_rel, (_, refs) in sorted(pages.items()):
+    for page_rel, (_, refs, nav_refs) in sorted(pages.items()):
+        # Sidebar coverage: every page must be reachable from every page's nav (the layout stamps
+        # one sidebar everywhere, so a page whose nav lost entries means the layout broke, and a
+        # page absent from the shared nav means _data/nav.yml drifted from the staged set).
+        nav_targets = {resolve(site, baseurl, page_rel, r)[0] for r in nav_refs if not EXTERNAL.match(r)}
+        for wanted in pages:
+            if wanted not in nav_targets and wanted.replace(os.sep, "/") not in NAV_EXEMPT:
+                errors.append(f"{page_rel}: sidebar has no link to {wanted} (nav.yml drifted?)")
         for ref in refs:
             if EXTERNAL.match(ref):
                 continue
@@ -116,7 +142,8 @@ def main():
                 continue
             full = os.path.join(site, path)
             if path in pages:
-                if frag and frag not in pages[path][0]:
+                ids = pages[path][0]
+                if frag and frag not in ids:
                     errors.append(f"{page_rel}: {ref!r}: no id {frag!r} in {path}")
             elif not os.path.isfile(full):
                 errors.append(f"{page_rel}: {ref!r}: no file {path} in the site")

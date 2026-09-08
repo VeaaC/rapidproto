@@ -7,11 +7,12 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
 
 ### Added
 
-- **Documentation site: <https://veaac.github.io/rapidproto/>.** The manual, the architecture
-  notes, and the consumer example, published from the same markdown the repo carries — rebuilt on
-  every push to main, and every pull request re-validates the *rendered* pages (every internal
-  link, page asset, and linked heading anchor), so a renamed heading goes red before merge
-  instead of 404 after.
+- **Documentation site: <https://veaac.github.io/rapidproto/>.** The user manual and the
+  consumer example behind an mdbook-style sidebar (JS-free, light/dark via the OS preference),
+  published from the same markdown the repo carries — rebuilt on every push to main, and every
+  pull request re-validates the *rendered* pages (every internal link, page asset, sidebar
+  entry, and linked heading anchor), so a renamed heading goes red before merge instead of 404
+  after. Contributor docs (architecture, contributing, changelog) stay on github.com.
 
 ## 0.4.0 — 2026-09-08
 

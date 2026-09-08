@@ -2,7 +2,7 @@
 
 *The single home for the headline numbers, and how to reproduce them. Back to the
 [README](../README.md); the measurement methodology (placement noise, same-binary A/B, GB/s vs ins/B)
-is in [architecture.md](../architecture.md#decoder-performance).*
+is in [architecture.md](https://github.com/VeaaC/rapidproto/blob/main/architecture.md#decoder-performance).*
 
 The numbers below come from the in-repo harness (`tests/bench.py`), decoding a realistic `Dataset`
 payload — 2000 mixed records with strings, nested and repeated messages, and packed scalar arrays —
@@ -122,7 +122,7 @@ the same settings on every run and prints the exact fix if any is off; `tests/be
 shows the current values.
 
 `--build-dir` defaults to `build/gcc-pb25`, which no preset creates — pass `--build-dir build/gcc`
-for the `gcc` preset from [CONTRIBUTING.md](../CONTRIBUTING.md), or the build dir you configured
+for the `gcc` preset from [CONTRIBUTING.md](https://github.com/VeaaC/rapidproto/blob/main/CONTRIBUTING.md), or the build dir you configured
 against a specific protobuf (see [Choosing the protoc baseline](#choosing-the-protoc-baseline)).
 Pinning defaults to `--core 2`; on a hybrid CPU make sure that is a performance core.
 

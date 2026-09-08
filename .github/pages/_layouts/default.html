@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<!-- The site's only layout: an mdbook-style fixed sidebar (from _data/nav.yml) beside the
+     rendered markdown. jekyll-default-layout assigns it to every page (none carries front
+     matter), and jekyll-seo-tag emits the <title> and og:* block. Staged beside _config.yml by
+     tests/site_stage.sh. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {% seo %}
+  <link rel="icon" type="image/x-icon" href="{{ '/favicon.ico' | relative_url }}">
+  <link rel="stylesheet" href="{{ '/assets/css/site.css' | relative_url }}">
+</head>
+<body>
+  <input type="checkbox" id="sidebar-toggle" class="sidebar-toggle-box" aria-hidden="true">
+  <label for="sidebar-toggle" class="sidebar-toggle" aria-label="Toggle navigation">&#9776;</label>
+  <nav class="sidebar">
+    <a class="site-title" href="{{ '/' | relative_url }}">
+      <!-- the mark: hollow outline = encoded wire, solid teal = decoded result -->
+      <svg class="site-mark" viewBox="-3 -2 52 38" width="26" height="19" aria-hidden="true">
+        <polygon points="2,0 11,0 25,17 11,34 2,34 16,17" fill="none" stroke="var(--fg-muted)" stroke-width="3.5"/>
+        <polygon points="21,0 30,0 44,17 30,34 21,34 35,17" fill="var(--accent)"/>
+      </svg><span>RapidProto</span>
+    </a>
+    <ul class="nav-list">
+      {%- for item in site.data.nav %}
+      <li><a href="{{ item.url | relative_url }}"
+             {%- if page.url == item.url %} class="current" aria-current="page"{% endif %}>{{ item.title }}</a></li>
+      {%- endfor %}
+    </ul>
+    <div class="sidebar-footer">
+      <a href="https://github.com/VeaaC/rapidproto">GitHub</a>
+      <a href="https://github.com/VeaaC/rapidproto/releases">Releases</a>
+    </div>
+  </nav>
+  <main class="content">
+    <article class="page">
+{{ content }}
+    </article>
+  </main>
+</body>
+</html>
