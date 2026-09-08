@@ -6,7 +6,7 @@
 The benches emit NDJSON when RAPIDPROTO_BENCH_JSON=1 (see tests/bench_harness.hpp); this collects both
 into one snapshot and renders a unified table. Four subcommands:
 
-  bench.py run   [--build-dir D] [--core N] [--repeat K] [--out F]  build both, run pinned, snapshot
+  bench.py run   [--build-dir D] [--core N] [--repeat K] [--out F] [--compile]   run + snapshot
   bench.py table SNAPSHOT [SNAPSHOT ...]                            render one, or compare several
   bench.py diff  OLD NEW [--threshold PCT]                          regression check (exit 1 on fail)
   bench.py experiment BASELINE_REF [VARIANT_REF]                    snapshot two git refs, then diff
@@ -29,9 +29,9 @@ bytes / peak RSS per case x model x compiler; ~2 min per snapshot) -- what the t
 costs the consumer's build, measured by tests/compile_bench.py's machinery so the two tools
 cannot drift. OPT-IN so a throughput-focused experiment loop does not pay the sweep's latency;
 pass it when the change under test touches codegen.
-`table` renders it, and `diff`/`experiment` gate it at a tight threshold: .text is deterministic
-and peak RSS nearly so, with no placement floor to hide behind (compile SECONDS is wall clock --
-load-sensitive like any timing, just without GB/s's cross-build placement problem).
+`table` renders it, and `diff`/`experiment` gate ALL THREE metrics, each at its own threshold
+(compile_bench.METRIC_THRESHOLDS: .text 5% -- deterministic, byte-stable across sweeps -- peak
+RSS 10%, and wall-clock seconds 20%, the one metric that is load-sensitive like any timing).
 """
 import argparse
 import json
@@ -243,8 +243,8 @@ def write_snapshot(records, protobuf_version, build_dir, core, out_path, extra_h
 
 
 def compile_preflight(enabled):
-    """The cheap availability checks, BEFORE any expensive measuring (the same rule experiment's
-    own docstring states for RAPIDPROTO_BENCH_ONLY): a box without /usr/bin/time or a pinned
+    """The cheap availability checks, BEFORE any expensive measuring (the same rule experiment
+    applies to RAPIDPROTO_BENCH_ONLY): a box without /usr/bin/time or a pinned
     compiler must refuse up front, not after a multi-minute bench run. Returns (cases, skipped)
     or (None, None) when the sweep is disabled."""
     if not enabled:
@@ -293,8 +293,16 @@ def run(args):
     records, pv = build_and_run(args.build_dir, args.core, args.repeat)
     extra_header = {}
     if cases is not None:
-        compile_records, extra_header = collect_compile(args.build_dir, cases, skipped)
-        records = records + compile_records
+        # Degrade, never abort, same as experiment: a sweep failure after the multi-minute bench
+        # run must not discard the throughput snapshot (preflight covers only the cheap classes;
+        # generation/compile failures surface here).
+        try:
+            compile_records, extra_header = collect_compile(args.build_dir, cases, skipped)
+            records = records + compile_records
+        except (SystemExit, subprocess.CalledProcessError, OSError) as e:
+            print(f"WARNING: compile sweep failed ({e}) -- compile cost not embedded; the "
+                  f"throughput snapshot is still written", file=sys.stderr)
+            extra_header = {}
     write_snapshot(records, pv, args.build_dir, args.core, args.out, extra_header)
 
 
@@ -358,8 +366,10 @@ def render_one(path):
             print(f"  {m['shape']:<14}{m['arena_used']:>12}{m['protoc_used']:>13}{ux:>8.2f}"
                   f"{m['arena_held']:>13}{m['protoc_held']:>13}{hx:>8.2f}")
     if compiles:
-        print("\ncompile cost -- what the generated decoders cost to BUILD (near-deterministic; "
-              "no placement floor)")
+        print("\ncompile cost -- what the generated decoders cost to BUILD "
+              "(.text deterministic, RSS nearly so; seconds is wall clock)")
+        if h.get("compile_skipped_cases"):
+            print(f"  skipped: {', '.join(h['compile_skipped_cases'])}")
         compile_bench.render(compiles, indent="  ")
 
 
@@ -431,7 +441,9 @@ def render_compare(paths):
         if len(set(clabels)) < len(clabels):
             clabels = [os.path.basename(p) for p in paths]
         for metric, title, spec in (("seconds", "compile seconds  (lower is better)", ">10.2f"),
-                                    ("text_bytes", ".text bytes  (lower is better)", ">10")):
+                                    ("text_bytes", ".text bytes  (lower is better)", ">10"),
+                                    ("peak_rss_kb", "peak compiler RSS KB  (lower is better)",
+                                     ">10")):
             print(f"\n{title}")
             head = "".join(f"{lab[:14]:>15}" for lab in clabels)
             print(f"  {'case':<12}{'model':<8}{'compiler':<12}{head}")
@@ -460,13 +472,20 @@ def overhead_dominated(scenario):
     return scenario.startswith("rv ") and scenario.rsplit(" ", 1)[-1] in ("10", "100")
 
 
-def diff_compile(old_header, new_header, old_records, new_records):
+def diff_compile(old_header, new_header, old_records, new_records, requested=False):
     """Gate the embedded compile records (if both snapshots carry them). Returns a status pair
-    (fail_line or None, ungated_reason or None) -- exactly one is non-None unless the gate ran
-    clean (both None). The comparison itself is compile_bench.compare, the one home for what a
-    compile regression means. Asymmetric or non-comparable snapshots report and skip rather than
-    gate: an archived baseline predating the embedding must not fail every diff against it."""
+    (fail_line or None, ungated_reason or None): at most one is non-None, and (None, None) means
+    either a clean gate or a deliberately unmeasured pair (the FYI branch below). The comparison
+    itself is compile_bench.compare, the one home for what a compile regression means.
+    Asymmetric or non-comparable snapshots report and skip rather than gate: an archived baseline
+    predating the embedding must not fail every diff against it. `requested` says the caller
+    ASKED for the sweep (experiment --compile), so records missing on both sides is a failure to
+    disclose in the verdict, not an opt-out."""
     if not old_records and not new_records:
+        if requested:
+            print("\nnote: --compile was requested but NEITHER snapshot carries compile "
+                  "records -- the sweep failed at both refs (see the warnings above)")
+            return None, "the sweep was requested but failed at both refs"
         # Both sides deliberately ran without --compile: one low-key FYI line, and a clean
         # verdict -- stamping the verdict itself "NOT gated" on every throughput-only diff
         # would teach readers to ignore the tail that matters in the asymmetric cases below.
@@ -476,17 +495,19 @@ def diff_compile(old_header, new_header, old_records, new_records):
     side = "old" if not old_records else "new"
     if not old_records or not new_records:
         print(f"\nnote: the {side} snapshot has no embedded compile records -- compile cost not "
-              f"compared (re-snapshot both sides with `bench.py run`)")
+              f"compared (re-snapshot both sides with `bench.py run --compile`)")
         return None, f"the {side} snapshot has no compile records"
     for field in ("compile_cxxflags", "compile_requested_cases", "compile_compilers"):
         if old_header.get(field) != new_header.get(field):
             print(f"\nnote: {field} differs between the snapshots -- compile cost not compared "
                   f"(the delta would be real but meaningless)")
             return None, f"{field} differs"
+    thresholds = compile_bench.METRIC_THRESHOLDS
     regressions, skipped, compared, vanished = compile_bench.compare(
-        old_records, new_records, compile_bench.DEFAULT_THRESHOLD)
-    print(f"\ncompile cost (threshold {compile_bench.DEFAULT_THRESHOLD:.1f}%; .text is "
-          f"deterministic, RSS nearly so; seconds is wall clock)")
+        old_records, new_records, thresholds)
+    print("\ncompile cost (thresholds: "
+          + ", ".join(f"{m} {v:g}%" for m, v in thresholds.items())
+          + " -- .text is deterministic, RSS nearly so; seconds is wall clock)")
     for line in skipped:
         print(f"  skipped (not the same measurement): {line}")
     for line in regressions:
@@ -497,13 +518,13 @@ def diff_compile(old_header, new_header, old_records, new_records):
         print("  note: 0 comparable pairs -- compile cost not gated")
         return None, "0 comparable compile pairs"
     if regressions:
-        return (f"FAIL: {len(regressions)} compile-cost regression(s) exceed "
-                f"{compile_bench.DEFAULT_THRESHOLD:.1f}% (listed above); GB/s itself is clean"), None
+        return (f"FAIL: {len(regressions)} compile-cost regression(s) exceed their metric's "
+                f"threshold (listed above); GB/s itself is clean"), None
     if vanished:
         return (f"FAIL: {len(vanished)} compile measurement(s) present in the old snapshot are "
                 f"missing from the new one; a shrunken sweep must not read as a pass"), None
-    print(f"  OK: {compared} pairs compared, no compile regression beyond "
-          f"{compile_bench.DEFAULT_THRESHOLD:.1f}%")
+    print(f"  OK: {compared} pairs compared, no compile regression past the per-metric "
+          f"thresholds")
     return None, None
 
 
@@ -602,9 +623,12 @@ def diff(args):
     show(f"improvements (GB/s up, beyond {t:.1f}% and the arm's own noise)", impr)
     show(f"moved > {t:.1f}% but within their own measured noise (NOT gated)", muted)
 
-    # BEFORE the refusal exits below: those abort the GB/s verdict, and the measured compile data
-    # should still have been reported by then rather than silently discarded.
-    compile_fail_line, compile_ungated = diff_compile(ho, hn, co, cn)
+    # BEFORE the scenario-filter / no-rows / removed-arm refusals below: those abort the GB/s
+    # verdict, and the measured compile data should still have been reported by then rather than
+    # silently discarded. (The earlier mixed---repeat refusal fires before this point; that pair
+    # is not comparable at all, compile records included.)
+    compile_fail_line, compile_ungated = diff_compile(
+        ho, hn, co, cn, requested=getattr(args, "compile_requested", False))
 
     for h, side in ((ho, "old"), (hn, "new")):
         if h.get("scenario_filter"):
@@ -714,7 +738,7 @@ def experiment(args):
                 compile_records, extra_header = collect_compile(
                     args.build_dir, compile_cases, compile_skipped)
                 records = records + compile_records
-            except (SystemExit, subprocess.CalledProcessError) as e:
+            except (SystemExit, subprocess.CalledProcessError, OSError) as e:
                 print(f"WARNING: compile sweep unavailable at ref '{ref}' ({e}) -- compile cost "
                       f"not embedded for this snapshot", file=sys.stderr)
                 extra_header = {}
@@ -733,7 +757,11 @@ def experiment(args):
                   file=sys.stderr)
 
     print()
-    diff(argparse.Namespace(old=base_snap, new=var_snap, threshold=args.threshold))
+    # compile_requested: with --compile, records missing from BOTH snapshots means the sweep
+    # failed at both refs (warned above) -- diff must disclose that in its verdict rather than
+    # read it as a deliberate opt-out.
+    diff(argparse.Namespace(old=base_snap, new=var_snap, threshold=args.threshold,
+                            compile_requested=args.compile))
 
 
 # ── cli ─────────────────────────────────────────────────────────────────────────────────────────

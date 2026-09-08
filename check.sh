@@ -792,10 +792,12 @@ job_fixtures() {
   fi
   # The Python tools too (bench.py, differential.py, the corpus/compile tooling): several are
   # executed by no gate stage -- bench.py only ever runs by hand or in the on-demand workflow --
-  # so a syntax error there would otherwise merge green. Same floor rationale as above.
+  # so a syntax error there would otherwise merge green. Same floor rationale as above; the tree
+  # has 10 tracked .py files today. DONTWRITEBYTECODE: no __pycache__ side effects in the tree
+  # (they are gitignored, but free is free).
   local _py _py_count=0
   while IFS= read -r _py; do
-    if ! python3 -m py_compile "$_py" 2>&1; then
+    if ! PYTHONDONTWRITEBYTECODE=1 python3 -m py_compile "$_py" 2>&1; then
       echo ">> $_py does not compile"
       return 1
     fi

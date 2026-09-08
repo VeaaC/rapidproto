@@ -10,6 +10,8 @@ runs:
       run: |
         set -euxo pipefail
         sudo apt-get update
+        # `time` = /usr/bin/time, which the compile-cost sweep (bench.py --compile /
+        # compile_bench.py) needs for peak-RSS measurement.
         sudo apt-get install -y --no-install-recommends \
           gcc-13 g++-13 cmake ninja-build time \
           protobuf-compiler libprotobuf-dev libprotozero-dev python3-protobuf
