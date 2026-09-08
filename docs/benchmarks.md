@@ -50,8 +50,8 @@ fasttable enabled, and string ALIASING on — the same borrow-from-the-input sem
 uses, worth +5-11% to upb in pure-decode terms and ~1-4% on the walked table rows below)
 because upb's plugin-generated tables would require building protobuf's compiler from source.
 The decode configuration is **validated, not assumed**: a standalone decode-vs-decode probe (2M
-back-to-back iterations per arm, no checksum walks, run before aliasing landed — a strictly
-conservative variant, since aliasing only helps upb) measures it at **2.16× protoc** on
+back-to-back iterations per arm, no checksum walks, aliasing off — a strictly conservative
+variant of the configuration, since aliasing only helps upb) measures it at **2.16× protoc** on
 `google_message1` — the band upstream's own figures put upb in — so the decoder itself runs at
 full strength.
 

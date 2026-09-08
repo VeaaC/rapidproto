@@ -2,7 +2,7 @@
 // Copyright 2026 Christian Vetter
 #pragma once
 
-// The arena bench's upb baseline arm (roadmap 3.4): upb is protobuf upstream's own
+// The arena bench's upb baseline arm: upb is protobuf upstream's own
 // speed-focused C parser (the engine under its dynamic-language runtimes), which makes it the
 // honest yardstick for a materializing decode. Compiled from the corpus's
 // pinned protobuf checkout (tests/fetch_corpus.py) -- dev-only, never vendored, protozero's

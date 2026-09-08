@@ -370,7 +370,7 @@ if(RAPIDPROTO_BUILD_TESTS)
   # be found; the corpus-dependent arms below are skipped with a message rather than silently.
   set(CORPUS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/build/corpus"
       CACHE PATH "Fetched corpus root (tests/fetch_corpus.py)")
-  # google_message1/2 (roadmap 3.5): generated in the SAME batch as bench.proto -- one
+  # google_message1/2 datasets: generated in the SAME batch as bench.proto -- one
   # invocation, one OUT_DIR, one runtime copy. Separate rapidproto_generate calls would each
   # drop a runtime beside their headers, and a TU mixing two generated trees then includes two
   # distinct copies (a quoted include searches the includer's own directory first), which does
@@ -456,7 +456,7 @@ if(RAPIDPROTO_BUILD_TESTS)
     # is NOT linked against rapidproto_strict (it is a standalone measurement, like rapidproto_bench).
     target_compile_options(rapidproto_arena_bench PRIVATE -O3 -DNDEBUG)
 
-    # ── upb baseline arm (roadmap 3.4) ─────────────────────────────────────────────────────────
+    # ── upb baseline arm ───────────────────────────────────────────────────────────────────────
     # upb: protobuf upstream's speed-focused C parser -- the honest materializing yardstick.
     # Compiled from the fetched corpus's protobuf checkout (fetch_corpus.py brings upb/ +
     # third_party/utf8_range at the SAME pin as the schemas): dev-only, never vendored --
@@ -533,7 +533,7 @@ if(RAPIDPROTO_BUILD_TESTS)
         "upb patterns landed). Run: python3 tests/fetch_corpus.py")
     endif()
 
-    # ── google_message1/2 scenarios (roadmap 3.5) ──────────────────────────────────────────────
+    # ── google_message1/2 scenarios ────────────────────────────────────────────────────────────
     # protobuf's own published benchmark payloads (the protobuf-benchmarks corpus source, a
     # DIFFERENT pinned source than upb's): numbers third parties can check against protobuf's
     # published cross-language figures. The rapidproto decoders were generated in the shared

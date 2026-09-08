@@ -2,7 +2,7 @@
 // Copyright 2026 Christian Vetter
 #pragma once
 
-// The google_message1/google_message2 scenarios (roadmap 3.5): protobuf's own published
+// The google_message1/google_message2 scenarios: protobuf's own published
 // cross-language benchmark payloads -- anonymized real production message shapes -- so numbers
 // measured here are checkable against figures third parties already know. Both come from the
 // pinned protobuf-benchmarks corpus source (tests/fetch_corpus.py); the scenarios are absent
