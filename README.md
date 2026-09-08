@@ -1,6 +1,7 @@
 # RapidProto — fast, header-only Protobuf decoders for C++
 
 [![CI](https://github.com/VeaaC/rapidproto/actions/workflows/ci.yml/badge.svg)](https://github.com/VeaaC/rapidproto/actions/workflows/ci.yml)
+[![Docs](https://img.shields.io/badge/docs-veaac.github.io-2dd4bf)](https://veaac.github.io/rapidproto/)
 [![Release](https://img.shields.io/github/v/release/VeaaC/rapidproto)](https://github.com/VeaaC/rapidproto/releases)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
@@ -28,7 +29,7 @@ editions schema format (2023/2024)**, including groups, maps, and oneofs.
 You can read the same schema with either model, and even use both **in one translation unit** (see
 [using both models](docs/using-both-models.md)).
 
-> See [`architecture.md`](architecture.md) for the internals and design rationale: the layout planner,
+> See [`architecture.md`](https://github.com/VeaaC/rapidproto/blob/main/architecture.md) for the internals and design rationale: the layout planner,
 > the compile-time dispatch, the arena, the coexistence design, and the benchmark methodology.
 
 ---
@@ -173,6 +174,9 @@ can use both models for one schema in one translation unit; see
 
 ## Documentation
 
+The user manual lives in [docs/](docs/) (also published at
+<https://veaac.github.io/rapidproto/>), one page per topic:
+
 | Page | What's in it |
 |---|---|
 | [docs/arena.md](docs/arena.md) | The arena decoder: accessors, the `Arena`, `decode_owned`, error handling |
@@ -183,8 +187,8 @@ can use both models for one schema in one translation unit; see
 | [docs/profiles.md](docs/profiles.md) | Decode profiles (`drop` / `raw`) and unknown-field detection (arena) |
 | [docs/integration.md](docs/integration.md) | The `rapidprotoc` CLI reference and the CMake helper (incl. cross-compiling) |
 | [docs/benchmarks.md](docs/benchmarks.md) | The numbers, how they're measured, and how to reproduce them |
-| [CHANGELOG.md](CHANGELOG.md) | Notable user-visible changes per release (SemVer-0: the MINOR version is the breaking axis) |
-| [architecture.md](architecture.md) | Internals and design rationale, for contributors |
+| [CHANGELOG.md](https://github.com/VeaaC/rapidproto/blob/main/CHANGELOG.md) | Notable user-visible changes per release (SemVer-0: the MINOR version is the breaking axis) |
+| [architecture.md](https://github.com/VeaaC/rapidproto/blob/main/architecture.md) | Internals and design rationale, for contributors |
 
 A runnable end-to-end example (one schema, both models in one TU, a decode profile) is in
 [`examples/consumer`](examples/consumer).
@@ -193,14 +197,14 @@ A runnable end-to-end example (one schema, both models in one TU, a decode profi
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for building, the `./check.sh` quality gate, and how the golden
+See [CONTRIBUTING.md](https://github.com/VeaaC/rapidproto/blob/main/CONTRIBUTING.md) for building, the `./check.sh` quality gate, and how the golden
 tests work. The design and the invariants a change must preserve are in
-[architecture.md](architecture.md).
+[architecture.md](https://github.com/VeaaC/rapidproto/blob/main/architecture.md).
 
 ## Security
 
 RapidProto decodes **untrusted** wire input and is built never to crash on it. See
-[SECURITY.md](SECURITY.md) to report a vulnerability or read the threat model.
+[SECURITY.md](https://github.com/VeaaC/rapidproto/blob/main/SECURITY.md) to report a vulnerability or read the threat model.
 
 ---
 

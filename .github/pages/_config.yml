@@ -1,0 +1,48 @@
+# Jekyll configuration for the GitHub Pages site. tests/site_stage.sh copies it to the root of a
+# STAGED site source consumed by .github/workflows/pages.yml -- the site is the USER MANUAL
+# (README as index, docs/, the consumer example, the license files), not the whole repo, so this
+# file deliberately lives outside the repo root where Jekyll would find it. Contributor docs
+# (architecture.md, CONTRIBUTING.md, ...) stay on github.com; the manual links them absolutely.
+#
+# The build runs GitHub's own pages container (the github-pages gem), whose plugin set makes the
+# markdown behave the way it reads on github.com: relative .md links are rewritten to the rendered
+# pages (jekyll-relative-links), each directory's README.md serves as its index
+# (jekyll-readme-index), and pages need no front matter (jekyll-optional-front-matter,
+# jekyll-default-layout -- which assigns _layouts/default.html, the sidebar layout --
+# jekyll-titles-from-headings). Those five are github-pages defaults; named here so the file
+# states what the site relies on. jekyll-seo-tag (which emits each page's <title> and og:* block
+# from the layout's {% seo %}) is NOT a default -- themes normally pull it in, and this site has
+# no theme -- so it must be listed or the build fails on the unknown tag.
+title: RapidProto
+description: Fast, header-only Protobuf decoders for C++
+# Project site: served under github.io/<repo>/. The gem does not infer this outside the real Pages
+# build, so it is pinned -- tests/site_check.py fails any site-absolute URL that escapes it.
+baseurl: /rapidproto
+url: https://veaac.github.io
+# Nothing on the site reads site.github.*, but jekyll-github-metadata always loads with the
+# github-pages gem and errors without a repository identity (the env fallbacks are absent
+# locally), so this key keeps local builds runnable.
+repository: VeaaC/rapidproto
+# The gem applies its default theme when none is named, which ships ~76KB of primer CSS no page
+# references; null means "really no theme".
+theme: null
+plugins:
+  - jekyll-relative-links
+  - jekyll-readme-index
+  - jekyll-optional-front-matter
+  - jekyll-default-layout
+  - jekyll-titles-from-headings
+  - jekyll-seo-tag
+# Ship only the rendered pages -- without this, every page's raw .md source is also published
+# beside its .html (the plugins keep originals by default).
+optional_front_matter:
+  remove_originals: true
+readme_index:
+  remove_originals: true
+# jekyll-seo-tag picks page.image up as og:image, so link previews of any page show the same card
+# the repo's social preview uses (tests/site_stage.sh stages it at this path).
+defaults:
+  - scope:
+      path: ""
+    values:
+      image: /assets/social-preview.png

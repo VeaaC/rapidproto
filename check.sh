@@ -785,7 +785,7 @@ job_fixtures() {
     _sh_count=$((_sh_count + 1))
   done < <(git ls-files '*.sh')
   # Anti-vacuity: process substitution swallows git's own exit status, so an empty or failed
-  # listing would pass green having parsed nothing. The tree has 16 tracked scripts today.
+  # listing would pass green having parsed nothing. The tree has 17 tracked scripts today.
   if [[ $_sh_count -lt 10 ]]; then
     echo ">> script sweep found only $_sh_count scripts -- git ls-files failed or the tree moved"
     return 1
@@ -793,7 +793,7 @@ job_fixtures() {
   # The Python tools too (bench.py, differential.py, the corpus/compile tooling): several are
   # executed by no gate stage -- bench.py only ever runs by hand or in the on-demand workflow --
   # so a syntax error there would otherwise merge green. Same floor rationale as above; the tree
-  # has 10 tracked .py files today. DONTWRITEBYTECODE: no __pycache__ side effects in the tree
+  # has 11 tracked .py files today. DONTWRITEBYTECODE: no __pycache__ side effects in the tree
   # (they are gitignored, but free is free).
   local _py _py_count=0
   while IFS= read -r _py; do

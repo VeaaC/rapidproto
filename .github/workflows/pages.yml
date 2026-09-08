@@ -1,0 +1,82 @@
+# The documentation site: https://veaac.github.io/rapidproto/
+#
+# Builds the staged documentation surface (tests/site_stage.sh) with GitHub's own Jekyll pages
+# container, validates the RENDERED output (tests/site_check.py: every internal link and page
+# asset resolves, every #fragment matches a generated id, every site-absolute URL carries the
+# /rapidproto base path, and every page appears in every page's sidebar), and deploys to GitHub
+# Pages on pushes to main -- or on a manual
+# workflow_dispatch of the main branch, the only other ref the deploy guard admits. Pull requests
+# run build + check only -- so a PR that renames a heading, moves a page, or adds a doc the
+# staging list misses goes red before merge, not 404 after. No path filter: the staged set spans
+# the README, docs/, examples/consumer and the license files, and a filter list that drifted
+# from tests/site_stage.sh would skip exactly the PRs it must catch. The build is ~a minute;
+# running it on every PR is cheaper than a gate that cannot fail.
+#
+# ONE-TIME SETUP: the repo must have Pages enabled with source "GitHub Actions" (Settings ->
+# Pages) before the first deploy; deploy-pages fails and points at that settings page otherwise.
+# The workflow cannot flip that switch itself -- the create-Pages-site API needs
+# administration:write, which workflow permissions cannot grant to GITHUB_TOKEN.
+#
+# Local reproduction (the container @v1 resolves to as of writing):
+#   tests/site_stage.sh build/site-src
+#   docker run --rm --user "$(id -u):$(id -g)" -v "$PWD/build:/w" -e HOME=/tmp \
+#     -e GITHUB_REPOSITORY=VeaaC/rapidproto -e JEKYLL_ENV=production \
+#     -e PAGES_REPO_NWO=VeaaC/rapidproto -e PAGES_API_URL=https://api.github.com \
+#     --entrypoint /bin/bash ghcr.io/actions/jekyll-build-pages:v1.0.13 \
+#     -c 'cd $BUNDLE_APP_CONFIG && bin/github-pages build --source /w/site-src --destination /w/site'
+#   python3 tests/site_check.py build/site --baseurl /rapidproto
+# (The action's own entrypoint is not used locally: it exports the empty INPUT_TOKEN as
+# JEKYLL_GITHUB_TOKEN, and jekyll-github-metadata rejects blank credentials outright. In CI the
+# token is real and the standard entrypoint runs.)
+name: Pages
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Superseded PR builds are cancelled like ci.yml's; an in-flight main deploy is not -- a cancelled
+# deploy-pages call can leave the site un-updated for the newer push that cancelled it.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Stage the site source
+        run: tests/site_stage.sh build/site-src
+      - uses: actions/jekyll-build-pages@v1
+        with:
+          source: build/site-src
+          destination: build/site
+          verbose: false
+      - name: Check the rendered site
+        run: python3 tests/site_check.py build/site --baseurl /rapidproto
+      # PR runs end at the check: their artifact would never be consumed (deploy is main-only).
+      - if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/site
+
+  deploy:
+    # push filters to main already; this also admits a workflow_dispatch of main (a manual
+    # redeploy) and nothing else -- pull_request refs are refs/pull/N/merge, never a branch.
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

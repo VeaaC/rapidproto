@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Source of the repo's social-preview card (Settings -> General -> Social preview); also staged
+     as every site page's og:image (tests/site_stage.sh). Render the committed PNG beside it with:
+       rsvg-convert -w 1280 -h 640 social-preview.svg -o social-preview.png
+     Text rendering depends on the local DejaVu fonts, so the PNG only reproduces byte-for-byte
+     where they match. The hex strip is real wire: field 1, LEN 10, "RapidProto". -->
+<svg width="1280" height="640" viewBox="0 0 1280 640" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1280" height="640" fill="#0d1117"/>
+  <rect x="0" y="632" width="1280" height="8" fill="#2dd4bf"/>
+  <!-- the mark again as a giant watermark, bleeding off the right edge -->
+  <g transform="translate(880,60) scale(15)" opacity="0.08">
+    <polygon points="2,0 11,0 25,17 11,34 2,34 16,17" fill="none" stroke="#59636e" stroke-width="3.5"/>
+    <polygon points="21,0 30,0 44,17 30,34 21,34 35,17" fill="#2dd4bf"/>
+  </g>
+  <!-- the mark: hollow outline = encoded wire, solid teal = decoded result -->
+  <g transform="translate(96,178) scale(3.1)">
+    <polygon points="2,0 11,0 25,17 11,34 2,34 16,17" fill="none" stroke="#59636e" stroke-width="3.5"/>
+    <polygon points="21,0 30,0 44,17 30,34 21,34 35,17" fill="#2dd4bf"/>
+  </g>
+  <text x="272" y="270" font-family="DejaVu Sans, sans-serif" font-size="104" font-weight="bold"
+        fill="#e6edf3">RapidProto</text>
+  <text x="96" y="352" font-family="DejaVu Sans, sans-serif" font-size="42"
+        fill="#8b949e">Fast, header-only Protobuf decoders for C++</text>
+  <text x="96" y="472" font-family="DejaVu Sans Mono, monospace" font-size="30" fill="#2dd4bf"
+        opacity="0.85">0a 0a 52 61 70 69 64 50 72 6f 74 6f</text>
+  <text x="96" y="516" font-family="DejaVu Sans Mono, monospace" font-size="30"
+        fill="#8b949e">arena &#183; streaming &#160;&#8212;&#160; one schema, two decode models</text>
+</svg>

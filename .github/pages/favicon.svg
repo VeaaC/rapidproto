@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Source of the site favicon: the chevron mark (hollow outline = encoded wire, solid teal =
+     decoded result). Regenerate the .ico beside it (PIL downsamples the 16/32 entries from one
+     48 px render) with:
+       rsvg-convert -w 48 -h 48 favicon.svg -o /tmp/fav48.png
+       python3 -c "from PIL import Image; Image.open('/tmp/fav48.png').save('favicon.ico',
+         sizes=[(16,16),(32,32),(48,48)])"
+     Same palette as social-preview.svg. -->
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <rect width="64" height="64" rx="10" fill="#0d1117"/>
+  <polygon points="12,15 21,15 35,32 21,49 12,49 26,32" fill="none" stroke="#59636e" stroke-width="3.5"/>
+  <polygon points="31,15 40,15 54,32 40,49 31,49 45,32" fill="#2dd4bf"/>
+</svg>

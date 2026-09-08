@@ -1,0 +1,23 @@
+# The sidebar, in the manual's reading order (mirrors docs/README.md's listing). Every rendered
+# page must appear here -- tests/site_check.py fails the build otherwise (its NAV_EXEMPT names
+# the two deliberate exceptions) -- so this list cannot silently drift from the staged set.
+- title: Overview
+  url: /
+- title: The arena decoder
+  url: /docs/arena.html
+- title: The streaming decoder
+  url: /docs/streaming.html
+- title: The debug dumper
+  url: /docs/dumper.html
+- title: Shared semantics
+  url: /docs/semantics.html
+- title: Using both models
+  url: /docs/using-both-models.html
+- title: Decode profiles
+  url: /docs/profiles.html
+- title: CLI & CMake
+  url: /docs/integration.html
+- title: Benchmarks
+  url: /docs/benchmarks.html
+- title: Consumer example
+  url: /examples/consumer/

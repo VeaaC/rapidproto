@@ -1,0 +1,336 @@
+/* The site's single stylesheet: layout (fixed sidebar + content pane), markdown styling, and the
+ * Rouge highlight palette. Colors live in custom properties so the dark scheme below redefines
+ * only the palette, never the rules. Teal accent matches the social card and docs badge. */
+
+:root {
+  --bg: #ffffff;
+  --bg-sidebar: #f6f8fa;
+  --fg: #1f2328;
+  --fg-muted: #59636e;
+  --accent: #0d9488;
+  --accent-soft: #2dd4bf;
+  --accent-sub: #0f766e;
+  --border: #d1d9e0;
+  --code-bg: #f6f8fa;
+  --code-fg: #1f2328;
+  --link: #0969da;
+  --hl-comment: #6a737d;
+  --hl-keyword: #cf222e;
+  --hl-string: #0a3069;
+  --hl-number: #0550ae;
+  --hl-type: #953800;
+  --hl-func: #8250df;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d1117;
+    --bg-sidebar: #010409;
+    --fg: #e6edf3;
+    --fg-muted: #8b949e;
+    --accent: #2dd4bf;
+    --accent-soft: #2dd4bf;
+    --accent-sub: #1eb8a5;
+    --border: #30363d;
+    --code-bg: #161b22;
+    --code-fg: #e6edf3;
+    --link: #58a6ff;
+    --hl-comment: #8b949e;
+    --hl-keyword: #ff7b72;
+    --hl-string: #a5d6ff;
+    --hl-number: #79c0ff;
+    --hl-type: #ffa657;
+    --hl-func: #d2a8ff;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+/* ---- sidebar ---------------------------------------------------------- */
+
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 17rem;
+  overflow-y: auto;
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border);
+  padding: 1.25rem 0 1rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.skip-link {
+  position: absolute;
+  left: -999px;
+  top: 0;
+  z-index: 20;
+  background: var(--accent);
+  color: #0d1117;
+  padding: 0.5rem 1rem;
+  text-decoration: none;
+}
+
+.skip-link:focus { left: 0; }
+
+.site-head {
+  padding: 0 1.25rem 0.9rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.site-title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--fg);
+  text-decoration: none;
+}
+
+.site-mark {
+  vertical-align: -0.15em;
+  margin-right: 0.45rem;
+}
+
+.site-sub {
+  /* the wire-bytes motif from the social card, as a subtle subtitle */
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.62rem;
+  color: var(--accent-sub);
+  margin-top: 0.25rem;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.nav-list {
+  list-style: none;
+  margin: 0.75rem 0;
+  padding: 0;
+  flex: 1;
+}
+
+.nav-list a {
+  display: block;
+  padding: 0.32rem 1.25rem;
+  color: var(--fg-muted);
+  text-decoration: none;
+  border-left: 3px solid transparent;
+}
+
+.nav-list a:hover { color: var(--fg); }
+
+.nav-list a.current {
+  color: var(--fg);
+  font-weight: 600;
+  border-left-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.sidebar-footer {
+  padding: 0.9rem 1.25rem 0;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 1rem;
+}
+
+.sidebar-footer a {
+  color: var(--fg-muted);
+  text-decoration: none;
+  font-size: 0.85rem;
+}
+
+.sidebar-footer a:hover { color: var(--fg); }
+
+/* ---- content pane ----------------------------------------------------- */
+
+.content {
+  margin-left: 17rem;
+  display: flex;
+  justify-content: center;
+}
+
+.page {
+  max-width: 50rem;
+  min-width: 0;
+  padding: 2.5rem 3rem 4rem;
+}
+
+.content h1, .content h2, .content h3, .content h4 {
+  line-height: 1.25;
+  margin: 1.6em 0 0.6em;
+  scroll-margin-top: 1rem;
+}
+
+.content h1 { font-size: 1.9rem; margin-top: 0.2em; }
+.content h2 { font-size: 1.45rem; border-bottom: 1px solid var(--border); padding-bottom: 0.25em; }
+.content h3 { font-size: 1.15rem; }
+.content h4 { font-size: 1rem; }
+
+/* Underlined faintly even at rest: in dark mode the link blue sits under 3:1 against body text,
+ * so color alone must not be the only cue (WCAG 1.4.1). */
+.content a {
+  color: var(--link);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--link) 40%, transparent);
+  text-underline-offset: 3px;
+}
+
+.content a:hover { text-decoration-color: var(--link); }
+
+.content hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 2rem 0;
+}
+
+.content blockquote {
+  margin: 1rem 0;
+  padding: 0.1rem 1rem;
+  color: var(--fg-muted);
+  border-left: 4px solid var(--accent-soft);
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+  border-radius: 0 4px 4px 0;
+}
+
+.content img { max-width: 100%; }
+
+/* badges in the README render as a row of images */
+.content p img { vertical-align: middle; }
+
+/* ---- code ------------------------------------------------------------- */
+
+code, pre {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.875em;
+}
+
+code {
+  background: var(--code-bg);
+  padding: 0.15em 0.35em;
+  border-radius: 4px;
+  overflow-wrap: anywhere;  /* a long identifier in prose must wrap, not scroll the page */
+}
+
+pre {
+  background: var(--code-bg);
+  color: var(--code-fg);
+  padding: 0.9rem 1.1rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  line-height: 1.5;
+  border: 1px solid var(--border);
+}
+
+pre code {
+  background: none;
+  padding: 0;
+  font-size: 1em;
+}
+
+/* Rouge token classes (kramdown/GFM emits these) */
+.highlight .c, .highlight .c1, .highlight .cm, .highlight .cp, .highlight .cpf { color: var(--hl-comment); }
+.highlight .k, .highlight .kd, .highlight .kr, .highlight .kn { color: var(--hl-keyword); }
+.highlight .s, .highlight .s1, .highlight .s2, .highlight .sb, .highlight .se { color: var(--hl-string); }
+.highlight .m, .highlight .mi, .highlight .mf, .highlight .mh { color: var(--hl-number); }
+.highlight .sc { color: var(--hl-string); }
+.highlight .nv { color: var(--hl-number); }
+.highlight .kt, .highlight .nc, .highlight .nn, .highlight .nt, .highlight .na { color: var(--hl-type); }
+.highlight .nb, .highlight .nl { color: var(--hl-keyword); }
+.highlight .nf, .highlight .fm { color: var(--hl-func); }
+
+/* ---- tables ----------------------------------------------------------- */
+
+.content table {
+  border-collapse: collapse;
+  display: block;
+  overflow-x: auto;
+  margin: 1rem 0;
+}
+
+.content th, .content td {
+  border: 1px solid var(--border);
+  padding: 0.4rem 0.8rem;
+  text-align: left;
+}
+
+.content th { background: var(--code-bg); }
+
+.content tr:nth-child(2n) td { background: color-mix(in srgb, var(--code-bg) 55%, transparent); }
+
+/* ---- mobile ----------------------------------------------------------- */
+
+.sidebar-toggle-box { display: none; }
+.sidebar-toggle { display: none; }
+
+@media (max-width: 56rem) {
+  .sidebar {
+    transform: translateX(-100%);
+    visibility: hidden;  /* keep the closed sidebar's links out of the tab order */
+    transition: transform 0.2s ease, visibility 0.2s;
+    z-index: 10;
+    width: 15rem;
+    padding-top: 3.2rem;  /* clear the toggle button when open */
+  }
+
+  /* Visually hidden but focusable, so the toggle is keyboard-reachable (display:none would
+   * remove it from the tab order entirely). */
+  .sidebar-toggle-box {
+    display: block;
+    position: fixed;
+    top: 0.6rem;
+    left: 0.8rem;
+    width: 2.4rem;
+    height: 2.2rem;
+    margin: 0;
+    opacity: 0;
+    z-index: 12;
+  }
+
+  .sidebar-toggle {
+    display: block;
+    position: fixed;
+    top: 0.6rem;
+    left: 0.8rem;
+    z-index: 11;
+    font-size: 1.4rem;
+    cursor: pointer;
+    color: var(--fg);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.1rem 0.5rem;
+    user-select: none;
+  }
+
+  .sidebar-toggle-box:focus-visible ~ .sidebar-toggle {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .sidebar-toggle-box:checked ~ .sidebar {
+    transform: translateX(0);
+    visibility: visible;
+  }
+
+  .content { margin-left: 0; }
+
+  .page { padding: 3.5rem 1.25rem 3rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+
+  .sidebar { transition: none; }
+}
