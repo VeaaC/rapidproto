@@ -1,16 +1,22 @@
 # The documentation site: https://veaac.github.io/rapidproto/
 #
 # Builds the staged documentation surface (tests/site_stage.sh) with GitHub's own Jekyll pages
-# container, validates the RENDERED output (tests/site_check.py: every internal link resolves,
-# every #fragment matches a generated id, every URL carries the /rapidproto base path), and
-# deploys to GitHub Pages on pushes to main. Pull requests run build + check only -- so a PR that
-# renames a heading, moves a page, or adds a doc the staging list misses goes red before merge,
-# not 404 after. No path filter: the staged set spans root markdown, docs/, examples/consumer and
-# the license files, and a filter list that drifted from tests/site_stage.sh would skip exactly
-# the PRs it must catch. The build is ~a minute; running it on every PR is cheaper than a gate
-# that cannot fail.
+# container, validates the RENDERED output (tests/site_check.py: every internal link and page
+# asset resolves, every #fragment matches a generated id, every site-absolute URL carries the
+# /rapidproto base path), and deploys to GitHub Pages on pushes to main -- or on a manual
+# workflow_dispatch of the main branch, the only other ref the deploy guard admits. Pull requests
+# run build + check only -- so a PR that renames a heading, moves a page, or adds a doc the
+# staging list misses goes red before merge, not 404 after. No path filter: the staged set spans
+# root markdown, docs/, examples/consumer and the license files, and a filter list that drifted
+# from tests/site_stage.sh would skip exactly the PRs it must catch. The build is ~a minute;
+# running it on every PR is cheaper than a gate that cannot fail.
 #
-# Local reproduction (same container the action runs):
+# ONE-TIME SETUP: the repo must have Pages enabled with source "GitHub Actions" (Settings ->
+# Pages) before the first deploy; deploy-pages fails and points at that settings page otherwise.
+# The workflow cannot flip that switch itself -- the create-Pages-site API needs
+# administration:write, which workflow permissions cannot grant to GITHUB_TOKEN.
+#
+# Local reproduction (the container @v1 resolves to as of writing):
 #   tests/site_stage.sh build/site-src
 #   docker run --rm --user "$(id -u):$(id -g)" -v "$PWD/build:/w" -e HOME=/tmp \
 #     -e GITHUB_REPOSITORY=VeaaC/rapidproto -e JEKYLL_ENV=production \
@@ -52,12 +58,16 @@ jobs:
           verbose: false
       - name: Check the rendered site
         run: python3 tests/site_check.py build/site --baseurl /rapidproto
-      - uses: actions/upload-pages-artifact@v3
+      # PR runs end at the check: their artifact would never be consumed (deploy is main-only).
+      - if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v3
         with:
           path: build/site
 
   deploy:
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    # push filters to main already; this also admits a workflow_dispatch of main (a manual
+    # redeploy) and nothing else -- pull_request refs are refs/pull/N/merge, never a branch.
+    if: github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-24.04
     permissions:
@@ -67,10 +77,5 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      # enablement creates the Pages site on first deploy, so the repo setting never needs a
-      # manual flip; on an already-enabled repo it is a no-op.
-      - uses: actions/configure-pages@v5
-        with:
-          enablement: true
       - id: deployment
         uses: actions/deploy-pages@v4

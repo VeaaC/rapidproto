@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Source of the site favicon. Regenerate the .ico beside it (16/32/48 px) with:
+       for s in 16 32 48; do rsvg-convert -w $s -h $s favicon.svg -o /tmp/fav$s.png; done
+       python3 -c "from PIL import Image; Image.open('/tmp/fav48.png').save('favicon.ico',
+         sizes=[(16,16),(32,32),(48,48)])"
+     Same palette as social-preview.svg; text rendering depends on the local DejaVu fonts. -->
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <rect width="64" height="64" fill="#0d1117"/>
+  <rect y="57" width="64" height="7" fill="#2dd4bf"/>
+  <text x="32" y="47" text-anchor="middle" font-family="DejaVu Sans, sans-serif"
+        font-weight="bold" font-size="46" fill="#e6edf3">R</text>
+</svg>

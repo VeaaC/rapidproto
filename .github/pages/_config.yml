@@ -1,5 +1,5 @@
-# Jekyll configuration for the GitHub Pages site. Consumed by .github/workflows/pages.yml, which
-# copies it to the root of a STAGED site source (tests/site_stage.sh) -- the site is the repo's
+# Jekyll configuration for the GitHub Pages site. tests/site_stage.sh copies it to the root of a
+# STAGED site source consumed by .github/workflows/pages.yml -- the site is the repo's
 # documentation surface (README as index, docs/, the contributor docs, examples/consumer), not the
 # whole repo, so this file deliberately lives outside the repo root where Jekyll would find it.
 #
@@ -8,14 +8,24 @@
 # pages (jekyll-relative-links), each directory's README.md serves as its index
 # (jekyll-readme-index), and pages need no front matter (jekyll-optional-front-matter,
 # jekyll-default-layout, jekyll-titles-from-headings). All five are github-pages defaults; named
-# here so the file states what the site relies on.
+# here so the file states what the site relies on. Two more defaults stay unnamed but load
+# anyway and matter: jekyll-seo-tag (every page's <title> and og:* metadata) and
+# jekyll-github-metadata (site.github.*, which the theme's per-page edit link is built from).
 title: RapidProto
 description: Fast, header-only Protobuf decoders for C++
 # Project site: served under github.io/<repo>/. The gem does not infer this outside the real Pages
-# build, so it is pinned -- tests/site_check.py verifies every rendered link carries it.
+# build, so it is pinned -- tests/site_check.py fails any site-absolute URL that escapes it.
 baseurl: /rapidproto
 url: https://veaac.github.io
+# jekyll-github-metadata keys off this (the env fallbacks are absent locally), and the source
+# override pins the theme's "edit this page" footer links to the real branch -- without it the
+# plugin guesses gh-pages, a branch this repo does not have (the site deploys from an Actions
+# artifact, not a branch).
 repository: VeaaC/rapidproto
+github:
+  source:
+    branch: main
+    path: ""
 theme: jekyll-theme-primer
 plugins:
   - jekyll-relative-links
@@ -23,9 +33,22 @@ plugins:
   - jekyll-optional-front-matter
   - jekyll-default-layout
   - jekyll-titles-from-headings
+# jekyll-optional-front-matter refuses a hard-coded blacklist of filenames (CONTRIBUTING, LICENSE,
+# README, ...) unless they are listed in `include`. CONTRIBUTING.md is the one staged page that
+# needs the exemption: README.md is rescued by jekyll-readme-index instead, and the license files
+# are meant to stay unrendered.
+include:
+  - CONTRIBUTING.md
 # Ship only the rendered pages -- without this, every page's raw .md source is also published
 # beside its .html (the plugins keep originals by default).
 optional_front_matter:
   remove_originals: true
 readme_index:
   remove_originals: true
+# jekyll-seo-tag picks page.image up as og:image, so link previews of any page show the same card
+# the repo's social preview uses (tests/site_stage.sh stages it at this path).
+defaults:
+  - scope:
+      path: ""
+    values:
+      image: /assets/social-preview.png

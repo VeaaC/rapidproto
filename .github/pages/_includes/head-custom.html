@@ -1,0 +1,5 @@
+<!-- Overrides the primer theme's head-custom include, whose default body is a commented-out
+     favicon placeholder: without this override no icon link is emitted at all, and browsers fall
+     back to requesting /favicon.ico at the DOMAIN root -- which on a project site is outside
+     /rapidproto/ and 404s. Staged beside _config.yml by tests/site_stage.sh. -->
+<link rel="icon" type="image/x-icon" href="{{ '/favicon.ico' | relative_url }}">

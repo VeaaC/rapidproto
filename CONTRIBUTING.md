@@ -56,8 +56,11 @@ build on **every pull request and every push to the default branch** (feature-br
 gated by their PR run). Running `./check.sh` locally covers the same stages in one command; what
 CI adds beyond it: the corpus-compile sample (locally a deep-tier leg), an arm64 build/test job,
 a macOS build/test job (AppleClang + libc++, via `tests/system_build_test.sh` — the system-compiler
-sequence shared with the release workflow's macOS leg), and the consumer job (install ->
-`find_package` -> C++20/23 header compiles).
+sequence shared with the release workflow's macOS leg), the consumer job (install ->
+`find_package` -> C++20/23 header compiles), and the documentation-site build (the Pages workflow
+renders the docs and validates every link and anchor in the *rendered* HTML — `tests/site_check.py`;
+a renamed heading can therefore red a doc-only PR; the local repro recipe is in
+`.github/workflows/pages.yml`).
 
 ## The real-world schema corpus
 

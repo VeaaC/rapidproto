@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Source of the repo's social-preview card (Settings -> General -> Social preview). Render the
-     committed PNG beside it with:  rsvg-convert -w 1280 -h 640 social-preview.svg -o social-preview.png
-     The hex strip is real wire: field 1, LEN 10, "RapidProto". -->
+<!-- Source of the repo's social-preview card (Settings -> General -> Social preview); also staged
+     as every site page's og:image (tests/site_stage.sh). Render the committed PNG beside it with:
+       rsvg-convert -w 1280 -h 640 social-preview.svg -o social-preview.png
+     Text rendering depends on the local DejaVu fonts, so the PNG only reproduces byte-for-byte
+     where they match. The hex strip is real wire: field 1, LEN 10, "RapidProto". -->
 <svg width="1280" height="640" viewBox="0 0 1280 640" xmlns="http://www.w3.org/2000/svg">
   <rect width="1280" height="640" fill="#0d1117"/>
   <rect x="0" y="632" width="1280" height="8" fill="#2dd4bf"/>
