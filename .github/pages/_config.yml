@@ -9,23 +9,30 @@
 # pages (jekyll-relative-links), each directory's README.md serves as its index
 # (jekyll-readme-index), and pages need no front matter (jekyll-optional-front-matter,
 # jekyll-default-layout -- which assigns _layouts/default.html, the sidebar layout --
-# jekyll-titles-from-headings). All five are github-pages defaults; named here so the file states
-# what the site relies on. jekyll-seo-tag (another default) emits each page's <title> and og:*
-# block from the layout's {% seo %}.
+# jekyll-titles-from-headings). Those five are github-pages defaults; named here so the file
+# states what the site relies on. jekyll-seo-tag (which emits each page's <title> and og:* block
+# from the layout's {% seo %}) is NOT a default -- themes normally pull it in, and this site has
+# no theme -- so it must be listed or the build fails on the unknown tag.
 title: RapidProto
 description: Fast, header-only Protobuf decoders for C++
 # Project site: served under github.io/<repo>/. The gem does not infer this outside the real Pages
 # build, so it is pinned -- tests/site_check.py fails any site-absolute URL that escapes it.
 baseurl: /rapidproto
 url: https://veaac.github.io
-# jekyll-github-metadata keys off this (the env fallbacks are absent locally).
+# Nothing on the site reads site.github.*, but jekyll-github-metadata always loads with the
+# github-pages gem and errors without a repository identity (the env fallbacks are absent
+# locally), so this key keeps local builds runnable.
 repository: VeaaC/rapidproto
+# The gem applies its default theme when none is named, which ships ~76KB of primer CSS no page
+# references; null means "really no theme".
+theme: null
 plugins:
   - jekyll-relative-links
   - jekyll-readme-index
   - jekyll-optional-front-matter
   - jekyll-default-layout
   - jekyll-titles-from-headings
+  - jekyll-seo-tag
 # Ship only the rendered pages -- without this, every page's raw .md source is also published
 # beside its .html (the plugins keep originals by default).
 optional_front_matter:

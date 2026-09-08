@@ -174,6 +174,9 @@ can use both models for one schema in one translation unit; see
 
 ## Documentation
 
+The user manual lives in [docs/](docs/) (also published at
+<https://veaac.github.io/rapidproto/>), one page per topic:
+
 | Page | What's in it |
 |---|---|
 | [docs/arena.md](docs/arena.md) | The arena decoder: accessors, the `Arena`, `decode_owned`, error handling |

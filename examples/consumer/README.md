@@ -15,7 +15,8 @@ one schema ([`proto/message.proto`](proto/message.proto), which imports
 
 ## Building
 
-In-tree (the default when the RapidProto tests are enabled), from the repository root:
+In-tree (the default when the RapidProto tests are enabled; the build is driven by
+[`CMakeLists.txt`](CMakeLists.txt)), from the repository root:
 
 ```sh
 cmake --preset gcc && cmake --build --preset gcc

@@ -9,6 +9,7 @@
   --fg-muted: #59636e;
   --accent: #0d9488;
   --accent-soft: #2dd4bf;
+  --accent-sub: #0f766e;
   --border: #d1d9e0;
   --code-bg: #f6f8fa;
   --code-fg: #1f2328;
@@ -29,6 +30,7 @@
     --fg-muted: #8b949e;
     --accent: #2dd4bf;
     --accent-soft: #2dd4bf;
+    --accent-sub: #1eb8a5;
     --border: #30363d;
     --code-bg: #161b22;
     --code-fg: #e6edf3;
@@ -71,14 +73,29 @@ body {
   flex-direction: column;
 }
 
-.site-title {
-  display: block;
+.skip-link {
+  position: absolute;
+  left: -999px;
+  top: 0;
+  z-index: 20;
+  background: var(--accent);
+  color: #0d1117;
+  padding: 0.5rem 1rem;
+  text-decoration: none;
+}
+
+.skip-link:focus { left: 0; }
+
+.site-head {
   padding: 0 1.25rem 0.9rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.site-title {
   font-size: 1.3rem;
   font-weight: 700;
   color: var(--fg);
   text-decoration: none;
-  border-bottom: 1px solid var(--border);
 }
 
 .site-mark {
@@ -86,17 +103,15 @@ body {
   margin-right: 0.45rem;
 }
 
-.site-title::after {
+.site-sub {
   /* the wire-bytes motif from the social card, as a subtle subtitle */
-  content: "0a 0a 52 61 70 69 64 50 72 6f 74 6f";
-  display: block;
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   font-size: 0.62rem;
-  font-weight: 400;
-  color: var(--accent);
-  opacity: 0.75;
+  color: var(--accent-sub);
   margin-top: 0.25rem;
   letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .nav-list {
@@ -163,8 +178,16 @@ body {
 .content h3 { font-size: 1.15rem; }
 .content h4 { font-size: 1rem; }
 
-.content a { color: var(--link); text-decoration: none; }
-.content a:hover { text-decoration: underline; }
+/* Underlined faintly even at rest: in dark mode the link blue sits under 3:1 against body text,
+ * so color alone must not be the only cue (WCAG 1.4.1). */
+.content a {
+  color: var(--link);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--link) 40%, transparent);
+  text-underline-offset: 3px;
+}
+
+.content a:hover { text-decoration-color: var(--link); }
 
 .content hr {
   border: 0;
@@ -197,6 +220,7 @@ code {
   background: var(--code-bg);
   padding: 0.15em 0.35em;
   border-radius: 4px;
+  overflow-wrap: anywhere;  /* a long identifier in prose must wrap, not scroll the page */
 }
 
 pre {
@@ -220,7 +244,10 @@ pre code {
 .highlight .k, .highlight .kd, .highlight .kr, .highlight .kn { color: var(--hl-keyword); }
 .highlight .s, .highlight .s1, .highlight .s2, .highlight .sb, .highlight .se { color: var(--hl-string); }
 .highlight .m, .highlight .mi, .highlight .mf, .highlight .mh { color: var(--hl-number); }
-.highlight .kt, .highlight .nc, .highlight .nn { color: var(--hl-type); }
+.highlight .sc { color: var(--hl-string); }
+.highlight .nv { color: var(--hl-number); }
+.highlight .kt, .highlight .nc, .highlight .nn, .highlight .nt, .highlight .na { color: var(--hl-type); }
+.highlight .nb, .highlight .nl { color: var(--hl-keyword); }
 .highlight .nf, .highlight .fm { color: var(--hl-func); }
 
 /* ---- tables ----------------------------------------------------------- */
@@ -250,9 +277,25 @@ pre code {
 @media (max-width: 56rem) {
   .sidebar {
     transform: translateX(-100%);
-    transition: transform 0.2s ease;
+    visibility: hidden;  /* keep the closed sidebar's links out of the tab order */
+    transition: transform 0.2s ease, visibility 0.2s;
     z-index: 10;
     width: 15rem;
+    padding-top: 3.2rem;  /* clear the toggle button when open */
+  }
+
+  /* Visually hidden but focusable, so the toggle is keyboard-reachable (display:none would
+   * remove it from the tab order entirely). */
+  .sidebar-toggle-box {
+    display: block;
+    position: fixed;
+    top: 0.6rem;
+    left: 0.8rem;
+    width: 2.4rem;
+    height: 2.2rem;
+    margin: 0;
+    opacity: 0;
+    z-index: 12;
   }
 
   .sidebar-toggle {
@@ -271,9 +314,23 @@ pre code {
     user-select: none;
   }
 
-  .sidebar-toggle-box:checked ~ .sidebar { transform: translateX(0); }
+  .sidebar-toggle-box:focus-visible ~ .sidebar-toggle {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .sidebar-toggle-box:checked ~ .sidebar {
+    transform: translateX(0);
+    visibility: visible;
+  }
 
   .content { margin-left: 0; }
 
   .page { padding: 3.5rem 1.25rem 3rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+
+  .sidebar { transition: none; }
 }

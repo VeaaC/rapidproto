@@ -1,6 +1,6 @@
 # The sidebar, in the manual's reading order (mirrors docs/README.md's listing). Every rendered
-# page must appear here -- tests/site_check.py fails the build otherwise (THIRD_PARTY_NOTICES is
-# the one deliberate exception) -- so this list cannot silently drift from the staged set.
+# page must appear here -- tests/site_check.py fails the build otherwise (its NAV_EXEMPT names
+# the two deliberate exceptions) -- so this list cannot silently drift from the staged set.
 - title: Overview
   url: /
 - title: The arena decoder

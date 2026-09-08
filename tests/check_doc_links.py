@@ -95,6 +95,23 @@ def main():
             text = strip_code(f.read())
         for m in re.finditer(r"\]\(([^)\s]+)\)", text):
             target = m.group(1)
+            # Absolute links into THIS repo's main branch are how the manual reaches the
+            # contributor docs the Pages site does not publish (they must work from both
+            # github.com and the rendered site). They point at local files, so check them like
+            # relative links -- otherwise the rewrite would have silently dropped the anchor
+            # gate on exactly the links that used to have it.
+            own = re.match(r"https://github\.com/VeaaC/rapidproto/blob/main/([^#]+)(#.*)?$", target)
+            if own:
+                tfile = os.path.normpath(os.path.join(ROOT, own.group(1)))
+                frag = own.group(2)[1:] if own.group(2) else None
+                checked += 1
+                if not os.path.exists(tfile):
+                    print(f">> {rel}: broken link ({target}): no such file on main")
+                    errors += 1
+                elif frag is not None and tfile.endswith(".md") and frag not in anchors_of(tfile):
+                    print(f">> {rel}: broken link ({target}): no such anchor")
+                    errors += 1
+                continue
             if target.startswith(("http://", "https://", "mailto:")):
                 continue
             if target.startswith("#"):

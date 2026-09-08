@@ -12,16 +12,21 @@
   <link rel="stylesheet" href="{{ '/assets/css/site.css' | relative_url }}">
 </head>
 <body>
-  <input type="checkbox" id="sidebar-toggle" class="sidebar-toggle-box" aria-hidden="true">
+  <a class="skip-link" href="#content">Skip to content</a>
+  <input type="checkbox" id="sidebar-toggle" class="sidebar-toggle-box">
   <label for="sidebar-toggle" class="sidebar-toggle" aria-label="Toggle navigation">&#9776;</label>
-  <nav class="sidebar">
-    <a class="site-title" href="{{ '/' | relative_url }}">
-      <!-- the mark: hollow outline = encoded wire, solid teal = decoded result -->
-      <svg class="site-mark" viewBox="-3 -2 52 38" width="26" height="19" aria-hidden="true">
-        <polygon points="2,0 11,0 25,17 11,34 2,34 16,17" fill="none" stroke="var(--fg-muted)" stroke-width="3.5"/>
-        <polygon points="21,0 30,0 44,17 30,34 21,34 35,17" fill="var(--accent)"/>
-      </svg><span>RapidProto</span>
-    </a>
+  <nav class="sidebar" aria-label="Manual">
+    <div class="site-head">
+      <a class="site-title" href="{{ '/' | relative_url }}">
+        <!-- the mark: hollow outline = encoded wire, solid teal = decoded result -->
+        <svg class="site-mark" viewBox="-3 -2 52 38" width="26" height="19" aria-hidden="true">
+          <polygon points="2,0 11,0 25,17 11,34 2,34 16,17" fill="none" stroke="var(--fg-muted)" stroke-width="3.5"/>
+          <polygon points="21,0 30,0 44,17 30,34 21,34 35,17" fill="var(--accent)"/>
+        </svg><span>RapidProto</span>
+      </a>
+      <!-- the name as protobuf wire bytes: field 1, LEN 10, "RapidProto". Decoration only. -->
+      <div class="site-sub" aria-hidden="true">0a 0a 52 61 70 69 64 50 72 6f 74 6f</div>
+    </div>
     <ul class="nav-list">
       {%- for item in site.data.nav %}
       <li><a href="{{ item.url | relative_url }}"
@@ -33,7 +38,7 @@
       <a href="https://github.com/VeaaC/rapidproto/releases">Releases</a>
     </div>
   </nav>
-  <main class="content">
+  <main class="content" id="content">
     <article class="page">
 {{ content }}
     </article>

@@ -3,7 +3,8 @@
 # Builds the staged documentation surface (tests/site_stage.sh) with GitHub's own Jekyll pages
 # container, validates the RENDERED output (tests/site_check.py: every internal link and page
 # asset resolves, every #fragment matches a generated id, every site-absolute URL carries the
-# /rapidproto base path), and deploys to GitHub Pages on pushes to main -- or on a manual
+# /rapidproto base path, and every page appears in every page's sidebar), and deploys to GitHub
+# Pages on pushes to main -- or on a manual
 # workflow_dispatch of the main branch, the only other ref the deploy guard admits. Pull requests
 # run build + check only -- so a PR that renames a heading, moves a page, or adds a doc the
 # staging list misses goes red before merge, not 404 after. No path filter: the staged set spans

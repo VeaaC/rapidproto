@@ -8,7 +8,7 @@ match an id in the target page, and every site-absolute URL must carry the proje
 Complements tests/check_doc_links.py, which checks the same links in the markdown SOURCE against
 GitHub's anchor algorithm. The rendered site goes through a different pipeline -- kramdown
 generates the heading ids, jekyll-relative-links rewrites the .md hrefs, jekyll-readme-index moves
-READMEs to directory indexes, the theme emits its own asset URLs, and everything is served under
+READMEs to directory indexes, the layout emits its own asset URLs, and everything is served under
 the baseurl -- and each of those steps can silently disagree with how github.com renders the same
 markdown. This checks the output of that pipeline, so it must run AFTER the Jekyll build (see
 .github/workflows/pages.yml).
@@ -16,7 +16,7 @@ markdown. This checks the output of that pipeline, so it must run AFTER the Jeky
 Failure modes this exists to catch:
   - an internal href still ending in .md (jekyll-relative-links did not rewrite it -> 404)
   - a kramdown heading id that differs from the GitHub slug the source links were written for
-  - a site-absolute URL missing the baseurl (the classic project-site breakage: theme assets or
+  - a site-absolute URL missing the baseurl (the classic project-site breakage: layout assets or
     rewritten links resolving on <user>.github.io/ instead of <user>.github.io/<repo>/)
   - a layout-emitted asset the site does not ship (a favicon or stylesheet 404 on every page)
   - a rendered page the sidebar does not list (_data/nav.yml drifted from the staged set)
@@ -38,19 +38,20 @@ EXTERNAL = re.compile(r"^([A-Za-z][A-Za-z0-9+.\-]*:|//)")
 
 class PageScan(HTMLParser):
     """Collect the ids a page defines, the URLs it references (links and page assets), and the
-    subset of links inside its <nav> (the sidebar)."""
+    subset of links inside the sidebar's <ul class="nav-list"> -- the nav-list scope (not the
+    whole <nav>) so the site-title logo link cannot stand in for a missing nav.yml entry."""
 
     def __init__(self):
         super().__init__(convert_charrefs=True)
         self.ids = set()
         self.refs = []
         self.nav_refs = []
-        self._nav_depth = 0
+        self._in_navlist = 0
 
     def handle_starttag(self, tag, attrs):
         a = dict(attrs)
-        if tag == "nav":
-            self._nav_depth += 1
+        if tag == "ul" and (self._in_navlist or "nav-list" in a.get("class", "").split()):
+            self._in_navlist += 1  # count nested uls too, so their close does not end the scope
         if "id" in a:
             self.ids.add(a["id"])
         if tag == "a" and "name" in a:  # legacy anchors count as targets too
@@ -58,12 +59,12 @@ class PageScan(HTMLParser):
         for attr in ("href",) if tag in ("a", "link") else ("src",) if tag in ("script", "img") else ():
             if attr in a:
                 self.refs.append(a[attr])
-                if tag == "a" and self._nav_depth:
+                if tag == "a" and self._in_navlist:
                     self.nav_refs.append(a[attr])
 
     def handle_endtag(self, tag):
-        if tag == "nav" and self._nav_depth:
-            self._nav_depth -= 1
+        if tag == "ul" and self._in_navlist:
+            self._in_navlist -= 1
 
 
 def scan(path):
@@ -121,11 +122,15 @@ def main():
         sys.exit(f"site_check: no index.html in {site} -- README.md was not served as the index")
 
     errors, checked = [], 0
+    nav_seen = {}  # page -> frozenset of resolved nav targets, for the consistency check below
     for page_rel, (_, refs, nav_refs) in sorted(pages.items()):
-        # Sidebar coverage: every page must be reachable from every page's nav (the layout stamps
-        # one sidebar everywhere, so a page whose nav lost entries means the layout broke, and a
-        # page absent from the shared nav means _data/nav.yml drifted from the staged set).
+        # Sidebar coverage: every page must be reachable from every page's nav-list (the layout
+        # stamps one sidebar everywhere, so a page whose nav lost entries means the layout broke,
+        # and a page absent from the shared nav means _data/nav.yml drifted from the staged set).
         nav_targets = {resolve(site, baseurl, page_rel, r)[0] for r in nav_refs if not EXTERNAL.match(r)}
+        # Raw anchor count as well as the resolved set: an unclosed tag that folds body links
+        # into the nav scope can leak targets the nav already covers, leaving the SET unchanged.
+        nav_seen[page_rel] = (len(nav_refs), frozenset(nav_targets))
         for wanted in pages:
             if wanted not in nav_targets and wanted.replace(os.sep, "/") not in NAV_EXEMPT:
                 errors.append(f"{page_rel}: sidebar has no link to {wanted} (nav.yml drifted?)")
@@ -150,8 +155,16 @@ def main():
             # Static (non-HTML) targets exist but carry no ids; a fragment on one is inert, not
             # broken, so only existence is checked.
 
+    # The sidebar must be IDENTICAL on every page: it is stamped by one layout, so any
+    # divergence means broken markup, not intent -- e.g. an unclosed tag making the parser fold
+    # body links into one page's nav scope (which coverage alone would happily accept).
+    if len(set(nav_seen.values())) > 1:
+        smallest = min(nav_seen, key=lambda p: nav_seen[p][0])
+        errors.append(f"sidebars differ across pages ({smallest} has {nav_seen[smallest][0]} "
+                      "nav links) -- the layout or its markup broke")
+
     # Anti-vacuity: an empty or wrongly-pathed site must not pass as a clean one. The floors sit
-    # well under today's real size (16 pages, ~250 internal URLs) but far above anything a broken
+    # well under today's real size (12 pages, ~250 internal URLs) but far above anything a broken
     # stage/build could produce. Same rationale as check_doc_links.py's link floor.
     if not errors and (len(pages) < 10 or checked < 100):
         errors.append(f"only {len(pages)} pages / {checked} internal URLs -- the site did not fully build")
