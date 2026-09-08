@@ -56,12 +56,14 @@
 #include <string_view>
 #include <vector>
 
-#include "bench.pb.h"           // protoc: bench::Dataset / WideSet / BigSet
-#include "bench.rp.hpp"         // arenagen: rp::arena::bench::Dataset / WideSet / BigSet
-#include "bench.rp.stream.hpp"  // streamgen: rp::stream::bench::Dataset
-#include "bench_baselines.hpp"  // third-party baselines, in their own TUs (see that header)
+#include "bench.pb.h"              // protoc: bench::Dataset / WideSet / BigSet
+#include "bench.rp.hpp"            // arenagen: rp::arena::bench::Dataset / WideSet / BigSet
+#include "bench.rp.stream.hpp"     // streamgen: rp::stream::bench::Dataset
+#include "bench_arm_messages.hpp"  // google_message1/2 scenarios (declaration only; own TU)
+#include "bench_baselines.hpp"     // third-party baselines, in their own TUs (see that header)
 #include "bench_harness.hpp"  // rpbench: the shared measurement harness (also used by rapidproto_bench)
 #include "bench_records.hpp"  // the hand-built RecordSet wire, asserted against protoc below
+#include "bench_upb.hpp"      // upb baseline arm (whole header no-ops without RAPIDPROTO_HAVE_UPB)
 #include "bench_varint.hpp"   // repeated-varint sweep builders (shared with the streaming bench)
 #include "rapidproto/arena_runtime.hpp"
 #include "rapidproto/runtime.hpp"
@@ -667,11 +669,36 @@ int main() {
     const std::uint64_t c_pz = rpbaseline::protozero_dataset(view);
     mismatch = mismatch || c_arena != c_pz;
 #endif
+#ifdef RAPIDPROTO_HAVE_UPB
+    // upb joins the same cross-decoder bar: its REFLECTIVE checksum walk (bench_upb.hpp -- run
+    // once here, never timed) must agree with everyone else. A failed init degrades to a
+    // missing arm rather than a failed bench: the corpus pin, not this repo, owns upb's code.
+    const bool upb_ok = rpupb::init();
+    std::uint64_t c_upb = 0;
+    if (upb_ok) {
+        c_upb = rpupb::checksum_dataset(view);
+        // Both upb walks must agree with everyone: the generic REFLECTIVE one (validation
+        // only) and the accessor walk the timed arm runs -- so the timed arm's work is pinned
+        // equivalent before it is measured.
+        mismatch = mismatch || c_arena != c_upb || rpupb::decode_and_sum_dataset(view) != c_upb;
+    } else {
+        std::fprintf(stderr, "note: upb arm unavailable (init failed above); measuring the rest\n");
+    }
+#endif
     if (mismatch) {
-        std::fprintf(stderr, "CHECKSUM MISMATCH arena=%llu protoc=%llu stream=%llu\n",
+        std::fprintf(stderr, "CHECKSUM MISMATCH arena=%llu protoc=%llu stream=%llu",
                      static_cast<unsigned long long>(c_arena),
                      static_cast<unsigned long long>(c_protoc),
                      static_cast<unsigned long long>(c_stream));
+#ifdef RAPIDPROTO_HAVE_PROTOZERO
+        std::fprintf(stderr, " protozero=%llu", static_cast<unsigned long long>(c_pz));
+#endif
+#ifdef RAPIDPROTO_HAVE_UPB
+        if (upb_ok) {
+            std::fprintf(stderr, " upb=%llu", static_cast<unsigned long long>(c_upb));
+        }
+#endif
+        std::fprintf(stderr, "\n");
         return 1;
     }
 
@@ -700,11 +727,34 @@ int main() {
 #ifdef RAPIDPROTO_HAVE_PROTOZERO
     arms.push_back({"protozero", [&]() { return rpbaseline::protozero_dataset(view); }});
 #endif
+#ifdef RAPIDPROTO_HAVE_UPB
+    if (upb_ok) {
+        // Decode + accessor-walk checksum into a fresh upb arena (arena-cold semantics; upb has
+        // no reset-and-reuse): the SAME work every other arm does. The walk reads through
+        // pre-resolved upb_MiniTableField accessors -- what upb's generated code compiles to --
+        // not reflection, so upb is neither flattered (walk skipped) nor over-billed
+        // (per-field name lookups); see bench_upb.hpp.
+        arms.push_back({"upb", [&]() { return rpupb::decode_and_sum_dataset(view); }});
+    }
+#endif
     // From here on `bad` carries the harness's per-run mismatch counts to the exit code, same
     // shape as bench_streamgen.cpp -- bench.yml's every-scenario-cross-checks claim is only true
     // because these verdicts reach main's return.
     int bad = 0;
     bad += rpbench::run("Dataset", static_cast<double>(buf.size()), arms);
+
+#ifdef RAPIDPROTO_BENCH_MESSAGES
+    // google_message1/2 (own TU, same placement rule as the compute arm below): a negative
+    // return is a checksum mismatch or dataset-load failure, a positive one the harness's
+    // per-arm mismatch count.
+    {
+        const int messages_bad = rpmessages::run_arm();
+        if (messages_bad < 0) {
+            return 1;
+        }
+        bad += messages_bad;
+    }
+#endif
 
 #ifdef RAPIDPROTO_BENCH_COMPUTE
     // The large real-world schema arm lives in its OWN translation unit (bench_arm_compute.cpp):

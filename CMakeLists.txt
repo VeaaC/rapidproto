@@ -366,6 +366,29 @@ if(RAPIDPROTO_BUILD_TESTS)
   # protoc's --cpp_out below does NOT create its output directory (rapidprotoc does, but the two
   # rules are independent and either can run first): make it at configure time.
   file(MAKE_DIRECTORY "${BENCH_GEN}")
+  # Matches tests/fetch_corpus.py's default. A corpus fetched with --dest elsewhere will not
+  # be found; the corpus-dependent arms below are skipped with a message rather than silently.
+  set(CORPUS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/build/corpus"
+      CACHE PATH "Fetched corpus root (tests/fetch_corpus.py)")
+  # google_message1/2 datasets: generated in the SAME batch as bench.proto -- one
+  # invocation, one OUT_DIR, one runtime copy. Separate rapidproto_generate calls would each
+  # drop a runtime beside their headers, and a TU mixing two generated trees then includes two
+  # distinct copies (a quoted include searches the includer's own directory first), which does
+  # not compile. The multi-entry batch is the CLI's designed answer.
+  set(GM1_DIR "${CORPUS_DIR}/protobuf-benchmarks/benchmarks/datasets/google_message1/proto2")
+  set(GM2_DIR "${CORPUS_DIR}/protobuf-benchmarks/benchmarks/datasets/google_message2")
+  set(BENCH_PROTOS "${BENCH_PROTO}")
+  set(BENCH_IMPORT_DIRS "${BENCH_PROTO_DIR}")
+  if(EXISTS "${GM1_DIR}/benchmark_message1_proto2.proto" AND
+     EXISTS "${GM2_DIR}/benchmark_message2.proto")
+    set(RAPIDPROTO_GM_PRESENT TRUE)
+    list(APPEND BENCH_PROTOS "${GM1_DIR}/benchmark_message1_proto2.proto"
+                             "${GM2_DIR}/benchmark_message2.proto")
+    list(APPEND BENCH_IMPORT_DIRS "${GM1_DIR}" "${GM2_DIR}")
+  else()
+    set(RAPIDPROTO_GM_PRESENT FALSE)
+  endif()
+
   # Through the helper, not a hand-rolled add_custom_command: the hand rule under-declared its
   # outputs (the common header and both runtime drops were written but undeclared, so deleting
   # one broke the build with no rule to restore it) -- the exact defect rapidproto_generate()
@@ -376,8 +399,8 @@ if(RAPIDPROTO_BUILD_TESTS)
   rapidproto_generate(rapidproto_bench_schema
     GENERATOR both
     NAMESPACE_PREFIX rp
-    PROTOS "${BENCH_PROTO}"
-    IMPORT_DIRS "${BENCH_PROTO_DIR}"
+    PROTOS ${BENCH_PROTOS}
+    IMPORT_DIRS ${BENCH_IMPORT_DIRS}
     OUT_DIR "${BENCH_GEN}")
 
   add_executable(rapidproto_bench tests/bench_streamgen.cpp tests/bench_stream_isolated.cpp)
@@ -433,6 +456,136 @@ if(RAPIDPROTO_BUILD_TESTS)
     # is NOT linked against rapidproto_strict (it is a standalone measurement, like rapidproto_bench).
     target_compile_options(rapidproto_arena_bench PRIVATE -O3 -DNDEBUG)
 
+    # ── upb baseline arm ───────────────────────────────────────────────────────────────────────
+    # upb: protobuf upstream's speed-focused C parser -- the honest materializing yardstick.
+    # Compiled from the fetched corpus's protobuf checkout (fetch_corpus.py brings upb/ +
+    # third_party/utf8_range at the SAME pin as the schemas): dev-only, never vendored --
+    # protozero's model, plus compilation. No upb codegen plugin: the bench decodes through a
+    # MiniTable built at runtime from an embedded FileDescriptorSet (tests/bench_upb.hpp), so
+    # only upb's C runtime is compiled -- including its pre-generated descriptor bootstrap
+    # (upb/reflection/cmake/), which upstream ships precisely so reflection works uncodegenned.
+    set(UPB_ROOT "${CORPUS_DIR}/protobuf/upb")
+    if(EXISTS "${UPB_ROOT}/wire/decode.c")
+      # The project is CXX-only; upb is C. Enabled here, inside the guard, so a build without
+      # the corpus never requires a C compiler.
+      enable_language(C)
+      # The subdirectories the decode + reflection path draws from (json/io/text/conformance
+      # are not globbed; a handful of compiled-but-unreferenced TUs inside these roots is left
+      # to the static-lib linker). Test files and stage0/stage1 bootstraps excluded. GLOB_RECURSE per
+      # design here: the corpus is PINNED, so the file set only changes on a deliberate pin
+      # bump, where a build error is the desired signal.
+      file(GLOB_RECURSE UPB_SOURCES
+        "${UPB_ROOT}/base/*.c" "${UPB_ROOT}/hash/*.c" "${UPB_ROOT}/lex/*.c"
+        "${UPB_ROOT}/mem/*.c" "${UPB_ROOT}/message/*.c" "${UPB_ROOT}/mini_descriptor/*.c"
+        "${UPB_ROOT}/mini_table/*.c" "${UPB_ROOT}/reflection/*.c" "${UPB_ROOT}/wire/*.c")
+      # Anchored under UPB_ROOT: an unanchored pattern matched the whole checkout path, so a
+      # repo cloned under a directory containing `_test` silently emptied the source list.
+      list(FILTER UPB_SOURCES EXCLUDE REGEX
+           "^${UPB_ROOT}/.*(_test|/test/|/stage0/|/stage1/)")
+      # The reflection glob already catches the pre-generated bootstrap
+      # (reflection/cmake/google/protobuf/descriptor.upb_minitable.c); only utf8_range lives
+      # outside the globbed roots and needs an explicit entry.
+      list(APPEND UPB_SOURCES
+        "${CORPUS_DIR}/protobuf/third_party/utf8_range/utf8_range.c")
+
+      # bench.proto's FileDescriptorSet, embedded as a C array (cmake/embed_binary.cmake --
+      # embed_runtime.cmake's binary sibling): how the schema reaches upb without a plugin.
+      set(UPB_GEN "${CMAKE_CURRENT_BINARY_DIR}/generated/bench-upb")
+      file(MAKE_DIRECTORY "${UPB_GEN}")
+      add_custom_command(
+        OUTPUT "${UPB_GEN}/bench.desc"
+        COMMAND ${Protobuf_PROTOC_EXECUTABLE} --descriptor_set_out=${UPB_GEN}/bench.desc
+                -I${BENCH_PROTO_DIR} ${BENCH_PROTO}
+        DEPENDS ${BENCH_PROTO}
+        COMMENT "protoc bench.proto -> bench.desc" VERBATIM)
+      add_custom_command(
+        OUTPUT "${UPB_GEN}/bench_desc.c"
+        COMMAND ${CMAKE_COMMAND}
+          -DINPUT=${UPB_GEN}/bench.desc
+          -DOUTPUT_C=${UPB_GEN}/bench_desc.c
+          -DSYMBOL=rp_upb_bench_desc
+          -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_binary.cmake
+        DEPENDS "${UPB_GEN}/bench.desc" ${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_binary.cmake
+        COMMENT "embedding bench.desc" VERBATIM)
+
+      add_library(rapidproto_upb_bench STATIC ${UPB_SOURCES} "${UPB_GEN}/bench_desc.c")
+      target_include_directories(rapidproto_upb_bench SYSTEM PUBLIC
+        "${CORPUS_DIR}/protobuf"                       # upb/... includes
+        "${UPB_ROOT}/reflection/cmake"                 # google/protobuf/descriptor.upb*.h
+        "${CORPUS_DIR}/protobuf/third_party/utf8_range")
+      # Third-party C measured as shipped: -O3 like every arm, warnings are upstream's business.
+      target_compile_options(rapidproto_upb_bench PRIVATE -O3 -DNDEBUG -w)
+      # Fasttable ON where upb supports it (x86-64/arm64 + GCC/Clang; upb #errors elsewhere
+      # when forced): at this pin upb builds fasttable entries for RUNTIME MiniTables too
+      # (mini_descriptor/decode.c + wire/decode_fast/select.c), and without it the arm times
+      # upb's generic interpreter -- not the configuration upb's own numbers are quoted at.
+      # PRIVATE, not PUBLIC: the define adds only a trailing flexible-array member (no sizeof or
+      # offset changes; upstream deliberately keeps it out of consumer code), and the decoder
+      # reading the fasttable is lib-internal. On other arches the arm still runs, interpreted.
+      if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|aarch64|arm64")
+        target_compile_definitions(rapidproto_upb_bench PRIVATE UPB_ENABLE_FASTTABLE=1)
+      endif()
+      target_link_libraries(rapidproto_arena_bench PRIVATE rapidproto_upb_bench)
+      target_compile_definitions(rapidproto_arena_bench PRIVATE RAPIDPROTO_HAVE_UPB)
+    else()
+      message(STATUS
+        "arena bench: upb baseline arm SKIPPED -- corpus not fetched (or fetched before the "
+        "upb patterns landed). Run: python3 tests/fetch_corpus.py")
+    endif()
+
+    # ── google_message1/2 scenarios ────────────────────────────────────────────────────────────
+    # protobuf's own published benchmark payloads (the protobuf-benchmarks corpus source, a
+    # DIFFERENT pinned source than upb's): numbers third parties can check against protobuf's
+    # published cross-language figures. The rapidproto decoders were generated in the shared
+    # bench batch above (one runtime copy); this block adds the protoc arm's codegen, the upb
+    # descriptors, and the scenarios' translation unit. Wrapper unwrapping and the checksum
+    # convention live in tests/bench_arm_messages.hpp.
+    if(RAPIDPROTO_GM_PRESENT)
+      add_custom_command(
+        OUTPUT "${BENCH_GEN}/benchmark_message1_proto2.pb.cc"
+               "${BENCH_GEN}/benchmark_message1_proto2.pb.h" "${BENCH_GEN}/gm1.desc"
+        COMMAND ${Protobuf_PROTOC_EXECUTABLE} --cpp_out=${BENCH_GEN}
+                --descriptor_set_out=${BENCH_GEN}/gm1.desc
+                -I${GM1_DIR} ${GM1_DIR}/benchmark_message1_proto2.proto
+        DEPENDS "${GM1_DIR}/benchmark_message1_proto2.proto"
+        COMMENT "protoc benchmark_message1_proto2.proto" VERBATIM)
+      add_custom_command(
+        OUTPUT "${BENCH_GEN}/benchmark_message2.pb.cc" "${BENCH_GEN}/benchmark_message2.pb.h"
+               "${BENCH_GEN}/gm2.desc"
+        COMMAND ${Protobuf_PROTOC_EXECUTABLE} --cpp_out=${BENCH_GEN}
+                --descriptor_set_out=${BENCH_GEN}/gm2.desc
+                -I${GM2_DIR} ${GM2_DIR}/benchmark_message2.proto
+        DEPENDS "${GM2_DIR}/benchmark_message2.proto"
+        COMMENT "protoc benchmark_message2.proto" VERBATIM)
+      foreach(_gm gm1 gm2)
+        add_custom_command(
+          OUTPUT "${BENCH_GEN}/${_gm}_desc.c"
+          COMMAND ${CMAKE_COMMAND}
+            -DINPUT=${BENCH_GEN}/${_gm}.desc
+            -DOUTPUT_C=${BENCH_GEN}/${_gm}_desc.c
+            -DSYMBOL=rp_upb_${_gm}_desc
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_binary.cmake
+          DEPENDS "${BENCH_GEN}/${_gm}.desc" ${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_binary.cmake
+          COMMENT "embedding ${_gm}.desc" VERBATIM)
+      endforeach()
+      target_sources(rapidproto_arena_bench PRIVATE
+        tests/bench_arm_messages.cpp
+        "${BENCH_GEN}/benchmark_message1_proto2.pb.cc"
+        "${BENCH_GEN}/benchmark_message2.pb.cc")
+      if(TARGET rapidproto_upb_bench)
+        target_sources(rapidproto_arena_bench PRIVATE
+          "${BENCH_GEN}/gm1_desc.c" "${BENCH_GEN}/gm2_desc.c")
+      endif()
+      target_compile_definitions(rapidproto_arena_bench PRIVATE
+        RAPIDPROTO_BENCH_MESSAGES
+        RAPIDPROTO_GM1_DATASET="${GM1_DIR}/dataset.google_message1_proto2.pb"
+        RAPIDPROTO_GM2_DATASET="${GM2_DIR}/dataset.google_message2.pb")
+    else()
+      message(STATUS
+        "arena bench: google_message1/2 scenarios SKIPPED -- protobuf-benchmarks corpus not "
+        "fetched. Run: python3 tests/fetch_corpus.py")
+    endif()
+
     # ── large real-world schema arm ────────────────────────────────────────────────────────────
     # Every other arena scenario decodes tests/bench/bench.proto -- a schema written for this
     # repository, small enough that its whole decoder fits in cache. That cannot show what
@@ -446,10 +599,7 @@ if(RAPIDPROTO_BUILD_TESTS)
     #
     # The decoder is generated under the `rp` namespace prefix so RapidProto's
     # google::cloud::compute types cannot collide with anything protoc emits in the same TU.
-    # Matches tests/fetch_corpus.py's default. A corpus fetched with --dest elsewhere will not
-    # be found, and the arm is skipped with the message below rather than silently.
-    set(CORPUS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/build/corpus"
-        CACHE PATH "Fetched corpus root (tests/fetch_corpus.py)")
+    # CORPUS_DIR: defined once, beside the upb arm above.
     set(COMPUTE_PROTO "${CORPUS_DIR}/googleapis/google/cloud/compute/v1beta/compute.proto")
     if(NOT EXISTS "${COMPUTE_PROTO}")
       message(STATUS

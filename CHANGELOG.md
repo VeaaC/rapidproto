@@ -146,6 +146,26 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
 
 ### Added
 
+- **The `google_message1`/`google_message2` scenarios.** Protobuf's own published benchmark
+  payloads (fetched at a pinned tag, never vendored) join the arena bench: every arm --
+  protoc, arena cold/warm, streaming, upb -- decodes both, READS every present field (the same
+  checksum walk in every timed arm; upb's runs through the accessor layer its generated code
+  compiles to), and must agree on one checksum, groups included. Result tables in
+  docs/benchmarks.md: the streaming decoder leads every arm, the arena decoder leads every
+  materializer once its arena is reused (warm) -- upb ties the cold-arena row on the group-heavy
+  `google_message2`, the shape where the arena's lead is smallest.
+
+- **The arena bench measures upb.** The C parser under protobuf's dynamic-language runtimes
+  joins the `Dataset` comparison as its own arm, cross-checked against every decoder's checksum.
+  Sources come from the corpus's pinned protobuf checkout (`fetch_corpus.py` now brings `upb/` +
+  `third_party/utf8_range`; nothing vendored); the schema reaches upb as an embedded descriptor
+  turned into a runtime MiniTable (fasttable enabled) -- no upb codegen plugin. The
+  configuration is validated by a standalone decode-vs-decode probe (2.16x protoc on
+  google_message1, the band upstream's own figures put upb in; the in-tree like-for-like rows
+  read lower mainly because every timed arm is billed for the read-out walk --
+  docs/benchmarks.md explains where both numbers are read),
+  so a weak upb row on a map-heavy shape is upb's real behavior, not a mis-setup.
+
 - **`bench.py --compile` embeds compile cost in snapshots, and `experiment` gates it.**
   Opt-in on `run`/`experiment`: also measure what the generated decoders cost to BUILD --
   compile seconds, `.text` bytes, peak compiler RSS, per schema shape x model x compiler

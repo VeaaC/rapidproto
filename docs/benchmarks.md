@@ -41,6 +41,58 @@ fields, nested messages, skip-heavy records), about even on single fixed-width s
 on large **packed** arrays, which it decodes one element per callback — decode those with the arena model
 (below).
 
+## The upb arm — validating the C-parser baseline
+
+The arena bench also measures **upb** (protobuf's C parser, the engine under the Python/Ruby/PHP
+protobuf runtimes) on the same `Dataset`, cross-checked against every other decoder's checksum.
+The arm decodes through a **runtime-built MiniTable** (from an embedded descriptor, with upb's
+fasttable enabled, and string ALIASING on — the same borrow-from-the-input semantics our arena
+uses, worth +5-11% to upb in pure-decode terms and ~1-4% on the walked table rows below)
+because upb's plugin-generated tables would require building protobuf's compiler from source.
+The decode configuration is **validated, not assumed**: a standalone decode-vs-decode probe (2M
+back-to-back iterations per arm, no checksum walks, aliasing off — a strictly conservative
+variant of the configuration, since aliasing only helps upb) measures it at **2.16× protoc** on
+`google_message1` — the band upstream's own figures put upb in — so the decoder itself runs at
+full strength.
+
+The in-tree rows read very differently, and deliberately so: **every arm's timed lambda decodes
+AND reads every present field** (the checksum walk — the work a real consumer does), and upb
+pays that walk through the same pre-resolved `upb_MiniTableField` accessors its generated code
+compiles to. Reading data OUT of a upb message costs measurably more than reading our arena's
+structs (per-field hasbit checks and offset indirection; upb's ins/B rises ~57-60% when the walk
+joins the timed loop), which is where most of the probe-vs-table gap goes. Maps never take
+upb's fast path, so the map-heavy `Dataset` is its weakest shape. upb's sources are fetched at
+the corpus's protobuf pin (`tests/fetch_corpus.py`), never vendored; without the corpus the arm
+is skipped and says so.
+
+## The published datasets — google_message1 and google_message2
+
+Protobuf's own cross-language benchmark payloads (anonymized real production shapes, fetched at
+a pinned tag by `tests/fetch_corpus.py`), decoded by every arm and cross-checked on one
+checksum, so these numbers are comparable with figures third parties already publish. Measured
+like the tables above (g++-13, protobuf 4.25.3, quiesced box), throughput vs the protoc
+baseline:
+
+Every arm decodes **and reads every present field** (one shared checksum, cross-validated):
+
+| | google_message1 (228 B) | google_message2 (84.5 KB, group-heavy) |
+|---|---|---|
+| streaming | **+121%** | **+143%** |
+| arena (warm) | **+95%** | **+29%** |
+| arena (cold) | +41% | +16% |
+| upb | +16% | +17% |
+
+Two honest readings: `google_message2` is proto2's home turf — one huge repeated *group* of
+small mixed fields — and it is where our arena's lead over both protoc and upb is smallest (upb
+ties the cold-arena row there), while the streaming decoder leads every arm on both — by a wide
+margin on `google_message2`.
+And `google_message1` at 228 bytes shows the cold-arena setup cost that the warm row amortizes;
+a consumer decoding many small messages should reuse the arena. (Read coarse ratios, not
+decimals: small-payload rows swing a few points between runs — short rotated batches magnify
+per-iteration overheads — and whenever the bench binary itself changes, EVERY row can shift by
+the ~10% cross-build placement floor the methodology notes document. Compare within one table,
+not across published revisions of it.)
+
 ## Arena vs streaming (the two RapidProto models)
 
 The streaming decoder is **~2.7× faster** than the

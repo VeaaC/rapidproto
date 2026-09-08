@@ -115,7 +115,10 @@ def main() -> int:
     if stale:
         # A wrong-commit checkout must not be quietly sampled: the summary would claim corpus
         # coverage the pinned corpus never got (corpus_gate treats this the same way).
-        print(f">> corpus sources not at their pinned refs: {', '.join(stale)} -- "
+        by_name = {s.name: s for s in fetch_corpus.SOURCES}
+        described = ", ".join(
+            f"{name} ({fetch_corpus.stale_reason(CORPUS, by_name[name])})" for name in stale)
+        print(f">> stale corpus sources: {described} -- "
               f"re-run tests/fetch_corpus.py", file=sys.stderr)
         return 1
     if not present:
