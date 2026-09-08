@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Source of the repo's social-preview card (Settings -> General -> Social preview). Render the
+     committed PNG beside it with:  rsvg-convert -w 1280 -h 640 social-preview.svg -o social-preview.png
+     The hex strip is real wire: field 1, LEN 10, "RapidProto". -->
+<svg width="1280" height="640" viewBox="0 0 1280 640" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1280" height="640" fill="#0d1117"/>
+  <rect x="0" y="632" width="1280" height="8" fill="#2dd4bf"/>
+  <text x="96" y="270" font-family="DejaVu Sans, sans-serif" font-size="104" font-weight="bold"
+        fill="#e6edf3">RapidProto</text>
+  <text x="96" y="352" font-family="DejaVu Sans, sans-serif" font-size="42"
+        fill="#8b949e">Fast, header-only Protobuf decoders for C++</text>
+  <text x="96" y="472" font-family="DejaVu Sans Mono, monospace" font-size="30" fill="#2dd4bf"
+        opacity="0.85">0a 0a 52 61 70 69 64 50 72 6f 74 6f</text>
+  <text x="96" y="516" font-family="DejaVu Sans Mono, monospace" font-size="30"
+        fill="#8b949e">arena &#183; streaming &#160;&#8212;&#160; one schema, two decode models</text>
+</svg>

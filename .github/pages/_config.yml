@@ -1,0 +1,31 @@
+# Jekyll configuration for the GitHub Pages site. Consumed by .github/workflows/pages.yml, which
+# copies it to the root of a STAGED site source (tests/site_stage.sh) -- the site is the repo's
+# documentation surface (README as index, docs/, the contributor docs, examples/consumer), not the
+# whole repo, so this file deliberately lives outside the repo root where Jekyll would find it.
+#
+# The build runs GitHub's own pages container (the github-pages gem), whose plugin set makes the
+# markdown behave the way it reads on github.com: relative .md links are rewritten to the rendered
+# pages (jekyll-relative-links), each directory's README.md serves as its index
+# (jekyll-readme-index), and pages need no front matter (jekyll-optional-front-matter,
+# jekyll-default-layout, jekyll-titles-from-headings). All five are github-pages defaults; named
+# here so the file states what the site relies on.
+title: RapidProto
+description: Fast, header-only Protobuf decoders for C++
+# Project site: served under github.io/<repo>/. The gem does not infer this outside the real Pages
+# build, so it is pinned -- tests/site_check.py verifies every rendered link carries it.
+baseurl: /rapidproto
+url: https://veaac.github.io
+repository: VeaaC/rapidproto
+theme: jekyll-theme-primer
+plugins:
+  - jekyll-relative-links
+  - jekyll-readme-index
+  - jekyll-optional-front-matter
+  - jekyll-default-layout
+  - jekyll-titles-from-headings
+# Ship only the rendered pages -- without this, every page's raw .md source is also published
+# beside its .html (the plugins keep originals by default).
+optional_front_matter:
+  remove_originals: true
+readme_index:
+  remove_originals: true
