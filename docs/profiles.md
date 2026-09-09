@@ -16,38 +16,48 @@ unknown field" flag, exposed as `has_unknown_fields()`:
 The selection is part of the [decode profile](#decode-profiles-drop-raw-and-unknown-fields): it
 folds into the profile identity, so two TUs that disagree about which messages carry the flag **fail to
 link** rather than silently holding mismatched layouts of the same type — within the boundary
-described [below](#decode-profiles-drop-raw-and-unknown-fields).
+described [below](#profiles-change-the-generated-types).
 
 ## Decode profiles: `drop`, `raw`, and `unknown-fields`
 
 The schema says what *can* be on the wire; a **decode profile** says what *this consumer* does with
 it — without touching the schema. Choose, per field (`pkg.Msg.field`), per type (`pkg.Msg`, covering
-every field of that message type), or per message (for `unknown-fields`):
+every field of that message type), or per message (for `unknown-fields`).
 
-- **`drop`** — no storage, no accessor, no decode work beyond wire-validated skipping. Reading a
-  dropped field is a **compile error**, not a silent default. (Dropping a `required` field is
-  rejected.)
-- **`unknown-fields`** — reserve that **message**'s `has_unknown_fields()` bit (see
-  [Unknown fields](#unknown-fields)). Unlike `drop`/`raw` it names a message directly, not a
-  field or a field's type; an enum or a field name is an error.
-- **`raw`** (message-typed fields, groups included) — the sub-message's **payload** is borrowed as a
-  `ByteView` view into the input instead of a materialized tree; repeated fields become a
-  `StringArrayView`, one payload per element. Each view is exactly what the field type's own
-  `decode()` accepts, so the tree is built only when — and if — you ask: keep a huge or
-  rarely-read sub-message (or a million-element repeated field) as bytes, and decode single
-  elements on demand. A singular `raw` accessor returns `std::optional<ByteView>` and carries presence
-  just as the `const T*` does; a `required` field (proto2, or editions `LEGACY_REQUIRED`) has no
-  presence to carry, so it returns a bare `ByteView`. Decode semantics are otherwise unchanged
-  (`required` validation, duplicate-singular rejection). Scalars, strings, and enums can't go raw
-  (no payload a later `decode()` could consume — they're cheap to materialize or drop), nor can maps
-  (their entry type is generated internals). To defer a huge *packed scalar* array, wrap it in a sub-message
-  schema-side, or walk it with the streaming decoder.
+### `drop` — no storage, no accessor
+
+No decode work beyond wire-validated skipping. Reading a dropped field is a **compile error**,
+not a silent default. (Dropping a `required` field is rejected.)
+
+### `unknown-fields` — reserve one message's detection bit
+
+Reserves that **message**'s `has_unknown_fields()` bit (see [Unknown fields](#unknown-fields)).
+Unlike `drop`/`raw` it names a message directly, not a field or a field's type; an enum or a
+field name is an error.
+
+### `raw` — keep a sub-message as bytes, decode on demand
+
+For message-typed fields (groups included): the sub-message's **payload** is borrowed as a
+`ByteView` into the input instead of a materialized tree; a repeated field becomes a
+`StringArrayView`, one payload per element. Each view is exactly what the field type's own
+`decode()` accepts, so the tree is built only when — and if — you ask. Typical targets: a
+huge or rarely-read sub-message, or a million-element repeated field read element-wise.
+
+- Presence: a singular `raw` accessor returns `std::optional<ByteView>`, carrying presence just
+  as the `const T*` does; a `required` field (proto2, or editions `LEGACY_REQUIRED`) has no
+  presence to carry and returns a bare `ByteView`.
+- Decode semantics are otherwise unchanged: `required` validation, duplicate-singular rejection.
+- What can't go raw: scalars, strings and enums (no payload a later `decode()` could consume —
+  they're cheap to materialize or drop) and maps (their entry type is generated internals). To
+  defer a huge *packed scalar* array, wrap it in a sub-message schema-side, or walk it with the
+  streaming decoder.
+
+### Writing a profile: `--field-modes` and the inline flags
 
 Profiles come from a file (one `drop <name>` / `raw <name>` / `unknown-fields <message>` per line, `#`
 comments, an optional `name <identifier>` line) via `--field-modes=<file>`, or inline via
 `--drop=<name>` / `--raw=<name>` / `--unknown=<message>` (and `--unknown-present` for every message). A
-field-level entry beats a type-level entry; unknown names are hard errors; field modes do not
-apply inside a oneof. The profile resolves against *everything* the invocation generates — the
+field-level entry beats a type-level entry; field modes do not apply inside a oneof. The profile resolves against *everything* the invocation generates — the
 entries resolve as one batch — so a global profile works by listing (or `PROTOS`-listing, in
 CMake) every schema it spans in one generation; a name unknown across the whole batch is still a
 hard error.
@@ -66,6 +76,8 @@ if (s->origin()) {                                          // the Point payload
     const demo::Point* p = demo::Point::decode(*s->origin(), arena);  // deferred: only now
 }
 ```
+
+### Profiles change the generated types
 
 A profile **changes the generated types**, so you still write `rp::arena::demo::Shape`, but two TUs generated
 under different profiles (including differing only in which messages reserve the unknown-fields bit)

@@ -755,7 +755,7 @@ that changes a message's struct but used to leave its type name untouched. Quali
 profiled type appears in a mangled signature, instead of silently violating the ODR
 (`tests/arena_modes_link.sh` pins every direction in the default gate, including
 `--unknown-present` with-vs-without). Mangling covers a function's parameters but not its return
-type, so that guard has a boundary — see [docs/profiles.md](docs/profiles.md#decode-profiles-drop-raw-and-unknown-fields).
+type, so that guard has a boundary — see [docs/profiles.md](docs/profiles.md#profiles-change-the-generated-types).
 The common header (shared enums) stays outside the PROFILE's inline namespace, so a profiled arena
 header still coexists with the streaming header. A no-profile run is byte-identical to unprofiled output, and an all-excluded profile degrades
 to exactly that. Known cut, deliberately deferred: no `materialize` directive to narrow a type-level
