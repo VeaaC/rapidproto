@@ -562,7 +562,8 @@ def cmd_diff(args: argparse.Namespace) -> int:
 
     All three are gated, each at its own threshold (METRIC_THRESHOLDS): .text is deterministic
     and peak RSS nearly so, with no code-placement floor to hide behind, so those gate far
-    tighter than the decode benchmark's ~10%; seconds is wall clock and gets the slack.
+    tighter than the decode benchmark's placement-floored gate; seconds is wall clock and gets
+    the slack.
     """
     if args.threshold is not None and args.threshold < 0:
         raise SystemExit("diff: --threshold must be >= 0")

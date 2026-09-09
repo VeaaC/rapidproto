@@ -964,8 +964,8 @@ constant, and reproduce rather than quote. What the results mean structurally:
   measures every arm back-to-back in one binary, where its GB/s and cycle-ratio verdict compare
   at one placement, and the bench builds pin `-falign-functions=64 -falign-loops=64`, which the
   same calibration measures at a ~6% worst-arm (mostly <4%) cross-build floor; the cross-build
-  regression gate then keys on GB/s past the larger of that per-arm floor and the arm's own
-  measured spread. A genuine *sub*-floor codegen
+  regression gate then keys on GB/s past the larger of a flat threshold (default 10%,
+  conservative against those floors) and the arm's own measured spread. A genuine *sub*-floor codegen
   change is confirmed instead by retired **instructions/byte**, deterministic and
   placement-invariant
   (a rough proxy for work, blind to the stalls above). Shipped so far: **field-order threading**
@@ -1135,6 +1135,11 @@ reflected (a documented simplification; decoders accept both wire forms).
 
   See [Decoder performance](#decoder-performance) for how to read the numbers (and the placement
   noise floor).
+
+- **Placement calibration:** `tests/placement_probe.py` relinks the already-built bench objects
+  across lld-shuffled section layouts and reports each arm's cross-layout GB/s spread (with a
+  same-layout rerun as the run-noise reference) — the instrument behind the per-arm placement
+  floors and the alignment-pinning verdict.
 
 - **Compile-time / code-size benchmark:** `tests/compile_bench.py` (`run` / `table` / `diff`) measures what
   the generated decoders cost to *build* — wall seconds, `.text` bytes, and the compiler's peak

@@ -15,10 +15,12 @@ A snapshot is NDJSON: one `{"rec":"snapshot",...}` header (compiler / protobuf /
 bench record, each tagged with `"decoder":"stream"|"arena"`. GB/s (measured decode throughput) is the
 PRIMARY signal -- it is what a reader actually cares about and, unlike ins/B, it reflects everything the
 CPU pays for (branch mispredictions, cache/memory stalls), so it is what the compare and the regression
-gate key on. Caveat: across independent builds GB/s carries code-PLACEMENT noise -- byte-identical
-functions measure ~10% apart from address/alignment alone (architecture.md), plus frequency drift -- so
-the gate keys on the larger of that ~10% floor and the arm's own measured run-to-run spread; sub-floor
-cross-build deltas are not reliable (quiesce the box -- tests/bench_box.sh -- and pin a core).
+gate key on. Caveat: across independent builds GB/s carries code-PLACEMENT noise -- calibrated
+with tests/placement_probe.py at ~6% worst-arm (most under 4%) now that the bench builds pin
+64-byte function/loop alignment -- plus frequency drift; the gate keys on the larger of a flat
+threshold (--threshold, default 10%: conservative against those floors) and the arm's own
+measured run-to-run spread; sub-floor cross-build deltas are not reliable (quiesce the box --
+tests/bench_box.sh -- and pin a core).
 cyc/B and ins/B are kept as diagnostics: cyc/B is frequency-invariant timing (why is throughput low --
 mispredicts show here, not in ins/B), and ins/B is deterministic retired-work (identical across machines
 for one binary+input, so it resolves a real sub-floor codegen change GB/s cannot -- but it is a rough
@@ -533,9 +535,9 @@ def diff(args):
     GB/s -- measured decode throughput, the real-performance signal (it catches what ins/B cannot: branch
     mispredictions, cache/memory stalls). Exits 1 if any arm's GB/s DROPPED past the gate.
 
-    An arm fails only past BOTH the flat threshold (--threshold, default 10%: the cross-build
-    code-PLACEMENT floor, since byte-identical functions measure ~10% apart from address/alignment
-    alone) and its own measured spread_pct. Arms that moved past the flat threshold but stayed inside
+    An arm fails only past BOTH the flat threshold (--threshold, default 10% -- conservative
+    against the calibrated per-arm placement floors, ~6% worst-arm on the alignment-pinned
+    builds; see tests/placement_probe.py) and its own measured spread_pct. Arms that moved past the flat threshold but stayed inside
     their own noise are listed separately and never gated -- an arm that noisy cannot resolve a change
     that size, which is information rather than a pass.
 
@@ -687,8 +689,9 @@ def current_ref():
 def experiment(args):
     """Build+snapshot two git refs (baseline, then variant) in the same build dir and diff them on GB/s
     via diff() -- measured throughput, the real-performance signal. The two are independent builds with
-    different code placement, so a sub-~10% GB/s delta can be layout/frequency noise (the diff threshold
-    defaults to that floor); keep the box quiesced and pinned, and for a change in the 2-9% band read the
+    different code placement, so a small GB/s delta can be layout/frequency noise (the pinned
+    builds' calibrated worst-arm floor is ~6%; the diff threshold defaults to a conservative
+    10%); keep the box quiesced and pinned, and for a change in the noise band read the
     deterministic ins/B column or re-run the PRETTY bench and read its within-run `vs <baseline>` verdict.
     Refuses to run on a dirty working tree (it checks out refs) and always restores the original ref."""
     if args.repeat < 1:
