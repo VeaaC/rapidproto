@@ -93,6 +93,11 @@ inline double mib_per_s(std::uint64_t bytes, double seconds) {
     return seconds > 0 ? double(bytes) / (1024.0 * 1024.0) / seconds : 0.0;
 }
 
+// a + b with wraparound instead of signed overflow (hostile deltas are protoc-valid).
+inline std::int64_t wrap_add(std::int64_t a, std::int64_t b) {
+    return static_cast<std::int64_t>(static_cast<std::uint64_t>(a) + static_cast<std::uint64_t>(b));
+}
+
 // offset + granularity * raw, in nanodegrees. Computed in uint64 so a hostile (still
 // protoc-valid) value wraps instead of overflowing signed arithmetic: garbage in, garbage
 // out, never UB.

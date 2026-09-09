@@ -17,6 +17,7 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -34,6 +35,11 @@ namespace {
 
 bool feature_supported(std::string_view f) {
     return f == "OsmSchema-V0.6" || f == "DenseNodes" || f == "HistoricalInformation";
+}
+
+bool unsupported(const char* scheme) {
+    std::fprintf(stderr, "osmstat: unsupported blob compression '%s'\n", scheme);
+    return true;
 }
 
 // Walk one PrimitiveBlock payload (both passes). Returns false on a malformed block.
@@ -60,6 +66,11 @@ bool walk_block(std::string_view payload, Stats& stats, std::vector<std::string_
             ++key_counts[static_cast<std::size_t>(k)];
         }
     };
+    // Every entity kind carries the same optional Info sub-message; count it, skip its fields.
+    const auto count_info = [&](pbf::Info info) {
+        ++stats.info_rows;
+        return info.decode();
+    };
 
     // Pass 2: the groups. Per-entity state lives in the enclosing lambdas' locals; every
     // packed array fires its callback once per element, in wire order.
@@ -67,8 +78,7 @@ bool walk_block(std::string_view payload, Stats& stats, std::vector<std::string_
         [&](pbf::PrimitiveBlock::primitivegroup, pbf::PrimitiveGroup group) {
             std::uint64_t dense_id = 0;  // uint64: hostile deltas wrap, defined behavior
             std::int64_t dense_lat = 0, dense_lon = 0;
-            std::int64_t pending_key = 0;  // keys_vals state: a key waiting for its value
-            bool have_pending = false;
+            std::optional<std::uint32_t> pending_key;  // keys_vals: a key awaiting its value
             return group.decode(
                 [&](pbf::PrimitiveGroup::dense, pbf::DenseNodes dense) {
                     return dense.decode(
@@ -78,23 +88,21 @@ bool walk_block(std::string_view payload, Stats& stats, std::vector<std::string_
                             ++stats.dense_nodes;
                         },
                         [&](pbf::DenseNodes::lat, std::int64_t d) {
-                            dense_lat = osmstat::coord_nano(dense_lat, 1, d);  // += d, wrap-safe
+                            dense_lat = osmstat::wrap_add(dense_lat, d);
                             stats.see_lat(osmstat::coord_nano(lat_offset, granularity, dense_lat));
                         },
                         [&](pbf::DenseNodes::lon, std::int64_t d) {
-                            dense_lon = osmstat::coord_nano(dense_lon, 1, d);
+                            dense_lon = osmstat::wrap_add(dense_lon, d);
                             stats.see_lon(osmstat::coord_nano(lon_offset, granularity, dense_lon));
                         },
                         [&](pbf::DenseNodes::keys_vals, std::int32_t v) {
-                            // (key value)* pairs per node, 0-terminated. An explicit bool
-                            // sentinel: a hostile-but-valid NEGATIVE key must still pair.
-                            if (have_pending) {  // v is the value of the pending key
+                            // (key value)* pairs per node, 0-terminated.
+                            if (pending_key) {  // v is the value of the pending key
                                 ++stats.node_tags;
-                                count_key(static_cast<std::uint32_t>(pending_key));
-                                have_pending = false;
+                                count_key(*pending_key);
+                                pending_key.reset();
                             } else if (v != 0) {  // v is a key (0 is the node terminator)
-                                pending_key = v;
-                                have_pending = true;
+                                pending_key = static_cast<std::uint32_t>(v);
                             }
                         },
                         [&](pbf::DenseNodes::denseinfo, pbf::DenseInfo info) {
@@ -118,10 +126,7 @@ bool walk_block(std::string_view payload, Stats& stats, std::vector<std::string_
                             ++stats.node_tags;
                             count_key(k);
                         },
-                        [&](pbf::Node::info, pbf::Info info) {
-                            ++stats.info_rows;
-                            return info.decode();
-                        });
+                        [&](pbf::Node::info, pbf::Info i) { return count_info(i); });
                 },
                 [&](pbf::PrimitiveGroup::ways, pbf::Way way) {
                     ++stats.ways;
@@ -134,10 +139,7 @@ bool walk_block(std::string_view payload, Stats& stats, std::vector<std::string_
                             ++stats.way_tags;
                             count_key(k);
                         },
-                        [&](pbf::Way::info, pbf::Info info) {
-                            ++stats.info_rows;
-                            return info.decode();
-                        });
+                        [&](pbf::Way::info, pbf::Info i) { return count_info(i); });
                 },
                 [&](pbf::PrimitiveGroup::relations, pbf::Relation rel) {
                     ++stats.relations;
@@ -150,10 +152,7 @@ bool walk_block(std::string_view payload, Stats& stats, std::vector<std::string_
                             ++stats.relation_tags;
                             count_key(k);
                         },
-                        [&](pbf::Relation::info, pbf::Info info) {
-                            ++stats.info_rows;
-                            return info.decode();
-                        });
+                        [&](pbf::Relation::info, pbf::Info i) { return count_info(i); });
                 });
         });
     if (!st.ok()) {
@@ -191,16 +190,17 @@ int main(int argc, char** argv) {
     bool failed = false;
 
     std::size_t offset = 0;
-    osmpbf_input::Framed frame;
-    while (!failed && osmpbf_input::next_frame(*file, offset, frame)) {
+    while (const auto header_bytes = osmpbf_input::next_frame(*file, offset)) {
         clock.take();
         // BlobHeader: two fields wanted, the rest skipped.
         std::string_view blob_type;
         std::int32_t datasize = -1;
-        rapidproto::DecodeStatus st = pbf::BlobHeader{frame.header_bytes}.decode(
+        rapidproto::DecodeStatus st = pbf::BlobHeader{*header_bytes}.decode(
             [&](pbf::BlobHeader::type, std::string_view v) { blob_type = v; },
             [&](pbf::BlobHeader::datasize, std::int32_t v) { datasize = v; });
-        if (!st.ok() || !osmpbf_input::take_blob(*file, offset, datasize, frame)) {
+        const auto blob_bytes =
+            st.ok() ? osmpbf_input::take_blob(*file, offset, datasize) : std::nullopt;
+        if (!blob_bytes) {
             std::fprintf(stderr, "osmstat: bad BlobHeader at offset %zu\n", offset);
             return 1;
         }
@@ -212,16 +212,18 @@ int main(int argc, char** argv) {
         std::string_view payload;
         std::string_view deflated_view;
         std::int64_t raw_size = 0;
-        st = pbf::Blob{frame.blob_bytes}.decode(
+        st = pbf::Blob{*blob_bytes}.decode(
             [&](pbf::Blob::raw_size, std::int32_t v) { raw_size = v; },
             [&](pbf::Blob::raw, std::string_view raw) { payload = raw; },
             [&](pbf::Blob::zlib_data, std::string_view deflated) { deflated_view = deflated; },
-            [&](pbf::Blob::lzma_data, std::string_view) { failed = true; },
-            [&](pbf::Blob::OBSOLETE_bzip2_data, std::string_view) { failed = true; },
-            [&](pbf::Blob::lz4_data, std::string_view) { failed = true; },
-            [&](pbf::Blob::zstd_data, std::string_view) { failed = true; });
+            [&](pbf::Blob::lzma_data, std::string_view) { failed = unsupported("lzma"); },
+            [&](pbf::Blob::OBSOLETE_bzip2_data, std::string_view) {
+                failed = unsupported("bzip2");
+            },
+            [&](pbf::Blob::lz4_data, std::string_view) { failed = unsupported("lz4"); },
+            [&](pbf::Blob::zstd_data, std::string_view) { failed = unsupported("zstd"); });
         if (!st.ok() || failed) {
-            std::fprintf(stderr, "osmstat: bad or unsupported Blob at offset %zu\n", offset);
+            std::fprintf(stderr, "osmstat: bad Blob at offset %zu\n", offset);
             return 1;
         }
         if (!deflated_view.empty()) {

@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <fstream>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -506,17 +507,17 @@ Loaded load_dataset(const char* path) {
     out.file.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
 
     std::size_t offset = 0;
-    osmpbf_input::Framed frame;
-    while (osmpbf_input::next_frame(out.file, offset, frame)) {
+    while (const auto header_bytes = osmpbf_input::next_frame(out.file, offset)) {
         rapidproto::Arena arena;
         const osm_a::BlobHeader* header =
-            osm_a::BlobHeader::decode(rapidproto::ByteView(frame.header_bytes), arena);
-        if (header == nullptr ||
-            !osmpbf_input::take_blob(out.file, offset, header->datasize(), frame)) {
+            osm_a::BlobHeader::decode(rapidproto::ByteView(*header_bytes), arena);
+        const auto blob_bytes = header != nullptr
+                                    ? osmpbf_input::take_blob(out.file, offset, header->datasize())
+                                    : std::nullopt;
+        if (!blob_bytes) {
             return out;
         }
-        const osm_a::Blob* blob =
-            osm_a::Blob::decode(rapidproto::ByteView(frame.blob_bytes), arena);
+        const osm_a::Blob* blob = osm_a::Blob::decode(rapidproto::ByteView(*blob_bytes), arena);
         if (blob == nullptr) {
             return out;
         }
@@ -554,17 +555,17 @@ template <class BlockFn>
 std::uint64_t rp_file_sum(const std::string& file_bytes, std::string& inflated, BlockFn block) {
     std::uint64_t h = 0;
     std::size_t offset = 0;
-    osmpbf_input::Framed frame;
-    while (osmpbf_input::next_frame(file_bytes, offset, frame)) {
+    while (const auto header_bytes = osmpbf_input::next_frame(file_bytes, offset)) {
         rapidproto::Arena arena;
         const osm_a::BlobHeader* header =
-            osm_a::BlobHeader::decode(rapidproto::ByteView(frame.header_bytes), arena);
-        if (header == nullptr ||
-            !osmpbf_input::take_blob(file_bytes, offset, header->datasize(), frame)) {
+            osm_a::BlobHeader::decode(rapidproto::ByteView(*header_bytes), arena);
+        const auto blob_bytes =
+            header != nullptr ? osmpbf_input::take_blob(file_bytes, offset, header->datasize())
+                              : std::nullopt;
+        if (!blob_bytes) {
             return 0;
         }
-        const osm_a::Blob* blob =
-            osm_a::Blob::decode(rapidproto::ByteView(frame.blob_bytes), arena);
+        const osm_a::Blob* blob = osm_a::Blob::decode(rapidproto::ByteView(*blob_bytes), arena);
         if (blob == nullptr) {
             return 0;
         }

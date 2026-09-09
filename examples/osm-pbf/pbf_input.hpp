@@ -48,23 +48,18 @@ inline std::optional<std::string> read_file(const char* path) {
     return data;
 }
 
-// One framing step: yield the BlobHeader bytes at `offset` and advance past them. Returns
-// false at clean end-of-file (offset == file.size()) AND on malformed framing -- but the
-// latter reports the error and poisons `offset` PAST the end, so after the loop a caller
-// tells them apart with `offset == file.size()`.
-struct Framed {
-    std::string_view header_bytes;
-    std::string_view blob_bytes;
-};
-
-inline bool next_frame(std::string_view file, std::size_t& offset, Framed& out) {
+// One framing step: the BlobHeader bytes at `offset`, advancing past them. Returns nullopt
+// at clean end-of-file (offset == file.size()) AND on malformed framing -- but the latter
+// reports the error and poisons `offset` PAST the end, so after the loop a caller tells them
+// apart with `offset == file.size()`.
+inline std::optional<std::string_view> next_frame(std::string_view file, std::size_t& offset) {
     if (offset >= file.size()) {
-        return false;  // clean EOF at ==; a poisoned offset (>) stays false and stays poisoned
+        return std::nullopt;  // clean EOF at ==; a poisoned offset (>) stays that way
     }
     if (file.size() - offset < 4) {
         std::fprintf(stderr, "osmstat: truncated frame length at offset %zu\n", offset);
         offset = file.size() + 1;
-        return false;
+        return std::nullopt;
     }
     const auto b = [&](std::size_t i) {
         return std::uint32_t(static_cast<unsigned char>(file[offset + i]));
@@ -75,25 +70,26 @@ inline bool next_frame(std::string_view file, std::size_t& offset, Framed& out) 
         std::fprintf(stderr, "osmstat: bad BlobHeader length %u at offset %zu\n", header_len,
                      offset - 4);
         offset = file.size() + 1;
-        return false;
+        return std::nullopt;
     }
-    out.header_bytes = file.substr(offset, header_len);
+    const std::string_view header = file.substr(offset, header_len);
     offset += header_len;
-    return true;
+    return header;
 }
 
-inline bool take_blob(std::string_view file, std::size_t& offset, std::int32_t datasize,
-                      Framed& out) {
+// The Blob bytes after a frame's header, sized by the BlobHeader's datasize field.
+inline std::optional<std::string_view> take_blob(std::string_view file, std::size_t& offset,
+                                                 std::int32_t datasize) {
     if (datasize < 0 || datasize > kMaxBlob ||
         file.size() - offset < static_cast<std::size_t>(datasize)) {
         std::fprintf(stderr, "osmstat: bad Blob datasize %d at offset %zu\n", int(datasize),
                      offset);
         offset = file.size() + 1;
-        return false;
+        return std::nullopt;
     }
-    out.blob_bytes = file.substr(offset, static_cast<std::size_t>(datasize));
+    const std::string_view blob = file.substr(offset, static_cast<std::size_t>(datasize));
     offset += static_cast<std::size_t>(datasize);
-    return true;
+    return blob;
 }
 
 // Inflate `deflated` into `out`, resized to `raw_size` (validate against kMaxRawSize before

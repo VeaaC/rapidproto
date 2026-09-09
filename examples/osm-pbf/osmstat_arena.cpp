@@ -11,6 +11,7 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -59,8 +60,7 @@ void walk_block(const pbf::PrimitiveBlock* block, Stats& stats,
     for (const pbf::PrimitiveGroup& group : block->primitivegroup()) {
         if (const pbf::DenseNodes* dense = group.dense()) {
             // Delta-coded columns, walked independently (per-axis aggregates need no
-            // pairing) so both models agree even on ragged column lengths; accumulation is
-            // wrap-safe (see coord_nano).
+            // pairing) so both models agree even on ragged column lengths.
             std::uint64_t id = 0;
             for (const std::int64_t d : dense->id()) {
                 id += static_cast<std::uint64_t>(d);
@@ -68,11 +68,11 @@ void walk_block(const pbf::PrimitiveBlock* block, Stats& stats,
             }
             std::int64_t lat = 0, lon = 0;
             for (const std::int64_t d : dense->lat()) {
-                lat = osmstat::coord_nano(lat, 1, d);  // lat += d, wrap-safe
+                lat = osmstat::wrap_add(lat, d);
                 stats.see_lat(osmstat::coord_nano(lat_offset, granularity, lat));
             }
             for (const std::int64_t d : dense->lon()) {
-                lon = osmstat::coord_nano(lon, 1, d);
+                lon = osmstat::wrap_add(lon, d);
                 stats.see_lon(osmstat::coord_nano(lon_offset, granularity, lon));
             }
             stats.dense_nodes += dense->id().size();
@@ -157,22 +157,22 @@ int main(int argc, char** argv) {
     bool failed = false;
 
     std::size_t offset = 0;
-    osmpbf_input::Framed frame;
-    while (!failed && osmpbf_input::next_frame(*file, offset, frame)) {
-        const std::size_t frame_offset = offset - frame.header_bytes.size() - 4;
+    while (const auto header_bytes = osmpbf_input::next_frame(*file, offset)) {
+        const std::size_t frame_offset = offset - header_bytes->size() - 4;
         arena.reset();
         rapidproto::ArenaDecodeError err{};
 
         clock.take();
         const pbf::BlobHeader* header =
-            pbf::BlobHeader::decode(rapidproto::ByteView(frame.header_bytes), arena, &err);
-        if (header == nullptr ||
-            !osmpbf_input::take_blob(*file, offset, header->datasize(), frame)) {
+            pbf::BlobHeader::decode(rapidproto::ByteView(*header_bytes), arena, &err);
+        const auto blob_bytes = header != nullptr
+                                    ? osmpbf_input::take_blob(*file, offset, header->datasize())
+                                    : std::nullopt;
+        if (!blob_bytes) {
             std::fprintf(stderr, "osmstat: bad BlobHeader at offset %zu\n", frame_offset);
             return 1;
         }
-        const pbf::Blob* blob =
-            pbf::Blob::decode(rapidproto::ByteView(frame.blob_bytes), arena, &err);
+        const pbf::Blob* blob = pbf::Blob::decode(rapidproto::ByteView(*blob_bytes), arena, &err);
         if (blob == nullptr) {
             std::fprintf(stderr, "osmstat: bad Blob at offset %zu\n", frame_offset);
             return 1;
