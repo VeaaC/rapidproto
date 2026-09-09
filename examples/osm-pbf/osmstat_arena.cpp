@@ -2,15 +2,12 @@
 // Copyright 2026 Christian Vetter
 //
 // osmstat, ARENA model: decode an OpenStreetMap .osm.pbf file and print statistics about it.
-// Each PrimitiveBlock is materialized into an arena as a read-only object tree, then walked as
-// plain contiguous arrays -- the packed delta-coded id/lat/lon columns of DenseNodes decode
-// straight into int64 arrays, and every stringtable entry is a string_view borrowed from the
-// inflated buffer (no string is ever copied by the decoder). The sibling osmstat_stream.cpp
-// computes the same statistics with the streaming model; the two print identical stdout.
-//
-// Structure: main() -> for each blob frame -> decode_data_block() -> walk_block().
-// Timing goes to stderr; decode (materialize) and walk (read) are timed separately, because
-// with a materialized tree they ARE separate -- re-walking costs no second decode.
+// Each PrimitiveBlock is materialized into an arena, then walked as plain contiguous arrays:
+// DenseNodes' packed delta-coded columns decode straight into int64 arrays, and every
+// stringtable entry is a string_view borrowed from the inflated buffer. The sibling
+// osmstat_stream.cpp computes the same statistics with the streaming model; the two print
+// identical stdout. Timing goes to stderr, decode and walk separately -- with a materialized
+// tree they are separate steps.
 
 #include <cstdint>
 #include <cstdio>
@@ -29,8 +26,7 @@ using osmstat::Stats;
 
 namespace {
 
-// The features a reader must implement to be allowed to parse the file. This program handles
-// exactly these three; an unknown required feature means the file needs a smarter reader.
+// A reader must refuse a file whose required_features it does not implement.
 bool feature_supported(std::string_view f) {
     return f == "OsmSchema-V0.6" || f == "DenseNodes" || f == "HistoricalInformation";
 }
@@ -52,8 +48,8 @@ void walk_block(const pbf::PrimitiveBlock* block, Stats& stats,
 
     const rapidproto::StringArrayView strings = block->stringtable()->s();
     key_counts.assign(strings.size(), 0);
-    // A tag key is an index into this block's stringtable. Indexes come off the wire, so they
-    // are bounds-checked: an out-of-range index still counts as a tag, it just names no key.
+    // Tag keys index the stringtable; indexes come off the wire, so bounds-check them (an
+    // out-of-range index still counts as a tag, it just names no key).
     const auto count_key = [&](std::uint64_t k) {
         if (k < key_counts.size()) {
             ++key_counts[static_cast<std::size_t>(k)];
@@ -62,12 +58,9 @@ void walk_block(const pbf::PrimitiveBlock* block, Stats& stats,
 
     for (const pbf::PrimitiveGroup& group : block->primitivegroup()) {
         if (const pbf::DenseNodes* dense = group.dense()) {
-            // Delta-coded columns: each element is an offset from the previous one. The three
-            // columns are walked INDEPENDENTLY (the node count from ids, per-axis bbox
-            // aggregates from lat/lon) so both models compute the same result even on a
-            // hand-broken file with ragged column lengths -- and the accumulation runs in
-            // uint64 (via coord_nano), where the wraparound a hostile delta can force is
-            // defined behavior.
+            // Delta-coded columns, walked independently (per-axis aggregates need no
+            // pairing) so both models agree even on ragged column lengths; accumulation is
+            // wrap-safe (see coord_nano).
             std::uint64_t id = 0;
             for (const std::int64_t d : dense->id()) {
                 id += static_cast<std::uint64_t>(d);
@@ -186,8 +179,8 @@ int main(int argc, char** argv) {
         }
         t_decode += clock.take();
 
-        // The payload is one member of a oneof: raw bytes, or a compressed encoding. This reader
-        // handles raw and zlib; any other member is a file this program must refuse, not guess at.
+        // The payload is a oneof: raw bytes or a compressed encoding. Raw and zlib are
+        // handled; anything else is refused, not guessed at.
         std::string_view payload;
         blob->data(
             [&](pbf::Blob::Data::raw, std::string_view raw) { payload = raw; },

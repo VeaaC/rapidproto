@@ -95,19 +95,17 @@ not across published revisions of it.)
 
 ## Real-world data — OSM PBF vs libosmium
 
-OpenStreetMap's planet format, decoded end to end (the [walkthrough](osm-pbf.md) explains the
-format and the two example programs this scenario grew from). The dataset is a pinned,
-sha256-verified Geofabrik extract (`tests/fetch_osm_dataset.py`; Bremen, ~20 MB — 1.6 M nodes,
-320 K ways, full metadata), the baseline is **libosmium** — the de-facto standard C++ OSM
-library — compiled from a corpus pin, and every arm computes one cross-validated checksum that
-covers ids, coordinates, metadata, resolved way refs and relation members, and per-tag
-key/value/role stringtable accesses (`tests/bench_arm_osm.hpp` documents the convention, and
-the reuse rules: protoc keeps one message across blocks — its standard repeated-parse idiom,
-and its fastest). Measured like the tables above (g++-13, protobuf 4.25.3, libosmium 2.23.1,
-quiesced box).
+OpenStreetMap's planet format ([walkthrough](osm-pbf.md)), on a pinned, sha256-verified
+Geofabrik extract (`tests/fetch_osm_dataset.py`; Bremen, ~20 MB — 1.6 M nodes, 320 K ways,
+full metadata). The baseline is **libosmium**, the standard C++ OSM library, compiled from a
+corpus pin. Every arm computes one cross-validated checksum covering ids, coordinates,
+metadata, resolved way refs and relation members, and per-tag key/value/role stringtable
+accesses; `tests/bench_arm_osm.hpp` documents the convention and the reuse rules (protoc
+keeps one message across blocks — its standard repeated-parse idiom, and its fastest).
+Measured like the tables above (g++-13, protobuf 4.25.3, libosmium 2.23.1, quiesced box).
 
-PBF blobs are zlib-deflated, and inflate rivals the protobuf work itself — so the comparison is
-split rather than blended:
+PBF blobs are zlib-deflated and inflate rivals the protobuf work itself, so the comparison is
+split in two:
 
 **The protobuf layer alone** (every block pre-inflated once, untimed; MB/s of inflated
 payload):
@@ -128,19 +126,18 @@ MB/s of file bytes):
 | streaming | 56 | −0.3% (a wash) |
 | libosmium | 21 | **−63%** |
 
-Three honest readings. First, the end-to-end table is mostly a zlib table: the same arena
-decode that runs at 447 MB/s over inflated payload delivers ~128 MB/s of inflated payload
-end-to-end (the framing + inflate tax is ~3.5×), and arena-vs-streaming collapses to a wash —
-any "how fast does X read PBF" number that doesn't isolate inflate is benchmarking the
-compressor. Second, the libosmium comparison is **single-core, enforced before its thread pool
-exists**: the harness pins the process to one core and the OSM arm forces that pin before
-libosmium's lazy pool is born, so its reader threads (a real strength on unpinned machines)
-share that core, and the scenario is compared on wall time — libosmium's per-byte counter
-columns would be main-thread-only fictions and are not reported. libosmium also materializes
-full OSM objects by definition (that is its model); the arena arm is the like-for-like
-materializing comparison, and it reads the same data **~2.7× faster** on that one core. Third,
-the cold and warm arena rows nearly coincide here — at ~187 KB per block, arena construction is
-noise — so the lead over a message-reusing protoc is the decoders', not an allocator trick's.
+Caveats that matter when reading the tables. The end-to-end table is mostly a zlib table:
+the same arena decode that runs at 447 MB/s over inflated payload delivers ~128 MB/s of it
+end-to-end (a ~3.5× framing + inflate tax), and arena-vs-streaming collapses to a wash — a
+PBF number that doesn't isolate inflate mostly benchmarks the compressor. The libosmium
+comparison is single-core: the harness pins the process to one core before libosmium's
+thread pool is created, so its reader threads (a real strength on unpinned machines) share
+that core, and the scenario is compared on wall time (per-thread cycle counters can't see
+its workers, so those columns are not reported). libosmium always materializes full OSM
+objects — its API offers nothing else — which makes the arena arm the like-for-like
+materializing comparison; it reads the same data ~2.7× faster on that one core. Finally,
+cold and warm arena rows nearly coincide: at ~187 KB per block, arena construction is noise,
+so the lead over a message-reusing protoc is not an allocator artifact.
 
 ## Arena vs streaming (the two RapidProto models)
 

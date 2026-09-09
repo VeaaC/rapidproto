@@ -3,21 +3,17 @@
 //
 // osmstat, STREAMING model: decode an OpenStreetMap .osm.pbf file and print statistics about
 // it. Nothing is materialized: every field's value is handed to a callback as it is decoded,
-// and delta accumulators live in locals. The decoder itself allocates nothing; the PROGRAM
-// keeps two reused per-block vectors (the stringtable index of borrowed string_views, the
-// per-index key counts) and the histogram copies each newly seen distinct key once. The
-// sibling osmstat_arena.cpp computes the same statistics with the arena model; the two print
-// identical stdout.
+// and delta accumulators live in locals. The sibling osmstat_arena.cpp computes the same
+// statistics with the arena model; the two print identical stdout.
 //
-// One structural difference from the arena walk: tag keys reference the block's stringtable by
-// index, and wire order does not guarantee the stringtable arrives before the groups that use
-// it. A materializing decoder does not care; a single-pass one does. So each block is decoded
-// TWICE -- a cheap first pass that collects only the stringtable (and the coordinate scaling
-// fields), then the real walk with every other field skipped in pass one and the stringtable
-// skipped in pass two. Skipping is what streaming decoders are good at.
+// One structural difference: tag keys reference the block's stringtable by index, and wire
+// order does not guarantee the stringtable arrives before the groups that use it. So each
+// block is decoded TWICE -- a cheap pass collecting only the stringtable and the coordinate
+// scaling fields, then the walk. Skipping unwanted fields is what streaming decoders are
+// good at.
 //
-// Timing goes to stderr; decode and walk are ONE fused number here -- with no materialized
-// tree there is nothing to re-walk.
+// Timing goes to stderr; decode and walk are one fused number here -- nothing is
+// materialized, so there is nothing to re-walk.
 
 #include <cstdint>
 #include <cstdio>
@@ -44,8 +40,7 @@ bool feature_supported(std::string_view f) {
 bool walk_block(std::string_view payload, Stats& stats, std::vector<std::string_view>& strings,
                 std::vector<std::uint64_t>& key_counts) {
     // Pass 1: the stringtable and the coordinate scaling fields, everything else skipped.
-    // proto2 defaults are not delivered by a streaming decoder (an absent field fires no
-    // callback), so the schema's defaults are the initial values here.
+    // An absent field fires no callback, so the schema's defaults are the initial values.
     strings.clear();
     std::int64_t granularity = 100, lat_offset = 0, lon_offset = 0;
     rapidproto::DecodeStatus st = pbf::PrimitiveBlock{payload}.decode(
@@ -91,9 +86,8 @@ bool walk_block(std::string_view payload, Stats& stats, std::vector<std::string_
                             stats.see_lon(osmstat::coord_nano(lon_offset, granularity, dense_lon));
                         },
                         [&](pbf::DenseNodes::keys_vals, std::int32_t v) {
-                            // (key value)* pairs per node, 0-terminated. The sentinel is an
-                            // explicit bool: a hostile-but-valid NEGATIVE key must still pair
-                            // with its value, exactly as the arena walk's skip does.
+                            // (key value)* pairs per node, 0-terminated. An explicit bool
+                            // sentinel: a hostile-but-valid NEGATIVE key must still pair.
                             if (have_pending) {  // v is the value of the pending key
                                 ++stats.node_tags;
                                 count_key(static_cast<std::uint32_t>(pending_key));
@@ -211,11 +205,10 @@ int main(int argc, char** argv) {
             return 1;
         }
 
-        // Blob: the payload oneof's members are plain fields to a streaming decoder -- whichever
-        // is on the wire fires. The wire-order rule this file keeps teaching applies HERE too:
-        // raw_size (field 2) usually precedes zlib_data (field 3), but nothing guarantees it, so
-        // the deflated view is only remembered in its callback and inflated after decode()
-        // returns, when both fields have definitely been seen.
+        // Blob: the payload oneof's members are plain fields to a streaming decoder. Wire
+        // order applies here too -- raw_size usually precedes zlib_data but nothing
+        // guarantees it, so the deflated view is only remembered and inflated after decode()
+        // returns, when both fields have been seen.
         std::string_view payload;
         std::string_view deflated_view;
         std::int64_t raw_size = 0;

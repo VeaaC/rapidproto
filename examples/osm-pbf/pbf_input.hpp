@@ -2,14 +2,12 @@
 // Copyright 2026 Christian Vetter
 #pragma once
 
-// Model-agnostic plumbing shared by osmstat_arena.cpp and osmstat_stream.cpp (and reused by the
-// benchmark's OSM arm): reading the file, walking the PBF blob framing, and inflating blob
-// payloads. Nothing here decodes protobuf -- each main does that with its own model -- so both
-// programs stay readable on their own.
+// Plumbing shared by both osmstat programs (and the benchmark's OSM arm): file reading, blob
+// framing, zlib inflate. Nothing here decodes protobuf -- each main does that with its own
+// model.
 //
-// A .osm.pbf file is a sequence of [4-byte big-endian length][BlobHeader][Blob]. The BlobHeader
-// says what the Blob contains ("OSMHeader" once at the start, then "OSMData" blocks) and how big
-// the Blob message is; the Blob wraps the payload either raw or zlib-deflated.
+// A .osm.pbf file is a sequence of [4-byte big-endian length][BlobHeader][Blob]: the BlobHeader
+// names the blob type and the Blob's size, the Blob wraps the payload raw or zlib-deflated.
 
 #include <zlib.h>
 
@@ -22,11 +20,9 @@
 
 namespace osmpbf_input {
 
-// The spec's size discipline: a BlobHeader must stay under 64 KiB and a Blob's UNCOMPRESSED
-// payload under 32 MiB ("should" for writers, so readers commonly accept some headroom -- the
-// inflate cap below allows 2x). Enforcing bounds here caps every allocation this code makes
-// from untrusted input; the serialized-Blob cap reuses the payload figure, which is
-// conservative (a Blob never usefully exceeds its payload by much).
+// The spec keeps a BlobHeader under 64 KiB and a Blob's uncompressed payload under 32 MiB
+// ("should" for writers, so the inflate cap allows 2x headroom). These bounds cap every
+// allocation made from untrusted input.
 inline constexpr std::uint32_t kMaxBlobHeader = 64u * 1024;
 inline constexpr std::int64_t kMaxBlob = 32 * 1024 * 1024;
 inline constexpr std::int64_t kMaxRawSize = 2 * kMaxBlob;
@@ -52,10 +48,10 @@ inline std::optional<std::string> read_file(const char* path) {
     return data;
 }
 
-// One framing step: at `offset` in `file`, yield the BlobHeader bytes and advance past them.
-// Returns false at a clean end-of-file (offset == file.size(), outputs untouched); malformed
-// framing is reported and also returns false with `offset` poisoned PAST the end -- so a caller
-// distinguishes "done" from "broken" by `offset == file.size()` after its loop.
+// One framing step: yield the BlobHeader bytes at `offset` and advance past them. Returns
+// false at clean end-of-file (offset == file.size()) AND on malformed framing -- but the
+// latter reports the error and poisons `offset` PAST the end, so after the loop a caller
+// tells them apart with `offset == file.size()`.
 struct Framed {
     std::string_view header_bytes;
     std::string_view blob_bytes;
@@ -100,10 +96,9 @@ inline bool take_blob(std::string_view file, std::size_t& offset, std::int32_t d
     return true;
 }
 
-// Inflate `deflated` into `out` (resized to `raw_size`, the size the Blob declares -- validate
-// it against kMaxRawSize BEFORE calling). The buffer is caller-owned and reused across blocks:
-// everything decoded from a block -- every borrowed string_view -- points into it, so it must
-// stay untouched until that block's walk is done.
+// Inflate `deflated` into `out`, resized to `raw_size` (validate against kMaxRawSize before
+// calling). The buffer is reused across blocks, and every string_view decoded from a block
+// borrows from it -- it must stay untouched until that block's walk is done.
 inline bool inflate_blob(std::string_view deflated, std::size_t raw_size, std::string& out) {
     out.resize(raw_size);
     uLongf dest_len = raw_size;
