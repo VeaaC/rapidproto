@@ -40,9 +40,8 @@ field name is an error.
 For message-typed fields (groups included): the sub-message's **payload** is borrowed as a
 `ByteView` into the input instead of a materialized tree; a repeated field becomes a
 `StringArrayView`, one payload per element. Each view is exactly what the field type's own
-`decode()` accepts, so the tree is built only when — and if — you ask: keep a huge or
-rarely-read sub-message (or a million-element repeated field) as bytes, and decode single
-elements on demand.
+`decode()` accepts, so the tree is built only when — and if — you ask. Typical targets: a
+huge or rarely-read sub-message, or a million-element repeated field read element-wise.
 
 - Presence: a singular `raw` accessor returns `std::optional<ByteView>`, carrying presence just
   as the `const T*` does; a `required` field (proto2, or editions `LEGACY_REQUIRED`) has no
@@ -58,8 +57,7 @@ elements on demand.
 Profiles come from a file (one `drop <name>` / `raw <name>` / `unknown-fields <message>` per line, `#`
 comments, an optional `name <identifier>` line) via `--field-modes=<file>`, or inline via
 `--drop=<name>` / `--raw=<name>` / `--unknown=<message>` (and `--unknown-present` for every message). A
-field-level entry beats a type-level entry; unknown names are hard errors; field modes do not
-apply inside a oneof. The profile resolves against *everything* the invocation generates — the
+field-level entry beats a type-level entry; field modes do not apply inside a oneof. The profile resolves against *everything* the invocation generates — the
 entries resolve as one batch — so a global profile works by listing (or `PROTOS`-listing, in
 CMake) every schema it spans in one generation; a name unknown across the whole batch is still a
 hard error.
