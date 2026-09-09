@@ -43,7 +43,7 @@ RapidProto generates the decoder — specialized to your schema at compile time,
 you both shapes.
 
 - **Faster decode.** On a realistic mixed payload the arena decoder materializes a full object tree
-  **~5× faster than `protoc` + `google::protobuf::Arena`**, and the streaming decoder — materializing
+  **~7× faster than `protoc` + `google::protobuf::Arena`**, and the streaming decoder — materializing
   nothing — is faster still, beating `protozero`, the zero-copy yardstick, on the realistic payload and
   most microbenchmark shapes. See [benchmarks](docs/benchmarks.md).
 - **Less memory.** The arena tree holds **~half** of protoc's (both payload bytes and total allocation):

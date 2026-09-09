@@ -959,9 +959,12 @@ constant, and reproduce rather than quote. What the results mean structurally:
   mispredictions, cache/memory stalls; e.g. random-width packed varints run ~4× slower than
   fixed-width
   at the same ins/B, pure branch-mispredict cost). Cross-binary comparison buries genuine wins in
-  placement noise — byte-identical functions measure ~10% apart — so the harness measures every arm
-  back-to-back in one binary, where its GB/s and cycle-ratio verdict compare at one placement; the
-  cross-build regression gate then keys on GB/s past the larger of that ~10% floor and the arm's own
+  placement noise — the shuffle-relink calibration (`tests/placement_probe.py`) measures worst
+  arms up to ~22% apart across equally-valid layouts of an unaligned build — so the harness
+  measures every arm back-to-back in one binary, where its GB/s and cycle-ratio verdict compare
+  at one placement, and the bench builds pin `-falign-functions=64 -falign-loops=64`, which the
+  same calibration measures at a ~6% worst-arm (mostly <4%) cross-build floor; the cross-build
+  regression gate then keys on GB/s past the larger of that per-arm floor and the arm's own
   measured spread. A genuine *sub*-floor codegen
   change is confirmed instead by retired **instructions/byte**, deterministic and
   placement-invariant
@@ -1008,7 +1011,9 @@ numbers, the selection recipe, and the CONFIG-vs-module resolution details all l
 **The benchmarking caveat that matters most.** Decode hot loops run at ~1–8 GB/s
 (1–2 ns/field), so throughput is dominated by **code placement**: which address a function lands at and
 the resulting alignment / branch-predictor behavior. Two **byte-for-byte identical** decode functions in
-one binary measure ~10% apart, purely from placement. Consequences for anyone profiling this code:
+one binary measure ~10% apart, and across relinked layouts the worst arms measure up to ~22%
+apart (calibrated with `tests/placement_probe.py`; the bench builds' 64-byte alignment pinning
+brings that to ~6%). Consequences for anyone profiling this code:
 
 - **Compare structures at controlled placement.** A reliable A/B puts both variants in *one* binary,
   measured in both orders. Comparing across binaries, or a generated function against a
