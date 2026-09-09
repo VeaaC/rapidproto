@@ -203,11 +203,10 @@ changes between 0.x and 0.(x+1), never within a patch, each listed in the
 [CHANGELOG](https://github.com/VeaaC/rapidproto/blob/main/CHANGELOG.md). At 1.0 the promise
 flips, and the stable surface is everything a consumer binds to: the generated API (names,
 accessor shapes, callback signatures), the decode-profile file format, the CLI flags, the
-`rapidproto_generate()` contract, and the runtime headers' shape. From then on that surface
-changes in exactly two ways: a major release may break it outright, and a minor release may
-remove a spelling that an **earlier minor deprecated** in the CHANGELOG — so every removal is
-announced at least one minor release in advance, with the old spelling working throughout the
-notice window.
+`rapidproto_generate()` contract, and the runtime headers' shape. From then on, code built
+against 1.0 builds against every 1.x: **only a major release may break or remove anything** on
+that surface. A minor may *deprecate* — announced in the CHANGELOG under a Deprecated heading,
+with the spelling still working — as advance notice of what the next major removes.
 
 Supported platforms are what CI covers: Linux and macOS, with GCC, Clang and AppleClang.
 **MSVC is not supported** — not tested, no workarounds maintained — until real demand shows up.

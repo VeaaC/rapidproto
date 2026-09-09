@@ -2,8 +2,8 @@
 
 Notable, user-visible changes per release. Pre-1.0, the MINOR version is the breaking axis (the
 SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never within a patch.
-From 1.0 on, anything slated for removal appears under a **Deprecated** heading at least one
-minor release before a minor removes it (the README's Compatibility section states the policy).
+From 1.0 on, removals happen only in a major release, announced beforehand under a
+**Deprecated** heading (the README's Compatibility section states the policy).
 
 ## Unreleased
 
