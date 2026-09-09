@@ -59,10 +59,15 @@ namespace rpbench {
 
 // One benchmark arm: a label and a nullary closure that decodes and returns a checksum (which both
 // stops the loop being optimized away and cross-checks correctness against arm 0).
+// `threaded` marks an arm that does its work on threads it spawns (libosmium's reader): the
+// harness's per-thread cycle/instruction counters see only the calling thread, so for a scenario
+// containing such an arm the drift-invariant primary cost falls back to wall time for EVERY arm
+// (ratios must compare one metric), and the arm's meaningless cyc/B / ins/B are not printed.
 using Work = std::function<std::uint64_t()>;
 struct Arm {
     const char* label;
     Work fn;
+    bool threaded = false;
 };
 
 using Clock = std::chrono::steady_clock;
@@ -383,9 +388,15 @@ inline Stat stat(std::vector<double> v) {
         for (std::size_t k = 0; cyc_ok && k < n; ++k) {
             cyc_ok = costs[k].cyc > 0;
         }
+        // A threaded arm's cycles are main-thread-only (see Arm::threaded): wall time is the one
+        // metric every arm accrues fully, so it becomes the whole scenario's primary cost.
+        bool wall_primary = false;
+        for (const Arm& a : arms) {
+            wall_primary = wall_primary || a.threaded;
+        }
         std::vector<double> prim(n);  // this round's primary cost per arm
         for (std::size_t k = 0; k < n; ++k) {
-            prim[k] = cyc_ok ? costs[k].cyc : costs[k].ns;
+            prim[k] = (cyc_ok && !wall_primary) ? costs[k].cyc : costs[k].ns;
         }
         for (std::size_t k = 1; k < n; ++k) {
             if (prim[0] > 0) {
@@ -410,8 +421,10 @@ inline Stat stat(std::vector<double> v) {
         bad += ok ? 0 : 1;
         const Stat sns = stat(ns_s[k]);
         const double gb_s = byte_size / sns.median;
-        const double cyc_b = cyc ? stat(cyc_s[k]).median / byte_size : -1.0;
-        const double ins_b = ins ? stat(instr_s[k]).median / byte_size : -1.0;
+        // Counter-based per-byte costs are undefined for a threaded arm (main thread only).
+        const bool counters_valid = !arms[k].threaded;
+        const double cyc_b = cyc && counters_valid ? stat(cyc_s[k]).median / byte_size : -1.0;
+        const double ins_b = ins && counters_valid ? stat(instr_s[k]).median / byte_size : -1.0;
         const double xtra_b = xtra_s[k].empty() ? -1.0 : stat(xtra_s[k]).median / byte_size;
         // For arm 0 (baseline) there is no ratio; for k>0, `vs_base` is the throughput gain over it.
         double vs_base = 0.0;
@@ -432,12 +445,12 @@ inline Stat stat(std::vector<double> v) {
             std::printf(
                 R"({"rec":"arm","scenario":"%s","arm":"%s","bytes":%.0f,"baseline":%s,"gb_s":%.5f,)",
                 scenario, arms[k].label, byte_size, k == 0 ? "true" : "false", gb_s);
-            if (cyc) {
+            if (cyc_b >= 0) {
                 std::printf(R"("cyc_b":%.5f,)", cyc_b);
             } else {
                 std::printf(R"("cyc_b":null,)");
             }
-            if (ins) {
+            if (ins_b >= 0) {
                 std::printf(R"("ins_b":%.5f,)", ins_b);
             } else {
                 std::printf(R"("ins_b":null,)");
@@ -459,10 +472,12 @@ inline Stat stat(std::vector<double> v) {
             at = at + n < sizeof rate ? at + n : sizeof rate - 1;
         };
         advance(std::snprintf(rate + at, sizeof rate - at, "%6.3f GB/s", gb_s));
-        if (cyc) {
+        if (cyc_b >= 0) {
             advance(std::snprintf(rate + at, sizeof rate - at, " %5.2f cyc/B", cyc_b));
+        } else if (arms[k].threaded) {
+            advance(std::snprintf(rate + at, sizeof rate - at, " (multi-thread)"));
         }
-        if (ins) {
+        if (ins_b >= 0) {
             advance(std::snprintf(rate + at, sizeof rate - at, " %6.1f ins/B", ins_b));
         }
         if (xtra_b >= 0) {  // RAPIDPROTO_BENCH_EVENT; absent unless one was requested

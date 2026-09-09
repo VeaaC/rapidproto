@@ -1,0 +1,267 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Christian Vetter
+//
+// osmstat, ARENA model: decode an OpenStreetMap .osm.pbf file and print statistics about it.
+// Each PrimitiveBlock is materialized into an arena as a read-only object tree, then walked as
+// plain contiguous arrays -- the packed delta-coded id/lat/lon columns of DenseNodes decode
+// straight into int64 arrays, and every stringtable entry is a string_view borrowed from the
+// inflated buffer (no string is ever copied by the decoder). The sibling osmstat_stream.cpp
+// computes the same statistics with the streaming model; the two print identical stdout.
+//
+// Structure: main() -> for each blob frame -> decode_data_block() -> walk_block().
+// Timing goes to stderr; decode (materialize) and walk (read) are timed separately, because
+// with a materialized tree they ARE separate -- re-walking costs no second decode.
+
+#include <cstdint>
+#include <cstdio>
+#include <string>
+#include <string_view>
+#include <vector>
+
+#include "fileformat.rp.hpp"  // OSMPBF::BlobHeader / OSMPBF::Blob (arena)
+#include "osm_stats.hpp"
+#include "osmformat.rp.hpp"  // OSMPBF::HeaderBlock / OSMPBF::PrimitiveBlock (arena)
+#include "pbf_input.hpp"
+#include "rapidproto/arena_runtime.hpp"
+
+namespace pbf = rp::arena::OSMPBF;
+using osmstat::Stats;
+
+namespace {
+
+// The features a reader must implement to be allowed to parse the file. This program handles
+// exactly these three; an unknown required feature means the file needs a smarter reader.
+bool feature_supported(std::string_view f) {
+    return f == "OsmSchema-V0.6" || f == "DenseNodes" || f == "HistoricalInformation";
+}
+
+bool unsupported(const char* scheme) {
+    std::fprintf(stderr, "osmstat: unsupported blob compression '%s'\n", scheme);
+    return true;
+}
+
+// Walk one materialized PrimitiveBlock. Every accessor below reads arena memory or borrowed
+// views; nothing decodes -- decoding already happened in one decode() call per block.
+void walk_block(const pbf::PrimitiveBlock* block, Stats& stats,
+                std::vector<std::uint64_t>& key_counts) {
+    // proto2 `[default=100]` fields have explicit presence, so the accessor is a std::optional
+    // and the schema default is applied here, not by the decoder.
+    const std::int64_t granularity = block->granularity().value_or(100);
+    const std::int64_t lat_offset = block->lat_offset().value_or(0);
+    const std::int64_t lon_offset = block->lon_offset().value_or(0);
+
+    const rapidproto::StringArrayView strings = block->stringtable()->s();
+    key_counts.assign(strings.size(), 0);
+    // A tag key is an index into this block's stringtable. Indexes come off the wire, so they
+    // are bounds-checked: an out-of-range index still counts as a tag, it just names no key.
+    const auto count_key = [&](std::uint64_t k) {
+        if (k < key_counts.size()) {
+            ++key_counts[static_cast<std::size_t>(k)];
+        }
+    };
+
+    for (const pbf::PrimitiveGroup& group : block->primitivegroup()) {
+        if (const pbf::DenseNodes* dense = group.dense()) {
+            const auto ids = dense->id();
+            const auto lats = dense->lat();
+            const auto lons = dense->lon();
+            // Delta-coded columns: each element is an offset from the previous one. protoc-valid
+            // files keep the three columns the same length; walk the shortest so a hand-broken
+            // file cannot read past an array.
+            std::size_t n = ids.size();
+            n = std::min({n, lats.size(), lons.size()});
+            std::int64_t id = 0, lat = 0, lon = 0;
+            for (std::size_t i = 0; i < n; ++i) {
+                id += ids[i];
+                lat += lats[i];
+                lon += lons[i];
+                stats.id_sum += static_cast<std::uint64_t>(id);
+                stats.see_lat(lat_offset + granularity * lat);
+                stats.see_lon(lon_offset + granularity * lon);
+            }
+            stats.dense_nodes += n;
+            // keys_vals: (key val)* pairs per node, 0-terminated. Tags only -- the node boundary
+            // marker carries no data.
+            const auto kv = dense->keys_vals();
+            for (std::size_t i = 0; i + 1 < kv.size(); ++i) {
+                if (kv[i] == 0) {
+                    continue;  // node boundary
+                }
+                ++stats.node_tags;
+                count_key(static_cast<std::uint32_t>(kv[i]));
+                ++i;  // skip the value
+            }
+            if (const pbf::DenseInfo* info = dense->denseinfo()) {
+                stats.info_rows += info->version().size();
+            }
+        }
+        for (const pbf::Node& node : group.nodes()) {
+            ++stats.plain_nodes;
+            stats.id_sum += static_cast<std::uint64_t>(node.id());
+            stats.see_lat(lat_offset + granularity * node.lat());
+            stats.see_lon(lon_offset + granularity * node.lon());
+            for (const std::uint32_t k : node.keys()) {
+                ++stats.node_tags;
+                count_key(k);
+            }
+            stats.info_rows += node.info() != nullptr;
+        }
+        for (const pbf::Way& way : group.ways()) {
+            ++stats.ways;
+            stats.id_sum += static_cast<std::uint64_t>(way.id());
+            stats.way_refs += way.refs().size();
+            for (const std::uint32_t k : way.keys()) {
+                ++stats.way_tags;
+                count_key(k);
+            }
+            stats.info_rows += way.info() != nullptr;
+        }
+        for (const pbf::Relation& rel : group.relations()) {
+            ++stats.relations;
+            stats.id_sum += static_cast<std::uint64_t>(rel.id());
+            stats.relation_members += rel.memids().size();
+            for (const std::uint32_t k : rel.keys()) {
+                ++stats.relation_tags;
+                count_key(k);
+            }
+            stats.info_rows += rel.info() != nullptr;
+        }
+    }
+    stats.blocks += 1;
+    stats.merge_block_keys(key_counts, [&](std::size_t i) { return strings[i]; });
+}
+
+}  // namespace
+
+int main(int argc, char** argv) {
+    if (argc != 2) {
+        std::fprintf(stderr, "usage: osmstat-arena <file.osm.pbf>\n");
+        return 2;
+    }
+
+    osmpbf_input::Stopwatch clock;
+    const auto file = osmpbf_input::read_file(argv[1]);
+    if (!file) {
+        std::fprintf(stderr, "osmstat: cannot read %s\n", argv[1]);
+        return 1;
+    }
+    const double t_read = clock.take();
+
+    Stats stats;
+    std::vector<std::uint64_t> key_counts;
+    std::string inflated;                         // reused across blocks
+    std::vector<char> scratch(8u * 1024 * 1024);  // arena seed, reused across blocks
+    double t_inflate = 0, t_decode = 0, t_walk = 0;
+    std::uint64_t payload_bytes = 0;
+    bool header_seen = false;
+    bool failed = false;
+
+    std::size_t offset = 0;
+    osmpbf_input::Framed frame;
+    while (!failed && osmpbf_input::next_frame(*file, offset, frame)) {
+        // Fresh arena per blob, seeded with the reused scratch buffer: steady-state decoding
+        // allocates nothing. Everything decoded from this blob dies at the loop's end.
+        rapidproto::Arena arena(scratch.data(), scratch.size());
+        rapidproto::ArenaDecodeError err{};
+
+        clock.take();
+        const pbf::BlobHeader* header =
+            pbf::BlobHeader::decode(rapidproto::ByteView(frame.header_bytes), arena, &err);
+        if (header == nullptr ||
+            !osmpbf_input::take_blob(*file, offset, header->datasize(), frame)) {
+            std::fprintf(stderr, "osmstat: bad BlobHeader at offset %zu\n", offset);
+            return 1;
+        }
+        const pbf::Blob* blob =
+            pbf::Blob::decode(rapidproto::ByteView(frame.blob_bytes), arena, &err);
+        if (blob == nullptr) {
+            std::fprintf(stderr, "osmstat: bad Blob (%s)\n",
+                         frame.header_bytes.size() ? "decode" : "empty");
+            return 1;
+        }
+        t_decode += clock.take();
+
+        // The payload is one member of a oneof: raw bytes, or a compressed encoding. This reader
+        // handles raw and zlib; any other member is a file this program must refuse, not guess at.
+        std::string_view payload;
+        blob->data(
+            [&](pbf::Blob::Data::raw, std::string_view raw) { payload = raw; },
+            [&](pbf::Blob::Data::zlib_data, std::string_view deflated) {
+                clock.take();
+                const std::int64_t raw_size = blob->raw_size().value_or(0);
+                if (raw_size < 0 || raw_size > 2 * 32 * 1024 * 1024 ||
+                    !osmpbf_input::inflate_blob(deflated, static_cast<std::size_t>(raw_size),
+                                                inflated)) {
+                    failed = true;
+                    return;
+                }
+                payload = inflated;
+                t_inflate += clock.take();
+            },
+            [&](pbf::Blob::Data::lzma_data, std::string_view) { failed = unsupported("lzma"); },
+            [&](pbf::Blob::Data::OBSOLETE_bzip2_data, std::string_view) {
+                failed = unsupported("bzip2");
+            },
+            [&](pbf::Blob::Data::lz4_data, std::string_view) { failed = unsupported("lz4"); },
+            [&](pbf::Blob::Data::zstd_data, std::string_view) { failed = unsupported("zstd"); },
+            [&](std::monostate) {
+                std::fprintf(stderr, "osmstat: Blob carries no data\n");
+                failed = true;
+            });
+        if (failed) {
+            return 1;
+        }
+        payload_bytes += payload.size();
+
+        if (header->type() == "OSMHeader") {
+            clock.take();
+            const pbf::HeaderBlock* hb =
+                pbf::HeaderBlock::decode(rapidproto::ByteView(payload), arena, &err);
+            t_decode += clock.take();
+            if (hb == nullptr) {
+                std::fprintf(stderr, "osmstat: bad OSMHeader block\n");
+                return 1;
+            }
+            for (const std::string_view feature : hb->required_features()) {
+                if (!feature_supported(feature)) {
+                    std::fprintf(stderr, "osmstat: file requires unsupported feature '%s'\n",
+                                 std::string(feature).c_str());
+                    return 1;
+                }
+            }
+            header_seen = true;
+        } else if (header->type() == "OSMData") {
+            clock.take();
+            const pbf::PrimitiveBlock* block =
+                pbf::PrimitiveBlock::decode(rapidproto::ByteView(payload), arena, &err);
+            t_decode += clock.take();
+            if (block == nullptr) {
+                std::fprintf(stderr, "osmstat: bad PrimitiveBlock (code %d at offset %zu)\n",
+                             static_cast<int>(err.code), offset);
+                return 1;
+            }
+            walk_block(block, stats, key_counts);
+            t_walk += clock.take();
+        }
+        // Unknown blob types are reserved for future use; a reader skips them.
+    }
+    if (offset != file->size()) {
+        return 1;  // next_frame already reported the framing error
+    }
+    if (!header_seen) {
+        std::fprintf(stderr, "osmstat: no OSMHeader block -- not an .osm.pbf file?\n");
+        return 1;
+    }
+
+    stats.print(stdout);
+    std::fprintf(stderr, "model            arena\n");
+    std::fprintf(stderr, "read             %.3fs (%.1f MiB/s, %zu bytes)\n", t_read,
+                 osmstat::mib_per_s(file->size(), t_read), file->size());
+    std::fprintf(stderr, "inflate          %.3fs (%.1f MiB/s of payload)\n", t_inflate,
+                 osmstat::mib_per_s(payload_bytes, t_inflate));
+    std::fprintf(stderr, "decode           %.3fs (%.1f MiB/s of payload)\n", t_decode,
+                 osmstat::mib_per_s(payload_bytes, t_decode));
+    std::fprintf(stderr, "walk             %.3fs (%.1f MiB/s of payload)\n", t_walk,
+                 osmstat::mib_per_s(payload_bytes, t_walk));
+    return 0;
+}

@@ -93,6 +93,49 @@ per-iteration overheads — and whenever the bench binary itself changes, EVERY 
 the ~10% cross-build placement floor the methodology notes document. Compare within one table,
 not across published revisions of it.)
 
+## Real-world data — OSM PBF vs libosmium
+
+OpenStreetMap's planet format, decoded end to end (the [walkthrough](osm-pbf.md) explains the
+format and the two example programs this scenario grew from). The dataset is a pinned,
+sha256-verified Geofabrik extract (`tests/fetch_osm_dataset.py`; Bremen, ~20 MB — 1.6 M nodes,
+320 K ways, full metadata), the baseline is **libosmium** — the de-facto standard C++ OSM
+library — compiled from a corpus pin, and every arm computes one cross-validated checksum that
+covers ids, coordinates, metadata, resolved way refs and relation members, and a per-tag
+stringtable access (`tests/bench_arm_osm.hpp` documents the convention). Measured like the
+tables above (g++-13, protobuf 4.25.3, libosmium 2.23.1, quiesced box).
+
+PBF blobs are zlib-deflated, and inflate rivals the protobuf work itself — so the comparison is
+split rather than blended:
+
+**The protobuf layer alone** (every block pre-inflated once, untimed; MB/s of inflated
+payload):
+
+| arm | MB/s | vs protoc |
+|---|---|---|
+| protoc | 117 | baseline |
+| arena | 461 | **+292%** |
+| streaming | 472 | **+304%** |
+
+**End to end** (raw file bytes in memory → framing, blob decode, inflate, block decode, walk;
+MB/s of file bytes):
+
+| arm | MB/s | vs arena |
+|---|---|---|
+| arena | 57 | baseline |
+| streaming | 58 | +1.3% |
+| libosmium | 21 | **−63%** |
+
+Two honest readings. First, the end-to-end table is mostly a zlib table: the same arena decode
+that runs at 461 MB/s on inflated payload lands at 57 MB/s end-to-end, and arena-vs-streaming
+collapses to a wash — any "how fast does X read PBF" number that doesn't isolate inflate is
+benchmarking the compressor. Second, the libosmium comparison is **single-core by
+construction**: the harness pins the process to one core, so libosmium's reader threads (it
+inflates and parses on a pool; that concurrency is a real strength on unpinned machines) share
+that core, and the scenario is compared on wall time — libosmium's per-byte counter columns
+would be main-thread-only fictions and are not reported. libosmium also materializes full OSM
+objects by definition (that is its model); the arena arm is the like-for-like materializing
+comparison, and it reads the same data ~2.7× faster on that one core.
+
 ## Arena vs streaming (the two RapidProto models)
 
 The streaming decoder is **~2.7× faster** than the
@@ -113,7 +156,13 @@ report), so measure your own payloads rather than trusting one ratio as universa
 The benches need `libprotobuf-dev` (+ a matching `protoc`) and `protozero` installed;
 `rapidproto_arena_bench` is built only when protobuf is found — and both bench targets
 exist only on Linux (`tests/bench_harness.hpp` is built on `perf_event` self-monitoring
-and refuses other platforms).
+and refuses other platforms). The corpus-dependent scenarios (upb, google_message1/2, the
+OSM PBF pair, the large-schema arm) additionally want the fetched corpus and dataset:
+
+```sh
+python3 tests/fetch_corpus.py       # pinned schemas + the upb/libosmium/protozero sources
+python3 tests/fetch_osm_dataset.py  # the pinned Geofabrik extract (sha256-verified)
+```
 
 **Quiesce the box first.** `tests/bench_box.sh setup` disables SMT and turbo, sets the
 `performance` governor, and enables the hardware counters — saving whatever was there before, so

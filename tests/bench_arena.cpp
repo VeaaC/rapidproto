@@ -60,6 +60,7 @@
 #include "bench.rp.hpp"            // arenagen: rp::arena::bench::Dataset / WideSet / BigSet
 #include "bench.rp.stream.hpp"     // streamgen: rp::stream::bench::Dataset
 #include "bench_arm_messages.hpp"  // google_message1/2 scenarios (declaration only; own TU)
+#include "bench_arm_osm.hpp"       // OSM PBF scenarios (declaration only; own TU)
 #include "bench_baselines.hpp"     // third-party baselines, in their own TUs (see that header)
 #include "bench_harness.hpp"  // rpbench: the shared measurement harness (also used by rapidproto_bench)
 #include "bench_records.hpp"  // the hand-built RecordSet wire, asserted against protoc below
@@ -753,6 +754,18 @@ int main() {
             return 1;
         }
         bad += messages_bad;
+    }
+#endif
+
+#ifdef RAPIDPROTO_BENCH_OSM
+    // OSM PBF scenarios (own TU, same rules as the messages arm above): decode a real
+    // OpenStreetMap extract against protoc and libosmium -- see bench_arm_osm.hpp.
+    {
+        const int osm_bad = rposm::run_arm();
+        if (osm_bad < 0) {
+            return 1;
+        }
+        bad += osm_bad;
     }
 #endif
 

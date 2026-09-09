@@ -17,7 +17,11 @@
   url: /docs/profiles.html
 - title: CLI & CMake
   url: /docs/integration.html
+- title: OSM PBF walkthrough
+  url: /docs/osm-pbf.html
 - title: Benchmarks
   url: /docs/benchmarks.html
 - title: Consumer example
   url: /examples/consumer/
+- title: OSM PBF example
+  url: /examples/osm-pbf/

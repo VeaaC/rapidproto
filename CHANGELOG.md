@@ -7,6 +7,23 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
 
 ### Added
 
+- **OSM PBF showcase: `examples/osm-pbf/` and [the walkthrough](docs/osm-pbf.md).** The same
+  statistics tool written once per decode model against OpenStreetMap's planet format —
+  `osmstat_arena.cpp` materializes each block into a per-block arena and walks contiguous
+  arrays; `osmstat_stream.cpp` computes identical output in callback passes with nothing
+  materialized. The vendored schema (MIT, OSM-binary v1.7.0) covers packed delta-coded
+  columns, a stringtable the decoders borrow rather than copy, a `oneof` payload envelope,
+  and proto2 non-zero defaults. zlib is a dependency of the example only. A committed fixture
+  (reproducible from its generator) pins both programs to one hand-derived golden.
+- **OSM PBF benchmark scenarios** (`tests/bench_arm_osm.cpp`): a pinned real-world Geofabrik
+  extract (`tests/fetch_osm_dataset.py`, sha256-verified) decoded against **libosmium** — the
+  de-facto standard C++ OSM library, compiled from a corpus pin alongside protozero — and
+  protoc, under the bench's same-work-every-arm checksum convention. Two scenarios split the
+  zlib question: `osm_blocks` isolates the protobuf layer on pre-inflated blocks;
+  `osm_file` runs everything from the raw bytes. The harness understands arms that work on
+  spawned threads (libosmium's reader): such scenarios compare on wall time, and
+  main-thread-only counter columns are dropped rather than printed as if they meant something.
+
 - **Documentation site: <https://veaac.github.io/rapidproto/>.** The user manual and the
   consumer example behind an mdbook-style sidebar (JS-free, light/dark via the OS preference),
   published from the same markdown the repo carries — rebuilt on every push to main, and every

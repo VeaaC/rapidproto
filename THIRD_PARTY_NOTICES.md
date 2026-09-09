@@ -38,6 +38,16 @@ and are not part of what it distributes.
   > LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
   > CONSEQUENTIAL DAMAGES ... ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE.
 
+### OSM PBF schema — OSM-binary
+
+- **Files:** `examples/osm-pbf/proto/fileformat.proto` and
+  `examples/osm-pbf/proto/osmformat.proto`, vendored unmodified from
+  [OSM-binary](https://github.com/openstreetmap/OSM-binary) v1.7.0 for the OSM PBF example.
+- **Copyright:** 2010 Scott A. Crosby.
+- **License:** MIT — each file carries the full license text in its header. (The OSM-binary
+  repository's *library* code is LGPL-3.0; none of it is used or distributed here — only the
+  two schema files, which are individually MIT-licensed.)
+
 ---
 
 ## Development-only (not distributed)
@@ -49,10 +59,28 @@ and are not part of what it distributes.
 
 ### protozero
 
-- **Use:** referenced only by the benchmark sources (`tests/bench_*`), via a system/dev
-  install. It is not linked into the library or its output.
+- **Use:** referenced only by the benchmark sources (`tests/bench_*`). Fetched pinned by
+  `tests/fetch_corpus.py` when the corpus is present (the OSM scenarios require it, and the
+  Dataset arm's protozero baseline then measures the same pin); a system/dev install serves as
+  the fallback. It is not linked into the library or its output.
 - **Copyright:** Mapbox.
 - **License:** BSD 2-Clause.
+
+### libosmium
+
+- **Use:** the OSM PBF benchmark's baseline arm (`tests/bench_arm_osm.cpp`), compiled from the
+  header tree `tests/fetch_corpus.py` fetches at a pinned tag into the gitignored
+  `build/corpus/`. Nothing is committed, linked into the library, or redistributed.
+- **Copyright:** the libosmium contributors (osmcode.org).
+- **License:** Boost Software License 1.0 (BSL-1.0).
+
+### OpenStreetMap data — benchmark dataset
+
+- **Use:** a pinned [Geofabrik](https://download.geofabrik.de/) extract fetched by
+  `tests/fetch_osm_dataset.py` into the gitignored `build/corpus/` for local benchmarking
+  only; never committed or redistributed.
+- **Copyright:** © OpenStreetMap contributors.
+- **License:** Open Database License 1.0 (ODbL). Geofabrik provides the extracts.
 
 ### Protocol Buffers — schema corpus
 
