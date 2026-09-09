@@ -103,15 +103,15 @@ Both expose the identical `rapidproto::rapidprotoc` target, so one `rapidproto_g
 source-agnostic.
 
 **CMake version.** Incremental import-tracking uses `add_custom_command(DEPFILE)`: supported on Ninja at
-any version, and on the Makefile generators with CMake ≥ 3.20 (Xcode / Visual Studio ≥ 3.21). On an
+any version, and on the Makefile generators with CMake ≥ 3.20 (Xcode / the Visual Studio generator ≥ 3.21). On an
 older CMake with those generators the helper still generates correctly but won't auto-retrigger on an
 import edit (it warns); re-run CMake or clean-build after editing an imported `.proto`.
 
-**Compile cost.** Generated decoders are header-only and compile-time typed, so what you save
-at link time you pay per translation unit that includes them. Measured numbers — compile
-seconds, `.text` bytes, compiler peak RSS, per schema shape and model — are in
-[benchmarks.md](benchmarks.md#compile-cost--what-the-throughput-costs-to-build); keeping
-generated headers out of widely-included headers is the usual remedy, exactly as with protoc.
+**Compile cost.** Generated decoders are header-only, so every translation unit that includes
+them recompiles them. How compile seconds, `.text` size and compiler peak RSS are measured —
+and representative magnitudes — is in
+[benchmarks.md](benchmarks.md#compile-cost--what-the-throughput-costs-to-build); keep generated
+headers out of widely-included headers, exactly as with protoc.
 
 **Cross-compiling.** `rapidprotoc` must run on the **build host**, not the target, so it must be a
 **host build**. Build/install RapidProto for the host and bring that host tool in (e.g. a host-prefixed

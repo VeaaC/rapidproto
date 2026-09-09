@@ -16,7 +16,7 @@ unknown field" flag, exposed as `has_unknown_fields()`:
 The selection is part of the [decode profile](#decode-profiles-drop-raw-and-unknown-fields): it
 folds into the profile identity, so two TUs that disagree about which messages carry the flag **fail to
 link** rather than silently holding mismatched layouts of the same type — within the boundary
-described [below](#decode-profiles-drop-raw-and-unknown-fields).
+described [below](#profiles-change-the-generated-types).
 
 ## Decode profiles: `drop`, `raw`, and `unknown-fields`
 

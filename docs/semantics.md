@@ -41,13 +41,15 @@ link here instead of restating.*
   moves — but treat an enum's C++ names as part of your API surface.
 - **A field occurring more than once on the wire.** A conformant encoder writes each singular
   field once, but a buffer can still repeat one — most often because two serialized messages were
-  **concatenated**, which protobuf defines as merging them. What each model does:
+  **concatenated**, which protobuf defines as merging them. Streaming can forward the question
+  to you; the arena materializes a tree and so must choose a policy — two of its choices differ
+  from protobuf:
   - **Streaming applies no policy**: occurrences are delivered as-is, on the
     [schedule](streaming.md) it always uses — per element for repeated fields, per entry for
     maps, otherwise per occurrence — so last-wins / concatenation / de-duplication are yours to
     implement. One exception: inside a map entry, the `(key, value)` callback fires once, with
     the last `key` and last `value` that entry carried.
-  - **Arena, scalars and repeated fields**: singular scalars, `string`, `bytes` and enums take
+  - **Arena, scalars, repeated fields and oneofs**: singular scalars, `string`, `bytes` and enums take
     the **last** occurrence (values are never joined — `"AAA"` then `"BBB"` reads back `"BBB"`);
     repeated fields **concatenate**, in any mix of packed and expanded; a oneof keeps the
     **last** member set.
@@ -63,7 +65,8 @@ link here instead of restating.*
     machinery itself. It covers plain sub-message fields, groups, `required` message fields,
     [`raw`](profiles.md) ones, a sub-message oneof member repeating while the oneof still holds
     it, and a map entry repeating its `value`. It does *not* fire for a oneof whose members
-    alternate (a different member starts the later occurrence fresh, as protobuf does) or for a
+    alternate — a different member clears the oneof, so the later occurrence starts fresh, as in
+    protobuf — or for a
     field a [profile](profiles.md) `drop`s, which is skipped unexamined. If you need merge
     semantics, merge upstream, or decode with the streaming model and combine the occurrences
     yourself.

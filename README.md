@@ -201,13 +201,18 @@ A runnable end-to-end example (one schema, both models in one TU, a decode profi
 Versioning is SemVer-0 until 1.0: **the MINOR version is the breaking axis** — expect breaking
 changes between 0.x and 0.(x+1), never within a patch, each listed in the
 [CHANGELOG](https://github.com/VeaaC/rapidproto/blob/main/CHANGELOG.md). At 1.0 the promise
-flips: the generated-name layout, the CLI flags, the `rapidproto_generate()` contract, and the
-runtime headers' shape can then break only with a major version, and anything removed by a minor
-release is deprecated in the CHANGELOG at least one minor release earlier — a deprecated
-spelling keeps working through that window.
+flips, and the stable surface is everything a consumer binds to: the generated API (names,
+accessor shapes, callback signatures), the decode-profile file format, the CLI flags, the
+`rapidproto_generate()` contract, and the runtime headers' shape. From then on that surface
+changes in exactly two ways: a major release may break it outright, and a minor release may
+remove a spelling that an **earlier minor deprecated** in the CHANGELOG — so every removal is
+announced at least one minor release in advance, with the old spelling working throughout the
+notice window.
 
 Supported platforms are what CI covers: Linux and macOS, with GCC, Clang and AppleClang.
 **MSVC is not supported** — not tested, no workarounds maintained — until real demand shows up.
+
+---
 
 ## Contributing
 
