@@ -419,9 +419,9 @@ if(RAPIDPROTO_BUILD_TESTS)
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/streamgen_golden)
   # Benchmark-only alignment pinning: 64-byte function entries and loop tops make an arm's
   # address phase independent of where the linker drops its object, collapsing the measured
-  # cross-layout GB/s spread from up to ~22% to ~6.5% worst-arm, mostly <4% (calibrated with
-  # tests/placement_probe.py; 20 shuffled layouts per variant, quiesced box, ins/B flat except
-  # upb's ~1%). The residual mixes run noise, the prebuilt protobuf library these flags cannot
+  # cross-layout GB/s spread from up to ~22% to ~6.5% worst-arm, mostly <4% (shuffle-relink
+  # calibration, 20 layouts per variant, quiesced box, ins/B flat except upb's ~1%; recipe in
+  # docs/benchmarks.md's noise appendix). The residual mixes run noise, the prebuilt protobuf library these flags cannot
   # reach, and loop-phase luck. Bench targets ONLY -- consumers' builds are untouched.
   set(RAPIDPROTO_BENCH_ALIGN -falign-functions=64 -falign-loops=64)
   target_compile_options(rapidproto_bench PRIVATE -O3 -DNDEBUG ${RAPIDPROTO_BENCH_ALIGN})

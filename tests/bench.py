@@ -16,8 +16,8 @@ bench record, each tagged with `"decoder":"stream"|"arena"`. GB/s (measured deco
 PRIMARY signal -- it is what a reader actually cares about and, unlike ins/B, it reflects everything the
 CPU pays for (branch mispredictions, cache/memory stalls), so it is what the compare and the regression
 gate key on. Caveat: across independent builds GB/s carries code-PLACEMENT noise -- calibrated
-with tests/placement_probe.py at ~6% worst-arm (most under 4%) now that the bench builds pin
-64-byte function/loop alignment -- plus frequency drift; the gate keys on the larger of a flat
+by shuffle-relinking (recipe in docs/benchmarks.md's noise appendix) at ~6% worst-arm, most
+under 4%, now that the bench builds pin 64-byte function/loop alignment -- plus frequency drift; the gate keys on the larger of a flat
 threshold (--threshold, default 10%: conservative against those floors) and the arm's own
 measured run-to-run spread; sub-floor cross-build deltas are not reliable (quiesce the box --
 tests/bench_box.sh -- and pin a core).
@@ -537,7 +537,7 @@ def diff(args):
 
     An arm fails only past BOTH the flat threshold (--threshold, default 10% -- conservative
     against the calibrated per-arm placement floors, ~6% worst-arm on the alignment-pinned
-    builds; see tests/placement_probe.py) and its own measured spread_pct. Arms that moved past the flat threshold but stayed inside
+    builds; docs/benchmarks.md's noise appendix) and its own measured spread_pct. Arms that moved past the flat threshold but stayed inside
     their own noise are listed separately and never gated -- an arm that noisy cannot resolve a change
     that size, which is information rather than a pass.
 

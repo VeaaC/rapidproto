@@ -959,10 +959,11 @@ constant, and reproduce rather than quote. What the results mean structurally:
   mispredictions, cache/memory stalls; e.g. random-width packed varints run ~4× slower than
   fixed-width
   at the same ins/B, pure branch-mispredict cost). Cross-binary comparison buries genuine wins in
-  placement noise — the shuffle-relink calibration (`tests/placement_probe.py`) measures worst
-  arms up to ~22% apart across equally-valid layouts of an unaligned build — so the harness
-  measures every arm back-to-back in one binary, where its GB/s and cycle-ratio verdict compare
-  at one placement, and the bench builds pin `-falign-functions=64 -falign-loops=64`, which the
+  placement noise — the shuffle-relink calibration (recipe in benchmarks.md's noise appendix)
+  measures worst arms up to ~22% apart across equally-valid layouts of an unaligned build — so
+  the harness measures every arm back-to-back in one binary, where its GB/s and cycle-ratio
+  verdict compare at one placement, and the bench builds pin
+  `-falign-functions=64 -falign-loops=64`, which the
   same calibration measures at a ~6% worst-arm (mostly <4%) cross-build floor; the cross-build
   regression gate then keys on GB/s past the larger of a flat threshold (default 10%,
   conservative against those floors) and the arm's own measured spread. A genuine *sub*-floor codegen
@@ -1012,8 +1013,8 @@ numbers, the selection recipe, and the CONFIG-vs-module resolution details all l
 (1–2 ns/field), so throughput is dominated by **code placement**: which address a function lands at and
 the resulting alignment / branch-predictor behavior. Two **byte-for-byte identical** decode functions in
 one binary measure ~10% apart, and across relinked layouts the worst arms measure up to ~22%
-apart (calibrated with `tests/placement_probe.py`; the bench builds' 64-byte alignment pinning
-brings that to ~6%). Consequences for anyone profiling this code:
+apart (shuffle-relink calibration, recipe in benchmarks.md's noise appendix; the bench builds'
+64-byte alignment pinning brings that to ~6%). Consequences for anyone profiling this code:
 
 - **Compare structures at controlled placement.** A reliable A/B puts both variants in *one* binary,
   measured in both orders. Comparing across binaries, or a generated function against a
@@ -1135,11 +1136,6 @@ reflected (a documented simplification; decoders accept both wire forms).
 
   See [Decoder performance](#decoder-performance) for how to read the numbers (and the placement
   noise floor).
-
-- **Placement calibration:** `tests/placement_probe.py` relinks the already-built bench objects
-  across lld-shuffled section layouts and reports each arm's cross-layout GB/s spread (with a
-  same-layout rerun as the run-noise reference) — the instrument behind the per-arm placement
-  floors and the alignment-pinning verdict.
 
 - **Compile-time / code-size benchmark:** `tests/compile_bench.py` (`run` / `table` / `diff`) measures what
   the generated decoders cost to *build* — wall seconds, `.text` bytes, and the compiler's peak

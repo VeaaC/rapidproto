@@ -263,8 +263,7 @@ Why `--repeat`, the `noise` column and the quiesce step exist — and what pins 
 
 **Placement across builds.** Decode hot loops are short enough that the address a function
 lands at (cache-line phase, uop-cache packing) moves its throughput with its instruction count
-unchanged. Measured directly — `tests/placement_probe.py` relinks the identical objects with
-lld's `--shuffle-sections` and runs each layout — the worst arms spread up to **~22%** across
+unchanged. Measured directly (2026-09, recipe below) — the worst arms spread up to **~22%** across
 20 equally-valid layouts of an unaligned build, ins/B flat at 0.0% (upb excepted at ~1% —
 its work adapts slightly, so its row is an upper bound, not pure placement). The bench targets
 therefore compile with `-falign-functions=64 -falign-loops=64`, which pins every function's and
@@ -276,8 +275,12 @@ noise documented below. Two consequences: cross-build GB/s deltas are meaningful
 per-arm figures rather than a folklore ~10%; and alignment picks ONE phase — for most arms a
 middle-of-the-lottery one, but for one (`rv fx1 1M` streaming) the pinned phase sits at the
 BOTTOM of the old distribution, a ~20% median drop with identical instruction counts. The
-flags trade that lottery for repeatability; re-derive the floors with the probe after any
-codegen change. Measured on one quiesced Linux box;
+flags trade that lottery for repeatability. Re-deriving the floors after a codegen change is
+a one-hour tool: relink the built bench objects per layout (append `-fuse-ld=lld
+-Wl,--shuffle-sections=.text*=<seed>` and a fresh `-o` to CMake's `link.txt` command), run the
+scenarios of interest per layout (`RAPIDPROTO_BENCH_JSON=1 RAPIDPROTO_BENCH_ONLY=<pattern>`,
+pinned, quiesced), take each arm's (max−min)/median across seeds, and rerun one layout twice —
+that same-layout delta is the run-noise share of every spread. Measured on one quiesced Linux box;
 treat the magnitudes as illustrative and the *method* as the transferable part. "Range" below means
 (max − min) / min across an arm's runs, used only to describe the tables; the gate's own
 statistic is
