@@ -77,6 +77,10 @@ class Source:
     license: str
     why: str
     probe: str  # must exist after a good fetch; its absence means the patterns went stale
+    # True for sources that carry no .proto files (bench baselines riding the corpus fetcher):
+    # they contribute nothing to the parse sweep, so their ABSENCE must not fail corpus_gate's
+    # completeness check -- an old corpus without them still swept every schema it claims to.
+    protoless: bool = False
 
 
 SOURCES: list[Source] = [
@@ -164,6 +168,39 @@ SOURCES: list[Source] = [
             "-- pinned to a SHA because upstream has no release tags."
         ),
         probe="google/rpc/status.proto",
+    ),
+    Source(
+        name="libosmium",
+        repo="https://github.com/osmcode/libosmium",
+        ref="v2.23.1",
+        sha="97dccf105391d410701ae8bd52170dc0ee041373",
+        patterns=["/include/**"],
+        include_root="include",
+        license="BSL-1.0",
+        why=(
+            "The de-facto standard C++ OSM library: the baseline arm of the OSM PBF benchmark "
+            "scenario (tests/bench_arm_osm.cpp) reads the dataset through it, compiled from "
+            "this pin. Header-only; carries no .proto files, so it adds nothing to the parse "
+            "sweep. Its PBF reader needs protozero (pinned below) and zlib."
+        ),
+        probe="include/osmium/io/pbf_input.hpp",
+        protoless=True,
+    ),
+    Source(
+        name="protozero",
+        repo="https://github.com/mapbox/protozero",
+        ref="v1.8.2",
+        sha="af2f6e274e0a873a00e34d8c9ab99fca76898047",
+        patterns=["/include/**"],
+        include_root="include",
+        license="BSD-2-Clause",
+        why=(
+            "libosmium's protobuf layer, and the zero-copy baseline the Dataset arm already "
+            "measures against a system install. Fetching it pinned puts BOTH uses on one "
+            "recorded version whenever the corpus is present. Header-only, no .proto files."
+        ),
+        probe="include/protozero/pbf_reader.hpp",
+        protoless=True,
     ),
 ]
 

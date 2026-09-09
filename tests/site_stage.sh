@@ -29,6 +29,7 @@ mkdir -p "$dest/examples"
 cp "$root"/README.md "$root"/LICENSE "$root"/NOTICE "$root"/THIRD_PARTY_NOTICES.md "$dest/"
 cp -R "$root/docs" "$dest/docs"
 cp -R "$root/examples/consumer" "$dest/examples/consumer"
+cp -R "$root/examples/osm-pbf" "$dest/examples/osm-pbf"
 
 # The site chrome: config, the sidebar layout + nav data, the stylesheet, the favicon the layout
 # links from every page, and the social card that doubles as every page's og:image (the

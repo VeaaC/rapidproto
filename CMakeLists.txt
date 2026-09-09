@@ -347,6 +347,8 @@ if(RAPIDPROTO_BUILD_TESTS)
   # Consumer example: exercises rapidproto_generate() end to end -- generate a cross-file schema,
   # compile a TU against it, decode. The in-tree mirror of a downstream find_package/FetchContent user.
   add_subdirectory(examples/consumer)
+  # OSM PBF showcase: real-world decode with both models (skips itself without zlib).
+  add_subdirectory(examples/osm-pbf)
 
   # Standalone decode micro-benchmark, kept OUT of the test binary on purpose: measuring decoders
   # inside the large test binary makes results layout-sensitive (see tests/bench_streamgen.cpp).
@@ -379,6 +381,11 @@ if(RAPIDPROTO_BUILD_TESTS)
   set(GM2_DIR "${CORPUS_DIR}/protobuf-benchmarks/benchmarks/datasets/google_message2")
   set(BENCH_PROTOS "${BENCH_PROTO}")
   set(BENCH_IMPORT_DIRS "${BENCH_PROTO_DIR}")
+  # The OSM PBF schema rides in the same batch (vendored in-tree, so unconditionally): the OSM
+  # bench arm's TU may include ONE generated tree only, and that tree is this batch's.
+  set(OSM_PROTO_DIR "${CMAKE_CURRENT_SOURCE_DIR}/examples/osm-pbf/proto")
+  list(APPEND BENCH_PROTOS "${OSM_PROTO_DIR}/fileformat.proto" "${OSM_PROTO_DIR}/osmformat.proto")
+  list(APPEND BENCH_IMPORT_DIRS "${OSM_PROTO_DIR}")
   if(EXISTS "${GM1_DIR}/benchmark_message1_proto2.proto" AND
      EXISTS "${GM2_DIR}/benchmark_message2.proto")
     set(RAPIDPROTO_GM_PRESENT TRUE)
@@ -584,6 +591,55 @@ if(RAPIDPROTO_BUILD_TESTS)
       message(STATUS
         "arena bench: google_message1/2 scenarios SKIPPED -- protobuf-benchmarks corpus not "
         "fetched. Run: python3 tests/fetch_corpus.py")
+    endif()
+
+    # The pinned protozero, whenever the corpus carries it: BOTH its uses (the Dataset arm's
+    # protozero baseline, libosmium's protobuf layer below) then measure one recorded version
+    # instead of whatever is installed. Independent of the OSM guard on purpose -- the
+    # fetch_corpus.py entry claims exactly this.
+    if(EXISTS "${CORPUS_DIR}/protozero/include/protozero/pbf_reader.hpp")
+      target_include_directories(rapidproto_arena_bench SYSTEM PRIVATE
+        "${CORPUS_DIR}/protozero/include")
+    endif()
+
+    # ── OSM PBF scenarios ──────────────────────────────────────────────────────────────────────
+    # Real-world data against libosmium (the de-facto C++ OSM library) from the corpus pin, plus
+    # protoc on the same blocks; scenario design + checksum convention in tests/bench_arm_osm.hpp.
+    # The rapidproto decoders were generated in the shared bench batch above; this block adds the
+    # protoc arm's codegen and the scenarios' translation unit. Needs the pinned dataset
+    # (tests/fetch_osm_dataset.py), the libosmium+protozero corpus pins, and zlib.
+    set(OSM_DATASET "${CORPUS_DIR}/osm/bremen-250101.osm.pbf")
+    find_package(ZLIB QUIET)
+    find_package(Threads QUIET)
+    if(EXISTS "${OSM_DATASET}"
+       AND EXISTS "${CORPUS_DIR}/libosmium/include/osmium/io/pbf_input.hpp"
+       AND EXISTS "${CORPUS_DIR}/protozero/include/protozero/pbf_reader.hpp"
+       AND ZLIB_FOUND AND Threads_FOUND)
+      add_custom_command(
+        OUTPUT "${BENCH_GEN}/osmformat.pb.cc" "${BENCH_GEN}/osmformat.pb.h"
+        COMMAND ${Protobuf_PROTOC_EXECUTABLE} --cpp_out=${BENCH_GEN}
+                -I${OSM_PROTO_DIR} ${OSM_PROTO_DIR}/osmformat.proto
+        DEPENDS "${OSM_PROTO_DIR}/osmformat.proto"
+        COMMENT "protoc osmformat.proto" VERBATIM)
+      target_sources(rapidproto_arena_bench PRIVATE
+        tests/bench_arm_osm.cpp "${BENCH_GEN}/osmformat.pb.cc")
+      target_compile_definitions(rapidproto_arena_bench PRIVATE
+        RAPIDPROTO_BENCH_OSM
+        RAPIDPROTO_OSM_DATASET="${OSM_DATASET}")
+      # The example's framing/inflate helpers (pbf_input.hpp) are reused by the arm's TU; the
+      # baseline headers are SYSTEM so upstream's warnings stay upstream's business. Putting the
+      # pinned protozero on the include path also moves the Dataset arm's protozero baseline
+      # onto the pin whenever the corpus is present (recorded version > whatever is installed).
+      target_include_directories(rapidproto_arena_bench PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/examples/osm-pbf")
+      target_include_directories(rapidproto_arena_bench SYSTEM PRIVATE
+        "${CORPUS_DIR}/libosmium/include")
+      target_link_libraries(rapidproto_arena_bench PRIVATE ZLIB::ZLIB Threads::Threads)
+    else()
+      message(STATUS
+        "arena bench: osm scenarios SKIPPED -- needs the corpus (libosmium/protozero pins: "
+        "python3 tests/fetch_corpus.py), the dataset (python3 tests/fetch_osm_dataset.py), "
+        "zlib, and Threads.")
     endif()
 
     # ── large real-world schema arm ────────────────────────────────────────────────────────────

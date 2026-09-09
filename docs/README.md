@@ -11,6 +11,7 @@ The user manual, one page per topic. New here? Start with the
 - [using-both-models.md](using-both-models.md) — both models in one TU; coexisting with protoc
 - [profiles.md](profiles.md) — decode profiles (`drop` / `raw`) and unknown-field detection (arena)
 - [integration.md](integration.md) — the `rapidprotoc` CLI reference and the CMake helper
+- [osm-pbf.md](osm-pbf.md) — real-world walkthrough: OSM's planet format with both models
 - [benchmarks.md](benchmarks.md) — the numbers and how to reproduce them
 
 Contributor docs live at the repository root: [architecture.md](https://github.com/VeaaC/rapidproto/blob/main/architecture.md) (internals,
