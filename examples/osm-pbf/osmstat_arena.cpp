@@ -27,11 +27,6 @@ using osmstat::Stats;
 
 namespace {
 
-// A reader must refuse a file whose required_features it does not implement.
-bool feature_supported(std::string_view f) {
-    return f == "OsmSchema-V0.6" || f == "DenseNodes" || f == "HistoricalInformation";
-}
-
 bool unsupported(const char* scheme) {
     std::fprintf(stderr, "osmstat: unsupported blob compression '%s'\n", scheme);
     return true;
@@ -179,28 +174,13 @@ int main(int argc, char** argv) {
         }
         t_decode += clock.take();
 
-        // The payload is a oneof: raw bytes or a compressed encoding. Raw and zlib are
-        // handled; anything else is refused, not guessed at.
-        std::string_view payload;
+        // The payload is a oneof: raw bytes or a compressed encoding. The visitor extracts
+        // the two members this reader handles and refuses the rest; blob_payload() then does
+        // the shared validate-and-inflate step.
+        std::string_view raw, deflated;
         blob->data(
-            [&](pbf::Blob::Data::raw, std::string_view raw) { payload = raw; },
-            [&](pbf::Blob::Data::zlib_data, std::string_view deflated) {
-                clock.take();
-                const std::int64_t raw_size = blob->raw_size().value_or(0);
-                if (raw_size <= 0 || raw_size > osmpbf_input::kMaxRawSize) {
-                    std::fprintf(stderr, "osmstat: bad raw_size %lld\n",
-                                 static_cast<long long>(raw_size));
-                    failed = true;
-                    return;
-                }
-                if (!osmpbf_input::inflate_blob(deflated, static_cast<std::size_t>(raw_size),
-                                                inflated)) {
-                    failed = true;
-                    return;
-                }
-                payload = inflated;
-                t_inflate += clock.take();
-            },
+            [&](pbf::Blob::Data::raw, std::string_view v) { raw = v; },
+            [&](pbf::Blob::Data::zlib_data, std::string_view v) { deflated = v; },
             [&](pbf::Blob::Data::lzma_data, std::string_view) { failed = unsupported("lzma"); },
             [&](pbf::Blob::Data::OBSOLETE_bzip2_data, std::string_view) {
                 failed = unsupported("bzip2");
@@ -214,19 +194,26 @@ int main(int argc, char** argv) {
         if (failed) {
             return 1;
         }
-        payload_bytes += payload.size();
+        clock.take();
+        const auto payload =
+            osmpbf_input::blob_payload(raw, deflated, blob->raw_size().value_or(0), inflated);
+        if (!payload) {
+            return 1;
+        }
+        t_inflate += clock.take();
+        payload_bytes += payload->size();
 
         if (header->type() == "OSMHeader") {
             clock.take();
             const pbf::HeaderBlock* hb =
-                pbf::HeaderBlock::decode(rapidproto::ByteView(payload), arena, &err);
+                pbf::HeaderBlock::decode(rapidproto::ByteView(*payload), arena, &err);
             t_decode += clock.take();
             if (hb == nullptr) {
                 std::fprintf(stderr, "osmstat: bad OSMHeader block\n");
                 return 1;
             }
             for (const std::string_view feature : hb->required_features()) {
-                if (!feature_supported(feature)) {
+                if (!osmstat::feature_supported(feature)) {
                     std::fprintf(stderr, "osmstat: file requires unsupported feature '%s'\n",
                                  std::string(feature).c_str());
                     return 1;
@@ -236,7 +223,7 @@ int main(int argc, char** argv) {
         } else if (header->type() == "OSMData") {
             clock.take();
             const pbf::PrimitiveBlock* block =
-                pbf::PrimitiveBlock::decode(rapidproto::ByteView(payload), arena, &err);
+                pbf::PrimitiveBlock::decode(rapidproto::ByteView(*payload), arena, &err);
             t_decode += clock.take();
             if (block == nullptr) {
                 std::fprintf(stderr, "osmstat: bad PrimitiveBlock (code %d at offset %zu)\n",

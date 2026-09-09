@@ -33,10 +33,6 @@ using osmstat::Stats;
 
 namespace {
 
-bool feature_supported(std::string_view f) {
-    return f == "OsmSchema-V0.6" || f == "DenseNodes" || f == "HistoricalInformation";
-}
-
 bool unsupported(const char* scheme) {
     std::fprintf(stderr, "osmstat: unsupported blob compression '%s'\n", scheme);
     return true;
@@ -209,13 +205,12 @@ int main(int argc, char** argv) {
         // order applies here too -- raw_size usually precedes zlib_data but nothing
         // guarantees it, so the deflated view is only remembered and inflated after decode()
         // returns, when both fields have been seen.
-        std::string_view payload;
-        std::string_view deflated_view;
+        std::string_view raw, deflated;
         std::int64_t raw_size = 0;
         st = pbf::Blob{*blob_bytes}.decode(
             [&](pbf::Blob::raw_size, std::int32_t v) { raw_size = v; },
-            [&](pbf::Blob::raw, std::string_view raw) { payload = raw; },
-            [&](pbf::Blob::zlib_data, std::string_view deflated) { deflated_view = deflated; },
+            [&](pbf::Blob::raw, std::string_view v) { raw = v; },
+            [&](pbf::Blob::zlib_data, std::string_view v) { deflated = v; },
             [&](pbf::Blob::lzma_data, std::string_view) { failed = unsupported("lzma"); },
             [&](pbf::Blob::OBSOLETE_bzip2_data, std::string_view) {
                 failed = unsupported("bzip2");
@@ -226,24 +221,18 @@ int main(int argc, char** argv) {
             std::fprintf(stderr, "osmstat: bad Blob at offset %zu\n", offset);
             return 1;
         }
-        if (!deflated_view.empty()) {
-            clock.take();
-            if (raw_size <= 0 || raw_size > osmpbf_input::kMaxRawSize ||
-                !osmpbf_input::inflate_blob(deflated_view, static_cast<std::size_t>(raw_size),
-                                            inflated)) {
-                std::fprintf(stderr, "osmstat: bad zlib blob (raw_size %lld) at offset %zu\n",
-                             static_cast<long long>(raw_size), offset);
-                return 1;
-            }
-            payload = inflated;
-            t_inflate += clock.take();
+        clock.take();
+        const auto payload = osmpbf_input::blob_payload(raw, deflated, raw_size, inflated);
+        if (!payload) {
+            return 1;
         }
-        payload_bytes += payload.size();
+        t_inflate += clock.take();
+        payload_bytes += payload->size();
 
         if (blob_type == "OSMHeader") {
-            st = pbf::HeaderBlock{payload}.decode(
+            st = pbf::HeaderBlock{*payload}.decode(
                 [&](pbf::HeaderBlock::required_features, std::string_view f) {
-                    if (!feature_supported(f)) {
+                    if (!osmstat::feature_supported(f)) {
                         std::fprintf(stderr, "osmstat: file requires unsupported feature '%s'\n",
                                      std::string(f).c_str());
                         failed = true;
@@ -254,7 +243,7 @@ int main(int argc, char** argv) {
             }
             header_seen = true;
         } else if (blob_type == "OSMData") {
-            if (!walk_block(payload, stats, strings, key_counts)) {
+            if (!walk_block(*payload, stats, strings, key_counts)) {
                 std::fprintf(stderr, "osmstat: bad PrimitiveBlock at offset %zu\n", offset);
                 return 1;
             }

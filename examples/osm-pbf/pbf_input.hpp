@@ -107,6 +107,25 @@ inline bool inflate_blob(std::string_view deflated, std::size_t raw_size, std::s
     return true;
 }
 
+// Resolve a Blob's payload once a main has extracted the oneof members: raw bytes pass
+// through, zlib inflates into the caller's reused buffer. nullopt (already reported) on a bad
+// raw_size or a failed inflate.
+inline std::optional<std::string_view> blob_payload(std::string_view raw,
+                                                    std::string_view deflated,
+                                                    std::int64_t raw_size, std::string& inflated) {
+    if (deflated.empty()) {
+        return raw;
+    }
+    if (raw_size <= 0 || raw_size > kMaxRawSize) {
+        std::fprintf(stderr, "osmstat: bad raw_size %lld\n", static_cast<long long>(raw_size));
+        return std::nullopt;
+    }
+    if (!inflate_blob(deflated, static_cast<std::size_t>(raw_size), inflated)) {
+        return std::nullopt;
+    }
+    return std::string_view{inflated};
+}
+
 // Wall-clock timing for the stderr report: tiny wrapper so the mains read as prose.
 struct Stopwatch {
     using Clock = std::chrono::steady_clock;

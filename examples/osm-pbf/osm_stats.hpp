@@ -89,6 +89,12 @@ struct Stats {
     }
 };
 
+// A reader must refuse a file whose required_features it does not implement; these three are
+// what the osmstat programs handle.
+inline bool feature_supported(std::string_view f) {
+    return f == "OsmSchema-V0.6" || f == "DenseNodes" || f == "HistoricalInformation";
+}
+
 inline double mib_per_s(std::uint64_t bytes, double seconds) {
     return seconds > 0 ? double(bytes) / (1024.0 * 1024.0) / seconds : 0.0;
 }
