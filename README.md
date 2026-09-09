@@ -71,7 +71,7 @@ messages, keep `protoc` for that side and use RapidProto for the hot decode path
 ## Quick start
 
 **Requirements:** C++17 and a recent GCC or Clang (AppleClang included — Linux and macOS are both
-CI-covered). Header-only — nothing to link.
+CI-covered; MSVC is [not supported](#compatibility--stability)). Header-only — nothing to link.
 
 Using CMake? The [`rapidproto_generate()` helper](docs/integration.md#cmake-integration) wires
 generation into your build in a few lines. This section drives the tool by hand so each step is
@@ -195,6 +195,19 @@ A runnable end-to-end example (one schema, both models in one TU, a decode profi
 [`examples/consumer`](examples/consumer).
 
 ---
+
+## Compatibility & stability
+
+Versioning is SemVer-0 until 1.0: **the MINOR version is the breaking axis** — expect breaking
+changes between 0.x and 0.(x+1), never within a patch, each listed in the
+[CHANGELOG](https://github.com/VeaaC/rapidproto/blob/main/CHANGELOG.md). At 1.0 the promise
+flips: the generated-name layout, the CLI flags, the `rapidproto_generate()` contract, and the
+runtime headers' shape can then break only with a major version, and anything removed by a minor
+release is deprecated in the CHANGELOG at least one minor release earlier — a deprecated
+spelling keeps working through that window.
+
+Supported platforms are what CI covers: Linux and macOS, with GCC, Clang and AppleClang.
+**MSVC is not supported** — not tested, no workarounds maintained — until real demand shows up.
 
 ## Contributing
 
