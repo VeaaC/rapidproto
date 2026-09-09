@@ -186,9 +186,14 @@ def main() -> int:
     if not present:
         print(f"corpus not fetched ({corpus}); skipping -- run tests/fetch_corpus.py")
         return SKIP_RC
-    if absent:
+    # Proto-less sources (bench baselines) add nothing to the sweep: a corpus without them
+    # still swept every schema it claims to, so only missing SCHEMA sources are incomplete.
+    schema_absent = [n for n in absent
+                     if not next(s for s in fetch_corpus.SOURCES if s.name == n).protoless]
+    if schema_absent:
         raise SystemExit(
-            f"corpus is INCOMPLETE: {', '.join(absent)} never fetched, while others are present.\n"
+            f"corpus is INCOMPLETE: {', '.join(schema_absent)} never fetched, while others are "
+            f"present.\n"
             f"Sweeping a fraction of the schemas would report the same green result as a full "
             f"run. Re-run tests/fetch_corpus.py."
         )

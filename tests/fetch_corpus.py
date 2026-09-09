@@ -77,6 +77,10 @@ class Source:
     license: str
     why: str
     probe: str  # must exist after a good fetch; its absence means the patterns went stale
+    # True for sources that carry no .proto files (bench baselines riding the corpus fetcher):
+    # they contribute nothing to the parse sweep, so their ABSENCE must not fail corpus_gate's
+    # completeness check -- an old corpus without them still swept every schema it claims to.
+    protoless: bool = False
 
 
 SOURCES: list[Source] = [
@@ -180,6 +184,7 @@ SOURCES: list[Source] = [
             "sweep. Its PBF reader needs protozero (pinned below) and zlib."
         ),
         probe="include/osmium/io/pbf_input.hpp",
+        protoless=True,
     ),
     Source(
         name="protozero",
@@ -195,6 +200,7 @@ SOURCES: list[Source] = [
             "recorded version whenever the corpus is present. Header-only, no .proto files."
         ),
         probe="include/protozero/pbf_reader.hpp",
+        protoless=True,
     ),
 ]
 

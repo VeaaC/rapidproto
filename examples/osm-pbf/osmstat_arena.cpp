@@ -62,24 +62,27 @@ void walk_block(const pbf::PrimitiveBlock* block, Stats& stats,
 
     for (const pbf::PrimitiveGroup& group : block->primitivegroup()) {
         if (const pbf::DenseNodes* dense = group.dense()) {
-            const auto ids = dense->id();
-            const auto lats = dense->lat();
-            const auto lons = dense->lon();
-            // Delta-coded columns: each element is an offset from the previous one. protoc-valid
-            // files keep the three columns the same length; walk the shortest so a hand-broken
-            // file cannot read past an array.
-            std::size_t n = ids.size();
-            n = std::min({n, lats.size(), lons.size()});
-            std::int64_t id = 0, lat = 0, lon = 0;
-            for (std::size_t i = 0; i < n; ++i) {
-                id += ids[i];
-                lat += lats[i];
-                lon += lons[i];
-                stats.id_sum += static_cast<std::uint64_t>(id);
-                stats.see_lat(lat_offset + granularity * lat);
-                stats.see_lon(lon_offset + granularity * lon);
+            // Delta-coded columns: each element is an offset from the previous one. The three
+            // columns are walked INDEPENDENTLY (the node count from ids, per-axis bbox
+            // aggregates from lat/lon) so both models compute the same result even on a
+            // hand-broken file with ragged column lengths -- and the accumulation runs in
+            // uint64 (via coord_nano), where the wraparound a hostile delta can force is
+            // defined behavior.
+            std::uint64_t id = 0;
+            for (const std::int64_t d : dense->id()) {
+                id += static_cast<std::uint64_t>(d);
+                stats.id_sum += id;
             }
-            stats.dense_nodes += n;
+            std::int64_t lat = 0, lon = 0;
+            for (const std::int64_t d : dense->lat()) {
+                lat = osmstat::coord_nano(lat, 1, d);  // lat += d, wrap-safe
+                stats.see_lat(osmstat::coord_nano(lat_offset, granularity, lat));
+            }
+            for (const std::int64_t d : dense->lon()) {
+                lon = osmstat::coord_nano(lon, 1, d);
+                stats.see_lon(osmstat::coord_nano(lon_offset, granularity, lon));
+            }
+            stats.dense_nodes += dense->id().size();
             // keys_vals: (key val)* pairs per node, 0-terminated. Tags only -- the node boundary
             // marker carries no data.
             const auto kv = dense->keys_vals();
@@ -98,8 +101,8 @@ void walk_block(const pbf::PrimitiveBlock* block, Stats& stats,
         for (const pbf::Node& node : group.nodes()) {
             ++stats.plain_nodes;
             stats.id_sum += static_cast<std::uint64_t>(node.id());
-            stats.see_lat(lat_offset + granularity * node.lat());
-            stats.see_lon(lon_offset + granularity * node.lon());
+            stats.see_lat(osmstat::coord_nano(lat_offset, granularity, node.lat()));
+            stats.see_lon(osmstat::coord_nano(lon_offset, granularity, node.lon()));
             for (const std::uint32_t k : node.keys()) {
                 ++stats.node_tags;
                 count_key(k);
@@ -149,8 +152,12 @@ int main(int argc, char** argv) {
 
     Stats stats;
     std::vector<std::uint64_t> key_counts;
-    std::string inflated;                         // reused across blocks
-    std::vector<char> scratch(8u * 1024 * 1024);  // arena seed, reused across blocks
+    std::string inflated;  // reused across blocks
+    // One arena for the whole run, seeded so typical blocks never malloc; reset() rewinds it
+    // per block and KEEPS any chunk a large block forced, so steady-state decoding allocates
+    // nothing. Everything decoded from a blob -- tree and borrowed views -- dies at its reset.
+    std::vector<char> scratch(8u * 1024 * 1024);
+    rapidproto::Arena arena(scratch.data(), scratch.size());
     double t_inflate = 0, t_decode = 0, t_walk = 0;
     std::uint64_t payload_bytes = 0;
     bool header_seen = false;
@@ -159,9 +166,8 @@ int main(int argc, char** argv) {
     std::size_t offset = 0;
     osmpbf_input::Framed frame;
     while (!failed && osmpbf_input::next_frame(*file, offset, frame)) {
-        // Fresh arena per blob, seeded with the reused scratch buffer: steady-state decoding
-        // allocates nothing. Everything decoded from this blob dies at the loop's end.
-        rapidproto::Arena arena(scratch.data(), scratch.size());
+        const std::size_t frame_offset = offset - frame.header_bytes.size() - 4;
+        arena.reset();
         rapidproto::ArenaDecodeError err{};
 
         clock.take();
@@ -169,14 +175,13 @@ int main(int argc, char** argv) {
             pbf::BlobHeader::decode(rapidproto::ByteView(frame.header_bytes), arena, &err);
         if (header == nullptr ||
             !osmpbf_input::take_blob(*file, offset, header->datasize(), frame)) {
-            std::fprintf(stderr, "osmstat: bad BlobHeader at offset %zu\n", offset);
+            std::fprintf(stderr, "osmstat: bad BlobHeader at offset %zu\n", frame_offset);
             return 1;
         }
         const pbf::Blob* blob =
             pbf::Blob::decode(rapidproto::ByteView(frame.blob_bytes), arena, &err);
         if (blob == nullptr) {
-            std::fprintf(stderr, "osmstat: bad Blob (%s)\n",
-                         frame.header_bytes.size() ? "decode" : "empty");
+            std::fprintf(stderr, "osmstat: bad Blob at offset %zu\n", frame_offset);
             return 1;
         }
         t_decode += clock.take();
@@ -189,8 +194,13 @@ int main(int argc, char** argv) {
             [&](pbf::Blob::Data::zlib_data, std::string_view deflated) {
                 clock.take();
                 const std::int64_t raw_size = blob->raw_size().value_or(0);
-                if (raw_size < 0 || raw_size > 2 * 32 * 1024 * 1024 ||
-                    !osmpbf_input::inflate_blob(deflated, static_cast<std::size_t>(raw_size),
+                if (raw_size <= 0 || raw_size > osmpbf_input::kMaxRawSize) {
+                    std::fprintf(stderr, "osmstat: bad raw_size %lld\n",
+                                 static_cast<long long>(raw_size));
+                    failed = true;
+                    return;
+                }
+                if (!osmpbf_input::inflate_blob(deflated, static_cast<std::size_t>(raw_size),
                                                 inflated)) {
                     failed = true;
                     return;

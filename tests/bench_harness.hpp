@@ -329,7 +329,11 @@ inline Stat stat(std::vector<double> v) {
 // [[nodiscard]]: a silently dropped verdict is exactly how the arena bench's cross-check claim once
 // went false -- make the next dropped one a warning, which the gate's build-output check fails on
 // (the benches are not -Werror builds).
-[[nodiscard]] inline int run(const char* scenario, double byte_size, const std::vector<Arm>& arms) {
+// `budget_ns` / `min_rounds` widen the defaults for scenarios whose single round is expensive
+// (the OSM file pass costs seconds): the defaults would terminate them after ~2 rounds with a
+// CI computed from nothing.
+[[nodiscard]] inline int run(const char* scenario, double byte_size, const std::vector<Arm>& arms,
+                             double budget_ns = 3.0e9, std::size_t min_rounds = 30) {
     if (!scenario_selected(scenario)) {
         return 0;
     }
@@ -337,9 +341,9 @@ inline Stat stat(std::vector<double> v) {
     const Counters cnt = metric_fds();
     const bool cyc = cnt.cyc >= 0;
     const bool ins = cnt.instr >= 0;
-    constexpr std::size_t kMinRounds =
-        30;  // floor; a null (wash) result self-extends for tighter CI
-    constexpr double kBudgetNs = 3.0e9;
+    const std::size_t kMinRounds =
+        min_rounds;  // floor; a null (wash) result self-extends for tighter CI
+    const double kBudgetNs = budget_ns;
     // A ratio's verdict is CONFIDENT once the effect is clearly non-zero (|mean-1| > 3 CI, so the
     // sign and rough size are settled) OR the CI is tight enough to confidently call it a wash. We
     // sample until every arm is confident, then stop; we only warn "noisy" if the budget runs out
@@ -474,7 +478,8 @@ inline Stat stat(std::vector<double> v) {
         advance(std::snprintf(rate + at, sizeof rate - at, "%6.3f GB/s", gb_s));
         if (cyc_b >= 0) {
             advance(std::snprintf(rate + at, sizeof rate - at, " %5.2f cyc/B", cyc_b));
-        } else if (arms[k].threaded) {
+        } else if (cyc && arms[k].threaded) {
+            // counters exist but see only the calling thread -- say why the column is absent
             advance(std::snprintf(rate + at, sizeof rate - at, " (multi-thread)"));
         }
         if (ins_b >= 0) {

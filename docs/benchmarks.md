@@ -100,9 +100,11 @@ format and the two example programs this scenario grew from). The dataset is a p
 sha256-verified Geofabrik extract (`tests/fetch_osm_dataset.py`; Bremen, ~20 MB — 1.6 M nodes,
 320 K ways, full metadata), the baseline is **libosmium** — the de-facto standard C++ OSM
 library — compiled from a corpus pin, and every arm computes one cross-validated checksum that
-covers ids, coordinates, metadata, resolved way refs and relation members, and a per-tag
-stringtable access (`tests/bench_arm_osm.hpp` documents the convention). Measured like the
-tables above (g++-13, protobuf 4.25.3, libosmium 2.23.1, quiesced box).
+covers ids, coordinates, metadata, resolved way refs and relation members, and per-tag
+key/value/role stringtable accesses (`tests/bench_arm_osm.hpp` documents the convention, and
+the reuse rules: protoc keeps one message across blocks — its standard repeated-parse idiom,
+and its fastest). Measured like the tables above (g++-13, protobuf 4.25.3, libosmium 2.23.1,
+quiesced box).
 
 PBF blobs are zlib-deflated, and inflate rivals the protobuf work itself — so the comparison is
 split rather than blended:
@@ -112,29 +114,33 @@ payload):
 
 | arm | MB/s | vs protoc |
 |---|---|---|
-| protoc | 117 | baseline |
-| arena | 461 | **+292%** |
-| streaming | 472 | **+304%** |
+| protoc | 273 | baseline |
+| arena (cold) | 443 | +62% |
+| arena (warm) | 447 | **+63%** |
+| streaming | 432 | **+58%** |
 
 **End to end** (raw file bytes in memory → framing, blob decode, inflate, block decode, walk;
 MB/s of file bytes):
 
 | arm | MB/s | vs arena |
 |---|---|---|
-| arena | 57 | baseline |
-| streaming | 58 | +1.3% |
+| arena (warm) | 57 | baseline |
+| streaming | 56 | −0.3% (a wash) |
 | libosmium | 21 | **−63%** |
 
-Two honest readings. First, the end-to-end table is mostly a zlib table: the same arena decode
-that runs at 461 MB/s on inflated payload lands at 57 MB/s end-to-end, and arena-vs-streaming
-collapses to a wash — any "how fast does X read PBF" number that doesn't isolate inflate is
-benchmarking the compressor. Second, the libosmium comparison is **single-core by
-construction**: the harness pins the process to one core, so libosmium's reader threads (it
-inflates and parses on a pool; that concurrency is a real strength on unpinned machines) share
-that core, and the scenario is compared on wall time — libosmium's per-byte counter columns
-would be main-thread-only fictions and are not reported. libosmium also materializes full OSM
-objects by definition (that is its model); the arena arm is the like-for-like materializing
-comparison, and it reads the same data ~2.7× faster on that one core.
+Three honest readings. First, the end-to-end table is mostly a zlib table: the same arena
+decode that runs at 447 MB/s over inflated payload delivers ~128 MB/s of inflated payload
+end-to-end (the framing + inflate tax is ~3.5×), and arena-vs-streaming collapses to a wash —
+any "how fast does X read PBF" number that doesn't isolate inflate is benchmarking the
+compressor. Second, the libosmium comparison is **single-core, enforced before its thread pool
+exists**: the harness pins the process to one core and the OSM arm forces that pin before
+libosmium's lazy pool is born, so its reader threads (a real strength on unpinned machines)
+share that core, and the scenario is compared on wall time — libosmium's per-byte counter
+columns would be main-thread-only fictions and are not reported. libosmium also materializes
+full OSM objects by definition (that is its model); the arena arm is the like-for-like
+materializing comparison, and it reads the same data **~2.7× faster** on that one core. Third,
+the cold and warm arena rows nearly coincide here — at ~187 KB per block, arena construction is
+noise — so the lead over a message-reusing protoc is the decoders', not an allocator trick's.
 
 ## Arena vs streaming (the two RapidProto models)
 
@@ -153,7 +159,9 @@ report), so measure your own payloads rather than trusting one ratio as universa
 
 ## Reproducing
 
-The benches need `libprotobuf-dev` (+ a matching `protoc`) and `protozero` installed;
+The benches need `libprotobuf-dev` (+ a matching `protoc`) and `protozero` installed —
+though when the corpus is fetched, the protozero arm compiles against the corpus **pin**
+(v1.8.2) rather than the system install, so the measured version is recorded;
 `rapidproto_arena_bench` is built only when protobuf is found — and both bench targets
 exist only on Linux (`tests/bench_harness.hpp` is built on `perf_event` self-monitoring
 and refuses other platforms). The corpus-dependent scenarios (upb, google_message1/2, the

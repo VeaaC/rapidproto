@@ -2,7 +2,7 @@
 # executables from one generated schema batch, deliberately SEPARATE so a reader studies one
 # model at a time:
 #   osmstat-arena  -- materialize each PrimitiveBlock, walk the arrays (osmstat_arena.cpp)
-#   osmstat-stream -- single-pass callbacks, zero allocation per block (osmstat_stream.cpp)
+#   osmstat-stream -- callback walks, nothing materialized (osmstat_stream.cpp)
 # Both print identical statistics for the same input (a CTest holds them to that), timing to
 # stderr. Built like the consumer example: in-tree under RAPIDPROTO_BUILD_TESTS, or standalone
 # against an installed rapidproto. zlib is a dependency of THIS EXAMPLE (PBF blobs are
@@ -43,4 +43,6 @@ if(Python3_FOUND)
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/testdata/check_fixture.py
             ${CMAKE_CURRENT_SOURCE_DIR}/testdata/mini.osm.pbf
             $<TARGET_FILE:osmstat-arena> $<TARGET_FILE:osmstat-stream>)
+else()
+  message(STATUS "rapidproto: python3 not found -- the osmstat fixture test will NOT run")
 endif()

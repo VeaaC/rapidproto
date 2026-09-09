@@ -128,7 +128,8 @@ std::uint64_t arena_block_sum(const osm_a::PrimitiveBlock* b) {
                     continue;
                 }
                 h += first_byte(sv(static_cast<std::uint32_t>(kv[i])));
-                ++i;
+                ++i;  // the value slot
+                h += first_byte(sv(static_cast<std::uint32_t>(kv[i])));
             }
         }
         for (const osm_a::Node& node : g.nodes()) {
@@ -136,6 +137,9 @@ std::uint64_t arena_block_sum(const osm_a::PrimitiveBlock* b) {
                  loc(node.lon(), gran, lon_off) + info_sum(node.info());
             for (const std::uint32_t k : node.keys()) {
                 h += first_byte(sv(k));
+            }
+            for (const std::uint32_t v : node.vals()) {
+                h += first_byte(sv(v));
             }
         }
         for (const osm_a::Way& way : g.ways()) {
@@ -148,6 +152,9 @@ std::uint64_t arena_block_sum(const osm_a::PrimitiveBlock* b) {
             for (const std::uint32_t k : way.keys()) {
                 h += first_byte(sv(k));
             }
+            for (const std::uint32_t v : way.vals()) {
+                h += first_byte(sv(v));
+            }
         }
         for (const osm_a::Relation& rel : g.relations()) {
             h += kRelation * u(rel.id()) + info_sum(rel.info());
@@ -158,6 +165,15 @@ std::uint64_t arena_block_sum(const osm_a::PrimitiveBlock* b) {
             }
             for (const std::uint32_t k : rel.keys()) {
                 h += first_byte(sv(k));
+            }
+            for (const std::uint32_t v : rel.vals()) {
+                h += first_byte(sv(v));
+            }
+            for (const std::int32_t r : rel.roles_sid()) {
+                h += first_byte(sv(static_cast<std::uint32_t>(r)));
+            }
+            for (const auto ty : rel.types()) {
+                h += u(static_cast<std::int64_t>(ty));
             }
         }
     }
@@ -193,13 +209,20 @@ std::uint64_t protoc_block_sum(const ::OSMPBF::PrimitiveBlock& b) {
     for (const ::OSMPBF::PrimitiveGroup& g : b.primitivegroup()) {
         if (g.has_dense()) {
             const ::OSMPBF::DenseNodes& d = g.dense();
-            const int n = std::min({d.id_size(), d.lat_size(), d.lon_size()});
+            // Columns walked independently (commutative sums), the same shape as the
+            // streaming arm -- so the arms agree even on ragged column lengths.
             std::int64_t id = 0, lat = 0, lon = 0;
-            for (int i = 0; i < n; ++i) {
+            for (int i = 0; i < d.id_size(); ++i) {
                 id += d.id(i);
+                h += kNode * u(id);
+            }
+            for (int i = 0; i < d.lat_size(); ++i) {
                 lat += d.lat(i);
+                h += loc(lat, gran, lat_off);
+            }
+            for (int i = 0; i < d.lon_size(); ++i) {
                 lon += d.lon(i);
-                h += kNode * u(id) + loc(lat, gran, lat_off) + loc(lon, gran, lon_off);
+                h += loc(lon, gran, lon_off);
             }
             if (d.has_denseinfo()) {
                 const ::OSMPBF::DenseInfo& di = d.denseinfo();
@@ -229,7 +252,8 @@ std::uint64_t protoc_block_sum(const ::OSMPBF::PrimitiveBlock& b) {
                     continue;
                 }
                 h += first_byte(sv(static_cast<std::uint32_t>(d.keys_vals(i))));
-                ++i;
+                ++i;  // the value slot
+                h += first_byte(sv(static_cast<std::uint32_t>(d.keys_vals(i))));
             }
         }
         for (const ::OSMPBF::Node& node : g.nodes()) {
@@ -237,6 +261,9 @@ std::uint64_t protoc_block_sum(const ::OSMPBF::PrimitiveBlock& b) {
                  loc(node.lon(), gran, lon_off) + info_sum(node.info(), node.has_info());
             for (int i = 0; i < node.keys_size(); ++i) {
                 h += first_byte(sv(node.keys(i)));
+            }
+            for (int i = 0; i < node.vals_size(); ++i) {
+                h += first_byte(sv(node.vals(i)));
             }
         }
         for (const ::OSMPBF::Way& way : g.ways()) {
@@ -249,6 +276,9 @@ std::uint64_t protoc_block_sum(const ::OSMPBF::PrimitiveBlock& b) {
             for (int i = 0; i < way.keys_size(); ++i) {
                 h += first_byte(sv(way.keys(i)));
             }
+            for (int i = 0; i < way.vals_size(); ++i) {
+                h += first_byte(sv(way.vals(i)));
+            }
         }
         for (const ::OSMPBF::Relation& rel : g.relations()) {
             h += kRelation * u(rel.id()) + info_sum(rel.info(), rel.has_info());
@@ -259,6 +289,15 @@ std::uint64_t protoc_block_sum(const ::OSMPBF::PrimitiveBlock& b) {
             }
             for (int i = 0; i < rel.keys_size(); ++i) {
                 h += first_byte(sv(rel.keys(i)));
+            }
+            for (int i = 0; i < rel.vals_size(); ++i) {
+                h += first_byte(sv(rel.vals(i)));
+            }
+            for (int i = 0; i < rel.roles_sid_size(); ++i) {
+                h += first_byte(sv(static_cast<std::uint32_t>(rel.roles_sid(i))));
+            }
+            for (int i = 0; i < rel.types_size(); ++i) {
+                h += u(static_cast<std::int64_t>(rel.types(i)));
             }
         }
     }
@@ -303,7 +342,8 @@ std::uint64_t stream_block_sum(std::string_view payload, std::vector<std::string
         [&](osm_s::PrimitiveBlock::primitivegroup, osm_s::PrimitiveGroup group) {
             std::int64_t dn_id = 0, dn_lat = 0, dn_lon = 0;
             std::int64_t di_t = 0, di_c = 0, di_ui = 0, di_us = 0;
-            std::int64_t pending = -1, way_ref = 0, rel_mem = 0;
+            std::int64_t pending = 0, way_ref = 0, rel_mem = 0;
+            bool have_pending = false;  // explicit: a NEGATIVE key is valid and must still pair
             return group.decode(
                 [&](osm_s::PrimitiveGroup::dense, osm_s::DenseNodes dense) {
                     return dense.decode(
@@ -320,11 +360,13 @@ std::uint64_t stream_block_sum(std::string_view payload, std::vector<std::string
                             h += loc(dn_lon, gran, lon_off);
                         },
                         [&](osm_s::DenseNodes::keys_vals, std::int32_t v) {
-                            if (pending >= 0) {
-                                h += first_byte(sv(static_cast<std::uint32_t>(pending)));
-                                pending = -1;
+                            if (have_pending) {  // v is the value of the pending key
+                                h += first_byte(sv(static_cast<std::uint32_t>(pending))) +
+                                     first_byte(sv(static_cast<std::uint32_t>(v)));
+                                have_pending = false;
                             } else if (v != 0) {
                                 pending = v;
+                                have_pending = true;
                             }
                         },
                         [&](osm_s::DenseNodes::denseinfo, osm_s::DenseInfo di) {
@@ -354,6 +396,7 @@ std::uint64_t stream_block_sum(std::string_view payload, std::vector<std::string
                         [&](osm_s::Node::lat, std::int64_t v) { h += loc(v, gran, lat_off); },
                         [&](osm_s::Node::lon, std::int64_t v) { h += loc(v, gran, lon_off); },
                         [&](osm_s::Node::keys, std::uint32_t k) { h += first_byte(sv(k)); },
+                        [&](osm_s::Node::vals, std::uint32_t v) { h += first_byte(sv(v)); },
                         [&](osm_s::Node::info, osm_s::Info info) { return info_cb(info); });
                 },
                 [&](osm_s::PrimitiveGroup::ways, osm_s::Way way) {
@@ -365,6 +408,7 @@ std::uint64_t stream_block_sum(std::string_view payload, std::vector<std::string
                             h += u(way_ref);
                         },
                         [&](osm_s::Way::keys, std::uint32_t k) { h += first_byte(sv(k)); },
+                        [&](osm_s::Way::vals, std::uint32_t v) { h += first_byte(sv(v)); },
                         [&](osm_s::Way::info, osm_s::Info info) { return info_cb(info); });
                 },
                 [&](osm_s::PrimitiveGroup::relations, osm_s::Relation rel) {
@@ -376,6 +420,13 @@ std::uint64_t stream_block_sum(std::string_view payload, std::vector<std::string
                             h += u(rel_mem);
                         },
                         [&](osm_s::Relation::keys, std::uint32_t k) { h += first_byte(sv(k)); },
+                        [&](osm_s::Relation::vals, std::uint32_t v) { h += first_byte(sv(v)); },
+                        [&](osm_s::Relation::roles_sid, std::int32_t r) {
+                            h += first_byte(sv(static_cast<std::uint32_t>(r)));
+                        },
+                        [&](osm_s::Relation::types, osm_s::Relation::MemberType ty) {
+                            h += u(static_cast<std::int64_t>(ty));
+                        },
                         [&](osm_s::Relation::info, osm_s::Info info) { return info_cb(info); });
                 });
         });
@@ -399,6 +450,7 @@ struct SumHandler : public osmium::handler::Handler {
         std::uint64_t t = 0;
         for (const osmium::Tag& tag : o.tags()) {
             t += static_cast<unsigned char>(tag.key()[0]);
+            t += static_cast<unsigned char>(tag.value()[0]);
         }
         return t;
     }
@@ -417,7 +469,10 @@ struct SumHandler : public osmium::handler::Handler {
     void relation(const osmium::Relation& r) {
         h += kRelation * u(r.id()) + meta(r) + tags(r);
         for (const osmium::RelationMember& m : r.members()) {
-            h += u(m.ref());
+            // role: first byte, like every tag string. type: osmium's item_type is the PBF
+            // enum value + 1 (node 1/way 2/relation 3 vs NODE 0/WAY 1/RELATION 2).
+            h += u(m.ref()) + static_cast<unsigned char>(m.role()[0]) +
+                 u(static_cast<std::int64_t>(m.type()) - 1);
         }
     }
 };
@@ -536,6 +591,13 @@ std::uint64_t rp_file_sum(const std::string& file_bytes, std::string& inflated, 
         }
         if (header->type() == "OSMData") {
             h += block(payload);
+        } else if (header->type() == "OSMHeader") {
+            // Parsed (and discarded) so the arm does the header work libosmium's reader also
+            // does; it contributes nothing to the checksum in any arm.
+            rapidproto::Arena ha;
+            if (osm_a::HeaderBlock::decode(rapidproto::ByteView(payload), ha) == nullptr) {
+                return 0;
+            }
         }
     }
     return h;
@@ -544,6 +606,18 @@ std::uint64_t rp_file_sum(const std::string& file_bytes, std::string& inflated, 
 }  // namespace
 
 int run_arm() {
+    // Nothing here is free (the validation alone decodes the dataset seven ways), so honor the
+    // scenario filter before doing any of it.
+    if (!rpbench::scenario_selected("osm_blocks") && !rpbench::scenario_selected("osm_file")) {
+        return 0;
+    }
+    // Pin the main thread NOW: libosmium's worker pool is a lazy static that inherits the
+    // affinity of the thread that first touches it, and the first touch is the validation call
+    // below -- before any rpbench::run() would have pinned us. Without this, a scenario filter
+    // that suppresses every earlier scenario births the pool unpinned and "single-core by
+    // construction" silently becomes multi-core.
+    (void)rpbench::metric_fds();
+
     const Loaded data = load_dataset(RAPIDPROTO_OSM_DATASET);
     if (!data.ok) {
         // Degrade, don't fail: the dataset is fetched separately (tests/fetch_osm_dataset.py)
@@ -581,7 +655,9 @@ int run_arm() {
         std::string scratch;
         const std::uint64_t c_arena_file = rp_file_sum(data.file, scratch, [&](std::string_view p) {
             rapidproto::Arena a;
-            return arena_block_sum(osm_a::PrimitiveBlock::decode(rapidproto::ByteView(p), a));
+            const osm_a::PrimitiveBlock* pb =
+                osm_a::PrimitiveBlock::decode(rapidproto::ByteView(p), a);
+            return pb != nullptr ? arena_block_sum(pb) : std::uint64_t{0};
         });
         std::vector<std::string_view> s2;
         bool s2_ok = true;
@@ -606,29 +682,46 @@ int run_arm() {
 
     int bad = 0;
 
-    // osm_blocks: the protobuf layer alone (payloads pre-inflated, untimed).
+    // osm_blocks: the protobuf layer alone (payloads pre-inflated, untimed). Reuse is granted
+    // symmetrically: protoc keeps ONE message across blocks (its standard repeated-parse idiom,
+    // and its fastest -- a fresh message per block would hand the arena rows a ~2x head start
+    // that belongs to allocator churn, not decoding), the warm arena row resets one arena the
+    // same way, and the cold row pays full construction per block so the reuse-free cost stays
+    // visible too.
     {
         rapidproto::Arena warm;
+        ::OSMPBF::PrimitiveBlock reused;
         std::vector<std::string_view> strings;
         std::vector<rpbench::Arm> arms = {
             {"protoc",
              [&]() {
                  std::uint64_t h = 0;
                  for (const std::string& p : data.payloads) {
-                     ::OSMPBF::PrimitiveBlock pb;
-                     if (pb.ParseFromArray(p.data(), static_cast<int>(p.size()))) {
-                         h += protoc_block_sum(pb);
+                     if (reused.ParseFromArray(p.data(), static_cast<int>(p.size()))) {
+                         h += protoc_block_sum(reused);
                      }
                  }
                  return h;
              }},
-            {"arena",
+            {"arena-warm",
              [&]() {
                  std::uint64_t h = 0;
                  for (const std::string& p : data.payloads) {
                      warm.reset();
-                     h += arena_block_sum(
-                         osm_a::PrimitiveBlock::decode(rapidproto::ByteView(p), warm));
+                     const osm_a::PrimitiveBlock* pb =
+                         osm_a::PrimitiveBlock::decode(rapidproto::ByteView(p), warm);
+                     h += pb != nullptr ? arena_block_sum(pb) : 0;
+                 }
+                 return h;
+             }},
+            {"arena-cold",
+             [&]() {
+                 std::uint64_t h = 0;
+                 for (const std::string& p : data.payloads) {
+                     rapidproto::Arena a;
+                     const osm_a::PrimitiveBlock* pb =
+                         osm_a::PrimitiveBlock::decode(rapidproto::ByteView(p), a);
+                     h += pb != nullptr ? arena_block_sum(pb) : 0;
                  }
                  return h;
              }},
@@ -642,7 +735,10 @@ int run_arm() {
                  return ok ? h : 0;
              }},
         };
-        const int r = rpbench::run("osm_blocks", static_cast<double>(data.payload_bytes), arms);
+        // Wider budget than the default: one round costs ~1s here, and the default 3s budget
+        // would terminate before the CI means anything.
+        const int r =
+            rpbench::run("osm_blocks", static_cast<double>(data.payload_bytes), arms, 20.0e9, 8);
         if (r < 0) {
             return -1;
         }
@@ -656,24 +752,28 @@ int run_arm() {
         std::vector<std::string_view> strings;
         bool ok = true;
         std::vector<rpbench::Arm> arms = {
-            {"arena",
+            {"arena-warm",
              [&]() {
                  return rp_file_sum(data.file, scratch, [&](std::string_view p) {
                      warm.reset();
-                     return arena_block_sum(
-                         osm_a::PrimitiveBlock::decode(rapidproto::ByteView(p), warm));
+                     const osm_a::PrimitiveBlock* pb =
+                         osm_a::PrimitiveBlock::decode(rapidproto::ByteView(p), warm);
+                     return pb != nullptr ? arena_block_sum(pb) : std::uint64_t{0};
                  });
              }},
             {"streamgen",
              [&]() {
-                 return rp_file_sum(data.file, scratch, [&](std::string_view p) {
+                 const std::uint64_t h = rp_file_sum(data.file, scratch, [&](std::string_view p) {
                      return stream_block_sum(p, strings, &ok);
                  });
+                 return ok ? h : 0;
              }},
             {"libosmium", [&]() { return osmium_file_sum(data.file); },
              /*threaded=*/true},  // its reader decompresses/parses on worker threads
         };
-        const int r = rpbench::run("osm_file", static_cast<double>(data.file.size()), arms);
+        // ~1.7s per round: without a wider budget the default terminates after two rounds.
+        const int r =
+            rpbench::run("osm_file", static_cast<double>(data.file.size()), arms, 30.0e9, 8);
         if (r < 0) {
             return -1;
         }

@@ -6,15 +6,17 @@ written once per decode model, deliberately in **separate files** so each reads 
 - [**`osmstat_arena.cpp`**](osmstat_arena.cpp) — materializes each `PrimitiveBlock` into an
   arena and walks it as contiguous arrays. DenseNodes' packed delta-coded `sint64` columns
   decode straight into `int64` arrays; every stringtable entry is a borrowed `string_view`.
-- [**`osmstat_stream.cpp`**](osmstat_stream.cpp) — one callback pass per block, nothing
-  materialized, delta accumulators in locals. Decodes each block twice: a cheap
-  stringtable-only pass, then the walk (wire order doesn't promise the stringtable first).
+- [**`osmstat_stream.cpp`**](osmstat_stream.cpp) — callback walks, nothing materialized,
+  delta accumulators in locals. Decodes each block twice: a cheap stringtable-only pass, then
+  the walk (wire order doesn't promise the stringtable first).
 
 Both print identical statistics (counts, tags, bbox, top tag keys) on stdout — a CTest holds
 them to a hand-derived golden on [`testdata/mini.osm.pbf`](testdata/mini.osm.pbf), a committed
 fixture that reproduces byte-for-byte from
-[`testdata/make_fixture.py`](testdata/make_fixture.py) — and a per-stage timing breakdown
-(read / inflate / decode / walk) on stderr.
+[`testdata/make_fixture.py`](testdata/make_fixture.py) — and a per-stage timing breakdown on
+stderr: read / inflate / decode / walk for the arena program, whose materialize and read steps
+really are separate, and read / inflate / decode+walk for the streaming one, whose single pass
+fuses them.
 
 The walkthrough — what the format looks like on the wire, and what each program teaches about
 its model — is the manual's [OSM PBF page](../../docs/osm-pbf.md).

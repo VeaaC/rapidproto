@@ -593,6 +593,15 @@ if(RAPIDPROTO_BUILD_TESTS)
         "fetched. Run: python3 tests/fetch_corpus.py")
     endif()
 
+    # The pinned protozero, whenever the corpus carries it: BOTH its uses (the Dataset arm's
+    # protozero baseline, libosmium's protobuf layer below) then measure one recorded version
+    # instead of whatever is installed. Independent of the OSM guard on purpose -- the
+    # fetch_corpus.py entry claims exactly this.
+    if(EXISTS "${CORPUS_DIR}/protozero/include/protozero/pbf_reader.hpp")
+      target_include_directories(rapidproto_arena_bench SYSTEM PRIVATE
+        "${CORPUS_DIR}/protozero/include")
+    endif()
+
     # ── OSM PBF scenarios ──────────────────────────────────────────────────────────────────────
     # Real-world data against libosmium (the de-facto C++ OSM library) from the corpus pin, plus
     # protoc on the same blocks; scenario design + checksum convention in tests/bench_arm_osm.hpp.
@@ -624,13 +633,13 @@ if(RAPIDPROTO_BUILD_TESTS)
       target_include_directories(rapidproto_arena_bench PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/examples/osm-pbf")
       target_include_directories(rapidproto_arena_bench SYSTEM PRIVATE
-        "${CORPUS_DIR}/libosmium/include" "${CORPUS_DIR}/protozero/include")
+        "${CORPUS_DIR}/libosmium/include")
       target_link_libraries(rapidproto_arena_bench PRIVATE ZLIB::ZLIB Threads::Threads)
     else()
       message(STATUS
         "arena bench: osm scenarios SKIPPED -- needs the corpus (libosmium/protozero pins: "
         "python3 tests/fetch_corpus.py), the dataset (python3 tests/fetch_osm_dataset.py), "
-        "and zlib.")
+        "zlib, and Threads.")
     endif()
 
     # ── large real-world schema arm ────────────────────────────────────────────────────────────

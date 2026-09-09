@@ -41,6 +41,9 @@ def main() -> int:
     ap.add_argument("--force", action="store_true")
     args = ap.parse_args()
     target = args.dest / NAME
+    if args.dest != DEFAULT_DEST:
+        print(f"note: CMake looks for the dataset under {DEFAULT_DEST} only -- a custom --dest "
+              "is for ad-hoc use, the bench will not find it")
 
     if not args.force and file_ok(target):
         print(f"osm dataset up to date: {target}")

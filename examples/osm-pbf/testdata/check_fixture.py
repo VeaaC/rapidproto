@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2026 Christian Vetter
-"""The osmstat CTest: three assertions on the committed fixture.
+"""The osmstat CTest: four assertions on the committed fixture.
 
 1. testdata/mini.osm.pbf reproduces byte-identically from make_fixture.py (same discipline as
    the repo's goldens: a committed artifact must match its generator, or one of them changed
@@ -10,12 +10,16 @@
    (the two decode models must agree on what the file contains).
 3. That output equals the golden below, hand-derived from what make_fixture.py encodes -- so a
    bug shared by BOTH models (which assertion 2 would miss) still fails.
+4. A TRUNCATED file makes both programs exit nonzero -- partial statistics with a success exit
+   once shipped (the framing-error poison was indistinguishable from clean EOF), so the
+   failure mode is pinned here.
 
 Usage: check_fixture.py <fixture> <osmstat-arena> <osmstat-stream>
 """
 import pathlib
 import subprocess
 import sys
+import tempfile
 
 # Derivation: entities 1001-1003 (dense) + 4001 (plain), way 2001 (3 refs), relation 3001
 # (2 members); id sum 1001+1002+1003+2001+3001+4001 = 12009 = 0x2ee9. Tags: dense nodes carry
@@ -70,7 +74,18 @@ def main() -> int:
         print(f">> output does not match the golden:\n--- got ---\n{outputs['arena']}"
               f"--- expected ---\n{GOLDEN}", file=sys.stderr)
         return 1
-    print("osmstat fixture ok (both models, golden output)")
+
+    with tempfile.NamedTemporaryFile(suffix=".osm.pbf") as tmp:
+        tmp.write(committed[: len(committed) - 20])
+        tmp.flush()
+        for name, exe in (("arena", arena_bin), ("stream", stream_bin)):
+            r = subprocess.run([exe, tmp.name], capture_output=True, text=True)
+            if r.returncode == 0:
+                print(f">> osmstat-{name} exited 0 on a TRUNCATED file -- framing errors must "
+                      "not pass as success", file=sys.stderr)
+                return 1
+
+    print("osmstat fixture ok (both models, golden output, truncation rejected)")
     return 0
 
 

@@ -2,19 +2,19 @@
 // Copyright 2026 Christian Vetter
 //
 // osmstat, STREAMING model: decode an OpenStreetMap .osm.pbf file and print statistics about
-// it. Nothing is materialized: each PrimitiveBlock is walked once, every field's value handed
-// to a callback as it is decoded -- delta accumulators live in locals, and the only per-block
-// allocation is the stringtable index (a vector of string_views borrowed from the inflated
-// buffer). The sibling osmstat_arena.cpp computes the same statistics with the arena model;
-// the two print identical stdout.
+// it. Nothing is materialized: every field's value is handed to a callback as it is decoded,
+// and delta accumulators live in locals. The decoder itself allocates nothing; the PROGRAM
+// keeps two reused per-block vectors (the stringtable index of borrowed string_views, the
+// per-index key counts) and the histogram copies each newly seen distinct key once. The
+// sibling osmstat_arena.cpp computes the same statistics with the arena model; the two print
+// identical stdout.
 //
 // One structural difference from the arena walk: tag keys reference the block's stringtable by
 // index, and wire order does not guarantee the stringtable arrives before the groups that use
 // it. A materializing decoder does not care; a single-pass one does. So each block is decoded
 // TWICE -- a cheap first pass that collects only the stringtable (and the coordinate scaling
 // fields), then the real walk with every other field skipped in pass one and the stringtable
-// skipped in pass two. Skipping is what streaming decoders are good at; both passes together
-// still allocate nothing beyond the stringtable index.
+// skipped in pass two. Skipping is what streaming decoders are good at.
 //
 // Timing goes to stderr; decode and walk are ONE fused number here -- with no materialized
 // tree there is nothing to re-walk.
@@ -70,31 +70,37 @@ bool walk_block(std::string_view payload, Stats& stats, std::vector<std::string_
     // packed array fires its callback once per element, in wire order.
     st = pbf::PrimitiveBlock{payload}.decode(
         [&](pbf::PrimitiveBlock::primitivegroup, pbf::PrimitiveGroup group) {
-            std::int64_t dense_id = 0, dense_lat = 0, dense_lon = 0;
-            std::int64_t pending_key = -1;  // keys_vals state: a key waiting for its value
+            std::uint64_t dense_id = 0;  // uint64: hostile deltas wrap, defined behavior
+            std::int64_t dense_lat = 0, dense_lon = 0;
+            std::int64_t pending_key = 0;  // keys_vals state: a key waiting for its value
+            bool have_pending = false;
             return group.decode(
                 [&](pbf::PrimitiveGroup::dense, pbf::DenseNodes dense) {
                     return dense.decode(
                         [&](pbf::DenseNodes::id, std::int64_t d) {
-                            dense_id += d;
-                            stats.id_sum += static_cast<std::uint64_t>(dense_id);
+                            dense_id += static_cast<std::uint64_t>(d);
+                            stats.id_sum += dense_id;
                             ++stats.dense_nodes;
                         },
                         [&](pbf::DenseNodes::lat, std::int64_t d) {
-                            dense_lat += d;
-                            stats.see_lat(lat_offset + granularity * dense_lat);
+                            dense_lat = osmstat::coord_nano(dense_lat, 1, d);  // += d, wrap-safe
+                            stats.see_lat(osmstat::coord_nano(lat_offset, granularity, dense_lat));
                         },
                         [&](pbf::DenseNodes::lon, std::int64_t d) {
-                            dense_lon += d;
-                            stats.see_lon(lon_offset + granularity * dense_lon);
+                            dense_lon = osmstat::coord_nano(dense_lon, 1, d);
+                            stats.see_lon(osmstat::coord_nano(lon_offset, granularity, dense_lon));
                         },
                         [&](pbf::DenseNodes::keys_vals, std::int32_t v) {
-                            if (pending_key >= 0) {  // v is the value of the pending key
+                            // (key value)* pairs per node, 0-terminated. The sentinel is an
+                            // explicit bool: a hostile-but-valid NEGATIVE key must still pair
+                            // with its value, exactly as the arena walk's skip does.
+                            if (have_pending) {  // v is the value of the pending key
                                 ++stats.node_tags;
                                 count_key(static_cast<std::uint32_t>(pending_key));
-                                pending_key = -1;
+                                have_pending = false;
                             } else if (v != 0) {  // v is a key (0 is the node terminator)
                                 pending_key = v;
+                                have_pending = true;
                             }
                         },
                         [&](pbf::DenseNodes::denseinfo, pbf::DenseInfo info) {
@@ -109,10 +115,10 @@ bool walk_block(std::string_view payload, Stats& stats, std::vector<std::string_
                             stats.id_sum += static_cast<std::uint64_t>(id);
                         },
                         [&](pbf::Node::lat, std::int64_t lat) {
-                            stats.see_lat(lat_offset + granularity * lat);
+                            stats.see_lat(osmstat::coord_nano(lat_offset, granularity, lat));
                         },
                         [&](pbf::Node::lon, std::int64_t lon) {
-                            stats.see_lon(lon_offset + granularity * lon);
+                            stats.see_lon(osmstat::coord_nano(lon_offset, granularity, lon));
                         },
                         [&](pbf::Node::keys, std::uint32_t k) {
                             ++stats.node_tags;
@@ -206,23 +212,17 @@ int main(int argc, char** argv) {
         }
 
         // Blob: the payload oneof's members are plain fields to a streaming decoder -- whichever
-        // is on the wire fires. Unsupported compressions abort via `failed`.
+        // is on the wire fires. The wire-order rule this file keeps teaching applies HERE too:
+        // raw_size (field 2) usually precedes zlib_data (field 3), but nothing guarantees it, so
+        // the deflated view is only remembered in its callback and inflated after decode()
+        // returns, when both fields have definitely been seen.
         std::string_view payload;
+        std::string_view deflated_view;
         std::int64_t raw_size = 0;
         st = pbf::Blob{frame.blob_bytes}.decode(
             [&](pbf::Blob::raw_size, std::int32_t v) { raw_size = v; },
             [&](pbf::Blob::raw, std::string_view raw) { payload = raw; },
-            [&](pbf::Blob::zlib_data, std::string_view deflated) {
-                clock.take();
-                if (raw_size < 0 || raw_size > 2 * 32 * 1024 * 1024 ||
-                    !osmpbf_input::inflate_blob(deflated, static_cast<std::size_t>(raw_size),
-                                                inflated)) {
-                    failed = true;
-                    return;
-                }
-                payload = inflated;
-                t_inflate += clock.take();
-            },
+            [&](pbf::Blob::zlib_data, std::string_view deflated) { deflated_view = deflated; },
             [&](pbf::Blob::lzma_data, std::string_view) { failed = true; },
             [&](pbf::Blob::OBSOLETE_bzip2_data, std::string_view) { failed = true; },
             [&](pbf::Blob::lz4_data, std::string_view) { failed = true; },
@@ -230,6 +230,18 @@ int main(int argc, char** argv) {
         if (!st.ok() || failed) {
             std::fprintf(stderr, "osmstat: bad or unsupported Blob at offset %zu\n", offset);
             return 1;
+        }
+        if (!deflated_view.empty()) {
+            clock.take();
+            if (raw_size <= 0 || raw_size > osmpbf_input::kMaxRawSize ||
+                !osmpbf_input::inflate_blob(deflated_view, static_cast<std::size_t>(raw_size),
+                                            inflated)) {
+                std::fprintf(stderr, "osmstat: bad zlib blob (raw_size %lld) at offset %zu\n",
+                             static_cast<long long>(raw_size), offset);
+                return 1;
+            }
+            payload = inflated;
+            t_inflate += clock.take();
         }
         payload_bytes += payload.size();
 

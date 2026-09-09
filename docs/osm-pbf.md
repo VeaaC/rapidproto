@@ -19,13 +19,14 @@ a `PrimitiveBlock` (`osmformat.proto`):
 
 - a **stringtable**: every key, value, role and username in the block, as `bytes`, referenced
   everywhere else by index;
-- **DenseNodes** — the dominant shape, ~98% of a typical file's entities: packed delta-coded
-  `sint64` columns for ids, latitudes and longitudes, plus one interleaved `keys_vals` index
-  stream carrying all node tags;
+- **DenseNodes** — the dominant shape (83% of the Bremen extract's entities, more at planet
+  scale, where nodes outnumber everything else further): packed delta-coded `sint64` columns
+  for ids, latitudes and longitudes, plus one interleaved `keys_vals` index stream carrying
+  all node tags;
 - **ways** and **relations**: packed delta-coded ref/member columns plus parallel key/value
   index arrays;
-- optional per-entity metadata (`Info`/`DenseInfo`: versions, timestamps, uids — also packed
-  and delta-coded).
+- optional per-entity metadata: versions, timestamps, uids — a plain `Info` sub-message on
+  ways/relations/plain nodes, and packed delta-coded `DenseInfo` columns for dense nodes.
 
 Two things make this format a natural fit here. Packed delta-coded `sint64` columns are
 precisely the arena decoder's strongest path — bulk packed-varint decode straight into
@@ -41,9 +42,9 @@ written against one model only, so you can read one file end to end:
 **[`osmstat_arena.cpp`](https://github.com/VeaaC/rapidproto/blob/main/examples/osm-pbf/osmstat_arena.cpp)**
 materializes each block, then walks arrays. Things it shows that the synthetic examples don't:
 
-- a **fresh `Arena` per block, seeded with a reused scratch buffer** — steady-state decoding of
-  a multi-gigabyte file allocates nothing, and each block's tree (and every borrowed string)
-  dies wholesale at the end of its loop iteration;
+- **one seeded `Arena`, `reset()` per block** — the reset rewinds the arena but keeps its
+  memory, so steady-state decoding of a multi-gigabyte file allocates nothing, and each block's
+  tree (and every borrowed string) dies wholesale at its reset;
 - the `Blob` payload **`oneof` read with the visitor** — raw and zlib handled, the four other
   compression schemes refused explicitly;
 - proto2 **`[default=100]` fields** (`granularity`): explicit presence means the accessor is a
@@ -66,7 +67,7 @@ walks each block once with callbacks, materializing nothing. Its lessons are dif
 - **no defaults are delivered**: an absent `granularity` fires no callback, so the schema's
   default is the initial value of a local;
 - delta accumulators and the `keys_vals` key/value state machine live in plain locals — the
-  whole walk is allocation-free except the stringtable index.
+  decoder allocates nothing, and the program's own state is two reused per-block vectors.
 
 ## Running it on real data
 
@@ -81,8 +82,9 @@ curl -O https://download.geofabrik.de/europe/germany/bremen-latest.osm.pbf
 ./build/release/examples/osm-pbf/osmstat-stream bremen-latest.osm.pbf
 ```
 
-Statistics go to stdout; a per-stage timing breakdown (read / inflate / decode / walk) goes to
-stderr. One structural fact jumps out of that breakdown on any input: **zlib inflate costs a
+Statistics go to stdout; a per-stage timing breakdown goes to stderr (the arena program times
+decode and walk separately — with a materialized tree they really are separate steps — while
+the streaming program's fused pass reports one decode+walk number). One structural fact jumps out of that breakdown on any input: **zlib inflate costs a
 multiple of the decode** — the blobs must be inflated before any protobuf work starts, and that
 step dominates end-to-end time. Any "how fast does X read PBF" comparison that doesn't separate
 inflate from decode is mostly benchmarking zlib; the numbers in

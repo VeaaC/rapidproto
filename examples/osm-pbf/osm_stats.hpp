@@ -96,4 +96,14 @@ inline double mib_per_s(std::uint64_t bytes, double seconds) {
     return seconds > 0 ? double(bytes) / (1024.0 * 1024.0) / seconds : 0.0;
 }
 
+// offset + granularity * raw in nanodegrees. The multiply can exceed int64 on hostile (still
+// protoc-valid) values, so the arithmetic runs in uint64 -- wraparound is defined there -- and
+// converts back at the end (implementation-defined for out-of-range values, never UB; the
+// result is garbage-in-garbage-out for garbage coordinates, which is the documented contract).
+inline std::int64_t coord_nano(std::int64_t offset, std::int64_t granularity, std::int64_t raw) {
+    const std::uint64_t v = static_cast<std::uint64_t>(offset) +
+                            static_cast<std::uint64_t>(granularity) * static_cast<std::uint64_t>(raw);
+    return static_cast<std::int64_t>(v);
+}
+
 }  // namespace osmstat
