@@ -343,6 +343,31 @@ inline int wire_enum_num(const std::string& w) {
     return static_cast<int>(::rapidproto::WireType::Varint);
 }
 
+// A oneof member that can take a tag-consumed rp_do_<n> label: a positive number fitting a 1- or
+// 2-byte tag, and not a delimited (group) member -- those keep a scan-based general arm. Pure AST
+// facts, shared so the two generators cannot drift on what threads: a member's
+// ThreadField::oneof_unthreaded_max is computed from this predicate, and a probe may claim a oneof
+// only when its unthreadable members cannot follow, so a divergent caller-side member filter would
+// break that soundness silently.
+inline bool is_threadable_oneof_member(const FieldNode& field) {
+    if (field.number < 1 || field.number > kMaxTwoByteTagField) {
+        return false;
+    }
+    return !field.is_message_type || field.message_encoding != MessageEncoding::Delimited;
+}
+
+// The highest field number among `oneof`'s unthreadable members -- what each threaded member's
+// ThreadField carries as oneof_unthreaded_max. 0 when every member threads.
+inline int oneof_unthreaded_max(const OneofNode& oneof) {
+    int mx = 0;
+    for (const FieldNode& member : oneof.fields) {
+        if (!is_threadable_oneof_member(member)) {
+            mx = std::max(mx, member.number);
+        }
+    }
+    return mx;
+}
+
 // A threaded field, generator-agnostic: the shape generator needs only the routing facts (number,
 // repeated-ness, whether a packed LEN label is also emitted, and the tag it threads on). All value
 // emission is the caller's, via ThreadedLoopHooks.

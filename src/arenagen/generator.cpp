@@ -1531,20 +1531,6 @@ std::string oneof_member_wire(const OneofMemberPlan& member) {
     return std::string(scalar_wire(member.field->type_name).wire);
 }
 
-// A oneof member that can take a tag-consumed rp_do_<n> label: scalar/enum/string/LEN-message
-// with a 1- or 2-byte tag. Delimited (group) members keep the scan-based general arm.
-bool is_threadable_oneof_member(const OneofMemberPlan& member) {
-    const FieldNode& field = *member.field;
-    if (field.number > codegen::kMaxTwoByteTagField) {
-        return false;
-    }
-    if ((member.kind == FieldKind::InlineFixedSubMsg || member.kind == FieldKind::PointerSubMsg) &&
-        field.message_encoding == MessageEncoding::Delimited) {
-        return false;
-    }
-    return true;
-}
-
 // The tag-consumed decode of one oneof member -- the interior the general arm's wire guard and a
 // threaded label share: store the value into the union slot (message members first rejecting a
 // re-occurrence while the oneof still holds them), then set the discriminant. Last-wins across
@@ -1809,16 +1795,11 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
         int oneof_id = 0;
         for (const OneofPlan& o : layout.oneofs) {
             ++oneof_id;
-            int unthreaded_max = 0;
-            for (const OneofMemberPlan& member : o.members) {
-                if (!is_threadable_oneof_member(member)) {
-                    unthreaded_max = std::max(unthreaded_max, member.field->number);
-                }
-            }
+            const int unthreaded_max = codegen::oneof_unthreaded_max(*o.oneof);
             int index = 1;
             for (const OneofMemberPlan& member : o.members) {
                 const int idx = index++;
-                if (!is_threadable_oneof_member(member)) {
+                if (!codegen::is_threadable_oneof_member(*member.field)) {
                     continue;
                 }
                 threaded.push_back({member.field->number, false, false, oneof_id, unthreaded_max,

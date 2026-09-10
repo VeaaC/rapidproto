@@ -533,9 +533,10 @@ void emit_vt_skip(Printer& printer, std::string_view wire) {
 // not a group (SGroup wire; a group's scan-based decode is not a simple peek-and-consume) AND either
 // singular with a 1- or 2-byte tag (number 1..kMaxTwoByteTagField) or repeated with a 1-byte tag
 // (number 1..kMaxOneByteTagField). Repeated 2-byte fields and groups keep their general-path arm.
-// Mirrors the arena generator's threadable set. The general switch carries every threaded field a
-// wire-guarded goto regardless, so a non-minimally-encoded tag (which misses the 1-byte hub) still
-// decodes.
+// Mirrors the arena generator's threadable set. Covers PLAIN fields only -- oneof members are
+// decided by the shared codegen::is_threadable_oneof_member (see `threads` in emit_decode_def).
+// The general switch carries every threaded field a wire-guarded goto regardless, so a
+// non-minimally-encoded tag (which misses the 1-byte hub) still decodes.
 bool is_threaded_field(const FieldNode& field, const FieldGen& gen) {
     if (gen.wire_type == "SGroup") {
         return false;
@@ -609,34 +610,35 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
     // fields, but a conformant wire still holds at most one member per oneof, so siblings are
     // never probed as successors, and the highest unthreadable member number rides along so
     // probes never claim a oneof whose still-possible members they can only partially hit.
-    std::unordered_map<const FieldNode*, int> oneof_of;  // member field -> oneof id
+    // Member threadability and that max come from the shared codegen predicates (also arenagen's
+    // source of truth), so the two generators cannot drift on what threads.
+    std::unordered_map<const FieldNode*, std::pair<int, int>>
+        oneof_of;  // member -> (id, unthreaded max)
     {
         int oneof_id = 0;
         for (const OneofNode& o : message.oneofs) {
             ++oneof_id;
+            const int unthreaded_max = codegen::oneof_unthreaded_max(o);
             for (const FieldNode& member : o.fields) {
-                oneof_of.emplace(&member, oneof_id);
+                oneof_of.emplace(&member, std::make_pair(oneof_id, unthreaded_max));
             }
         }
     }
-    std::unordered_map<int, int> oneof_unthreaded_max;  // oneof id -> highest unthreaded number
-    for (const auto& [field, gen] : fields) {
-        const auto oo = oneof_of.find(field);
-        if (oo != oneof_of.end() && !is_threaded_field(*field, gen)) {
-            int& mx = oneof_unthreaded_max[oo->second];
-            mx = std::max(mx, field->number);
-        }
-    }
+    const auto threads = [&](const FieldNode& field, const FieldGen& gen) {
+        const auto oo = oneof_of.find(&field);
+        return oo != oneof_of.end() ? codegen::is_threadable_oneof_member(field)
+                                    : is_threaded_field(field, gen);
+    };
     std::vector<codegen::ThreadField> threaded;
     std::unordered_map<int, std::pair<const FieldNode*, FieldGen>> threaded_gen;
     for (const auto& [field, gen] : fields) {
-        if (!is_threaded_field(*field, gen)) {
+        if (!threads(*field, gen)) {
             continue;
         }
         const bool packable = field->is_repeated && codegen::is_packable_wire(gen.wire_type);
         const auto oo = oneof_of.find(field);
-        const int oid = oo != oneof_of.end() ? oo->second : 0;
-        const int omax = oid != 0 ? oneof_unthreaded_max[oid] : 0;
+        const int oid = oo != oneof_of.end() ? oo->second.first : 0;
+        const int omax = oo != oneof_of.end() ? oo->second.second : 0;
         threaded.push_back(
             {field->number, field->is_repeated, packable, oid, omax, std::string(gen.wire_type)});
         threaded_gen.emplace(field->number, std::make_pair(field, gen));
@@ -710,7 +712,7 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
         // 2-byte-tag threaded fields (never in the hub) and the rare non-minimally-encoded tag of a
         // 1-byte threaded field -- with zero body duplication, and no silent drop. Non-threaded fields
         // (groups, repeated 2-byte) keep their full general arm.
-        if (is_threaded_field(*field, gen)) {
+        if (threads(*field, gen)) {
             const bool packable = field->is_repeated && codegen::is_packable_wire(gen.wire_type);
             codegen::emit_threaded_general_case(
                 printer,
