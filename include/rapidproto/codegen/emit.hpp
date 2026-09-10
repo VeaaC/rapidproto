@@ -349,7 +349,14 @@ inline int wire_enum_num(const std::string& w) {
 struct ThreadField {
     int number;
     bool repeated;
-    bool packable;            // repeated packable => also a rp_do_<n>_p packed label
+    bool packable;
+    // Oneof routing facts: members of one oneof share a nonzero id, and oneof_size is that
+    // oneof's TOTAL member count (threaded or not) -- the probe walk needs both, because a
+    // sibling can never follow its own member on a conformant wire, and probing INTO a oneof
+    // only pays when every member fits in the probe budget (partial guesses are miss-prone
+    // compares; the hub already dispatches all members). Plain fields keep 0/0.            // repeated packable => also a rp_do_<n>_p packed label
+    int oneof_id = 0;
+    int oneof_size = 0;
     std::string thread_wire;  // WireType enumerator: singular field's canonical wire, or repeated
                               // element wire
 };
@@ -366,37 +373,80 @@ struct ThreadedLoopHooks {
 
 namespace detail {
 
-// The depth-2 constant-tag successor probes emitted at the tail of a threaded label: from field i,
-// try the next / next-but-one threaded field's THREAD tag, consuming the tag bytes before the goto
-// (labels are tag-consumed). 1-byte successor: compare the single tag byte, `++rp_c`. 2-byte
-// successor: compare both tag bytes, `rp_c += 2`. Ascending order puts the 1-byte fields first, so
-// the cheaper 1-byte probes carry the hot run.
+// One constant-tag successor probe, consuming the tag bytes before the goto (labels are
+// tag-consumed). 1-byte successor: compare the single tag byte, `++rp_c`. 2-byte successor:
+// compare both tag bytes, `rp_c += 2`.
+inline void emit_one_probe(Printer& p, const ThreadField& s) {
+    const std::string n = std::to_string(s.number);
+    if (s.number <= kMaxOneByteTagField) {
+        p.print(
+            "if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag($n$,"
+            " ::rapidproto::WireType::$w$)) { ++rp_c; goto rp_do_$n$; }\n",
+            {{"n", n}, {"w", s.thread_wire}});
+    } else {
+        const int v = (s.number << kTagFieldShift) | wire_enum_num(s.thread_wire);
+        p.print(
+            "if (rp_c + 1 < rp_cend && rp_c[0] == $b0$ && rp_c[1] == $b1$)"
+            " { rp_c += 2; goto rp_do_$n$; }\n",
+            {{"n", n},
+             {"b0", std::to_string((v & kVarintPayload) | kVarintContinue)},
+             {"b1", std::to_string(v >> kVarintShift)}});
+    }
+}
+
+// The constant-tag successor probes at the tail of a threaded label: from field i, walk the
+// ascending successors filling a 2-probe budget. A probe only pays when the wire's next tag is
+// PREDICTABLE (a miss is not free: the compares run, then `continue` falls to the hub, which
+// dispatches every threaded field anyway), so oneofs bend the walk:
+//   - the probing field's own siblings are skipped -- a conformant wire holds at most one
+//     member per oneof, ascending, so a sibling can never follow;
+//   - a foreign oneof is probed only when EVERY one of its members is a threaded successor
+//     and they all fit in the remaining budget (single-member oneofs thus behave as plain
+//     fields); guessing a subset of a wider oneof is a miss-prone compare with a 1-in-N hit
+//     rate, so the walk stops there and leaves the dispatch to the hub;
+//   - a fully-probed multi-member oneof ends the walk (its successor set is ambiguous).
+// Ascending order puts the 1-byte fields first, so the cheaper 1-byte probes carry the hot run.
 inline void emit_thread_probes(Printer& p, const std::vector<ThreadField>& threaded,
                                std::size_t i) {
-    for (std::size_t d = 1; d <= 2 && i + d < threaded.size(); ++d) {
-        const ThreadField& s = threaded[i + d];
-        const std::string n = std::to_string(s.number);
-        if (s.number <= kMaxOneByteTagField) {
-            p.print(
-                "if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag($n$,"
-                " ::rapidproto::WireType::$w$)) { ++rp_c; goto rp_do_$n$; }\n",
-                {{"n", n}, {"w", s.thread_wire}});
-        } else {
-            const int v = (s.number << kTagFieldShift) | wire_enum_num(s.thread_wire);
-            p.print(
-                "if (rp_c + 1 < rp_cend && rp_c[0] == $b0$ && rp_c[1] == $b1$)"
-                " { rp_c += 2; goto rp_do_$n$; }\n",
-                {{"n", n},
-                 {"b0", std::to_string((v & kVarintPayload) | kVarintContinue)},
-                 {"b1", std::to_string(v >> kVarintShift)}});
+    const int own = threaded[i].oneof_id;
+    int budget = 2;
+    for (std::size_t j = i + 1; j < threaded.size() && budget > 0; ++j) {
+        const ThreadField& s = threaded[j];
+        if (own != 0 && s.oneof_id == own) {
+            continue;  // own sibling: cannot follow
         }
+        if (s.oneof_id == 0) {
+            emit_one_probe(p, s);
+            --budget;
+            continue;
+        }
+        // Foreign oneof: all-or-nothing. Count its threaded members among the successors; the
+        // whole oneof (oneof_size counts unthreaded members too) must fit the budget.
+        int ahead = 0;
+        for (std::size_t k = i + 1; k < threaded.size(); ++k) {
+            ahead += threaded[k].oneof_id == s.oneof_id ? 1 : 0;
+        }
+        if (ahead != s.oneof_size || s.oneof_size > budget) {
+            break;
+        }
+        for (std::size_t k = j; k < threaded.size(); ++k) {
+            if (threaded[k].oneof_id == s.oneof_id) {
+                emit_one_probe(p, threaded[k]);
+            }
+        }
+        budget -= s.oneof_size;
+        if (s.oneof_size > 1) {
+            break;  // ambiguous successor set past a multi-member oneof
+        }
+        // single-member oneof: walk continues past it like a plain field
     }
 }
 
 }  // namespace detail
 
-// Emit the hub `switch(*rp_c)` and the tag-consumed labels for `threaded` (declaration order,
-// ascending by number so probes thread that order). Emits, at the current indent:
+// Emit the hub `switch(*rp_c)` and the tag-consumed labels for `threaded` (MUST be sorted
+// ascending by number -- probes thread that order, which is the conformant serialization
+// order; oneof members interleave numerically with plain fields). Emits, at the current indent:
 //   * `if (rp_c >= rp_cend) { <on_end> }`  -- the caller's end action (arena: "break;");
 //   * the hub `switch(*rp_c)`: each 1-byte-tag threaded field -> `case raw_tag(n,W): ++rp_c; goto
 //     rp_do_n;` (a repeated packable field also gets a Len case -> rp_do_n_p); `default: break;`;

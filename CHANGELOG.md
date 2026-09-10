@@ -9,6 +9,18 @@ From 1.0 on, removals happen only in a major release, announced beforehand under
 
 ### Added
 
+- **Oneof members join field-order threading.** The arena decoder previously dispatched every
+  oneof member through the general path (full tag re-parse + switch); members now get the same
+  1-byte hub entry, tag-consumed label and successor probes as plain fields, with
+  oneof-aware probing: a member's own siblings are never probed (they cannot follow on a
+  conformant wire), and a oneof is probed from outside only when all its members fit the
+  depth-2 budget — wider oneofs are dispatched by the hub. On an identical-wire A/B the
+  oneof-vs-plain decode gap shrinks from ~1.9× to ~1.1×. Decode semantics are unchanged
+  (last-wins, the duplicate singular sub-message rejection). Both decoders also now thread
+  probes in **ascending field-number order** rather than declaration order — schemas that
+  declare fields out of order chain correctly (google_message1's arena row gains ~12% from
+  this alone).
+
 - **Benchmark placement pinning and a layout-sensitivity probe.** The bench binaries (never the
   library) now compile with `-falign-functions=64 -falign-loops=64`: cross-build throughput on
   the worst arms was layout-dependent by up to ~22% with instruction counts unchanged, and the

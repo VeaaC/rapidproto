@@ -205,7 +205,6 @@ RP_FLATTEN ::rapidproto::DecodeStatus AllWire::decode(rp_Callbacks&&... rp_callb
         rp_c = rp_sp;
       }
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(7, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_7; }
-      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(10, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_10; }
       continue;
     }
     rp_do_7: {
@@ -277,7 +276,6 @@ RP_FLATTEN ::rapidproto::DecodeStatus AllWire::decode(rp_Callbacks&&... rp_callb
         if (rp_sp == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_sp;
       }
-      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(11, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_11; }
       continue;
     }
     rp_do_11: {

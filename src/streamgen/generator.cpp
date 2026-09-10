@@ -605,6 +605,19 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
     // and a statically-known wire, so it must skip the value itself when unhandled.
     // The threaded fields in declaration order (ascending), so probes thread that order; a parallel
     // number->(field,gen) map recovers the streaming decode facts inside the body hooks.
+    // A member's oneof identity feeds the probe walk: to a streaming decoder members ARE plain
+    // fields, but a conformant wire still holds at most one member per oneof, so siblings are
+    // never probed as successors and a wider-than-budget oneof is left to the hub.
+    std::unordered_map<const FieldNode*, std::pair<int, int>> oneof_of;  // field -> (id, size)
+    {
+        int oneof_id = 0;
+        for (const OneofNode& o : message.oneofs) {
+            ++oneof_id;
+            for (const FieldNode& member : o.fields) {
+                oneof_of.emplace(&member, std::make_pair(oneof_id, int(o.fields.size())));
+            }
+        }
+    }
     std::vector<codegen::ThreadField> threaded;
     std::unordered_map<int, std::pair<const FieldNode*, FieldGen>> threaded_gen;
     for (const auto& [field, gen] : fields) {
@@ -612,10 +625,19 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
             continue;
         }
         const bool packable = field->is_repeated && codegen::is_packable_wire(gen.wire_type);
+        const auto oo = oneof_of.find(field);
+        const int oid = oo != oneof_of.end() ? oo->second.first : 0;
+        const int osz = oo != oneof_of.end() ? oo->second.second : 0;
         threaded.push_back(
-            {field->number, field->is_repeated, packable, std::string(gen.wire_type)});
+            {field->number, field->is_repeated, packable, oid, osz, std::string(gen.wire_type)});
         threaded_gen.emplace(field->number, std::make_pair(field, gen));
     }
+    // Ascending by number: collect_fields appends oneof members AFTER the declared fields, so
+    // declaration order is NOT the conformant serialization order the probes must follow.
+    std::stable_sort(threaded.begin(), threaded.end(),
+                     [](const codegen::ThreadField& a, const codegen::ThreadField& b) {
+                         return a.number < b.number;
+                     });
     // The identical decode-loop SHAPE (hub, tag-consumed labels, depth-2 probes, general-case routing)
     // is shared with arenagen via codegen::emit_hub_and_labels; only the per-field label BODY differs,
     // supplied here as streaming body emitters (the handles_one gate + native decode / value skip).
@@ -688,7 +710,8 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
         if (is_threaded_field(*field, gen)) {
             const bool packable = field->is_repeated && codegen::is_packable_wire(gen.wire_type);
             codegen::emit_threaded_general_case(
-                printer, {field->number, field->is_repeated, packable, std::string(gen.wire_type)});
+                printer,
+                {field->number, field->is_repeated, packable, 0, 0, std::string(gen.wire_type)});
         } else {
             emit_arm(printer, symbols.local.at(field), gen, field->is_repeated, qualifier);
         }

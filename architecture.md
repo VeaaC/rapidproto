@@ -859,6 +859,17 @@ serialize — this turns the per-field N-way indirect dispatch into a predictabl
 `switch` on the first tag byte enters the label chain; a general path handles out-of-order, unknown,
 wrong-wire, and non-minimal tags. Threading is always on — no flag, no field-count cutoff.
 
+The threaded order is **ascending field number** — conformant serialization order, which
+declaration order is not (a schema may declare out of order, and oneof members interleave
+numerically with plain fields). Oneof members thread like singular fields (hub case + label +
+the general path's wire-guarded goto), and the probe walk knows the oneof grouping: a member's
+own siblings are never probed (at most one member occurs per oneof on a conformant wire), and
+a foreign oneof is probed only when every one of its members fits the remaining depth-2
+budget — single-member oneofs behave as plain fields, wider ones are left to the hub, whose
+one dispatch handles all members where a partial guess would just be a miss-prone compare.
+Unthreadable members (groups, numbers past the 2-byte tag range) keep a classic general arm,
+and their oneof counts as uncoverable so probes never claim it.
+
 A single `rapidproto::codegen::` shape generator emits the loop for both models; each emitter fills in only
 the per-field body — the arena emitter materializes the value into the node, the streaming emitter fires the
 callback (and, for a field with no callback, takes a dedicated compile-time-wire skip keyed off the field's
