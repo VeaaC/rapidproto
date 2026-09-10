@@ -450,11 +450,20 @@ function(rapidproto_generate target)
   # Run from the depfile's interpretation base (see _rpg_workdir) so the targets the CLI emits --
   # relative to its working directory -- match how the build tool names the output nodes. All CLI
   # arguments are absolute, so the working directory does not otherwise matter.
+  # The headers must regenerate when the generator BINARY changes, not merely build after it: a
+  # target name in DEPENDS reliably gives the ordering edge, but through an ALIAS the file-level
+  # edge on the executable has been observed missing (stale headers after a generator rebuild).
+  # Depend on the dealiased target AND its file explicitly.
+  set(_cli_dep "${_cli}")
+  get_target_property(_cli_dealiased "${_cli}" ALIASED_TARGET)
+  if(_cli_dealiased)
+    set(_cli_dep "${_cli_dealiased}")
+  endif()
   add_custom_command(
     OUTPUT ${_outputs}
     COMMAND ${_cli} ${_common} ${_model_flags} --out-dir "${RPG_OUT_DIR}" ${_depfile_cli} ${_protos_abs}
     ${_depfile_cmd}
-    DEPENDS ${_protos_abs} ${_modes_files_abs} ${_cli}
+    DEPENDS ${_protos_abs} ${_modes_files_abs} ${_cli_dep} "$<TARGET_FILE:${_cli_dep}>"
     WORKING_DIRECTORY "${_rpg_workdir}"
     COMMENT "rapidproto: ${target}"
     VERBATIM)
