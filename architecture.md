@@ -862,16 +862,17 @@ wrong-wire, and non-minimal tags. Threading is always on — no flag, no field-c
 
 The threaded labels and their probes follow **ascending field number** — conformant
 serialization order, which declaration order is not (a schema may declare out of order, and
-oneof members interleave numerically with plain fields). Oneof members thread like singular
-fields (a 1-byte member gets a hub case; every member gets a label and the general path's
-wire-guarded goto), and the probe walk knows the oneof grouping: a member's own siblings are
+oneof members interleave numerically with plain fields). Threadable oneof members thread like
+singular fields (a 1-byte member gets a hub case; every threadable member gets a label and the
+general path's wire-guarded goto), and the probe walk knows the oneof grouping: a member's own siblings are
 never probed (at most one member occurs per oneof on a conformant wire), and a foreign oneof
 is probed only when every member that could still FOLLOW the probing field is threaded and
 fits the remaining depth-2 budget — a oneof with one member left ahead behaves as a plain
 field, while anything less predictable is left to the hub, whose one dispatch handles all
 members where a partial guess would just be a miss-prone compare. Unthreadable members
-(groups, numbers past the 2-byte tag range) keep a classic general arm; only members numbered
-above the probing field block its probes, since lower-numbered ones can no longer follow.
+(groups, numbers past the 2-byte tag range) keep a classic general arm; such a member blocks
+probing into its oneof only when it is numbered above the probing field, since a
+lower-numbered one can no longer follow.
 
 A single `rapidproto::codegen::` shape generator emits the loop for both models; each emitter fills in only
 the per-field body — the arena emitter materializes the value into the node, the streaming emitter fires the

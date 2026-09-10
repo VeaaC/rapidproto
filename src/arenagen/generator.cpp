@@ -1855,7 +1855,7 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
         emit_vt_len_read(emit, "rp_p");
         emit_packed_fill(emit, *threaded_plan.at(tf.number)->field);
     };
-    codegen::emit_hub_and_labels(p, threaded, hooks, "break;");
+    codegen::emit_hub_and_labels(p, std::move(threaded), hooks, "break;");
     // General path: multi-byte tags, unknown fields, wrong wire types, groups, messages, raw, maps,
     // oneofs, and the wire-guarded-goto routing for the threaded fields above.
     // Fused end-or-tag read: one bounds check drives the loop (see WireReader::read_tag_or_end).

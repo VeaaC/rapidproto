@@ -684,7 +684,7 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
         printer.outdent();
         printer.print("}\n");
     };
-    codegen::emit_hub_and_labels(printer, threaded, hooks,
+    codegen::emit_hub_and_labels(printer, std::move(threaded), hooks,
                                  "return ::rapidproto::DecodeStatus::success();");
     // General path: multi-byte tags, unknown fields, wrong wire types, groups, maps.
     // Fused end-or-tag read: one bounds check drives the loop (see WireReader::read_tag_or_end).

@@ -415,17 +415,24 @@ inline int count_oneof_members(const std::vector<ThreadField>& threaded, std::si
 //     is threaded and the whole ahead set fits the remaining budget. Members numbered at or
 //     below the probing field cannot follow on a conformant wire, so a straddling oneof stays
 //     probeable, and a oneof with one member left ahead behaves as a plain field; anything less
-//     predictable is a miss-prone guess (1-in-N hit rate), so the walk stops there and leaves
-//     the dispatch to the hub;
-//   - probing more than one member ends the walk (the successor set past the oneof is
-//     ambiguous). With a 2-probe budget the budget is spent at that point anyway; the rule
-//     stands on its own if the budget ever grows.
+//     predictable is a miss-prone guess (1-in-N hit rate), so the walk STOPS there and leaves
+//     the dispatch to the hub. Stopping is deliberate (skipping would probe past a choice point
+//     where any member tag likely intervenes) and it does cost later candidates unrelated to
+//     the oneof; a multi-member probe likewise exhausts the 2-probe budget, so no walk
+//     continues past a probed multi-member oneof either.
+// Only oneofs the walk actually reaches are gated: oneof_unthreaded_max is read off a threaded
+// member of that oneof found past `pos`, so a oneof with none there is never consulted, and an
+// unthreadable field is absent from `threaded` altogether -- probes step over both exactly as
+// they step over any possibly-absent field. A lower hit rate on wires that carry them, never a
+// wrong decode (a missed probe falls to the hub).
 // Ascending order puts the 1-byte fields first, so the cheaper 1-byte probes carry the hot run.
 // `threaded` is sorted ascending by field number (emit_hub_and_labels' order), so successors are
 // simply the entries past `pos` -- conformant serialization order.
 inline void emit_thread_probes(Printer& p, const std::vector<ThreadField>& threaded,
                                std::size_t pos) {
     const int own = threaded[pos].oneof_id;
+    // Raising this past 2 would let the walk continue beyond a probed multi-member oneof
+    // (the comment above relies on the budget making that impossible).
     int budget = 2;
     for (std::size_t j = pos + 1; j < threaded.size() && budget > 0; ++j) {
         const ThreadField& s = threaded[j];
@@ -449,11 +456,9 @@ inline void emit_thread_probes(Printer& p, const std::vector<ThreadField>& threa
                 emit_one_probe(p, threaded[k]);
             }
         }
+        // ahead >= 2 drives the budget to 0 here, so a probed multi-member oneof ends the
+        // walk via the loop guard; a single remaining member is passed like a plain field.
         budget -= ahead;
-        if (ahead > 1) {
-            break;  // ambiguous successor set past a multi-member oneof
-        }
-        // a single remaining member: the walk continues past it like a plain field
     }
 }
 
