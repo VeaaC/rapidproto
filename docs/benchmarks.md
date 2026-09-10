@@ -79,15 +79,15 @@ Every arm decodes **and reads every present field** (one shared checksum, cross-
 
 | | google_message1 (228 B) | google_message2 (84.5 KB, group-heavy) |
 |---|---|---|
-| streaming | **+120%** | **+155%** |
-| arena (warm) | **+106%** | **+28%** |
-| arena (cold) | +44% | +23% |
-| upb | +21% | +13% |
+| streaming | **+121%** | **+161%** |
+| arena (warm) | **+107%** | **+71%** |
+| arena (cold) | +41% | +58% |
+| upb | +23% | +15% |
 
 Two honest readings: `google_message2` is proto2's home turf — one huge repeated *group* of
-small mixed fields — and it is where our arena's lead over both protoc and upb is smallest,
-while the streaming decoder leads every arm on both — by a wide
-margin on `google_message2`.
+small mixed fields — and since the arena's single-pass group decode it is no longer the
+arena's weak spot (upb trails well behind on it), while the streaming decoder leads every arm
+on both — by a wide margin on `google_message2`.
 And `google_message1` at 228 bytes shows the cold-arena setup cost that the warm row amortizes;
 a consumer decoding many small messages should reuse the arena. (Read coarse ratios, not
 decimals: small-payload rows swing a few points between runs — short rotated batches magnify

@@ -29,7 +29,8 @@ class M {
   [[nodiscard]] static const M* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class rp_T> friend bool ::rapidproto::arena_detail::decode_into(rp_T&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
-  static bool rp_decode_into(M& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
+  template <class rp_T> friend const std::uint8_t* ::rapidproto::arena_detail::decode_group_into(rp_T&, const std::uint8_t*, const std::uint8_t*, const std::uint8_t*, std::uint32_t, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
+  static const std::uint8_t* rp_decode_into(M& out, const std::uint8_t* rp_c, const std::uint8_t* rp_cend, const std::uint8_t* rp_beg, std::uint32_t rp_term, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
   const ::rp::arena::ed23::M* m_child;
   const ::rp::arena::ed23::M* m_delim;
   ::rapidproto::ArrayView<std::int32_t> m_packed_nums;
@@ -41,8 +42,8 @@ class M {
 static_assert(::std::is_trivially_destructible_v<M>);
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-RP_FLATTEN RP_NOINLINE inline bool ::rp::arena::ed23::M::rp_decode_into([[maybe_unused]] ::rp::arena::ed23::M& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
-  if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
+RP_FLATTEN RP_NOINLINE inline const std::uint8_t* ::rp::arena::ed23::M::rp_decode_into([[maybe_unused]] ::rp::arena::ed23::M& out, const std::uint8_t* rp_c, const std::uint8_t* const rp_cend, const std::uint8_t* const rp_beg, const std::uint32_t rp_term, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+  if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return nullptr; }
   std::int32_t* rp_acc_packed_nums = nullptr;
   std::size_t rp_n_packed_nums = 0;
   std::size_t rp_cap_packed_nums = 0;
@@ -71,12 +72,10 @@ RP_FLATTEN RP_NOINLINE inline bool ::rp::arena::ed23::M::rp_decode_into([[maybe_
     }
     return &rp_acc_expanded_nums[rp_n_expanded_nums++];
   };
-  const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(body);
-  const std::uint8_t* const rp_cend = rp_c + body.size();
   ::rapidproto::Tag rp_tag{};
   ::rapidproto::WireError rp_we = ::rapidproto::WireError::None;
   for (;;) {
-    if (rp_c >= rp_cend) { break; }
+    if (rp_c >= rp_cend) { if (rp_term != 0) { goto rp_unterminated; } break; }
     switch (*rp_c) {  // peek the 1-byte tag; threaded fields jump to their label
       case ::rapidproto::raw_tag(1, ::rapidproto::WireType::Varint): ++rp_c; goto rp_do_1;
       case ::rapidproto::raw_tag(2, ::rapidproto::WireType::Varint): ++rp_c; goto rp_do_2;
@@ -91,7 +90,7 @@ RP_FLATTEN RP_NOINLINE inline bool ::rp::arena::ed23::M::rp_decode_into([[maybe_
     rp_do_1: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_implicit_scalar = ::rapidproto::varint_to_int32(rp_raw);
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(2, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_2; }
@@ -101,7 +100,7 @@ RP_FLATTEN RP_NOINLINE inline bool ::rp::arena::ed23::M::rp_decode_into([[maybe_
     rp_do_2: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_explicit_scalar = ::rapidproto::varint_to_int32(rp_raw);
       out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 0));
@@ -110,12 +109,12 @@ RP_FLATTEN RP_NOINLINE inline bool ::rp::arena::ed23::M::rp_decode_into([[maybe_
       continue;
     }
     rp_do_3: {
-      if (out.m_child != nullptr) { ::rapidproto::rp_fail_repeated_singular(err, 3); return false; }
+      if (out.m_child != nullptr) { ::rapidproto::rp_fail_repeated_singular(err, 3); return nullptr; }
       ::rapidproto::ByteView rp_v;
-      { const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_v, &rp_we); if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; } rp_c = rp_np; }
+      { const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_v, &rp_we); if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; } rp_c = rp_np; }
       ::rp::arena::ed23::M* const rp_sub = arena.create<::rp::arena::ed23::M>();
-      if (rp_sub == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }
-      if (!::rapidproto::arena_detail::decode_into(*rp_sub, rp_v, arena, depth + 1, err)) { return false; }
+      if (rp_sub == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
+      if (!::rapidproto::arena_detail::decode_into(*rp_sub, rp_v, arena, depth + 1, err)) { return nullptr; }
       out.m_child = rp_sub;
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(4, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_4; }
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(5, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_5; }
@@ -123,10 +122,10 @@ RP_FLATTEN RP_NOINLINE inline bool ::rp::arena::ed23::M::rp_decode_into([[maybe_
     }
     rp_do_4: {
       std::int32_t* const rp_slot = rp_slot_packed_nums();
-      if (rp_slot == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }
+      if (rp_slot == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       *rp_slot = ::rapidproto::varint_to_int32(rp_raw);
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(4, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_4; }  // another element of the same field
@@ -135,12 +134,12 @@ RP_FLATTEN RP_NOINLINE inline bool ::rp::arena::ed23::M::rp_decode_into([[maybe_
     }
     rp_do_4_p: {
       ::rapidproto::ByteView rp_p;
-      { const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_p, &rp_we); if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; } rp_c = rp_np; }
+      { const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_p, &rp_we); if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; } rp_c = rp_np; }
       const std::size_t rp_ub = rp_p.size();
       if (rp_ub != 0 && rp_cap_packed_nums < rp_n_packed_nums + rp_ub) {
         const std::size_t rp_nc = rp_n_packed_nums + rp_ub;
         std::int32_t* const rp_nb = arena.allocate_array<std::int32_t>(rp_nc);
-        if (rp_nb == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }
+        if (rp_nb == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
         for (std::size_t rp_i = 0; rp_i < rp_n_packed_nums; ++rp_i) { rp_nb[rp_i] = rp_acc_packed_nums[rp_i]; }
         rp_acc_packed_nums = rp_nb;
         rp_cap_packed_nums = rp_nc;
@@ -149,11 +148,11 @@ RP_FLATTEN RP_NOINLINE inline bool ::rp::arena::ed23::M::rp_decode_into([[maybe_
       const std::uint8_t* const rp_ve = rp_vp + rp_p.size();
       if (rp_p.size() >= ::rapidproto::wire::kPackedKernelMinSpan) {
         const std::size_t rp_dc = ::rapidproto::arena_detail::decode_packed_varints_large<std::int32_t, ::rapidproto::wire::conv_int32>(rp_vp, rp_ve, rp_acc_packed_nums + rp_n_packed_nums, err);
-        if (rp_dc == static_cast<std::size_t>(-1)) { return false; }
+        if (rp_dc == static_cast<std::size_t>(-1)) { return nullptr; }
         rp_n_packed_nums += rp_dc;
       } else {
         const std::size_t rp_dc = ::rapidproto::arena_detail::decode_packed_varints_small<std::int32_t, ::rapidproto::wire::conv_int32>(rp_vp, rp_ve, rp_acc_packed_nums + rp_n_packed_nums, err);
-        if (rp_dc == static_cast<std::size_t>(-1)) { return false; }
+        if (rp_dc == static_cast<std::size_t>(-1)) { return nullptr; }
         rp_n_packed_nums += rp_dc;
       }
       arena.shrink_last(rp_acc_packed_nums, rp_cap_packed_nums * sizeof(std::int32_t), rp_n_packed_nums * sizeof(std::int32_t));
@@ -163,10 +162,10 @@ RP_FLATTEN RP_NOINLINE inline bool ::rp::arena::ed23::M::rp_decode_into([[maybe_
     }
     rp_do_5: {
       std::int32_t* const rp_slot = rp_slot_expanded_nums();
-      if (rp_slot == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }
+      if (rp_slot == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       *rp_slot = ::rapidproto::varint_to_int32(rp_raw);
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(5, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_5; }  // another element of the same field
@@ -174,12 +173,12 @@ RP_FLATTEN RP_NOINLINE inline bool ::rp::arena::ed23::M::rp_decode_into([[maybe_
     }
     rp_do_5_p: {
       ::rapidproto::ByteView rp_p;
-      { const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_p, &rp_we); if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; } rp_c = rp_np; }
+      { const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_p, &rp_we); if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; } rp_c = rp_np; }
       const std::size_t rp_ub = rp_p.size();
       if (rp_ub != 0 && rp_cap_expanded_nums < rp_n_expanded_nums + rp_ub) {
         const std::size_t rp_nc = rp_n_expanded_nums + rp_ub;
         std::int32_t* const rp_nb = arena.allocate_array<std::int32_t>(rp_nc);
-        if (rp_nb == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }
+        if (rp_nb == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
         for (std::size_t rp_i = 0; rp_i < rp_n_expanded_nums; ++rp_i) { rp_nb[rp_i] = rp_acc_expanded_nums[rp_i]; }
         rp_acc_expanded_nums = rp_nb;
         rp_cap_expanded_nums = rp_nc;
@@ -188,11 +187,11 @@ RP_FLATTEN RP_NOINLINE inline bool ::rp::arena::ed23::M::rp_decode_into([[maybe_
       const std::uint8_t* const rp_ve = rp_vp + rp_p.size();
       if (rp_p.size() >= ::rapidproto::wire::kPackedKernelMinSpan) {
         const std::size_t rp_dc = ::rapidproto::arena_detail::decode_packed_varints_large<std::int32_t, ::rapidproto::wire::conv_int32>(rp_vp, rp_ve, rp_acc_expanded_nums + rp_n_expanded_nums, err);
-        if (rp_dc == static_cast<std::size_t>(-1)) { return false; }
+        if (rp_dc == static_cast<std::size_t>(-1)) { return nullptr; }
         rp_n_expanded_nums += rp_dc;
       } else {
         const std::size_t rp_dc = ::rapidproto::arena_detail::decode_packed_varints_small<std::int32_t, ::rapidproto::wire::conv_int32>(rp_vp, rp_ve, rp_acc_expanded_nums + rp_n_expanded_nums, err);
-        if (rp_dc == static_cast<std::size_t>(-1)) { return false; }
+        if (rp_dc == static_cast<std::size_t>(-1)) { return nullptr; }
         rp_n_expanded_nums += rp_dc;
       }
       arena.shrink_last(rp_acc_expanded_nums, rp_cap_expanded_nums * sizeof(std::int32_t), rp_n_expanded_nums * sizeof(std::int32_t));
@@ -202,8 +201,9 @@ RP_FLATTEN RP_NOINLINE inline bool ::rp::arena::ed23::M::rp_decode_into([[maybe_
     rp_field_general:;
     ::rapidproto::wire::TagState rp_state = ::rapidproto::wire::TagState::End;
     const std::uint8_t* const rp_tp = ::rapidproto::wire::read_tag_or_end(rp_c, rp_cend, &rp_tag, &rp_we, &rp_state);
-    if (rp_state == ::rapidproto::wire::TagState::End) { break; }
-    if (rp_state == ::rapidproto::wire::TagState::Error) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+    if (rp_state == ::rapidproto::wire::TagState::End) { if (rp_term != 0) { goto rp_unterminated; } break; }
+    if (rp_state == ::rapidproto::wire::TagState::Error) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
+    if (rp_tag.wire_type == ::rapidproto::WireType::EGroup) { if (rp_term != 0 && rp_tag.field_number == rp_term) { rp_c = rp_tp; break; } ::rapidproto::rp_fail_wire_at(err, rp_term == 0 ? ::rapidproto::WireError::UnexpectedEndGroup : ::rapidproto::WireError::EndGroupMismatch, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
     rp_c = rp_tp;
     switch (rp_tag.field_number) {
       case 1: { if (rp_tag.wire_type == ::rapidproto::WireType::Varint) { goto rp_do_1; } break; }
@@ -213,12 +213,10 @@ RP_FLATTEN RP_NOINLINE inline bool ::rp::arena::ed23::M::rp_decode_into([[maybe_
       case 5: { if (rp_tag.wire_type == ::rapidproto::WireType::Varint) { goto rp_do_5; } if (rp_tag.wire_type == ::rapidproto::WireType::Len) { goto rp_do_5_p; } break; }
       case 6: {
         if (rp_tag.wire_type == ::rapidproto::WireType::SGroup) {
-          if (out.m_delim != nullptr) { ::rapidproto::rp_fail_repeated_singular(err, 6); return false; }
-          ::rapidproto::ByteView rp_v;
-          { std::size_t rp_fo = 0; const std::uint8_t* const rp_np = ::rapidproto::wire::read_group(rp_c, rp_cend, ::rapidproto::wire::byte_ptr(body), rp_tag.field_number, &rp_v, &rp_we, &rp_fo); if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo); return false; } rp_c = rp_np; }
+          if (out.m_delim != nullptr) { ::rapidproto::rp_fail_repeated_singular(err, 6); return nullptr; }
           ::rp::arena::ed23::M* const rp_sub = arena.create<::rp::arena::ed23::M>();
-          if (rp_sub == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }
-          if (!::rapidproto::arena_detail::decode_into(*rp_sub, rp_v, arena, depth + 1, err)) { return false; }
+          if (rp_sub == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
+          { const std::uint8_t* const rp_np = ::rapidproto::arena_detail::decode_group_into(*rp_sub, rp_c, rp_cend, rp_beg, 6, arena, depth + 1, err); if (rp_np == nullptr) { return nullptr; } rp_c = rp_np; }
           out.m_delim = rp_sub;
           continue;
         }
@@ -227,19 +225,23 @@ RP_FLATTEN RP_NOINLINE inline bool ::rp::arena::ed23::M::rp_decode_into([[maybe_
       default: break;
     }
     std::size_t rp_fo = 0;
-    const std::uint8_t* const rp_sp = ::rapidproto::wire::skip_value(rp_c, rp_cend, ::rapidproto::wire::byte_ptr(body), rp_tag, 0, &rp_we, &rp_fo);
-    if (rp_sp == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo); return false; }
+    const std::uint8_t* const rp_sp = ::rapidproto::wire::skip_value(rp_c, rp_cend, rp_beg, rp_tag, 0, &rp_we, &rp_fo);
+    if (rp_sp == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo); return nullptr; }
     rp_c = rp_sp;
   }
   out.m_packed_nums = ::rapidproto::ArrayView<std::int32_t>(rp_acc_packed_nums, rp_n_packed_nums);
   out.m_expanded_nums = ::rapidproto::ArrayView<std::int32_t>(rp_acc_expanded_nums, rp_n_expanded_nums);
-  return true;
+  return rp_c;
+  rp_unterminated:;
+  ::rapidproto::rp_fail_wire_at(err, ::rapidproto::WireError::UnterminatedGroup, static_cast<std::size_t>(rp_c - rp_beg));
+  return nullptr;
 }
 inline const ::rp::arena::ed23::M* ::rp::arena::ed23::M::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
   ::rp::arena::ed23::M* const rp_root = arena.create<::rp::arena::ed23::M>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
-  if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
+  const std::uint8_t* const rp_in = ::rapidproto::arena_detail::non_null_cursor(::rapidproto::wire::byte_ptr(input));
+  if (rp_decode_into(*rp_root, rp_in, rp_in + input.size(), rp_in, 0, arena, 0, err) == nullptr) { return nullptr; }
   return rp_root;
 }
 

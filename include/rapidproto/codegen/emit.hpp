@@ -346,9 +346,10 @@ inline int wire_enum_num(const std::string& w) {
 
 // A singular field (oneof members included) that can take a tag-consumed rp_do_<n> label: a
 // positive number fitting a 1- or 2-byte tag, and not a delimited (group) field. The delimited
-// exclusion is CORRECTNESS, not tuning: a group's decode reads `rp_tag.field_number` to match its
-// EGROUP, and a threaded label is entered with rp_tag unset -- a group that threaded would scan
-// for the wrong end tag. Shared so the two generators cannot drift on what threads.
+// exclusion is CORRECTNESS for streamgen -- its group arm reads `rp_tag.field_number` for the
+// end tag, and rp_tag is unset at a threaded label -- while arenagen (whose group frames carry a
+// literal terminator) merely relies on group frames beginning at a general arm. Shared so the
+// two generators cannot drift on what threads.
 inline bool is_threadable_singular(const FieldNode& field) {
     assert(!field.is_repeated && "is_threadable_singular: callers gate repeated fields themselves");
     if (field.number < 1 || field.number > kMaxTwoByteTagField) {
@@ -458,6 +459,15 @@ inline void emit_hub_and_labels(Printer& p, std::vector<ThreadField> threaded,
     std::stable_sort(
         threaded.begin(), threaded.end(),
         [](const ThreadField& a, const ThreadField& b) { return a.number < b.number; });
+    // No threaded field carries a group wire (is_threadable_singular and both generators'
+    // repeated filters exclude them); pinned here because the hub and probes match tag bytes
+    // BEFORE the arena loop's EGROUP terminator check runs. An EGROUP byte can never equal a
+    // hub/probe byte for the four wires actually emitted (8n+4 vs 8n+{0,1,2,5}), so this assert
+    // is documentation of the invariant, not a live trap.
+    for ([[maybe_unused]] const ThreadField& tf : threaded) {
+        assert(tf.thread_wire != "SGroup" && tf.thread_wire != "EGroup" &&
+               "emit_hub_and_labels: group wires must never thread");
+    }
     // Hub: a 1-byte peek switch. Only 1-byte-tag threaded fields appear (a 2-byte-tag field enters
     // via the general path). Each case consumes the peeked byte, then jumps to the tag-consumed
     // label. A miss (multi-byte tag, unknown field, wrong wire type, or a non-minimal encoding of a

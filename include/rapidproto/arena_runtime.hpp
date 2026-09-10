@@ -646,10 +646,37 @@ template <class T>
 // same-package headers in one TU don't redefine it, and every cross-file/cross-message call is the same
 // `::rapidproto::arena_detail::decode_into(sub, ...)` regardless of the target's namespace (deduced).
 namespace arena_detail {
+// A never-null cursor for an empty view whose data() is null: the cursor-returning decode uses
+// nullptr as its FAILURE signal, so a successful decode of such a view must still return a real
+// pointer -- anchor it at a static byte instead.
+inline const std::uint8_t* non_null_cursor(const std::uint8_t* p) noexcept {
+    static constexpr std::uint8_t anchor = 0;
+    return p != nullptr ? p : &anchor;
+}
+
 template <class T>
 [[nodiscard]] bool decode_into(T& out, ByteView body, Arena& arena, int depth,
                                ArenaDecodeError* err) noexcept {
-    return T::rp_decode_into(out, body, arena, depth, err);
+    // Whole-span framing (term 0): a LEN payload or a standalone body decodes [begin, end).
+    // Offsets in *err stay body-relative here, exactly as before the group-frame variant existed.
+    const std::uint8_t* const begin = non_null_cursor(wire::byte_ptr(body));
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic): forming the span's end
+    return T::rp_decode_into(out, begin, begin + body.size(), begin, 0, arena, depth, err) !=
+           nullptr;
+}
+
+// Group framing: decode a group frame of `term` starting at `cur` (just past its SGROUP tag),
+// single-pass -- the frame ends at its matching EGROUP tag, whose bytes are consumed. Returns the
+// cursor past the EGROUP, or nullptr with *err set. Offsets are anchored at `begin`, the CALLER'S
+// anchor: a group inherits its parent frame's anchor (groups never re-anchor; the nearest
+// enclosing LEN payload, or the top-level buffer, is where offsets count from).
+template <class T>
+[[nodiscard]] const std::uint8_t* decode_group_into(T& out, const std::uint8_t* cur,
+                                                    const std::uint8_t* end,
+                                                    const std::uint8_t* begin, std::uint32_t term,
+                                                    Arena& arena, int depth,
+                                                    ArenaDecodeError* err) noexcept {
+    return T::rp_decode_into(out, cur, end, begin, term, arena, depth, err);
 }
 
 // True when this platform's byte order matches protobuf's fixed32/64 wire encoding (little-endian),

@@ -7,6 +7,26 @@ From 1.0 on, removals happen only in a major release, announced beforehand under
 
 ## Unreleased
 
+### Changed
+
+- **Arena groups decode single-pass.** The arena decoder previously located a group's matching
+  `EGROUP` with a full scan of the body, then decoded the same bytes a second time; the decode
+  loop now terminates on the group's own `EGROUP` inline, so group bytes are parsed once. On
+  `google_message2` (98% of the wire inside a repeated group) the arena rows improve ~32%:
+  warm +28% → +71% over protoc, cold +19% → +58%; instructions per byte drop 11.5 → 8.5.
+  Group-free scenarios are unchanged in throughput; the per-record terminator check reads as
+  up to ~3% more instructions per byte on the most dispatch-bound arena arms. Three
+  observable details move: a wire error INSIDE a
+  group now reports its offset within the nearest enclosing LEN payload or top-level buffer
+  (previously group-relative -- groups no longer re-anchor; LEN payloads still do), a stray or
+  mismatched `EGROUP` is reported at the tag's own offset, and over-deep known-group nesting
+  reports `RecursionTooDeep` rather than the scan's `GroupTooDeep` (same 100-frame limit, and
+  strictly less recursion than the scan-then-decode pair used). The extent scan
+  survives where the extent is the product: `raw`-mode group fields (the stored payload) and
+  skipped unknown groups. The terminator plumbing costs some generated-code size on
+  message-heavy schemas (the compile stress case: +2.6% `.text` on g++-13, +6.6% on
+  clang++-20, ~300 bytes per message-typed-field-heavy decoder).
+
 ### Added
 
 - **Oneof members join field-order threading.** The arena decoder previously dispatched every

@@ -26,7 +26,8 @@ class stream {
   [[nodiscard]] static const stream* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class rp_T> friend bool ::rapidproto::arena_detail::decode_into(rp_T&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
-  static bool rp_decode_into(stream& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
+  template <class rp_T> friend const std::uint8_t* ::rapidproto::arena_detail::decode_group_into(rp_T&, const std::uint8_t*, const std::uint8_t*, const std::uint8_t*, std::uint32_t, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
+  static const std::uint8_t* rp_decode_into(stream& out, const std::uint8_t* rp_c, const std::uint8_t* rp_cend, const std::uint8_t* rp_beg, std::uint32_t rp_term, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
   std::int32_t m_x;
 };
 static_assert(::std::is_trivially_destructible_v<stream>);
@@ -37,7 +38,8 @@ class arena {
   [[nodiscard]] static const arena* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class rp_T> friend bool ::rapidproto::arena_detail::decode_into(rp_T&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
-  static bool rp_decode_into(arena& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
+  template <class rp_T> friend const std::uint8_t* ::rapidproto::arena_detail::decode_group_into(rp_T&, const std::uint8_t*, const std::uint8_t*, const std::uint8_t*, std::uint32_t, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
+  static const std::uint8_t* rp_decode_into(arena& out, const std::uint8_t* rp_c, const std::uint8_t* rp_cend, const std::uint8_t* rp_beg, std::uint32_t rp_term, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
   std::int32_t m_x;
 };
 static_assert(::std::is_trivially_destructible_v<arena>);
@@ -48,7 +50,8 @@ class common {
   [[nodiscard]] static const common* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class rp_T> friend bool ::rapidproto::arena_detail::decode_into(rp_T&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
-  static bool rp_decode_into(common& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
+  template <class rp_T> friend const std::uint8_t* ::rapidproto::arena_detail::decode_group_into(rp_T&, const std::uint8_t*, const std::uint8_t*, const std::uint8_t*, std::uint32_t, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
+  static const std::uint8_t* rp_decode_into(common& out, const std::uint8_t* rp_c, const std::uint8_t* rp_cend, const std::uint8_t* rp_beg, std::uint32_t rp_term, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
   std::int32_t m_x;
 };
 static_assert(::std::is_trivially_destructible_v<common>);
@@ -62,7 +65,8 @@ class Holder {
   [[nodiscard]] static const Holder* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class rp_T> friend bool ::rapidproto::arena_detail::decode_into(rp_T&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
-  static bool rp_decode_into(Holder& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
+  template <class rp_T> friend const std::uint8_t* ::rapidproto::arena_detail::decode_group_into(rp_T&, const std::uint8_t*, const std::uint8_t*, const std::uint8_t*, std::uint32_t, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
+  static const std::uint8_t* rp_decode_into(Holder& out, const std::uint8_t* rp_c, const std::uint8_t* rp_cend, const std::uint8_t* rp_beg, std::uint32_t rp_term, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
   ::rp::arena::rn::stream m_s;
   ::rp::arena::rn::arena m_a;
   ::rp::arena::rn::common m_c;
@@ -72,14 +76,12 @@ class Holder {
 static_assert(::std::is_trivially_destructible_v<Holder>);
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-RP_FLATTEN inline bool ::rp::arena::rn::stream::rp_decode_into([[maybe_unused]] ::rp::arena::rn::stream& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
-  if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
-  const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(body);
-  const std::uint8_t* const rp_cend = rp_c + body.size();
+RP_FLATTEN inline const std::uint8_t* ::rp::arena::rn::stream::rp_decode_into([[maybe_unused]] ::rp::arena::rn::stream& out, const std::uint8_t* rp_c, const std::uint8_t* const rp_cend, const std::uint8_t* const rp_beg, const std::uint32_t rp_term, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+  if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return nullptr; }
   ::rapidproto::Tag rp_tag{};
   ::rapidproto::WireError rp_we = ::rapidproto::WireError::None;
   for (;;) {
-    if (rp_c >= rp_cend) { break; }
+    if (rp_c >= rp_cend) { if (rp_term != 0) { goto rp_unterminated; } break; }
     switch (*rp_c) {  // peek the 1-byte tag; threaded fields jump to their label
       case ::rapidproto::raw_tag(1, ::rapidproto::WireType::Varint): ++rp_c; goto rp_do_1;
       default: break;
@@ -88,7 +90,7 @@ RP_FLATTEN inline bool ::rp::arena::rn::stream::rp_decode_into([[maybe_unused]] 
     rp_do_1: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_x = ::rapidproto::varint_to_int32(rp_raw);
       continue;
@@ -96,37 +98,40 @@ RP_FLATTEN inline bool ::rp::arena::rn::stream::rp_decode_into([[maybe_unused]] 
     rp_field_general:;
     ::rapidproto::wire::TagState rp_state = ::rapidproto::wire::TagState::End;
     const std::uint8_t* const rp_tp = ::rapidproto::wire::read_tag_or_end(rp_c, rp_cend, &rp_tag, &rp_we, &rp_state);
-    if (rp_state == ::rapidproto::wire::TagState::End) { break; }
-    if (rp_state == ::rapidproto::wire::TagState::Error) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+    if (rp_state == ::rapidproto::wire::TagState::End) { if (rp_term != 0) { goto rp_unterminated; } break; }
+    if (rp_state == ::rapidproto::wire::TagState::Error) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
+    if (rp_tag.wire_type == ::rapidproto::WireType::EGroup) { if (rp_term != 0 && rp_tag.field_number == rp_term) { rp_c = rp_tp; break; } ::rapidproto::rp_fail_wire_at(err, rp_term == 0 ? ::rapidproto::WireError::UnexpectedEndGroup : ::rapidproto::WireError::EndGroupMismatch, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
     rp_c = rp_tp;
     switch (rp_tag.field_number) {
       case 1: { if (rp_tag.wire_type == ::rapidproto::WireType::Varint) { goto rp_do_1; } break; }
       default: break;
     }
     std::size_t rp_fo = 0;
-    const std::uint8_t* const rp_sp = ::rapidproto::wire::skip_value(rp_c, rp_cend, ::rapidproto::wire::byte_ptr(body), rp_tag, 0, &rp_we, &rp_fo);
-    if (rp_sp == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo); return false; }
+    const std::uint8_t* const rp_sp = ::rapidproto::wire::skip_value(rp_c, rp_cend, rp_beg, rp_tag, 0, &rp_we, &rp_fo);
+    if (rp_sp == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo); return nullptr; }
     rp_c = rp_sp;
   }
-  return true;
+  return rp_c;
+  rp_unterminated:;
+  ::rapidproto::rp_fail_wire_at(err, ::rapidproto::WireError::UnterminatedGroup, static_cast<std::size_t>(rp_c - rp_beg));
+  return nullptr;
 }
 inline const ::rp::arena::rn::stream* ::rp::arena::rn::stream::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
   ::rp::arena::rn::stream* const rp_root = arena.create<::rp::arena::rn::stream>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
-  if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
+  const std::uint8_t* const rp_in = ::rapidproto::arena_detail::non_null_cursor(::rapidproto::wire::byte_ptr(input));
+  if (rp_decode_into(*rp_root, rp_in, rp_in + input.size(), rp_in, 0, arena, 0, err) == nullptr) { return nullptr; }
   return rp_root;
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-RP_FLATTEN inline bool ::rp::arena::rn::arena::rp_decode_into([[maybe_unused]] ::rp::arena::rn::arena& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
-  if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
-  const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(body);
-  const std::uint8_t* const rp_cend = rp_c + body.size();
+RP_FLATTEN inline const std::uint8_t* ::rp::arena::rn::arena::rp_decode_into([[maybe_unused]] ::rp::arena::rn::arena& out, const std::uint8_t* rp_c, const std::uint8_t* const rp_cend, const std::uint8_t* const rp_beg, const std::uint32_t rp_term, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+  if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return nullptr; }
   ::rapidproto::Tag rp_tag{};
   ::rapidproto::WireError rp_we = ::rapidproto::WireError::None;
   for (;;) {
-    if (rp_c >= rp_cend) { break; }
+    if (rp_c >= rp_cend) { if (rp_term != 0) { goto rp_unterminated; } break; }
     switch (*rp_c) {  // peek the 1-byte tag; threaded fields jump to their label
       case ::rapidproto::raw_tag(1, ::rapidproto::WireType::Varint): ++rp_c; goto rp_do_1;
       default: break;
@@ -135,7 +140,7 @@ RP_FLATTEN inline bool ::rp::arena::rn::arena::rp_decode_into([[maybe_unused]] :
     rp_do_1: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_x = ::rapidproto::varint_to_int32(rp_raw);
       continue;
@@ -143,37 +148,40 @@ RP_FLATTEN inline bool ::rp::arena::rn::arena::rp_decode_into([[maybe_unused]] :
     rp_field_general:;
     ::rapidproto::wire::TagState rp_state = ::rapidproto::wire::TagState::End;
     const std::uint8_t* const rp_tp = ::rapidproto::wire::read_tag_or_end(rp_c, rp_cend, &rp_tag, &rp_we, &rp_state);
-    if (rp_state == ::rapidproto::wire::TagState::End) { break; }
-    if (rp_state == ::rapidproto::wire::TagState::Error) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+    if (rp_state == ::rapidproto::wire::TagState::End) { if (rp_term != 0) { goto rp_unterminated; } break; }
+    if (rp_state == ::rapidproto::wire::TagState::Error) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
+    if (rp_tag.wire_type == ::rapidproto::WireType::EGroup) { if (rp_term != 0 && rp_tag.field_number == rp_term) { rp_c = rp_tp; break; } ::rapidproto::rp_fail_wire_at(err, rp_term == 0 ? ::rapidproto::WireError::UnexpectedEndGroup : ::rapidproto::WireError::EndGroupMismatch, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
     rp_c = rp_tp;
     switch (rp_tag.field_number) {
       case 1: { if (rp_tag.wire_type == ::rapidproto::WireType::Varint) { goto rp_do_1; } break; }
       default: break;
     }
     std::size_t rp_fo = 0;
-    const std::uint8_t* const rp_sp = ::rapidproto::wire::skip_value(rp_c, rp_cend, ::rapidproto::wire::byte_ptr(body), rp_tag, 0, &rp_we, &rp_fo);
-    if (rp_sp == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo); return false; }
+    const std::uint8_t* const rp_sp = ::rapidproto::wire::skip_value(rp_c, rp_cend, rp_beg, rp_tag, 0, &rp_we, &rp_fo);
+    if (rp_sp == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo); return nullptr; }
     rp_c = rp_sp;
   }
-  return true;
+  return rp_c;
+  rp_unterminated:;
+  ::rapidproto::rp_fail_wire_at(err, ::rapidproto::WireError::UnterminatedGroup, static_cast<std::size_t>(rp_c - rp_beg));
+  return nullptr;
 }
 inline const ::rp::arena::rn::arena* ::rp::arena::rn::arena::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
   ::rp::arena::rn::arena* const rp_root = arena.create<::rp::arena::rn::arena>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
-  if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
+  const std::uint8_t* const rp_in = ::rapidproto::arena_detail::non_null_cursor(::rapidproto::wire::byte_ptr(input));
+  if (rp_decode_into(*rp_root, rp_in, rp_in + input.size(), rp_in, 0, arena, 0, err) == nullptr) { return nullptr; }
   return rp_root;
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-RP_FLATTEN inline bool ::rp::arena::rn::common::rp_decode_into([[maybe_unused]] ::rp::arena::rn::common& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
-  if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
-  const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(body);
-  const std::uint8_t* const rp_cend = rp_c + body.size();
+RP_FLATTEN inline const std::uint8_t* ::rp::arena::rn::common::rp_decode_into([[maybe_unused]] ::rp::arena::rn::common& out, const std::uint8_t* rp_c, const std::uint8_t* const rp_cend, const std::uint8_t* const rp_beg, const std::uint32_t rp_term, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+  if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return nullptr; }
   ::rapidproto::Tag rp_tag{};
   ::rapidproto::WireError rp_we = ::rapidproto::WireError::None;
   for (;;) {
-    if (rp_c >= rp_cend) { break; }
+    if (rp_c >= rp_cend) { if (rp_term != 0) { goto rp_unterminated; } break; }
     switch (*rp_c) {  // peek the 1-byte tag; threaded fields jump to their label
       case ::rapidproto::raw_tag(1, ::rapidproto::WireType::Varint): ++rp_c; goto rp_do_1;
       default: break;
@@ -182,7 +190,7 @@ RP_FLATTEN inline bool ::rp::arena::rn::common::rp_decode_into([[maybe_unused]] 
     rp_do_1: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_x = ::rapidproto::varint_to_int32(rp_raw);
       continue;
@@ -190,37 +198,40 @@ RP_FLATTEN inline bool ::rp::arena::rn::common::rp_decode_into([[maybe_unused]] 
     rp_field_general:;
     ::rapidproto::wire::TagState rp_state = ::rapidproto::wire::TagState::End;
     const std::uint8_t* const rp_tp = ::rapidproto::wire::read_tag_or_end(rp_c, rp_cend, &rp_tag, &rp_we, &rp_state);
-    if (rp_state == ::rapidproto::wire::TagState::End) { break; }
-    if (rp_state == ::rapidproto::wire::TagState::Error) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+    if (rp_state == ::rapidproto::wire::TagState::End) { if (rp_term != 0) { goto rp_unterminated; } break; }
+    if (rp_state == ::rapidproto::wire::TagState::Error) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
+    if (rp_tag.wire_type == ::rapidproto::WireType::EGroup) { if (rp_term != 0 && rp_tag.field_number == rp_term) { rp_c = rp_tp; break; } ::rapidproto::rp_fail_wire_at(err, rp_term == 0 ? ::rapidproto::WireError::UnexpectedEndGroup : ::rapidproto::WireError::EndGroupMismatch, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
     rp_c = rp_tp;
     switch (rp_tag.field_number) {
       case 1: { if (rp_tag.wire_type == ::rapidproto::WireType::Varint) { goto rp_do_1; } break; }
       default: break;
     }
     std::size_t rp_fo = 0;
-    const std::uint8_t* const rp_sp = ::rapidproto::wire::skip_value(rp_c, rp_cend, ::rapidproto::wire::byte_ptr(body), rp_tag, 0, &rp_we, &rp_fo);
-    if (rp_sp == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo); return false; }
+    const std::uint8_t* const rp_sp = ::rapidproto::wire::skip_value(rp_c, rp_cend, rp_beg, rp_tag, 0, &rp_we, &rp_fo);
+    if (rp_sp == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo); return nullptr; }
     rp_c = rp_sp;
   }
-  return true;
+  return rp_c;
+  rp_unterminated:;
+  ::rapidproto::rp_fail_wire_at(err, ::rapidproto::WireError::UnterminatedGroup, static_cast<std::size_t>(rp_c - rp_beg));
+  return nullptr;
 }
 inline const ::rp::arena::rn::common* ::rp::arena::rn::common::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
   ::rp::arena::rn::common* const rp_root = arena.create<::rp::arena::rn::common>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
-  if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
+  const std::uint8_t* const rp_in = ::rapidproto::arena_detail::non_null_cursor(::rapidproto::wire::byte_ptr(input));
+  if (rp_decode_into(*rp_root, rp_in, rp_in + input.size(), rp_in, 0, arena, 0, err) == nullptr) { return nullptr; }
   return rp_root;
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-RP_FLATTEN RP_NOINLINE inline bool ::rp::arena::rn::Holder::rp_decode_into([[maybe_unused]] ::rp::arena::rn::Holder& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
-  if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
-  const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(body);
-  const std::uint8_t* const rp_cend = rp_c + body.size();
+RP_FLATTEN RP_NOINLINE inline const std::uint8_t* ::rp::arena::rn::Holder::rp_decode_into([[maybe_unused]] ::rp::arena::rn::Holder& out, const std::uint8_t* rp_c, const std::uint8_t* const rp_cend, const std::uint8_t* const rp_beg, const std::uint32_t rp_term, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+  if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return nullptr; }
   ::rapidproto::Tag rp_tag{};
   ::rapidproto::WireError rp_we = ::rapidproto::WireError::None;
   for (;;) {
-    if (rp_c >= rp_cend) { break; }
+    if (rp_c >= rp_cend) { if (rp_term != 0) { goto rp_unterminated; } break; }
     switch (*rp_c) {  // peek the 1-byte tag; threaded fields jump to their label
       case ::rapidproto::raw_tag(1, ::rapidproto::WireType::Len): ++rp_c; goto rp_do_1;
       case ::rapidproto::raw_tag(2, ::rapidproto::WireType::Len): ++rp_c; goto rp_do_2;
@@ -230,30 +241,30 @@ RP_FLATTEN RP_NOINLINE inline bool ::rp::arena::rn::Holder::rp_decode_into([[may
     }
     goto rp_field_general;
     rp_do_1: {
-      if ((out.m_rp_mask & (std::uint8_t{1} << 0)) != 0) { ::rapidproto::rp_fail_repeated_singular(err, 1); return false; }
+      if ((out.m_rp_mask & (std::uint8_t{1} << 0)) != 0) { ::rapidproto::rp_fail_repeated_singular(err, 1); return nullptr; }
       ::rapidproto::ByteView rp_v;
-      { const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_v, &rp_we); if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; } rp_c = rp_np; }
-      if (!::rapidproto::arena_detail::decode_into(out.m_s, rp_v, arena, depth + 1, err)) { return false; }
+      { const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_v, &rp_we); if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; } rp_c = rp_np; }
+      if (!::rapidproto::arena_detail::decode_into(out.m_s, rp_v, arena, depth + 1, err)) { return nullptr; }
       out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 0));
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(2, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_2; }
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(3, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_3; }
       continue;
     }
     rp_do_2: {
-      if ((out.m_rp_mask & (std::uint8_t{1} << 1)) != 0) { ::rapidproto::rp_fail_repeated_singular(err, 2); return false; }
+      if ((out.m_rp_mask & (std::uint8_t{1} << 1)) != 0) { ::rapidproto::rp_fail_repeated_singular(err, 2); return nullptr; }
       ::rapidproto::ByteView rp_v;
-      { const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_v, &rp_we); if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; } rp_c = rp_np; }
-      if (!::rapidproto::arena_detail::decode_into(out.m_a, rp_v, arena, depth + 1, err)) { return false; }
+      { const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_v, &rp_we); if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; } rp_c = rp_np; }
+      if (!::rapidproto::arena_detail::decode_into(out.m_a, rp_v, arena, depth + 1, err)) { return nullptr; }
       out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 1));
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(3, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_3; }
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(4, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_4; }
       continue;
     }
     rp_do_3: {
-      if ((out.m_rp_mask & (std::uint8_t{1} << 2)) != 0) { ::rapidproto::rp_fail_repeated_singular(err, 3); return false; }
+      if ((out.m_rp_mask & (std::uint8_t{1} << 2)) != 0) { ::rapidproto::rp_fail_repeated_singular(err, 3); return nullptr; }
       ::rapidproto::ByteView rp_v;
-      { const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_v, &rp_we); if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; } rp_c = rp_np; }
-      if (!::rapidproto::arena_detail::decode_into(out.m_c, rp_v, arena, depth + 1, err)) { return false; }
+      { const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_v, &rp_we); if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; } rp_c = rp_np; }
+      if (!::rapidproto::arena_detail::decode_into(out.m_c, rp_v, arena, depth + 1, err)) { return nullptr; }
       out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 2));
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(4, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_4; }
       continue;
@@ -261,7 +272,7 @@ RP_FLATTEN RP_NOINLINE inline bool ::rp::arena::rn::Holder::rp_decode_into([[may
     rp_do_4: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_r = static_cast<::rp::common::rn::rp>(::rapidproto::varint_to_int32(rp_raw));
       continue;
@@ -269,8 +280,9 @@ RP_FLATTEN RP_NOINLINE inline bool ::rp::arena::rn::Holder::rp_decode_into([[may
     rp_field_general:;
     ::rapidproto::wire::TagState rp_state = ::rapidproto::wire::TagState::End;
     const std::uint8_t* const rp_tp = ::rapidproto::wire::read_tag_or_end(rp_c, rp_cend, &rp_tag, &rp_we, &rp_state);
-    if (rp_state == ::rapidproto::wire::TagState::End) { break; }
-    if (rp_state == ::rapidproto::wire::TagState::Error) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+    if (rp_state == ::rapidproto::wire::TagState::End) { if (rp_term != 0) { goto rp_unterminated; } break; }
+    if (rp_state == ::rapidproto::wire::TagState::Error) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
+    if (rp_tag.wire_type == ::rapidproto::WireType::EGroup) { if (rp_term != 0 && rp_tag.field_number == rp_term) { rp_c = rp_tp; break; } ::rapidproto::rp_fail_wire_at(err, rp_term == 0 ? ::rapidproto::WireError::UnexpectedEndGroup : ::rapidproto::WireError::EndGroupMismatch, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
     rp_c = rp_tp;
     switch (rp_tag.field_number) {
       case 1: { if (rp_tag.wire_type == ::rapidproto::WireType::Len) { goto rp_do_1; } break; }
@@ -280,17 +292,21 @@ RP_FLATTEN RP_NOINLINE inline bool ::rp::arena::rn::Holder::rp_decode_into([[may
       default: break;
     }
     std::size_t rp_fo = 0;
-    const std::uint8_t* const rp_sp = ::rapidproto::wire::skip_value(rp_c, rp_cend, ::rapidproto::wire::byte_ptr(body), rp_tag, 0, &rp_we, &rp_fo);
-    if (rp_sp == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo); return false; }
+    const std::uint8_t* const rp_sp = ::rapidproto::wire::skip_value(rp_c, rp_cend, rp_beg, rp_tag, 0, &rp_we, &rp_fo);
+    if (rp_sp == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo); return nullptr; }
     rp_c = rp_sp;
   }
-  return true;
+  return rp_c;
+  rp_unterminated:;
+  ::rapidproto::rp_fail_wire_at(err, ::rapidproto::WireError::UnterminatedGroup, static_cast<std::size_t>(rp_c - rp_beg));
+  return nullptr;
 }
 inline const ::rp::arena::rn::Holder* ::rp::arena::rn::Holder::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
   ::rp::arena::rn::Holder* const rp_root = arena.create<::rp::arena::rn::Holder>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
-  if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
+  const std::uint8_t* const rp_in = ::rapidproto::arena_detail::non_null_cursor(::rapidproto::wire::byte_ptr(input));
+  if (rp_decode_into(*rp_root, rp_in, rp_in + input.size(), rp_in, 0, arena, 0, err) == nullptr) { return nullptr; }
   return rp_root;
 }
 

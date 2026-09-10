@@ -645,6 +645,165 @@ TEST_CASE("arena-decode: a probe past a straddling oneof stores the member", "[a
     CHECK(headed);
 }
 
+// Group framing is decided inline by the single-pass decode loop (no extent pre-scan): each block
+// below pins one terminator shape the old scan used to decide.
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): a flat list of framing cases
+TEST_CASE("arena-decode: group framing -- terminator recognition and errors", "[arena-decode]") {
+    Arena arena;
+
+    // A LEN value whose payload happens to contain EGROUP bytes: the string keeps those bytes and
+    // the group ends at the next real EGROUP tag.
+    {
+        std::string w;
+        put_tag(w, 2, 3);  // pick.g: SGROUP
+        put_tag(w, 4, 2);  // s: LEN, length 2
+        put_varint(w, 2);
+        put_tag(w, 2, 4);  // payload byte 1: 0x14 -- the encoding of EGROUP(2)
+        w += 'x';          // payload byte 2
+        put_tag(w, 2, 4);  // the real EGROUP
+        const p2::OneofGroup* m = p2::OneofGroup::decode(ByteView(w), arena);
+        REQUIRE(m != nullptr);
+        bool got = false;
+        m->pick(
+            [&](p2::OneofGroup::Pick::g, const p2::OneofGroup::G& g) {
+                got = true;
+                CHECK(g.s() == std::string_view("\x14x", 2));
+            },
+            [](auto, auto) { FAIL("unexpected member"); });
+        CHECK(got);
+    }
+
+    // An EGROUP with the wrong field number is a mismatched close, at any nesting.
+    {
+        std::string w;
+        put_tag(w, 2, 3);  // SGROUP(2)
+        put_tag(w, 3, 4);  // EGROUP(3)
+        ArenaDecodeError err{};
+        CHECK(p2::OneofGroup::decode(ByteView(w), arena, &err) == nullptr);
+        CHECK(err.code == ArenaDecodeError::Code::Wire);
+        CHECK(err.wire == WireError::EndGroupMismatch);
+    }
+
+    // The OUTER group's EGROUP seen inside the inner group closes nothing: the inner frame
+    // reports the mismatch rather than letting the outer terminator leak through.
+    {
+        std::string w;
+        put_tag(w, 1, 3);  // WithGroup.mygroup: SGROUP(1)
+        put_tag(w, 3, 3);  // inner: SGROUP(3)
+        put_tag(w, 1, 4);  // EGROUP(1) -- the outer terminator, inside the inner frame
+        ArenaDecodeError err{};
+        CHECK(p2::WithGroup::decode(ByteView(w), arena, &err) == nullptr);
+        CHECK(err.code == ArenaDecodeError::Code::Wire);
+        CHECK(err.wire == WireError::EndGroupMismatch);
+    }
+
+    // A non-minimally-encoded EGROUP tag still terminates (read_tag_or_end normalizes it).
+    {
+        std::string w;
+        put_tag(w, 2, 3);              // SGROUP(2)
+        w += static_cast<char>(0x94);  // EGROUP(2)'s tag value 20, over-long: 0x94 0x00
+        w += static_cast<char>(0x00);
+        const p2::OneofGroup* m = p2::OneofGroup::decode(ByteView(w), arena);
+        REQUIRE(m != nullptr);
+        bool got = false;
+        m->pick([&](p2::OneofGroup::Pick::g, const p2::OneofGroup::G&) { got = true; },
+                [](auto, auto) { FAIL("unexpected member"); });
+        CHECK(got);
+    }
+
+    // A group whose own number recurs as a field INSIDE it: EGROUP(2) must terminate, not be
+    // swallowed by field 2's case; the inner field still decodes normally.
+    {
+        std::string w;
+        put_tag(w, 2, 3);  // G: SGROUP(2)
+        put_tag(w, 2, 0);  // two = 7 (same number as the group)
+        put_varint(w, 7);
+        put_tag(w, 2, 4);  // EGROUP(2)
+        const p2::GroupNumberReuse* m = p2::GroupNumberReuse::decode(ByteView(w), arena);
+        REQUIRE(m != nullptr);
+        REQUIRE(m->g() != nullptr);
+        CHECK(m->g()->two() == std::optional<std::int32_t>(7));
+    }
+
+    // Input ending before the EGROUP is an unterminated group -- at depth too.
+    {
+        std::string w;
+        put_tag(w, 2, 3);  // SGROUP(2), then nothing
+        ArenaDecodeError err{};
+        CHECK(p2::OneofGroup::decode(ByteView(w), arena, &err) == nullptr);
+        CHECK(err.code == ArenaDecodeError::Code::Wire);
+        CHECK(err.wire == WireError::UnterminatedGroup);
+
+        std::string w2;
+        put_tag(w2, 1, 3);  // SGROUP(1)
+        put_tag(w2, 3, 3);  // inner SGROUP(3), then nothing
+        ArenaDecodeError err2{};
+        CHECK(p2::WithGroup::decode(ByteView(w2), arena, &err2) == nullptr);
+        CHECK(err2.code == ArenaDecodeError::Code::Wire);
+        CHECK(err2.wire == WireError::UnterminatedGroup);
+    }
+
+    // A stray EGROUP outside any group (the rp_term == 0 arm of the terminator check), reported
+    // at the tag's own offset.
+    {
+        std::string w;
+        put_tag(w, 5, 0);  // after = 1 (one byte tag + one byte value)
+        put_varint(w, 1);
+        put_tag(w, 2, 4);  // EGROUP(2) with no open group, at offset 2
+        ArenaDecodeError err{};
+        CHECK(p2::OneofGroup::decode(ByteView(w), arena, &err) == nullptr);
+        CHECK(err.code == ArenaDecodeError::Code::Wire);
+        CHECK(err.wire == WireError::UnexpectedEndGroup);
+        CHECK(err.offset == 2);
+    }
+
+    // Offsets inside a group count from the nearest enclosing LEN payload or the top-level
+    // buffer -- a group does not re-anchor. The truncated varint sits at absolute offset 3.
+    {
+        std::string w;
+        put_tag(w, 5, 0);  // after = 1
+        put_varint(w, 1);
+        put_tag(w, 2, 3);              // SGROUP(2) at offset 2
+        w += static_cast<char>(0x98);  // a truncated tag varint (continuation bit, then end)
+        ArenaDecodeError err{};
+        CHECK(p2::OneofGroup::decode(ByteView(w), arena, &err) == nullptr);
+        CHECK(err.code == ArenaDecodeError::Code::Wire);
+        CHECK(err.offset == 3);  // counted in the whole buffer, not group-relative (would be 0)
+    }
+}
+
+// Repeated groups: each element is its own frame appended into the arena array -- the raw-slot
+// initialization order and the element self-append are what google_message2 exercises at scale.
+TEST_CASE("arena-decode: repeated group elements decode per frame", "[arena-decode]") {
+    Arena arena;
+    std::string w;
+    put_tag(w, 1, 3);  // Item[0]: SGROUP
+    put_tag(w, 2, 0);
+    put_varint(w, 10);  // v = 10
+    put_tag(w, 1, 4);   // EGROUP
+    put_tag(w, 1, 3);   // Item[1]: SGROUP, empty
+    put_tag(w, 1, 4);   // EGROUP
+    put_tag(w, 3, 0);   // tail = 7
+    put_varint(w, 7);
+    const p2::RepeatedGroup* m = p2::RepeatedGroup::decode(ByteView(w), arena);
+    REQUIRE(m != nullptr);
+    REQUIRE(m->item().size() == 2);
+    CHECK(m->item()[0].v() == std::optional<std::int32_t>(10));
+    CHECK(!m->item()[1].v().has_value());
+    CHECK(m->tail() == std::optional<std::int32_t>(7));
+
+    // A malformed second element fails the whole decode (mid-group failure, array in flight).
+    std::string bad;
+    put_tag(bad, 1, 3);
+    put_tag(bad, 1, 4);  // Item[0]: empty, fine
+    put_tag(bad, 1, 3);  // Item[1]: SGROUP, then wrong close
+    put_tag(bad, 5, 4);  // EGROUP(5)
+    ArenaDecodeError err{};
+    CHECK(p2::RepeatedGroup::decode(ByteView(bad), arena, &err) == nullptr);
+    CHECK(err.code == ArenaDecodeError::Code::Wire);
+    CHECK(err.wire == WireError::EndGroupMismatch);
+}
+
 // An absent explicit-presence field reads as std::nullopt: the schema default (proto2 `[default=...]`)
 // is NOT read through the optional accessor -- a consumer applies it via value_or(...). Only field 1
 // (required i32) is set here, so every optional field is absent.

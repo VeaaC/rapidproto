@@ -584,7 +584,13 @@ byte enters the field's decode, and after each field a small constant-tag probe 
 next expected field's decode → decode the value into the
 node, set presence/value bits, recurse into sub-messages. Strings/bytes are borrowed as `{ptr, len}`
 views into the input; **repeated fields accumulate single-pass into a growable arena array** (the benchmark-chosen
-strategy, below); maps append (last-wins on read); groups use `read_group`; unknown fields are skipped
+strategy, below); maps append (last-wins on read); groups decode **single-pass** — the decode
+loop itself terminates on the group's matching `EGROUP` tag (a runtime terminator parameter;
+`0` means decode-to-end for LEN payloads and the top level), so a group's bytes are parsed once,
+not scan-then-decode (the arena's one remaining `read_group` call is the raw field mode,
+where the extent itself is the product; a skipped unknown group is scanned by `skip_value`,
+as ever, and the streaming model keeps its scan by design -- its lazy group Value needs the
+extent up front); unknown fields are skipped
 (with an opt-in "unknown present" bit under `--unknown-present`, or per message via
 `--unknown=`/`unknown-fields`). Malformed input → `nullptr`
 + the error.

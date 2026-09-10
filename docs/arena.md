@@ -146,7 +146,10 @@ struct ArenaDecodeError {
                       RepeatedSingularMessage, StringTooLong, InputTooLarge };
     Code code;
     rapidproto::WireError wire;     // valid when code == Wire
-    std::size_t offset;             // byte offset of a wire failure
+    std::size_t offset;             // byte offset of a wire failure, from the start of the
+                                    // nearest enclosing LEN payload (or of the buffer handed to
+                                    // decode()); proto2 groups do NOT re-anchor -- a failure
+                                    // inside a group reports its position in that enclosing span
     std::uint32_t field_number;     // the offending field (MissingRequired / RepeatedSingularMessage)
 };
 ```
@@ -155,7 +158,7 @@ struct ArenaDecodeError {
 |---|---|
 | `Wire` | Malformed wire input (truncation, length overrun, group mismatch); `wire`/`offset` locate it |
 | `MissingRequired` | A proto2 `required` field was absent (matches `protoc`); `field_number` names it |
-| `RecursionTooDeep` | Message nesting exceeded the depth guard (`kMaxDecodeDepth`, 100). Nested *groups* hit their own guard and report `Wire` with `GroupTooDeep` |
+| `RecursionTooDeep` | Nesting exceeded the depth guard (`kMaxDecodeDepth`, 100) -- messages and decoded groups alike. Only *skipped* (unknown or raw-mode) group nests report `Wire` with `GroupTooDeep` |
 | `OutOfMemory` | The arena could not satisfy an allocation |
 | `RepeatedSingularMessage` | A singular sub-message appeared more than once, which protobuf merges and a read-only tree cannot; `field_number` names the field (for a map, the map itself). Covers four more shapes — see [duplicate fields](semantics.md) |
 | `InputTooLarge` | The input exceeded `UINT32_MAX` bytes |

@@ -31,6 +31,10 @@ inline void rp_dump_write(const ::rp::arena::p2::WithGroup::MyGroup& m, ::rapidp
 inline void rp_dump_write(const ::rp::arena::p2::WithGroup& m, ::rapidproto::dump_detail::Writer& w);
 inline void rp_dump_write(const ::rp::arena::p2::OneofGroup::G& m, ::rapidproto::dump_detail::Writer& w);
 inline void rp_dump_write(const ::rp::arena::p2::OneofGroup& m, ::rapidproto::dump_detail::Writer& w);
+inline void rp_dump_write(const ::rp::arena::p2::GroupNumberReuse::G& m, ::rapidproto::dump_detail::Writer& w);
+inline void rp_dump_write(const ::rp::arena::p2::GroupNumberReuse& m, ::rapidproto::dump_detail::Writer& w);
+inline void rp_dump_write(const ::rp::arena::p2::RepeatedGroup::Item& m, ::rapidproto::dump_detail::Writer& w);
+inline void rp_dump_write(const ::rp::arena::p2::RepeatedGroup& m, ::rapidproto::dump_detail::Writer& w);
 inline void rp_dump_write(const ::rp::arena::p2::OneofGroupStraddle::Head& m, ::rapidproto::dump_detail::Writer& w);
 inline void rp_dump_write(const ::rp::arena::p2::OneofGroupStraddle& m, ::rapidproto::dump_detail::Writer& w);
 inline void rp_dump_write(const ::rp::arena::p2::Container::Nested& m, ::rapidproto::dump_detail::Writer& w);
@@ -242,6 +246,74 @@ inline void rp_dump_write(const ::rp::arena::p2::OneofGroup& m, ::rapidproto::du
   });
 }
 
+inline void rp_dump_write(const ::rp::arena::p2::GroupNumberReuse::G& m, ::rapidproto::dump_detail::Writer& w) {
+  (void)m;
+  w.group('{', '}', [&] {
+    bool rp_first = true;
+    if (const auto rp_v = m.two()) {
+      if (w.begin_field(rp_first, "two")) {
+        ::rapidproto::dump_detail::write_int(w.os(), *rp_v);
+      }
+    }
+    (void)rp_first;
+  });
+}
+
+inline void rp_dump_write(const ::rp::arena::p2::GroupNumberReuse& m, ::rapidproto::dump_detail::Writer& w) {
+  (void)m;
+  w.group('{', '}', [&] {
+    bool rp_first = true;
+    if (const auto* rp_p = m.g()) {
+      if (w.begin_field(rp_first, "g")) {
+        w.push_path("g");
+        ::rp::arena::p2::rp_dump_detail::rp_dump_write(*rp_p, w);
+        w.pop_path();
+      }
+    }
+    (void)rp_first;
+  });
+}
+
+inline void rp_dump_write(const ::rp::arena::p2::RepeatedGroup::Item& m, ::rapidproto::dump_detail::Writer& w) {
+  (void)m;
+  w.group('{', '}', [&] {
+    bool rp_first = true;
+    if (const auto rp_v = m.v()) {
+      if (w.begin_field(rp_first, "v")) {
+        ::rapidproto::dump_detail::write_int(w.os(), *rp_v);
+      }
+    }
+    (void)rp_first;
+  });
+}
+
+inline void rp_dump_write(const ::rp::arena::p2::RepeatedGroup& m, ::rapidproto::dump_detail::Writer& w) {
+  (void)m;
+  w.group('{', '}', [&] {
+    bool rp_first = true;
+    if (const auto& rp_r = m.item(); !rp_r.empty()) {
+      if (w.begin_field(rp_first, "item")) {
+        w.push_path("item");
+        w.group('[', ']', [&] {
+          bool rp_efirst = true;
+          for (const auto& rp_el : rp_r) {
+            w.entry_sep(rp_efirst);
+            ::rp::arena::p2::rp_dump_detail::rp_dump_write(rp_el, w);
+            if (w.overflowed()) { break; }
+          }
+        });
+        w.pop_path();
+      }
+    }
+    if (const auto rp_v = m.tail()) {
+      if (w.begin_field(rp_first, "tail")) {
+        ::rapidproto::dump_detail::write_int(w.os(), *rp_v);
+      }
+    }
+    (void)rp_first;
+  });
+}
+
 inline void rp_dump_write(const ::rp::arena::p2::OneofGroupStraddle::Head& m, ::rapidproto::dump_detail::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
@@ -397,6 +469,26 @@ struct dumper<::rp::arena::p2::OneofGroup::G> {
 template <>
 struct dumper<::rp::arena::p2::OneofGroup> {
   static void write(const ::rp::arena::p2::OneofGroup& m, Writer& w) { ::rp::arena::p2::rp_dump_detail::rp_dump_write(m, w); }
+};
+
+template <>
+struct dumper<::rp::arena::p2::GroupNumberReuse::G> {
+  static void write(const ::rp::arena::p2::GroupNumberReuse::G& m, Writer& w) { ::rp::arena::p2::rp_dump_detail::rp_dump_write(m, w); }
+};
+
+template <>
+struct dumper<::rp::arena::p2::GroupNumberReuse> {
+  static void write(const ::rp::arena::p2::GroupNumberReuse& m, Writer& w) { ::rp::arena::p2::rp_dump_detail::rp_dump_write(m, w); }
+};
+
+template <>
+struct dumper<::rp::arena::p2::RepeatedGroup::Item> {
+  static void write(const ::rp::arena::p2::RepeatedGroup::Item& m, Writer& w) { ::rp::arena::p2::rp_dump_detail::rp_dump_write(m, w); }
+};
+
+template <>
+struct dumper<::rp::arena::p2::RepeatedGroup> {
+  static void write(const ::rp::arena::p2::RepeatedGroup& m, Writer& w) { ::rp::arena::p2::rp_dump_detail::rp_dump_write(m, w); }
 };
 
 template <>

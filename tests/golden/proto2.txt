@@ -66,6 +66,15 @@ file proto2.proto
     message G [fqn=.p2.OneofGroup.G]
       field x num=3 presence=explicit type=int32
       field s num=4 presence=explicit type=string
+  message GroupNumberReuse [fqn=.p2.GroupNumberReuse]
+    field g num=2 presence=explicit group delimited type=G -> .p2.GroupNumberReuse.G msg
+    message G [fqn=.p2.GroupNumberReuse.G]
+      field two num=2 presence=explicit type=int32
+  message RepeatedGroup [fqn=.p2.RepeatedGroup]
+    field item num=1 presence=explicit repeated=expanded group delimited type=Item -> .p2.RepeatedGroup.Item msg
+    field tail num=3 presence=explicit type=int32
+    message Item [fqn=.p2.RepeatedGroup.Item]
+      field v num=2 presence=explicit type=int32
   message OneofGroupStraddle [fqn=.p2.OneofGroupStraddle]
     field mid num=4 presence=explicit type=int32
     oneof pick
@@ -93,10 +102,14 @@ symbols
   .p2.Color enum
   .p2.Container message
   .p2.Container.Nested message
+  .p2.GroupNumberReuse message
+  .p2.GroupNumberReuse.G message
   .p2.OneofGroup message
   .p2.OneofGroup.G message
   .p2.OneofGroupStraddle message
   .p2.OneofGroupStraddle.Head message
+  .p2.RepeatedGroup message
+  .p2.RepeatedGroup.Item message
   .p2.Scalars message
   .p2.WithGroup message
   .p2.WithGroup.MyGroup message

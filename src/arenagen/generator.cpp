@@ -694,9 +694,14 @@ void emit_message_body(const Emit& emit, const MessageNode& message) {
         " ::rapidproto::ByteView, ::rapidproto::Arena&, int,"
         " ::rapidproto::ArenaDecodeError*) noexcept;\n");
     p.print(
-        "static bool rp_decode_into($T$& out, ::rapidproto::ByteView body, ::rapidproto::Arena& "
-        "arena,"
-        " int depth, ::rapidproto::ArenaDecodeError* err) noexcept;\n",
+        "template <class rp_T> friend const std::uint8_t*"
+        " ::rapidproto::arena_detail::decode_group_into(rp_T&, const std::uint8_t*,"
+        " const std::uint8_t*, const std::uint8_t*, std::uint32_t, ::rapidproto::Arena&, int,"
+        " ::rapidproto::ArenaDecodeError*) noexcept;\n");
+    p.print(
+        "static const std::uint8_t* rp_decode_into($T$& out, const std::uint8_t* rp_c,"
+        " const std::uint8_t* rp_cend, const std::uint8_t* rp_beg, std::uint32_t rp_term,"
+        " ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;\n",
         {{"T", type}});
     for (const OneofPlan& o : layout.oneofs) {
         emit_oneof_union(emit, o);
@@ -815,13 +820,10 @@ const codegen::ScalarWire& scalar_wire(std::string_view type) {
     return *w;
 }
 
-// {wire enumerator, read expression} for a message field given its encoding (length-prefixed vs the
+// The wire enumerator for a message field given its encoding (length-prefixed vs the
 // group/delimited wire form).
-std::pair<std::string, std::string> message_wire(const FieldNode& field) {
-    if (field.message_encoding == MessageEncoding::Delimited) {
-        return {"SGroup", "read_group(rp_tag.field_number)"};
-    }
-    return {"Len", "read_length_delimited()"};
+std::string message_wire(const FieldNode& field) {
+    return field.message_encoding == MessageEncoding::Delimited ? "SGroup" : "Len";
 }
 
 std::string mask_word_one(const MessageLayout& layout, int bit) {
@@ -869,7 +871,7 @@ void emit_vt_message_read(const Emit& emit, const FieldNode& field, const std::s
 
 std::string elem_wire_enum(const FieldNode& field) {  // the native wire type of a repeated element
     if (field.is_message_type) {
-        return message_wire(field).first;
+        return message_wire(field);
     }
     if (field.is_enum_type) {
         return "Varint";
@@ -897,9 +899,12 @@ void emit_presence_set(const Emit& emit, const MessageLayout& layout, const Memb
     }
 }
 
-// The decode body of a singular LEN sub-message (reject-if-seen, read the payload, recursively decode
-// into the inline struct or an arena-allocated pointee, set presence) -- TAG-CONSUMED: no wire check,
-// no `case`, no `continue`. Shared by the general singular arm and the expected-order threaded label.
+void emit_group_frame_decode(const Emit& emit, const FieldNode& field, const std::string& target);
+
+// The decode body of a singular sub-message (reject-if-seen, decode into the inline struct or an
+// arena-allocated pointee -- via the LEN payload, or in place as a group frame for DELIMITED --
+// set presence) -- TAG-CONSUMED: no wire check, no `case`, no `continue`. Shared by the general
+// singular arm and the expected-order threaded label.
 void emit_message_decode_body(const Emit& emit, const MessageLayout& layout, const MemberPlan& m,
                               const std::unordered_map<const FieldNode*, int>& required_bit) {
     Printer& p = emit.printer;
@@ -921,20 +926,31 @@ void emit_message_decode_body(const Emit& emit, const MessageLayout& layout, con
                std::to_string(req_bit_no(ri, required_bit.size())) + ")) != 0";
     }
     const std::string sub = cpp_type_name(emit.names, m.target_fqn);
-    p.print("if ($seen$) { ::rapidproto::rp_fail_repeated_singular(err, $n$); return false; }\n",
+    p.print("if ($seen$) { ::rapidproto::rp_fail_repeated_singular(err, $n$); return nullptr; }\n",
             {{"seen", seen}, {"n", std::to_string(field.number)}});
-    emit_vt_message_read(emit, field, "rp_v");
+    const bool delimited = field.message_encoding == MessageEncoding::Delimited;
+    if (!delimited) {
+        emit_vt_message_read(emit, field, "rp_v");
+    }
     if (m.kind == FieldKind::InlineFixedSubMsg) {
-        p.print(
-            "if (!::rapidproto::arena_detail::decode_into(out.$s$, rp_v, arena, depth + 1, "
-            "err)) { return false; }\n",
-            {{"s", storage_id(emit, m)}, {"id", id}});
+        if (delimited) {
+            emit_group_frame_decode(emit, field, "out." + storage_id(emit, m));
+        } else {
+            p.print(
+                "if (!::rapidproto::arena_detail::decode_into(out.$s$, rp_v, arena, depth + 1, "
+                "err)) { return nullptr; }\n",
+                {{"s", storage_id(emit, m)}, {"id", id}});
+        }
     } else {
         p.print("$S$* const rp_sub = arena.create<$S$>();\n", {{"S", sub}});
-        p.print("if (rp_sub == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }\n");
-        p.print(
-            "if (!::rapidproto::arena_detail::decode_into(*rp_sub, rp_v, arena, depth + 1, "
-            "err)) { return false; }\n");
+        p.print("if (rp_sub == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }\n");
+        if (delimited) {
+            emit_group_frame_decode(emit, field, "*rp_sub");
+        } else {
+            p.print(
+                "if (!::rapidproto::arena_detail::decode_into(*rp_sub, rp_v, arena, depth + 1, "
+                "err)) { return nullptr; }\n");
+        }
         p.print("out.$s$ = rp_sub;\n", {{"s", storage_id(emit, m)}, {"id", id}});
     }
     emit_presence_set(emit, layout, m, required_bit);
@@ -956,7 +972,7 @@ void emit_singular_arm(const Emit& emit, const MessageLayout& layout, const Memb
             " &rp_raw, &rp_we);\n");
         p.print(
             "if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we,"
-            " static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; "
+            " static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; "
             "} rp_c "
             "= rp_np;\n");
         p.print("if (::rapidproto::varint_to_bool(rp_raw)) { $set$ } else { $clr$ }\n",
@@ -978,14 +994,13 @@ void emit_singular_arm(const Emit& emit, const MessageLayout& layout, const Memb
         }
         p.print("if (rp_tag.wire_type == ::rapidproto::WireType::$w$) {\n", {{"w", wire}});
         p.indent();
-        emit_vt_value_read(emit, field, "out." + storage_id(emit, m), "rp_c", "rp_cend",
-                           "::rapidproto::wire::byte_ptr(body)");
+        emit_vt_value_read(emit, field, "out." + storage_id(emit, m), "rp_c", "rp_cend", "rp_beg");
         emit_presence_set(emit, layout, m, required_bit);
         p.print("continue;\n");
         p.outdent();
         p.print("}\n");
     } else if (m.kind == FieldKind::InlineFixedSubMsg || m.kind == FieldKind::PointerSubMsg) {
-        const std::string wire = message_wire(field).first;
+        const std::string wire = message_wire(field);
         p.print("if (rp_tag.wire_type == ::rapidproto::WireType::$w$) {\n", {{"w", wire}});
         p.indent();
         emit_message_decode_body(emit, layout, m, required_bit);
@@ -1012,17 +1027,22 @@ void emit_repeated_element(const Emit& emit, const FieldNode& field) {
     const std::string id = emit.names.local.at(&field);
     p.print("$E$* const rp_slot = rp_slot_$id$();\n",
             {{"E", repeated_elem_type(emit, field)}, {"id", id}});
-    p.print("if (rp_slot == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }\n");
+    p.print("if (rp_slot == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }\n");
     if (field.is_message_type) {
         const std::string sub = cpp_type_name(emit.names, field.resolved_type_fqn);
-        emit_vt_message_read(emit, field, "rp_v");
-        p.print("*rp_slot = $S${};\n", {{"S", sub}});
-        p.print(
-            "if (!::rapidproto::arena_detail::decode_into(*rp_slot, rp_v, arena, depth + 1, err)) "
-            "{ return false; }\n");
+        if (field.message_encoding == MessageEncoding::Delimited) {
+            p.print("*rp_slot = $S${};\n", {{"S", sub}});
+            emit_group_frame_decode(emit, field, "*rp_slot");
+        } else {
+            emit_vt_message_read(emit, field, "rp_v");
+            p.print("*rp_slot = $S${};\n", {{"S", sub}});
+            p.print(
+                "if (!::rapidproto::arena_detail::decode_into(*rp_slot, rp_v, arena, depth + 1, "
+                "err)) "
+                "{ return nullptr; }\n");
+        }
     } else {
-        emit_vt_value_read(emit, field, "*rp_slot", "rp_c", "rp_cend",
-                           "::rapidproto::wire::byte_ptr(body)");
+        emit_vt_value_read(emit, field, "*rp_slot", "rp_c", "rp_cend", "rp_beg");
     }
 }
 
@@ -1063,7 +1083,7 @@ void emit_packed_fill(const Emit& emit, const FieldNode& field) {
         p.indent();
         p.print("const std::size_t rp_nc = rp_n_$id$ + rp_ub;\n", {{"id", id}});
         p.print("$E$* const rp_nb = arena.allocate_array<$E$>(rp_nc);\n", {{"E", elem}});
-        p.print("if (rp_nb == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }\n");
+        p.print("if (rp_nb == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }\n");
         p.print(
             "for (std::size_t rp_i = 0; rp_i < rp_n_$id$; ++rp_i) { rp_nb[rp_i] = "
             "rp_acc_$id$[rp_i]; "
@@ -1081,7 +1101,7 @@ void emit_packed_fill(const Emit& emit, const FieldNode& field) {
             "const std::size_t rp_dc = ::rapidproto::arena_detail::decode_packed_varints_large<$E$,"
             " $conv$>(rp_vp, rp_ve, rp_acc_$id$ + rp_n_$id$, err);\n",
             {{"E", elem}, {"id", id}, {"conv", conv}});
-        p.print("if (rp_dc == static_cast<std::size_t>(-1)) { return false; }\n");
+        p.print("if (rp_dc == static_cast<std::size_t>(-1)) { return nullptr; }\n");
         p.print("rp_n_$id$ += rp_dc;\n", {{"id", id}});
         p.outdent();
         p.print("} else {\n");
@@ -1091,7 +1111,7 @@ void emit_packed_fill(const Emit& emit, const FieldNode& field) {
             "const std::size_t rp_dc = ::rapidproto::arena_detail::decode_packed_varints_small<$E$,"
             " $conv$>(rp_vp, rp_ve, rp_acc_$id$ + rp_n_$id$, err);\n",
             {{"E", elem}, {"id", id}, {"conv", conv}});
-        p.print("if (rp_dc == static_cast<std::size_t>(-1)) { return false; }\n");
+        p.print("if (rp_dc == static_cast<std::size_t>(-1)) { return nullptr; }\n");
         p.print("rp_n_$id$ += rp_dc;\n", {{"id", id}});
         p.outdent();
         p.print("}\n");
@@ -1113,7 +1133,7 @@ void emit_packed_fill(const Emit& emit, const FieldNode& field) {
     p.indent();
     p.print("const std::size_t rp_nc = rp_n_$id$ + rp_ub;\n", {{"id", id}});
     p.print("$E$* const rp_nb = arena.allocate_array<$E$>(rp_nc);\n", {{"E", elem}});
-    p.print("if (rp_nb == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }\n");
+    p.print("if (rp_nb == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }\n");
     p.print(
         "for (std::size_t rp_i = 0; rp_i < rp_n_$id$; ++rp_i) { rp_nb[rp_i] = rp_acc_$id$[rp_i]; "
         "}\n",
@@ -1209,7 +1229,7 @@ void emit_raw_arm(const Emit& emit, const MessageLayout& layout, const MemberPla
     Printer& p = emit.printer;
     const FieldNode& field = *m.field;
     const std::string id = emit.names.local.at(&field);
-    const std::string wire = message_wire(field).first;
+    const std::string wire = message_wire(field);
     p.print("case $n$: {\n", {{"n", std::to_string(field.number)}});
     p.indent();
     p.print("if (rp_tag.wire_type == ::rapidproto::WireType::$w$) {\n", {{"w", wire}});
@@ -1219,13 +1239,13 @@ void emit_raw_arm(const Emit& emit, const MessageLayout& layout, const MemberPla
         // reads, mirroring the materialized pointer arm's null check.
         p.print(
             "if (out.$s$.data() != nullptr) {"
-            " ::rapidproto::rp_fail_repeated_singular(err, $n$); return false; }\n",
+            " ::rapidproto::rp_fail_repeated_singular(err, $n$); return nullptr; }\n",
             {{"s", storage_id(emit, m)}, {"id", id}, {"n", std::to_string(field.number)}});
     }
     emit_vt_message_read(emit, field, "rp_v");
     if (field.is_repeated) {
         p.print("::rapidproto::ArenaString* const rp_slot = rp_slot_$id$();\n", {{"id", id}});
-        p.print("if (rp_slot == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }\n");
+        p.print("if (rp_slot == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }\n");
         p.print("*rp_slot = ::rapidproto::ArenaString::make(rp_v, arena);\n");
     } else {
         p.print("out.$s$ = ::rapidproto::ArenaString::make(rp_v, arena);\n",
@@ -1297,7 +1317,7 @@ void emit_vt_scalar_read(const Emit& emit, FieldKind kind, std::string_view prot
     const std::string fail =
         "if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we,"
         " static_cast<std::size_t>(" +
-        cur + " - " + beg + ")); return false; }\n";
+        cur + " - " + beg + ")); return nullptr; }\n";
     if (kind == FieldKind::BorrowString) {
         p.print("::rapidproto::ByteView rp_v;\n");
         p.print(
@@ -1362,26 +1382,41 @@ void emit_vt_len_read(const Emit& emit, const std::string& view) {
         "{ const std::uint8_t* const rp_np ="
         " ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &$v$, &rp_we);"
         " if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we,"
-        " static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; } "
+        " static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; } "
         "rp_c = "
         "rp_np; }\n",
         {{"v", view}});
 }
 
+// Single-pass decode of one GROUP frame into `target` (an lvalue of the group's type), consuming
+// from rp_c through the matching EGROUP -- no extent pre-scan. `target` must be initialized
+// storage BEFORE this call (arena array slots and oneof union slots are raw memory). Used by the
+// three materializing sites; the raw field mode keeps read_group below, since it stores the
+// stripped body rather than decoding it.
+void emit_group_frame_decode(const Emit& emit, const FieldNode& field, const std::string& target) {
+    emit.printer.print(
+        "{ const std::uint8_t* const rp_np = ::rapidproto::arena_detail::decode_group_into($t$,"
+        " rp_c, rp_cend, rp_beg, $n$, arena, depth + 1, err);"
+        " if (rp_np == nullptr) { return nullptr; } rp_c = rp_np; }\n",
+        {{"t", target}, {"n", std::to_string(field.number)}});
+}
+
 // Value-threaded message-payload read into a fresh ByteView `view` (the LEN payload, or a group body up
 // to its EGROUP), advancing rp_c. Mirrors reader.read_length_delimited() / reader.read_group().
+// For MATERIALIZED groups the decode loop no longer uses this (see emit_group_frame_decode); the
+// group branch survives for the raw field mode's stripped-body store.
 void emit_vt_message_read(const Emit& emit, const FieldNode& field, const std::string& view) {
-    if (message_wire(field).first != "SGroup") {
+    if (message_wire(field) != "SGroup") {
         emit_vt_len_read(emit, view);
         return;
     }
     emit.printer.print(
         "::rapidproto::ByteView $v$;\n"
         "{ std::size_t rp_fo = 0; const std::uint8_t* const rp_np ="
-        " ::rapidproto::wire::read_group(rp_c, rp_cend, ::rapidproto::wire::byte_ptr(body), "
+        " ::rapidproto::wire::read_group(rp_c, rp_cend, rp_beg, "
         "rp_tag.field_number, &$v$, &rp_we,"
         " &rp_fo); if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo);"
-        " return false; } rp_c = rp_np; }\n",
+        " return nullptr; } rp_c = rp_np; }\n",
         {{"v", view}});
 }
 
@@ -1410,7 +1445,7 @@ void emit_map_arm(const Emit& emit, const MemberPlan& m) {
     p.indent();
     emit_vt_len_read(emit, "rp_ent");  // the entry payload, read from the main cursor rp_c
     p.print("$ET$* const rp_slot = rp_slot_$id$();\n", {{"ET", et}, {"id", id}});
-    p.print("if (rp_slot == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }\n");
+    p.print("if (rp_slot == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }\n");
     p.print("*rp_slot = $ET${};\n", {{"ET", et}});
     // Value-threaded entry loop: thread a byte cursor over the entry payload (stays in registers).
     // Offsets are entry-payload-relative (rp_we is the main loop's shared error slot).
@@ -1438,7 +1473,7 @@ void emit_map_arm(const Emit& emit, const MemberPlan& m) {
         "if (rp_st == ::rapidproto::wire::TagState::Error) { ::rapidproto::rp_fail_wire_at(err, "
         "rp_we,"
         " static_cast<std::size_t>(rp_ec - " +
-        beg + ")); return false; }\n");
+        beg + ")); return nullptr; }\n");
     p.print("rp_ec = rp_etp;\n");
     p.print("if (rp_et.field_number == 1 && rp_et.wire_type == ::rapidproto::WireType::$kw$) {\n",
             {{"kw", kv_wire(e.key_kind, map.key_type)}});
@@ -1458,7 +1493,8 @@ void emit_map_arm(const Emit& emit, const MemberPlan& m) {
         // be indistinguishable from a real field 2. This matches the oneof guard, which likewise
         // reports the field the user can find in their schema.
         p.print(
-            "if (rp_vseen) { ::rapidproto::rp_fail_repeated_singular(err, $n$); return false; }\n",
+            "if (rp_vseen) { ::rapidproto::rp_fail_repeated_singular(err, $n$); return nullptr; "
+            "}\n",
             {{"n", std::to_string(map.number)}});
         p.print("rp_vseen = true;\n");
         p.print("::rapidproto::ByteView rp_v;\n");
@@ -1467,17 +1503,17 @@ void emit_map_arm(const Emit& emit, const MemberPlan& m) {
             " ::rapidproto::wire::read_length_delimited(rp_ec, rp_ee, &rp_v, &rp_we);"
             " if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we,"
             " static_cast<std::size_t>(rp_ec - " +
-            beg + ")); return false; } rp_ec = rp_np; }\n");
+            beg + ")); return nullptr; } rp_ec = rp_np; }\n");
         if (e.value_kind == FieldKind::InlineFixedSubMsg) {
             p.print(
                 "if (!::rapidproto::arena_detail::decode_into(rp_slot->rp_value, rp_v, arena, "
-                "depth + 1, err)) { return false; }\n");
+                "depth + 1, err)) { return nullptr; }\n");
         } else {
             p.print("$S$* const rp_mv = arena.create<$S$>();\n", {{"S", sub}});
-            p.print("if (rp_mv == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }\n");
+            p.print("if (rp_mv == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }\n");
             p.print(
                 "if (!::rapidproto::arena_detail::decode_into(*rp_mv, rp_v, arena, depth + 1, "
-                "err)) { return false; }\n");
+                "err)) { return nullptr; }\n");
             p.print("rp_slot->rp_value = rp_mv;\n");
         }
     } else {
@@ -1493,7 +1529,7 @@ void emit_map_arm(const Emit& emit, const MemberPlan& m) {
         " ::rapidproto::wire::skip_value(rp_ec, rp_ee, " +
         beg + ", rp_et, 0, &rp_we, &rp_fo);\n");
     p.print(
-        "if (rp_sp == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo); return false; "
+        "if (rp_sp == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo); return nullptr; "
         "}\n");
     p.print("rp_ec = rp_sp;\n");
     p.outdent();
@@ -1526,7 +1562,7 @@ std::string oneof_member_wire(const OneofMemberPlan& member) {
         return "Varint";
     }
     if (member.kind == FieldKind::InlineFixedSubMsg || member.kind == FieldKind::PointerSubMsg) {
-        return message_wire(*member.field).first;
+        return message_wire(*member.field);
     }
     return std::string(scalar_wire(member.field->type_name).wire);
 }
@@ -1550,28 +1586,39 @@ void emit_oneof_member_body(const Emit& emit, const OneofPlan& o, const OneofMem
         // the later occurrence fresh, which is what the plain last-wins below already does.
         p.print(
             "if (out.$c$ == $i$) { ::rapidproto::rp_fail_repeated_singular(err, $n$);"
-            " return false; }\n",
+            " return nullptr; }\n",
             {{"c", emit.synth.case_member.at(o.oneof)},
              {"i", std::to_string(index)},
              {"n", std::to_string(field.number)}});
-        emit_vt_message_read(emit, field, "rp_v");
+        const bool delimited = field.message_encoding == MessageEncoding::Delimited;
+        if (!delimited) {
+            emit_vt_message_read(emit, field, "rp_v");
+        }
         if (member.kind == FieldKind::InlineFixedSubMsg) {
             p.print("$of$ = $S${};\n", {{"of", ofield}, {"S", sub}});
-            p.print(
-                "if (!::rapidproto::arena_detail::decode_into($of$, rp_v, arena, depth + 1, err)) "
-                "{ return false; }\n",
-                {{"of", ofield}});
+            if (delimited) {
+                emit_group_frame_decode(emit, field, ofield);
+            } else {
+                p.print(
+                    "if (!::rapidproto::arena_detail::decode_into($of$, rp_v, arena, depth + 1, "
+                    "err)) "
+                    "{ return nullptr; }\n",
+                    {{"of", ofield}});
+            }
         } else {
             p.print("$S$* const rp_sub = arena.create<$S$>();\n", {{"S", sub}});
-            p.print("if (rp_sub == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }\n");
-            p.print(
-                "if (!::rapidproto::arena_detail::decode_into(*rp_sub, rp_v, arena, depth + 1, "
-                "err)) { return false; }\n");
+            p.print("if (rp_sub == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }\n");
+            if (delimited) {
+                emit_group_frame_decode(emit, field, "*rp_sub");
+            } else {
+                p.print(
+                    "if (!::rapidproto::arena_detail::decode_into(*rp_sub, rp_v, arena, depth + 1, "
+                    "err)) { return nullptr; }\n");
+            }
             p.print("$of$ = rp_sub;\n", {{"of", ofield}});
         }
     } else {
-        emit_vt_value_read(emit, field, ofield, "rp_c", "rp_cend",
-                           "::rapidproto::wire::byte_ptr(body)");
+        emit_vt_value_read(emit, field, ofield, "rp_c", "rp_cend", "rp_beg");
     }
     p.print("out.$c$ = $i$;\n",
             {{"c", emit.synth.case_member.at(o.oneof)}, {"i", std::to_string(index)}});
@@ -1649,15 +1696,14 @@ void emit_fast_singular_value(const Emit& emit, const MessageLayout& layout, con
             " &rp_raw, &rp_we);\n");
         p.print(
             "if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we,"
-            " static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; "
+            " static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; "
             "} rp_c "
             "= rp_np;\n");
         p.print("if (::rapidproto::varint_to_bool(rp_raw)) { $set$ } else { $clr$ }\n",
                 {{"set", set_bit_stmt(emit.synth.mask.at(layout.fqn), layout, m.value_bit)},
                  {"clr", clear_bit_stmt(emit.synth.mask.at(layout.fqn), layout, m.value_bit)}});
     } else {
-        emit_vt_value_read(emit, field, "out." + storage_id(emit, m), "rp_c", "rp_cend",
-                           "::rapidproto::wire::byte_ptr(body)");
+        emit_vt_value_read(emit, field, "out." + storage_id(emit, m), "rp_c", "rp_cend", "rp_beg");
     }
     emit_presence_set(emit, layout, m, required_bit);
 }
@@ -1678,7 +1724,7 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
 
     p.print(
         "if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err);"
-        " return false; }\n");
+        " return nullptr; }\n");
     // Setup, routed per plan in DECLARATION order (layout.members is memory-order; iterating it
     // here would reorder every existing golden): a repeated raw member gets its growable array of
     // payload views (a singular one needs none); a dropped field (absent from the plan) gets
@@ -1708,11 +1754,12 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
     } else if (!required_fields.empty()) {
         p.print("std::uint64_t rp_req = 0;\n");
     }
-    // Value-threaded wire loop: the cursor (rp_c) is threaded by value through the rapidproto::wire:: reader/skip free
-    // functions and stays in registers -- no WireReader member whose address escapes to memory. Fail
-    // offsets are anchored at byte_ptr(body); rp_we is the shared error slot used by every arm/sub-loop.
-    p.print("const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(body);\n");
-    p.print("const std::uint8_t* const rp_cend = rp_c + body.size();\n");
+    // Value-threaded wire loop: the cursor (rp_c) arrives as a by-value parameter, is threaded
+    // through the rapidproto::wire:: reader/skip free functions, and leaves as the return value --
+    // no cursor whose address escapes to memory. Fail offsets are anchored at rp_beg: a group
+    // frame inherits its parent's anchor (groups never re-anchor), while a LEN payload decode
+    // starts a fresh anchor at the payload -- so an offset counts from the nearest enclosing
+    // LEN payload or the top-level input. rp_we is the shared error slot for every arm/sub-loop.
     p.print("::rapidproto::Tag rp_tag{};\n");
     p.print("::rapidproto::WireError rp_we = ::rapidproto::WireError::None;\n");
     p.print("for (;;) {\n");
@@ -1800,7 +1847,13 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
         emit_vt_len_read(emit, "rp_p");
         emit_packed_fill(emit, *threaded_plan.at(tf.number)->field);
     };
-    codegen::emit_hub_and_labels(p, std::move(threaded), hooks, "break;");
+    // Both loop exits are end-of-INPUT exits; decoding a group frame (rp_term != 0) must
+    // instead see its own EGROUP first, so hitting the end there is an unterminated group. The
+    // two exits share one error block (the rp_unterminated label after the epilogue) -- one
+    // structural block per decoder (compilers usually fold the duplicates anyway; measured
+    // ~20 bytes per decoder, this is for shape, not size).
+    const std::string on_end = "if (rp_term != 0) { goto rp_unterminated; } break;";
+    codegen::emit_hub_and_labels(p, std::move(threaded), hooks, on_end);
     // General path: multi-byte tags, unknown fields, wrong wire types, groups, messages, raw, maps,
     // oneofs, and the wire-guarded-goto routing for the threaded fields above.
     // Fused end-or-tag read: one bounds check drives the loop (see WireReader::read_tag_or_end).
@@ -1809,11 +1862,22 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
     p.print(
         "const std::uint8_t* const rp_tp ="
         " ::rapidproto::wire::read_tag_or_end(rp_c, rp_cend, &rp_tag, &rp_we, &rp_state);\n");
-    p.print("if (rp_state == ::rapidproto::wire::TagState::End) { break; }\n");
+    p.print("if (rp_state == ::rapidproto::wire::TagState::End) { $e$ }\n", {{"e", on_end}});
     p.print(
         "if (rp_state == ::rapidproto::wire::TagState::Error) { ::rapidproto::rp_fail_wire_at(err, "
         "rp_we,"
-        " static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }\n");
+        " static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }\n");
+    // The terminator check sits BETWEEN the tag read and the field switch: an EGROUP tag must
+    // never reach a field's case (a colliding inner field number would swallow it), the dropped
+    // no-op cases, or the unknown-field default. Matching rp_term ends this group frame (rp_c
+    // steps past the tag, then the shared finalize/required epilogue runs); any other EGROUP is
+    // a wire error at the tag's start -- stray (rp_term == 0) or mismatched close.
+    p.print(
+        "if (rp_tag.wire_type == ::rapidproto::WireType::EGroup) {"
+        " if (rp_term != 0 && rp_tag.field_number == rp_term) { rp_c = rp_tp; break; }"
+        " ::rapidproto::rp_fail_wire_at(err, rp_term == 0 ?"
+        " ::rapidproto::WireError::UnexpectedEndGroup : ::rapidproto::WireError::EndGroupMismatch,"
+        " static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }\n");
     p.print("rp_c = rp_tp;\n");
     p.print("switch (rp_tag.field_number) {\n");
     p.indent();
@@ -1878,11 +1942,11 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
     p.print("std::size_t rp_fo = 0;\n");
     p.print(
         "const std::uint8_t* const rp_sp ="
-        " ::rapidproto::wire::skip_value(rp_c, rp_cend, ::rapidproto::wire::byte_ptr(body), "
+        " ::rapidproto::wire::skip_value(rp_c, rp_cend, rp_beg, "
         "rp_tag, 0, "
         "&rp_we, &rp_fo);\n");
     p.print(
-        "if (rp_sp == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo); return false; "
+        "if (rp_sp == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo); return nullptr; "
         "}\n");
     p.print("rp_c = rp_sp;\n");
     p.outdent();
@@ -1909,12 +1973,19 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
         const int i = required_bit.at(f);
         p.print(
             "if (($ref$ & (std::uint64_t{1} << $b$)) == 0) {"
-            " ::rapidproto::rp_fail_missing_required(err, $n$); return false; }\n",
+            " ::rapidproto::rp_fail_missing_required(err, $n$); return nullptr; }\n",
             {{"ref", req_word_ref(i, required_fields.size())},
              {"b", std::to_string(req_bit_no(i, required_fields.size()))},
              {"n", std::to_string(f->number)}});
     }
-    p.print("return true;\n");
+    p.print("return rp_c;\n");
+    // The shared unterminated-group exit (see on_end above): both end-of-input checks jump here
+    // when a group frame runs out of input before its EGROUP.
+    p.print(
+        "rp_unterminated:;\n"
+        "::rapidproto::rp_fail_wire_at(err, ::rapidproto::WireError::UnterminatedGroup,"
+        " static_cast<std::size_t>(rp_c - rp_beg));\n"
+        "return nullptr;\n");
 }
 
 // Out-of-line decode()/rp_decode_into() for `message` + its nested messages. Emitted after all class
@@ -1944,9 +2015,18 @@ void emit_decode_def(const Emit& emit, const MessageNode& message) {
     // stops a PARENT's flatten from absorbing this decoder's body, which is what bounds the
     // whole-closure growth on a large schema. RP_FLATTEN still applies here, so this decoder keeps
     // inlining its own callees down to the next marked message.
+    // The one decode loop serves both framings, chosen by rp_term at runtime: 0 = decode the
+    // whole [rp_c, rp_cend) span (a LEN payload or the top-level input), nonzero = decode a
+    // GROUP frame that must end with EGROUP(rp_term) before rp_cend. Returns the cursor past
+    // the consumed bytes (past the EGROUP in group mode), or nullptr with *err set.
+    // Eight integer args exceed the SysV six-register budget, so non-inlined (RP_NOINLINE)
+    // calls pass depth+err on the stack -- measured flat on the control arms; if it ever shows,
+    // depth and rp_term pack into one 32-bit word.
     p.print(
-        "RP_FLATTEN $NI$inline bool $Q$::rp_decode_into([[maybe_unused]] $Q$& out,"
-        " ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena,"
+        "RP_FLATTEN $NI$inline const std::uint8_t* $Q$::rp_decode_into([[maybe_unused]] $Q$& out,"
+        " const std::uint8_t* rp_c, const std::uint8_t* const rp_cend,"
+        " const std::uint8_t* const rp_beg, const std::uint32_t rp_term,"
+        " [[maybe_unused]] ::rapidproto::Arena& arena,"
         " int depth, ::rapidproto::ArenaDecodeError* err) noexcept {\n",
         {{"NI", layout.noinline_decode ? "RP_NOINLINE " : ""}, {"Q", qualifier}});
     p.indent();
@@ -1965,7 +2045,11 @@ void emit_decode_def(const Emit& emit, const MessageNode& message) {
         "nullptr; }\n");
     p.print("$Q$* const rp_root = arena.create<$Q$>();\n", {{"Q", qualifier}});
     p.print("if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }\n");
-    p.print("if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }\n");
+    p.print(
+        "const std::uint8_t* const rp_in ="
+        " ::rapidproto::arena_detail::non_null_cursor(::rapidproto::wire::byte_ptr(input));\n"
+        "if (rp_decode_into(*rp_root, rp_in, rp_in + input.size(), rp_in, 0, arena, 0, err) =="
+        " nullptr) { return nullptr; }\n");
     p.print("return rp_root;\n");
     p.outdent();
     p.print("}\n\n");

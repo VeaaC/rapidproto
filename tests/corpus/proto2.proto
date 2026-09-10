@@ -70,6 +70,24 @@ message OneofGroup {
   optional int32 after = 5;
 }
 
+// A group whose field number recurs INSIDE its own body: the decode loop's terminator check must
+// recognize EGROUP(2) before the field switch, or the inner field's case would swallow it.
+message GroupNumberReuse {
+  optional group G = 2 {
+    optional int32 two = 2;
+  }
+}
+
+// A REPEATED group: each element is its own group frame appended to the arena array -- the shape
+// google_message2 is made of (and the only call shape where the element slot is raw array memory
+// that must be initialized before the frame decode).
+message RepeatedGroup {
+  repeated group Item = 1 {
+    optional int32 v = 2;
+  }
+  optional int32 tail = 3;
+}
+
 // A oneof straddling a plain field, mixing an unthreadable group member (2) with an int member
 // (5): the group keeps its general arm and never blocks anything, while probes from the plain
 // field (4) still reach the int member.

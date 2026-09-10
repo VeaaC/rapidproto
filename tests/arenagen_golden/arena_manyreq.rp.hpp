@@ -85,7 +85,8 @@ class ManyRequired {
   [[nodiscard]] static const ManyRequired* decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err = nullptr) noexcept;
  private:
   template <class rp_T> friend bool ::rapidproto::arena_detail::decode_into(rp_T&, ::rapidproto::ByteView, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
-  static bool rp_decode_into(ManyRequired& out, ::rapidproto::ByteView body, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
+  template <class rp_T> friend const std::uint8_t* ::rapidproto::arena_detail::decode_group_into(rp_T&, const std::uint8_t*, const std::uint8_t*, const std::uint8_t*, std::uint32_t, ::rapidproto::Arena&, int, ::rapidproto::ArenaDecodeError*) noexcept;
+  static const std::uint8_t* rp_decode_into(ManyRequired& out, const std::uint8_t* rp_c, const std::uint8_t* rp_cend, const std::uint8_t* rp_beg, std::uint32_t rp_term, ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept;
   std::int32_t m_f1;
   std::int32_t m_f2;
   std::int32_t m_f3;
@@ -155,15 +156,13 @@ class ManyRequired {
 static_assert(::std::is_trivially_destructible_v<ManyRequired>);
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch
-RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unused]] ::rp::arena::mr::ManyRequired& out, ::rapidproto::ByteView body, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
-  if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return false; }
+RP_FLATTEN inline const std::uint8_t* ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unused]] ::rp::arena::mr::ManyRequired& out, const std::uint8_t* rp_c, const std::uint8_t* const rp_cend, const std::uint8_t* const rp_beg, const std::uint32_t rp_term, [[maybe_unused]] ::rapidproto::Arena& arena, int depth, ::rapidproto::ArenaDecodeError* err) noexcept {
+  if (depth > ::rapidproto::kMaxDecodeDepth) { ::rapidproto::rp_fail_recursion(err); return nullptr; }
   std::uint64_t rp_req[2] = {};
-  const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(body);
-  const std::uint8_t* const rp_cend = rp_c + body.size();
   ::rapidproto::Tag rp_tag{};
   ::rapidproto::WireError rp_we = ::rapidproto::WireError::None;
   for (;;) {
-    if (rp_c >= rp_cend) { break; }
+    if (rp_c >= rp_cend) { if (rp_term != 0) { goto rp_unterminated; } break; }
     switch (*rp_c) {  // peek the 1-byte tag; threaded fields jump to their label
       case ::rapidproto::raw_tag(1, ::rapidproto::WireType::Varint): ++rp_c; goto rp_do_1;
       case ::rapidproto::raw_tag(2, ::rapidproto::WireType::Varint): ++rp_c; goto rp_do_2;
@@ -186,7 +185,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_1: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f1 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 0;
@@ -197,7 +196,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_2: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f2 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 1;
@@ -208,7 +207,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_3: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f3 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 2;
@@ -219,7 +218,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_4: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f4 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 3;
@@ -230,7 +229,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_5: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f5 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 4;
@@ -241,7 +240,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_6: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f6 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 5;
@@ -252,7 +251,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_7: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f7 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 6;
@@ -263,7 +262,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_8: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f8 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 7;
@@ -274,7 +273,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_9: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f9 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 8;
@@ -285,7 +284,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_10: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f10 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 9;
@@ -296,7 +295,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_11: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f11 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 10;
@@ -307,7 +306,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_12: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f12 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 11;
@@ -318,7 +317,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_13: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f13 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 12;
@@ -329,7 +328,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_14: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f14 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 13;
@@ -340,7 +339,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_15: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f15 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 14;
@@ -351,7 +350,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_16: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f16 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 15;
@@ -362,7 +361,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_17: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f17 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 16;
@@ -373,7 +372,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_18: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f18 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 17;
@@ -384,7 +383,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_19: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f19 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 18;
@@ -395,7 +394,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_20: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f20 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 19;
@@ -406,7 +405,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_21: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f21 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 20;
@@ -417,7 +416,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_22: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f22 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 21;
@@ -428,7 +427,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_23: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f23 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 22;
@@ -439,7 +438,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_24: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f24 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 23;
@@ -450,7 +449,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_25: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f25 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 24;
@@ -461,7 +460,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_26: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f26 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 25;
@@ -472,7 +471,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_27: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f27 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 26;
@@ -483,7 +482,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_28: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f28 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 27;
@@ -494,7 +493,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_29: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f29 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 28;
@@ -505,7 +504,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_30: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f30 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 29;
@@ -516,7 +515,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_31: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f31 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 30;
@@ -527,7 +526,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_32: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f32 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 31;
@@ -538,7 +537,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_33: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f33 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 32;
@@ -549,7 +548,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_34: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f34 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 33;
@@ -560,7 +559,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_35: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f35 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 34;
@@ -571,7 +570,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_36: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f36 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 35;
@@ -582,7 +581,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_37: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f37 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 36;
@@ -593,7 +592,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_38: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f38 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 37;
@@ -604,7 +603,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_39: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f39 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 38;
@@ -615,7 +614,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_40: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f40 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 39;
@@ -626,7 +625,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_41: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f41 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 40;
@@ -637,7 +636,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_42: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f42 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 41;
@@ -648,7 +647,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_43: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f43 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 42;
@@ -659,7 +658,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_44: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f44 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 43;
@@ -670,7 +669,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_45: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f45 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 44;
@@ -681,7 +680,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_46: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f46 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 45;
@@ -692,7 +691,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_47: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f47 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 46;
@@ -703,7 +702,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_48: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f48 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 47;
@@ -714,7 +713,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_49: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f49 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 48;
@@ -725,7 +724,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_50: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f50 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 49;
@@ -736,7 +735,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_51: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f51 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 50;
@@ -747,7 +746,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_52: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f52 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 51;
@@ -758,7 +757,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_53: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f53 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 52;
@@ -769,7 +768,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_54: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f54 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 53;
@@ -780,7 +779,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_55: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f55 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 54;
@@ -791,7 +790,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_56: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f56 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 55;
@@ -802,7 +801,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_57: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f57 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 56;
@@ -813,7 +812,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_58: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f58 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 57;
@@ -824,7 +823,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_59: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f59 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 58;
@@ -835,7 +834,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_60: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f60 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 59;
@@ -846,7 +845,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_61: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f61 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 60;
@@ -857,7 +856,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_62: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f62 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 61;
@@ -868,7 +867,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_63: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f63 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 62;
@@ -879,7 +878,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_64: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f64 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 63;
@@ -889,7 +888,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_do_65: {
       std::uint64_t rp_raw = 0;
       const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
       rp_c = rp_np;
       out.m_f65 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[1] |= std::uint64_t{1} << 0;
@@ -898,8 +897,9 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
     rp_field_general:;
     ::rapidproto::wire::TagState rp_state = ::rapidproto::wire::TagState::End;
     const std::uint8_t* const rp_tp = ::rapidproto::wire::read_tag_or_end(rp_c, rp_cend, &rp_tag, &rp_we, &rp_state);
-    if (rp_state == ::rapidproto::wire::TagState::End) { break; }
-    if (rp_state == ::rapidproto::wire::TagState::Error) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+    if (rp_state == ::rapidproto::wire::TagState::End) { if (rp_term != 0) { goto rp_unterminated; } break; }
+    if (rp_state == ::rapidproto::wire::TagState::Error) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
+    if (rp_tag.wire_type == ::rapidproto::WireType::EGroup) { if (rp_term != 0 && rp_tag.field_number == rp_term) { rp_c = rp_tp; break; } ::rapidproto::rp_fail_wire_at(err, rp_term == 0 ? ::rapidproto::WireError::UnexpectedEndGroup : ::rapidproto::WireError::EndGroupMismatch, static_cast<std::size_t>(rp_c - rp_beg)); return nullptr; }
     rp_c = rp_tp;
     switch (rp_tag.field_number) {
       case 1: { if (rp_tag.wire_type == ::rapidproto::WireType::Varint) { goto rp_do_1; } break; }
@@ -970,82 +970,86 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       default: break;
     }
     std::size_t rp_fo = 0;
-    const std::uint8_t* const rp_sp = ::rapidproto::wire::skip_value(rp_c, rp_cend, ::rapidproto::wire::byte_ptr(body), rp_tag, 0, &rp_we, &rp_fo);
-    if (rp_sp == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo); return false; }
+    const std::uint8_t* const rp_sp = ::rapidproto::wire::skip_value(rp_c, rp_cend, rp_beg, rp_tag, 0, &rp_we, &rp_fo);
+    if (rp_sp == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo); return nullptr; }
     rp_c = rp_sp;
   }
-  if ((rp_req[0] & (std::uint64_t{1} << 0)) == 0) { ::rapidproto::rp_fail_missing_required(err, 1); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 1)) == 0) { ::rapidproto::rp_fail_missing_required(err, 2); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 2)) == 0) { ::rapidproto::rp_fail_missing_required(err, 3); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 3)) == 0) { ::rapidproto::rp_fail_missing_required(err, 4); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 4)) == 0) { ::rapidproto::rp_fail_missing_required(err, 5); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 5)) == 0) { ::rapidproto::rp_fail_missing_required(err, 6); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 6)) == 0) { ::rapidproto::rp_fail_missing_required(err, 7); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 7)) == 0) { ::rapidproto::rp_fail_missing_required(err, 8); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 8)) == 0) { ::rapidproto::rp_fail_missing_required(err, 9); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 9)) == 0) { ::rapidproto::rp_fail_missing_required(err, 10); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 10)) == 0) { ::rapidproto::rp_fail_missing_required(err, 11); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 11)) == 0) { ::rapidproto::rp_fail_missing_required(err, 12); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 12)) == 0) { ::rapidproto::rp_fail_missing_required(err, 13); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 13)) == 0) { ::rapidproto::rp_fail_missing_required(err, 14); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 14)) == 0) { ::rapidproto::rp_fail_missing_required(err, 15); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 15)) == 0) { ::rapidproto::rp_fail_missing_required(err, 16); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 16)) == 0) { ::rapidproto::rp_fail_missing_required(err, 17); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 17)) == 0) { ::rapidproto::rp_fail_missing_required(err, 18); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 18)) == 0) { ::rapidproto::rp_fail_missing_required(err, 19); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 19)) == 0) { ::rapidproto::rp_fail_missing_required(err, 20); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 20)) == 0) { ::rapidproto::rp_fail_missing_required(err, 21); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 21)) == 0) { ::rapidproto::rp_fail_missing_required(err, 22); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 22)) == 0) { ::rapidproto::rp_fail_missing_required(err, 23); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 23)) == 0) { ::rapidproto::rp_fail_missing_required(err, 24); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 24)) == 0) { ::rapidproto::rp_fail_missing_required(err, 25); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 25)) == 0) { ::rapidproto::rp_fail_missing_required(err, 26); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 26)) == 0) { ::rapidproto::rp_fail_missing_required(err, 27); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 27)) == 0) { ::rapidproto::rp_fail_missing_required(err, 28); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 28)) == 0) { ::rapidproto::rp_fail_missing_required(err, 29); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 29)) == 0) { ::rapidproto::rp_fail_missing_required(err, 30); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 30)) == 0) { ::rapidproto::rp_fail_missing_required(err, 31); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 31)) == 0) { ::rapidproto::rp_fail_missing_required(err, 32); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 32)) == 0) { ::rapidproto::rp_fail_missing_required(err, 33); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 33)) == 0) { ::rapidproto::rp_fail_missing_required(err, 34); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 34)) == 0) { ::rapidproto::rp_fail_missing_required(err, 35); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 35)) == 0) { ::rapidproto::rp_fail_missing_required(err, 36); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 36)) == 0) { ::rapidproto::rp_fail_missing_required(err, 37); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 37)) == 0) { ::rapidproto::rp_fail_missing_required(err, 38); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 38)) == 0) { ::rapidproto::rp_fail_missing_required(err, 39); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 39)) == 0) { ::rapidproto::rp_fail_missing_required(err, 40); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 40)) == 0) { ::rapidproto::rp_fail_missing_required(err, 41); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 41)) == 0) { ::rapidproto::rp_fail_missing_required(err, 42); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 42)) == 0) { ::rapidproto::rp_fail_missing_required(err, 43); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 43)) == 0) { ::rapidproto::rp_fail_missing_required(err, 44); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 44)) == 0) { ::rapidproto::rp_fail_missing_required(err, 45); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 45)) == 0) { ::rapidproto::rp_fail_missing_required(err, 46); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 46)) == 0) { ::rapidproto::rp_fail_missing_required(err, 47); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 47)) == 0) { ::rapidproto::rp_fail_missing_required(err, 48); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 48)) == 0) { ::rapidproto::rp_fail_missing_required(err, 49); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 49)) == 0) { ::rapidproto::rp_fail_missing_required(err, 50); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 50)) == 0) { ::rapidproto::rp_fail_missing_required(err, 51); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 51)) == 0) { ::rapidproto::rp_fail_missing_required(err, 52); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 52)) == 0) { ::rapidproto::rp_fail_missing_required(err, 53); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 53)) == 0) { ::rapidproto::rp_fail_missing_required(err, 54); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 54)) == 0) { ::rapidproto::rp_fail_missing_required(err, 55); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 55)) == 0) { ::rapidproto::rp_fail_missing_required(err, 56); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 56)) == 0) { ::rapidproto::rp_fail_missing_required(err, 57); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 57)) == 0) { ::rapidproto::rp_fail_missing_required(err, 58); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 58)) == 0) { ::rapidproto::rp_fail_missing_required(err, 59); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 59)) == 0) { ::rapidproto::rp_fail_missing_required(err, 60); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 60)) == 0) { ::rapidproto::rp_fail_missing_required(err, 61); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 61)) == 0) { ::rapidproto::rp_fail_missing_required(err, 62); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 62)) == 0) { ::rapidproto::rp_fail_missing_required(err, 63); return false; }
-  if ((rp_req[0] & (std::uint64_t{1} << 63)) == 0) { ::rapidproto::rp_fail_missing_required(err, 64); return false; }
-  if ((rp_req[1] & (std::uint64_t{1} << 0)) == 0) { ::rapidproto::rp_fail_missing_required(err, 65); return false; }
-  return true;
+  if ((rp_req[0] & (std::uint64_t{1} << 0)) == 0) { ::rapidproto::rp_fail_missing_required(err, 1); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 1)) == 0) { ::rapidproto::rp_fail_missing_required(err, 2); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 2)) == 0) { ::rapidproto::rp_fail_missing_required(err, 3); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 3)) == 0) { ::rapidproto::rp_fail_missing_required(err, 4); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 4)) == 0) { ::rapidproto::rp_fail_missing_required(err, 5); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 5)) == 0) { ::rapidproto::rp_fail_missing_required(err, 6); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 6)) == 0) { ::rapidproto::rp_fail_missing_required(err, 7); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 7)) == 0) { ::rapidproto::rp_fail_missing_required(err, 8); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 8)) == 0) { ::rapidproto::rp_fail_missing_required(err, 9); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 9)) == 0) { ::rapidproto::rp_fail_missing_required(err, 10); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 10)) == 0) { ::rapidproto::rp_fail_missing_required(err, 11); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 11)) == 0) { ::rapidproto::rp_fail_missing_required(err, 12); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 12)) == 0) { ::rapidproto::rp_fail_missing_required(err, 13); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 13)) == 0) { ::rapidproto::rp_fail_missing_required(err, 14); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 14)) == 0) { ::rapidproto::rp_fail_missing_required(err, 15); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 15)) == 0) { ::rapidproto::rp_fail_missing_required(err, 16); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 16)) == 0) { ::rapidproto::rp_fail_missing_required(err, 17); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 17)) == 0) { ::rapidproto::rp_fail_missing_required(err, 18); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 18)) == 0) { ::rapidproto::rp_fail_missing_required(err, 19); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 19)) == 0) { ::rapidproto::rp_fail_missing_required(err, 20); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 20)) == 0) { ::rapidproto::rp_fail_missing_required(err, 21); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 21)) == 0) { ::rapidproto::rp_fail_missing_required(err, 22); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 22)) == 0) { ::rapidproto::rp_fail_missing_required(err, 23); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 23)) == 0) { ::rapidproto::rp_fail_missing_required(err, 24); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 24)) == 0) { ::rapidproto::rp_fail_missing_required(err, 25); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 25)) == 0) { ::rapidproto::rp_fail_missing_required(err, 26); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 26)) == 0) { ::rapidproto::rp_fail_missing_required(err, 27); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 27)) == 0) { ::rapidproto::rp_fail_missing_required(err, 28); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 28)) == 0) { ::rapidproto::rp_fail_missing_required(err, 29); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 29)) == 0) { ::rapidproto::rp_fail_missing_required(err, 30); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 30)) == 0) { ::rapidproto::rp_fail_missing_required(err, 31); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 31)) == 0) { ::rapidproto::rp_fail_missing_required(err, 32); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 32)) == 0) { ::rapidproto::rp_fail_missing_required(err, 33); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 33)) == 0) { ::rapidproto::rp_fail_missing_required(err, 34); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 34)) == 0) { ::rapidproto::rp_fail_missing_required(err, 35); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 35)) == 0) { ::rapidproto::rp_fail_missing_required(err, 36); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 36)) == 0) { ::rapidproto::rp_fail_missing_required(err, 37); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 37)) == 0) { ::rapidproto::rp_fail_missing_required(err, 38); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 38)) == 0) { ::rapidproto::rp_fail_missing_required(err, 39); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 39)) == 0) { ::rapidproto::rp_fail_missing_required(err, 40); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 40)) == 0) { ::rapidproto::rp_fail_missing_required(err, 41); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 41)) == 0) { ::rapidproto::rp_fail_missing_required(err, 42); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 42)) == 0) { ::rapidproto::rp_fail_missing_required(err, 43); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 43)) == 0) { ::rapidproto::rp_fail_missing_required(err, 44); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 44)) == 0) { ::rapidproto::rp_fail_missing_required(err, 45); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 45)) == 0) { ::rapidproto::rp_fail_missing_required(err, 46); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 46)) == 0) { ::rapidproto::rp_fail_missing_required(err, 47); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 47)) == 0) { ::rapidproto::rp_fail_missing_required(err, 48); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 48)) == 0) { ::rapidproto::rp_fail_missing_required(err, 49); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 49)) == 0) { ::rapidproto::rp_fail_missing_required(err, 50); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 50)) == 0) { ::rapidproto::rp_fail_missing_required(err, 51); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 51)) == 0) { ::rapidproto::rp_fail_missing_required(err, 52); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 52)) == 0) { ::rapidproto::rp_fail_missing_required(err, 53); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 53)) == 0) { ::rapidproto::rp_fail_missing_required(err, 54); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 54)) == 0) { ::rapidproto::rp_fail_missing_required(err, 55); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 55)) == 0) { ::rapidproto::rp_fail_missing_required(err, 56); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 56)) == 0) { ::rapidproto::rp_fail_missing_required(err, 57); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 57)) == 0) { ::rapidproto::rp_fail_missing_required(err, 58); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 58)) == 0) { ::rapidproto::rp_fail_missing_required(err, 59); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 59)) == 0) { ::rapidproto::rp_fail_missing_required(err, 60); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 60)) == 0) { ::rapidproto::rp_fail_missing_required(err, 61); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 61)) == 0) { ::rapidproto::rp_fail_missing_required(err, 62); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 62)) == 0) { ::rapidproto::rp_fail_missing_required(err, 63); return nullptr; }
+  if ((rp_req[0] & (std::uint64_t{1} << 63)) == 0) { ::rapidproto::rp_fail_missing_required(err, 64); return nullptr; }
+  if ((rp_req[1] & (std::uint64_t{1} << 0)) == 0) { ::rapidproto::rp_fail_missing_required(err, 65); return nullptr; }
+  return rp_c;
+  rp_unterminated:;
+  ::rapidproto::rp_fail_wire_at(err, ::rapidproto::WireError::UnterminatedGroup, static_cast<std::size_t>(rp_c - rp_beg));
+  return nullptr;
 }
 inline const ::rp::arena::mr::ManyRequired* ::rp::arena::mr::ManyRequired::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {
   if (input.size() > UINT32_MAX) { ::rapidproto::rp_fail_input_too_large(err); return nullptr; }
   ::rp::arena::mr::ManyRequired* const rp_root = arena.create<::rp::arena::mr::ManyRequired>();
   if (rp_root == nullptr) { ::rapidproto::rp_fail_oom(err); return nullptr; }
-  if (!rp_decode_into(*rp_root, input, arena, 0, err)) { return nullptr; }
+  const std::uint8_t* const rp_in = ::rapidproto::arena_detail::non_null_cursor(::rapidproto::wire::byte_ptr(input));
+  if (rp_decode_into(*rp_root, rp_in, rp_in + input.size(), rp_in, 0, arena, 0, err) == nullptr) { return nullptr; }
   return rp_root;
 }
 
