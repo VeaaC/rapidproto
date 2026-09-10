@@ -31,6 +31,8 @@ inline void rp_dump_write(const ::rp::arena::p2::WithGroup::MyGroup& m, ::rapidp
 inline void rp_dump_write(const ::rp::arena::p2::WithGroup& m, ::rapidproto::dump_detail::Writer& w);
 inline void rp_dump_write(const ::rp::arena::p2::OneofGroup::G& m, ::rapidproto::dump_detail::Writer& w);
 inline void rp_dump_write(const ::rp::arena::p2::OneofGroup& m, ::rapidproto::dump_detail::Writer& w);
+inline void rp_dump_write(const ::rp::arena::p2::OneofGroupStraddle::Head& m, ::rapidproto::dump_detail::Writer& w);
+inline void rp_dump_write(const ::rp::arena::p2::OneofGroupStraddle& m, ::rapidproto::dump_detail::Writer& w);
 inline void rp_dump_write(const ::rp::arena::p2::Container::Nested& m, ::rapidproto::dump_detail::Writer& w);
 inline void rp_dump_write(const ::rp::arena::p2::Container& m, ::rapidproto::dump_detail::Writer& w);
 
@@ -240,6 +242,47 @@ inline void rp_dump_write(const ::rp::arena::p2::OneofGroup& m, ::rapidproto::du
   });
 }
 
+inline void rp_dump_write(const ::rp::arena::p2::OneofGroupStraddle::Head& m, ::rapidproto::dump_detail::Writer& w) {
+  (void)m;
+  w.group('{', '}', [&] {
+    bool rp_first = true;
+    if (const auto rp_v = m.x()) {
+      if (w.begin_field(rp_first, "x")) {
+        ::rapidproto::dump_detail::write_int(w.os(), *rp_v);
+      }
+    }
+    (void)rp_first;
+  });
+}
+
+inline void rp_dump_write(const ::rp::arena::p2::OneofGroupStraddle& m, ::rapidproto::dump_detail::Writer& w) {
+  (void)m;
+  w.group('{', '}', [&] {
+    bool rp_first = true;
+    if (const auto rp_v = m.mid()) {
+      if (w.begin_field(rp_first, "mid")) {
+        ::rapidproto::dump_detail::write_int(w.os(), *rp_v);
+      }
+    }
+    m.pick([&](auto rp_tag, const auto& rp_v) {
+      using rp_Tag = std::decay_t<decltype(rp_tag)>;
+      if constexpr (std::is_same_v<rp_Tag, ::rp::arena::p2::OneofGroupStraddle::Pick::head>) {
+        if (w.begin_field(rp_first, "head")) {
+          w.push_path("head");
+          ::rp::arena::p2::rp_dump_detail::rp_dump_write(rp_v, w);
+          w.pop_path();
+        }
+      }
+      if constexpr (std::is_same_v<rp_Tag, ::rp::arena::p2::OneofGroupStraddle::Pick::tail>) {
+        if (w.begin_field(rp_first, "tail")) {
+          ::rapidproto::dump_detail::write_int(w.os(), rp_v);
+        }
+      }
+    });
+    (void)rp_first;
+  });
+}
+
 inline void rp_dump_write(const ::rp::arena::p2::Container::Nested& m, ::rapidproto::dump_detail::Writer& w) {
   (void)m;
   w.group('{', '}', [&] {
@@ -354,6 +397,16 @@ struct dumper<::rp::arena::p2::OneofGroup::G> {
 template <>
 struct dumper<::rp::arena::p2::OneofGroup> {
   static void write(const ::rp::arena::p2::OneofGroup& m, Writer& w) { ::rp::arena::p2::rp_dump_detail::rp_dump_write(m, w); }
+};
+
+template <>
+struct dumper<::rp::arena::p2::OneofGroupStraddle::Head> {
+  static void write(const ::rp::arena::p2::OneofGroupStraddle::Head& m, Writer& w) { ::rp::arena::p2::rp_dump_detail::rp_dump_write(m, w); }
+};
+
+template <>
+struct dumper<::rp::arena::p2::OneofGroupStraddle> {
+  static void write(const ::rp::arena::p2::OneofGroupStraddle& m, Writer& w) { ::rp::arena::p2::rp_dump_detail::rp_dump_write(m, w); }
 };
 
 template <>

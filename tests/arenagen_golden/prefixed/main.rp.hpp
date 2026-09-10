@@ -133,6 +133,8 @@ RP_FLATTEN RP_NOINLINE inline bool ::pfx::arena::main::Main::rp_decode_into([[ma
       case ::rapidproto::raw_tag(3, ::rapidproto::WireType::Len): ++rp_c; goto rp_do_3;
       case ::rapidproto::raw_tag(4, ::rapidproto::WireType::Varint): ++rp_c; goto rp_do_4;
       case ::rapidproto::raw_tag(5, ::rapidproto::WireType::Len): ++rp_c; goto rp_do_5;
+      case ::rapidproto::raw_tag(7, ::rapidproto::WireType::Len): ++rp_c; goto rp_do_7;
+      case ::rapidproto::raw_tag(8, ::rapidproto::WireType::Varint): ++rp_c; goto rp_do_8;
       default: break;
     }
     goto rp_field_general;
@@ -174,6 +176,7 @@ RP_FLATTEN RP_NOINLINE inline bool ::pfx::arena::main::Main::rp_decode_into([[ma
       out.m_e = static_cast<::pfx::common::dep::DepEnum>(::rapidproto::varint_to_int32(rp_raw));
       out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 3));
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(5, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_5; }
+      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(7, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_7; }
       continue;
     }
     rp_do_5: {
@@ -184,6 +187,26 @@ RP_FLATTEN RP_NOINLINE inline bool ::pfx::arena::main::Main::rp_decode_into([[ma
       *rp_slot = ::pfx::arena::dep::Dep{};
       if (!::rapidproto::arena_detail::decode_into(*rp_slot, rp_v, arena, depth + 1, err)) { return false; }
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(5, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_5; }  // another element of the same field
+      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(7, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_7; }
+      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(8, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_8; }
+      continue;
+    }
+    rp_do_7: {
+      if (out.m_rp_choice_case == 1) { ::rapidproto::rp_fail_repeated_singular(err, 7); return false; }
+      ::rapidproto::ByteView rp_v;
+      { const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_v, &rp_we); if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; } rp_c = rp_np; }
+      out.m_rp_choice.od = ::pfx::arena::dep::Dep{};
+      if (!::rapidproto::arena_detail::decode_into(out.m_rp_choice.od, rp_v, arena, depth + 1, err)) { return false; }
+      out.m_rp_choice_case = 1;
+      continue;
+    }
+    rp_do_8: {
+      std::uint64_t rp_raw = 0;
+      const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      rp_c = rp_np;
+      out.m_rp_choice.oi = ::rapidproto::varint_to_int32(rp_raw);
+      out.m_rp_choice_case = 2;
       continue;
     }
     rp_field_general:;
@@ -238,30 +261,8 @@ RP_FLATTEN RP_NOINLINE inline bool ::pfx::arena::main::Main::rp_decode_into([[ma
         }
         break;
       }
-      case 7: {
-        if (rp_tag.wire_type == ::rapidproto::WireType::Len) {
-          if (out.m_rp_choice_case == 1) { ::rapidproto::rp_fail_repeated_singular(err, 7); return false; }
-          ::rapidproto::ByteView rp_v;
-          { const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_v, &rp_we); if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; } rp_c = rp_np; }
-          out.m_rp_choice.od = ::pfx::arena::dep::Dep{};
-          if (!::rapidproto::arena_detail::decode_into(out.m_rp_choice.od, rp_v, arena, depth + 1, err)) { return false; }
-          out.m_rp_choice_case = 1;
-          continue;
-        }
-        break;
-      }
-      case 8: {
-        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
-          std::uint64_t rp_raw = 0;
-          const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-          if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
-          rp_c = rp_np;
-          out.m_rp_choice.oi = ::rapidproto::varint_to_int32(rp_raw);
-          out.m_rp_choice_case = 2;
-          continue;
-        }
-        break;
-      }
+      case 7: { if (rp_tag.wire_type == ::rapidproto::WireType::Len) { goto rp_do_7; } break; }
+      case 8: { if (rp_tag.wire_type == ::rapidproto::WireType::Varint) { goto rp_do_8; } break; }
       default: break;
     }
     std::size_t rp_fo = 0;

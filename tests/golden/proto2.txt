@@ -66,6 +66,13 @@ file proto2.proto
     message G [fqn=.p2.OneofGroup.G]
       field x num=3 presence=explicit type=int32
       field s num=4 presence=explicit type=string
+  message OneofGroupStraddle [fqn=.p2.OneofGroupStraddle]
+    field mid num=4 presence=explicit type=int32
+    oneof pick
+      field head num=2 presence=explicit group delimited type=Head -> .p2.OneofGroupStraddle.Head msg
+      field tail num=5 presence=explicit type=int32
+    message Head [fqn=.p2.OneofGroupStraddle.Head]
+      field x num=3 presence=explicit type=int32
   message Container [fqn=.p2.Container]
     field items num=5 presence=explicit repeated=expanded type=Nested -> .p2.Container.Nested msg
     map by_name num=1 key=string value=Nested -> .p2.Container.Nested msg
@@ -88,6 +95,8 @@ symbols
   .p2.Container.Nested message
   .p2.OneofGroup message
   .p2.OneofGroup.G message
+  .p2.OneofGroupStraddle message
+  .p2.OneofGroupStraddle.Head message
   .p2.Scalars message
   .p2.WithGroup message
   .p2.WithGroup.MyGroup message

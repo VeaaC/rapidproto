@@ -70,6 +70,20 @@ message OneofGroup {
   optional int32 after = 5;
 }
 
+// A oneof straddling a plain field, mixing an unthreadable group member (2) with an int member
+// (5): the group keeps its general arm and never blocks anything, while probes from the plain
+// field (4) still reach the int member.
+message OneofGroupStraddle {
+  oneof pick {
+    group Head = 2 {
+      optional int32 x = 3;
+    }
+    int32 tail = 5;
+  }
+
+  optional int32 mid = 4;
+}
+
 extend WithGroup {
   optional int32 ext_a = 100 [default = 9];
   repeated string ext_b = 101;

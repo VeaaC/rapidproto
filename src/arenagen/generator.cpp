@@ -1517,27 +1517,30 @@ void emit_map_finalize(const Emit& emit, const MemberPlan& m) {
         {{"s", storage_id(emit, m)}, {"id", id}, {"ET", et}});
 }
 
-void emit_oneof_arm(const Emit& emit, const OneofPlan& o, const OneofMemberPlan& member,
-                    int index) {
+// The wire type a oneof member's tag carries (also the label/probe THREAD wire).
+std::string oneof_member_wire(const OneofMemberPlan& member) {
+    if (member.kind == FieldKind::BorrowString) {
+        return "Len";
+    }
+    if (member.kind == FieldKind::InlineEnum) {
+        return "Varint";
+    }
+    if (member.kind == FieldKind::InlineFixedSubMsg || member.kind == FieldKind::PointerSubMsg) {
+        return message_wire(*member.field).first;
+    }
+    return std::string(scalar_wire(member.field->type_name).wire);
+}
+
+// The tag-consumed decode of one oneof member -- the interior the general arm's wire guard and a
+// threaded label share: store the value into the union slot (message members first rejecting a
+// re-occurrence while the oneof still holds them), then set the discriminant. Last-wins across
+// members is the store+discriminant itself; the shapes around it differ per call site.
+void emit_oneof_member_body(const Emit& emit, const OneofPlan& o, const OneofMemberPlan& member,
+                            int index) {
     Printer& p = emit.printer;
     const FieldNode& field = *member.field;
     const std::string id = emit.names.local.at(&field);
     const std::string ofield = "out." + emit.synth.storage.at(o.oneof) + "." + id;
-    std::string wire;
-    if (member.kind == FieldKind::BorrowString) {
-        wire = "Len";
-    } else if (member.kind == FieldKind::InlineEnum) {
-        wire = "Varint";
-    } else if (member.kind == FieldKind::InlineFixedSubMsg ||
-               member.kind == FieldKind::PointerSubMsg) {
-        wire = message_wire(field).first;
-    } else {
-        wire = scalar_wire(field.type_name).wire;
-    }
-    p.print("case $n$: {\n", {{"n", std::to_string(field.number)}});
-    p.indent();
-    p.print("if (rp_tag.wire_type == ::rapidproto::WireType::$w$) {\n", {{"w", wire}});
-    p.indent();
     if (member.kind == FieldKind::InlineFixedSubMsg || member.kind == FieldKind::PointerSubMsg) {
         const std::string sub = cpp_type_name(emit.names, member.target_fqn);
         // A message-typed member occurring again while the oneof ALREADY holds it is the case
@@ -1572,6 +1575,20 @@ void emit_oneof_arm(const Emit& emit, const OneofPlan& o, const OneofMemberPlan&
     }
     p.print("out.$c$ = $i$;\n",
             {{"c", emit.synth.case_member.at(o.oneof)}, {"i", std::to_string(index)}});
+}
+
+// The general-switch arm for an UNTHREADED oneof member (a group member, or a number past the
+// 2-byte tag range): the classic case + wire guard around the shared body. Threaded members get
+// a wire-guarded goto to their label instead (emit_threaded_general_case).
+void emit_oneof_arm(const Emit& emit, const OneofPlan& o, const OneofMemberPlan& member,
+                    int index) {
+    Printer& p = emit.printer;
+    p.print("case $n$: {\n", {{"n", std::to_string(member.field->number)}});
+    p.indent();
+    p.print("if (rp_tag.wire_type == ::rapidproto::WireType::$w$) {\n",
+            {{"w", oneof_member_wire(member)}});
+    p.indent();
+    emit_oneof_member_body(emit, o, member, index);
     p.print("continue;\n");
     p.outdent();
     p.print("}\n");
@@ -1580,51 +1597,17 @@ void emit_oneof_arm(const Emit& emit, const OneofPlan& o, const OneofMemberPlan&
     p.print("}\n");
 }
 
-// A single-byte-tag field -- number 1..15 ((15 << 3) | 7 == 127 < 128) -- that is a singular
-// scalar/enum/string (not a sub-message or group) or a non-group repeated field: the 1-byte-tag
-// scalar/repeated slice of the threaded set. is_threaded folds this together with the singular
-// sub-message and 2-byte-tag slices; messages/groups/raw/maps/oneofs/field 16+ are covered there.
-bool is_fast_arena_field(const MemberPlan& m, const FieldNode& field) {
-    if (field.number > codegen::kMaxOneByteTagField) {
-        return false;
-    }
+// A field is threaded (has a rp_do_<n> label): a repeated 1-byte non-group field, or any singular
+// field the shared codegen::is_threadable_singular admits -- scalar/enum/string/LEN-message with a
+// 1- or 2-byte tag; groups are excluded for correctness (see the predicate's comment). Threading
+// is always on. Raw-mode fields and maps never reach this (excluded at both call sites), and
+// threadable oneof MEMBERS are collected separately -- they don't pass through here.
+bool is_threaded(const FieldNode& field) {
     if (field.is_repeated) {
-        return elem_wire_enum(field) != "SGroup";  // repeated non-group
+        return field.number >= 1 && field.number <= codegen::kMaxOneByteTagField &&
+               elem_wire_enum(field) != "SGroup";
     }
-    return m.kind == FieldKind::InlineScalar || m.kind == FieldKind::InlineEnum ||
-           m.kind == FieldKind::BorrowString;  // singular scalar/enum/string/bool (not message)
-}
-
-// A singular non-delimited LEN sub-message with a 1-byte tag: not in the default fast (scalar) set,
-// but THREADED -- it gets a tag-consumed rp_do_<n> label. Groups (delimited) are excluded: their
-// scan-based decode is not a simple peek-and-consume.
-bool is_threadable_message(const MemberPlan& m, const FieldNode& field) {
-    return field.number <= codegen::kMaxOneByteTagField && !field.is_repeated &&
-           (m.kind == FieldKind::InlineFixedSubMsg || m.kind == FieldKind::PointerSubMsg) &&
-           field.message_encoding != MessageEncoding::Delimited;
-}
-
-// A SINGULAR scalar/enum/string/LEN-message field with a 2-byte tag: threaded (it gets a rp_do_<n>
-// label), but the 1-byte hub can't see it -- it is reached via the general path (a wire-guarded goto)
-// or a 2-byte successor probe. Repeated 2-byte fields and groups stay on the general path (not threaded).
-bool is_threadable_2byte(const MemberPlan& m, const FieldNode& field) {
-    if (field.number <= codegen::kMaxOneByteTagField ||
-        field.number > codegen::kMaxTwoByteTagField || field.is_repeated) {
-        return false;
-    }
-    const bool scalar = m.kind == FieldKind::InlineScalar || m.kind == FieldKind::InlineEnum ||
-                        m.kind == FieldKind::BorrowString;
-    const bool msg =
-        (m.kind == FieldKind::InlineFixedSubMsg || m.kind == FieldKind::PointerSubMsg) &&
-        field.message_encoding != MessageEncoding::Delimited;
-    return scalar || msg;
-}
-
-// A field is threaded (has a rp_do_<n> label): the fast (1-byte scalar/enum/string + repeated) set,
-// singular 1-byte non-delimited sub-messages, and singular 2-byte-tag fields. Threading is always on.
-bool is_threaded(const MemberPlan& m, const FieldNode& field) {
-    return is_fast_arena_field(m, field) || is_threadable_message(m, field) ||
-           is_threadable_2byte(m, field);
+    return codegen::is_threadable_singular(field);
 }
 
 // The WireType enumerator a singular scalar/enum/string field's tag carries.
@@ -1746,15 +1729,14 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
     // removes body duplication AND correctly decodes a non-minimally-encoded tag (hub miss -> general
     // -> wire guard -> label). A wrong-wire tag `break`s to the shared skip, exactly as an untouched
     // field would. End must break (not return) so the post-loop required-field checks still run.
-    // The threaded fields in declaration order (ascending), so probes thread that order. Kept
+    // The threaded fields, in any order (the shape generator sorts by field number). Kept
     // alongside a parallel MemberPlan lookup so the body hooks can recover the arena-specific plan
     // from the generator-agnostic codegen::ThreadField the shape generator hands back.
     std::vector<codegen::ThreadField> threaded;
     std::unordered_map<int, const MemberPlan*> threaded_plan;
     for (const FieldNode& f : message.fields) {
         const auto it = by_node.find(&f);
-        if (it == by_node.end() || it->second->kind == FieldKind::Raw ||
-            !is_threaded(*it->second, f)) {
+        if (it == by_node.end() || it->second->kind == FieldKind::Raw || !is_threaded(f)) {
             continue;
         }
         const MemberPlan* m = it->second;
@@ -1762,6 +1744,33 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
         const bool packable = f.is_repeated && codegen::is_packable_wire(tw);
         threaded.push_back({f.number, f.is_repeated, packable, tw});
         threaded_plan.emplace(f.number, m);
+    }
+    // Oneof members thread too (each gets a hub case + label; the probe walk knows the oneof
+    // grouping, so siblings are never probed as successors). Unthreadable members (groups,
+    // numbers past the 2-byte range) keep their classic general arm.
+    struct OneofThreadInfo {
+        const OneofPlan* plan;
+        const OneofMemberPlan* member;
+        int index;  // 1-based member position = the discriminant value the body stores
+    };
+    std::unordered_map<int, OneofThreadInfo> threaded_oneof;
+    for (const OneofPlan& o : layout.oneofs) {
+        for (std::size_t mi = 0; mi < o.members.size(); ++mi) {
+            const OneofMemberPlan& member = o.members[mi];
+            if (!codegen::is_threadable_singular(*member.field)) {
+                continue;
+            }
+            threaded.push_back(
+                {member.field->number, false, false, oneof_member_wire(member), o.oneof});
+            threaded_oneof.emplace(member.field->number,
+                                   OneofThreadInfo{&o, &member, static_cast<int>(mi) + 1});
+        }
+    }
+    // Number -> the exact ThreadField the label is emitted from. The general switch's wire-guarded
+    // gotos reuse these, so a case's guard can never disagree with its label's thread wire.
+    std::unordered_map<int, codegen::ThreadField> threaded_by_number;
+    for (const codegen::ThreadField& tf : threaded) {
+        threaded_by_number.emplace(tf.number, tf);
     }
     const auto is_msg_kind = [](const MemberPlan& m) {
         return m.kind == FieldKind::InlineFixedSubMsg || m.kind == FieldKind::PointerSubMsg;
@@ -1772,6 +1781,10 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
     // checks still run.
     codegen::ThreadedLoopHooks hooks;
     hooks.emit_body = [&](const codegen::ThreadField& tf) {
+        if (const auto ot = threaded_oneof.find(tf.number); ot != threaded_oneof.end()) {
+            emit_oneof_member_body(emit, *ot->second.plan, *ot->second.member, ot->second.index);
+            return;
+        }
         const MemberPlan* m = threaded_plan.at(tf.number);
         if (!tf.repeated) {
             if (is_msg_kind(*m)) {
@@ -1787,7 +1800,7 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
         emit_vt_len_read(emit, "rp_p");
         emit_packed_fill(emit, *threaded_plan.at(tf.number)->field);
     };
-    codegen::emit_hub_and_labels(p, threaded, hooks, "break;");
+    codegen::emit_hub_and_labels(p, std::move(threaded), hooks, "break;");
     // General path: multi-byte tags, unknown fields, wrong wire types, groups, messages, raw, maps,
     // oneofs, and the wire-guarded-goto routing for the threaded fields above.
     // Fused end-or-tag read: one bounds check drives the loop (see WireReader::read_tag_or_end).
@@ -1819,10 +1832,9 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
         // jump straight to the label; a wrong wire type `break`s to the shared skip. This carries both
         // 2-byte-tag threaded fields (never in the hub) and the rare non-minimally-encoded tag of a
         // 1-byte threaded field -- with zero body duplication, and no silent drop.
-        if (it->second->kind != FieldKind::Raw && is_threaded(*it->second, f)) {
-            const std::string tw = primary_fast_wire(*it->second);
-            codegen::emit_threaded_general_case(
-                p, {f.number, f.is_repeated, f.is_repeated && codegen::is_packable_wire(tw), tw});
+        const auto tt = threaded_by_number.find(f.number);
+        if (tt != threaded_by_number.end()) {
+            codegen::emit_threaded_general_case(p, tt->second);
         } else if (it->second->kind == FieldKind::Raw) {
             emit_raw_arm(emit, layout, *it->second, required_bit);
         } else if (f.is_repeated) {
@@ -1841,9 +1853,18 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
         emit_map_arm(emit, *it->second);
     }
     for (const OneofPlan& o : layout.oneofs) {
-        int index = 1;
-        for (const OneofMemberPlan& member : o.members) {
-            emit_oneof_arm(emit, o, member, index++);
+        for (std::size_t mi = 0; mi < o.members.size(); ++mi) {
+            const OneofMemberPlan& member = o.members[mi];
+            const int idx = static_cast<int>(mi) + 1;  // same position-derived discriminant as
+                                                       // OneofThreadInfo::index -- never a
+                                                       // separately-advanced counter
+            const auto tt = threaded_by_number.find(member.field->number);
+            if (tt != threaded_by_number.end()) {
+                // Threaded member: wire-guarded goto into its label, like every threaded field.
+                codegen::emit_threaded_general_case(p, tt->second);
+            } else {
+                emit_oneof_arm(emit, o, member, idx);
+            }
         }
     }
     if (layout.unknown_bit >= 0) {

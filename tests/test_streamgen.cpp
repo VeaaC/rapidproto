@@ -419,6 +419,27 @@ TEST_CASE("streamgen: oneof members fire per occurrence in wire order", "[stream
     CHECK(events == std::vector<std::string>{"a=1", "b=hi", "a=2"});  // wire order, no dedup
 }
 
+// A probe into a oneof member: `mid` (4) precedes the oneof's int member (5), so rp_do_4's probe
+// jumps straight to rp_do_5 -- a route that never passes the general switch. (The probe's
+// PRESENCE is pinned by the golden; this exercises what its destination does.)
+TEST_CASE("streamgen: a probe past a straddling oneof reaches the member", "[streamgen]") {
+    std::string buf;  // p2.OneofGroupStraddle: mid=7, tail=9 (conformant ascending order)
+    put_tag(buf, 4, 0);
+    put_varint(buf, 7);
+    put_tag(buf, 5, 0);
+    put_varint(buf, 9);
+
+    std::int32_t mid = 0;
+    std::int32_t tail = 0;
+    const rp::stream::p2::OneofGroupStraddle m{ByteView(buf)};
+    const DecodeStatus s =
+        m.decode([&](rp::stream::p2::OneofGroupStraddle::mid, std::int32_t v) { mid = v; },
+                 [&](rp::stream::p2::OneofGroupStraddle::tail, std::int32_t v) { tail = v; });
+    CHECK(s.ok());
+    CHECK(mid == 7);
+    CHECK(tail == 9);
+}
+
 // A repeated MESSAGE field fires its callback once per element, each a sub-decoder to recurse into
 // (the most common real-world shape; previously generated but never decoded at runtime).
 TEST_CASE("streamgen: a repeated message field fires per element", "[streamgen]") {

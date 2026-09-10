@@ -6,6 +6,7 @@
 // the same way by each lives in one place.
 
 #include <algorithm>
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -343,6 +344,19 @@ inline int wire_enum_num(const std::string& w) {
     return static_cast<int>(::rapidproto::WireType::Varint);
 }
 
+// A singular field (oneof members included) that can take a tag-consumed rp_do_<n> label: a
+// positive number fitting a 1- or 2-byte tag, and not a delimited (group) field. The delimited
+// exclusion is CORRECTNESS, not tuning: a group's decode reads `rp_tag.field_number` to match its
+// EGROUP, and a threaded label is entered with rp_tag unset -- a group that threaded would scan
+// for the wrong end tag. Shared so the two generators cannot drift on what threads.
+inline bool is_threadable_singular(const FieldNode& field) {
+    assert(!field.is_repeated && "is_threadable_singular: callers gate repeated fields themselves");
+    if (field.number < 1 || field.number > kMaxTwoByteTagField) {
+        return false;
+    }
+    return !field.is_message_type || field.message_encoding != MessageEncoding::Delimited;
+}
+
 // A threaded field, generator-agnostic: the shape generator needs only the routing facts (number,
 // repeated-ness, whether a packed LEN label is also emitted, and the tag it threads on). All value
 // emission is the caller's, via ThreadedLoopHooks.
@@ -352,6 +366,11 @@ struct ThreadField {
     bool packable;            // repeated packable => also a rp_do_<n>_p packed label
     std::string thread_wire;  // WireType enumerator: singular field's canonical wire, or repeated
                               // element wire
+    // The oneof this field is a member of, if any (plain fields keep the default nullptr). The
+    // probe walk needs only the grouping: a sibling can never follow its own member on a
+    // conformant wire (at most one member per oneof, ascending), so siblings are skipped as
+    // successors.
+    const OneofNode* oneof = nullptr;
 };
 
 // Hooks the caller supplies for the per-field label bodies. Each emits at the current indent,
@@ -366,37 +385,62 @@ struct ThreadedLoopHooks {
 
 namespace detail {
 
-// The depth-2 constant-tag successor probes emitted at the tail of a threaded label: from field i,
-// try the next / next-but-one threaded field's THREAD tag, consuming the tag bytes before the goto
-// (labels are tag-consumed). 1-byte successor: compare the single tag byte, `++rp_c`. 2-byte
-// successor: compare both tag bytes, `rp_c += 2`. Ascending order puts the 1-byte fields first, so
-// the cheaper 1-byte probes carry the hot run.
+// One constant-tag successor probe, consuming the tag bytes before the goto (labels are
+// tag-consumed). 1-byte successor: compare the single tag byte, `++rp_c`. 2-byte successor:
+// compare both tag bytes, `rp_c += 2`.
+inline void emit_one_probe(Printer& p, const ThreadField& s) {
+    const std::string n = std::to_string(s.number);
+    if (s.number <= kMaxOneByteTagField) {
+        p.print(
+            "if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag($n$,"
+            " ::rapidproto::WireType::$w$)) { ++rp_c; goto rp_do_$n$; }\n",
+            {{"n", n}, {"w", s.thread_wire}});
+    } else {
+        const int v = (s.number << kTagFieldShift) | wire_enum_num(s.thread_wire);
+        p.print(
+            "if (rp_cend - rp_c > 1 && rp_c[0] == $b0$ && rp_c[1] == $b1$)"
+            " { rp_c += 2; goto rp_do_$n$; }\n",
+            {{"n", n},
+             {"b0", std::to_string((v & kVarintPayload) | kVarintContinue)},
+             {"b1", std::to_string(v >> kVarintShift)}});
+    }
+}
+
+// The constant-tag successor probes at the tail of a threaded label: from the field at `pos`,
+// probe the next ascending successors, filling a 2-probe budget. The probes are ALTERNATIVES at
+// one cursor position -- each tests the same next-tag bytes for a different candidate -- so a
+// possibly-absent candidate costs one compare on a miss and `continue` falls to the hub, exactly
+// like any other probe; the walk therefore treats every successor alike, with one exception:
+// the probing field's own oneof siblings are skipped -- a conformant wire holds at most one
+// member per oneof, ascending, so a sibling can never follow. A multi-member oneof can thus
+// absorb both probes although at most one can hit -- a deliberate trade, measured as a net win
+// on the suite, and a missed chain still lands in the hub. Unthreadable fields (groups,
+// repeated fields past the 1-byte tag range, numbers past the 2-byte range) are absent from
+// `threaded` and are stepped over like any possibly-absent field: a lower hit rate on wires
+// that carry them, never a wrong decode.
+// Ascending order puts the 1-byte fields first, so the cheaper 1-byte probes carry the hot run.
+// `threaded` is sorted ascending by field number (emit_hub_and_labels' order), so successors are
+// simply the entries past `pos` -- conformant serialization order.
 inline void emit_thread_probes(Printer& p, const std::vector<ThreadField>& threaded,
-                               std::size_t i) {
-    for (std::size_t d = 1; d <= 2 && i + d < threaded.size(); ++d) {
-        const ThreadField& s = threaded[i + d];
-        const std::string n = std::to_string(s.number);
-        if (s.number <= kMaxOneByteTagField) {
-            p.print(
-                "if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag($n$,"
-                " ::rapidproto::WireType::$w$)) { ++rp_c; goto rp_do_$n$; }\n",
-                {{"n", n}, {"w", s.thread_wire}});
-        } else {
-            const int v = (s.number << kTagFieldShift) | wire_enum_num(s.thread_wire);
-            p.print(
-                "if (rp_c + 1 < rp_cend && rp_c[0] == $b0$ && rp_c[1] == $b1$)"
-                " { rp_c += 2; goto rp_do_$n$; }\n",
-                {{"n", n},
-                 {"b0", std::to_string((v & kVarintPayload) | kVarintContinue)},
-                 {"b1", std::to_string(v >> kVarintShift)}});
+                               std::size_t pos) {
+    const OneofNode* const own = threaded[pos].oneof;
+    int budget = 2;
+    for (std::size_t j = pos + 1; j < threaded.size() && budget > 0; ++j) {
+        const ThreadField& s = threaded[j];
+        if (own != nullptr && s.oneof == own) {
+            continue;  // own sibling: cannot follow
         }
+        emit_one_probe(p, s);
+        --budget;
     }
 }
 
 }  // namespace detail
 
-// Emit the hub `switch(*rp_c)` and the tag-consumed labels for `threaded` (declaration order,
-// ascending by number so probes thread that order). Emits, at the current indent:
+// Emit the hub `switch(*rp_c)` and the tag-consumed labels for `threaded`, in ascending
+// field-number order -- conformant serialization order, which declaration order is not (a schema
+// may declare out of order, and oneof members interleave numerically with plain fields); callers
+// pass any order. Emits, at the current indent:
 //   * `if (rp_c >= rp_cend) { <on_end> }`  -- the caller's end action (arena: "break;");
 //   * the hub `switch(*rp_c)`: each 1-byte-tag threaded field -> `case raw_tag(n,W): ++rp_c; goto
 //     rp_do_n;` (a repeated packable field also gets a Len case -> rp_do_n_p); `default: break;`;
@@ -406,11 +450,14 @@ inline void emit_thread_probes(Printer& p, const std::vector<ThreadField>& threa
 //     probes + continue;
 //   * `rp_field_general:;`.
 // When `threaded` is empty, emits nothing (the caller's general path stands alone).
-inline void emit_hub_and_labels(Printer& p, const std::vector<ThreadField>& threaded,
+inline void emit_hub_and_labels(Printer& p, std::vector<ThreadField> threaded,
                                 const ThreadedLoopHooks& hooks, const std::string& on_end) {
     if (threaded.empty()) {
         return;
     }
+    std::stable_sort(
+        threaded.begin(), threaded.end(),
+        [](const ThreadField& a, const ThreadField& b) { return a.number < b.number; });
     // Hub: a 1-byte peek switch. Only 1-byte-tag threaded fields appear (a 2-byte-tag field enters
     // via the general path). Each case consumes the peeked byte, then jumps to the tag-consumed
     // label. A miss (multi-byte tag, unknown field, wrong wire type, or a non-minimal encoding of a
@@ -439,8 +486,8 @@ inline void emit_hub_and_labels(Printer& p, const std::vector<ThreadField>& thre
     p.outdent();
     p.print("}\n");
     p.print("goto rp_field_general;\n");
-    // Tag-consumed labels, one per threaded field (declaration order). Each decodes its value, then
-    // runs the successor probe (and, for repeated, a self-loop) before falling to `continue`.
+    // Tag-consumed labels, one per threaded field. Each decodes its value, then runs the
+    // successor probe (and, for repeated, a self-loop) before falling to `continue`.
     for (std::size_t i = 0; i < threaded.size(); ++i) {
         const ThreadField& tf = threaded[i];
         const std::string n = std::to_string(tf.number);

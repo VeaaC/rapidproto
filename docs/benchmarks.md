@@ -79,10 +79,10 @@ Every arm decodes **and reads every present field** (one shared checksum, cross-
 
 | | google_message1 (228 B) | google_message2 (84.5 KB, group-heavy) |
 |---|---|---|
-| streaming | **+119%** | **+158%** |
-| arena (warm) | **+92%** | **+27%** |
-| arena (cold) | +38% | +24% |
-| upb | +23% | +17% |
+| streaming | **+120%** | **+155%** |
+| arena (warm) | **+106%** | **+28%** |
+| arena (cold) | +44% | +23% |
+| upb | +21% | +13% |
 
 Two honest readings: `google_message2` is proto2's home turf — one huge repeated *group* of
 small mixed fields — and it is where our arena's lead over both protoc and upb is smallest,

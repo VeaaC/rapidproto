@@ -543,7 +543,8 @@ functions, each threaded with an `Emit` bundle — references to the `Printer`, 
   Anything else synthesized from a proto name — raw or sanitized — needs the same re-check.
 - **Shells first, then decode bodies.** All struct shells are emitted before any out-of-line
   **`rp_decode_into`** body (for the complete-type reason given above). Each body is assembled from
-  per-field *arms* (`emit_singular_arm` / `emit_repeated_arm` / `emit_map_arm` / `emit_oneof_arm`),
+  per-field *arms* (`emit_singular_arm` / `emit_repeated_arm` / `emit_map_arm`; `emit_oneof_arm`
+  remains only for unthreadable oneof members -- groups and numbers past the 2-byte tag range),
   wrapped by growable-array setup/finalize and the transient required-field bitmask.
 
 ### The arena runtime (`arena_runtime.hpp`)
@@ -853,11 +854,25 @@ generator-agnostic pieces (the `codegen/` module; neither emitter depends on the
 
 Both decoders run a **field-order-threaded** decode loop. Instead of returning to an N-way dispatch (an
 indirect jump or a field-number switch) for every field, after decoding a field the generated code runs a
-small depth-2 constant-tag probe that jumps **straight to the next (or next-but-one) expected field's
-decode** via a `goto` label. When fields arrive in ascending wire order — how `protoc` and most encoders
+small constant-tag probe (a 2-probe budget over the next expected fields) that jumps **straight
+to the matching field's decode** via a `goto` label. When fields arrive in ascending wire order — how `protoc` and most encoders
 serialize — this turns the per-field N-way indirect dispatch into a predictable 2-way direct branch. A hub
 `switch` on the first tag byte enters the label chain; a general path handles out-of-order, unknown,
 wrong-wire, and non-minimal tags. Threading is always on — no flag, no field-count cutoff.
+
+The threaded labels and their probes follow **ascending field number** — conformant
+serialization order, which declaration order is not (a schema may declare out of order, and
+oneof members interleave numerically with plain fields). Threadable oneof members thread like
+singular fields (a 1-byte member gets a hub case; every threadable member gets a label and the
+general path's wire-guarded goto), and the probe walk treats them as ordinary ascending
+successors with one exception: a member's own siblings are never probed, since at most one
+member per oneof occurs on a conformant wire. The probes at a label's tail are alternatives at
+one cursor position — each tests the same next-tag bytes for a different candidate — so a
+member costs and pays exactly what a possibly-absent plain field does. Unthreadable fields
+(groups, repeated fields past the 1-byte tag range, numbers past the 2-byte tag range — in or
+out of a oneof) keep a classic general arm
+and are simply stepped over by probes — a lower hit rate on wires that carry them, never a
+wrong decode.
 
 A single `rapidproto::codegen::` shape generator emits the loop for both models; each emitter fills in only
 the per-field body — the arena emitter materializes the value into the node, the streaming emitter fires the

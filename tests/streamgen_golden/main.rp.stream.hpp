@@ -189,7 +189,6 @@ RP_FLATTEN ::rapidproto::DecodeStatus Main::decode(rp_Callbacks&&... rp_callback
         if (rp_sp == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_sp;
       }
-      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(8, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_8; }
       continue;
     }
     rp_do_8: {

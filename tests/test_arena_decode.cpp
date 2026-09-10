@@ -600,6 +600,51 @@ TEST_CASE("arena-decode: group (delimited) fixture", "[arena-decode]") {
     CHECK(got_oi);
 }
 
+// A probe into a oneof member: `mid` (4) precedes the oneof's int member (5), so rp_do_4's probe
+// jumps straight to rp_do_5 -- the store and discriminant on that route must match the general
+// path's. (The probe's PRESENCE is pinned by the golden; this exercises what its destination
+// does.)
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): a flat list of accessor assertions
+TEST_CASE("arena-decode: a probe past a straddling oneof stores the member", "[arena-decode]") {
+    Arena arena;
+    std::string wire;  // mid=7, tail=9 (conformant ascending order)
+    put_tag(wire, 4, 0);
+    put_varint(wire, 7);
+    put_tag(wire, 5, 0);
+    put_varint(wire, 9);
+    const p2::OneofGroupStraddle* m = p2::OneofGroupStraddle::decode(ByteView(wire), arena);
+    REQUIRE(m != nullptr);
+    CHECK(m->mid() == std::optional<std::int32_t>(7));
+    bool tailed = false;
+    m->pick(
+        [&](p2::OneofGroupStraddle::Pick::tail, std::int32_t v) {
+            tailed = true;
+            CHECK(v == 9);
+        },
+        [](auto, auto) { FAIL("unexpected oneof member"); });
+    CHECK(tailed);
+
+    // Group present instead: its classic general arm owns the store; no probe targets a group.
+    std::string wire2;
+    put_tag(wire2, 2, 3);  // head: start group
+    put_tag(wire2, 3, 0);
+    put_varint(wire2, 1);  // x = 1
+    put_tag(wire2, 2, 4);  // end group
+    put_tag(wire2, 4, 0);
+    put_varint(wire2, 8);
+    const p2::OneofGroupStraddle* g = p2::OneofGroupStraddle::decode(ByteView(wire2), arena);
+    REQUIRE(g != nullptr);
+    CHECK(g->mid() == std::optional<std::int32_t>(8));
+    bool headed = false;
+    g->pick(
+        [&](p2::OneofGroupStraddle::Pick::head, const p2::OneofGroupStraddle::Head& h) {
+            headed = true;
+            CHECK(h.x() == std::optional<std::int32_t>(1));
+        },
+        [](auto, auto) { FAIL("unexpected oneof member"); });
+    CHECK(headed);
+}
+
 // An absent explicit-presence field reads as std::nullopt: the schema default (proto2 `[default=...]`)
 // is NOT read through the optional accessor -- a consumer applies it via value_or(...). Only field 1
 // (required i32) is set here, so every optional field is absent.

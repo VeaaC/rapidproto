@@ -710,6 +710,7 @@ RP_FLATTEN RP_NOINLINE inline bool ::rp::arena::al::Layout::rp_decode_into([[may
       *rp_slot = ::rapidproto::varint_to_int32(rp_raw);
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(13, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_13; }  // another element of the same field
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(14, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_14; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 136 && rp_c[1] == 1) { rp_c += 2; goto rp_do_17; }
       continue;
     }
     rp_do_13_p: {
@@ -738,6 +739,7 @@ RP_FLATTEN RP_NOINLINE inline bool ::rp::arena::al::Layout::rp_decode_into([[may
       arena.shrink_last(rp_acc_nums, rp_cap_nums * sizeof(std::int32_t), rp_n_nums * sizeof(std::int32_t));
       rp_cap_nums = rp_n_nums;
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(14, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_14; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 136 && rp_c[1] == 1) { rp_c += 2; goto rp_do_17; }
       continue;
     }
     rp_do_14: {
@@ -748,6 +750,35 @@ RP_FLATTEN RP_NOINLINE inline bool ::rp::arena::al::Layout::rp_decode_into([[may
       *rp_slot = ::rp::arena::al::Point{};
       if (!::rapidproto::arena_detail::decode_into(*rp_slot, rp_v, arena, depth + 1, err)) { return false; }
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(14, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_14; }  // another element of the same field
+      if (rp_cend - rp_c > 1 && rp_c[0] == 136 && rp_c[1] == 1) { rp_c += 2; goto rp_do_17; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 146 && rp_c[1] == 1) { rp_c += 2; goto rp_do_18; }
+      continue;
+    }
+    rp_do_17: {
+      std::uint64_t rp_raw = 0;
+      const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      rp_c = rp_np;
+      out.m_rp_choice.ci = ::rapidproto::varint_to_int32(rp_raw);
+      out.m_rp_choice_case = 1;
+      continue;
+    }
+    rp_do_18: {
+      ::rapidproto::ByteView rp_v;
+      const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_v, &rp_we);
+      if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
+      rp_c = rp_np;
+      out.m_rp_choice.cs = ::rapidproto::ArenaString::make(rp_v, arena);
+      out.m_rp_choice_case = 2;
+      continue;
+    }
+    rp_do_19: {
+      if (out.m_rp_choice_case == 3) { ::rapidproto::rp_fail_repeated_singular(err, 19); return false; }
+      ::rapidproto::ByteView rp_v;
+      { const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_v, &rp_we); if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; } rp_c = rp_np; }
+      out.m_rp_choice.cp = ::rp::arena::al::Point{};
+      if (!::rapidproto::arena_detail::decode_into(out.m_rp_choice.cp, rp_v, arena, depth + 1, err)) { return false; }
+      out.m_rp_choice_case = 3;
       continue;
     }
     rp_field_general:;
@@ -863,42 +894,9 @@ RP_FLATTEN RP_NOINLINE inline bool ::rp::arena::al::Layout::rp_decode_into([[may
         }
         break;
       }
-      case 17: {
-        if (rp_tag.wire_type == ::rapidproto::WireType::Varint) {
-          std::uint64_t rp_raw = 0;
-          const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-          if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
-          rp_c = rp_np;
-          out.m_rp_choice.ci = ::rapidproto::varint_to_int32(rp_raw);
-          out.m_rp_choice_case = 1;
-          continue;
-        }
-        break;
-      }
-      case 18: {
-        if (rp_tag.wire_type == ::rapidproto::WireType::Len) {
-          ::rapidproto::ByteView rp_v;
-          const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_v, &rp_we);
-          if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
-          rp_c = rp_np;
-          out.m_rp_choice.cs = ::rapidproto::ArenaString::make(rp_v, arena);
-          out.m_rp_choice_case = 2;
-          continue;
-        }
-        break;
-      }
-      case 19: {
-        if (rp_tag.wire_type == ::rapidproto::WireType::Len) {
-          if (out.m_rp_choice_case == 3) { ::rapidproto::rp_fail_repeated_singular(err, 19); return false; }
-          ::rapidproto::ByteView rp_v;
-          { const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_v, &rp_we); if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; } rp_c = rp_np; }
-          out.m_rp_choice.cp = ::rp::arena::al::Point{};
-          if (!::rapidproto::arena_detail::decode_into(out.m_rp_choice.cp, rp_v, arena, depth + 1, err)) { return false; }
-          out.m_rp_choice_case = 3;
-          continue;
-        }
-        break;
-      }
+      case 17: { if (rp_tag.wire_type == ::rapidproto::WireType::Varint) { goto rp_do_17; } break; }
+      case 18: { if (rp_tag.wire_type == ::rapidproto::WireType::Len) { goto rp_do_18; } break; }
+      case 19: { if (rp_tag.wire_type == ::rapidproto::WireType::Len) { goto rp_do_19; } break; }
       default: break;
     }
     std::size_t rp_fo = 0;

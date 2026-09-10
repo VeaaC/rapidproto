@@ -334,7 +334,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       out.m_f14 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 13;
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(15, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_15; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 128 && rp_c[1] == 1) { rp_c += 2; goto rp_do_16; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 128 && rp_c[1] == 1) { rp_c += 2; goto rp_do_16; }
       continue;
     }
     rp_do_15: {
@@ -344,8 +344,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f15 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 14;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 128 && rp_c[1] == 1) { rp_c += 2; goto rp_do_16; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 136 && rp_c[1] == 1) { rp_c += 2; goto rp_do_17; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 128 && rp_c[1] == 1) { rp_c += 2; goto rp_do_16; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 136 && rp_c[1] == 1) { rp_c += 2; goto rp_do_17; }
       continue;
     }
     rp_do_16: {
@@ -355,8 +355,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f16 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 15;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 136 && rp_c[1] == 1) { rp_c += 2; goto rp_do_17; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 144 && rp_c[1] == 1) { rp_c += 2; goto rp_do_18; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 136 && rp_c[1] == 1) { rp_c += 2; goto rp_do_17; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 144 && rp_c[1] == 1) { rp_c += 2; goto rp_do_18; }
       continue;
     }
     rp_do_17: {
@@ -366,8 +366,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f17 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 16;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 144 && rp_c[1] == 1) { rp_c += 2; goto rp_do_18; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 152 && rp_c[1] == 1) { rp_c += 2; goto rp_do_19; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 144 && rp_c[1] == 1) { rp_c += 2; goto rp_do_18; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 152 && rp_c[1] == 1) { rp_c += 2; goto rp_do_19; }
       continue;
     }
     rp_do_18: {
@@ -377,8 +377,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f18 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 17;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 152 && rp_c[1] == 1) { rp_c += 2; goto rp_do_19; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 160 && rp_c[1] == 1) { rp_c += 2; goto rp_do_20; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 152 && rp_c[1] == 1) { rp_c += 2; goto rp_do_19; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 160 && rp_c[1] == 1) { rp_c += 2; goto rp_do_20; }
       continue;
     }
     rp_do_19: {
@@ -388,8 +388,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f19 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 18;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 160 && rp_c[1] == 1) { rp_c += 2; goto rp_do_20; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 168 && rp_c[1] == 1) { rp_c += 2; goto rp_do_21; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 160 && rp_c[1] == 1) { rp_c += 2; goto rp_do_20; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 168 && rp_c[1] == 1) { rp_c += 2; goto rp_do_21; }
       continue;
     }
     rp_do_20: {
@@ -399,8 +399,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f20 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 19;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 168 && rp_c[1] == 1) { rp_c += 2; goto rp_do_21; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 176 && rp_c[1] == 1) { rp_c += 2; goto rp_do_22; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 168 && rp_c[1] == 1) { rp_c += 2; goto rp_do_21; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 176 && rp_c[1] == 1) { rp_c += 2; goto rp_do_22; }
       continue;
     }
     rp_do_21: {
@@ -410,8 +410,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f21 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 20;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 176 && rp_c[1] == 1) { rp_c += 2; goto rp_do_22; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 184 && rp_c[1] == 1) { rp_c += 2; goto rp_do_23; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 176 && rp_c[1] == 1) { rp_c += 2; goto rp_do_22; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 184 && rp_c[1] == 1) { rp_c += 2; goto rp_do_23; }
       continue;
     }
     rp_do_22: {
@@ -421,8 +421,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f22 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 21;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 184 && rp_c[1] == 1) { rp_c += 2; goto rp_do_23; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 192 && rp_c[1] == 1) { rp_c += 2; goto rp_do_24; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 184 && rp_c[1] == 1) { rp_c += 2; goto rp_do_23; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 192 && rp_c[1] == 1) { rp_c += 2; goto rp_do_24; }
       continue;
     }
     rp_do_23: {
@@ -432,8 +432,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f23 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 22;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 192 && rp_c[1] == 1) { rp_c += 2; goto rp_do_24; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 200 && rp_c[1] == 1) { rp_c += 2; goto rp_do_25; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 192 && rp_c[1] == 1) { rp_c += 2; goto rp_do_24; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 200 && rp_c[1] == 1) { rp_c += 2; goto rp_do_25; }
       continue;
     }
     rp_do_24: {
@@ -443,8 +443,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f24 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 23;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 200 && rp_c[1] == 1) { rp_c += 2; goto rp_do_25; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 208 && rp_c[1] == 1) { rp_c += 2; goto rp_do_26; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 200 && rp_c[1] == 1) { rp_c += 2; goto rp_do_25; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 208 && rp_c[1] == 1) { rp_c += 2; goto rp_do_26; }
       continue;
     }
     rp_do_25: {
@@ -454,8 +454,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f25 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 24;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 208 && rp_c[1] == 1) { rp_c += 2; goto rp_do_26; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 216 && rp_c[1] == 1) { rp_c += 2; goto rp_do_27; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 208 && rp_c[1] == 1) { rp_c += 2; goto rp_do_26; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 216 && rp_c[1] == 1) { rp_c += 2; goto rp_do_27; }
       continue;
     }
     rp_do_26: {
@@ -465,8 +465,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f26 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 25;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 216 && rp_c[1] == 1) { rp_c += 2; goto rp_do_27; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 224 && rp_c[1] == 1) { rp_c += 2; goto rp_do_28; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 216 && rp_c[1] == 1) { rp_c += 2; goto rp_do_27; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 224 && rp_c[1] == 1) { rp_c += 2; goto rp_do_28; }
       continue;
     }
     rp_do_27: {
@@ -476,8 +476,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f27 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 26;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 224 && rp_c[1] == 1) { rp_c += 2; goto rp_do_28; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 232 && rp_c[1] == 1) { rp_c += 2; goto rp_do_29; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 224 && rp_c[1] == 1) { rp_c += 2; goto rp_do_28; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 232 && rp_c[1] == 1) { rp_c += 2; goto rp_do_29; }
       continue;
     }
     rp_do_28: {
@@ -487,8 +487,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f28 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 27;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 232 && rp_c[1] == 1) { rp_c += 2; goto rp_do_29; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 240 && rp_c[1] == 1) { rp_c += 2; goto rp_do_30; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 232 && rp_c[1] == 1) { rp_c += 2; goto rp_do_29; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 240 && rp_c[1] == 1) { rp_c += 2; goto rp_do_30; }
       continue;
     }
     rp_do_29: {
@@ -498,8 +498,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f29 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 28;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 240 && rp_c[1] == 1) { rp_c += 2; goto rp_do_30; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 248 && rp_c[1] == 1) { rp_c += 2; goto rp_do_31; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 240 && rp_c[1] == 1) { rp_c += 2; goto rp_do_30; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 248 && rp_c[1] == 1) { rp_c += 2; goto rp_do_31; }
       continue;
     }
     rp_do_30: {
@@ -509,8 +509,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f30 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 29;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 248 && rp_c[1] == 1) { rp_c += 2; goto rp_do_31; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 128 && rp_c[1] == 2) { rp_c += 2; goto rp_do_32; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 248 && rp_c[1] == 1) { rp_c += 2; goto rp_do_31; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 128 && rp_c[1] == 2) { rp_c += 2; goto rp_do_32; }
       continue;
     }
     rp_do_31: {
@@ -520,8 +520,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f31 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 30;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 128 && rp_c[1] == 2) { rp_c += 2; goto rp_do_32; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 136 && rp_c[1] == 2) { rp_c += 2; goto rp_do_33; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 128 && rp_c[1] == 2) { rp_c += 2; goto rp_do_32; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 136 && rp_c[1] == 2) { rp_c += 2; goto rp_do_33; }
       continue;
     }
     rp_do_32: {
@@ -531,8 +531,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f32 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 31;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 136 && rp_c[1] == 2) { rp_c += 2; goto rp_do_33; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 144 && rp_c[1] == 2) { rp_c += 2; goto rp_do_34; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 136 && rp_c[1] == 2) { rp_c += 2; goto rp_do_33; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 144 && rp_c[1] == 2) { rp_c += 2; goto rp_do_34; }
       continue;
     }
     rp_do_33: {
@@ -542,8 +542,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f33 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 32;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 144 && rp_c[1] == 2) { rp_c += 2; goto rp_do_34; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 152 && rp_c[1] == 2) { rp_c += 2; goto rp_do_35; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 144 && rp_c[1] == 2) { rp_c += 2; goto rp_do_34; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 152 && rp_c[1] == 2) { rp_c += 2; goto rp_do_35; }
       continue;
     }
     rp_do_34: {
@@ -553,8 +553,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f34 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 33;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 152 && rp_c[1] == 2) { rp_c += 2; goto rp_do_35; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 160 && rp_c[1] == 2) { rp_c += 2; goto rp_do_36; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 152 && rp_c[1] == 2) { rp_c += 2; goto rp_do_35; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 160 && rp_c[1] == 2) { rp_c += 2; goto rp_do_36; }
       continue;
     }
     rp_do_35: {
@@ -564,8 +564,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f35 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 34;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 160 && rp_c[1] == 2) { rp_c += 2; goto rp_do_36; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 168 && rp_c[1] == 2) { rp_c += 2; goto rp_do_37; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 160 && rp_c[1] == 2) { rp_c += 2; goto rp_do_36; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 168 && rp_c[1] == 2) { rp_c += 2; goto rp_do_37; }
       continue;
     }
     rp_do_36: {
@@ -575,8 +575,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f36 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 35;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 168 && rp_c[1] == 2) { rp_c += 2; goto rp_do_37; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 176 && rp_c[1] == 2) { rp_c += 2; goto rp_do_38; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 168 && rp_c[1] == 2) { rp_c += 2; goto rp_do_37; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 176 && rp_c[1] == 2) { rp_c += 2; goto rp_do_38; }
       continue;
     }
     rp_do_37: {
@@ -586,8 +586,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f37 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 36;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 176 && rp_c[1] == 2) { rp_c += 2; goto rp_do_38; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 184 && rp_c[1] == 2) { rp_c += 2; goto rp_do_39; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 176 && rp_c[1] == 2) { rp_c += 2; goto rp_do_38; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 184 && rp_c[1] == 2) { rp_c += 2; goto rp_do_39; }
       continue;
     }
     rp_do_38: {
@@ -597,8 +597,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f38 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 37;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 184 && rp_c[1] == 2) { rp_c += 2; goto rp_do_39; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 192 && rp_c[1] == 2) { rp_c += 2; goto rp_do_40; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 184 && rp_c[1] == 2) { rp_c += 2; goto rp_do_39; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 192 && rp_c[1] == 2) { rp_c += 2; goto rp_do_40; }
       continue;
     }
     rp_do_39: {
@@ -608,8 +608,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f39 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 38;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 192 && rp_c[1] == 2) { rp_c += 2; goto rp_do_40; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 200 && rp_c[1] == 2) { rp_c += 2; goto rp_do_41; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 192 && rp_c[1] == 2) { rp_c += 2; goto rp_do_40; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 200 && rp_c[1] == 2) { rp_c += 2; goto rp_do_41; }
       continue;
     }
     rp_do_40: {
@@ -619,8 +619,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f40 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 39;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 200 && rp_c[1] == 2) { rp_c += 2; goto rp_do_41; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 208 && rp_c[1] == 2) { rp_c += 2; goto rp_do_42; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 200 && rp_c[1] == 2) { rp_c += 2; goto rp_do_41; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 208 && rp_c[1] == 2) { rp_c += 2; goto rp_do_42; }
       continue;
     }
     rp_do_41: {
@@ -630,8 +630,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f41 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 40;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 208 && rp_c[1] == 2) { rp_c += 2; goto rp_do_42; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 216 && rp_c[1] == 2) { rp_c += 2; goto rp_do_43; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 208 && rp_c[1] == 2) { rp_c += 2; goto rp_do_42; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 216 && rp_c[1] == 2) { rp_c += 2; goto rp_do_43; }
       continue;
     }
     rp_do_42: {
@@ -641,8 +641,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f42 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 41;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 216 && rp_c[1] == 2) { rp_c += 2; goto rp_do_43; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 224 && rp_c[1] == 2) { rp_c += 2; goto rp_do_44; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 216 && rp_c[1] == 2) { rp_c += 2; goto rp_do_43; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 224 && rp_c[1] == 2) { rp_c += 2; goto rp_do_44; }
       continue;
     }
     rp_do_43: {
@@ -652,8 +652,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f43 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 42;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 224 && rp_c[1] == 2) { rp_c += 2; goto rp_do_44; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 232 && rp_c[1] == 2) { rp_c += 2; goto rp_do_45; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 224 && rp_c[1] == 2) { rp_c += 2; goto rp_do_44; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 232 && rp_c[1] == 2) { rp_c += 2; goto rp_do_45; }
       continue;
     }
     rp_do_44: {
@@ -663,8 +663,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f44 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 43;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 232 && rp_c[1] == 2) { rp_c += 2; goto rp_do_45; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 240 && rp_c[1] == 2) { rp_c += 2; goto rp_do_46; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 232 && rp_c[1] == 2) { rp_c += 2; goto rp_do_45; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 240 && rp_c[1] == 2) { rp_c += 2; goto rp_do_46; }
       continue;
     }
     rp_do_45: {
@@ -674,8 +674,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f45 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 44;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 240 && rp_c[1] == 2) { rp_c += 2; goto rp_do_46; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 248 && rp_c[1] == 2) { rp_c += 2; goto rp_do_47; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 240 && rp_c[1] == 2) { rp_c += 2; goto rp_do_46; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 248 && rp_c[1] == 2) { rp_c += 2; goto rp_do_47; }
       continue;
     }
     rp_do_46: {
@@ -685,8 +685,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f46 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 45;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 248 && rp_c[1] == 2) { rp_c += 2; goto rp_do_47; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 128 && rp_c[1] == 3) { rp_c += 2; goto rp_do_48; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 248 && rp_c[1] == 2) { rp_c += 2; goto rp_do_47; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 128 && rp_c[1] == 3) { rp_c += 2; goto rp_do_48; }
       continue;
     }
     rp_do_47: {
@@ -696,8 +696,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f47 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 46;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 128 && rp_c[1] == 3) { rp_c += 2; goto rp_do_48; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 136 && rp_c[1] == 3) { rp_c += 2; goto rp_do_49; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 128 && rp_c[1] == 3) { rp_c += 2; goto rp_do_48; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 136 && rp_c[1] == 3) { rp_c += 2; goto rp_do_49; }
       continue;
     }
     rp_do_48: {
@@ -707,8 +707,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f48 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 47;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 136 && rp_c[1] == 3) { rp_c += 2; goto rp_do_49; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 144 && rp_c[1] == 3) { rp_c += 2; goto rp_do_50; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 136 && rp_c[1] == 3) { rp_c += 2; goto rp_do_49; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 144 && rp_c[1] == 3) { rp_c += 2; goto rp_do_50; }
       continue;
     }
     rp_do_49: {
@@ -718,8 +718,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f49 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 48;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 144 && rp_c[1] == 3) { rp_c += 2; goto rp_do_50; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 152 && rp_c[1] == 3) { rp_c += 2; goto rp_do_51; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 144 && rp_c[1] == 3) { rp_c += 2; goto rp_do_50; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 152 && rp_c[1] == 3) { rp_c += 2; goto rp_do_51; }
       continue;
     }
     rp_do_50: {
@@ -729,8 +729,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f50 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 49;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 152 && rp_c[1] == 3) { rp_c += 2; goto rp_do_51; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 160 && rp_c[1] == 3) { rp_c += 2; goto rp_do_52; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 152 && rp_c[1] == 3) { rp_c += 2; goto rp_do_51; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 160 && rp_c[1] == 3) { rp_c += 2; goto rp_do_52; }
       continue;
     }
     rp_do_51: {
@@ -740,8 +740,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f51 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 50;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 160 && rp_c[1] == 3) { rp_c += 2; goto rp_do_52; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 168 && rp_c[1] == 3) { rp_c += 2; goto rp_do_53; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 160 && rp_c[1] == 3) { rp_c += 2; goto rp_do_52; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 168 && rp_c[1] == 3) { rp_c += 2; goto rp_do_53; }
       continue;
     }
     rp_do_52: {
@@ -751,8 +751,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f52 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 51;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 168 && rp_c[1] == 3) { rp_c += 2; goto rp_do_53; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 176 && rp_c[1] == 3) { rp_c += 2; goto rp_do_54; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 168 && rp_c[1] == 3) { rp_c += 2; goto rp_do_53; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 176 && rp_c[1] == 3) { rp_c += 2; goto rp_do_54; }
       continue;
     }
     rp_do_53: {
@@ -762,8 +762,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f53 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 52;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 176 && rp_c[1] == 3) { rp_c += 2; goto rp_do_54; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 184 && rp_c[1] == 3) { rp_c += 2; goto rp_do_55; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 176 && rp_c[1] == 3) { rp_c += 2; goto rp_do_54; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 184 && rp_c[1] == 3) { rp_c += 2; goto rp_do_55; }
       continue;
     }
     rp_do_54: {
@@ -773,8 +773,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f54 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 53;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 184 && rp_c[1] == 3) { rp_c += 2; goto rp_do_55; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 192 && rp_c[1] == 3) { rp_c += 2; goto rp_do_56; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 184 && rp_c[1] == 3) { rp_c += 2; goto rp_do_55; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 192 && rp_c[1] == 3) { rp_c += 2; goto rp_do_56; }
       continue;
     }
     rp_do_55: {
@@ -784,8 +784,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f55 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 54;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 192 && rp_c[1] == 3) { rp_c += 2; goto rp_do_56; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 200 && rp_c[1] == 3) { rp_c += 2; goto rp_do_57; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 192 && rp_c[1] == 3) { rp_c += 2; goto rp_do_56; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 200 && rp_c[1] == 3) { rp_c += 2; goto rp_do_57; }
       continue;
     }
     rp_do_56: {
@@ -795,8 +795,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f56 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 55;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 200 && rp_c[1] == 3) { rp_c += 2; goto rp_do_57; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 208 && rp_c[1] == 3) { rp_c += 2; goto rp_do_58; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 200 && rp_c[1] == 3) { rp_c += 2; goto rp_do_57; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 208 && rp_c[1] == 3) { rp_c += 2; goto rp_do_58; }
       continue;
     }
     rp_do_57: {
@@ -806,8 +806,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f57 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 56;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 208 && rp_c[1] == 3) { rp_c += 2; goto rp_do_58; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 216 && rp_c[1] == 3) { rp_c += 2; goto rp_do_59; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 208 && rp_c[1] == 3) { rp_c += 2; goto rp_do_58; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 216 && rp_c[1] == 3) { rp_c += 2; goto rp_do_59; }
       continue;
     }
     rp_do_58: {
@@ -817,8 +817,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f58 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 57;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 216 && rp_c[1] == 3) { rp_c += 2; goto rp_do_59; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 224 && rp_c[1] == 3) { rp_c += 2; goto rp_do_60; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 216 && rp_c[1] == 3) { rp_c += 2; goto rp_do_59; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 224 && rp_c[1] == 3) { rp_c += 2; goto rp_do_60; }
       continue;
     }
     rp_do_59: {
@@ -828,8 +828,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f59 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 58;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 224 && rp_c[1] == 3) { rp_c += 2; goto rp_do_60; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 232 && rp_c[1] == 3) { rp_c += 2; goto rp_do_61; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 224 && rp_c[1] == 3) { rp_c += 2; goto rp_do_60; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 232 && rp_c[1] == 3) { rp_c += 2; goto rp_do_61; }
       continue;
     }
     rp_do_60: {
@@ -839,8 +839,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f60 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 59;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 232 && rp_c[1] == 3) { rp_c += 2; goto rp_do_61; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 240 && rp_c[1] == 3) { rp_c += 2; goto rp_do_62; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 232 && rp_c[1] == 3) { rp_c += 2; goto rp_do_61; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 240 && rp_c[1] == 3) { rp_c += 2; goto rp_do_62; }
       continue;
     }
     rp_do_61: {
@@ -850,8 +850,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f61 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 60;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 240 && rp_c[1] == 3) { rp_c += 2; goto rp_do_62; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 248 && rp_c[1] == 3) { rp_c += 2; goto rp_do_63; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 240 && rp_c[1] == 3) { rp_c += 2; goto rp_do_62; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 248 && rp_c[1] == 3) { rp_c += 2; goto rp_do_63; }
       continue;
     }
     rp_do_62: {
@@ -861,8 +861,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f62 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 61;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 248 && rp_c[1] == 3) { rp_c += 2; goto rp_do_63; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 128 && rp_c[1] == 4) { rp_c += 2; goto rp_do_64; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 248 && rp_c[1] == 3) { rp_c += 2; goto rp_do_63; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 128 && rp_c[1] == 4) { rp_c += 2; goto rp_do_64; }
       continue;
     }
     rp_do_63: {
@@ -872,8 +872,8 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f63 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 62;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 128 && rp_c[1] == 4) { rp_c += 2; goto rp_do_64; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 136 && rp_c[1] == 4) { rp_c += 2; goto rp_do_65; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 128 && rp_c[1] == 4) { rp_c += 2; goto rp_do_64; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 136 && rp_c[1] == 4) { rp_c += 2; goto rp_do_65; }
       continue;
     }
     rp_do_64: {
@@ -883,7 +883,7 @@ RP_FLATTEN inline bool ::rp::arena::mr::ManyRequired::rp_decode_into([[maybe_unu
       rp_c = rp_np;
       out.m_f64 = ::rapidproto::varint_to_int32(rp_raw);
       rp_req[0] |= std::uint64_t{1} << 63;
-      if (rp_c + 1 < rp_cend && rp_c[0] == 136 && rp_c[1] == 4) { rp_c += 2; goto rp_do_65; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 136 && rp_c[1] == 4) { rp_c += 2; goto rp_do_65; }
       continue;
     }
     rp_do_65: {
