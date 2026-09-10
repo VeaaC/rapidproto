@@ -6,6 +6,7 @@
 // the same way by each lives in one place.
 
 #include <algorithm>
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -349,6 +350,7 @@ inline int wire_enum_num(const std::string& w) {
 // EGROUP, and a threaded label is entered with rp_tag unset -- a group that threaded would scan
 // for the wrong end tag. Shared so the two generators cannot drift on what threads.
 inline bool is_threadable_singular(const FieldNode& field) {
+    assert(!field.is_repeated && "is_threadable_singular: callers gate repeated fields themselves");
     if (field.number < 1 || field.number > kMaxTwoByteTagField) {
         return false;
     }
@@ -361,13 +363,14 @@ inline bool is_threadable_singular(const FieldNode& field) {
 struct ThreadField {
     int number;
     bool repeated;
-    bool packable;  // repeated packable => also a rp_do_<n>_p packed label
-    // The oneof this field is a member of, if any (plain fields keep nullptr). The probe walk
-    // needs only the grouping: a sibling can never follow its own member on a conformant wire
-    // (at most one member per oneof, ascending), so siblings are skipped as successors.
-    const OneofNode* oneof = nullptr;
+    bool packable;            // repeated packable => also a rp_do_<n>_p packed label
     std::string thread_wire;  // WireType enumerator: singular field's canonical wire, or repeated
                               // element wire
+    // The oneof this field is a member of, if any (plain fields keep the default nullptr). The
+    // probe walk needs only the grouping: a sibling can never follow its own member on a
+    // conformant wire (at most one member per oneof, ascending), so siblings are skipped as
+    // successors.
+    const OneofNode* oneof = nullptr;
 };
 
 // Hooks the caller supplies for the per-field label bodies. Each emits at the current indent,
@@ -409,9 +412,12 @@ inline void emit_one_probe(Printer& p, const ThreadField& s) {
 // possibly-absent candidate costs one compare on a miss and `continue` falls to the hub, exactly
 // like any other probe; the walk therefore treats every successor alike, with one exception:
 // the probing field's own oneof siblings are skipped -- a conformant wire holds at most one
-// member per oneof, ascending, so a sibling can never follow. Unthreadable fields (groups,
-// numbers past the 2-byte tag range) are absent from `threaded` and are stepped over like any
-// possibly-absent field: a lower hit rate on wires that carry them, never a wrong decode.
+// member per oneof, ascending, so a sibling can never follow. A multi-member oneof can thus
+// absorb both probes although at most one can hit -- a deliberate trade, measured as a net win
+// on the suite, and a missed chain still lands in the hub. Unthreadable fields (groups,
+// repeated fields past the 1-byte tag range, numbers past the 2-byte range) are absent from
+// `threaded` and are stepped over like any possibly-absent field: a lower hit rate on wires
+// that carry them, never a wrong decode.
 // Ascending order puts the 1-byte fields first, so the cheaper 1-byte probes carry the hot run.
 // `threaded` is sorted ascending by field number (emit_hub_and_labels' order), so successors are
 // simply the entries past `pos` -- conformant serialization order.

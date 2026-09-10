@@ -621,10 +621,15 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
         }
         const bool packable = field->is_repeated && codegen::is_packable_wire(gen.wire_type);
         const auto oo = oneof_of.find(field);
-        threaded.push_back({field->number, field->is_repeated, packable,
-                            oo != oneof_of.end() ? oo->second : nullptr,
-                            std::string(gen.wire_type)});
+        threaded.push_back({field->number, field->is_repeated, packable, std::string(gen.wire_type),
+                            oo != oneof_of.end() ? oo->second : nullptr});
         threaded_gen.emplace(field->number, std::make_pair(field, gen));
+    }
+    // Number -> the exact ThreadField the label is emitted from. The general switch's wire-guarded
+    // gotos reuse these, so a case's guard can never disagree with its label's thread wire.
+    std::unordered_map<int, codegen::ThreadField> threaded_by_number;
+    for (const codegen::ThreadField& tf : threaded) {
+        threaded_by_number.emplace(tf.number, tf);
     }
     // The identical decode-loop SHAPE (hub, tag-consumed labels, depth-2 probes, general-case routing)
     // is shared with arenagen via codegen::emit_hub_and_labels; only the per-field label BODY differs,
@@ -695,11 +700,9 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
         // 2-byte-tag threaded fields (never in the hub) and the rare non-minimally-encoded tag of a
         // 1-byte threaded field -- with zero body duplication, and no silent drop. Non-threaded fields
         // (groups, repeated 2-byte) keep their full general arm.
-        if (is_threaded_field(*field, gen)) {
-            const bool packable = field->is_repeated && codegen::is_packable_wire(gen.wire_type);
-            codegen::emit_threaded_general_case(
-                printer,
-                {field->number, field->is_repeated, packable, nullptr, std::string(gen.wire_type)});
+        const auto tt = threaded_by_number.find(field->number);
+        if (tt != threaded_by_number.end()) {
+            codegen::emit_threaded_general_case(printer, tt->second);
         } else {
             emit_arm(printer, symbols.local.at(field), gen, field->is_repeated, qualifier);
         }

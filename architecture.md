@@ -854,8 +854,8 @@ generator-agnostic pieces (the `codegen/` module; neither emitter depends on the
 
 Both decoders run a **field-order-threaded** decode loop. Instead of returning to an N-way dispatch (an
 indirect jump or a field-number switch) for every field, after decoding a field the generated code runs a
-small depth-2 constant-tag probe that jumps **straight to the next (or next-but-one) expected field's
-decode** via a `goto` label. When fields arrive in ascending wire order — how `protoc` and most encoders
+small constant-tag probe (a 2-probe budget over the next expected fields) that jumps **straight
+to the matching field's decode** via a `goto` label. When fields arrive in ascending wire order — how `protoc` and most encoders
 serialize — this turns the per-field N-way indirect dispatch into a predictable 2-way direct branch. A hub
 `switch` on the first tag byte enters the label chain; a general path handles out-of-order, unknown,
 wrong-wire, and non-minimal tags. Threading is always on — no flag, no field-count cutoff.
@@ -869,7 +869,8 @@ successors with one exception: a member's own siblings are never probed, since a
 member per oneof occurs on a conformant wire. The probes at a label's tail are alternatives at
 one cursor position — each tests the same next-tag bytes for a different candidate — so a
 member costs and pays exactly what a possibly-absent plain field does. Unthreadable fields
-(groups, numbers past the 2-byte tag range, in or out of a oneof) keep a classic general arm
+(groups, repeated fields past the 1-byte tag range, numbers past the 2-byte tag range — in or
+out of a oneof) keep a classic general arm
 and are simply stepped over by probes — a lower hit rate on wires that carry them, never a
 wrong decode.
 

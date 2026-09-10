@@ -15,7 +15,7 @@ From 1.0 on, removals happen only in a major release, announced beforehand under
   treats members as ordinary ascending successors with one exception: a member's own siblings
   are never probed, since at most one member per oneof can occur on a conformant wire. On an
   identical-wire A/B the oneof-vs-plain decode gap shrinks from ~1.9× to ~1.1× (an
-  out-of-tree A/B; no suite scenario's wire sets a oneof member). Decode semantics are
+  out-of-tree A/B; no in-tree scenario isolates oneof decode). Decode semantics are
   unchanged (last-wins, the duplicate singular sub-message rejection). Members with 2-byte
   tags get the label and probes but enter via the general path like every 2-byte field, and
   group members (like members numbered past the 2-byte tag range) stay entirely on their
