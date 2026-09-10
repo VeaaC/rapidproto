@@ -1777,35 +1777,28 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
         const MemberPlan* m = it->second;
         const std::string tw = primary_fast_wire(*m);  // singular canonical / repeated element wire
         const bool packable = f.is_repeated && codegen::is_packable_wire(tw);
-        threaded.push_back({f.number, f.is_repeated, packable, 0, 0, tw});
+        threaded.push_back({f.number, f.is_repeated, packable, nullptr, tw});
         threaded_plan.emplace(f.number, m);
     }
     // Oneof members thread too (each gets a hub case + label; the probe walk knows the oneof
-    // grouping via oneof_id, so siblings are never probed as successors). Unthreadable members
-    // (groups, numbers past the 2-byte range) keep their classic general arm; the highest such
-    // number rides along, so probes never claim a oneof whose still-possible members they can
-    // only partially hit.
+    // grouping, so siblings are never probed as successors). Unthreadable members (groups,
+    // numbers past the 2-byte range) keep their classic general arm.
     struct OneofThreadInfo {
         const OneofPlan* plan;
         const OneofMemberPlan* member;
-        int index;
+        int index;  // 1-based member position = the discriminant value the body stores
     };
     std::unordered_map<int, OneofThreadInfo> threaded_oneof;
-    {
-        int oneof_id = 0;
-        for (const OneofPlan& o : layout.oneofs) {
-            ++oneof_id;
-            const int unthreaded_max = codegen::oneof_unthreaded_max(*o.oneof);
-            int index = 1;
-            for (const OneofMemberPlan& member : o.members) {
-                const int idx = index++;
-                if (!codegen::is_threadable_oneof_member(*member.field)) {
-                    continue;
-                }
-                threaded.push_back({member.field->number, false, false, oneof_id, unthreaded_max,
-                                    oneof_member_wire(member)});
-                threaded_oneof.emplace(member.field->number, OneofThreadInfo{&o, &member, idx});
+    for (const OneofPlan& o : layout.oneofs) {
+        for (std::size_t mi = 0; mi < o.members.size(); ++mi) {
+            const OneofMemberPlan& member = o.members[mi];
+            if (!codegen::is_threadable_singular(*member.field)) {
+                continue;
             }
+            threaded.push_back(
+                {member.field->number, false, false, o.oneof, oneof_member_wire(member)});
+            threaded_oneof.emplace(member.field->number,
+                                   OneofThreadInfo{&o, &member, static_cast<int>(mi) + 1});
         }
     }
     const auto is_msg_kind = [](const MemberPlan& m) {
@@ -1871,8 +1864,8 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
         if (it->second->kind != FieldKind::Raw && is_threaded(*it->second, f)) {
             const std::string tw = primary_fast_wire(*it->second);
             codegen::emit_threaded_general_case(
-                p, {f.number, f.is_repeated, f.is_repeated && codegen::is_packable_wire(tw), 0, 0,
-                    tw});
+                p, {f.number, f.is_repeated, f.is_repeated && codegen::is_packable_wire(tw),
+                    nullptr, tw});
         } else if (it->second->kind == FieldKind::Raw) {
             emit_raw_arm(emit, layout, *it->second, required_bit);
         } else if (f.is_repeated) {
@@ -1891,13 +1884,15 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
         emit_map_arm(emit, *it->second);
     }
     for (const OneofPlan& o : layout.oneofs) {
-        int index = 1;
-        for (const OneofMemberPlan& member : o.members) {
-            const int idx = index++;
+        for (std::size_t mi = 0; mi < o.members.size(); ++mi) {
+            const OneofMemberPlan& member = o.members[mi];
+            const int idx = static_cast<int>(mi) + 1;  // same position-derived discriminant as
+                                                       // OneofThreadInfo::index -- never a
+                                                       // separately-advanced counter
             if (threaded_oneof.count(member.field->number) != 0) {
                 // Threaded member: wire-guarded goto into its label, like every threaded field.
                 codegen::emit_threaded_general_case(
-                    p, {member.field->number, false, false, 0, 0, oneof_member_wire(member)});
+                    p, {member.field->number, false, false, nullptr, oneof_member_wire(member)});
             } else {
                 emit_oneof_arm(emit, o, member, idx);
             }

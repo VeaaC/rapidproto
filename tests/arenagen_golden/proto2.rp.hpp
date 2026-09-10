@@ -527,7 +527,7 @@ RP_FLATTEN inline bool ::rp::arena::p2::Scalars::rp_decode_into([[maybe_unused]]
       out.m_fl = ::rapidproto::bit_cast_float(rp_raw);
       out.m_rp_mask = static_cast<std::uint16_t>(out.m_rp_mask | (std::uint16_t{1} << 13));
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(15, ::rapidproto::WireType::I64)) { ++rp_c; goto rp_do_15; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 128 && rp_c[1] == 1) { rp_c += 2; goto rp_do_16; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 128 && rp_c[1] == 1) { rp_c += 2; goto rp_do_16; }
       continue;
     }
     rp_do_15: {
@@ -537,7 +537,7 @@ RP_FLATTEN inline bool ::rp::arena::p2::Scalars::rp_decode_into([[maybe_unused]]
       rp_c = rp_np;
       out.m_db = ::rapidproto::bit_cast_double(rp_raw);
       out.m_rp_mask = static_cast<std::uint16_t>(out.m_rp_mask | (std::uint16_t{1} << 14));
-      if (rp_c + 1 < rp_cend && rp_c[0] == 128 && rp_c[1] == 1) { rp_c += 2; goto rp_do_16; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 128 && rp_c[1] == 1) { rp_c += 2; goto rp_do_16; }
       continue;
     }
     rp_do_16: {

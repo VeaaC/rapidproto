@@ -518,7 +518,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Scalars::decode(rp_Callbacks&&... rp_callb
         rp_c = rp_sp;
       }
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(15, ::rapidproto::WireType::I64)) { ++rp_c; goto rp_do_15; }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 128 && rp_c[1] == 1) { rp_c += 2; goto rp_do_16; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 128 && rp_c[1] == 1) { rp_c += 2; goto rp_do_16; }
       continue;
     }
     rp_do_15: {
@@ -540,7 +540,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Scalars::decode(rp_Callbacks&&... rp_callb
         if (rp_sp == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_sp;
       }
-      if (rp_c + 1 < rp_cend && rp_c[0] == 128 && rp_c[1] == 1) { rp_c += 2; goto rp_do_16; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 128 && rp_c[1] == 1) { rp_c += 2; goto rp_do_16; }
       continue;
     }
     rp_do_16: {

@@ -419,10 +419,9 @@ TEST_CASE("streamgen: oneof members fire per occurrence in wire order", "[stream
     CHECK(events == std::vector<std::string>{"a=1", "b=hi", "a=2"});  // wire order, no dedup
 }
 
-// The straddle probe: `mid` (4) sits between the oneof's group member (2) and its int member (5),
-// and the group can no longer follow 4 on a conformant wire, so rp_do_4's probe jumps straight to
-// rp_do_5 -- a route that never passes the general switch. (The probe's PRESENCE is pinned by the
-// golden; this exercises what the probe's destination does.)
+// A probe into a oneof member: `mid` (4) precedes the oneof's int member (5), so rp_do_4's probe
+// jumps straight to rp_do_5 -- a route that never passes the general switch. (The probe's
+// PRESENCE is pinned by the golden; this exercises what its destination does.)
 TEST_CASE("streamgen: a probe past a straddling oneof reaches the member", "[streamgen]") {
     std::string buf;  // p2.OneofGroupStraddle: mid=7, tail=9 (conformant ascending order)
     put_tag(buf, 4, 0);

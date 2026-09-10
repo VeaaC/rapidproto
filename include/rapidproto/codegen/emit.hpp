@@ -343,29 +343,16 @@ inline int wire_enum_num(const std::string& w) {
     return static_cast<int>(::rapidproto::WireType::Varint);
 }
 
-// A oneof member that can take a tag-consumed rp_do_<n> label: a positive number fitting a 1- or
-// 2-byte tag, and not a delimited (group) member -- those keep a scan-based general arm. Pure AST
-// facts, shared so the two generators cannot drift on what threads: a member's
-// ThreadField::oneof_unthreaded_max is computed from this predicate, and a probe may claim a oneof
-// only when its unthreadable members cannot follow, so a divergent caller-side member filter would
-// break that soundness silently.
-inline bool is_threadable_oneof_member(const FieldNode& field) {
+// A singular field (oneof members included) that can take a tag-consumed rp_do_<n> label: a
+// positive number fitting a 1- or 2-byte tag, and not a delimited (group) field. The delimited
+// exclusion is CORRECTNESS, not tuning: a group's decode reads `rp_tag.field_number` to match its
+// EGROUP, and a threaded label is entered with rp_tag unset -- a group that threaded would scan
+// for the wrong end tag. Shared so the two generators cannot drift on what threads.
+inline bool is_threadable_singular(const FieldNode& field) {
     if (field.number < 1 || field.number > kMaxTwoByteTagField) {
         return false;
     }
     return !field.is_message_type || field.message_encoding != MessageEncoding::Delimited;
-}
-
-// The highest field number among `oneof`'s unthreadable members -- what each threaded member's
-// ThreadField carries as oneof_unthreaded_max. 0 when every member threads.
-inline int oneof_unthreaded_max(const OneofNode& oneof) {
-    int mx = 0;
-    for (const FieldNode& member : oneof.fields) {
-        if (!is_threadable_oneof_member(member)) {
-            mx = std::max(mx, member.number);
-        }
-    }
-    return mx;
 }
 
 // A threaded field, generator-agnostic: the shape generator needs only the routing facts (number,
@@ -375,14 +362,10 @@ struct ThreadField {
     int number;
     bool repeated;
     bool packable;  // repeated packable => also a rp_do_<n>_p packed label
-    // Oneof routing facts: members of one oneof share a nonzero id, and oneof_unthreaded_max is
-    // the highest field number among that oneof's UNthreadable members (groups, numbers past the
-    // 2-byte tag range) -- 0 when every member threads. The probe walk needs both: a sibling can
-    // never follow its own member on a conformant wire, and probing INTO a oneof only pays when
-    // every member that can still follow the probing field is threaded (partial guesses are
-    // miss-prone compares; the hub already dispatches all members). Plain fields keep 0/0.
-    int oneof_id = 0;
-    int oneof_unthreaded_max = 0;
+    // The oneof this field is a member of, if any (plain fields keep nullptr). The probe walk
+    // needs only the grouping: a sibling can never follow its own member on a conformant wire
+    // (at most one member per oneof, ascending), so siblings are skipped as successors.
+    const OneofNode* oneof = nullptr;
     std::string thread_wire;  // WireType enumerator: singular field's canonical wire, or repeated
                               // element wire
 };
@@ -412,7 +395,7 @@ inline void emit_one_probe(Printer& p, const ThreadField& s) {
     } else {
         const int v = (s.number << kTagFieldShift) | wire_enum_num(s.thread_wire);
         p.print(
-            "if (rp_c + 1 < rp_cend && rp_c[0] == $b0$ && rp_c[1] == $b1$)"
+            "if (rp_cend - rp_c > 1 && rp_c[0] == $b0$ && rp_c[1] == $b1$)"
             " { rp_c += 2; goto rp_do_$n$; }\n",
             {{"n", n},
              {"b0", std::to_string((v & kVarintPayload) | kVarintContinue)},
@@ -420,70 +403,29 @@ inline void emit_one_probe(Printer& p, const ThreadField& s) {
     }
 }
 
-// The number of threaded members of `oneof_id` at positions [first, last) of `threaded`.
-inline int count_oneof_members(const std::vector<ThreadField>& threaded, std::size_t first,
-                               std::size_t last, int oneof_id) {
-    int n = 0;
-    for (std::size_t k = first; k < last; ++k) {
-        n += threaded[k].oneof_id == oneof_id ? 1 : 0;
-    }
-    return n;
-}
-
 // The constant-tag successor probes at the tail of a threaded label: from the field at `pos`,
-// walk the ascending successors filling a 2-probe budget. A probe only pays when the wire's next
-// tag is PREDICTABLE (a miss is not free: the compares run, then `continue` falls to the hub,
-// which dispatches every threaded field anyway), so oneofs bend the walk:
-//   - the probing field's own siblings are skipped -- a conformant wire holds at most one
-//     member per oneof, ascending, so a sibling can never follow;
-//   - a foreign oneof is probed only when every member that can still FOLLOW the probing field
-//     is threaded and the whole ahead set fits the remaining budget. Members numbered at or
-//     below the probing field cannot follow on a conformant wire, so a straddling oneof stays
-//     probeable, and a oneof with one member left ahead behaves as a plain field; anything less
-//     predictable is a miss-prone guess (1-in-N hit rate), so the walk STOPS there and leaves
-//     the dispatch to the hub. Stopping is deliberate (skipping would probe past a choice point
-//     where any member tag likely intervenes) and it does cost later candidates unrelated to
-//     the oneof; a multi-member probe likewise exhausts the 2-probe budget, so no walk
-//     continues past a probed multi-member oneof either.
-// Only oneofs the walk actually reaches are gated: oneof_unthreaded_max is read off a threaded
-// member of that oneof found past `pos`, so a oneof with none there is never consulted, and an
-// unthreadable field is absent from `threaded` altogether -- probes step over both exactly as
-// they step over any possibly-absent field. A lower hit rate on wires that carry them, never a
-// wrong decode (a missed probe falls to the hub).
+// probe the next ascending successors, filling a 2-probe budget. The probes are ALTERNATIVES at
+// one cursor position -- each tests the same next-tag bytes for a different candidate -- so a
+// possibly-absent candidate costs one compare on a miss and `continue` falls to the hub, exactly
+// like any other probe; the walk therefore treats every successor alike, with one exception:
+// the probing field's own oneof siblings are skipped -- a conformant wire holds at most one
+// member per oneof, ascending, so a sibling can never follow. Unthreadable fields (groups,
+// numbers past the 2-byte tag range) are absent from `threaded` and are stepped over like any
+// possibly-absent field: a lower hit rate on wires that carry them, never a wrong decode.
 // Ascending order puts the 1-byte fields first, so the cheaper 1-byte probes carry the hot run.
 // `threaded` is sorted ascending by field number (emit_hub_and_labels' order), so successors are
 // simply the entries past `pos` -- conformant serialization order.
 inline void emit_thread_probes(Printer& p, const std::vector<ThreadField>& threaded,
                                std::size_t pos) {
-    const int own = threaded[pos].oneof_id;
-    // Raising this past 2 would let the walk continue beyond a probed multi-member oneof
-    // (the comment above relies on the budget making that impossible).
+    const OneofNode* const own = threaded[pos].oneof;
     int budget = 2;
     for (std::size_t j = pos + 1; j < threaded.size() && budget > 0; ++j) {
         const ThreadField& s = threaded[j];
-        if (own != 0 && s.oneof_id == own) {
+        if (own != nullptr && s.oneof == own) {
             continue;  // own sibling: cannot follow
         }
-        if (s.oneof_id == 0) {
-            emit_one_probe(p, s);
-            --budget;
-            continue;
-        }
-        // Foreign oneof: an unthreadable member numbered above the probing field could follow
-        // but can never be probed, and threaded members that could still follow must all fit
-        // the budget -- otherwise the successor set is a partial guess and the walk stops.
-        const int ahead = count_oneof_members(threaded, pos + 1, threaded.size(), s.oneof_id);
-        if (s.oneof_unthreaded_max > threaded[pos].number || ahead > budget) {
-            break;
-        }
-        for (std::size_t k = j; k < threaded.size(); ++k) {
-            if (threaded[k].oneof_id == s.oneof_id) {
-                emit_one_probe(p, threaded[k]);
-            }
-        }
-        // ahead >= 2 drives the budget to 0 here, so a probed multi-member oneof ends the
-        // walk via the loop guard; a single remaining member is passed like a plain field.
-        budget -= ahead;
+        emit_one_probe(p, s);
+        --budget;
     }
 }
 

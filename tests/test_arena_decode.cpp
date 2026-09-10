@@ -600,10 +600,10 @@ TEST_CASE("arena-decode: group (delimited) fixture", "[arena-decode]") {
     CHECK(got_oi);
 }
 
-// The straddle probe: `mid` (4) sits between the oneof's group member (2) and its int member (5),
-// and the group can no longer follow 4 on a conformant wire, so rp_do_4's probe jumps straight to
-// rp_do_5 -- the store and discriminant on that route must match the general path's. (The probe's
-// PRESENCE is pinned by the golden; this exercises what the probe's destination does.)
+// A probe into a oneof member: `mid` (4) precedes the oneof's int member (5), so rp_do_4's probe
+// jumps straight to rp_do_5 -- the store and discriminant on that route must match the general
+// path's. (The probe's PRESENCE is pinned by the golden; this exercises what its destination
+// does.)
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): a flat list of accessor assertions
 TEST_CASE("arena-decode: a probe past a straddling oneof stores the member", "[arena-decode]") {
     Arena arena;

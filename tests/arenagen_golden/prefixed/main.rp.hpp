@@ -176,6 +176,7 @@ RP_FLATTEN RP_NOINLINE inline bool ::pfx::arena::main::Main::rp_decode_into([[ma
       out.m_e = static_cast<::pfx::common::dep::DepEnum>(::rapidproto::varint_to_int32(rp_raw));
       out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 3));
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(5, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_5; }
+      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(7, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_7; }
       continue;
     }
     rp_do_5: {

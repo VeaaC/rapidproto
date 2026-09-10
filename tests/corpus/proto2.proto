@@ -70,9 +70,9 @@ message OneofGroup {
   optional int32 after = 5;
 }
 
-// A oneof straddling a plain field with its group member BEHIND it: on a conformant wire the
-// group (2) can no longer follow field 4, so probes from 4 still claim the remaining member (5)
-// even though the group itself can never thread.
+// A oneof straddling a plain field, mixing an unthreadable group member (2) with an int member
+// (5): the group keeps its general arm and never blocks anything, while probes from the plain
+// field (4) still reach the int member.
 message OneofGroupStraddle {
   oneof pick {
     group Head = 2 {

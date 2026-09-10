@@ -864,15 +864,14 @@ The threaded labels and their probes follow **ascending field number** — confo
 serialization order, which declaration order is not (a schema may declare out of order, and
 oneof members interleave numerically with plain fields). Threadable oneof members thread like
 singular fields (a 1-byte member gets a hub case; every threadable member gets a label and the
-general path's wire-guarded goto), and the probe walk knows the oneof grouping: a member's own siblings are
-never probed (at most one member occurs per oneof on a conformant wire), and a foreign oneof
-is probed only when every member that could still FOLLOW the probing field is threaded and
-fits the remaining depth-2 budget — a oneof with one member left ahead behaves as a plain
-field, while anything less predictable is left to the hub, whose one dispatch handles all
-members where a partial guess would just be a miss-prone compare. Unthreadable members
-(groups, numbers past the 2-byte tag range) keep a classic general arm; such a member blocks
-probing into its oneof only when it is numbered above the probing field, since a
-lower-numbered one can no longer follow.
+general path's wire-guarded goto), and the probe walk treats them as ordinary ascending
+successors with one exception: a member's own siblings are never probed, since at most one
+member per oneof occurs on a conformant wire. The probes at a label's tail are alternatives at
+one cursor position — each tests the same next-tag bytes for a different candidate — so a
+member costs and pays exactly what a possibly-absent plain field does. Unthreadable fields
+(groups, numbers past the 2-byte tag range, in or out of a oneof) keep a classic general arm
+and are simply stepped over by probes — a lower hit rate on wires that carry them, never a
+wrong decode.
 
 A single `rapidproto::codegen::` shape generator emits the loop for both models; each emitter fills in only
 the per-field body — the arena emitter materializes the value into the node, the streaming emitter fires the

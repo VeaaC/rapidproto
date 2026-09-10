@@ -143,6 +143,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Main::decode(rp_Callbacks&&... rp_callback
         rp_c = rp_sp;
       }
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(5, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_5; }
+      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(7, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_7; }
       continue;
     }
     rp_do_5: {

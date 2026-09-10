@@ -710,6 +710,7 @@ RP_FLATTEN RP_NOINLINE inline bool ::rp::arena::al::Layout::rp_decode_into([[may
       *rp_slot = ::rapidproto::varint_to_int32(rp_raw);
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(13, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_13; }  // another element of the same field
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(14, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_14; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 136 && rp_c[1] == 1) { rp_c += 2; goto rp_do_17; }
       continue;
     }
     rp_do_13_p: {
@@ -738,6 +739,7 @@ RP_FLATTEN RP_NOINLINE inline bool ::rp::arena::al::Layout::rp_decode_into([[may
       arena.shrink_last(rp_acc_nums, rp_cap_nums * sizeof(std::int32_t), rp_n_nums * sizeof(std::int32_t));
       rp_cap_nums = rp_n_nums;
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(14, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_14; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 136 && rp_c[1] == 1) { rp_c += 2; goto rp_do_17; }
       continue;
     }
     rp_do_14: {
@@ -748,6 +750,8 @@ RP_FLATTEN RP_NOINLINE inline bool ::rp::arena::al::Layout::rp_decode_into([[may
       *rp_slot = ::rp::arena::al::Point{};
       if (!::rapidproto::arena_detail::decode_into(*rp_slot, rp_v, arena, depth + 1, err)) { return false; }
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(14, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_14; }  // another element of the same field
+      if (rp_cend - rp_c > 1 && rp_c[0] == 136 && rp_c[1] == 1) { rp_c += 2; goto rp_do_17; }
+      if (rp_cend - rp_c > 1 && rp_c[0] == 146 && rp_c[1] == 1) { rp_c += 2; goto rp_do_18; }
       continue;
     }
     rp_do_17: {
