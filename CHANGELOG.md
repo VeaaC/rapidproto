@@ -9,6 +9,16 @@ From 1.0 on, removals happen only in a major release, announced beforehand under
 
 ### Added
 
+- **Benchmark placement pinning and a layout-sensitivity probe.** The bench binaries (never the
+  library) now compile with `-falign-functions=64 -falign-loops=64`: cross-build throughput on
+  the worst arms was layout-dependent by up to ~22% with instruction counts unchanged, and the
+  pinning brings that to a measured ~6.5% worst-arm floor (mostly under 4%); the calibration
+  recipe lives in docs/benchmarks.md's noise appendix, re-derivable after codegen changes.
+  Published benchmark tables are refreshed on the pinned builds; medians moved, since
+  alignment trades layout luck for repeatability — for one arm (`rv fx1 1M` streaming) the
+  pinned phase is the slow end of the old lottery, a ~20% median drop at identical instruction
+  counts.
+
 - **OSM PBF showcase: `examples/osm-pbf/` and [the walkthrough](docs/osm-pbf.md).** The same
   statistics tool written once per decode model against OpenStreetMap's planet format —
   `osmstat_arena.cpp` materializes each block into a per-block arena and walks contiguous

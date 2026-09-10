@@ -417,7 +417,14 @@ if(RAPIDPROTO_BUILD_TESTS)
   target_link_libraries(rapidproto_bench PRIVATE rapidproto_bench_schema rapidproto)
   target_include_directories(rapidproto_bench PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/streamgen_golden)
-  target_compile_options(rapidproto_bench PRIVATE -O3 -DNDEBUG)
+  # Benchmark-only alignment pinning: 64-byte function entries and loop tops make an arm's
+  # address phase independent of where the linker drops its object, collapsing the measured
+  # cross-layout GB/s spread from up to ~22% to ~6.5% worst-arm, mostly <4% (shuffle-relink
+  # calibration, 20 layouts per variant, quiesced box, ins/B flat except upb's ~1%; recipe in
+  # docs/benchmarks.md's noise appendix). The residual mixes run noise, the prebuilt protobuf library these flags cannot
+  # reach, and loop-phase luck. Bench targets ONLY -- consumers' builds are untouched.
+  set(RAPIDPROTO_BENCH_ALIGN -falign-functions=64 -falign-loops=64)
+  target_compile_options(rapidproto_bench PRIVATE -O3 -DNDEBUG ${RAPIDPROTO_BENCH_ALIGN})
 
   # Arena benchmark: decode the SAME realistic buffer up to four ways -- the arenagen decoder, protoc +
   # google::protobuf::Arena, the streamgen decoder, and (if <protozero/pbf_reader.hpp> is present)
@@ -461,7 +468,7 @@ if(RAPIDPROTO_BUILD_TESTS)
     target_include_directories(rapidproto_arena_bench PRIVATE "${BENCH_GEN}")
     # -O3 for the measured code; protobuf's generated headers trip our strict warnings, so the bench
     # is NOT linked against rapidproto_strict (it is a standalone measurement, like rapidproto_bench).
-    target_compile_options(rapidproto_arena_bench PRIVATE -O3 -DNDEBUG)
+    target_compile_options(rapidproto_arena_bench PRIVATE -O3 -DNDEBUG ${RAPIDPROTO_BENCH_ALIGN})
 
     # ── upb baseline arm ───────────────────────────────────────────────────────────────────────
     # upb: protobuf upstream's speed-focused C parser -- the honest materializing yardstick.
@@ -521,7 +528,7 @@ if(RAPIDPROTO_BUILD_TESTS)
         "${UPB_ROOT}/reflection/cmake"                 # google/protobuf/descriptor.upb*.h
         "${CORPUS_DIR}/protobuf/third_party/utf8_range")
       # Third-party C measured as shipped: -O3 like every arm, warnings are upstream's business.
-      target_compile_options(rapidproto_upb_bench PRIVATE -O3 -DNDEBUG -w)
+      target_compile_options(rapidproto_upb_bench PRIVATE -O3 -DNDEBUG -w ${RAPIDPROTO_BENCH_ALIGN})
       # Fasttable ON where upb supports it (x86-64/arm64 + GCC/Clang; upb #errors elsewhere
       # when forced): at this pin upb builds fasttable entries for RUNTIME MiniTables too
       # (mini_descriptor/decode.c + wire/decode_fast/select.c), and without it the arm times

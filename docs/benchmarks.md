@@ -24,19 +24,21 @@ structure — which is where most of the memory win comes from:
 
 | Metric | RapidProto arena | protoc + Arena |
 |---|---|---|
-| Decode throughput | **~5× faster** | baseline |
+| Decode throughput | **~7× faster** | baseline |
 | Peak memory, payload (arena `bytes_used` vs protoc `SpaceUsed`) | **0.49×** | 1× |
 | Peak memory, total held (arena `bytes_reserved` vs protoc `SpaceAllocated`) | **0.56×** | 1× |
 
-That's the g++-13 figure; clang++-20 measures ~6×. The decoded tree borrows the input, so it stays valid
+That's the g++-13 figure; clang++-20 measures ~6×. (Both moved when the bench builds gained
+alignment pinning — see the appendix — which normalizes away the layout luck older figures
+implicitly carried.) The decoded tree borrows the input, so it stays valid
 only while both the input and the `Arena` outlive it (or use
 [`decode_owned`](arena.md#self-contained-decode-decode_owned) for a self-contained handle).
 
 ## Streaming vs `protozero`
 
 Both are zero-materialization pull parsers. On the realistic `Dataset` the
-streaming decoder is **~2× faster than protozero** — and **~13× faster than `protoc` + `Arena`**, since
-it materializes nothing. Across the per-field microbenchmarks it's faster on most shapes (repeated
+streaming decoder is **~1.8× faster than protozero** (clang: ~1.5×) — and **~12× faster than
+`protoc` + `Arena`**, since it materializes nothing. Across the per-field microbenchmarks it's faster on most shapes (repeated
 fields, nested messages, skip-heavy records), about even on single fixed-width scalars, and slower only
 on large **packed** arrays, which it decodes one element per callback — decode those with the arena model
 (below).
@@ -77,21 +79,21 @@ Every arm decodes **and reads every present field** (one shared checksum, cross-
 
 | | google_message1 (228 B) | google_message2 (84.5 KB, group-heavy) |
 |---|---|---|
-| streaming | **+121%** | **+143%** |
-| arena (warm) | **+95%** | **+29%** |
-| arena (cold) | +41% | +16% |
-| upb | +16% | +17% |
+| streaming | **+119%** | **+158%** |
+| arena (warm) | **+92%** | **+27%** |
+| arena (cold) | +38% | +24% |
+| upb | +23% | +17% |
 
 Two honest readings: `google_message2` is proto2's home turf — one huge repeated *group* of
-small mixed fields — and it is where our arena's lead over both protoc and upb is smallest (upb
-ties the cold-arena row there), while the streaming decoder leads every arm on both — by a wide
+small mixed fields — and it is where our arena's lead over both protoc and upb is smallest,
+while the streaming decoder leads every arm on both — by a wide
 margin on `google_message2`.
 And `google_message1` at 228 bytes shows the cold-arena setup cost that the warm row amortizes;
 a consumer decoding many small messages should reuse the arena. (Read coarse ratios, not
 decimals: small-payload rows swing a few points between runs — short rotated batches magnify
 per-iteration overheads — and whenever the bench binary itself changes, EVERY row can shift by
-the ~10% cross-build placement floor the methodology notes document. Compare within one table,
-not across published revisions of it.)
+its placement floor — see the appendix. Compare within one table, not across published
+revisions of it.)
 
 ## Real-world data — OSM PBF vs libosmium
 
@@ -113,21 +115,21 @@ payload):
 
 | arm | MB/s | vs protoc |
 |---|---|---|
-| protoc | 273 | baseline |
-| arena (cold) | 443 | +62% |
-| arena (warm) | 447 | **+63%** |
-| streaming | 432 | **+58%** |
+| protoc | 274 | baseline |
+| arena (cold) | 437 | +60% |
+| arena (warm) | 441 | **+61%** |
+| streaming | 434 | **+58%** |
 
 **End to end** (raw file bytes in memory → framing, blob decode, inflate, block decode, walk;
 MB/s of file bytes):
 
 | arm | MB/s | vs arena |
 |---|---|---|
-| arena (warm) | 57 | baseline |
-| streaming | 56 | −0.3% (a wash) |
+| arena (warm) | 56 | baseline |
+| streaming | 56 | −0.1% (a wash) |
 | libosmium | 21 | **−63%** |
 
-The second table is mostly a zlib table. The same arena decode that manages 447 MB/s over
+The second table is mostly a zlib table. The same arena decode that manages 441 MB/s over
 inflated payload delivers only ~128 MB/s of it once framing and inflate join the loop, and
 the gap between arena and streaming disappears entirely. A PBF throughput number that
 doesn't isolate inflate is mostly measuring the compressor.
@@ -143,7 +145,7 @@ margin over a message-reusing protoc is not an allocator artifact.
 
 ## Arena vs streaming (the two RapidProto models)
 
-The streaming decoder is **~2.7× faster** than the
+The streaming decoder is **~1.8× faster** than the
 arena decoder on the `Dataset`, since it builds no object tree. Use the arena model when you want a
 navigable, random-access object; stream when you only extract or forward fields.
 
@@ -257,7 +259,28 @@ the Abseil link deps 22+ needs) and falls back to the **FindProtobuf module** fo
 
 ## Appendix: measurement noise
 
-Why `--repeat`, the `noise` column and the quiesce step exist. Measured on one quiesced Linux box;
+Why `--repeat`, the `noise` column and the quiesce step exist — and what pins placement.
+
+**Placement across builds.** Decode hot loops are short enough that the address a function
+lands at (cache-line phase, uop-cache packing) moves its throughput with its instruction count
+unchanged. Measured directly (2026-09, recipe below) — the worst arms spread up to **~22%** across
+20 equally-valid layouts of an unaligned build, ins/B flat at 0.0% (upb excepted at ~1% —
+its work adapts slightly, so its row is an upper bound, not pure placement). The bench targets
+therefore compile with `-falign-functions=64 -falign-loops=64`, which pins every function's and
+loop's cache-line phase regardless of where the linker drops it: the same probe then measures
+the worst arms at **~6-6.5%** (upb, the protoc arm — whose prebuilt protobuf library the flags
+cannot reach — and one of our own streaming arms), with most rows below 4%. That residual is an
+upper bound on placement: each layout is measured once, so it still contains the ~1-3% run
+noise documented below. Two consequences: cross-build GB/s deltas are meaningful down to those
+per-arm figures rather than a folklore ~10%; and alignment picks ONE phase — for most arms a
+middle-of-the-lottery one, but for one (`rv fx1 1M` streaming) the pinned phase sits at the
+BOTTOM of the old distribution, a ~20% median drop with identical instruction counts. The
+flags trade that lottery for repeatability. Re-deriving the floors after a codegen change is
+a one-hour tool: relink the built bench objects per layout (append `-fuse-ld=lld
+-Wl,--shuffle-sections=.text*=<seed>` and a fresh `-o` to CMake's `link.txt` command), run the
+scenarios of interest per layout (`RAPIDPROTO_BENCH_JSON=1 RAPIDPROTO_BENCH_ONLY=<pattern>`,
+pinned, quiesced), take each arm's (max−min)/median across seeds, and rerun one layout twice —
+that same-layout delta is the run-noise share of every spread. Measured on one quiesced Linux box;
 treat the magnitudes as illustrative and the *method* as the transferable part. "Range" below means
 (max − min) / min across an arm's runs, used only to describe the tables; the gate's own
 statistic is
