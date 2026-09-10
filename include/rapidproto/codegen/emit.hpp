@@ -349,12 +349,12 @@ inline int wire_enum_num(const std::string& w) {
 struct ThreadField {
     int number;
     bool repeated;
-    bool packable;
+    bool packable;  // repeated packable => also a rp_do_<n>_p packed label
     // Oneof routing facts: members of one oneof share a nonzero id, and oneof_size is that
     // oneof's TOTAL member count (threaded or not) -- the probe walk needs both, because a
     // sibling can never follow its own member on a conformant wire, and probing INTO a oneof
     // only pays when every member fits in the probe budget (partial guesses are miss-prone
-    // compares; the hub already dispatches all members). Plain fields keep 0/0.            // repeated packable => also a rp_do_<n>_p packed label
+    // compares; the hub already dispatches all members). Plain fields keep 0/0.
     int oneof_id = 0;
     int oneof_size = 0;
     std::string thread_wire;  // WireType enumerator: singular field's canonical wire, or repeated
@@ -406,11 +406,22 @@ inline void emit_one_probe(Printer& p, const ThreadField& s) {
 //     rate, so the walk stops there and leaves the dispatch to the hub;
 //   - a fully-probed multi-member oneof ends the walk (its successor set is ambiguous).
 // Ascending order puts the 1-byte fields first, so the cheaper 1-byte probes carry the hot run.
+// `threaded` is sorted ascending by field number (emit_hub_and_labels' order), so successors are
+// simply the entries past `pos` -- conformant serialization order.
+inline int count_oneof_members(const std::vector<ThreadField>& threaded, std::size_t first,
+                               std::size_t last, int oneof_id) {
+    int n = 0;
+    for (std::size_t k = first; k < last; ++k) {
+        n += threaded[k].oneof_id == oneof_id ? 1 : 0;
+    }
+    return n;
+}
+
 inline void emit_thread_probes(Printer& p, const std::vector<ThreadField>& threaded,
-                               std::size_t i) {
-    const int own = threaded[i].oneof_id;
+                               std::size_t pos) {
+    const int own = threaded[pos].oneof_id;
     int budget = 2;
-    for (std::size_t j = i + 1; j < threaded.size() && budget > 0; ++j) {
+    for (std::size_t j = pos + 1; j < threaded.size() && budget > 0; ++j) {
         const ThreadField& s = threaded[j];
         if (own != 0 && s.oneof_id == own) {
             continue;  // own sibling: cannot follow
@@ -420,13 +431,15 @@ inline void emit_thread_probes(Printer& p, const std::vector<ThreadField>& threa
             --budget;
             continue;
         }
-        // Foreign oneof: all-or-nothing. Count its threaded members among the successors; the
-        // whole oneof (oneof_size counts unthreaded members too) must fit the budget.
-        int ahead = 0;
-        for (std::size_t k = i + 1; k < threaded.size(); ++k) {
-            ahead += threaded[k].oneof_id == s.oneof_id ? 1 : 0;
-        }
-        if (ahead != s.oneof_size || s.oneof_size > budget) {
+        // Foreign oneof: all-or-nothing over the members that can still FOLLOW. Members with
+        // numbers at or below the probing field cannot occur after it on a conformant wire, so
+        // a straddling oneof stays probeable; what must hold is that every member ahead is
+        // threaded (oneof_size counts unthreaded members too, so an unthreadable member ahead
+        // shows up as a count shortfall) and that the ahead set fits the budget.
+        const int ahead = count_oneof_members(threaded, pos + 1, threaded.size(), s.oneof_id);
+        // members of s's oneof at or before `pos` cannot follow the probing field
+        const int behind_or_self = count_oneof_members(threaded, 0, pos + 1, s.oneof_id);
+        if (ahead + behind_or_self != s.oneof_size || ahead > budget) {
             break;
         }
         for (std::size_t k = j; k < threaded.size(); ++k) {
@@ -434,19 +447,20 @@ inline void emit_thread_probes(Printer& p, const std::vector<ThreadField>& threa
                 emit_one_probe(p, threaded[k]);
             }
         }
-        budget -= s.oneof_size;
-        if (s.oneof_size > 1) {
+        budget -= ahead;
+        if (ahead > 1) {
             break;  // ambiguous successor set past a multi-member oneof
         }
-        // single-member oneof: walk continues past it like a plain field
+        // a single remaining member: the walk continues past it like a plain field
     }
 }
 
 }  // namespace detail
 
-// Emit the hub `switch(*rp_c)` and the tag-consumed labels for `threaded` (MUST be sorted
-// ascending by number -- probes thread that order, which is the conformant serialization
-// order; oneof members interleave numerically with plain fields). Emits, at the current indent:
+// Emit the hub `switch(*rp_c)` and the tag-consumed labels for `threaded`, in ascending
+// field-number order -- conformant serialization order, which declaration order is not (a schema
+// may declare out of order, and oneof members interleave numerically with plain fields); callers
+// pass any order. Emits, at the current indent:
 //   * `if (rp_c >= rp_cend) { <on_end> }`  -- the caller's end action (arena: "break;");
 //   * the hub `switch(*rp_c)`: each 1-byte-tag threaded field -> `case raw_tag(n,W): ++rp_c; goto
 //     rp_do_n;` (a repeated packable field also gets a Len case -> rp_do_n_p); `default: break;`;
@@ -456,11 +470,14 @@ inline void emit_thread_probes(Printer& p, const std::vector<ThreadField>& threa
 //     probes + continue;
 //   * `rp_field_general:;`.
 // When `threaded` is empty, emits nothing (the caller's general path stands alone).
-inline void emit_hub_and_labels(Printer& p, const std::vector<ThreadField>& threaded,
+inline void emit_hub_and_labels(Printer& p, const std::vector<ThreadField>& original,
                                 const ThreadedLoopHooks& hooks, const std::string& on_end) {
-    if (threaded.empty()) {
+    if (original.empty()) {
         return;
     }
+    std::vector<ThreadField> threaded = original;
+    std::sort(threaded.begin(), threaded.end(),
+              [](const ThreadField& a, const ThreadField& b) { return a.number < b.number; });
     // Hub: a 1-byte peek switch. Only 1-byte-tag threaded fields appear (a 2-byte-tag field enters
     // via the general path). Each case consumes the peeked byte, then jumps to the tag-consumed
     // label. A miss (multi-byte tag, unknown field, wrong wire type, or a non-minimal encoding of a
@@ -489,8 +506,8 @@ inline void emit_hub_and_labels(Printer& p, const std::vector<ThreadField>& thre
     p.outdent();
     p.print("}\n");
     p.print("goto rp_field_general;\n");
-    // Tag-consumed labels, one per threaded field (declaration order). Each decodes its value, then
-    // runs the successor probe (and, for repeated, a self-loop) before falling to `continue`.
+    // Tag-consumed labels, one per threaded field. Each decodes its value, then runs the
+    // successor probe (and, for repeated, a self-loop) before falling to `continue`.
     for (std::size_t i = 0; i < threaded.size(); ++i) {
         const ThreadField& tf = threaded[i];
         const std::string n = std::to_string(tf.number);

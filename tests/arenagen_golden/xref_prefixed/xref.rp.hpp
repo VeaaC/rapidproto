@@ -636,6 +636,7 @@ RP_FLATTEN RP_NOINLINE inline bool ::pfx::arena::xr::Nested::User::rp_decode_int
       rp_c = rp_np;
       out.m_kind = static_cast<::pfx::common::xr::Nested::Def::Kind>(::rapidproto::varint_to_int32(rp_raw));
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(6, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_6; }
+      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(8, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_8; }
       continue;
     }
     rp_do_6: {
@@ -647,6 +648,8 @@ RP_FLATTEN RP_NOINLINE inline bool ::pfx::arena::xr::Nested::User::rp_decode_int
       rp_c = rp_np;
       *rp_slot = static_cast<::pfx::common::xr::Nested::Def::Kind>(::rapidproto::varint_to_int32(rp_raw));
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(6, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_6; }  // another element of the same field
+      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(8, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_8; }
+      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(9, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_9; }
       continue;
     }
     rp_do_6_p: {
@@ -674,6 +677,8 @@ RP_FLATTEN RP_NOINLINE inline bool ::pfx::arena::xr::Nested::User::rp_decode_int
       }
       arena.shrink_last(rp_acc_kinds, rp_cap_kinds * sizeof(::pfx::common::xr::Nested::Def::Kind), rp_n_kinds * sizeof(::pfx::common::xr::Nested::Def::Kind));
       rp_cap_kinds = rp_n_kinds;
+      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(8, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_8; }
+      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(9, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_9; }
       continue;
     }
     rp_do_8: {

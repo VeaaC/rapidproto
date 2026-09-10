@@ -543,7 +543,8 @@ functions, each threaded with an `Emit` bundle — references to the `Printer`, 
   Anything else synthesized from a proto name — raw or sanitized — needs the same re-check.
 - **Shells first, then decode bodies.** All struct shells are emitted before any out-of-line
   **`rp_decode_into`** body (for the complete-type reason given above). Each body is assembled from
-  per-field *arms* (`emit_singular_arm` / `emit_repeated_arm` / `emit_map_arm` / `emit_oneof_arm`),
+  per-field *arms* (`emit_singular_arm` / `emit_repeated_arm` / `emit_map_arm`; `emit_oneof_arm`
+  remains only for unthreadable oneof members -- groups and numbers past the 2-byte tag range),
   wrapped by growable-array setup/finalize and the transient required-field bitmask.
 
 ### The arena runtime (`arena_runtime.hpp`)
@@ -859,16 +860,17 @@ serialize — this turns the per-field N-way indirect dispatch into a predictabl
 `switch` on the first tag byte enters the label chain; a general path handles out-of-order, unknown,
 wrong-wire, and non-minimal tags. Threading is always on — no flag, no field-count cutoff.
 
-The threaded order is **ascending field number** — conformant serialization order, which
-declaration order is not (a schema may declare out of order, and oneof members interleave
-numerically with plain fields). Oneof members thread like singular fields (hub case + label +
-the general path's wire-guarded goto), and the probe walk knows the oneof grouping: a member's
-own siblings are never probed (at most one member occurs per oneof on a conformant wire), and
-a foreign oneof is probed only when every one of its members fits the remaining depth-2
-budget — single-member oneofs behave as plain fields, wider ones are left to the hub, whose
-one dispatch handles all members where a partial guess would just be a miss-prone compare.
-Unthreadable members (groups, numbers past the 2-byte tag range) keep a classic general arm,
-and their oneof counts as uncoverable so probes never claim it.
+The threaded labels and their probes follow **ascending field number** — conformant
+serialization order, which declaration order is not (a schema may declare out of order, and
+oneof members interleave numerically with plain fields). Oneof members thread like singular
+fields (a 1-byte member gets a hub case; every member gets a label and the general path's
+wire-guarded goto), and the probe walk knows the oneof grouping: a member's own siblings are
+never probed (at most one member occurs per oneof on a conformant wire), and a foreign oneof
+is probed only when every member that could still FOLLOW is threaded and fits the remaining
+depth-2 budget — single-member oneofs behave as plain fields, wider ones are left to the hub,
+whose one dispatch handles all members where a partial guess would just be a miss-prone
+compare. Unthreadable members (groups, numbers past the 2-byte tag range) keep a classic
+general arm, and probes never claim a oneof they can only partially cover.
 
 A single `rapidproto::codegen::` shape generator emits the loop for both models; each emitter fills in only
 the per-field body — the arena emitter materializes the value into the node, the streaming emitter fires the

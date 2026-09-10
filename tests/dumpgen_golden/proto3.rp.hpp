@@ -578,6 +578,8 @@ RP_FLATTEN RP_NOINLINE inline bool ::rp::arena::p3::Msg::rp_decode_into([[maybe_
       rp_c = rp_np;
       *rp_slot = rp_raw;
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(13, ::rapidproto::WireType::I32)) { ++rp_c; goto rp_do_13; }  // another element of the same field
+      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(15, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_15; }
+      if (rp_c + 1 < rp_cend && rp_c[0] == 129 && rp_c[1] == 1) { rp_c += 2; goto rp_do_16; }
       continue;
     }
     rp_do_13_p: {
@@ -610,6 +612,8 @@ RP_FLATTEN RP_NOINLINE inline bool ::rp::arena::p3::Msg::rp_decode_into([[maybe_
         rp_acc_codes[rp_n_codes] = rp_raw;
         ++rp_n_codes;
       }
+      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(15, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_15; }
+      if (rp_c + 1 < rp_cend && rp_c[0] == 129 && rp_c[1] == 1) { rp_c += 2; goto rp_do_16; }
       continue;
     }
     rp_do_15: {

@@ -15,11 +15,15 @@ From 1.0 on, removals happen only in a major release, announced beforehand under
   oneof-aware probing: a member's own siblings are never probed (they cannot follow on a
   conformant wire), and a oneof is probed from outside only when all its members fit the
   depth-2 budget — wider oneofs are dispatched by the hub. On an identical-wire A/B the
-  oneof-vs-plain decode gap shrinks from ~1.9× to ~1.1×. Decode semantics are unchanged
-  (last-wins, the duplicate singular sub-message rejection). Both decoders also now thread
-  probes in **ascending field-number order** rather than declaration order — schemas that
-  declare fields out of order chain correctly (google_message1's arena row gains ~12% from
-  this alone).
+  oneof-vs-plain decode gap shrinks from ~1.9× to ~1.1× (an out-of-tree identical-wire A/B;
+  no suite scenario carries a oneof). Decode semantics are unchanged (last-wins, the duplicate
+  singular sub-message rejection), and members with 2-byte tags get the label and probes but
+  enter via the general path like every 2-byte field. The threaded labels and their successor
+  probes also now follow **ascending field-number order** — conformant serialization order —
+  rather than declaration order, so schemas that declare fields out of order chain correctly
+  (google_message1's arena row gains ~12% from this alone). One streaming micro-arm
+  (`nested-msg`) reads ~4% slower with ~9% more instructions per byte from compiler-inlining
+  drift over the regenerated header; its executed decode logic is unchanged.
 
 - **Benchmark placement pinning and a layout-sensitivity probe.** The bench binaries (never the
   library) now compile with `-falign-functions=64 -falign-loops=64`: cross-build throughput on

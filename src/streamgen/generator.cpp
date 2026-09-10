@@ -603,7 +603,7 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
     // a callback for the field (handles_one): handled -> decode+invoke; else -> skip the value (a
     // compile-time-wire skip, no runtime dispatch). A threaded label is a goto target with NO rp_tag set
     // and a statically-known wire, so it must skip the value itself when unhandled.
-    // The threaded fields in declaration order (ascending), so probes thread that order; a parallel
+    // The threaded fields, in any order (the shape generator sorts by field number); a parallel
     // number->(field,gen) map recovers the streaming decode facts inside the body hooks.
     // A member's oneof identity feeds the probe walk: to a streaming decoder members ARE plain
     // fields, but a conformant wire still holds at most one member per oneof, so siblings are
@@ -632,12 +632,6 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
             {field->number, field->is_repeated, packable, oid, osz, std::string(gen.wire_type)});
         threaded_gen.emplace(field->number, std::make_pair(field, gen));
     }
-    // Ascending by number: collect_fields appends oneof members AFTER the declared fields, so
-    // declaration order is NOT the conformant serialization order the probes must follow.
-    std::stable_sort(threaded.begin(), threaded.end(),
-                     [](const codegen::ThreadField& a, const codegen::ThreadField& b) {
-                         return a.number < b.number;
-                     });
     // The identical decode-loop SHAPE (hub, tag-consumed labels, depth-2 probes, general-case routing)
     // is shared with arenagen via codegen::emit_hub_and_labels; only the per-field label BODY differs,
     // supplied here as streaming body emitters (the handles_one gate + native decode / value skip).

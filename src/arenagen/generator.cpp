@@ -1777,7 +1777,7 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
     // removes body duplication AND correctly decodes a non-minimally-encoded tag (hub miss -> general
     // -> wire guard -> label). A wrong-wire tag `break`s to the shared skip, exactly as an untouched
     // field would. End must break (not return) so the post-loop required-field checks still run.
-    // The threaded fields in declaration order (ascending), so probes thread that order. Kept
+    // The threaded fields, in any order (the shape generator sorts by field number). Kept
     // alongside a parallel MemberPlan lookup so the body hooks can recover the arena-specific plan
     // from the generator-agnostic codegen::ThreadField the shape generator hands back.
     std::vector<codegen::ThreadField> threaded;
@@ -1822,12 +1822,6 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
             }
         }
     }
-    // Ascending by number: the probe chain follows conformant serialization order, and oneof
-    // members interleave numerically with plain fields (declaration order does not).
-    std::stable_sort(threaded.begin(), threaded.end(),
-                     [](const codegen::ThreadField& a, const codegen::ThreadField& b) {
-                         return a.number < b.number;
-                     });
     const auto is_msg_kind = [](const MemberPlan& m) {
         return m.kind == FieldKind::InlineFixedSubMsg || m.kind == FieldKind::PointerSubMsg;
     };
