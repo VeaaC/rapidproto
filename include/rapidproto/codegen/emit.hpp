@@ -350,13 +350,14 @@ struct ThreadField {
     int number;
     bool repeated;
     bool packable;  // repeated packable => also a rp_do_<n>_p packed label
-    // Oneof routing facts: members of one oneof share a nonzero id, and oneof_size is that
-    // oneof's TOTAL member count (threaded or not) -- the probe walk needs both, because a
-    // sibling can never follow its own member on a conformant wire, and probing INTO a oneof
-    // only pays when every member fits in the probe budget (partial guesses are miss-prone
-    // compares; the hub already dispatches all members). Plain fields keep 0/0.
+    // Oneof routing facts: members of one oneof share a nonzero id, and oneof_unthreaded_max is
+    // the highest field number among that oneof's UNthreadable members (groups, numbers past the
+    // 2-byte tag range) -- 0 when every member threads. The probe walk needs both: a sibling can
+    // never follow its own member on a conformant wire, and probing INTO a oneof only pays when
+    // every member that can still follow the probing field is threaded (partial guesses are
+    // miss-prone compares; the hub already dispatches all members). Plain fields keep 0/0.
     int oneof_id = 0;
-    int oneof_size = 0;
+    int oneof_unthreaded_max = 0;
     std::string thread_wire;  // WireType enumerator: singular field's canonical wire, or repeated
                               // element wire
 };
@@ -394,20 +395,7 @@ inline void emit_one_probe(Printer& p, const ThreadField& s) {
     }
 }
 
-// The constant-tag successor probes at the tail of a threaded label: from field i, walk the
-// ascending successors filling a 2-probe budget. A probe only pays when the wire's next tag is
-// PREDICTABLE (a miss is not free: the compares run, then `continue` falls to the hub, which
-// dispatches every threaded field anyway), so oneofs bend the walk:
-//   - the probing field's own siblings are skipped -- a conformant wire holds at most one
-//     member per oneof, ascending, so a sibling can never follow;
-//   - a foreign oneof is probed only when EVERY one of its members is a threaded successor
-//     and they all fit in the remaining budget (single-member oneofs thus behave as plain
-//     fields); guessing a subset of a wider oneof is a miss-prone compare with a 1-in-N hit
-//     rate, so the walk stops there and leaves the dispatch to the hub;
-//   - a fully-probed multi-member oneof ends the walk (its successor set is ambiguous).
-// Ascending order puts the 1-byte fields first, so the cheaper 1-byte probes carry the hot run.
-// `threaded` is sorted ascending by field number (emit_hub_and_labels' order), so successors are
-// simply the entries past `pos` -- conformant serialization order.
+// The number of threaded members of `oneof_id` at positions [first, last) of `threaded`.
 inline int count_oneof_members(const std::vector<ThreadField>& threaded, std::size_t first,
                                std::size_t last, int oneof_id) {
     int n = 0;
@@ -417,6 +405,24 @@ inline int count_oneof_members(const std::vector<ThreadField>& threaded, std::si
     return n;
 }
 
+// The constant-tag successor probes at the tail of a threaded label: from the field at `pos`,
+// walk the ascending successors filling a 2-probe budget. A probe only pays when the wire's next
+// tag is PREDICTABLE (a miss is not free: the compares run, then `continue` falls to the hub,
+// which dispatches every threaded field anyway), so oneofs bend the walk:
+//   - the probing field's own siblings are skipped -- a conformant wire holds at most one
+//     member per oneof, ascending, so a sibling can never follow;
+//   - a foreign oneof is probed only when every member that can still FOLLOW the probing field
+//     is threaded and the whole ahead set fits the remaining budget. Members numbered at or
+//     below the probing field cannot follow on a conformant wire, so a straddling oneof stays
+//     probeable, and a oneof with one member left ahead behaves as a plain field; anything less
+//     predictable is a miss-prone guess (1-in-N hit rate), so the walk stops there and leaves
+//     the dispatch to the hub;
+//   - probing more than one member ends the walk (the successor set past the oneof is
+//     ambiguous). With a 2-probe budget the budget is spent at that point anyway; the rule
+//     stands on its own if the budget ever grows.
+// Ascending order puts the 1-byte fields first, so the cheaper 1-byte probes carry the hot run.
+// `threaded` is sorted ascending by field number (emit_hub_and_labels' order), so successors are
+// simply the entries past `pos` -- conformant serialization order.
 inline void emit_thread_probes(Printer& p, const std::vector<ThreadField>& threaded,
                                std::size_t pos) {
     const int own = threaded[pos].oneof_id;
@@ -431,15 +437,11 @@ inline void emit_thread_probes(Printer& p, const std::vector<ThreadField>& threa
             --budget;
             continue;
         }
-        // Foreign oneof: all-or-nothing over the members that can still FOLLOW. Members with
-        // numbers at or below the probing field cannot occur after it on a conformant wire, so
-        // a straddling oneof stays probeable; what must hold is that every member ahead is
-        // threaded (oneof_size counts unthreaded members too, so an unthreadable member ahead
-        // shows up as a count shortfall) and that the ahead set fits the budget.
+        // Foreign oneof: an unthreadable member numbered above the probing field could follow
+        // but can never be probed, and threaded members that could still follow must all fit
+        // the budget -- otherwise the successor set is a partial guess and the walk stops.
         const int ahead = count_oneof_members(threaded, pos + 1, threaded.size(), s.oneof_id);
-        // members of s's oneof at or before `pos` cannot follow the probing field
-        const int behind_or_self = count_oneof_members(threaded, 0, pos + 1, s.oneof_id);
-        if (ahead + behind_or_self != s.oneof_size || ahead > budget) {
+        if (s.oneof_unthreaded_max > threaded[pos].number || ahead > budget) {
             break;
         }
         for (std::size_t k = j; k < threaded.size(); ++k) {
@@ -470,14 +472,14 @@ inline void emit_thread_probes(Printer& p, const std::vector<ThreadField>& threa
 //     probes + continue;
 //   * `rp_field_general:;`.
 // When `threaded` is empty, emits nothing (the caller's general path stands alone).
-inline void emit_hub_and_labels(Printer& p, const std::vector<ThreadField>& original,
+inline void emit_hub_and_labels(Printer& p, std::vector<ThreadField> threaded,
                                 const ThreadedLoopHooks& hooks, const std::string& on_end) {
-    if (original.empty()) {
+    if (threaded.empty()) {
         return;
     }
-    std::vector<ThreadField> threaded = original;
-    std::sort(threaded.begin(), threaded.end(),
-              [](const ThreadField& a, const ThreadField& b) { return a.number < b.number; });
+    std::stable_sort(
+        threaded.begin(), threaded.end(),
+        [](const ThreadField& a, const ThreadField& b) { return a.number < b.number; });
     // Hub: a 1-byte peek switch. Only 1-byte-tag threaded fields appear (a 2-byte-tag field enters
     // via the general path). Each case consumes the peeked byte, then jumps to the tag-consumed
     // label. A miss (multi-byte tag, unknown field, wrong wire type, or a non-minimal encoding of a

@@ -607,15 +607,24 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
     // number->(field,gen) map recovers the streaming decode facts inside the body hooks.
     // A member's oneof identity feeds the probe walk: to a streaming decoder members ARE plain
     // fields, but a conformant wire still holds at most one member per oneof, so siblings are
-    // never probed as successors and a wider-than-budget oneof is left to the hub.
-    std::unordered_map<const FieldNode*, std::pair<int, int>> oneof_of;  // field -> (id, size)
+    // never probed as successors, and the highest unthreadable member number rides along so
+    // probes never claim a oneof whose still-possible members they can only partially hit.
+    std::unordered_map<const FieldNode*, int> oneof_of;  // member field -> oneof id
     {
         int oneof_id = 0;
         for (const OneofNode& o : message.oneofs) {
             ++oneof_id;
             for (const FieldNode& member : o.fields) {
-                oneof_of.emplace(&member, std::make_pair(oneof_id, int(o.fields.size())));
+                oneof_of.emplace(&member, oneof_id);
             }
+        }
+    }
+    std::unordered_map<int, int> oneof_unthreaded_max;  // oneof id -> highest unthreaded number
+    for (const auto& [field, gen] : fields) {
+        const auto oo = oneof_of.find(field);
+        if (oo != oneof_of.end() && !is_threaded_field(*field, gen)) {
+            int& mx = oneof_unthreaded_max[oo->second];
+            mx = std::max(mx, field->number);
         }
     }
     std::vector<codegen::ThreadField> threaded;
@@ -626,10 +635,10 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
         }
         const bool packable = field->is_repeated && codegen::is_packable_wire(gen.wire_type);
         const auto oo = oneof_of.find(field);
-        const int oid = oo != oneof_of.end() ? oo->second.first : 0;
-        const int osz = oo != oneof_of.end() ? oo->second.second : 0;
+        const int oid = oo != oneof_of.end() ? oo->second : 0;
+        const int omax = oid != 0 ? oneof_unthreaded_max[oid] : 0;
         threaded.push_back(
-            {field->number, field->is_repeated, packable, oid, osz, std::string(gen.wire_type)});
+            {field->number, field->is_repeated, packable, oid, omax, std::string(gen.wire_type)});
         threaded_gen.emplace(field->number, std::make_pair(field, gen));
     }
     // The identical decode-loop SHAPE (hub, tag-consumed labels, depth-2 probes, general-case routing)

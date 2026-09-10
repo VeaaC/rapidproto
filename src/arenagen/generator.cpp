@@ -1795,10 +1795,10 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
         threaded_plan.emplace(f.number, m);
     }
     // Oneof members thread too (each gets a hub case + label; the probe walk knows the oneof
-    // grouping via id/size, so siblings are never probed as successors and a wider-than-budget
-    // oneof is left to the hub). Unthreadable members (groups, numbers past the 2-byte range)
-    // keep their classic general arm; the size still counts them, so probes never claim to
-    // cover a oneof they can only partially hit.
+    // grouping via oneof_id, so siblings are never probed as successors). Unthreadable members
+    // (groups, numbers past the 2-byte range) keep their classic general arm; the highest such
+    // number rides along, so probes never claim a oneof whose still-possible members they can
+    // only partially hit.
     struct OneofThreadInfo {
         const OneofPlan* plan;
         const OneofMemberPlan* member;
@@ -1809,14 +1809,19 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
         int oneof_id = 0;
         for (const OneofPlan& o : layout.oneofs) {
             ++oneof_id;
-            const int size = static_cast<int>(o.members.size());
+            int unthreaded_max = 0;
+            for (const OneofMemberPlan& member : o.members) {
+                if (!is_threadable_oneof_member(member)) {
+                    unthreaded_max = std::max(unthreaded_max, member.field->number);
+                }
+            }
             int index = 1;
             for (const OneofMemberPlan& member : o.members) {
                 const int idx = index++;
                 if (!is_threadable_oneof_member(member)) {
                     continue;
                 }
-                threaded.push_back({member.field->number, false, false, oneof_id, size,
+                threaded.push_back({member.field->number, false, false, oneof_id, unthreaded_max,
                                     oneof_member_wire(member)});
                 threaded_oneof.emplace(member.field->number, OneofThreadInfo{&o, &member, idx});
             }

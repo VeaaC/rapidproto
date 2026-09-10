@@ -13,8 +13,9 @@ From 1.0 on, removals happen only in a major release, announced beforehand under
   oneof member through the general path (full tag re-parse + switch); members now get the same
   1-byte hub entry, tag-consumed label and successor probes as plain fields, with
   oneof-aware probing: a member's own siblings are never probed (they cannot follow on a
-  conformant wire), and a oneof is probed from outside only when all its members fit the
-  depth-2 budget — wider oneofs are dispatched by the hub. On an identical-wire A/B the
+  conformant wire), and a oneof is probed from outside only when every member that could still
+  follow the probing field is threaded and fits the depth-2 budget — anything less predictable
+  is dispatched by the hub. On an identical-wire A/B the
   oneof-vs-plain decode gap shrinks from ~1.9× to ~1.1× (an out-of-tree identical-wire A/B;
   no suite scenario carries a oneof). Decode semantics are unchanged (last-wins, the duplicate
   singular sub-message rejection), and members with 2-byte tags get the label and probes but
