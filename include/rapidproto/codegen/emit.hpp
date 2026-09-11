@@ -458,6 +458,17 @@ inline void emit_hub_and_labels(Printer& p, std::vector<ThreadField> threaded,
     std::stable_sort(
         threaded.begin(), threaded.end(),
         [](const ThreadField& a, const ThreadField& b) { return a.number < b.number; });
+    // No threaded field carries a group wire (is_threadable_singular and both generators'
+    // repeated filters exclude them). Pinned here because the hub and probes match raw tag
+    // bytes: group handling relies on SGROUP/EGROUP tags always reaching the general path,
+    // whose group arms read rp_tag. Documentation more than trap: an EGROUP byte can never
+    // equal a hub/probe byte for the wires actually emitted (8n+4 vs 8n+{0,1,2,5}), and
+    // arenagen's singular route spells its wire "Len" before this point regardless (its guard
+    // is the assert in primary_fast_wire).
+    for ([[maybe_unused]] const ThreadField& tf : threaded) {
+        assert(tf.thread_wire != "SGroup" && tf.thread_wire != "EGroup" &&
+               "emit_hub_and_labels: group wires must never thread");
+    }
     // Hub: a 1-byte peek switch. Only 1-byte-tag threaded fields appear (a 2-byte-tag field enters
     // via the general path). Each case consumes the peeked byte, then jumps to the tag-consumed
     // label. A miss (multi-byte tag, unknown field, wrong wire type, or a non-minimal encoding of a

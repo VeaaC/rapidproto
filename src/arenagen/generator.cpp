@@ -815,13 +815,10 @@ const codegen::ScalarWire& scalar_wire(std::string_view type) {
     return *w;
 }
 
-// {wire enumerator, read expression} for a message field given its encoding (length-prefixed vs the
-// group/delimited wire form).
-std::pair<std::string, std::string> message_wire(const FieldNode& field) {
-    if (field.message_encoding == MessageEncoding::Delimited) {
-        return {"SGroup", "read_group(rp_tag.field_number)"};
-    }
-    return {"Len", "read_length_delimited()"};
+// The wire enumerator for a message field given its encoding (length-prefixed vs the
+// group/delimited wire form). (Once also carried a read expression; that half was dead.)
+std::string message_wire(const FieldNode& field) {
+    return field.message_encoding == MessageEncoding::Delimited ? "SGroup" : "Len";
 }
 
 std::string mask_word_one(const MessageLayout& layout, int bit) {
@@ -869,7 +866,7 @@ void emit_vt_message_read(const Emit& emit, const FieldNode& field, const std::s
 
 std::string elem_wire_enum(const FieldNode& field) {  // the native wire type of a repeated element
     if (field.is_message_type) {
-        return message_wire(field).first;
+        return message_wire(field);
     }
     if (field.is_enum_type) {
         return "Varint";
@@ -985,7 +982,7 @@ void emit_singular_arm(const Emit& emit, const MessageLayout& layout, const Memb
         p.outdent();
         p.print("}\n");
     } else if (m.kind == FieldKind::InlineFixedSubMsg || m.kind == FieldKind::PointerSubMsg) {
-        const std::string wire = message_wire(field).first;
+        const std::string wire = message_wire(field);
         p.print("if (rp_tag.wire_type == ::rapidproto::WireType::$w$) {\n", {{"w", wire}});
         p.indent();
         emit_message_decode_body(emit, layout, m, required_bit);
@@ -1209,7 +1206,7 @@ void emit_raw_arm(const Emit& emit, const MessageLayout& layout, const MemberPla
     Printer& p = emit.printer;
     const FieldNode& field = *m.field;
     const std::string id = emit.names.local.at(&field);
-    const std::string wire = message_wire(field).first;
+    const std::string wire = message_wire(field);
     p.print("case $n$: {\n", {{"n", std::to_string(field.number)}});
     p.indent();
     p.print("if (rp_tag.wire_type == ::rapidproto::WireType::$w$) {\n", {{"w", wire}});
@@ -1371,7 +1368,7 @@ void emit_vt_len_read(const Emit& emit, const std::string& view) {
 // Value-threaded message-payload read into a fresh ByteView `view` (the LEN payload, or a group body up
 // to its EGROUP), advancing rp_c. Mirrors reader.read_length_delimited() / reader.read_group().
 void emit_vt_message_read(const Emit& emit, const FieldNode& field, const std::string& view) {
-    if (message_wire(field).first != "SGroup") {
+    if (message_wire(field) != "SGroup") {
         emit_vt_len_read(emit, view);
         return;
     }
@@ -1526,7 +1523,7 @@ std::string oneof_member_wire(const OneofMemberPlan& member) {
         return "Varint";
     }
     if (member.kind == FieldKind::InlineFixedSubMsg || member.kind == FieldKind::PointerSubMsg) {
-        return message_wire(*member.field).first;
+        return message_wire(*member.field);
     }
     return std::string(scalar_wire(member.field->type_name).wire);
 }
@@ -1629,6 +1626,12 @@ std::string primary_fast_wire(const MemberPlan& m) {
         return elem_wire_enum(*m.field);
     }
     if (m.kind == FieldKind::InlineFixedSubMsg || m.kind == FieldKind::PointerSubMsg) {
+        // A threaded singular message is always LEN: is_threadable_singular excludes delimited
+        // fields before any reaches here. Assert it AT the wire derivation, because the
+        // emit_hub_and_labels wire assert cannot see this route (a wrongly-admitted group would
+        // arrive there already spelled "Len").
+        assert(m.field->message_encoding != MessageEncoding::Delimited &&
+               "primary_fast_wire: delimited fields never thread");
         return "Len";
     }
     return fast_singular_wire(m);

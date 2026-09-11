@@ -62,6 +62,23 @@ message .p2.OneofGroup.G size=20 align=4 fixed=no decode=flatten cost=2
   mask off=16 size=1 align=1 bits=2
     bit 0 presence x
     bit 1 presence s
+message .p2.GroupNumberReuse size=12 align=4 fixed=yes decode=flatten cost=2
+  field g num=2 inline-submsg .p2.GroupNumberReuse.G off=0 size=8 align=4 presence=bit0
+  mask off=8 size=1 align=1 bits=1
+    bit 0 presence g
+message .p2.GroupNumberReuse.G size=8 align=4 fixed=yes decode=flatten cost=1
+  field two num=2 inline-scalar int32 off=0 size=4 align=4 presence=bit0
+  mask off=4 size=1 align=1 bits=1
+    bit 0 presence two
+message .p2.RepeatedGroup size=20 align=4 fixed=no decode=flatten cost=3
+  field item num=1 repeated ArrayView<.p2.RepeatedGroup.Item> off=0 size=12 align=4 presence=empty
+  field tail num=3 inline-scalar int32 off=12 size=4 align=4 presence=bit0
+  mask off=16 size=1 align=1 bits=1
+    bit 0 presence tail
+message .p2.RepeatedGroup.Item size=8 align=4 fixed=yes decode=flatten cost=1
+  field v num=2 inline-scalar int32 off=0 size=4 align=4 presence=bit0
+  mask off=4 size=1 align=1 bits=1
+    bit 0 presence v
 message .p2.OneofGroupStraddle size=16 align=4 fixed=no decode=flatten cost=4
   field mid num=4 inline-scalar int32 off=8 size=4 align=4 presence=bit0
   oneof pick disc-off=12 union-off=0 union-size=8 union-align=4
