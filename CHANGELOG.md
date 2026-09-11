@@ -7,6 +7,12 @@ From 1.0 on, removals happen only in a major release, announced beforehand under
 
 ## Unreleased
 
+### Fixed
+
+- `rapidproto_generate()` now regenerates headers when the `rapidprotoc` binary itself changes,
+  not merely after it: through the ALIAS target CMake documents (and we observed) only the
+  build-ordering edge, so a rebuilt generator could leave stale headers until a clean build.
+
 ### Added
 
 - **Oneof members join field-order threading.** The arena decoder previously dispatched every

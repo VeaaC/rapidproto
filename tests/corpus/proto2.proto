@@ -70,6 +70,23 @@ message OneofGroup {
   optional int32 after = 5;
 }
 
+// A group whose field number recurs INSIDE its own body: the end-of-group scan must match
+// EGROUP(2) rather than let the inner field 2 swallow it.
+message GroupNumberReuse {
+  optional group G = 2 {
+    optional int32 two = 2;
+  }
+}
+
+// A REPEATED group: each element is scanned to its EGROUP and decoded into the arena array --
+// the shape google_message2 is made of, previously unpinned by any corpus message.
+message RepeatedGroup {
+  repeated group Item = 1 {
+    optional int32 v = 2;
+  }
+  optional int32 tail = 3;
+}
+
 // A oneof straddling a plain field, mixing an unthreadable group member (2) with an int member
 // (5): the group keeps its general arm and never blocks anything, while probes from the plain
 // field (4) still reach the int member.
