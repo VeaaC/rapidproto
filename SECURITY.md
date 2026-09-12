@@ -8,8 +8,8 @@ bytes** passed to a generated decoder: those bytes are treated as **untrusted**.
 
 The core guarantee: a generated decoder (arena or streaming) and the runtime **must never crash,
 read or write out of bounds, recurse without bound, or otherwise exhibit undefined behavior on *any*
-input bytes**, whether well-formed or malformed. Malformed input fails cleanly (a wire error), never
-unsafely. The wire reader is fully validating: varint overflow, truncation, length overruns,
+input bytes**, whether well-formed or malformed - malformed input fails with a wire error. The wire
+reader is fully validating: varint overflow, truncation, length overruns,
 reserved wire types, and group nesting are all detected and depth-capped.
 
 ## In scope
@@ -34,11 +34,10 @@ configured cap* is in scope; unbounded growth with no cap configured is working 
 
 ## How this is tested
 
-Memory safety on untrusted input is exercised continuously: libFuzzer harnesses over the wire reader
+Memory safety on untrusted input is exercised by libFuzzer harnesses over the wire reader
 and both decode models, run under AddressSanitizer + UndefinedBehaviorSanitizer (`./check.sh deep`,
-which CI runs on every pull request). A fourth harness covers the schema front-end. That one is not
-a trust boundary — a schema stays trusted input, per the scope list above — but a malformed one must
-still be a clean diagnostic rather than a crash, and the same sanitizers enforce it.
+which CI runs on every pull request). A fourth harness covers the schema front-end under the same
+sanitizers: a malformed schema must diagnose, not crash.
 
 ## Reporting a vulnerability
 
@@ -47,5 +46,5 @@ reporting](https://docs.github.com/en/code-security/security-advisories/guidance
 the repository's **Security** tab → **Report a vulnerability**. Please do **not** open a public
 issue for a suspected vulnerability.
 
-This is an early-stage (0.x) project maintained on a best-effort basis; reports will be acknowledged
-as soon as possible. Only the latest released version is supported.
+This is an early-stage (0.x) project maintained on a best-effort basis. Only the latest released
+version is supported.

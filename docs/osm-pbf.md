@@ -1,13 +1,13 @@
 # OSM PBF, decoded with both models
 
 *OpenStreetMap's planet file format, read by two small programs in
-[`examples/osm-pbf/`](../examples/osm-pbf/) — one per decode model. Back to the
+[`examples/osm-pbf/`](../examples/osm-pbf/) - one per decode model. Back to the
 [README](../README.md); the models: [arena](arena.md), [streaming](streaming.md).*
 
-OSM PBF makes a good real-world exercise for this library. It is protobuf underneath, nobody
-writes it from a reader (a few exporters produce it, everything else consumes it), and its
-heaviest shapes — packed delta-coded integer columns, and a string table meant to be
-referenced rather than copied — are the shapes the decoders are built around.
+OSM PBF exercises both models on real data. It is protobuf underneath, almost nothing writes
+it (a few exporters produce it, everything else consumes it), and its
+heaviest shapes - packed delta-coded integer columns, and a string table meant to be
+referenced rather than copied - are the shapes the decoders are built around.
 
 ## The format
 
@@ -35,26 +35,27 @@ test keeps them that way). Each file is self-contained, so pick the model you ca
 read that one.
 
 [`osmstat_arena.cpp`](https://github.com/VeaaC/rapidproto/blob/main/examples/osm-pbf/osmstat_arena.cpp)
-decodes each block into an arena and walks the result as arrays. A few things to notice in
-it. The program keeps one arena for the whole run, seeded with a scratch buffer, and
-`reset()`s it per block — the reset rewinds without freeing, so after warm-up nothing
+decodes each block into an arena and walks the result as arrays. The program keeps one
+arena for the whole run, seeded with a scratch buffer, and
+`reset()`s it per block - the reset rewinds without freeing, so after warm-up nothing
 allocates, and each block's tree and borrowed strings die together. The `Blob` payload is a
 `oneof`, read with the visitor: raw and zlib handled, the other four compression schemes
 refused. `granularity` is a proto2 field with `[default=100]`, which means explicit
-presence — the accessor returns a `std::optional` and the default is applied with `value_or`
-at the use site. The delta walks themselves are just `id += ids[i]` over an
+presence - the accessor returns a `std::optional` and the default is applied with `value_or`
+at the use site. The delta walks themselves are `id += ids[i]` over an
 `ArrayView<int64>`; the decoder already produced contiguous arrays.
 
 [`osmstat_stream.cpp`](https://github.com/VeaaC/rapidproto/blob/main/examples/osm-pbf/osmstat_stream.cpp)
 computes the same numbers without materializing anything. It has to deal with wire order:
 tag keys refer to the stringtable by index, and nothing promises the stringtable comes first
-in a block, so the program decodes each block twice — a cheap pass that collects only the
+in a block, so the program decodes each block twice - a cheap pass that collects only the
 stringtable and the coordinate scaling fields, then the real walk. Skipping fields is what a
-streaming decoder is good at, and the two passes together still beat materializing for this
-job. Packed parallel arrays arrive one whole array at a time, not interleaved, so by the
+streaming decoder is good at; even with the double decode, the streaming arm matches the arena
+end to end ([benchmarks.md](benchmarks.md#real-world-data---osm-pbf-vs-libosmium)). Packed
+parallel arrays arrive one whole array at a time, not interleaved, so by the
 time lon element *i* shows up, lat element *i* is long gone; the statistics use per-axis
 aggregates precisely so nothing needs pairing. And since an absent field fires no callback,
-schema defaults like the granularity are simply the initial values of locals.
+schema defaults like the granularity are the initial values of locals.
 
 ## Running it
 
@@ -69,8 +70,8 @@ curl -O https://download.geofabrik.de/europe/germany/bremen-latest.osm.pbf
 ```
 
 Statistics go to stdout, timing to stderr. The arena program reports read / inflate /
-decode / walk — with a materialized tree, decoding and reading are separate steps — while
+decode / walk - with a materialized tree, decoding and reading are separate steps - while
 the streaming program reports decode+walk as one number, because for it they are one pass.
-Either way the same thing jumps out: zlib inflate costs several times the protobuf decode,
-so end-to-end PBF throughput is mostly a zlib number. [benchmarks.md](benchmarks.md) keeps
+Zlib inflate costs several times the protobuf decode, so end-to-end PBF throughput is mostly
+a zlib number; [benchmarks.md](benchmarks.md#real-world-data---osm-pbf-vs-libosmium) keeps
 the two layers separate.

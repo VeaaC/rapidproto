@@ -1,8 +1,7 @@
 # Schema features & semantics
 
-*The shared rules — they apply to both decode models and affect how you write correct consumer code.
-This page is the single home for them; the model pages ([arena](arena.md), [streaming](streaming.md))
-link here instead of restating.*
+*The shared rules - they apply to both decode models ([arena](arena.md), [streaming](streaming.md))
+and affect how you write correct consumer code. This page is the single home for them.*
 
 - **Lifetimes.** Both models borrow the input. Streaming: the input `ByteView` must outlive the decoder
   and every `string_view` it hands a callback. Arena: the tree's structure lives in the `Arena`, but its
@@ -10,13 +9,13 @@ link here instead of restating.*
   `Arena` and the input buffer live. Use [`decode_owned`](arena.md#self-contained-decode-decode_owned)
   for a `shared_ptr` that owns both.
 - **Untrusted input is validated; values are not.** Wire input is fully checked for **wire-format
-  integrity** (structure, lengths, group nesting), so a malformed buffer fails cleanly and never
-  triggers UB. Field *values* are not range-checked: RapidProto trusts the schema, not the bytes. A
-  `string` in particular is handed back unvalidated, so it may carry bytes `protoc` would reject as
-  invalid UTF-8.
+  integrity** (structure, lengths, group nesting), so a malformed buffer fails the decode - the arena
+  `decode()` returns null with an `ArenaDecodeError`, the streaming one a non-`ok()` `DecodeStatus` -
+  and never triggers UB. Field *values* are not range-checked. A `string` in particular is handed
+  back unvalidated, so it may carry bytes `protoc` would reject as invalid UTF-8.
 - **Defaults & presence.** Arena: an *implicit*-presence field (plain proto3 scalars) reads back its
   zero default (`0` / `""` / the first enum value) when absent; an *explicit*-presence scalar/string/
-  enum field returns `std::optional<T>` (`std::nullopt` when absent — apply a proto2 `[default=X]`
+  enum field returns `std::optional<T>` (`std::nullopt` when absent - apply a proto2 `[default=X]`
   yourself via `value_or`); a sub-message's presence is its `const T*` accessor returning `nullptr`.
   Streaming: an absent field simply fires no callback, and no defaults are delivered.
 - **Enums are open** and **shared between the models.** A proto enum becomes one `enum class :
@@ -27,52 +26,51 @@ link here instead of restating.*
   `default:` arm under `-Wswitch`, and `rp_known_min`/`rp_known_max` carry the schema's declared
   value range (e.g. `if (v <= Status::rp_known_max)`). The generator places the enums in a shared
   `<stem>.rp.common.hpp` that each decoder `#include`s for you. This applies to **closed** enums too
-  (proto2, or editions `enum_type = CLOSED`): RapidProto intentionally decodes every enum as open —
+  (proto2, or editions `enum_type = CLOSED`): RapidProto decodes every enum as open -
   where protoc would route an unrecognized closed-enum value to unknown fields, RapidProto delivers
-  the raw value — so do not rely on closed-enum semantics.
+  the raw value - so do not rely on closed-enum semantics.
 - **Enumerator names drop the enum's own prefix**, all-or-nothing per enum: `enum Status
   { STATUS_OK = 0; }` yields `Status::OK`, the same idea as protobuf's own Rust generator (which
   strips per value, where RapidProto strips only when every value can).
   The strip is refused for the whole enum if any value would be left with a name that is not a clean
-  identifier — one missing the prefix, a numeric remainder (`VERSION_2` → `2`), a keyword, or a
+  identifier - one missing the prefix, a numeric remainder (`VERSION_2` → `2`), a keyword, or a
   macro (`STATUS_EOF` → `EOF`). **So adding a value can rename the others**: appending
   `LEGACY_GREEN` to `{COLOR_RED, COLOR_BLUE}` turns `Color::RED` back into `Color::COLOR_RED` and
-  breaks call sites that never changed. Wire compatibility is unaffected — only the C++ spelling
-  moves — but treat an enum's C++ names as part of your API surface.
+  breaks call sites that never changed. Wire compatibility is unaffected - only the C++ spelling
+  moves - but treat an enum's C++ names as part of your API surface.
 - **A field occurring more than once on the wire.** A conformant encoder writes each singular
-  field once, but a buffer can still repeat one — most often because two serialized messages were
+  field once, but a buffer can still repeat one - most often because two serialized messages were
   **concatenated**, which protobuf defines as merging them.
-  - **Streaming applies no policy** — it materializes nothing, so there is nothing to merge:
-    occurrences are delivered as-is, on the
-    [schedule](streaming.md) it always uses — per element for repeated fields, per entry for
-    maps, otherwise per occurrence — so last-wins / concatenation / de-duplication are yours to
+  - **Streaming applies no policy** - it materializes nothing, so there is nothing to merge:
+    occurrences are [delivered](streaming.md) as-is - per element for repeated fields, per entry
+    for maps, otherwise per occurrence. Last-wins, concatenation and de-duplication are yours to
     implement. One exception: inside a map entry, the `(key, value)` callback fires once, with
     the last `key` and last `value` that entry carried.
-  - **Arena, scalars, repeated fields and oneofs** — a materialized tree must choose: singular
-    scalars, `string`, `bytes` and enums take the **last** occurrence (values are never joined — `"AAA"` then `"BBB"` reads back `"BBB"`);
+  - **Arena, scalars, repeated fields and oneofs** - a materialized tree must choose: singular
+    scalars, `string`, `bytes` and enums take the **last** occurrence (values are never joined - `"AAA"` then `"BBB"` reads back `"BBB"`);
     repeated fields **concatenate**, in any mix of packed and expanded; a oneof keeps the
     **last** member set.
-  - **Arena, maps — differs from protobuf**: every entry is kept where protobuf overwrites.
-    `find()` returns the last — protobuf's value — but `size()` and iteration also see the
+  - **Arena, maps - differs from protobuf**: every entry is kept where protobuf overwrites.
+    `find()` returns the last - protobuf's value - but `size()` and iteration also see the
     duplicates protobuf collapses.
-  - **Arena, duplicate singular sub-messages — differs from protobuf**: protobuf merges them;
+  - **Arena, duplicate singular sub-messages - differs from protobuf**: protobuf merges them;
     the arena **rejects** the buffer (`ArenaDecodeError::Code::RepeatedSingularMessage`,
-    carrying the field number — for a map, the map's own number, since the entry is a synthetic
+    carrying the field number - for a map, the map's own number, since the entry is a synthetic
     type you never wrote). The rejection is unconditional: some rejected buffers would have decoded
     identically under plain overwrite, but telling those apart needs the merge machinery
     itself. It covers plain sub-message fields, groups, `required` message fields,
     [`raw`](profiles.md) ones, a sub-message oneof member repeating while the oneof still holds
     it, and a map entry repeating its `value`. It does *not* fire for a oneof whose members
-    alternate — a different member clears the oneof, so the later occurrence starts fresh, as in
-    protobuf — or for a
-    field a [profile](profiles.md) `drop`s, which is skipped unexamined. If you need merge
+    alternate: a different member clears the oneof, so the later occurrence starts fresh, as in
+    protobuf. Nor does it fire for a field a [profile](profiles.md) `drop`s, which is skipped
+    unexamined. If you need merge
     semantics, merge upstream, or decode with the streaming model and combine the occurrences
     yourself.
 - **Well-known types** (`google.protobuf.Timestamp`, etc.) decode as plain messages (their `seconds`/
   `nanos` fields), with no special Timestamp/Duration/Any semantics.
 - **Extensions are not decoded**, so an extension on the wire arrives as an unknown field. A message
   marked `option message_set_wire_format = true` (a proto1-era container holding only extensions)
-  is accepted with a warning and decodes as unknown fields — its schema no longer fails generation,
+  is accepted with a warning and decodes as unknown fields - its schema no longer fails generation,
   but its contents are not readable.
 - **Thread-safety.** A streaming `decode()` is `const` and holds no mutable state, so decoders over one
   buffer run concurrently as long as the buffer isn't mutated. An arena `decode()` mutates its `Arena`,
