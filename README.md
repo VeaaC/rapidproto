@@ -187,6 +187,7 @@ The user manual lives in [docs/](docs/) (also published at
 | [docs/profiles.md](docs/profiles.md) | Decode profiles (`drop` / `raw`) and unknown-field detection (arena) |
 | [docs/integration.md](docs/integration.md) | The `rapidprotoc` CLI reference and the CMake helper (incl. cross-compiling) |
 | [docs/osm-pbf.md](docs/osm-pbf.md) | Real-world walkthrough: OpenStreetMap's planet format, decoded with both models |
+| [docs/optimizations.md](docs/optimizations.md) | How the decoders got fast: seven optimizations, re-enabled one at a time and measured |
 | [docs/benchmarks.md](docs/benchmarks.md) | The numbers, how they're measured, and how to reproduce them |
 | [CHANGELOG.md](https://github.com/VeaaC/rapidproto/blob/main/CHANGELOG.md) | Notable user-visible changes per release (SemVer-0: the MINOR version is the breaking axis) |
 | [architecture.md](https://github.com/VeaaC/rapidproto/blob/main/architecture.md) | Internals and design rationale, for contributors |

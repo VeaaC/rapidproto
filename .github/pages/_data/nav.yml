@@ -19,6 +19,8 @@
   url: /docs/integration.html
 - title: OSM PBF walkthrough
   url: /docs/osm-pbf.html
+- title: One optimization at a time
+  url: /docs/optimizations.html
 - title: Benchmarks
   url: /docs/benchmarks.html
 - title: Consumer example

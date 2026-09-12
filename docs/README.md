@@ -12,6 +12,8 @@ The user manual, one page per topic. New here? Start with the
 - [profiles.md](profiles.md) — decode profiles (`drop` / `raw`) and unknown-field detection (arena)
 - [integration.md](integration.md) — the `rapidprotoc` CLI reference and the CMake helper
 - [osm-pbf.md](osm-pbf.md) — real-world walkthrough: OSM's planet format with both models
+- [optimizations.md](optimizations.md) — how the decoders got fast: seven optimizations,
+  re-enabled one at a time and measured
 - [benchmarks.md](benchmarks.md) — the numbers and how to reproduce them
 
 Contributor docs live at the repository root: [architecture.md](https://github.com/VeaaC/rapidproto/blob/main/architecture.md) (internals,
