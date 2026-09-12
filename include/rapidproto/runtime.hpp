@@ -320,7 +320,13 @@ enum class PackedKernel : std::uint8_t {
 // kernel dispatch are not amortized under it, so tiny spans take the plain byte loop. One
 // constant, three former spellings: packed_strategy, decode_packed_varints' inline guard, and the
 // literal the arena generator prints into every decoder's packed arm.
+#ifdef RP_LADDER_NO_SWAR
+// THROWAWAY (perf-ladder article): a min-span no wire span reaches disables every packed kernel;
+// the plain byte loop handles all spans.
+inline constexpr std::size_t kPackedKernelMinSpan = SIZE_MAX;
+#else
 inline constexpr std::size_t kPackedKernelMinSpan = 256;
+#endif
 
 inline PackedKernel packed_strategy(const std::uint8_t* p, std::size_t span, int* width) noexcept {
     *width =
@@ -685,6 +691,7 @@ inline const std::uint8_t* read_varint_packed(const std::uint8_t* p, const std::
 // buffer begin).
 inline const std::uint8_t* read_tag(const std::uint8_t* p, const std::uint8_t* end, Tag* out,
                                     WireError* err) noexcept {
+#ifndef RP_LADDER_NO_FUSED_TAG  // THROWAWAY (perf-ladder): generic varint tag path only
     if (p < end && (*p & 0x80U) == 0U) {  // fused 1-byte tag
         const std::uint32_t byte = *p;
         const std::uint32_t field = byte >> 3U;
@@ -694,6 +701,7 @@ inline const std::uint8_t* read_tag(const std::uint8_t* p, const std::uint8_t* e
             return p + 1;
         }
     }
+#endif
     std::uint64_t raw =
         0;  // multi-byte: read the full 64-bit varint so over-range reports FieldNumberRange
     const std::uint8_t* const np = read_varint(p, end, &raw, err);

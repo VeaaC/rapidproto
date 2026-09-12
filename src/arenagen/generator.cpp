@@ -1036,6 +1036,24 @@ void emit_packed_fill(const Emit& emit, const FieldNode& field) {
     const std::string elem = repeated_elem_type(emit, field);
     const std::string wire = elem_wire_enum(field);  // Varint / I32 / I64
     const bool varint = wire == "Varint";
+#ifdef RP_LADDER_NO_PACKED_PRESIZE
+    // THROWAWAY (perf-ladder): the naive packed fill -- per-element reads appended through the
+    // geometric growable slot; no pre-size from the LEN length, no shrink_last trim, no
+    // fixed-width bulk copy, and (since spans never reach the kernel guard emitted below) no
+    // varint kernels either.
+    (void)varint;
+    p.print("const std::uint8_t* rp_vp = ::rapidproto::wire::byte_ptr(rp_p);\n");
+    p.print("const std::uint8_t* const rp_vbeg = rp_vp;\n");
+    p.print("const std::uint8_t* const rp_ve = rp_vp + rp_p.size();\n");
+    p.print("while (rp_vp < rp_ve) {\n");
+    p.indent();
+    p.print("$E$* const rp_slot = rp_slot_$id$();\n", {{"E", elem}, {"id", id}});
+    p.print("if (rp_slot == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }\n");
+    emit_vt_value_read(emit, field, "*rp_slot", "rp_vp", "rp_ve", "rp_vbeg");
+    p.outdent();
+    p.print("}\n");
+    return;
+#endif
     // Element-count bound from the packed byte length: exact for fixed-width (span/width), an upper
     // bound for varints (>=1 byte each, so span.size()).
     if (varint) {
@@ -1426,6 +1444,17 @@ void emit_map_arm(const Emit& emit, const MemberPlan& m) {
     }
     p.print("for (;;) {\n");
     p.indent();
+#ifdef RP_LADDER_NO_FUSED_TAG
+    // THROWAWAY (perf-ladder): unfused twin of the map-entry tag read below.
+    p.print("if (rp_ec >= rp_ee) { break; }\n");
+    p.print(
+        "const std::uint8_t* const rp_etp ="
+        " ::rapidproto::wire::read_tag(rp_ec, rp_ee, &rp_et, &rp_we);\n");
+    p.print("if (rp_etp == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we,"
+            " static_cast<std::size_t>(rp_ec - " +
+            beg + ")); return false; }\n");
+    p.print("rp_ec = rp_etp;\n");
+#else
     p.print("::rapidproto::wire::TagState rp_st = ::rapidproto::wire::TagState::End;\n");
     p.print(
         "const std::uint8_t* const rp_etp ="  // entry-loop tag ptr (distinct from the outer rp_tp)
@@ -1437,6 +1466,7 @@ void emit_map_arm(const Emit& emit, const MemberPlan& m) {
         " static_cast<std::size_t>(rp_ec - " +
         beg + ")); return false; }\n");
     p.print("rp_ec = rp_etp;\n");
+#endif
     p.print("if (rp_et.field_number == 1 && rp_et.wire_type == ::rapidproto::WireType::$kw$) {\n",
             {{"kw", kv_wire(e.key_kind, map.key_type)}});
     p.indent();
@@ -1600,6 +1630,10 @@ void emit_oneof_arm(const Emit& emit, const OneofPlan& o, const OneofMemberPlan&
 // is always on. Raw-mode fields and maps never reach this (excluded at both call sites), and
 // threadable oneof MEMBERS are collected separately -- they don't pass through here.
 bool is_threaded(const FieldNode& field) {
+#ifdef RP_LADDER_NO_THREADING  // THROWAWAY (perf-ladder)
+    (void)field;
+    return false;
+#endif
     if (field.is_repeated) {
         return field.number >= 1 && field.number <= codegen::kMaxOneByteTagField &&
                elem_wire_enum(field) != "SGroup";
@@ -1808,6 +1842,19 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
     // oneofs, and the wire-guarded-goto routing for the threaded fields above.
     // Fused end-or-tag read: one bounds check drives the loop (see WireReader::read_tag_or_end).
     // End breaks out so the post-loop required-field checks still run.
+#ifdef RP_LADDER_NO_FUSED_TAG
+    // THROWAWAY (perf-ladder): separate end check + plain tag read instead of the fused
+    // end-or-tag primitive. Only emitted in the no-threading rungs, where this is the loop's
+    // only entry (the hub does not exist).
+    p.print("if (rp_c >= rp_cend) { break; }\n");
+    p.print(
+        "const std::uint8_t* const rp_tp ="
+        " ::rapidproto::wire::read_tag(rp_c, rp_cend, &rp_tag, &rp_we);\n");
+    p.print(
+        "if (rp_tp == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we,"
+        " static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }\n");
+    p.print("rp_c = rp_tp;\n");
+#else
     p.print("::rapidproto::wire::TagState rp_state = ::rapidproto::wire::TagState::End;\n");
     p.print(
         "const std::uint8_t* const rp_tp ="
@@ -1818,6 +1865,7 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
         "rp_we,"
         " static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }\n");
     p.print("rp_c = rp_tp;\n");
+#endif
     p.print("switch (rp_tag.field_number) {\n");
     p.indent();
     for (const FieldNode& f : message.fields) {

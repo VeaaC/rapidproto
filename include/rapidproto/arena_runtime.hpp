@@ -319,7 +319,20 @@ public:
         if (s.size() > UINT32_MAX) {
             return out;  // exceeds the 32-bit length -> empty (unreachable under the input-size guard)
         }
-        const char* const p = s.data();
+        const char* p = s.data();
+#ifdef RP_LADDER_COPY_STRINGS
+        // THROWAWAY (perf-ladder article): copy string payloads into the arena instead of
+        // borrowing. Empty strings keep borrowing, so the data()!=nullptr presence contract for
+        // raw payloads and empty-but-present strings is bit-identical to the shipped build.
+        if (s.size() > 0) {
+            char* const copy = static_cast<char*>(arena.allocate(s.size(), 1));
+            if (copy == nullptr) {
+                return out;  // OOM degrades to unset; the ladder payloads never hit this
+            }
+            std::memcpy(copy, s.data(), s.size());
+            p = copy;
+        }
+#endif
         std::memcpy(out.m_ptr, &p, sizeof p);
         out.m_len = static_cast<std::uint32_t>(s.size());
         return out;

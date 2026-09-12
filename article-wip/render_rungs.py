@@ -14,7 +14,7 @@ data = json.load(open(sys.argv[1] if len(sys.argv) > 1 else "ladder-data.json"))
 RUNGS, TITLES = data["rungs"], data["titles"]
 hi_all = max(max(r["ratios"]) for p in data["panels"].values() for r in p)
 
-def render(idx, out):
+def render(idx, out, shown=None):
     W, H, ML, MR, MT, MB = 880, 360, 60, 14, 58, 66
     ph = H - MT - MB
     hi = hi_all * 1.05
@@ -30,8 +30,9 @@ def render(idx, out):
     gaps = pgap + fgap * (len(fams) - 2)
     bw = (W - ML - MR - gaps - (n - 1) * 2) / n
     step = TITLES[idx]
+    n = idx if shown is None else shown
     title = ("The baseline: a straightforward, validating decoder" if idx == 0
-             else f"Step {idx}: {step}")
+             else f"Step {n}: {step}")
     o = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" '
          f'font-family="system-ui,sans-serif">',
          f'<rect width="{W}" height="{H}" fill="{SURF}"/>',
@@ -96,6 +97,8 @@ def render(idx, out):
     o.append('</svg>')
     open(out, "w").write("\n".join(o))
 
-for i in range(9):
-    render(i, f"ladder-step{i}.svg")
-print("wrote ladder-step0..8.svg")
+# Article numbering: the memory-layout rung (R2) has no section; steps renumber past it.
+ARTICLE = [0, 1, 3, 4, 5, 6, 7, 8]  # article step n -> campaign rung index
+for n, ri in enumerate(ARTICLE):
+    render(ri, f"ladder-step{n}.svg", n)
+print("wrote ladder-step0..7.svg")

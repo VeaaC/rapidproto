@@ -41,3 +41,20 @@ model-worded); the author's markup is the only style corpus.
 grep for the banned list; em-dash count per 100 words <= 1.5; sentence-length variance
 check (no 3-in-a-row within ±3 words); every "×"/"%"/"GB/s" claim must have a chart or
 table within its section.
+
+
+## Calibration pass 1 — learned rules (2026-09-12)
+
+- Plain "-" everywhere; the em-dash is not used at all.
+- Describe benchmark performance, never chart mechanics: "37 benchmarks improve", not
+  "37 bars color"; "two benchmarks lose ground", not "two oranges appear".
+- No meta-commentary or self-defense ("It is not a strawman", "the honest place to
+  start", "the chart keeps that visible") and no rigor-flexing (differential statistics,
+  drift percentiles) in the article body. State the coloring rule in one sentence.
+- No headline-results teaser in the intro; the framing is "some of these optimizations are
+  quite interesting", not a scoreboard.
+- Less API detail (lifetime contracts, decode_owned cut from step 1).
+- A step that measures nothing gets no section; it is mentioned once under "What is not
+  covered".
+- Historical citations stay out of mechanism sections (value-threading's numbers live only
+  in the closing section).

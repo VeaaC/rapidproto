@@ -122,7 +122,7 @@ void put_float(std::string& b, float f) {
 }  // namespace
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): one case loop + a completeness glob
-TEST_CASE("streamgen: generated headers match the goldens", "[streamgen]") {
+TEST_CASE("streamgen: generated headers match the goldens", "[streamgen][shipgen]") {
     const std::string corpus = RAPIDPROTO_CORPUS_DIR;
     const std::string fixtures = RAPIDPROTO_WIRE_FIXTURE_DIR;
     struct Case {
@@ -198,7 +198,7 @@ TEST_CASE("streamgen: generated headers match the goldens", "[streamgen]") {
 // the prefix, so the generated decoders coexist with protoc's headers (which use the bare package
 // namespace) in one translation unit. The default (empty prefix) keeps protoc parity.
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): two independent generation checks
-TEST_CASE("streamgen: namespace prefix nests the generated namespace", "[streamgen]") {
+TEST_CASE("streamgen: namespace prefix nests the generated namespace", "[streamgen][shipgen]") {
     ResolverConfig config;
     config.include_paths = {std::string(RAPIDPROTO_CORPUS_DIR)};
 
@@ -834,7 +834,7 @@ TEST_CASE("streamgen: a generated decoder reports malformed input and callback a
 // types), so a schema using google.protobuf.* compiles standalone. This regenerates every file in
 // usewkt.proto's closure (including the embedded WKT sources) and golden-checks each.
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): one loop, two golden comparisons
-TEST_CASE("streamgen: well-known-type closure generates self-contained headers", "[streamgen]") {
+TEST_CASE("streamgen: well-known-type closure generates self-contained headers", "[streamgen][shipgen]") {
     ResolverConfig config;
     config.include_paths = {std::string(RAPIDPROTO_CORPUS_DIR)};
     auto resolved = resolve(std::string(RAPIDPROTO_CORPUS_DIR) + "/usewkt.proto", config);

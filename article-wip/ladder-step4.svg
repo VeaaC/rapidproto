@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 360" font-family="system-ui,sans-serif">
+<rect width="880" height="360" fill="#fcfcfb"/>
+<style>.t{font-size:14.5px;font-weight:600;fill:#0b0b0b}.a{font-size:10.5px;fill:#52514e}.g{font-size:10px;fill:#52514e}</style>
+<text x="60" y="24" class="t">Step 4: fused tag reads</text>
+<text x="60" y="40" class="a">decode speed &#8212; arena vs protoc, streaming vs protozero. <tspan fill="#2a78d6" font-weight="600">&#9632; gained this step</tspan>&#160;&#160;<tspan fill="#eb6834" font-weight="600">&#9632; lost this step</tspan>&#160;&#160;changes within a benchmark&#8217;s own measured noise stay grey</text>
+<line x1="60" y1="229.9" x2="866" y2="229.9" stroke="#e7e6e3" stroke-width="1"/>
+<text x="54" y="233.4" class="a" text-anchor="end">0.5x</text>
+<line x1="60" y1="203.3" x2="866" y2="203.3" stroke="#52514e" stroke-width="1" stroke-dasharray="5 4"/>
+<text x="54" y="206.8" class="a" text-anchor="end">1x ref</text>
+<line x1="60" y1="165.8" x2="866" y2="165.8" stroke="#e7e6e3" stroke-width="1"/>
+<text x="54" y="169.3" class="a" text-anchor="end">2x</text>
+<line x1="60" y1="137.0" x2="866" y2="137.0" stroke="#e7e6e3" stroke-width="1"/>
+<text x="54" y="140.5" class="a" text-anchor="end">3x</text>
+<line x1="60" y1="112.7" x2="866" y2="112.7" stroke="#e7e6e3" stroke-width="1"/>
+<text x="54" y="116.2" class="a" text-anchor="end">4x</text>
+<line x1="60" y1="91.3" x2="866" y2="91.3" stroke="#e7e6e3" stroke-width="1"/>
+<text x="54" y="94.8" class="a" text-anchor="end">5x</text>
+<line x1="60" y1="71.9" x2="866" y2="71.9" stroke="#e7e6e3" stroke-width="1"/>
+<text x="54" y="75.4" class="a" text-anchor="end">6x</text>
+<rect x="60.0" y="107.2" width="14.9" height="186.8" fill="#d9d8d5"/>
+<rect x="76.9" y="175.1" width="14.9" height="118.9" fill="#d9d8d5"/>
+<rect x="93.8" y="193.1" width="14.9" height="100.9" fill="#d9d8d5"/>
+<rect x="110.7" y="196.7" width="14.9" height="97.3" fill="#d9d8d5"/>
+<rect x="127.5" y="194.7" width="14.9" height="99.3" fill="#d9d8d5"/>
+<rect x="144.4" y="195.8" width="14.9" height="98.2" fill="#d9d8d5"/>
+<rect x="161.3" y="183.6" width="14.9" height="110.4" fill="#d9d8d5"/>
+<rect x="178.2" y="201.2" width="14.9" height="92.8" fill="#d9d8d5"/>
+<rect x="203.1" y="132.7" width="14.9" height="161.3" fill="#d9d8d5"/>
+<rect x="220.0" y="194.8" width="14.9" height="99.2" fill="#d9d8d5"/>
+<rect x="236.8" y="195.9" width="14.9" height="98.1" fill="#d9d8d5"/>
+<rect x="253.7" y="114.3" width="14.9" height="179.7" fill="#d9d8d5"/>
+<rect x="253.7" y="103.8" width="14.9" height="10.6" fill="#eb6834" rx="2"/>
+<rect x="270.6" y="199.3" width="14.9" height="94.7" fill="#d9d8d5"/>
+<rect x="270.6" y="197.8" width="14.9" height="1.5" fill="#eb6834"/>
+<rect x="295.5" y="175.6" width="14.9" height="118.4" fill="#d9d8d5"/>
+<rect x="312.4" y="200.6" width="14.9" height="93.4" fill="#d9d8d5"/>
+<rect x="337.3" y="204.6" width="14.9" height="89.4" fill="#d9d8d5"/>
+<rect x="354.1" y="179.9" width="14.9" height="114.1" fill="#d9d8d5"/>
+<rect x="371.0" y="149.8" width="14.9" height="144.2" fill="#d9d8d5"/>
+<rect x="371.0" y="142.1" width="14.9" height="7.7" fill="#2a78d6" rx="2"/>
+<rect x="395.9" y="106.0" width="14.9" height="188.0" fill="#d9d8d5"/>
+<rect x="395.9" y="96.1" width="14.9" height="10.0" fill="#2a78d6" rx="2"/>
+<rect x="412.8" y="144.5" width="14.9" height="149.5" fill="#d9d8d5"/>
+<rect x="412.8" y="137.1" width="14.9" height="7.4" fill="#2a78d6" rx="2"/>
+<rect x="429.7" y="188.2" width="14.9" height="105.8" fill="#d9d8d5"/>
+<rect x="429.7" y="182.9" width="14.9" height="5.3" fill="#2a78d6" rx="2"/>
+<rect x="446.6" y="185.5" width="14.9" height="108.5" fill="#d9d8d5"/>
+<rect x="463.4" y="187.3" width="14.9" height="106.7" fill="#d9d8d5"/>
+<line x1="493.3" y1="52" x2="493.3" y2="294" stroke="#e7e6e3" stroke-width="1"/>
+<rect x="506.3" y="174.0" width="14.9" height="120.0" fill="#d9d8d5"/>
+<rect x="523.2" y="186.6" width="14.9" height="107.4" fill="#d9d8d5"/>
+<rect x="540.1" y="185.3" width="14.9" height="108.7" fill="#d9d8d5"/>
+<rect x="557.0" y="177.9" width="14.9" height="116.1" fill="#d9d8d5"/>
+<rect x="581.9" y="180.7" width="14.9" height="113.3" fill="#d9d8d5"/>
+<rect x="598.7" y="175.4" width="14.9" height="118.6" fill="#d9d8d5"/>
+<rect x="615.6" y="197.8" width="14.9" height="96.2" fill="#d9d8d5"/>
+<rect x="632.5" y="158.5" width="14.9" height="135.5" fill="#d9d8d5"/>
+<rect x="632.5" y="154.8" width="14.9" height="3.7" fill="#eb6834"/>
+<rect x="657.4" y="186.4" width="14.9" height="107.6" fill="#d9d8d5"/>
+<rect x="674.3" y="195.7" width="14.9" height="98.3" fill="#d9d8d5"/>
+<rect x="691.2" y="169.0" width="14.9" height="125.0" fill="#d9d8d5"/>
+<rect x="708.0" y="135.8" width="14.9" height="158.2" fill="#d9d8d5"/>
+<rect x="732.9" y="165.9" width="14.9" height="128.1" fill="#d9d8d5"/>
+<rect x="749.8" y="179.7" width="14.9" height="114.3" fill="#d9d8d5"/>
+<rect x="766.7" y="185.8" width="14.9" height="108.2" fill="#d9d8d5"/>
+<rect x="783.6" y="187.5" width="14.9" height="106.5" fill="#d9d8d5"/>
+<rect x="800.5" y="194.1" width="14.9" height="99.9" fill="#d9d8d5"/>
+<rect x="817.3" y="191.4" width="14.9" height="102.6" fill="#d9d8d5"/>
+<rect x="834.2" y="191.0" width="14.9" height="103.0" fill="#d9d8d5"/>
+<rect x="851.1" y="193.2" width="14.9" height="100.8" fill="#d9d8d5"/>
+<text x="126.5" y="310" class="g" text-anchor="middle">packed</text>
+<text x="126.5" y="321" class="g" text-anchor="middle">varint</text>
+<text x="126.5" y="332" class="g" text-anchor="middle">sweeps</text>
+<text x="244.3" y="310" class="g" text-anchor="middle">zigzag</text>
+<text x="244.3" y="321" class="g" text-anchor="middle">+</text>
+<text x="244.3" y="332" class="g" text-anchor="middle">enum</text>
+<text x="311.4" y="310" class="g" text-anchor="middle">packed</text>
+<text x="311.4" y="321" class="g" text-anchor="middle">arrays</text>
+<text x="361.6" y="310" class="g" text-anchor="middle">records</text>
+<text x="437.1" y="310" class="g" text-anchor="middle">real-world</text>
+<text x="539.1" y="310" class="g" text-anchor="middle">varint</text>
+<text x="539.1" y="321" class="g" text-anchor="middle">micro</text>
+<text x="614.6" y="310" class="g" text-anchor="middle">fixed</text>
+<text x="614.6" y="321" class="g" text-anchor="middle">+</text>
+<text x="614.6" y="332" class="g" text-anchor="middle">string</text>
+<text x="690.2" y="310" class="g" text-anchor="middle">dispatch</text>
+<text x="690.2" y="321" class="g" text-anchor="middle">+</text>
+<text x="690.2" y="332" class="g" text-anchor="middle">skip</text>
+<text x="799.5" y="310" class="g" text-anchor="middle">sweeps</text>
+<text x="269" y="50" class="g" text-anchor="middle">arena model</text>
+<text x="686" y="50" class="g" text-anchor="middle">streaming model</text>
+<line x1="60" y1="294" x2="866" y2="294" stroke="#52514e" stroke-width="1"/>
+</svg>

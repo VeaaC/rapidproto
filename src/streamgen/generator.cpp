@@ -183,6 +183,17 @@ void emit_map_arm(Printer& printer, const CppNameTable& symbols, const MapFieldN
     printer.print("::rapidproto::Tag rp_et{};\n");
     printer.print("for (;;) {\n");
     printer.indent();
+#ifdef RP_LADDER_NO_FUSED_TAG
+    // THROWAWAY (perf-ladder): unfused twin of the map-entry tag read below.
+    printer.print("if (rp_ec >= rp_ee) { break; }\n");
+    printer.print(
+        "const std::uint8_t* const rp_etp ="
+        " ::rapidproto::wire::read_tag(rp_ec, rp_ee, &rp_et, &rp_we);\n");
+    printer.print("if (rp_etp == nullptr) { return ::rapidproto::DecodeStatus{rp_we,"
+                  " false, static_cast<std::size_t>(rp_ec - " +
+                  ebeg + ")}; }\n");
+    printer.print("rp_ec = rp_etp;\n");
+#else
     printer.print("::rapidproto::wire::TagState rp_es = ::rapidproto::wire::TagState::End;\n");
     printer.print(
         "const std::uint8_t* const rp_etp ="  // entry-loop tag ptr (distinct from the outer rp_tp)
@@ -194,6 +205,7 @@ void emit_map_arm(Printer& printer, const CppNameTable& symbols, const MapFieldN
         " false, static_cast<std::size_t>(rp_ec - " +
         ebeg + ")}; }\n");
     printer.print("rp_ec = rp_etp;\n");
+#endif
     printer.print(
         "if (rp_et.field_number == 1 && rp_et.wire_type == ::rapidproto::WireType::$kw$) {\n",
         {{"kw", key.wire_type}});
@@ -537,6 +549,11 @@ void emit_vt_skip(Printer& printer, std::string_view wire) {
 // field a wire-guarded goto regardless, so a non-minimally-encoded tag (which misses the 1-byte
 // hub) still decodes.
 bool is_threaded_field(const FieldNode& field, const FieldGen& gen) {
+#ifdef RP_LADDER_NO_THREADING  // THROWAWAY (perf-ladder)
+    (void)field;
+    (void)gen;
+    return false;
+#endif
     if (!field.is_repeated) {
         return codegen::is_threadable_singular(field);
     }
@@ -678,6 +695,18 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
                                  "return ::rapidproto::DecodeStatus::success();");
     // General path: multi-byte tags, unknown fields, wrong wire types, groups, maps.
     // Fused end-or-tag read: one bounds check drives the loop (see WireReader::read_tag_or_end).
+#ifdef RP_LADDER_NO_FUSED_TAG
+    // THROWAWAY (perf-ladder): separate end check + plain tag read (see the arenagen twin).
+    printer.print(
+        "if (rp_c >= rp_cend) { return ::rapidproto::DecodeStatus::success(); }\n");
+    printer.print(
+        "const std::uint8_t* const rp_tp ="
+        " ::rapidproto::wire::read_tag(rp_c, rp_cend, &rp_tag, &rp_we);\n");
+    printer.print(
+        "if (rp_tp == nullptr) { return ::rapidproto::DecodeStatus{rp_we,"
+        " false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }\n");
+    printer.print("rp_c = rp_tp;\n");
+#else
     printer.print("::rapidproto::wire::TagState rp_state = ::rapidproto::wire::TagState::End;\n");
     printer.print(
         "const std::uint8_t* const rp_tp ="
@@ -690,6 +719,7 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
         "::rapidproto::DecodeStatus{rp_we,"
         " false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }\n");
     printer.print("rp_c = rp_tp;\n");
+#endif
     printer.print("switch (rp_tag.field_number) {\n");
     printer.indent();
     for (const auto& [field, gen] : fields) {

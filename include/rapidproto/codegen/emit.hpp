@@ -351,6 +351,10 @@ inline int wire_enum_num(const std::string& w) {
 // for the wrong end tag. Shared so the two generators cannot drift on what threads.
 inline bool is_threadable_singular(const FieldNode& field) {
     assert(!field.is_repeated && "is_threadable_singular: callers gate repeated fields themselves");
+#ifdef RP_LADDER_NO_THREADING  // THROWAWAY (perf-ladder): classic general-switch arms only
+    (void)field;
+    return false;
+#endif
     if (field.number < 1 || field.number > kMaxTwoByteTagField) {
         return false;
     }
@@ -423,6 +427,12 @@ inline void emit_one_probe(Printer& p, const ThreadField& s) {
 // simply the entries past `pos` -- conformant serialization order.
 inline void emit_thread_probes(Printer& p, const std::vector<ThreadField>& threaded,
                                std::size_t pos) {
+#ifdef RP_LADDER_NO_PROBES  // THROWAWAY (perf-ladder): hub + labels without prediction
+    (void)p;
+    (void)threaded;
+    (void)pos;
+    return;
+#endif
     const OneofNode* const own = threaded[pos].oneof;
     int budget = 2;
     for (std::size_t j = pos + 1; j < threaded.size() && budget > 0; ++j) {
@@ -517,11 +527,13 @@ inline void emit_hub_and_labels(Printer& p, std::vector<ThreadField> threaded,
         p.print("rp_do_$n$: {\n", {{"n", n}});
         p.indent();
         hooks.emit_body(tf);
+#ifndef RP_LADDER_NO_PROBES  // THROWAWAY (perf-ladder): self-loop is part of the prediction rung
         p.print(
             "if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag($n$, "
             "::rapidproto::WireType::$w$"
             ")) { ++rp_c; goto rp_do_$n$; }  // another element of the same field\n",
             {{"n", n}, {"w", tf.thread_wire}});
+#endif
         detail::emit_thread_probes(p, threaded, i);
         p.print("continue;\n");
         p.outdent();
