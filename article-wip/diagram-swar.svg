@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 280" font-family="system-ui,sans-serif">
+<rect width="880" height="280" fill="#fcfcfb"/>
+<style>.t{font-size:14.5px;font-weight:600;fill:#0b0b0b}.a{font-size:11px;fill:#52514e}.g{font-size:10px;fill:#52514e}.m{font-size:11px;font-family:ui-monospace,monospace;fill:#0b0b0b}.mg{font-size:10px;font-family:ui-monospace,monospace;fill:#52514e}</style>
+<defs><marker id="ah" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L8 4 L0 8 z" fill="#52514e"/></marker><marker id="ahb" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L8 4 L0 8 z" fill="#2a78d6"/></marker></defs>
+<text x="60" y="30" class="g" text-anchor="start">one 64-bit load</text>
+<text x="60" y="66" class="a" text-anchor="start">wire bytes</text>
+<rect x="190" y="44" width="70" height="32" fill="none" stroke="#52514e" stroke-width="1" rx="3"/>
+<rect x="191" y="45" width="10" height="30" fill="#eb6834" fill-opacity="0.85" stroke="none"/>
+<text x="231.0" y="64" class="m" text-anchor="middle">0x96</text>
+<rect x="266" y="44" width="70" height="32" fill="none" stroke="#52514e" stroke-width="1" rx="3"/>
+<rect x="267" y="45" width="10" height="30" fill="#2a78d6" fill-opacity="0.85" stroke="none"/>
+<text x="307.0" y="64" class="m" text-anchor="middle">0x01</text>
+<rect x="342" y="44" width="70" height="32" fill="none" stroke="#52514e" stroke-width="1" rx="3"/>
+<rect x="343" y="45" width="10" height="30" fill="#eb6834" fill-opacity="0.85" stroke="none"/>
+<text x="383.0" y="64" class="m" text-anchor="middle">0xac</text>
+<rect x="418" y="44" width="70" height="32" fill="none" stroke="#52514e" stroke-width="1" rx="3"/>
+<rect x="419" y="45" width="10" height="30" fill="#2a78d6" fill-opacity="0.85" stroke="none"/>
+<text x="459.0" y="64" class="m" text-anchor="middle">0x02</text>
+<rect x="494" y="44" width="70" height="32" fill="none" stroke="#52514e" stroke-width="1" rx="3"/>
+<rect x="495" y="45" width="10" height="30" fill="#2a78d6" fill-opacity="0.85" stroke="none"/>
+<text x="535.0" y="64" class="m" text-anchor="middle">0x08</text>
+<rect x="570" y="44" width="70" height="32" fill="none" stroke="#52514e" stroke-width="1" rx="3"/>
+<rect x="571" y="45" width="10" height="30" fill="#eb6834" fill-opacity="0.85" stroke="none"/>
+<text x="611.0" y="64" class="m" text-anchor="middle">0xd2</text>
+<rect x="646" y="44" width="70" height="32" fill="none" stroke="#52514e" stroke-width="1" rx="3"/>
+<rect x="647" y="45" width="10" height="30" fill="#eb6834" fill-opacity="0.85" stroke="none"/>
+<text x="687.0" y="64" class="m" text-anchor="middle">0x85</text>
+<rect x="722" y="44" width="70" height="32" fill="none" stroke="#52514e" stroke-width="1" rx="3"/>
+<rect x="723" y="45" width="10" height="30" fill="#2a78d6" fill-opacity="0.85" stroke="none"/>
+<text x="763.0" y="64" class="m" text-anchor="middle">0x03</text>
+<rect x="380" y="22" width="9" height="9" fill="#eb6834"/>
+<text x="394" y="30" class="g" text-anchor="start">high bit set: value continues</text>
+<rect x="610" y="22" width="9" height="9" fill="#2a78d6"/>
+<text x="624" y="30" class="g" text-anchor="start">high bit clear: value ends</text>
+<text x="60" y="152" class="a" text-anchor="start">continuation mask</text>
+<text x="60" y="166" class="g" text-anchor="start">one multiply, one shift</text>
+<rect x="214.0" y="138" width="22" height="22" fill="#d9d8d5" stroke="#52514e" stroke-width="1" rx="3"/>
+<text x="225.0" y="153" class="m" text-anchor="middle">1</text>
+<line x1="225.0" y1="80" x2="225.0" y2="134" stroke="#52514e" stroke-width="1.3" stroke-dasharray="2 3" marker-end="url(#ah)"/>
+<rect x="290.0" y="138" width="22" height="22" fill="none" stroke="#52514e" stroke-width="1" rx="3"/>
+<text x="301.0" y="153" class="m" text-anchor="middle">0</text>
+<line x1="301.0" y1="80" x2="301.0" y2="134" stroke="#52514e" stroke-width="1.3" stroke-dasharray="2 3" marker-end="url(#ah)"/>
+<rect x="366.0" y="138" width="22" height="22" fill="#d9d8d5" stroke="#52514e" stroke-width="1" rx="3"/>
+<text x="377.0" y="153" class="m" text-anchor="middle">1</text>
+<line x1="377.0" y1="80" x2="377.0" y2="134" stroke="#52514e" stroke-width="1.3" stroke-dasharray="2 3" marker-end="url(#ah)"/>
+<rect x="442.0" y="138" width="22" height="22" fill="none" stroke="#52514e" stroke-width="1" rx="3"/>
+<text x="453.0" y="153" class="m" text-anchor="middle">0</text>
+<line x1="453.0" y1="80" x2="453.0" y2="134" stroke="#52514e" stroke-width="1.3" stroke-dasharray="2 3" marker-end="url(#ah)"/>
+<rect x="518.0" y="138" width="22" height="22" fill="none" stroke="#52514e" stroke-width="1" rx="3"/>
+<text x="529.0" y="153" class="m" text-anchor="middle">0</text>
+<line x1="529.0" y1="80" x2="529.0" y2="134" stroke="#52514e" stroke-width="1.3" stroke-dasharray="2 3" marker-end="url(#ah)"/>
+<rect x="594.0" y="138" width="22" height="22" fill="#d9d8d5" stroke="#52514e" stroke-width="1" rx="3"/>
+<text x="605.0" y="153" class="m" text-anchor="middle">1</text>
+<line x1="605.0" y1="80" x2="605.0" y2="134" stroke="#52514e" stroke-width="1.3" stroke-dasharray="2 3" marker-end="url(#ah)"/>
+<rect x="670.0" y="138" width="22" height="22" fill="#d9d8d5" stroke="#52514e" stroke-width="1" rx="3"/>
+<text x="681.0" y="153" class="m" text-anchor="middle">1</text>
+<line x1="681.0" y1="80" x2="681.0" y2="134" stroke="#52514e" stroke-width="1.3" stroke-dasharray="2 3" marker-end="url(#ah)"/>
+<rect x="746.0" y="138" width="22" height="22" fill="none" stroke="#52514e" stroke-width="1" rx="3"/>
+<text x="757.0" y="153" class="m" text-anchor="middle">0</text>
+<line x1="757.0" y1="80" x2="757.0" y2="134" stroke="#52514e" stroke-width="1.3" stroke-dasharray="2 3" marker-end="url(#ah)"/>
+<text x="60" y="222" class="a" text-anchor="start">decoded values</text>
+<text x="60" y="236" class="g" text-anchor="start">3 shift-and-mask rounds</text>
+<rect x="190" y="208" width="146" height="30" fill="#2a78d6" stroke="#52514e" stroke-width="1" rx="3"/>
+<text x="263.0" y="227" text-anchor="middle" fill="#ffffff" font-size="11" font-family="ui-monospace,monospace">150</text>
+<line x1="263.0" y1="164" x2="263.0" y2="204" stroke="#52514e" stroke-width="1.3" stroke-dasharray="2 3" marker-end="url(#ah)"/>
+<rect x="342" y="208" width="146" height="30" fill="#2a78d6" stroke="#52514e" stroke-width="1" rx="3"/>
+<text x="415.0" y="227" text-anchor="middle" fill="#ffffff" font-size="11" font-family="ui-monospace,monospace">300</text>
+<line x1="415.0" y1="164" x2="415.0" y2="204" stroke="#52514e" stroke-width="1.3" stroke-dasharray="2 3" marker-end="url(#ah)"/>
+<rect x="494" y="208" width="70" height="30" fill="#2a78d6" stroke="#52514e" stroke-width="1" rx="3"/>
+<text x="529.0" y="227" text-anchor="middle" fill="#ffffff" font-size="11" font-family="ui-monospace,monospace">8</text>
+<line x1="529.0" y1="164" x2="529.0" y2="204" stroke="#52514e" stroke-width="1.3" stroke-dasharray="2 3" marker-end="url(#ah)"/>
+<rect x="570" y="208" width="222" height="30" fill="#2a78d6" stroke="#52514e" stroke-width="1" rx="3"/>
+<text x="681.0" y="227" text-anchor="middle" fill="#ffffff" font-size="11" font-family="ui-monospace,monospace">49874</text>
+<line x1="681.0" y1="164" x2="681.0" y2="204" stroke="#52514e" stroke-width="1.3" stroke-dasharray="2 3" marker-end="url(#ah)"/>
+<text x="190" y="266" class="a" text-anchor="start">one branch per 64-bit word replaces one branch per byte</text>
+</svg>

@@ -35,6 +35,8 @@ A decoded string does not need its own bytes - the input buffer already has them
 stores every string and bytes field as a {pointer, length} view into the input: no copy, no
 allocation, no small-string optimization to branch on.
 
+![Copied vs borrowed strings](diagram-strings.svg)
+
 `Dataset` is string-heavy and gains ×1.42; `google_message2` gains ×1.14. Arena memory for
 `Dataset` drops from 1.23 MB to 1.03 MB - against protoc's 1.97 MB for the same payload.
 The streaming side is unaffected by construction: its API has handed out `string_view`s from
@@ -49,6 +51,8 @@ elements it gives the exact element count; for varints it bounds the count from 
 element is at least one byte). So instead of growing an array element by element, the
 decoder allocates the bound once, decodes into place, and returns the unused tail to the
 arena - the trim is a pointer subtraction, since nothing else allocated in between.
+
+![Packed pre-sizing](diagram-presize.svg)
 
 For fixed-width elements on a little-endian machine there is a second consequence: the wire
 span already is the array's byte image, so the whole fill is one `memcpy`. That is how
@@ -108,6 +112,8 @@ multiply-and-shift gathers those eight bits into a mask, and three shift-and-mas
 compact each value's 7-bit groups into a contiguous result. One branch for the whole 64-bit
 word now replaces one branch per byte.
 
+![SWAR varint decode](diagram-swar.svg)
+
 This requires, of course, that the decoder properly predicts the distribution: it probes the
 first 64 bytes of each span and picks the kernel to match. As this adds overhead it only
 makes sense for larger payloads (in our case 256+ bytes).
@@ -131,6 +137,8 @@ directly - each known tag byte jumps straight to a label that decodes that field
 already consumed. Anything else (higher fields, unknown fields, a non-minimal encoding)
 falls through to the general path from step 4, unchanged.
 
+![One-byte peek hub](diagram-hub.svg)
+
 A single benchmark moves on this step, but it is `Dataset`, the suite's mixed real-world
 payload, at ×1.23. Elsewhere a switch on a byte is still a switch. The hub's second job is
 structural - it turns each field's decode into an addressable label, and labels are what the
@@ -147,6 +155,8 @@ fields, and jumping straight to their dedicated decoding label. A repeated field
 element of itself first. A oneof's siblings are skipped - at most one member occurs. On an
 in-order wire the decoder becomes a chain of direct, mostly correctly predicted branches; the
 dispatch switch from step 6 only catches the exceptions.
+
+![Field-order threading](diagram-threading.svg)
 
 The dispatch-bound benchmark gains ×1.56, `google_message1` ×1.23, and `Dataset` finishes at
 6.1× protoc. Two benchmarks lose ground: `osm_blocks` −4% and `many msgs, tiny arrays` −10%.
