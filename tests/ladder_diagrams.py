@@ -124,7 +124,7 @@ def presize():
     o.append(txt(ax + used / 2, 236, "87 decoded", "m"))
     o.append(txt(ax + used + (aw - used) / 2, 236, "unused tail", "mg"))
     o.append(txt(ax + used + (aw - used) / 2, 268,
-                 "returned to the arena: a pointer subtraction", "g"))
+                 "returned to the arena: the bump cursor moves back", "g"))
     svg(880, 282, o, "diagram-presize.svg")
 
 
@@ -177,8 +177,7 @@ def hub():
     o = []
     # peek node
     o.append(box(60, 96, 170, 40))
-    o.append(txt(145, 116, "peek one byte", "a"))
-    o.append(txt(145, 130, "(no bounds re-check)", "g"))
+    o.append(txt(145, 121, "peek one byte", "a"))
     # field labels
     fields = [("0x0a", "field 1: name", 44), ("0x10", "field 2: id", 104),
               ("0x1a", "field 3: tags", 164)]

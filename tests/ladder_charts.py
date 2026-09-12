@@ -70,7 +70,7 @@ def render(idx, out, shown=None):
         c, pv = r["ratios"][idx], (r["ratios"][idx - 1] if idx else r["ratios"][idx])
         lo = min(c, pv)
         sig = abs(c / pv - 1) > r["thresh"] if idx else False
-        yb, y0 = Y(lo), Y(0.001) if False else MT + ph
+        yb, y0 = Y(lo), MT + ph
         o.append(f'<rect x="{x:.1f}" y="{yb:.1f}" width="{bw:.1f}" '
                  f'height="{y0 - yb:.1f}" fill="{BASE}"/>')
         if sig and c > pv:

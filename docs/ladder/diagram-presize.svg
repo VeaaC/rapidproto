@@ -29,5 +29,5 @@
 <line x1="444" y1="218" x2="444" y2="246" stroke="#52514e" stroke-width="1"/>
 <text x="316.2105263157895" y="236" class="m" text-anchor="middle">87 decoded</text>
 <text x="596.2105263157895" y="236" class="mg" text-anchor="middle">unused tail</text>
-<text x="596.2105263157895" y="268" class="g" text-anchor="middle">returned to the arena: a pointer subtraction</text>
+<text x="596.2105263157895" y="268" class="g" text-anchor="middle">returned to the arena: the bump cursor moves back</text>
 </svg>
