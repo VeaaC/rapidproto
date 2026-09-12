@@ -109,10 +109,9 @@ sweeps lose ground, `rv-enum fx1` by 11% and `rv-enum mix13` by 3%, and the stre
 
 ## Step 5: SWAR varint kernels
 
-A packed repeated varint is decoded one byte at a time in the builds so far: read a byte,
-test the continuation bit, and continue if necessary. This is inherently sequential, and on
-mixed-width data branch prediction cannot help much - branch misprediction actually hurts
-performance a lot.
+In the builds so far, a packed repeated varint is decoded one byte at a time: read a byte,
+test the continuation bit, read the next byte if it is set. This is inherently sequential,
+and on mixed-width data branch prediction cannot help much - the mispredictions hurt a lot.
 
 One idea is to have dedicated decoders (so-called kernels) for various value distributions.
 A kernel loads 64 bits at a time and tries to decode multiple varints in parallel,
