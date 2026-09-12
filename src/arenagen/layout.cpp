@@ -118,7 +118,6 @@ struct StructExtent {
 // Sort `slots` into the padding-minimizing order, write each slot's offset through its `out` pointer,
 // and return the struct's overall {size, align}.
 StructExtent order_slots(std::vector<Slot>& slots) {
-#ifndef RP_LADDER_NO_LAYOUT  // THROWAWAY (perf-ladder): declaration-order members, no reorder
     std::sort(slots.begin(), slots.end(), [](const Slot& a, const Slot& b) {
         if (a.align != b.align) {
             return a.align > b.align;
@@ -131,7 +130,6 @@ StructExtent order_slots(std::vector<Slot>& slots) {
         }
         return a.seq < b.seq;
     });
-#endif
     std::size_t cursor = 0;
     std::size_t max_align = 1;
     for (const Slot& slot : slots) {
@@ -199,12 +197,10 @@ private:
         // too, bounding the recursion; the target's own layout is computed later, memoized.
         if (m_visiting.size() < kMaxChainDepth && m_visiting.find(target_fqn) == m_visiting.end() &&
             m_index.messages.find(target_fqn) != m_index.messages.end()) {
-            [[maybe_unused]] const MessageLayout& target = layout_for(target_fqn);
-#ifndef RP_LADDER_NO_LAYOUT  // THROWAWAY (perf-ladder): every sub-message behind a pointer
+            const MessageLayout& target = layout_for(target_fqn);
             if (target.fixed_size && target.size <= m_opts.inline_submsg_cutoff) {
                 return {FieldKind::InlineFixedSubMsg, target.size, target.align};
             }
-#endif
         }
         return {FieldKind::PointerSubMsg, kPtrSize, kPtrAlign};
     }

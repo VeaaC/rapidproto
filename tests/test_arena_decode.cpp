@@ -136,8 +136,7 @@ TEST_CASE("arena-decode: protoc scalar fixture", "[arena-decode]") {
     CHECK(m->i64().has_value());  // present in the fixture
 }
 
-TEST_CASE("arena-decode: strings borrow the input buffer (no copy)",
-          "[arena-decode][borrowpin]") {  // perf-ladder: pins what COPY_STRINGS switches off
+TEST_CASE("arena-decode: strings borrow the input buffer (no copy)", "[arena-decode]") {
     std::string buf;
     put_len(buf, 3, "a borrowed name");  // p3.Msg.name (field 3, string)
     Arena arena;
