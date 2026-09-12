@@ -62,26 +62,26 @@ def strings():
         sx, sw = px + 150, 120
         o.append(box(sx, 52, sw, 30, BASE))
         o.append(txt(sx + sw / 2, 71, '"/index.html"', "m"))
-        # arena strip
-        o.append(box(px, 130, pw, 30))
-        o.append(txt(px + 4, 124, "arena", "g", "start"))
-        # struct field
+        # arena holds the message struct itself (and, in the baseline, the copied bytes)
+        o.append(box(px, 128, pw, 108))
+        o.append(txt(px + 4, 122, "arena", "g", "start"))
         fx, fw = px + 110, 160
-        o.append(box(fx, 200, fw, 32))
-        o.append(txt(fx + fw / 2, 220, "msg.path", "m"))
+        o.append(box(fx, 188, fw, 32))
+        o.append(txt(fx + fw / 2, 208, "msg.path", "m"))
         if borrowed:
-            o.append(txt(px + pw / 2, 149, "no copy, no allocation", "g"))
-            # field points straight into the buffer span
-            o.append(path_arrow(f'M {fx + fw / 2} 200 C {fx + fw / 2} 160, '
+            o.append(txt(px + pw / 2, 158, "no string copy, no allocation", "g"))
+            # the field points straight into the input buffer
+            o.append(path_arrow(f'M {fx + fw / 2} 188 C {fx + fw / 2} 140, '
                                 f'{sx + sw / 2} 130, {sx + sw / 2} 84'))
-            o.append(txt(fx + fw + 10, 220, "{pointer, length}", "mg", "start"))
+            o.append(txt(fx + fw + 8, 208, "{pointer,", "mg", "start"))
+            o.append(txt(fx + fw + 8, 221, " length}", "mg", "start"))
         else:
             cx, cw = px + 140, 120
-            o.append(box(cx, 130, cw, 30, BASE))
-            o.append(txt(cx + cw / 2, 149, '"/index.html"', "m"))
-            o.append(arrow(sx + sw / 2, 84, cx + cw / 2, 128))
-            o.append(txt(sx + sw / 2 + 8, 110, "alloc + memcpy", "g", "start"))
-            o.append(arrow(fx + fw / 2, 200, cx + cw / 2, 162))
+            o.append(box(cx, 140, cw, 30, BASE))
+            o.append(txt(cx + cw / 2, 159, '"/index.html"', "m"))
+            o.append(arrow(sx + sw / 2, 84, cx + cw / 2, 138))
+            o.append(txt(sx + sw / 2 + 10, 110, "alloc + memcpy", "g", "start"))
+            o.append(arrow(fx + fw / 2, 188, cx + cw / 2, 172))
     o.append(f'<line x1="440" y1="20" x2="440" y2="240" stroke="{GRID}"/>')
     svg(880, 252, o, "diagram-strings.svg")
 
@@ -202,14 +202,17 @@ def threading():
         o.append(box(x, 60, 180, 40))
         o.append(txt(x + 90, 78, label, "m"))
         o.append(txt(x + 90, 93, "decode, then:", "g"))
-    # predicted chain
+    # predicted chain: each label probes the next two expected tags
     o.append(arrow(250, 80, 346, 80, GAIN, marker="ahb"))
     o.append(txt(298, 70, "next == 0x10?", "mg"))
+    o.append(path_arrow('M 160 60 C 250 8, 620 8, 696 56', GAIN, marker="ahb"))
+    o.append(txt(430, 22, "or == 0x1a?", "mg"))
     o.append(arrow(530, 80, 626, 80, GAIN, marker="ahb"))
     o.append(txt(578, 70, "next == 0x1a?", "mg"))
     # repeated self-check on field 3
-    o.append(path_arrow('M 760 60 C 790 20, 660 20, 690 56', GAIN, marker="ahb"))
-    o.append(txt(725, 24, "another element?", "mg"))
+    o.append(path_arrow('M 810 68 C 856 44, 856 96, 814 90', GAIN, marker="ahb"))
+    o.append(txt(874, 36, "another", "mg", "end"))
+    o.append(txt(874, 49, "element?", "mg", "end"))
     # dispatch fallback
     o.append(box(330, 180, 220, 40, dash="4 3"))
     o.append(txt(440, 204, "dispatch switch (step 6)", "a"))
@@ -217,10 +220,11 @@ def threading():
         o.append(path_arrow(f'M {x + 90} 100 C {x + 90} 150, 440 130, 440 176',
                             dash="4 3"))
     o.append(txt(96, 160, "miss: fall back", "g", "start"))
-    o.append(txt(70, 254, "on an in-order wire the decoder runs down the blue chain of "
-                          "predictable branches; the switch only catches the exceptions",
-                          "a", "start"))
-    svg(880, 268, o, "diagram-threading.svg")
+    o.append(txt(70, 250, "each label probes the next two expected tags; on an in-order "
+                          "wire the decoder runs down the blue chain of predictable "
+                          "branches", "a", "start"))
+    o.append(txt(70, 266, "and the switch only catches the exceptions", "a", "start"))
+    svg(880, 280, o, "diagram-threading.svg")
 
 
 strings()

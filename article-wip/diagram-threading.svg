@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 268" font-family="system-ui,sans-serif">
-<rect width="880" height="268" fill="#fcfcfb"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 280" font-family="system-ui,sans-serif">
+<rect width="880" height="280" fill="#fcfcfb"/>
 <style>.t{font-size:14.5px;font-weight:600;fill:#0b0b0b}.a{font-size:11px;fill:#52514e}.g{font-size:10px;fill:#52514e}.m{font-size:11px;font-family:ui-monospace,monospace;fill:#0b0b0b}.mg{font-size:10px;font-family:ui-monospace,monospace;fill:#52514e}</style>
 <defs><marker id="ah" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L8 4 L0 8 z" fill="#52514e"/></marker><marker id="ahb" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L8 4 L0 8 z" fill="#2a78d6"/></marker></defs>
 <rect x="70" y="60" width="180" height="40" fill="none" stroke="#52514e" stroke-width="1" rx="3"/>
@@ -13,15 +13,19 @@
 <text x="720" y="93" class="g" text-anchor="middle">decode, then:</text>
 <line x1="250" y1="80" x2="346" y2="80" stroke="#2a78d6" stroke-width="1.3" marker-end="url(#ahb)"/>
 <text x="298" y="70" class="mg" text-anchor="middle">next == 0x10?</text>
+<path d="M 160 60 C 250 8, 620 8, 696 56" fill="none" stroke="#2a78d6" stroke-width="1.3" marker-end="url(#ahb)"/>
+<text x="430" y="22" class="mg" text-anchor="middle">or == 0x1a?</text>
 <line x1="530" y1="80" x2="626" y2="80" stroke="#2a78d6" stroke-width="1.3" marker-end="url(#ahb)"/>
 <text x="578" y="70" class="mg" text-anchor="middle">next == 0x1a?</text>
-<path d="M 760 60 C 790 20, 660 20, 690 56" fill="none" stroke="#2a78d6" stroke-width="1.3" marker-end="url(#ahb)"/>
-<text x="725" y="24" class="mg" text-anchor="middle">another element?</text>
+<path d="M 810 68 C 856 44, 856 96, 814 90" fill="none" stroke="#2a78d6" stroke-width="1.3" marker-end="url(#ahb)"/>
+<text x="874" y="36" class="mg" text-anchor="end">another</text>
+<text x="874" y="49" class="mg" text-anchor="end">element?</text>
 <rect x="330" y="180" width="220" height="40" fill="none" stroke="#52514e" stroke-width="1" rx="3" stroke-dasharray="4 3"/>
 <text x="440" y="204" class="a" text-anchor="middle">dispatch switch (step 6)</text>
 <path d="M 160 100 C 160 150, 440 130, 440 176" fill="none" stroke="#52514e" stroke-width="1.3" stroke-dasharray="4 3" marker-end="url(#ah)"/>
 <path d="M 440 100 C 440 150, 440 130, 440 176" fill="none" stroke="#52514e" stroke-width="1.3" stroke-dasharray="4 3" marker-end="url(#ah)"/>
 <path d="M 720 100 C 720 150, 440 130, 440 176" fill="none" stroke="#52514e" stroke-width="1.3" stroke-dasharray="4 3" marker-end="url(#ah)"/>
 <text x="96" y="160" class="g" text-anchor="start">miss: fall back</text>
-<text x="70" y="254" class="a" text-anchor="start">on an in-order wire the decoder runs down the blue chain of predictable branches; the switch only catches the exceptions</text>
+<text x="70" y="250" class="a" text-anchor="start">each label probes the next two expected tags; on an in-order wire the decoder runs down the blue chain of predictable branches</text>
+<text x="70" y="266" class="a" text-anchor="start">and the switch only catches the exceptions</text>
 </svg>
