@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2026 Christian Vetter
-"""Distill docs/ladder/ladder-data.json from the optimization-ladder campaign snapshots
-(docs/optimizations.md). Run from the repo root; needs bench_snapshots/ladder-R*.ndjson, the
-local (gitignored) timing runs of the article's nine builds -- so this reruns only with a new
-campaign. The committed json is the source docs/ladder charts render from (ladder_charts.py).
+"""Distill ladder-data.json from the optimization-ladder campaign snapshots
+(../optimizations.md). Needs bench_snapshots/ladder-R*.ndjson at the repo root, the local
+(gitignored) timing runs of the article's nine builds -- so this reruns only with a new
+campaign. The committed json is the source the charts render from (charts.py).
 
-Output: docs/ladder/ladder-data.json
+Output: ladder-data.json (next to this script)
   { "rungs": [names...], "panels": { panel: [ {id, family, ratios[9], thresh} ... ] } }
 ratio = generated arm / reference arm from the SAME snapshot (arena-warm/protoc for arena,
 generated/protozero for streaming); thresh = the scenario's own reference-arm drift across all
@@ -14,6 +14,10 @@ nine builds (max/min - 1), floored at 3%.
 """
 import json
 import glob
+import os
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(os.path.dirname(HERE))
 
 ARENA = [  # (scenario, family) — fixed article order
     ("rv fx1 1M", "packed varint sweeps"), ("rv fx3 1M", "packed varint sweeps"),
@@ -48,7 +52,7 @@ RUNG_TITLES = [
     "field-order threading"]
 
 snaps = {}
-for f in glob.glob("bench_snapshots/ladder-R*.ndjson"):
+for f in glob.glob(os.path.join(ROOT, "bench_snapshots", "ladder-R*.ndjson")):
     name = f.split("ladder-")[1].split(".")[0]
     rows = {}
     for l in open(f):
@@ -82,7 +86,7 @@ for panel, picks, dec, gen_arm, ref in (
             continue
         rows.append({"id": scen, "family": fam, **s})
     out["panels"][panel] = rows
-json.dump(out, open("docs/ladder/ladder-data.json", "w"), indent=1)
+json.dump(out, open(os.path.join(HERE, "ladder-data.json"), "w"), indent=1)
 n = sum(len(v) for v in out["panels"].values())
 print(f"wrote ladder-data.json: {n} bars")
 # quick sanity: R8 medians + biggest per-rung movers
