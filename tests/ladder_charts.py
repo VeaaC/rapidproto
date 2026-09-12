@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
-"""Render one SVG per rung from ladder-data.json: every benchmark as a bar (speed vs its
-reference), the part this rung changed colored — gains blue, losses orange — and deltas within
-the scenario's own measured reference drift left uncolored. Arena bars are vs protoc,
-streaming bars vs protozero; one dashed line marks the reference's 1x."""
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 Christian Vetter
+"""Render docs/optimizations.md's per-step charts (docs/ladder/ladder-step*.svg) from the
+committed docs/ladder/ladder-data.json (ladder_extract.py). Run from the repo root. One SVG
+per article step: every benchmark as a bar (speed vs its reference), the part the step changed
+colored -- gains blue, losses orange -- and deltas within the scenario's own measured
+reference drift left uncolored. Arena bars are vs protoc, streaming bars vs protozero; one
+dashed line marks the reference's 1x."""
 import json
 import math
 import sys
@@ -10,7 +14,7 @@ import sys
 BASE, GAIN, LOSS = "#d9d8d5", "#2a78d6", "#eb6834"
 INK, INK2, GRID, SURF = "#0b0b0b", "#52514e", "#e7e6e3", "#fcfcfb"
 
-data = json.load(open(sys.argv[1] if len(sys.argv) > 1 else "ladder-data.json"))
+data = json.load(open(sys.argv[1] if len(sys.argv) > 1 else "docs/ladder/ladder-data.json"))
 RUNGS, TITLES = data["rungs"], data["titles"]
 hi_all = max(max(r["ratios"]) for p in data["panels"].values() for r in p)
 
@@ -100,5 +104,5 @@ def render(idx, out, shown=None):
 # Article numbering: the memory-layout rung (R2) has no section; steps renumber past it.
 ARTICLE = [0, 1, 3, 4, 5, 6, 7, 8]  # article step n -> campaign rung index
 for n, ri in enumerate(ARTICLE):
-    render(ri, f"ladder-step{n}.svg", n)
-print("wrote ladder-step0..7.svg")
+    render(ri, f"docs/ladder/ladder-step{n}.svg", n)
+print("wrote docs/ladder/ladder-step0..7.svg")

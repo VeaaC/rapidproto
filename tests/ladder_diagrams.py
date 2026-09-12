@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
-"""Render the explanatory diagrams for the ladder article. Same palette and type as
-render_rungs.py so charts and diagrams read as one family."""
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 Christian Vetter
+"""Render docs/optimizations.md's explanatory diagrams (docs/ladder/diagram-*.svg). Run from
+the repo root. Same palette and type as ladder_charts.py so charts and diagrams read as one
+family."""
 
 SURF, INK, INK2 = "#fcfcfb", "#0b0b0b", "#52514e"
 GRID, BASE, GAIN, LOSS = "#e7e6e3", "#d9d8d5", "#2a78d6", "#eb6834"
@@ -23,6 +26,7 @@ def svg(w, h, body, out):
          f'<rect width="{w}" height="{h}" fill="{SURF}"/>', STYLE, ARROW]
     o += body
     o.append('</svg>')
+    out = "docs/ladder/" + out
     open(out, "w").write("\n".join(o))
     print("wrote", out)
 

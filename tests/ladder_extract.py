@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
-"""Extract the article's per-rung chart data from the ladder snapshots.
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 Christian Vetter
+"""Distill docs/ladder/ladder-data.json from the optimization-ladder campaign snapshots
+(docs/optimizations.md). Run from the repo root; needs bench_snapshots/ladder-R*.ndjson, the
+local (gitignored) timing runs of the article's nine builds -- so this reruns only with a new
+campaign. The committed json is the source docs/ladder charts render from (ladder_charts.py).
 
-Output: ladder-data.json
+Output: docs/ladder/ladder-data.json
   { "rungs": [names...], "panels": { panel: [ {id, family, ratios[9], thresh} ... ] } }
 ratio = generated arm / reference arm from the SAME snapshot (arena-warm/protoc for arena,
 generated/protozero for streaming); thresh = the scenario's own reference-arm drift across all
@@ -77,7 +82,7 @@ for panel, picks, dec, gen_arm, ref in (
             continue
         rows.append({"id": scen, "family": fam, **s})
     out["panels"][panel] = rows
-json.dump(out, open("ladder-data.json", "w"), indent=1)
+json.dump(out, open("docs/ladder/ladder-data.json", "w"), indent=1)
 n = sum(len(v) for v in out["panels"].values())
 print(f"wrote ladder-data.json: {n} bars")
 # quick sanity: R8 medians + biggest per-rung movers

@@ -1,6 +1,7 @@
-> I wonder if google message 1/2 count as "real world" if they use outdated proto2 construct (group). I do not want to drop them either, though, but maybe change their label to something more appropriate?
-
 # A protobuf decoder, one optimization at a time
+
+*How the decoders got fast: seven optimizations, re-enabled one at a time and measured. Back
+to the [README](../README.md); the maintained numbers live in [benchmarks.md](benchmarks.md).*
 
 RapidProto is a code generator that turns protobuf schemas into C++ decoders - an arena
 decoder that materializes a whole message tree, and a streaming decoder that hands each field
@@ -15,8 +16,8 @@ same bytes in the same binary: protoc (libprotobuf 4.25.3) for arena benchmarks,
 for streaming benchmarks. A step's change on a benchmark is shown in the charts only when it
 exceeds that benchmark's own measured noise.
 
-One caveat: everything here was produced at one point in time; the maintained numbers are in
-[benchmarks.md](benchmarks.md).
+One caveat: everything here was produced at one point in time (one revision, clang 20,
+September 2026); the maintained numbers are in [benchmarks.md](benchmarks.md).
 
 ## The baseline
 
@@ -29,7 +30,7 @@ pointer. The compiler inlines whatever it feels like.
 With all of that, the arena baseline decodes `Dataset` at 2.4× protoc - and the streaming
 baseline sits at 0.9× protozero.
 
-![Baseline](ladder-step0.svg)
+![Baseline](ladder/ladder-step0.svg)
 
 ## Step 1: borrowed strings
 
@@ -37,12 +38,14 @@ A decoded string does not need its own bytes - the input buffer already has them
 stores every string and bytes field as a {pointer, length} view into the input: no copy, no
 allocation, no small-string optimization to branch on.
 
+![Copied vs borrowed strings](ladder/diagram-strings.svg)
+
 `Dataset` is string-heavy and gains ×1.42; `google_message2` gains ×1.14. Arena memory for
 `Dataset` drops from 1.23 MB to 1.03 MB - against protoc's 1.97 MB for the same payload.
 The streaming side is unaffected by construction: its API has handed out `string_view`s from
 the beginning.
 
-![Step 1](ladder-step1.svg)
+![Step 1](ladder/ladder-step1.svg)
 
 ## Step 2: packed pre-sizing
 
@@ -52,6 +55,8 @@ element is at least one byte). So instead of growing an array element by element
 decoder allocates the bound once, decodes into place, and returns the unused tail to the
 arena - the trim is a pointer subtraction, since nothing else allocated in between.
 
+![Packed pre-sizing](ladder/diagram-presize.svg)
+
 For fixed-width elements on a little-endian machine there is a second consequence: the wire
 span already is the array's byte image, so the whole fill is one `memcpy`. That is how
 `packed double` gains ×1.93. The varint sweeps gain ×1.3-1.4 from the pre-sizing alone, and
@@ -59,7 +64,7 @@ span already is the array's byte image, so the whole fill is one `memcpy`. That 
 down. The streaming decoder passes each value to a callback, so there is no array to
 pre-size and it stays where it was.
 
-![Step 2](ladder-step2.svg)
+![Step 2](ladder/ladder-step2.svg)
 
 ## Step 3: forced inlining
 
@@ -80,7 +85,7 @@ drops ×0.68 on this step and never recovers; flattening a recursion-heavy shape
 worse. Compile time and code size also pay for this step; the shipped build's compile costs
 are tracked in [benchmarks.md](benchmarks.md).
 
-![Step 3](ladder-step3.svg)
+![Step 3](ladder/ladder-step3.svg)
 
 ## Step 4: fused tag reads
 
@@ -94,7 +99,7 @@ The gains concentrate where fields are small and plentiful: `Dataset` +11%,
 `google_message1` +10%, `many msgs, tiny arrays` +11%. Three kernel-heavy sweeps read a few
 percent slower, at the edge of their noise.
 
-![Step 4](ladder-step4.svg)
+![Step 4](ladder/ladder-step4.svg)
 
 ## Step 5: SWAR varint kernels
 
@@ -110,6 +115,8 @@ multiply-and-shift gathers those eight bits into a mask, and three shift-and-mas
 compact each value's 7-bit groups into a contiguous result. One branch for the whole 64-bit
 word now replaces one branch per byte.
 
+![SWAR varint decode](ladder/diagram-swar.svg)
+
 This requires, of course, that the decoder properly predicts the distribution: it probes the
 first 64 bytes of each span and picks the kernel to match. As this adds overhead it only
 makes sense for larger payloads (in our case 256+ bytes).
@@ -123,7 +130,7 @@ mixed-width datasets gain the most: ×2.33 on the enum mix, ×1.29 on uniformly 
 widths. The streaming side stays unaffected: that decoder hands each value to a callback as
 it is decoded, and without a bulk fill the kernels remain unused.
 
-![Step 5](ladder-step5.svg)
+![Step 5](ladder/ladder-step5.svg)
 
 ## Step 6: the one-byte peek hub
 
@@ -133,13 +140,14 @@ directly - each known tag byte jumps straight to a label that decodes that field
 already consumed. Anything else (higher fields, unknown fields, a non-minimal encoding)
 falls through to the general path from step 4, unchanged.
 
-> I would not say it barely registers, as Dataset is one of the more important real woprld benchmarks
+![One-byte peek hub](ladder/diagram-hub.svg)
 
-On its own this step barely registers: a single benchmark moves, `Dataset` at ×1.23. A
-switch on a byte is still a switch. The hub's real job is structural - it turns each field's
-decode into an addressable label, and labels are what the next step needs.
+A single benchmark moves on this step, but it is `Dataset`, the suite's mixed real-world
+payload, at ×1.23. Elsewhere a switch on a byte is still a switch. The hub's second job is
+structural - it turns each field's decode into an addressable label, and labels are what the
+next step needs.
 
-![Step 6](ladder-step6.svg)
+![Step 6](ladder/ladder-step6.svg)
 
 ## Step 7: field-order threading
 
@@ -151,9 +159,12 @@ element of itself first. A oneof's siblings are skipped - at most one member occ
 in-order wire the decoder becomes a chain of direct, mostly correctly predicted branches; the
 dispatch switch from step 6 only catches the exceptions.
 
-The dispatch-bound benchmark gains ×1.56, `google_message1` ×1.23, and `Dataset` finishes at
-6.1× protoc. Two benchmarks lose ground: `osm_blocks` −4% and `many msgs, tiny arrays` −10%
-- wire whose field order defeats the prediction pays for the failed probes. < weirdly phrased
+![Field-order threading](ladder/diagram-threading.svg)
 
-![Step 7](ladder-step7.svg)
+The dispatch-bound benchmark gains ×1.56, `google_message1` ×1.23, and `Dataset` finishes at
+6.1× protoc. Two benchmarks lose ground: `osm_blocks` −4% and `many msgs, tiny arrays` −10%.
+Their fields often arrive in an order the probes do not expect, and each miss adds a failed
+comparison before the dispatch switch takes over.
+
+![Step 7](ladder/ladder-step7.svg)
 
