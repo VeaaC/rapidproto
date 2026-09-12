@@ -1,14 +1,14 @@
 # OSM PBF showcase
 
-The same statistics tool for OpenStreetMap's planet file format, written twice — once per
+The same statistics tool for OpenStreetMap's planet file format, written twice - once per
 decode model, in separate files so each reads on its own:
 
 - [`osmstat_arena.cpp`](osmstat_arena.cpp) materializes each `PrimitiveBlock` into an arena
   and walks it as contiguous arrays. The packed delta-coded `sint64` columns decode straight
   into `int64` arrays; every stringtable entry is a borrowed `string_view`.
 - [`osmstat_stream.cpp`](osmstat_stream.cpp) materializes nothing: callbacks per field,
-  delta accumulators in locals. It decodes each block twice — a cheap stringtable-only pass,
-  then the walk — because wire order doesn't promise the stringtable comes first.
+  delta accumulators in locals. It decodes each block twice; [docs/osm-pbf.md](../../docs/osm-pbf.md)
+  explains why.
 
 Both print identical statistics (counts, tags, bbox, top tag keys) on stdout; a CTest holds
 them to a hand-derived golden on [`testdata/mini.osm.pbf`](testdata/mini.osm.pbf), which in
@@ -27,7 +27,7 @@ THIRD_PARTY_NOTICES.md.
 
 ## Building and running
 
-Needs zlib — a dependency of this example, not of RapidProto; without it the example skips
+Needs zlib - a dependency of this example, not of RapidProto; without it the example skips
 itself. In-tree (the default when the RapidProto tests are enabled):
 
 ```sh

@@ -3,8 +3,8 @@
 *Generated with `--stream`. Header: `<stem>.rp.stream.hpp`, types at `rp::stream::pkg::Msg`. Back to the
 [README](../README.md); shared rules (lifetimes, presence, enums) in [semantics.md](semantics.md).*
 
-A streaming decoder forwards wire data 1:1, with no aggregation, defaulting, or merging; you decide
-what to do with each value. For each message `Foo` the generator emits a `struct Foo` holding a
+A streaming decoder forwards wire data 1:1, with no aggregation, defaulting, or merging.
+For each message `Foo` the generator emits a `struct Foo` holding a
 non-owning `ByteView`, plus a **field-identity tag** type per field:
 
 ```cpp
@@ -21,8 +21,8 @@ struct Person {
 };
 ```
 
-The examples below use `namespace ex_s = rp::stream::example;` — streaming types live under
-`rp::stream::<your.package>`, and one alias keeps call sites short.
+The examples below use `namespace ex_s = rp::stream::example;` - streaming types live under
+`rp::stream::<your.package>`.
 
 A callback is `[](Foo::field, Value v){ … }`. The **tag type** names the field (tied to its proto name,
 so referencing a removed or renamed field is a compile error), and `Value` is the field's type. Each
@@ -30,17 +30,16 @@ tag also carries `static constexpr std::uint32_t kNumber` and `std::string_view 
 name). Callbacks fire in **wire order**, once per occurrence (repeated/packed fire per element; maps
 per entry). The decoder never materializes the whole message.
 
-> **Absent fields fire nothing, and no defaults are delivered.** If a field isn't on the wire, its
-> callback isn't called (and proto3 scalars equal to their default aren't on the wire at all).
-> Initialize your own destination variables.
+> **Absent fields fire no callback and no defaults are delivered** - and a proto3 scalar equal to its
+> default is not on the wire at all. Initialize your own destination variables.
 
 ## Three ways to consume fields
 
 All snippets decode a `Person` buffer `wire` (a `rapidproto::ByteView`). `decode()` is `[[nodiscard]]`
-and returns a `DecodeStatus`, so **always check it** (see [Error handling](#error-handling)).
+and returns a `DecodeStatus` (see [Error handling](#error-handling)).
 
-**1. A subset.** Pass callbacks only for the fields you want; the rest are skipped cheaply, so
-extracting a few fields from a large message stays fast:
+**1. A subset.** Pass callbacks only for the fields you want; the rest are skipped - the skip-heavy
+microbenchmarks in [benchmarks.md](benchmarks.md#streaming-vs-protozero) measure that shape:
 
 ```cpp
 std::string name; std::uint32_t id = 0;
@@ -72,20 +71,18 @@ ex_s::Person{wire}.decode(
     [&](ex_s::Person::address, ex_s::Address a) -> rapidproto::DecodeStatus { // recurse
         return a.decode([&](ex_s::Address::city, std::string_view v) { city = std::string(v); });
     },
-    [&](rapidproto::UnknownField uf) {                                  // a field not in our schema
+    [&](rapidproto::UnknownField uf) {                                  // a field not in the schema
         log("unknown #%u (wire type %d, %zu bytes)", uf.field_number, int(uf.wire_type), uf.bytes.size());
     });
 ```
 
 `UnknownField` carries `{ std::uint32_t field_number; rapidproto::WireType wire_type;
-rapidproto::ByteView bytes; }` — the field's bytes **as they appear on the wire after the tag**, so a LEN field's view
+rapidproto::ByteView bytes; }` - the field's bytes **as they appear on the wire after the tag**, so a LEN field's view
 starts with its length prefix and a group's ends with its closing end-group tag. That framing is why
-these bytes are **not** what another decoder's `decode()` takes — a sub-decoder's `rp_bytes()` is
+these bytes are **not** what another decoder's `decode()` takes - a sub-decoder's `rp_bytes()` is
 (see [using both models](using-both-models.md)); strip the prefix yourself if you want to decode an
-unknown field. Only field numbers
-*not in the schema* reach this handler; a known field you simply didn't handle is not "unknown" (use
-a catch-all for those). Proto2
-`extend` fields are not decoded; an extension on the wire arrives here as a raw `UnknownField`.
+unknown field. A known field you simply didn't handle is not "unknown" (use a catch-all for those).
+Proto2 `extend` fields are not decoded; an extension on the wire arrives here as a raw `UnknownField`.
 
 ## Field kinds
 
@@ -94,17 +91,17 @@ a catch-all for those). Proto2
 - **`repeated`.** Fires **once per element**, in wire order (packed or expanded).
 - **Sub-messages and groups.** Delivered as a **sub-decoder**; recurse with its `decode(...)`. It
   doesn't decode until you do. Groups behave like sub-messages. `rp_bytes()` exposes the
-  sub-decoder's exact undecoded span (a group body arrives without its framing) — see
+  sub-decoder's exact undecoded span (a group body arrives without its framing) - see
   [Using both models](using-both-models.md) for feeding it to the arena decoder.
 - **`map<K, V>`.** The callback takes **`(Tag, K, V)`** and fires once per entry:
   `[&](Person::labels, std::string_view key, std::string_view value) { … }`.
 - **`oneof`.** Each member is an ordinary field tag. The member present on the wire fires its callback
   and the others don't, so *the callback that fires is the discriminator*. There's no oneof-level type.
-  On a buffer carrying more than one member — two serialized messages concatenated, say — each fires
+  On a buffer carrying more than one member - two serialized messages concatenated, say - each fires
   in wire order, and the **last** is the one protobuf would call set (see
   [duplicate fields](semantics.md)).
 
-Enums decode open, so a `switch` over one needs a `default:` arm — see [semantics](semantics.md).
+Enums decode open - see [semantics](semantics.md).
 
 ## Error handling
 
@@ -129,8 +126,8 @@ struct DecodeStatus {
 
 ## Mistakes are compile errors
 
-Dispatch is entirely compile-time (no allocation, no `std::function`, no virtual calls), so misuse is a
-**compile error**, not a silent bug:
+Dispatch is entirely compile-time (no allocation, no `std::function`, no virtual calls). Each of
+these is a compile error:
 
 - **Wrong value type.** `[](Person::id, std::int64_t)` for a `uint32` field → error.
 - **Wrapper type.** `[](Person::id, std::optional<std::uint32_t>)` → error.
@@ -138,11 +135,11 @@ Dispatch is entirely compile-time (no allocation, no `std::function`, no virtual
 - **Wrong arity.** `[](Person::id)`, or a map callback missing its value → error.
 - **Removed/renamed field.** Referencing `Person::nonexistent` → error (the tag type doesn't exist).
 - **Another message's field.** Passing `[](Address::city, …)` to `Person`'s `decode()` (say, pasted
-  between the nesting levels of the recursion pattern above) → error — it could never fire.
+  between the nesting levels of the recursion pattern above) → error - it could never fire.
 
 ## See also
 
-- [Using both models](using-both-models.md) — stream the outer message, materialize chosen
+- [Using both models](using-both-models.md) - stream the outer message, materialize chosen
   sub-messages with the arena decoder.
-- [Benchmarks](benchmarks.md) — how the streaming decoder compares to protozero (and when the arena
+- [Benchmarks](benchmarks.md) - how the streaming decoder compares to protozero (and when the arena
   model is faster, e.g. large packed arrays).

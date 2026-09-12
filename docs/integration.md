@@ -20,11 +20,11 @@ rapidprotoc [options] <entry.proto>...
 | `--raw=<name>` | Arena: keep a message field's or type's payloads for deferred `decode()`s, inline. |
 | `-I <dir>` | Add an import search path (repeatable). |
 | `--out-dir <dir>` | Where to write the headers (and `rapidproto/runtime.hpp`, plus `arena_runtime.hpp` for `--arena` and `dump_runtime.hpp` for `--dump`). Default: the current directory. |
-| `--namespace-prefix <ns>` | Rename the root GENERATED code lives under — `<ns>::arena::pkg::Msg` and so on (default `rp`). Dot-separated; what is accepted is emitted verbatim, and a component that could not compile as written is refused instead — empty, a C++ keyword or `std`, a macro, `rp_`/`RP_`/`rapidproto` (the generator's own names), or a reserved identifier (`__x`, `_X...`, and a leading `_` in the first component). The runtime stays in `rapidproto::` either way. See [using both models](using-both-models.md). |
+| `--namespace-prefix <ns>` | Rename the root GENERATED code lives under - `<ns>::arena::pkg::Msg` and so on (default `rp`). Dot-separated; what is accepted is emitted verbatim, and a component that could not compile as written is refused instead - empty, a C++ keyword or `std`, a macro, `rp_`/`RP_`/`rapidproto` (the generator's own names), or a reserved identifier (`__x`, `_X...`, and a leading `_` in the first component). The runtime stays in `rapidproto::` either way. See [using both models](using-both-models.md). |
 | `--no-wellknown` | Don't load the bundled well-known-type definitions. |
-| `--depfile <path>` | Write a Make/Ninja depfile (the entries' headers depend on **every** input `.proto` and profile file) so a build regenerates when any input changes. Used by the CMake helper; harmless otherwise. |
-| `--list-outputs` | Dry run: print every path a generation would write, relative to `--out-dir`, one per line (listed entries first, decoders before each file's common header) — nothing is written. The full resolve pipeline runs first, so a schema error fails the listing exactly as it would fail generation. This is how the CMake helper learns what to declare. Not combinable with `--list-inputs` or `--depfile`. |
-| `--list-inputs` | Dry run: print the on-disk `.proto` closure (absolute, deduplicated; embedded well-known types excluded) — the files whose edits can change the output list. Same restrictions as `--list-outputs`. |
+| `--depfile <path>` | Write a Make/Ninja depfile (the entries' headers depend on **every** input `.proto` and profile file) so a build regenerates when any input changes. Used by the CMake helper. |
+| `--list-outputs` | Dry run: print every path a generation would write, relative to `--out-dir`, one per line (listed entries first, decoders before each file's common header) - nothing is written. The full resolve pipeline runs first, so a schema error fails the listing exactly as it would fail generation. Not combinable with `--list-inputs` or `--depfile`. |
+| `--list-inputs` | Dry run: print the on-disk `.proto` closure (absolute, deduplicated; embedded well-known types excluded) - the files whose edits can change the output list. Same restrictions as `--list-outputs`. |
 | `-v`, `--verbose` | Log each written file (`wrote <path>`); output is otherwise silent on success. |
 | `-h`, `--help` | Print the full flag table and exit. |
 | `--version` | Print the tool version and exit. |
@@ -33,7 +33,7 @@ Non-fatal `warning:` diagnostics (e.g. a schema using the MessageSet wire format
 regardless of `-v`, and never change the exit code.
 
 `<stem>` is the schema's path relative to the first `-I` directory that contains it, and its
-basename when no `-I` does — so `-I proto proto/sub/a.proto` writes `sub/a.rp.hpp`, while
+basename when no `-I` does - so `-I proto proto/sub/a.proto` writes `sub/a.rp.hpp`, while
 `sub/a.proto` with no `-I` writes `a.rp.hpp`. The output therefore always stays under `--out-dir`.
 Three inputs are refused rather than resolved, because either answer would silently lose a schema:
 two entries that generate the same header, two that share a name relative to the include paths (they
@@ -49,20 +49,20 @@ self-contained.
 ## CMake integration
 
 RapidProto ships a `rapidproto_generate()` helper that turns a `.proto` into a linkable, header-only
-target: it runs `rapidprotoc` at build time, tracks the whole import closure for correct **incremental
-rebuilds** (a touched import re-triggers generation, via a depfile), and puts the output directory on
-your include path. Link the target and `#include` the generated header; there's nothing else to wire up.
+target: it runs `rapidprotoc` at build time, tracks the whole import closure (a touched import
+re-triggers generation, via a depfile), and puts the output directory on your include path. Link the
+target and `#include` the generated header.
 
 How much the build system knows about the generated files depends on whether the generator exists at
 configure time. With `find_package` (an installed rapidproto), the helper asks the real generator
-(`--list-outputs`) and declares **every** generated file — deleting any of them regenerates it, and a
+(`--list-outputs`) and declares **every** generated file - deleting any of them regenerates it, and a
 schema error fails `cmake` itself with the generator's own diagnostic. In-tree and under FetchContent
 the tool is built by your own buildsystem and cannot be asked yet, so the helper declares the listed
 schemas' headers and the runtime copies; an *imported* schema's headers are still generated and kept
 fresh, but deleting one by hand needs a regeneration (touch an entry, or rebuild from clean) to
 recover. A `.proto` entry that another build rule produces (so it does not exist at configure time)
-takes the same reduced path — which also means a *mistyped* entry path surfaces at build time, not
-at configure. Two `rapidproto_generate()` targets must not share an `OUT_DIR` — the
+takes the same reduced path - which also means a *mistyped* entry path surfaces at build time, not
+at configure. Two `rapidproto_generate()` targets must not share an `OUT_DIR` - the
 helper refuses it at configure.
 
 ```cmake
@@ -99,18 +99,15 @@ FetchContent_MakeAvailable(rapidproto)         # defines rapidproto_generate() +
 find_package(rapidproto REQUIRED)              # same helper + tool, imported
 ```
 
-Both expose the identical `rapidproto::rapidprotoc` target, so one `rapidproto_generate()` call is
-source-agnostic.
-
 **CMake version.** Incremental import-tracking uses `add_custom_command(DEPFILE)`: supported on Ninja at
 any version, and on the Makefile generators with CMake ≥ 3.20 (Xcode / the Visual Studio generator ≥ 3.21). On an
 older CMake with those generators the helper still generates correctly but won't auto-retrigger on an
 import edit (it warns); re-run CMake or clean-build after editing an imported `.proto`.
 
 **Compile cost.** Generated decoders are header-only, so every translation unit that includes
-them recompiles them. How compile seconds, `.text` size and compiler peak RSS are measured —
-and representative magnitudes — is in
-[benchmarks.md](benchmarks.md#compile-cost--what-the-throughput-costs-to-build); keep generated
+them recompiles them. How compile seconds, `.text` size and compiler peak RSS are measured -
+and representative magnitudes - is in
+[benchmarks.md](benchmarks.md#compile-cost---what-the-throughput-costs-to-build); keep generated
 headers out of widely-included headers, exactly as with protoc.
 
 **Cross-compiling.** `rapidprotoc` must run on the **build host**, not the target, so it must be a

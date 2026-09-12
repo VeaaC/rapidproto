@@ -23,27 +23,27 @@ class Person {
 
 ## What each field kind returns
 
-A [decode profile](profiles.md) changes these types where it applies — a `drop`ped field loses its
+A [decode profile](profiles.md) changes these types where it applies - a `drop`ped field loses its
 accessor, a `raw` one returns undecoded bytes.
 
 | Construct | Accessor returns |
 |---|---|
 | scalar / `enum` | the value, by value (`std::int32_t`, `bool`, the generated `enum class`, …); absent reads as the zero default, indistinguishable from a written zero ([semantics](semantics.md)) |
-| `string` / `bytes` | `std::string_view` into the **input buffer** (borrowed, zero-copy); `std::optional<std::string_view>` when marked `optional`. Not NUL-terminated, and a `bytes` value may contain NULs — compare with `==` on the view, never hand `.data()` to a C string API |
-| sub-message | `const Sub*`, `nullptr` when absent — the pointer carries the presence. (A proto2 `required` field is never null: absence fails the decode as `MissingRequired`.) |
-| `repeated T` | `rapidproto::ArrayView<T>`, a contiguous range with `size()`, `empty()`, `operator[]` and range-`for`. Elements are **values**, not pointers — a repeated field has no presence. Repeated `string`/`bytes` instead return `rapidproto::StringArrayView`, yielding `std::string_view` per element. |
+| `string` / `bytes` | `std::string_view` into the **input buffer** (borrowed, zero-copy); `std::optional<std::string_view>` when marked `optional`. Not NUL-terminated, and a `bytes` value may contain NULs - compare with `==` on the view, never hand `.data()` to a C string API |
+| sub-message | `const Sub*`, `nullptr` when absent - the pointer carries the presence. (A proto2 `required` field is never null: absence fails the decode as `MissingRequired`.) |
+| `repeated T` | `rapidproto::ArrayView<T>`, a contiguous range with `size()`, `empty()`, `operator[]` and range-`for`. Elements are **values**, not pointers - a repeated field has no presence. Repeated `string`/`bytes` instead return `rapidproto::StringArrayView`, yielding `std::string_view` per element. |
 | `map<K, V>` | `rapidproto::MapView<Entry>`: insertion-order entries with `.key()`/`.value()`. `find(key)` returns an iterator to compare against `end()`, as `std::map` does, and `it->value()` reads the entry. A message-valued `.value()` is itself `const V*`; test it before dereferencing. Duplicate keys are kept rather than collapsed ([duplicate fields](semantics.md)). |
 | `oneof o` | a reader `o(handlers…)`: one typed handler per member, with the active member dispatched to its handler (see below) |
-| `optional` on a scalar/`string`/`bytes`/`enum` | `std::optional<T>` (`std::nullopt` = absent). There is no `has_<field>()` accessor, and the keyword is a no-op on a message field — that pointer already carries presence. |
+| `optional` on a scalar/`string`/`bytes`/`enum` | `std::optional<T>` (`std::nullopt` = absent). There is no `has_<field>()` accessor, and the keyword is a no-op on a message field - that pointer already carries presence. |
 
 ## Reading a generated schema
 
-The examples below use `namespace ex = rp::arena::example;` — generated arena types live under
-`rp::arena::<your.package>`, and one alias keeps the code short.
+The examples below use `namespace ex = rp::arena::example;` - generated arena types live under
+`rp::arena::<your.package>`.
 
 In a generated schema `pkg.Foo` becomes `rp::arena::pkg::Foo`, and each accessor is its proto field name. A
 map's entry type is nested in its message: `Foo::LabelsEntry`. Any name that would clash with C++ or
-with the generated API takes a trailing `_` — messages, enums and package components included
+with the generated API takes a trailing `_` - messages, enums and package components included
 (`enum std` → `std_`). Reading a `Person` carrying one of each shape:
 
 ```cpp
@@ -71,7 +71,7 @@ Two mistakes the view types invite on any schema, neither diagnosable from what 
 | `for (const auto* ph : p->phones())` | `unable to deduce ‘const auto*’` (clang: `incompatible initializer of type ‘const Phone’`) | `for (const ex::Phone& ph : …)` |
 | `for (auto& [k, v] : p->labels())` | `cannot decompose inaccessible member … ‘rp_key’` (clang: `private member`) | `for (const auto& e : …)`, then `e.key()` / `e.value()` |
 
-Enums decode open, so a `switch` over one needs a `default:` arm — see [semantics](semantics.md).
+Enums decode open, so a `switch` over one needs a `default:` arm - see [semantics](semantics.md).
 
 A `oneof` is read with a visitor, so an inactive member cannot be read:
 
@@ -83,7 +83,7 @@ person->contact(
     [](std::monostate)                                            { /* unset */ });      // optional
 ```
 
-Handlers are matched by their tag type, so same-typed members stay distinct; members you omit are ignored, and a single `[](auto, auto){…}` catch-all takes the rest. Each handler returns `void` — the tree is already
+Handlers are matched by their tag type, so same-typed members stay distinct; members you omit are ignored, and a single `[](auto, auto){…}` catch-all takes the rest. Each handler returns `void` - the tree is already
 decoded, so there is nothing to abort.
 
 ## Memory & lifetimes
@@ -94,14 +94,14 @@ decoded, so there is nothing to abort.
 rapidproto::Arena arena;                   // owns its chunks (RAII); frees the whole tree at scope exit
 const Foo* a = Foo::decode(buf1, arena);   // tree #1
 // … use a …
-arena.reset();                             // rewinds for reuse — keeps the chunks, frees nothing
+arena.reset();                             // rewinds for reuse - keeps the chunks, frees nothing
 const Foo* b = Foo::decode(buf2, arena);   // tree #2 reuses the same memory (no malloc after warm-up)
 ```
 
 - **Don't hand it a temporary.** `ByteView` is `std::string_view`, so a `std::string` temporary binds
   silently and dangles at the semicolon. `buf.substr(n)` returns a *new* `std::string`; slice the
-  view instead — `ByteView(buf).substr(n)`.
-- **`reset()` invalidates everything.** Every pointer **and view** from an earlier `decode()` dangles —
+  view instead - `ByteView(buf).substr(n)`.
+- **`reset()` invalidates everything.** Every pointer **and view** from an earlier `decode()` dangles -
   `ArrayView`/`MapView`/`StringArrayView` and by-value copies of decoded nodes hold arena pointers
   too; only a `string_view` scalar is exempt, since it borrows the input. `reset()` frees nothing,
   so stale reads keep looking right until the next decode reuses the memory.
@@ -109,10 +109,10 @@ const Foo* b = Foo::decode(buf2, arena);   // tree #2 reuses the same memory (no
   stack array) and heap-allocates only if the tree outgrows it.
 - **Bounding memory on untrusted input.** `arena.set_capacity_limit(max_bytes)` caps the total memory
   the arena will reserve; a decode that would grow past it fails with `ArenaDecodeError::OutOfMemory`.
-  Default: unbounded. Set it before decoding, and at least as large as any seed buffer — a smaller
+  Default: unbounded. Set it before decoding, and at least as large as any seed buffer - a smaller
   cap leaves the arena unable to grow past the seed. The decoded tree can legitimately be larger than the
-  wire bytes, and decoding can transiently reserve several times a field's final size before trimming —
-  size the limit for that peak, not the final tree.
+  wire bytes, and decoding a packed varint field can transiently reserve one element per wire byte of
+  its span (trimmed back after decode) - size the limit for that peak, not the final tree.
 - **Stats.** `arena.bytes_used()` (payload handed out) and `arena.bytes_reserved()` (memory held).
 
 ## Self-contained decode (`decode_owned`)
@@ -131,13 +131,13 @@ use(p->name());                                     // valid while any copy of `
 Bind the handle to a named variable before reading through it: in
 `for (const auto& a : decode_owned<Foo>(b)->items())` the handle dies at the end of the range-init,
 before the body runs. And because the `Arena` is created inside, `set_capacity_limit` is not
-available — use `decode(ByteView, Arena&)` for untrusted input, or when you hold a `string_view`
+available - use `decode(ByteView, Arena&)` for untrusted input, or when you hold a `string_view`
 you'd rather not copy into a `std::string`.
 
 ## Error handling
 
 `decode()` returns `nullptr` on any failure and, if you pass an `ArenaDecodeError*`, fills in why.
-It writes `err` only on failure and never clears it, so test the returned pointer — a struct reused
+It writes `err` only on failure and never clears it, so test the returned pointer - a struct reused
 across a loop still holds the previous failure:
 
 ```cpp
@@ -157,16 +157,16 @@ struct ArenaDecodeError {
 | `MissingRequired` | A proto2 `required` field was absent (matches `protoc`); `field_number` names it |
 | `RecursionTooDeep` | Message nesting exceeded the depth guard (`kMaxDecodeDepth`, 100). Nested *groups* hit their own guard and report `Wire` with `GroupTooDeep` |
 | `OutOfMemory` | The arena could not satisfy an allocation |
-| `RepeatedSingularMessage` | A singular sub-message appeared more than once, which protobuf merges and a read-only tree cannot; `field_number` names the field (for a map, the map itself). Covers four more shapes — see [duplicate fields](semantics.md) |
+| `RepeatedSingularMessage` | A singular sub-message appeared more than once, which protobuf merges and a read-only tree cannot; `field_number` names the field (for a map, the map itself). Covers four more shapes - see [duplicate fields](semantics.md) |
 | `InputTooLarge` | The input exceeded `UINT32_MAX` bytes |
 | `StringTooLong` | Reserved; never produced |
 
-On any error the tree is incomplete; discard it (or `reset()` the arena) and don't read it.
+On any error the tree is incomplete; discard it (or `reset()` the arena).
 
 ## See also
 
-- [Decode profiles & unknown fields](profiles.md) — tailor what the arena decoder materializes
+- [Decode profiles & unknown fields](profiles.md) - tailor what the arena decoder materializes
   (`drop` / `raw` / `has_unknown_fields()`).
-- [The debug dumper](dumper.md) — print a decoded arena tree as JSON-like text.
-- [Using both models](using-both-models.md) — combine arena and streaming, even mid-decode.
-- [Benchmarks](benchmarks.md) — how the arena compares to `protoc` + `google::protobuf::Arena`.
+- [The debug dumper](dumper.md) - print a decoded arena tree as JSON-like text.
+- [Using both models](using-both-models.md) - combine arena and streaming, even mid-decode.
+- [Benchmarks](benchmarks.md) - how the arena compares to `protoc` + `google::protobuf::Arena`.

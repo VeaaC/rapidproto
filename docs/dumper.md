@@ -3,11 +3,10 @@
 *Generated with `--dump` (implies `--arena`). Header: `<stem>.rp.dump.hpp`. Back to the
 [README](../README.md).*
 
-`--dump` emits a third header that prints a decoded arena tree as human-readable, JSON-*like* text — a
-**debugging and logging aid**, not a spec-compliant JSON codec and not a wire serializer. It reads the
-[arena decoder](arena.md)'s public accessors (no reflection, no `descriptor.proto`), so `--dump`
-**implies `--arena`** and dumps whatever the arena header exposes. For each message in the schema it
-teaches `rapidproto::dump` how to print it:
+`--dump` emits a third header that prints a decoded arena tree as human-readable, JSON-*like* text.
+It is not a JSON codec and not a wire serializer. It reads the [arena decoder](arena.md)'s public
+accessors (no reflection, no `descriptor.proto`) and dumps whatever the arena header exposes. For
+each message in the schema it teaches `rapidproto::dump` how to print it:
 
 ```cpp
 std::string rapidproto::dump(const T& m, const rapidproto::DumpOptions& opts = {});
@@ -28,8 +27,7 @@ const ex::Person* p = ex::Person::decode(rapidproto::ByteView(buf), arena);
 std::cout << rapidproto::dump(*p) << '\n';           // or: rapidproto::dump(std::cout, *p, 120);
 ```
 
-`DumpOptions` tunes a dump. Every field has a default and an integer converts to a width, so
-`dump(m, 120)` and `dump(std::cout, *p, 120)` above are whole-options calls:
+`DumpOptions` tunes a dump. Every field has a default, and an integer converts to a width:
 
 ```cpp
 rapidproto::DumpOptions opts;
@@ -40,11 +38,11 @@ std::cout << rapidproto::dump(*p, opts);
 ```
 
 - **`skip`** names fields by their **dotted path** from the message root (`"address.zip"`, not just
-  `"zip"`), so the same leaf name is hidden only where you mean it; naming a sub-message path
-  (`"address"`) drops its whole subtree. The field is still decoded — just not printed. Paths carry no
-  index, so a path *through* a repeated or map field applies to every element (`"orders.total"` hides
-  `total` in every order); a map's keys are not themselves path-addressable. The paths are
-  `string_view`s, so whatever they point at must outlive the dump call.
+  `"zip"`); naming a sub-message path (`"address"`) drops its whole subtree. The field is still
+  decoded - just not printed. Paths carry no index, so a path *through* a repeated or map field
+  applies to every element (`"orders.total"` hides `total` in every order); a map's keys are not
+  themselves path-addressable. The paths are `string_view`s, so whatever they point at must outlive
+  the dump call.
 - **`indent`** starts the output at a nesting level (each level = 2 columns): the opening brace stays at
   the cursor, continuation lines indent that much deeper, and the width budget shrinks accordingly.
 
@@ -53,13 +51,13 @@ What it renders: scalars, `string`, `bytes` (as lowercase hex), enums by their p
 (arrays), maps (objects), and the active member of a oneof; groups print through the identical
 nested-message accessor. A `bool` prints as `true`/`false`, including as a `map<bool, …>` key.
 `float`/`double` print with enough digits to read back to the same value, without padding out to the
-type's maximum, and the non-finite ones as the quoted strings `"NaN"` / `"Infinity"` / `"-Infinity"` —
+type's maximum, and the non-finite ones as the quoted strings `"NaN"` / `"Infinity"` / `"-Infinity"` -
 JSON has no number syntax for those. Every value is formatted by the dumper itself, so the text does
 not vary with the locale or format flags of the stream you write to (and the dump leaves both alone).
 Default-valued implicit (proto3 singular) fields and empty repeated/maps are omitted;
 explicit-presence fields print when set; a `required` field always prints. A message that
 reserves the [unknown-fields](profiles.md#unknown-fields) bit shows `"has_unknown_fields": true` when
-set — a bit only, since the arena retains no unknown-field *data*. The output is **width-adaptive**:
+set - a bit only, since the arena retains no unknown-field *data*. The output is **width-adaptive**:
 each object or array renders on one line if it fits the budget (`width`, default 120 columns),
-otherwise one entry per line — with a wide array filling as many aligned columns as fit. Well-known
+otherwise one entry per line - with a wide array filling as many aligned columns as fit. Well-known
 types (`Timestamp`, etc.) print as their nested fields, with no special JSON form.

@@ -1,18 +1,19 @@
 # Using both models
 
-*One schema, both decoders — in one translation unit, even mid-decode. Back to the
+*One schema, both decoders - in one translation unit, even mid-decode. Back to the
 [README](../README.md).*
 
 Each model has its **own root namespace**: arena at `rp::arena::<pkg>::Msg`, streaming at
 `rp::stream::<pkg>::Msg`, with the schema's enums as a single shared type at `rp::common::<pkg>`,
-aliased into both. Nothing the generator invents lands inside your package, so any schema coexists.
+aliased into both. Nothing the generator invents lands inside your package, so a schema coexists
+unless it declares a type where a root namespace goes ([below](#coexisting-with-protoc)).
 Generate both (`--arena --stream`, or `GENERATOR both` in CMake) and use each where it fits:
 
 ```cpp
 #include "person.rp.hpp"         // arena:     rp::arena::example::Person
 #include "person.rp.stream.hpp"  // streaming: rp::stream::example::Person  (both pull in the shared enums)
 
-namespace ex  = rp::arena::example;   // alias each model once and the code below stays short
+namespace ex  = rp::arena::example;   // alias each model once
 namespace ex_s = rp::stream::example;
 
 const ex::Person* tree = ex::Person::decode(bytes, arena);   // materialize when you need an object
@@ -31,12 +32,12 @@ rapidproto::Arena arena;
 ex_s::Person{wire}.decode(
     [&](ex_s::Person::address, ex_s::Address a) {
         const ex::Address* tree = ex::Address::decode(a.rp_bytes(), arena);
-        // keep `tree` -- valid while both `wire` and `arena` live
+        // keep `tree` - valid while both `wire` and `arena` live
     });
 ```
 
 Every tree materialized this way accumulates in the arena until you `reset()` it. If a tree is a
-per-element **temporary** (use, then discard), reset between uses — even from inside a callback,
+per-element **temporary** (use, then discard), reset between uses - even from inside a callback,
 mid-walk: the streaming side borrows the *input buffer*, never the arena, so rewinding it there is
 safe and keeps a long stream's memory flat.
 
@@ -46,19 +47,18 @@ hybrid) is in [`examples/consumer`](../examples/consumer).
 ## Coexisting with protoc
 
 Nothing to do: generated code lives under `rp::`, protoc's under your package, so `person.pb.h` and
-`person.rp.hpp` coexist in one TU — including for schemas importing a well-known type, where protoc
-also defines `google::protobuf::Timestamp`. Use protoc for serialization and RapidProto for the hot
-decode path.
+`person.rp.hpp` coexist in one TU - including for schemas importing a well-known type, where protoc
+also defines `google::protobuf::Timestamp`.
 
-One schema shape is the exception, and it is the same rule in both directions: a *type* may not sit
-where a root namespace goes. That means your own code declaring a type at `rp::arena` (a plain
-`namespace rp` is fine — namespaces merge), and it means **the schema itself** declaring one there
-via protoc — `package rp;` with a top-level `message`/`enum` named `arena`, `stream` or `common`, or
-a package-less schema with one named `rp`:
+One rule carves out an exception: a *type* may not sit where a root namespace goes. There are two
+ways to hit it: your own code declares a type at `rp::arena` (a plain `namespace rp` is fine -
+namespaces merge), or the schema declares one there - `package rp;` with a top-level
+`message`/`enum` named `arena`, `stream` or `common`, or a package-less schema with one named
+`rp` - and the collision surfaces in the generated header:
 
 ```
 c.rp.common.hpp: error: 'namespace rp::common { }' redeclared as different kind of entity
 ```
 
 Both are fixed by renaming the root with [`--namespace-prefix`](integration.md). Nested types and
-sub-packages are unaffected — protoc mangles a nested type to `Outer_Inner`, and namespaces merge.
+sub-packages are unaffected - protoc mangles a nested type to `Outer_Inner`, and namespaces merge.

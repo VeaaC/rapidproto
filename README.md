@@ -1,12 +1,12 @@
-# RapidProto — fast, header-only Protobuf decoders for C++
+# RapidProto - fast, header-only Protobuf decoders for C++
 
 [![CI](https://github.com/VeaaC/rapidproto/actions/workflows/ci.yml/badge.svg)](https://github.com/VeaaC/rapidproto/actions/workflows/ci.yml)
 [![Docs](https://img.shields.io/badge/docs-veaac.github.io-2dd4bf)](https://veaac.github.io/rapidproto/)
 [![Release](https://img.shields.io/github/v/release/VeaaC/rapidproto)](https://github.com/VeaaC/rapidproto/releases)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-**Faster than `protoc` + Arena when materializing a full message tree, and faster than protozero
-when streaming fields — with wire validation that never compiles out ([benchmarks](docs/benchmarks.md)).**
+**~7× faster than `protoc` + Arena when materializing a full message tree, and faster than protozero
+when streaming fields - with wire validation that never compiles out ([benchmarks](docs/benchmarks.md)).**
 
 RapidProto compiles a `.proto` schema into **header-only C++ decoders**. One CLI, `rapidprotoc`, turns
 your schema into headers you `#include`. Nothing to link. A single schema gives you two
@@ -18,11 +18,11 @@ decode models, and you pick whichever fits the job:
   callback you supply. Nothing is materialized, and there's zero allocation.
 
 A `--dump` flag adds a third, optional emitter: a **debug dumper** that prints a decoded arena tree
-as human-readable, JSON-*like* text — an inspection aid for logging and debugging, not a spec-compliant
+as human-readable, JSON-*like* text - an inspection aid for logging and debugging, not a spec-compliant
 JSON codec (see [the debug dumper](docs/dumper.md)).
 
 Both decode models are **decode-only**: no serialization, no JSON codec. Both fully validate untrusted wire input
-(truncation, length overruns, group nesting), and both trust the schema — they assume `protoc` already
+(truncation, length overruns, group nesting) and never crash on malformed bytes, and both trust the schema - they assume `protoc` already
 accepted it, so field *values* aren't range-checked. They cover **proto2, proto3, and the newer
 editions schema format (2023/2024)**, including groups, maps, and oneofs.
 
@@ -36,32 +36,24 @@ You can read the same schema with either model, and even use both **in one trans
 
 ## Why RapidProto
 
-RapidProto does one thing: decode Protobuf fast in C++, for the common case where you never serialize.
 `protoc`'s C++ runtime is a linked library that builds a full mutable message object per decode;
 zero-copy pull parsers like protozero drop that allocation but leave you to hand-write the read loop.
-RapidProto generates the decoder — specialized to your schema at compile time, header-only — and gives
+RapidProto generates the decoder - specialized to your schema at compile time, header-only - and gives
 you both shapes.
 
 - **Faster decode.** On a realistic mixed payload the arena decoder materializes a full object tree
-  **~7× faster than `protoc` + `google::protobuf::Arena`**, and the streaming decoder — materializing
-  nothing — is faster still, beating `protozero`, the zero-copy yardstick, on the realistic payload and
+  **~7× faster than `protoc` + `google::protobuf::Arena`**, and the streaming decoder - materializing
+  nothing - is faster still, beating `protozero`, the zero-copy yardstick, on the realistic payload and
   most microbenchmark shapes. See [benchmarks](docs/benchmarks.md).
 - **Less memory.** The arena tree holds **~half** of protoc's (both payload bytes and total allocation):
   strings, bytes, and `raw` payloads are **borrowed** as views into the input rather than copied, so the
   arena carries only a read-only bump-allocated tree with no per-field object overhead.
-- **Header-only, nothing to link.** One CLI turns your `.proto` into headers you `#include` — no runtime
-  library, no `libprotobuf` on your link line.
-- **Two models, one schema.** Materialize a navigable tree (arena) *or* stream each field to a typed
-  callback with zero allocation — chosen per call site, even in one translation unit.
-- **Safe on untrusted input.** Both models fully validate wire structure (truncation, length overruns,
-  group nesting) and are built never to crash on malformed bytes; only field *values* are trusted to the
-  schema.
-- **Compile-time typed.** Dispatch is entirely compile-time — no `std::function`, no virtual calls, and
+- **Compile-time typed.** Dispatch is entirely compile-time - no `std::function`, no virtual calls, and
   a wrong value type or a renamed field is a compile error rather than a silent bug.
 
-Know the trade-offs: RapidProto is **decode-only** (no serialization, no JSON codec, no
-reflection) — the one exception being an opt-in [debug dumper](docs/dumper.md) that emits JSON-*like*
-inspection text — the arena tree is **read-only** (you navigate it, you don't build or mutate messages), it
+RapidProto is **decode-only** (no serialization, no JSON codec, no
+reflection) - the one exception being an opt-in [debug dumper](docs/dumper.md) that emits JSON-*like*
+inspection text - the arena tree is **read-only**, it
 decodes enums as **open** even when the schema declares them closed, and it does not validate string
 UTF-8 (it accepts `string` bytes `protoc` would reject). If you also need to *produce* or mutate
 messages, keep `protoc` for that side and use RapidProto for the hot decode path.
@@ -70,15 +62,15 @@ messages, keep `protoc` for that side and use RapidProto for the hot decode path
 
 ## Quick start
 
-**Requirements:** C++17 and a recent GCC or Clang (AppleClang included — Linux and macOS are both
-CI-covered; MSVC is [not supported](#compatibility--stability)). Header-only — nothing to link.
+**Requirements:** C++17 and a recent GCC or Clang (AppleClang included - Linux and macOS are both
+CI-covered; MSVC is [not supported](#compatibility--stability)).
 
-Using CMake? The [`rapidproto_generate()` helper](docs/integration.md#cmake-integration) wires
-generation into your build in a few lines. This section drives the tool by hand so each step is
+The [`rapidproto_generate()` helper](docs/integration.md#cmake-integration) wires
+generation into a CMake build in a few lines; this section drives the tool by hand so each step is
 visible. Grab a prebuilt `rapidprotoc` from the
 [releases page](https://github.com/VeaaC/rapidproto/releases) (prebuilt Linux and macOS
-tarballs, license files included; the macOS binary is unsigned — if Gatekeeper blocks it after
-extracting, clear the quarantine flag: `xattr -d com.apple.quarantine rapidprotoc`) — or build it
+tarballs, license files included; the macOS binary is unsigned - if Gatekeeper blocks it after
+extracting, clear the quarantine flag: `xattr -d com.apple.quarantine rapidprotoc`) - or build it
 once:
 
 ```sh
@@ -137,7 +129,7 @@ if (const ex::Address* a = p->address())           // sub-message: a pointer (nu
     std::string_view city = a->city();
 ```
 
-> **Need test bytes?** Encode some with `protoc`: `protoc --encode=example.Person -I. person.proto < values.txt > person.bin`
+> **Test bytes:** encode some with `protoc` - `protoc --encode=example.Person -I. person.proto < values.txt > person.bin`
 
 **3. Compile** with only the output directory on the include path:
 
@@ -145,10 +137,10 @@ if (const ex::Address* a = p->address())           // sub-message: a pointer (nu
 g++ -std=c++17 -Iout my_consumer.cpp -o my_consumer
 ```
 
-Repeated, map and `oneof` fields, and `optional`, read differently — see
+Repeated, map and `oneof` fields, and `optional`, read differently - see
 [the arena model](docs/arena.md#what-each-field-kind-returns) before writing much against them.
 
-That's the arena model. To stream instead, pass `--stream` (or `--arena --stream` for both) and use
+To stream instead, pass `--stream` (or `--arena --stream` for both) and use
 the [callback API](docs/streaming.md).
 
 ---
@@ -164,10 +156,7 @@ the [callback API](docs/streaming.md).
 | `#include` | `<stem>.rp.hpp` | `<stem>.rp.stream.hpp` |
 | Best for | needing the message as a navigable object; a faster/lighter `protoc`+`Arena` | extracting a few fields, stream-processing, lowest overhead |
 
-Use **arena** when you need the decoded message as an object to navigate — random access, multiple
-passes, passing the tree around. Use **streaming** when you handle each field and move on: summing a
-column, pulling two fields from a big message, transcoding, or anywhere you want zero allocation. You
-can use both models for one schema in one translation unit; see
+You can use both models for one schema in one translation unit; see
 [using both models](docs/using-both-models.md).
 
 ---
@@ -199,18 +188,18 @@ A runnable end-to-end example (one schema, both models in one TU, a decode profi
 
 ## Compatibility & stability
 
-Versioning is SemVer-0 until 1.0: **the MINOR version is the breaking axis** — expect breaking
+Versioning is SemVer-0 until 1.0: **the MINOR version is the breaking axis** - expect breaking
 changes between 0.x and 0.(x+1), never within a patch, each listed in the
 [CHANGELOG](https://github.com/VeaaC/rapidproto/blob/main/CHANGELOG.md). At 1.0 the promise
 flips, and the stable surface is everything a consumer binds to: the generated API (names,
 accessor shapes, callback signatures), the decode-profile file format, the CLI flags, the
 `rapidproto_generate()` contract, and the runtime headers' shape. **Only a major release may
-break or remove anything** on that surface — code built against 1.0 builds against every 1.x.
+break or remove anything** on that surface.
 A minor may *deprecate* (announced in the CHANGELOG under a Deprecated heading, the spelling
 still working) as advance notice of what the next major removes.
 
 Supported platforms are what CI covers: Linux and macOS, with GCC, Clang and AppleClang.
-**MSVC is not supported** — not tested, no workarounds maintained — until real demand shows up.
+**MSVC is not supported** - not tested, no workarounds maintained - until real demand shows up.
 
 ---
 
@@ -222,8 +211,8 @@ tests work. The design and the invariants a change must preserve are in
 
 ## Security
 
-RapidProto decodes **untrusted** wire input and is built never to crash on it. See
-[SECURITY.md](https://github.com/VeaaC/rapidproto/blob/main/SECURITY.md) to report a vulnerability or read the threat model.
+See [SECURITY.md](https://github.com/VeaaC/rapidproto/blob/main/SECURITY.md) for the threat model and
+how to report a vulnerability.
 
 ---
 
