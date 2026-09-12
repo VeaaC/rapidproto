@@ -13,8 +13,8 @@ same bytes in the same binary: protoc (libprotobuf 4.25.3) for arena benchmarks,
 for streaming benchmarks. A step's change on a benchmark is shown in the charts only when it
 exceeds that benchmark's own measured noise.
 
-One caveat: everything here was produced at one point in time; the maintained numbers are in
-[benchmarks.md](benchmarks.md).
+One caveat: everything here was produced at one point in time (one revision, clang 20,
+September 2026); the maintained numbers are in [benchmarks.md](benchmarks.md).
 
 ## The baseline
 
@@ -72,8 +72,8 @@ This is the broadest optimization step - 37 benchmarks improve. The 1M varint sw
 first time), and `sparse-skip` gains ×1.71 because the skip helpers now inline too.
 
 Two costs. First, unbounded flattening would inline entire sub-message closures into their
-parents, so the layout planner marks large decoders as inline barriers - flatten inside,
-never absorbed. Second, one regression: the nesting-heavy streaming `nested-msg` benchmark
+parents, so a custom layout planner marks large decoders as inline barriers - flatten inside,
+never inline into parent. Second, one regression: the nesting-heavy streaming `nested-msg` benchmark
 drops ×0.68 on this step and never recovers; flattening a recursion-heavy shape can make it
 worse. Compile time and code size also pay for this step; the shipped build's compile costs
 are tracked in [benchmarks.md](benchmarks.md).
@@ -82,7 +82,7 @@ are tracked in [benchmarks.md](benchmarks.md).
 
 ## Step 4: fused tag reads
 
-Every field starts with the same three questions: is the buffer done, is the next varint a
+Decoding every field starts with the same three questions: is the buffer done, is the next varint a
 valid tag, what field is it. Asking them separately means two bounds checks per field. The
 fused read answers all three from one bounds check, returning end, tag, or error in a single
 step - and inside it, a tag byte below 128 short-circuits: field number and wire type fall
@@ -90,8 +90,7 @@ out of one byte with two shifts.
 
 The gains concentrate where fields are small and plentiful: `Dataset` +11%,
 `google_message1` +10%, `many msgs, tiny arrays` +11%. Three kernel-heavy sweeps read a few
-percent slower, at the edge of their noise - small enough that this campaign cannot say
-whether it is real.
+percent slower, at the edge of their noise.
 
 ![Step 4](ladder-step4.svg)
 
@@ -132,9 +131,10 @@ directly - each known tag byte jumps straight to a label that decodes that field
 already consumed. Anything else (higher fields, unknown fields, a non-minimal encoding)
 falls through to the general path from step 4, unchanged.
 
-On its own this step barely registers: a single benchmark moves, `Dataset` at ×1.23. A
-switch on a byte is still a switch. The hub's real job is structural - it turns each field's
-decode into an addressable label, and labels are what the next step needs.
+A single benchmark moves on this step, but it is `Dataset`, the suite's mixed real-world
+payload, at ×1.23. Elsewhere a switch on a byte is still a switch. The hub's second job is
+structural - it turns each field's decode into an addressable label, and labels are what the
+next step needs.
 
 ![Step 6](ladder-step6.svg)
 
@@ -143,30 +143,15 @@ decode into an addressable label, and labels are what the next step needs.
 Encoders write fields in ascending field-number order - protoc does, and the spec recommends
 it. That makes the next tag predictable: after field 3, expect field 4, or 5. So each
 field's label ends by comparing the next byte against the constant tags of the next expected
-fields, and jumping straight to their labels on a match. A repeated field checks for another
+fields, and jumping straight to their dedicated decoding label. A repeated field checks for another
 element of itself first. A oneof's siblings are skipped - at most one member occurs. On an
-in-order wire the decoder becomes a chain of direct, correctly predicted branches; the
+in-order wire the decoder becomes a chain of direct, mostly correctly predicted branches; the
 dispatch switch from step 6 only catches the exceptions.
 
 The dispatch-bound benchmark gains ×1.56, `google_message1` ×1.23, and `Dataset` finishes at
-6.1× protoc. Two benchmarks lose ground: `osm_blocks` −4% and `many msgs, tiny arrays` −10%
-- wire whose field order defeats the prediction pays for the failed probes.
-
-This is the shipped decoder.
+6.1× protoc. Two benchmarks lose ground: `osm_blocks` −4% and `many msgs, tiny arrays` −10%.
+Their fields often arrive in an order the probes do not expect, and each miss adds a failed
+comparison before the dispatch switch takes over.
 
 ![Step 7](ladder-step7.svg)
 
-## What is not covered
-
-Value-threading - passing the wire cursor by value through free functions instead of a
-reader object - predates this comparison and is baked into the baseline; un-building it
-would have meant resurrecting a deleted design. Its measurement at the time: −17%
-instructions on gcc's arena decoder, −15% to −41% on streaming. The arena's chunk sizing
-and the growable-array strategy were tuned by comparing designs rather than by switching
-one off, and those comparisons live with the code. The struct-layout planner (member
-reordering, inlining small sub-messages) is also absent: measured on this suite it moves
-nothing beyond noise.
-
-The suite, the references, the wire payloads, and the measurement scripts are all in the
-[repository](https://github.com/VeaaC/rapidproto); the maintained numbers are in
-[benchmarks.md](benchmarks.md). Campaign: one revision, clang 20, September 2026.

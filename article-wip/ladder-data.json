@@ -328,38 +328,6 @@
     "thresh": 0.03
    },
    {
-    "id": "google_message1",
-    "family": "real-world",
-    "ratios": [
-     2.2062,
-     2.3525,
-     2.55,
-     2.5269,
-     2.7174,
-     2.995,
-     3.1478,
-     3.0144,
-     3.7006
-    ],
-    "thresh": 0.1013
-   },
-   {
-    "id": "google_message2",
-    "family": "real-world",
-    "ratios": [
-     1.1033,
-     1.2586,
-     1.2511,
-     1.2788,
-     1.3608,
-     1.5011,
-     1.5103,
-     1.5112,
-     1.567
-    ],
-    "thresh": 0.0644
-   },
-   {
     "id": "osm_blocks",
     "family": "real-world",
     "ratios": [
@@ -390,6 +358,38 @@
      2.3231
     ],
     "thresh": 0.0452
+   },
+   {
+    "id": "google_message1",
+    "family": "protobuf corpus",
+    "ratios": [
+     2.2062,
+     2.3525,
+     2.55,
+     2.5269,
+     2.7174,
+     2.995,
+     3.1478,
+     3.0144,
+     3.7006
+    ],
+    "thresh": 0.1013
+   },
+   {
+    "id": "google_message2",
+    "family": "protobuf corpus",
+    "ratios": [
+     1.1033,
+     1.2586,
+     1.2511,
+     1.2788,
+     1.3608,
+     1.5011,
+     1.5103,
+     1.5112,
+     1.567
+    ],
+    "thresh": 0.0644
    }
   ],
   "streaming": [

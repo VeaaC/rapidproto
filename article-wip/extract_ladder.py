@@ -21,9 +21,9 @@ ARENA = [  # (scenario, family) — fixed article order
     ("packed int64(varint)", "packed arrays"), ("packed double(fixed)", "packed arrays"),
     ("scalar records (dispatch-bound)", "records"), ("few msgs, big arrays", "records"),
     ("many msgs, tiny arrays", "records"),
-    ("Dataset", "real-world"), ("google_message1", "real-world"),
-    ("google_message2", "real-world"), ("osm_blocks", "real-world"),
+    ("Dataset", "real-world"), ("osm_blocks", "real-world"),
     ("osm: sint64 deltas + enum", "real-world"),
+    ("google_message1", "protobuf corpus"), ("google_message2", "protobuf corpus"),
 ]
 STREAM = [
     ("varint-1byte", "varint micro"), ("varint-multibyte", "varint micro"),

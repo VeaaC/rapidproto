@@ -85,9 +85,9 @@ def render(idx, out, shown=None):
         for j, wd in enumerate(words):
             o.append(f'<text x="{(x0 + x1) / 2:.1f}" y="{y + j * 11}" class="g" '
                      f'text-anchor="middle">{wd}</text>')
-    div = fam_x[0][1]  # recompute panel caption centers from actual extents
-    arena_end = max(x1 for (f, x0, x1) in fam_x[:5])
-    stream_start = min(x0 for (f, x0, x1) in fam_x[5:])
+    na = sum(1 for (p, f), c in fams if p == "arena")  # arena family count
+    arena_end = max(x1 for (f, x0, x1) in fam_x[:na])
+    stream_start = min(x0 for (f, x0, x1) in fam_x[na:])
     o.append(f'<text x="{(ML + arena_end) / 2:.0f}" y="{MT - 8}" class="g" '
              f'text-anchor="middle">arena model</text>')
     o.append(f'<text x="{(stream_start + W - MR) / 2:.0f}" y="{MT - 8}" class="g" '

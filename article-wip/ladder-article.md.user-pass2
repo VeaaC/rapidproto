@@ -1,3 +1,5 @@
+> I wonder if google message 1/2 count as "real world" if they use outdated proto2 construct (group). I do not want to drop them either, though, but maybe change their label to something more appropriate?
+
 # A protobuf decoder, one optimization at a time
 
 RapidProto is a code generator that turns protobuf schemas into C++ decoders - an arena
@@ -13,8 +15,8 @@ same bytes in the same binary: protoc (libprotobuf 4.25.3) for arena benchmarks,
 for streaming benchmarks. A step's change on a benchmark is shown in the charts only when it
 exceeds that benchmark's own measured noise.
 
-One caveat: everything here was produced at one point in time (one revision, clang 20,
-September 2026); the maintained numbers are in [benchmarks.md](benchmarks.md).
+One caveat: everything here was produced at one point in time; the maintained numbers are in
+[benchmarks.md](benchmarks.md).
 
 ## The baseline
 
@@ -131,10 +133,11 @@ directly - each known tag byte jumps straight to a label that decodes that field
 already consumed. Anything else (higher fields, unknown fields, a non-minimal encoding)
 falls through to the general path from step 4, unchanged.
 
-A single benchmark moves on this step, but it is `Dataset`, the suite's mixed real-world
-payload, at ×1.23. Elsewhere a switch on a byte is still a switch. The hub's second job is
-structural - it turns each field's decode into an addressable label, and labels are what the
-next step needs.
+> I would not say it barely registers, as Dataset is one of the more important real woprld benchmarks
+
+On its own this step barely registers: a single benchmark moves, `Dataset` at ×1.23. A
+switch on a byte is still a switch. The hub's real job is structural - it turns each field's
+decode into an addressable label, and labels are what the next step needs.
 
 ![Step 6](ladder-step6.svg)
 
@@ -149,9 +152,8 @@ in-order wire the decoder becomes a chain of direct, mostly correctly predicted 
 dispatch switch from step 6 only catches the exceptions.
 
 The dispatch-bound benchmark gains ×1.56, `google_message1` ×1.23, and `Dataset` finishes at
-6.1× protoc. Two benchmarks lose ground: `osm_blocks` −4% and `many msgs, tiny arrays` −10%.
-Their fields often arrive in an order the probes do not expect, and each miss adds a failed
-comparison before the dispatch switch takes over.
+6.1× protoc. Two benchmarks lose ground: `osm_blocks` −4% and `many msgs, tiny arrays` −10%
+- wire whose field order defeats the prediction pays for the failed probes. < weirdly phrased
 
 ![Step 7](ladder-step7.svg)
 
