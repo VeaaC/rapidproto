@@ -67,11 +67,11 @@ target_compile_options(rapidproto_strict INTERFACE
   $<$<CXX_COMPILER_ID:Clang,AppleClang>:${_rp_warnings_common}>
   $<$<CXX_COMPILER_ID:MSVC>:${_rp_warnings_msvc}>
   $<$<AND:$<BOOL:${RAPIDPROTO_WERROR}>,$<NOT:$<CXX_COMPILER_ID:MSVC>>>:-Werror>
-  $<$<AND:$<BOOL:${RAPIDPROTO_WERROR}>,$<CXX_COMPILER_ID:MSVC>>:/WX>)
-target_compile_definitions(rapidproto_strict INTERFACE
-  $<$<CXX_COMPILER_ID:MSVC>:NOMINMAX;_CRT_SECURE_NO_WARNINGS>
+  $<$<AND:$<BOOL:${RAPIDPROTO_WERROR}>,$<CXX_COMPILER_ID:MSVC>>:/WX>
   $<$<BOOL:${RAPIDPROTO_SANITIZE}>:-fsanitize=address,undefined;-fno-sanitize-recover=all;-fno-omit-frame-pointer;-g>
   $<$<BOOL:${RAPIDPROTO_COVERAGE}>:-fprofile-instr-generate;-fcoverage-mapping>)
+target_compile_definitions(rapidproto_strict INTERFACE
+  $<$<CXX_COMPILER_ID:MSVC>:NOMINMAX;_CRT_SECURE_NO_WARNINGS>)
 target_link_options(rapidproto_strict INTERFACE
   $<$<BOOL:${RAPIDPROTO_SANITIZE}>:-fsanitize=address,undefined>
   $<$<BOOL:${RAPIDPROTO_COVERAGE}>:-fprofile-instr-generate>)
