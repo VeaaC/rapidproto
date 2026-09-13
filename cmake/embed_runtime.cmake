@@ -46,7 +46,9 @@ namespace {
 
 // unsigned char, not char: char is signed on many targets and a byte >= 0x80 (UTF-8 lead bytes in
 // the header text) would be a narrowing error in a char[] initializer. sizeof is the exact byte
-// count -- no trailing NUL -- so the view below spans exactly the header.
+// count -- no trailing NUL -- so the view below spans exactly the header. A C array is required (a
+// string literal would exceed MSVC's cap), so the avoid-c-arrays guidance does not apply.
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays)
 constexpr unsigned char kRuntime[] = {${_array}};
 
 }  // namespace

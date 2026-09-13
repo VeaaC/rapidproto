@@ -8,6 +8,7 @@
 #include <string_view>
 
 namespace rapidproto {
+// NOLINTBEGIN(cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays,cppcoreguidelines-pro-bounds-array-to-pointer-decay)
 namespace {
 
 std::string_view wkt_view(const unsigned char* bytes, std::size_t n) {
@@ -76,4 +77,5 @@ std::optional<std::string_view> wellknown_source(std::string_view import_path) {
     return std::nullopt;
 }
 
+// NOLINTEND(cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays,cppcoreguidelines-pro-bounds-array-to-pointer-decay)
 }  // namespace rapidproto

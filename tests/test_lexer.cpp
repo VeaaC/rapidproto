@@ -117,7 +117,9 @@ TEST_CASE("string literal decoding: single quotes") {
 }
 
 TEST_CASE("string escapes: simple") {
-    // Source literal:  "\n\t\\\"\'\?\b"
+    // Source literal:  "\n\t\\\"\'\?\b"  (an escaped literal, not R"(...)": MSVC processes escape
+    // sequences inside raw strings, so the lexer's own escape inputs are written the portable way)
+    // NOLINTNEXTLINE(modernize-raw-string-literal)
     const auto lr = lex_ok("\"\\n\\t\\\\\\\"\\'\\?\\b\"");
     REQUIRE(lr.tokens.size() == 1);
     CHECK(lr.tokens[0].str_value == std::string("\n\t\\\"'?\b"));

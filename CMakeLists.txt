@@ -32,6 +32,16 @@ option(RAPIDPROTO_SANITIZE "Build our targets with AddressSanitizer + UBSan" OFF
 # src/ + include/ to find untested paths (especially the parser error paths).
 option(RAPIDPROTO_COVERAGE "Build our targets with clang source-based coverage" OFF)
 
+# Windows defaults an executable's stack to 1 MB; Linux and macOS default to 8 MB, which is what the
+# recursion-depth caps (the parser's kMaxParseDepth, the decoders' kMaxDecodeDepth) were calibrated
+# against -- they exist so a cap-bounded but deeply nested input fails CLEANLY instead of overflowing
+# the stack. MSVC Debug frames are heavy enough that even the capped recursion overflows a 1 MB stack,
+# turning a clean rejection into a crash. Match the 8 MB default for our own executables so the caps
+# behave identically on every platform. EXE_LINKER_FLAGS touches only executables, not lib archiving.
+if(MSVC)
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /STACK:8388608")
+endif()
+
 # ---------------------------------------------------------------------------
 # Strict warnings, applied ONLY to our own targets (never to vendored code).
 # Link this INTERFACE target into anything we author.
