@@ -1,6 +1,14 @@
 # RapidProto documentation
 
-The user manual, one page per topic. The quick start is in the [project README](../README.md).
+RapidProto compiles a `.proto` schema into header-only C++ decoders: no runtime library to link and
+no third-party dependencies. It is decode-only - no serialization, no reflection - and generates two
+models from one schema: an arena decoder that materializes a message tree, and a streaming decoder
+that hands each field to a callback. Both validate untrusted wire input and never crash on malformed
+bytes. On a mixed real-world payload the arena decoder decodes about 7× as fast as `protoc` + Arena
+([benchmarks](benchmarks.md)).
+
+Start with the [quick start](../README.md#quick-start); [how it got fast](optimizations.md) walks
+the optimizations one at a time. The pages below are the topic-by-topic reference.
 
 - [arena.md](arena.md) - the arena decoder: accessors, the `Arena`, `decode_owned`, error handling
 - [streaming.md](streaming.md) - the streaming decoder: field tags, the consumption patterns, aborting

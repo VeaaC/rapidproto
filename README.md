@@ -65,19 +65,21 @@ messages, keep `protoc` for that side and use RapidProto for the hot decode path
 **Requirements:** C++17 and a recent GCC, Clang (AppleClang included), or MSVC - Linux, macOS, and
 Windows are all CI-covered ([platform notes](#compatibility--stability)).
 
-The [`rapidproto_generate()` helper](docs/integration.md#cmake-integration) wires
-generation into a CMake build in a few lines; this section drives the tool by hand so each step is
-visible. Grab a prebuilt `rapidprotoc` from the
-[releases page](https://github.com/VeaaC/rapidproto/releases) (prebuilt Linux and macOS
-tarballs, license files included; the macOS binary is unsigned - if Gatekeeper blocks it after
-extracting, clear the quarantine flag: `xattr -d com.apple.quarantine rapidprotoc`) - or build it
-once:
+**Get `rapidprotoc`.** The quickest path is a prebuilt binary for Linux, macOS, or Windows from the
+[releases page](https://github.com/VeaaC/rapidproto/releases) (license files included). To wire
+generation into a CMake build instead, the [`rapidproto_generate()` helper](docs/integration.md#cmake-integration)
+does it in a few lines - via FetchContent, an installed package, the Conan recipe, or the vcpkg
+overlay port ([package managers](docs/integration.md)). Or build the tool from source:
 
 ```sh
 cmake --preset release                               # system compiler, optimized
 cmake --build --preset release --target rapidprotoc
 # binary: build/release/rapidprotoc
 ```
+
+The prebuilt binaries are unsigned: on macOS clear the quarantine flag if Gatekeeper blocks it
+(`xattr -d com.apple.quarantine rapidprotoc`); on Windows, dismiss the SmartScreen prompt (More
+info -> Run anyway). This section then drives the tool by hand so each step is visible.
 
 Given `person.proto`:
 
@@ -199,12 +201,14 @@ A minor may *deprecate* (announced in the CHANGELOG under a Deprecated heading, 
 still working) as advance notice of what the next major removes.
 
 Supported platforms are what CI covers: Linux, macOS, and Windows, with GCC, Clang, AppleClang, and
-MSVC. Windows/MSVC builds and passes the test suite on every CI run; a Windows release binary and
-package-manager ports are not yet published. One Windows caveat: the recursion-depth caps that make
-deeply nested input fail cleanly instead of overflowing the stack are sized for an 8 MB stack (the
-Linux and macOS default). Windows defaults an executable to a 1 MB stack, so a program that decodes
-untrusted, pathologically nested input on Windows should link with a larger stack
-(`/STACK:8388608`) to keep that rejection stack-safe.
+MSVC. Windows/MSVC builds and passes the test suite on every CI run. Prebuilt `rapidprotoc` binaries
+for all three platforms ship on the [releases page](https://github.com/VeaaC/rapidproto/releases),
+and a Conan recipe and a vcpkg overlay port are available
+([package managers](docs/integration.md)). One Windows caveat: the recursion-depth
+caps that make deeply nested input fail cleanly instead of overflowing the stack are sized for an
+8 MB stack (the Linux and macOS default). Windows defaults an executable to a 1 MB stack, so a
+program that decodes untrusted, pathologically nested input on Windows should link with a larger
+stack (`/STACK:8388608`) to keep that rejection stack-safe.
 
 ---
 
