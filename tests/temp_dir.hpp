@@ -5,7 +5,11 @@
 // clang test binaries in parallel -- a PID-less path would let one binary's remove_all wipe the
 // other's files mid-test. Shared by the tests that drive the on-disk resolve()/pipeline entry points.
 
-#include <unistd.h>
+#ifdef _WIN32
+#include <process.h>  // _getpid
+#else
+#include <unistd.h>  // getpid
+#endif
 
 #include <filesystem>
 #include <fstream>
@@ -14,12 +18,22 @@
 
 namespace rapidproto::test {
 
+// The current process id, for a per-process scratch path (see the header note). getpid on POSIX,
+// _getpid on Windows -- same value, different header.
+inline long test_pid() {
+#ifdef _WIN32
+    return static_cast<long>(_getpid());
+#else
+    return static_cast<long>(::getpid());
+#endif
+}
+
 class TempDir {
 public:
     explicit TempDir(const std::string& tag) {
         static int counter = 0;
         m_dir = std::filesystem::temp_directory_path() /
-                ("rapidproto_" + tag + "_" + std::to_string(::getpid()) + "_" +
+                ("rapidproto_" + tag + "_" + std::to_string(test_pid()) + "_" +
                  std::to_string(counter++));
         std::error_code ec;
         std::filesystem::remove_all(m_dir, ec);

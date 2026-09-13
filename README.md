@@ -62,8 +62,8 @@ messages, keep `protoc` for that side and use RapidProto for the hot decode path
 
 ## Quick start
 
-**Requirements:** C++17 and a recent GCC or Clang (AppleClang included - Linux and macOS are both
-CI-covered; MSVC is [not supported](#compatibility--stability)).
+**Requirements:** C++17 and a recent GCC, Clang (AppleClang included), or MSVC - Linux, macOS, and
+Windows are all CI-covered ([platform notes](#compatibility--stability)).
 
 The [`rapidproto_generate()` helper](docs/integration.md#cmake-integration) wires
 generation into a CMake build in a few lines; this section drives the tool by hand so each step is
@@ -198,8 +198,13 @@ break or remove anything** on that surface.
 A minor may *deprecate* (announced in the CHANGELOG under a Deprecated heading, the spelling
 still working) as advance notice of what the next major removes.
 
-Supported platforms are what CI covers: Linux and macOS, with GCC, Clang and AppleClang.
-**MSVC is not supported** - not tested, no workarounds maintained - until real demand shows up.
+Supported platforms are what CI covers: Linux, macOS, and Windows, with GCC, Clang, AppleClang, and
+MSVC. Windows/MSVC builds and passes the test suite on every CI run; a Windows release binary and
+package-manager ports are not yet published. One Windows caveat: the recursion-depth caps that make
+deeply nested input fail cleanly instead of overflowing the stack are sized for an 8 MB stack (the
+Linux and macOS default). Windows defaults an executable to a 1 MB stack, so a program that decodes
+untrusted, pathologically nested input on Windows should link with a larger stack
+(`/STACK:8388608`) to keep that rejection stack-safe.
 
 ---
 

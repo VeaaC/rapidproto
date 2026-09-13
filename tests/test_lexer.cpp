@@ -117,15 +117,17 @@ TEST_CASE("string literal decoding: single quotes") {
 }
 
 TEST_CASE("string escapes: simple") {
-    // Source literal:  "\n\t\\\"\'\?\b"
-    const auto lr = lex_ok(R"("\n\t\\\"\'\?\b")");
+    // Source literal:  "\n\t\\\"\'\?\b"  (an escaped literal, not R"(...)": MSVC processes escape
+    // sequences inside raw strings, so the lexer's own escape inputs are written the portable way)
+    // NOLINTNEXTLINE(modernize-raw-string-literal)
+    const auto lr = lex_ok("\"\\n\\t\\\\\\\"\\'\\?\\b\"");
     REQUIRE(lr.tokens.size() == 1);
     CHECK(lr.tokens[0].str_value == std::string("\n\t\\\"'?\b"));
 }
 
 TEST_CASE("string escapes: hex/octal/unicode byte values") {
-    CHECK(lex_ok(R"("\x41")").tokens[0].str_value == "A");
-    CHECK(lex_ok(R"("\101")").tokens[0].str_value == "A");  // octal 101 = 65 = 'A'
+    CHECK(lex_ok("\"\\x41\"").tokens[0].str_value == "A");
+    CHECK(lex_ok("\"\\101\"").tokens[0].str_value == "A");  // octal 101 = 65 = 'A'
     CHECK(lex_ok(R"("A")").tokens[0].str_value == "A");
     {
         // A 4-digit \u escape, assembled by byte so no literal "backslash-u" (which
@@ -137,36 +139,36 @@ TEST_CASE("string escapes: hex/octal/unicode byte values") {
         u.push_back('"');
         CHECK(lex_ok(u).tokens[0].str_value == "A");
     }
-    CHECK(lex_ok(R"("\U00000041")").tokens[0].str_value == "A");  // 8-digit \U
+    CHECK(lex_ok("\"\\U00000041\"").tokens[0].str_value == "A");  // 8-digit \U
 
     // one-digit hex
-    CHECK(lex_ok(R"("\x7")").tokens[0].str_value == std::string(1, '\x07'));
+    CHECK(lex_ok("\"\\x7\"").tokens[0].str_value == std::string(1, '\x07'));
 
     // U+00E9 (é): the literal multibyte char, and the \u / \U escapes, all decode
     // to the two UTF-8 bytes 0xC3 0xA9.
     const std::string e_acute = {static_cast<char>(0xC3), static_cast<char>(0xA9)};
     CHECK(lex_ok("\"\xC3\xA9\"").tokens[0].str_value == e_acute);  // literal é
     CHECK(lex_ok(R"("é")").tokens[0].str_value == e_acute);
-    CHECK(lex_ok(R"("\U000000e9")").tokens[0].str_value == e_acute);
+    CHECK(lex_ok("\"\\U000000e9\"").tokens[0].str_value == e_acute);
 
     // Embedded NUL bytes are representable in the decoded value.
-    CHECK(lex_ok(R"("\x00")").tokens[0].str_value == std::string(1, '\0'));
-    CHECK(lex_ok(R"("\000")").tokens[0].str_value == std::string(1, '\0'));
+    CHECK(lex_ok("\"\\x00\"").tokens[0].str_value == std::string(1, '\0'));
+    CHECK(lex_ok("\"\\000\"").tokens[0].str_value == std::string(1, '\0'));
 }
 
 TEST_CASE("escape digit-count boundaries") {
     // \x takes at most 2 hex digits (protobuf.com spec); the 3rd is a literal char.
-    CHECK(lex_ok(R"("\x414")").tokens[0].str_value == "A4");
+    CHECK(lex_ok("\"\\x414\"").tokens[0].str_value == "A4");
     // octal takes at most 3 digits.
-    CHECK(lex_ok(R"("\1011")").tokens[0].str_value == "A1");
+    CHECK(lex_ok("\"\\1011\"").tokens[0].str_value == "A1");
     // octal masks to a byte (\777 -> 0xFF).
-    CHECK(lex_ok(R"("\777")").tokens[0].str_value == std::string(1, static_cast<char>(0xFF)));
+    CHECK(lex_ok("\"\\777\"").tokens[0].str_value == std::string(1, static_cast<char>(0xFF)));
 }
 
 TEST_CASE("invalid unicode escapes are rejected") {
-    CHECK(lex(R"("\U00110000")").is_err());  // > U+10FFFF
-    CHECK(lex(R"("\ud800")").is_err());      // lone high surrogate
-    CHECK(lex(R"("\udfff")").is_err());      // lone low surrogate
+    CHECK(lex("\"\\U00110000\"").is_err());  // > U+10FFFF
+    CHECK(lex("\"\\ud800\"").is_err());      // lone high surrogate
+    CHECK(lex("\"\\udfff\"").is_err());      // lone low surrogate
     // U+D7FF is just below the surrogate range -> valid (3 UTF-8 bytes).
     CHECK(lex_ok(R"("퟿")").tokens[0].str_value.size() == 3);
 }
@@ -241,17 +243,17 @@ TEST_CASE("lexer errors carry a position") {
     REQUIRE(unterminated_comment.is_err());
     CHECK(unterminated_comment.error().byte_offset == 19);
 
-    CHECK(lex(R"("\q")").is_err());    // invalid escape
-    CHECK(lex(R"("\x")").is_err());    // \x with no digits
-    CHECK(lex(R"("\u12")").is_err());  // incomplete unicode
+    CHECK(lex("\"\\q\"").is_err());    // invalid escape
+    CHECK(lex("\"\\x\"").is_err());    // \x with no digits
+    CHECK(lex("\"\\u12\"").is_err());  // incomplete unicode
     CHECK(lex("@").is_err());          // unexpected character
     CHECK(lex("0x").is_err());         // hex literal with no digits
     CHECK(lex("1e").is_err());         // exponent with no digits
 }
 
 TEST_CASE("error offsets point at the offending position") {
-    CHECK(lex(R"("\q")").error().byte_offset == 1);    // the backslash
-    CHECK(lex(R"("ab\x")").error().byte_offset == 3);  // the backslash
+    CHECK(lex("\"\\q\"").error().byte_offset == 1);    // the backslash
+    CHECK(lex("\"ab\\x\"").error().byte_offset == 3);  // the backslash
     CHECK(lex("foo @").error().byte_offset == 4);      // the '@'
 }
 

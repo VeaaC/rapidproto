@@ -32,6 +32,16 @@ option(RAPIDPROTO_SANITIZE "Build our targets with AddressSanitizer + UBSan" OFF
 # src/ + include/ to find untested paths (especially the parser error paths).
 option(RAPIDPROTO_COVERAGE "Build our targets with clang source-based coverage" OFF)
 
+# Windows defaults an executable's stack to 1 MB; Linux and macOS default to 8 MB, which is what the
+# recursion-depth caps (the parser's kMaxParseDepth, the decoders' kMaxDecodeDepth) were calibrated
+# against -- they exist so a cap-bounded but deeply nested input fails CLEANLY instead of overflowing
+# the stack. MSVC Debug frames are heavy enough that even the capped recursion overflows a 1 MB stack,
+# turning a clean rejection into a crash. Match the 8 MB default for our own executables so the caps
+# behave identically on every platform. EXE_LINKER_FLAGS touches only executables, not lib archiving.
+if(MSVC)
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /STACK:8388608")
+endif()
+
 # ---------------------------------------------------------------------------
 # Strict warnings, applied ONLY to our own targets (never to vendored code).
 # Link this INTERFACE target into anything we author.
@@ -55,15 +65,29 @@ set(_rp_warnings_common
 set(_rp_warnings_gcc
   -Wduplicated-cond -Wduplicated-branches -Wlogical-op -Wuseless-cast)
 
+# MSVC has an unrelated flag spelling and a different, much smaller warning set; the GNU/Clang -W*
+# names above are errors to it. /permissive- turns on conformant two-phase lookup and other
+# standard behavior (the closest cl.exe has to the strictness above); /EHsc is the standard C++
+# exception model; /utf-8 makes the source charset match the UTF-8 headers; NOMINMAX and
+# _CRT_SECURE_NO_WARNINGS keep the Windows CRT from defining min/max macros or warning on the
+# standard library. /WX (warnings-as-errors) is gated the same as -Werror.
+set(_rp_warnings_msvc /W4 /permissive- /EHsc /utf-8)
 target_compile_options(rapidproto_strict INTERFACE
   $<$<CXX_COMPILER_ID:GNU>:${_rp_warnings_common};${_rp_warnings_gcc}>
   $<$<CXX_COMPILER_ID:Clang,AppleClang>:${_rp_warnings_common}>
-  $<$<BOOL:${RAPIDPROTO_WERROR}>:-Werror>
-  $<$<BOOL:${RAPIDPROTO_SANITIZE}>:-fsanitize=address,undefined;-fno-sanitize-recover=all;-fno-omit-frame-pointer;-g>
-  $<$<BOOL:${RAPIDPROTO_COVERAGE}>:-fprofile-instr-generate;-fcoverage-mapping>)
+  $<$<CXX_COMPILER_ID:MSVC>:${_rp_warnings_msvc}>
+  $<$<AND:$<BOOL:${RAPIDPROTO_WERROR}>,$<NOT:$<CXX_COMPILER_ID:MSVC>>>:-Werror>
+  $<$<AND:$<BOOL:${RAPIDPROTO_WERROR}>,$<CXX_COMPILER_ID:MSVC>>:/WX>
+  # The sanitizer/coverage flags are gcc/clang spellings; gate them off MSVC so
+  # -DRAPIDPROTO_SANITIZE=ON on an MSVC build fails with a clear "unknown option" rather than
+  # feeding -fsanitize to cl.exe. (CI only ever sets these on the Linux clang/gcc jobs.)
+  $<$<AND:$<BOOL:${RAPIDPROTO_SANITIZE}>,$<NOT:$<CXX_COMPILER_ID:MSVC>>>:-fsanitize=address,undefined;-fno-sanitize-recover=all;-fno-omit-frame-pointer;-g>
+  $<$<AND:$<BOOL:${RAPIDPROTO_COVERAGE}>,$<NOT:$<CXX_COMPILER_ID:MSVC>>>:-fprofile-instr-generate;-fcoverage-mapping>)
+target_compile_definitions(rapidproto_strict INTERFACE
+  $<$<CXX_COMPILER_ID:MSVC>:NOMINMAX;_CRT_SECURE_NO_WARNINGS>)
 target_link_options(rapidproto_strict INTERFACE
-  $<$<BOOL:${RAPIDPROTO_SANITIZE}>:-fsanitize=address,undefined>
-  $<$<BOOL:${RAPIDPROTO_COVERAGE}>:-fprofile-instr-generate>)
+  $<$<AND:$<BOOL:${RAPIDPROTO_SANITIZE}>,$<NOT:$<CXX_COMPILER_ID:MSVC>>>:-fsanitize=address,undefined>
+  $<$<AND:$<BOOL:${RAPIDPROTO_COVERAGE}>,$<NOT:$<CXX_COMPILER_ID:MSVC>>>:-fprofile-instr-generate>)
 
 # The version header (rapidproto/version.hpp): generated so the CLIs' --version and the emitters'
 # generated-file banner can never drift from project(VERSION). Build-tree only; the installed
@@ -116,9 +140,8 @@ target_link_libraries(rapidproto_cli PRIVATE rapidproto_lib rapidproto_strict)
 # generated TU via cmake/embed_runtime.cmake. A function rather than three copied 20-line blocks --
 # each copy carried two silent-failure modes (dropping the DEPENDS on embed_runtime.cmake yields a
 # stale embed; a fourth emitter added by copy-paste inherits whichever copy its author picked).
-# The embedded runtime is one raw string literal exceeding the 65536-char minimum the standard
-# requires (both compilers accept it; clang's pedantic -Woverlength-strings would flag it under
-# -Werror), suppressed per generated TU.
+# The runtime is embedded as raw-string chunks joined at run time (embed_runtime.cmake), so no
+# single literal hits MSVC's per-literal cap and no per-TU warning suppression is needed.
 function(_rapidproto_embed_runtime out_var header ns func decl)
   get_filename_component(_stem "${header}" NAME_WE)
   # NAME_WE keys the output file, so two same-dir calls with headers sharing a stem would collide
@@ -147,7 +170,6 @@ function(_rapidproto_embed_runtime out_var header ns func decl)
       ${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_runtime.cmake
     COMMENT "Embedding ${header} -> ${_stem}_embedded.cpp"
     VERBATIM)
-  set_source_files_properties("${_out}" PROPERTIES COMPILE_OPTIONS "-Wno-overlength-strings")
   set(${out_var} "${_out}" PARENT_SCOPE)
 endfunction()
 
