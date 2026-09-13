@@ -9,4 +9,4 @@ __pycache__/
 
 # Conan test_package build tree + Conan-written user presets (packaging dev loop)
 /test_package/build/
-/CMakeUserPresets.json
+CMakeUserPresets.json
