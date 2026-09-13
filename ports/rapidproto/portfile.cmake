@@ -4,14 +4,11 @@
 # header-only and the tool is a standalone host binary, so a debug build buys nothing.
 set(VCPKG_BUILD_TYPE release)
 
-# SHA512 is a PLACEHOLDER (currently v0.4.0's) -- GitHub generates the v0.5.0 source tarball only at
-# tag time, so recompute against the real REF before this port is used:
-#   vcpkg_from_github(... REF v0.5.0 ...) with SHA512 0  then paste the "Actual hash" it prints.
 vcpkg_from_github(
     OUT_SOURCE_PATH SOURCE_PATH
     REPO VeaaC/rapidproto
     REF "v${VERSION}"
-    SHA512 e8566ad772c2dd6d8ab0a3fe62bbdaa2d3ed609891f907362f7d49f7cab30e4d2d220d2789a276d7bcfe04623542968960d835412140f3af43e412e7f5621a0d
+    SHA512 4681bf52f91f9dd69ff72e7cb5b9846a977cdcf00d4679ada38b0cf3dead4a6ecf1b8af654613315ab493ab9ec6565441f234d782e7ae27c50ae9288419af3ce
     HEAD_REF main
 )
 
