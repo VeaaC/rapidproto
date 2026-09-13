@@ -95,6 +95,24 @@ jobs:
       - name: Build + test with the system compiler (tests/system_build_test.sh)
         run: tests/system_build_test.sh
 
+  # Windows build + test on MSVC -- the compiler axis no other job covers (cl.exe's frontend,
+  # standard library, and warning set all differ from gcc/clang; clang-cl is NOT a faithful proxy,
+  # so this is the only place MSVC support is proven). Drives CMake directly with the Visual Studio
+  # generator -- no check.sh (bash + pinned gcc/clang/tidy it hasn't got), the same reason the macos
+  # job runs its own build. RAPIDPROTO_WERROR stays OFF here for now so /W4 reports its full surface
+  # rather than failing on the first warning; it flips ON once that surface is clean.
+  windows:
+    name: windows (build/test, MSVC)
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure (MSVC / Visual Studio 2022, x64)
+        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DRAPIDPROTO_WERROR=OFF
+      - name: Build (rapidprotoc + test binary)
+        run: cmake --build build --config Debug -j
+      - name: Test (the Catch2 suite via CTest)
+        run: ctest --test-dir build -C Debug --output-on-failure
+
   tidy:
     # The shard count lives ONCE, in the matrix list: name and denominator derive from
     # strategy.job-total, so changing the fan-out is one edit (a stale hand-written /3 would
