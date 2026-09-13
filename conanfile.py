@@ -3,7 +3,7 @@ import re
 
 from conan import ConanFile
 from conan.tools.cmake import CMake, CMakeToolchain, cmake_layout
-from conan.tools.files import copy, load
+from conan.tools.files import load
 
 
 class RapidprotoConan(ConanFile):
@@ -29,13 +29,14 @@ class RapidprotoConan(ConanFile):
     # nothing to build shared, and no fPIC surface.
 
     # The generator's build inputs only (tests/, examples/, docs/ are not needed to build + install
-    # rapidprotoc with RAPIDPROTO_BUILD_TESTS=OFF).
+    # rapidprotoc with RAPIDPROTO_BUILD_TESTS=OFF). The vendored wellknown/*.proto sources are NOT
+    # exported: the build compiles the checked-in src/wellknown_generated.cpp (their embedded form),
+    # and embed_wellknown.py -- which reads wellknown/ -- is not wired into the build.
     exports_sources = (
         "CMakeLists.txt",
         "cmake/*",
         "src/*",
         "include/*",
-        "wellknown/*",
         "LICENSE",
         "NOTICE",
         "THIRD_PARTY_NOTICES.md",
