@@ -37,9 +37,11 @@ jobs:
           # `compilers` is check.sh's name for it, the same mode ci.yml's arm64 job runs, so that
           # stage list lives once in check.sh; macos runs tests/system_build_test.sh, the one
           # home for the system-compiler sequence shared with ci.yml's macos job (check.sh needs
-          # bash >= 4.4 and pinned compilers; macOS runners have neither). Everything
-          # architecture- and platform-independent (format, tidy, docs, ...) runs on the
-          # linux-x86_64 leg.
+          # bash >= 4.4 and pinned compilers; macOS runners have neither). windows carries no
+          # `verify` value: bash-only check.sh can't run there, so its own steps below
+          # configure/build/test with the MSVC generator (mirroring ci.yml's windows job) before
+          # packaging. Everything architecture- and platform-independent (format, tidy, docs, ...)
+          # runs on the linux-x86_64 leg.
           - os: linux
             arch: x86_64
             runner: ubuntu-24.04
@@ -52,6 +54,9 @@ jobs:
             arch: arm64
             runner: macos-15
             verify: 'tests/system_build_test.sh'
+          - os: windows
+            arch: x86_64
+            runner: windows-2022
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
@@ -60,6 +65,7 @@ jobs:
       - name: Require the tagged commit to be on main (ci.yml's matrix gated it there)
         # HEAD, not GITHUB_SHA: on an annotated-tag push the latter can name the TAG OBJECT;
         # checkout has already peeled HEAD to the commit, so HEAD sidesteps the quirk entirely.
+        shell: bash  # Git Bash on the windows runner; the default shell everywhere else
         run: |
           git merge-base --is-ancestor HEAD origin/main || {
             echo "::error::tag ${GITHUB_REF_NAME} points at $(git rev-parse HEAD), which is not on"
@@ -67,14 +73,18 @@ jobs:
             exit 1
           }
       - uses: ./.github/actions/setup-toolchain
-        # apt-based; the macos leg's verify script needs only the image's cmake + AppleClang.
+        # apt-based; the macos leg's verify script needs only the image's cmake + AppleClang, and
+        # the windows leg only the image's MSVC + cmake.
         if: runner.os == 'Linux'
+      # --- Unix legs (bash, tarball) ---
       - name: Verify the tag (${{ matrix.verify }})
         # The expression is substituted into the script TEXT before the shell runs -- which also
         # means a verify value with shell metacharacters would be injected verbatim. All values
         # are literals in this file; keep them that way.
+        if: runner.os != 'Windows'
         run: ${{ matrix.verify }}
       - name: Build the release binary
+        if: runner.os != 'Windows'
         run: |
           set -euxo pipefail
           # WERROR off: this build runs on the un-pinned runner compiler, and a new compiler's
@@ -92,11 +102,38 @@ jobs:
           COPYFILE_DISABLE=1 \
           tar -czf "rapidprotoc-${GITHUB_REF_NAME}-${{ matrix.os }}-${{ matrix.arch }}.tar.gz" \
             -C build/rel rapidprotoc -C "$GITHUB_WORKSPACE" LICENSE NOTICE THIRD_PARTY_NOTICES.md
+      # --- Windows leg (MSVC generator, .zip) --- check.sh is bash-only, so this leg verifies with
+      # the Visual Studio generator as ci.yml's windows job does, then builds the optimized exe and
+      # packages a .zip (the Windows-native archive) instead of a tarball.
+      - name: Verify the tag (MSVC configure + build + test)
+        if: runner.os == 'Windows'
+        run: |
+          cmake -S . -B build/ci -G "Visual Studio 17 2022" -A x64 -DRAPIDPROTO_WERROR=OFF
+          cmake --build build/ci --config Release -j
+          ctest --test-dir build/ci -C Release --output-on-failure
+      - name: Build the release binary
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cmake -S . -B build/rel -G "Visual Studio 17 2022" -A x64 \
+            -DRAPIDPROTO_BUILD_TESTS=OFF -DRAPIDPROTO_WERROR=OFF
+          cmake --build build/rel --config Release -j
+          # tr -d '\r': the exe's stdout is CRLF on Windows; strip it before the tag check.
+          ver="$(./build/rel/Release/rapidprotoc.exe --version | tr -d '\r')"
+          test "$ver" = "rapidprotoc ${GITHUB_REF_NAME#v}"
+          # Flat staging dir so the .zip stores the exe and the Apache-2.0 files at its root -- the
+          # same layout as the Unix tarballs. 7z ships on the windows runner image.
+          mkdir stage
+          cp build/rel/Release/rapidprotoc.exe LICENSE NOTICE THIRD_PARTY_NOTICES.md stage/
+          (cd stage && 7z a "../rapidprotoc-${GITHUB_REF_NAME}-${{ matrix.os }}-${{ matrix.arch }}.zip" ./*)
       - uses: actions/upload-artifact@v4
         with:
           # os AND arch: linux-arm64 and macos-arm64 must not collide on one artifact name.
           name: rapidprotoc-${{ matrix.os }}-${{ matrix.arch }}
-          path: rapidprotoc-*.tar.gz
+          path: |
+            rapidprotoc-*.tar.gz
+            rapidprotoc-*.zip
           if-no-files-found: error
 
   publish:
@@ -113,7 +150,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" rapidprotoc-*.tar.gz \
+          gh release create "${GITHUB_REF_NAME}" rapidprotoc-*.tar.gz rapidprotoc-*.zip \
             --repo "${GITHUB_REPOSITORY}" \
             --title "${GITHUB_REF_NAME}" \
             --notes "See [CHANGELOG.md](https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_REF_NAME}/CHANGELOG.md) for what changed."
