@@ -79,8 +79,10 @@ TEST_CASE("driver: write_depfile emits `outputs : prereqs`", "[cli]") {
                              {tmp / "a.proto", tmp / "b.proto"}));
     const std::string text = read_text(depfile);
     INFO("depfile: " << text);
-    // The rule separator is a colon followed by a space; a Windows drive letter (C:/...) is a colon
-    // followed by a slash, so find(": ") lands on the separator on every platform.
+    // The separator colon is followed by a space here because there is always at least one
+    // prerequisite (the entry .proto); a Windows drive letter (C:/...) is a colon followed by a
+    // slash, and a path space is escaped to backslash-space, so find(": ") lands on the separator
+    // on every platform.
     const auto colon = text.find(": ");
     REQUIRE(colon != std::string::npos);
     // Generated headers are targets (before the colon); the .proto inputs are prerequisites (after it).

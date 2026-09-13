@@ -78,13 +78,16 @@ target_compile_options(rapidproto_strict INTERFACE
   $<$<CXX_COMPILER_ID:MSVC>:${_rp_warnings_msvc}>
   $<$<AND:$<BOOL:${RAPIDPROTO_WERROR}>,$<NOT:$<CXX_COMPILER_ID:MSVC>>>:-Werror>
   $<$<AND:$<BOOL:${RAPIDPROTO_WERROR}>,$<CXX_COMPILER_ID:MSVC>>:/WX>
-  $<$<BOOL:${RAPIDPROTO_SANITIZE}>:-fsanitize=address,undefined;-fno-sanitize-recover=all;-fno-omit-frame-pointer;-g>
-  $<$<BOOL:${RAPIDPROTO_COVERAGE}>:-fprofile-instr-generate;-fcoverage-mapping>)
+  # The sanitizer/coverage flags are gcc/clang spellings; gate them off MSVC so
+  # -DRAPIDPROTO_SANITIZE=ON on an MSVC build fails with a clear "unknown option" rather than
+  # feeding -fsanitize to cl.exe. (CI only ever sets these on the Linux clang/gcc jobs.)
+  $<$<AND:$<BOOL:${RAPIDPROTO_SANITIZE}>,$<NOT:$<CXX_COMPILER_ID:MSVC>>>:-fsanitize=address,undefined;-fno-sanitize-recover=all;-fno-omit-frame-pointer;-g>
+  $<$<AND:$<BOOL:${RAPIDPROTO_COVERAGE}>,$<NOT:$<CXX_COMPILER_ID:MSVC>>>:-fprofile-instr-generate;-fcoverage-mapping>)
 target_compile_definitions(rapidproto_strict INTERFACE
   $<$<CXX_COMPILER_ID:MSVC>:NOMINMAX;_CRT_SECURE_NO_WARNINGS>)
 target_link_options(rapidproto_strict INTERFACE
-  $<$<BOOL:${RAPIDPROTO_SANITIZE}>:-fsanitize=address,undefined>
-  $<$<BOOL:${RAPIDPROTO_COVERAGE}>:-fprofile-instr-generate>)
+  $<$<AND:$<BOOL:${RAPIDPROTO_SANITIZE}>,$<NOT:$<CXX_COMPILER_ID:MSVC>>>:-fsanitize=address,undefined>
+  $<$<AND:$<BOOL:${RAPIDPROTO_COVERAGE}>,$<NOT:$<CXX_COMPILER_ID:MSVC>>>:-fprofile-instr-generate>)
 
 # The version header (rapidproto/version.hpp): generated so the CLIs' --version and the emitters'
 # generated-file banner can never drift from project(VERSION). Build-tree only; the installed
