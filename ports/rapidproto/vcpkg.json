@@ -1,6 +1,6 @@
 {
   "name": "rapidproto",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "A decode-only protobuf code generator for C++: turns .proto schemas into fast arena and streaming decoders that depend only on a std-library-only, header-only runtime.",
   "homepage": "https://github.com/VeaaC/rapidproto",
   "license": "Apache-2.0",

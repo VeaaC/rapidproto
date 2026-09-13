@@ -5,6 +5,13 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
 From 1.0 on, removals happen only in a major release, announced beforehand under a
 **Deprecated** heading (the README's Compatibility section states the policy).
 
+## 0.5.1 - 2026-09-13
+
+### Added
+
+- Prebuilt Windows (x86_64) `rapidprotoc.exe` in the GitHub Release, alongside the Linux and
+  macOS binaries — the release now covers every CI-tested platform.
+
 ## 0.5.0 - 2026-09-13
 
 ### Fixed
