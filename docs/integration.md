@@ -99,6 +99,27 @@ FetchContent_MakeAvailable(rapidproto)         # defines rapidproto_generate() +
 find_package(rapidproto REQUIRED)              # same helper + tool, imported
 ```
 
+**Package managers.** The repo carries a Conan recipe (`conanfile.py`) and a vcpkg overlay port
+(`ports/rapidproto/`). Both install the same exported package, so the consumer side is the
+`find_package(rapidproto)` + `rapidproto_generate()` flow above either way. RapidProto is a
+code-generator *tool*: the output is self-contained, so it is consumed at build time only, never
+linked.
+
+*Conan* - `tool_requires` the generator (build context) and generate a CMake toolchain:
+
+```python
+def build_requirements(self):
+    self.tool_requires("rapidproto/0.5.0")
+```
+
+*vcpkg* - point at the overlay (`--overlay-ports=<repo>/ports`, or a `vcpkg-configuration.json`) and
+depend on it. Mark it `"host": true` so the generator is built for the build machine when
+cross-compiling:
+
+```json
+{ "dependencies": [ { "name": "rapidproto", "host": true } ] }
+```
+
 **CMake version.** Incremental import-tracking uses `add_custom_command(DEPFILE)`: supported on Ninja at
 any version, and on the Makefile generators with CMake ≥ 3.20 (Xcode / the Visual Studio generator ≥ 3.21). On an
 older CMake with those generators the helper still generates correctly but won't auto-retrigger on an

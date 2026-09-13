@@ -5,9 +5,9 @@
 # it needs a ~100 MB fetch), an arm64 build/test job (the SWAR decode kernels lower to native
 # AArch64 instructions x86 can't exercise), a macos build/test job (AppleClang + libc++), the heavy
 # "deep" tier (sanitizers + coverage floor + fuzz smoke; its corpus legs live in the corpus job,
-# which has the fetch), a Release -O3 -Werror build on both compilers, and the consumer job
-# (install -> find_package -> newer-standard header compiles) -- so wall-clock is the slowest
-# runner, not the sum.
+# which has the fetch), a Release -O3 -Werror build on both compilers, the consumer job
+# (install -> find_package -> newer-standard header compiles), and the packaging job (conan create:
+# recipe + test_package consumer) -- so wall-clock is the slowest runner, not the sum.
 name: CI
 
 on:
@@ -197,3 +197,20 @@ jobs:
           for std in c++20 c++23; do
             g++ -std="$std" -Wall -Wextra -Werror -Ibuild/gen -c examples/consumer/main.cpp -o /dev/null
           done
+
+  # The Conan recipe end-to-end: `conan create` builds the tool package and then the test_package
+  # consumer (find_package -> rapidproto_generate -> decode), so the recipe, its version parsing, and
+  # the tool_requires consumption can't regress silently. The vcpkg port isn't exercised here: it
+  # fetches a tagged release tarball by SHA512, so it can only be validated against a published tag.
+  packaging:
+    name: packaging (conan create)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Conan
+        run: pipx install conan
+      - name: conan create (tool package + test_package consumer)
+        run: |
+          set -euxo pipefail
+          conan profile detect --force
+          conan create . --build=missing

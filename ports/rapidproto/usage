@@ -1,0 +1,12 @@
+rapidproto provides CMake targets and a code-generation helper:
+
+    find_package(rapidproto CONFIG REQUIRED)
+
+    # One call turns a schema into a linkable, header-only target (self-contained output).
+    rapidproto_generate(my_schema
+      PROTOS ${CMAKE_CURRENT_SOURCE_DIR}/schema.proto
+      IMPORT_DIRS ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(my_target PRIVATE my_schema)
+
+rapidprotoc is a build-time (host) tool. When cross-compiling, depend on rapidproto with
+"host": true in your vcpkg.json so the generator is built for the build machine.

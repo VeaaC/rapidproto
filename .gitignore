@@ -6,3 +6,7 @@ __pycache__/
 
 # Benchmark snapshots emitted by tests/bench.py (carry same-machine cyc/B; not portable, kept local)
 /bench_snapshots/
+
+# Conan test_package build tree + Conan-written user presets (packaging dev loop)
+/test_package/build/
+CMakeUserPresets.json
