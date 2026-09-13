@@ -1027,7 +1027,7 @@ TEST_CASE("dumpgen: a string field escapes JSON control/quote/backslash characte
     const p3::Msg* m = p3::Msg::decode(ByteView(buf), arena);
     REQUIRE(m != nullptr);
     const std::string dump = rapidproto::dump(*m);
-    CHECK(dump == R"({"name": "q\"b\\\n\t\u0001"})");
+    CHECK(dump == "{\"name\": \"q\\\"b\\\\\\n\\t\\u0001\"}");
 }
 
 TEST_CASE("dumpgen: field-modes dump omits dropped fields and renders raw payloads as hex",
