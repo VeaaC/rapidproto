@@ -140,8 +140,8 @@ target_link_libraries(rapidproto_cli PRIVATE rapidproto_lib rapidproto_strict)
 # generated TU via cmake/embed_runtime.cmake. A function rather than three copied 20-line blocks --
 # each copy carried two silent-failure modes (dropping the DEPENDS on embed_runtime.cmake yields a
 # stale embed; a fourth emitter added by copy-paste inherits whichever copy its author picked).
-# The runtime is embedded as a byte array (embed_runtime.cmake), not a string literal, so no
-# per-TU warning suppression is needed and MSVC's 65535-byte literal cap does not apply.
+# The runtime is embedded as raw-string chunks joined at run time (embed_runtime.cmake), so no
+# single literal hits MSVC's per-literal cap and no per-TU warning suppression is needed.
 function(_rapidproto_embed_runtime out_var header ns func decl)
   get_filename_component(_stem "${header}" NAME_WE)
   # NAME_WE keys the output file, so two same-dir calls with headers sharing a stem would collide

@@ -3,7 +3,7 @@
 # Run via:  cmake -DINPUT=<path> -DOUTPUT_C=<path> -DSYMBOL=<identifier> -P cmake/embed_binary.cmake
 #
 # The output defines `const unsigned char <SYMBOL>[]` and `const unsigned <SYMBOL>_len` with
-# external linkage. Sibling of embed_runtime.cmake, which embeds a text header as a byte array too
+# external linkage. Sibling of embed_runtime.cmake, which embeds a text header as raw-string chunks
 # but wraps it in a string_view accessor; this one exposes the raw bytes + length for binary input
 # (NULs included). Pure CMake: no xxd, no Python.
 #
