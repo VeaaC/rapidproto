@@ -1,0 +1,11 @@
+# Keep line endings LF on every platform. The emitters write '\n' and the CLI/goldens read and
+# write in binary mode (no translation), so a Windows checkout with core.autocrlf=true would give
+# CRLF golden files that no longer match LF-generated output -- every golden test would fail. Pin
+# text to LF; mark the known binary fixtures so they are never touched.
+* text=auto eol=lf
+
+# Binary test fixtures: wire payloads, the OSM PBF sample, images.
+*.bin -text
+*.pbf -text
+*.png -text
+*.ico -text

@@ -18,19 +18,21 @@ foreach(_required RUNTIME_HPP RUNTIME_REL OUTPUT_CPP EMBED_NS EMBED_FUNC EMBED_D
   endif()
 endforeach()
 
-file(READ "${RUNTIME_HPP}" RUNTIME_TEXT)
-
-# The runtime is embedded as a raw string with the )RPRT" delimiter; guard against it appearing in
-# the header (which would terminate the literal early).
-string(FIND "${RUNTIME_TEXT}" ")RPRT\"" _collision)
-if(NOT _collision EQUAL -1)
-  message(FATAL_ERROR "embed_runtime: raw-string delimiter collision in ${RUNTIME_HPP}")
+# Embedded as a byte ARRAY, not a string literal: a runtime header (runtime.hpp is ~67 KB) exceeds
+# the 65535-byte literal MSVC hard-caps at (C2026) -- gcc and clang accept far larger, MSVC does not,
+# and adjacent-literal concatenation cannot rescue it (the result is still one capped literal). A
+# char[] initializer has no such limit. Sibling of embed_binary.cmake, which uses the same HEX read
+# for arbitrary bytes; here the input is text, but the array form sidesteps the literal cap. sizeof
+# the array is the exact byte count (no trailing NUL), so the string_view spans exactly the header.
+# This file is internal to rapidprotoc; the runtime the CLI writes for consumers is the plain header.
+file(READ "${RUNTIME_HPP}" _hex HEX)
+string(LENGTH "${_hex}" _hexlen)
+math(EXPR _bytes "${_hexlen} / 2")
+if(_bytes EQUAL 0)
+  message(FATAL_ERROR "embed_runtime: ${RUNTIME_HPP} is empty -- refusing to embed a zero-length runtime")
 endif()
+string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1," _array "${_hex}")
 
-# Embedded as ONE raw string literal. It exceeds the 65536-char literal the C++ standard requires
-# compilers to support (both gcc and clang accept far larger; only clang's pedantic -Woverlength-strings
-# flags it), so the TUs that compile this file suppress that warning -- see CMakeLists.txt. This file is
-# internal to rapidprotoc; the runtime the CLI writes for consumers is the plain header, not this embed.
 file(WRITE "${OUTPUT_CPP}"
 "// GENERATED at build time from ${RUNTIME_REL} (cmake/embed_runtime.cmake). DO NOT EDIT.
 // Carries the runtime header text so the generator can drop a self-contained copy beside its output.
@@ -42,12 +44,17 @@ file(WRITE "${OUTPUT_CPP}"
 namespace ${EMBED_NS} {
 namespace {
 
-constexpr std::string_view kRuntime =
-    R\"RPRT(${RUNTIME_TEXT})RPRT\";
+// unsigned char, not char: char is signed on many targets and a byte >= 0x80 (UTF-8 lead bytes in
+// the header text) would be a narrowing error in a char[] initializer. sizeof is the exact byte
+// count -- no trailing NUL -- so the view below spans exactly the header.
+constexpr unsigned char kRuntime[] = {${_array}};
 
 }  // namespace
 
-std::string_view ${EMBED_FUNC}() { return kRuntime; }
+std::string_view ${EMBED_FUNC}() {
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast): byte array -> char view, no aliasing
+  return std::string_view{reinterpret_cast<const char*>(kRuntime), sizeof kRuntime};
+}
 
 }  // namespace ${EMBED_NS}
 ")
