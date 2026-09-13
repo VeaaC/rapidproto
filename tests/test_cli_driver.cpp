@@ -79,7 +79,9 @@ TEST_CASE("driver: write_depfile emits `outputs : prereqs`", "[cli]") {
                              {tmp / "a.proto", tmp / "b.proto"}));
     const std::string text = read_text(depfile);
     INFO("depfile: " << text);
-    const auto colon = text.find(':');
+    // The rule separator is a colon followed by a space; a Windows drive letter (C:/...) is a colon
+    // followed by a slash, so find(": ") lands on the separator on every platform.
+    const auto colon = text.find(": ");
     REQUIRE(colon != std::string::npos);
     // Generated headers are targets (before the colon); the .proto inputs are prerequisites (after it).
     CHECK(text.find("a.rp.stream.hpp") < colon);
@@ -136,7 +138,10 @@ TEST_CASE("driver: a header path that would leave the out-dir is detected", "[cl
     file.filename = "a/b/../../d/e/f.proto";
     CHECK_FALSE(cli::header_escapes_out_dir(file));
     CHECK(cli::header_path("gen", file, ".rp.hpp") == std::filesystem::path("gen/d/e/f.rp.hpp"));
-    file.filename = "/abs/dir/x.proto";
+    // An absolute name (every entry is absolute by the time it reaches here) reduces to its
+    // basename. Derived from temp_directory_path so it is genuinely absolute on every platform --
+    // a bare "/abs/dir/x.proto" is root-relative, not absolute, on Windows.
+    file.filename = (std::filesystem::temp_directory_path() / "abs" / "dir" / "x.proto").string();
     CHECK_FALSE(cli::header_escapes_out_dir(file));
     CHECK(cli::header_path("gen", file, ".rp.hpp") == std::filesystem::path("gen/x.rp.hpp"));
 }

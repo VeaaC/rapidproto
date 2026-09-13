@@ -558,8 +558,9 @@ inline void dedup_sorted(std::vector<std::filesystem::path>& paths) {
     detail::dedup_keep_order(outputs);  // FIRST target must stay first -- see the helper
     detail::dedup_sorted(prereqs);
     // Escape per the depfile grammar GCC's -MD emits (what CMake and Ninja consume): a backslash before
-    // a space, '#', or backslash; '$' doubled. (':' is left alone -- it does not occur in POSIX paths
-    // and is the rule separator.)
+    // a space, '#', or backslash; '$' doubled. (':' is left alone -- it is the rule separator; a Windows
+    // drive-letter colon in a path is left alone too, which is correct: Ninja's depfile parser is
+    // drive-aware, and escaping it would break that, exactly as GCC/Clang -MD leave it on Windows.)
     const auto escape = [](const std::filesystem::path& path) {
         std::string out;
         for (const char ch : path.generic_string()) {
