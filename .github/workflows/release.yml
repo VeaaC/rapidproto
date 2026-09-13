@@ -119,9 +119,12 @@ jobs:
           cmake -S . -B build/rel -G "Visual Studio 17 2022" -A x64 \
             -DRAPIDPROTO_BUILD_TESTS=OFF -DRAPIDPROTO_WERROR=OFF
           cmake --build build/rel --config Release -j
-          # tr -d '\r': the exe's stdout is CRLF on Windows; strip it before the tag check.
+          # A mis-tagged push must not ship a binary whose --version contradicts its tag.
+          # --version prints the invoked basename, which on Windows keeps the .exe suffix
+          # (path::filename), so the expected string carries it too. tr -d '\r': the exe's stdout
+          # is CRLF on Windows; strip it before the compare.
           ver="$(./build/rel/Release/rapidprotoc.exe --version | tr -d '\r')"
-          test "$ver" = "rapidprotoc ${GITHUB_REF_NAME#v}"
+          test "$ver" = "rapidprotoc.exe ${GITHUB_REF_NAME#v}"
           # Flat staging dir so the .zip stores the exe and the Apache-2.0 files at its root -- the
           # same layout as the Unix tarballs. 7z ships on the windows runner image.
           mkdir stage
