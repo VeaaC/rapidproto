@@ -184,8 +184,9 @@ takes over.
 
 Across the seven steps `Dataset` went from 2.4× protoc to 6.1× (clang; ~7× on gcc) - a full message
 tree, materialized and validated on the way. The sweeps spread out around that: several sit still on
-any step that misses their shape, and two - `osm_blocks` and `many msgs, tiny arrays` - end a little
-slower than the baseline, traded for the gains elsewhere. The decoder is specialized to each schema
-at compile time, so the figure you get tracks the shape of your data. The maintained numbers, and how
-to run them on your own payloads, are in [benchmarks.md](benchmarks.md).
+any step that misses their shape, and two - `osm_blocks` and `many msgs, tiny arrays` - give a little
+back on the last step (−4% and −10%, the field-order probes mispredicting their wire order), though
+both still finish far ahead of where they started (0.9×→1.5× and 1.5×→2.5× protoc). The decoder is
+specialized to each schema at compile time, so the figure you get tracks the shape of your data. The
+maintained numbers, and how to run them on your own payloads, are in [benchmarks.md](benchmarks.md).
 
