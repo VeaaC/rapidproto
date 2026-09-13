@@ -8,29 +8,22 @@
 **~7× faster than `protoc` + Arena when materializing a full message tree, and faster than protozero
 when streaming fields - with wire validation that never compiles out ([benchmarks](docs/benchmarks.md)).**
 
-RapidProto compiles a `.proto` schema into **header-only C++ decoders**. One CLI, `rapidprotoc`, turns
-your schema into headers you `#include`. Nothing to link. A single schema gives you two
-decode models, and you pick whichever fits the job:
+RapidProto compiles a `.proto` schema into **header-only C++ decoders** with no third-party
+dependencies. One CLI, `rapidprotoc`, turns your schema into headers you `#include`; there is nothing
+to link. A single schema gives you two decode models, and you pick whichever fits the job:
 
 - **Arena.** `decode()` materializes the whole message into a read-only object tree in a bump
   arena, which you navigate with accessors (`person->name()`) in any order, as many times as you like.
 - **Streaming.** `decode()` walks the wire once and hands each field's typed value to a
   callback you supply. Nothing is materialized, and there's zero allocation.
 
-A `--dump` flag adds a third, optional emitter: a **debug dumper** that prints a decoded arena tree
-as human-readable, JSON-*like* text - an inspection aid for logging and debugging, not a spec-compliant
-JSON codec (see [the debug dumper](docs/dumper.md)).
+Both models are **decode-only** - no serialization, no JSON codec, no reflection - and validate
+untrusted wire input without crashing on malformed bytes. They cover proto2, proto3, and the
+editions format (2023/2024), including groups, maps, and oneofs. An optional `--dump` emitter adds a
+JSON-*like* [debug dumper](docs/dumper.md) for inspection.
 
-Both decode models are **decode-only**: no serialization, no JSON codec. Both fully validate untrusted wire input
-(truncation, length overruns, group nesting) and never crash on malformed bytes, and both trust the schema - they assume `protoc` already
-accepted it, so field *values* aren't range-checked. They cover **proto2, proto3, and the newer
-editions schema format (2023/2024)**, including groups, maps, and oneofs.
-
-You can read the same schema with either model, and even use both **in one translation unit** (see
-[using both models](docs/using-both-models.md)).
-
-> See [`architecture.md`](https://github.com/VeaaC/rapidproto/blob/main/architecture.md) for the internals and design rationale: the layout planner,
-> the compile-time dispatch, the arena, the coexistence design, and the benchmark methodology.
+For how the decoders got fast, see [the walkthrough](docs/optimizations.md); to start using them,
+jump to the [quick start](#quick-start).
 
 ---
 
