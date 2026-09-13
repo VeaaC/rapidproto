@@ -37,6 +37,10 @@ endif()
 
 # ~8000 bytes per chunk (well under MSVC's per-literal cap), each ending at a newline. LENGTH/FIND/
 # SUBSTRING are all byte-indexed, and a newline is one byte, so breaking there never splits a char.
+# The break is newline-only, so a chunk is ~8000 + (length of the line it ends on): this assumes
+# runtime-header lines stay well under MSVC's per-literal cap (they are ~280 chars today). A single
+# line longer than that cap would need character-boundary splitting instead (as embed_wellknown.py
+# does); the runtime headers are our own, so the assumption is safe and checked by the Windows CI.
 set(_chunk_bytes 8000)
 set(_pos 0)
 set(_count 0)
