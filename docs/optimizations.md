@@ -19,6 +19,11 @@ the charts only when it exceeds that benchmark's own measured noise.
 The suite mixes synthetic sweeps (packed varints, zigzag, enums), record shapes, and real
 payloads - a mixed-record `Dataset`, Google's two reference messages, and OSM PBF blocks.
 
+Most are narrow on purpose: a sweep isolates one wire shape, so a step that does not touch that
+shape leaves it flat - which is why each chart moves only a few bars. `Dataset` is the one that
+exercises the whole decoder at once; read it as the end-to-end number, and the sweeps as where that
+number comes from.
+
 One caveat: everything here was produced at one point in time (one revision, clang 20,
 September 2026); the maintained numbers are in [benchmarks.md](benchmarks.md).
 
@@ -174,4 +179,13 @@ the probes do not expect, and each miss adds a failed comparison before the disp
 takes over.
 
 ![Step 7](ladder/ladder-step7.svg)
+
+## Where it lands
+
+Across the seven steps `Dataset` went from 2.4× protoc to 6.1× (clang; ~7× on gcc) - a full message
+tree, materialized and validated on the way. The sweeps spread out around that: several sit still on
+any step that misses their shape, and two - `osm_blocks` and `many msgs, tiny arrays` - end a little
+slower than the baseline, traded for the gains elsewhere. The decoder is specialized to each schema
+at compile time, so the figure you get tracks the shape of your data. The maintained numbers, and how
+to run them on your own payloads, are in [benchmarks.md](benchmarks.md).
 
