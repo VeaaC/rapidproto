@@ -5,7 +5,7 @@ SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never wit
 From 1.0 on, removals happen only in a major release, announced beforehand under a
 **Deprecated** heading (the README's Compatibility section states the policy).
 
-## Unreleased
+## 0.5.0 - 2026-09-13
 
 ### Fixed
 
@@ -14,6 +14,22 @@ From 1.0 on, removals happen only in a major release, announced beforehand under
   generator could leave stale headers until a clean build.
 
 ### Added
+
+- **Windows / MSVC support.** The library builds and passes its test suite on Windows with MSVC,
+  added as a CI job (Visual Studio 2022) alongside the Linux (GCC/Clang) and macOS legs. The
+  runtime headers and generated code were already portable; the work was build plumbing (compiler-
+  id-gated warning flags: `/W4 /permissive- /EHsc /utf-8`; the runtime and vendored well-known
+  sources embedded into the CLI as joined string chunks rather than one literal, which MSVC caps;
+  an 8 MB executable stack to match the recursion-depth caps' assumption) and a few test-side
+  portability fixes. One Windows caveat: those depth caps assume the 8 MB stack Linux/macOS default
+  to, so a program decoding pathologically nested untrusted input on Windows (1 MB default) should
+  link with a larger stack to keep the clean-rejection guarantee stack-safe.
+
+- **Package-manager support: a Conan recipe and a vcpkg port.** `conanfile.py` (a `tool_requires`
+  application package) and `ports/rapidproto` (a vcpkg overlay port) install rapidprotoc plus the
+  library's CMake package, so a consumer does `find_package(rapidproto)` + `rapidproto_generate()`
+  the same as an in-tree build. Generated code is self-contained (the CLI emits its own runtime
+  copy), so neither packages a separate runtime dependency.
 
 - **Oneof members join field-order threading.** The arena decoder previously dispatched every
   oneof member through the general path (full tag re-parse + switch); members now get the same
