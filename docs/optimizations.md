@@ -105,6 +105,24 @@ fused read answers all three from one bounds check, returning end, tag, or error
 step - and inside it, a tag byte below 128 short-circuits: field number and wire type fall
 out of one byte with a shift and a mask.
 
+```cpp
+// Before: three separate questions, two bounds checks.
+if (p == end) return done;                   // buffer finished?
+uint64_t tag;
+p = read_varint(p, end, &tag);               // read the tag varint (checks bounds again)
+if (!p) return error;                        // valid?
+uint32_t field = tag >> 3, wire = tag & 7;   // which field, which wire type
+
+// After: the common case - a single-byte tag - settled by one check.
+if (p < end && (*p & 0x80) == 0) {           // in range AND one byte
+    uint32_t field = *p >> 3;                // field number
+    uint32_t wire  = *p & 7;                 // wire type
+    ++p;
+    // ... dispatch on (field, wire); reject field 0 and wire types 6, 7
+}
+// multi-byte or invalid tags fall through to the full validating read
+```
+
 The gains concentrate where fields are small and plentiful: `Dataset` +11%,
 `google_message1` +10%, `google_message2` +10%, `many msgs, tiny arrays` +11%. Two enum
 sweeps lose ground, `rv-enum fx1` by 11% and `rv-enum mix13` by 3%, and the streaming
@@ -134,6 +152,28 @@ makes sense for larger payloads (in our case 256+ bytes).
 The kernels are written in a portable fashion - no SIMD intrinsics, just basic integer
 instructions, a technique called SWAR (SIMD within a register) - but often compile into SIMD
 instructions anyway.
+
+Here is one kernel in full - the one for homogeneous 2-byte varints, which pack four to an
+8-byte word:
+
+```cpp
+// `p` is the cursor, `out` the destination array, `i` the element count.
+while (end - p >= 8) {
+    uint64_t w = load64(p);                              // 8 bytes, little-endian
+    // continuation bits: the four low bytes must continue, the four high bytes must terminate
+    if ((w & 0x8080808080808080) != 0x0080008000800080)
+        break;                                           // not four 2-byte varints -> tail
+    uint64_t x = w & 0x7F7F7F7F7F7F7F7F;                 // drop the continuation bits
+    uint64_t y = (x & 0x007F007F007F007F)                // join each pair's two 7-bit halves
+               | ((x & 0x7F007F007F007F00) >> 1);
+    out[i + 0] = uint16_t(y);                            // four values, no per-byte branch
+    out[i + 1] = uint16_t(y >> 16);
+    out[i + 2] = uint16_t(y >> 32);
+    out[i + 3] = uint16_t(y >> 48);
+    p += 8; i += 4;
+}
+// a word that is not four 2-byte varints falls to the validating byte-loop tail
+```
 
 The all-1-byte sweep (`rv fx1`) gains 13% - its continuation bit never varies, so the branch
 it lost was a predicted one. The multi-byte and mixed sweeps gain the most: ×2.33 on the
@@ -169,6 +209,17 @@ expected fields, and jumping straight to the matching field's label. A repeated 
 element of itself first. A oneof's siblings are skipped - at most one member occurs. On an
 in-order wire the decoder becomes a chain of direct, mostly correctly predicted branches; the
 dispatch switch from step 6 only catches the exceptions.
+
+Concretely, this is the generated label for field 1, ending by trying the next expected tags:
+
+```cpp
+do_field_1:
+    // ... decode field 1 into the struct ...
+    // fields arrive in ascending order, so try the next tags and jump straight there:
+    if (p < end && *p == raw_tag(2, Varint)) { ++p; goto do_field_2; }
+    if (p < end && *p == raw_tag(3, Len))    { ++p; goto do_field_3; }
+    continue;   // guessed wrong -> back to the step-6 dispatch switch
+```
 
 ![Field-order threading](ladder/diagram-threading.svg)
 
