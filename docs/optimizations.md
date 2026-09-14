@@ -153,27 +153,27 @@ The kernels are written in a portable fashion - no SIMD intrinsics, just basic i
 instructions, a technique called SWAR (SIMD within a register) - but often compile into SIMD
 instructions anyway.
 
-Here is one kernel in full - the one for homogeneous 2-byte varints, which pack four to an
-8-byte word:
+The diagram's two operations are a function each. The continuation mask gathers every byte's
+high bit into eight bits - one multiply and one shift - and the compaction folds each value's
+7-bit groups into a contiguous integer in three shift-and-mask rounds:
 
 ```cpp
-// `p` is the cursor, `out` the destination array, `i` the element count.
-while (end - p >= 8) {
-    uint64_t w = load64(p);                              // 8 bytes, little-endian
-    // continuation bits: the four low bytes must continue, the four high bytes must terminate
-    if ((w & 0x8080808080808080) != 0x0080008000800080)
-        break;                                           // not four 2-byte varints -> tail
-    uint64_t x = w & 0x7F7F7F7F7F7F7F7F;                 // drop the continuation bits
-    uint64_t y = (x & 0x007F007F007F007F)                // join each pair's two 7-bit halves
-               | ((x & 0x7F007F007F007F00) >> 1);
-    out[i + 0] = uint16_t(y);                            // four values, no per-byte branch
-    out[i + 1] = uint16_t(y >> 16);
-    out[i + 2] = uint16_t(y >> 32);
-    out[i + 3] = uint16_t(y >> 48);
-    p += 8; i += 4;
+// continuation mask: bit i = high bit of byte i (one multiply, one shift)
+uint64_t continuation_mask(uint64_t w) {
+    return ((w & 0x8080808080808080) * 0x0002040810204081) >> 56;
 }
-// a word that is not four 2-byte varints falls to the validating byte-loop tail
+
+// compact each value's 7-bit groups into a contiguous integer (three shift-and-mask rounds)
+uint64_t compact7(uint64_t x) {   // continuation bits already cleared
+    x = ((x & 0x7F007F007F007F00) >> 1) | (x & 0x007F007F007F007F);
+    x = ((x & 0x3FFF00003FFF0000) >> 2) | (x & 0x00003FFF00003FFF);
+    x = ((x & 0x0FFFFFFF00000000) >> 4) | (x & 0x000000000FFFFFFF);
+    return x;
+}
 ```
+
+A kernel loads a word, uses the mask to find where each varint ends, and runs `compact7` on
+the pieces - one branch per 64-bit word instead of one per byte.
 
 The all-1-byte sweep (`rv fx1`) gains 13% - its continuation bit never varies, so the branch
 it lost was a predicted one. The multi-byte and mixed sweeps gain the most: ×2.33 on the
