@@ -109,7 +109,7 @@ linked.
 
 ```python
 def build_requirements(self):
-    self.tool_requires("rapidproto/0.5.0")
+    self.tool_requires("rapidproto/0.5.1")
 ```
 
 *vcpkg* - point at the overlay (`--overlay-ports=<repo>/ports`, or a `vcpkg-configuration.json`) and

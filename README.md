@@ -8,29 +8,22 @@
 **~7× faster than `protoc` + Arena when materializing a full message tree, and faster than protozero
 when streaming fields - with wire validation that never compiles out ([benchmarks](docs/benchmarks.md)).**
 
-RapidProto compiles a `.proto` schema into **header-only C++ decoders**. One CLI, `rapidprotoc`, turns
-your schema into headers you `#include`. Nothing to link. A single schema gives you two
-decode models, and you pick whichever fits the job:
+RapidProto compiles a `.proto` schema into **header-only C++ decoders** with no third-party
+dependencies. One CLI, `rapidprotoc`, turns your schema into headers you `#include`; there is nothing
+to link. A single schema gives you two decode models, and you pick whichever fits the job:
 
 - **Arena.** `decode()` materializes the whole message into a read-only object tree in a bump
   arena, which you navigate with accessors (`person->name()`) in any order, as many times as you like.
 - **Streaming.** `decode()` walks the wire once and hands each field's typed value to a
   callback you supply. Nothing is materialized, and there's zero allocation.
 
-A `--dump` flag adds a third, optional emitter: a **debug dumper** that prints a decoded arena tree
-as human-readable, JSON-*like* text - an inspection aid for logging and debugging, not a spec-compliant
-JSON codec (see [the debug dumper](docs/dumper.md)).
+Both models are **decode-only** - no serialization, no JSON codec, no reflection - and validate
+untrusted wire input without crashing on malformed bytes. They cover proto2, proto3, and the
+editions format (2023/2024), including groups, maps, and oneofs. An optional `--dump` emitter adds a
+JSON-*like* [debug dumper](docs/dumper.md) for inspection.
 
-Both decode models are **decode-only**: no serialization, no JSON codec. Both fully validate untrusted wire input
-(truncation, length overruns, group nesting) and never crash on malformed bytes, and both trust the schema - they assume `protoc` already
-accepted it, so field *values* aren't range-checked. They cover **proto2, proto3, and the newer
-editions schema format (2023/2024)**, including groups, maps, and oneofs.
-
-You can read the same schema with either model, and even use both **in one translation unit** (see
-[using both models](docs/using-both-models.md)).
-
-> See [`architecture.md`](https://github.com/VeaaC/rapidproto/blob/main/architecture.md) for the internals and design rationale: the layout planner,
-> the compile-time dispatch, the arena, the coexistence design, and the benchmark methodology.
+For how the decoders got fast, see [the walkthrough](docs/optimizations.md); to start using them,
+jump to the [quick start](#quick-start).
 
 ---
 
@@ -65,19 +58,21 @@ messages, keep `protoc` for that side and use RapidProto for the hot decode path
 **Requirements:** C++17 and a recent GCC, Clang (AppleClang included), or MSVC - Linux, macOS, and
 Windows are all CI-covered ([platform notes](#compatibility--stability)).
 
-The [`rapidproto_generate()` helper](docs/integration.md#cmake-integration) wires
-generation into a CMake build in a few lines; this section drives the tool by hand so each step is
-visible. Grab a prebuilt `rapidprotoc` from the
-[releases page](https://github.com/VeaaC/rapidproto/releases) (prebuilt Linux and macOS
-tarballs, license files included; the macOS binary is unsigned - if Gatekeeper blocks it after
-extracting, clear the quarantine flag: `xattr -d com.apple.quarantine rapidprotoc`) - or build it
-once:
+**Get `rapidprotoc`.** The quickest path is a prebuilt binary for Linux, macOS, or Windows from the
+[releases page](https://github.com/VeaaC/rapidproto/releases) (license files included). To wire
+generation into a CMake build instead, the [`rapidproto_generate()` helper](docs/integration.md#cmake-integration)
+does it in a few lines - via FetchContent, an installed package, the Conan recipe, or the vcpkg
+overlay port ([package managers](docs/integration.md)). Or build the tool from source:
 
 ```sh
 cmake --preset release                               # system compiler, optimized
 cmake --build --preset release --target rapidprotoc
 # binary: build/release/rapidprotoc
 ```
+
+The prebuilt binaries are unsigned: on macOS clear the quarantine flag if Gatekeeper blocks it
+(`xattr -d com.apple.quarantine rapidprotoc`); on Windows, dismiss the SmartScreen prompt (More
+info -> Run anyway). This section then drives the tool by hand so each step is visible.
 
 Given `person.proto`:
 
@@ -199,12 +194,14 @@ A minor may *deprecate* (announced in the CHANGELOG under a Deprecated heading, 
 still working) as advance notice of what the next major removes.
 
 Supported platforms are what CI covers: Linux, macOS, and Windows, with GCC, Clang, AppleClang, and
-MSVC. Windows/MSVC builds and passes the test suite on every CI run; a Windows release binary and
-package-manager ports are not yet published. One Windows caveat: the recursion-depth caps that make
-deeply nested input fail cleanly instead of overflowing the stack are sized for an 8 MB stack (the
-Linux and macOS default). Windows defaults an executable to a 1 MB stack, so a program that decodes
-untrusted, pathologically nested input on Windows should link with a larger stack
-(`/STACK:8388608`) to keep that rejection stack-safe.
+MSVC. Windows/MSVC builds and passes the test suite on every CI run. Prebuilt `rapidprotoc` binaries
+for all three platforms ship on the [releases page](https://github.com/VeaaC/rapidproto/releases),
+and a Conan recipe and a vcpkg overlay port are available
+([package managers](docs/integration.md)). One Windows caveat: the recursion-depth
+caps that make deeply nested input fail cleanly instead of overflowing the stack are sized for an
+8 MB stack (the Linux and macOS default). Windows defaults an executable to a 1 MB stack, so a
+program that decodes untrusted, pathologically nested input on Windows should link with a larger
+stack (`/STACK:8388608`) to keep that rejection stack-safe.
 
 ---
 
