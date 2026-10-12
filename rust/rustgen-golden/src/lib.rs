@@ -33,3 +33,7 @@ pub mod nested {
 pub mod dedup {
     include!("../goldens/dedup.rs");
 }
+
+pub mod oneof {
+    include!("../goldens/oneof.rs");
+}
