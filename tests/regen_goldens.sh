@@ -105,7 +105,7 @@ echo "[5/5] regenerating AST + wire + arena-layout + common goldens via the test
 # at a failing assignment, so the separate-statement form made the branch below unreachable.
 regen_rc=0
 regen_out=$(RAPIDPROTO_REGEN_GOLDEN=1 ./build/gcc/rapidproto_tests \
-  "[golden],[wire-golden],[arena-layout],[common]" 2>&1) || regen_rc=$?
+  "[golden],[wire-golden],[arena-layout],[common],[rustgen-golden]" 2>&1) || regen_rc=$?
 grep -i "regenerated" <<<"$regen_out" || true
 if [[ $regen_rc -ne 0 ]]; then
   echo ">> golden regeneration failed (exit $regen_rc) -- goldens are incomplete:"
