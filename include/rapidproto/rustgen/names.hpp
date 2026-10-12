@@ -14,7 +14,8 @@
 #include <vector>
 
 #include "rapidproto/ast.hpp"
-#include "rapidproto/codegen/emit.hpp"  // enum_value_prefix
+#include "rapidproto/codegen/emit.hpp"    // enum_value_prefix
+#include "rapidproto/codegen/naming.hpp"  // dedup_suffix
 
 namespace rapidproto::rustgen {
 
@@ -132,11 +133,7 @@ inline std::vector<std::string> enum_const_names(const EnumNode& node) {
         if (strip) {
             raw.remove_prefix(prefix.size());
         }
-        std::string name = escape_rust_ident(std::string(raw));
-        while (!taken.insert(name).second) {
-            name += '_';
-        }
-        out.push_back(std::move(name));
+        out.push_back(codegen::dedup_suffix(taken, escape_rust_ident(std::string(raw))));
     }
     return out;
 }
@@ -163,11 +160,7 @@ inline std::vector<std::string> enum_variant_names(const EnumNode& node) {
         if (name.empty() || (name.front() >= '0' && name.front() <= '9')) {
             name.insert(name.begin(), 'V');
         }
-        name = escape_rust_ident(name);
-        while (!taken.insert(name).second) {
-            name += '_';
-        }
-        out.push_back(std::move(name));
+        out.push_back(codegen::dedup_suffix(taken, escape_rust_ident(name)));
     }
     return out;
 }

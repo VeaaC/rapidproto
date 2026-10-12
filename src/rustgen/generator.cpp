@@ -14,7 +14,8 @@
 #include <vector>
 
 #include "rapidproto/ast.hpp"
-#include "rapidproto/codegen/emit.hpp"  // holds_enum
+#include "rapidproto/codegen/emit.hpp"    // holds_enum
+#include "rapidproto/codegen/naming.hpp"  // dedup_suffix
 #include "rapidproto/codegen/printer.hpp"
 #include "rapidproto/rustgen/names.hpp"
 
@@ -81,14 +82,6 @@ struct NameTable {
     std::unordered_map<std::string, EnumNames> enums;    // enum FQN -> names
 };
 
-// Make `name` unique within `taken` by appending `_` until it is, then record and return it.
-std::string dedup_into(std::unordered_set<std::string>& taken, std::string name) {
-    while (!taken.insert(name).second) {
-        name += '_';
-    }
-    return name;
-}
-
 // Assign deduped names for ONE scope -- the child messages and enums declared directly at `module` --
 // then recurse into each message's own scope. `module` is the enclosing module path (mutated in place
 // across the recursion).
@@ -106,7 +99,8 @@ void build_scope(const std::vector<MessageNode>& msgs, const std::vector<EnumNod
     std::vector<std::string> submodule(msgs.size());
     for (std::size_t i = 0; i < msgs.size(); ++i) {
         if (!msgs[i].nested_messages.empty() || codegen::holds_enum(msgs[i])) {
-            submodule[i] = dedup_into(submods, escape_rust_ident(to_snake_case(msgs[i].name)));
+            submodule[i] =
+                codegen::dedup_suffix(submods, escape_rust_ident(to_snake_case(msgs[i].name)));
         }
     }
     // Arena struct names: the submodule names are reserved first (shared type namespace), then each
@@ -117,7 +111,7 @@ void build_scope(const std::vector<MessageNode>& msgs, const std::vector<EnumNod
         for (std::size_t i = 0; i < msgs.size(); ++i) {
             MsgNames names;
             names.module = module;
-            names.type_name = dedup_into(taken, escape_rust_ident(msgs[i].name));
+            names.type_name = codegen::dedup_suffix(taken, escape_rust_ident(msgs[i].name));
             names.submodule = submodule[i];
             table.messages.emplace(msgs[i].fqn, std::move(names));
         }
@@ -129,8 +123,8 @@ void build_scope(const std::vector<MessageNode>& msgs, const std::vector<EnumNod
         for (const EnumNode& node : enums) {
             EnumNames names;
             names.module = module;
-            names.type_name = dedup_into(taken, escape_rust_ident(node.name));
-            names.kind_name = dedup_into(taken, names.type_name + "Kind");
+            names.type_name = codegen::dedup_suffix(taken, escape_rust_ident(node.name));
+            names.kind_name = codegen::dedup_suffix(taken, names.type_name + "Kind");
             table.enums.emplace(node.fqn, std::move(names));
         }
     }
@@ -360,11 +354,7 @@ AccessorNames message_accessor_names(const MessageNode& msg) {
     taken.insert("decode");  // the generated decode() method lives in the same impl
     AccessorNames names;
     const auto assign = [&taken](const std::string& raw) {
-        std::string name = escape_rust_ident(raw);
-        while (!taken.insert(name).second) {
-            name += '_';
-        }
-        return name;
+        return codegen::dedup_suffix(taken, escape_rust_ident(raw));
     };
     names.fields.reserve(msg.fields.size());
     for (const FieldNode& field : msg.fields) {
