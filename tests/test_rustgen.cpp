@@ -194,8 +194,7 @@ TEST_CASE("rustgen arena: message struct with scalar/string/bytes/enum accessors
     // enum-typed field references the common tree (super x (1 arena + 2 package) = 3).
     CHECK(has(out, "pub fn color(&self) -> super::super::super::common::m::n::Color {"));
     // repeated is a later slice -> noted, not emitted as an accessor.
-    CHECK(has(out, "// TODO: field nums (repeated)"));
-    CHECK_FALSE(has(out, "pub fn nums"));
+    CHECK(has(out, "pub fn nums(&self) -> &'a [i32] {"));  // repeated scalar -> borrowed slice
 
     CHECK(has(out,
               "pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> "
@@ -221,14 +220,41 @@ TEST_CASE("rustgen arena: accessor names dedup against decode and each other") {
     CHECK(has(out, "pub fn decode(input: &'a [u8],"));  // the real decode method still present
 }
 
-TEST_CASE("rustgen arena: map and oneof fields leave a TODO breadcrumb") {
-    const std::string out = gen_arena(R"(syntax = "proto3";
+TEST_CASE("rustgen arena: repeated fields become borrowed slices") {
+    const std::string out = gen_arena(R"(syntax = "proto3"; package p;
+        enum Color { COLOR_UNSPECIFIED = 0; COLOR_RED = 1; }
+        message M {
+          repeated int32 nums = 1;
+          repeated string names = 2;
+          repeated bytes blobs = 3;
+          repeated Color palette = 4;
+          repeated M children = 5;
+        })");
+    CHECK(has(out, "pub fn nums(&self) -> &'a [i32] {"));
+    CHECK(has(out, "pub fn names(&self) -> &'a [::rapidproto::ProtoStr<'a>] {"));
+    CHECK(has(out, "pub fn blobs(&self) -> &'a [&'a [u8]] {"));
+    CHECK(has(out, "pub fn palette(&self) -> &'a [super::super::common::p::Color] {"));
+    CHECK(has(out, "// TODO: field children (message)"));  // repeated message -> later slice
+}
+
+TEST_CASE("rustgen arena: maps become MapView accessors") {
+    const std::string out = gen_arena(R"(syntax = "proto3"; package p;
+        enum Color { COLOR_UNSPECIFIED = 0; COLOR_RED = 1; }
+        message Inner { int32 x = 1; }
         message M {
           map<string, int32> counts = 1;
-          oneof pick { int32 a = 2; string b = 3; }
+          map<int32, Color> colors = 2;
+          map<string, Inner> nested = 3;
+          oneof pick { int32 a = 4; string b = 5; }
         })");
-    CHECK(has(out, "// TODO: map field counts"));
-    CHECK(has(out, "// TODO: oneof pick"));
+    CHECK(has(out,
+              "pub fn counts(&self) -> ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, "
+              "i32> {"));
+    CHECK(has(out,
+              "pub fn colors(&self) -> ::rapidproto::MapView<'a, i32, "
+              "super::super::common::p::Color> {"));
+    CHECK(has(out, "// TODO: map field nested (message value)"));  // message-valued map -> later
+    CHECK(has(out, "// TODO: oneof pick"));                        // oneof -> later slice
 }
 
 // The committed goldens (rust/rustgen-golden/goldens/) are compiled by Rust CI, proving the emitted
@@ -251,6 +277,10 @@ message Rec {
   Color color = 5;
   optional int32 maybe = 6;
   double ratio = 7;
+  repeated int32 tags = 8;
+  repeated Color palette = 9;
+  map<string, int32> counts = 10;
+  map<int32, Color> by_code = 11;
 }
 )");
     check_golden("nopackage", R"(syntax = "proto3";

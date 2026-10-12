@@ -1,5 +1,6 @@
 pub mod common {
   #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+  #[repr(transparent)]
   pub struct Status(pub i32);
 
   impl Status {

@@ -23,6 +23,7 @@ using codegen::Printer;
 // Emit the newtype + classify enum for one proto enum.
 //
 //   #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+//   #[repr(transparent)]
 //   pub struct Color(pub i32);
 //   impl Color {
 //       pub const RED: Color = Color(1);
@@ -46,6 +47,10 @@ void emit_enum(Printer& printer, const EnumNode& node) {
     printer.set("K", kind_name);
 
     printer.print("#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]\n");
+    // `repr(transparent)`: a zero-cost wrapper, layout-identical to its `i32`. (It does NOT let a
+    // wire enum array be aliased -- enum values are varint-encoded, so variable-width and decoded
+    // one at a time; the guarantee only matters for reinterpreting an in-memory `i32` buffer.)
+    printer.print("#[repr(transparent)]\n");
     printer.print("pub struct $T$(pub i32);\n\n");
 
     printer.print("impl $T$ {\n");
@@ -176,42 +181,89 @@ std::string common_type_path(const FileNode& file, const std::string& fqn) {
     return out;
 }
 
-// Accessor method names for a message's regular fields, in declaration order: each proto field name
-// escaped, then deduped against the other fields AND the reserved method names this `impl` also
-// defines (`decode`), with a trailing `_` on collision. Without this, a field named `decode`, or two
-// fields escaping to the same identifier (`self` -> `self_` beside a field `self_`), would emit
-// duplicate `impl` items -- non-compiling Rust for a protoc-valid schema. Mirrors the enum dedup.
-std::vector<std::string> message_accessor_names(const MessageNode& msg) {
+// The Rust type of a field's singular VALUE, ignoring repeated/presence wrapping: scalar -> a Rust
+// primitive, enum -> the common-tree path, string -> ProtoStr<'a>, bytes -> &'a [u8].
+std::string field_value_type(const FileNode& file, const FieldNode& field) {
+    if (field.is_enum_type) {
+        return common_type_path(file, field.resolved_type_fqn);
+    }
+    return rust_scalar_type(field.type_name);
+}
+
+// Deduped accessor method names for a message's regular fields and its map fields, in declaration
+// order. Each proto name is escaped, then deduped against the others AND the reserved method names
+// the same `impl` defines (`decode`), with a trailing `_` on collision. Without this, a field named
+// `decode`, or two members escaping to one identifier (`self` -> `self_` beside a field `self_`),
+// would emit duplicate `impl` items -- non-compiling Rust for a protoc-valid schema. Mirrors the
+// enum dedup.
+struct AccessorNames {
+    std::vector<std::string> fields;
+    std::vector<std::string> maps;
+};
+AccessorNames message_accessor_names(const MessageNode& msg) {
     std::unordered_set<std::string> taken;
     taken.insert("decode");  // the generated decode() method lives in the same impl
-    std::vector<std::string> out;
-    out.reserve(msg.fields.size());
-    for (const FieldNode& field : msg.fields) {
-        std::string name = escape_rust_ident(field.name);
+    AccessorNames names;
+    const auto assign = [&taken](const std::string& raw) {
+        std::string name = escape_rust_ident(raw);
         while (!taken.insert(name).second) {
             name += '_';
         }
-        out.push_back(std::move(name));
+        return name;
+    };
+    names.fields.reserve(msg.fields.size());
+    for (const FieldNode& field : msg.fields) {
+        names.fields.push_back(assign(field.name));
     }
-    return out;
+    names.maps.reserve(msg.map_fields.size());
+    for (const MapFieldNode& map : msg.map_fields) {
+        names.maps.push_back(assign(map.name));
+    }
+    return names;
 }
 
-// Emit the accessor signature + stubbed body for one regular (non-oneof, non-map) field, or skip it
-// with a note for the field kinds a later slice adds. `decode()` is stubbed, so bodies are `todo!()`
-// and the struct carries no field storage yet -- this slice pins the accessor SIGNATURES and that
-// they compile, not the arena layout. `accessor` is the pre-deduped method name.
+// Emit a `pub fn <field>(&self) -> ...` with a stubbed body for one regular (non-oneof, non-map)
+// field. `decode()` is stubbed, so bodies are `todo!()` and the struct carries no field storage yet
+// -- this slice pins accessor SIGNATURES and that they compile, not the arena layout. Message-typed
+// fields (singular or repeated) are left to a later slice. `accessor` is the pre-deduped name.
 void emit_field_accessor(Printer& printer, const FileNode& file, const FieldNode& field,
                          const std::string& accessor) {
-    if (field.is_repeated || field.is_message_type) {
-        printer.print("// TODO: field $n$ ($kind$) -- added by a later slice\n",
-                      {{"n", field.name}, {"kind", field.is_repeated ? "repeated" : "message"}});
+    if (field.is_message_type) {
+        printer.print("// TODO: field $n$ (message) -- added by a later slice\n",
+                      {{"n", field.name}});
         return;
     }
-    const std::string base = field.is_enum_type ? common_type_path(file, field.resolved_type_fqn)
-                                                : rust_scalar_type(field.type_name);
-    const std::string ret =
-        field.presence == FieldPresence::Explicit ? "Option<" + base + ">" : base;
+    const std::string value = field_value_type(file, field);
+    std::string ret;
+    if (field.is_repeated) {
+        ret = "&'a [" + value + "]";  // repeated: a borrowed slice, empty when the field is absent
+    } else if (field.presence == FieldPresence::Explicit) {
+        ret = "Option<" + value + ">";
+    } else {
+        ret = value;
+    }
     printer.print("pub fn $a$(&self) -> $t$ {\n", {{"a", accessor}, {"t", ret}});
+    printer.indent();
+    printer.print("todo!()\n");
+    printer.outdent();
+    printer.print("}\n");
+}
+
+// Emit a `pub fn <map>(&self) -> MapView<'a, K, V>` accessor. Map keys are always scalar; a message
+// value is left to a later slice. `accessor` is the pre-deduped name.
+void emit_map_accessor(Printer& printer, const FileNode& file, const MapFieldNode& map,
+                       const std::string& accessor) {
+    if (map.value_is_message) {
+        printer.print("// TODO: map field $n$ (message value) -- added by a later slice\n",
+                      {{"n", map.name}});
+        return;
+    }
+    const std::string key = rust_scalar_type(map.key_type);
+    const std::string value = map.value_is_enum
+                                  ? common_type_path(file, map.resolved_value_type_fqn)
+                                  : rust_scalar_type(map.value_type);
+    printer.print("pub fn $a$(&self) -> ::rapidproto::MapView<'a, $k$, $v$> {\n",
+                  {{"a", accessor}, {"k", key}, {"v", value}});
     printer.indent();
     printer.print("todo!()\n");
     printer.outdent();
@@ -230,12 +282,12 @@ void emit_message(Printer& printer, const FileNode& file, const MessageNode& msg
 
     printer.print("impl<'a> $M$<'a> {\n");
     printer.indent();
-    const std::vector<std::string> accessors = message_accessor_names(msg);
+    const AccessorNames accessors = message_accessor_names(msg);
     for (std::size_t i = 0; i < msg.fields.size(); ++i) {
-        emit_field_accessor(printer, file, msg.fields[i], accessors[i]);
+        emit_field_accessor(printer, file, msg.fields[i], accessors.fields[i]);
     }
-    for (const MapFieldNode& map : msg.map_fields) {
-        printer.print("// TODO: map field $n$ -- added by a later slice\n", {{"n", map.name}});
+    for (std::size_t i = 0; i < msg.map_fields.size(); ++i) {
+        emit_map_accessor(printer, file, msg.map_fields[i], accessors.maps[i]);
     }
     for (const OneofNode& oneof : msg.oneofs) {
         printer.print("// TODO: oneof $n$ -- added by a later slice\n", {{"n", oneof.name}});
