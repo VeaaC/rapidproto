@@ -350,6 +350,7 @@ struct SelectedModels {
     bool arena = false;
     bool stream = false;
     bool dump = false;
+    bool rust = false;
 };
 
 // One planned output file: its path relative to --out-dir (header_path with an empty out-dir is
@@ -359,6 +360,7 @@ enum class OutputKind : std::uint8_t {
     Stream,
     Dump,
     Common,
+    Rust,  // one <stem>.rs holding the common + arena module trees; depends only on the external crate
     Runtime,
     ArenaRuntime,
     DumpRuntime
@@ -397,7 +399,16 @@ inline std::vector<PlannedOutput> plan_outputs(const Options& opts, const Resolv
         if (models.dump) {
             plan.push_back({header_path("", file, ".rp.dump.hpp"), &file, OutputKind::Dump, entry});
         }
-        plan.push_back({header_path("", file, ".rp.common.hpp"), &file, OutputKind::Common, entry});
+        // The C++ common header serves the C++ models; a Rust-only run does not emit it.
+        if (models.arena || models.stream || models.dump) {
+            plan.push_back(
+                {header_path("", file, ".rp.common.hpp"), &file, OutputKind::Common, entry});
+        }
+        if (models.rust) {
+            // One self-contained .rs (common + arena trees); the Rust runtime is the external crate,
+            // so there is no runtime copy to plan.
+            plan.push_back({header_path("", file, ".rs"), &file, OutputKind::Rust, entry});
+        }
     };
     std::vector<const FileNode*> entry_files;
     for (const std::string& entry : opts.entries) {
@@ -418,8 +429,11 @@ inline std::vector<PlannedOutput> plan_outputs(const Options& opts, const Resolv
             plan_file(file, /*entry=*/false);
         }
     }
-    plan.push_back(
-        {std::filesystem::path("rapidproto") / "runtime.hpp", nullptr, OutputKind::Runtime, false});
+    // The C++ runtime copies serve the C++ models; a Rust-only run needs none (external crate).
+    if (models.arena || models.stream || models.dump) {
+        plan.push_back({std::filesystem::path("rapidproto") / "runtime.hpp", nullptr,
+                        OutputKind::Runtime, false});
+    }
     if (models.arena) {
         plan.push_back({std::filesystem::path("rapidproto") / "arena_runtime.hpp", nullptr,
                         OutputKind::ArenaRuntime, false});

@@ -256,6 +256,44 @@ TEST_CASE("driver: plan_outputs' order is the anchor contract", "[cli]") {
     CHECK_FALSE(plan.back().entry);
 }
 
+namespace {
+// Fill `opts` for proto3.proto (entries + include path, so plan_outputs marks its rows as entry
+// rows) and return its resolved one-file set. Shared by the --rust plan_outputs tests below.
+ResolvedFileSet resolved_proto3(cli::Options& opts) {
+    opts.config.include_paths = {std::string(RAPIDPROTO_CORPUS_DIR)};
+    opts.entries = {std::string(RAPIDPROTO_CORPUS_DIR) + "/proto3.proto"};
+    auto resolved = resolve(opts.entries[0], opts.config);
+    REQUIRE(resolved.is_ok());
+    return std::move(resolved).value();
+}
+
+bool plan_has_kind(const std::vector<cli::PlannedOutput>& plan, cli::OutputKind kind) {
+    return std::any_of(plan.begin(), plan.end(),
+                       [kind](const cli::PlannedOutput& out) { return out.kind == kind; });
+}
+}  // namespace
+
+TEST_CASE("driver: --rust alone plans one .rs per schema and no runtime copies", "[cli]") {
+    cli::Options opts;
+    const ResolvedFileSet set = resolved_proto3(opts);
+    const auto plan = cli::plan_outputs(
+        opts, set, {/*arena=*/false, /*stream=*/false, /*dump=*/false, /*rust=*/true});
+    REQUIRE(plan.size() == 1);  // one .rs, no C++ common header, no runtime copies (external crate)
+    CHECK(plan[0].rel == std::filesystem::path("proto3.rs"));
+    CHECK(plan[0].kind == cli::OutputKind::Rust);
+    CHECK(plan[0].entry);
+}
+
+TEST_CASE("driver: --rust beside a C++ model adds the .rs and keeps the C++ outputs", "[cli]") {
+    cli::Options opts;
+    const ResolvedFileSet set = resolved_proto3(opts);
+    const auto plan = cli::plan_outputs(
+        opts, set, {/*arena=*/true, /*stream=*/false, /*dump=*/false, /*rust=*/true});
+    CHECK(plan_has_kind(plan, cli::OutputKind::Rust));
+    CHECK(plan_has_kind(plan, cli::OutputKind::Common));
+    CHECK(plan_has_kind(plan, cli::OutputKind::Runtime));
+}
+
 TEST_CASE("driver: the list dry-runs parse alone and refuse to combine", "[cli]") {
     const cli::ParseResult outs = parse({"--list-outputs", "a.proto"});
     REQUIRE(outs.options.has_value());

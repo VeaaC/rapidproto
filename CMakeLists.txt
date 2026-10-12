@@ -233,7 +233,8 @@ target_link_libraries(rapidproto_rustgen_lib PUBLIC rapidproto_lib rapidproto_co
 # common header) from a single parse. Built on ALL emitter libraries; replaces the old per-model CLIs.
 add_executable(rapidprotoc src/rapidprotoc/main.cpp)
 target_link_libraries(rapidprotoc
-  PRIVATE rapidproto_arenagen_lib rapidproto_streamgen_lib rapidproto_dumpgen_lib rapidproto_strict)
+  PRIVATE rapidproto_arenagen_lib rapidproto_streamgen_lib rapidproto_dumpgen_lib
+          rapidproto_rustgen_lib rapidproto_strict)
 
 # Stable, source-agnostic handle: find_package(rapidproto) exposes the same name, so a downstream
 # rapidproto_generate() works whether the CLI is installed or built in-tree.
