@@ -738,7 +738,10 @@ void synth_for_message(const CppNameTable& names, const LayoutSet& layouts,
     }
     taken.insert("decode");
     const auto dedup = [&taken](std::string name) {
-        return codegen::dedup_suffix(taken, std::move(name));
+        while (!taken.insert(name).second) {
+            name += '_';
+        }
+        return name;
     };
     // capitalize() can MANUFACTURE a name in reserved space out of one that was not: a field spelled
     // `rP_x` passes sanitize (which tests `rp_`/`RP_`, not `rP_`) and capitalizes into `RP_x`. So
