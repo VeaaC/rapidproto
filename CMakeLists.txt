@@ -222,6 +222,13 @@ target_link_libraries(rapidproto_dumpgen_lib PUBLIC rapidproto_lib rapidproto_co
                                                     rapidproto_arenagen_lib
                                              PRIVATE rapidproto_strict)
 
+# Native Rust code generator: emits Rust decoders (the counterpart to arenagen/streamgen). Generated
+# Rust depends only on the `rapidproto` runtime crate, never on this generator. Built on the shared
+# front-end + codegen layer; its own Rust naming lives in include/rapidproto/rustgen/names.hpp.
+add_library(rapidproto_rustgen_lib STATIC src/rustgen/generator.cpp)
+target_link_libraries(rapidproto_rustgen_lib PUBLIC rapidproto_lib rapidproto_codegen_lib
+                                             PRIVATE rapidproto_strict)
+
 # The unified code-generator CLI: one tool emitting the arena and/or streaming decoder (+ the shared
 # common header) from a single parse. Built on ALL emitter libraries; replaces the old per-model CLIs.
 add_executable(rapidprotoc src/rapidprotoc/main.cpp)
@@ -338,9 +345,11 @@ if(RAPIDPROTO_BUILD_TESTS)
     tests/test_cli_driver.cpp
     tests/test_coexistence.cpp
     tests/test_common_header.cpp
+    tests/test_rustgen.cpp
   )
   target_link_libraries(rapidproto_tests PRIVATE rapidproto rapidproto_lib rapidproto_streamgen_lib
                                                  rapidproto_arenagen_lib rapidproto_dumpgen_lib
+                                                 rapidproto_rustgen_lib
                                                  rapidproto_strict catch2_vendored)
   # Absolute paths to the golden-test corpus and expected dumps, so the test finds them
   # regardless of the working directory it is launched from.
