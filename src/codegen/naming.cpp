@@ -323,7 +323,11 @@ using ClaimedIds = std::unordered_map<const void*, std::string>;
 // `_` until it is unique among `taken` (this scope's already-used identifiers). Returns the id.
 const std::string& assign_id(CppNameTable& names, std::unordered_set<std::string>& taken,
                              const void* node, std::string_view raw) {
-    return names.local.emplace(node, dedup_suffix(taken, sanitize(raw))).first->second;
+    std::string id = sanitize(raw);
+    while (!taken.insert(id).second) {
+        id += '_';
+    }
+    return names.local.emplace(node, std::move(id)).first->second;
 }
 
 // index_file's variant: a top-level node keeps the id claim_toplevel_ids assigned it, rather than
@@ -501,7 +505,11 @@ void claim_toplevel_ids(const CppNameTable& names, const std::vector<const FileN
     // blocked literal's sanitize(raw) == raw is already in `taken`, so the loop escalates it.
     for (const std::vector<Claimant>* group : {&blocked, &escapes}) {
         for (const Claimant& entry : *group) {
-            claimed.emplace(entry.node, dedup_suffix(*entry.taken, sanitize(*entry.raw)));
+            std::string id = sanitize(*entry.raw);
+            while (!entry.taken->insert(id).second) {
+                id += '_';
+            }
+            claimed.emplace(entry.node, std::move(id));
         }
     }
 }

@@ -9,23 +9,11 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 #include "rapidproto/ast.hpp"
 
 namespace rapidproto::codegen {
-
-// Make `name` unique within `taken` by appending `_` until it is, then record and return it. The
-// identifier-dedup primitive both the C++ and Rust emitters share: distinct proto names can map to
-// one identifier (C++ sanitize, Rust keyword/case escaping, case folding), and a trailing `_` is a
-// valid identifier continuation in either language, so the same suffixing resolves the collision.
-inline std::string dedup_suffix(std::unordered_set<std::string>& taken, std::string name) {
-    while (!taken.insert(name).second) {
-        name += '_';
-    }
-    return name;
-}
 
 // Resolves every message/enum and every nameable struct member to a collision-free C++ identifier,
 // so declarations and references always agree. Two hazards motivate it:
