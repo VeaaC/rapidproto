@@ -2,6 +2,7 @@ pub mod common {
   pub mod m {
     pub mod n {
       #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+      #[repr(transparent)]
       pub struct Color(pub i32);
 
       impl Color {
@@ -61,6 +62,18 @@ pub mod arena {
           todo!()
         }
         pub fn ratio(&self) -> f64 {
+          todo!()
+        }
+        pub fn tags(&self) -> &'a [i32] {
+          todo!()
+        }
+        pub fn palette(&self) -> &'a [super::super::super::common::m::n::Color] {
+          todo!()
+        }
+        pub fn counts(&self) -> ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, i32> {
+          todo!()
+        }
+        pub fn by_code(&self) -> ::rapidproto::MapView<'a, i32, super::super::super::common::m::n::Color> {
           todo!()
         }
         pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Rec<'a>, ::rapidproto::DecodeError> {
