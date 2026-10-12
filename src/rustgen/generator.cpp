@@ -3,6 +3,7 @@
 
 #include "rapidproto/rustgen/generator.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -80,32 +81,41 @@ struct EnumNames {
 struct NameTable {
     std::unordered_map<std::string, MsgNames> messages;  // message FQN -> names
     std::unordered_map<std::string, EnumNames> enums;    // enum FQN -> names
+    // A oneof's enum type name (e.g. `Payload`), keyed by the OneofNode (oneofs carry no FQN). The
+    // enum lives in the owning MESSAGE's arena submodule, deduped against that submodule's other
+    // arena items (nested structs + their modules); see build_scope. The pointer keys index into the
+    // FileNode passed to build_name_table; generate_arena/_common build the table and emit from that
+    // one un-mutated FileNode, so the keys stay live -- do not copy or rebuild the AST between them.
+    std::unordered_map<const OneofNode*, std::string> oneofs;
 };
 
-// Assign deduped names for ONE scope -- the child messages and enums declared directly at `module` --
-// then recurse into each message's own scope. `module` is the enclosing module path (mutated in place
-// across the recursion).
+// Assign deduped names for ONE scope -- the child messages/enums declared directly at `module`, plus
+// `scope_oneofs` (the oneofs of the MESSAGE whose submodule this scope is; empty at the package root,
+// since oneofs always live in their owning message's submodule) -- then recurse into each message's
+// own scope. `module` is the enclosing module path (mutated in place across the recursion).
 void build_scope(const std::vector<MessageNode>& msgs, const std::vector<EnumNode>& enums,
-                 std::vector<std::string>& module, NameTable& table) {
+                 const std::vector<OneofNode>& scope_oneofs, std::vector<std::string>& module,
+                 NameTable& table) {
     // Submodule names first: snake, deduped among sibling messages, so both trees and the paths agree
     // on them. A message claims a name iff it emits a `pub mod` SOMEWHERE -- in the arena tree when it
-    // has nested messages, in the common tree when it holds enums; a message that emits neither leaves
-    // `submodule` empty (never read). The reserved names are ONE shared set that both trees' leaf
-    // dedup starts from, so a struct/enum name is bumped off a submodule even in the tree where that
-    // submodule does not exist (a common-only `pub mod` still bumps a colliding arena struct). That
-    // over-dedup is cosmetic -- the bumped name is stored and used uniformly, never a wrong path -- and
-    // it keeps the reservation a single set rather than one per tree.
+    // has nested messages OR oneofs (the oneof enums live there), in the common tree when it holds
+    // enums; a message that emits none leaves `submodule` empty (never read). The reserved names are
+    // ONE shared set that both trees' leaf dedup starts from, so a struct/enum name is bumped off a
+    // submodule even in the tree where that submodule does not exist (a common-only `pub mod` still
+    // bumps a colliding arena struct). That over-dedup is cosmetic -- the bumped name is stored and
+    // used uniformly, never a wrong path -- and it keeps the reservation a single set, not one per tree.
     std::unordered_set<std::string> submods;
     std::vector<std::string> submodule(msgs.size());
     for (std::size_t i = 0; i < msgs.size(); ++i) {
-        if (!msgs[i].nested_messages.empty() || codegen::holds_enum(msgs[i])) {
+        if (!msgs[i].nested_messages.empty() || !msgs[i].oneofs.empty() ||
+            codegen::holds_enum(msgs[i])) {
             submodule[i] =
                 codegen::dedup_suffix(submods, escape_rust_ident(to_snake_case(msgs[i].name)));
         }
     }
-    // Arena struct names: the submodule names are reserved first (shared type namespace), then each
-    // struct is deduped against them and each other -- a module keeps its name (it is a path segment),
-    // a colliding struct is bumped.
+    // Arena submodule items: submodule names reserved first (shared type namespace), then each nested
+    // struct, then this message's oneof enums -- all deduped against the reserved modules and each
+    // other. A module keeps its name (it is a path segment); a colliding struct/oneof-enum is bumped.
     {
         std::unordered_set<std::string> taken = submods;
         for (std::size_t i = 0; i < msgs.size(); ++i) {
@@ -114,6 +124,9 @@ void build_scope(const std::vector<MessageNode>& msgs, const std::vector<EnumNod
             names.type_name = codegen::dedup_suffix(taken, escape_rust_ident(msgs[i].name));
             names.submodule = submodule[i];
             table.messages.emplace(msgs[i].fqn, std::move(names));
+        }
+        for (const OneofNode& oneof : scope_oneofs) {
+            table.oneofs.emplace(&oneof, codegen::dedup_suffix(taken, pascal_ident(oneof.name)));
         }
     }
     // Common enum names: the SAME submodule names reserved first (so a nested message's `pub mod` and
@@ -128,14 +141,14 @@ void build_scope(const std::vector<MessageNode>& msgs, const std::vector<EnumNod
             table.enums.emplace(node.fqn, std::move(names));
         }
     }
-    // Recurse into each message that has its own scope to record (nested messages and/or enums),
-    // descending through its (non-empty) submodule name.
+    // Recurse into each message that has its own scope to record (nested messages, enums and/or
+    // oneofs), descending through its (non-empty) submodule name.
     for (std::size_t i = 0; i < msgs.size(); ++i) {
         if (submodule[i].empty()) {
-            continue;  // no nested messages and no enums: nothing to record
+            continue;  // no nested messages, enums or oneofs: nothing to record
         }
         module.push_back(submodule[i]);
-        build_scope(msgs[i].nested_messages, msgs[i].enums, module, table);
+        build_scope(msgs[i].nested_messages, msgs[i].enums, msgs[i].oneofs, module, table);
         module.pop_back();
     }
 }
@@ -146,7 +159,8 @@ void build_scope(const std::vector<MessageNode>& msgs, const std::vector<EnumNod
 NameTable build_name_table(const FileNode& file) {
     NameTable table;
     std::vector<std::string> module = escaped_package(file);
-    build_scope(file.messages, file.enums, module, table);
+    const std::vector<OneofNode> no_oneofs;  // the package root declares no oneofs
+    build_scope(file.messages, file.enums, no_oneofs, module, table);
     return table;
 }
 
@@ -339,15 +353,56 @@ std::string field_value_type(const NameTable& table, const std::vector<std::stri
     return rust_scalar_type(field.type_name);
 }
 
-// Deduped accessor method names for a message's regular fields and its map fields, in declaration
-// order. Each proto name is escaped, then deduped against the others AND the reserved method names
-// the same `impl` defines (`decode`), with a trailing `_` on collision. Without this, a field named
-// `decode`, or two members escaping to one identifier (`self` -> `self_` beside a field `self_`),
-// would emit duplicate `impl` items -- non-compiling Rust for a protoc-valid schema. Mirrors the
-// enum dedup.
+// The type carried by a oneof variant for `field`: a singular message is borrowed (`&'a T<'a>`, like
+// a singular message FIELD); everything else is the plain value type (ProtoStr<'a>, &'a [u8], the enum
+// newtype, or a scalar primitive). Oneof fields are never repeated or maps.
+std::string variant_payload_type(const NameTable& table,
+                                 const std::vector<std::string>& current_mod,
+                                 const FieldNode& field) {
+    if (field.is_message_type) {
+        return "&'a " + field_value_type(table, current_mod, field);
+    }
+    return field_value_type(table, current_mod, field);
+}
+
+// Does any variant of `oneof` borrow the input, so the enum needs a `<'a>`? Message, string and bytes
+// variants borrow; scalar and enum (Copy newtype) variants do not.
+bool oneof_borrows(const OneofNode& oneof) {
+    return std::any_of(oneof.fields.begin(), oneof.fields.end(), [](const FieldNode& field) {
+        return field.is_message_type || field.type_name == "string" || field.type_name == "bytes";
+    });
+}
+
+// Emit `pub enum <Name>['a] { Variant(T), .. }` for one oneof, in the owning message's arena submodule
+// (`current_mod` is that submodule, so variant type paths resolve from there). The enum is closed (not
+// `#[non_exhaustive]`): a oneof has a fixed variant set, and an off-list wire field is just an unknown
+// field, not a new case. The `<'a>` is present only when a variant borrows -- an enum cannot carry an
+// unused lifetime without a bogus phantom variant, unlike a struct's PhantomData field.
+void emit_oneof_enum(Printer& printer, const NameTable& table,
+                     const std::vector<std::string>& current_mod, const OneofNode& oneof) {
+    const std::vector<std::string> variants = oneof_variant_names(oneof);
+    printer.print("pub enum $n$$lt$ {\n",
+                  {{"n", table.oneofs.at(&oneof)}, {"lt", oneof_borrows(oneof) ? "<'a>" : ""}});
+    printer.indent();
+    for (std::size_t i = 0; i < oneof.fields.size(); ++i) {
+        printer.print(
+            "$v$($t$),\n",
+            {{"v", variants[i]}, {"t", variant_payload_type(table, current_mod, oneof.fields[i])}});
+    }
+    printer.outdent();
+    printer.print("}\n");
+}
+
+// Deduped accessor method names for a message's regular fields, map fields and oneofs, in that order.
+// Each proto name is escaped, then deduped against the others AND the reserved method names the same
+// `impl` defines (`decode`), with a trailing `_` on collision. Without this, a field named `decode`,
+// or two members escaping to one identifier (`self` -> `self_` beside a field `self_`, or a field and
+// a oneof with the same name), would emit duplicate `impl` items -- non-compiling Rust for a
+// protoc-valid schema. Mirrors the enum dedup.
 struct AccessorNames {
     std::vector<std::string> fields;
     std::vector<std::string> maps;
+    std::vector<std::string> oneofs;
 };
 AccessorNames message_accessor_names(const MessageNode& msg) {
     std::unordered_set<std::string> taken;
@@ -363,6 +418,10 @@ AccessorNames message_accessor_names(const MessageNode& msg) {
     names.maps.reserve(msg.map_fields.size());
     for (const MapFieldNode& map : msg.map_fields) {
         names.maps.push_back(assign(map.name));
+    }
+    names.oneofs.reserve(msg.oneofs.size());
+    for (const OneofNode& oneof : msg.oneofs) {
+        names.oneofs.push_back(assign(oneof.name));
     }
     return names;
 }
@@ -415,6 +474,23 @@ void emit_map_accessor(Printer& printer, const NameTable& table,
     printer.print("}\n");
 }
 
+// Emit a `pub fn <oneof>(&self) -> Option<<submodule>::Payload['a]>` accessor (None = unset). The
+// oneof enum lives in this message's own submodule, so it is reached by descending `submodule`; the
+// `<'a>` matches the enum (present only when a variant borrows). `accessor` is the pre-deduped method
+// name; `submodule` is the message's (always non-empty, since a message with a oneof has a submodule).
+void emit_oneof_accessor(Printer& printer, const NameTable& table, const OneofNode& oneof,
+                         const std::string& accessor, const std::string& submodule) {
+    printer.print("pub fn $a$(&self) -> Option<$m$::$e$$lt$> {\n",
+                  {{"a", accessor},
+                   {"m", submodule},
+                   {"e", table.oneofs.at(&oneof)},
+                   {"lt", oneof_borrows(oneof) ? "<'a>" : ""}});
+    printer.indent();
+    printer.print("todo!()\n");
+    printer.outdent();
+    printer.print("}\n");
+}
+
 // Emit `pub struct Msg<'a> { .. } impl<'a> Msg<'a> { accessors; decode }`. `current_mod` is the module
 // the struct is emitted in, used to compute cross-references.
 void emit_message(Printer& printer, const NameTable& table,
@@ -435,8 +511,11 @@ void emit_message(Printer& printer, const NameTable& table,
     for (std::size_t i = 0; i < msg.map_fields.size(); ++i) {
         emit_map_accessor(printer, table, current_mod, msg.map_fields[i], accessors.maps[i]);
     }
-    for (const OneofNode& oneof : msg.oneofs) {
-        printer.print("// TODO: oneof $n$ -- added by a later slice\n", {{"n", oneof.name}});
+    if (!msg.oneofs.empty()) {
+        const std::string& submodule = table.messages.at(msg.fqn).submodule;
+        for (std::size_t i = 0; i < msg.oneofs.size(); ++i) {
+            emit_oneof_accessor(printer, table, msg.oneofs[i], accessors.oneofs[i], submodule);
+        }
     }
     printer.print(
         "pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) "
@@ -449,9 +528,11 @@ void emit_message(Printer& printer, const NameTable& table,
     printer.print("}\n");
 }
 
-// Recursively emit arena message structs: each message as a struct+impl in `current_mod`, then its
-// nested messages inside a `pub mod <snake>` one level deeper. The submodule name comes from the name
-// table (deduped against sibling messages and struct names), so it matches the paths referring in.
+// Recursively emit arena message structs: each message as a struct+impl in `current_mod`, then -- in a
+// `pub mod <snake>` one level deeper -- its oneof enums followed by its nested messages. The submodule
+// name comes from the name table (deduped against sibling messages and struct/oneof-enum names), so it
+// matches the paths referring in. The submodule is emitted when the message has nested messages OR
+// oneofs (both live there).
 void emit_arena_messages(Printer& printer, const NameTable& table,
                          const std::vector<MessageNode>& msgs,
                          std::vector<std::string>& current_mod) {
@@ -460,11 +541,21 @@ void emit_arena_messages(Printer& printer, const NameTable& table,
             printer.print("\n");
         }
         emit_message(printer, table, current_mod, msgs[i]);
-        if (!msgs[i].nested_messages.empty()) {
+        const bool has_submodule = !msgs[i].nested_messages.empty() || !msgs[i].oneofs.empty();
+        if (has_submodule) {
             const std::string& sub = table.messages.at(msgs[i].fqn).submodule;
             printer.print("\npub mod $m$ {\n", {{"m", sub}});
             printer.indent();
             current_mod.push_back(sub);
+            for (std::size_t k = 0; k < msgs[i].oneofs.size(); ++k) {
+                if (k != 0) {
+                    printer.print("\n");
+                }
+                emit_oneof_enum(printer, table, current_mod, msgs[i].oneofs[k]);
+            }
+            if (!msgs[i].oneofs.empty() && !msgs[i].nested_messages.empty()) {
+                printer.print("\n");  // separate the oneof enums from the nested messages
+            }
             emit_arena_messages(printer, table, msgs[i].nested_messages, current_mod);
             current_mod.pop_back();
             printer.outdent();

@@ -265,8 +265,12 @@ TEST_CASE("rustgen arena: maps become MapView accessors") {
               "super::super::common::p::Color> {"));
     CHECK(has(out,
               "pub fn nested(&self) -> ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, "
-              "Inner<'a>> {"));              // message-valued map -> inline value
-    CHECK(has(out, "// TODO: oneof pick"));  // oneof -> later slice
+              "Inner<'a>> {"));  // message-valued map -> inline value
+    CHECK(has(out, "pub fn pick(&self) -> Option<m::Pick<'a>> {"));  // oneof accessor
+    CHECK(has(out, "pub mod m {"));                                  // M's submodule holds the enum
+    CHECK(has(out, "pub enum Pick<'a> {"));                          // borrows (string) -> <'a>
+    CHECK(has(out, "A(i32),"));
+    CHECK(has(out, "B(::rapidproto::ProtoStr<'a>),"));
 }
 
 TEST_CASE("rustgen arena: nested messages/enums and message-typed fields") {
@@ -388,6 +392,76 @@ TEST_CASE("rustgen: snake-name dedup also applies in a nested scope") {
     CHECK(count(out, "pub mod my_msg_ {") == 1);
 }
 
+TEST_CASE("rustgen oneof: native enum in the message submodule, variants over all value kinds") {
+    const std::string out = gen_arena(R"(syntax = "proto3"; package p;
+        enum Color { COLOR_UNSPECIFIED = 0; }
+        message Sub { int32 x = 1; }
+        message M {
+          oneof choice {
+            int32 num = 1;
+            string text = 2;
+            bytes blob = 3;
+            Color col = 4;
+            Sub sub = 5;
+          }
+        })");
+    // Accessor on M returns Option<..> into M's own submodule; enum borrows -> carries <'a>.
+    CHECK(has(out, "pub fn choice(&self) -> Option<m::Choice<'a>> {"));
+    CHECK(has(out, "pub mod m {"));
+    CHECK(has(out, "pub enum Choice<'a> {"));
+    CHECK(has(out, "Num(i32),"));
+    CHECK(has(out, "Text(::rapidproto::ProtoStr<'a>),"));
+    CHECK(has(out, "Blob(&'a [u8]),"));
+    CHECK(
+        has(out, "Col(super::super::super::common::p::Color),"));  // enum variant -> common newtype
+    CHECK(has(out, "Sub(&'a super::Sub<'a>),"));  // message variant -> borrowed arena ref
+}
+
+TEST_CASE("rustgen oneof: a oneof that borrows nothing carries no lifetime") {
+    const std::string out = gen_arena(R"(syntax = "proto3"; package p;
+        enum E { E_UNSPECIFIED = 0; }
+        message M { oneof pick { int32 n = 1; E e = 2; } })");
+    CHECK(has(out, "pub enum Pick {"));  // only scalar + enum (Copy) variants -> no <'a>
+    CHECK(!has(out, "pub enum Pick<'a>"));
+    CHECK(has(out, "pub fn pick(&self) -> Option<m::Pick> {"));
+    CHECK(has(out, "N(i32),"));
+    CHECK(has(out, "E(super::super::super::common::p::E),"));
+}
+
+TEST_CASE("rustgen oneof: a message with only a oneof still gets a submodule") {
+    const std::string out = gen_arena(R"(syntax = "proto3"; package p;
+        message M { oneof pick { int32 n = 1; } })");
+    CHECK(has(out, "pub struct M<'a> {"));
+    CHECK(
+        has(out, "pub mod m {"));  // no nested messages, yet a submodule exists for the oneof enum
+    CHECK(has(out, "pub enum Pick {"));
+}
+
+TEST_CASE("rustgen oneof: multiple oneofs become separate enums") {
+    const std::string out = gen_arena(R"(syntax = "proto3"; package p;
+        message M {
+          oneof a { int32 x = 1; }
+          oneof b { string y = 2; }
+        })");
+    CHECK(has(out, "pub enum A {"));      // borrows nothing
+    CHECK(has(out, "pub enum B<'a> {"));  // borrows (string)
+    CHECK(has(out, "pub fn a(&self) -> Option<m::A> {"));
+    CHECK(has(out, "pub fn b(&self) -> Option<m::B<'a>> {"));
+}
+
+TEST_CASE(
+    "rustgen oneof: oneof accessor name dedups against decode, variant names against each other") {
+    const std::string out = gen_arena(R"(syntax = "proto3"; package p;
+        message M {
+          oneof decode { int32 a = 1; }
+          oneof c { int32 foo = 2; int32 foo_ = 3; }
+        })");
+    CHECK(has(out, "pub fn decode_(&self) -> Option<m::Decode> {"));  // vs the decode() method
+    CHECK(has(out, "pub fn decode(input: &'a [u8],"));  // the real decode still present
+    CHECK(has(out, "Foo(i32),"));                       // foo
+    CHECK(has(out, "Foo_(i32),"));                      // foo_ -> same PascalCase -> bumped
+}
+
 // The committed goldens (rust/rustgen-golden/goldens/) are compiled by Rust CI, proving the emitted
 // common+arena modules are valid Rust (incl. the super-relative paths). These keep them in sync.
 // INTERIM: a small hand-picked set while the emitter is built out; replace with the comprehensive
@@ -475,6 +549,31 @@ message Foo {
     int32 y = 1;
   }
   Inner inner = 1;
+}
+)");
+    // Oneofs compiled end to end: a borrowing oneof (<'a>) with scalar/string/bytes/enum/message
+    // variants and a non-borrowing one (no lifetime), both in the message's own submodule, on a
+    // message that has no nested messages.
+    check_golden("oneof", R"(syntax = "proto3";
+package p;
+enum Color {
+  COLOR_UNSPECIFIED = 0;
+}
+message Sub {
+  int32 x = 1;
+}
+message Record {
+  oneof payload {
+    string text = 1;
+    bytes blob = 2;
+    int32 number = 3;
+    Color color = 4;
+    Sub sub = 5;
+  }
+  oneof flag {
+    bool on = 6;
+    int32 code = 7;
+  }
 }
 )");
 }

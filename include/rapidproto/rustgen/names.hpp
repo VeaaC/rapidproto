@@ -77,6 +77,18 @@ inline std::string to_pascal_case(std::string_view s) {
     return out;
 }
 
+// A proto name -> a legal Rust UpperCamelCase identifier, used for every synthesized enum-variant and
+// oneof name (NOT yet deduped -- the caller dedups with dedup_suffix). PascalCase, then a `V`
+// prepended when that leaves an empty or digit-headed name (an all-underscore `_`/`__` yields "", a
+// `_2D`-style name a digit head -- neither a valid identifier head), then keyword-escaped.
+inline std::string pascal_ident(std::string_view raw) {
+    std::string name = to_pascal_case(raw);
+    if (name.empty() || (name.front() >= '0' && name.front() <= '9')) {
+        name.insert(name.begin(), 'V');
+    }
+    return escape_rust_ident(name);
+}
+
 // `PascalCase`/`camelCase`/`ALLCAPS` -> `snake_case`, for the per-message module a message's nested
 // types live in. A `_` is inserted before an uppercase letter that follows a lowercase/digit, or
 // that begins a word after an acronym run (`HTTPServer` -> `http_server`, `MyMsg` -> `my_msg`).
@@ -153,14 +165,21 @@ inline std::vector<std::string> enum_variant_names(const EnumNode& node) {
         if (strip) {
             raw.remove_prefix(prefix.size());
         }
-        std::string name = to_pascal_case(raw);
-        // `to_pascal_case` drops `_`, so an all-underscore value (`_`, `__`) yields "" and a
-        // leading-underscore-then-digit value (`_2D`) yields a digit head -- neither a valid Rust
-        // identifier. Prepend `V` to recover a head; dedup below absorbs any collision.
-        if (name.empty() || (name.front() >= '0' && name.front() <= '9')) {
-            name.insert(name.begin(), 'V');
-        }
-        out.push_back(codegen::dedup_suffix(taken, escape_rust_ident(name)));
+        out.push_back(codegen::dedup_suffix(taken, pascal_ident(raw)));
+    }
+    return out;
+}
+
+// The variant name for each field of a oneof, in declaration order: PascalCase of the field name,
+// escaped and deduped within the oneof (two fields that PascalCase alike -- e.g. `my_x`/`myX` -- get
+// a trailing `_`). No prefix stripping (a oneof has no enum-style value prefix) and no reserved seed
+// (a oneof enum is closed, with no synthesized `Unknown` variant).
+inline std::vector<std::string> oneof_variant_names(const OneofNode& oneof) {
+    std::unordered_set<std::string> taken;
+    std::vector<std::string> out;
+    out.reserve(oneof.fields.size());
+    for (const FieldNode& field : oneof.fields) {
+        out.push_back(codegen::dedup_suffix(taken, pascal_ident(field.name)));
     }
     return out;
 }
