@@ -11,8 +11,12 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![allow(clippy::all)]
 // Generated code: `unused` covers dead_code and the unused params of the stubbed `decode` (they are
-// used once decode is implemented).
+// used once decode is implemented). `non_camel_case_types`/`non_snake_case` fire only for schemas
+// whose own proto names are unconventional (e.g. a message `foo`, or the `My_Msg`/`foo_` the dedup
+// golden intentionally exercises); the emitter preserves proto names rather than re-casing them.
 #![allow(unused)]
+#![allow(non_camel_case_types)]
+#![allow(non_snake_case)]
 
 pub mod scalars_enums {
     include!("../goldens/scalars_enums.rs");
@@ -20,4 +24,12 @@ pub mod scalars_enums {
 
 pub mod nopackage {
     include!("../goldens/nopackage.rs");
+}
+
+pub mod nested {
+    include!("../goldens/nested.rs");
+}
+
+pub mod dedup {
+    include!("../goldens/dedup.rs");
 }
