@@ -34,6 +34,10 @@ std::string generate_file(const FileNode& file);
 // declared in another file): the per-file module layout does not compose across separately generated
 // files yet, so the CLI refuses such a schema cleanly rather than emitting a dangling path. The
 // returned string is a human-readable reason naming the offending reference.
+//
+// It inspects the reference shapes the generator actually emits (message/enum fields, map values,
+// oneof fields; recursively). `extend` blocks are NOT inspected -- safe only because the generator
+// emits nothing for them; if extension emission is ever added, add its cross-file refs here too.
 std::optional<std::string> cross_file_dependency(const FileNode& file);
 
 }  // namespace rapidproto::rustgen

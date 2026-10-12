@@ -6,6 +6,7 @@
 #include <fstream>
 #include <ios>
 #include <optional>
+#include <set>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -560,6 +561,10 @@ TEST_CASE("rustgen goldens match the no-import corpus (compile smoke-test)", "[r
         check_golden(stem, rustgen::generate_file(analyzed(proto)));
         stems.push_back(stem);
     }
+    // Golden file names (and lib.rs module names) are the bare stems, so they must be distinct across
+    // subdirs -- otherwise two schemas (e.g. nsedge/foo + imports/foo) would silently share one
+    // golden and one module. Pin that invariant rather than trust the hand-kept list.
+    CHECK(std::set<std::string>(stems.begin(), stems.end()).size() == stems.size());
     // Under regen, rewrite the golden crate's lib.rs so its `pub mod` list stays in lockstep with the
     // goldens (one module per golden, each `include!`-ing its file; the module name is the stem,
     // Rust-escaped so a keyword stem like `pub` becomes `r#pub`). kCorpusGoldens is the single source.
