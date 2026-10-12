@@ -83,7 +83,9 @@ struct NameTable {
     std::unordered_map<std::string, EnumNames> enums;    // enum FQN -> names
     // A oneof's enum type name (e.g. `Payload`), keyed by the OneofNode (oneofs carry no FQN). The
     // enum lives in the owning MESSAGE's arena submodule, deduped against that submodule's other
-    // arena items (nested structs + their modules); see build_scope.
+    // arena items (nested structs + their modules); see build_scope. The pointer keys index into the
+    // FileNode passed to build_name_table; generate_arena/_common build the table and emit from that
+    // one un-mutated FileNode, so the keys stay live -- do not copy or rebuild the AST between them.
     std::unordered_map<const OneofNode*, std::string> oneofs;
 };
 
