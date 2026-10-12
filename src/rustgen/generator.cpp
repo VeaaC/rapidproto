@@ -3,15 +3,19 @@
 
 #include "rapidproto/rustgen/generator.hpp"
 
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
 
 #include "rapidproto/ast.hpp"
+#include "rapidproto/codegen/emit.hpp"    // holds_enum
+#include "rapidproto/codegen/naming.hpp"  // dedup_suffix
 #include "rapidproto/codegen/printer.hpp"
 #include "rapidproto/rustgen/names.hpp"
 
@@ -19,6 +23,132 @@ namespace rapidproto::rustgen {
 namespace {
 
 using codegen::Printer;
+
+// Split a dotted proto name ("a.b.c") into its components ("" -> none).
+std::vector<std::string> dotted_components(std::string_view name) {
+    std::vector<std::string> out;
+    std::size_t start = 0;
+    while (start <= name.size()) {
+        const std::size_t dot = name.find('.', start);
+        const std::size_t end = dot == std::string_view::npos ? name.size() : dot;
+        if (end > start) {
+            out.emplace_back(name.substr(start, end - start));
+        }
+        if (dot == std::string_view::npos) {
+            break;
+        }
+        start = dot + 1;
+    }
+    return out;
+}
+
+// The package components as the escaped module names they are emitted as (matching open_module_tree).
+std::vector<std::string> escaped_package(const FileNode& file) {
+    std::vector<std::string> out;
+    for (const std::string& part : dotted_components(file.package)) {
+        out.push_back(escape_rust_ident(part));
+    }
+    return out;
+}
+
+// --- Name table -------------------------------------------------------------------------------
+// Every message/enum's placement in its model tree, with all Rust identifier dedup applied, computed
+// ONCE per file. Emission and cross-reference path computation both read it, so an emitted `pub mod`
+// / `pub struct` / newtype name and the path that refers to it can never disagree -- the reason this
+// is a table and not recomputed at each use.
+//
+// Dedup is per scope (one proto package level or message = one Rust module). Within a scope these
+// share the Rust TYPE namespace and so must be mutually unique:
+//   - arena tree: each message's struct, and the `pub mod <snake>` holding its nested types;
+//   - common tree: each enum's newtype and its `<Name>Kind`, and the `pub mod <snake>` holding a
+//     nested message's enums.
+// A message's submodule name (snake of the message) is deduped among sibling messages ALONE, so it
+// is the SAME string in both trees: the module PATH is shared (an enclosing message nests both its
+// messages in arena and its enums in common), so renaming a module in one tree would desync the other
+// and the stored paths. A leaf type (struct / newtype / Kind) that collides with a module name is
+// bumped instead -- a leaf name is never used as a path component, so bumping it stays local.
+struct MsgNames {
+    std::vector<std::string> module;  // enclosing module segments, from the model root
+    std::string type_name;            // the arena struct identifier
+    std::string submodule;  // the `pub mod` that holds nested types (snake); shared by both trees
+};
+struct EnumNames {
+    std::vector<std::string> module;
+    std::string type_name;  // the newtype identifier
+    std::string kind_name;  // the `<Name>Kind` classify-enum identifier
+};
+struct NameTable {
+    std::unordered_map<std::string, MsgNames> messages;  // message FQN -> names
+    std::unordered_map<std::string, EnumNames> enums;    // enum FQN -> names
+};
+
+// Assign deduped names for ONE scope -- the child messages and enums declared directly at `module` --
+// then recurse into each message's own scope. `module` is the enclosing module path (mutated in place
+// across the recursion).
+void build_scope(const std::vector<MessageNode>& msgs, const std::vector<EnumNode>& enums,
+                 std::vector<std::string>& module, NameTable& table) {
+    // Submodule names first: snake, deduped among sibling messages, so both trees and the paths agree
+    // on them. A message claims a name iff it emits a `pub mod` SOMEWHERE -- in the arena tree when it
+    // has nested messages, in the common tree when it holds enums; a message that emits neither leaves
+    // `submodule` empty (never read). The reserved names are ONE shared set that both trees' leaf
+    // dedup starts from, so a struct/enum name is bumped off a submodule even in the tree where that
+    // submodule does not exist (a common-only `pub mod` still bumps a colliding arena struct). That
+    // over-dedup is cosmetic -- the bumped name is stored and used uniformly, never a wrong path -- and
+    // it keeps the reservation a single set rather than one per tree.
+    std::unordered_set<std::string> submods;
+    std::vector<std::string> submodule(msgs.size());
+    for (std::size_t i = 0; i < msgs.size(); ++i) {
+        if (!msgs[i].nested_messages.empty() || codegen::holds_enum(msgs[i])) {
+            submodule[i] =
+                codegen::dedup_suffix(submods, escape_rust_ident(to_snake_case(msgs[i].name)));
+        }
+    }
+    // Arena struct names: the submodule names are reserved first (shared type namespace), then each
+    // struct is deduped against them and each other -- a module keeps its name (it is a path segment),
+    // a colliding struct is bumped.
+    {
+        std::unordered_set<std::string> taken = submods;
+        for (std::size_t i = 0; i < msgs.size(); ++i) {
+            MsgNames names;
+            names.module = module;
+            names.type_name = codegen::dedup_suffix(taken, escape_rust_ident(msgs[i].name));
+            names.submodule = submodule[i];
+            table.messages.emplace(msgs[i].fqn, std::move(names));
+        }
+    }
+    // Common enum names: the SAME submodule names reserved first (so a nested message's `pub mod` and
+    // an enum newtype in this common scope cannot collide), then each newtype and its Kind.
+    {
+        std::unordered_set<std::string> taken = submods;
+        for (const EnumNode& node : enums) {
+            EnumNames names;
+            names.module = module;
+            names.type_name = codegen::dedup_suffix(taken, escape_rust_ident(node.name));
+            names.kind_name = codegen::dedup_suffix(taken, names.type_name + "Kind");
+            table.enums.emplace(node.fqn, std::move(names));
+        }
+    }
+    // Recurse into each message that has its own scope to record (nested messages and/or enums),
+    // descending through its (non-empty) submodule name.
+    for (std::size_t i = 0; i < msgs.size(); ++i) {
+        if (submodule[i].empty()) {
+            continue;  // no nested messages and no enums: nothing to record
+        }
+        module.push_back(submodule[i]);
+        build_scope(msgs[i].nested_messages, msgs[i].enums, module, table);
+        module.pop_back();
+    }
+}
+
+// Build the whole-file name table. Covers types DECLARED in `file`; when imports land this is built
+// over the import closure so a cross-file reference resolves too (see the `.at` note on the path
+// helpers).
+NameTable build_name_table(const FileNode& file) {
+    NameTable table;
+    std::vector<std::string> module = escaped_package(file);
+    build_scope(file.messages, file.enums, module, table);
+    return table;
+}
 
 // Emit the newtype + classify enum for one proto enum.
 //
@@ -36,15 +166,15 @@ using codegen::Printer;
 //   pub enum ColorKind { Red, .., Unknown(i32) }
 //
 // Storage is the raw `i32` (open enum, full range); the classify enum is the ergonomic match
-// surface and `kind()` fuses to a branchless switch at the call site.
-void emit_enum(Printer& printer, const EnumNode& node) {
-    const std::string type_name = escape_rust_ident(node.name);
-    const std::string kind_name = type_name + "Kind";  // TODO(rustgen): dedup vs user type names
+// surface and `kind()` fuses to a branchless switch at the call site. The newtype and Kind names come
+// from the name table (deduped against everything else in the enum's common scope).
+void emit_enum(Printer& printer, const NameTable& table, const EnumNode& node) {
+    const EnumNames& names = table.enums.at(node.fqn);
     const std::vector<std::string> consts = enum_const_names(node);
     const std::vector<std::string> variants = enum_variant_names(node);
 
-    printer.set("T", type_name);
-    printer.set("K", kind_name);
+    printer.set("T", names.type_name);
+    printer.set("K", names.kind_name);
 
     printer.print("#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]\n");
     // `repr(transparent)`: a zero-cost wrapper, layout-identical to its `i32`. (It does NOT let a
@@ -94,24 +224,6 @@ void emit_enum(Printer& printer, const EnumNode& node) {
     printer.print("Unknown(i32),\n");
     printer.outdent();
     printer.print("}\n");
-}
-
-// Split a dotted proto name ("a.b.c") into its components ("" -> none).
-std::vector<std::string> dotted_components(std::string_view name) {
-    std::vector<std::string> out;
-    std::size_t start = 0;
-    while (start <= name.size()) {
-        const std::size_t dot = name.find('.', start);
-        const std::size_t end = dot == std::string_view::npos ? name.size() : dot;
-        if (end > start) {
-            out.emplace_back(name.substr(start, end - start));
-        }
-        if (dot == std::string_view::npos) {
-            break;
-        }
-        start = dot + 1;
-    }
-    return out;
 }
 
 // Open `pub mod <root> { pub mod <pkg0> { ... }`, indenting; close with close_module_tree.
@@ -164,28 +276,65 @@ std::string rust_scalar_type(std::string_view t) {
     return "()";  // defensive: not reached for a resolved scalar field
 }
 
-// A reference from inside `arena::<pkg>::Msg` to an enum at `fqn` in the `common` tree. Enums live
-// under `common::<pkg>::Name`, a sibling of `arena` under the include root, so climb `super` out of
-// the message's package (plus the `arena` root) and descend into `common`.
-std::string common_type_path(const FileNode& file, const std::string& fqn) {
-    const std::size_t supers = 1 + dotted_components(file.package).size();
+// `current_mod` is the module segment list of the message whose `impl` is being emitted, relative to
+// its model root (`arena`/`common`): package components + one snake module per enclosing message.
+//
+// The two path helpers look the target up in the name table. `.at`: every referenced type is in the
+// table, so a miss is a generator invariant breach (e.g. a cross-file reference before the table is
+// built over the import closure) and aborts rather than silently emitting a wrong path.
+
+// A reference from inside the arena tree (at `current_mod`) to an ENUM in the sibling `common` tree.
+// Climb `super` out to the shared include root (past the `arena` root + `current_mod`), then descend
+// `common`. Enum newtypes carry no lifetime.
+std::string common_type_path(const NameTable& table, const std::vector<std::string>& current_mod,
+                             const std::string& fqn) {
+    const EnumNames& loc = table.enums.at(fqn);
     std::string out;
-    for (std::size_t i = 0; i < supers; ++i) {
+    for (std::size_t i = 0; i < 1 + current_mod.size(); ++i) {
         out += "super::";
     }
     out += "common";
-    for (const std::string& part : dotted_components(fqn)) {
+    for (const std::string& seg : loc.module) {
         out += "::";
-        out += escape_rust_ident(part);
+        out += seg;
     }
+    out += "::";
+    out += loc.type_name;
+    return out;
+}
+
+// A reference WITHIN the arena tree from `current_mod` to the message at `fqn`: climb `super` past the
+// non-shared tail of `current_mod`, then descend to the target. Same-module -> just the name.
+std::string arena_message_path(const NameTable& table, const std::vector<std::string>& current_mod,
+                               const std::string& fqn) {
+    const MsgNames& loc = table.messages.at(fqn);
+    std::size_t common = 0;
+    while (common < current_mod.size() && common < loc.module.size() &&
+           current_mod[common] == loc.module[common]) {
+        ++common;
+    }
+    std::string out;
+    for (std::size_t i = common; i < current_mod.size(); ++i) {
+        out += "super::";
+    }
+    for (std::size_t i = common; i < loc.module.size(); ++i) {
+        out += loc.module[i];
+        out += "::";
+    }
+    out += loc.type_name;
     return out;
 }
 
 // The Rust type of a field's singular VALUE, ignoring repeated/presence wrapping: scalar -> a Rust
-// primitive, enum -> the common-tree path, string -> ProtoStr<'a>, bytes -> &'a [u8].
-std::string field_value_type(const FileNode& file, const FieldNode& field) {
+// primitive, enum -> the common-tree path, string -> ProtoStr<'a>, bytes -> &'a [u8], message -> the
+// arena-tree path with its lifetime (`Inner<'a>`).
+std::string field_value_type(const NameTable& table, const std::vector<std::string>& current_mod,
+                             const FieldNode& field) {
+    if (field.is_message_type) {
+        return arena_message_path(table, current_mod, field.resolved_type_fqn) + "<'a>";
+    }
     if (field.is_enum_type) {
-        return common_type_path(file, field.resolved_type_fqn);
+        return common_type_path(table, current_mod, field.resolved_type_fqn);
     }
     return rust_scalar_type(field.type_name);
 }
@@ -205,11 +354,7 @@ AccessorNames message_accessor_names(const MessageNode& msg) {
     taken.insert("decode");  // the generated decode() method lives in the same impl
     AccessorNames names;
     const auto assign = [&taken](const std::string& raw) {
-        std::string name = escape_rust_ident(raw);
-        while (!taken.insert(name).second) {
-            name += '_';
-        }
-        return name;
+        return codegen::dedup_suffix(taken, escape_rust_ident(raw));
     };
     names.fields.reserve(msg.fields.size());
     for (const FieldNode& field : msg.fields) {
@@ -223,20 +368,19 @@ AccessorNames message_accessor_names(const MessageNode& msg) {
 }
 
 // Emit a `pub fn <field>(&self) -> ...` with a stubbed body for one regular (non-oneof, non-map)
-// field. `decode()` is stubbed, so bodies are `todo!()` and the struct carries no field storage yet
-// -- this slice pins accessor SIGNATURES and that they compile, not the arena layout. Message-typed
-// fields (singular or repeated) are left to a later slice. `accessor` is the pre-deduped name.
-void emit_field_accessor(Printer& printer, const FileNode& file, const FieldNode& field,
+// field. A singular message is `Option<&'a T<'a>>` (absence = None); a repeated field is a borrowed
+// slice (of inline message values for repeated messages). `decode()` is stubbed, so bodies are
+// `todo!()` and the struct carries no field storage yet -- this pins accessor SIGNATURES, not the
+// arena layout. `accessor` is the pre-deduped name.
+void emit_field_accessor(Printer& printer, const NameTable& table,
+                         const std::vector<std::string>& current_mod, const FieldNode& field,
                          const std::string& accessor) {
-    if (field.is_message_type) {
-        printer.print("// TODO: field $n$ (message) -- added by a later slice\n",
-                      {{"n", field.name}});
-        return;
-    }
-    const std::string value = field_value_type(file, field);
+    const std::string value = field_value_type(table, current_mod, field);
     std::string ret;
     if (field.is_repeated) {
         ret = "&'a [" + value + "]";  // repeated: a borrowed slice, empty when the field is absent
+    } else if (field.is_message_type) {
+        ret = "Option<&'a " + value + ">";  // singular message: borrowed, None when absent
     } else if (field.presence == FieldPresence::Explicit) {
         ret = "Option<" + value + ">";
     } else {
@@ -249,19 +393,20 @@ void emit_field_accessor(Printer& printer, const FileNode& file, const FieldNode
     printer.print("}\n");
 }
 
-// Emit a `pub fn <map>(&self) -> MapView<'a, K, V>` accessor. Map keys are always scalar; a message
-// value is left to a later slice. `accessor` is the pre-deduped name.
-void emit_map_accessor(Printer& printer, const FileNode& file, const MapFieldNode& map,
+// Emit a `pub fn <map>(&self) -> MapView<'a, K, V>` accessor. Keys are always scalar; a message value
+// is an inline `T<'a>` (like a repeated-message element). `accessor` is the pre-deduped name.
+void emit_map_accessor(Printer& printer, const NameTable& table,
+                       const std::vector<std::string>& current_mod, const MapFieldNode& map,
                        const std::string& accessor) {
-    if (map.value_is_message) {
-        printer.print("// TODO: map field $n$ (message value) -- added by a later slice\n",
-                      {{"n", map.name}});
-        return;
-    }
     const std::string key = rust_scalar_type(map.key_type);
-    const std::string value = map.value_is_enum
-                                  ? common_type_path(file, map.resolved_value_type_fqn)
-                                  : rust_scalar_type(map.value_type);
+    std::string value;
+    if (map.value_is_message) {
+        value = arena_message_path(table, current_mod, map.resolved_value_type_fqn) + "<'a>";
+    } else if (map.value_is_enum) {
+        value = common_type_path(table, current_mod, map.resolved_value_type_fqn);
+    } else {
+        value = rust_scalar_type(map.value_type);
+    }
     printer.print("pub fn $a$(&self) -> ::rapidproto::MapView<'a, $k$, $v$> {\n",
                   {{"a", accessor}, {"k", key}, {"v", value}});
     printer.indent();
@@ -270,10 +415,11 @@ void emit_map_accessor(Printer& printer, const FileNode& file, const MapFieldNod
     printer.print("}\n");
 }
 
-// Emit `pub struct Msg<'a> { .. } impl<'a> Msg<'a> { accessors; decode }`.
-void emit_message(Printer& printer, const FileNode& file, const MessageNode& msg) {
-    const std::string type_name = escape_rust_ident(msg.name);
-    printer.set("M", type_name);
+// Emit `pub struct Msg<'a> { .. } impl<'a> Msg<'a> { accessors; decode }`. `current_mod` is the module
+// the struct is emitted in, used to compute cross-references.
+void emit_message(Printer& printer, const NameTable& table,
+                  const std::vector<std::string>& current_mod, const MessageNode& msg) {
+    printer.set("M", table.messages.at(msg.fqn).type_name);
     printer.print("pub struct $M$<'a> {\n");
     printer.indent();
     printer.print("_marker: ::core::marker::PhantomData<&'a ()>,\n");
@@ -284,10 +430,10 @@ void emit_message(Printer& printer, const FileNode& file, const MessageNode& msg
     printer.indent();
     const AccessorNames accessors = message_accessor_names(msg);
     for (std::size_t i = 0; i < msg.fields.size(); ++i) {
-        emit_field_accessor(printer, file, msg.fields[i], accessors.fields[i]);
+        emit_field_accessor(printer, table, current_mod, msg.fields[i], accessors.fields[i]);
     }
     for (std::size_t i = 0; i < msg.map_fields.size(); ++i) {
-        emit_map_accessor(printer, file, msg.map_fields[i], accessors.maps[i]);
+        emit_map_accessor(printer, table, current_mod, msg.map_fields[i], accessors.maps[i]);
     }
     for (const OneofNode& oneof : msg.oneofs) {
         printer.print("// TODO: oneof $n$ -- added by a later slice\n", {{"n", oneof.name}});
@@ -303,9 +449,56 @@ void emit_message(Printer& printer, const FileNode& file, const MessageNode& msg
     printer.print("}\n");
 }
 
+// Recursively emit arena message structs: each message as a struct+impl in `current_mod`, then its
+// nested messages inside a `pub mod <snake>` one level deeper. The submodule name comes from the name
+// table (deduped against sibling messages and struct names), so it matches the paths referring in.
+void emit_arena_messages(Printer& printer, const NameTable& table,
+                         const std::vector<MessageNode>& msgs,
+                         std::vector<std::string>& current_mod) {
+    for (std::size_t i = 0; i < msgs.size(); ++i) {
+        if (i != 0) {
+            printer.print("\n");
+        }
+        emit_message(printer, table, current_mod, msgs[i]);
+        if (!msgs[i].nested_messages.empty()) {
+            const std::string& sub = table.messages.at(msgs[i].fqn).submodule;
+            printer.print("\npub mod $m$ {\n", {{"m", sub}});
+            printer.indent();
+            current_mod.push_back(sub);
+            emit_arena_messages(printer, table, msgs[i].nested_messages, current_mod);
+            current_mod.pop_back();
+            printer.outdent();
+            printer.print("}\n");
+        }
+    }
+}
+
+// Recursively emit nested enums into the common tree: a message holding enums gets a `pub mod <snake>`
+// (the same table-assigned submodule name as the arena tree) with its own enums plus the recursion.
+void emit_common_message_enums(Printer& printer, const NameTable& table,
+                               const std::vector<MessageNode>& msgs) {
+    for (const MessageNode& msg : msgs) {
+        if (!codegen::holds_enum(msg)) {
+            continue;
+        }
+        printer.print("pub mod $m$ {\n", {{"m", table.messages.at(msg.fqn).submodule}});
+        printer.indent();
+        for (std::size_t i = 0; i < msg.enums.size(); ++i) {
+            if (i != 0) {
+                printer.print("\n");
+            }
+            emit_enum(printer, table, msg.enums[i]);
+        }
+        emit_common_message_enums(printer, table, msg.nested_messages);
+        printer.outdent();
+        printer.print("}\n");
+    }
+}
+
 }  // namespace
 
 std::string generate_common(const FileNode& file) {
+    const NameTable table = build_name_table(file);
     Printer printer;
     const std::vector<std::string> pkg = dotted_components(file.package);
     open_module_tree(printer, "common", pkg);
@@ -313,22 +506,20 @@ std::string generate_common(const FileNode& file) {
         if (i != 0) {
             printer.print("\n");
         }
-        emit_enum(printer, file.enums[i]);
+        emit_enum(printer, table, file.enums[i]);
     }
+    emit_common_message_enums(printer, table, file.messages);
     close_module_tree(printer, pkg);
     return printer.str();
 }
 
 std::string generate_arena(const FileNode& file) {
+    const NameTable table = build_name_table(file);
     Printer printer;
     const std::vector<std::string> pkg = dotted_components(file.package);
     open_module_tree(printer, "arena", pkg);
-    for (std::size_t i = 0; i < file.messages.size(); ++i) {
-        if (i != 0) {
-            printer.print("\n");
-        }
-        emit_message(printer, file, file.messages[i]);
-    }
+    std::vector<std::string> current_mod = escaped_package(file);
+    emit_arena_messages(printer, table, file.messages, current_mod);
     close_module_tree(printer, pkg);
     return printer.str();
 }

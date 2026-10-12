@@ -14,7 +14,8 @@
 #include <vector>
 
 #include "rapidproto/ast.hpp"
-#include "rapidproto/codegen/emit.hpp"  // enum_value_prefix
+#include "rapidproto/codegen/emit.hpp"    // enum_value_prefix
+#include "rapidproto/codegen/naming.hpp"  // dedup_suffix
 
 namespace rapidproto::rustgen {
 
@@ -76,6 +77,29 @@ inline std::string to_pascal_case(std::string_view s) {
     return out;
 }
 
+// `PascalCase`/`camelCase`/`ALLCAPS` -> `snake_case`, for the per-message module a message's nested
+// types live in. A `_` is inserted before an uppercase letter that follows a lowercase/digit, or
+// that begins a word after an acronym run (`HTTPServer` -> `http_server`, `MyMsg` -> `my_msg`).
+inline std::string to_snake_case(std::string_view s) {
+    std::string out;
+    for (std::size_t i = 0; i < s.size(); ++i) {
+        const char c = s[i];
+        if (c >= 'A' && c <= 'Z') {
+            const bool prev_lower_or_digit = i > 0 && ((s[i - 1] >= 'a' && s[i - 1] <= 'z') ||
+                                                       (s[i - 1] >= '0' && s[i - 1] <= '9'));
+            const bool acronym_boundary = i > 0 && i + 1 < s.size() && s[i - 1] >= 'A' &&
+                                          s[i - 1] <= 'Z' && s[i + 1] >= 'a' && s[i + 1] <= 'z';
+            if (prev_lower_or_digit || acronym_boundary) {
+                out += '_';
+            }
+            out += static_cast<char>(c - ('A' - 'a'));
+        } else {
+            out += c;
+        }
+    }
+    return out;
+}
+
 // Whether the enum's conventional `<ENUMNAME>_` prefix can be stripped from every value: all values
 // carry it and the remainder is a usable identifier head (non-empty, not a leading digit). Rust can
 // escape a bare keyword with `r#`, so -- unlike the C++ rule -- a keyword remainder does NOT disable
@@ -109,11 +133,7 @@ inline std::vector<std::string> enum_const_names(const EnumNode& node) {
         if (strip) {
             raw.remove_prefix(prefix.size());
         }
-        std::string name = escape_rust_ident(std::string(raw));
-        while (!taken.insert(name).second) {
-            name += '_';
-        }
-        out.push_back(std::move(name));
+        out.push_back(codegen::dedup_suffix(taken, escape_rust_ident(std::string(raw))));
     }
     return out;
 }
@@ -140,11 +160,7 @@ inline std::vector<std::string> enum_variant_names(const EnumNode& node) {
         if (name.empty() || (name.front() >= '0' && name.front() <= '9')) {
             name.insert(name.begin(), 'V');
         }
-        name = escape_rust_ident(name);
-        while (!taken.insert(name).second) {
-            name += '_';
-        }
-        out.push_back(std::move(name));
+        out.push_back(codegen::dedup_suffix(taken, escape_rust_ident(name)));
     }
     return out;
 }
