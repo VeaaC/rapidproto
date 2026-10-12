@@ -1,0 +1,15 @@
+[package]
+name = "rapidproto"
+version = "0.0.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Decode-only Protobuf runtime for generated RapidProto decoders (work in progress)."
+repository = "https://github.com/VeaaC/rapidproto"
+publish = false # the crates.io `rapidproto` placeholder is reserved; this is not published yet
+
+[features]
+default = ["std"]
+# `std` implies `alloc`; `alloc` alone is the no_std + allocator tier; neither is the
+# no_std-no-alloc embedded tier (a caller-seeded arena). No 3rd-party runtime deps.
+std = ["alloc"]
+alloc = []

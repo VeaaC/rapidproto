@@ -1,0 +1,6 @@
+# RapidProto Rust support — in-tree Cargo workspace (work in progress, on the `rust` branch).
+# The scratch spikes rust-poc/ and rust-m0/ at the repo root are NOT part of this workspace and
+# stay untracked.
+[workspace]
+resolver = "2"
+members = ["rapidproto", "rapidproto-build", "rustgen-golden"]

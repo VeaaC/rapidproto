@@ -98,11 +98,7 @@ inline std::vector<std::string> enum_value_names(const EnumNode& node) {
         if (strip) {
             raw.remove_prefix(prefix.size());
         }
-        std::string name = sanitize(raw);
-        while (!taken.insert(name).second) {
-            name += '_';
-        }
-        out.push_back(std::move(name));
+        out.push_back(dedup_suffix(taken, sanitize(raw)));
     }
     return out;
 }
