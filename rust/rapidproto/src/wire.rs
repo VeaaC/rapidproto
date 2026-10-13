@@ -52,6 +52,10 @@ pub struct Tag {
     pub wire: WireType,
 }
 
+/// The largest legal Protobuf field number (`2^29 - 1`); a tag above it is malformed, matching the
+/// C++ reader. (The 19000..=19999 reserved range is a schema rule, not a wire-decode one.)
+const MAX_FIELD_NUMBER: u32 = (1 << 29) - 1;
+
 /// The maximum nesting a [`Cursor::skip`] will descend through groups before giving up, so a
 /// pathological run of group-start tags cannot drive unbounded recursion.
 const MAX_SKIP_DEPTH: u32 = 100;
@@ -133,25 +137,27 @@ impl<'a> Cursor<'a> {
             shift += 7;
             i += 1;
         }
-        // Either the input ended mid-varint, or 10 bytes all had the continuation bit set.
-        if i == 10 {
-            Err(self.err(ErrorKind::InvalidTag))
-        } else {
-            Err(self.err(ErrorKind::Truncated))
-        }
+        // The loop only falls through by running out of bytes (`i == 9` always returns, via the
+        // over-long guard or a terminator), so reaching here means the input ended mid-varint.
+        Err(self.err(ErrorKind::Truncated))
     }
 
-    /// Read a field tag. `InvalidTag` for a field number of 0 or a wire type of 6/7.
+    /// Read a field tag. `InvalidTag` for a field number of 0 or above the Protobuf maximum
+    /// (2^29 - 1), or a wire type of 6/7.
     #[inline]
     pub fn read_tag(&mut self) -> Result<Tag, DecodeError> {
         let before = *self;
         let raw = self.read_varint()?;
-        let field = u32::try_from(raw >> 3).map_err(|_| before.err(ErrorKind::InvalidTag))?;
-        let wire = WireType::from_bits((raw & 0x07) as u32);
-        match (field, wire) {
-            (0, _) | (_, None) => Err(before.err(ErrorKind::InvalidTag)),
-            (field, Some(wire)) => Ok(Tag { field, wire }),
+        let field = raw >> 3;
+        if field == 0 || field > u64::from(MAX_FIELD_NUMBER) {
+            return Err(before.err(ErrorKind::InvalidTag));
         }
+        let wire = WireType::from_bits((raw & 0x07) as u32)
+            .ok_or_else(|| before.err(ErrorKind::InvalidTag))?;
+        Ok(Tag {
+            field: field as u32,
+            wire,
+        })
     }
 
     /// Read the next field tag, or `None` at end of input -- the field-loop primitive.
@@ -322,6 +328,35 @@ mod tests {
         // wire type 7 (the high 3 bits set) is invalid: (1 << 3) | 7 = 0x0f.
         assert_eq!(
             Cursor::new(&[0x0f]).read_tag().unwrap_err().kind(),
+            ErrorKind::InvalidTag
+        );
+
+        // The max field number (2^29 - 1) with wire Len is accepted; one past it is rejected.
+        let encode = |value: u64| {
+            let mut buf = Vec::new();
+            let mut v = value;
+            loop {
+                let byte = (v & 0x7f) as u8;
+                v >>= 7;
+                if v == 0 {
+                    buf.push(byte);
+                    break;
+                }
+                buf.push(byte | 0x80);
+            }
+            buf
+        };
+        let max_tag = (u64::from(MAX_FIELD_NUMBER) << 3) | 2;
+        let over_tag = ((u64::from(MAX_FIELD_NUMBER) + 1) << 3) | 2;
+        assert_eq!(
+            Cursor::new(&encode(max_tag)).read_tag().unwrap().field,
+            MAX_FIELD_NUMBER
+        );
+        assert_eq!(
+            Cursor::new(&encode(over_tag))
+                .read_tag()
+                .unwrap_err()
+                .kind(),
             ErrorKind::InvalidTag
         );
 
