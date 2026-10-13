@@ -115,17 +115,27 @@ impl<'a> Cursor<'a> {
     }
 
     /// Read a base-128 varint (up to 10 bytes). `Truncated` if the continuation bit is still set at
-    /// end of input; `InvalidTag` if it runs past 10 bytes or the 10th byte sets bits above bit 0
-    /// (both are over-long encodings, matching the C++ reader).
+    /// end of input; `InvalidTag` if the 10th byte sets bits above bit 0 (an over-long encoding).
+    /// Mirrors the C++ reader: a 1-byte fast path for the common case (every tag and most small
+    /// fields), then the general loop. Safe Rust: `split_first` and the slice iterator keep the hot
+    /// paths bounds-check-free without `unsafe`.
     #[inline]
     pub fn read_varint(&mut self) -> Result<u64, DecodeError> {
+        let bytes = self.rest;
+        // 1-byte fast path: one byte, continuation bit clear.
+        if let Some((&first, _)) = bytes.split_first() {
+            if first & 0x80 == 0 {
+                self.advance(1);
+                return Ok(u64::from(first));
+            }
+        }
+        // General case: iterate the bytes (the iterator elides per-byte bounds checks; we return by
+        // the 10th byte, so `shift` never exceeds 63).
         let mut result: u64 = 0;
         let mut shift: u32 = 0;
-        let mut i: usize = 0;
-        while i < self.rest.len() {
-            let byte = self.rest[i];
-            // The 10th byte (i == 9) reaches shift 63: only its low bit fits in u64, and an over-long
-            // encoding sets higher bits -- reject it rather than silently truncating.
+        for (i, &byte) in bytes.iter().enumerate() {
+            // The 10th byte (i == 9) reaches shift 63: only its low bit fits in u64, so an over-long
+            // encoding (any higher bit set) is rejected rather than silently truncated.
             if i == 9 && byte > 0x01 {
                 return Err(self.err(ErrorKind::InvalidTag));
             }
@@ -135,10 +145,9 @@ impl<'a> Cursor<'a> {
                 return Ok(result);
             }
             shift += 7;
-            i += 1;
         }
-        // The loop only falls through by running out of bytes (`i == 9` always returns, via the
-        // over-long guard or a terminator), so reaching here means the input ended mid-varint.
+        // The loop only falls through by running out of bytes (i == 9 always returns), so the input
+        // ended mid-varint.
         Err(self.err(ErrorKind::Truncated))
     }
 
