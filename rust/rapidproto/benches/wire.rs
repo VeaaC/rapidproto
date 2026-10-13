@@ -1,130 +1,135 @@
-//! Micro-benchmarks for the wire-decode primitives, to track and tune their cost against the C++
-//! `wire::` layer (compared on the same encodings; see docs/benchmarks once the numbers land). Run
-//! with `cargo bench -p rapidproto`. Measurement discipline (governor, one run at a time) is the
-//! same as the C++ bench -- a verdict needs the prepared bench box, not a loaded laptop.
+//! Micro-benchmarks for the wire-decode primitives. These MIRROR the C++ bench's `wire` arm
+//! (tests/bench_streamgen.cpp) scenario-for-scenario -- same encodings, same field-loop shape, same
+//! names -- so the Rust `wire` layer can be compared directly against the mature C++ one. Run with
+//! `cargo bench -p rapidproto`. Measurement discipline (governor, one run at a time, prepared box)
+//! is the same as the C++ bench; a verdict needs that box, not a loaded laptop.
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
-use rapidproto::wire::Cursor;
+use rapidproto::wire::{Cursor, WireType};
 
-fn encode_varint(buf: &mut Vec<u8>, mut value: u64) {
-    loop {
-        let byte = (value & 0x7f) as u8;
-        value >>= 7;
-        if value == 0 {
-            buf.push(byte);
-            return;
-        }
-        buf.push(byte | 0x80);
+const N: usize = 2_000_000; // matches the C++ bench's kN
+
+// Encoder-side buffer builders, mirroring the C++ put_* helpers. The decoder is the SUT, not these.
+fn put_varint(b: &mut Vec<u8>, mut v: u64) {
+    while v >= 0x80 {
+        b.push(0x80 | (v & 0x7f) as u8);
+        v >>= 7;
     }
+    b.push(v as u8);
+}
+fn put_tag(b: &mut Vec<u8>, field: u32, wire: u32) {
+    put_varint(b, (u64::from(field) << 3) | u64::from(wire));
+}
+fn zigzag_enc(v: i64) -> u64 {
+    ((v << 1) ^ (v >> 63)) as u64
 }
 
-fn repeated_varints(count: usize, value: u64) -> Vec<u8> {
-    let mut buf = Vec::new();
-    for _ in 0..count {
-        encode_varint(&mut buf, value);
-    }
-    buf
-}
-
-// Decode every varint in `buf` to steady-state (amortized per-byte cost, the comparison signal).
-fn drain_varints(buf: &[u8]) -> u64 {
+// The Rust `wire` arm: a field loop over the Cursor, mirroring the C++ `wire` arm. `read_field`
+// handles the scenario's field(s) (returning a checksum contribution) and returns None for any other
+// field, which the loop skips -- exactly the handle-or-skip structure of the C++ arms. The returned
+// checksum is black_box'd so the decode can't be optimized away. Generic (not a fn pointer) so the
+// handler INLINES into the loop like the C++ arm's -- an indirect call per field would be an artifact.
+fn drive<F: FnMut(u32, WireType, &mut Cursor) -> Option<u64>>(
+    buf: &[u8],
+    mut read_field: F,
+) -> u64 {
     let mut cursor = Cursor::new(buf);
-    let mut acc = 0u64;
-    while !cursor.is_empty() {
-        acc = acc.wrapping_add(cursor.read_varint().expect("valid varint buffer"));
+    let mut sum = 0u64;
+    while let Ok(Some(tag)) = cursor.read_tag_or_end() {
+        match read_field(tag.field, tag.wire, &mut cursor) {
+            Some(contribution) => sum = sum.wrapping_add(contribution),
+            None => {
+                if cursor.skip(tag.wire).is_err() {
+                    break;
+                }
+            }
+        }
     }
-    acc
+    sum
 }
 
-fn bench_varint(c: &mut Criterion) {
-    let mut group = c.benchmark_group("read_varint");
-    for (label, value) in [
-        ("w1", 0x7f_u64),
-        ("w2", 0x3fff),
-        ("w5", 0xffff_ffff),
-        ("w10", u64::MAX),
-    ] {
-        let buf = repeated_varints(4096, value);
-        group.throughput(Throughput::Bytes(buf.len() as u64));
-        group.bench_function(label, |b| {
-            b.iter(|| black_box(drain_varints(black_box(&buf))))
-        });
-    }
-    group.finish();
-}
-
-// A realistic mixed message, decoded with the field loop: tag + per-wire-type read/skip. Fields:
-// 1 varint, 2 fixed64, 3 length-delimited (16 bytes), 5 fixed32 -- repeated to fill the buffer.
-fn mixed_message(records: usize) -> Vec<u8> {
-    let mut buf = Vec::new();
-    for _ in 0..records {
-        encode_varint(&mut buf, 1 << 3); // field 1, varint (wire type 0)
-        encode_varint(&mut buf, 300);
-        encode_varint(&mut buf, (2 << 3) | 1); // field 2, i64
-        buf.extend_from_slice(&0x0102_0304_0506_0708_u64.to_le_bytes());
-        encode_varint(&mut buf, (3 << 3) | 2); // field 3, len
-        encode_varint(&mut buf, 16);
-        buf.extend_from_slice(&[0xab; 16]);
-        encode_varint(&mut buf, (5 << 3) | 5); // field 5, i32
-        buf.extend_from_slice(&0x1122_3344_u32.to_le_bytes());
-    }
-    buf
-}
-
-fn bench_field_scan(c: &mut Criterion) {
-    let buf = mixed_message(512);
-    let mut group = c.benchmark_group("field_scan");
+fn scenario<F: Fn(u32, WireType, &mut Cursor) -> Option<u64> + Copy>(
+    c: &mut Criterion,
+    name: &str,
+    buf: &[u8],
+    read_field: F,
+) {
+    let mut group = c.benchmark_group(name);
     group.throughput(Throughput::Bytes(buf.len() as u64));
-    group.bench_function("tag_and_skip", |b| {
-        b.iter(|| {
-            let mut cursor = Cursor::new(black_box(&buf));
-            while let Ok(Some(tag)) = cursor.read_tag_or_end() {
-                cursor.skip(tag.wire).expect("valid message");
-            }
-            black_box(cursor.offset())
-        });
+    group.bench_function("wire", |b| {
+        b.iter(|| black_box(drive(black_box(buf), read_field)));
     });
     group.finish();
 }
 
-fn bench_payloads(c: &mut Criterion) {
-    // 256 length-delimited 32-byte payloads, read without copying.
-    let mut lends = Vec::new();
-    for _ in 0..256 {
-        encode_varint(&mut lends, 32);
-        lends.extend_from_slice(&[0x5a; 32]);
+fn bench_wire(c: &mut Criterion) {
+    // varint-1byte: field 1 varint, one-byte values.
+    let mut buf = Vec::new();
+    for i in 0..N {
+        put_tag(&mut buf, 1, 0);
+        put_varint(&mut buf, (i as u64) & 0x7f);
     }
-    // 1024 fixed64 values.
-    let fixed = vec![0x7fu8; 1024 * 8];
+    scenario(c, "varint-1byte", &buf, |f, w, cur| {
+        (f == 1 && w == WireType::Varint).then(|| cur.read_varint().unwrap())
+    });
 
-    let mut group = c.benchmark_group("payloads");
-    group.throughput(Throughput::Bytes(lends.len() as u64));
-    group.bench_function("length_delimited", |b| {
-        b.iter(|| {
-            let mut cursor = Cursor::new(black_box(&lends));
-            let mut total = 0usize;
-            while !cursor.is_empty() {
-                total += cursor
-                    .read_length_delimited()
-                    .expect("valid payloads")
-                    .len();
-            }
-            black_box(total)
-        });
+    // varint-multibyte: field 1 varint, five-byte values.
+    let mut buf = Vec::new();
+    for i in 0..N {
+        put_tag(&mut buf, 1, 0);
+        put_varint(&mut buf, 0xF000_0000_u64 + ((i as u64) & 0xffff));
+    }
+    scenario(c, "varint-multibyte", &buf, |f, w, cur| {
+        (f == 1 && w == WireType::Varint).then(|| cur.read_varint().unwrap())
     });
-    group.throughput(Throughput::Bytes(fixed.len() as u64));
-    group.bench_function("fixed64", |b| {
-        b.iter(|| {
-            let mut cursor = Cursor::new(black_box(&fixed));
-            let mut acc = 0u64;
-            while !cursor.is_empty() {
-                acc ^= cursor.read_fixed64().expect("valid fixed buffer");
-            }
-            black_box(acc)
-        });
+
+    // fixed64: field 15 i64, double bits.
+    let mut buf = Vec::new();
+    for i in 0..N {
+        put_tag(&mut buf, 15, 1);
+        buf.extend_from_slice(&(i as f64 * -2.25).to_bits().to_le_bytes());
+    }
+    scenario(c, "fixed64", &buf, |f, w, cur| {
+        (f == 15 && w == WireType::I64).then(|| cur.read_fixed64().unwrap())
     });
-    group.finish();
+
+    // string: field 12 length-delimited, 8-byte payloads.
+    let mut buf = Vec::new();
+    for _ in 0..N {
+        put_tag(&mut buf, 12, 2);
+        put_varint(&mut buf, 8);
+        buf.extend_from_slice(b"abcdefgh");
+    }
+    scenario(c, "string", &buf, |f, w, cur| {
+        (f == 12 && w == WireType::Len).then(|| cur.read_length_delimited().unwrap().len() as u64)
+    });
+
+    // mixed: fields 1 (varint), 6 (zigzag varint), 15 (fixed64), 12 (length-delimited).
+    let mut buf = Vec::new();
+    for i in 0..N {
+        put_tag(&mut buf, 1, 0);
+        put_varint(&mut buf, i as u64);
+        put_tag(&mut buf, 6, 0);
+        put_varint(
+            &mut buf,
+            zigzag_enc(i as i64 * if i & 1 != 0 { -7 } else { 7 }),
+        );
+        put_tag(&mut buf, 15, 1);
+        buf.extend_from_slice(&(i as f64 * 0.5).to_bits().to_le_bytes());
+        put_tag(&mut buf, 12, 2);
+        put_varint(&mut buf, 4);
+        buf.extend_from_slice(b"wxyz");
+    }
+    scenario(c, "mixed", &buf, |f, w, cur| match (f, w) {
+        (1, WireType::Varint) => Some(cur.read_varint().unwrap()),
+        (6, WireType::Varint) => {
+            Some(rapidproto::wire::zigzag64(cur.read_varint().unwrap()) as u64)
+        }
+        (15, WireType::I64) => Some(cur.read_fixed64().unwrap()),
+        (12, WireType::Len) => Some(cur.read_length_delimited().unwrap().len() as u64),
+        _ => None,
+    });
 }
 
-criterion_group!(benches, bench_varint, bench_field_scan, bench_payloads);
+criterion_group!(benches, bench_wire);
 criterion_main!(benches);
