@@ -1,9 +1,12 @@
 //! The wire-decode primitives generated decoders build on: a [`Cursor`] over the input bytes with
 //! the Protobuf field-encoding readers (varint, fixed32/64, length-delimited, tag, skip).
 //!
-//! The cursor is a shrinking `&[u8]` slice plus a `consumed` counter -- effectively a cursor, but
-//! reading the FRONT of a slice that shrinks is what lets the bounds checks fold away in the hot
-//! loop, while `consumed` still gives every error an accurate byte offset. Every reader returns
+//! The cursor is a shrinking `&[u8]` slice over the not-yet-consumed bytes -- reading the FRONT of a
+//! slice that shrinks is what lets the bounds checks fold away in the hot loop. It also keeps the
+//! original input length so a byte offset can be derived (`input_len - rest.len()`) for any error --
+//! but only on the error path, never updated per read, so the hot loop threads just the slice (which
+//! the compiler keeps in registers), mirroring the C++ reader that carries a bare pointer and
+//! computes the fail offset only when it fails. Every reader returns
 //! `Result`, never panics, and never reads out of bounds on arbitrary input (the decoder runs on
 //! untrusted bytes). Values are returned raw; interpreting a varint as zigzag/bool, or a fixed field
 //! as a float, is the caller's step (see [`zigzag32`]/[`zigzag64`]).
@@ -60,12 +63,13 @@ const MAX_FIELD_NUMBER: u32 = (1 << 29) - 1;
 /// pathological run of group-start tags cannot drive unbounded recursion.
 const MAX_SKIP_DEPTH: u32 = 100;
 
-/// A read cursor over the input: the not-yet-consumed bytes plus the count already consumed (which
-/// is the byte offset carried in any [`DecodeError`]). Cheap to copy; advancing reslices `rest`.
+/// A read cursor over the input: the not-yet-consumed bytes, plus the original input length so an
+/// error's byte offset can be derived without a per-read counter. Cheap to copy; advancing reslices
+/// `rest` (and nothing else), so the hot loop threads only the slice.
 #[derive(Clone, Copy)]
 pub struct Cursor<'a> {
     rest: &'a [u8],
-    consumed: usize,
+    input_len: usize,
 }
 
 impl<'a> Cursor<'a> {
@@ -75,15 +79,16 @@ impl<'a> Cursor<'a> {
     pub fn new(input: &'a [u8]) -> Self {
         Self {
             rest: input,
-            consumed: 0,
+            input_len: input.len(),
         }
     }
 
     /// The byte offset of the cursor into the original input (what a [`DecodeError`] reports).
+    /// Derived from how much the slice has shrunk -- not tracked per read.
     #[inline]
     #[must_use]
     pub fn offset(&self) -> usize {
-        self.consumed
+        self.input_len - self.rest.len()
     }
 
     /// Whether every byte has been consumed (the end of the top-level message).
@@ -103,52 +108,79 @@ impl<'a> Cursor<'a> {
     /// An error of `kind` at the current offset.
     #[inline]
     fn err(&self, kind: ErrorKind) -> DecodeError {
-        DecodeError::new(kind, self.consumed)
+        DecodeError::new(kind, self.offset())
     }
 
     /// Advance past `n` already-read bytes. `n` must be `<= self.rest.len()` (guaranteed by the
-    /// caller having just read those bytes).
+    /// caller having just read those bytes). Reslices `rest` and nothing else -- the byte offset is
+    /// recovered on demand in [`offset`](Self::offset), so the hot path touches only the slice.
     #[inline]
     fn advance(&mut self, n: usize) {
         self.rest = &self.rest[n..];
-        self.consumed += n;
     }
 
     /// Read a base-128 varint (up to 10 bytes). `Truncated` if the continuation bit is still set at
     /// end of input; `InvalidTag` if the 10th byte sets bits above bit 0 (an over-long encoding).
     /// Mirrors the C++ reader: a 1-byte fast path for the common case (every tag and most small
-    /// fields), then the general loop. Safe Rust: `split_first` and the slice iterator keep the hot
-    /// paths bounds-check-free without `unsafe`.
+    /// fields) inlined into the caller, with the multibyte loop kept out of line so this stays small
+    /// enough to inline -- folding the loop in bloats it past the threshold and the per-tag fast path
+    /// stops inlining, which halves the tag-heavy scenarios. Safe Rust throughout: `split_first` and
+    /// the slice iterator keep the hot paths bounds-check-free without `unsafe`.
     #[inline]
     pub fn read_varint(&mut self) -> Result<u64, DecodeError> {
-        let bytes = self.rest;
         // 1-byte fast path: one byte, continuation bit clear.
-        if let Some((&first, _)) = bytes.split_first() {
+        if let Some((&first, _)) = self.rest.split_first() {
             if first & 0x80 == 0 {
                 self.advance(1);
                 return Ok(u64::from(first));
             }
         }
-        // General case: iterate the bytes (the iterator elides per-byte bounds checks; we return by
-        // the 10th byte, so `shift` never exceeds 63).
+        // Slow path writes the value to a local and returns just the error kind (one register, no
+        // `Result<u64, ..>` returned through memory across the call); the offset is attached here,
+        // where `self` still sits at the varint start.
+        let mut out = 0u64;
+        match self.read_varint_multibyte(&mut out) {
+            Ok(()) => Ok(out),
+            Err(kind) => Err(self.err(kind)),
+        }
+    }
+
+    /// The varint general case (two or more bytes, or an error): kept out of line so [`read_varint`]'s
+    /// fast path stays inlinable -- folding the loop in bloats it past the inline threshold and the
+    /// per-tag fast path stops inlining, which halves the tag-heavy scenarios. Writes the value to
+    /// `*out` and returns only [`ErrorKind`] on failure (a one-byte, register-returned result -- the
+    /// full `Result<u64, DecodeError>` is a 16-byte aggregate Rust returns through memory, costly
+    /// across this non-inlined call). `take(10)` caps the trip count at the 10 bytes a u64 varint can
+    /// span, so the compiler bounds the loop like the C++ reader's fixed 10-iteration one (an unbounded
+    /// `self.rest.len()` trip count blocks that); the iterator still elides per-byte bounds checks. The
+    /// overflow check sits in the terminator branch, not every iteration -- a varint that ends by the
+    /// 10th byte, the only well-formed case, hits it once.
+    #[inline(never)]
+    fn read_varint_multibyte(&mut self, out: &mut u64) -> Result<(), ErrorKind> {
+        let bytes = self.rest;
         let mut result: u64 = 0;
         let mut shift: u32 = 0;
-        for (i, &byte) in bytes.iter().enumerate() {
-            // The 10th byte (i == 9) reaches shift 63: only its low bit fits in u64, so an over-long
-            // encoding (any higher bit set) is rejected rather than silently truncated.
-            if i == 9 && byte > 0x01 {
-                return Err(self.err(ErrorKind::InvalidTag));
-            }
+        for (i, &byte) in bytes.iter().take(10).enumerate() {
             result |= u64::from(byte & 0x7f) << shift;
             if byte & 0x80 == 0 {
+                // The 10th byte (i == 9) reaches shift 63: only its low bit fits in u64, so an
+                // over-long encoding (any higher bit set) is rejected, not silently truncated.
+                if i == 9 && byte > 0x01 {
+                    return Err(ErrorKind::InvalidTag);
+                }
                 self.advance(i + 1);
-                return Ok(result);
+                *out = result;
+                return Ok(());
             }
             shift += 7;
         }
-        // The loop only falls through by running out of bytes (i == 9 always returns), so the input
-        // ended mid-varint.
-        Err(self.err(ErrorKind::Truncated))
+        // The loop fell through without a terminator: either 10 continuation bytes (an over-long
+        // encoding) or fewer bytes than the varint needs (truncated input).
+        if bytes.len() >= 10 {
+            Err(ErrorKind::InvalidTag)
+        } else {
+            Err(ErrorKind::Truncated)
+        }
     }
 
     /// Read a field tag. `InvalidTag` for a field number of 0 or above the Protobuf maximum
@@ -218,7 +250,6 @@ impl<'a> Cursor<'a> {
         }
         let (payload, rest) = self.rest.split_at(len);
         self.rest = rest;
-        self.consumed += len;
         Ok(payload)
     }
 
