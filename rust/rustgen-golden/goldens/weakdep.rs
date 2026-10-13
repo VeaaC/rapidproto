@@ -6,6 +6,7 @@ pub mod common {
 }
 
 pub mod arena {
+
   pub mod wd {
     pub struct WDep<'a> {
       _marker: ::core::marker::PhantomData<&'a ()>,

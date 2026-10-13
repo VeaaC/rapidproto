@@ -30,6 +30,7 @@ pub mod common {
 }
 
 pub mod arena {
+
   pub mod rn {
     pub struct stream<'a> {
       _marker: ::core::marker::PhantomData<&'a ()>,

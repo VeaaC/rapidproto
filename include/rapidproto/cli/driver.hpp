@@ -386,7 +386,8 @@ struct PlannedOutput {
 // write_shared_file output re-runs forever under Make once any input is newer). The CMake helper
 // anchors its custom command on line 1 of --list-outputs, which prints this plan verbatim.
 inline std::vector<PlannedOutput> plan_outputs(const Options& opts, const ResolvedFileSet& set,
-                                               SelectedModels models) {
+                                               SelectedModels models,
+                                               const std::string& rust_out = "") {
     std::vector<PlannedOutput> plan;
     const auto plan_file = [&](const FileNode& file, bool entry) {
         if (models.arena) {
@@ -404,11 +405,7 @@ inline std::vector<PlannedOutput> plan_outputs(const Options& opts, const Resolv
             plan.push_back(
                 {header_path("", file, ".rp.common.hpp"), &file, OutputKind::Common, entry});
         }
-        if (models.rust) {
-            // One self-contained .rs (common + arena trees); the Rust runtime is the external crate,
-            // so there is no runtime copy to plan.
-            plan.push_back({header_path("", file, ".rs"), &file, OutputKind::Rust, entry});
-        }
+        // Rust is NOT per-file: the whole import closure is one <rust_out>.rs, planned once below.
     };
     std::vector<const FileNode*> entry_files;
     for (const std::string& entry : opts.entries) {
@@ -428,6 +425,12 @@ inline std::vector<PlannedOutput> plan_outputs(const Options& opts, const Resolv
         if (std::find(entry_files.begin(), entry_files.end(), &file) == entry_files.end()) {
             plan_file(file, /*entry=*/false);
         }
+    }
+    // Rust: ONE user-named file for the whole import closure (Option A), not per schema. `file` is
+    // null (it covers the set); entry so it joins the depfile targets. The Rust runtime is the
+    // external crate, so there is no runtime copy to plan.
+    if (models.rust) {
+        plan.push_back({std::filesystem::path(rust_out), nullptr, OutputKind::Rust, true});
     }
     // The C++ runtime copies serve the C++ models; a Rust-only run needs none (external crate).
     if (models.arena || models.stream || models.dump) {

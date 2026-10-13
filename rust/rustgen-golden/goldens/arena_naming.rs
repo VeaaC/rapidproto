@@ -6,6 +6,7 @@ pub mod common {
 }
 
 pub mod arena {
+
   pub mod an {
     pub struct Collide<'a> {
       _marker: ::core::marker::PhantomData<&'a ()>,

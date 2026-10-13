@@ -6,6 +6,7 @@ pub mod common {
 }
 
 pub mod arena {
+
   pub mod au {
     pub struct Flag<'a> {
       _marker: ::core::marker::PhantomData<&'a ()>,

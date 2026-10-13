@@ -12,9 +12,13 @@ pub mod common {
 }
 
 pub mod arena {
+
   pub mod sib {
+
     pub mod stream {
+
       pub mod logging {
+
         pub mod v1 {
           pub struct Entry<'a> {
             _marker: ::core::marker::PhantomData<&'a ()>,

@@ -33,6 +33,7 @@ pub mod common {
 }
 
 pub mod arena {
+
   pub mod p3 {
     pub struct Msg<'a> {
       _marker: ::core::marker::PhantomData<&'a ()>,

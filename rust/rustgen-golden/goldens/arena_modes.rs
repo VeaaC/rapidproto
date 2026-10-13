@@ -62,6 +62,7 @@ pub mod common {
 }
 
 pub mod arena {
+
   pub mod fm {
     pub struct Blob<'a> {
       _marker: ::core::marker::PhantomData<&'a ()>,

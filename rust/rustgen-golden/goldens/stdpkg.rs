@@ -6,6 +6,7 @@ pub mod common {
 }
 
 pub mod arena {
+
   pub mod std {
     pub struct Types<'a> {
       _marker: ::core::marker::PhantomData<&'a ()>,
