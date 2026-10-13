@@ -6,6 +6,7 @@ pub mod common {
 }
 
 pub mod arena {
+
   pub mod escdedup {
     pub struct decode_<'a> {
       _marker: ::core::marker::PhantomData<&'a ()>,

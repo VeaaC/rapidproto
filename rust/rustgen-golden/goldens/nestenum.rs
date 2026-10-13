@@ -61,6 +61,7 @@ pub mod common {
 }
 
 pub mod arena {
+
   pub mod ne {
     pub struct Outer<'a> {
       _marker: ::core::marker::PhantomData<&'a ()>,

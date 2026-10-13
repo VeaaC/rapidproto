@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Christian Vetter
 
+#include <algorithm>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <ios>
-#include <optional>
 #include <set>
 #include <sstream>
 #include <string>
@@ -17,7 +17,7 @@
 
 #include "parse_helpers.hpp"
 #include "rapidproto/ast.hpp"
-#include "rapidproto/cli/driver.hpp"  // resolve_and_analyze, for the cross-file dependency test
+#include "rapidproto/cli/driver.hpp"  // resolve_and_analyze, to emit a schema's whole import closure
 #include "rapidproto/resolve.hpp"
 #include "rapidproto/resolver.hpp"
 #include "rapidproto/rustgen/generator.hpp"
@@ -42,11 +42,13 @@ FileNode analyzed(std::string src) {
 }
 
 std::string gen(std::string src) {
-    return rustgen::generate_common(analyzed(std::move(src)));
+    const FileNode file = analyzed(std::move(src));
+    return rustgen::generate_common({&file});
 }
 
 std::string gen_arena(std::string src) {
-    return rustgen::generate_arena(analyzed(std::move(src)));
+    const FileNode file = analyzed(std::move(src));
+    return rustgen::generate_arena({&file});
 }
 
 bool has(const std::string& haystack, std::string_view needle) {
@@ -95,50 +97,66 @@ void check_golden(const std::string& name, const std::string& body) {
     CHECK(read_file(path) == body);
 }
 
-// The single-file (no-import) corpus schemas, corpus-relative. This is the single source of truth for
-// the golden sweep AND the golden crate's module list (see the golden test). Import schemas are
-// excluded until the Rust generator supports cross-file references. Keep sorted within each group.
-const std::string_view kCorpusGoldens[] = {
-    "arena_layout.proto",
-    "arena_manyreq.proto",
-    "arena_modes.proto",
-    "arena_naming.proto",
-    "arena_naming_valid.proto",
-    "arena_unknown.proto",
-    "editions2023.proto",
-    "editions2024.proto",
-    "expanded.proto",
-    "messageset.proto",
-    "naming.proto",
-    "options.proto",
-    "packed.proto",
-    "proto2.proto",
-    "proto3.proto",
-    "xref.proto",
-    "nsedge/deep.proto",
-    "nsedge/nestenum.proto",
-    "nsedge/nopkg.proto",
-    "nsedge/pkgaliasdep.proto",
-    "nsedge/rootenum.proto",
-    "nsedge/rootnames.proto",
-    "nsedge/rppkg.proto",
-    "nsedge/sibparent.proto",
-    "nsedge/sibpkg.proto",
-    "nsedge/stdpkg.proto",
-    "imports/dep.proto",
-    "imports/escdedup_b.proto",
-    "imports/pkgorder_pkg.proto",
-    "imports/pkgorder_t1.proto",
-    "imports/pkgorder_t2.proto",
-    "imports/pub.proto",
-    "imports/samepkg_b.proto",
-    "imports/weakdep.proto",
-};
+// Every `.proto` under the corpus, corpus-relative and sorted (deterministic). Each is a golden: its
+// whole import closure emits as one file (Option A), so an import-bearing schema (`usewkt`,
+// `imports/main`, `nsedge/xpkg`, ...) is covered too. Discovered from disk rather than hand-listed, so
+// a new corpus file is swept automatically.
+std::vector<std::string> corpus_schemas() {
+    const std::filesystem::path root = RAPIDPROTO_CORPUS_DIR;
+    std::vector<std::string> rels;
+    for (const auto& entry : std::filesystem::recursive_directory_iterator(root)) {
+        if (entry.is_regular_file() && entry.path().extension() == ".proto") {
+            rels.push_back(std::filesystem::relative(entry.path(), root).generic_string());
+        }
+    }
+    std::sort(rels.begin(), rels.end());
+    return rels;
+}
 
-// The basename stem of a corpus-relative proto path ("nsedge/stdpkg.proto" -> "stdpkg"). Every stem
-// in kCorpusGoldens is distinct, so it names the golden file and the crate module unambiguously.
+// The basename stem of a corpus-relative proto path ("nsedge/stdpkg.proto" -> "stdpkg"). It names the
+// golden file and the crate module; the golden test asserts the stems are distinct across subdirs.
 std::string golden_stem(std::string_view rel) {
     return std::filesystem::path(rel).stem().string();
+}
+
+// Generate the `.rs` for a corpus schema's whole import closure, exactly as `rapidprotoc --rust`
+// does: resolve + analyze from disk (so imports + well-known types are pulled in), then
+// generate_file over every file in the set. The include path is the schema's own directory.
+std::string gen_corpus(std::string_view rel) {
+    const std::string path = std::string(RAPIDPROTO_CORPUS_DIR) + "/" + std::string(rel);
+    cli::Options opts;
+    opts.config.include_paths = {std::filesystem::path(path).parent_path().string()};
+    const auto resolved = cli::resolve_and_analyze({path}, opts.config);
+    REQUIRE(resolved.has_value());
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access): guarded by the REQUIRE above
+    const ResolvedFileSet& set = resolved.value().first;
+    std::vector<const FileNode*> files;
+    files.reserve(set.files.size());
+    for (const FileNode& file : set.files) {
+        files.push_back(&file);
+    }
+    return rustgen::generate_file(files);
+}
+
+// Analyze several in-memory schemas as ONE set and emit them together, for cross-package edge cases
+// the on-disk corpus does not cover. The schemas need not import one another -- the merged module
+// tree is built from their packages alone -- so this exercises the package trie directly.
+std::string gen_multi(std::vector<std::string> srcs) {
+    ResolvedFileSet set;
+    for (std::size_t i = 0; i < srcs.size(); ++i) {
+        FileNode file = test::parse_file_ok(std::move(srcs[i]));
+        file.filename = "f" + std::to_string(i) + ".proto";
+        set.file_index[file.filename] = set.files.size();
+        set.files.push_back(std::move(file));
+    }
+    auto result = analyze(set);
+    REQUIRE(result.is_ok());
+    std::vector<const FileNode*> files;
+    files.reserve(set.files.size());
+    for (const FileNode& file : set.files) {
+        files.push_back(&file);
+    }
+    return rustgen::generate_file(files);
 }
 
 }  // namespace
@@ -515,50 +533,60 @@ TEST_CASE(
     CHECK(has(out, "Foo_(i32),"));                      // foo_ -> same PascalCase -> bumped
 }
 
-TEST_CASE("rustgen: cross_file_dependency is nullopt for a self-contained schema") {
-    const FileNode file = analyzed(R"(syntax = "proto3"; package p;
-        enum E { E_X = 0; }
-        message M { int32 a = 1; E e = 2; M self = 3; map<string, M> by = 4; })");
-    CHECK_FALSE(rustgen::cross_file_dependency(file).has_value());
+TEST_CASE("rustgen imports: a cross-file closure merges into one tree with resolving refs") {
+    // imports/main.proto (package main) imports dep.proto (package dep) and references dep.Dep. The
+    // whole closure emits as ONE module tree; the cross-package reference climbs to the arena root
+    // and descends `dep`, and dep's enum resolves into the shared common tree.
+    const std::string out = gen_corpus("imports/main.proto");
+    CHECK(has(out, "pub mod main {"));  // both packages are sibling sub-modules of one tree
+    CHECK(has(out, "pub mod dep {"));
+    CHECK(
+        has(out, "pub fn d(&self) -> Option<&'a super::dep::Dep<'a>> {"));  // cross-package message
+    CHECK(has(
+        out, "pub fn e(&self) -> Option<super::super::common::dep::DepEnum> {"));  // cross-pkg enum
 }
 
-TEST_CASE("rustgen: cross_file_dependency flags a reference into an imported file") {
-    // usewkt.proto imports the well-known types and references Timestamp -- another file -- which the
-    // Rust generator cannot yet place, so the CLI refuses it; this is the check behind that refusal.
-    ResolverConfig config;
-    config.include_paths = {std::string(RAPIDPROTO_CORPUS_DIR)};
-    const auto resolved =
-        cli::resolve_and_analyze({std::string(RAPIDPROTO_CORPUS_DIR) + "/usewkt.proto"}, config);
-    REQUIRE(resolved.has_value());
-    // NOLINTNEXTLINE(bugprone-unchecked-optional-access): guarded by the REQUIRE above
-    const ResolvedFileSet& set = resolved.value().first;
-    const FileNode* usewkt = nullptr;
-    for (const FileNode& file : set.files) {
-        if (file.filename.find("usewkt") != std::string::npos) {
-            usewkt = &file;
-            break;
-        }
-    }
-    REQUIRE(usewkt != nullptr);
-    const std::optional<std::string> reason = rustgen::cross_file_dependency(*usewkt);
-    REQUIRE(reason.has_value());
-    // NOLINTNEXTLINE(bugprone-unchecked-optional-access): guarded by the REQUIRE above
-    CHECK(reason.value().find("google.protobuf.Timestamp") != std::string::npos);
+TEST_CASE("rustgen imports: a package whose Rust name is a keyword is raw-escaped") {
+    // imports/main.proto's closure includes package `pub` -> `pub mod r#pub` (a bare `pub` is illegal).
+    const std::string out = gen_corpus("imports/main.proto");
+    CHECK(has(out, "pub mod r#pub {"));
+    CHECK(has(out, "pub fn p(&self) -> Option<&'a super::r#pub::Pub<'a>> {"));
 }
 
-// Compile smoke-test over the whole no-import corpus: every single-file corpus schema is emitted via
-// the same generate_file() the CLI uses, committed as a golden, and compiled by Rust CI
-// (rust/rustgen-golden) -- proving the generated common+arena+oneof output is valid Rust. Byte-
-// compared here so a generator change that is not regenerated fails. Cross-file/import schemas are
-// excluded until the Rust generator supports imports (the CLI refuses them cleanly). Regenerate with
-// tests/regen_goldens.sh.
-TEST_CASE("rustgen goldens match the no-import corpus (compile smoke-test)", "[rustgen-golden]") {
+TEST_CASE("rustgen imports: a message submodule yields to a colliding sibling sub-package") {
+    // Package `p` has message `Sub` (submodule `sub`); package `p.sub` is a sibling sub-package (also
+    // `pub mod sub`). The sub-package keeps the name (a path segment); `Sub`'s submodule is bumped.
+    const std::string out = gen_multi({R"(syntax = "proto3"; package p;
+                      message Sub { message Inner { int32 a = 1; } enum E { E_X = 0; } })",
+                                       R"(syntax = "proto3"; package p.sub;
+                      message X { int32 b = 1; })"});
+    CHECK(count(out, "pub mod sub {") == 2);   // the sub-package p.sub: arena + (empty) common
+    CHECK(count(out, "pub mod sub_ {") == 2);  // Sub's bumped submodule: arena (Inner) + common (E)
+    CHECK(has(out, "pub struct Sub<'a> {"));
+    CHECK(has(out, "pub struct X<'a> {"));
+}
+
+TEST_CASE("rustgen imports: sibling packages whose Rust names collide are deduped") {
+    // Packages `p.self` and `p.self_` both escape toward `self_`; the trie dedups them so each gets a
+    // distinct `pub mod`.
+    const std::string out = gen_multi({R"(syntax = "proto3"; package p.self;
+                                           message X { int32 a = 1; })",
+                                       R"(syntax = "proto3"; package p.self_;
+                                           message Y { int32 b = 1; })"});
+    CHECK(count(out, "pub mod self_ {") == 2);   // p.self -> self_  (common + arena)
+    CHECK(count(out, "pub mod self__ {") == 2);  // p.self_ -> self__ (bumped)
+}
+
+// Compile smoke-test over the whole corpus: every corpus schema's import closure is emitted via the
+// same generate_file() the CLI uses, committed as a golden, and compiled by Rust CI
+// (rust/rustgen-golden) -- proving the generated common+arena+oneof output is valid Rust, including
+// cross-file and cross-package references. Byte-compared here so a generator change that is not
+// regenerated fails. Regenerate with tests/regen_goldens.sh.
+TEST_CASE("rustgen goldens match the corpus (compile smoke-test)", "[rustgen-golden]") {
     std::vector<std::string> stems;
-    for (const std::string_view rel : kCorpusGoldens) {
-        const std::string proto =
-            read_file(std::string(RAPIDPROTO_CORPUS_DIR) + "/" + std::string(rel));
+    for (const std::string& rel : corpus_schemas()) {
         const std::string stem = golden_stem(rel);
-        check_golden(stem, rustgen::generate_file(analyzed(proto)));
+        check_golden(stem, gen_corpus(rel));
         stems.push_back(stem);
     }
     // Golden file names (and lib.rs module names) are the bare stems, so they must be distinct across

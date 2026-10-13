@@ -46,8 +46,9 @@ int main(int argc, char** argv) {
         "  --stream                 emit the streaming callback decoder (<stem>.rp.stream.hpp)\n"
         "  --dump                   emit a JSON-like debug dumper (<stem>.rp.dump.hpp; implies"
         " --arena)\n"
-        "  --rust                   emit a native Rust decoder (<stem>.rs; needs the rapidproto"
-        " crate)\n"
+        "  --rust=<file>            emit a native Rust decoder: one <file> for the whole import"
+        " closure\n"
+        "                           (needs the rapidproto crate)\n"
         "  --unknown-present        arena: reserve the \"unknown fields present\" bit on every"
         " message\n"
         "  --unknown=<msg>          arena: reserve that bit on one message (repeatable)\n"
@@ -69,8 +70,9 @@ int main(int argc, char** argv) {
         "  --version                print the version\n";
     bool arena = false;
     bool stream = false;
-    bool dump = false;  // emit <stem>.rp.dump.hpp alongside the arena header
-    bool rust = false;  // emit <stem>.rs (native Rust decoder)
+    bool dump = false;     // emit <stem>.rp.dump.hpp alongside the arena header
+    bool rust = false;     // --rust=<file> requested
+    std::string rust_out;  // the single combined .rs path (relative to --out-dir)
     std::vector<std::string> modes_files;
     rapidproto::arenagen::FieldModesSpec
         modes_spec;  // direct --drop/--raw/--unknown + file entries
@@ -92,8 +94,11 @@ int main(int argc, char** argv) {
             arena = true;
             return true;
         }
-        if (arg == "--rust") {  // native Rust decoder (independent model; external crate runtime)
+        if (arg == "--rust" || arg.rfind("--rust=", 0) == 0) {
+            // Native Rust decoder: ONE file for the whole import closure (external crate runtime).
+            // The user names the file (`--rust=schema.rs`); emptiness is reported after parsing.
             rust = true;
+            rust_out = arg == "--rust" ? std::string() : std::string(arg.substr(7));
             return true;
         }
         if (arg == "--unknown-present") {
@@ -124,6 +129,10 @@ int main(int argc, char** argv) {
         return parsed.exit_code;
     }
     const auto& opts = parsed.options;
+    if (rust && rust_out.empty()) {
+        std::cerr << "error: --rust needs an output file name, e.g. --rust=schema.rs\n";
+        return 2;
+    }
     if (!arena && !stream && !rust) {
         arena = true;  // arena is the default model
     }
@@ -246,20 +255,6 @@ int main(int argc, char** argv) {
         }
     }
 
-    // --rust does not yet support cross-file type references (the per-file Rust module layout does not
-    // compose across separately generated files). Refuse such a schema cleanly here, before writing
-    // anything, rather than emitting a dangling path.
-    if (rust) {
-        for (const rapidproto::FileNode& file : set.files) {
-            if (const std::optional<std::string> reason =
-                    rapidproto::rustgen::cross_file_dependency(file)) {
-                std::cerr << "error: --rust cannot emit '" << file.filename << "': " << *reason
-                          << "\n  the Rust generator does not support cross-file imports yet\n";
-                return 1;
-            }
-        }
-    }
-
     // Build the name table(s) ONCE for the whole resolved set (identical for every file), then emit
     // per file. `names` carries the ARENA root, so it drives both the arena decoder and the
     // model-agnostic common header (enums sit under their own root either way). `names_stream`
@@ -297,7 +292,7 @@ int main(int argc, char** argv) {
     // ordering contract it carries (the CMake helper anchors on the first path; the depfile's
     // targets are derived from it below).
     const std::vector<rapidproto::cli::PlannedOutput> plan = rapidproto::cli::plan_outputs(
-        *opts, set, {/*arena=*/arena, /*stream=*/stream, /*dump=*/dump, /*rust=*/rust});
+        *opts, set, {/*arena=*/arena, /*stream=*/stream, /*dump=*/dump, /*rust=*/rust}, rust_out);
 
     // The dry runs exit here: everything above ran (resolve, analyze, the out-dir and collision
     // refusals, field-modes resolution), so a schema that cannot generate fails a listing the
@@ -358,13 +353,20 @@ int main(int argc, char** argv) {
                          opts->verbose)
                          .has_value();
                 break;
-            case rapidproto::cli::OutputKind::Rust:
-                // One self-contained .rs (common + arena trees); refused above if it needs a
-                // cross-file reference, so generation here never hits an unresolved type.
+            case rapidproto::cli::OutputKind::Rust: {
+                // ONE file for the whole import closure (Option A): cross-file/cross-package
+                // references resolve within the single merged module tree, so every file in the set
+                // contributes its types. `out.file` is null for this combined row.
+                std::vector<const rapidproto::FileNode*> rust_files;
+                rust_files.reserve(set.files.size());
+                for (const rapidproto::FileNode& f : set.files) {
+                    rust_files.push_back(&f);
+                }
                 ok = rapidproto::cli::write_file(
-                         path, rapidproto::rustgen::generate_file(*out.file), opts->verbose)
+                         path, rapidproto::rustgen::generate_file(rust_files), opts->verbose)
                          .has_value();
                 break;
+            }
             // The self-contained runtime copies, so the generated #includes resolve with no
             // rapidproto build-tree dependency. runtime.hpp serves both models;
             // arena_runtime.hpp (which #includes runtime.hpp) only the arena decoder;

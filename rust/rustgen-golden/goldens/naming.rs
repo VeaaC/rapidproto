@@ -199,6 +199,7 @@ pub mod common {
 }
 
 pub mod arena {
+
   pub mod nm {
     pub struct M<'a> {
       _marker: ::core::marker::PhantomData<&'a ()>,

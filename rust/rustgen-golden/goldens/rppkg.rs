@@ -55,6 +55,7 @@ pub mod common {
 }
 
 pub mod arena {
+
   pub mod rapidproto {
     pub struct wire<'a> {
       _marker: ::core::marker::PhantomData<&'a ()>,

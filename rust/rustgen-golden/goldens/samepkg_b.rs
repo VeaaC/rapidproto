@@ -6,6 +6,7 @@ pub mod common {
 }
 
 pub mod arena {
+
   pub mod samepkg {
     pub struct SecondB<'a> {
       _marker: ::core::marker::PhantomData<&'a ()>,

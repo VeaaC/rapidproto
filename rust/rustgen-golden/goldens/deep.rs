@@ -37,8 +37,11 @@ pub mod common {
 }
 
 pub mod arena {
+
   pub mod com {
+
     pub mod example {
+
       pub mod deep {
         pub struct Outer<'a> {
           _marker: ::core::marker::PhantomData<&'a ()>,

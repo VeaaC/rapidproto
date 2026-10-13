@@ -36,6 +36,7 @@ pub mod common {
 }
 
 pub mod arena {
+
   pub mod al {
     pub struct Point<'a> {
       _marker: ::core::marker::PhantomData<&'a ()>,

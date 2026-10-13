@@ -49,32 +49,72 @@ pub mod expanded {
     include!("../goldens/expanded.rs");
 }
 
+pub mod dep {
+    include!("../goldens/dep.rs");
+}
+
+pub mod escdedup_a {
+    include!("../goldens/escdedup_a.rs");
+}
+
+pub mod escdedup_b {
+    include!("../goldens/escdedup_b.rs");
+}
+
+pub mod forward {
+    include!("../goldens/forward.rs");
+}
+
+pub mod main {
+    include!("../goldens/main.rs");
+}
+
+pub mod pkgorder_a {
+    include!("../goldens/pkgorder_a.rs");
+}
+
+pub mod pkgorder_b {
+    include!("../goldens/pkgorder_b.rs");
+}
+
+pub mod pkgorder_pkg {
+    include!("../goldens/pkgorder_pkg.rs");
+}
+
+pub mod pkgorder_t1 {
+    include!("../goldens/pkgorder_t1.rs");
+}
+
+pub mod pkgorder_t2 {
+    include!("../goldens/pkgorder_t2.rs");
+}
+
+pub mod r#pub {
+    include!("../goldens/pub.rs");
+}
+
+pub mod samepkg_a {
+    include!("../goldens/samepkg_a.rs");
+}
+
+pub mod samepkg_b {
+    include!("../goldens/samepkg_b.rs");
+}
+
+pub mod weakdep {
+    include!("../goldens/weakdep.rs");
+}
+
+pub mod weakmain {
+    include!("../goldens/weakmain.rs");
+}
+
 pub mod messageset {
     include!("../goldens/messageset.rs");
 }
 
 pub mod naming {
     include!("../goldens/naming.rs");
-}
-
-pub mod options {
-    include!("../goldens/options.rs");
-}
-
-pub mod packed {
-    include!("../goldens/packed.rs");
-}
-
-pub mod proto2 {
-    include!("../goldens/proto2.rs");
-}
-
-pub mod proto3 {
-    include!("../goldens/proto3.rs");
-}
-
-pub mod xref {
-    include!("../goldens/xref.rs");
 }
 
 pub mod deep {
@@ -87,6 +127,10 @@ pub mod nestenum {
 
 pub mod nopkg {
     include!("../goldens/nopkg.rs");
+}
+
+pub mod pkgalias {
+    include!("../goldens/pkgalias.rs");
 }
 
 pub mod pkgaliasdep {
@@ -117,34 +161,30 @@ pub mod stdpkg {
     include!("../goldens/stdpkg.rs");
 }
 
-pub mod dep {
-    include!("../goldens/dep.rs");
+pub mod xpkg {
+    include!("../goldens/xpkg.rs");
 }
 
-pub mod escdedup_b {
-    include!("../goldens/escdedup_b.rs");
+pub mod options {
+    include!("../goldens/options.rs");
 }
 
-pub mod pkgorder_pkg {
-    include!("../goldens/pkgorder_pkg.rs");
+pub mod packed {
+    include!("../goldens/packed.rs");
 }
 
-pub mod pkgorder_t1 {
-    include!("../goldens/pkgorder_t1.rs");
+pub mod proto2 {
+    include!("../goldens/proto2.rs");
 }
 
-pub mod pkgorder_t2 {
-    include!("../goldens/pkgorder_t2.rs");
+pub mod proto3 {
+    include!("../goldens/proto3.rs");
 }
 
-pub mod r#pub {
-    include!("../goldens/pub.rs");
+pub mod usewkt {
+    include!("../goldens/usewkt.rs");
 }
 
-pub mod samepkg_b {
-    include!("../goldens/samepkg_b.rs");
-}
-
-pub mod weakdep {
-    include!("../goldens/weakdep.rs");
+pub mod xref {
+    include!("../goldens/xref.rs");
 }

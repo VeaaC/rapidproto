@@ -38,6 +38,7 @@ pub mod common {
 }
 
 pub mod arena {
+
   pub mod xp {
     pub struct Expanded<'a> {
       _marker: ::core::marker::PhantomData<&'a ()>,

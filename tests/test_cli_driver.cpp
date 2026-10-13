@@ -273,13 +273,14 @@ bool plan_has_kind(const std::vector<cli::PlannedOutput>& plan, cli::OutputKind 
 }
 }  // namespace
 
-TEST_CASE("driver: --rust alone plans one .rs per schema and no runtime copies", "[cli]") {
+TEST_CASE("driver: --rust alone plans one user-named .rs and no runtime copies", "[cli]") {
     cli::Options opts;
     const ResolvedFileSet set = resolved_proto3(opts);
+    // Rust is ONE file for the whole invocation (the user names it), not per schema.
     const auto plan = cli::plan_outputs(
-        opts, set, {/*arena=*/false, /*stream=*/false, /*dump=*/false, /*rust=*/true});
-    REQUIRE(plan.size() == 1);  // one .rs, no C++ common header, no runtime copies (external crate)
-    CHECK(plan[0].rel == std::filesystem::path("proto3.rs"));
+        opts, set, {/*arena=*/false, /*stream=*/false, /*dump=*/false, /*rust=*/true}, "schema.rs");
+    REQUIRE(plan.size() == 1);  // the one .rs; no C++ common header, no runtime copies
+    CHECK(plan[0].rel == std::filesystem::path("schema.rs"));
     CHECK(plan[0].kind == cli::OutputKind::Rust);
     CHECK(plan[0].entry);
 }
@@ -288,7 +289,7 @@ TEST_CASE("driver: --rust beside a C++ model adds the .rs and keeps the C++ outp
     cli::Options opts;
     const ResolvedFileSet set = resolved_proto3(opts);
     const auto plan = cli::plan_outputs(
-        opts, set, {/*arena=*/true, /*stream=*/false, /*dump=*/false, /*rust=*/true});
+        opts, set, {/*arena=*/true, /*stream=*/false, /*dump=*/false, /*rust=*/true}, "schema.rs");
     CHECK(plan_has_kind(plan, cli::OutputKind::Rust));
     CHECK(plan_has_kind(plan, cli::OutputKind::Common));
     CHECK(plan_has_kind(plan, cli::OutputKind::Runtime));

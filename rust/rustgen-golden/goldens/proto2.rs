@@ -38,6 +38,7 @@ pub mod common {
 }
 
 pub mod arena {
+
   pub mod p2 {
     pub struct Scalars<'a> {
       _marker: ::core::marker::PhantomData<&'a ()>,

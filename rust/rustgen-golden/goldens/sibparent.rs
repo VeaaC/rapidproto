@@ -6,6 +6,7 @@ pub mod common {
 }
 
 pub mod arena {
+
   pub mod sib {
     pub struct logging<'a> {
       _marker: ::core::marker::PhantomData<&'a ()>,

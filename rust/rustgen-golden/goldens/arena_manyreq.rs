@@ -6,6 +6,7 @@ pub mod common {
 }
 
 pub mod arena {
+
   pub mod mr {
     pub struct ManyRequired<'a> {
       _marker: ::core::marker::PhantomData<&'a ()>,
