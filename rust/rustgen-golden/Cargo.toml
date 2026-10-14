@@ -27,3 +27,14 @@ rapidproto = { path = "../rapidproto", default-features = false }
 # normal dependency above.
 [dev-dependencies]
 rapidproto = { path = "../rapidproto" }
+# Dev-only: criterion drives the decode benchmark (not a runtime dependency); default features off --
+# the bench wants timings, not the HTML/plotting stack. Matches the rapidproto wire bench.
+criterion = { version = "0.3", default-features = false }
+
+# The decode benchmark measures the generated `bench.rs` decoder (package `bench`) over a realistic
+# hand-built Dataset payload. std-only (criterion needs std). Run it PINNED and ALIGNED:
+#   RUSTFLAGS="-Cllvm-args=-align-all-functions=6" taskset -c 0 cargo bench -p rustgen-golden --bench decode
+[[bench]]
+name = "decode"
+harness = false
+required-features = ["std"]
