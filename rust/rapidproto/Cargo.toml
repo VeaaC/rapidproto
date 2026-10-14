@@ -13,3 +13,15 @@ default = ["std"]
 # no_std-no-alloc embedded tier (a caller-seeded arena). No 3rd-party runtime deps.
 std = ["alloc"]
 alloc = []
+
+# Dev-only: criterion drives the wire-layer micro-benchmarks (not a runtime dependency). Default
+# features off -- the benches want timings, not its HTML/plotting stack.
+[dev-dependencies]
+criterion = { version = "0.3", default-features = false }
+
+# The wire bench is std-only (criterion needs std), so the no_std CI tiers skip it via
+# required-features. Run it with `cargo bench -p rapidproto`.
+[[bench]]
+name = "wire"
+harness = false
+required-features = ["std"]

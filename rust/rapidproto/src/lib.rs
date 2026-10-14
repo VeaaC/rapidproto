@@ -9,9 +9,10 @@
 //! - [`ProtoStr`] — a borrowed `string` field; the caller chooses whether/how to validate UTF-8.
 //! - [`MapView`] — a borrowed view over a `map` field's entries.
 //! - [`DecodeError`] / [`ErrorKind`] — the error returned by generated `decode` entry points.
+//! - [`wire`] — the wire-decode primitives (varint, fixed, length-delimited, tag, skip) generated
+//!   `decode` bodies read fields with.
 //!
-//! This is an early stage: the wire-decode primitives and the generated code that uses these
-//! types are still being built out.
+//! This is an early stage: the generated code that uses these types is still being built out.
 //!
 //! `no_std` outside of tests whenever the `std` feature is off; the test harness keeps `std` so
 //! the no-allocator path can still be unit-tested with `--no-default-features`.
@@ -25,6 +26,7 @@ mod arena;
 mod error;
 mod map;
 mod proto_str;
+pub mod wire;
 
 pub use arena::{Arena, ArenaExhausted};
 pub use error::{DecodeError, ErrorKind};
