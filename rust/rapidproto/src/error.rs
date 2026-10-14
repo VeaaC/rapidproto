@@ -9,8 +9,13 @@ use crate::arena::ArenaExhausted;
 pub enum ErrorKind {
     /// The input ended in the middle of a field, length-delimited payload, or varint.
     Truncated,
-    /// A field tag was malformed (e.g. a field number of 0, or an over-long varint).
+    /// A field tag was malformed: a field number of 0 or above the Protobuf maximum (2^29 - 1), or a
+    /// reserved wire type (6 or 7).
     InvalidTag,
+    /// A base-128 varint did not fit 64 bits: more than ten bytes, or a tenth byte with bits above
+    /// bit 0. Unlike [`InvalidTag`](Self::InvalidTag) this is context-neutral -- it is returned
+    /// wherever a varint is read (a field value or a length prefix, not only a tag).
+    VarintOverflow,
     /// A field's wire type is not one the decoder accepts for that position.
     InvalidWireType,
     /// Nested-message or group recursion exceeded the decoder's depth cap.
@@ -53,6 +58,7 @@ impl core::fmt::Display for DecodeError {
         let what = match self.kind {
             ErrorKind::Truncated => "truncated input",
             ErrorKind::InvalidTag => "invalid field tag",
+            ErrorKind::VarintOverflow => "varint overflow",
             ErrorKind::InvalidWireType => "invalid wire type",
             ErrorKind::DepthLimitExceeded => "depth limit exceeded",
             ErrorKind::ArenaExhausted => "arena exhausted",

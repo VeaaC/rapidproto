@@ -46,7 +46,7 @@ fn drive<F: FnMut(u32, WireType, &mut &[u8]) -> Option<u64>>(buf: &[u8], mut rea
         match read_field(tag.field, tag.wire, &mut rest) {
             Some(contribution) => sum = sum.wrapping_add(contribution),
             None => {
-                rest = match wire::skip(rest, tag.wire) {
+                rest = match wire::skip(rest, tag) {
                     Ok(r) => r,
                     Err(_) => break,
                 };
@@ -95,6 +95,23 @@ fn bench_wire(c: &mut Criterion) {
     }
     scenario(c, "varint-multibyte", &buf, |f, w, rest| {
         if f == 1 && w == WireType::Varint {
+            let mut v = 0;
+            *rest = wire::read_varint(rest, &mut v).unwrap();
+            Some(v)
+        } else {
+            None
+        }
+    });
+
+    // tag-2byte: field 18 varint (a 2-byte tag, 0x90 0x01), one-byte values -- exercises the fused
+    // 2-byte tag path (fields 16..2047). Mirrors the C++ bench's >15-field (field 18) scenario.
+    let mut buf = Vec::new();
+    for i in 0..N {
+        put_tag(&mut buf, 18, 0);
+        put_varint(&mut buf, (i as u64) & 0x7f);
+    }
+    scenario(c, "tag-2byte", &buf, |f, w, rest| {
+        if f == 18 && w == WireType::Varint {
             let mut v = 0;
             *rest = wire::read_varint(rest, &mut v).unwrap();
             Some(v)

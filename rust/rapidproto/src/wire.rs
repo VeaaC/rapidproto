@@ -172,12 +172,13 @@ impl<'a> Cursor<'a> {
         Ok(payload)
     }
 
-    /// Consume one field's value given its wire type, for an unknown or dropped field. Groups are
-    /// skipped to their matching end tag (nested groups recurse, capped by [`MAX_SKIP_DEPTH`]). Wrapper
-    /// over the value-threaded [`skip`] free function; a failure is reported at this field's start.
+    /// Consume one field's value for the field whose `tag` was just read, for an unknown or dropped
+    /// field. A group is skipped to its matching end tag -- matched by field number -- with nested
+    /// groups recursing, capped by [`MAX_SKIP_DEPTH`]. Wrapper over the value-threaded [`skip`] free
+    /// function; a failure is reported at this field's start.
     #[inline]
-    pub fn skip(&mut self, wire: WireType) -> Result<(), DecodeError> {
-        self.rest = skip(self.rest, wire).map_err(|k| self.err(k))?;
+    pub fn skip(&mut self, tag: Tag) -> Result<(), DecodeError> {
+        self.rest = skip(self.rest, tag).map_err(|k| self.err(k))?;
         Ok(())
     }
 }
@@ -195,8 +196,9 @@ impl<'a> Cursor<'a> {
 
 /// Read a base-128 varint (up to 10 bytes). `take(10)` caps the trip count so the loop unrolls like
 /// the C++ reader's fixed 10-iteration one; the over-long check sits in the terminator branch (hit
-/// once for the only well-formed case). `Truncated` at end of input; `InvalidTag` for an over-long
-/// encoding (10th byte above bit 0, or ten continuation bytes).
+/// once for the only well-formed case). `Truncated` at end of input; `VarintOverflow` for an over-long
+/// encoding (10th byte above bit 0, or ten continuation bytes) -- a context-neutral kind, since this
+/// reads values and length prefixes, not only tags.
 #[inline]
 pub fn read_varint<'a>(rest: &'a [u8], out: &mut u64) -> Result<&'a [u8], ErrorKind> {
     let mut result: u64 = 0;
@@ -205,28 +207,33 @@ pub fn read_varint<'a>(rest: &'a [u8], out: &mut u64) -> Result<&'a [u8], ErrorK
         result |= u64::from(byte & 0x7f) << shift;
         if byte & 0x80 == 0 {
             if i == 9 && byte > 0x01 {
-                return Err(ErrorKind::InvalidTag);
+                return Err(ErrorKind::VarintOverflow);
             }
             *out = result;
             return Ok(&rest[i + 1..]);
         }
         shift += 7;
     }
+    // Fell through without a terminator: ten continuation bytes (an over-long encoding that cannot fit
+    // 64 bits) vs fewer bytes than the varint needs (the input ran out mid-varint).
     if rest.len() >= 10 {
-        Err(ErrorKind::InvalidTag)
+        Err(ErrorKind::VarintOverflow)
     } else {
         Err(ErrorKind::Truncated)
     }
 }
 
-/// Read a field tag. A fused 1-byte fast path decodes fields 1..=15 inline (the common case); longer
-/// tags fall through to the general varint. `InvalidTag` for field 0, a field above `2^29 - 1`, or a
-/// wire type of 6/7.
+/// Read a field tag. Fused fast paths decode a 1-byte tag (fields 1..=15) and a 2-byte tag (fields
+/// 16..=2047) inline -- the common cases; a 3+ byte tag or a rejected fast-path tag falls through to
+/// the general varint. `InvalidTag` for field 0, a field above `2^29 - 1`, or a wire type of 6/7.
+///
+/// Both fused paths mirror the C++ reader (`wire::read_tag_or_end`), whose comment records the 2-byte
+/// fusion as measured -31% on a >15-field decode (the general multibyte path compiles poorly).
 #[inline]
 pub fn read_tag<'a>(rest: &'a [u8], out: &mut Tag) -> Result<&'a [u8], ErrorKind> {
-    // Fused 1-byte tag: one byte, continuation bit clear -> field 1..=15, wire in the low 3 bits.
     if let Some((&first, tail)) = rest.split_first() {
         if first & 0x80 == 0 {
+            // Fused 1-byte tag: field 1..=15, wire in the low 3 bits.
             let field = u32::from(first >> 3);
             if field != 0 {
                 if let Some(wire) = WireType::from_bits(u32::from(first & 0x07)) {
@@ -234,7 +241,23 @@ pub fn read_tag<'a>(rest: &'a [u8], out: &mut Tag) -> Result<&'a [u8], ErrorKind
                     return Ok(tail);
                 }
             }
-            // field 0 or a reserved wire type (6/7): fall through for a uniform InvalidTag.
+            // field 0 or a reserved wire type (6/7): fall through for a uniform error.
+        } else if let Some((&second, rest2)) = tail.split_first() {
+            // Fused 2-byte tag: reached because `first` has the continuation bit. `second - 1 < 0x7f`
+            // means the second byte terminates (no continuation) and is nonzero, so the decoded value
+            // is 128..=16383 -> field 16..=2047, never 0 and within range. A reserved wire type (6/7)
+            // still falls through. Matches the C++ fused 2-byte path's `(u8)(p[1]-1) < 0x7F` guard.
+            if second.wrapping_sub(1) < 0x7f {
+                let value = (u32::from(first) & 0x7f) | (u32::from(second) << 7);
+                if let Some(wire) = WireType::from_bits(value & 0x07) {
+                    *out = Tag {
+                        field: value >> 3,
+                        wire,
+                    };
+                    return Ok(rest2);
+                }
+            }
+            // non-canonical 2-byte, 3+ byte, or reserved wire type: fall through.
         }
     }
     let mut raw = 0u64;
@@ -296,15 +319,17 @@ pub fn read_length_delimited<'a>(
     Ok(tail)
 }
 
-/// Consume one field's value given its wire type (an unknown or dropped field), returning the slice
-/// past it. Groups skip to their matching end tag (nested groups recurse, capped by
-/// [`MAX_SKIP_DEPTH`]). Cold relative to the typed readers.
-pub fn skip(rest: &[u8], wire: WireType) -> Result<&[u8], ErrorKind> {
-    skip_depth(rest, wire, 0)
+/// Consume one field's value for the field whose `tag` was just read (an unknown or dropped field),
+/// returning the slice past it. A group (wire type [`SGroup`](WireType::SGroup)) skips to the matching
+/// end tag -- the one whose field number equals the group's, as the C++ reader requires -- with nested
+/// groups recursing, capped by [`MAX_SKIP_DEPTH`]. Cold relative to the typed readers. `tag.field` is
+/// used only to match a group's end; for the scalar wire types it is ignored.
+pub fn skip(rest: &[u8], tag: Tag) -> Result<&[u8], ErrorKind> {
+    skip_depth(rest, tag, 0)
 }
 
-fn skip_depth(rest: &[u8], wire: WireType, depth: u32) -> Result<&[u8], ErrorKind> {
-    match wire {
+fn skip_depth(rest: &[u8], tag: Tag, depth: u32) -> Result<&[u8], ErrorKind> {
+    match tag.wire {
         WireType::Varint => {
             let mut v = 0;
             read_varint(rest, &mut v)
@@ -329,15 +354,20 @@ fn skip_depth(rest: &[u8], wire: WireType, depth: u32) -> Result<&[u8], ErrorKin
             }
             let mut rest = rest;
             loop {
-                let mut tag = Tag {
+                let mut inner = Tag {
                     field: 0,
                     wire: WireType::Varint,
                 };
-                rest = read_tag(rest, &mut tag)?;
-                if tag.wire == WireType::EGroup {
-                    break; // the matching (or an inner group's) end
+                rest = read_tag(rest, &mut inner)?;
+                if inner.wire == WireType::EGroup {
+                    // The end tag must close THIS group: its field number must match. A mismatched end
+                    // group is a malformed nesting (the C++ reader rejects it too).
+                    if inner.field != tag.field {
+                        return Err(ErrorKind::InvalidWireType);
+                    }
+                    break;
                 }
-                rest = skip_depth(rest, tag.wire, depth + 1)?;
+                rest = skip_depth(rest, inner, depth + 1)?;
             }
             Ok(rest)
         }
@@ -366,6 +396,11 @@ mod tests {
         Cursor::new(input).read_varint().unwrap_err().kind()
     }
 
+    // A tag for `skip`; the field number matters only for matching a group's end tag.
+    fn tag(field: u32, wire: WireType) -> Tag {
+        Tag { field, wire }
+    }
+
     #[test]
     fn varint_values_and_advance() {
         let mut c = Cursor::new(&[0x00]);
@@ -389,12 +424,13 @@ mod tests {
         assert_eq!(kind(&[]), ErrorKind::Truncated);
         assert_eq!(kind(&[0x80]), ErrorKind::Truncated); // continuation bit, no more bytes
         assert_eq!(kind(&[0x80; 5]), ErrorKind::Truncated);
-        // Ten continuation bytes then overflow: an over-long encoding.
-        assert_eq!(kind(&[0x80; 10]), ErrorKind::InvalidTag);
+        // Ten continuation bytes: an over-long encoding that cannot fit 64 bits -> VarintOverflow,
+        // a context-neutral kind (not InvalidTag -- this reader also decodes values and lengths).
+        assert_eq!(kind(&[0x80; 10]), ErrorKind::VarintOverflow);
         // Tenth byte sets bits above bit 0 -> over-long.
         assert_eq!(
             kind(&[0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x02]),
-            ErrorKind::InvalidTag
+            ErrorKind::VarintOverflow
         );
     }
 
@@ -452,6 +488,29 @@ mod tests {
 
         assert_eq!(Cursor::new(&[]).read_tag_or_end().unwrap(), None);
         assert!(Cursor::new(&[0x0a]).read_tag_or_end().unwrap().is_some());
+
+        // Fused 2-byte tag path: field 18 varint = (18 << 3) | 0 = 144 -> varint 0x90 0x01. The fused
+        // path and the general path must agree, and the trailing byte stays unconsumed.
+        let mut c = Cursor::new(&[0x90, 0x01, 0x7f]);
+        assert_eq!(
+            c.read_tag().unwrap(),
+            Tag {
+                field: 18,
+                wire: WireType::Varint
+            }
+        );
+        assert_eq!(c.remaining(), &[0x7f]);
+        // A 2-byte tag with a reserved wire type (6) falls through and is rejected: field 18 wire 6 =
+        // 150 -> 0x96 0x01.
+        assert_eq!(
+            Cursor::new(&[0x96, 0x01]).read_tag().unwrap_err().kind(),
+            ErrorKind::InvalidTag
+        );
+        // A tag truncated mid-varint (continuation bit set, no next byte) is Truncated, not a panic.
+        assert_eq!(
+            Cursor::new(&[0x88]).read_tag().unwrap_err().kind(),
+            ErrorKind::Truncated
+        );
     }
 
     #[test]
@@ -466,6 +525,14 @@ mod tests {
 
         let mut c = Cursor::new(&[1, 2, 3, 4, 5, 6, 7, 8]);
         assert_eq!(c.read_fixed64().unwrap(), 0x0807_0605_0403_0201);
+
+        // A fixed read past the end reports Truncated at ITS start offset (not offset 0): consume a
+        // 1-byte tag first, then only 3 bytes remain for a fixed32.
+        let mut c = Cursor::new(&[0x08, 1, 2, 3]);
+        c.read_tag().unwrap();
+        let err = c.read_fixed32().unwrap_err();
+        assert_eq!(err.kind(), ErrorKind::Truncated);
+        assert_eq!(err.offset(), 1);
 
         // length 3 then "abc", with a trailing byte.
         let mut c = Cursor::new(&[0x03, b'a', b'b', b'c', b'z']);
@@ -482,27 +549,47 @@ mod tests {
     #[test]
     fn skip_every_wire_type_including_nested_groups() {
         // varint, i64, i32, len
-        assert!(Cursor::new(&[0xac, 0x02]).skip(WireType::Varint).is_ok());
-        assert!(Cursor::new(&[0; 8]).skip(WireType::I64).is_ok());
-        assert!(Cursor::new(&[0; 4]).skip(WireType::I32).is_ok());
-        assert!(Cursor::new(&[0x02, b'h', b'i']).skip(WireType::Len).is_ok());
+        assert!(Cursor::new(&[0xac, 0x02])
+            .skip(tag(1, WireType::Varint))
+            .is_ok());
+        assert!(Cursor::new(&[0; 8]).skip(tag(1, WireType::I64)).is_ok());
+        assert!(Cursor::new(&[0; 4]).skip(tag(1, WireType::I32)).is_ok());
+        assert!(Cursor::new(&[0x02, b'h', b'i'])
+            .skip(tag(1, WireType::Len))
+            .is_ok());
 
-        // A group: start-tag already consumed by the caller, so skip() is given SGroup and consumes
-        // through the matching end. Body: field 1 varint (0x08 0x01), inner group (0x0b ... 0x0c),
-        // then this group's end (0x0c). Tags: SGroup=(f<<3)|3, EGroup=(f<<3)|4.
+        // A group: start-tag already consumed by the caller, so skip() is given the SGroup tag and
+        // consumes through the matching end. Body: field 1 varint (0x08 0x01), inner group (0x0b ...
+        // 0x0c), then this group's end (0x0c). Tags: SGroup=(f<<3)|3, EGroup=(f<<3)|4 -- all field 1.
         let group = [
             0x08, 0x01, /*inner start f1*/ 0x0b, /*inner end f1*/ 0x0c,
             /*end f1*/ 0x0c,
         ];
         let mut c = Cursor::new(&group);
-        assert!(c.skip(WireType::SGroup).is_ok());
+        assert!(c.skip(tag(1, WireType::SGroup)).is_ok());
         assert!(c.is_empty());
 
         // A stray group-end is malformed.
         assert_eq!(
-            Cursor::new(&[]).skip(WireType::EGroup).unwrap_err().kind(),
+            Cursor::new(&[])
+                .skip(tag(1, WireType::EGroup))
+                .unwrap_err()
+                .kind(),
             ErrorKind::InvalidWireType
         );
+
+        // A group closed by an end tag with a DIFFERENT field number is malformed (matches the C++
+        // reader, which pairs end groups by field number). Start field 1 (skip arg), end field 2
+        // (0x14 = (2<<3)|4) -> rejected.
+        assert_eq!(
+            Cursor::new(&[0x14])
+                .skip(tag(1, WireType::SGroup))
+                .unwrap_err()
+                .kind(),
+            ErrorKind::InvalidWireType
+        );
+        // The same body closed by the matching field-1 end (0x0c) is accepted.
+        assert!(Cursor::new(&[0x0c]).skip(tag(1, WireType::SGroup)).is_ok());
     }
 
     #[test]
@@ -511,10 +598,31 @@ mod tests {
         let starts = vec![0x0b_u8; (MAX_SKIP_DEPTH as usize) + 5];
         assert_eq!(
             Cursor::new(&starts)
-                .skip(WireType::SGroup)
+                .skip(tag(1, WireType::SGroup))
                 .unwrap_err()
                 .kind(),
             ErrorKind::DepthLimitExceeded
+        );
+
+        // Exact boundary: the outer skip is depth 0, so reading N field-1 start tags (0x0b) descends
+        // to depth N. The cap rejects at depth == MAX_SKIP_DEPTH. With MAX_SKIP_DEPTH starts the
+        // deepest recursion hits the cap (DepthLimitExceeded); with one fewer it never does and instead
+        // runs out of input (Truncated) -- pinning the off-by-one (depth 99 allowed, 100 rejected).
+        let at_cap = vec![0x0b_u8; MAX_SKIP_DEPTH as usize];
+        let under_cap = vec![0x0b_u8; (MAX_SKIP_DEPTH as usize) - 1];
+        assert_eq!(
+            Cursor::new(&at_cap)
+                .skip(tag(1, WireType::SGroup))
+                .unwrap_err()
+                .kind(),
+            ErrorKind::DepthLimitExceeded
+        );
+        assert_eq!(
+            Cursor::new(&under_cap)
+                .skip(tag(1, WireType::SGroup))
+                .unwrap_err()
+                .kind(),
+            ErrorKind::Truncated
         );
     }
 
@@ -546,8 +654,8 @@ mod tests {
             for end in 0..=sample.len() {
                 let mut c = Cursor::new(&sample[..end]);
                 // Drive a field loop to exhaustion or first error; just must not panic.
-                while let Ok(Some(tag)) = c.read_tag_or_end() {
-                    if c.skip(tag.wire).is_err() {
+                while let Ok(Some(field_tag)) = c.read_tag_or_end() {
+                    if c.skip(field_tag).is_err() {
                         break;
                     }
                 }
