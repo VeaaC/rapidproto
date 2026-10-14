@@ -20,3 +20,10 @@ alloc = ["rapidproto/alloc"]
 
 [dependencies]
 rapidproto = { path = "../rapidproto", default-features = false }
+
+# The decode round-trip test (tests/roundtrip.rs) decodes into a heap `Arena`, so it needs an
+# allocator; a dev-dependency with default features (std) provides it for test builds only -- the
+# plain `cargo build --no-default-features` compile-check still exercises the no_std path via the
+# normal dependency above.
+[dev-dependencies]
+rapidproto = { path = "../rapidproto" }

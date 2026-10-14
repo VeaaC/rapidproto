@@ -22,22 +22,46 @@ pub enum ErrorKind {
     DepthLimitExceeded,
     /// The arena could not satisfy an allocation (no allocator, or the host allocator failed).
     ArenaExhausted,
+    /// A `required` (proto2) field was absent from the message. The error carries the missing field's
+    /// number (see [`DecodeError::field_number`]).
+    MissingRequired,
+    /// A singular (non-repeated) message field appeared more than once. RapidProto rejects this rather
+    /// than merging the occurrences (matching the C++ decoder); singular scalar fields keep the last.
+    RepeatedSingularMessage,
+    /// The input is larger than the decoder supports (`> u32::MAX` bytes).
+    InputTooLarge,
 }
 
-/// A decode failure: a matchable [`ErrorKind`] plus the byte offset into the input where it was
-/// detected. The offset is a uniform accessor rather than a per-variant field, so matching on the
-/// kind stays clean.
+/// A decode failure: a matchable [`ErrorKind`], the byte offset into the input where it was detected,
+/// and the field number it concerns when one applies. The offset is relative to the message body being
+/// decoded -- for a failure inside a nested length-delimited sub-message it is relative to that
+/// sub-message, not the top-level input (matching the C++ decoder). Offset and field number are uniform
+/// accessors rather than per-variant fields, so matching on the kind stays clean.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct DecodeError {
     kind: ErrorKind,
     offset: usize,
+    field: Option<u32>,
 }
 
 impl DecodeError {
-    /// Construct an error of `kind` detected at `offset` bytes into the input.
+    /// Construct an error of `kind` detected at `offset` bytes into the message body, with no field
+    /// number attached.
     #[inline]
     pub fn new(kind: ErrorKind, offset: usize) -> Self {
-        Self { kind, offset }
+        Self {
+            kind,
+            offset,
+            field: None,
+        }
+    }
+
+    /// Attach the field number this error concerns (e.g. a missing `required` field).
+    #[inline]
+    #[must_use]
+    pub fn with_field(mut self, field: u32) -> Self {
+        self.field = Some(field);
+        self
     }
 
     /// The kind of failure.
@@ -46,10 +70,17 @@ impl DecodeError {
         self.kind
     }
 
-    /// The byte offset into the input where the failure was detected.
+    /// The byte offset into the message body where the failure was detected.
     #[inline]
     pub fn offset(&self) -> usize {
         self.offset
+    }
+
+    /// The field number this error concerns, when one applies (e.g. a missing `required` field or a
+    /// repeated singular message); `None` otherwise.
+    #[inline]
+    pub fn field_number(&self) -> Option<u32> {
+        self.field
     }
 }
 
@@ -62,8 +93,14 @@ impl core::fmt::Display for DecodeError {
             ErrorKind::InvalidWireType => "invalid wire type",
             ErrorKind::DepthLimitExceeded => "depth limit exceeded",
             ErrorKind::ArenaExhausted => "arena exhausted",
+            ErrorKind::MissingRequired => "missing required field",
+            ErrorKind::RepeatedSingularMessage => "repeated singular message field",
+            ErrorKind::InputTooLarge => "input too large",
         };
-        write!(f, "{what} at offset {}", self.offset)
+        match self.field {
+            Some(field) => write!(f, "{what} (field {field}) at offset {}", self.offset),
+            None => write!(f, "{what} at offset {}", self.offset),
+        }
     }
 }
 
