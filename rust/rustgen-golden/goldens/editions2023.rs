@@ -84,6 +84,9 @@ pub mod arena {
       pub fn delim(&self) -> Option<&'a M<'a>> {
         todo!()
       }
+    }
+
+    impl<'a> M<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a M<'a>, ::rapidproto::DecodeError> {
         todo!()
       }

@@ -76,6 +76,121 @@ pub mod arena {
       pub fn kind(&self) -> Option<super::super::common::fm::blob::Kind> {
         self.kind
       }
+    }
+
+    pub struct Holder<'a> {
+      _marker: ::core::marker::PhantomData<&'a ()>,
+    }
+
+    impl<'a> Holder<'a> {
+      pub fn keep(&self) -> Option<i32> {
+        todo!()
+      }
+      pub fn debug(&self) -> Option<i32> {
+        todo!()
+      }
+      pub fn extra(&self) -> Option<&'a Blob<'a>> {
+        todo!()
+      }
+      pub fn old_ids(&self) -> &'a [i32] {
+        todo!()
+      }
+      pub fn must(&self) -> i32 {
+        todo!()
+      }
+      pub fn big_num(&self) -> Option<i32> {
+        todo!()
+      }
+      pub fn blob(&self) -> Option<&'a Blob<'a>> {
+        todo!()
+      }
+      pub fn blobs(&self) -> &'a [Blob<'a>] {
+        todo!()
+      }
+      pub fn samples(&self) -> &'a [i32] {
+        todo!()
+      }
+      pub fn spread(&self) -> &'a [i32] {
+        todo!()
+      }
+      pub fn level(&self) -> Option<super::super::common::fm::Level> {
+        todo!()
+      }
+      pub fn req_blob(&self) -> Option<&'a Blob<'a>> {
+        todo!()
+      }
+      pub fn grp(&self) -> Option<&'a holder::Grp<'a>> {
+        todo!()
+      }
+      pub fn by_name(&self) -> ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, Blob<'a>> {
+        todo!()
+      }
+    }
+
+    pub mod holder {
+      pub struct Grp<'a> {
+        g: Option<i32>,
+        _marker: ::core::marker::PhantomData<&'a ()>,
+      }
+
+      impl<'a> Grp<'a> {
+        pub fn g(&self) -> Option<i32> {
+          self.g
+        }
+      }
+
+      impl<'a> Grp<'a> {
+        pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Grp<'a>, ::rapidproto::DecodeError> {
+          if input.len() > u32::MAX as usize {
+            return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+          }
+          let rp_built = Self::decode_into(input, arena, 0)?;
+          match arena.alloc(rp_built) {
+            Ok(r) => Ok(&*r),
+            Err(_) => Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0)),
+          }
+        }
+
+        #[doc(hidden)]
+        pub(crate) fn decode_into(rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> Result<Grp<'a>, ::rapidproto::DecodeError> {
+          if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
+            return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
+          }
+          let mut g: Option<i32> = None;
+          let mut rp_rest: &'a [u8] = rp_body;
+          loop {
+            let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+            rp_rest = match ::rapidproto::wire::read_tag_or_end(rp_rest, &mut rp_tag) {
+              Ok(Some(r)) => r,
+              Ok(None) => break,
+              Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+            match (rp_tag.field, rp_tag.wire) {
+              (1u32, ::rapidproto::wire::WireType::Varint) => {
+                let mut rp_v = 0u64;
+                rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                g = Some(rp_v as i32);
+              }
+              _ => {
+                rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
+            }
+          }
+          Ok(Grp {
+            g,
+            _marker: ::core::marker::PhantomData,
+          })
+        }
+      }
+    }
+
+    impl<'a> Blob<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Blob<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
@@ -134,115 +249,9 @@ pub mod arena {
       }
     }
 
-    pub struct Holder<'a> {
-      _marker: ::core::marker::PhantomData<&'a ()>,
-    }
-
     impl<'a> Holder<'a> {
-      pub fn keep(&self) -> Option<i32> {
-        todo!()
-      }
-      pub fn debug(&self) -> Option<i32> {
-        todo!()
-      }
-      pub fn extra(&self) -> Option<&'a Blob<'a>> {
-        todo!()
-      }
-      pub fn old_ids(&self) -> &'a [i32] {
-        todo!()
-      }
-      pub fn must(&self) -> i32 {
-        todo!()
-      }
-      pub fn big_num(&self) -> Option<i32> {
-        todo!()
-      }
-      pub fn blob(&self) -> Option<&'a Blob<'a>> {
-        todo!()
-      }
-      pub fn blobs(&self) -> &'a [Blob<'a>] {
-        todo!()
-      }
-      pub fn samples(&self) -> &'a [i32] {
-        todo!()
-      }
-      pub fn spread(&self) -> &'a [i32] {
-        todo!()
-      }
-      pub fn level(&self) -> Option<super::super::common::fm::Level> {
-        todo!()
-      }
-      pub fn req_blob(&self) -> Option<&'a Blob<'a>> {
-        todo!()
-      }
-      pub fn grp(&self) -> Option<&'a holder::Grp<'a>> {
-        todo!()
-      }
-      pub fn by_name(&self) -> ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, Blob<'a>> {
-        todo!()
-      }
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Holder<'a>, ::rapidproto::DecodeError> {
         todo!()
-      }
-    }
-
-    pub mod holder {
-      pub struct Grp<'a> {
-        g: Option<i32>,
-        _marker: ::core::marker::PhantomData<&'a ()>,
-      }
-
-      impl<'a> Grp<'a> {
-        pub fn g(&self) -> Option<i32> {
-          self.g
-        }
-        pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Grp<'a>, ::rapidproto::DecodeError> {
-          if input.len() > u32::MAX as usize {
-            return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
-          }
-          let rp_built = Self::decode_into(input, arena, 0)?;
-          match arena.alloc(rp_built) {
-            Ok(r) => Ok(&*r),
-            Err(_) => Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0)),
-          }
-        }
-
-        #[doc(hidden)]
-        pub(crate) fn decode_into(rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> Result<Grp<'a>, ::rapidproto::DecodeError> {
-          if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
-            return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
-          }
-          let mut g: Option<i32> = None;
-          let mut rp_rest: &'a [u8] = rp_body;
-          loop {
-            let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
-            rp_rest = match ::rapidproto::wire::read_tag_or_end(rp_rest, &mut rp_tag) {
-              Ok(Some(r)) => r,
-              Ok(None) => break,
-              Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
-            };
-            match (rp_tag.field, rp_tag.wire) {
-              (1u32, ::rapidproto::wire::WireType::Varint) => {
-                let mut rp_v = 0u64;
-                rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
-                  Ok(r) => r,
-                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
-                };
-                g = Some(rp_v as i32);
-              }
-              _ => {
-                rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
-                  Ok(r) => r,
-                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
-                };
-              }
-            }
-          }
-          Ok(Grp {
-            g,
-            _marker: ::core::marker::PhantomData,
-          })
-        }
       }
     }
   }

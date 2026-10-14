@@ -1218,6 +1218,8 @@ void emit_decode(Printer& printer, const NameTable& table,
     // Decode locals. A repeated field or map accumulates into a `DecodeVec`; a oneof holds its enum
     // (None until a member is seen); a proto2 `required` field carries a transient `seen` flag; the
     // rest are plain values at their proto3 zero / None default.
+    // The decode impl is emitted at the end of the message's OWN module (after that module's
+    // submodules), so the oneof enum -- in the message's child submodule -- is reached by its bare name.
     const std::string submodule =
         msg.oneofs.empty() ? std::string() : table.messages.at(msg.fqn).submodule;
     for (std::size_t i = 0; i < msg.fields.size(); ++i) {
@@ -1403,21 +1405,45 @@ void emit_message(Printer& printer, const NameTable& table,
     printer.outdent();
     printer.print("}\n\n");
 
+    // Only the getters here -- the `decode`/`decode_into` impl is emitted at the end of the arena
+    // module ([`emit_message_decode`]) so a reader can skim the whole API without the wire-loop bodies
+    // in between. Skip an empty impl block for a field-, map- and oneof-less message.
+    const bool has_accessors =
+        !accessors.fields.empty() || !accessors.maps.empty() || !accessors.oneofs.empty();
+    if (has_accessors) {
+        printer.print("impl<'a> $M$<'a> {\n");
+        printer.indent();
+        for (std::size_t i = 0; i < msg.fields.size(); ++i) {
+            emit_field_accessor(printer, table, current_mod, msg.fields[i], accessors.fields[i],
+                                supported);
+        }
+        for (std::size_t i = 0; i < msg.map_fields.size(); ++i) {
+            emit_map_accessor(printer, table, current_mod, msg.map_fields[i], accessors.maps[i],
+                              supported);
+        }
+        for (std::size_t i = 0; i < msg.oneofs.size(); ++i) {
+            emit_oneof_accessor(printer, table, msg.oneofs[i], accessors.oneofs[i], supported,
+                                submodule);
+        }
+        printer.outdent();
+        printer.print("}\n");
+    }
+}
+
+// Emit the `decode` + `decode_into` impl for one message, in its OWN module (`current_mod`) but after
+// that module's structs/getters and submodules, so a reader skims the getters first and the wire-loop
+// bodies sit at the bottom of each module. It must stay in the message's module: `decode_into`
+// constructs the struct from its PRIVATE storage fields, which only the defining module may do. A
+// skeleton (not-yet-decodable) message gets just a `todo!()` `decode`.
+void emit_message_decode(Printer& printer, const NameTable& table,
+                         const std::vector<std::string>& current_mod, const MessageNode& msg,
+                         const std::unordered_set<std::string>& decodable) {
+    printer.set("M", table.messages.at(msg.fqn).type_name);
     printer.print("impl<'a> $M$<'a> {\n");
     printer.indent();
-    for (std::size_t i = 0; i < msg.fields.size(); ++i) {
-        emit_field_accessor(printer, table, current_mod, msg.fields[i], accessors.fields[i],
-                            supported);
-    }
-    for (std::size_t i = 0; i < msg.map_fields.size(); ++i) {
-        emit_map_accessor(printer, table, current_mod, msg.map_fields[i], accessors.maps[i],
-                          supported);
-    }
-    for (std::size_t i = 0; i < msg.oneofs.size(); ++i) {
-        emit_oneof_accessor(printer, table, msg.oneofs[i], accessors.oneofs[i], supported,
-                            submodule);
-    }
-    if (supported) {
+    if (decodable.count(msg.fqn) != 0) {
+        const AccessorNames accessors =
+            message_accessor_names(msg, decode_reserved_idents(msg, true));
         emit_decode(printer, table, current_mod, msg, accessors);
     } else {
         printer.print(
@@ -1467,6 +1493,12 @@ void emit_arena_messages(Printer& printer, const NameTable& table,
             printer.outdent();
             printer.print("}\n");
         }
+    }
+    // The decode impls for this module's messages, grouped at the bottom (after the structs/getters and
+    // submodules above), so the getters read uninterrupted. Each stays in its message's own module.
+    for (const MessageNode* msg : msgs) {
+        printer.print("\n");
+        emit_message_decode(printer, table, current_mod, *msg, decodable);
     }
 }
 

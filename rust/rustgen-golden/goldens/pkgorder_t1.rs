@@ -17,6 +17,9 @@ pub mod arena {
       pub fn v(&self) -> i32 {
         self.v
       }
+    }
+
+    impl<'a> linux_<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a linux_<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));

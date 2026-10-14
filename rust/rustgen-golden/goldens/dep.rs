@@ -48,6 +48,9 @@ pub mod arena {
       pub fn de(&self) -> Option<super::super::common::dep::DepEnum> {
         self.de
       }
+    }
+
+    impl<'a> Dep<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Dep<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));

@@ -273,6 +273,9 @@ pub mod arena {
       pub fn f65(&self) -> i32 {
         self.f65
       }
+    }
+
+    impl<'a> ManyRequired<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a ManyRequired<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));

@@ -24,6 +24,9 @@ pub mod arena {
       pub fn pf(&self) -> &'a [f32] {
         self.pf
       }
+    }
+
+    impl<'a> Packed<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Packed<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));

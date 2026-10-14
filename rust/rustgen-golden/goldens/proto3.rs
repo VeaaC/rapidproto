@@ -111,6 +111,18 @@ pub mod arena {
       pub fn pick(&self) -> Option<&msg::Pick<'a>> {
         self.pick.as_ref()
       }
+    }
+
+    pub mod msg {
+      pub enum Pick<'a> {
+        A(i32),
+        B(::rapidproto::ProtoStr<'a>),
+        C(bool),
+        D(f64),
+      }
+    }
+
+    impl<'a> Msg<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Msg<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
@@ -591,15 +603,6 @@ pub mod arena {
           ratios: ::rapidproto::MapView::new(rp_map_19.into_slice()),
           pick: rp_oneof_0,
         })
-      }
-    }
-
-    pub mod msg {
-      pub enum Pick<'a> {
-        A(i32),
-        B(::rapidproto::ProtoStr<'a>),
-        C(bool),
-        D(f64),
       }
     }
   }

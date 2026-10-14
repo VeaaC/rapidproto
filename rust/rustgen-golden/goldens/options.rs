@@ -29,6 +29,9 @@ pub mod arena {
       pub fn special3(&self) -> Option<f64> {
         self.special3
       }
+    }
+
+    impl<'a> M<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a M<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));

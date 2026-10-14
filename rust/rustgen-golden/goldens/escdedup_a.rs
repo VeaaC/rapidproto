@@ -44,6 +44,23 @@ pub mod arena {
       pub fn x(&self) -> i32 {
         self.x
       }
+    }
+
+    pub struct Holder<'a> {
+      r#ref: Option<&'a decode_<'a>>,
+      kind: super::super::common::escdedup::decode,
+    }
+
+    impl<'a> Holder<'a> {
+      pub fn r#ref(&self) -> Option<&'a decode_<'a>> {
+        self.r#ref
+      }
+      pub fn kind(&self) -> super::super::common::escdedup::decode {
+        self.kind
+      }
+    }
+
+    impl<'a> decode_<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a decode_<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
@@ -93,18 +110,7 @@ pub mod arena {
       }
     }
 
-    pub struct Holder<'a> {
-      r#ref: Option<&'a decode_<'a>>,
-      kind: super::super::common::escdedup::decode,
-    }
-
     impl<'a> Holder<'a> {
-      pub fn r#ref(&self) -> Option<&'a decode_<'a>> {
-        self.r#ref
-      }
-      pub fn kind(&self) -> super::super::common::escdedup::decode {
-        self.kind
-      }
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Holder<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
