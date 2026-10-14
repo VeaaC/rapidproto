@@ -12,22 +12,20 @@
 //! thin `&mut self` wrapper for ergonomic/ad-hoc use (tests, tools) that adds the byte offset; it is
 //! not the surface generated code should use on the hot path.
 //!
-//! # Error byte offsets are ABSOLUTE to the original input
+//! # Error byte offsets are relative to the decode frame's body
 //!
-//! The contract (matching the C++ reader, which threads the buffer start through every reader) is that
-//! a [`DecodeError`]'s offset is absolute to the whole top-level input, INCLUDING failures inside a
-//! nested length-delimited sub-message. The free functions deliberately carry no offset (they return
-//! only [`ErrorKind`]), leaving the caller to assign it: at the top level [`Cursor`] computes
-//! `input_len - rest.len()` on the error path; a generated decoder recursing into a sub-message adds
-//! the sub-message's absolute start offset to `sub_input.len() - rest.len()`. Keeping the offset off
-//! the hot path (computed only on failure) is why the readers thread just the slice.
+//! A [`DecodeError`]'s offset is relative to the message body currently being decoded -- for a failure
+//! inside a nested length-delimited sub-message it is relative to that sub-message, not the top-level
+//! input (matching the C++ decoder, which re-anchors the body start per sub-message and per map entry).
+//! The free functions deliberately carry no offset (they return only [`ErrorKind`]), leaving the caller
+//! to assign it from the frame's slice: [`Cursor`] computes `input_len - rest.len()`, and a generated
+//! decoder working on a sub-message body computes `body.len() - rest.len()`. Keeping the offset off the
+//! hot path (computed only on failure) is why the readers thread just the slice.
 //!
 //! One deliberate divergence from the C++ reader: a failure *inside* a group being [`skip`]ped is
 //! reported at the group field's start, not at the deep byte where it was detected (the value-threaded
-//! `skip` returns a bare kind and the caller still holds the field-start slice). The C++ reader threads
-//! the buffer start and reports the deep position. This is cold (unknown/dropped fields) and the offset
-//! is diagnostic only; it is the one spot the "derive the offset from the unadvanced caller slice"
-//! trick cannot reach the true position.
+//! `skip` returns a bare kind and the caller still holds the field-start slice). C++ reports the deep
+//! position within the body. This is cold (unknown/dropped fields) and the offset is diagnostic only.
 //!
 //! # Safety
 //!

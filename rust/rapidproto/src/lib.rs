@@ -32,3 +32,8 @@ pub use arena::{Arena, ArenaExhausted};
 pub use error::{DecodeError, ErrorKind};
 pub use map::MapView;
 pub use proto_str::ProtoStr;
+
+/// The maximum nesting a generated `decode` descends through length-delimited sub-messages before
+/// giving up with [`ErrorKind::DepthLimitExceeded`], so pathological nesting cannot exhaust the stack.
+/// Matches the C++ decoder's `kMaxDecodeDepth`.
+pub const MAX_DECODE_DEPTH: u32 = 100;
