@@ -22,6 +22,13 @@
 //! the sub-message's absolute start offset to `sub_input.len() - rest.len()`. Keeping the offset off
 //! the hot path (computed only on failure) is why the readers thread just the slice.
 //!
+//! One deliberate divergence from the C++ reader: a failure *inside* a group being [`skip`]ped is
+//! reported at the group field's start, not at the deep byte where it was detected (the value-threaded
+//! `skip` returns a bare kind and the caller still holds the field-start slice). The C++ reader threads
+//! the buffer start and reports the deep position. This is cold (unknown/dropped fields) and the offset
+//! is diagnostic only; it is the one spot the "derive the offset from the unadvanced caller slice"
+//! trick cannot reach the true position.
+//!
 //! # Safety
 //!
 //! Every reader returns `Result`, never panics, and never reads out of bounds on arbitrary input (the
@@ -230,6 +237,9 @@ impl<'a> Cursor<'a> {
 /// reads values and length prefixes, not only tags.
 #[inline]
 pub fn read_varint<'a>(rest: &'a [u8], out: &mut u64) -> Result<&'a [u8], ErrorKind> {
+    // No separate scalar 1-byte fast path (unlike the C++ reader): the loop's first iteration peels to
+    // exactly that (asm-confirmed -- load, mask, continuation-bit test, return with one byte consumed),
+    // so the common single-byte value compiles to the same branchless load C++ hand-writes.
     let mut result: u64 = 0;
     let mut shift: u32 = 0;
     for (i, &byte) in rest.iter().take(10).enumerate() {
@@ -804,6 +814,20 @@ mod tests {
             read_tag_or_end(&[0x0f], &mut t).unwrap_err(),
             ErrorKind::InvalidTag
         );
+    }
+
+    #[test]
+    fn fused_2byte_and_general_paths_agree_for_a_mid_range_field() {
+        // Field 18 varint, canonical 2-byte tag (0x90 0x01) goes through the fused 2-byte path; a
+        // NON-canonical 3-byte encoding of the same tag (0x90 0x81 0x00) fails the 2-byte guard
+        // (second byte 0x81 has the continuation bit) and goes through the general path. Both must
+        // decode to the identical tag -- the fast and general paths cannot disagree for 16..=2047.
+        let mut fused = tag(0, WireType::Varint);
+        let mut general = tag(0, WireType::Varint);
+        assert!(read_tag(&[0x90, 0x01], &mut fused).unwrap().is_empty());
+        assert!(read_tag(&[0x90, 0x81, 0x00], &mut general).unwrap().is_empty());
+        assert_eq!(fused, general);
+        assert_eq!(fused, tag(18, WireType::Varint));
     }
 
     #[test]
