@@ -12,6 +12,25 @@ enum Shade {
   SHADE_TWO = 2;
 }
 
+message Nested {
+  int32 x = 1;
+  string label = 2;
+}
+
+message Aggregate {
+  Nested one = 1; // singular message (pointer, recursion)
+  repeated Nested many = 2; // repeated message (inline, by value)
+  repeated int32 nums = 3; // repeated scalar (packed or unpacked)
+  repeated string tags = 4; // repeated string
+  repeated Shade shades = 5; // repeated enum (packed or unpacked)
+}
+
+// Self-referential: exercises the decode recursion and its depth cap.
+message Tree {
+  int32 v = 1;
+  Tree child = 2;
+}
+
 message Scalars {
   int32 a_i32 = 1;
   int64 a_i64 = 2;
