@@ -41,6 +41,53 @@ pub mod arena {
       pub fn x(&self) -> i32 {
         self.x
       }
+    }
+
+    pub struct arena<'a> {
+      x: i32,
+      _marker: ::core::marker::PhantomData<&'a ()>,
+    }
+
+    impl<'a> arena<'a> {
+      pub fn x(&self) -> i32 {
+        self.x
+      }
+    }
+
+    pub struct common<'a> {
+      x: i32,
+      _marker: ::core::marker::PhantomData<&'a ()>,
+    }
+
+    impl<'a> common<'a> {
+      pub fn x(&self) -> i32 {
+        self.x
+      }
+    }
+
+    pub struct Holder<'a> {
+      s: Option<&'a stream<'a>>,
+      a: Option<&'a arena<'a>>,
+      c: Option<&'a common<'a>>,
+      r: super::super::common::rn::rp,
+    }
+
+    impl<'a> Holder<'a> {
+      pub fn s(&self) -> Option<&'a stream<'a>> {
+        self.s
+      }
+      pub fn a(&self) -> Option<&'a arena<'a>> {
+        self.a
+      }
+      pub fn c(&self) -> Option<&'a common<'a>> {
+        self.c
+      }
+      pub fn r(&self) -> super::super::common::rn::rp {
+        self.r
+      }
+    }
+
+    impl<'a> stream<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a stream<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
@@ -90,15 +137,7 @@ pub mod arena {
       }
     }
 
-    pub struct arena<'a> {
-      x: i32,
-      _marker: ::core::marker::PhantomData<&'a ()>,
-    }
-
     impl<'a> arena<'a> {
-      pub fn x(&self) -> i32 {
-        self.x
-      }
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a arena<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
@@ -148,15 +187,7 @@ pub mod arena {
       }
     }
 
-    pub struct common<'a> {
-      x: i32,
-      _marker: ::core::marker::PhantomData<&'a ()>,
-    }
-
     impl<'a> common<'a> {
-      pub fn x(&self) -> i32 {
-        self.x
-      }
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a common<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
@@ -206,26 +237,7 @@ pub mod arena {
       }
     }
 
-    pub struct Holder<'a> {
-      s: Option<&'a stream<'a>>,
-      a: Option<&'a arena<'a>>,
-      c: Option<&'a common<'a>>,
-      r: super::super::common::rn::rp,
-    }
-
     impl<'a> Holder<'a> {
-      pub fn s(&self) -> Option<&'a stream<'a>> {
-        self.s
-      }
-      pub fn a(&self) -> Option<&'a arena<'a>> {
-        self.a
-      }
-      pub fn c(&self) -> Option<&'a common<'a>> {
-        self.c
-      }
-      pub fn r(&self) -> super::super::common::rn::rp {
-        self.r
-      }
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Holder<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));

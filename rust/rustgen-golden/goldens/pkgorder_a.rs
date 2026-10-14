@@ -21,6 +21,20 @@ pub mod arena {
       pub fn v(&self) -> i32 {
         self.v
       }
+    }
+
+    pub struct linux__<'a> {
+      v: i32,
+      _marker: ::core::marker::PhantomData<&'a ()>,
+    }
+
+    impl<'a> linux__<'a> {
+      pub fn v(&self) -> i32 {
+        self.v
+      }
+    }
+
+    impl<'a> linux_<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a linux_<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
@@ -70,15 +84,7 @@ pub mod arena {
       }
     }
 
-    pub struct linux__<'a> {
-      v: i32,
-      _marker: ::core::marker::PhantomData<&'a ()>,
-    }
-
     impl<'a> linux__<'a> {
-      pub fn v(&self) -> i32 {
-        self.v
-      }
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a linux__<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
@@ -138,6 +144,9 @@ pub mod arena {
         pub fn v(&self) -> i32 {
           self.v
         }
+      }
+
+      impl<'a> Sub<'a> {
         pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Sub<'a>, ::rapidproto::DecodeError> {
           if input.len() > u32::MAX as usize {
             return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));

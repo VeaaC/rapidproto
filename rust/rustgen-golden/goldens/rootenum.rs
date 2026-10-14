@@ -99,6 +99,9 @@ pub mod arena {
       pub fn c(&self) -> super::super::common::re::common {
         self.c
       }
+    }
+
+    impl<'a> Holder<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Holder<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));

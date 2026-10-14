@@ -24,6 +24,9 @@ pub mod arena {
       pub fn many(&self) -> &'a [i64] {
         self.many
       }
+    }
+
+    impl<'a> Types<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Types<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));

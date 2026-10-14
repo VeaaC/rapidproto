@@ -66,6 +66,40 @@ pub mod arena {
       pub fn x(&self) -> i32 {
         self.x
       }
+    }
+
+    pub struct Arena<'a> {
+      y: i32,
+      _marker: ::core::marker::PhantomData<&'a ()>,
+    }
+
+    impl<'a> Arena<'a> {
+      pub fn y(&self) -> i32 {
+        self.y
+      }
+    }
+
+    pub struct Tag<'a> {
+      s: ::rapidproto::ProtoStr<'a>,
+    }
+
+    impl<'a> Tag<'a> {
+      pub fn s(&self) -> ::rapidproto::ProtoStr<'a> {
+        self.s
+      }
+    }
+
+    pub struct ByteView<'a> {
+      b: &'a [u8],
+    }
+
+    impl<'a> ByteView<'a> {
+      pub fn b(&self) -> &'a [u8] {
+        self.b
+      }
+    }
+
+    impl<'a> wire<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a wire<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
@@ -115,15 +149,7 @@ pub mod arena {
       }
     }
 
-    pub struct Arena<'a> {
-      y: i32,
-      _marker: ::core::marker::PhantomData<&'a ()>,
-    }
-
     impl<'a> Arena<'a> {
-      pub fn y(&self) -> i32 {
-        self.y
-      }
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Arena<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
@@ -173,14 +199,7 @@ pub mod arena {
       }
     }
 
-    pub struct Tag<'a> {
-      s: ::rapidproto::ProtoStr<'a>,
-    }
-
     impl<'a> Tag<'a> {
-      pub fn s(&self) -> ::rapidproto::ProtoStr<'a> {
-        self.s
-      }
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Tag<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
@@ -229,14 +248,7 @@ pub mod arena {
       }
     }
 
-    pub struct ByteView<'a> {
-      b: &'a [u8],
-    }
-
     impl<'a> ByteView<'a> {
-      pub fn b(&self) -> &'a [u8] {
-        self.b
-      }
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a ByteView<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));

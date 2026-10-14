@@ -54,6 +54,9 @@ pub mod arena {
       pub fn de(&self) -> Option<super::super::common::dep::DepEnum> {
         self.de
       }
+    }
+
+    impl<'a> Dep<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Dep<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
@@ -124,6 +127,9 @@ pub mod arena {
       pub fn z(&self) -> Option<i32> {
         self.z
       }
+    }
+
+    impl<'a> Fwd<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Fwd<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
@@ -207,6 +213,16 @@ pub mod arena {
       pub fn choice(&self) -> Option<&main::Choice<'a>> {
         self.choice.as_ref()
       }
+    }
+
+    pub mod main {
+      pub enum Choice<'a> {
+        Od(&'a super::super::dep::Dep<'a>),
+        Oi(i32),
+      }
+    }
+
+    impl<'a> Main<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Main<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
@@ -395,13 +411,6 @@ pub mod arena {
         })
       }
     }
-
-    pub mod main {
-      pub enum Choice<'a> {
-        Od(&'a super::super::dep::Dep<'a>),
-        Oi(i32),
-      }
-    }
   }
 
   pub mod r#pub {
@@ -414,6 +423,9 @@ pub mod arena {
       pub fn w(&self) -> Option<i32> {
         self.w
       }
+    }
+
+    impl<'a> Pub<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Pub<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));

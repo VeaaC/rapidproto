@@ -17,6 +17,23 @@ pub mod arena {
       pub fn value(&self) -> bool {
         self.value
       }
+    }
+
+    pub struct Holder<'a> {
+      flag: Option<&'a Flag<'a>>,
+      n: i32,
+    }
+
+    impl<'a> Holder<'a> {
+      pub fn flag(&self) -> Option<&'a Flag<'a>> {
+        self.flag
+      }
+      pub fn n(&self) -> i32 {
+        self.n
+      }
+    }
+
+    impl<'a> Flag<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Flag<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
@@ -66,18 +83,7 @@ pub mod arena {
       }
     }
 
-    pub struct Holder<'a> {
-      flag: Option<&'a Flag<'a>>,
-      n: i32,
-    }
-
     impl<'a> Holder<'a> {
-      pub fn flag(&self) -> Option<&'a Flag<'a>> {
-        self.flag
-      }
-      pub fn n(&self) -> i32 {
-        self.n
-      }
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Holder<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));

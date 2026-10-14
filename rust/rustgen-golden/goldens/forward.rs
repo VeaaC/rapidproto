@@ -19,6 +19,9 @@ pub mod arena {
       pub fn z(&self) -> Option<i32> {
         self.z
       }
+    }
+
+    impl<'a> Fwd<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Fwd<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
@@ -79,6 +82,9 @@ pub mod arena {
       pub fn w(&self) -> Option<i32> {
         self.w
       }
+    }
+
+    impl<'a> Pub<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Pub<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));

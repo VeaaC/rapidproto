@@ -27,6 +27,24 @@ pub mod arena {
         pub fn nanos(&self) -> i32 {
           self.nanos
         }
+      }
+
+      pub struct Duration<'a> {
+        seconds: i64,
+        nanos: i32,
+        _marker: ::core::marker::PhantomData<&'a ()>,
+      }
+
+      impl<'a> Duration<'a> {
+        pub fn seconds(&self) -> i64 {
+          self.seconds
+        }
+        pub fn nanos(&self) -> i32 {
+          self.nanos
+        }
+      }
+
+      impl<'a> Timestamp<'a> {
         pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Timestamp<'a>, ::rapidproto::DecodeError> {
           if input.len() > u32::MAX as usize {
             return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
@@ -86,19 +104,7 @@ pub mod arena {
         }
       }
 
-      pub struct Duration<'a> {
-        seconds: i64,
-        nanos: i32,
-        _marker: ::core::marker::PhantomData<&'a ()>,
-      }
-
       impl<'a> Duration<'a> {
-        pub fn seconds(&self) -> i64 {
-          self.seconds
-        }
-        pub fn nanos(&self) -> i32 {
-          self.nanos
-        }
         pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Duration<'a>, ::rapidproto::DecodeError> {
           if input.len() > u32::MAX as usize {
             return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
@@ -173,6 +179,9 @@ pub mod arena {
       pub fn took(&self) -> Option<&'a super::google::protobuf::Duration<'a>> {
         self.took
       }
+    }
+
+    impl<'a> Event<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Event<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
