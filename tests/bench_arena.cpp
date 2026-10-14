@@ -125,34 +125,23 @@ std::string make_dataset(int people) {
     return out;
 }
 
-// Read a whole file into a string. Used for RAPIDPROTO_BENCH_DATASET -- a shared, protoc-canonical
-// payload that BOTH this bench and the Rust decode bench load, so their throughput compares over
-// byte-identical input. Fatal on a missing OR empty file (a 0-byte file would otherwise decode as an
-// empty Dataset and silently "measure" nothing rather than erroring).
-std::string read_file(const char* path) {
+// Read a whole file into a string, fatal on a missing OR empty file (a 0-byte file would otherwise
+// decode as an empty message and silently "measure" nothing rather than erroring). Used to load the
+// shared scenario payloads -- see make_scenario / load_scenario below the builders.
+std::string read_file(const std::string& path) {
     const std::ifstream in(path, std::ios::binary);
     if (!in) {
-        std::fprintf(stderr, "bench: cannot read RAPIDPROTO_BENCH_DATASET '%s'\n", path);
+        std::fprintf(stderr, "bench: cannot read '%s'\n", path.c_str());
         std::exit(1);
     }
     std::ostringstream ss;
     ss << in.rdbuf();
     std::string bytes = ss.str();
     if (bytes.empty()) {
-        std::fprintf(stderr, "bench: RAPIDPROTO_BENCH_DATASET '%s' is empty\n", path);
+        std::fprintf(stderr, "bench: '%s' is empty\n", path.c_str());
         std::exit(1);
     }
     return bytes;
-}
-
-// The main Dataset payload: the shared `.bin` (RAPIDPROTO_BENCH_DATASET) when set -- so C++ and Rust
-// decode the SAME bytes -- else `make_dataset()` in-process for a standalone C++ run. The bytes are
-// identical either way (the shared file is produced by make_dataset via RAPIDPROTO_BENCH_DUMP_DATASET).
-std::string load_dataset(int people) {
-    if (const char* const path = std::getenv("RAPIDPROTO_BENCH_DATASET")) {
-        return read_file(path);
-    }
-    return make_dataset(people);
 }
 
 // Many small arrays: each record carries six short repeated fields -> a flood of tiny allocations.
@@ -311,6 +300,55 @@ std::string make_records(int count) {
     std::string out;
     rs.SerializeToString(&out);
     return out;
+}
+
+// ── shared scenario payloads ───────────────────────────────────────────────────────────────────────
+// Every benched shape, keyed by the file stem both this bench and the Rust decode bench use under
+// RAPIDPROTO_BENCH_DIR. The make_* params here are the single source of truth: the dump
+// (RAPIDPROTO_BENCH_DUMP_DIR) writes make_scenario() for each name, and load_scenario() reads that same
+// file back, so both benches decode byte-identical, protoc-canonical input. Rust cannot produce these
+// bytes itself (it is decode-only), which is why the canonical payload is generated here and shared as
+// a file rather than built independently on each side.
+constexpr std::string_view kScenarios[] = {"dataset", "big_varint", "big_fixed", "big_osm",
+                                           "big",     "wide",       "records",   "particles"};
+
+std::string make_scenario(std::string_view name) {
+    if (name == "dataset") {
+        return make_dataset(kPeople);
+    }
+    if (name == "big_varint") {
+        return make_big_varint(200, 1000);
+    }
+    if (name == "big_fixed") {
+        return make_big_fixed(200, 1000);
+    }
+    if (name == "big_osm") {
+        return make_big_osm(200, 1000);
+    }
+    if (name == "big") {
+        return make_big(30, 10000);
+    }
+    if (name == "wide") {
+        return make_wide(50000);
+    }
+    if (name == "records") {
+        return make_records(20000);
+    }
+    if (name == "particles") {
+        return make_particles(50000);
+    }
+    std::fprintf(stderr, "bench: unknown scenario '%.*s'\n", static_cast<int>(name.size()),
+                 name.data());
+    std::exit(1);
+}
+
+// The payload for `name`: the shared file under RAPIDPROTO_BENCH_DIR when set (both benches then decode
+// the SAME bytes), else built in-process for a standalone C++ run.
+std::string load_scenario(std::string_view name) {
+    if (const char* const dir = std::getenv("RAPIDPROTO_BENCH_DIR")) {
+        return read_file(std::string(dir) + "/" + std::string(name) + ".bin");
+    }
+    return make_scenario(name);
 }
 
 // ── checksums (must agree across decoders for Dataset; guard optimize-away for the sweep shapes) ───
@@ -677,24 +715,27 @@ int sweep_repeated_varint_types() {
 }  // namespace
 
 int main() {
-    // Generator mode: write the canonical dataset bytes (protoc's SerializeToString of make_dataset)
-    // to the given path and exit, WITHOUT benching. This is the single source of the shared payload --
-    // run it once, then point both this bench and the Rust decode bench at the file via
-    // RAPIDPROTO_BENCH_DATASET so they decode byte-identical input. (No new tool: reuses make_dataset
-    // and this bench's libprotobuf link.)
-    if (const char* const dump = std::getenv("RAPIDPROTO_BENCH_DUMP_DATASET")) {
-        const std::string out = make_dataset(kPeople);
-        std::ofstream file(dump, std::ios::binary);
-        if (!file || !file.write(out.data(), static_cast<std::streamsize>(out.size()))) {
-            std::fprintf(stderr, "bench: cannot write RAPIDPROTO_BENCH_DUMP_DATASET '%s'\n", dump);
-            return 1;
+    // Generator mode: write every scenario's canonical bytes (protoc's SerializeToString of each
+    // make_*) into the given directory as <name>.bin and exit, WITHOUT benching. This is the single
+    // source of the shared payloads -- run it once, then point both this bench and the Rust decode
+    // bench at the directory via RAPIDPROTO_BENCH_DIR so they decode byte-identical input. (No new
+    // tool: reuses the make_* builders and this bench's libprotobuf link.)
+    if (const char* const dir = std::getenv("RAPIDPROTO_BENCH_DUMP_DIR")) {
+        for (const std::string_view name : kScenarios) {
+            const std::string out = make_scenario(name);
+            const std::string path = std::string(dir) + "/" + std::string(name) + ".bin";
+            std::ofstream file(path, std::ios::binary);
+            if (!file || !file.write(out.data(), static_cast<std::streamsize>(out.size()))) {
+                std::fprintf(stderr, "bench: cannot write '%s'\n", path.c_str());
+                return 1;
+            }
         }
         return 0;
     }
 
     // The baseline's version is half a headline ratio's meaning; report it so a number is never
     // separated from the libprotobuf it was measured against. (The macro encodes MMmmmppp.)
-    const std::string buf = load_dataset(kPeople);
+    const std::string buf = load_scenario("dataset");
     const rapidproto::ByteView view(buf);
     if (rpbench::json_mode()) {
         std::printf(
@@ -868,12 +909,12 @@ int main() {
         };
         return rpbench::run(name, static_cast<double>(b.size()), a);
     };
-    bad += bench_bigset("packed int64(varint)", make_big_varint(200, 1000));    // 200k varint elems
-    bad += bench_bigset("packed double(fixed)", make_big_fixed(200, 1000));     // 200k fixed elems
-    bad += bench_bigset("osm: sint64 deltas + enum", make_big_osm(200, 1000));  // packed witness
-    bad += bench_bigset("few msgs, big arrays", make_big(30, 10000));  // 30 msgs x 20k elements
+    bad += bench_bigset("packed int64(varint)", load_scenario("big_varint"));  // 200k varint elems
+    bad += bench_bigset("packed double(fixed)", load_scenario("big_fixed"));   // 200k fixed elems
+    bad += bench_bigset("osm: sint64 deltas + enum", load_scenario("big_osm"));  // packed witness
+    bad += bench_bigset("few msgs, big arrays", load_scenario("big"));  // 30 msgs x 20k elements
     {
-        const std::string wbuf = make_wide(50000);  // 50k msgs x tiny arrays -- same ~600k elements
+        const std::string wbuf = load_scenario("wide");  // 50k msgs x tiny arrays -- ~600k elements
         rapidproto::ByteView v(wbuf);
         rapidproto::Arena w;
         std::vector<rpbench::Arm> a = {
@@ -890,7 +931,7 @@ int main() {
         // Scalar-heavy records (no strings/packed/maps): decode time is dominated by per-field tag
         // dispatch, so this is the shape that isolates dispatch-shape wins (unlike the string/array-bound
         // shapes above). 20k records x ~34 bytes.
-        const std::string rbuf = make_records(20000);
+        const std::string rbuf = load_scenario("records");
         // The streaming bench decodes the SAME scenario from bench_records.hpp's hand-built
         // wire. The two are NOT byte-identical -- proto3's serializer omits zero-valued implicit
         // fields the hand-builder writes explicitly (adding this check exposed that the old
