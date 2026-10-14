@@ -16,6 +16,7 @@
 #include <catch_amalgamated.hpp>
 
 #include "parse_helpers.hpp"
+#include "rapidproto/arenagen/modes.hpp"  // FieldModesSpec / FieldMode / resolve_field_modes
 #include "rapidproto/ast.hpp"
 #include "rapidproto/cli/driver.hpp"  // resolve_and_analyze, to emit a schema's whole import closure
 #include "rapidproto/resolve.hpp"
@@ -49,6 +50,21 @@ std::string gen(std::string src) {
 std::string gen_arena(std::string src) {
     const FileNode file = analyzed(std::move(src));
     return rustgen::generate_arena({&file});
+}
+
+// Generate the arena tree under a resolved field-modes profile. Keeps the ResolvedFileSet alive so the
+// FieldNode pointers the resolver keys by are the same ones the emitter walks.
+std::string gen_arena_modes(std::string src, const arenagen::FieldModesSpec& spec) {
+    ResolvedFileSet set;
+    set.file_index["t.proto"] = set.files.size();
+    FileNode file = test::parse_file_ok(std::move(src));
+    file.filename = "t.proto";
+    set.files.push_back(std::move(file));
+    auto symbols = analyze(set);
+    REQUIRE(symbols.is_ok());
+    auto modes = arenagen::resolve_field_modes(spec, set, symbols.value());
+    REQUIRE(modes.is_ok());
+    return rustgen::generate_arena({&set.files.back()}, modes.value());
 }
 
 bool has(const std::string& haystack, std::string_view needle) {
@@ -136,6 +152,39 @@ std::string gen_corpus(std::string_view rel) {
         files.push_back(&file);
     }
     return rustgen::generate_file(files);
+}
+
+// Generate a corpus schema under a resolved field-modes profile (drop/raw/unknown), as the CLI's
+// `--rust --drop=... --raw=... --unknown=...` does. Modes are a generation option over the SAME global
+// schema, so this reuses the corpus rather than a modes-specific proto.
+std::string gen_corpus_modes(std::string_view rel, const arenagen::FieldModesSpec& spec) {
+    const std::string path = std::string(RAPIDPROTO_CORPUS_DIR) + "/" + std::string(rel);
+    cli::Options opts;
+    opts.config.include_paths = {std::filesystem::path(path).parent_path().string()};
+    const auto resolved = cli::resolve_and_analyze({path}, opts.config);
+    REQUIRE(resolved.has_value());
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access): guarded by the REQUIRE above
+    const auto& analyzed_set = resolved.value();
+    const ResolvedFileSet& set = analyzed_set.first;
+    auto modes = arenagen::resolve_field_modes(spec, set, analyzed_set.second);
+    REQUIRE(modes.is_ok());
+    std::vector<const FileNode*> files;
+    files.reserve(set.files.size());
+    for (const FileNode& file : set.files) {
+        files.push_back(&file);
+    }
+    return rustgen::generate_file(files, modes.value());
+}
+
+// The field-modes golden: proto3 under a drop/raw/unknown profile, compiled by the golden crate and
+// decode-tested (tests/decode.rs). One place so the stem + profile are shared by the test and regen.
+constexpr std::string_view kModesGoldenStem = "proto3_modes";
+arenagen::FieldModesSpec modes_golden_spec() {
+    arenagen::FieldModesSpec spec;
+    spec.entries.push_back({arenagen::FieldMode::Drop, "p3.Msg.name", "golden-modes"});
+    spec.entries.push_back({arenagen::FieldMode::Raw, "p3.Msg.self", "golden-modes"});
+    spec.unknowns.push_back({"p3.Msg", "golden-modes"});
+    return spec;
 }
 
 // Analyze several in-memory schemas as ONE set and emit them together, for cross-package edge cases
@@ -606,6 +655,59 @@ TEST_CASE(
     CHECK(has(out, "let mut r: i32 = 0;"));
 }
 
+TEST_CASE("rustgen modes: drop / raw / unknown-fields on a decodable message") {
+    const char* schema = R"(syntax = "proto3"; package p;
+        message Sub { int32 x = 1; }
+        message M {
+          int32 keep = 1;
+          int32 gone = 2;         // drop
+          Sub sub = 3;            // raw (singular message -> payload view)
+          repeated Sub subs = 4;  // raw (repeated message -> one payload view per element)
+        })";
+    arenagen::FieldModesSpec spec;
+    spec.entries.push_back({arenagen::FieldMode::Drop, "p.M.gone", "test"});
+    spec.entries.push_back({arenagen::FieldMode::Raw, "p.M.sub", "test"});
+    spec.entries.push_back({arenagen::FieldMode::Raw, "p.M.subs", "test"});
+    spec.unknowns.push_back({"p.M", "test"});
+    const std::string out = gen_arena_modes(schema, spec);
+
+    // drop: no storage field, no getter, and a skip arm keyed to the field number (any wire type).
+    CHECK(!has(out, "pub fn gone(&self)"));
+    CHECK(!has(out, "gone:"));
+    CHECK(has(out, "(2u32, _) => {"));
+    CHECK(has(out, "keep: i32,"));  // the untouched field is unaffected
+    // raw: the payload bytes, not a decoded Sub -- borrowed-slice storage + getter, no decode_into.
+    CHECK(has(out, "sub: Option<&'a [u8]>,"));
+    CHECK(has(out, "subs: &'a [&'a [u8]],"));
+    CHECK(has(out, "pub fn sub(&self) -> Option<&'a [u8]> {"));
+    CHECK(has(out, "pub fn subs(&self) -> &'a [&'a [u8]] {"));
+    CHECK(has(out, "sub = Some(rp_p);"));  // singular raw stores the payload directly
+    CHECK(!has(out, "Sub::decode_into"));  // a raw field is NOT recursed into
+    // unknown-fields: the accessor, its storage bit, and the catch-all that sets it.
+    CHECK(has(out, "pub fn has_unknown_fields(&self) -> bool {"));
+    CHECK(has(out, "rp_unknown: bool,"));
+    CHECK(has(out, "rp_unknown = true;"));
+    // A kept field in an unknown-tracked message gets a trailing `(n, _)` skip, so a wrong-wire known
+    // field is skipped as known (not counted unknown) -- here field 1 (keep).
+    CHECK(has(out, "(1u32, _) => {"));
+    // The banner is added by generate_file (not generate_arena); the arena body carries no profile id.
+    CHECK(!has(out, "todo!()"));  // M + Sub both decodable -> real decoders
+}
+
+TEST_CASE("rustgen modes: raw rescues a group-bearing reference from skeleton") {
+    // A message whose only blocker is referencing a group-bearing (skeleton) message becomes decodable
+    // when that field is `raw`: the payload is stored undecoded, so the referent's decodability is moot.
+    const char* schema = R"(syntax = "proto2"; package p;
+        message HasGroup { optional group G = 1 { optional int32 a = 2; } }
+        message Wrap { optional HasGroup hg = 1; })";
+    arenagen::FieldModesSpec spec;
+    spec.entries.push_back({arenagen::FieldMode::Raw, "p.Wrap.hg", "test"});
+    const std::string out = gen_arena_modes(schema, spec);
+    // Wrap now decodes (hg kept raw); HasGroup stays a skeleton (its group field).
+    CHECK(has(out, "pub fn hg(&self) -> Option<&'a [u8]> {"));
+    CHECK(has(out, "hg = Some(rp_p);"));
+}
+
 TEST_CASE("rustgen imports: a cross-file closure merges into one tree with resolving refs") {
     // imports/main.proto (package main) imports dep.proto (package dep) and references dep.Dep. The
     // whole closure emits as ONE module tree; the cross-package reference climbs to the arena root
@@ -662,6 +764,10 @@ TEST_CASE("rustgen goldens match the corpus (compile smoke-test)", "[rustgen-gol
         check_golden(stem, gen_corpus(rel));
         stems.push_back(stem);
     }
+    // A field-modes variant golden alongside the plain corpus goldens (see kModesGoldenStem).
+    check_golden(std::string(kModesGoldenStem),
+                 gen_corpus_modes("proto3.proto", modes_golden_spec()));
+    stems.emplace_back(kModesGoldenStem);
     // Golden file names (and lib.rs module names) are the bare stems, so they must be distinct across
     // subdirs -- otherwise two schemas (e.g. nsedge/foo + imports/foo) would silently share one
     // golden and one module. Pin that invariant rather than trust the hand-kept list.

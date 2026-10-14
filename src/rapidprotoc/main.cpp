@@ -49,13 +49,14 @@ int main(int argc, char** argv) {
         "  --rust=<file>            emit a native Rust decoder: one <file> for the whole import"
         " closure\n"
         "                           (needs the rapidproto crate)\n"
-        "  --unknown-present        arena: reserve the \"unknown fields present\" bit on every"
+        "  --unknown-present        arena/rust: reserve the \"unknown fields present\" bit on every"
         " message\n"
-        "  --unknown=<msg>          arena: reserve that bit on one message (repeatable)\n"
-        "  --field-modes=<file>     arena: a decode profile"
+        "  --unknown=<msg>          arena/rust: reserve that bit on one message (repeatable)\n"
+        "  --field-modes=<file>     arena/rust: a decode profile"
         " (`name|drop|raw|unknown-fields <name>` lines; repeatable)\n"
-        "  --drop=<name>            arena: drop a field or type (no storage, no accessor)\n"
-        "  --raw=<name>             arena: keep a message field's or type's payloads for deferred"
+        "  --drop=<name>            arena/rust: drop a field or type (no storage, no accessor)\n"
+        "  --raw=<name>             arena/rust: keep a message field's or type's payloads for "
+        "deferred"
         " decodes\n"
         "  --namespace-prefix <ns>  root namespace for generated code (dot-separated; "
         "default: rp; cannot be empty)\n"
@@ -138,9 +139,9 @@ int main(int argc, char** argv) {
     }
     const bool modes_requested = !modes_files.empty() || !modes_spec.entries.empty() ||
                                  !modes_spec.unknowns.empty() || modes_spec.unknown_all;
-    if (modes_requested && !arena) {
+    if (modes_requested && !arena && !rust) {
         std::cerr << "error: field modes (--field-modes/--drop/--raw/--unknown[-present]) apply to"
-                     " the arena decoder; add --arena\n";
+                     " the arena or rust decoder; add --arena or --rust\n";
         return 2;
     }
     for (const std::string& file : modes_files) {
@@ -272,17 +273,18 @@ int main(int argc, char** argv) {
             rapidproto::codegen::effective_ns_prefix(opts->namespace_prefix),
             std::string(rapidproto::codegen::kStreamRoot));
     }
-    std::optional<rapidproto::arenagen::LayoutSet> layouts;
+    // One resolved profile drives both the arena and the Rust generators (whichever is requested).
     rapidproto::arenagen::FieldModes modes;  // inactive unless a selection resolved
-    if (arena) {
-        if (modes_requested) {
-            auto resolved = rapidproto::arenagen::resolve_field_modes(modes_spec, set, symbols);
-            if (resolved.is_err()) {
-                std::cerr << "error: " << resolved.error().message << '\n';
-                return 1;
-            }
-            modes = std::move(resolved).value();
+    if (modes_requested) {
+        auto resolved = rapidproto::arenagen::resolve_field_modes(modes_spec, set, symbols);
+        if (resolved.is_err()) {
+            std::cerr << "error: " << resolved.error().message << '\n';
+            return 1;
         }
+        modes = std::move(resolved).value();
+    }
+    std::optional<rapidproto::arenagen::LayoutSet> layouts;
+    if (arena) {
         rapidproto::arenagen::LayoutOptions options;
         options.modes = &modes;
         layouts = rapidproto::arenagen::plan_layouts(set, symbols, options);
@@ -363,7 +365,7 @@ int main(int argc, char** argv) {
                     rust_files.push_back(&f);
                 }
                 ok = rapidproto::cli::write_file(
-                         path, rapidproto::rustgen::generate_file(rust_files), opts->verbose)
+                         path, rapidproto::rustgen::generate_file(rust_files, modes), opts->verbose)
                          .has_value();
                 break;
             }

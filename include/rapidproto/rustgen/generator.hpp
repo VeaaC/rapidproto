@@ -14,9 +14,15 @@
 #include <string>
 #include <vector>
 
+#include "rapidproto/arenagen/modes.hpp"  // FieldModes: the shared drop/raw/unknown-fields resolver output
 #include "rapidproto/ast.hpp"
 
 namespace rapidproto::rustgen {
+
+// Field modes (drop / raw / unknown-fields) are a CONSUMER selection resolved by the shared
+// arenagen resolver; the Rust generator consumes the same `FieldModes`. A default-constructed
+// (inactive) value means "materialize everything" -- byte-identical to a no-modes generation.
+using arenagen::FieldModes;
 
 // Emit the `common` module body for `files`: a Rust open-enum newtype plus a classify enum for each
 // enum (top-level and nested), under `pub mod common` with one `pub mod` per package component. Enums
@@ -26,13 +32,14 @@ std::string generate_common(const std::vector<const FileNode*>& files);
 
 // Emit the `arena` module body for `files`: the arena decoder's message structs (nested messages in
 // per-message submodules, oneofs as native enums), under `pub mod arena` with one `pub mod` per
-// package component. Each `pub struct Msg<'a>` has accessor signatures for its fields; `decode` and
-// the accessor bodies are stubbed. Enum-typed fields reference the sibling `common` tree.
-std::string generate_arena(const std::vector<const FileNode*>& files);
+// package component. `modes` selects per-field drop/raw and per-message unknown-fields handling;
+// default (inactive) materializes everything. Enum-typed fields reference the sibling `common` tree.
+std::string generate_arena(const std::vector<const FileNode*>& files, const FieldModes& modes = {});
 
 // The full generated Rust source for `files`: the `common` tree followed by the `arena` tree (the two
 // are siblings, included together under one parent module). This is the single source of truth for an
-// invocation's `.rs` content -- the CLI writes it and the golden test compares against it.
-std::string generate_file(const std::vector<const FileNode*>& files);
+// invocation's `.rs` content -- the CLI writes it and the golden test compares against it. `modes` is
+// the resolved field-modes profile (default: materialize everything).
+std::string generate_file(const std::vector<const FileNode*>& files, const FieldModes& modes = {});
 
 }  // namespace rapidproto::rustgen
