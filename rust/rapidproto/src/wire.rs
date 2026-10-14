@@ -797,10 +797,16 @@ mod tests {
         // Clean end of input.
         assert_eq!(read_tag_or_end(&[], &mut t).unwrap(), None);
         // 1-byte tag: field 1, Len.
-        assert_eq!(read_tag_or_end(&[0x0a, 0x00], &mut t).unwrap(), Some(&[0x00][..]));
+        assert_eq!(
+            read_tag_or_end(&[0x0a, 0x00], &mut t).unwrap(),
+            Some(&[0x00][..])
+        );
         assert_eq!(t, tag(1, WireType::Len));
         // 2-byte fused tag: field 18 varint = 0x90 0x01 (consumes exactly 2).
-        assert_eq!(read_tag_or_end(&[0x90, 0x01], &mut t).unwrap(), Some(&[][..]));
+        assert_eq!(
+            read_tag_or_end(&[0x90, 0x01], &mut t).unwrap(),
+            Some(&[][..])
+        );
         assert_eq!(t, tag(18, WireType::Varint));
         // 3-byte tag: field 2048 (just past the fused 2-byte range) via the general path. (2048 << 3)
         // = 16384 -> 0x80 0x80 0x01, with a trailing byte.
@@ -825,7 +831,9 @@ mod tests {
         let mut fused = tag(0, WireType::Varint);
         let mut general = tag(0, WireType::Varint);
         assert!(read_tag(&[0x90, 0x01], &mut fused).unwrap().is_empty());
-        assert!(read_tag(&[0x90, 0x81, 0x00], &mut general).unwrap().is_empty());
+        assert!(read_tag(&[0x90, 0x81, 0x00], &mut general)
+            .unwrap()
+            .is_empty());
         assert_eq!(fused, general);
         assert_eq!(fused, tag(18, WireType::Varint));
     }
