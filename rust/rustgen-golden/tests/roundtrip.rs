@@ -168,3 +168,115 @@ fn malformed_tag_is_an_error() {
     assert_eq!(err.kind(), ErrorKind::InvalidTag);
     assert_eq!(err.offset(), 0);
 }
+
+type Aggregate<'a> = arena::rp::scalars::Aggregate<'a>;
+type Tree<'a> = arena::rp::scalars::Tree<'a>;
+
+#[test]
+fn singular_and_repeated_messages_and_strings() {
+    let mut nested = Vec::new();
+    put_tag(&mut nested, 1, 0);
+    put_varint(&mut nested, 7);
+    put_len(&mut nested, 2, b"n");
+
+    let mut n1 = Vec::new();
+    put_tag(&mut n1, 1, 0);
+    put_varint(&mut n1, 1);
+    let mut n2 = Vec::new();
+    put_tag(&mut n2, 1, 0);
+    put_varint(&mut n2, 2);
+
+    let mut buf = Vec::new();
+    put_len(&mut buf, 1, &nested); // one = Nested{7,"n"}
+    put_len(&mut buf, 2, &n1); // many[0]
+    put_len(&mut buf, 2, &n2); // many[1]
+    put_len(&mut buf, 4, b"a"); // tags[0]
+    put_len(&mut buf, 4, b"bb"); // tags[1]
+
+    let arena = Arena::new();
+    let a = Aggregate::decode(&buf, &arena).unwrap();
+    let one = a.one().expect("one present");
+    assert_eq!(one.x(), 7);
+    assert_eq!(one.label().as_bytes(), b"n");
+    assert_eq!(a.many().len(), 2);
+    assert_eq!(a.many()[0].x(), 1);
+    assert_eq!(a.many()[1].x(), 2);
+    assert_eq!(a.tags().len(), 2);
+    assert_eq!(a.tags()[0].as_bytes(), b"a");
+    assert_eq!(a.tags()[1].as_bytes(), b"bb");
+    // Absent repeated/message fields are empty / None.
+    assert!(a.nums().is_empty());
+}
+
+#[test]
+fn repeated_scalar_accepts_both_packed_and_unpacked() {
+    // Unpacked: field 3 (varint) repeated. Enum field 5 unpacked too.
+    let mut buf = Vec::new();
+    for v in [5u64, 6, 7] {
+        put_tag(&mut buf, 3, 0);
+        put_varint(&mut buf, v);
+    }
+    put_tag(&mut buf, 5, 0);
+    put_varint(&mut buf, 1);
+    put_tag(&mut buf, 5, 0);
+    put_varint(&mut buf, 2);
+    let arena = Arena::new();
+    let a = Aggregate::decode(&buf, &arena).unwrap();
+    assert_eq!(a.nums(), &[5, 6, 7]);
+    assert_eq!(a.shades(), &[Shade::ONE, Shade::TWO]);
+
+    // Packed: field 3 and field 5 as a single length-delimited run each.
+    let mut nums = Vec::new();
+    for v in [8u64, 9] {
+        put_varint(&mut nums, v);
+    }
+    let mut shades = Vec::new();
+    for v in [2u64, 1] {
+        put_varint(&mut shades, v);
+    }
+    let mut buf2 = Vec::new();
+    put_len(&mut buf2, 3, &nums);
+    put_len(&mut buf2, 5, &shades);
+    let arena2 = Arena::new();
+    let a2 = Aggregate::decode(&buf2, &arena2).unwrap();
+    assert_eq!(a2.nums(), &[8, 9]);
+    assert_eq!(a2.shades(), &[Shade::TWO, Shade::ONE]);
+}
+
+#[test]
+fn a_repeated_singular_message_is_rejected() {
+    let mut n = Vec::new();
+    put_tag(&mut n, 1, 0);
+    put_varint(&mut n, 1);
+    let mut buf = Vec::new();
+    put_len(&mut buf, 1, &n); // one
+    put_len(&mut buf, 1, &n); // one AGAIN -> error (matches C++, not protobuf merge)
+    let arena = Arena::new();
+    let err = match Aggregate::decode(&buf, &arena) {
+        Ok(_) => panic!("expected a decode error"),
+        Err(e) => e,
+    };
+    assert_eq!(err.kind(), ErrorKind::RepeatedSingularMessage);
+    assert_eq!(err.field_number(), Some(1));
+}
+
+#[test]
+fn nested_message_recursion_is_depth_capped() {
+    // Wrap an empty Tree in `levels` `child` (field 2) layers; the deepest decode_into runs at
+    // depth == levels, and the cap rejects at depth > MAX_DECODE_DEPTH (100).
+    fn nest(levels: u32) -> Vec<u8> {
+        let mut buf = Vec::new();
+        for _ in 0..levels {
+            let inner = core::mem::take(&mut buf);
+            put_len(&mut buf, 2, &inner);
+        }
+        buf
+    }
+    let arena = Arena::new();
+    assert!(Tree::decode(&nest(100), &arena).is_ok());
+    let err = match Tree::decode(&nest(101), &arena) {
+        Ok(_) => panic!("expected a depth error"),
+        Err(e) => e,
+    };
+    assert_eq!(err.kind(), ErrorKind::DepthLimitExceeded);
+}

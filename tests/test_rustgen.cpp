@@ -263,7 +263,10 @@ TEST_CASE("rustgen arena: message struct with scalar/string/bytes/enum accessors
     CHECK(has(out, "pub mod m {"));
     CHECK(has(out, "pub mod n {"));
     CHECK(has(out, "pub struct Rec<'a> {"));
-    CHECK(has(out, "_marker: ::core::marker::PhantomData<&'a ()>,"));
+    // Rec borrows the input (string/bytes/repeated), so the struct uses `'a` through a field and
+    // carries no PhantomData; it now holds real field storage.
+    CHECK(has(out, "name: ::rapidproto::ProtoStr<'a>,"));
+    CHECK(!has(out, "_marker"));
     CHECK(has(out, "impl<'a> Rec<'a> {"));
 
     CHECK(has(out, "pub fn key(&self) -> i64 {"));  // proto3 singular -> bare
@@ -289,6 +292,24 @@ TEST_CASE("rustgen arena: proto2 required/optional presence") {
         })");
     CHECK(has(out, "pub fn req(&self) -> i32 {"));          // required -> bare (always present)
     CHECK(has(out, "pub fn opt(&self) -> Option<i32> {"));  // optional -> explicit presence
+}
+
+TEST_CASE("rustgen arena: a message with a group field stays a decode skeleton") {
+    // A proto2 `group` field is delimited (SGROUP/EGROUP on the wire, not a length prefix), so a
+    // length-prefixed decode arm would silently drop it. Until a dedicated group slice, a group-bearing
+    // message must keep the skeleton rather than emit a wrong decoder.
+    const std::string out = gen_arena(R"(syntax = "proto2";
+        message WithGroup {
+          optional group MyGroup = 1 {
+            optional int32 a = 2;
+          }
+        })");
+    CHECK(has(out, "pub fn mygroup(&self)"));  // the group field is still exposed as an accessor
+    // The bug was WithGroup getting a real decoder whose field-1 arm is `(1u32, ..::WireType::Len)`,
+    // which never matches an SGROUP tag -> the group decodes as absent. The skeleton emits no such arm.
+    CHECK_FALSE(has(out, "(1u32, ::rapidproto::wire::WireType::Len)"));
+    // The inner group message is an ordinary length-prefixed message and still gets a real decoder.
+    CHECK(has(out, "decode_into"));
 }
 
 TEST_CASE("rustgen arena: accessor names dedup against decode and each other") {
