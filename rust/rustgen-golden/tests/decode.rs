@@ -25,6 +25,8 @@ use rustgen_golden::proto2::common::p2::Color;
 use rustgen_golden::proto3::arena::p3::msg::Pick;
 use rustgen_golden::proto3::arena::p3::Msg;
 use rustgen_golden::proto3::common::p3::State;
+// The field-modes golden: proto3's Msg generated under `drop name`, `raw self`, `unknown p3.Msg`.
+use rustgen_golden::proto3_modes::arena::p3::Msg as ModedMsg;
 
 // --- minimal protobuf wire encoders (the decoder is the system under test, not these) ---
 fn put_varint(b: &mut Vec<u8>, mut v: u64) {
@@ -511,6 +513,44 @@ fn proto2_absent_fields_are_none_defaults_not_materialized() {
     };
     assert_eq!(err.kind(), ErrorKind::MissingRequired);
     assert_eq!(err.field_number(), Some(1));
+}
+
+#[test]
+fn field_modes_drop_raw_unknown() {
+    let arena = Arena::new();
+    // A payload for the `raw` self field (field 5): a small Msg body, kept undecoded.
+    let mut inner = Vec::new();
+    put_var(&mut inner, 1, 9);
+
+    let mut buf = Vec::new();
+    put_var(&mut buf, 1, 300); // implicit_i (kept)
+    put_len(&mut buf, 3, b"x"); // name (DROPPED: skip-validated, ignored, not "unknown")
+    put_len(&mut buf, 5, &inner); // self (RAW: payload stored undecoded)
+    put_var(&mut buf, 99, 7); // a genuinely unknown field -> trips has_unknown_fields()
+
+    let m = ModedMsg::decode(&buf, &arena).unwrap();
+    assert_eq!(m.implicit_i(), 300);
+    assert_eq!(m.self_(), Some(&inner[..])); // raw: the exact payload bytes, not a decoded Msg
+    assert!(m.has_unknown_fields());
+
+    // A dropped field present on the wire is a KNOWN field, so it must not trip the unknown bit; and
+    // an absent raw field reads None.
+    let mut buf2 = Vec::new();
+    put_var(&mut buf2, 1, 1);
+    put_len(&mut buf2, 3, b"still dropped");
+    let m2 = ModedMsg::decode(&buf2, &arena).unwrap();
+    assert_eq!(m2.implicit_i(), 1);
+    assert_eq!(m2.self_(), None);
+    assert!(!m2.has_unknown_fields());
+
+    // A KNOWN field number arriving with the WRONG wire type is skipped as known (not "unknown") --
+    // so it must NOT trip has_unknown_fields() (matching C++, which flags only unrecognized numbers).
+    let mut buf3 = Vec::new();
+    put_var(&mut buf3, 1, 5); // implicit_i (correct wire)
+    put_len(&mut buf3, 1, b"wrong wire for field 1"); // field 1 as LEN -> skipped as known
+    let m3 = ModedMsg::decode(&buf3, &arena).unwrap();
+    assert_eq!(m3.implicit_i(), 5);
+    assert!(!m3.has_unknown_fields());
 }
 
 #[test]

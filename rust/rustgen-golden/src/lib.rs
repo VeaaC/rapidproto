@@ -188,3 +188,7 @@ pub mod usewkt {
 pub mod xref {
     include!("../goldens/xref.rs");
 }
+
+pub mod proto3_modes {
+    include!("../goldens/proto3_modes.rs");
+}

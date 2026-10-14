@@ -14,6 +14,7 @@
 #include <utility>
 #include <vector>
 
+#include "rapidproto/arenagen/modes.hpp"  // FieldMode / FieldModes (the shared field-modes resolver)
 #include "rapidproto/ast.hpp"
 #include "rapidproto/codegen/emit.hpp"    // holds_enum
 #include "rapidproto/codegen/naming.hpp"  // dedup_suffix
@@ -471,7 +472,8 @@ struct AccessorNames {
 AccessorNames message_accessor_names(const MessageNode& msg,
                                      const std::unordered_set<std::string>& extra_reserved) {
     std::unordered_set<std::string> taken = extra_reserved;
-    taken.insert("decode");  // the generated decode() method lives in the same impl
+    taken.insert("decode");              // the generated decode() method lives in the same impl
+    taken.insert("has_unknown_fields");  // the field-modes unknown-fields accessor (when enabled)
     AccessorNames names;
     const auto assign = [&taken](const std::string& raw) {
         return codegen::dedup_suffix(taken, escape_rust_ident(raw));
@@ -505,13 +507,33 @@ void collect_messages(const std::vector<const MessageNode*>& msgs,
     }
 }
 
+// The resolved field mode for a field / map field (Materialize when the profile is silent on it).
+arenagen::FieldMode field_mode(const FieldModes& modes, const FieldNode& field) {
+    const auto it = modes.fields.find(&field);
+    return it == modes.fields.end() ? arenagen::FieldMode::Materialize : it->second;
+}
+arenagen::FieldMode map_mode(const FieldModes& modes, const MapFieldNode& map) {
+    const auto it = modes.maps.find(&map);
+    return it == modes.maps.end() ? arenagen::FieldMode::Materialize : it->second;
+}
+
 // Whether a message is a decode candidate on its OWN shape (ignoring what it references): no delimited
-// (group) message field -- in a regular field OR a oneof member. (Groups are a later slice; maps,
-// oneofs, proto2 `required` and proto2 custom defaults are handled here.) A delimited message field
-// arrives as SGROUP/EGROUP (wire type 3/4), not a length prefix, so a length-prefixed decode arm would
-// silently drop it -- it must keep the skeleton until a group slice.
-bool self_decodable(const MessageNode& msg) {
-    const auto field_ok = [](const FieldNode& field) {
+// (group) message field it must MATERIALIZE -- in a regular field or a oneof member. A group arrives as
+// SGROUP/EGROUP (wire type 3/4), not a length prefix, so a length-prefixed decode arm would silently
+// drop it -- it stays a skeleton until a group slice. A `drop` field is skip-validated (never blocks,
+// and can even make a group-bearing message decodable); a `raw` field stores its payload bytes without
+// decoding (never blocks) -- except a `raw` GROUP field, which would need group-span capture (deferred)
+// and so still blocks. (Maps, oneofs, proto2 `required` and proto2 custom defaults are handled.)
+bool self_decodable(const MessageNode& msg, const FieldModes& modes) {
+    const auto field_ok = [&](const FieldNode& field) {
+        switch (field_mode(modes, field)) {
+            case arenagen::FieldMode::Drop:
+                return true;
+            case arenagen::FieldMode::Raw:
+                return field.message_encoding != MessageEncoding::Delimited;
+            case arenagen::FieldMode::Materialize:
+                break;
+        }
         return !field.is_message_type || field.message_encoding != MessageEncoding::Delimited;
     };
     if (!std::all_of(msg.fields.begin(), msg.fields.end(), field_ok)) {
@@ -527,34 +549,36 @@ bool self_decodable(const MessageNode& msg) {
 // `decode_into` would call one that was never emitted. A fixpoint propagates non-decodability up the
 // reference graph; a cycle of otherwise-decodable messages stays decodable (the runtime depth cap
 // bounds the recursion). Messages not in the set keep the skeleton (todo!()) for a later slice.
-std::unordered_set<std::string> compute_decodable(const std::vector<const FileNode*>& files) {
+std::unordered_set<std::string> compute_decodable(const std::vector<const FileNode*>& files,
+                                                  const FieldModes& modes) {
     std::unordered_map<std::string, const MessageNode*> all;
     for (const FileNode* file : files) {
         collect_messages(addrs(file->messages), all);
     }
     std::unordered_set<std::string> decodable;
     for (const auto& [fqn, msg] : all) {
-        if (self_decodable(*msg)) {
+        if (self_decodable(*msg, modes)) {
             decodable.insert(fqn);
         }
     }
     // A message references a skeleton (non-decodable) message -- via a regular field, a oneof member,
     // or a map value -- if so it cannot itself be decoded (its decode_into would call a worker that was
-    // never emitted), so it drops out of the set. All three member collections are scanned: a message
-    // that decodes a `map<_, Skeleton>` or `oneof { Skeleton }` is as blocked as one with a plain
-    // skeleton field.
-    const auto is_skeleton_msg = [&](bool is_message, const std::string& fqn) {
-        return is_message && decodable.count(fqn) == 0;
+    // never emitted), so it drops out of the set. All three member collections are scanned. A `raw` or
+    // `drop` message field is NOT a reference (it is stored as bytes / skipped, never recursed into), so
+    // it does not pull its type's decodability in -- `raw` can thus rescue a message that only referenced
+    // a skeleton.
+    const auto field_refs_skeleton = [&](const FieldNode& field) {
+        return field.is_message_type &&
+               field_mode(modes, field) == arenagen::FieldMode::Materialize &&
+               decodable.count(field.resolved_type_fqn) == 0;
     };
     const auto refs_skeleton = [&](const MessageNode& msg) {
-        const auto field_refs_skeleton = [&](const FieldNode& field) {
-            return is_skeleton_msg(field.is_message_type, field.resolved_type_fqn);
-        };
         if (std::any_of(msg.fields.begin(), msg.fields.end(), field_refs_skeleton)) {
             return true;
         }
         if (std::any_of(msg.map_fields.begin(), msg.map_fields.end(), [&](const MapFieldNode& map) {
-                return is_skeleton_msg(map.value_is_message, map.resolved_value_type_fqn);
+                return map_mode(modes, map) != arenagen::FieldMode::Drop && map.value_is_message &&
+                       decodable.count(map.resolved_value_type_fqn) == 0;
             })) {
             return true;
         }
@@ -582,13 +606,17 @@ std::unordered_set<std::string> compute_decodable(const std::vector<const FileNo
 // message field is a borrowed pointer; any repeated field is a borrowed slice; a `MapView<'a, ..>`
 // always carries it; a oneof does when a variant borrows)? If not (only singular numeric / enum / bool
 // fields), the struct carries a `PhantomData<&'a ()>` to use `'a`.
-bool message_uses_lifetime(const MessageNode& msg) {
-    if (!msg.map_fields.empty()) {
+bool message_uses_lifetime(const MessageNode& msg, const FieldModes& modes) {
+    if (std::any_of(msg.map_fields.begin(), msg.map_fields.end(), [&](const MapFieldNode& map) {
+            return map_mode(modes, map) != arenagen::FieldMode::Drop;  // a MapView<'a, ..>
+        })) {
         return true;
     }
-    if (std::any_of(msg.fields.begin(), msg.fields.end(), [](const FieldNode& field) {
-            return field.is_repeated || field.is_message_type || field.type_name == "string" ||
-                   field.type_name == "bytes";
+    if (std::any_of(msg.fields.begin(), msg.fields.end(), [&](const FieldNode& field) {
+            // A dropped field has no storage; a raw message field is a borrowed &'a [u8].
+            return field_mode(modes, field) != arenagen::FieldMode::Drop &&
+                   (field.is_repeated || field.is_message_type || field.type_name == "string" ||
+                    field.type_name == "bytes");
         })) {
         return true;
     }
@@ -596,14 +624,22 @@ bool message_uses_lifetime(const MessageNode& msg) {
 }
 
 // Does the decode body allocate from the arena (so its `decode_into` uses the `arena` param)? Repeated
-// fields and maps accumulate into an arena `DecodeVec`; a singular message field and a oneof message
-// variant are arena-allocated. A message of only singular scalar/enum/string/bytes fields does neither.
-bool body_uses_arena(const MessageNode& msg) {
-    if (!msg.map_fields.empty()) {
+// fields and maps accumulate into an arena `DecodeVec`; a MATERIALIZED singular message field and a
+// oneof message variant are arena-allocated. A singular `raw` message field stores borrowed payload
+// bytes (no alloc); a `drop` field stores nothing.
+bool body_uses_arena(const MessageNode& msg, const FieldModes& modes) {
+    if (std::any_of(msg.map_fields.begin(), msg.map_fields.end(), [&](const MapFieldNode& map) {
+            return map_mode(modes, map) != arenagen::FieldMode::Drop;  // DecodeVec of entries
+        })) {
         return true;
     }
-    if (std::any_of(msg.fields.begin(), msg.fields.end(), [](const FieldNode& field) {
-            return field.is_repeated || field.is_message_type;
+    if (std::any_of(msg.fields.begin(), msg.fields.end(), [&](const FieldNode& field) {
+            const arenagen::FieldMode mode = field_mode(modes, field);
+            if (mode == arenagen::FieldMode::Drop) {
+                return false;
+            }
+            return field.is_repeated ||  // a DecodeVec (even repeated raw payloads)
+                   (field.is_message_type && mode == arenagen::FieldMode::Materialize);  // alloc'd
         })) {
         return true;
     }
@@ -617,9 +653,14 @@ bool body_uses_arena(const MessageNode& msg) {
 // slice; a singular message is `Option<&'a T<'a>>`; an explicit-presence scalar wraps in `Option`;
 // everything else is the bare value type. A proto2 `[default = ...]` is NOT materialized (matching the
 // C++ decoder, which reads an absent defaulted field as `None` and leaves the default to the consumer),
-// so a defaulted field is stored exactly like any other field of its presence.
+// so a defaulted field is stored exactly like any other field of its presence. A `raw` message field
+// keeps its undecoded LEN payload instead of the decoded tree: `Option<&'a [u8]>` singular,
+// `&'a [&'a [u8]]` repeated (the consumer feeds a payload to the field type's `decode` itself).
 std::string field_storage_type(const NameTable& table, const std::vector<std::string>& current_mod,
-                               const FieldNode& field) {
+                               const FieldNode& field, const FieldModes& modes) {
+    if (field_mode(modes, field) == arenagen::FieldMode::Raw) {
+        return field.is_repeated ? "&'a [&'a [u8]]" : "Option<&'a [u8]>";
+    }
     std::string value = field_value_type(table, current_mod, field);
     if (field.is_repeated) {
         return "&'a [" + value + "]";
@@ -728,10 +769,11 @@ std::string scalar_convert_expr(const NameTable& table, const std::vector<std::s
 // `Option<&'a T<'a>>`; a repeated field is a borrowed slice; explicit presence wraps in `Option`.
 void emit_field_accessor(Printer& printer, const NameTable& table,
                          const std::vector<std::string>& current_mod, const FieldNode& field,
-                         const std::string& accessor, bool real) {
+                         const std::string& accessor, bool real, const FieldModes& modes) {
     // The return type is exactly the storage type: a getter hands back a copy of the stored value (a
-    // repeated slice, a singular-message `Option<&T>`, an explicit-presence `Option`, or a bare value).
-    const std::string ret = field_storage_type(table, current_mod, field);
+    // repeated slice, a singular-message `Option<&T>`, an explicit-presence `Option`, a `raw` payload
+    // view, or a bare value).
+    const std::string ret = field_storage_type(table, current_mod, field, modes);
     printer.print("pub fn $a$(&self) -> $t$ {\n", {{"a", accessor}, {"t", ret}});
     printer.indent();
     if (real) {
@@ -865,6 +907,30 @@ void emit_push(Printer& printer, const std::string& acc, const std::string& valu
         {{"acc", acc}, {"v", value}});
 }
 
+// Advance `rp_rest` past the current field (whatever its wire type), erroring body-relative.
+void emit_skip_body(Printer& printer) {
+    printer.print("rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {\n");
+    printer.indent();
+    printer.print("Ok(r) => r,\n");
+    printer.print("Err(k) => return Err(::rapidproto::DecodeError::new(k, $off$)),\n",
+                  {{"off", kLoopOff}});
+    printer.outdent();
+    printer.print("};\n");
+}
+
+// A known-field skip arm `($n$u32, _) => skip`: the field number matched for ANY wire type and
+// skip-validated, so it never falls to the `_` catch-all and so never trips the unknown-fields bit.
+// Used for a `drop` field/map, and (in an unknown-tracked message) as the trailing fall-through after a
+// kept field's typed arm(s), so a KNOWN field arriving with the wrong wire type is still "known", not
+// "unknown" -- matching the C++ decoder, which switches on field number and never flags a known number.
+void emit_known_skip_arm(Printer& printer, const std::string& nstr) {
+    printer.print("($n$u32, _) => {\n", {{"n", nstr}});
+    printer.indent();
+    emit_skip_body(printer);
+    printer.outdent();
+    printer.print("}\n");
+}
+
 // Emit the `match (field, wire)` arm(s) for one field: one arm for a singular value, two for a
 // repeated numeric (unpacked + packed), reading via the value-threaded wire primitives and storing
 // into the field's local (`accessor`) or pushing into its accumulator (`rp_acc_<n>`). A singular
@@ -872,9 +938,42 @@ void emit_push(Printer& printer, const std::string& acc, const std::string& valu
 // element is pushed by value. A singular message seen twice is rejected (matching C++).
 void emit_field_arms(Printer& printer, const NameTable& table,
                      const std::vector<std::string>& current_mod, const FieldNode& field,
-                     const std::string& accessor, bool required) {
+                     const std::string& accessor, bool required, const FieldModes& modes) {
     const std::string nstr = std::to_string(field.number);
     const std::string acc = "rp_acc_" + nstr;
+
+    const arenagen::FieldMode mode = field_mode(modes, field);
+    if (mode == arenagen::FieldMode::Drop) {
+        emit_known_skip_arm(printer, nstr);
+        return;
+    }
+    if (mode == arenagen::FieldMode::Raw) {
+        // A message field kept as its undecoded LEN payload bytes (no recursion). Singular rejects a
+        // second occurrence like a materialized singular message; repeated pushes each payload.
+        printer.print("($n$u32, ::rapidproto::wire::WireType::Len) => {\n", {{"n", nstr}});
+        printer.indent();
+        if (field.is_repeated) {
+            emit_len_read(printer, loop_read());
+            emit_push(printer, acc, "rp_p");
+        } else {
+            printer.print("if $a$.is_some() {\n", {{"a", accessor}});
+            printer.indent();
+            printer.print(
+                "return Err(::rapidproto::DecodeError::new("
+                "::rapidproto::ErrorKind::RepeatedSingularMessage, $off$).with_field($n$));\n",
+                {{"off", kLoopOff}, {"n", nstr}});
+            printer.outdent();
+            printer.print("}\n");
+            emit_len_read(printer, loop_read());
+            printer.print("$a$ = Some(rp_p);\n", {{"a", accessor}});
+            if (required) {
+                printer.print("rp_req_$n$ = true;\n", {{"n", nstr}});
+            }
+        }
+        printer.outdent();
+        printer.print("}\n");
+        return;
+    }
 
     if (field.is_message_type && !field.is_repeated) {
         const std::string path = arena_message_path(table, current_mod, field.resolved_type_fqn);
@@ -1174,9 +1273,141 @@ void emit_map_arm(Printer& printer, const NameTable& table,
 // accumulating repeated fields and maps in `DecodeVec`s and recursing into sub-messages, then
 // constructing the message (checking proto2 `required` fields were all seen). `decode_into` is
 // `pub(crate)` so sub-messages in other modules can recurse into it.
+// The decode locals: a repeated field / map accumulates into a `DecodeVec`; a oneof holds its enum
+// (None until a member is seen); a proto2 `required` field a transient seen-flag; `unknown-fields` a
+// bool; the rest plain values at their proto3 zero / None default. A dropped field/map has no local
+// (its arm skip-validates and discards). `submodule` names the message's own oneof-enum submodule.
+void emit_decode_locals(Printer& printer, const NameTable& table,
+                        const std::vector<std::string>& current_mod, const MessageNode& msg,
+                        const FieldModes& modes, const AccessorNames& accessors,
+                        const std::string& submodule) {
+    for (std::size_t i = 0; i < msg.fields.size(); ++i) {
+        const FieldNode& field = msg.fields[i];
+        if (field_mode(modes, field) == arenagen::FieldMode::Drop) {
+            continue;
+        }
+        if (field.is_repeated) {
+            printer.print("let mut rp_acc_$n$ = ::rapidproto::DecodeVec::new(rp_arena);\n",
+                          {{"n", std::to_string(field.number)}});
+        } else {
+            printer.print("let mut $l$: $t$ = $d$;\n",
+                          {{"l", accessors.fields[i]},
+                           {"t", field_storage_type(table, current_mod, field, modes)},
+                           {"d", field_default_expr(table, current_mod, field)}});
+        }
+        if (field.presence == FieldPresence::Required) {
+            printer.print("let mut rp_req_$n$ = false;\n", {{"n", std::to_string(field.number)}});
+        }
+    }
+    if (modes.wants_unknown(&msg)) {
+        printer.print("let mut rp_unknown = false;\n");  // set by the unknown-field catch-all
+    }
+    for (const MapFieldNode& map : msg.map_fields) {
+        if (map_mode(modes, map) != arenagen::FieldMode::Drop) {
+            printer.print("let mut rp_map_$n$ = ::rapidproto::DecodeVec::new(rp_arena);\n",
+                          {{"n", std::to_string(map.number)}});
+        }
+    }
+    for (std::size_t i = 0; i < msg.oneofs.size(); ++i) {
+        printer.print(
+            "let mut rp_oneof_$i$: $t$ = None;\n",
+            {{"i", std::to_string(i)}, {"t", oneof_storage_type(table, msg.oneofs[i], submodule)}});
+    }
+}
+
+// The `match (field, wire)` arm for every regular / map / oneof-member field, then a catch-all that
+// skips genuinely-unknown fields -- tripping the unknown-fields bit when the profile reserves it.
+// Dropped fields/maps get a known skip arm (via emit_field_arms / emit_known_skip_arm) so they never
+// reach the catch-all. For an unknown-tracked message, every KEPT known field also gets a trailing
+// `(n, _)` skip arm (after its typed arm(s)) so a known field arriving with the WRONG wire type is
+// skipped as known, not counted unknown -- matching C++ (which flags only unrecognized field numbers).
+void emit_decode_arms(Printer& printer, const NameTable& table,
+                      const std::vector<std::string>& current_mod, const MessageNode& msg,
+                      const FieldModes& modes, const AccessorNames& accessors,
+                      const std::string& submodule) {
+    const bool wants_unknown = modes.wants_unknown(&msg);
+    for (std::size_t i = 0; i < msg.fields.size(); ++i) {
+        emit_field_arms(printer, table, current_mod, msg.fields[i], accessors.fields[i],
+                        msg.fields[i].presence == FieldPresence::Required, modes);
+        if (wants_unknown && field_mode(modes, msg.fields[i]) != arenagen::FieldMode::Drop) {
+            emit_known_skip_arm(printer, std::to_string(msg.fields[i].number));
+        }
+    }
+    for (const MapFieldNode& map : msg.map_fields) {
+        if (map_mode(modes, map) == arenagen::FieldMode::Drop) {
+            emit_known_skip_arm(printer, std::to_string(map.number));
+        } else {
+            emit_map_arm(printer, table, current_mod, map, "rp_map_" + std::to_string(map.number));
+            if (wants_unknown) {
+                emit_known_skip_arm(printer, std::to_string(map.number));
+            }
+        }
+    }
+    for (std::size_t i = 0; i < msg.oneofs.size(); ++i) {
+        const OneofNode& oneof = msg.oneofs[i];
+        const std::string enum_path = submodule + "::" + table.oneofs.at(&oneof);
+        const std::vector<std::string> variants = oneof_variant_names(oneof);
+        const std::string local = "rp_oneof_" + std::to_string(i);
+        for (std::size_t j = 0; j < oneof.fields.size(); ++j) {
+            emit_oneof_arm(printer, table, current_mod, oneof.fields[j], local, enum_path,
+                           variants[j]);
+            if (wants_unknown) {
+                emit_known_skip_arm(printer, std::to_string(oneof.fields[j].number));
+            }
+        }
+    }
+    printer.print("_ => {\n");
+    printer.indent();
+    if (wants_unknown) {
+        printer.print("rp_unknown = true;\n");  // a genuinely unknown field number was seen
+    }
+    emit_skip_body(printer);
+    printer.outdent();
+    printer.print("}\n");
+}
+
+// The `Ok(Msg { .. })` construct from the decode locals; a dropped field/map contributes no storage,
+// `unknown-fields` the bit, and a message with no `'a`-using field the `PhantomData` marker.
+void emit_decode_construct(Printer& printer, const MessageNode& msg, const FieldModes& modes,
+                           const AccessorNames& accessors) {
+    printer.print("Ok($M$ {\n");
+    printer.indent();
+    for (std::size_t i = 0; i < msg.fields.size(); ++i) {
+        if (field_mode(modes, msg.fields[i]) == arenagen::FieldMode::Drop) {
+            continue;
+        }
+        if (msg.fields[i].is_repeated) {
+            printer.print(
+                "$l$: rp_acc_$n$.into_slice(),\n",
+                {{"l", accessors.fields[i]}, {"n", std::to_string(msg.fields[i].number)}});
+        } else {
+            printer.print("$l$,\n", {{"l", accessors.fields[i]}});
+        }
+    }
+    for (std::size_t i = 0; i < msg.map_fields.size(); ++i) {
+        if (map_mode(modes, msg.map_fields[i]) != arenagen::FieldMode::Drop) {
+            printer.print(
+                "$l$: ::rapidproto::MapView::new(rp_map_$n$.into_slice()),\n",
+                {{"l", accessors.maps[i]}, {"n", std::to_string(msg.map_fields[i].number)}});
+        }
+    }
+    for (std::size_t i = 0; i < msg.oneofs.size(); ++i) {
+        printer.print("$l$: rp_oneof_$i$,\n",
+                      {{"l", accessors.oneofs[i]}, {"i", std::to_string(i)}});
+    }
+    if (modes.wants_unknown(&msg)) {
+        printer.print("rp_unknown,\n");  // the has_unknown_fields() storage
+    }
+    if (!message_uses_lifetime(msg, modes)) {
+        printer.print("_marker: ::core::marker::PhantomData,\n");
+    }
+    printer.outdent();
+    printer.print("})\n");
+}
+
 void emit_decode(Printer& printer, const NameTable& table,
                  const std::vector<std::string>& current_mod, const MessageNode& msg,
-                 const AccessorNames& accessors) {
+                 const AccessorNames& accessors, const FieldModes& modes) {
     printer.print(
         "pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) "
         "-> Result<&'a $M$<'a>, ::rapidproto::DecodeError> {\n");
@@ -1206,7 +1437,7 @@ void emit_decode(Printer& printer, const NameTable& table,
     printer.print(
         "pub(crate) fn decode_into(rp_body: &'a [u8], $ap$: &'a ::rapidproto::Arena<'a>, rp_depth: "
         "u32) -> Result<$M$<'a>, ::rapidproto::DecodeError> {\n",
-        {{"ap", body_uses_arena(msg) ? "rp_arena" : "_rp_arena"}});
+        {{"ap", body_uses_arena(msg, modes) ? "rp_arena" : "_rp_arena"}});
     printer.indent();
     printer.print("if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {\n");
     printer.indent();
@@ -1215,37 +1446,11 @@ void emit_decode(Printer& printer, const NameTable& table,
         "Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));\n");
     printer.outdent();
     printer.print("}\n");
-    // Decode locals. A repeated field or map accumulates into a `DecodeVec`; a oneof holds its enum
-    // (None until a member is seen); a proto2 `required` field carries a transient `seen` flag; the
-    // rest are plain values at their proto3 zero / None default.
-    // The decode impl is emitted at the end of the message's OWN module (after that module's
-    // submodules), so the oneof enum -- in the message's child submodule -- is reached by its bare name.
+    // The decode impl is emitted at the end of the message's OWN module, so the oneof enum -- in the
+    // message's child submodule -- is reached by its bare submodule name.
     const std::string submodule =
         msg.oneofs.empty() ? std::string() : table.messages.at(msg.fqn).submodule;
-    for (std::size_t i = 0; i < msg.fields.size(); ++i) {
-        const FieldNode& field = msg.fields[i];
-        if (field.is_repeated) {
-            printer.print("let mut rp_acc_$n$ = ::rapidproto::DecodeVec::new(rp_arena);\n",
-                          {{"n", std::to_string(field.number)}});
-        } else {
-            printer.print("let mut $l$: $t$ = $d$;\n",
-                          {{"l", accessors.fields[i]},
-                           {"t", field_storage_type(table, current_mod, field)},
-                           {"d", field_default_expr(table, current_mod, field)}});
-        }
-        if (field.presence == FieldPresence::Required) {
-            printer.print("let mut rp_req_$n$ = false;\n", {{"n", std::to_string(field.number)}});
-        }
-    }
-    for (const MapFieldNode& map : msg.map_fields) {
-        printer.print("let mut rp_map_$n$ = ::rapidproto::DecodeVec::new(rp_arena);\n",
-                      {{"n", std::to_string(map.number)}});
-    }
-    for (std::size_t i = 0; i < msg.oneofs.size(); ++i) {
-        printer.print(
-            "let mut rp_oneof_$i$: $t$ = None;\n",
-            {{"i", std::to_string(i)}, {"t", oneof_storage_type(table, msg.oneofs[i], submodule)}});
-    }
+    emit_decode_locals(printer, table, current_mod, msg, modes, accessors, submodule);
     printer.print("let mut rp_rest: &'a [u8] = rp_body;\n");
     printer.print("loop {\n");
     printer.indent();
@@ -1262,34 +1467,7 @@ void emit_decode(Printer& printer, const NameTable& table,
     printer.print("};\n");
     printer.print("match (rp_tag.field, rp_tag.wire) {\n");
     printer.indent();
-    for (std::size_t i = 0; i < msg.fields.size(); ++i) {
-        emit_field_arms(printer, table, current_mod, msg.fields[i], accessors.fields[i],
-                        msg.fields[i].presence == FieldPresence::Required);
-    }
-    for (const MapFieldNode& map : msg.map_fields) {
-        emit_map_arm(printer, table, current_mod, map, "rp_map_" + std::to_string(map.number));
-    }
-    for (std::size_t i = 0; i < msg.oneofs.size(); ++i) {
-        const OneofNode& oneof = msg.oneofs[i];
-        const std::string enum_path = submodule + "::" + table.oneofs.at(&oneof);
-        const std::vector<std::string> variants = oneof_variant_names(oneof);
-        const std::string local = "rp_oneof_" + std::to_string(i);
-        for (std::size_t j = 0; j < oneof.fields.size(); ++j) {
-            emit_oneof_arm(printer, table, current_mod, oneof.fields[j], local, enum_path,
-                           variants[j]);
-        }
-    }
-    printer.print("_ => {\n");
-    printer.indent();
-    printer.print("rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {\n");
-    printer.indent();
-    printer.print("Ok(r) => r,\n");
-    printer.print("Err(k) => return Err(::rapidproto::DecodeError::new(k, $off$)),\n",
-                  {{"off", kLoopOff}});
-    printer.outdent();
-    printer.print("};\n");
-    printer.outdent();
-    printer.print("}\n");
+    emit_decode_arms(printer, table, current_mod, msg, modes, accessors, submodule);
     printer.outdent();
     printer.print("}\n");  // match
     printer.outdent();
@@ -1309,30 +1487,7 @@ void emit_decode(Printer& printer, const NameTable& table,
             printer.print("}\n");
         }
     }
-    printer.print("Ok($M$ {\n");
-    printer.indent();
-    for (std::size_t i = 0; i < msg.fields.size(); ++i) {
-        if (msg.fields[i].is_repeated) {
-            printer.print(
-                "$l$: rp_acc_$n$.into_slice(),\n",
-                {{"l", accessors.fields[i]}, {"n", std::to_string(msg.fields[i].number)}});
-        } else {
-            printer.print("$l$,\n", {{"l", accessors.fields[i]}});
-        }
-    }
-    for (std::size_t i = 0; i < msg.map_fields.size(); ++i) {
-        printer.print("$l$: ::rapidproto::MapView::new(rp_map_$n$.into_slice()),\n",
-                      {{"l", accessors.maps[i]}, {"n", std::to_string(msg.map_fields[i].number)}});
-    }
-    for (std::size_t i = 0; i < msg.oneofs.size(); ++i) {
-        printer.print("$l$: rp_oneof_$i$,\n",
-                      {{"l", accessors.oneofs[i]}, {"i", std::to_string(i)}});
-    }
-    if (!message_uses_lifetime(msg)) {
-        printer.print("_marker: ::core::marker::PhantomData,\n");
-    }
-    printer.outdent();
-    printer.print("})\n");
+    emit_decode_construct(printer, msg, modes, accessors);
     printer.outdent();
     printer.print("}\n");
 }
@@ -1344,10 +1499,12 @@ std::unordered_set<std::string> decode_reserved_idents(const MessageNode& msg, b
     if (!supported) {
         return {};
     }
-    std::unordered_set<std::string> reserved = {
-        "decode_into", "_marker", "rp_body", "rp_arena",    "_rp_arena", "rp_depth",
-        "rp_rest",     "rp_tag",  "rp_v",    "rp_p",        "rp_sub",    "rp_ptr",
-        "rp_etag",     "rp_ent",  "rp_key",  "rp_ent_body", "rp_val"};
+    std::unordered_set<std::string> reserved =
+        {
+            "decode_into", "_marker",     "rp_body",   "rp_arena", "_rp_arena",
+            "rp_depth",    "rp_rest",     "rp_tag",    "rp_v",     "rp_p",
+            "rp_sub",      "rp_ptr",      "rp_etag",   "rp_ent",   "rp_key",
+            "rp_val",      "rp_ent_body", "rp_unknown"};  // the has_unknown_fields() storage field + its decode flag
     for (const FieldNode& field : msg.fields) {
         if (field.is_repeated) {
             reserved.insert("rp_acc_" + std::to_string(field.number));
@@ -1369,65 +1526,114 @@ std::unordered_set<std::string> decode_reserved_idents(const MessageNode& msg, b
 // the struct is emitted in, used to compute cross-references. A decodable message
 // ([`compute_decodable`]) gets real field storage, reading accessors and a real decode; any other
 // message keeps the skeleton (`PhantomData`, `todo!()` accessors + decode) for a later slice.
+// Emit `pub struct Msg<'a> { .. }` -- the storage fields (= getters' return types). A dropped field/map
+// has no storage; a `raw` message field stores its payload bytes; `unknown-fields` adds the bit.
+void emit_message_struct(Printer& printer, const NameTable& table,
+                         const std::vector<std::string>& current_mod, const MessageNode& msg,
+                         const FieldModes& modes, const AccessorNames& accessors,
+                         const std::string& submodule, bool supported) {
+    printer.print("pub struct $M$<'a> {\n");
+    printer.indent();
+    if (!supported) {
+        printer.print("_marker: ::core::marker::PhantomData<&'a ()>,\n");
+        printer.outdent();
+        printer.print("}\n\n");
+        return;
+    }
+    for (std::size_t i = 0; i < msg.fields.size(); ++i) {
+        if (field_mode(modes, msg.fields[i]) != arenagen::FieldMode::Drop) {
+            printer.print("$l$: $t$,\n",
+                          {{"l", accessors.fields[i]},
+                           {"t", field_storage_type(table, current_mod, msg.fields[i], modes)}});
+        }
+    }
+    for (std::size_t i = 0; i < msg.map_fields.size(); ++i) {
+        if (map_mode(modes, msg.map_fields[i]) != arenagen::FieldMode::Drop) {
+            printer.print("$l$: $t$,\n",
+                          {{"l", accessors.maps[i]},
+                           {"t", map_view_type(table, current_mod, msg.map_fields[i])}});
+        }
+    }
+    for (std::size_t i = 0; i < msg.oneofs.size(); ++i) {
+        printer.print("$l$: $t$,\n", {{"l", accessors.oneofs[i]},
+                                      {"t", oneof_storage_type(table, msg.oneofs[i], submodule)}});
+    }
+    if (modes.wants_unknown(&msg)) {
+        printer.print("rp_unknown: bool,\n");  // has_unknown_fields() storage
+    }
+    if (!message_uses_lifetime(msg, modes)) {
+        printer.print("_marker: ::core::marker::PhantomData<&'a ()>,\n");
+    }
+    printer.outdent();
+    printer.print("}\n\n");
+}
+
+// Whether a message exposes any getter (so `emit_message_accessors` emits an `impl` block at all).
+bool message_has_accessors(const MessageNode& msg, const FieldModes& modes) {
+    if (modes.wants_unknown(&msg) || !msg.oneofs.empty()) {
+        return true;
+    }
+    if (std::any_of(msg.fields.begin(), msg.fields.end(), [&](const FieldNode& field) {
+            return field_mode(modes, field) != arenagen::FieldMode::Drop;
+        })) {
+        return true;
+    }
+    return std::any_of(msg.map_fields.begin(), msg.map_fields.end(), [&](const MapFieldNode& map) {
+        return map_mode(modes, map) != arenagen::FieldMode::Drop;
+    });
+}
+
+// Emit `impl<'a> Msg<'a> { <getters> }` (skipped when nothing is exposed). A dropped field/map has no
+// getter; `unknown-fields` adds `has_unknown_fields()`. The decode impl is emitted separately, later.
+void emit_message_accessors(Printer& printer, const NameTable& table,
+                            const std::vector<std::string>& current_mod, const MessageNode& msg,
+                            const FieldModes& modes, const AccessorNames& accessors,
+                            const std::string& submodule, bool supported) {
+    if (!message_has_accessors(msg, modes)) {
+        return;
+    }
+    printer.print("impl<'a> $M$<'a> {\n");
+    printer.indent();
+    for (std::size_t i = 0; i < msg.fields.size(); ++i) {
+        if (field_mode(modes, msg.fields[i]) != arenagen::FieldMode::Drop) {
+            emit_field_accessor(printer, table, current_mod, msg.fields[i], accessors.fields[i],
+                                supported, modes);
+        }
+    }
+    for (std::size_t i = 0; i < msg.map_fields.size(); ++i) {
+        if (map_mode(modes, msg.map_fields[i]) != arenagen::FieldMode::Drop) {
+            emit_map_accessor(printer, table, current_mod, msg.map_fields[i], accessors.maps[i],
+                              supported);
+        }
+    }
+    for (std::size_t i = 0; i < msg.oneofs.size(); ++i) {
+        emit_oneof_accessor(printer, table, msg.oneofs[i], accessors.oneofs[i], supported,
+                            submodule);
+    }
+    if (modes.wants_unknown(&msg)) {
+        printer.print("pub fn has_unknown_fields(&self) -> bool {\n");
+        printer.indent();
+        printer.print(supported ? "self.rp_unknown\n" : "todo!()\n");
+        printer.outdent();
+        printer.print("}\n");
+    }
+    printer.outdent();
+    printer.print("}\n");
+}
+
 void emit_message(Printer& printer, const NameTable& table,
                   const std::vector<std::string>& current_mod, const MessageNode& msg,
-                  const std::unordered_set<std::string>& decodable) {
+                  const std::unordered_set<std::string>& decodable, const FieldModes& modes) {
     printer.set("M", table.messages.at(msg.fqn).type_name);
     const bool supported = decodable.count(msg.fqn) != 0;
     const AccessorNames accessors =
         message_accessor_names(msg, decode_reserved_idents(msg, supported));
     const std::string& submodule = table.messages.at(msg.fqn).submodule;
-
-    printer.print("pub struct $M$<'a> {\n");
-    printer.indent();
-    if (supported) {
-        for (std::size_t i = 0; i < msg.fields.size(); ++i) {
-            printer.print("$l$: $t$,\n",
-                          {{"l", accessors.fields[i]},
-                           {"t", field_storage_type(table, current_mod, msg.fields[i])}});
-        }
-        for (std::size_t i = 0; i < msg.map_fields.size(); ++i) {
-            printer.print("$l$: $t$,\n",
-                          {{"l", accessors.maps[i]},
-                           {"t", map_view_type(table, current_mod, msg.map_fields[i])}});
-        }
-        for (std::size_t i = 0; i < msg.oneofs.size(); ++i) {
-            printer.print("$l$: $t$,\n",
-                          {{"l", accessors.oneofs[i]},
-                           {"t", oneof_storage_type(table, msg.oneofs[i], submodule)}});
-        }
-        if (!message_uses_lifetime(msg)) {
-            printer.print("_marker: ::core::marker::PhantomData<&'a ()>,\n");
-        }
-    } else {
-        printer.print("_marker: ::core::marker::PhantomData<&'a ()>,\n");
-    }
-    printer.outdent();
-    printer.print("}\n\n");
-
-    // Only the getters here -- the `decode`/`decode_into` impl is emitted at the end of the arena
-    // module ([`emit_message_decode`]) so a reader can skim the whole API without the wire-loop bodies
-    // in between. Skip an empty impl block for a field-, map- and oneof-less message.
-    const bool has_accessors =
-        !accessors.fields.empty() || !accessors.maps.empty() || !accessors.oneofs.empty();
-    if (has_accessors) {
-        printer.print("impl<'a> $M$<'a> {\n");
-        printer.indent();
-        for (std::size_t i = 0; i < msg.fields.size(); ++i) {
-            emit_field_accessor(printer, table, current_mod, msg.fields[i], accessors.fields[i],
-                                supported);
-        }
-        for (std::size_t i = 0; i < msg.map_fields.size(); ++i) {
-            emit_map_accessor(printer, table, current_mod, msg.map_fields[i], accessors.maps[i],
-                              supported);
-        }
-        for (std::size_t i = 0; i < msg.oneofs.size(); ++i) {
-            emit_oneof_accessor(printer, table, msg.oneofs[i], accessors.oneofs[i], supported,
-                                submodule);
-        }
-        printer.outdent();
-        printer.print("}\n");
-    }
+    emit_message_struct(printer, table, current_mod, msg, modes, accessors, submodule, supported);
+    // The `decode`/`decode_into` impl is emitted at the end of the arena module ([`emit_message_decode`])
+    // so a reader skims the whole getter API without the wire-loop bodies in between.
+    emit_message_accessors(printer, table, current_mod, msg, modes, accessors, submodule,
+                           supported);
 }
 
 // Emit the `decode` + `decode_into` impl for one message, in its OWN module (`current_mod`) but after
@@ -1437,14 +1643,15 @@ void emit_message(Printer& printer, const NameTable& table,
 // skeleton (not-yet-decodable) message gets just a `todo!()` `decode`.
 void emit_message_decode(Printer& printer, const NameTable& table,
                          const std::vector<std::string>& current_mod, const MessageNode& msg,
-                         const std::unordered_set<std::string>& decodable) {
+                         const std::unordered_set<std::string>& decodable,
+                         const FieldModes& modes) {
     printer.set("M", table.messages.at(msg.fqn).type_name);
     printer.print("impl<'a> $M$<'a> {\n");
     printer.indent();
     if (decodable.count(msg.fqn) != 0) {
         const AccessorNames accessors =
             message_accessor_names(msg, decode_reserved_idents(msg, true));
-        emit_decode(printer, table, current_mod, msg, accessors);
+        emit_decode(printer, table, current_mod, msg, accessors, modes);
     } else {
         printer.print(
             "pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) "
@@ -1466,12 +1673,13 @@ void emit_message_decode(Printer& printer, const NameTable& table,
 void emit_arena_messages(Printer& printer, const NameTable& table,
                          const std::vector<const MessageNode*>& msgs,
                          std::vector<std::string>& current_mod,
-                         const std::unordered_set<std::string>& decodable) {
+                         const std::unordered_set<std::string>& decodable,
+                         const FieldModes& modes) {
     for (std::size_t i = 0; i < msgs.size(); ++i) {
         if (i != 0) {
             printer.print("\n");
         }
-        emit_message(printer, table, current_mod, *msgs[i], decodable);
+        emit_message(printer, table, current_mod, *msgs[i], decodable, modes);
         const bool has_submodule = !msgs[i]->nested_messages.empty() || !msgs[i]->oneofs.empty();
         if (has_submodule) {
             const std::string& sub = table.messages.at(msgs[i]->fqn).submodule;
@@ -1488,7 +1696,7 @@ void emit_arena_messages(Printer& printer, const NameTable& table,
                 printer.print("\n");  // separate the oneof enums from the nested messages
             }
             emit_arena_messages(printer, table, addrs(msgs[i]->nested_messages), current_mod,
-                                decodable);
+                                decodable, modes);
             current_mod.pop_back();
             printer.outdent();
             printer.print("}\n");
@@ -1498,7 +1706,7 @@ void emit_arena_messages(Printer& printer, const NameTable& table,
     // submodules above), so the getters read uninterrupted. Each stays in its message's own module.
     for (const MessageNode* msg : msgs) {
         printer.print("\n");
-        emit_message_decode(printer, table, current_mod, *msg, decodable);
+        emit_message_decode(printer, table, current_mod, *msg, decodable, modes);
     }
 }
 
@@ -1569,13 +1777,13 @@ void emit_common_node(Printer& printer, const NameTable& table, const PkgTrie& n
 // `pub mod <component>` per sub-package. `current_mod` is the node's emitted package path.
 void emit_arena_node(Printer& printer, const NameTable& table, const PkgTrie& node,
                      std::vector<std::string>& current_mod,
-                     const std::unordered_set<std::string>& decodable) {
-    emit_arena_messages(printer, table, node_messages(node), current_mod, decodable);
+                     const std::unordered_set<std::string>& decodable, const FieldModes& modes) {
+    emit_arena_messages(printer, table, node_messages(node), current_mod, decodable, modes);
     for (const auto& [component, child] : node.children) {
         printer.print("\npub mod $m$ {\n", {{"m", child.emitted}});
         printer.indent();
         current_mod.push_back(child.emitted);
-        emit_arena_node(printer, table, child, current_mod, decodable);
+        emit_arena_node(printer, table, child, current_mod, decodable, modes);
         current_mod.pop_back();
         printer.outdent();
         printer.print("}\n");
@@ -1600,24 +1808,34 @@ std::string generate_common(const std::vector<const FileNode*>& files) {
     return printer.str();
 }
 
-std::string generate_arena(const std::vector<const FileNode*>& files) {
+std::string generate_arena(const std::vector<const FileNode*>& files, const FieldModes& modes) {
     PkgTrie root = build_pkg_trie(files);
     assign_emitted_names(root);
     const NameTable table = build_name_table(root);
-    const std::unordered_set<std::string> decodable = compute_decodable(files);
+    const std::unordered_set<std::string> decodable = compute_decodable(files, modes);
     Printer printer;
     printer.print("pub mod arena {\n");
     printer.indent();
     std::vector<std::string> current_mod;
-    emit_arena_node(printer, table, root, current_mod, decodable);
+    emit_arena_node(printer, table, root, current_mod, decodable, modes);
     printer.outdent();
     printer.print("}\n");
     return printer.str();
 }
 
-std::string generate_file(const std::vector<const FileNode*>& files) {
-    return "// @generated by rapidprotoc --rust -- do not edit.\n\n" + generate_common(files) +
-           "\n" + generate_arena(files);
+std::string generate_file(const std::vector<const FileNode*>& files, const FieldModes& modes) {
+    // A header comment records the active field-modes profile (its id + canonical drop/raw/unknown
+    // lines) for traceability. Rust needs no ODR-style identity guard: a generated file is included
+    // once as a self-contained module tree, so two differently-profiled generations cannot silently
+    // merge (including both into one scope is a duplicate-module compile error).
+    std::string banner = "// @generated by rapidprotoc --rust -- do not edit.\n";
+    if (modes.active()) {
+        banner += "// field-modes profile " + modes.profile_id + ":\n";
+        for (const std::string& line : modes.normalized) {
+            banner += "//   " + line + "\n";
+        }
+    }
+    return banner + "\n" + generate_common(files) + "\n" + generate_arena(files, modes);
 }
 
 }  // namespace rapidproto::rustgen
