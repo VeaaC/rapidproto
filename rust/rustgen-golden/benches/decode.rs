@@ -4,6 +4,12 @@
 //! sub-messages, and a map) into a fresh arena and checksums the tree, so the perf pass can A/B each
 //! optimization against a stable, representative workload.
 //!
+//! Input: set `RAPIDPROTO_BENCH_DATASET` to a shared protoc-canonical `.bin` (produced by the C++
+//! arena bench's generator mode -- see `load_payload` below) and BOTH this bench and the C++ bench
+//! decode byte-identical bytes, so their numbers are cross-language comparable. Unset, this bench
+//! falls back to a built-in hand-built payload -- fine for Rust-vs-Rust A/B, but NOT comparable to C++
+//! (the hand-built bytes aren't protoc-canonical: they emit implicit-zero fields protoc omits).
+//!
 //! RUN IT PINNED AND ALIGNED, or the numbers lie (same discipline as the wire bench):
 //!
 //! ```text
@@ -15,6 +21,9 @@
 //!   does not shift throughput by code placement alone. The placement-invariant signal is
 //!   instructions/byte (`perf stat`), which criterion does not report -- read it alongside the time.
 //! - `performance` governor, turbo off, one run at a time, a quiesced box. See the bench-placement notes.
+//! - UNITS when comparing to the C++ arena bench: criterion prints BINARY MiB/s (1024-based); the C++
+//!   harness prints DECIMAL GB/s (1000-based). The input is byte-identical (that is the point), so
+//!   convert before comparing throughputs -- or compare the placement-invariant instructions/byte.
 //!
 //! This is the "cold" shape: a fresh `Arena` per decode (the realistic path -- you decode into a new
 //! arena). A warm (reset-and-reuse) arm and packed/scalar-dispatch arms can be added later.
@@ -145,9 +154,34 @@ fn checksum(ds: &Dataset) -> u64 {
     sum
 }
 
+// The payload: the SHARED protoc-canonical fixture when `RAPIDPROTO_BENCH_DATASET` points at it (so
+// this bench and the C++ arena bench decode byte-identical input, cross-language comparable), else the
+// built-in hand-built Dataset for a standalone Rust-vs-Rust A/B. Build the shared fixture with the C++
+// bench's generator mode:
+//   RAPIDPROTO_BENCH_DUMP_DATASET=/tmp/dataset.bin ./build/<cfg>/rapidproto_arena_bench
+// then run both benches with RAPIDPROTO_BENCH_DATASET=/tmp/dataset.bin.
+fn load_payload(people: u64) -> Vec<u8> {
+    match std::env::var_os("RAPIDPROTO_BENCH_DATASET") {
+        Some(path) => {
+            let bytes = std::fs::read(&path)
+                .unwrap_or_else(|e| panic!("cannot read RAPIDPROTO_BENCH_DATASET {path:?}: {e}"));
+            // A 0-byte file would decode as an empty Dataset and silently "measure" nothing; fail loud.
+            assert!(
+                !bytes.is_empty(),
+                "RAPIDPROTO_BENCH_DATASET {path:?} is empty"
+            );
+            bytes
+        }
+        None => dataset(people),
+    }
+}
+
 fn decode_bench(c: &mut Criterion) {
     const PEOPLE: u64 = 2_000; // matches the C++ arena bench's record count
-    let payload = dataset(PEOPLE);
+                               // Read the WHOLE payload into memory once here, before the timed loop: `std::fs::read` returns an
+                               // owned `Vec` with every byte resident, so the measured region is pure decode -- no file I/O, no
+                               // page faults on first touch -- and it is reused across all iterations.
+    let payload = load_payload(PEOPLE);
 
     let mut group = c.benchmark_group("decode");
     group.throughput(Throughput::Bytes(payload.len() as u64));

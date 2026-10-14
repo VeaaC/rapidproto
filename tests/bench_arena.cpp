@@ -51,7 +51,10 @@
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
+#include <fstream>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -120,6 +123,36 @@ std::string make_dataset(int people) {
     std::string out;
     ds.SerializeToString(&out);
     return out;
+}
+
+// Read a whole file into a string. Used for RAPIDPROTO_BENCH_DATASET -- a shared, protoc-canonical
+// payload that BOTH this bench and the Rust decode bench load, so their throughput compares over
+// byte-identical input. Fatal on a missing OR empty file (a 0-byte file would otherwise decode as an
+// empty Dataset and silently "measure" nothing rather than erroring).
+std::string read_file(const char* path) {
+    const std::ifstream in(path, std::ios::binary);
+    if (!in) {
+        std::fprintf(stderr, "bench: cannot read RAPIDPROTO_BENCH_DATASET '%s'\n", path);
+        std::exit(1);
+    }
+    std::ostringstream ss;
+    ss << in.rdbuf();
+    std::string bytes = ss.str();
+    if (bytes.empty()) {
+        std::fprintf(stderr, "bench: RAPIDPROTO_BENCH_DATASET '%s' is empty\n", path);
+        std::exit(1);
+    }
+    return bytes;
+}
+
+// The main Dataset payload: the shared `.bin` (RAPIDPROTO_BENCH_DATASET) when set -- so C++ and Rust
+// decode the SAME bytes -- else `make_dataset()` in-process for a standalone C++ run. The bytes are
+// identical either way (the shared file is produced by make_dataset via RAPIDPROTO_BENCH_DUMP_DATASET).
+std::string load_dataset(int people) {
+    if (const char* const path = std::getenv("RAPIDPROTO_BENCH_DATASET")) {
+        return read_file(path);
+    }
+    return make_dataset(people);
 }
 
 // Many small arrays: each record carries six short repeated fields -> a flood of tiny allocations.
@@ -644,9 +677,24 @@ int sweep_repeated_varint_types() {
 }  // namespace
 
 int main() {
+    // Generator mode: write the canonical dataset bytes (protoc's SerializeToString of make_dataset)
+    // to the given path and exit, WITHOUT benching. This is the single source of the shared payload --
+    // run it once, then point both this bench and the Rust decode bench at the file via
+    // RAPIDPROTO_BENCH_DATASET so they decode byte-identical input. (No new tool: reuses make_dataset
+    // and this bench's libprotobuf link.)
+    if (const char* const dump = std::getenv("RAPIDPROTO_BENCH_DUMP_DATASET")) {
+        const std::string out = make_dataset(kPeople);
+        std::ofstream file(dump, std::ios::binary);
+        if (!file || !file.write(out.data(), static_cast<std::streamsize>(out.size()))) {
+            std::fprintf(stderr, "bench: cannot write RAPIDPROTO_BENCH_DUMP_DATASET '%s'\n", dump);
+            return 1;
+        }
+        return 0;
+    }
+
     // The baseline's version is half a headline ratio's meaning; report it so a number is never
     // separated from the libprotobuf it was measured against. (The macro encodes MMmmmppp.)
-    const std::string buf = make_dataset(kPeople);
+    const std::string buf = load_dataset(kPeople);
     const rapidproto::ByteView view(buf);
     if (rpbench::json_mode()) {
         std::printf(
