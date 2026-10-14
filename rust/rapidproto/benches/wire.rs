@@ -1,8 +1,24 @@
 //! Micro-benchmarks for the wire-decode primitives. These MIRROR the C++ bench's `wire` arm
-//! (tests/bench_streamgen.cpp) scenario-for-scenario -- same encodings, same field-loop shape, same
-//! names -- so the Rust `wire` layer can be compared directly against the mature C++ one. Run with
-//! `cargo bench -p rapidproto`. Measurement discipline (governor, one run at a time, prepared box)
-//! is the same as the C++ bench; a verdict needs that box, not a loaded laptop.
+//! (tests/bench_streamgen.cpp) scenario-for-scenario -- same encodings, same fused field-loop driver,
+//! same names -- so the Rust `wire` layer can be compared directly against the mature C++ one.
+//!
+//! RUN IT PINNED AND ALIGNED, or the numbers lie:
+//!
+//! ```text
+//! RUSTFLAGS="-Cllvm-args=-align-all-functions=6" taskset -c 0 cargo bench -p rapidproto --bench wire
+//! ```
+//!
+//! - `taskset -c 0` pins the thread: unpinned, criterion migrates across cores and run-to-run swings
+//!   up to ~15% (worst on the memory-bound `string` arm) -- it is NOT the code changing. The C++ bench
+//!   is pinned the same way.
+//! - `-align-all-functions=6` pins 64-byte function entries (the C++ bench build does this via
+//!   `-falign-functions=64`). Without it, an unrelated edit relays out the binary and shifts each
+//!   arm's throughput by ~10-40% purely from code placement -- a swing on an arm whose code did not
+//!   change is layout, not signal. The placement-invariant signal is instructions/byte, which the C++
+//!   harness reports and criterion does not.
+//!
+//! Also: `performance` governor, turbo off, one run at a time, a quiesced box -- a verdict needs that
+//! box, not a loaded laptop. See the project's bench-placement notes.
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 use rapidproto::wire::{self, Tag, WireType};
@@ -26,21 +42,24 @@ fn zigzag_enc(v: i64) -> u64 {
 
 // The Rust `wire` arm: a field loop that threads the remaining-bytes slice BY VALUE through the
 // value-threaded `wire::` readers -- exactly how a generated `decode` body consumes the input, and
-// the shape the C++ `wire` arm uses (it threads a bare pointer). `read_field` handles the scenario's
-// field(s), advancing `*rest` and returning a checksum contribution, or None for any other field,
-// which the loop skips -- the handle-or-skip structure of the C++ arms. The checksum is black_box'd so
-// the decode can't be elided. Generic (not a fn pointer) so the handler INLINES into the loop like the
-// C++ arm's -- an indirect call per field would be an artifact.
+// the shape the C++ `wire` arm uses (it threads a bare pointer). The loop is driven by the fused
+// `read_tag_or_end` (one bounds check yields end / tag / error), matching the C++ arm's driver.
+// `read_field` handles the scenario's field(s), advancing `*rest` and returning a checksum
+// contribution, or None for any other field, which the loop skips -- the handle-or-skip structure of
+// the C++ arms. The checksum is black_box'd so the decode can't be elided. Generic (not a fn pointer)
+// so the handler INLINES into the loop like the C++ arm's -- an indirect call per field is an artifact.
 fn drive<F: FnMut(u32, WireType, &mut &[u8]) -> Option<u64>>(buf: &[u8], mut read_field: F) -> u64 {
     let mut rest = buf;
     let mut sum = 0u64;
-    while !rest.is_empty() {
+    loop {
         let mut tag = Tag {
             field: 0,
             wire: WireType::Varint,
         };
-        rest = match wire::read_tag(rest, &mut tag) {
-            Ok(r) => r,
+        // Fused driver: one bounds check yields end / tag / error, mirroring the C++ `wire` arm.
+        rest = match wire::read_tag_or_end(rest, &mut tag) {
+            Ok(Some(r)) => r,
+            Ok(None) => break, // clean end of input
             Err(_) => break,
         };
         match read_field(tag.field, tag.wire, &mut rest) {

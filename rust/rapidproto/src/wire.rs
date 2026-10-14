@@ -1,33 +1,54 @@
-//! The wire-decode primitives generated decoders build on: a [`Cursor`] over the input bytes with
-//! the Protobuf field-encoding readers (varint, fixed32/64, length-delimited, tag, skip).
+//! The wire-decode primitives generated decoders build on: the value-threaded free functions
+//! ([`read_tag_or_end`], [`read_varint`], [`read_fixed32`]/[`read_fixed64`], [`read_length_delimited`],
+//! [`skip`]) and an ergonomic [`Cursor`] wrapper over them.
 //!
-//! The cursor is a shrinking `&[u8]` slice over the not-yet-consumed bytes -- reading the FRONT of a
-//! slice that shrinks is what lets the bounds checks fold away in the hot loop. It also keeps the
-//! original input length so a byte offset can be derived (`input_len - rest.len()`) for any error --
-//! but only on the error path, never updated per read, so the hot loop threads just the slice (which
-//! the compiler keeps in registers), mirroring the C++ reader that carries a bare pointer and
-//! computes the fail offset only when it fails. Every reader returns
-//! `Result`, never panics, and never reads out of bounds on arbitrary input (the decoder runs on
-//! untrusted bytes). Values are returned raw; interpreting a varint as zigzag/bool, or a fixed field
-//! as a float, is the caller's step (see [`zigzag32`]/[`zigzag64`]).
+//! # Two surfaces
+//!
+//! The free functions are the primary, hot-path API: each takes the not-yet-consumed `&[u8]` BY VALUE
+//! and returns the slice past what it read (writing any decoded value to an out-param), reporting
+//! failure as a bare [`ErrorKind`]. **Generated `decode` bodies call these directly** -- threading the
+//! slice keeps it in registers across the field loop, the way the C++ reader threads a bare pointer;
+//! a `&mut Cursor` across a non-inlined call would spill it to the stack every field. [`Cursor`] is a
+//! thin `&mut self` wrapper for ergonomic/ad-hoc use (tests, tools) that adds the byte offset; it is
+//! not the surface generated code should use on the hot path.
+//!
+//! # Error byte offsets are ABSOLUTE to the original input
+//!
+//! The contract (matching the C++ reader, which threads the buffer start through every reader) is that
+//! a [`DecodeError`]'s offset is absolute to the whole top-level input, INCLUDING failures inside a
+//! nested length-delimited sub-message. The free functions deliberately carry no offset (they return
+//! only [`ErrorKind`]), leaving the caller to assign it: at the top level [`Cursor`] computes
+//! `input_len - rest.len()` on the error path; a generated decoder recursing into a sub-message adds
+//! the sub-message's absolute start offset to `sub_input.len() - rest.len()`. Keeping the offset off
+//! the hot path (computed only on failure) is why the readers thread just the slice.
+//!
+//! # Safety
+//!
+//! Every reader returns `Result`, never panics, and never reads out of bounds on arbitrary input (the
+//! decoder runs on untrusted bytes) -- entirely in safe Rust, no `unsafe`. Values are returned raw;
+//! interpreting a varint as zigzag/bool, or a fixed field as a float, is the caller's step (see
+//! [`zigzag32`]/[`zigzag64`]).
 
 use crate::error::{DecodeError, ErrorKind};
 
-/// A Protobuf wire type -- the low 3 bits of a field tag.
+/// A Protobuf wire type -- the low 3 bits of a field tag. `#[repr(u8)]` with each variant pinned to
+/// its wire code, so `wire as u8` is the on-wire value and generated decoders can use it as a raw tag
+/// component (matching the C++ reader's raw-tag dispatch).
+#[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum WireType {
     /// Wire type 0: base-128 varint (int32/64, uint32/64, sint*, bool, enum).
-    Varint,
+    Varint = 0,
     /// Wire type 1: fixed 64-bit (fixed64, sfixed64, double).
-    I64,
+    I64 = 1,
     /// Wire type 2: length-delimited (string, bytes, embedded message, packed repeated).
-    Len,
+    Len = 2,
     /// Wire type 3: group start (proto2 groups; deprecated).
-    SGroup,
+    SGroup = 3,
     /// Wire type 4: group end.
-    EGroup,
+    EGroup = 4,
     /// Wire type 5: fixed 32-bit (fixed32, sfixed32, float).
-    I32,
+    I32 = 5,
 }
 
 impl WireType {
@@ -135,13 +156,21 @@ impl<'a> Cursor<'a> {
         Ok(tag)
     }
 
-    /// Read the next field tag, or `None` at end of input -- the field-loop primitive.
+    /// Read the next field tag, or `None` at end of input. Wrapper over the fused value-threaded
+    /// [`read_tag_or_end`] free function (one bounds check distinguishes end from a tag).
     #[inline]
     pub fn read_tag_or_end(&mut self) -> Result<Option<Tag>, DecodeError> {
-        if self.rest.is_empty() {
-            return Ok(None);
+        let mut tag = Tag {
+            field: 0,
+            wire: WireType::Varint,
+        };
+        match read_tag_or_end(self.rest, &mut tag).map_err(|k| self.err(k))? {
+            Some(rest) => {
+                self.rest = rest;
+                Ok(Some(tag))
+            }
+            None => Ok(None),
         }
-        self.read_tag().map(Some)
     }
 
     /// Read a fixed 32-bit little-endian value (fixed32/sfixed32/float bits). Wrapper over the
@@ -223,43 +252,77 @@ pub fn read_varint<'a>(rest: &'a [u8], out: &mut u64) -> Result<&'a [u8], ErrorK
     }
 }
 
-/// Read a field tag. Fused fast paths decode a 1-byte tag (fields 1..=15) and a 2-byte tag (fields
-/// 16..=2047) inline -- the common cases; a 3+ byte tag or a rejected fast-path tag falls through to
-/// the general varint. `InvalidTag` for field 0, a field above `2^29 - 1`, or a wire type of 6/7.
-///
-/// Both fused paths mirror the C++ reader (`wire::read_tag_or_end`), whose comment records the 2-byte
-/// fusion as measured -31% on a >15-field decode (the general multibyte path compiles poorly).
+/// Read the next field tag, or report clean end of input as `Ok(None)` -- THE hot-loop driver a
+/// generated decode body calls each field. A single `split_first` distinguishes end from a tag (no
+/// separate `is_empty` the loop condition would duplicate), then the fused 1-byte / 2-byte decode runs
+/// inline. Mirrors the C++ `wire::read_tag_or_end`, which fuses the bounds check and both fast paths
+/// for exactly this reason.
+#[inline]
+pub fn read_tag_or_end<'a>(rest: &'a [u8], out: &mut Tag) -> Result<Option<&'a [u8]>, ErrorKind> {
+    match rest.split_first() {
+        None => Ok(None),
+        Some((&first, tail)) => read_tag_from(first, tail, rest, out).map(Some),
+    }
+}
+
+/// Read a field tag, erroring (`Truncated`) at end of input. Same fused decode as
+/// [`read_tag_or_end`], for callers (group skip, the ergonomic [`Cursor`]) that require a tag.
+/// `InvalidTag` for field 0, a field above `2^29 - 1`, or a wire type of 6/7.
 #[inline]
 pub fn read_tag<'a>(rest: &'a [u8], out: &mut Tag) -> Result<&'a [u8], ErrorKind> {
-    if let Some((&first, tail)) = rest.split_first() {
-        if first & 0x80 == 0 {
-            // Fused 1-byte tag: field 1..=15, wire in the low 3 bits.
-            let field = u32::from(first >> 3);
-            if field != 0 {
-                if let Some(wire) = WireType::from_bits(u32::from(first & 0x07)) {
-                    *out = Tag { field, wire };
-                    return Ok(tail);
-                }
-            }
-            // field 0 or a reserved wire type (6/7): fall through for a uniform error.
-        } else if let Some((&second, rest2)) = tail.split_first() {
-            // Fused 2-byte tag: reached because `first` has the continuation bit. `second - 1 < 0x7f`
-            // means the second byte terminates (no continuation) and is nonzero, so the decoded value
-            // is 128..=16383 -> field 16..=2047, never 0 and within range. A reserved wire type (6/7)
-            // still falls through. Matches the C++ fused 2-byte path's `(u8)(p[1]-1) < 0x7F` guard.
-            if second.wrapping_sub(1) < 0x7f {
-                let value = (u32::from(first) & 0x7f) | (u32::from(second) << 7);
-                if let Some(wire) = WireType::from_bits(value & 0x07) {
-                    *out = Tag {
-                        field: value >> 3,
-                        wire,
-                    };
-                    return Ok(rest2);
-                }
-            }
-            // non-canonical 2-byte, 3+ byte, or reserved wire type: fall through.
-        }
+    match rest.split_first() {
+        None => Err(ErrorKind::Truncated),
+        Some((&first, tail)) => read_tag_from(first, tail, rest, out),
     }
+}
+
+/// The shared fused tag decode: `first`/`tail` are `rest.split_first()` (so `rest` is non-empty).
+/// Decodes a 1-byte tag (fields 1..=15) or a 2-byte tag (fields 16..=2047) inline -- the common cases
+/// -- and falls through to the general multibyte varint otherwise. Mirrors the C++ fused paths; the
+/// 2-byte fusion is measured -31% on a >15-field decode without it.
+#[inline]
+fn read_tag_from<'a>(
+    first: u8,
+    tail: &'a [u8],
+    rest: &'a [u8],
+    out: &mut Tag,
+) -> Result<&'a [u8], ErrorKind> {
+    if first & 0x80 == 0 {
+        // Fused 1-byte tag: field 1..=15, wire in the low 3 bits.
+        let field = u32::from(first >> 3);
+        if field != 0 {
+            if let Some(wire) = WireType::from_bits(u32::from(first & 0x07)) {
+                *out = Tag { field, wire };
+                return Ok(tail);
+            }
+        }
+        // field 0 or a reserved wire type (6/7): fall through for a uniform error.
+    } else if let Some((&second, rest2)) = tail.split_first() {
+        // Fused 2-byte tag: `first` has the continuation bit; `second - 1 < 0x7f` means the second
+        // byte terminates (no continuation) and is nonzero, so the value is 128..=16383 -> field
+        // 16..=2047, never 0 and within range. A reserved wire type (6/7) still falls through. Matches
+        // the C++ fused 2-byte path's `(u8)(p[1]-1) < 0x7F` guard.
+        if second.wrapping_sub(1) < 0x7f {
+            let value = (u32::from(first) & 0x7f) | (u32::from(second) << 7);
+            if let Some(wire) = WireType::from_bits(value & 0x07) {
+                *out = Tag {
+                    field: value >> 3,
+                    wire,
+                };
+                return Ok(rest2);
+            }
+        }
+        // non-canonical 2-byte, 3+ byte, or reserved wire type: fall through.
+    }
+    read_tag_general(rest, out)
+}
+
+/// The tag general case: a 3+ byte tag, or a 1-/2-byte tag the fast paths rejected. Reads the full
+/// varint and range-checks it. `#[inline]` so the whole reader (incl. this cold path) folds into the
+/// caller -- that lets the `Tag` out-param scalarize to registers instead of escaping to the stack
+/// (the C++ reader gets the same via `flatten`); the cold multibyte code just sits after the return.
+#[inline]
+fn read_tag_general<'a>(rest: &'a [u8], out: &mut Tag) -> Result<&'a [u8], ErrorKind> {
     let mut raw = 0u64;
     let rest = read_varint(rest, &mut raw)?;
     let field = raw >> 3;
@@ -533,6 +596,12 @@ mod tests {
         let err = c.read_fixed32().unwrap_err();
         assert_eq!(err.kind(), ErrorKind::Truncated);
         assert_eq!(err.offset(), 1);
+        // Same for fixed64: a 1-byte tag then only 7 bytes -> Truncated at offset 1.
+        let mut c = Cursor::new(&[0x08, 1, 2, 3, 4, 5, 6, 7]);
+        c.read_tag().unwrap();
+        let err = c.read_fixed64().unwrap_err();
+        assert_eq!(err.kind(), ErrorKind::Truncated);
+        assert_eq!(err.offset(), 1);
 
         // length 3 then "abc", with a trailing byte.
         let mut c = Cursor::new(&[0x03, b'a', b'b', b'c', b'z']);
@@ -661,5 +730,123 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn wire_type_repr_is_the_wire_code() {
+        // `#[repr(u8)]` pins each variant to its on-wire code, so generated decoders can use it raw.
+        assert_eq!(WireType::Varint as u8, 0);
+        assert_eq!(WireType::I64 as u8, 1);
+        assert_eq!(WireType::Len as u8, 2);
+        assert_eq!(WireType::SGroup as u8, 3);
+        assert_eq!(WireType::EGroup as u8, 4);
+        assert_eq!(WireType::I32 as u8, 5);
+    }
+
+    #[test]
+    fn free_fns_thread_the_slice_directly() {
+        // The value-threaded readers (what generated code calls) return the advanced slice directly.
+        let mut v = 0;
+        assert_eq!(read_varint(&[0xac, 0x02, 0x7f], &mut v).unwrap(), &[0x7f]);
+        assert_eq!(v, 300);
+
+        let mut x = 0u32;
+        assert_eq!(
+            read_fixed32(&[0x78, 0x56, 0x34, 0x12, 0xff], &mut x).unwrap(),
+            &[0xff]
+        );
+        assert_eq!(x, 0x1234_5678);
+
+        let mut y = 0u64;
+        assert!(read_fixed64(&[1, 2, 3, 4, 5, 6, 7, 8], &mut y).is_ok());
+        assert_eq!(y, 0x0807_0605_0403_0201);
+
+        let mut payload: &[u8] = &[];
+        assert_eq!(
+            read_length_delimited(&[0x03, b'a', b'b', b'c', b'z'], &mut payload).unwrap(),
+            b"z"
+        );
+        assert_eq!(payload, b"abc");
+
+        let mut t = tag(0, WireType::Varint);
+        assert_eq!(read_tag(&[0x0a, 0xff], &mut t).unwrap(), &[0xff]);
+        assert_eq!(t, tag(1, WireType::Len));
+
+        assert_eq!(
+            skip(&[0xac, 0x02, 0x7f], tag(1, WireType::Varint)).unwrap(),
+            &[0x7f]
+        );
+
+        // read_tag on empty is Truncated (it requires a tag); read_tag_or_end reports clean end.
+        assert_eq!(read_tag(&[], &mut t).unwrap_err(), ErrorKind::Truncated);
+    }
+
+    #[test]
+    fn read_tag_or_end_fused_end_one_two_and_three_byte() {
+        let mut t = tag(0, WireType::Varint);
+        // Clean end of input.
+        assert_eq!(read_tag_or_end(&[], &mut t).unwrap(), None);
+        // 1-byte tag: field 1, Len.
+        assert_eq!(read_tag_or_end(&[0x0a, 0x00], &mut t).unwrap(), Some(&[0x00][..]));
+        assert_eq!(t, tag(1, WireType::Len));
+        // 2-byte fused tag: field 18 varint = 0x90 0x01 (consumes exactly 2).
+        assert_eq!(read_tag_or_end(&[0x90, 0x01], &mut t).unwrap(), Some(&[][..]));
+        assert_eq!(t, tag(18, WireType::Varint));
+        // 3-byte tag: field 2048 (just past the fused 2-byte range) via the general path. (2048 << 3)
+        // = 16384 -> 0x80 0x80 0x01, with a trailing byte.
+        assert_eq!(
+            read_tag_or_end(&[0x80, 0x80, 0x01, 0x42], &mut t).unwrap(),
+            Some(&[0x42][..])
+        );
+        assert_eq!(t, tag(2048, WireType::Varint));
+        // Malformed tag (reserved wire type 7): (1 << 3) | 7 = 0x0f.
+        assert_eq!(
+            read_tag_or_end(&[0x0f], &mut t).unwrap_err(),
+            ErrorKind::InvalidTag
+        );
+    }
+
+    #[test]
+    fn varint_overflow_surfaces_through_read_tag() {
+        // An over-long tag varint (eleven continuation bytes) falls through to the general varint and
+        // overflows -> VarintOverflow (context-neutral), not InvalidTag.
+        let mut t = tag(0, WireType::Varint);
+        assert_eq!(
+            read_tag(&[0xff; 11], &mut t).unwrap_err(),
+            ErrorKind::VarintOverflow
+        );
+    }
+
+    #[test]
+    fn length_delimited_rejects_huge_and_overflowing_length() {
+        // A length far past the input is Truncated, reported at the length start (offset 0).
+        let err = Cursor::new(&[0xff, 0xff, 0xff, 0xff, 0x0f, b'x'])
+            .read_length_delimited()
+            .unwrap_err();
+        assert_eq!(err.kind(), ErrorKind::Truncated);
+        assert_eq!(err.offset(), 0);
+        // A length varint that itself overflows 64 bits is VarintOverflow.
+        let mut p: &[u8] = &[];
+        assert_eq!(
+            read_length_delimited(&[0xff; 11], &mut p).unwrap_err(),
+            ErrorKind::VarintOverflow
+        );
+    }
+
+    #[test]
+    fn skip_matches_nested_groups_with_differing_fields() {
+        // Outer group field 1; body = inner group field 2 (start 0x13, end 0x14), then the outer end
+        // (0x0c). Tags: f2 SGroup=(2<<3)|3=0x13, f2 EGroup=(2<<3)|4=0x14, f1 EGroup=0x0c.
+        assert!(Cursor::new(&[0x13, 0x14, 0x0c])
+            .skip(tag(1, WireType::SGroup))
+            .is_ok());
+        // The inner (field-2) group closed by a field-1 end tag (0x0c) is a mismatch -> rejected.
+        assert_eq!(
+            Cursor::new(&[0x13, 0x0c, 0x0c])
+                .skip(tag(1, WireType::SGroup))
+                .unwrap_err()
+                .kind(),
+            ErrorKind::InvalidWireType
+        );
     }
 }
