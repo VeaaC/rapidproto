@@ -135,51 +135,28 @@ impl<'a> Cursor<'a> {
                 return Ok(u64::from(first));
             }
         }
-        // Slow path writes the value to a local and returns just the error kind (one register, no
-        // `Result<u64, ..>` returned through memory across the call); the offset is attached here,
-        // where `self` still sits at the varint start.
-        let mut out = 0u64;
-        match self.read_varint_multibyte(&mut out) {
-            Ok(()) => Ok(out),
-            Err(kind) => Err(self.err(kind)),
-        }
-    }
-
-    /// The varint general case (two or more bytes, or an error): kept out of line so [`read_varint`]'s
-    /// fast path stays inlinable -- folding the loop in bloats it past the inline threshold and the
-    /// per-tag fast path stops inlining, which halves the tag-heavy scenarios. Writes the value to
-    /// `*out` and returns only [`ErrorKind`] on failure (a one-byte, register-returned result -- the
-    /// full `Result<u64, DecodeError>` is a 16-byte aggregate Rust returns through memory, costly
-    /// across this non-inlined call). `take(10)` caps the trip count at the 10 bytes a u64 varint can
-    /// span, so the compiler bounds the loop like the C++ reader's fixed 10-iteration one (an unbounded
-    /// `self.rest.len()` trip count blocks that); the iterator still elides per-byte bounds checks. The
-    /// overflow check sits in the terminator branch, not every iteration -- a varint that ends by the
-    /// 10th byte, the only well-formed case, hits it once.
-    #[inline(never)]
-    fn read_varint_multibyte(&mut self, out: &mut u64) -> Result<(), ErrorKind> {
-        let bytes = self.rest;
-        let mut result: u64 = 0;
-        let mut shift: u32 = 0;
-        for (i, &byte) in bytes.iter().take(10).enumerate() {
-            result |= u64::from(byte & 0x7f) << shift;
-            if byte & 0x80 == 0 {
-                // The 10th byte (i == 9) reaches shift 63: only its low bit fits in u64, so an
-                // over-long encoding (any higher bit set) is rejected, not silently truncated.
-                if i == 9 && byte > 0x01 {
-                    return Err(ErrorKind::InvalidTag);
-                }
-                self.advance(i + 1);
-                *out = result;
-                return Ok(());
+        // Slow path: a FREE function taking the slice by value (not `&mut self`). A `&mut self` tail
+        // would make the cursor's address escape into the non-inlined callee, forcing the whole cursor
+        // (ptr + len) to the stack and spilling/reloading it every field -- even on the inlined fast
+        // paths. Passing the slice by value and threading the advanced slice back keeps the cursor in
+        // registers like the C++ pointer. The offset is attached here, where `self` sits at the start.
+        let mut value = 0u64;
+        match read_varint_multibyte(self.rest, &mut value) {
+            Some(rest) => {
+                self.rest = rest;
+                Ok(value)
             }
-            shift += 7;
-        }
-        // The loop fell through without a terminator: either 10 continuation bytes (an over-long
-        // encoding) or fewer bytes than the varint needs (truncated input).
-        if bytes.len() >= 10 {
-            Err(ErrorKind::InvalidTag)
-        } else {
-            Err(ErrorKind::Truncated)
+            // Cold: the tail signals failure with `None` (keeping its return a single-register
+            // `Option<&[u8]>`); re-derive which failure from how many bytes are left -- 10 present
+            // means an over-long encoding, fewer means the input ran out mid-varint.
+            None => {
+                let kind = if self.rest.len() >= 10 {
+                    ErrorKind::InvalidTag
+                } else {
+                    ErrorKind::Truncated
+                };
+                Err(self.err(kind))
+            }
         }
     }
 
@@ -292,6 +269,36 @@ impl<'a> Cursor<'a> {
         }
         Ok(())
     }
+}
+
+/// The varint general case (two or more bytes, or an error), reached only when
+/// [`Cursor::read_varint`]'s 1-byte fast path misses. A free function taking `bytes` by value and
+/// returning the advanced slice, so the cursor never escapes into this non-inlined callee (a `&mut
+/// Cursor` tail would spill ptr + len to the stack for the whole caller). The value goes to `*out`;
+/// the return is a single-register `Option<&[u8]>` (the null-pointer niche is the error tag, so nothing
+/// comes back through a hidden memory pointer), and the caller re-derives the specific error kind.
+/// `take(10)` caps the trip count at the 10 bytes a u64 varint can span, so the loop unrolls like the
+/// C++ reader's fixed 10-iteration one; the overflow check sits in the terminator branch, hit once for
+/// the only well-formed case.
+#[inline(never)]
+fn read_varint_multibyte<'a>(bytes: &'a [u8], out: &mut u64) -> Option<&'a [u8]> {
+    let mut result: u64 = 0;
+    let mut shift: u32 = 0;
+    for (i, &byte) in bytes.iter().take(10).enumerate() {
+        result |= u64::from(byte & 0x7f) << shift;
+        if byte & 0x80 == 0 {
+            // The 10th byte (i == 9) reaches shift 63: reject an over-long encoding (high bits set).
+            if i == 9 && byte > 0x01 {
+                return None;
+            }
+            *out = result;
+            return Some(&bytes[i + 1..]);
+        }
+        shift += 7;
+    }
+    // Fell through without a terminator: over-long (10 continuation bytes) or truncated input. The
+    // caller distinguishes them from the remaining length; both are `None` here.
+    None
 }
 
 /// Decode a zigzag-encoded 32-bit signed integer (sint32) from its varint value.
