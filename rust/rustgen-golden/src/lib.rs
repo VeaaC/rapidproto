@@ -192,3 +192,7 @@ pub mod xref {
 pub mod proto3_modes {
     include!("../goldens/proto3_modes.rs");
 }
+
+pub mod bench {
+    include!("../goldens/bench.rs");
+}

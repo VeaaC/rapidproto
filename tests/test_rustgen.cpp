@@ -768,6 +768,11 @@ TEST_CASE("rustgen goldens match the corpus (compile smoke-test)", "[rustgen-gol
     check_golden(std::string(kModesGoldenStem),
                  gen_corpus_modes("proto3.proto", modes_golden_spec()));
     stems.emplace_back(kModesGoldenStem);
+    // The shared benchmark schema (tests/bench/bench.proto, package `bench`) -- generated so the Rust
+    // decode benchmark (rust/rustgen-golden/benches/decode.rs) measures a realistic record decoder over
+    // the SAME schema the C++ arena bench uses.
+    check_golden("bench", gen_corpus("../bench/bench.proto"));
+    stems.emplace_back("bench");
     // Golden file names (and lib.rs module names) are the bare stems, so they must be distinct across
     // subdirs -- otherwise two schemas (e.g. nsedge/foo + imports/foo) would silently share one
     // golden and one module. Pin that invariant rather than trust the hand-kept list.
