@@ -5,7 +5,7 @@
 //! is the same as the C++ bench; a verdict needs that box, not a loaded laptop.
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
-use rapidproto::wire::{Cursor, WireType};
+use rapidproto::wire::{self, Tag, WireType};
 
 const N: usize = 2_000_000; // matches the C++ bench's kN
 
@@ -24,31 +24,39 @@ fn zigzag_enc(v: i64) -> u64 {
     ((v << 1) ^ (v >> 63)) as u64
 }
 
-// The Rust `wire` arm: a field loop over the Cursor, mirroring the C++ `wire` arm. `read_field`
-// handles the scenario's field(s) (returning a checksum contribution) and returns None for any other
-// field, which the loop skips -- exactly the handle-or-skip structure of the C++ arms. The returned
-// checksum is black_box'd so the decode can't be optimized away. Generic (not a fn pointer) so the
-// handler INLINES into the loop like the C++ arm's -- an indirect call per field would be an artifact.
-fn drive<F: FnMut(u32, WireType, &mut Cursor) -> Option<u64>>(
-    buf: &[u8],
-    mut read_field: F,
-) -> u64 {
-    let mut cursor = Cursor::new(buf);
+// The Rust `wire` arm: a field loop that threads the remaining-bytes slice BY VALUE through the
+// value-threaded `wire::` readers -- exactly how a generated `decode` body consumes the input, and
+// the shape the C++ `wire` arm uses (it threads a bare pointer). `read_field` handles the scenario's
+// field(s), advancing `*rest` and returning a checksum contribution, or None for any other field,
+// which the loop skips -- the handle-or-skip structure of the C++ arms. The checksum is black_box'd so
+// the decode can't be elided. Generic (not a fn pointer) so the handler INLINES into the loop like the
+// C++ arm's -- an indirect call per field would be an artifact.
+fn drive<F: FnMut(u32, WireType, &mut &[u8]) -> Option<u64>>(buf: &[u8], mut read_field: F) -> u64 {
+    let mut rest = buf;
     let mut sum = 0u64;
-    while let Ok(Some(tag)) = cursor.read_tag_or_end() {
-        match read_field(tag.field, tag.wire, &mut cursor) {
+    while !rest.is_empty() {
+        let mut tag = Tag {
+            field: 0,
+            wire: WireType::Varint,
+        };
+        rest = match wire::read_tag(rest, &mut tag) {
+            Ok(r) => r,
+            Err(_) => break,
+        };
+        match read_field(tag.field, tag.wire, &mut rest) {
             Some(contribution) => sum = sum.wrapping_add(contribution),
             None => {
-                if cursor.skip(tag.wire).is_err() {
-                    break;
-                }
+                rest = match wire::skip(rest, tag.wire) {
+                    Ok(r) => r,
+                    Err(_) => break,
+                };
             }
         }
     }
     sum
 }
 
-fn scenario<F: Fn(u32, WireType, &mut Cursor) -> Option<u64> + Copy>(
+fn scenario<F: Fn(u32, WireType, &mut &[u8]) -> Option<u64> + Copy>(
     c: &mut Criterion,
     name: &str,
     buf: &[u8],
@@ -69,8 +77,14 @@ fn bench_wire(c: &mut Criterion) {
         put_tag(&mut buf, 1, 0);
         put_varint(&mut buf, (i as u64) & 0x7f);
     }
-    scenario(c, "varint-1byte", &buf, |f, w, cur| {
-        (f == 1 && w == WireType::Varint).then(|| cur.read_varint().unwrap())
+    scenario(c, "varint-1byte", &buf, |f, w, rest| {
+        if f == 1 && w == WireType::Varint {
+            let mut v = 0;
+            *rest = wire::read_varint(rest, &mut v).unwrap();
+            Some(v)
+        } else {
+            None
+        }
     });
 
     // varint-multibyte: field 1 varint, five-byte values.
@@ -79,8 +93,14 @@ fn bench_wire(c: &mut Criterion) {
         put_tag(&mut buf, 1, 0);
         put_varint(&mut buf, 0xF000_0000_u64 + ((i as u64) & 0xffff));
     }
-    scenario(c, "varint-multibyte", &buf, |f, w, cur| {
-        (f == 1 && w == WireType::Varint).then(|| cur.read_varint().unwrap())
+    scenario(c, "varint-multibyte", &buf, |f, w, rest| {
+        if f == 1 && w == WireType::Varint {
+            let mut v = 0;
+            *rest = wire::read_varint(rest, &mut v).unwrap();
+            Some(v)
+        } else {
+            None
+        }
     });
 
     // fixed64: field 15 i64, double bits.
@@ -89,8 +109,14 @@ fn bench_wire(c: &mut Criterion) {
         put_tag(&mut buf, 15, 1);
         buf.extend_from_slice(&(i as f64 * -2.25).to_bits().to_le_bytes());
     }
-    scenario(c, "fixed64", &buf, |f, w, cur| {
-        (f == 15 && w == WireType::I64).then(|| cur.read_fixed64().unwrap())
+    scenario(c, "fixed64", &buf, |f, w, rest| {
+        if f == 15 && w == WireType::I64 {
+            let mut v = 0;
+            *rest = wire::read_fixed64(rest, &mut v).unwrap();
+            Some(v)
+        } else {
+            None
+        }
     });
 
     // string: field 12 length-delimited, 8-byte payloads.
@@ -100,8 +126,14 @@ fn bench_wire(c: &mut Criterion) {
         put_varint(&mut buf, 8);
         buf.extend_from_slice(b"abcdefgh");
     }
-    scenario(c, "string", &buf, |f, w, cur| {
-        (f == 12 && w == WireType::Len).then(|| cur.read_length_delimited().unwrap().len() as u64)
+    scenario(c, "string", &buf, |f, w, rest| {
+        if f == 12 && w == WireType::Len {
+            let mut payload: &[u8] = &[];
+            *rest = wire::read_length_delimited(rest, &mut payload).unwrap();
+            Some(payload.len() as u64)
+        } else {
+            None
+        }
     });
 
     // mixed: fields 1 (varint), 6 (zigzag varint), 15 (fixed64), 12 (length-delimited).
@@ -120,13 +152,27 @@ fn bench_wire(c: &mut Criterion) {
         put_varint(&mut buf, 4);
         buf.extend_from_slice(b"wxyz");
     }
-    scenario(c, "mixed", &buf, |f, w, cur| match (f, w) {
-        (1, WireType::Varint) => Some(cur.read_varint().unwrap()),
-        (6, WireType::Varint) => {
-            Some(rapidproto::wire::zigzag64(cur.read_varint().unwrap()) as u64)
+    scenario(c, "mixed", &buf, |f, w, rest| match (f, w) {
+        (1, WireType::Varint) => {
+            let mut v = 0;
+            *rest = wire::read_varint(rest, &mut v).unwrap();
+            Some(v)
         }
-        (15, WireType::I64) => Some(cur.read_fixed64().unwrap()),
-        (12, WireType::Len) => Some(cur.read_length_delimited().unwrap().len() as u64),
+        (6, WireType::Varint) => {
+            let mut v = 0;
+            *rest = wire::read_varint(rest, &mut v).unwrap();
+            Some(wire::zigzag64(v) as u64)
+        }
+        (15, WireType::I64) => {
+            let mut v = 0;
+            *rest = wire::read_fixed64(rest, &mut v).unwrap();
+            Some(v)
+        }
+        (12, WireType::Len) => {
+            let mut payload: &[u8] = &[];
+            *rest = wire::read_length_delimited(rest, &mut payload).unwrap();
+            Some(payload.len() as u64)
+        }
         _ => None,
     });
 }

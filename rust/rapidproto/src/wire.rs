@@ -111,71 +111,28 @@ impl<'a> Cursor<'a> {
         DecodeError::new(kind, self.offset())
     }
 
-    /// Advance past `n` already-read bytes. `n` must be `<= self.rest.len()` (guaranteed by the
-    /// caller having just read those bytes). Reslices `rest` and nothing else -- the byte offset is
-    /// recovered on demand in [`offset`](Self::offset), so the hot path touches only the slice.
-    #[inline]
-    fn advance(&mut self, n: usize) {
-        self.rest = &self.rest[n..];
-    }
-
     /// Read a base-128 varint (up to 10 bytes). `Truncated` if the continuation bit is still set at
     /// end of input; `InvalidTag` if the 10th byte sets bits above bit 0 (an over-long encoding).
-    /// Mirrors the C++ reader: a 1-byte fast path for the common case (every tag and most small
-    /// fields) inlined into the caller, with the multibyte loop kept out of line so this stays small
-    /// enough to inline -- folding the loop in bloats it past the threshold and the per-tag fast path
-    /// stops inlining, which halves the tag-heavy scenarios. Safe Rust throughout: `split_first` and
-    /// the slice iterator keep the hot paths bounds-check-free without `unsafe`.
+    /// A thin wrapper over the value-threaded [`read_varint`] free function (which is what the hot
+    /// field loop calls directly); the error offset is this cursor's position, the varint start.
     #[inline]
     pub fn read_varint(&mut self) -> Result<u64, DecodeError> {
-        // 1-byte fast path: one byte, continuation bit clear.
-        if let Some((&first, _)) = self.rest.split_first() {
-            if first & 0x80 == 0 {
-                self.advance(1);
-                return Ok(u64::from(first));
-            }
-        }
-        // Slow path: a FREE function taking the slice by value (not `&mut self`). A `&mut self` tail
-        // would make the cursor's address escape into the non-inlined callee, forcing the whole cursor
-        // (ptr + len) to the stack and spilling/reloading it every field -- even on the inlined fast
-        // paths. Passing the slice by value and threading the advanced slice back keeps the cursor in
-        // registers like the C++ pointer. The offset is attached here, where `self` sits at the start.
-        let mut value = 0u64;
-        match read_varint_multibyte(self.rest, &mut value) {
-            Some(rest) => {
-                self.rest = rest;
-                Ok(value)
-            }
-            // Cold: the tail signals failure with `None` (keeping its return a single-register
-            // `Option<&[u8]>`); re-derive which failure from how many bytes are left -- 10 present
-            // means an over-long encoding, fewer means the input ran out mid-varint.
-            None => {
-                let kind = if self.rest.len() >= 10 {
-                    ErrorKind::InvalidTag
-                } else {
-                    ErrorKind::Truncated
-                };
-                Err(self.err(kind))
-            }
-        }
+        let mut value = 0;
+        self.rest = read_varint(self.rest, &mut value).map_err(|k| self.err(k))?;
+        Ok(value)
     }
 
     /// Read a field tag. `InvalidTag` for a field number of 0 or above the Protobuf maximum
-    /// (2^29 - 1), or a wire type of 6/7.
+    /// (2^29 - 1), or a wire type of 6/7. A thin wrapper over the value-threaded [`read_tag`] free
+    /// function; the error offset is this cursor's position, the tag start.
     #[inline]
     pub fn read_tag(&mut self) -> Result<Tag, DecodeError> {
-        let before = *self;
-        let raw = self.read_varint()?;
-        let field = raw >> 3;
-        if field == 0 || field > u64::from(MAX_FIELD_NUMBER) {
-            return Err(before.err(ErrorKind::InvalidTag));
-        }
-        let wire = WireType::from_bits((raw & 0x07) as u32)
-            .ok_or_else(|| before.err(ErrorKind::InvalidTag))?;
-        Ok(Tag {
-            field: field as u32,
-            wire,
-        })
+        let mut tag = Tag {
+            field: 0,
+            wire: WireType::Varint,
+        };
+        self.rest = read_tag(self.rest, &mut tag).map_err(|k| self.err(k))?;
+        Ok(tag)
     }
 
     /// Read the next field tag, or `None` at end of input -- the field-loop primitive.
@@ -187,118 +144,204 @@ impl<'a> Cursor<'a> {
         self.read_tag().map(Some)
     }
 
-    /// Read a fixed 32-bit little-endian value (fixed32/sfixed32/float bits).
+    /// Read a fixed 32-bit little-endian value (fixed32/sfixed32/float bits). Wrapper over the
+    /// value-threaded [`read_fixed32`] free function.
     #[inline]
     pub fn read_fixed32(&mut self) -> Result<u32, DecodeError> {
-        match self.rest.first_chunk::<4>() {
-            Some(bytes) => {
-                let value = u32::from_le_bytes(*bytes);
-                self.advance(4);
-                Ok(value)
-            }
-            None => Err(self.err(ErrorKind::Truncated)),
-        }
+        let mut value = 0;
+        self.rest = read_fixed32(self.rest, &mut value).map_err(|k| self.err(k))?;
+        Ok(value)
     }
 
-    /// Read a fixed 64-bit little-endian value (fixed64/sfixed64/double bits).
+    /// Read a fixed 64-bit little-endian value (fixed64/sfixed64/double bits). Wrapper over the
+    /// value-threaded [`read_fixed64`] free function.
     #[inline]
     pub fn read_fixed64(&mut self) -> Result<u64, DecodeError> {
-        match self.rest.first_chunk::<8>() {
-            Some(bytes) => {
-                let value = u64::from_le_bytes(*bytes);
-                self.advance(8);
-                Ok(value)
-            }
-            None => Err(self.err(ErrorKind::Truncated)),
-        }
+        let mut value = 0;
+        self.rest = read_fixed64(self.rest, &mut value).map_err(|k| self.err(k))?;
+        Ok(value)
     }
 
     /// Read a length-delimited payload (a varint length then that many bytes), returning the payload
-    /// without copying. `Truncated` if the declared length runs past the input.
+    /// without copying. `Truncated` if the declared length runs past the input (reported at the length
+    /// start). Wrapper over the value-threaded [`read_length_delimited`] free function.
     #[inline]
     pub fn read_length_delimited(&mut self) -> Result<&'a [u8], DecodeError> {
-        let before = *self;
-        let len = self.read_varint()?;
-        // A length that does not fit a usize cannot fit the remaining input either -- treat as
-        // truncated at the length's offset (not the cursor's post-varint offset).
-        let len = usize::try_from(len).map_err(|_| before.err(ErrorKind::Truncated))?;
-        if len > self.rest.len() {
-            return Err(before.err(ErrorKind::Truncated));
-        }
-        let (payload, rest) = self.rest.split_at(len);
-        self.rest = rest;
+        let mut payload: &[u8] = &[];
+        self.rest = read_length_delimited(self.rest, &mut payload).map_err(|k| self.err(k))?;
         Ok(payload)
     }
 
     /// Consume one field's value given its wire type, for an unknown or dropped field. Groups are
-    /// skipped to their matching end tag (nested groups recurse, capped by [`MAX_SKIP_DEPTH`]).
+    /// skipped to their matching end tag (nested groups recurse, capped by [`MAX_SKIP_DEPTH`]). Wrapper
+    /// over the value-threaded [`skip`] free function; a failure is reported at this field's start.
+    #[inline]
     pub fn skip(&mut self, wire: WireType) -> Result<(), DecodeError> {
-        self.skip_depth(wire, 0)
-    }
-
-    fn skip_depth(&mut self, wire: WireType, depth: u32) -> Result<(), DecodeError> {
-        match wire {
-            WireType::Varint => {
-                self.read_varint()?;
-            }
-            WireType::I64 => {
-                self.read_fixed64()?;
-            }
-            WireType::I32 => {
-                self.read_fixed32()?;
-            }
-            WireType::Len => {
-                self.read_length_delimited()?;
-            }
-            WireType::EGroup => {
-                // A group-end with no matching start: malformed.
-                return Err(self.err(ErrorKind::InvalidWireType));
-            }
-            WireType::SGroup => {
-                if depth >= MAX_SKIP_DEPTH {
-                    return Err(self.err(ErrorKind::DepthLimitExceeded));
-                }
-                loop {
-                    let tag = self.read_tag()?;
-                    if tag.wire == WireType::EGroup {
-                        break; // the matching (or an inner group's) end
-                    }
-                    self.skip_depth(tag.wire, depth + 1)?;
-                }
-            }
-        }
+        self.rest = skip(self.rest, wire).map_err(|k| self.err(k))?;
         Ok(())
     }
 }
 
-/// The varint general case (two or more bytes, or an error), reached only when
-/// [`Cursor::read_varint`]'s 1-byte fast path misses. A free function taking `bytes` by value and
-/// returning the advanced slice, so the cursor never escapes into this non-inlined callee (a `&mut
-/// Cursor` tail would spill ptr + len to the stack for the whole caller). The value goes to `*out`;
-/// the return is a single-register `Option<&[u8]>` (the null-pointer niche is the error tag, so nothing
-/// comes back through a hidden memory pointer), and the caller re-derives the specific error kind.
-/// `take(10)` caps the trip count at the 10 bytes a u64 varint can span, so the loop unrolls like the
-/// C++ reader's fixed 10-iteration one; the overflow check sits in the terminator branch, hit once for
-/// the only well-formed case.
-#[inline(never)]
-fn read_varint_multibyte<'a>(bytes: &'a [u8], out: &mut u64) -> Option<&'a [u8]> {
+// ── Value-threaded wire readers ────────────────────────────────────────────────────────────────
+// The hot decode primitives. Each takes the not-yet-consumed bytes BY VALUE and returns the slice past
+// what it read (writing any decoded value to an out-param), or the failing `ErrorKind`. Threading the
+// slice rather than a `&mut Cursor` is what keeps it in registers across a field loop -- a mutable
+// reference would make the cursor's address escape and force ptr + len to the stack every field (the
+// C++ reader threads a bare pointer for the same reason). Generated `decode` bodies call these
+// directly; [`Cursor`] is a thin wrapper that adds the error offset. `#[inline]`, so the `Result` is
+// folded into the caller's branches rather than returned through memory. All safe Rust: no `unsafe`,
+// no panic, no out-of-bounds read on arbitrary input. The caller derives the error's byte offset from
+// the slice it still holds (unchanged on the error path).
+
+/// Read a base-128 varint (up to 10 bytes). `take(10)` caps the trip count so the loop unrolls like
+/// the C++ reader's fixed 10-iteration one; the over-long check sits in the terminator branch (hit
+/// once for the only well-formed case). `Truncated` at end of input; `InvalidTag` for an over-long
+/// encoding (10th byte above bit 0, or ten continuation bytes).
+#[inline]
+pub fn read_varint<'a>(rest: &'a [u8], out: &mut u64) -> Result<&'a [u8], ErrorKind> {
     let mut result: u64 = 0;
     let mut shift: u32 = 0;
-    for (i, &byte) in bytes.iter().take(10).enumerate() {
+    for (i, &byte) in rest.iter().take(10).enumerate() {
         result |= u64::from(byte & 0x7f) << shift;
         if byte & 0x80 == 0 {
-            // The 10th byte (i == 9) reaches shift 63: reject an over-long encoding (high bits set).
             if i == 9 && byte > 0x01 {
-                return None;
+                return Err(ErrorKind::InvalidTag);
             }
             *out = result;
-            return Some(&bytes[i + 1..]);
+            return Ok(&rest[i + 1..]);
         }
         shift += 7;
     }
-    // Fell through without a terminator: over-long (10 continuation bytes) or truncated input. The
-    // caller distinguishes them from the remaining length; both are `None` here.
-    None
+    if rest.len() >= 10 {
+        Err(ErrorKind::InvalidTag)
+    } else {
+        Err(ErrorKind::Truncated)
+    }
+}
+
+/// Read a field tag. A fused 1-byte fast path decodes fields 1..=15 inline (the common case); longer
+/// tags fall through to the general varint. `InvalidTag` for field 0, a field above `2^29 - 1`, or a
+/// wire type of 6/7.
+#[inline]
+pub fn read_tag<'a>(rest: &'a [u8], out: &mut Tag) -> Result<&'a [u8], ErrorKind> {
+    // Fused 1-byte tag: one byte, continuation bit clear -> field 1..=15, wire in the low 3 bits.
+    if let Some((&first, tail)) = rest.split_first() {
+        if first & 0x80 == 0 {
+            let field = u32::from(first >> 3);
+            if field != 0 {
+                if let Some(wire) = WireType::from_bits(u32::from(first & 0x07)) {
+                    *out = Tag { field, wire };
+                    return Ok(tail);
+                }
+            }
+            // field 0 or a reserved wire type (6/7): fall through for a uniform InvalidTag.
+        }
+    }
+    let mut raw = 0u64;
+    let rest = read_varint(rest, &mut raw)?;
+    let field = raw >> 3;
+    if field == 0 || field > u64::from(MAX_FIELD_NUMBER) {
+        return Err(ErrorKind::InvalidTag);
+    }
+    let wire = WireType::from_bits((raw & 0x07) as u32).ok_or(ErrorKind::InvalidTag)?;
+    *out = Tag {
+        field: field as u32,
+        wire,
+    };
+    Ok(rest)
+}
+
+/// Read a fixed 32-bit little-endian value (fixed32/sfixed32/float bits). `Truncated` if fewer than 4
+/// bytes remain.
+#[inline]
+pub fn read_fixed32<'a>(rest: &'a [u8], out: &mut u32) -> Result<&'a [u8], ErrorKind> {
+    match rest.first_chunk::<4>() {
+        Some(bytes) => {
+            *out = u32::from_le_bytes(*bytes);
+            Ok(&rest[4..])
+        }
+        None => Err(ErrorKind::Truncated),
+    }
+}
+
+/// Read a fixed 64-bit little-endian value (fixed64/sfixed64/double bits). `Truncated` if fewer than 8
+/// bytes remain.
+#[inline]
+pub fn read_fixed64<'a>(rest: &'a [u8], out: &mut u64) -> Result<&'a [u8], ErrorKind> {
+    match rest.first_chunk::<8>() {
+        Some(bytes) => {
+            *out = u64::from_le_bytes(*bytes);
+            Ok(&rest[8..])
+        }
+        None => Err(ErrorKind::Truncated),
+    }
+}
+
+/// Read a length-delimited payload (a varint length then that many bytes), writing the borrowed
+/// payload to `out`. `Truncated` if the declared length does not fit the remaining input.
+#[inline]
+pub fn read_length_delimited<'a>(
+    rest: &'a [u8],
+    out: &mut &'a [u8],
+) -> Result<&'a [u8], ErrorKind> {
+    let mut len = 0u64;
+    let rest = read_varint(rest, &mut len)?;
+    // A length that does not fit a usize cannot fit the remaining input either.
+    let len = usize::try_from(len).map_err(|_| ErrorKind::Truncated)?;
+    if len > rest.len() {
+        return Err(ErrorKind::Truncated);
+    }
+    let (payload, tail) = rest.split_at(len);
+    *out = payload;
+    Ok(tail)
+}
+
+/// Consume one field's value given its wire type (an unknown or dropped field), returning the slice
+/// past it. Groups skip to their matching end tag (nested groups recurse, capped by
+/// [`MAX_SKIP_DEPTH`]). Cold relative to the typed readers.
+pub fn skip(rest: &[u8], wire: WireType) -> Result<&[u8], ErrorKind> {
+    skip_depth(rest, wire, 0)
+}
+
+fn skip_depth(rest: &[u8], wire: WireType, depth: u32) -> Result<&[u8], ErrorKind> {
+    match wire {
+        WireType::Varint => {
+            let mut v = 0;
+            read_varint(rest, &mut v)
+        }
+        WireType::I64 => {
+            let mut v = 0;
+            read_fixed64(rest, &mut v)
+        }
+        WireType::I32 => {
+            let mut v = 0;
+            read_fixed32(rest, &mut v)
+        }
+        WireType::Len => {
+            let mut p: &[u8] = &[];
+            read_length_delimited(rest, &mut p)
+        }
+        // A group-end with no matching start: malformed.
+        WireType::EGroup => Err(ErrorKind::InvalidWireType),
+        WireType::SGroup => {
+            if depth >= MAX_SKIP_DEPTH {
+                return Err(ErrorKind::DepthLimitExceeded);
+            }
+            let mut rest = rest;
+            loop {
+                let mut tag = Tag {
+                    field: 0,
+                    wire: WireType::Varint,
+                };
+                rest = read_tag(rest, &mut tag)?;
+                if tag.wire == WireType::EGroup {
+                    break; // the matching (or an inner group's) end
+                }
+                rest = skip_depth(rest, tag.wire, depth + 1)?;
+            }
+            Ok(rest)
+        }
+    }
 }
 
 /// Decode a zigzag-encoded 32-bit signed integer (sint32) from its varint value.
