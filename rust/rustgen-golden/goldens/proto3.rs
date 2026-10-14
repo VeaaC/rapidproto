@@ -36,66 +36,561 @@ pub mod arena {
 
   pub mod p3 {
     pub struct Msg<'a> {
-      _marker: ::core::marker::PhantomData<&'a ()>,
+      implicit_i: i32,
+      explicit_i: Option<i32>,
+      name: ::rapidproto::ProtoStr<'a>,
+      state: super::super::common::p3::State,
+      self_: Option<&'a Msg<'a>>,
+      nums: &'a [i32],
+      unpacked: &'a [i32],
+      states: &'a [super::super::common::p3::State],
+      reals: &'a [f64],
+      codes: &'a [u32],
+      bools: &'a [bool],
+      ratio: f64,
+      scale: f32,
+      counts: ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, i32>,
+      flags: ::rapidproto::MapView<'a, bool, ::rapidproto::ProtoStr<'a>>,
+      toggles: ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, bool>,
+      ratios: ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, f64>,
+      pick: Option<msg::Pick<'a>>,
     }
 
     impl<'a> Msg<'a> {
       pub fn implicit_i(&self) -> i32 {
-        todo!()
+        self.implicit_i
       }
       pub fn explicit_i(&self) -> Option<i32> {
-        todo!()
+        self.explicit_i
       }
       pub fn name(&self) -> ::rapidproto::ProtoStr<'a> {
-        todo!()
+        self.name
       }
       pub fn state(&self) -> super::super::common::p3::State {
-        todo!()
+        self.state
       }
       pub fn self_(&self) -> Option<&'a Msg<'a>> {
-        todo!()
+        self.self_
       }
       pub fn nums(&self) -> &'a [i32] {
-        todo!()
+        self.nums
       }
       pub fn unpacked(&self) -> &'a [i32] {
-        todo!()
+        self.unpacked
       }
       pub fn states(&self) -> &'a [super::super::common::p3::State] {
-        todo!()
+        self.states
       }
       pub fn reals(&self) -> &'a [f64] {
-        todo!()
+        self.reals
       }
       pub fn codes(&self) -> &'a [u32] {
-        todo!()
+        self.codes
       }
       pub fn bools(&self) -> &'a [bool] {
-        todo!()
+        self.bools
       }
       pub fn ratio(&self) -> f64 {
-        todo!()
+        self.ratio
       }
       pub fn scale(&self) -> f32 {
-        todo!()
+        self.scale
       }
       pub fn counts(&self) -> ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, i32> {
-        todo!()
+        self.counts
       }
       pub fn flags(&self) -> ::rapidproto::MapView<'a, bool, ::rapidproto::ProtoStr<'a>> {
-        todo!()
+        self.flags
       }
       pub fn toggles(&self) -> ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, bool> {
-        todo!()
+        self.toggles
       }
       pub fn ratios(&self) -> ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, f64> {
-        todo!()
+        self.ratios
       }
-      pub fn pick(&self) -> Option<msg::Pick<'a>> {
-        todo!()
+      pub fn pick(&self) -> Option<&msg::Pick<'a>> {
+        self.pick.as_ref()
       }
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Msg<'a>, ::rapidproto::DecodeError> {
-        todo!()
+        if input.len() > u32::MAX as usize {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        let rp_built = Self::decode_into(input, arena, 0)?;
+        match arena.alloc(rp_built) {
+          Ok(r) => Ok(&*r),
+          Err(_) => Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0)),
+        }
+      }
+
+      #[doc(hidden)]
+      pub(crate) fn decode_into(rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> Result<Msg<'a>, ::rapidproto::DecodeError> {
+        if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
+        }
+        let mut implicit_i: i32 = 0;
+        let mut explicit_i: Option<i32> = None;
+        let mut name: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+        let mut state: super::super::common::p3::State = super::super::common::p3::State(0);
+        let mut self_: Option<&'a Msg<'a>> = None;
+        let mut rp_acc_6 = ::rapidproto::DecodeVec::new(rp_arena);
+        let mut rp_acc_7 = ::rapidproto::DecodeVec::new(rp_arena);
+        let mut rp_acc_8 = ::rapidproto::DecodeVec::new(rp_arena);
+        let mut rp_acc_12 = ::rapidproto::DecodeVec::new(rp_arena);
+        let mut rp_acc_13 = ::rapidproto::DecodeVec::new(rp_arena);
+        let mut rp_acc_17 = ::rapidproto::DecodeVec::new(rp_arena);
+        let mut ratio: f64 = 0.0;
+        let mut scale: f32 = 0.0;
+        let mut rp_map_9 = ::rapidproto::DecodeVec::new(rp_arena);
+        let mut rp_map_14 = ::rapidproto::DecodeVec::new(rp_arena);
+        let mut rp_map_18 = ::rapidproto::DecodeVec::new(rp_arena);
+        let mut rp_map_19 = ::rapidproto::DecodeVec::new(rp_arena);
+        let mut rp_oneof_0: Option<msg::Pick<'a>> = None;
+        let mut rp_rest: &'a [u8] = rp_body;
+        loop {
+          let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+          rp_rest = match ::rapidproto::wire::read_tag_or_end(rp_rest, &mut rp_tag) {
+            Ok(Some(r)) => r,
+            Ok(None) => break,
+            Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          };
+          match (rp_tag.field, rp_tag.wire) {
+            (1u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              implicit_i = rp_v as i32;
+            }
+            (2u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              explicit_i = Some(rp_v as i32);
+            }
+            (3u32, ::rapidproto::wire::WireType::Len) => {
+              let mut rp_p: &[u8] = &[];
+              rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              name = ::rapidproto::ProtoStr::new(rp_p);
+            }
+            (4u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              state = super::super::common::p3::State(rp_v as i32);
+            }
+            (5u32, ::rapidproto::wire::WireType::Len) => {
+              if self_.is_some() {
+                return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::RepeatedSingularMessage, rp_body.len() - rp_rest.len()).with_field(5));
+              }
+              let mut rp_p: &[u8] = &[];
+              rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              let rp_sub = Msg::decode_into(rp_p, rp_arena, rp_depth + 1)?;
+              self_ = Some(match rp_arena.alloc(rp_sub) {
+                Ok(r) => &*r,
+                Err(_) => return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0)),
+              });
+            }
+            (6u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              rp_acc_6.push(rp_v as i32).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+            }
+            (6u32, ::rapidproto::wire::WireType::Len) => {
+              let mut rp_p: &[u8] = &[];
+              rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              while !rp_p.is_empty() {
+                let mut rp_v = 0u64;
+                rp_p = match ::rapidproto::wire::read_varint(rp_p, &mut rp_v) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len() - rp_p.len())),
+                };
+                rp_acc_6.push(rp_v as i32).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+              }
+            }
+            (7u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              rp_acc_7.push(rp_v as i32).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+            }
+            (7u32, ::rapidproto::wire::WireType::Len) => {
+              let mut rp_p: &[u8] = &[];
+              rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              while !rp_p.is_empty() {
+                let mut rp_v = 0u64;
+                rp_p = match ::rapidproto::wire::read_varint(rp_p, &mut rp_v) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len() - rp_p.len())),
+                };
+                rp_acc_7.push(rp_v as i32).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+              }
+            }
+            (8u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              rp_acc_8.push(super::super::common::p3::State(rp_v as i32)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+            }
+            (8u32, ::rapidproto::wire::WireType::Len) => {
+              let mut rp_p: &[u8] = &[];
+              rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              while !rp_p.is_empty() {
+                let mut rp_v = 0u64;
+                rp_p = match ::rapidproto::wire::read_varint(rp_p, &mut rp_v) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len() - rp_p.len())),
+                };
+                rp_acc_8.push(super::super::common::p3::State(rp_v as i32)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+              }
+            }
+            (12u32, ::rapidproto::wire::WireType::I64) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_fixed64(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              rp_acc_12.push(f64::from_bits(rp_v)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+            }
+            (12u32, ::rapidproto::wire::WireType::Len) => {
+              let mut rp_p: &[u8] = &[];
+              rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              while !rp_p.is_empty() {
+                let mut rp_v = 0u64;
+                rp_p = match ::rapidproto::wire::read_fixed64(rp_p, &mut rp_v) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len() - rp_p.len())),
+                };
+                rp_acc_12.push(f64::from_bits(rp_v)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+              }
+            }
+            (13u32, ::rapidproto::wire::WireType::I32) => {
+              let mut rp_v = 0u32;
+              rp_rest = match ::rapidproto::wire::read_fixed32(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              rp_acc_13.push(rp_v).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+            }
+            (13u32, ::rapidproto::wire::WireType::Len) => {
+              let mut rp_p: &[u8] = &[];
+              rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              while !rp_p.is_empty() {
+                let mut rp_v = 0u32;
+                rp_p = match ::rapidproto::wire::read_fixed32(rp_p, &mut rp_v) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len() - rp_p.len())),
+                };
+                rp_acc_13.push(rp_v).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+              }
+            }
+            (17u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              rp_acc_17.push(rp_v != 0).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+            }
+            (17u32, ::rapidproto::wire::WireType::Len) => {
+              let mut rp_p: &[u8] = &[];
+              rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              while !rp_p.is_empty() {
+                let mut rp_v = 0u64;
+                rp_p = match ::rapidproto::wire::read_varint(rp_p, &mut rp_v) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len() - rp_p.len())),
+                };
+                rp_acc_17.push(rp_v != 0).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+              }
+            }
+            (20u32, ::rapidproto::wire::WireType::I64) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_fixed64(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              ratio = f64::from_bits(rp_v);
+            }
+            (21u32, ::rapidproto::wire::WireType::I32) => {
+              let mut rp_v = 0u32;
+              rp_rest = match ::rapidproto::wire::read_fixed32(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              scale = f32::from_bits(rp_v);
+            }
+            (9u32, ::rapidproto::wire::WireType::Len) => {
+              let mut rp_p: &[u8] = &[];
+              rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              let rp_ent_body: &'a [u8] = rp_p;
+              let mut rp_key: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+              let mut rp_val: i32 = 0;
+              let mut rp_ent: &'a [u8] = rp_ent_body;
+              loop {
+                let mut rp_etag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+                rp_ent = match ::rapidproto::wire::read_tag_or_end(rp_ent, &mut rp_etag) {
+                  Ok(Some(r)) => r,
+                  Ok(None) => break,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
+                };
+                match (rp_etag.field, rp_etag.wire) {
+                  (1u32, ::rapidproto::wire::WireType::Len) => {
+                    let mut rp_p: &[u8] = &[];
+                    rp_ent = match ::rapidproto::wire::read_length_delimited(rp_ent, &mut rp_p) {
+                      Ok(r) => r,
+                      Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
+                    };
+                    rp_key = ::rapidproto::ProtoStr::new(rp_p);
+                  }
+                  (2u32, ::rapidproto::wire::WireType::Varint) => {
+                    let mut rp_v = 0u64;
+                    rp_ent = match ::rapidproto::wire::read_varint(rp_ent, &mut rp_v) {
+                      Ok(r) => r,
+                      Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
+                    };
+                    rp_val = rp_v as i32;
+                  }
+                  _ => {
+                    rp_ent = match ::rapidproto::wire::skip(rp_ent, rp_etag) {
+                      Ok(r) => r,
+                      Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
+                    };
+                  }
+                }
+              }
+              rp_map_9.push((rp_key, rp_val)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+            }
+            (14u32, ::rapidproto::wire::WireType::Len) => {
+              let mut rp_p: &[u8] = &[];
+              rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              let rp_ent_body: &'a [u8] = rp_p;
+              let mut rp_key: bool = false;
+              let mut rp_val: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+              let mut rp_ent: &'a [u8] = rp_ent_body;
+              loop {
+                let mut rp_etag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+                rp_ent = match ::rapidproto::wire::read_tag_or_end(rp_ent, &mut rp_etag) {
+                  Ok(Some(r)) => r,
+                  Ok(None) => break,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
+                };
+                match (rp_etag.field, rp_etag.wire) {
+                  (1u32, ::rapidproto::wire::WireType::Varint) => {
+                    let mut rp_v = 0u64;
+                    rp_ent = match ::rapidproto::wire::read_varint(rp_ent, &mut rp_v) {
+                      Ok(r) => r,
+                      Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
+                    };
+                    rp_key = rp_v != 0;
+                  }
+                  (2u32, ::rapidproto::wire::WireType::Len) => {
+                    let mut rp_p: &[u8] = &[];
+                    rp_ent = match ::rapidproto::wire::read_length_delimited(rp_ent, &mut rp_p) {
+                      Ok(r) => r,
+                      Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
+                    };
+                    rp_val = ::rapidproto::ProtoStr::new(rp_p);
+                  }
+                  _ => {
+                    rp_ent = match ::rapidproto::wire::skip(rp_ent, rp_etag) {
+                      Ok(r) => r,
+                      Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
+                    };
+                  }
+                }
+              }
+              rp_map_14.push((rp_key, rp_val)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+            }
+            (18u32, ::rapidproto::wire::WireType::Len) => {
+              let mut rp_p: &[u8] = &[];
+              rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              let rp_ent_body: &'a [u8] = rp_p;
+              let mut rp_key: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+              let mut rp_val: bool = false;
+              let mut rp_ent: &'a [u8] = rp_ent_body;
+              loop {
+                let mut rp_etag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+                rp_ent = match ::rapidproto::wire::read_tag_or_end(rp_ent, &mut rp_etag) {
+                  Ok(Some(r)) => r,
+                  Ok(None) => break,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
+                };
+                match (rp_etag.field, rp_etag.wire) {
+                  (1u32, ::rapidproto::wire::WireType::Len) => {
+                    let mut rp_p: &[u8] = &[];
+                    rp_ent = match ::rapidproto::wire::read_length_delimited(rp_ent, &mut rp_p) {
+                      Ok(r) => r,
+                      Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
+                    };
+                    rp_key = ::rapidproto::ProtoStr::new(rp_p);
+                  }
+                  (2u32, ::rapidproto::wire::WireType::Varint) => {
+                    let mut rp_v = 0u64;
+                    rp_ent = match ::rapidproto::wire::read_varint(rp_ent, &mut rp_v) {
+                      Ok(r) => r,
+                      Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
+                    };
+                    rp_val = rp_v != 0;
+                  }
+                  _ => {
+                    rp_ent = match ::rapidproto::wire::skip(rp_ent, rp_etag) {
+                      Ok(r) => r,
+                      Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
+                    };
+                  }
+                }
+              }
+              rp_map_18.push((rp_key, rp_val)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+            }
+            (19u32, ::rapidproto::wire::WireType::Len) => {
+              let mut rp_p: &[u8] = &[];
+              rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              let rp_ent_body: &'a [u8] = rp_p;
+              let mut rp_key: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+              let mut rp_val: f64 = 0.0;
+              let mut rp_ent: &'a [u8] = rp_ent_body;
+              loop {
+                let mut rp_etag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+                rp_ent = match ::rapidproto::wire::read_tag_or_end(rp_ent, &mut rp_etag) {
+                  Ok(Some(r)) => r,
+                  Ok(None) => break,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
+                };
+                match (rp_etag.field, rp_etag.wire) {
+                  (1u32, ::rapidproto::wire::WireType::Len) => {
+                    let mut rp_p: &[u8] = &[];
+                    rp_ent = match ::rapidproto::wire::read_length_delimited(rp_ent, &mut rp_p) {
+                      Ok(r) => r,
+                      Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
+                    };
+                    rp_key = ::rapidproto::ProtoStr::new(rp_p);
+                  }
+                  (2u32, ::rapidproto::wire::WireType::I64) => {
+                    let mut rp_v = 0u64;
+                    rp_ent = match ::rapidproto::wire::read_fixed64(rp_ent, &mut rp_v) {
+                      Ok(r) => r,
+                      Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
+                    };
+                    rp_val = f64::from_bits(rp_v);
+                  }
+                  _ => {
+                    rp_ent = match ::rapidproto::wire::skip(rp_ent, rp_etag) {
+                      Ok(r) => r,
+                      Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
+                    };
+                  }
+                }
+              }
+              rp_map_19.push((rp_key, rp_val)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+            }
+            (10u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              rp_oneof_0 = Some(msg::Pick::A(rp_v as i32));
+            }
+            (11u32, ::rapidproto::wire::WireType::Len) => {
+              let mut rp_p: &[u8] = &[];
+              rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              rp_oneof_0 = Some(msg::Pick::B(::rapidproto::ProtoStr::new(rp_p)));
+            }
+            (15u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              rp_oneof_0 = Some(msg::Pick::C(rp_v != 0));
+            }
+            (16u32, ::rapidproto::wire::WireType::I64) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_fixed64(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              rp_oneof_0 = Some(msg::Pick::D(f64::from_bits(rp_v)));
+            }
+            _ => {
+              rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+            }
+          }
+        }
+        Ok(Msg {
+          implicit_i,
+          explicit_i,
+          name,
+          state,
+          self_,
+          nums: rp_acc_6.into_slice(),
+          unpacked: rp_acc_7.into_slice(),
+          states: rp_acc_8.into_slice(),
+          reals: rp_acc_12.into_slice(),
+          codes: rp_acc_13.into_slice(),
+          bools: rp_acc_17.into_slice(),
+          ratio,
+          scale,
+          counts: ::rapidproto::MapView::new(rp_map_9.into_slice()),
+          flags: ::rapidproto::MapView::new(rp_map_14.into_slice()),
+          toggles: ::rapidproto::MapView::new(rp_map_18.into_slice()),
+          ratios: ::rapidproto::MapView::new(rp_map_19.into_slice()),
+          pick: rp_oneof_0,
+        })
       }
     }
 

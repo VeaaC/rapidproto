@@ -358,9 +358,9 @@ TEST_CASE("rustgen arena: maps become MapView accessors") {
     CHECK(has(out,
               "pub fn nested(&self) -> ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, "
               "Inner<'a>> {"));  // message-valued map -> inline value
-    CHECK(has(out, "pub fn pick(&self) -> Option<m::Pick<'a>> {"));  // oneof accessor
-    CHECK(has(out, "pub mod m {"));                                  // M's submodule holds the enum
-    CHECK(has(out, "pub enum Pick<'a> {"));                          // borrows (string) -> <'a>
+    CHECK(has(out, "pub fn pick(&self) -> Option<&m::Pick<'a>> {"));  // oneof accessor (borrowed)
+    CHECK(has(out, "pub mod m {"));          // M's submodule holds the enum
+    CHECK(has(out, "pub enum Pick<'a> {"));  // borrows (string) -> <'a>
     CHECK(has(out, "A(i32),"));
     CHECK(has(out, "B(::rapidproto::ProtoStr<'a>),"));
 }
@@ -497,8 +497,8 @@ TEST_CASE("rustgen oneof: native enum in the message submodule, variants over al
             Sub sub = 5;
           }
         })");
-    // Accessor on M returns Option<..> into M's own submodule; enum borrows -> carries <'a>.
-    CHECK(has(out, "pub fn choice(&self) -> Option<m::Choice<'a>> {"));
+    // Accessor on M returns a borrow into M's own submodule; enum borrows -> carries <'a>.
+    CHECK(has(out, "pub fn choice(&self) -> Option<&m::Choice<'a>> {"));
     CHECK(has(out, "pub mod m {"));
     CHECK(has(out, "pub enum Choice<'a> {"));
     CHECK(has(out, "Num(i32),"));
@@ -515,7 +515,7 @@ TEST_CASE("rustgen oneof: a oneof that borrows nothing carries no lifetime") {
         message M { oneof pick { int32 n = 1; E e = 2; } })");
     CHECK(has(out, "pub enum Pick {"));  // only scalar + enum (Copy) variants -> no <'a>
     CHECK(!has(out, "pub enum Pick<'a>"));
-    CHECK(has(out, "pub fn pick(&self) -> Option<m::Pick> {"));
+    CHECK(has(out, "pub fn pick(&self) -> Option<&m::Pick> {"));
     CHECK(has(out, "N(i32),"));
     CHECK(has(out, "E(super::super::super::common::p::E),"));
 }
@@ -537,8 +537,8 @@ TEST_CASE("rustgen oneof: multiple oneofs become separate enums") {
         })");
     CHECK(has(out, "pub enum A {"));      // borrows nothing
     CHECK(has(out, "pub enum B<'a> {"));  // borrows (string)
-    CHECK(has(out, "pub fn a(&self) -> Option<m::A> {"));
-    CHECK(has(out, "pub fn b(&self) -> Option<m::B<'a>> {"));
+    CHECK(has(out, "pub fn a(&self) -> Option<&m::A> {"));
+    CHECK(has(out, "pub fn b(&self) -> Option<&m::B<'a>> {"));
 }
 
 TEST_CASE(
@@ -548,10 +548,62 @@ TEST_CASE(
           oneof decode { int32 a = 1; }
           oneof c { int32 foo = 2; int32 foo_ = 3; }
         })");
-    CHECK(has(out, "pub fn decode_(&self) -> Option<m::Decode> {"));  // vs the decode() method
+    CHECK(has(out, "pub fn decode_(&self) -> Option<&m::Decode> {"));  // vs the decode() method
     CHECK(has(out, "pub fn decode(input: &'a [u8],"));  // the real decode still present
     CHECK(has(out, "Foo(i32),"));                       // foo
     CHECK(has(out, "Foo_(i32),"));                      // foo_ -> same PascalCase -> bumped
+}
+
+TEST_CASE("rustgen decode: a message with map / oneof / required gets a real decoder") {
+    const std::string out = gen_arena(R"(syntax = "proto2"; package p;
+        message M {
+          message Sub { optional int32 x = 1; }
+          required int32 req = 1;
+          map<string, Sub> by_name = 2;
+          oneof pick { int32 n = 3; Sub s = 4; }
+        })");
+    CHECK(!has(out, "todo!()"));  // M + Sub both decodable -> real bodies, no skeleton
+    CHECK(has(out, "by_name: ::rapidproto::MapView<"));  // real struct storage
+    CHECK(has(out, "pick: Option<"));
+    // proto2 required: a MissingRequired check keyed to the field, emitted after the loop.
+    CHECK(has(out, "::rapidproto::ErrorKind::MissingRequired, 0).with_field(1)"));
+    // map: accumulate entries into a DecodeVec, finalize to a MapView.
+    CHECK(has(out, "let mut rp_map_2 = ::rapidproto::DecodeVec::new(rp_arena);"));
+    CHECK(has(out, "::rapidproto::MapView::new(rp_map_2.into_slice())"));
+    // oneof: the slot is set per member; a message variant arena-allocates then stores a borrow.
+    CHECK(has(out, "rp_oneof_0 = Some("));
+    CHECK(has(out, "let rp_ptr = match rp_arena.alloc(rp_sub)"));
+}
+
+TEST_CASE(
+    "rustgen decode: a proto2 [default=...] field decodes as a plain Option (not materialized)") {
+    // Matching the C++ decoder, a custom default is NOT read through: a defaulted field is stored and
+    // decoded exactly like any other proto2 optional (Option<T>, None when absent), and the default
+    // literal is never emitted. A defaulted REQUIRED field is bare (required), its default irrelevant.
+    const std::string out = gen_arena(R"(syntax = "proto2"; package p;
+        enum Color { COLOR_UNKNOWN = 0; COLOR_RED = 1; }
+        message M {
+          required int32 r = 1 [default = -7];
+          optional int32 n = 2 [default = 42];
+          optional string s = 3 [default = "hi"];
+          optional Color c = 4 [default = COLOR_RED];
+          optional int32 plain = 5;
+        })");
+    CHECK(!has(out, "todo!()"));  // decodable, not a skeleton
+    // Defaulted optional reads exactly like a no-default optional.
+    CHECK(has(out, "pub fn n(&self) -> Option<i32> {"));
+    CHECK(has(out, "pub fn plain(&self) -> Option<i32> {"));
+    CHECK(has(out, "let mut n: Option<i32> = None;"));  // default 42 NOT materialized
+    CHECK(has(out, "n = Some("));                       // set via Some on the wire
+    CHECK(has(out, "let mut s: Option<::rapidproto::ProtoStr<'a>> = None;"));
+    CHECK(has(out, "let mut c: Option<super::super::common::p::Color> = None;"));
+    // The default-literal machinery is gone: no default values appear anywhere.
+    CHECK_FALSE(has(out, "= 42"));
+    CHECK_FALSE(has(out, "Color::RED"));
+    CHECK_FALSE(has(out, "ProtoStr::new(b\"hi\")"));
+    // A defaulted required field is bare + required-checked (its default is irrelevant).
+    CHECK(has(out, "pub fn r(&self) -> i32 {"));
+    CHECK(has(out, "let mut r: i32 = 0;"));
 }
 
 TEST_CASE("rustgen imports: a cross-file closure merges into one tree with resolving refs") {

@@ -9,207 +9,1281 @@ pub mod arena {
 
   pub mod mr {
     pub struct ManyRequired<'a> {
+      f1: i32,
+      f2: i32,
+      f3: i32,
+      f4: i32,
+      f5: i32,
+      f6: i32,
+      f7: i32,
+      f8: i32,
+      f9: i32,
+      f10: i32,
+      f11: i32,
+      f12: i32,
+      f13: i32,
+      f14: i32,
+      f15: i32,
+      f16: i32,
+      f17: i32,
+      f18: i32,
+      f19: i32,
+      f20: i32,
+      f21: i32,
+      f22: i32,
+      f23: i32,
+      f24: i32,
+      f25: i32,
+      f26: i32,
+      f27: i32,
+      f28: i32,
+      f29: i32,
+      f30: i32,
+      f31: i32,
+      f32: i32,
+      f33: i32,
+      f34: i32,
+      f35: i32,
+      f36: i32,
+      f37: i32,
+      f38: i32,
+      f39: i32,
+      f40: i32,
+      f41: i32,
+      f42: i32,
+      f43: i32,
+      f44: i32,
+      f45: i32,
+      f46: i32,
+      f47: i32,
+      f48: i32,
+      f49: i32,
+      f50: i32,
+      f51: i32,
+      f52: i32,
+      f53: i32,
+      f54: i32,
+      f55: i32,
+      f56: i32,
+      f57: i32,
+      f58: i32,
+      f59: i32,
+      f60: i32,
+      f61: i32,
+      f62: i32,
+      f63: i32,
+      f64: i32,
+      f65: i32,
       _marker: ::core::marker::PhantomData<&'a ()>,
     }
 
     impl<'a> ManyRequired<'a> {
       pub fn f1(&self) -> i32 {
-        todo!()
+        self.f1
       }
       pub fn f2(&self) -> i32 {
-        todo!()
+        self.f2
       }
       pub fn f3(&self) -> i32 {
-        todo!()
+        self.f3
       }
       pub fn f4(&self) -> i32 {
-        todo!()
+        self.f4
       }
       pub fn f5(&self) -> i32 {
-        todo!()
+        self.f5
       }
       pub fn f6(&self) -> i32 {
-        todo!()
+        self.f6
       }
       pub fn f7(&self) -> i32 {
-        todo!()
+        self.f7
       }
       pub fn f8(&self) -> i32 {
-        todo!()
+        self.f8
       }
       pub fn f9(&self) -> i32 {
-        todo!()
+        self.f9
       }
       pub fn f10(&self) -> i32 {
-        todo!()
+        self.f10
       }
       pub fn f11(&self) -> i32 {
-        todo!()
+        self.f11
       }
       pub fn f12(&self) -> i32 {
-        todo!()
+        self.f12
       }
       pub fn f13(&self) -> i32 {
-        todo!()
+        self.f13
       }
       pub fn f14(&self) -> i32 {
-        todo!()
+        self.f14
       }
       pub fn f15(&self) -> i32 {
-        todo!()
+        self.f15
       }
       pub fn f16(&self) -> i32 {
-        todo!()
+        self.f16
       }
       pub fn f17(&self) -> i32 {
-        todo!()
+        self.f17
       }
       pub fn f18(&self) -> i32 {
-        todo!()
+        self.f18
       }
       pub fn f19(&self) -> i32 {
-        todo!()
+        self.f19
       }
       pub fn f20(&self) -> i32 {
-        todo!()
+        self.f20
       }
       pub fn f21(&self) -> i32 {
-        todo!()
+        self.f21
       }
       pub fn f22(&self) -> i32 {
-        todo!()
+        self.f22
       }
       pub fn f23(&self) -> i32 {
-        todo!()
+        self.f23
       }
       pub fn f24(&self) -> i32 {
-        todo!()
+        self.f24
       }
       pub fn f25(&self) -> i32 {
-        todo!()
+        self.f25
       }
       pub fn f26(&self) -> i32 {
-        todo!()
+        self.f26
       }
       pub fn f27(&self) -> i32 {
-        todo!()
+        self.f27
       }
       pub fn f28(&self) -> i32 {
-        todo!()
+        self.f28
       }
       pub fn f29(&self) -> i32 {
-        todo!()
+        self.f29
       }
       pub fn f30(&self) -> i32 {
-        todo!()
+        self.f30
       }
       pub fn f31(&self) -> i32 {
-        todo!()
+        self.f31
       }
       pub fn f32(&self) -> i32 {
-        todo!()
+        self.f32
       }
       pub fn f33(&self) -> i32 {
-        todo!()
+        self.f33
       }
       pub fn f34(&self) -> i32 {
-        todo!()
+        self.f34
       }
       pub fn f35(&self) -> i32 {
-        todo!()
+        self.f35
       }
       pub fn f36(&self) -> i32 {
-        todo!()
+        self.f36
       }
       pub fn f37(&self) -> i32 {
-        todo!()
+        self.f37
       }
       pub fn f38(&self) -> i32 {
-        todo!()
+        self.f38
       }
       pub fn f39(&self) -> i32 {
-        todo!()
+        self.f39
       }
       pub fn f40(&self) -> i32 {
-        todo!()
+        self.f40
       }
       pub fn f41(&self) -> i32 {
-        todo!()
+        self.f41
       }
       pub fn f42(&self) -> i32 {
-        todo!()
+        self.f42
       }
       pub fn f43(&self) -> i32 {
-        todo!()
+        self.f43
       }
       pub fn f44(&self) -> i32 {
-        todo!()
+        self.f44
       }
       pub fn f45(&self) -> i32 {
-        todo!()
+        self.f45
       }
       pub fn f46(&self) -> i32 {
-        todo!()
+        self.f46
       }
       pub fn f47(&self) -> i32 {
-        todo!()
+        self.f47
       }
       pub fn f48(&self) -> i32 {
-        todo!()
+        self.f48
       }
       pub fn f49(&self) -> i32 {
-        todo!()
+        self.f49
       }
       pub fn f50(&self) -> i32 {
-        todo!()
+        self.f50
       }
       pub fn f51(&self) -> i32 {
-        todo!()
+        self.f51
       }
       pub fn f52(&self) -> i32 {
-        todo!()
+        self.f52
       }
       pub fn f53(&self) -> i32 {
-        todo!()
+        self.f53
       }
       pub fn f54(&self) -> i32 {
-        todo!()
+        self.f54
       }
       pub fn f55(&self) -> i32 {
-        todo!()
+        self.f55
       }
       pub fn f56(&self) -> i32 {
-        todo!()
+        self.f56
       }
       pub fn f57(&self) -> i32 {
-        todo!()
+        self.f57
       }
       pub fn f58(&self) -> i32 {
-        todo!()
+        self.f58
       }
       pub fn f59(&self) -> i32 {
-        todo!()
+        self.f59
       }
       pub fn f60(&self) -> i32 {
-        todo!()
+        self.f60
       }
       pub fn f61(&self) -> i32 {
-        todo!()
+        self.f61
       }
       pub fn f62(&self) -> i32 {
-        todo!()
+        self.f62
       }
       pub fn f63(&self) -> i32 {
-        todo!()
+        self.f63
       }
       pub fn f64(&self) -> i32 {
-        todo!()
+        self.f64
       }
       pub fn f65(&self) -> i32 {
-        todo!()
+        self.f65
       }
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a ManyRequired<'a>, ::rapidproto::DecodeError> {
-        todo!()
+        if input.len() > u32::MAX as usize {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        let rp_built = Self::decode_into(input, arena, 0)?;
+        match arena.alloc(rp_built) {
+          Ok(r) => Ok(&*r),
+          Err(_) => Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0)),
+        }
+      }
+
+      #[doc(hidden)]
+      pub(crate) fn decode_into(rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> Result<ManyRequired<'a>, ::rapidproto::DecodeError> {
+        if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
+        }
+        let mut f1: i32 = 0;
+        let mut rp_req_1 = false;
+        let mut f2: i32 = 0;
+        let mut rp_req_2 = false;
+        let mut f3: i32 = 0;
+        let mut rp_req_3 = false;
+        let mut f4: i32 = 0;
+        let mut rp_req_4 = false;
+        let mut f5: i32 = 0;
+        let mut rp_req_5 = false;
+        let mut f6: i32 = 0;
+        let mut rp_req_6 = false;
+        let mut f7: i32 = 0;
+        let mut rp_req_7 = false;
+        let mut f8: i32 = 0;
+        let mut rp_req_8 = false;
+        let mut f9: i32 = 0;
+        let mut rp_req_9 = false;
+        let mut f10: i32 = 0;
+        let mut rp_req_10 = false;
+        let mut f11: i32 = 0;
+        let mut rp_req_11 = false;
+        let mut f12: i32 = 0;
+        let mut rp_req_12 = false;
+        let mut f13: i32 = 0;
+        let mut rp_req_13 = false;
+        let mut f14: i32 = 0;
+        let mut rp_req_14 = false;
+        let mut f15: i32 = 0;
+        let mut rp_req_15 = false;
+        let mut f16: i32 = 0;
+        let mut rp_req_16 = false;
+        let mut f17: i32 = 0;
+        let mut rp_req_17 = false;
+        let mut f18: i32 = 0;
+        let mut rp_req_18 = false;
+        let mut f19: i32 = 0;
+        let mut rp_req_19 = false;
+        let mut f20: i32 = 0;
+        let mut rp_req_20 = false;
+        let mut f21: i32 = 0;
+        let mut rp_req_21 = false;
+        let mut f22: i32 = 0;
+        let mut rp_req_22 = false;
+        let mut f23: i32 = 0;
+        let mut rp_req_23 = false;
+        let mut f24: i32 = 0;
+        let mut rp_req_24 = false;
+        let mut f25: i32 = 0;
+        let mut rp_req_25 = false;
+        let mut f26: i32 = 0;
+        let mut rp_req_26 = false;
+        let mut f27: i32 = 0;
+        let mut rp_req_27 = false;
+        let mut f28: i32 = 0;
+        let mut rp_req_28 = false;
+        let mut f29: i32 = 0;
+        let mut rp_req_29 = false;
+        let mut f30: i32 = 0;
+        let mut rp_req_30 = false;
+        let mut f31: i32 = 0;
+        let mut rp_req_31 = false;
+        let mut f32: i32 = 0;
+        let mut rp_req_32 = false;
+        let mut f33: i32 = 0;
+        let mut rp_req_33 = false;
+        let mut f34: i32 = 0;
+        let mut rp_req_34 = false;
+        let mut f35: i32 = 0;
+        let mut rp_req_35 = false;
+        let mut f36: i32 = 0;
+        let mut rp_req_36 = false;
+        let mut f37: i32 = 0;
+        let mut rp_req_37 = false;
+        let mut f38: i32 = 0;
+        let mut rp_req_38 = false;
+        let mut f39: i32 = 0;
+        let mut rp_req_39 = false;
+        let mut f40: i32 = 0;
+        let mut rp_req_40 = false;
+        let mut f41: i32 = 0;
+        let mut rp_req_41 = false;
+        let mut f42: i32 = 0;
+        let mut rp_req_42 = false;
+        let mut f43: i32 = 0;
+        let mut rp_req_43 = false;
+        let mut f44: i32 = 0;
+        let mut rp_req_44 = false;
+        let mut f45: i32 = 0;
+        let mut rp_req_45 = false;
+        let mut f46: i32 = 0;
+        let mut rp_req_46 = false;
+        let mut f47: i32 = 0;
+        let mut rp_req_47 = false;
+        let mut f48: i32 = 0;
+        let mut rp_req_48 = false;
+        let mut f49: i32 = 0;
+        let mut rp_req_49 = false;
+        let mut f50: i32 = 0;
+        let mut rp_req_50 = false;
+        let mut f51: i32 = 0;
+        let mut rp_req_51 = false;
+        let mut f52: i32 = 0;
+        let mut rp_req_52 = false;
+        let mut f53: i32 = 0;
+        let mut rp_req_53 = false;
+        let mut f54: i32 = 0;
+        let mut rp_req_54 = false;
+        let mut f55: i32 = 0;
+        let mut rp_req_55 = false;
+        let mut f56: i32 = 0;
+        let mut rp_req_56 = false;
+        let mut f57: i32 = 0;
+        let mut rp_req_57 = false;
+        let mut f58: i32 = 0;
+        let mut rp_req_58 = false;
+        let mut f59: i32 = 0;
+        let mut rp_req_59 = false;
+        let mut f60: i32 = 0;
+        let mut rp_req_60 = false;
+        let mut f61: i32 = 0;
+        let mut rp_req_61 = false;
+        let mut f62: i32 = 0;
+        let mut rp_req_62 = false;
+        let mut f63: i32 = 0;
+        let mut rp_req_63 = false;
+        let mut f64: i32 = 0;
+        let mut rp_req_64 = false;
+        let mut f65: i32 = 0;
+        let mut rp_req_65 = false;
+        let mut rp_rest: &'a [u8] = rp_body;
+        loop {
+          let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+          rp_rest = match ::rapidproto::wire::read_tag_or_end(rp_rest, &mut rp_tag) {
+            Ok(Some(r)) => r,
+            Ok(None) => break,
+            Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          };
+          match (rp_tag.field, rp_tag.wire) {
+            (1u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f1 = rp_v as i32;
+              rp_req_1 = true;
+            }
+            (2u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f2 = rp_v as i32;
+              rp_req_2 = true;
+            }
+            (3u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f3 = rp_v as i32;
+              rp_req_3 = true;
+            }
+            (4u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f4 = rp_v as i32;
+              rp_req_4 = true;
+            }
+            (5u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f5 = rp_v as i32;
+              rp_req_5 = true;
+            }
+            (6u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f6 = rp_v as i32;
+              rp_req_6 = true;
+            }
+            (7u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f7 = rp_v as i32;
+              rp_req_7 = true;
+            }
+            (8u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f8 = rp_v as i32;
+              rp_req_8 = true;
+            }
+            (9u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f9 = rp_v as i32;
+              rp_req_9 = true;
+            }
+            (10u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f10 = rp_v as i32;
+              rp_req_10 = true;
+            }
+            (11u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f11 = rp_v as i32;
+              rp_req_11 = true;
+            }
+            (12u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f12 = rp_v as i32;
+              rp_req_12 = true;
+            }
+            (13u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f13 = rp_v as i32;
+              rp_req_13 = true;
+            }
+            (14u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f14 = rp_v as i32;
+              rp_req_14 = true;
+            }
+            (15u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f15 = rp_v as i32;
+              rp_req_15 = true;
+            }
+            (16u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f16 = rp_v as i32;
+              rp_req_16 = true;
+            }
+            (17u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f17 = rp_v as i32;
+              rp_req_17 = true;
+            }
+            (18u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f18 = rp_v as i32;
+              rp_req_18 = true;
+            }
+            (19u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f19 = rp_v as i32;
+              rp_req_19 = true;
+            }
+            (20u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f20 = rp_v as i32;
+              rp_req_20 = true;
+            }
+            (21u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f21 = rp_v as i32;
+              rp_req_21 = true;
+            }
+            (22u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f22 = rp_v as i32;
+              rp_req_22 = true;
+            }
+            (23u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f23 = rp_v as i32;
+              rp_req_23 = true;
+            }
+            (24u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f24 = rp_v as i32;
+              rp_req_24 = true;
+            }
+            (25u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f25 = rp_v as i32;
+              rp_req_25 = true;
+            }
+            (26u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f26 = rp_v as i32;
+              rp_req_26 = true;
+            }
+            (27u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f27 = rp_v as i32;
+              rp_req_27 = true;
+            }
+            (28u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f28 = rp_v as i32;
+              rp_req_28 = true;
+            }
+            (29u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f29 = rp_v as i32;
+              rp_req_29 = true;
+            }
+            (30u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f30 = rp_v as i32;
+              rp_req_30 = true;
+            }
+            (31u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f31 = rp_v as i32;
+              rp_req_31 = true;
+            }
+            (32u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f32 = rp_v as i32;
+              rp_req_32 = true;
+            }
+            (33u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f33 = rp_v as i32;
+              rp_req_33 = true;
+            }
+            (34u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f34 = rp_v as i32;
+              rp_req_34 = true;
+            }
+            (35u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f35 = rp_v as i32;
+              rp_req_35 = true;
+            }
+            (36u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f36 = rp_v as i32;
+              rp_req_36 = true;
+            }
+            (37u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f37 = rp_v as i32;
+              rp_req_37 = true;
+            }
+            (38u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f38 = rp_v as i32;
+              rp_req_38 = true;
+            }
+            (39u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f39 = rp_v as i32;
+              rp_req_39 = true;
+            }
+            (40u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f40 = rp_v as i32;
+              rp_req_40 = true;
+            }
+            (41u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f41 = rp_v as i32;
+              rp_req_41 = true;
+            }
+            (42u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f42 = rp_v as i32;
+              rp_req_42 = true;
+            }
+            (43u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f43 = rp_v as i32;
+              rp_req_43 = true;
+            }
+            (44u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f44 = rp_v as i32;
+              rp_req_44 = true;
+            }
+            (45u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f45 = rp_v as i32;
+              rp_req_45 = true;
+            }
+            (46u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f46 = rp_v as i32;
+              rp_req_46 = true;
+            }
+            (47u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f47 = rp_v as i32;
+              rp_req_47 = true;
+            }
+            (48u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f48 = rp_v as i32;
+              rp_req_48 = true;
+            }
+            (49u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f49 = rp_v as i32;
+              rp_req_49 = true;
+            }
+            (50u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f50 = rp_v as i32;
+              rp_req_50 = true;
+            }
+            (51u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f51 = rp_v as i32;
+              rp_req_51 = true;
+            }
+            (52u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f52 = rp_v as i32;
+              rp_req_52 = true;
+            }
+            (53u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f53 = rp_v as i32;
+              rp_req_53 = true;
+            }
+            (54u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f54 = rp_v as i32;
+              rp_req_54 = true;
+            }
+            (55u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f55 = rp_v as i32;
+              rp_req_55 = true;
+            }
+            (56u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f56 = rp_v as i32;
+              rp_req_56 = true;
+            }
+            (57u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f57 = rp_v as i32;
+              rp_req_57 = true;
+            }
+            (58u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f58 = rp_v as i32;
+              rp_req_58 = true;
+            }
+            (59u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f59 = rp_v as i32;
+              rp_req_59 = true;
+            }
+            (60u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f60 = rp_v as i32;
+              rp_req_60 = true;
+            }
+            (61u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f61 = rp_v as i32;
+              rp_req_61 = true;
+            }
+            (62u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f62 = rp_v as i32;
+              rp_req_62 = true;
+            }
+            (63u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f63 = rp_v as i32;
+              rp_req_63 = true;
+            }
+            (64u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f64 = rp_v as i32;
+              rp_req_64 = true;
+            }
+            (65u32, ::rapidproto::wire::WireType::Varint) => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              f65 = rp_v as i32;
+              rp_req_65 = true;
+            }
+            _ => {
+              rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+            }
+          }
+        }
+        if !rp_req_1 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(1));
+        }
+        if !rp_req_2 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(2));
+        }
+        if !rp_req_3 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(3));
+        }
+        if !rp_req_4 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(4));
+        }
+        if !rp_req_5 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(5));
+        }
+        if !rp_req_6 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(6));
+        }
+        if !rp_req_7 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(7));
+        }
+        if !rp_req_8 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(8));
+        }
+        if !rp_req_9 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(9));
+        }
+        if !rp_req_10 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(10));
+        }
+        if !rp_req_11 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(11));
+        }
+        if !rp_req_12 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(12));
+        }
+        if !rp_req_13 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(13));
+        }
+        if !rp_req_14 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(14));
+        }
+        if !rp_req_15 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(15));
+        }
+        if !rp_req_16 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(16));
+        }
+        if !rp_req_17 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(17));
+        }
+        if !rp_req_18 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(18));
+        }
+        if !rp_req_19 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(19));
+        }
+        if !rp_req_20 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(20));
+        }
+        if !rp_req_21 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(21));
+        }
+        if !rp_req_22 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(22));
+        }
+        if !rp_req_23 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(23));
+        }
+        if !rp_req_24 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(24));
+        }
+        if !rp_req_25 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(25));
+        }
+        if !rp_req_26 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(26));
+        }
+        if !rp_req_27 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(27));
+        }
+        if !rp_req_28 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(28));
+        }
+        if !rp_req_29 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(29));
+        }
+        if !rp_req_30 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(30));
+        }
+        if !rp_req_31 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(31));
+        }
+        if !rp_req_32 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(32));
+        }
+        if !rp_req_33 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(33));
+        }
+        if !rp_req_34 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(34));
+        }
+        if !rp_req_35 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(35));
+        }
+        if !rp_req_36 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(36));
+        }
+        if !rp_req_37 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(37));
+        }
+        if !rp_req_38 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(38));
+        }
+        if !rp_req_39 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(39));
+        }
+        if !rp_req_40 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(40));
+        }
+        if !rp_req_41 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(41));
+        }
+        if !rp_req_42 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(42));
+        }
+        if !rp_req_43 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(43));
+        }
+        if !rp_req_44 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(44));
+        }
+        if !rp_req_45 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(45));
+        }
+        if !rp_req_46 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(46));
+        }
+        if !rp_req_47 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(47));
+        }
+        if !rp_req_48 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(48));
+        }
+        if !rp_req_49 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(49));
+        }
+        if !rp_req_50 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(50));
+        }
+        if !rp_req_51 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(51));
+        }
+        if !rp_req_52 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(52));
+        }
+        if !rp_req_53 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(53));
+        }
+        if !rp_req_54 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(54));
+        }
+        if !rp_req_55 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(55));
+        }
+        if !rp_req_56 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(56));
+        }
+        if !rp_req_57 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(57));
+        }
+        if !rp_req_58 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(58));
+        }
+        if !rp_req_59 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(59));
+        }
+        if !rp_req_60 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(60));
+        }
+        if !rp_req_61 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(61));
+        }
+        if !rp_req_62 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(62));
+        }
+        if !rp_req_63 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(63));
+        }
+        if !rp_req_64 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(64));
+        }
+        if !rp_req_65 {
+          return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::MissingRequired, 0).with_field(65));
+        }
+        Ok(ManyRequired {
+          f1,
+          f2,
+          f3,
+          f4,
+          f5,
+          f6,
+          f7,
+          f8,
+          f9,
+          f10,
+          f11,
+          f12,
+          f13,
+          f14,
+          f15,
+          f16,
+          f17,
+          f18,
+          f19,
+          f20,
+          f21,
+          f22,
+          f23,
+          f24,
+          f25,
+          f26,
+          f27,
+          f28,
+          f29,
+          f30,
+          f31,
+          f32,
+          f33,
+          f34,
+          f35,
+          f36,
+          f37,
+          f38,
+          f39,
+          f40,
+          f41,
+          f42,
+          f43,
+          f44,
+          f45,
+          f46,
+          f47,
+          f48,
+          f49,
+          f50,
+          f51,
+          f52,
+          f53,
+          f54,
+          f55,
+          f56,
+          f57,
+          f58,
+          f59,
+          f60,
+          f61,
+          f62,
+          f63,
+          f64,
+          f65,
+          _marker: ::core::marker::PhantomData,
+        })
       }
     }
   }
