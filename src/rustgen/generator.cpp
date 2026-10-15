@@ -957,14 +957,12 @@ void emit_packed_arm(Printer& printer, const NameTable& table,
     printer.indent();
     emit_len_read(printer, loop_read());
     if (wire == "Varint") {
-        emit_reserve(printer, acc, "rp_p.len()");
-        printer.print("while !rp_p.is_empty() {\n");
-        printer.indent();
-        emit_scalar_value_read(printer, field, packed_read());
-        emit_push(printer, acc, conv);
-        printer.outdent();
-        printer.print("}\n");
-        printer.print("$acc$.shrink_to_fit();\n", {{"acc", acc}});
+        // Packed varint: the width-classified SWAR kernel (large spans) / scalar loop (small) reserves
+        // the element upper bound, fills, and trims -- the Rust mirror of the C++ decoder's
+        // `decode_packed_varints`. `$off$` is the span's byte offset in the body; the kernel adds the
+        // offset of a malformed varint within the span. `conv` reads the raw value named `rp_v`.
+        printer.print("$acc$.fill_packed_varints(rp_p, $off$, |rp_v| $conv$)?;\n",
+                      {{"acc", acc}, {"off", packed_read().off}, {"conv", conv}});
     } else {
         const std::string width = wire == "I32" ? "4" : "8";
         printer.print("if cfg!(target_endian = \"little\") && rp_p.len() % $w$ == 0 {\n",
