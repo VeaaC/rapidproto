@@ -75,6 +75,36 @@ impl<'a, T> DecodeVec<'a, T> {
         Ok(())
     }
 
+    /// Decode one element **in place** into the next slot -- no by-value construct-then-copy. Grow if
+    /// full, hand the uninitialized tail slot to `f`, and publish it (`len += 1`) only if `f`
+    /// succeeds. On `Err`, `len` is unchanged, so the half-written slot is abandoned and never read by
+    /// [`into_slice`](Self::into_slice). The Rust equivalent of the C++ decoder's `rp_slot` +
+    /// `rp_decode_into(*slot, ...)` for a repeated message element.
+    #[inline]
+    pub fn emplace<E, F>(&mut self, f: F) -> Result<(), E>
+    where
+        E: From<ArenaExhausted>,
+        F: for<'id> FnOnce(
+            crate::decode_slot::Slot<'id, T>,
+        ) -> Result<crate::decode_slot::Init<'id>, E>,
+    {
+        if self.len == self.cap {
+            self.grow()?;
+        }
+        // SAFETY: after `grow` (or when already non-full) `len < cap`, so `ptr + len` is the in-bounds
+        // next slot -- aligned storage for one `T`, valid to write, owned by this `DecodeVec`.
+        let slot = unsafe {
+            crate::decode_slot::Slot::new(NonNull::new_unchecked(self.ptr.as_ptr().add(self.len)))
+        };
+        // `f` returns `Init<'id>` of this slot's fresh brand, obtainable only by `Slot::write`-ing
+        // this slot (unforgeable), so an `Ok` is a compile-time proof the tail slot is initialized --
+        // then publish it. On `Err`, `len` is unchanged, so the unwritten slot never reaches
+        // `into_slice`. Sound for ANY safe `f`, not a documented contract.
+        let _init = f(slot)?;
+        self.len += 1;
+        Ok(())
+    }
+
     /// Pre-size the backing array so it can hold at least `additional` more elements beyond the
     /// current length, in a SINGLE arena allocation (not the geometric doubling `push` uses).
     /// A no-op when there is already room. Packed decode calls this once from the span's element
@@ -400,5 +430,25 @@ mod tests {
         assert!(v.is_empty());
         assert_eq!(arena.bytes_used(), 0);
         assert_eq!(v.into_slice(), &[] as &[u32]);
+    }
+
+    #[test]
+    fn emplace_publishes_on_ok_and_abandons_the_slot_on_err() {
+        let arena = Arena::new();
+        let mut v = DecodeVec::<u64>::new(&arena);
+        // Ok: the slot is initialized in place (the returned `&mut` is the write witness) and published.
+        v.emplace::<ArenaExhausted, _>(|slot| Ok(slot.write(42)))
+            .unwrap();
+        assert_eq!(v.len(), 1);
+        // Err AFTER writing the slot: `len` must NOT advance, so the abandoned (initialized-but-
+        // unpublished) slot never reaches `into_slice`. This is the never-crash-on-mid-decode-error
+        // invariant at the helper boundary (and is checked under Miri via the gate).
+        let r = v.emplace::<ArenaExhausted, _>(|slot| {
+            slot.write(999);
+            Err(ArenaExhausted)
+        });
+        assert!(r.is_err());
+        assert_eq!(v.len(), 1);
+        assert_eq!(v.into_slice(), &[42]); // the 999 slot was abandoned, not published
     }
 }

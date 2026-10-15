@@ -39,15 +39,12 @@ pub mod arena {
         if input.len() > u32::MAX as usize {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
         }
-        let rp_built = Self::decode_into(input, arena, 0)?;
-        match arena.alloc(rp_built) {
-          Ok(r) => Ok(&*r),
-          Err(_) => Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0)),
-        }
+        let rp_root = arena.emplace(|rp_out| Self::decode_into(rp_out, input, arena, 0))?;
+        Ok(&*rp_root)
       }
 
       #[doc(hidden)]
-      pub(crate) fn decode_into(rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> Result<linux_<'a>, ::rapidproto::DecodeError> {
+      pub(crate) fn decode_into<'id>(rp_out: ::rapidproto::Slot<'id, linux_<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -77,10 +74,10 @@ pub mod arena {
             }
           }
         }
-        Ok(linux_ {
+        Ok(rp_out.write(linux_ {
           v,
           _marker: ::core::marker::PhantomData,
-        })
+        }))
       }
     }
 
@@ -89,15 +86,12 @@ pub mod arena {
         if input.len() > u32::MAX as usize {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
         }
-        let rp_built = Self::decode_into(input, arena, 0)?;
-        match arena.alloc(rp_built) {
-          Ok(r) => Ok(&*r),
-          Err(_) => Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0)),
-        }
+        let rp_root = arena.emplace(|rp_out| Self::decode_into(rp_out, input, arena, 0))?;
+        Ok(&*rp_root)
       }
 
       #[doc(hidden)]
-      pub(crate) fn decode_into(rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> Result<linux__<'a>, ::rapidproto::DecodeError> {
+      pub(crate) fn decode_into<'id>(rp_out: ::rapidproto::Slot<'id, linux__<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -127,10 +121,10 @@ pub mod arena {
             }
           }
         }
-        Ok(linux__ {
+        Ok(rp_out.write(linux__ {
           v,
           _marker: ::core::marker::PhantomData,
-        })
+        }))
       }
     }
 
@@ -151,15 +145,12 @@ pub mod arena {
           if input.len() > u32::MAX as usize {
             return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
           }
-          let rp_built = Self::decode_into(input, arena, 0)?;
-          match arena.alloc(rp_built) {
-            Ok(r) => Ok(&*r),
-            Err(_) => Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0)),
-          }
+          let rp_root = arena.emplace(|rp_out| Self::decode_into(rp_out, input, arena, 0))?;
+          Ok(&*rp_root)
         }
 
         #[doc(hidden)]
-        pub(crate) fn decode_into(rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> Result<Sub<'a>, ::rapidproto::DecodeError> {
+        pub(crate) fn decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Sub<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
           if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
             return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
           }
@@ -189,10 +180,10 @@ pub mod arena {
               }
             }
           }
-          Ok(Sub {
+          Ok(rp_out.write(Sub {
             v,
             _marker: ::core::marker::PhantomData,
-          })
+          }))
         }
       }
     }
