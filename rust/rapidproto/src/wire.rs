@@ -233,11 +233,33 @@ impl<'a> Cursor<'a> {
 /// once for the only well-formed case). `Truncated` at end of input; `VarintOverflow` for an over-long
 /// encoding (10th byte above bit 0, or ten continuation bytes) -- a context-neutral kind, since this
 /// reads values and length prefixes, not only tags.
-#[inline]
+#[inline(always)]
 pub fn read_varint<'a>(rest: &'a [u8], out: &mut u64) -> Result<&'a [u8], ErrorKind> {
-    // No separate scalar 1-byte fast path (unlike the C++ reader): the loop's first iteration peels to
-    // exactly that (asm-confirmed -- load, mask, continuation-bit test, return with one byte consumed),
-    // so the common single-byte value compiles to the same branchless load C++ hand-writes.
+    // Single-byte fast path, kept tiny and `#[inline(always)]` so it folds into the caller's decode
+    // loop and keeps the value-threaded slice in registers (ptr+len), with no spill. This is the
+    // overwhelmingly common case (small scalar values and 1-byte length prefixes). It MUST stay small:
+    // a plain `#[inline]` on the full loop below does NOT inline at a message decoder's many call sites
+    // (LLVM's cost model declines the 10-iteration body in a large `decode_into`), so every field would
+    // otherwise pay an out-of-line call + a stack round-trip of ptr/len/value -- defeating the
+    // value-threaded design. Multibyte and all error cases go out-of-line to `read_varint_cold`, which
+    // the `#[cold]` keeps off this hot path, so the fast path remains inline-sized. Like the C++
+    // reader's inline 1-byte fast path; C++ keeps its multibyte loop in the same body, whereas here it
+    // is outlined so the Rust fast path stays small enough for LLVM to inline it at every call site.
+    if let Some((&b0, tail)) = rest.split_first() {
+        if b0 & 0x80 == 0 {
+            *out = u64::from(b0);
+            return Ok(tail);
+        }
+    }
+    read_varint_cold(rest, out)
+}
+
+// The multibyte / empty / malformed continuation of `read_varint`: everything the 1-byte fast path
+// did not handle. `#[cold]` + `#[inline(never)]` so it stays out-of-line and the caller keeps only the
+// tiny fast path inline. Re-reads from `rest` (including byte 0) so it is a correct standalone decode.
+#[cold]
+#[inline(never)]
+fn read_varint_cold<'a>(rest: &'a [u8], out: &mut u64) -> Result<&'a [u8], ErrorKind> {
     let mut result: u64 = 0;
     let mut shift: u32 = 0;
     for (i, &byte) in rest.iter().take(10).enumerate() {
@@ -488,6 +510,18 @@ mod tests {
         let mut c = Cursor::new(&[0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x01]);
         assert_eq!(c.read_varint().unwrap(), u64::MAX);
         assert!(c.is_empty());
+
+        // The exact fast/cold split: 0x7f is the max single-byte value (inline fast path, 1 byte
+        // consumed); 0x80 0x01 == 128 is the smallest value that falls to the multibyte cold path
+        // (2 bytes). Pins the boundary the inline fast path introduces.
+        let mut v = 0u64;
+        assert_eq!(read_varint(&[0x7f], &mut v).unwrap(), &[] as &[u8]);
+        assert_eq!(v, 127);
+        assert_eq!(read_varint(&[0x80, 0x01], &mut v).unwrap(), &[] as &[u8]);
+        assert_eq!(v, 128);
+        // A trailing byte after a single-byte value stays unconsumed (fast path advances exactly 1).
+        assert_eq!(read_varint(&[0x7f, 0xaa], &mut v).unwrap(), &[0xaa]);
+        assert_eq!(v, 127);
     }
 
     #[test]
