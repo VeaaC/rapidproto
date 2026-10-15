@@ -813,16 +813,7 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_acc_17.reserve(rp_p.len()).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
-              while !rp_p.is_empty() {
-                let mut rp_v = 0u64;
-                rp_p = match ::rapidproto::wire::read_varint(rp_p, &mut rp_v) {
-                  Ok(r) => r,
-                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len() - rp_p.len())),
-                };
-                rp_acc_17.push(rp_v as i32).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
-              }
-              rp_acc_17.shrink_to_fit();
+              rp_acc_17.fill_packed_varints(rp_p, rp_body.len() - rp_rest.len() - rp_p.len(), |rp_v| rp_v as i32)?;
             }
             (18u32, ::rapidproto::wire::WireType::Varint) => {
               let mut rp_v = 0u64;
@@ -838,16 +829,7 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_acc_18.reserve(rp_p.len()).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
-              while !rp_p.is_empty() {
-                let mut rp_v = 0u64;
-                rp_p = match ::rapidproto::wire::read_varint(rp_p, &mut rp_v) {
-                  Ok(r) => r,
-                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len() - rp_p.len())),
-                };
-                rp_acc_18.push(rp_v as i32).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
-              }
-              rp_acc_18.shrink_to_fit();
+              rp_acc_18.fill_packed_varints(rp_p, rp_body.len() - rp_rest.len() - rp_p.len(), |rp_v| rp_v as i32)?;
             }
             _ => {
               rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {

@@ -108,6 +108,28 @@ impl<'a, T> DecodeVec<'a, T> {
         }
     }
 
+    /// Pointer to the start of the reserved-but-uninitialized spare capacity (`ptr + len`). A decode
+    /// kernel writes elements directly here after a [`reserve`](Self::reserve), then calls
+    /// [`advance_len`](Self::advance_len) to publish them.
+    #[inline]
+    pub(crate) fn spare_capacity_ptr(&mut self) -> *mut T {
+        // SAFETY: `len <= cap`, so `ptr + len` is within the allocation (one-past-end when full).
+        // When `cap == 0` the pointer is dangling, but callers only use it after a `reserve` that
+        // made room, i.e. `cap > len`.
+        unsafe { self.ptr.as_ptr().add(self.len) }
+    }
+
+    /// Publish `additional` elements that were written into the spare capacity.
+    ///
+    /// # Safety
+    /// The caller must have initialized exactly `additional` contiguous elements starting at
+    /// [`spare_capacity_ptr`](Self::spare_capacity_ptr), with `len + additional <= cap`.
+    #[inline]
+    pub(crate) unsafe fn advance_len(&mut self, additional: usize) {
+        debug_assert!(self.len + additional <= self.cap);
+        self.len += additional;
+    }
+
     #[cold]
     fn grow(&mut self) -> Result<(), ArenaExhausted> {
         let new_cap = if self.cap == 0 {
