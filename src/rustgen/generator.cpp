@@ -940,6 +940,57 @@ void emit_known_skip_arm(Printer& printer, const std::string& nstr) {
     printer.print("}\n");
 }
 
+// Emit the packed (length-delimited run) arm for a repeated numeric field, pre-sizing the
+// accumulator from the span before the fill -- the Rust mirror of the C++ decoder's standalone
+// `emit_packed_fill` (src/arenagen/generator.cpp). Varint elements reserve the span's byte length as
+// an element upper bound (each varint is >= 1 byte), fill, then trim the over-estimate back to the
+// exact count (`shrink_to_fit`). Fixed-width elements reserve the exact count (span / width); on a
+// little-endian host a whole-multiple span fills in one bulk copy (`extend_from_le_bytes`, the span
+// IS the native byte image), else a per-element read reports an exact truncation error.
+void emit_packed_arm(Printer& printer, const NameTable& table,
+                     const std::vector<std::string>& current_mod, const FieldNode& field) {
+    const std::string nstr = std::to_string(field.number);
+    const std::string acc = "rp_acc_" + nstr;
+    const std::string wire = scalar_wire_variant(field);
+    const std::string conv = scalar_convert_expr(table, current_mod, field);
+    printer.print("($n$u32, ::rapidproto::wire::WireType::Len) => {\n", {{"n", nstr}});
+    printer.indent();
+    emit_len_read(printer, loop_read());
+    if (wire == "Varint") {
+        emit_reserve(printer, acc, "rp_p.len()");
+        printer.print("while !rp_p.is_empty() {\n");
+        printer.indent();
+        emit_scalar_value_read(printer, field, packed_read());
+        emit_push(printer, acc, conv);
+        printer.outdent();
+        printer.print("}\n");
+        printer.print("$acc$.shrink_to_fit();\n", {{"acc", acc}});
+    } else {
+        const std::string width = wire == "I32" ? "4" : "8";
+        printer.print("if cfg!(target_endian = \"little\") && rp_p.len() % $w$ == 0 {\n",
+                      {{"w", width}});
+        printer.indent();
+        printer.print(
+            "$acc$.extend_from_le_bytes(rp_p).map_err(|_| "
+            "::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;\n",
+            {{"acc", acc}});
+        printer.outdent();
+        printer.print("} else {\n");
+        printer.indent();
+        emit_reserve(printer, acc, "rp_p.len() / " + width);
+        printer.print("while !rp_p.is_empty() {\n");
+        printer.indent();
+        emit_scalar_value_read(printer, field, packed_read());
+        emit_push(printer, acc, conv);
+        printer.outdent();
+        printer.print("}\n");
+        printer.outdent();
+        printer.print("}\n");
+    }
+    printer.outdent();
+    printer.print("}\n");
+}
+
 // Emit the `match (field, wire)` arm(s) for one field: one arm for a singular value, two for a
 // repeated numeric (unpacked + packed), reading via the value-threaded wire primitives and storing
 // into the field's local (`accessor`) or pushing into its accumulator (`rp_acc_<n>`). A singular
@@ -1039,28 +1090,7 @@ void emit_field_arms(Printer& printer, const NameTable& table,
         emit_push(printer, acc, conv);
         printer.outdent();
         printer.print("}\n");
-        printer.print("($n$u32, ::rapidproto::wire::WireType::Len) => {\n", {{"n", nstr}});
-        printer.indent();
-        emit_len_read(printer, loop_read());
-        // Packed varint pre-sizing: reserve the span's element upper bound (each varint is >= 1 byte,
-        // so the byte length bounds the count), fill without a per-element regrow, then trim the
-        // over-estimate back to the exact count -- mirroring the C++ decoder's `emit_packed_fill`
-        // (reserve + fill + `Arena::shrink_last`). Fixed-width packed elements take their own path.
-        const bool elem_varint = wire == "Varint";
-        if (elem_varint) {
-            emit_reserve(printer, acc, "rp_p.len()");
-        }
-        printer.print("while !rp_p.is_empty() {\n");
-        printer.indent();
-        emit_scalar_value_read(printer, field, packed_read());
-        emit_push(printer, acc, conv);
-        printer.outdent();
-        printer.print("}\n");
-        if (elem_varint) {
-            printer.print("$acc$.shrink_to_fit();\n", {{"acc", acc}});
-        }
-        printer.outdent();
-        printer.print("}\n");
+        emit_packed_arm(printer, table, current_mod, field);
         return;
     }
     if (field.is_repeated) {  // repeated string/bytes (wire == Len, not packable)
