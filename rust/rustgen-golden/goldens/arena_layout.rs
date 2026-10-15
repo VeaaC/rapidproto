@@ -198,15 +198,12 @@ pub mod arena {
         if input.len() > u32::MAX as usize {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
         }
-        let rp_built = Self::decode_into(input, arena, 0)?;
-        match arena.alloc(rp_built) {
-          Ok(r) => Ok(&*r),
-          Err(_) => Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0)),
-        }
+        let rp_root = arena.emplace(|rp_out| Self::decode_into(rp_out, input, arena, 0))?;
+        Ok(&*rp_root)
       }
 
       #[doc(hidden)]
-      pub(crate) fn decode_into(rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> Result<Point<'a>, ::rapidproto::DecodeError> {
+      pub(crate) fn decode_into(rp_out: &mut ::core::mem::MaybeUninit<Point<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> Result<(), ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -245,11 +242,12 @@ pub mod arena {
             }
           }
         }
-        Ok(Point {
+        rp_out.write(Point {
           x,
           y,
           _marker: ::core::marker::PhantomData,
-        })
+        });
+        Ok(())
       }
     }
 
@@ -258,15 +256,12 @@ pub mod arena {
         if input.len() > u32::MAX as usize {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
         }
-        let rp_built = Self::decode_into(input, arena, 0)?;
-        match arena.alloc(rp_built) {
-          Ok(r) => Ok(&*r),
-          Err(_) => Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0)),
-        }
+        let rp_root = arena.emplace(|rp_out| Self::decode_into(rp_out, input, arena, 0))?;
+        Ok(&*rp_root)
       }
 
       #[doc(hidden)]
-      pub(crate) fn decode_into(rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> Result<Big<'a>, ::rapidproto::DecodeError> {
+      pub(crate) fn decode_into(rp_out: &mut ::core::mem::MaybeUninit<Big<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> Result<(), ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -314,12 +309,13 @@ pub mod arena {
             }
           }
         }
-        Ok(Big {
+        rp_out.write(Big {
           a,
           b,
           c,
           _marker: ::core::marker::PhantomData,
-        })
+        });
+        Ok(())
       }
     }
 
@@ -328,15 +324,12 @@ pub mod arena {
         if input.len() > u32::MAX as usize {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
         }
-        let rp_built = Self::decode_into(input, arena, 0)?;
-        match arena.alloc(rp_built) {
-          Ok(r) => Ok(&*r),
-          Err(_) => Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0)),
-        }
+        let rp_root = arena.emplace(|rp_out| Self::decode_into(rp_out, input, arena, 0))?;
+        Ok(&*rp_root)
       }
 
       #[doc(hidden)]
-      pub(crate) fn decode_into(rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> Result<HasString<'a>, ::rapidproto::DecodeError> {
+      pub(crate) fn decode_into(rp_out: &mut ::core::mem::MaybeUninit<HasString<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> Result<(), ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -366,9 +359,10 @@ pub mod arena {
             }
           }
         }
-        Ok(HasString {
+        rp_out.write(HasString {
           s,
-        })
+        });
+        Ok(())
       }
     }
 
@@ -377,15 +371,12 @@ pub mod arena {
         if input.len() > u32::MAX as usize {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
         }
-        let rp_built = Self::decode_into(input, arena, 0)?;
-        match arena.alloc(rp_built) {
-          Ok(r) => Ok(&*r),
-          Err(_) => Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0)),
-        }
+        let rp_root = arena.emplace(|rp_out| Self::decode_into(rp_out, input, arena, 0))?;
+        Ok(&*rp_root)
       }
 
       #[doc(hidden)]
-      pub(crate) fn decode_into(rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> Result<BoolWrap<'a>, ::rapidproto::DecodeError> {
+      pub(crate) fn decode_into(rp_out: &mut ::core::mem::MaybeUninit<BoolWrap<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> Result<(), ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -415,10 +406,11 @@ pub mod arena {
             }
           }
         }
-        Ok(BoolWrap {
+        rp_out.write(BoolWrap {
           value,
           _marker: ::core::marker::PhantomData,
-        })
+        });
+        Ok(())
       }
     }
 
@@ -427,15 +419,12 @@ pub mod arena {
         if input.len() > u32::MAX as usize {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
         }
-        let rp_built = Self::decode_into(input, arena, 0)?;
-        match arena.alloc(rp_built) {
-          Ok(r) => Ok(&*r),
-          Err(_) => Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0)),
-        }
+        let rp_root = arena.emplace(|rp_out| Self::decode_into(rp_out, input, arena, 0))?;
+        Ok(&*rp_root)
       }
 
       #[doc(hidden)]
-      pub(crate) fn decode_into(rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> Result<SelfRef<'a>, ::rapidproto::DecodeError> {
+      pub(crate) fn decode_into(rp_out: &mut ::core::mem::MaybeUninit<SelfRef<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> Result<(), ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -459,11 +448,7 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              let rp_sub = SelfRef::decode_into(rp_p, rp_arena, rp_depth + 1)?;
-              next = Some(match rp_arena.alloc(rp_sub) {
-                Ok(r) => &*r,
-                Err(_) => return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0)),
-              });
+              next = Some(rp_arena.emplace(|rp_out| SelfRef::decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
             }
             (2u32, ::rapidproto::wire::WireType::Varint) => {
               let mut rp_v = 0u64;
@@ -481,10 +466,11 @@ pub mod arena {
             }
           }
         }
-        Ok(SelfRef {
+        rp_out.write(SelfRef {
           next,
           v,
-        })
+        });
+        Ok(())
       }
     }
 
@@ -493,15 +479,12 @@ pub mod arena {
         if input.len() > u32::MAX as usize {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
         }
-        let rp_built = Self::decode_into(input, arena, 0)?;
-        match arena.alloc(rp_built) {
-          Ok(r) => Ok(&*r),
-          Err(_) => Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0)),
-        }
+        let rp_root = arena.emplace(|rp_out| Self::decode_into(rp_out, input, arena, 0))?;
+        Ok(&*rp_root)
       }
 
       #[doc(hidden)]
-      pub(crate) fn decode_into(rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> Result<Layout<'a>, ::rapidproto::DecodeError> {
+      pub(crate) fn decode_into(rp_out: &mut ::core::mem::MaybeUninit<Layout<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> Result<(), ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -605,11 +588,7 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              let rp_sub = Point::decode_into(rp_p, rp_arena, rp_depth + 1)?;
-              pt = Some(match rp_arena.alloc(rp_sub) {
-                Ok(r) => &*r,
-                Err(_) => return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0)),
-              });
+              pt = Some(rp_arena.emplace(|rp_out| Point::decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
             }
             (10u32, ::rapidproto::wire::WireType::Len) => {
               if bg.is_some() {
@@ -620,11 +599,7 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              let rp_sub = Big::decode_into(rp_p, rp_arena, rp_depth + 1)?;
-              bg = Some(match rp_arena.alloc(rp_sub) {
-                Ok(r) => &*r,
-                Err(_) => return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0)),
-              });
+              bg = Some(rp_arena.emplace(|rp_out| Big::decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
             }
             (11u32, ::rapidproto::wire::WireType::Len) => {
               if hs.is_some() {
@@ -635,11 +610,7 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              let rp_sub = HasString::decode_into(rp_p, rp_arena, rp_depth + 1)?;
-              hs = Some(match rp_arena.alloc(rp_sub) {
-                Ok(r) => &*r,
-                Err(_) => return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0)),
-              });
+              hs = Some(rp_arena.emplace(|rp_out| HasString::decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
             }
             (12u32, ::rapidproto::wire::WireType::Len) => {
               if flag.is_some() {
@@ -650,11 +621,7 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              let rp_sub = BoolWrap::decode_into(rp_p, rp_arena, rp_depth + 1)?;
-              flag = Some(match rp_arena.alloc(rp_sub) {
-                Ok(r) => &*r,
-                Err(_) => return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0)),
-              });
+              flag = Some(rp_arena.emplace(|rp_out| BoolWrap::decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
             }
             (13u32, ::rapidproto::wire::WireType::Varint) => {
               let mut rp_v = 0u64;
@@ -678,8 +645,7 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              let rp_sub = Point::decode_into(rp_p, rp_arena, rp_depth + 1)?;
-              rp_acc_14.push(rp_sub).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+              rp_acc_14.emplace(|rp_out| Point::decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
             }
             (20u32, ::rapidproto::wire::WireType::Len) => {
               let mut rp_p: &[u8] = &[];
@@ -768,7 +734,7 @@ pub mod arena {
                       Ok(r) => r,
                       Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                     };
-                    rp_val = Some(Point::decode_into(rp_p, rp_arena, rp_depth + 1)?);
+                    rp_val = Some(::rapidproto::decode_value(|rp_out| Point::decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
                   }
                   _ => {
                     rp_ent = match ::rapidproto::wire::skip(rp_ent, rp_etag) {
@@ -780,7 +746,7 @@ pub mod arena {
               }
               let rp_val = match rp_val {
                 Some(rp_sub) => rp_sub,
-                None => Point::decode_into(&[], rp_arena, rp_depth + 1)?,
+                None => ::rapidproto::decode_value(|rp_out| Point::decode_into(rp_out, &[], rp_arena, rp_depth + 1))?,
               };
               rp_map_16.push((rp_key, rp_val)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
             }
@@ -809,11 +775,7 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              let rp_sub = Point::decode_into(rp_p, rp_arena, rp_depth + 1)?;
-              let rp_ptr = match rp_arena.alloc(rp_sub) {
-                Ok(r) => &*r,
-                Err(_) => return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0)),
-              };
+              let rp_ptr = rp_arena.emplace(|rp_out| Point::decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
               rp_oneof_0 = Some(layout::Choice::Cp(rp_ptr));
             }
             _ => {
@@ -824,7 +786,7 @@ pub mod arena {
             }
           }
         }
-        Ok(Layout {
+        rp_out.write(Layout {
           b1,
           big,
           b2,
@@ -843,7 +805,8 @@ pub mod arena {
           counts: ::rapidproto::MapView::new(rp_map_15.into_slice()),
           grid: ::rapidproto::MapView::new(rp_map_16.into_slice()),
           choice: rp_oneof_0,
-        })
+        });
+        Ok(())
       }
     }
   }

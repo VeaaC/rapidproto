@@ -75,6 +75,36 @@ impl<'a, T> DecodeVec<'a, T> {
         Ok(())
     }
 
+    /// Decode one element **in place** into the next slot -- no by-value construct-then-copy. Grow if
+    /// full, hand the uninitialized tail slot to `f`, and publish it (`len += 1`) only if `f`
+    /// succeeds. On `Err`, `len` is unchanged, so the half-written slot is abandoned and never read by
+    /// [`into_slice`](Self::into_slice). The Rust equivalent of the C++ decoder's `rp_slot` +
+    /// `rp_decode_into(*slot, ...)` for a repeated message element.
+    #[inline]
+    pub fn emplace<E: From<ArenaExhausted>>(
+        &mut self,
+        f: impl FnOnce(&mut core::mem::MaybeUninit<T>) -> Result<(), E>,
+    ) -> Result<(), E> {
+        if self.len == self.cap {
+            self.grow()?;
+        }
+        // SAFETY: after `grow` (or when already non-full) `len < cap`, so `ptr + len` is the in-bounds
+        // next slot; `MaybeUninit<T>` shares `T`'s layout, so viewing it as `&mut MaybeUninit<T>` lets
+        // `f` initialize it without reading uninitialized memory.
+        let slot = unsafe {
+            &mut *self
+                .ptr
+                .as_ptr()
+                .add(self.len)
+                .cast::<core::mem::MaybeUninit<T>>()
+        };
+        f(slot)?;
+        // `f` returned `Ok`, so the slot is initialized; publish it. (An error above returned without
+        // touching `len`, so the partially-written slot stays out of the finished slice.)
+        self.len += 1;
+        Ok(())
+    }
+
     /// Pre-size the backing array so it can hold at least `additional` more elements beyond the
     /// current length, in a SINGLE arena allocation (not the geometric doubling `push` uses).
     /// A no-op when there is already room. Packed decode calls this once from the span's element
