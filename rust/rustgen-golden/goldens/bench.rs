@@ -635,6 +635,7 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
+              rp_acc_9.reserve(rp_p.len()).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
               while !rp_p.is_empty() {
                 let mut rp_v = 0u64;
                 rp_p = match ::rapidproto::wire::read_varint(rp_p, &mut rp_v) {
@@ -643,6 +644,7 @@ pub mod arena {
                 };
                 rp_acc_9.push(rp_v as i32).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
               }
+              rp_acc_9.shrink_to_fit();
             }
             (10u32, ::rapidproto::wire::WireType::Len) => {
               let mut rp_p: &[u8] = &[];
@@ -837,6 +839,7 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
+              rp_acc_1.reserve(rp_p.len()).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
               while !rp_p.is_empty() {
                 let mut rp_v = 0u64;
                 rp_p = match ::rapidproto::wire::read_varint(rp_p, &mut rp_v) {
@@ -845,6 +848,7 @@ pub mod arena {
                 };
                 rp_acc_1.push(rp_v as i32).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
               }
+              rp_acc_1.shrink_to_fit();
             }
             (2u32, ::rapidproto::wire::WireType::Varint) => {
               let mut rp_v = 0u64;
@@ -860,6 +864,7 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
+              rp_acc_2.reserve(rp_p.len()).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
               while !rp_p.is_empty() {
                 let mut rp_v = 0u64;
                 rp_p = match ::rapidproto::wire::read_varint(rp_p, &mut rp_v) {
@@ -868,6 +873,7 @@ pub mod arena {
                 };
                 rp_acc_2.push(rp_v as i32).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
               }
+              rp_acc_2.shrink_to_fit();
             }
             (3u32, ::rapidproto::wire::WireType::Varint) => {
               let mut rp_v = 0u64;
@@ -883,6 +889,7 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
+              rp_acc_3.reserve(rp_p.len()).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
               while !rp_p.is_empty() {
                 let mut rp_v = 0u64;
                 rp_p = match ::rapidproto::wire::read_varint(rp_p, &mut rp_v) {
@@ -891,6 +898,7 @@ pub mod arena {
                 };
                 rp_acc_3.push(rp_v as i32).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
               }
+              rp_acc_3.shrink_to_fit();
             }
             (4u32, ::rapidproto::wire::WireType::Varint) => {
               let mut rp_v = 0u64;
@@ -906,6 +914,7 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
+              rp_acc_4.reserve(rp_p.len()).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
               while !rp_p.is_empty() {
                 let mut rp_v = 0u64;
                 rp_p = match ::rapidproto::wire::read_varint(rp_p, &mut rp_v) {
@@ -914,6 +923,7 @@ pub mod arena {
                 };
                 rp_acc_4.push(rp_v as i32).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
               }
+              rp_acc_4.shrink_to_fit();
             }
             (5u32, ::rapidproto::wire::WireType::Len) => {
               let mut rp_p: &[u8] = &[];
@@ -1044,6 +1054,7 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
+              rp_acc_1.reserve(rp_p.len()).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
               while !rp_p.is_empty() {
                 let mut rp_v = 0u64;
                 rp_p = match ::rapidproto::wire::read_varint(rp_p, &mut rp_v) {
@@ -1052,6 +1063,7 @@ pub mod arena {
                 };
                 rp_acc_1.push(rp_v as i64).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
               }
+              rp_acc_1.shrink_to_fit();
             }
             (2u32, ::rapidproto::wire::WireType::I64) => {
               let mut rp_v = 0u64;
@@ -1090,6 +1102,7 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
+              rp_acc_3.reserve(rp_p.len()).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
               while !rp_p.is_empty() {
                 let mut rp_v = 0u64;
                 rp_p = match ::rapidproto::wire::read_varint(rp_p, &mut rp_v) {
@@ -1098,6 +1111,7 @@ pub mod arena {
                 };
                 rp_acc_3.push(::rapidproto::wire::zigzag64(rp_v)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
               }
+              rp_acc_3.shrink_to_fit();
             }
             (4u32, ::rapidproto::wire::WireType::Varint) => {
               let mut rp_v = 0u64;
@@ -1113,6 +1127,7 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
+              rp_acc_4.reserve(rp_p.len()).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
               while !rp_p.is_empty() {
                 let mut rp_v = 0u64;
                 rp_p = match ::rapidproto::wire::read_varint(rp_p, &mut rp_v) {
@@ -1121,6 +1136,7 @@ pub mod arena {
                 };
                 rp_acc_4.push(super::super::common::bench::Kind(rp_v as i32)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
               }
+              rp_acc_4.shrink_to_fit();
             }
             _ => {
               rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {

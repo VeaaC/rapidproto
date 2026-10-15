@@ -52,6 +52,39 @@ impl<'a, T> DecodeVec<'a, T> {
         Ok(())
     }
 
+    /// Pre-size the backing array so it can hold at least `additional` more elements beyond the
+    /// current length, in a SINGLE arena allocation (not the geometric doubling `push` uses).
+    /// A no-op when there is already room. Packed decode calls this once from the span's element
+    /// count before the fill loop, so the per-element `push`es never trigger a geometric regrow
+    /// (mirrors the C++ decoder's `allocate_array` up-front reserve in `emit_packed_fill`).
+    #[inline]
+    pub fn reserve(&mut self, additional: usize) -> Result<(), ArenaExhausted> {
+        let needed = self.len.checked_add(additional).ok_or(ArenaExhausted)?;
+        if needed > self.cap {
+            self.grow_to(needed)?;
+        }
+        Ok(())
+    }
+
+    /// Trim the backing array to its exact length, returning the unused tail to the arena.
+    ///
+    /// Packed decode pre-sizes to an upper bound (`reserve`), fills, then calls this to reclaim the
+    /// over-estimate (matching the C++ decoder's `Arena::shrink_last` after a packed-varint fill).
+    /// The arena can only reclaim while this array is still its most-recent allocation -- true right
+    /// after a fill, which allocates nothing; otherwise this just resets the capacity. Afterwards
+    /// `cap == len`, so a later `push` regrows (as the C++ decoder resets `rp_cap` to `rp_n`).
+    #[inline]
+    pub fn shrink_to_fit(&mut self) {
+        if self.cap > self.len {
+            let size = core::mem::size_of::<T>();
+            if size != 0 {
+                self.arena
+                    .shrink_last(self.ptr.cast::<u8>(), self.cap * size, self.len * size);
+            }
+            self.cap = self.len;
+        }
+    }
+
     #[cold]
     fn grow(&mut self) -> Result<(), ArenaExhausted> {
         let new_cap = if self.cap == 0 {
@@ -59,6 +92,13 @@ impl<'a, T> DecodeVec<'a, T> {
         } else {
             self.cap.checked_mul(2).ok_or(ArenaExhausted)?
         };
+        self.grow_to(new_cap)
+    }
+
+    /// Relocate into a fresh arena array of exactly `new_cap` elements (`new_cap > cap`). The old
+    /// array is abandoned (the arena never frees); elements move with a bitwise copy.
+    fn grow_to(&mut self, new_cap: usize) -> Result<(), ArenaExhausted> {
+        debug_assert!(new_cap > self.cap);
         let new = self.arena.alloc_array::<T>(new_cap)?;
         if self.len > 0 {
             // SAFETY: the old array holds `len` initialized `T`s and the new array has room for at
@@ -145,6 +185,69 @@ mod tests {
         let s = v.into_slice();
         for (i, p) in s.iter().enumerate() {
             assert_eq!(*p, Pair(i as u32, (i as u64) << 40));
+        }
+    }
+
+    #[test]
+    fn reserve_pre_sizes_in_one_allocation_so_pushes_do_not_regrow() {
+        let arena = Arena::new();
+        let mut v = DecodeVec::<u64>::new(&arena);
+        v.reserve(100).unwrap();
+        // A single arena allocation of exactly 100 elements -- nothing abandoned yet.
+        assert_eq!(arena.bytes_used(), 100 * 8);
+        for i in 0..100u64 {
+            v.push(i).unwrap();
+        }
+        // Filling the reserved capacity triggered no geometric regrow (no further allocation).
+        assert_eq!(arena.bytes_used(), 100 * 8);
+        let s = v.into_slice();
+        assert_eq!(s.len(), 100);
+        for (i, &x) in s.iter().enumerate() {
+            assert_eq!(x, i as u64);
+        }
+    }
+
+    #[test]
+    fn shrink_to_fit_reclaims_the_unused_tail_and_keeps_contents() {
+        let arena = Arena::new();
+        let mut v = DecodeVec::<u64>::new(&arena);
+        // Pre-size to an upper bound, fill fewer (the packed-varint over-estimate case).
+        v.reserve(100).unwrap();
+        for i in 0..10u64 {
+            v.push(i * 7).unwrap();
+        }
+        assert_eq!(arena.bytes_used(), 100 * 8);
+        v.shrink_to_fit();
+        // The 90-element tail was returned to the arena; it is still the last allocation.
+        assert_eq!(arena.bytes_used(), 10 * 8);
+        // A subsequent push regrows (cap was reset to len) and preserves order.
+        v.push(999).unwrap();
+        let s = v.into_slice();
+        assert_eq!(s.len(), 11);
+        for (i, &x) in s.iter().take(10).enumerate() {
+            assert_eq!(x, i as u64 * 7);
+        }
+        assert_eq!(s[10], 999);
+    }
+
+    #[test]
+    fn shrink_to_fit_is_a_noop_when_not_the_last_allocation() {
+        let arena = Arena::new();
+        let mut v = DecodeVec::<u64>::new(&arena);
+        v.reserve(100).unwrap();
+        for i in 0..10u64 {
+            v.push(i).unwrap();
+        }
+        // Something else becomes the arena's last allocation, so the tail can no longer be reclaimed.
+        let _other = arena.alloc_array::<u64>(4).unwrap();
+        let before = arena.bytes_used();
+        v.shrink_to_fit();
+        // No reclaim (not the last allocation), but the contents stay correct.
+        assert_eq!(arena.bytes_used(), before);
+        let s = v.into_slice();
+        assert_eq!(s.len(), 10);
+        for (i, &x) in s.iter().enumerate() {
+            assert_eq!(x, i as u64);
         }
     }
 

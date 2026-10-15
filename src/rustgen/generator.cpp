@@ -907,6 +907,15 @@ void emit_push(Printer& printer, const std::string& acc, const std::string& valu
         {{"acc", acc}, {"v", value}});
 }
 
+// A `DecodeVec::reserve`, mapping arena exhaustion to a DecodeError. Packed decode calls it once
+// before the fill loop to pre-size the array (mirrors the C++ decoder's up-front `allocate_array`).
+void emit_reserve(Printer& printer, const std::string& acc, const std::string& count) {
+    printer.print(
+        "$acc$.reserve($c$).map_err(|_| "
+        "::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;\n",
+        {{"acc", acc}, {"c", count}});
+}
+
 // Advance `rp_rest` past the current field (whatever its wire type), erroring body-relative.
 void emit_skip_body(Printer& printer) {
     printer.print("rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {\n");
@@ -1033,12 +1042,23 @@ void emit_field_arms(Printer& printer, const NameTable& table,
         printer.print("($n$u32, ::rapidproto::wire::WireType::Len) => {\n", {{"n", nstr}});
         printer.indent();
         emit_len_read(printer, loop_read());
+        // Packed varint pre-sizing: reserve the span's element upper bound (each varint is >= 1 byte,
+        // so the byte length bounds the count), fill without a per-element regrow, then trim the
+        // over-estimate back to the exact count -- mirroring the C++ decoder's `emit_packed_fill`
+        // (reserve + fill + `Arena::shrink_last`). Fixed-width packed elements take their own path.
+        const bool elem_varint = wire == "Varint";
+        if (elem_varint) {
+            emit_reserve(printer, acc, "rp_p.len()");
+        }
         printer.print("while !rp_p.is_empty() {\n");
         printer.indent();
         emit_scalar_value_read(printer, field, packed_read());
         emit_push(printer, acc, conv);
         printer.outdent();
         printer.print("}\n");
+        if (elem_varint) {
+            printer.print("$acc$.shrink_to_fit();\n", {{"acc", acc}});
+        }
         printer.outdent();
         printer.print("}\n");
         return;
