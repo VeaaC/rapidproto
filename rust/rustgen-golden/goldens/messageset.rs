@@ -8,21 +8,24 @@ pub mod common {
 pub mod arena {
 
   pub mod ms {
+    #[derive(Default)]
     pub struct Outer<'a> {
-      ordinary: Option<i32>,
-      container: Option<&'a outer::Container<'a>>,
+      ordinary: i32,
+      container: outer::Container<'a>,
+      rp_presence: u8,
     }
 
     impl<'a> Outer<'a> {
       pub fn ordinary(&self) -> Option<i32> {
-        self.ordinary
+        if (self.rp_presence & (1 << 0)) != 0 { Some(self.ordinary) } else { None }
       }
-      pub fn container(&self) -> Option<&'a outer::Container<'a>> {
-        self.container
+      pub fn container(&self) -> Option<&outer::Container<'a>> {
+        if (self.rp_presence & (1 << 1)) != 0 { Some(&self.container) } else { None }
       }
     }
 
     pub mod outer {
+      #[derive(Default)]
       pub struct Container<'a> {
         _marker: ::core::marker::PhantomData<&'a ()>,
       }
@@ -67,12 +70,13 @@ pub mod arena {
     }
 
     pub struct Ext<'a> {
-      s: Option<::rapidproto::ProtoStr<'a>>,
+      s: ::rapidproto::ProtoStr<'a>,
+      rp_presence: u8,
     }
 
     impl<'a> Ext<'a> {
       pub fn s(&self) -> Option<::rapidproto::ProtoStr<'a>> {
-        self.s
+        if (self.rp_presence & (1 << 0)) != 0 { Some(self.s) } else { None }
       }
     }
 
@@ -90,8 +94,9 @@ pub mod arena {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
-        let mut ordinary: Option<i32> = None;
-        let mut container: Option<&'a outer::Container<'a>> = None;
+        let mut rp_presence: u8 = 0;
+        let mut ordinary: i32 = 0;
+        let mut container: outer::Container<'a> = Default::default();
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
           let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
@@ -107,10 +112,11 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              ordinary = Some(rp_v as i32);
+              ordinary = rp_v as i32;
+              rp_presence |= 1 << 0;
             }
             (2u32, ::rapidproto::wire::WireType::Len) => {
-              if container.is_some() {
+              if (rp_presence & (1 << 1)) != 0 {
                 return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::RepeatedSingularMessage, rp_body.len() - rp_rest.len()).with_field(2));
               }
               let mut rp_p: &[u8] = &[];
@@ -118,7 +124,8 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              container = Some(rp_arena.emplace(|rp_out| outer::Container::decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
+              container = ::rapidproto::decode_value(|rp_out| outer::Container::decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+              rp_presence |= 1 << 1;
             }
             _ => {
               rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
@@ -131,6 +138,7 @@ pub mod arena {
         Ok(rp_out.write(Outer {
           ordinary,
           container,
+          rp_presence,
         }))
       }
     }
@@ -149,7 +157,8 @@ pub mod arena {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
-        let mut s: Option<::rapidproto::ProtoStr<'a>> = None;
+        let mut rp_presence: u8 = 0;
+        let mut s: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
           let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
@@ -165,7 +174,8 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              s = Some(::rapidproto::ProtoStr::new(rp_p));
+              s = ::rapidproto::ProtoStr::new(rp_p);
+              rp_presence |= 1 << 0;
             }
             _ => {
               rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
@@ -177,6 +187,7 @@ pub mod arena {
         }
         Ok(rp_out.write(Ext {
           s,
+          rp_presence,
         }))
       }
     }

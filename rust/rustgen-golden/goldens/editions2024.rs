@@ -9,13 +9,14 @@ pub mod arena {
 
   pub mod ed24 {
     pub struct M<'a> {
-      a: Option<i32>,
+      a: i32,
       b: &'a [i32],
+      rp_presence: u8,
     }
 
     impl<'a> M<'a> {
       pub fn a(&self) -> Option<i32> {
-        self.a
+        if (self.rp_presence & (1 << 0)) != 0 { Some(self.a) } else { None }
       }
       pub fn b(&self) -> &'a [i32] {
         self.b
@@ -36,7 +37,8 @@ pub mod arena {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
-        let mut a: Option<i32> = None;
+        let mut rp_presence: u8 = 0;
+        let mut a: i32 = 0;
         let mut rp_acc_2 = ::rapidproto::DecodeVec::new(rp_arena);
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
@@ -53,7 +55,8 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              a = Some(rp_v as i32);
+              a = rp_v as i32;
+              rp_presence |= 1 << 0;
             }
             (2u32, ::rapidproto::wire::WireType::Varint) => {
               let mut rp_v = 0u64;
@@ -82,6 +85,7 @@ pub mod arena {
         Ok(rp_out.write(M {
           a,
           b: rp_acc_2.into_slice(),
+          rp_presence,
         }))
       }
     }

@@ -2,7 +2,7 @@
 
 pub mod common {
   pub mod re {
-    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
     #[repr(transparent)]
     pub struct stream(pub i32);
 
@@ -27,7 +27,7 @@ pub mod common {
       Unknown(i32),
     }
 
-    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
     #[repr(transparent)]
     pub struct arena(pub i32);
 
@@ -52,7 +52,7 @@ pub mod common {
       Unknown(i32),
     }
 
-    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
     #[repr(transparent)]
     pub struct common(pub i32);
 
@@ -82,6 +82,7 @@ pub mod common {
 pub mod arena {
 
   pub mod re {
+    #[derive(Default)]
     pub struct Holder<'a> {
       s: super::super::common::re::stream,
       a: super::super::common::re::arena,

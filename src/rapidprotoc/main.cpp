@@ -284,7 +284,7 @@ int main(int argc, char** argv) {
         modes = std::move(resolved).value();
     }
     std::optional<rapidproto::arenagen::LayoutSet> layouts;
-    if (arena) {
+    if (arena || rust) {  // the Rust decoder shares the arena storage-layout planner
         rapidproto::arenagen::LayoutOptions options;
         options.modes = &modes;
         layouts = rapidproto::arenagen::plan_layouts(set, symbols, options);
@@ -365,7 +365,8 @@ int main(int argc, char** argv) {
                     rust_files.push_back(&f);
                 }
                 ok = rapidproto::cli::write_file(
-                         path, rapidproto::rustgen::generate_file(rust_files, modes), opts->verbose)
+                         path, rapidproto::rustgen::generate_file(rust_files, *layouts, modes),
+                         opts->verbose)
                          .has_value();
                 break;
             }

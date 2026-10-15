@@ -3,7 +3,7 @@
 pub mod common {
   pub mod pa {
     pub mod linux_ {
-      #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+      #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
       #[repr(transparent)]
       pub struct E(pub i32);
 
@@ -29,7 +29,7 @@ pub mod common {
       }
     }
     pub mod linux {
-      #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+      #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
       #[repr(transparent)]
       pub struct E(pub i32);
 
@@ -60,18 +60,20 @@ pub mod common {
 pub mod arena {
 
   pub mod pa {
+    #[derive(Default)]
     pub struct linux__<'a> {
       e: super::super::common::pa::linux_::E,
-      sub: Option<&'a linux::Sub<'a>>,
+      sub: linux::Sub<'a>,
       f: super::super::common::pa::linux::E,
+      rp_presence: u8,
     }
 
     impl<'a> linux__<'a> {
       pub fn e(&self) -> super::super::common::pa::linux_::E {
         self.e
       }
-      pub fn sub(&self) -> Option<&'a linux::Sub<'a>> {
-        self.sub
+      pub fn sub(&self) -> Option<&linux::Sub<'a>> {
+        if (self.rp_presence & (1 << 0)) != 0 { Some(&self.sub) } else { None }
       }
       pub fn f(&self) -> super::super::common::pa::linux::E {
         self.f
@@ -92,8 +94,9 @@ pub mod arena {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
+        let mut rp_presence: u8 = 0;
         let mut e: super::super::common::pa::linux_::E = super::super::common::pa::linux_::E(0);
-        let mut sub: Option<&'a linux::Sub<'a>> = None;
+        let mut sub: linux::Sub<'a> = Default::default();
         let mut f: super::super::common::pa::linux::E = super::super::common::pa::linux::E(0);
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
@@ -113,7 +116,7 @@ pub mod arena {
               e = super::super::common::pa::linux_::E(rp_v as i32);
             }
             (2u32, ::rapidproto::wire::WireType::Len) => {
-              if sub.is_some() {
+              if (rp_presence & (1 << 0)) != 0 {
                 return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::RepeatedSingularMessage, rp_body.len() - rp_rest.len()).with_field(2));
               }
               let mut rp_p: &[u8] = &[];
@@ -121,7 +124,8 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              sub = Some(rp_arena.emplace(|rp_out| linux::Sub::decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
+              sub = ::rapidproto::decode_value(|rp_out| linux::Sub::decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+              rp_presence |= 1 << 0;
             }
             (3u32, ::rapidproto::wire::WireType::Varint) => {
               let mut rp_v = 0u64;
@@ -143,11 +147,13 @@ pub mod arena {
           e,
           sub,
           f,
+          rp_presence,
         }))
       }
     }
 
     pub mod linux {
+      #[derive(Default)]
       pub struct Sub<'a> {
         f: super::super::super::common::pa::linux::E,
         _marker: ::core::marker::PhantomData<&'a ()>,

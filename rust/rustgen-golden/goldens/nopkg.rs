@@ -5,13 +5,14 @@ pub mod common {
 
 pub mod arena {
   pub struct Root<'a> {
-    sub: Option<&'a root::Sub<'a>>,
+    sub: root::Sub<'a>,
     self_: Option<&'a Root<'a>>,
+    rp_presence: u8,
   }
 
   impl<'a> Root<'a> {
-    pub fn sub(&self) -> Option<&'a root::Sub<'a>> {
-      self.sub
+    pub fn sub(&self) -> Option<&root::Sub<'a>> {
+      if (self.rp_presence & (1 << 0)) != 0 { Some(&self.sub) } else { None }
     }
     pub fn self_(&self) -> Option<&'a Root<'a>> {
       self.self_
@@ -19,6 +20,7 @@ pub mod arena {
   }
 
   pub mod root {
+    #[derive(Default)]
     pub struct Sub<'a> {
       y: i32,
       _marker: ::core::marker::PhantomData<&'a ()>,
@@ -92,7 +94,8 @@ pub mod arena {
       if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
         return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
       }
-      let mut sub: Option<&'a root::Sub<'a>> = None;
+      let mut rp_presence: u8 = 0;
+      let mut sub: root::Sub<'a> = Default::default();
       let mut self_: Option<&'a Root<'a>> = None;
       let mut rp_rest: &'a [u8] = rp_body;
       loop {
@@ -104,7 +107,7 @@ pub mod arena {
         };
         match (rp_tag.field, rp_tag.wire) {
           (1u32, ::rapidproto::wire::WireType::Len) => {
-            if sub.is_some() {
+            if (rp_presence & (1 << 0)) != 0 {
               return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::RepeatedSingularMessage, rp_body.len() - rp_rest.len()).with_field(1));
             }
             let mut rp_p: &[u8] = &[];
@@ -112,7 +115,8 @@ pub mod arena {
               Ok(r) => r,
               Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            sub = Some(rp_arena.emplace(|rp_out| root::Sub::decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
+            sub = ::rapidproto::decode_value(|rp_out| root::Sub::decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+            rp_presence |= 1 << 0;
           }
           (2u32, ::rapidproto::wire::WireType::Len) => {
             if self_.is_some() {
@@ -136,6 +140,7 @@ pub mod arena {
       Ok(rp_out.write(Root {
         sub,
         self_,
+        rp_presence,
       }))
     }
   }

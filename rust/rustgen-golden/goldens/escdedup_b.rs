@@ -8,6 +8,7 @@ pub mod common {
 pub mod arena {
 
   pub mod escdedup {
+    #[derive(Default)]
     pub struct decode_<'a> {
       x: i32,
       _marker: ::core::marker::PhantomData<&'a ()>,
