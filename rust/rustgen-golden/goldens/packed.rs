@@ -69,13 +69,18 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              while !rp_p.is_empty() {
-                let mut rp_v = 0u64;
-                rp_p = match ::rapidproto::wire::read_fixed64(rp_p, &mut rp_v) {
-                  Ok(r) => r,
-                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len() - rp_p.len())),
-                };
-                rp_acc_1.push(f64::from_bits(rp_v)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+              if cfg!(target_endian = "little") && rp_p.len() % 8 == 0 {
+                rp_acc_1.extend_from_le_bytes(rp_p).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+              } else {
+                rp_acc_1.reserve(rp_p.len() / 8).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+                while !rp_p.is_empty() {
+                  let mut rp_v = 0u64;
+                  rp_p = match ::rapidproto::wire::read_fixed64(rp_p, &mut rp_v) {
+                    Ok(r) => r,
+                    Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len() - rp_p.len())),
+                  };
+                  rp_acc_1.push(f64::from_bits(rp_v)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+                }
               }
             }
             (2u32, ::rapidproto::wire::WireType::I32) => {
@@ -92,13 +97,18 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              while !rp_p.is_empty() {
-                let mut rp_v = 0u32;
-                rp_p = match ::rapidproto::wire::read_fixed32(rp_p, &mut rp_v) {
-                  Ok(r) => r,
-                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len() - rp_p.len())),
-                };
-                rp_acc_2.push(rp_v as i32).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+              if cfg!(target_endian = "little") && rp_p.len() % 4 == 0 {
+                rp_acc_2.extend_from_le_bytes(rp_p).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+              } else {
+                rp_acc_2.reserve(rp_p.len() / 4).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+                while !rp_p.is_empty() {
+                  let mut rp_v = 0u32;
+                  rp_p = match ::rapidproto::wire::read_fixed32(rp_p, &mut rp_v) {
+                    Ok(r) => r,
+                    Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len() - rp_p.len())),
+                  };
+                  rp_acc_2.push(rp_v as i32).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+                }
               }
             }
             (3u32, ::rapidproto::wire::WireType::I32) => {
@@ -115,13 +125,18 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              while !rp_p.is_empty() {
-                let mut rp_v = 0u32;
-                rp_p = match ::rapidproto::wire::read_fixed32(rp_p, &mut rp_v) {
-                  Ok(r) => r,
-                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len() - rp_p.len())),
-                };
-                rp_acc_3.push(f32::from_bits(rp_v)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+              if cfg!(target_endian = "little") && rp_p.len() % 4 == 0 {
+                rp_acc_3.extend_from_le_bytes(rp_p).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+              } else {
+                rp_acc_3.reserve(rp_p.len() / 4).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+                while !rp_p.is_empty() {
+                  let mut rp_v = 0u32;
+                  rp_p = match ::rapidproto::wire::read_fixed32(rp_p, &mut rp_v) {
+                    Ok(r) => r,
+                    Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len() - rp_p.len())),
+                  };
+                  rp_acc_3.push(f32::from_bits(rp_v)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+                }
               }
             }
             _ => {
