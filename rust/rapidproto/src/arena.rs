@@ -44,6 +44,20 @@ const MAX_CHUNK: usize = 96 * 1024;
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct ArenaExhausted;
 
+/// Decode a `T` **by value** through an in-place writer: hand `f` an uninitialized slot and return the
+/// initialized `T` only if `f` succeeds. Lets generated map-value / by-value sites use the
+/// destination-slot `decode_into` form (keeping all `unsafe` out of generated code) where the value
+/// is stored by value rather than behind an arena pointer. Does not allocate.
+#[inline]
+pub fn decode_value<T, E>(
+    f: impl FnOnce(&mut core::mem::MaybeUninit<T>) -> Result<(), E>,
+) -> Result<T, E> {
+    let mut slot = core::mem::MaybeUninit::<T>::uninit();
+    f(&mut slot)?;
+    // SAFETY: `f` returned `Ok`, so by its contract it initialized the slot.
+    Ok(unsafe { slot.assume_init() })
+}
+
 /// One chunk's usable byte range. `storage` is the owning heap block as a raw `Box` pointer, freed
 /// in `Arena`'s `Drop`; it is `None` for the caller-seeded buffer, which the arena never frees.
 ///
@@ -165,6 +179,28 @@ impl<'buf> Arena<'buf> {
             p.as_ptr().write(val);
             Ok(&mut *p.as_ptr())
         }
+    }
+
+    /// Allocate a `T` slot and decode into it **in place** -- no by-value construct-then-copy. `f`
+    /// initializes the slot (a generated `decode_into` writing each field straight into it); the
+    /// `&mut T` is returned only if `f` succeeds. On `Err` the slot is abandoned, never read (the
+    /// arena never frees, so the reserved bytes are simply unused). This is the Rust equivalent of the
+    /// C++ decoder allocating the slot then `rp_decode_into(*slot, ...)`.
+    #[allow(clippy::mut_from_ref)]
+    pub fn emplace<T, E: From<ArenaExhausted>>(
+        &self,
+        f: impl FnOnce(&mut core::mem::MaybeUninit<T>) -> Result<(), E>,
+    ) -> Result<&mut T, E> {
+        let p = self
+            .alloc_bytes(core::mem::size_of::<T>(), core::mem::align_of::<T>())?
+            .cast::<T>();
+        // SAFETY: `p` is `size_of::<T>()` freshly reserved, `align_of::<T>()`-aligned bytes nothing
+        // else aliases; `MaybeUninit<T>` shares `T`'s layout, so viewing the slot as
+        // `&mut MaybeUninit<T>` lets `f` initialize it without reading uninitialized memory.
+        let slot = unsafe { &mut *p.as_ptr().cast::<core::mem::MaybeUninit<T>>() };
+        f(slot)?;
+        // SAFETY: `f` returned `Ok`, so by its contract it initialized the slot; form the `&mut T`.
+        Ok(unsafe { &mut *p.as_ptr() })
     }
 
     /// Reserve **uninitialized** storage for `n` values of `T`, returning a pointer to the first.
@@ -636,5 +672,54 @@ mod tests {
             reserved_before,
             "reused the held chunks without growing"
         );
+    }
+
+    #[test]
+    fn emplace_initializes_in_place_on_ok_and_abandons_on_err() {
+        let a = Arena::new();
+        // Ok: the slot is written in place and returned.
+        let r = a
+            .emplace::<u64, ArenaExhausted>(|slot| {
+                slot.write(0xABCD);
+                Ok(())
+            })
+            .unwrap();
+        assert_eq!(*r, 0xABCD);
+        // Err after a partial/whole write: no `&mut T` is formed, the slot is abandoned (never read).
+        // Running clean (incl. under Miri) is the assertion -- no assume_init on the error path.
+        let e = a.emplace::<u64, ArenaExhausted>(|slot| {
+            slot.write(1);
+            Err(ArenaExhausted)
+        });
+        assert!(e.is_err());
+    }
+
+    #[test]
+    fn emplace_handles_a_zero_sized_type() {
+        // A ZST message (empty / marker-only) goes through `alloc_bytes(0, _)`; emplacing it must be
+        // sound (exercises the 0-byte-alloc + uninit-slot write path under Miri).
+        let a = Arena::new();
+        let r = a
+            .emplace::<(), ArenaExhausted>(|slot| {
+                slot.write(());
+                Ok(())
+            })
+            .unwrap();
+        assert_eq!(*r, ());
+    }
+
+    #[test]
+    fn decode_value_moves_out_on_ok_and_propagates_err() {
+        let v = decode_value::<u64, ArenaExhausted>(|slot| {
+            slot.write(123);
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(v, 123);
+        let e = decode_value::<u64, ArenaExhausted>(|slot| {
+            slot.write(9);
+            Err(ArenaExhausted)
+        });
+        assert!(e.is_err());
     }
 }
