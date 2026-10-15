@@ -10,14 +10,16 @@ pub mod common {
 pub mod arena {
 
   pub mod fwd {
+    #[derive(Default)]
     pub struct Fwd<'a> {
-      z: Option<i32>,
+      z: i32,
+      rp_presence: u8,
       _marker: ::core::marker::PhantomData<&'a ()>,
     }
 
     impl<'a> Fwd<'a> {
       pub fn z(&self) -> Option<i32> {
-        self.z
+        if (self.rp_presence & (1 << 0)) != 0 { Some(self.z) } else { None }
       }
     }
 
@@ -35,7 +37,8 @@ pub mod arena {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
-        let mut z: Option<i32> = None;
+        let mut rp_presence: u8 = 0;
+        let mut z: i32 = 0;
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
           let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
@@ -51,7 +54,8 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              z = Some(rp_v as i32);
+              z = rp_v as i32;
+              rp_presence |= 1 << 0;
             }
             _ => {
               rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
@@ -63,6 +67,7 @@ pub mod arena {
         }
         Ok(rp_out.write(Fwd {
           z,
+          rp_presence,
           _marker: ::core::marker::PhantomData,
         }))
       }
@@ -70,14 +75,16 @@ pub mod arena {
   }
 
   pub mod r#pub {
+    #[derive(Default)]
     pub struct Pub<'a> {
-      w: Option<i32>,
+      w: i32,
+      rp_presence: u8,
       _marker: ::core::marker::PhantomData<&'a ()>,
     }
 
     impl<'a> Pub<'a> {
       pub fn w(&self) -> Option<i32> {
-        self.w
+        if (self.rp_presence & (1 << 0)) != 0 { Some(self.w) } else { None }
       }
     }
 
@@ -95,7 +102,8 @@ pub mod arena {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
-        let mut w: Option<i32> = None;
+        let mut rp_presence: u8 = 0;
+        let mut w: i32 = 0;
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
           let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
@@ -111,7 +119,8 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              w = Some(rp_v as i32);
+              w = rp_v as i32;
+              rp_presence |= 1 << 0;
             }
             _ => {
               rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
@@ -123,6 +132,7 @@ pub mod arena {
         }
         Ok(rp_out.write(Pub {
           w,
+          rp_presence,
           _marker: ::core::marker::PhantomData,
         }))
       }

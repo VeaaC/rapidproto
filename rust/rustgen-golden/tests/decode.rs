@@ -13,10 +13,17 @@
 //!   p2::Container    -- message-valued map, enum-valued map, oneof with a message variant, repeated
 //!                       message, the in-entry repeated-singular-message rejection.
 //!   mr::ManyRequired -- proto2 `required`: all-present ok, a missing field -> MissingRequired.
+//!   al::Layout       -- inlined small fixed-size sub-messages (bare `T` + presence bit, decoded in
+//!                       place) vs pointer sub-messages (over the cutoff / not fixed-size), plus a
+//!                       repeated inlined-message array.
+//!   mr::ReqInline    -- a `required` small fixed-size message: inlined by value with NO resting
+//!                       presence bit (always-present), present-ok + missing -> MissingRequired.
 
 use rapidproto::{Arena, ErrorKind};
 
+use rustgen_golden::arena_layout::arena::al::Layout;
 use rustgen_golden::arena_manyreq::arena::mr::ManyRequired;
+use rustgen_golden::arena_manyreq::arena::mr::ReqInline;
 use rustgen_golden::expanded::arena::xp::Expanded;
 use rustgen_golden::expanded::common::xp::expanded::Kind;
 use rustgen_golden::proto2::arena::p2::container::{Choice, Nested};
@@ -562,4 +569,87 @@ fn malformed_tag_is_an_error() {
     };
     assert_eq!(err.kind(), ErrorKind::InvalidTag);
     assert_eq!(err.offset(), 0);
+}
+
+#[test]
+fn inlined_small_messages_decode_in_place() {
+    // Layout inlines small fixed-size sub-messages BY VALUE with a presence bit (pt: Point 8B,
+    // flag: BoolWrap) and decodes them in place (decode_value, no arena alloc); Big (24B > 16B cutoff)
+    // and HasString (not fixed-size) stay behind arena pointers. Exercises the inlined singular-message
+    // decode path + its `Option<&T>` presence getter, the repeated inlined-element array, and that an
+    // absent inlined field reads `None` (its `Default::default()` storage never surfaces).
+    let mut pt = Vec::new();
+    put_var(&mut pt, 1, 10); // Point.x
+    put_var(&mut pt, 2, 20); // Point.y
+    let mut flag = Vec::new();
+    put_var(&mut flag, 1, 1); // BoolWrap.value = true
+    let mut big = Vec::new();
+    put_tag(&mut big, 1, 1); // Big.a (fixed64, wire type I64)
+    big.extend_from_slice(&100u64.to_le_bytes());
+
+    let mut buf = Vec::new();
+    put_var(&mut buf, 1, 1); // b1 = true (implicit bool -> value bit)
+    put_var(&mut buf, 4, 42); // small (implicit i32)
+    put_var(&mut buf, 5, 7); // opt (explicit i32 -> presence bit)
+    put_len(&mut buf, 9, &pt); // pt (inlined Point)
+    put_len(&mut buf, 10, &big); // bg (pointer Big)
+    put_len(&mut buf, 12, &flag); // flag (inlined BoolWrap)
+
+    let arena = Arena::new();
+    let m = Layout::decode(&buf, &arena).unwrap();
+    assert!(m.b1());
+    assert_eq!(m.small(), 42);
+    assert_eq!(m.opt(), Some(7));
+    let p = m.pt().expect("pt present");
+    assert_eq!(p.x(), 10);
+    assert_eq!(p.y(), 20);
+    assert_eq!(m.bg().expect("bg present").a(), 100);
+    assert!(m.flag().expect("flag present").value());
+
+    // Repeated inlined message: an array of bare `Point` decoded per element.
+    let mut pt2 = Vec::new();
+    put_var(&mut pt2, 1, 30); // Point.x (y defaults 0)
+    let mut buf2 = Vec::new();
+    put_len(&mut buf2, 14, &pt); // points[0]
+    put_len(&mut buf2, 14, &pt2); // points[1]
+    let m2 = Layout::decode(&buf2, &arena).unwrap();
+    assert_eq!(m2.points().len(), 2);
+    assert_eq!(m2.points()[0].x(), 10);
+    assert_eq!(m2.points()[0].y(), 20);
+    assert_eq!(m2.points()[1].x(), 30);
+    assert_eq!(m2.points()[1].y(), 0);
+
+    // Absent: inlined-message presence bits clear -> None; pointer sub-message null -> None.
+    let d = Layout::decode(&[], &arena).unwrap();
+    assert!(d.pt().is_none());
+    assert!(d.flag().is_none());
+    assert!(d.bg().is_none());
+    assert_eq!(d.opt(), None);
+    assert!(!d.b1());
+    assert!(d.points().is_empty());
+}
+
+#[test]
+fn required_inlined_message_present_ok_and_missing_rejected() {
+    // A `required` small fixed-size message inlines by value with NO resting presence bit (required is
+    // always-present once decode succeeds); the getter returns `Some(&..)` unconditionally and a
+    // duplicate is rejected via the transient required flag. Present: decodes in place; absent: the
+    // post-loop required check fires MissingRequired. (Regression: this shape emitted `1 << -1`.)
+    let mut small = Vec::new();
+    put_var(&mut small, 1, 5); // Small.x
+    let mut buf = Vec::new();
+    put_len(&mut buf, 1, &small); // required Small s
+    put_var(&mut buf, 2, 9); // optional int32 tag
+
+    let arena = Arena::new();
+    let m = ReqInline::decode(&buf, &arena).unwrap();
+    assert_eq!(m.s().expect("required s present").x(), Some(5));
+    assert_eq!(m.tag(), Some(9));
+
+    // Missing the required message -> MissingRequired on field 1.
+    let err = match ReqInline::decode(&[], &arena) {
+        Ok(_) => panic!("expected MissingRequired"),
+        Err(e) => e,
+    };
+    assert_eq!(err.kind(), ErrorKind::MissingRequired);
 }

@@ -12,6 +12,7 @@ pub mod common {
 pub mod arena {
 
   pub mod po {
+    #[derive(Default)]
     pub struct linux_<'a> {
       v: i32,
       _marker: ::core::marker::PhantomData<&'a ()>,
@@ -23,6 +24,7 @@ pub mod arena {
       }
     }
 
+    #[derive(Default)]
     pub struct linux__<'a> {
       v: i32,
       _marker: ::core::marker::PhantomData<&'a ()>,
@@ -129,6 +131,7 @@ pub mod arena {
     }
 
     pub mod linux {
+      #[derive(Default)]
       pub struct Sub<'a> {
         v: i32,
         _marker: ::core::marker::PhantomData<&'a ()>,

@@ -8,6 +8,7 @@ pub mod common {
 pub mod arena {
 
   pub mod sib {
+    #[derive(Default)]
     pub struct logging<'a> {
       x: i32,
       _marker: ::core::marker::PhantomData<&'a ()>,

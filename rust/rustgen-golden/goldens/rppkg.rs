@@ -2,7 +2,7 @@
 
 pub mod common {
   pub mod rapidproto {
-    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
     #[repr(transparent)]
     pub struct WireType(pub i32);
 
@@ -27,7 +27,7 @@ pub mod common {
       Unknown(i32),
     }
 
-    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
     #[repr(transparent)]
     pub struct DecodeStatus(pub i32);
 
@@ -57,6 +57,7 @@ pub mod common {
 pub mod arena {
 
   pub mod rapidproto {
+    #[derive(Default)]
     pub struct wire<'a> {
       x: i32,
       _marker: ::core::marker::PhantomData<&'a ()>,
@@ -68,6 +69,7 @@ pub mod arena {
       }
     }
 
+    #[derive(Default)]
     pub struct Arena<'a> {
       y: i32,
       _marker: ::core::marker::PhantomData<&'a ()>,

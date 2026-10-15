@@ -2,7 +2,7 @@
 
 pub mod common {
   pub mod bench {
-    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
     #[repr(transparent)]
     pub struct Kind(pub i32);
 
@@ -71,13 +71,13 @@ pub mod arena {
       id: i64,
       name: ::rapidproto::ProtoStr<'a>,
       email: ::rapidproto::ProtoStr<'a>,
-      active: bool,
       score: f64,
       created: u64,
       address: Option<&'a Address<'a>>,
       tags: &'a [::rapidproto::ProtoStr<'a>],
       history: &'a [i32],
       attributes: &'a [Attribute<'a>],
+      rp_presence: u8,
       counters: ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, i32>,
     }
 
@@ -92,7 +92,7 @@ pub mod arena {
         self.email
       }
       pub fn active(&self) -> bool {
-        self.active
+        (self.rp_presence & (1 << 0)) != 0
       }
       pub fn score(&self) -> f64 {
         self.score
@@ -207,6 +207,7 @@ pub mod arena {
       }
     }
 
+    #[derive(Default)]
     pub struct Vec3<'a> {
       x: f64,
       y: f64,
@@ -258,13 +259,14 @@ pub mod arena {
       }
     }
 
+    #[derive(Default)]
     pub struct Sample<'a> {
       a: i32,
       b: i32,
       c: i64,
       d: i32,
-      e: bool,
       f: u32,
+      rp_presence: u8,
       _marker: ::core::marker::PhantomData<&'a ()>,
     }
 
@@ -282,7 +284,7 @@ pub mod arena {
         self.d
       }
       pub fn e(&self) -> bool {
-        self.e
+        (self.rp_presence & (1 << 0)) != 0
       }
       pub fn f(&self) -> u32 {
         self.f
@@ -296,7 +298,6 @@ pub mod arena {
       f4: i64,
       f5: u32,
       f6: i32,
-      f7: bool,
       f8: u64,
       f9: i32,
       f10: i32,
@@ -310,6 +311,7 @@ pub mod arena {
       f18: i32,
       f19: i32,
       f20: i32,
+      rp_presence: u8,
     }
 
     impl<'a> Record<'a> {
@@ -332,7 +334,7 @@ pub mod arena {
         self.f6
       }
       pub fn f7(&self) -> bool {
-        self.f7
+        (self.rp_presence & (1 << 0)) != 0
       }
       pub fn f8(&self) -> u64 {
         self.f8
@@ -521,10 +523,10 @@ pub mod arena {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
+        let mut rp_presence: u8 = 0;
         let mut id: i64 = 0;
         let mut name: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
         let mut email: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
-        let mut active: bool = false;
         let mut score: f64 = 0.0;
         let mut created: u64 = 0;
         let mut address: Option<&'a Address<'a>> = None;
@@ -571,7 +573,11 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              active = rp_v != 0;
+              if rp_v != 0 {
+                rp_presence |= 1 << 0;
+              } else {
+                rp_presence &= !(1 << 0);
+              }
             }
             (5u32, ::rapidproto::wire::WireType::I64) => {
               let mut rp_v = 0u64;
@@ -688,13 +694,13 @@ pub mod arena {
           id,
           name,
           email,
-          active,
           score,
           created,
           address,
           tags: rp_acc_8.into_slice(),
           history: rp_acc_9.into_slice(),
           attributes: rp_acc_10.into_slice(),
+          rp_presence,
           counters: ::rapidproto::MapView::new(rp_map_11.into_slice()),
         }))
       }
@@ -1315,11 +1321,11 @@ pub mod arena {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
+        let mut rp_presence: u8 = 0;
         let mut a: i32 = 0;
         let mut b: i32 = 0;
         let mut c: i64 = 0;
         let mut d: i32 = 0;
-        let mut e: bool = false;
         let mut f: u32 = 0;
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
@@ -1368,7 +1374,11 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              e = rp_v != 0;
+              if rp_v != 0 {
+                rp_presence |= 1 << 0;
+              } else {
+                rp_presence &= !(1 << 0);
+              }
             }
             (6u32, ::rapidproto::wire::WireType::Varint) => {
               let mut rp_v = 0u64;
@@ -1391,8 +1401,8 @@ pub mod arena {
           b,
           c,
           d,
-          e,
           f,
+          rp_presence,
           _marker: ::core::marker::PhantomData,
         }))
       }
@@ -1412,13 +1422,13 @@ pub mod arena {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
+        let mut rp_presence: u8 = 0;
         let mut f1: i32 = 0;
         let mut f2: i32 = 0;
         let mut f3: i32 = 0;
         let mut f4: i64 = 0;
         let mut f5: u32 = 0;
         let mut f6: i32 = 0;
-        let mut f7: bool = false;
         let mut f8: u64 = 0;
         let mut f9: i32 = 0;
         let mut f10: i32 = 0;
@@ -1495,7 +1505,11 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              f7 = rp_v != 0;
+              if rp_v != 0 {
+                rp_presence |= 1 << 0;
+              } else {
+                rp_presence &= !(1 << 0);
+              }
             }
             (8u32, ::rapidproto::wire::WireType::Varint) => {
               let mut rp_v = 0u64;
@@ -1622,7 +1636,6 @@ pub mod arena {
           f4,
           f5,
           f6,
-          f7,
           f8,
           f9,
           f10,
@@ -1636,6 +1649,7 @@ pub mod arena {
           f18,
           f19,
           f20,
+          rp_presence,
         }))
       }
     }

@@ -2,7 +2,7 @@
 
 pub mod common {
   pub mod escdedup {
-    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
     #[repr(transparent)]
     pub struct decode(pub i32);
 
@@ -35,6 +35,7 @@ pub mod common {
 pub mod arena {
 
   pub mod escdedup {
+    #[derive(Default)]
     pub struct decode_<'a> {
       x: i32,
       _marker: ::core::marker::PhantomData<&'a ()>,
@@ -46,14 +47,16 @@ pub mod arena {
       }
     }
 
+    #[derive(Default)]
     pub struct Holder<'a> {
-      r#ref: Option<&'a decode_<'a>>,
+      r#ref: decode_<'a>,
       kind: super::super::common::escdedup::decode,
+      rp_presence: u8,
     }
 
     impl<'a> Holder<'a> {
-      pub fn r#ref(&self) -> Option<&'a decode_<'a>> {
-        self.r#ref
+      pub fn r#ref(&self) -> Option<&decode_<'a>> {
+        if (self.rp_presence & (1 << 0)) != 0 { Some(&self.r#ref) } else { None }
       }
       pub fn kind(&self) -> super::super::common::escdedup::decode {
         self.kind
@@ -121,7 +124,8 @@ pub mod arena {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
-        let mut r#ref: Option<&'a decode_<'a>> = None;
+        let mut rp_presence: u8 = 0;
+        let mut r#ref: decode_<'a> = Default::default();
         let mut kind: super::super::common::escdedup::decode = super::super::common::escdedup::decode(0);
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
@@ -133,7 +137,7 @@ pub mod arena {
           };
           match (rp_tag.field, rp_tag.wire) {
             (1u32, ::rapidproto::wire::WireType::Len) => {
-              if r#ref.is_some() {
+              if (rp_presence & (1 << 0)) != 0 {
                 return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::RepeatedSingularMessage, rp_body.len() - rp_rest.len()).with_field(1));
               }
               let mut rp_p: &[u8] = &[];
@@ -141,7 +145,8 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              r#ref = Some(rp_arena.emplace(|rp_out| decode_::decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
+              r#ref = ::rapidproto::decode_value(|rp_out| decode_::decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+              rp_presence |= 1 << 0;
             }
             (2u32, ::rapidproto::wire::WireType::Varint) => {
               let mut rp_v = 0u64;
@@ -162,6 +167,7 @@ pub mod arena {
         Ok(rp_out.write(Holder {
           r#ref,
           kind,
+          rp_presence,
         }))
       }
     }

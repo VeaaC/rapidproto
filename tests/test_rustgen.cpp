@@ -16,7 +16,8 @@
 #include <catch_amalgamated.hpp>
 
 #include "parse_helpers.hpp"
-#include "rapidproto/arenagen/modes.hpp"  // FieldModesSpec / FieldMode / resolve_field_modes
+#include "rapidproto/arenagen/layout.hpp"  // plan_layouts / LayoutOptions / LayoutSet
+#include "rapidproto/arenagen/modes.hpp"   // FieldModesSpec / FieldMode / resolve_field_modes
 #include "rapidproto/ast.hpp"
 #include "rapidproto/cli/driver.hpp"  // resolve_and_analyze, to emit a schema's whole import closure
 #include "rapidproto/resolve.hpp"
@@ -47,9 +48,18 @@ std::string gen(std::string src) {
     return rustgen::generate_common({&file});
 }
 
+// Generate the arena tree. Keeps the ResolvedFileSet + SymbolTable alive so the shared storage-layout
+// planner (plan_layouts) sees the same FieldNode pointers the emitter walks.
 std::string gen_arena(std::string src) {
-    const FileNode file = analyzed(std::move(src));
-    return rustgen::generate_arena({&file});
+    ResolvedFileSet set;
+    set.file_index["t.proto"] = set.files.size();
+    FileNode file = test::parse_file_ok(std::move(src));
+    file.filename = "t.proto";
+    set.files.push_back(std::move(file));
+    auto symbols = analyze(set);
+    REQUIRE(symbols.is_ok());
+    const auto layouts = arenagen::plan_layouts(set, symbols.value());
+    return rustgen::generate_arena({&set.files.back()}, layouts);
 }
 
 // Generate the arena tree under a resolved field-modes profile. Keeps the ResolvedFileSet alive so the
@@ -64,7 +74,10 @@ std::string gen_arena_modes(std::string src, const arenagen::FieldModesSpec& spe
     REQUIRE(symbols.is_ok());
     auto modes = arenagen::resolve_field_modes(spec, set, symbols.value());
     REQUIRE(modes.is_ok());
-    return rustgen::generate_arena({&set.files.back()}, modes.value());
+    arenagen::LayoutOptions options;
+    options.modes = &modes.value();
+    const auto layouts = arenagen::plan_layouts(set, symbols.value(), options);
+    return rustgen::generate_arena({&set.files.back()}, layouts, modes.value());
 }
 
 bool has(const std::string& haystack, std::string_view needle) {
@@ -146,12 +159,13 @@ std::string gen_corpus(std::string_view rel) {
     REQUIRE(resolved.has_value());
     // NOLINTNEXTLINE(bugprone-unchecked-optional-access): guarded by the REQUIRE above
     const ResolvedFileSet& set = resolved.value().first;
+    const auto layouts = arenagen::plan_layouts(set, resolved.value().second);
     std::vector<const FileNode*> files;
     files.reserve(set.files.size());
     for (const FileNode& file : set.files) {
         files.push_back(&file);
     }
-    return rustgen::generate_file(files);
+    return rustgen::generate_file(files, layouts);
 }
 
 // Generate a corpus schema under a resolved field-modes profile (drop/raw/unknown), as the CLI's
@@ -168,12 +182,15 @@ std::string gen_corpus_modes(std::string_view rel, const arenagen::FieldModesSpe
     const ResolvedFileSet& set = analyzed_set.first;
     auto modes = arenagen::resolve_field_modes(spec, set, analyzed_set.second);
     REQUIRE(modes.is_ok());
+    arenagen::LayoutOptions options;
+    options.modes = &modes.value();
+    const auto layouts = arenagen::plan_layouts(set, analyzed_set.second, options);
     std::vector<const FileNode*> files;
     files.reserve(set.files.size());
     for (const FileNode& file : set.files) {
         files.push_back(&file);
     }
-    return rustgen::generate_file(files, modes.value());
+    return rustgen::generate_file(files, layouts, modes.value());
 }
 
 // The field-modes golden: proto3 under a drop/raw/unknown profile, compiled by the golden crate and
@@ -200,12 +217,13 @@ std::string gen_multi(std::vector<std::string> srcs) {
     }
     auto result = analyze(set);
     REQUIRE(result.is_ok());
+    const auto layouts = arenagen::plan_layouts(set, result.value());
     std::vector<const FileNode*> files;
     files.reserve(set.files.size());
     for (const FileNode& file : set.files) {
         files.push_back(&file);
     }
-    return rustgen::generate_file(files);
+    return rustgen::generate_file(files, layouts);
 }
 
 }  // namespace
@@ -625,6 +643,32 @@ TEST_CASE("rustgen decode: a message with map / oneof / required gets a real dec
     CHECK(has(out, "let rp_ptr = rp_arena.emplace(|rp_out|"));
 }
 
+TEST_CASE("rustgen decode: a required small fixed-size message inlines with no presence bit") {
+    // A `required` singular message of a small fixed-size type is inlined BY VALUE (bare `T`), but --
+    // unlike an Explicit/optional inlined message -- it carries NO resting presence bit (the planner's
+    // needs_presence rejects non-Explicit). The inlined-message emit paths must therefore guard the
+    // presence_bit: emit `1 << -1` nowhere, return the value unconditionally, and reject a duplicate
+    // via the transient `rp_req_<n>` flag. (Regression: this shape -- never in the corpus -- produced
+    // `(rp_presence & (1 << -1))`, a hard rustc overflow error, on otherwise-valid protoc input.)
+    const std::string out = gen_arena(R"(syntax = "proto2"; package p;
+        message Small { optional int32 x = 1; }
+        message Holder { required Small s = 1; })");
+    CHECK(!has(out, "todo!()"));
+    // The never-emit-`1 << -1` invariant, stated directly.
+    CHECK_FALSE(has(out, "1 << -1"));
+    // Inlined by value (bare `T`, not a pointer), with a derived zero for the absent/default local.
+    CHECK(has(out, "s: Small<'a>,"));
+    CHECK(has(out, "#[derive(Default)]"));
+    // Required inlined message: always present on a successful decode -> getter returns `Some(&..)`
+    // unconditionally (no bit test), matching how a required scalar reads its bare value.
+    CHECK(has(out, "pub fn s(&self) -> Option<&Small<'a>> {"));
+    CHECK(has(out, "Some(&self.s)"));
+    // Decoded in place; duplicate rejected via the required seen-flag (not a mask bit); then validated.
+    CHECK(has(out, "::rapidproto::decode_value(|rp_out|"));
+    CHECK(has(out, "if rp_req_1 {"));
+    CHECK(has(out, "::rapidproto::ErrorKind::MissingRequired, 0).with_field(1)"));
+}
+
 TEST_CASE(
     "rustgen decode: a proto2 [default=...] field decodes as a plain Option (not materialized)") {
     // Matching the C++ decoder, a custom default is NOT read through: a defaulted field is stored and
@@ -640,13 +684,16 @@ TEST_CASE(
           optional int32 plain = 5;
         })");
     CHECK(!has(out, "todo!()"));  // decodable, not a skeleton
-    // Defaulted optional reads exactly like a no-default optional.
+    // Defaulted optional reads exactly like a no-default optional: the getter still returns `Option`,
+    // but presence is packed into `rp_presence` and the value stored bare (default 0, never 42).
     CHECK(has(out, "pub fn n(&self) -> Option<i32> {"));
     CHECK(has(out, "pub fn plain(&self) -> Option<i32> {"));
-    CHECK(has(out, "let mut n: Option<i32> = None;"));  // default 42 NOT materialized
-    CHECK(has(out, "n = Some("));                       // set via Some on the wire
-    CHECK(has(out, "let mut s: Option<::rapidproto::ProtoStr<'a>> = None;"));
-    CHECK(has(out, "let mut c: Option<super::super::common::p::Color> = None;"));
+    CHECK(
+        has(out, "let mut rp_presence: u8 = 0;"));  // packed presence mask for the explicit fields
+    CHECK(has(out, "let mut n: i32 = 0;"));         // bare storage; default 42 NOT materialized
+    CHECK(has(out, "let mut s: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);"));
+    CHECK(
+        has(out, "let mut c: super::super::common::p::Color = super::super::common::p::Color(0);"));
     // The default-literal machinery is gone: no default values appear anywhere.
     CHECK_FALSE(has(out, "= 42"));
     CHECK_FALSE(has(out, "Color::RED"));
@@ -716,8 +763,8 @@ TEST_CASE("rustgen imports: a cross-file closure merges into one tree with resol
     const std::string out = gen_corpus("imports/main.proto");
     CHECK(has(out, "pub mod main {"));  // both packages are sibling sub-modules of one tree
     CHECK(has(out, "pub mod dep {"));
-    CHECK(
-        has(out, "pub fn d(&self) -> Option<&'a super::dep::Dep<'a>> {"));  // cross-package message
+    // cross-package message; Dep is fixed-size so it inlines by value (getter borrows `&self`, not 'a)
+    CHECK(has(out, "pub fn d(&self) -> Option<&super::dep::Dep<'a>> {"));
     CHECK(has(
         out, "pub fn e(&self) -> Option<super::super::common::dep::DepEnum> {"));  // cross-pkg enum
 }
@@ -726,7 +773,7 @@ TEST_CASE("rustgen imports: a package whose Rust name is a keyword is raw-escape
     // imports/main.proto's closure includes package `pub` -> `pub mod r#pub` (a bare `pub` is illegal).
     const std::string out = gen_corpus("imports/main.proto");
     CHECK(has(out, "pub mod r#pub {"));
-    CHECK(has(out, "pub fn p(&self) -> Option<&'a super::r#pub::Pub<'a>> {"));
+    CHECK(has(out, "pub fn p(&self) -> Option<&super::r#pub::Pub<'a>> {"));  // Pub inlines by value
 }
 
 TEST_CASE("rustgen imports: a message submodule yields to a colliding sibling sub-package") {

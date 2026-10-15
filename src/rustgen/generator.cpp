@@ -14,6 +14,7 @@
 #include <utility>
 #include <vector>
 
+#include "rapidproto/arenagen/layout.hpp"  // LayoutSet / MessageLayout / MemberPlan / FieldKind
 #include "rapidproto/arenagen/modes.hpp"  // FieldMode / FieldModes (the shared field-modes resolver)
 #include "rapidproto/ast.hpp"
 #include "rapidproto/codegen/emit.hpp"    // holds_enum
@@ -266,7 +267,9 @@ void emit_enum(Printer& printer, const NameTable& table, const EnumNode& node) {
     printer.set("T", names.type_name);
     printer.set("K", names.kind_name);
 
-    printer.print("#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]\n");
+    // `Default` yields the all-zero enum value (`$T$(0)`), so a fixed-size message holding an enum
+    // field can itself `derive(Default)` -- the zero used for an absent inlined sub-message.
+    printer.print("#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]\n");
     // `repr(transparent)`: a zero-cost wrapper, layout-identical to its `i32`. (It does NOT let a
     // wire enum array be aliased -- enum values are varint-encoded, so variable-width and decoded
     // one at a time; the guarantee only matters for reinterpreting an in-memory `i32` buffer.)
@@ -649,6 +652,114 @@ bool body_uses_arena(const MessageNode& msg, const FieldModes& modes) {
     });
 }
 
+// ---------------------------------------------------------------------------------------------------
+// Shared storage-layout planner (arenagen::plan_layouts) consumption. The Rust decoder reuses the C++
+// planner's DECISIONS -- which singular sub-messages inline by value vs behind a pointer, and the
+// bit-packed presence/bool mask -- so both decoders inline and track presence for the same fields. The
+// planner's C++ byte offsets/sizes are ignored (Rust lays out its own structs).
+
+// The planner's MemberPlan for `field` in `layout`, or null (a skeleton message has no layout; a
+// map-entry synthetic field is not a member of its parent message). Matched by FieldNode identity.
+const arenagen::MemberPlan* member_for(const arenagen::MessageLayout* layout,
+                                       const FieldNode& field) {
+    if (layout == nullptr) {
+        return nullptr;
+    }
+    for (const arenagen::MemberPlan& m : layout->members) {
+        if (m.field == &field) {
+            return &m;
+        }
+    }
+    return nullptr;
+}
+
+// How a non-repeated, non-dropped field is stored in the Rust struct, derived from its MemberPlan.
+enum class RustStore : std::uint8_t {
+    Bare,         // bare value, no presence bit (Implicit/Required scalar/enum/string/bytes)
+    MaskedValue,  // bare value + a mask presence bit (Explicit scalar/enum/string/bytes)
+    MaskedBool,   // NO struct field; a mask value bit (+ a presence bit iff Explicit)
+    InlineMsg,    // bare `T<'a>` + a mask presence bit; `T::default()` when absent
+    PointerMsg,   // `Option<&'a T<'a>>`, no bit (null = absent)
+};
+
+// Classify a singular (non-repeated), materialized field. `member` may be null for a skeleton message
+// or a fallback; then the pre-planner behavior (Explicit -> Option, message -> pointer) is reproduced.
+RustStore rust_store(const arenagen::MemberPlan* member, const FieldNode& field) {
+    if (member == nullptr) {
+        if (field.is_message_type) {
+            return RustStore::PointerMsg;
+        }
+        if (field.type_name == "bool" && field.presence != FieldPresence::Required) {
+            return RustStore::Bare;  // no planner: keep a plain bool byte
+        }
+        return field.presence == FieldPresence::Explicit ? RustStore::MaskedValue : RustStore::Bare;
+    }
+    switch (member->kind) {
+        case arenagen::FieldKind::InlineFixedSubMsg:
+            return RustStore::InlineMsg;
+        case arenagen::FieldKind::PointerSubMsg:
+            return RustStore::PointerMsg;
+        case arenagen::FieldKind::InlineScalar:
+            if (member->is_bool) {
+                return RustStore::MaskedBool;
+            }
+            return member->presence_bit >= 0 ? RustStore::MaskedValue : RustStore::Bare;
+        case arenagen::FieldKind::InlineEnum:
+        case arenagen::FieldKind::BorrowString:
+            return member->presence_bit >= 0 ? RustStore::MaskedValue : RustStore::Bare;
+        case arenagen::FieldKind::Repeated:
+        case arenagen::FieldKind::Map:
+        case arenagen::FieldKind::Raw:
+            break;  // handled on their own emission paths, never through rust_store
+    }
+    return RustStore::Bare;
+}
+
+// Bits the Rust mask word carries: the planner's presence + value bits (NOT the unknown bit -- Rust
+// keeps `rp_unknown: bool` as a separate field). Presence/value bits are assigned before the unknown
+// bit, so they occupy [0, unknown_bit) when an unknown bit exists, else [0, mask_bits). 0 = no mask.
+int rust_mask_bits(const arenagen::MessageLayout& layout) {
+    return layout.unknown_bit >= 0 ? layout.unknown_bit : layout.mask_bits;
+}
+
+// A `[u64; N]` array mask is used past this many bits; at or below it a single uint word holds the mask.
+constexpr int kMaskWordBits = 64;
+
+// The Rust mask word type for `bits` (> 0): the smallest uint covering them, or a `[u64; N]` array.
+std::string mask_word_type(int bits) {
+    constexpr int kU8 = 8;
+    constexpr int kU16 = 16;
+    constexpr int kU32 = 32;
+    if (bits <= kU8) {
+        return "u8";
+    }
+    if (bits <= kU16) {
+        return "u16";
+    }
+    if (bits <= kU32) {
+        return "u32";
+    }
+    if (bits <= kMaskWordBits) {
+        return "u64";
+    }
+    return "[u64; " + std::to_string((bits + kMaskWordBits - 1) / kMaskWordBits) + "]";
+}
+
+// The lvalue holding `bit` for a mask of `total` bits: the word itself, or `word[bit/64]` when the mask
+// is a `[u64; N]` array (> 64 bits).
+std::string mask_word_at(const std::string& base, int bit, int total) {
+    return total > kMaskWordBits ? base + "[" + std::to_string(bit / kMaskWordBits) + "]" : base;
+}
+int mask_bit_pos(int bit, int total) {
+    return total > kMaskWordBits ? bit % kMaskWordBits : bit;
+}
+
+// `(<base>[word] & (1 << pos)) != 0` -- a bit-set test over the mask word.
+std::string mask_test(const std::string& base, int bit, int total) {
+    return "(" + mask_word_at(base, bit, total) + " & (1 << " +
+           std::to_string(mask_bit_pos(bit, total)) + ")) != 0";
+}
+
 // The struct storage type (= the getter return type) for a field: a repeated field is a borrowed
 // slice; a singular message is `Option<&'a T<'a>>`; an explicit-presence scalar wraps in `Option`;
 // everything else is the bare value type. A proto2 `[default = ...]` is NOT materialized (matching the
@@ -657,7 +768,8 @@ bool body_uses_arena(const MessageNode& msg, const FieldModes& modes) {
 // keeps its undecoded LEN payload instead of the decoded tree: `Option<&'a [u8]>` singular,
 // `&'a [&'a [u8]]` repeated (the consumer feeds a payload to the field type's `decode` itself).
 std::string field_storage_type(const NameTable& table, const std::vector<std::string>& current_mod,
-                               const FieldNode& field, const FieldModes& modes) {
+                               const FieldNode& field, const FieldModes& modes,
+                               const arenagen::MemberPlan* member) {
     if (field_mode(modes, field) == arenagen::FieldMode::Raw) {
         return field.is_repeated ? "&'a [&'a [u8]]" : "Option<&'a [u8]>";
     }
@@ -665,24 +777,61 @@ std::string field_storage_type(const NameTable& table, const std::vector<std::st
     if (field.is_repeated) {
         return "&'a [" + value + "]";
     }
-    if (field.is_message_type) {
+    if (rust_store(member, field) == RustStore::PointerMsg) {
         return "Option<&'a " + value + ">";
     }
-    if (field.presence == FieldPresence::Explicit) {
-        return "Option<" + value + ">";
+    // Everything else is stored bare: Bare / MaskedValue (presence in the mask) / InlineMsg (by value,
+    // presence in the mask). A MaskedBool has no struct field at all, so this is never emitted for it.
+    return value;
+}
+
+// The getter's return type -- the SEMANTIC presence-wrapped type, which (unlike the storage type) still
+// wraps explicit presence in `Option`: masked scalar/enum/string -> `Option<T>`; inline/pointer message
+// -> `Option<&T>`; bool -> `bool` / `Option<bool>`; bare -> the plain value; repeated/raw as stored.
+std::string field_getter_type(const NameTable& table, const std::vector<std::string>& current_mod,
+                              const FieldNode& field, const FieldModes& modes,
+                              const arenagen::MemberPlan* member) {
+    if (field_mode(modes, field) == arenagen::FieldMode::Raw) {
+        return field.is_repeated ? "&'a [&'a [u8]]" : "Option<&'a [u8]>";
+    }
+    std::string value = field_value_type(table, current_mod, field);
+    if (field.is_repeated) {
+        return "&'a [" + value + "]";
+    }
+    switch (rust_store(member, field)) {
+        case RustStore::PointerMsg:
+            return "Option<&'a " + value + ">";  // a Copy arena borrow, outlives `&self`
+        case RustStore::InlineMsg:
+            return "Option<&" + value + ">";  // borrows `&self` (the value lives in the struct)
+        case RustStore::MaskedValue:
+            return "Option<" + value + ">";
+        case RustStore::MaskedBool:
+            return field.presence == FieldPresence::Explicit ? "Option<bool>" : "bool";
+        case RustStore::Bare:
+            return value;
     }
     return value;
 }
 
-// The default initializer for a NON-repeated field's storage local: `None` for a singular message or
-// an explicit-presence scalar, else the proto3 zero value. A proto2 `[default = ...]` is not
-// materialized (matching the C++ decoder -- an absent defaulted field reads `None`, the consumer
-// applies the default), so it initializes exactly like any other field of its presence. (Repeated
-// fields use a `DecodeVec`, not this.)
+// The default initializer for a NON-repeated field's storage local: `None` for a pointer message;
+// `Default::default()` for an inlined-by-value message; else the proto3 zero value (shared by Bare and
+// masked-with-a-presence-bit fields -- the presence bit, not the value, records absence). A proto2
+// `[default = ...]` is not materialized (matching the C++ decoder). A bool has no local (it lives in
+// the mask). Repeated fields use a `DecodeVec`, not this.
 std::string field_default_expr(const NameTable& table, const std::vector<std::string>& current_mod,
-                               const FieldNode& field) {
-    if (field.is_message_type || field.presence == FieldPresence::Explicit) {
-        return "None";
+                               const FieldNode& field, const arenagen::MemberPlan* member) {
+    if (member != nullptr && member->kind == arenagen::FieldKind::Raw) {
+        return "None";  // a singular `raw` field stores `Option<&'a [u8]>` (None = absent)
+    }
+    switch (rust_store(member, field)) {
+        case RustStore::PointerMsg:
+            return "None";
+        case RustStore::InlineMsg:
+            return "Default::default()";
+        case RustStore::MaskedBool:  // no local emitted; defensive
+        case RustStore::Bare:
+        case RustStore::MaskedValue:
+            break;
     }
     if (field.is_enum_type) {
         return field_value_type(table, current_mod, field) + "(0)";
@@ -764,22 +913,61 @@ std::string scalar_convert_expr(const NameTable& table, const std::vector<std::s
     return "rp_v";  // defensive
 }
 
-// Emit a `pub fn <field>(&self) -> ...` accessor. `real` emits `self.<field>` (reading the storage);
-// otherwise `todo!()` (a skeleton message whose decode is not yet emitted). A singular message is
-// `Option<&'a T<'a>>`; a repeated field is a borrowed slice; explicit presence wraps in `Option`.
+// Emit a `pub fn <field>(&self) -> ...` accessor. `real` reads the storage (skeleton messages emit
+// `todo!()`). The return type is the SEMANTIC presence-wrapped type; the body reads the bare storage
+// and -- for presence/bool-packed fields -- tests the `rp_presence` mask (set-index == test-index,
+// both from the shared planner's bit assignment). `mask_bits` is the message's Rust mask width.
 void emit_field_accessor(Printer& printer, const NameTable& table,
                          const std::vector<std::string>& current_mod, const FieldNode& field,
-                         const std::string& accessor, bool real, const FieldModes& modes) {
-    // The return type is exactly the storage type: a getter hands back a copy of the stored value (a
-    // repeated slice, a singular-message `Option<&T>`, an explicit-presence `Option`, a `raw` payload
-    // view, or a bare value).
-    const std::string ret = field_storage_type(table, current_mod, field, modes);
+                         const std::string& accessor, bool real, const FieldModes& modes,
+                         const arenagen::MemberPlan* member, int mask_bits) {
+    const std::string ret = field_getter_type(table, current_mod, field, modes, member);
     printer.print("pub fn $a$(&self) -> $t$ {\n", {{"a", accessor}, {"t", ret}});
     printer.indent();
-    if (real) {
-        printer.print("self.$a$\n", {{"a", accessor}});
-    } else {
+    if (!real) {
         printer.print("todo!()\n");
+        printer.outdent();
+        printer.print("}\n");
+        return;
+    }
+    const RustStore store = rust_store(member, field);
+    const bool masked = field_mode(modes, field) != arenagen::FieldMode::Raw &&
+                        !field.is_repeated && member != nullptr;
+    // Only an Explicit field carries a resting presence bit (planner `needs_presence`); an Implicit
+    // bool (value bit only) or a Required inlined message has `presence_bit == -1`, so computing the
+    // test would emit `1 << -1`. Leave it empty there -- the branches that lack a presence bit never
+    // read `pbit`.
+    const std::string pbit = (masked && member->presence_bit >= 0)
+                                 ? mask_test("self.rp_presence", member->presence_bit, mask_bits)
+                                 : "";
+    switch (store) {
+        case RustStore::MaskedBool: {
+            const std::string vtest = mask_test("self.rp_presence", member->value_bit, mask_bits);
+            if (field.presence == FieldPresence::Explicit) {
+                printer.print("if $p$ { Some($v$) } else { None }\n", {{"p", pbit}, {"v", vtest}});
+            } else {
+                printer.print("$v$\n", {{"v", vtest}});
+            }
+            break;
+        }
+        case RustStore::MaskedValue:
+            printer.print("if $p$ { Some(self.$a$) } else { None }\n",
+                          {{"p", pbit}, {"a", accessor}});
+            break;
+        case RustStore::InlineMsg:
+            if (member->presence_bit >= 0) {
+                printer.print("if $p$ { Some(&self.$a$) } else { None }\n",
+                              {{"p", pbit}, {"a", accessor}});
+            } else {
+                // A Required inlined message has no resting presence bit (validated via
+                // MissingRequired), so on a successful decode it is always present.
+                printer.print("Some(&self.$a$)\n", {{"a", accessor}});
+            }
+            break;
+        case RustStore::PointerMsg:
+        case RustStore::Bare:
+            printer.print("self.$a$\n", {{"a", accessor}});
+            break;
     }
     printer.outdent();
     printer.print("}\n");
@@ -989,16 +1177,88 @@ void emit_packed_arm(Printer& printer, const NameTable& table,
     printer.print("}\n");
 }
 
+// Emit the `(n, Len) => { .. }` arm for a singular (non-repeated) MATERIALIZED message field. It is
+// decoded in place -- by value into inline storage (`decode_value`, no alloc, presence = a mask bit) if
+// the planner inlined it, else into an arena slot behind a pointer (`emplace`, presence = `Option` is
+// `Some`). A second occurrence is rejected (matching C++).
+void emit_singular_message_arm(Printer& printer, const NameTable& table,
+                               const std::vector<std::string>& current_mod, const FieldNode& field,
+                               const std::string& accessor, bool required,
+                               const arenagen::MemberPlan* member, int mask_bits) {
+    const std::string nstr = std::to_string(field.number);
+    const std::string path = arena_message_path(table, current_mod, field.resolved_type_fqn);
+    const bool inlined = rust_store(member, field) == RustStore::InlineMsg;
+    const bool inlined_masked =
+        inlined && member->presence_bit >= 0;  // Explicit: mask-bit presence
+    printer.print("($n$u32, ::rapidproto::wire::WireType::Len) => {\n", {{"n", nstr}});
+    printer.indent();
+    // Duplicate-singular-message rejection tests "already seen": an Explicit inlined message by its
+    // mask presence bit, a Required inlined message by its transient `rp_req_<n>` flag (it has no
+    // resting bit), and a pointer message by its `Option` being `Some`.
+    std::string seen;
+    if (inlined_masked) {
+        seen = mask_test("rp_presence", member->presence_bit, mask_bits);
+    } else if (inlined) {
+        seen = "rp_req_" + nstr;
+    } else {
+        seen = accessor + ".is_some()";
+    }
+    printer.print("if $s$ {\n", {{"s", seen}});
+    printer.indent();
+    printer.print(
+        "return Err(::rapidproto::DecodeError::new("
+        "::rapidproto::ErrorKind::RepeatedSingularMessage, $off$).with_field($n$));\n",
+        {{"off", kLoopOff}, {"n", nstr}});
+    printer.outdent();
+    printer.print("}\n");
+    emit_len_read(printer, loop_read());
+    if (inlined) {
+        // Decode by value directly into the inline storage slot (no arena alloc, no pointer).
+        printer.print(
+            "$a$ = ::rapidproto::decode_value(|rp_out| $p$::decode_into(rp_out, rp_p, rp_arena, "
+            "rp_depth + 1))?;\n",
+            {{"a", accessor}, {"p", path}});
+        if (inlined_masked) {
+            // Explicit: record presence in the mask. (Required has no resting bit -- `rp_req_<n>`
+            // below both rejects a duplicate and drives the post-loop MissingRequired check.)
+            printer.print("$w$ |= 1 << $b$;\n",
+                          {{"w", mask_word_at("rp_presence", member->presence_bit, mask_bits)},
+                           {"b", std::to_string(mask_bit_pos(member->presence_bit, mask_bits))}});
+        }
+    } else {
+        // Decode directly into its arena slot (no by-value copy).
+        printer.print(
+            "$a$ = Some(rp_arena.emplace(|rp_out| $p$::decode_into(rp_out, rp_p, rp_arena, "
+            "rp_depth + 1))?);\n",
+            {{"a", accessor}, {"p", path}});
+    }
+    if (required) {
+        printer.print("rp_req_$n$ = true;\n", {{"n", nstr}});
+    }
+    printer.outdent();
+    printer.print("}\n");
+}
+
 // Emit the `match (field, wire)` arm(s) for one field: one arm for a singular value, two for a
 // repeated numeric (unpacked + packed), reading via the value-threaded wire primitives and storing
 // into the field's local (`accessor`) or pushing into its accumulator (`rp_acc_<n>`). A singular
-// message is recursed into with `decode_into` at depth+1 and arena-allocated; a repeated message's
-// element is pushed by value. A singular message seen twice is rejected (matching C++).
+// message is decoded in place (see emit_singular_message_arm); a repeated message's element is decoded
+// into the growable array slot. A singular message seen twice is rejected (matching C++).
 void emit_field_arms(Printer& printer, const NameTable& table,
                      const std::vector<std::string>& current_mod, const FieldNode& field,
-                     const std::string& accessor, bool required, const FieldModes& modes) {
+                     const std::string& accessor, bool required, const FieldModes& modes,
+                     const arenagen::MemberPlan* member, int mask_bits) {
     const std::string nstr = std::to_string(field.number);
     const std::string acc = "rp_acc_" + nstr;
+    // Statements that set a presence / value bit in the decode-local `rp_presence` mask.
+    const auto set_bit = [&](int bit) {
+        return mask_word_at("rp_presence", bit, mask_bits) + " |= 1 << " +
+               std::to_string(mask_bit_pos(bit, mask_bits)) + ";\n";
+    };
+    const auto clear_bit = [&](int bit) {
+        return mask_word_at("rp_presence", bit, mask_bits) + " &= !(1 << " +
+               std::to_string(mask_bit_pos(bit, mask_bits)) + ");\n";
+    };
 
     const arenagen::FieldMode mode = field_mode(modes, field);
     if (mode == arenagen::FieldMode::Drop) {
@@ -1034,29 +1294,8 @@ void emit_field_arms(Printer& printer, const NameTable& table,
     }
 
     if (field.is_message_type && !field.is_repeated) {
-        const std::string path = arena_message_path(table, current_mod, field.resolved_type_fqn);
-        printer.print("($n$u32, ::rapidproto::wire::WireType::Len) => {\n", {{"n", nstr}});
-        printer.indent();
-        printer.print("if $a$.is_some() {\n", {{"a", accessor}});
-        printer.indent();
-        printer.print(
-            "return Err(::rapidproto::DecodeError::new("
-            "::rapidproto::ErrorKind::RepeatedSingularMessage, $off$).with_field($n$));\n",
-            {{"off", kLoopOff}, {"n", nstr}});
-        printer.outdent();
-        printer.print("}\n");
-        emit_len_read(printer, loop_read());
-        // Decode the sub-message directly into its arena slot (no by-value copy).
-        printer.print(
-            "$a$ = Some(rp_arena.emplace(|rp_out| $p$::decode_into(rp_out, rp_p, rp_arena, "
-            "rp_depth + "
-            "1))?);\n",
-            {{"a", accessor}, {"p", path}});
-        if (required) {
-            printer.print("rp_req_$n$ = true;\n", {{"n", nstr}});
-        }
-        printer.outdent();
-        printer.print("}\n");
+        emit_singular_message_arm(printer, table, current_mod, field, accessor, required, member,
+                                  mask_bits);
         return;
     }
     if (field.is_message_type && field.is_repeated) {
@@ -1105,8 +1344,33 @@ void emit_field_arms(Printer& printer, const NameTable& table,
     } else {
         emit_scalar_value_read(printer, field, loop_read());
     }
-    printer.print(field.presence == FieldPresence::Explicit ? "$a$ = Some($c$);\n" : "$a$ = $c$;\n",
-                  {{"a", accessor}, {"c", conv}});
+    switch (rust_store(member, field)) {
+        case RustStore::MaskedBool:
+            // The bool value is a mask bit (no byte field): set it from the varint (clear on false, so
+            // a later `false` overrides an earlier `true`); Explicit also records the presence bit.
+            printer.print("if rp_v != 0 {\n");
+            printer.indent();
+            printer.print(set_bit(member->value_bit));
+            printer.outdent();
+            printer.print("} else {\n");
+            printer.indent();
+            printer.print(clear_bit(member->value_bit));
+            printer.outdent();
+            printer.print("}\n");
+            if (member->presence_bit >= 0) {
+                printer.print(set_bit(member->presence_bit));
+            }
+            break;
+        case RustStore::MaskedValue:
+            printer.print("$a$ = $c$;\n", {{"a", accessor}, {"c", conv}});
+            printer.print(set_bit(member->presence_bit));
+            break;
+        case RustStore::Bare:
+        case RustStore::InlineMsg:
+        case RustStore::PointerMsg:
+            printer.print("$a$ = $c$;\n", {{"a", accessor}, {"c", conv}});
+            break;
+    }
     if (required) {
         printer.print("rp_req_$n$ = true;\n", {{"n", nstr}});
     }
@@ -1252,7 +1516,7 @@ void emit_map_arm(Printer& printer, const NameTable& table,
     printer.print("let rp_ent_body: &'a [u8] = rp_p;\n");
     printer.print("let mut rp_key: $t$ = $d$;\n",
                   {{"t", field_value_type(table, current_mod, key)},
-                   {"d", field_default_expr(table, current_mod, key)}});
+                   {"d", field_default_expr(table, current_mod, key, nullptr)}});
     // A message value is stored by value (no `Option`), so it is accumulated in an `Option` here --
     // `None` until seen -- and filled with the default (empty) message if the entry omits field 2.
     if (val.is_message_type) {
@@ -1261,7 +1525,7 @@ void emit_map_arm(Printer& printer, const NameTable& table,
     } else {
         printer.print("let mut rp_val: $t$ = $d$;\n",
                       {{"t", field_value_type(table, current_mod, val)},
-                       {"d", field_default_expr(table, current_mod, val)}});
+                       {"d", field_default_expr(table, current_mod, val, nullptr)}});
     }
     printer.print("let mut rp_ent: &'a [u8] = rp_ent_body;\n");
     printer.print("loop {\n");
@@ -1329,20 +1593,34 @@ void emit_map_arm(Printer& printer, const NameTable& table,
 void emit_decode_locals(Printer& printer, const NameTable& table,
                         const std::vector<std::string>& current_mod, const MessageNode& msg,
                         const FieldModes& modes, const AccessorNames& accessors,
-                        const std::string& submodule) {
+                        const std::string& submodule, const arenagen::MessageLayout* layout) {
+    const int mask_bits = layout != nullptr ? rust_mask_bits(*layout) : 0;
+    if (mask_bits > 0) {
+        // The presence/bool mask, built up as fields decode and stored in the construct. A `[u64; N]`
+        // zero is `[0; N]`; a single word is `0`.
+        printer.print(
+            "let mut rp_presence: $t$ = $z$;\n",
+            {{"t", mask_word_type(mask_bits)},
+             {"z",
+              mask_bits > kMaskWordBits
+                  ? "[0; " + std::to_string((mask_bits + kMaskWordBits - 1) / kMaskWordBits) + "]"
+                  : std::string("0")}});
+    }
     for (std::size_t i = 0; i < msg.fields.size(); ++i) {
         const FieldNode& field = msg.fields[i];
         if (field_mode(modes, field) == arenagen::FieldMode::Drop) {
             continue;
         }
+        const arenagen::MemberPlan* member = member_for(layout, field);
         if (field.is_repeated) {
             printer.print("let mut rp_acc_$n$ = ::rapidproto::DecodeVec::new(rp_arena);\n",
                           {{"n", std::to_string(field.number)}});
-        } else {
+        } else if (rust_store(member, field) != RustStore::MaskedBool) {
+            // A packed bool has no local -- its value and presence live entirely in the mask.
             printer.print("let mut $l$: $t$ = $d$;\n",
                           {{"l", accessors.fields[i]},
-                           {"t", field_storage_type(table, current_mod, field, modes)},
-                           {"d", field_default_expr(table, current_mod, field)}});
+                           {"t", field_storage_type(table, current_mod, field, modes, member)},
+                           {"d", field_default_expr(table, current_mod, field, member)}});
         }
         if (field.presence == FieldPresence::Required) {
             printer.print("let mut rp_req_$n$ = false;\n", {{"n", std::to_string(field.number)}});
@@ -1373,11 +1651,13 @@ void emit_decode_locals(Printer& printer, const NameTable& table,
 void emit_decode_arms(Printer& printer, const NameTable& table,
                       const std::vector<std::string>& current_mod, const MessageNode& msg,
                       const FieldModes& modes, const AccessorNames& accessors,
-                      const std::string& submodule) {
+                      const std::string& submodule, const arenagen::MessageLayout* layout) {
     const bool wants_unknown = modes.wants_unknown(&msg);
+    const int mask_bits = layout != nullptr ? rust_mask_bits(*layout) : 0;
     for (std::size_t i = 0; i < msg.fields.size(); ++i) {
         emit_field_arms(printer, table, current_mod, msg.fields[i], accessors.fields[i],
-                        msg.fields[i].presence == FieldPresence::Required, modes);
+                        msg.fields[i].presence == FieldPresence::Required, modes,
+                        member_for(layout, msg.fields[i]), mask_bits);
         if (wants_unknown && field_mode(modes, msg.fields[i]) != arenagen::FieldMode::Drop) {
             emit_known_skip_arm(printer, std::to_string(msg.fields[i].number));
         }
@@ -1418,7 +1698,7 @@ void emit_decode_arms(Printer& printer, const NameTable& table,
 // The `Ok(Msg { .. })` construct from the decode locals; a dropped field/map contributes no storage,
 // `unknown-fields` the bit, and a message with no `'a`-using field the `PhantomData` marker.
 void emit_decode_construct(Printer& printer, const MessageNode& msg, const FieldModes& modes,
-                           const AccessorNames& accessors) {
+                           const AccessorNames& accessors, const arenagen::MessageLayout* layout) {
     // Construct the message directly into the caller's slot (`Slot::write` is safe -- no `unsafe` in
     // generated code) and return the `Init` proof it yields, so LLVM builds the struct in place and
     // the caller's `emplace`/`decode_value` needs no init-on-trust. Mirrors the C++ decoder writing
@@ -1433,9 +1713,14 @@ void emit_decode_construct(Printer& printer, const MessageNode& msg, const Field
             printer.print(
                 "$l$: rp_acc_$n$.into_slice(),\n",
                 {{"l", accessors.fields[i]}, {"n", std::to_string(msg.fields[i].number)}});
-        } else {
+        } else if (rust_store(member_for(layout, msg.fields[i]), msg.fields[i]) !=
+                   RustStore::MaskedBool) {
+            // A packed bool contributes no struct field (its value/presence are in `rp_presence`).
             printer.print("$l$,\n", {{"l", accessors.fields[i]}});
         }
+    }
+    if (layout != nullptr && rust_mask_bits(*layout) > 0) {
+        printer.print("rp_presence,\n");  // the packed presence/bool mask
     }
     for (std::size_t i = 0; i < msg.map_fields.size(); ++i) {
         if (map_mode(modes, msg.map_fields[i]) != arenagen::FieldMode::Drop) {
@@ -1460,7 +1745,8 @@ void emit_decode_construct(Printer& printer, const MessageNode& msg, const Field
 
 void emit_decode(Printer& printer, const NameTable& table,
                  const std::vector<std::string>& current_mod, const MessageNode& msg,
-                 const AccessorNames& accessors, const FieldModes& modes) {
+                 const AccessorNames& accessors, const FieldModes& modes,
+                 const arenagen::MessageLayout* layout) {
     printer.print(
         "pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) "
         "-> Result<&'a $M$<'a>, ::rapidproto::DecodeError> {\n");
@@ -1506,7 +1792,7 @@ void emit_decode(Printer& printer, const NameTable& table,
     // message's child submodule -- is reached by its bare submodule name.
     const std::string submodule =
         msg.oneofs.empty() ? std::string() : table.messages.at(msg.fqn).submodule;
-    emit_decode_locals(printer, table, current_mod, msg, modes, accessors, submodule);
+    emit_decode_locals(printer, table, current_mod, msg, modes, accessors, submodule, layout);
     printer.print("let mut rp_rest: &'a [u8] = rp_body;\n");
     printer.print("loop {\n");
     printer.indent();
@@ -1523,7 +1809,7 @@ void emit_decode(Printer& printer, const NameTable& table,
     printer.print("};\n");
     printer.print("match (rp_tag.field, rp_tag.wire) {\n");
     printer.indent();
-    emit_decode_arms(printer, table, current_mod, msg, modes, accessors, submodule);
+    emit_decode_arms(printer, table, current_mod, msg, modes, accessors, submodule, layout);
     printer.outdent();
     printer.print("}\n");  // match
     printer.outdent();
@@ -1543,7 +1829,7 @@ void emit_decode(Printer& printer, const NameTable& table,
             printer.print("}\n");
         }
     }
-    emit_decode_construct(printer, msg, modes, accessors);
+    emit_decode_construct(printer, msg, modes, accessors, layout);
     printer.outdent();
     printer.print("}\n");
 }
@@ -1557,10 +1843,11 @@ std::unordered_set<std::string> decode_reserved_idents(const MessageNode& msg, b
     }
     std::unordered_set<std::string> reserved =
         {
-            "decode_into", "_marker",     "rp_body",   "rp_arena", "_rp_arena",
-            "rp_depth",    "rp_rest",     "rp_tag",    "rp_v",     "rp_p",
-            "rp_sub",      "rp_ptr",      "rp_etag",   "rp_ent",   "rp_key",
-            "rp_val",      "rp_ent_body", "rp_unknown"};  // the has_unknown_fields() storage field + its decode flag
+            "decode_into", "_marker",     "rp_body",    "rp_arena", "_rp_arena",
+            "rp_depth",    "rp_rest",     "rp_tag",     "rp_v",     "rp_p",
+            "rp_sub",      "rp_ptr",      "rp_etag",    "rp_ent",   "rp_key",
+            "rp_val",      "rp_ent_body", "rp_unknown",  // the has_unknown_fields() storage + its decode flag
+            "rp_presence"};  // the packed presence/bool mask (storage field + decode local)
     for (const FieldNode& field : msg.fields) {
         if (field.is_repeated) {
             reserved.insert("rp_acc_" + std::to_string(field.number));
@@ -1587,7 +1874,13 @@ std::unordered_set<std::string> decode_reserved_idents(const MessageNode& msg, b
 void emit_message_struct(Printer& printer, const NameTable& table,
                          const std::vector<std::string>& current_mod, const MessageNode& msg,
                          const FieldModes& modes, const AccessorNames& accessors,
-                         const std::string& submodule, bool supported) {
+                         const std::string& submodule, bool supported,
+                         const arenagen::MessageLayout* layout) {
+    // A fixed-size message can `derive(Default)` (all fields are scalars/enum newtypes/nested fixed
+    // messages/the mask word, all `Default`), giving the zero value an absent inlined sub-message uses.
+    if (layout != nullptr && layout->fixed_size) {
+        printer.print("#[derive(Default)]\n");
+    }
     printer.print("pub struct $M$<'a> {\n");
     printer.indent();
     if (!supported) {
@@ -1597,11 +1890,20 @@ void emit_message_struct(Printer& printer, const NameTable& table,
         return;
     }
     for (std::size_t i = 0; i < msg.fields.size(); ++i) {
-        if (field_mode(modes, msg.fields[i]) != arenagen::FieldMode::Drop) {
-            printer.print("$l$: $t$,\n",
-                          {{"l", accessors.fields[i]},
-                           {"t", field_storage_type(table, current_mod, msg.fields[i], modes)}});
+        const FieldNode& field = msg.fields[i];
+        if (field_mode(modes, field) == arenagen::FieldMode::Drop) {
+            continue;
         }
+        const arenagen::MemberPlan* member = member_for(layout, field);
+        if (!field.is_repeated && rust_store(member, field) == RustStore::MaskedBool) {
+            continue;  // a packed bool has no struct field (it lives in `rp_presence`)
+        }
+        printer.print("$l$: $t$,\n",
+                      {{"l", accessors.fields[i]},
+                       {"t", field_storage_type(table, current_mod, field, modes, member)}});
+    }
+    if (layout != nullptr && rust_mask_bits(*layout) > 0) {
+        printer.print("rp_presence: $t$,\n", {{"t", mask_word_type(rust_mask_bits(*layout))}});
     }
     for (std::size_t i = 0; i < msg.map_fields.size(); ++i) {
         if (map_mode(modes, msg.map_fields[i]) != arenagen::FieldMode::Drop) {
@@ -1644,16 +1946,18 @@ bool message_has_accessors(const MessageNode& msg, const FieldModes& modes) {
 void emit_message_accessors(Printer& printer, const NameTable& table,
                             const std::vector<std::string>& current_mod, const MessageNode& msg,
                             const FieldModes& modes, const AccessorNames& accessors,
-                            const std::string& submodule, bool supported) {
+                            const std::string& submodule, bool supported,
+                            const arenagen::MessageLayout* layout) {
     if (!message_has_accessors(msg, modes)) {
         return;
     }
+    const int mask_bits = layout != nullptr ? rust_mask_bits(*layout) : 0;
     printer.print("impl<'a> $M$<'a> {\n");
     printer.indent();
     for (std::size_t i = 0; i < msg.fields.size(); ++i) {
         if (field_mode(modes, msg.fields[i]) != arenagen::FieldMode::Drop) {
             emit_field_accessor(printer, table, current_mod, msg.fields[i], accessors.fields[i],
-                                supported, modes);
+                                supported, modes, member_for(layout, msg.fields[i]), mask_bits);
         }
     }
     for (std::size_t i = 0; i < msg.map_fields.size(); ++i) {
@@ -1679,17 +1983,20 @@ void emit_message_accessors(Printer& printer, const NameTable& table,
 
 void emit_message(Printer& printer, const NameTable& table,
                   const std::vector<std::string>& current_mod, const MessageNode& msg,
-                  const std::unordered_set<std::string>& decodable, const FieldModes& modes) {
+                  const std::unordered_set<std::string>& decodable, const FieldModes& modes,
+                  const LayoutSet& layouts) {
     printer.set("M", table.messages.at(msg.fqn).type_name);
     const bool supported = decodable.count(msg.fqn) != 0;
+    const arenagen::MessageLayout* layout = layouts.find(msg.fqn);
     const AccessorNames accessors =
         message_accessor_names(msg, decode_reserved_idents(msg, supported));
     const std::string& submodule = table.messages.at(msg.fqn).submodule;
-    emit_message_struct(printer, table, current_mod, msg, modes, accessors, submodule, supported);
+    emit_message_struct(printer, table, current_mod, msg, modes, accessors, submodule, supported,
+                        layout);
     // The `decode`/`decode_into` impl is emitted at the end of the arena module ([`emit_message_decode`])
     // so a reader skims the whole getter API without the wire-loop bodies in between.
-    emit_message_accessors(printer, table, current_mod, msg, modes, accessors, submodule,
-                           supported);
+    emit_message_accessors(printer, table, current_mod, msg, modes, accessors, submodule, supported,
+                           layout);
 }
 
 // Emit the `decode` + `decode_into` impl for one message, in its OWN module (`current_mod`) but after
@@ -1699,15 +2006,15 @@ void emit_message(Printer& printer, const NameTable& table,
 // skeleton (not-yet-decodable) message gets just a `todo!()` `decode`.
 void emit_message_decode(Printer& printer, const NameTable& table,
                          const std::vector<std::string>& current_mod, const MessageNode& msg,
-                         const std::unordered_set<std::string>& decodable,
-                         const FieldModes& modes) {
+                         const std::unordered_set<std::string>& decodable, const FieldModes& modes,
+                         const LayoutSet& layouts) {
     printer.set("M", table.messages.at(msg.fqn).type_name);
     printer.print("impl<'a> $M$<'a> {\n");
     printer.indent();
     if (decodable.count(msg.fqn) != 0) {
         const AccessorNames accessors =
             message_accessor_names(msg, decode_reserved_idents(msg, true));
-        emit_decode(printer, table, current_mod, msg, accessors, modes);
+        emit_decode(printer, table, current_mod, msg, accessors, modes, layouts.find(msg.fqn));
     } else {
         printer.print(
             "pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) "
@@ -1729,13 +2036,13 @@ void emit_message_decode(Printer& printer, const NameTable& table,
 void emit_arena_messages(Printer& printer, const NameTable& table,
                          const std::vector<const MessageNode*>& msgs,
                          std::vector<std::string>& current_mod,
-                         const std::unordered_set<std::string>& decodable,
-                         const FieldModes& modes) {
+                         const std::unordered_set<std::string>& decodable, const FieldModes& modes,
+                         const LayoutSet& layouts) {
     for (std::size_t i = 0; i < msgs.size(); ++i) {
         if (i != 0) {
             printer.print("\n");
         }
-        emit_message(printer, table, current_mod, *msgs[i], decodable, modes);
+        emit_message(printer, table, current_mod, *msgs[i], decodable, modes, layouts);
         const bool has_submodule = !msgs[i]->nested_messages.empty() || !msgs[i]->oneofs.empty();
         if (has_submodule) {
             const std::string& sub = table.messages.at(msgs[i]->fqn).submodule;
@@ -1752,7 +2059,7 @@ void emit_arena_messages(Printer& printer, const NameTable& table,
                 printer.print("\n");  // separate the oneof enums from the nested messages
             }
             emit_arena_messages(printer, table, addrs(msgs[i]->nested_messages), current_mod,
-                                decodable, modes);
+                                decodable, modes, layouts);
             current_mod.pop_back();
             printer.outdent();
             printer.print("}\n");
@@ -1762,7 +2069,7 @@ void emit_arena_messages(Printer& printer, const NameTable& table,
     // submodules above), so the getters read uninterrupted. Each stays in its message's own module.
     for (const MessageNode* msg : msgs) {
         printer.print("\n");
-        emit_message_decode(printer, table, current_mod, *msg, decodable, modes);
+        emit_message_decode(printer, table, current_mod, *msg, decodable, modes, layouts);
     }
 }
 
@@ -1833,13 +2140,15 @@ void emit_common_node(Printer& printer, const NameTable& table, const PkgTrie& n
 // `pub mod <component>` per sub-package. `current_mod` is the node's emitted package path.
 void emit_arena_node(Printer& printer, const NameTable& table, const PkgTrie& node,
                      std::vector<std::string>& current_mod,
-                     const std::unordered_set<std::string>& decodable, const FieldModes& modes) {
-    emit_arena_messages(printer, table, node_messages(node), current_mod, decodable, modes);
+                     const std::unordered_set<std::string>& decodable, const FieldModes& modes,
+                     const LayoutSet& layouts) {
+    emit_arena_messages(printer, table, node_messages(node), current_mod, decodable, modes,
+                        layouts);
     for (const auto& [component, child] : node.children) {
         printer.print("\npub mod $m$ {\n", {{"m", child.emitted}});
         printer.indent();
         current_mod.push_back(child.emitted);
-        emit_arena_node(printer, table, child, current_mod, decodable, modes);
+        emit_arena_node(printer, table, child, current_mod, decodable, modes, layouts);
         current_mod.pop_back();
         printer.outdent();
         printer.print("}\n");
@@ -1864,7 +2173,8 @@ std::string generate_common(const std::vector<const FileNode*>& files) {
     return printer.str();
 }
 
-std::string generate_arena(const std::vector<const FileNode*>& files, const FieldModes& modes) {
+std::string generate_arena(const std::vector<const FileNode*>& files, const LayoutSet& layouts,
+                           const FieldModes& modes) {
     PkgTrie root = build_pkg_trie(files);
     assign_emitted_names(root);
     const NameTable table = build_name_table(root);
@@ -1873,13 +2183,14 @@ std::string generate_arena(const std::vector<const FileNode*>& files, const Fiel
     printer.print("pub mod arena {\n");
     printer.indent();
     std::vector<std::string> current_mod;
-    emit_arena_node(printer, table, root, current_mod, decodable, modes);
+    emit_arena_node(printer, table, root, current_mod, decodable, modes, layouts);
     printer.outdent();
     printer.print("}\n");
     return printer.str();
 }
 
-std::string generate_file(const std::vector<const FileNode*>& files, const FieldModes& modes) {
+std::string generate_file(const std::vector<const FileNode*>& files, const LayoutSet& layouts,
+                          const FieldModes& modes) {
     // A header comment records the active field-modes profile (its id + canonical drop/raw/unknown
     // lines) for traceability. Rust needs no ODR-style identity guard: a generated file is included
     // once as a self-contained module tree, so two differently-profiled generations cannot silently
@@ -1891,7 +2202,7 @@ std::string generate_file(const std::vector<const FileNode*>& files, const Field
             banner += "//   " + line + "\n";
         }
     }
-    return banner + "\n" + generate_common(files) + "\n" + generate_arena(files, modes);
+    return banner + "\n" + generate_common(files) + "\n" + generate_arena(files, layouts, modes);
 }
 
 }  // namespace rapidproto::rustgen
