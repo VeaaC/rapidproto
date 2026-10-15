@@ -619,9 +619,10 @@ TEST_CASE("rustgen decode: a message with map / oneof / required gets a real dec
     // map: accumulate entries into a DecodeVec, finalize to a MapView.
     CHECK(has(out, "let mut rp_map_2 = ::rapidproto::DecodeVec::new(rp_arena);"));
     CHECK(has(out, "::rapidproto::MapView::new(rp_map_2.into_slice())"));
-    // oneof: the slot is set per member; a message variant arena-allocates then stores a borrow.
+    // oneof: the slot is set per member; a message variant decodes in place into its arena slot
+    // (`emplace`, no by-value copy) then stores the borrow.
     CHECK(has(out, "rp_oneof_0 = Some("));
-    CHECK(has(out, "let rp_ptr = match rp_arena.alloc(rp_sub)"));
+    CHECK(has(out, "let rp_ptr = rp_arena.emplace(|rp_out|"));
 }
 
 TEST_CASE(

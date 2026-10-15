@@ -167,6 +167,32 @@ impl<'buf> Arena<'buf> {
         }
     }
 
+    /// Allocate a `T` slot and decode into it **in place** -- no by-value construct-then-copy. `f`
+    /// initializes the slot (a generated `decode_into` writing each field straight into it); the
+    /// `&mut T` is returned only if `f` succeeds. On `Err` the slot is abandoned, never read (the
+    /// arena never frees, so the reserved bytes are simply unused). This is the Rust equivalent of the
+    /// C++ decoder allocating the slot then `rp_decode_into(*slot, ...)`.
+    #[allow(clippy::mut_from_ref)]
+    pub fn emplace<T, E, F>(&self, f: F) -> Result<&mut T, E>
+    where
+        E: From<ArenaExhausted>,
+        F: for<'id> FnOnce(
+            crate::decode_slot::Slot<'id, T>,
+        ) -> Result<crate::decode_slot::Init<'id>, E>,
+    {
+        let p = self
+            .alloc_bytes(core::mem::size_of::<T>(), core::mem::align_of::<T>())?
+            .cast::<T>();
+        // SAFETY: `p` is `size_of::<T>()` freshly reserved, `align_of::<T>()`-aligned bytes nothing
+        // else aliases, valid to write for the `Slot`'s (this call's) lifetime.
+        let slot = unsafe { crate::decode_slot::Slot::new(p) };
+        let _init = f(slot)?;
+        // SAFETY: `f` returned `Init<'id>` of this slot's fresh brand, obtainable only via
+        // `Slot::write` on this slot (unforgeable), so `p` is initialized. The returned `&mut T` is
+        // tied to `&self` (elided), so it cannot outlive the arena -- no use-after-free.
+        Ok(unsafe { &mut *p.as_ptr() })
+    }
+
     /// Reserve **uninitialized** storage for `n` values of `T`, returning a pointer to the first.
     /// The caller must initialize all `n` before reading. `n == 0` and a count that would overflow
     /// are rejected with `Err`. (Used by repeated/packed decode to pre-size an array.)
@@ -636,5 +662,66 @@ mod tests {
             reserved_before,
             "reused the held chunks without growing"
         );
+    }
+
+    #[test]
+    fn emplace_initializes_in_place_on_ok_and_abandons_on_err() {
+        // `with_buffer` so this also runs on the no-allocator (`--no-default-features`) Miri tier.
+        let mut buf = [0u8; 64];
+        let a = Arena::with_buffer(&mut buf);
+        // Ok: the slot is written in place; `emplace` hands back a `&mut` to the initialized value.
+        let r = a
+            .emplace::<u64, ArenaExhausted, _>(|slot| Ok(slot.write(0xABCD)))
+            .unwrap();
+        assert_eq!(*r, 0xABCD);
+        // Err after a write: the `Init` proof is discarded and `emplace` returns `Err` without forming
+        // a published `&mut T` for the caller. Running clean (incl. under Miri) is the assertion.
+        let e = a.emplace::<u64, ArenaExhausted, _>(|slot| {
+            slot.write(1);
+            Err(ArenaExhausted)
+        });
+        assert!(e.is_err());
+    }
+
+    // A closure that tries to return `Ok` WITHOUT writing the slot cannot be written: there is no way
+    // to obtain the `Init<'id>` proof except `Slot::write`, so the forge that broke the earlier
+    // `-> &mut T` witness (returning a leaked/foreign reference) is a compile error now. That guarantee
+    // is pinned by a `compile_fail` doctest on `decode_slot::Init`.
+
+    #[test]
+    fn emplace_handles_a_zero_sized_type() {
+        // A ZST message (empty / marker-only) goes through `alloc_bytes(0, _)`; emplacing it must be
+        // sound (exercises the 0-byte-alloc + uninit-slot write path under Miri).
+        let mut buf = [0u8; 8];
+        let a = Arena::with_buffer(&mut buf);
+        let r = a
+            .emplace::<(), ArenaExhausted, _>(|slot| Ok(slot.write(())))
+            .unwrap();
+        assert_eq!(*r, ());
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn emplace_handles_a_zero_sized_type_from_a_dangling_cursor() {
+        // A fresh heap arena serves a 0-byte (ZST) alloc straight off the dangling bump cursor
+        // (`try_bump` returns `cur` with nothing allocated yet). Minting a `Slot` over that aligned,
+        // non-null-but-dangling pointer and writing a ZST through it must be sound -- the `with_buffer`
+        // case above can't reach this path (its cursor points into real storage). Miri is the check.
+        let a = Arena::new();
+        let r = a
+            .emplace::<(), ArenaExhausted, _>(|slot| Ok(slot.write(())))
+            .unwrap();
+        assert_eq!(*r, ());
+    }
+
+    #[test]
+    fn decode_value_moves_out_on_ok_and_propagates_err() {
+        let v = crate::decode_value::<u64, ArenaExhausted, _>(|slot| Ok(slot.write(123))).unwrap();
+        assert_eq!(v, 123);
+        let e = crate::decode_value::<u64, ArenaExhausted, _>(|slot| {
+            slot.write(9);
+            Err(ArenaExhausted)
+        });
+        assert!(e.is_err());
     }
 }

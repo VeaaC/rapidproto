@@ -1046,16 +1046,12 @@ void emit_field_arms(Printer& printer, const NameTable& table,
         printer.outdent();
         printer.print("}\n");
         emit_len_read(printer, loop_read());
-        printer.print("let rp_sub = $p$::decode_into(rp_p, rp_arena, rp_depth + 1)?;\n",
-                      {{"p", path}});
-        printer.print("$a$ = Some(match rp_arena.alloc(rp_sub) {\n", {{"a", accessor}});
-        printer.indent();
-        printer.print("Ok(r) => &*r,\n");
+        // Decode the sub-message directly into its arena slot (no by-value copy).
         printer.print(
-            "Err(_) => return "
-            "Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0)),\n");
-        printer.outdent();
-        printer.print("});\n");
+            "$a$ = Some(rp_arena.emplace(|rp_out| $p$::decode_into(rp_out, rp_p, rp_arena, "
+            "rp_depth + "
+            "1))?);\n",
+            {{"a", accessor}, {"p", path}});
         if (required) {
             printer.print("rp_req_$n$ = true;\n", {{"n", nstr}});
         }
@@ -1068,9 +1064,10 @@ void emit_field_arms(Printer& printer, const NameTable& table,
         printer.print("($n$u32, ::rapidproto::wire::WireType::Len) => {\n", {{"n", nstr}});
         printer.indent();
         emit_len_read(printer, loop_read());
-        printer.print("let rp_sub = $p$::decode_into(rp_p, rp_arena, rp_depth + 1)?;\n",
-                      {{"p", path}});
-        emit_push(printer, acc, "rp_sub");
+        // Decode each element directly into the growable array slot (no by-value copy).
+        printer.print(
+            "$acc$.emplace(|rp_out| $p$::decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;\n",
+            {{"acc", acc}, {"p", path}});
         printer.outdent();
         printer.print("}\n");
         return;
@@ -1166,16 +1163,12 @@ void emit_oneof_arm(Printer& printer, const NameTable& table,
         printer.outdent();
         printer.print("}\n");
         emit_len_read(printer, loop_read());
-        printer.print("let rp_sub = $p$::decode_into(rp_p, rp_arena, rp_depth + 1)?;\n",
-                      {{"p", path}});
-        printer.print("let rp_ptr = match rp_arena.alloc(rp_sub) {\n");
-        printer.indent();
-        printer.print("Ok(r) => &*r,\n");
+        // Decode the oneof's message member directly into its arena slot (no by-value copy).
         printer.print(
-            "Err(_) => return "
-            "Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0)),\n");
-        printer.outdent();
-        printer.print("};\n");
+            "let rp_ptr = rp_arena.emplace(|rp_out| $p$::decode_into(rp_out, rp_p, rp_arena, "
+            "rp_depth "
+            "+ 1))?;\n",
+            {{"p", path}});
         printer.print("$l$ = Some($e$::$v$(rp_ptr));\n",
                       {{"l", oneof_local}, {"e", enum_path}, {"v", variant}});
         printer.outdent();
@@ -1218,8 +1211,13 @@ void emit_map_component(Printer& printer, const NameTable& table,
         printer.outdent();
         printer.print("}\n");
         emit_len_read(printer, at);
-        printer.print("$l$ = Some($p$::decode_into(rp_p, rp_arena, rp_depth + 1)?);\n",
-                      {{"l", local}, {"p", path}});
+        // Map value message is stored by value in the entry's `Option`; `decode_value` runs the
+        // destination-slot decode and moves the result out (its `unsafe` stays in the runtime).
+        printer.print(
+            "$l$ = Some(::rapidproto::decode_value(|rp_out| $p$::decode_into(rp_out, rp_p, "
+            "rp_arena, "
+            "rp_depth + 1))?);\n",
+            {{"l", local}, {"p", path}});
         printer.outdent();
         printer.print("}\n");
         return;
@@ -1306,7 +1304,10 @@ void emit_map_arm(Printer& printer, const NameTable& table,
         printer.print("let rp_val = match rp_val {\n");
         printer.indent();
         printer.print("Some(rp_sub) => rp_sub,\n");
-        printer.print("None => $p$::decode_into(&[], rp_arena, rp_depth + 1)?,\n", {{"p", path}});
+        printer.print(
+            "None => ::rapidproto::decode_value(|rp_out| $p$::decode_into(rp_out, &[], rp_arena, "
+            "rp_depth + 1))?,\n",
+            {{"p", path}});
         printer.outdent();
         printer.print("};\n");
     }
@@ -1418,7 +1419,11 @@ void emit_decode_arms(Printer& printer, const NameTable& table,
 // `unknown-fields` the bit, and a message with no `'a`-using field the `PhantomData` marker.
 void emit_decode_construct(Printer& printer, const MessageNode& msg, const FieldModes& modes,
                            const AccessorNames& accessors) {
-    printer.print("Ok($M$ {\n");
+    // Construct the message directly into the caller's slot (`Slot::write` is safe -- no `unsafe` in
+    // generated code) and return the `Init` proof it yields, so LLVM builds the struct in place and
+    // the caller's `emplace`/`decode_value` needs no init-on-trust. Mirrors the C++ decoder writing
+    // fields straight into `out`.
+    printer.print("Ok(rp_out.write($M$ {\n");
     printer.indent();
     for (std::size_t i = 0; i < msg.fields.size(); ++i) {
         if (field_mode(modes, msg.fields[i]) == arenagen::FieldMode::Drop) {
@@ -1450,7 +1455,7 @@ void emit_decode_construct(Printer& printer, const MessageNode& msg, const Field
         printer.print("_marker: ::core::marker::PhantomData,\n");
     }
     printer.outdent();
-    printer.print("})\n");
+    printer.print("}))\n");
 }
 
 void emit_decode(Printer& printer, const NameTable& table,
@@ -1466,15 +1471,11 @@ void emit_decode(Printer& printer, const NameTable& table,
         "return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));\n");
     printer.outdent();
     printer.print("}\n");
-    printer.print("let rp_built = Self::decode_into(input, arena, 0)?;\n");
-    printer.print("match arena.alloc(rp_built) {\n");
-    printer.indent();
-    printer.print("Ok(r) => Ok(&*r),\n");
+    // Decode the root message directly into its final arena slot (no by-value copy), mirroring the
+    // caller side of every sub-message decode below.
     printer.print(
-        "Err(_) => Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, "
-        "0)),\n");
-    printer.outdent();
-    printer.print("}\n");
+        "let rp_root = arena.emplace(|rp_out| Self::decode_into(rp_out, input, arena, 0))?;\n");
+    printer.print("Ok(&*rp_root)\n");
     printer.outdent();
     printer.print("}\n\n");
 
@@ -1482,9 +1483,16 @@ void emit_decode(Printer& printer, const NameTable& table,
     // sub-message (a message of only singular scalar/enum/string/bytes fields); name it `_rp_arena`
     // then to avoid an unused-variable warning.
     printer.print("#[doc(hidden)]\n");
+    // Takes a branded write-once `Slot` and returns the `Init<'id>` proof that `Slot::write` yields --
+    // an unforgeable witness that the slot was initialized. The in-place helpers
+    // (`Arena::emplace`/`DecodeVec::emplace`/`decode_value`) publish the slot only against that proof,
+    // so they stay sound for ANY safe caller (no init-on-trust), not just this generated one.
     printer.print(
-        "pub(crate) fn decode_into(rp_body: &'a [u8], $ap$: &'a ::rapidproto::Arena<'a>, rp_depth: "
-        "u32) -> Result<$M$<'a>, ::rapidproto::DecodeError> {\n",
+        "pub(crate) fn decode_into<'id>(rp_out: ::rapidproto::Slot<'id, $M$<'a>>, rp_body: "
+        "&'a [u8], "
+        "$ap$: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> Result<::rapidproto::Init<'id>, "
+        "::rapidproto::DecodeError> "
+        "{\n",
         {{"ap", body_uses_arena(msg, modes) ? "rp_arena" : "_rp_arena"}});
     printer.indent();
     printer.print("if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {\n");
