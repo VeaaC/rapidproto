@@ -10,6 +10,29 @@ use core::ptr::{self, NonNull};
 
 use crate::arena::{Arena, ArenaExhausted};
 
+mod sealed {
+    pub trait Sealed {}
+}
+
+/// A fixed-width scalar whose in-memory **little-endian** byte image is exactly its protobuf
+/// `fixed32`/`fixed64` wire encoding: `u32`/`i32`/`f32` (4 bytes) and `u64`/`i64`/`f64` (8 bytes).
+///
+/// Sealed and implemented only for those six types. The bound lets
+/// [`DecodeVec::extend_from_le_bytes`] bulk-copy a packed fixed span with one `memcpy`: every bit
+/// pattern is a valid value for each of them, so copying raw bytes into the slots soundly
+/// initialises them (no invalid-value UB, unlike `bool`/`char`/niche enums).
+pub trait FixedLeScalar: Copy + sealed::Sealed {}
+
+macro_rules! impl_fixed_le_scalar {
+    ($($t:ty),* $(,)?) => {
+        $(
+            impl sealed::Sealed for $t {}
+            impl FixedLeScalar for $t {}
+        )*
+    };
+}
+impl_fixed_le_scalar!(u32, i32, f32, u64, i64, f64);
+
 /// The initial capacity on the first push, then geometric doubling (matching the C++ decoder's
 /// start-4-double growth).
 const FIRST_CAP: usize = 4;
@@ -137,6 +160,43 @@ impl<'a, T> DecodeVec<'a, T> {
         // SAFETY: `ptr` points at `len` contiguous, initialized `T`s in the arena (lifetime `'a`);
         // they are a fresh arena allocation nothing else aliases, and the arena outlives `'a`.
         unsafe { core::slice::from_raw_parts(self.ptr.as_ptr(), self.len) }
+    }
+}
+
+impl<'a, T: FixedLeScalar> DecodeVec<'a, T> {
+    /// Append the packed fixed-width elements whose little-endian wire image is `bytes`, as a single
+    /// bulk copy. The generated decoder calls this only for a packed `fixed32`/`fixed64` field on a
+    /// little-endian host, after checking `bytes.len()` is a whole multiple of `size_of::<T>()`; any
+    /// trailing partial element is ignored (copied as whole elements only, so never out of bounds).
+    ///
+    /// This reserves the exact element count, copies the span into the array tail with one `memcpy`
+    /// (on a little-endian host the span IS the array's native byte image -- protoc fills packed
+    /// fixed arrays the same way), and never regrows. The exact reserve means no trim is needed.
+    /// `Err(ArenaExhausted)` (never a panic) if the arena cannot grow.
+    #[inline]
+    pub fn extend_from_le_bytes(&mut self, bytes: &[u8]) -> Result<(), ArenaExhausted> {
+        let size = core::mem::size_of::<T>();
+        debug_assert!(size != 0 && bytes.len().is_multiple_of(size));
+        let count = bytes.len() / size;
+        if count == 0 {
+            return Ok(());
+        }
+        self.reserve(count)?;
+        // SAFETY: `reserve(count)` guaranteed room for `count` more `T` starting at `ptr + len`, and
+        // the arena array is aligned for `T`. `T: FixedLeScalar` is a fixed-width scalar for which
+        // every bit pattern is a valid value, so copying `count * size` input bytes into those slots
+        // soundly initialises them (the caller guarantees a little-endian host, where the wire image
+        // equals the native image). Source (the input span) and destination (a fresh arena array)
+        // are distinct allocations, so they never overlap.
+        unsafe {
+            ptr::copy_nonoverlapping(
+                bytes.as_ptr(),
+                self.ptr.as_ptr().add(self.len).cast::<u8>(),
+                count * size,
+            );
+        }
+        self.len += count;
+        Ok(())
     }
 }
 
@@ -270,5 +330,53 @@ mod tests {
         for (i, &x) in s.iter().enumerate() {
             assert_eq!(x, i as u64);
         }
+    }
+
+    #[test]
+    fn extend_from_le_bytes_bulk_copies_fixed_elements_in_one_allocation() {
+        let arena = Arena::new();
+        let mut v = DecodeVec::<u64>::new(&arena);
+        // The little-endian wire image of 50 u64 values.
+        let vals: [u64; 50] = core::array::from_fn(|i| (i as u64) << 40 | i as u64);
+        let mut bytes = alloc::vec::Vec::new();
+        for x in vals {
+            bytes.extend_from_slice(&x.to_le_bytes());
+        }
+        v.extend_from_le_bytes(&bytes).unwrap();
+        // Exactly one arena allocation of the exact element count (no over-estimate, no regrow).
+        assert_eq!(arena.bytes_used(), 50 * 8);
+        let s = v.into_slice();
+        assert_eq!(s, &vals[..]);
+    }
+
+    #[test]
+    fn extend_from_le_bytes_decodes_float_bits_and_appends_after_existing() {
+        let arena = Arena::new();
+        let mut v = DecodeVec::<f64>::new(&arena);
+        // A prior (e.g. unpacked) element already present, then a packed fixed run appended.
+        v.push(2.5f64).unwrap();
+        let vals = [1.0f64, -0.0, f64::INFINITY, 12345.6789];
+        let mut bytes = alloc::vec::Vec::new();
+        for x in vals {
+            bytes.extend_from_slice(&x.to_le_bytes());
+        }
+        v.extend_from_le_bytes(&bytes).unwrap();
+        let s = v.into_slice();
+        assert_eq!(s.len(), 5);
+        assert_eq!(s[0], 2.5);
+        assert_eq!(s[1], 1.0);
+        assert_eq!(s[2], -0.0);
+        assert_eq!(s[3], f64::INFINITY);
+        assert_eq!(s[4], 12345.6789);
+    }
+
+    #[test]
+    fn extend_from_le_bytes_empty_is_a_noop() {
+        let arena = Arena::new();
+        let mut v = DecodeVec::<u32>::new(&arena);
+        v.extend_from_le_bytes(&[]).unwrap();
+        assert!(v.is_empty());
+        assert_eq!(arena.bytes_used(), 0);
+        assert_eq!(v.into_slice(), &[] as &[u32]);
     }
 }
