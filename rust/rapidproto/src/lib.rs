@@ -23,6 +23,7 @@
 extern crate alloc;
 
 mod arena;
+mod decode_slot;
 mod decode_vec;
 mod error;
 mod map;
@@ -31,6 +32,7 @@ mod proto_str;
 pub mod wire;
 
 pub use arena::{Arena, ArenaExhausted};
+pub use decode_slot::{decode_value, Init, Slot};
 pub use decode_vec::DecodeVec;
 pub use error::{DecodeError, ErrorKind};
 pub use map::MapView;
