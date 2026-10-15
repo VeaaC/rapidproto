@@ -2,7 +2,7 @@
 
 pub mod common {
   pub mod fm {
-    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
     #[repr(transparent)]
     pub struct Level(pub i32);
 
@@ -30,7 +30,7 @@ pub mod common {
       Unknown(i32),
     }
     pub mod blob {
-      #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+      #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
       #[repr(transparent)]
       pub struct Kind(pub i32);
 
@@ -65,16 +65,17 @@ pub mod arena {
 
   pub mod fm {
     pub struct Blob<'a> {
-      payload: Option<&'a [u8]>,
-      kind: Option<super::super::common::fm::blob::Kind>,
+      payload: &'a [u8],
+      kind: super::super::common::fm::blob::Kind,
+      rp_presence: u8,
     }
 
     impl<'a> Blob<'a> {
       pub fn payload(&self) -> Option<&'a [u8]> {
-        self.payload
+        if (self.rp_presence & (1 << 0)) != 0 { Some(self.payload) } else { None }
       }
       pub fn kind(&self) -> Option<super::super::common::fm::blob::Kind> {
-        self.kind
+        if (self.rp_presence & (1 << 1)) != 0 { Some(self.kind) } else { None }
       }
     }
 
@@ -119,7 +120,7 @@ pub mod arena {
       pub fn req_blob(&self) -> Option<&'a Blob<'a>> {
         todo!()
       }
-      pub fn grp(&self) -> Option<&'a holder::Grp<'a>> {
+      pub fn grp(&self) -> Option<&holder::Grp<'a>> {
         todo!()
       }
       pub fn by_name(&self) -> ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, Blob<'a>> {
@@ -128,14 +129,16 @@ pub mod arena {
     }
 
     pub mod holder {
+      #[derive(Default)]
       pub struct Grp<'a> {
-        g: Option<i32>,
+        g: i32,
+        rp_presence: u8,
         _marker: ::core::marker::PhantomData<&'a ()>,
       }
 
       impl<'a> Grp<'a> {
         pub fn g(&self) -> Option<i32> {
-          self.g
+          if (self.rp_presence & (1 << 0)) != 0 { Some(self.g) } else { None }
         }
       }
 
@@ -153,7 +156,8 @@ pub mod arena {
           if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
             return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
           }
-          let mut g: Option<i32> = None;
+          let mut rp_presence: u8 = 0;
+          let mut g: i32 = 0;
           let mut rp_rest: &'a [u8] = rp_body;
           loop {
             let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
@@ -169,7 +173,8 @@ pub mod arena {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                g = Some(rp_v as i32);
+                g = rp_v as i32;
+                rp_presence |= 1 << 0;
               }
               _ => {
                 rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
@@ -181,6 +186,7 @@ pub mod arena {
           }
           Ok(rp_out.write(Grp {
             g,
+            rp_presence,
             _marker: ::core::marker::PhantomData,
           }))
         }
@@ -201,8 +207,9 @@ pub mod arena {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
-        let mut payload: Option<&'a [u8]> = None;
-        let mut kind: Option<super::super::common::fm::blob::Kind> = None;
+        let mut rp_presence: u8 = 0;
+        let mut payload: &'a [u8] = &[];
+        let mut kind: super::super::common::fm::blob::Kind = super::super::common::fm::blob::Kind(0);
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
           let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
@@ -218,7 +225,8 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              payload = Some(rp_p);
+              payload = rp_p;
+              rp_presence |= 1 << 0;
             }
             (2u32, ::rapidproto::wire::WireType::Varint) => {
               let mut rp_v = 0u64;
@@ -226,7 +234,8 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              kind = Some(super::super::common::fm::blob::Kind(rp_v as i32));
+              kind = super::super::common::fm::blob::Kind(rp_v as i32);
+              rp_presence |= 1 << 1;
             }
             _ => {
               rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
@@ -239,6 +248,7 @@ pub mod arena {
         Ok(rp_out.write(Blob {
           payload,
           kind,
+          rp_presence,
         }))
       }
     }

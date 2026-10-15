@@ -2,7 +2,7 @@
 
 pub mod common {
   pub mod ed23 {
-    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
     #[repr(transparent)]
     pub struct E(pub i32);
 
@@ -30,7 +30,7 @@ pub mod common {
       Unknown(i32),
     }
     pub mod m {
-      #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+      #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
       #[repr(transparent)]
       pub struct Inner(pub i32);
 

@@ -8,14 +8,16 @@ pub mod common {
 pub mod arena {
 
   pub mod samepkg {
+    #[derive(Default)]
     pub struct SecondB<'a> {
-      v: Option<i32>,
+      v: i32,
+      rp_presence: u8,
       _marker: ::core::marker::PhantomData<&'a ()>,
     }
 
     impl<'a> SecondB<'a> {
       pub fn v(&self) -> Option<i32> {
-        self.v
+        if (self.rp_presence & (1 << 0)) != 0 { Some(self.v) } else { None }
       }
     }
 
@@ -33,7 +35,8 @@ pub mod arena {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
-        let mut v: Option<i32> = None;
+        let mut rp_presence: u8 = 0;
+        let mut v: i32 = 0;
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
           let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
@@ -49,7 +52,8 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              v = Some(rp_v as i32);
+              v = rp_v as i32;
+              rp_presence |= 1 << 0;
             }
             _ => {
               rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
@@ -61,6 +65,7 @@ pub mod arena {
         }
         Ok(rp_out.write(SecondB {
           v,
+          rp_presence,
           _marker: ::core::marker::PhantomData,
         }))
       }

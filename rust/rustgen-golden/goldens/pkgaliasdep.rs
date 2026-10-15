@@ -3,7 +3,7 @@
 pub mod common {
   pub mod pa {
     pub mod linux {
-      #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+      #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
       #[repr(transparent)]
       pub struct E(pub i32);
 
@@ -36,6 +36,7 @@ pub mod arena {
   pub mod pa {
 
     pub mod linux {
+      #[derive(Default)]
       pub struct Sub<'a> {
         f: super::super::super::common::pa::linux::E,
         _marker: ::core::marker::PhantomData<&'a ()>,

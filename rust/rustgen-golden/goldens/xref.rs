@@ -2,7 +2,7 @@
 
 pub mod common {
   pub mod xr {
-    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
     #[repr(transparent)]
     pub struct Version(pub i32);
 
@@ -30,7 +30,7 @@ pub mod common {
       Unknown(i32),
     }
 
-    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
     #[repr(transparent)]
     pub struct Mixed(pub i32);
 
@@ -58,7 +58,7 @@ pub mod common {
       Unknown(i32),
     }
 
-    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
     #[repr(transparent)]
     pub struct Stream(pub i32);
 
@@ -87,7 +87,7 @@ pub mod common {
     }
     pub mod nested {
       pub mod def {
-        #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+        #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
         #[repr(transparent)]
         pub struct Kind(pub i32);
 
@@ -117,7 +117,7 @@ pub mod common {
       }
     }
     pub mod cousin_b {
-      #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+      #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
       #[repr(transparent)]
       pub struct Tag(pub i32);
 
@@ -175,6 +175,7 @@ pub mod arena {
       }
     }
 
+    #[derive(Default)]
     pub struct Nested<'a> {
       _marker: ::core::marker::PhantomData<&'a ()>,
     }
@@ -708,6 +709,7 @@ pub mod arena {
       }
     }
 
+    #[derive(Default)]
     pub struct FwdMsg<'a> {
       _marker: ::core::marker::PhantomData<&'a ()>,
     }
@@ -939,6 +941,7 @@ pub mod arena {
       }
     }
 
+    #[derive(Default)]
     pub struct CousinA<'a> {
       _marker: ::core::marker::PhantomData<&'a ()>,
     }
@@ -1033,6 +1036,7 @@ pub mod arena {
       }
     }
 
+    #[derive(Default)]
     pub struct CousinB<'a> {
       _marker: ::core::marker::PhantomData<&'a ()>,
     }
@@ -1096,6 +1100,7 @@ pub mod arena {
       }
     }
 
+    #[derive(Default)]
     pub struct ReservedNames<'a> {
       value: i32,
       tag: i32,
@@ -1131,6 +1136,7 @@ pub mod arena {
       }
     }
 
+    #[derive(Default)]
     pub struct IntWrap<'a> {
       value: i32,
       _marker: ::core::marker::PhantomData<&'a ()>,
@@ -1142,14 +1148,15 @@ pub mod arena {
       }
     }
 
+    #[derive(Default)]
     pub struct BoolWrap<'a> {
-      value: bool,
+      rp_presence: u8,
       _marker: ::core::marker::PhantomData<&'a ()>,
     }
 
     impl<'a> BoolWrap<'a> {
       pub fn value(&self) -> bool {
-        self.value
+        (self.rp_presence & (1 << 0)) != 0
       }
     }
 
@@ -1587,7 +1594,7 @@ pub mod arena {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
-        let mut value: bool = false;
+        let mut rp_presence: u8 = 0;
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
           let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
@@ -1603,7 +1610,11 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              value = rp_v != 0;
+              if rp_v != 0 {
+                rp_presence |= 1 << 0;
+              } else {
+                rp_presence &= !(1 << 0);
+              }
             }
             _ => {
               rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
@@ -1614,7 +1625,7 @@ pub mod arena {
           }
         }
         Ok(rp_out.write(BoolWrap {
-          value,
+          rp_presence,
           _marker: ::core::marker::PhantomData,
         }))
       }

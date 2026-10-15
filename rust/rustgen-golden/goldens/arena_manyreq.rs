@@ -8,6 +8,7 @@ pub mod common {
 pub mod arena {
 
   pub mod mr {
+    #[derive(Default)]
     pub struct ManyRequired<'a> {
       f1: i32,
       f2: i32,

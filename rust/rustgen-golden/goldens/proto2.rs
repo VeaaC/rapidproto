@@ -2,7 +2,7 @@
 
 pub mod common {
   pub mod p2 {
-    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
     #[repr(transparent)]
     pub struct Color(pub i32);
 
@@ -42,23 +42,23 @@ pub mod arena {
   pub mod p2 {
     pub struct Scalars<'a> {
       i32: i32,
-      i64: Option<i64>,
-      u32: Option<u32>,
-      u64: Option<u64>,
-      s32: Option<i32>,
-      s64: Option<i64>,
-      f32: Option<u32>,
-      f64: Option<u64>,
-      sf32: Option<i32>,
-      sf64: Option<i64>,
-      b: Option<bool>,
-      s: Option<::rapidproto::ProtoStr<'a>>,
-      by: Option<&'a [u8]>,
-      fl: Option<f32>,
-      db: Option<f64>,
-      color: Option<super::super::common::p2::Color>,
+      i64: i64,
+      u32: u32,
+      u64: u64,
+      s32: i32,
+      s64: i64,
+      f32: u32,
+      f64: u64,
+      sf32: i32,
+      sf64: i64,
+      s: ::rapidproto::ProtoStr<'a>,
+      by: &'a [u8],
+      fl: f32,
+      db: f64,
+      color: super::super::common::p2::Color,
       packed_nums: &'a [i32],
       expanded_nums: &'a [i32],
+      rp_presence: u16,
     }
 
     impl<'a> Scalars<'a> {
@@ -66,49 +66,49 @@ pub mod arena {
         self.i32
       }
       pub fn i64(&self) -> Option<i64> {
-        self.i64
+        if (self.rp_presence & (1 << 0)) != 0 { Some(self.i64) } else { None }
       }
       pub fn u32(&self) -> Option<u32> {
-        self.u32
+        if (self.rp_presence & (1 << 1)) != 0 { Some(self.u32) } else { None }
       }
       pub fn u64(&self) -> Option<u64> {
-        self.u64
+        if (self.rp_presence & (1 << 2)) != 0 { Some(self.u64) } else { None }
       }
       pub fn s32(&self) -> Option<i32> {
-        self.s32
+        if (self.rp_presence & (1 << 3)) != 0 { Some(self.s32) } else { None }
       }
       pub fn s64(&self) -> Option<i64> {
-        self.s64
+        if (self.rp_presence & (1 << 4)) != 0 { Some(self.s64) } else { None }
       }
       pub fn f32(&self) -> Option<u32> {
-        self.f32
+        if (self.rp_presence & (1 << 5)) != 0 { Some(self.f32) } else { None }
       }
       pub fn f64(&self) -> Option<u64> {
-        self.f64
+        if (self.rp_presence & (1 << 6)) != 0 { Some(self.f64) } else { None }
       }
       pub fn sf32(&self) -> Option<i32> {
-        self.sf32
+        if (self.rp_presence & (1 << 7)) != 0 { Some(self.sf32) } else { None }
       }
       pub fn sf64(&self) -> Option<i64> {
-        self.sf64
+        if (self.rp_presence & (1 << 8)) != 0 { Some(self.sf64) } else { None }
       }
       pub fn b(&self) -> Option<bool> {
-        self.b
+        if (self.rp_presence & (1 << 9)) != 0 { Some((self.rp_presence & (1 << 10)) != 0) } else { None }
       }
       pub fn s(&self) -> Option<::rapidproto::ProtoStr<'a>> {
-        self.s
+        if (self.rp_presence & (1 << 11)) != 0 { Some(self.s) } else { None }
       }
       pub fn by(&self) -> Option<&'a [u8]> {
-        self.by
+        if (self.rp_presence & (1 << 12)) != 0 { Some(self.by) } else { None }
       }
       pub fn fl(&self) -> Option<f32> {
-        self.fl
+        if (self.rp_presence & (1 << 13)) != 0 { Some(self.fl) } else { None }
       }
       pub fn db(&self) -> Option<f64> {
-        self.db
+        if (self.rp_presence & (1 << 14)) != 0 { Some(self.db) } else { None }
       }
       pub fn color(&self) -> Option<super::super::common::p2::Color> {
-        self.color
+        if (self.rp_presence & (1 << 15)) != 0 { Some(self.color) } else { None }
       }
       pub fn packed_nums(&self) -> &'a [i32] {
         self.packed_nums
@@ -118,17 +118,19 @@ pub mod arena {
       }
     }
 
+    #[derive(Default)]
     pub struct WithGroup<'a> {
       _marker: ::core::marker::PhantomData<&'a ()>,
     }
 
     impl<'a> WithGroup<'a> {
-      pub fn mygroup(&self) -> Option<&'a with_group::MyGroup<'a>> {
+      pub fn mygroup(&self) -> Option<&with_group::MyGroup<'a>> {
         todo!()
       }
     }
 
     pub mod with_group {
+      #[derive(Default)]
       pub struct MyGroup<'a> {
         _marker: ::core::marker::PhantomData<&'a ()>,
       }
@@ -137,20 +139,21 @@ pub mod arena {
         pub fn a(&self) -> Option<i32> {
           todo!()
         }
-        pub fn inner(&self) -> Option<&'a my_group::Inner<'a>> {
+        pub fn inner(&self) -> Option<&my_group::Inner<'a>> {
           todo!()
         }
       }
 
       pub mod my_group {
+        #[derive(Default)]
         pub struct Inner<'a> {
-          flag: Option<bool>,
+          rp_presence: u8,
           _marker: ::core::marker::PhantomData<&'a ()>,
         }
 
         impl<'a> Inner<'a> {
           pub fn flag(&self) -> Option<bool> {
-            self.flag
+            if (self.rp_presence & (1 << 0)) != 0 { Some((self.rp_presence & (1 << 1)) != 0) } else { None }
           }
         }
 
@@ -168,7 +171,7 @@ pub mod arena {
             if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
               return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
             }
-            let mut flag: Option<bool> = None;
+            let mut rp_presence: u8 = 0;
             let mut rp_rest: &'a [u8] = rp_body;
             loop {
               let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
@@ -184,7 +187,12 @@ pub mod arena {
                     Ok(r) => r,
                     Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                   };
-                  flag = Some(rp_v != 0);
+                  if rp_v != 0 {
+                    rp_presence |= 1 << 1;
+                  } else {
+                    rp_presence &= !(1 << 1);
+                  }
+                  rp_presence |= 1 << 0;
                 }
                 _ => {
                   rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
@@ -195,7 +203,7 @@ pub mod arena {
               }
             }
             Ok(rp_out.write(Inner {
-              flag,
+              rp_presence,
               _marker: ::core::marker::PhantomData,
             }))
           }
@@ -229,16 +237,17 @@ pub mod arena {
       }
 
       pub struct G<'a> {
-        x: Option<i32>,
-        s: Option<::rapidproto::ProtoStr<'a>>,
+        x: i32,
+        s: ::rapidproto::ProtoStr<'a>,
+        rp_presence: u8,
       }
 
       impl<'a> G<'a> {
         pub fn x(&self) -> Option<i32> {
-          self.x
+          if (self.rp_presence & (1 << 0)) != 0 { Some(self.x) } else { None }
         }
         pub fn s(&self) -> Option<::rapidproto::ProtoStr<'a>> {
-          self.s
+          if (self.rp_presence & (1 << 1)) != 0 { Some(self.s) } else { None }
         }
       }
 
@@ -256,8 +265,9 @@ pub mod arena {
           if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
             return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
           }
-          let mut x: Option<i32> = None;
-          let mut s: Option<::rapidproto::ProtoStr<'a>> = None;
+          let mut rp_presence: u8 = 0;
+          let mut x: i32 = 0;
+          let mut s: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
           let mut rp_rest: &'a [u8] = rp_body;
           loop {
             let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
@@ -273,7 +283,8 @@ pub mod arena {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                x = Some(rp_v as i32);
+                x = rp_v as i32;
+                rp_presence |= 1 << 0;
               }
               (4u32, ::rapidproto::wire::WireType::Len) => {
                 let mut rp_p: &[u8] = &[];
@@ -281,7 +292,8 @@ pub mod arena {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                s = Some(::rapidproto::ProtoStr::new(rp_p));
+                s = ::rapidproto::ProtoStr::new(rp_p);
+                rp_presence |= 1 << 1;
               }
               _ => {
                 rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
@@ -294,30 +306,34 @@ pub mod arena {
           Ok(rp_out.write(G {
             x,
             s,
+            rp_presence,
           }))
         }
       }
     }
 
+    #[derive(Default)]
     pub struct GroupNumberReuse<'a> {
       _marker: ::core::marker::PhantomData<&'a ()>,
     }
 
     impl<'a> GroupNumberReuse<'a> {
-      pub fn g(&self) -> Option<&'a group_number_reuse::G<'a>> {
+      pub fn g(&self) -> Option<&group_number_reuse::G<'a>> {
         todo!()
       }
     }
 
     pub mod group_number_reuse {
+      #[derive(Default)]
       pub struct G<'a> {
-        two: Option<i32>,
+        two: i32,
+        rp_presence: u8,
         _marker: ::core::marker::PhantomData<&'a ()>,
       }
 
       impl<'a> G<'a> {
         pub fn two(&self) -> Option<i32> {
-          self.two
+          if (self.rp_presence & (1 << 0)) != 0 { Some(self.two) } else { None }
         }
       }
 
@@ -335,7 +351,8 @@ pub mod arena {
           if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
             return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
           }
-          let mut two: Option<i32> = None;
+          let mut rp_presence: u8 = 0;
+          let mut two: i32 = 0;
           let mut rp_rest: &'a [u8] = rp_body;
           loop {
             let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
@@ -351,7 +368,8 @@ pub mod arena {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                two = Some(rp_v as i32);
+                two = rp_v as i32;
+                rp_presence |= 1 << 0;
               }
               _ => {
                 rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
@@ -363,6 +381,7 @@ pub mod arena {
           }
           Ok(rp_out.write(G {
             two,
+            rp_presence,
             _marker: ::core::marker::PhantomData,
           }))
         }
@@ -383,14 +402,16 @@ pub mod arena {
     }
 
     pub mod repeated_group {
+      #[derive(Default)]
       pub struct Item<'a> {
-        v: Option<i32>,
+        v: i32,
+        rp_presence: u8,
         _marker: ::core::marker::PhantomData<&'a ()>,
       }
 
       impl<'a> Item<'a> {
         pub fn v(&self) -> Option<i32> {
-          self.v
+          if (self.rp_presence & (1 << 0)) != 0 { Some(self.v) } else { None }
         }
       }
 
@@ -408,7 +429,8 @@ pub mod arena {
           if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
             return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
           }
-          let mut v: Option<i32> = None;
+          let mut rp_presence: u8 = 0;
+          let mut v: i32 = 0;
           let mut rp_rest: &'a [u8] = rp_body;
           loop {
             let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
@@ -424,7 +446,8 @@ pub mod arena {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                v = Some(rp_v as i32);
+                v = rp_v as i32;
+                rp_presence |= 1 << 0;
               }
               _ => {
                 rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
@@ -436,6 +459,7 @@ pub mod arena {
           }
           Ok(rp_out.write(Item {
             v,
+            rp_presence,
             _marker: ::core::marker::PhantomData,
           }))
         }
@@ -461,14 +485,16 @@ pub mod arena {
         Tail(i32),
       }
 
+      #[derive(Default)]
       pub struct Head<'a> {
-        x: Option<i32>,
+        x: i32,
+        rp_presence: u8,
         _marker: ::core::marker::PhantomData<&'a ()>,
       }
 
       impl<'a> Head<'a> {
         pub fn x(&self) -> Option<i32> {
-          self.x
+          if (self.rp_presence & (1 << 0)) != 0 { Some(self.x) } else { None }
         }
       }
 
@@ -486,7 +512,8 @@ pub mod arena {
           if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
             return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
           }
-          let mut x: Option<i32> = None;
+          let mut rp_presence: u8 = 0;
+          let mut x: i32 = 0;
           let mut rp_rest: &'a [u8] = rp_body;
           loop {
             let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
@@ -502,7 +529,8 @@ pub mod arena {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                x = Some(rp_v as i32);
+                x = rp_v as i32;
+                rp_presence |= 1 << 0;
               }
               _ => {
                 rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
@@ -514,6 +542,7 @@ pub mod arena {
           }
           Ok(rp_out.write(Head {
             x,
+            rp_presence,
             _marker: ::core::marker::PhantomData,
           }))
         }
@@ -548,14 +577,16 @@ pub mod arena {
         Cn(&'a Nested<'a>),
       }
 
+      #[derive(Default)]
       pub struct Nested<'a> {
-        x: Option<i32>,
+        x: i32,
+        rp_presence: u8,
         _marker: ::core::marker::PhantomData<&'a ()>,
       }
 
       impl<'a> Nested<'a> {
         pub fn x(&self) -> Option<i32> {
-          self.x
+          if (self.rp_presence & (1 << 0)) != 0 { Some(self.x) } else { None }
         }
       }
 
@@ -573,7 +604,8 @@ pub mod arena {
           if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
             return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
           }
-          let mut x: Option<i32> = None;
+          let mut rp_presence: u8 = 0;
+          let mut x: i32 = 0;
           let mut rp_rest: &'a [u8] = rp_body;
           loop {
             let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
@@ -589,7 +621,8 @@ pub mod arena {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                x = Some(rp_v as i32);
+                x = rp_v as i32;
+                rp_presence |= 1 << 0;
               }
               _ => {
                 rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
@@ -601,6 +634,7 @@ pub mod arena {
           }
           Ok(rp_out.write(Nested {
             x,
+            rp_presence,
             _marker: ::core::marker::PhantomData,
           }))
         }
@@ -621,23 +655,23 @@ pub mod arena {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
+        let mut rp_presence: u16 = 0;
         let mut i32: i32 = 0;
         let mut rp_req_1 = false;
-        let mut i64: Option<i64> = None;
-        let mut u32: Option<u32> = None;
-        let mut u64: Option<u64> = None;
-        let mut s32: Option<i32> = None;
-        let mut s64: Option<i64> = None;
-        let mut f32: Option<u32> = None;
-        let mut f64: Option<u64> = None;
-        let mut sf32: Option<i32> = None;
-        let mut sf64: Option<i64> = None;
-        let mut b: Option<bool> = None;
-        let mut s: Option<::rapidproto::ProtoStr<'a>> = None;
-        let mut by: Option<&'a [u8]> = None;
-        let mut fl: Option<f32> = None;
-        let mut db: Option<f64> = None;
-        let mut color: Option<super::super::common::p2::Color> = None;
+        let mut i64: i64 = 0;
+        let mut u32: u32 = 0;
+        let mut u64: u64 = 0;
+        let mut s32: i32 = 0;
+        let mut s64: i64 = 0;
+        let mut f32: u32 = 0;
+        let mut f64: u64 = 0;
+        let mut sf32: i32 = 0;
+        let mut sf64: i64 = 0;
+        let mut s: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+        let mut by: &'a [u8] = &[];
+        let mut fl: f32 = 0.0;
+        let mut db: f64 = 0.0;
+        let mut color: super::super::common::p2::Color = super::super::common::p2::Color(0);
         let mut rp_acc_17 = ::rapidproto::DecodeVec::new(rp_arena);
         let mut rp_acc_18 = ::rapidproto::DecodeVec::new(rp_arena);
         let mut rp_rest: &'a [u8] = rp_body;
@@ -664,7 +698,8 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              i64 = Some(rp_v as i64);
+              i64 = rp_v as i64;
+              rp_presence |= 1 << 0;
             }
             (3u32, ::rapidproto::wire::WireType::Varint) => {
               let mut rp_v = 0u64;
@@ -672,7 +707,8 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              u32 = Some(rp_v as u32);
+              u32 = rp_v as u32;
+              rp_presence |= 1 << 1;
             }
             (4u32, ::rapidproto::wire::WireType::Varint) => {
               let mut rp_v = 0u64;
@@ -680,7 +716,8 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              u64 = Some(rp_v);
+              u64 = rp_v;
+              rp_presence |= 1 << 2;
             }
             (5u32, ::rapidproto::wire::WireType::Varint) => {
               let mut rp_v = 0u64;
@@ -688,7 +725,8 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              s32 = Some(::rapidproto::wire::zigzag32(rp_v as u32));
+              s32 = ::rapidproto::wire::zigzag32(rp_v as u32);
+              rp_presence |= 1 << 3;
             }
             (6u32, ::rapidproto::wire::WireType::Varint) => {
               let mut rp_v = 0u64;
@@ -696,7 +734,8 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              s64 = Some(::rapidproto::wire::zigzag64(rp_v));
+              s64 = ::rapidproto::wire::zigzag64(rp_v);
+              rp_presence |= 1 << 4;
             }
             (7u32, ::rapidproto::wire::WireType::I32) => {
               let mut rp_v = 0u32;
@@ -704,7 +743,8 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              f32 = Some(rp_v);
+              f32 = rp_v;
+              rp_presence |= 1 << 5;
             }
             (8u32, ::rapidproto::wire::WireType::I64) => {
               let mut rp_v = 0u64;
@@ -712,7 +752,8 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              f64 = Some(rp_v);
+              f64 = rp_v;
+              rp_presence |= 1 << 6;
             }
             (9u32, ::rapidproto::wire::WireType::I32) => {
               let mut rp_v = 0u32;
@@ -720,7 +761,8 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              sf32 = Some(rp_v as i32);
+              sf32 = rp_v as i32;
+              rp_presence |= 1 << 7;
             }
             (10u32, ::rapidproto::wire::WireType::I64) => {
               let mut rp_v = 0u64;
@@ -728,7 +770,8 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              sf64 = Some(rp_v as i64);
+              sf64 = rp_v as i64;
+              rp_presence |= 1 << 8;
             }
             (11u32, ::rapidproto::wire::WireType::Varint) => {
               let mut rp_v = 0u64;
@@ -736,7 +779,12 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              b = Some(rp_v != 0);
+              if rp_v != 0 {
+                rp_presence |= 1 << 10;
+              } else {
+                rp_presence &= !(1 << 10);
+              }
+              rp_presence |= 1 << 9;
             }
             (12u32, ::rapidproto::wire::WireType::Len) => {
               let mut rp_p: &[u8] = &[];
@@ -744,7 +792,8 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              s = Some(::rapidproto::ProtoStr::new(rp_p));
+              s = ::rapidproto::ProtoStr::new(rp_p);
+              rp_presence |= 1 << 11;
             }
             (13u32, ::rapidproto::wire::WireType::Len) => {
               let mut rp_p: &[u8] = &[];
@@ -752,7 +801,8 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              by = Some(rp_p);
+              by = rp_p;
+              rp_presence |= 1 << 12;
             }
             (14u32, ::rapidproto::wire::WireType::I32) => {
               let mut rp_v = 0u32;
@@ -760,7 +810,8 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              fl = Some(f32::from_bits(rp_v));
+              fl = f32::from_bits(rp_v);
+              rp_presence |= 1 << 13;
             }
             (15u32, ::rapidproto::wire::WireType::I64) => {
               let mut rp_v = 0u64;
@@ -768,7 +819,8 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              db = Some(f64::from_bits(rp_v));
+              db = f64::from_bits(rp_v);
+              rp_presence |= 1 << 14;
             }
             (16u32, ::rapidproto::wire::WireType::Varint) => {
               let mut rp_v = 0u64;
@@ -776,7 +828,8 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              color = Some(super::super::common::p2::Color(rp_v as i32));
+              color = super::super::common::p2::Color(rp_v as i32);
+              rp_presence |= 1 << 15;
             }
             (17u32, ::rapidproto::wire::WireType::Varint) => {
               let mut rp_v = 0u64;
@@ -832,7 +885,6 @@ pub mod arena {
           f64,
           sf32,
           sf64,
-          b,
           s,
           by,
           fl,
@@ -840,6 +892,7 @@ pub mod arena {
           color,
           packed_nums: rp_acc_17.into_slice(),
           expanded_nums: rp_acc_18.into_slice(),
+          rp_presence,
         }))
       }
     }

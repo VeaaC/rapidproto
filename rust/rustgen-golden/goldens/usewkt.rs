@@ -14,6 +14,7 @@ pub mod arena {
   pub mod google {
 
     pub mod protobuf {
+      #[derive(Default)]
       pub struct Timestamp<'a> {
         seconds: i64,
         nanos: i32,
@@ -29,6 +30,7 @@ pub mod arena {
         }
       }
 
+      #[derive(Default)]
       pub struct Duration<'a> {
         seconds: i64,
         nanos: i32,
@@ -161,17 +163,19 @@ pub mod arena {
   }
 
   pub mod uw {
+    #[derive(Default)]
     pub struct Event<'a> {
-      at: Option<&'a super::google::protobuf::Timestamp<'a>>,
-      took: Option<&'a super::google::protobuf::Duration<'a>>,
+      at: super::google::protobuf::Timestamp<'a>,
+      took: super::google::protobuf::Duration<'a>,
+      rp_presence: u8,
     }
 
     impl<'a> Event<'a> {
-      pub fn at(&self) -> Option<&'a super::google::protobuf::Timestamp<'a>> {
-        self.at
+      pub fn at(&self) -> Option<&super::google::protobuf::Timestamp<'a>> {
+        if (self.rp_presence & (1 << 0)) != 0 { Some(&self.at) } else { None }
       }
-      pub fn took(&self) -> Option<&'a super::google::protobuf::Duration<'a>> {
-        self.took
+      pub fn took(&self) -> Option<&super::google::protobuf::Duration<'a>> {
+        if (self.rp_presence & (1 << 1)) != 0 { Some(&self.took) } else { None }
       }
     }
 
@@ -189,8 +193,9 @@ pub mod arena {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
-        let mut at: Option<&'a super::google::protobuf::Timestamp<'a>> = None;
-        let mut took: Option<&'a super::google::protobuf::Duration<'a>> = None;
+        let mut rp_presence: u8 = 0;
+        let mut at: super::google::protobuf::Timestamp<'a> = Default::default();
+        let mut took: super::google::protobuf::Duration<'a> = Default::default();
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
           let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
@@ -201,7 +206,7 @@ pub mod arena {
           };
           match (rp_tag.field, rp_tag.wire) {
             (1u32, ::rapidproto::wire::WireType::Len) => {
-              if at.is_some() {
+              if (rp_presence & (1 << 0)) != 0 {
                 return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::RepeatedSingularMessage, rp_body.len() - rp_rest.len()).with_field(1));
               }
               let mut rp_p: &[u8] = &[];
@@ -209,10 +214,11 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              at = Some(rp_arena.emplace(|rp_out| super::google::protobuf::Timestamp::decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
+              at = ::rapidproto::decode_value(|rp_out| super::google::protobuf::Timestamp::decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+              rp_presence |= 1 << 0;
             }
             (2u32, ::rapidproto::wire::WireType::Len) => {
-              if took.is_some() {
+              if (rp_presence & (1 << 1)) != 0 {
                 return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::RepeatedSingularMessage, rp_body.len() - rp_rest.len()).with_field(2));
               }
               let mut rp_p: &[u8] = &[];
@@ -220,7 +226,8 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              took = Some(rp_arena.emplace(|rp_out| super::google::protobuf::Duration::decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
+              took = ::rapidproto::decode_value(|rp_out| super::google::protobuf::Duration::decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+              rp_presence |= 1 << 1;
             }
             _ => {
               rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
@@ -233,6 +240,7 @@ pub mod arena {
         Ok(rp_out.write(Event {
           at,
           took,
+          rp_presence,
         }))
       }
     }
