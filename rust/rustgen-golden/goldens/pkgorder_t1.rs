@@ -8,6 +8,7 @@ pub mod common {
 pub mod arena {
 
   pub mod po {
+    #[derive(Default)]
     pub struct linux_<'a> {
       v: i32,
       _marker: ::core::marker::PhantomData<&'a ()>,

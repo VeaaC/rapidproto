@@ -6,7 +6,7 @@
 
 pub mod common {
   pub mod p3 {
-    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
     #[repr(transparent)]
     pub struct State(pub i32);
 
@@ -41,7 +41,7 @@ pub mod arena {
   pub mod p3 {
     pub struct Msg<'a> {
       implicit_i: i32,
-      explicit_i: Option<i32>,
+      explicit_i: i32,
       state: super::super::common::p3::State,
       self_: Option<&'a [u8]>,
       nums: &'a [i32],
@@ -52,6 +52,7 @@ pub mod arena {
       bools: &'a [bool],
       ratio: f64,
       scale: f32,
+      rp_presence: u8,
       counts: ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, i32>,
       flags: ::rapidproto::MapView<'a, bool, ::rapidproto::ProtoStr<'a>>,
       toggles: ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, bool>,
@@ -65,7 +66,7 @@ pub mod arena {
         self.implicit_i
       }
       pub fn explicit_i(&self) -> Option<i32> {
-        self.explicit_i
+        if (self.rp_presence & (1 << 0)) != 0 { Some(self.explicit_i) } else { None }
       }
       pub fn state(&self) -> super::super::common::p3::State {
         self.state
@@ -140,8 +141,9 @@ pub mod arena {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
+        let mut rp_presence: u8 = 0;
         let mut implicit_i: i32 = 0;
-        let mut explicit_i: Option<i32> = None;
+        let mut explicit_i: i32 = 0;
         let mut state: super::super::common::p3::State = super::super::common::p3::State(0);
         let mut self_: Option<&'a [u8]> = None;
         let mut rp_acc_6 = ::rapidproto::DecodeVec::new(rp_arena);
@@ -187,7 +189,8 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              explicit_i = Some(rp_v as i32);
+              explicit_i = rp_v as i32;
+              rp_presence |= 1 << 0;
             }
             (2u32, _) => {
               rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
@@ -694,6 +697,7 @@ pub mod arena {
           bools: rp_acc_17.into_slice(),
           ratio,
           scale,
+          rp_presence,
           counts: ::rapidproto::MapView::new(rp_map_9.into_slice()),
           flags: ::rapidproto::MapView::new(rp_map_14.into_slice()),
           toggles: ::rapidproto::MapView::new(rp_map_18.into_slice()),

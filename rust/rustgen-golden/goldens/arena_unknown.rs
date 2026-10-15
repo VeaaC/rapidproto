@@ -8,25 +8,28 @@ pub mod common {
 pub mod arena {
 
   pub mod au {
+    #[derive(Default)]
     pub struct Flag<'a> {
-      value: bool,
+      rp_presence: u8,
       _marker: ::core::marker::PhantomData<&'a ()>,
     }
 
     impl<'a> Flag<'a> {
       pub fn value(&self) -> bool {
-        self.value
+        (self.rp_presence & (1 << 0)) != 0
       }
     }
 
+    #[derive(Default)]
     pub struct Holder<'a> {
-      flag: Option<&'a Flag<'a>>,
+      flag: Flag<'a>,
       n: i32,
+      rp_presence: u8,
     }
 
     impl<'a> Holder<'a> {
-      pub fn flag(&self) -> Option<&'a Flag<'a>> {
-        self.flag
+      pub fn flag(&self) -> Option<&Flag<'a>> {
+        if (self.rp_presence & (1 << 0)) != 0 { Some(&self.flag) } else { None }
       }
       pub fn n(&self) -> i32 {
         self.n
@@ -47,7 +50,7 @@ pub mod arena {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
-        let mut value: bool = false;
+        let mut rp_presence: u8 = 0;
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
           let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
@@ -63,7 +66,11 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              value = rp_v != 0;
+              if rp_v != 0 {
+                rp_presence |= 1 << 0;
+              } else {
+                rp_presence &= !(1 << 0);
+              }
             }
             _ => {
               rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
@@ -74,7 +81,7 @@ pub mod arena {
           }
         }
         Ok(rp_out.write(Flag {
-          value,
+          rp_presence,
           _marker: ::core::marker::PhantomData,
         }))
       }
@@ -94,7 +101,8 @@ pub mod arena {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
-        let mut flag: Option<&'a Flag<'a>> = None;
+        let mut rp_presence: u8 = 0;
+        let mut flag: Flag<'a> = Default::default();
         let mut n: i32 = 0;
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
@@ -106,7 +114,7 @@ pub mod arena {
           };
           match (rp_tag.field, rp_tag.wire) {
             (1u32, ::rapidproto::wire::WireType::Len) => {
-              if flag.is_some() {
+              if (rp_presence & (1 << 0)) != 0 {
                 return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::RepeatedSingularMessage, rp_body.len() - rp_rest.len()).with_field(1));
               }
               let mut rp_p: &[u8] = &[];
@@ -114,7 +122,8 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              flag = Some(rp_arena.emplace(|rp_out| Flag::decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
+              flag = ::rapidproto::decode_value(|rp_out| Flag::decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+              rp_presence |= 1 << 0;
             }
             (2u32, ::rapidproto::wire::WireType::Varint) => {
               let mut rp_v = 0u64;
@@ -135,6 +144,7 @@ pub mod arena {
         Ok(rp_out.write(Holder {
           flag,
           n,
+          rp_presence,
         }))
       }
     }

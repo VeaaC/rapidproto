@@ -9,17 +9,18 @@ pub mod arena {
 
   pub mod anv {
     pub struct Collide<'a> {
-      x: Option<i32>,
+      x: i32,
       has_x: i32,
       pick_case: i32,
       decode_: i32,
+      rp_presence: u8,
       foo: ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, i32>,
       pick: Option<collide::Pick>,
     }
 
     impl<'a> Collide<'a> {
       pub fn x(&self) -> Option<i32> {
-        self.x
+        if (self.rp_presence & (1 << 0)) != 0 { Some(self.x) } else { None }
       }
       pub fn has_x(&self) -> i32 {
         self.has_x
@@ -46,13 +47,13 @@ pub mod arena {
     }
 
     pub struct Callback<'a> {
-      disabled: bool,
+      rp_presence: u8,
       callback: Option<callback::Callback<'a>>,
     }
 
     impl<'a> Callback<'a> {
       pub fn disabled(&self) -> bool {
-        self.disabled
+        (self.rp_presence & (1 << 0)) != 0
       }
       pub fn callback(&self) -> Option<&callback::Callback<'a>> {
         self.callback.as_ref()
@@ -75,17 +76,20 @@ pub mod arena {
       }
     }
 
+    #[derive(Default)]
     pub struct Outer<'a> {
-      inner: Option<&'a outer::Outer<'a>>,
+      inner: outer::Outer<'a>,
+      rp_presence: u8,
     }
 
     impl<'a> Outer<'a> {
-      pub fn inner(&self) -> Option<&'a outer::Outer<'a>> {
-        self.inner
+      pub fn inner(&self) -> Option<&outer::Outer<'a>> {
+        if (self.rp_presence & (1 << 0)) != 0 { Some(&self.inner) } else { None }
       }
     }
 
     pub mod outer {
+      #[derive(Default)]
       pub struct Outer<'a> {
         v: i32,
         _marker: ::core::marker::PhantomData<&'a ()>,
@@ -145,6 +149,7 @@ pub mod arena {
       }
     }
 
+    #[derive(Default)]
     pub struct m_x<'a> {
       x: i32,
       _marker: ::core::marker::PhantomData<&'a ()>,
@@ -156,6 +161,7 @@ pub mod arena {
       }
     }
 
+    #[derive(Default)]
     pub struct Sibling<'a> {
       foo: i32,
       m_foo: i32,
@@ -188,14 +194,15 @@ pub mod arena {
     }
 
     pub struct MaskOneof<'a> {
-      present: Option<i32>,
+      present: i32,
+      rp_presence: u8,
       mask: Option<mask_oneof::Mask>,
       _marker: ::core::marker::PhantomData<&'a ()>,
     }
 
     impl<'a> MaskOneof<'a> {
       pub fn present(&self) -> Option<i32> {
-        self.present
+        if (self.rp_presence & (1 << 0)) != 0 { Some(self.present) } else { None }
       }
       pub fn mask(&self) -> Option<&mask_oneof::Mask> {
         self.mask.as_ref()
@@ -222,6 +229,7 @@ pub mod arena {
       }
     }
 
+    #[derive(Default)]
     pub struct Keywords<'a> {
       static_cast: i32,
       const_cast: i32,
@@ -295,7 +303,8 @@ pub mod arena {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
-        let mut x: Option<i32> = None;
+        let mut rp_presence: u8 = 0;
+        let mut x: i32 = 0;
         let mut has_x: i32 = 0;
         let mut pick_case: i32 = 0;
         let mut decode_: i32 = 0;
@@ -316,7 +325,8 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              x = Some(rp_v as i32);
+              x = rp_v as i32;
+              rp_presence |= 1 << 0;
             }
             (2u32, ::rapidproto::wire::WireType::Varint) => {
               let mut rp_v = 0u64;
@@ -415,6 +425,7 @@ pub mod arena {
           has_x,
           pick_case,
           decode_,
+          rp_presence,
           foo: ::rapidproto::MapView::new(rp_map_3.into_slice()),
           pick: rp_oneof_0,
         }))
@@ -435,7 +446,7 @@ pub mod arena {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
-        let mut disabled: bool = false;
+        let mut rp_presence: u8 = 0;
         let mut rp_oneof_0: Option<callback::Callback<'a>> = None;
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
@@ -452,7 +463,11 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              disabled = rp_v != 0;
+              if rp_v != 0 {
+                rp_presence |= 1 << 0;
+              } else {
+                rp_presence &= !(1 << 0);
+              }
             }
             (1u32, ::rapidproto::wire::WireType::Len) => {
               let mut rp_p: &[u8] = &[];
@@ -471,7 +486,7 @@ pub mod arena {
           }
         }
         Ok(rp_out.write(Callback {
-          disabled,
+          rp_presence,
           callback: rp_oneof_0,
         }))
       }
@@ -573,7 +588,8 @@ pub mod arena {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
-        let mut inner: Option<&'a outer::Outer<'a>> = None;
+        let mut rp_presence: u8 = 0;
+        let mut inner: outer::Outer<'a> = Default::default();
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
           let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
@@ -584,7 +600,7 @@ pub mod arena {
           };
           match (rp_tag.field, rp_tag.wire) {
             (1u32, ::rapidproto::wire::WireType::Len) => {
-              if inner.is_some() {
+              if (rp_presence & (1 << 0)) != 0 {
                 return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::RepeatedSingularMessage, rp_body.len() - rp_rest.len()).with_field(1));
               }
               let mut rp_p: &[u8] = &[];
@@ -592,7 +608,8 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              inner = Some(rp_arena.emplace(|rp_out| outer::Outer::decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
+              inner = ::rapidproto::decode_value(|rp_out| outer::Outer::decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+              rp_presence |= 1 << 0;
             }
             _ => {
               rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
@@ -604,6 +621,7 @@ pub mod arena {
         }
         Ok(rp_out.write(Outer {
           inner,
+          rp_presence,
         }))
       }
     }
@@ -772,7 +790,8 @@ pub mod arena {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
-        let mut present: Option<i32> = None;
+        let mut rp_presence: u8 = 0;
+        let mut present: i32 = 0;
         let mut rp_oneof_0: Option<mask_oneof::Mask> = None;
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
@@ -789,7 +808,8 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              present = Some(rp_v as i32);
+              present = rp_v as i32;
+              rp_presence |= 1 << 0;
             }
             (1u32, ::rapidproto::wire::WireType::Varint) => {
               let mut rp_v = 0u64;
@@ -809,6 +829,7 @@ pub mod arena {
         }
         Ok(rp_out.write(MaskOneof {
           present,
+          rp_presence,
           mask: rp_oneof_0,
           _marker: ::core::marker::PhantomData,
         }))

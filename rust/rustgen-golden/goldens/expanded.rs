@@ -3,7 +3,7 @@
 pub mod common {
   pub mod xp {
     pub mod expanded {
-      #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+      #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
       #[repr(transparent)]
       pub struct Kind(pub i32);
 

@@ -20,6 +20,7 @@ pub mod arena {
       pub mod logging {
 
         pub mod v1 {
+          #[derive(Default)]
           pub struct Entry<'a> {
             y: i32,
             _marker: ::core::marker::PhantomData<&'a ()>,
