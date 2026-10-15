@@ -670,16 +670,7 @@ pub mod arena {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_acc_13.reserve(rp_p.len()).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
-              while !rp_p.is_empty() {
-                let mut rp_v = 0u64;
-                rp_p = match ::rapidproto::wire::read_varint(rp_p, &mut rp_v) {
-                  Ok(r) => r,
-                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len() - rp_p.len())),
-                };
-                rp_acc_13.push(rp_v as i32).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
-              }
-              rp_acc_13.shrink_to_fit();
+              rp_acc_13.fill_packed_varints(rp_p, rp_body.len() - rp_rest.len() - rp_p.len(), |rp_v| rp_v as i32)?;
             }
             (14u32, ::rapidproto::wire::WireType::Len) => {
               let mut rp_p: &[u8] = &[];

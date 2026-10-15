@@ -26,6 +26,7 @@ mod arena;
 mod decode_vec;
 mod error;
 mod map;
+mod packed_varint;
 mod proto_str;
 pub mod wire;
 
