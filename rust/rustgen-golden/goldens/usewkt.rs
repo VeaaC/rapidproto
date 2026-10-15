@@ -64,6 +64,24 @@ pub mod arena {
           let mut seconds: i64 = 0;
           let mut nanos: i32 = 0;
           let mut rp_rest: &'a [u8] = rp_body;
+          if rp_rest.first() == Some(&8u8) {
+            rp_rest = &rp_rest[1..];
+            let mut rp_v = 0u64;
+            rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+              Ok(r) => r,
+              Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+            seconds = rp_v as i64;
+          }
+          if rp_rest.first() == Some(&16u8) {
+            rp_rest = &rp_rest[1..];
+            let mut rp_v = 0u64;
+            rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+              Ok(r) => r,
+              Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+            nanos = rp_v as i32;
+          }
           loop {
             let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
             rp_rest = match ::rapidproto::wire::read_tag_or_end(rp_rest, &mut rp_tag) {
@@ -124,6 +142,24 @@ pub mod arena {
           let mut seconds: i64 = 0;
           let mut nanos: i32 = 0;
           let mut rp_rest: &'a [u8] = rp_body;
+          if rp_rest.first() == Some(&8u8) {
+            rp_rest = &rp_rest[1..];
+            let mut rp_v = 0u64;
+            rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+              Ok(r) => r,
+              Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+            seconds = rp_v as i64;
+          }
+          if rp_rest.first() == Some(&16u8) {
+            rp_rest = &rp_rest[1..];
+            let mut rp_v = 0u64;
+            rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+              Ok(r) => r,
+              Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+            nanos = rp_v as i32;
+          }
           loop {
             let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
             rp_rest = match ::rapidproto::wire::read_tag_or_end(rp_rest, &mut rp_tag) {

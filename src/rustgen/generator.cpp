@@ -1453,6 +1453,75 @@ void emit_decode_construct(Printer& printer, const MessageNode& msg, const Field
     printer.print("})\n");
 }
 
+// Field-order threading (duplicated straight-line): before the general dispatch loop, probe each
+// threadable field in field-number order with a cheap 1-byte tag compare; on a match, consume the
+// tag and decode the value inline, then fall through to the next probe. The usual ascending-order
+// wire layout is then decoded with no tag-varint parse and no `match` dispatch -- the dispatch win
+// (the PoC measured ~2.4x on a scalar-only message). A miss (out-of-order, a repeat, an unknown, or
+// a non-threaded field) just skips that probe; after the chain the general loop handles everything
+// the prologue did not consume, so correctness and last-wins semantics are unchanged -- the prologue
+// is a pure fast path over the same validated reads. Rust has no goto, so each threaded field's body
+// is duplicated here and in its general arm (~2x decode code size -- accepted, threading is on for
+// every message). The tail-call form would avoid the duplication but relies on opportunistic TCO,
+// an unbounded-stack / overflow risk on adversarial input, so the robust straight-line form is used.
+//
+// Slice scope: singular scalar/enum/bool fields with a 1-byte tag (number <= 15, non-Len wire), not
+// oneof/map/drop/raw. 2-byte-tag fields and oneof members thread in a follow-up; until then they are
+// decoded by the general loop exactly as before.
+void emit_threaded_prologue(Printer& printer, const NameTable& table,
+                            const std::vector<std::string>& current_mod, const MessageNode& msg,
+                            const FieldModes& modes, const AccessorNames& accessors) {
+    std::vector<std::size_t> idx;
+    for (std::size_t i = 0; i < msg.fields.size(); ++i) {
+        const FieldNode& f = msg.fields[i];
+        const arenagen::FieldMode mode = field_mode(modes, f);
+        if (mode == arenagen::FieldMode::Drop || mode == arenagen::FieldMode::Raw) {
+            continue;
+        }
+        // Singular scalar/enum/bool only: exclude messages/groups (scalar_wire_variant mislabels a
+        // message type as "Varint") and string/bytes (wire "Len"). 1-byte tag => number fits below.
+        constexpr int kMaxOneByteTagField =
+            15;  // tag (number<<3)|wire fits in one byte for number<=15
+        if (f.is_repeated || f.is_message_type || f.number > kMaxOneByteTagField ||
+            scalar_wire_variant(f) == "Len") {
+            continue;
+        }
+        idx.push_back(i);
+    }
+    // Probe in ascending field-number order to match the typical ascending wire order.
+    std::sort(idx.begin(), idx.end(), [&](std::size_t a, std::size_t b) {
+        return msg.fields[a].number < msg.fields[b].number;
+    });
+    for (const std::size_t i : idx) {
+        const FieldNode& f = msg.fields[i];
+        // protobuf tag = (field_number << 3) | wire-type code (Varint=0, I64=1, I32=5).
+        constexpr int kTagTypeBits = 3;
+        constexpr int kWireVarint = 0;
+        constexpr int kWireI64 = 1;
+        constexpr int kWireI32 = 5;
+        const std::string wire = scalar_wire_variant(f);
+        int wire_code = kWireVarint;
+        if (wire == "I64") {
+            wire_code = kWireI64;
+        } else if (wire == "I32") {
+            wire_code = kWireI32;
+        }
+        const int tag = (f.number << kTagTypeBits) | wire_code;  // 1 byte (number <= 15)
+        printer.print("if rp_rest.first() == Some(&$t$u8) {\n", {{"t", std::to_string(tag)}});
+        printer.indent();
+        printer.print("rp_rest = &rp_rest[1..];\n");
+        emit_scalar_value_read(printer, f, loop_read());
+        const std::string conv = scalar_convert_expr(table, current_mod, f);
+        printer.print(f.presence == FieldPresence::Explicit ? "$a$ = Some($c$);\n" : "$a$ = $c$;\n",
+                      {{"a", accessors.fields[i]}, {"c", conv}});
+        if (f.presence == FieldPresence::Required) {
+            printer.print("rp_req_$n$ = true;\n", {{"n", std::to_string(f.number)}});
+        }
+        printer.outdent();
+        printer.print("}\n");
+    }
+}
+
 void emit_decode(Printer& printer, const NameTable& table,
                  const std::vector<std::string>& current_mod, const MessageNode& msg,
                  const AccessorNames& accessors, const FieldModes& modes) {
@@ -1500,6 +1569,7 @@ void emit_decode(Printer& printer, const NameTable& table,
         msg.oneofs.empty() ? std::string() : table.messages.at(msg.fqn).submodule;
     emit_decode_locals(printer, table, current_mod, msg, modes, accessors, submodule);
     printer.print("let mut rp_rest: &'a [u8] = rp_body;\n");
+    emit_threaded_prologue(printer, table, current_mod, msg, modes, accessors);
     printer.print("loop {\n");
     printer.indent();
     printer.print(

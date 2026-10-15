@@ -363,6 +363,35 @@ fn required_all_present_ok_and_missing_rejected() {
     assert_eq!(err.field_number(), Some(33));
 }
 
+// Field-order threading fast path: the generated decoder probes fields 1..=15 (1-byte tags) in a
+// straight-line prologue before the general loop. This exercises the prologue's fallback — fields
+// arriving OUT OF ORDER, a DUPLICATE (last-wins), and 2-byte-tag fields the prologue never probes —
+// all of which must route through the general loop and still decode identically to the in-order case.
+#[test]
+fn threaded_required_fields_out_of_order_and_last_wins() {
+    let arena = Arena::new();
+    let mut buf = Vec::new();
+    // A bogus first occurrence of f1 that the real one (below) must overwrite (singular last-wins).
+    put_var(&mut buf, 1, 999);
+    // The threaded range 1..=15 written DESCENDING, so the ascending prologue probes mostly miss and
+    // the general loop does the work -- then f1 reappears (=1) and must win over the bogus 999.
+    for f in (1..=15u32).rev() {
+        put_var(&mut buf, f, u64::from(f));
+    }
+    // 16..=65 have 2-byte tags: never threaded, always decoded by the general loop.
+    for f in 16..=65u32 {
+        put_var(&mut buf, f, u64::from(f));
+    }
+    let m = ManyRequired::decode(&buf, &arena).unwrap(); // all required present despite the disorder
+    assert_eq!(m.f1(), 1); // bogus 999 overwritten by the last occurrence -> last wins
+    assert_eq!(m.f2(), 2);
+    assert_eq!(m.f8(), 8);
+    assert_eq!(m.f14(), 14);
+    assert_eq!(m.f15(), 15); // last threaded field
+    assert_eq!(m.f16(), 16); // first 2-byte-tag field (general loop only)
+    assert_eq!(m.f65(), 65);
+}
+
 #[test]
 fn unknown_and_wrong_wire_fields_are_skipped() {
     let mut buf = Vec::new();
