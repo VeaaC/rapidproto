@@ -80,7 +80,11 @@ impl<'a, T> DecodeVec<'a, T> {
     /// succeeds. On `Err`, `len` is unchanged, so the half-written slot is abandoned and never read by
     /// [`into_slice`](Self::into_slice). The Rust equivalent of the C++ decoder's `rp_slot` +
     /// `rp_decode_into(*slot, ...)` for a repeated message element.
-    #[inline]
+    ///
+    /// `#[inline(always)]` for the same reason as [`Arena::emplace`](crate::Arena::emplace): the
+    /// closure captures the element payload slice by reference, so an out-of-line call pins the 16-byte
+    /// `&[u8]` to memory and the wide reload cannot store-forward. Inlining keeps it in registers.
+    #[inline(always)]
     pub fn emplace<E, F>(&mut self, f: F) -> Result<(), E>
     where
         E: From<ArenaExhausted>,

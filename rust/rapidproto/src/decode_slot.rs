@@ -86,7 +86,12 @@ pub struct Init<'id> {
 /// return the now-initialized value by move. Lets generated map-value / by-value sites use the
 /// branded-slot decode form while keeping all `unsafe` in the runtime. Sound for any safe `f` (the
 /// `Init` proof is unforgeable); does not allocate.
-#[inline]
+///
+/// `#[inline(always)]`: like the other in-place helpers ([`Arena::emplace`](crate::Arena::emplace),
+/// [`DecodeVec::emplace`](crate::DecodeVec::emplace)), this must inline into the caller so the decoded
+/// payload slice stays in registers rather than being spilled through the closure environment -- an
+/// out-of-line call forces the 16-byte slice to memory and the wide reload cannot store-forward.
+#[inline(always)]
 pub fn decode_value<T, E, F>(f: F) -> Result<T, E>
 where
     F: for<'id> FnOnce(Slot<'id, T>) -> Result<Init<'id>, E>,

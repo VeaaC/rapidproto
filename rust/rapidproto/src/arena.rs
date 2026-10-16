@@ -173,6 +173,13 @@ impl<'buf> Arena<'buf> {
     /// arena never frees, so the reserved bytes are simply unused). This is the Rust equivalent of the
     /// C++ decoder allocating the slot then `rp_decode_into(*slot, ...)`.
     #[allow(clippy::mut_from_ref)]
+    // `#[inline(always)]`: the closure captures the sub-message payload slice (and arena/depth) by
+    // reference, so an out-of-line `emplace` would pass that environment by pointer and pin the 16-byte
+    // `&[u8]` to memory -- then the decode reloads it with a wide load that cannot store-forward from the
+    // narrower stores that wrote it, a large store-forward stall. Inlining keeps the payload in registers
+    // (the C++ by-value shape): measured ~15-20% faster on sub-message-heavy decodes, store-forward
+    // blocks eliminated, flat elsewhere.
+    #[inline(always)]
     pub fn emplace<T, E, F>(&self, f: F) -> Result<&mut T, E>
     where
         E: From<ArenaExhausted>,
