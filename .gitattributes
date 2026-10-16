@@ -9,3 +9,4 @@
 *.pbf -text
 *.png -text
 *.ico -text
+*.wasm -text

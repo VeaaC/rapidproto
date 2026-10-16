@@ -23,6 +23,8 @@
 //   u8  unknown_all                               1 => reserve the unknown-fields bit on every message
 // Stdout: the generated Rust. On any error: a message on stderr and a nonzero exit; stdout stays empty.
 
+#include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -112,6 +114,10 @@ public:
         }
     }
 
+    // Bytes not yet consumed. Used to cap a count-driven reserve() at what the input could possibly
+    // hold, so a hostile count cannot turn a tiny frame into a huge (aborting) allocation.
+    std::size_t remaining() const { return m_data.size() - m_pos; }
+
 private:
     const std::string& m_data;
     std::size_t m_pos = 0;
@@ -138,14 +144,18 @@ int main() {
 
     std::vector<std::string> entries;
     const std::uint32_t n_entries = frame.u32();
-    entries.reserve(n_entries);
+    // Clamp the reserve to what the rest of the frame could hold (each entry is at least its 4-byte
+    // length prefix): a hostile count alone must not drive a huge allocation. A count that overstates
+    // the real data is then caught cleanly by bytes()' bounds check in the loop.
+    entries.reserve(std::min<std::size_t>(n_entries, frame.remaining() / 4));
     for (std::uint32_t i = 0; i < n_entries; ++i) {
         entries.push_back(frame.bytes());
     }
 
     std::unordered_map<std::string, std::string> sources;  // name -> body (the host's superset)
     const std::uint32_t n_files = frame.u32();
-    sources.reserve(n_files);
+    // Each file is at least two 4-byte length prefixes (name + body), so cap likewise.
+    sources.reserve(std::min<std::size_t>(n_files, frame.remaining() / 8));
     for (std::uint32_t i = 0; i < n_files; ++i) {
         std::string name = frame.bytes();
         std::string body = frame.bytes();

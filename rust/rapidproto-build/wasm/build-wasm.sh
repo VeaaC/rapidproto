@@ -13,6 +13,12 @@
 # Env:   WASI_SDK   wasi-sdk install prefix (default: /opt/wasi-sdk)
 set -euo pipefail
 
+# The pinned wasi-sdk. The blob bytes are tied to this toolchain, so the build must use exactly it:
+# a different wasi-sdk produces different bytes, which would otherwise surface downstream as a
+# confusing "blob is stale" (it is not -- the generator source is fine, the toolchain differs).
+# Bumping this (or project(VERSION), which the blob embeds) changes the blob, so regenerate + commit.
+EXPECTED_WASI_SDK="34.0"
+
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo="$(git -C "$here" rev-parse --show-toplevel)"
 wasi="${WASI_SDK:-/opt/wasi-sdk}"
@@ -21,6 +27,16 @@ cxx="$wasi/bin/clang++"
 
 if [[ ! -x "$cxx" ]]; then
     echo "error: wasi-sdk clang++ not found at $cxx (set WASI_SDK to your wasi-sdk prefix)" >&2
+    exit 1
+fi
+
+# Version file is one line, e.g. "34.0" (first field only; later lines carry component hashes).
+have_wasi="$(sed -n '1p' "$wasi/VERSION" 2>/dev/null | cut -d' ' -f1)"
+if [[ "$have_wasi" != "$EXPECTED_WASI_SDK" ]]; then
+    echo "error: wasi-sdk at $wasi is version '${have_wasi:-unknown}', but the blob is pinned to" \
+         "$EXPECTED_WASI_SDK." >&2
+    echo "  install wasi-sdk $EXPECTED_WASI_SDK (or point WASI_SDK at it). A mismatched toolchain" \
+         "would produce a blob that fails the staleness gate for the wrong reason." >&2
     exit 1
 fi
 

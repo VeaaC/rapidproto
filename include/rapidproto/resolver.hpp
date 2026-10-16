@@ -28,6 +28,11 @@ struct ResolverConfig {
     // well-known types are still consulted as a fallback, so a provider need not carry them. Returns
     // the file's text, or nullopt if it has no such file (resolution then falls back to the WKTs, or
     // reports the import as not found, exactly as the disk path would).
+    //
+    // Contract: imports are looked up by their canonical path (canonical_import_path), but an ENTRY
+    // is looked up verbatim by the name it was given (no filesystem canonicalization runs). So the
+    // host must pass an entry under the SAME name any importer would use for it -- otherwise the same
+    // file resolves twice (once as the entry, once as the import) and its types collide downstream.
     std::function<std::optional<std::string>(const std::string&)> source_provider;
 };
 

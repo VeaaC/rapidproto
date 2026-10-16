@@ -208,11 +208,17 @@ private:
                 message += " (imported by ";
                 message += name;
                 message += ")";
-                // The most common new-user failure is a missing -I, so say what was searched.
-                message += m_config.include_paths.empty()
-                               ? "; no include paths were given -- add -I <dir>"
-                               : "; searched " + std::to_string(m_config.include_paths.size()) +
-                                     " include path(s) -- add the right -I <dir>";
+                // The most common new-user failure is a missing -I, so say what was searched. In
+                // provider mode there are no include paths -- the host owns the source set -- so the
+                // -I advice would be wrong; say the file was not in the set instead.
+                if (m_config.source_provider) {
+                    message += "; it was not in the source set provided";
+                } else {
+                    message += m_config.include_paths.empty()
+                                   ? "; no include paths were given -- add -I <dir>"
+                                   : "; searched " + std::to_string(m_config.include_paths.size()) +
+                                         " include path(s) -- add the right -I <dir>";
+                }
                 return Error{0, std::move(message)};
             }
             if (auto error = visit(import_path, std::move(*import_source))) {
