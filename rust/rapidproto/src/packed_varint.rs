@@ -17,7 +17,7 @@ use core::ptr;
 
 use crate::decode_vec::DecodeVec;
 use crate::error::{DecodeError, ErrorKind};
-use crate::wire::read_varint;
+use crate::wire::read_varint_full;
 
 /// Span floor below which the kernels never engage: below this the classify scan and kernel dispatch
 /// are not amortized, so tiny spans take the plain scalar loop. Matches C++ `kPackedKernelMinSpan`.
@@ -160,7 +160,10 @@ unsafe fn read_one(q: *const u8, end: *const u8) -> Result<(u64, *const u8), Err
     // SAFETY: q <= end in the same span, so this is a valid subslice of the input.
     let rest = unsafe { core::slice::from_raw_parts(q, end.offset_from(q) as usize) };
     let mut raw = 0u64;
-    let after = read_varint(rest, &mut raw)?;
+    // The fully-inlined reader: this is a tight per-element loop over a packed span, so inlining the
+    // whole multibyte decode (no out-of-line #[cold] tail) avoids a per-element call on multibyte
+    // values -- the dominant cost on a multibyte-heavy packed field (e.g. the `wide` bench).
+    let after = read_varint_full(rest, &mut raw)?;
     Ok((raw, after.as_ptr()))
 }
 
@@ -490,6 +493,7 @@ impl<'a, T> DecodeVec<'a, T> {
 mod tests {
     use super::*;
     use crate::arena::Arena;
+    use crate::wire::read_varint;
 
     // Encode `v` as a LEB128 varint into `out`.
     fn put_varint(out: &mut alloc::vec::Vec<u8>, mut v: u64) {
