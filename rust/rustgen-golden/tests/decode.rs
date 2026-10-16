@@ -117,6 +117,30 @@ fn singular_scalar_last_occurrence_wins() {
 }
 
 #[test]
+fn threaded_fields_decode_regardless_of_wire_order() {
+    // The decode loop threads singular scalar/enum fields (1 implicit_i, 2 explicit_i, 4 state) with
+    // an ascending-order straight-line prologue. Fields written OUT OF ORDER (descending here) make
+    // the prologue probes mostly miss, so the general hub loop must decode them to the same result --
+    // the fast path and the fallback cannot disagree.
+    let arena = Arena::new();
+    let mut ascending = Vec::new();
+    put_var(&mut ascending, 1, 300); // implicit_i
+    put_var(&mut ascending, 2, 42); // explicit_i
+    put_var(&mut ascending, 4, 1); // state = ON
+    let mut descending = Vec::new();
+    put_var(&mut descending, 4, 1);
+    put_var(&mut descending, 2, 42);
+    put_var(&mut descending, 1, 300);
+
+    for buf in [&ascending, &descending] {
+        let m = Msg::decode(buf, &arena).unwrap();
+        assert_eq!(m.implicit_i(), 300);
+        assert_eq!(m.explicit_i(), Some(42));
+        assert_eq!(m.state(), State::ON);
+    }
+}
+
+#[test]
 fn element_conversions_packed_and_unpacked() {
     // Unpacked: one tag per element.
     let mut buf = Vec::new();
