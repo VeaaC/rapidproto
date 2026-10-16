@@ -117,6 +117,19 @@ pub mod arena {
           ordinary = rp_v as i32;
           rp_presence |= 1 << 0;
         }
+        if rp_rest.first() == Some(&18u8) {
+          rp_rest = &rp_rest[1..];
+          if (rp_presence & (1 << 1)) != 0 {
+            return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::RepeatedSingularMessage, rp_body.len() - rp_rest.len()).with_field(2));
+          }
+          let mut rp_p: &[u8] = &[];
+          rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+            Ok(r) => r,
+            Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          };
+          container = ::rapidproto::decode_value(|rp_out| outer::Container::decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+          rp_presence |= 1 << 1;
+        }
         loop {
           let rp_b = match rp_rest.first() {
             Some(&rp_b) => rp_b,
@@ -188,6 +201,16 @@ pub mod arena {
         let mut rp_presence: u8 = 0;
         let mut s: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
         let mut rp_rest: &'a [u8] = rp_body;
+        if rp_rest.first() == Some(&10u8) {
+          rp_rest = &rp_rest[1..];
+          let mut rp_p: &[u8] = &[];
+          rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+            Ok(r) => r,
+            Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          };
+          s = ::rapidproto::ProtoStr::new(rp_p);
+          rp_presence |= 1 << 0;
+        }
         loop {
           let rp_b = match rp_rest.first() {
             Some(&rp_b) => rp_b,

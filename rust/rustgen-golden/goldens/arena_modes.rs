@@ -230,6 +230,16 @@ pub mod arena {
         let mut payload: &'a [u8] = &[];
         let mut kind: super::super::common::fm::blob::Kind = super::super::common::fm::blob::Kind(0);
         let mut rp_rest: &'a [u8] = rp_body;
+        if rp_rest.first() == Some(&10u8) {
+          rp_rest = &rp_rest[1..];
+          let mut rp_p: &[u8] = &[];
+          rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+            Ok(r) => r,
+            Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          };
+          payload = rp_p;
+          rp_presence |= 1 << 0;
+        }
         if rp_rest.first() == Some(&16u8) {
           rp_rest = &rp_rest[1..];
           let mut rp_v = 0u64;
