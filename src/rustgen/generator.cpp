@@ -1923,7 +1923,14 @@ std::vector<ThreadItem> collect_threaded_items(const NameTable& table, const Mes
         }
         if (f.is_repeated) {
             // Repeated threads at a ONE-byte tag only (matching the reference): the element self-loops.
-            if (f.number <= codegen::kMaxOneByteTagField) {
+            // A group element (SGROUP/EGROUP-delimited) must NOT thread as a bare LEN self-loop. Today
+            // a group-bearing message is non-decodable (no decoder is emitted), so this is unreachable;
+            // guard it explicitly anyway, mirroring arenagen's `is_threaded`, so the two generators
+            // cannot drift if a future group slice makes such messages decodable (cf. the ref-scan
+            // coupling in rustgen-decodable-ref-scan).
+            const bool group =
+                f.is_message_type && f.message_encoding == MessageEncoding::Delimited;
+            if (f.number >= 1 && f.number <= codegen::kMaxOneByteTagField && !group) {
                 const std::string wire = f.is_message_type ? "Len" : scalar_wire_variant(f);
                 const bool packable = !f.is_message_type && wire != "Len";
                 items.push_back({f.number, ThreadKind::Repeated, packable, wire, &f, "", false,
