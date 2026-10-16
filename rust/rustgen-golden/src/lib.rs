@@ -197,6 +197,14 @@ pub mod arena_modes_lean {
     include!("../goldens/arena_modes_lean.rs");
 }
 
+pub mod arena_unknown_tracked {
+    include!("../goldens/arena_unknown_tracked.rs");
+}
+
+pub mod messageset_unknown {
+    include!("../goldens/messageset_unknown.rs");
+}
+
 pub mod bench {
     include!("../goldens/bench.rs");
 }
