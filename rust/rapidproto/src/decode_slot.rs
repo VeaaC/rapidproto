@@ -89,8 +89,8 @@ pub struct Init<'id> {
 ///
 /// `#[inline(always)]`: like the other in-place helpers ([`Arena::emplace`](crate::Arena::emplace),
 /// [`DecodeVec::emplace`](crate::DecodeVec::emplace)), this must inline into the caller so the decoded
-/// payload slice stays in registers rather than being spilled through the closure environment -- an
-/// out-of-line call forces the 16-byte slice to memory and the wide reload cannot store-forward.
+/// payload slice stays in registers rather than being pinned to memory through the closure environment
+/// (an out-of-line call takes the environment's address), and so the optimizer can fold the decode in.
 #[inline(always)]
 pub fn decode_value<T, E, F>(f: F) -> Result<T, E>
 where

@@ -83,7 +83,7 @@ impl<'a, T> DecodeVec<'a, T> {
     ///
     /// `#[inline(always)]` for the same reason as [`Arena::emplace`](crate::Arena::emplace): the
     /// closure captures the element payload slice by reference, so an out-of-line call pins the 16-byte
-    /// `&[u8]` to memory and the wide reload cannot store-forward. Inlining keeps it in registers.
+    /// `&[u8]` to memory; inlining keeps it in registers and folds the element decode into the caller.
     #[inline(always)]
     pub fn emplace<E, F>(&mut self, f: F) -> Result<(), E>
     where

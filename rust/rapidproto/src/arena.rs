@@ -175,10 +175,12 @@ impl<'buf> Arena<'buf> {
     #[allow(clippy::mut_from_ref)]
     // `#[inline(always)]`: the closure captures the sub-message payload slice (and arena/depth) by
     // reference, so an out-of-line `emplace` would pass that environment by pointer and pin the 16-byte
-    // `&[u8]` to memory -- then the decode reloads it with a wide load that cannot store-forward from the
-    // narrower stores that wrote it, a large store-forward stall. Inlining keeps the payload in registers
-    // (the C++ by-value shape): measured ~15-20% faster on sub-message-heavy decodes, store-forward
-    // blocks eliminated, flat elsewhere.
+    // `&[u8]` to memory. Inlining keeps the payload in registers (the C++ by-value shape) and lets the
+    // optimizer fold the element decode into the caller. Both help sub-message-heavy decodes (~15-18%):
+    // on a message with many scalar fields plus sub-messages (bench `records`) it removes a large
+    // store-forward stall -- the pinned slice was reloaded by a wide load that could not forward from the
+    // narrower stores that wrote it; on a small leaf sub-message (bench `particles`) the win is instead
+    // the lower instruction count from folding the decode in. Flat elsewhere.
     #[inline(always)]
     pub fn emplace<T, E, F>(&self, f: F) -> Result<&mut T, E>
     where
