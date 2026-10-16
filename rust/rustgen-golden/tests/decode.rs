@@ -171,10 +171,14 @@ fn threaded_repeated_oneof_and_message_match_fallback() {
     put_var(&mut ascending, 6, 100); // nums[0] (repeated, unpacked)
     put_var(&mut ascending, 6, 200); // nums[1]
     put_var(&mut ascending, 6, 300); // nums[2]
+    map_entry(&mut ascending, 9, &len_field(1, b"p"), &varint_field(2, 1)); // counts (map) self-loop
+    map_entry(&mut ascending, 9, &len_field(1, b"q"), &varint_field(2, 2));
     put_var(&mut ascending, 10, 42); // pick::a (oneof)
 
     let mut scrambled = Vec::new();
-    put_var(&mut scrambled, 10, 42); // oneof first
+    put_var(&mut scrambled, 10, 42); // oneof first -> everything after falls to the hub
+    map_entry(&mut scrambled, 9, &len_field(1, b"p"), &varint_field(2, 1));
+    map_entry(&mut scrambled, 9, &len_field(1, b"q"), &varint_field(2, 2));
     put_len(&mut scrambled, 5, &nested); // then the message
     put_var(&mut scrambled, 6, 100); // then the repeated run
     put_var(&mut scrambled, 6, 200);
@@ -185,6 +189,8 @@ fn threaded_repeated_oneof_and_message_match_fallback() {
         assert_eq!(m.nums(), &[100, 200, 300]);
         assert_eq!(m.self_().expect("self present").implicit_i(), 9);
         assert!(matches!(m.pick(), Some(Pick::A(42))));
+        assert_eq!(m.counts().get("p"), Some(&1));
+        assert_eq!(m.counts().get("q"), Some(&2));
     }
 }
 

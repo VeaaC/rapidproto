@@ -1626,17 +1626,17 @@ void emit_map_component(Printer& printer, const NameTable& table,
     printer.print("}\n");
 }
 
-// Emit the match arm for one map field: read the length-delimited entry, decode its key/value in an
-// inner loop (unknown entry fields skipped), and push `(key, value)` into the map's `DecodeVec`. The
-// entry is its own decode frame -- offsets inside it are entry-relative (matching C++'s map re-anchor).
-void emit_map_arm(Printer& printer, const NameTable& table,
-                  const std::vector<std::string>& current_mod, const MapFieldNode& map,
-                  const std::string& map_local) {
+// Body of one map ENTRY decode (no arm wrapper): read the length-delimited entry, decode its key/value
+// in an inner loop (unknown entry fields skipped), and push `(key, value)` into the map's `DecodeVec`.
+// The entry is its own decode frame -- offsets inside it are entry-relative (matching C++'s map
+// re-anchor). Shared by the hub `(n,Len)` arm and the threaded prologue's map self-loop; both read the
+// entry from `rp_rest` (`loop_read()`), so one call decodes exactly one entry.
+void emit_map_body(Printer& printer, const NameTable& table,
+                   const std::vector<std::string>& current_mod, const MapFieldNode& map,
+                   const std::string& map_local) {
     const FieldNode key = map_key_field(map);
     const FieldNode val = map_value_field(map);
     const ReadAt entry_at{"rp_ent", "rp_ent_body.len() - rp_ent.len()"};
-    printer.print("$k$ => {\n", {{"k", raw_tag_key(map.number, "Len")}});
-    printer.indent();
     emit_len_read(printer, loop_read());  // the entry payload -> rp_p
     printer.print("let rp_ent_body: &'a [u8] = rp_p;\n");
     printer.print("let mut rp_key: $t$ = $d$;\n",
@@ -1685,6 +1685,15 @@ void emit_map_arm(Printer& printer, const NameTable& table,
         printer.print("};\n");
     }
     emit_push(printer, map_local, "(rp_key, rp_val)");
+}
+
+// Emit the match arm for one map field (body shared with the threaded prologue's map self-loop).
+void emit_map_arm(Printer& printer, const NameTable& table,
+                  const std::vector<std::string>& current_mod, const MapFieldNode& map,
+                  const std::string& map_local) {
+    printer.print("$k$ => {\n", {{"k", raw_tag_key(map.number, "Len")}});
+    printer.indent();
+    emit_map_body(printer, table, current_mod, map, map_local);
     printer.outdent();
     printer.print("}\n");
 }
@@ -1873,18 +1882,34 @@ void emit_decode_construct(Printer& printer, const MessageNode& msg, const Field
 // A field the threaded prologue will probe, with everything its body emitter needs. Collected across a
 // message's regular fields and oneof members by `collect_threaded_items`, then emitted in ascending
 // field-number order.
-enum class ThreadKind : std::uint8_t { Scalar, Message, Oneof, Repeated };
+enum class ThreadKind : std::uint8_t { Scalar, Message, Oneof, Repeated, Map };
 struct ThreadItem {
     int number;
     ThreadKind kind;
     bool packable;     // repeated numeric: also probe its packed LEN form
     std::string wire;  // the native/singular tag's wire variant (what the probe matches)
     const FieldNode* field;
-    std::string accessor;  // scalar/message storage local
+    std::string accessor;  // scalar/message storage local, or the map's `rp_map_<n>` accumulator
     bool required;
     const arenagen::MemberPlan* member;
     std::string oneof_local, enum_path, variant;  // oneof members only
+    const MapFieldNode* map = nullptr;            // non-null only for ThreadKind::Map
 };
+
+// Append the threadable maps of `msg` to `items`. A map is a repeated series of LEN entries, so it
+// self-loops like a repeated field; threaded up to a two-byte tag (<= 2047). A dropped map is left to
+// the hub (skipped there).
+void append_map_threaded_items(const MessageNode& msg, const FieldModes& modes,
+                               std::vector<ThreadItem>& items) {
+    for (const MapFieldNode& map : msg.map_fields) {
+        if (map_mode(modes, map) == arenagen::FieldMode::Drop || map.number < 1 ||
+            map.number > codegen::kMaxTwoByteTagField) {
+            continue;
+        }
+        items.push_back({map.number, ThreadKind::Map, false, "Len", nullptr,
+                         "rp_map_" + std::to_string(map.number), false, nullptr, "", "", "", &map});
+    }
+}
 
 // Append the threadable oneof members of `msg` to `items` (each oneof member shares the field-number
 // space, so they interleave with regular fields once the caller sorts).
@@ -1922,15 +1947,18 @@ std::vector<ThreadItem> collect_threaded_items(const NameTable& table, const Mes
             continue;  // dropped/raw fields are never threaded (handled by the hub loop / catch-all)
         }
         if (f.is_repeated) {
-            // Repeated threads at a ONE-byte tag only (matching the reference): the element self-loops.
-            // A group element (SGROUP/EGROUP-delimited) must NOT thread as a bare LEN self-loop. Today
-            // a group-bearing message is non-decodable (no decoder is emitted), so this is unreachable;
-            // guard it explicitly anyway, mirroring arenagen's `is_threaded`, so the two generators
-            // cannot drift if a future group slice makes such messages decodable (cf. the ref-scan
-            // coupling in rustgen-decodable-ref-scan).
+            // Repeated fields self-loop on their own element tag. A group element (SGROUP/EGROUP-
+            // delimited) must NOT thread as a bare LEN self-loop. Today a group-bearing message is
+            // non-decodable (no decoder is emitted), so this is unreachable; guard it explicitly
+            // anyway, mirroring arenagen's `is_threaded`, so the two generators cannot drift if a
+            // future group slice makes such messages decodable (cf. rustgen-decodable-ref-scan).
+            // Unlike the C++ reference (repeated threads at a one-byte tag only), Rust threads up to a
+            // two-byte tag (<= 2047): lacking C++'s goto re-entry, an unthreaded field ends the
+            // straight-line prologue for everything after it, so a two-byte repeated field left out
+            // would break threading of a well-ordered message's tail.
             const bool group =
                 f.is_message_type && f.message_encoding == MessageEncoding::Delimited;
-            if (f.number >= 1 && f.number <= codegen::kMaxOneByteTagField && !group) {
+            if (f.number >= 1 && f.number <= codegen::kMaxTwoByteTagField && !group) {
                 const std::string wire = f.is_message_type ? "Len" : scalar_wire_variant(f);
                 const bool packable = !f.is_message_type && wire != "Len";
                 items.push_back({f.number, ThreadKind::Repeated, packable, wire, &f, "", false,
@@ -1947,6 +1975,7 @@ std::vector<ThreadItem> collect_threaded_items(const NameTable& table, const Mes
         items.push_back({f.number, kind, false, wire, &f, accessors.fields[i], required,
                          member_for(layout, f), "", "", ""});
     }
+    append_map_threaded_items(msg, modes, items);
     append_oneof_threaded_items(table, msg, submodule, items);
     return items;
 }
@@ -1990,11 +2019,16 @@ void emit_probe_close(Printer& printer) {
 // (an unbounded-stack risk on adversarial input), so the robust straight-line form is used -- the same
 // choice the C++ reference makes.
 //
-// Scope (matching the C++ reference's is_threaded): every singular field admitted by
-// codegen::is_threadable_singular (scalar/enum/bool/string/bytes/message, one- or two-byte tag,
-// non-group) AND oneof members likewise; plus repeated non-group fields with a ONE-byte tag, which
-// self-loop on their own element tag (and probe their packed LEN form if numeric). Maps are never
-// threaded (they fall to the hub loop), matching the reference.
+// Scope: every singular field admitted by codegen::is_threadable_singular (scalar/enum/bool/string/
+// bytes/message, one- or two-byte tag, non-group) AND oneof members likewise; plus repeated non-group
+// fields and maps (one- or two-byte tag <= 2047), which self-loop on their own tag (a repeated numeric
+// also probes its packed LEN form). This is BROADER than the C++ reference's is_threaded (repeated
+// one-byte only; maps never): C++ re-enters threading from its hub via goto, so an unthreaded field
+// mid-message costs it nothing, but Rust's straight-line prologue can't re-enter -- once it falls to
+// the hub it stays there -- so leaving a map or a two-byte repeated field unthreaded would end
+// threading for every later field of a well-ordered message. Threading them keeps a well-ordered
+// message (fields <= 2047) on the fast path end to end. Decoded output is unchanged either way
+// (threading is a pure fast path; the hub decodes whatever the prologue did not).
 void emit_threaded_prologue(Printer& printer, const NameTable& table,
                             const std::vector<std::string>& current_mod, const MessageNode& msg,
                             const FieldModes& modes, const AccessorNames& accessors,
@@ -2006,7 +2040,10 @@ void emit_threaded_prologue(Printer& printer, const NameTable& table,
     std::sort(items.begin(), items.end(),
               [](const ThreadItem& a, const ThreadItem& b) { return a.number < b.number; });
     for (const ThreadItem& it : items) {
-        emit_probe_open(printer, it.number, it.wire, it.kind == ThreadKind::Repeated);
+        // Repeated fields and maps are a series of same-tag entries, so they self-loop (`while`);
+        // singular fields and oneof members occur once (`if`).
+        const bool self_loop = it.kind == ThreadKind::Repeated || it.kind == ThreadKind::Map;
+        emit_probe_open(printer, it.number, it.wire, self_loop);
         switch (it.kind) {
             case ThreadKind::Scalar:
                 emit_singular_scalar_store(printer, table, current_mod, *it.field, it.accessor,
@@ -2023,11 +2060,14 @@ void emit_threaded_prologue(Printer& printer, const NameTable& table,
             case ThreadKind::Repeated:
                 emit_repeated_native_body(printer, table, current_mod, *it.field);
                 break;
+            case ThreadKind::Map:
+                emit_map_body(printer, table, current_mod, *it.map, it.accessor);
+                break;
         }
         emit_probe_close(printer);
         if (it.kind == ThreadKind::Repeated && it.packable) {
             // A packed run of the same field: one LEN payload. Probed once (a second run falls to the
-            // hub loop). number <= 15, so the packed tag is one byte.
+            // hub loop).
             emit_probe_open(printer, it.number, "Len", /*self_loop=*/false);
             emit_packed_body(printer, table, current_mod, *it.field);
             emit_probe_close(printer);
