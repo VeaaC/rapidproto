@@ -879,7 +879,7 @@ enum WireCode : std::uint8_t {
 // peek hub dispatches with (the tag byte itself for a one-byte tag, else `(field << 3) | wire` rebuilt
 // after a full read). `wire` is a `scalar_wire_variant` result or the literal "Len". Field numbers go
 // up to 2^29 - 1, so the key stays within u32 (the loop's dispatch type).
-std::string raw_tag_key(std::int64_t number, const std::string& wire) {
+std::int64_t raw_tag_value(std::int64_t number, const std::string& wire) {
     std::int64_t code = kWireI32;
     if (wire == "Varint") {
         code = kWireVarint;
@@ -888,7 +888,11 @@ std::string raw_tag_key(std::int64_t number, const std::string& wire) {
     } else if (wire == "Len") {
         code = kWireLen;
     }
-    return std::to_string((number << 3) | code) + "u32";
+    return (number << 3) | code;
+}
+
+std::string raw_tag_key(std::int64_t number, const std::string& wire) {
+    return std::to_string(raw_tag_value(number, wire)) + "u32";
 }
 
 // The expression converting the just-read raw wire value (`rp_v`: u64 for Varint, u32 for I32, u64 for
@@ -1293,6 +1297,62 @@ void emit_singular_message_arm(Printer& printer, const NameTable& table,
     printer.print("}\n");
 }
 
+// Read a singular scalar/enum/string/bytes/bool VALUE at `at` and store it into `accessor` per the
+// field's layout: a bare value, a masked value + presence bit, or a bool packed into value (and, if
+// explicit, presence) mask bits. Then set the proto2 `required` seen-flag. Shared by the general match
+// arm and the threaded prologue so the two cannot drift on storage semantics; `member`/`mask_bits`
+// drive the presence/bool mask.
+void emit_singular_scalar_store(Printer& printer, const NameTable& table,
+                                const std::vector<std::string>& current_mod, const FieldNode& field,
+                                const std::string& accessor, bool required,
+                                const arenagen::MemberPlan* member, int mask_bits,
+                                const ReadAt& at) {
+    const std::string conv = scalar_convert_expr(table, current_mod, field);
+    const auto set_bit = [&](int bit) {
+        return mask_word_at("rp_presence", bit, mask_bits) + " |= 1 << " +
+               std::to_string(mask_bit_pos(bit, mask_bits)) + ";\n";
+    };
+    const auto clear_bit = [&](int bit) {
+        return mask_word_at("rp_presence", bit, mask_bits) + " &= !(1 << " +
+               std::to_string(mask_bit_pos(bit, mask_bits)) + ");\n";
+    };
+    if (scalar_wire_variant(field) == "Len") {
+        emit_len_read(printer, at);
+    } else {
+        emit_scalar_value_read(printer, field, at);
+    }
+    switch (rust_store(member, field)) {
+        case RustStore::MaskedBool:
+            // The bool value is a mask bit (no byte field): set it from the varint (clear on false, so
+            // a later `false` overrides an earlier `true`); Explicit also records the presence bit.
+            printer.print("if rp_v != 0 {\n");
+            printer.indent();
+            printer.print(set_bit(member->value_bit));
+            printer.outdent();
+            printer.print("} else {\n");
+            printer.indent();
+            printer.print(clear_bit(member->value_bit));
+            printer.outdent();
+            printer.print("}\n");
+            if (member->presence_bit >= 0) {
+                printer.print(set_bit(member->presence_bit));
+            }
+            break;
+        case RustStore::MaskedValue:
+            printer.print("$a$ = $c$;\n", {{"a", accessor}, {"c", conv}});
+            printer.print(set_bit(member->presence_bit));
+            break;
+        case RustStore::Bare:
+        case RustStore::InlineMsg:
+        case RustStore::PointerMsg:
+            printer.print("$a$ = $c$;\n", {{"a", accessor}, {"c", conv}});
+            break;
+    }
+    if (required) {
+        printer.print("rp_req_$n$ = true;\n", {{"n", std::to_string(field.number)}});
+    }
+}
+
 // Emit the `match rp_tagkey` arm(s) for one field, keyed by its raw tag `field << 3 | wire`: one arm
 // for a singular value, two for a repeated numeric (unpacked + packed), reading via the value-threaded
 // wire primitives and storing
@@ -1305,15 +1365,6 @@ void emit_field_arms(Printer& printer, const NameTable& table,
                      const arenagen::MemberPlan* member, int mask_bits) {
     const std::string nstr = std::to_string(field.number);
     const std::string acc = "rp_acc_" + nstr;
-    // Statements that set a presence / value bit in the decode-local `rp_presence` mask.
-    const auto set_bit = [&](int bit) {
-        return mask_word_at("rp_presence", bit, mask_bits) + " |= 1 << " +
-               std::to_string(mask_bit_pos(bit, mask_bits)) + ";\n";
-    };
-    const auto clear_bit = [&](int bit) {
-        return mask_word_at("rp_presence", bit, mask_bits) + " &= !(1 << " +
-               std::to_string(mask_bit_pos(bit, mask_bits)) + ");\n";
-    };
 
     const arenagen::FieldMode mode = field_mode(modes, field);
     if (mode == arenagen::FieldMode::Drop) {
@@ -1395,41 +1446,8 @@ void emit_field_arms(Printer& printer, const NameTable& table,
     // Singular scalar / enum / string / bytes.
     printer.print("$k$ => {\n", {{"k", raw_tag_key(field.number, wire)}});
     printer.indent();
-    if (wire == "Len") {
-        emit_len_read(printer, loop_read());
-    } else {
-        emit_scalar_value_read(printer, field, loop_read());
-    }
-    switch (rust_store(member, field)) {
-        case RustStore::MaskedBool:
-            // The bool value is a mask bit (no byte field): set it from the varint (clear on false, so
-            // a later `false` overrides an earlier `true`); Explicit also records the presence bit.
-            printer.print("if rp_v != 0 {\n");
-            printer.indent();
-            printer.print(set_bit(member->value_bit));
-            printer.outdent();
-            printer.print("} else {\n");
-            printer.indent();
-            printer.print(clear_bit(member->value_bit));
-            printer.outdent();
-            printer.print("}\n");
-            if (member->presence_bit >= 0) {
-                printer.print(set_bit(member->presence_bit));
-            }
-            break;
-        case RustStore::MaskedValue:
-            printer.print("$a$ = $c$;\n", {{"a", accessor}, {"c", conv}});
-            printer.print(set_bit(member->presence_bit));
-            break;
-        case RustStore::Bare:
-        case RustStore::InlineMsg:
-        case RustStore::PointerMsg:
-            printer.print("$a$ = $c$;\n", {{"a", accessor}, {"c", conv}});
-            break;
-    }
-    if (required) {
-        printer.print("rp_req_$n$ = true;\n", {{"n", nstr}});
-    }
+    emit_singular_scalar_store(printer, table, current_mod, field, accessor, required, member,
+                               mask_bits, loop_read());
     printer.outdent();
     printer.print("}\n");
 }
@@ -1799,6 +1817,61 @@ void emit_decode_construct(Printer& printer, const MessageNode& msg, const Field
     printer.print("}))\n");
 }
 
+// Field-order threading: before the general peek-hub loop, probe each threadable field in field-number
+// order with a cheap one-byte tag compare; on a match, consume the tag and decode+store the value
+// inline (via the shared `emit_singular_scalar_store`), then fall through to the next probe. Encoders
+// write fields in ascending order, so the common case runs this straight-line chain with no tag-varint
+// parse and no `match` dispatch -- the hub loop then handles only what the prologue did not consume
+// (out-of-order, repeats, unknown/wrong-wire, or non-threaded fields), so correctness and last-wins
+// semantics are unchanged (the prologue is a pure fast path over the SAME validated reads and the same
+// store). Rust has no goto, so each threaded field's body is duplicated here and in its hub arm (decode
+// code roughly doubles for threaded fields); the tail-call form that would share one body relies on
+// opportunistic TCO (an unbounded-stack risk on adversarial input), so the robust straight-line form is
+// used -- the same choice the C++ reference makes.
+//
+// Scope (this slice): singular scalar/enum/bool fields with a one-byte tag (number <= 15, non-Len
+// wire), not oneof/map/drop/raw. Two-byte-tag fields, oneof members, and messages are decoded by the
+// hub loop exactly as before; threading them is a follow-up.
+void emit_threaded_prologue(Printer& printer, const NameTable& table,
+                            const std::vector<std::string>& current_mod, const MessageNode& msg,
+                            const FieldModes& modes, const AccessorNames& accessors,
+                            const arenagen::MessageLayout* layout) {
+    const int mask_bits = layout != nullptr ? rust_mask_bits(*layout) : 0;
+    std::vector<std::size_t> idx;
+    for (std::size_t i = 0; i < msg.fields.size(); ++i) {
+        const FieldNode& f = msg.fields[i];
+        const arenagen::FieldMode mode = field_mode(modes, f);
+        if (mode == arenagen::FieldMode::Drop || mode == arenagen::FieldMode::Raw) {
+            continue;
+        }
+        // Singular scalar/enum/bool only: exclude messages/groups (scalar_wire_variant mislabels a
+        // message as "Varint") and string/bytes (wire "Len"). number <= 15 keeps the tag one byte.
+        if (f.is_repeated || f.is_message_type || f.number > codegen::kMaxOneByteTagField ||
+            scalar_wire_variant(f) == "Len") {
+            continue;
+        }
+        idx.push_back(i);
+    }
+    // Probe in ascending field-number order to match the typical ascending wire order.
+    std::sort(idx.begin(), idx.end(), [&](std::size_t a, std::size_t b) {
+        return msg.fields[a].number < msg.fields[b].number;
+    });
+    for (const std::size_t i : idx) {
+        const FieldNode& f = msg.fields[i];
+        // The one-byte tag to compare the next input byte against: field << 3 | wire code (fits a byte
+        // since number <= 15 and the wire code is < 8).
+        const std::string tag = std::to_string(raw_tag_value(f.number, scalar_wire_variant(f)));
+        printer.print("if rp_rest.first() == Some(&$t$u8) {\n", {{"t", tag}});
+        printer.indent();
+        printer.print("rp_rest = &rp_rest[1..];\n");
+        emit_singular_scalar_store(printer, table, current_mod, f, accessors.fields[i],
+                                   f.presence == FieldPresence::Required, member_for(layout, f),
+                                   mask_bits, loop_read());
+        printer.outdent();
+        printer.print("}\n");
+    }
+}
+
 void emit_decode(Printer& printer, const NameTable& table,
                  const std::vector<std::string>& current_mod, const MessageNode& msg,
                  const AccessorNames& accessors, const FieldModes& modes,
@@ -1850,6 +1923,7 @@ void emit_decode(Printer& printer, const NameTable& table,
         msg.oneofs.empty() ? std::string() : table.messages.at(msg.fqn).submodule;
     emit_decode_locals(printer, table, current_mod, msg, modes, accessors, submodule, layout);
     printer.print("let mut rp_rest: &'a [u8] = rp_body;\n");
+    emit_threaded_prologue(printer, table, current_mod, msg, modes, accessors, layout);
     printer.print("loop {\n");
     printer.indent();
     emit_peek_hub(printer, loop_read(), "rp_tag");
