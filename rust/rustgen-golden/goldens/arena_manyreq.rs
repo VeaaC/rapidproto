@@ -328,14 +328,23 @@ pub mod arena {
         let mut y: i32 = 0;
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
-          let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
-          rp_rest = match ::rapidproto::wire::read_tag_or_end(rp_rest, &mut rp_tag) {
-            Ok(Some(r)) => r,
-            Ok(None) => break,
-            Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          let rp_b = match rp_rest.first() {
+            Some(&rp_b) => rp_b,
+            None => break,
           };
-          match (rp_tag.field, rp_tag.wire) {
-            (1u32, ::rapidproto::wire::WireType::Varint) => {
+          let rp_tagkey: u32 = if rp_b < 0x80 {
+            rp_rest = &rp_rest[1..];
+            u32::from(rp_b)
+          } else {
+            let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+            rp_rest = match ::rapidproto::wire::read_tag(rp_rest, &mut rp_tag) {
+              Ok(r) => r,
+              Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+            (rp_tag.field << 3) | rp_tag.wire as u32
+          };
+          match rp_tagkey {
+            8u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -344,7 +353,7 @@ pub mod arena {
               x = rp_v as i32;
               rp_presence |= 1 << 0;
             }
-            (2u32, ::rapidproto::wire::WireType::Varint) => {
+            16u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -354,7 +363,7 @@ pub mod arena {
               rp_presence |= 1 << 1;
             }
             _ => {
-              rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
+              rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
@@ -390,14 +399,23 @@ pub mod arena {
         let mut tag: i32 = 0;
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
-          let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
-          rp_rest = match ::rapidproto::wire::read_tag_or_end(rp_rest, &mut rp_tag) {
-            Ok(Some(r)) => r,
-            Ok(None) => break,
-            Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          let rp_b = match rp_rest.first() {
+            Some(&rp_b) => rp_b,
+            None => break,
           };
-          match (rp_tag.field, rp_tag.wire) {
-            (1u32, ::rapidproto::wire::WireType::Len) => {
+          let rp_tagkey: u32 = if rp_b < 0x80 {
+            rp_rest = &rp_rest[1..];
+            u32::from(rp_b)
+          } else {
+            let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+            rp_rest = match ::rapidproto::wire::read_tag(rp_rest, &mut rp_tag) {
+              Ok(r) => r,
+              Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+            (rp_tag.field << 3) | rp_tag.wire as u32
+          };
+          match rp_tagkey {
+            10u32 => {
               if rp_req_1 {
                 return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::RepeatedSingularMessage, rp_body.len() - rp_rest.len()).with_field(1));
               }
@@ -409,7 +427,7 @@ pub mod arena {
               s = ::rapidproto::decode_value(|rp_out| Small::decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
               rp_req_1 = true;
             }
-            (2u32, ::rapidproto::wire::WireType::Varint) => {
+            16u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -419,7 +437,7 @@ pub mod arena {
               rp_presence |= 1 << 0;
             }
             _ => {
-              rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
+              rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
@@ -583,14 +601,23 @@ pub mod arena {
         let mut rp_req_65 = false;
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
-          let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
-          rp_rest = match ::rapidproto::wire::read_tag_or_end(rp_rest, &mut rp_tag) {
-            Ok(Some(r)) => r,
-            Ok(None) => break,
-            Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          let rp_b = match rp_rest.first() {
+            Some(&rp_b) => rp_b,
+            None => break,
           };
-          match (rp_tag.field, rp_tag.wire) {
-            (1u32, ::rapidproto::wire::WireType::Varint) => {
+          let rp_tagkey: u32 = if rp_b < 0x80 {
+            rp_rest = &rp_rest[1..];
+            u32::from(rp_b)
+          } else {
+            let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+            rp_rest = match ::rapidproto::wire::read_tag(rp_rest, &mut rp_tag) {
+              Ok(r) => r,
+              Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+            (rp_tag.field << 3) | rp_tag.wire as u32
+          };
+          match rp_tagkey {
+            8u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -599,7 +626,7 @@ pub mod arena {
               f1 = rp_v as i32;
               rp_req_1 = true;
             }
-            (2u32, ::rapidproto::wire::WireType::Varint) => {
+            16u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -608,7 +635,7 @@ pub mod arena {
               f2 = rp_v as i32;
               rp_req_2 = true;
             }
-            (3u32, ::rapidproto::wire::WireType::Varint) => {
+            24u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -617,7 +644,7 @@ pub mod arena {
               f3 = rp_v as i32;
               rp_req_3 = true;
             }
-            (4u32, ::rapidproto::wire::WireType::Varint) => {
+            32u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -626,7 +653,7 @@ pub mod arena {
               f4 = rp_v as i32;
               rp_req_4 = true;
             }
-            (5u32, ::rapidproto::wire::WireType::Varint) => {
+            40u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -635,7 +662,7 @@ pub mod arena {
               f5 = rp_v as i32;
               rp_req_5 = true;
             }
-            (6u32, ::rapidproto::wire::WireType::Varint) => {
+            48u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -644,7 +671,7 @@ pub mod arena {
               f6 = rp_v as i32;
               rp_req_6 = true;
             }
-            (7u32, ::rapidproto::wire::WireType::Varint) => {
+            56u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -653,7 +680,7 @@ pub mod arena {
               f7 = rp_v as i32;
               rp_req_7 = true;
             }
-            (8u32, ::rapidproto::wire::WireType::Varint) => {
+            64u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -662,7 +689,7 @@ pub mod arena {
               f8 = rp_v as i32;
               rp_req_8 = true;
             }
-            (9u32, ::rapidproto::wire::WireType::Varint) => {
+            72u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -671,7 +698,7 @@ pub mod arena {
               f9 = rp_v as i32;
               rp_req_9 = true;
             }
-            (10u32, ::rapidproto::wire::WireType::Varint) => {
+            80u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -680,7 +707,7 @@ pub mod arena {
               f10 = rp_v as i32;
               rp_req_10 = true;
             }
-            (11u32, ::rapidproto::wire::WireType::Varint) => {
+            88u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -689,7 +716,7 @@ pub mod arena {
               f11 = rp_v as i32;
               rp_req_11 = true;
             }
-            (12u32, ::rapidproto::wire::WireType::Varint) => {
+            96u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -698,7 +725,7 @@ pub mod arena {
               f12 = rp_v as i32;
               rp_req_12 = true;
             }
-            (13u32, ::rapidproto::wire::WireType::Varint) => {
+            104u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -707,7 +734,7 @@ pub mod arena {
               f13 = rp_v as i32;
               rp_req_13 = true;
             }
-            (14u32, ::rapidproto::wire::WireType::Varint) => {
+            112u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -716,7 +743,7 @@ pub mod arena {
               f14 = rp_v as i32;
               rp_req_14 = true;
             }
-            (15u32, ::rapidproto::wire::WireType::Varint) => {
+            120u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -725,7 +752,7 @@ pub mod arena {
               f15 = rp_v as i32;
               rp_req_15 = true;
             }
-            (16u32, ::rapidproto::wire::WireType::Varint) => {
+            128u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -734,7 +761,7 @@ pub mod arena {
               f16 = rp_v as i32;
               rp_req_16 = true;
             }
-            (17u32, ::rapidproto::wire::WireType::Varint) => {
+            136u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -743,7 +770,7 @@ pub mod arena {
               f17 = rp_v as i32;
               rp_req_17 = true;
             }
-            (18u32, ::rapidproto::wire::WireType::Varint) => {
+            144u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -752,7 +779,7 @@ pub mod arena {
               f18 = rp_v as i32;
               rp_req_18 = true;
             }
-            (19u32, ::rapidproto::wire::WireType::Varint) => {
+            152u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -761,7 +788,7 @@ pub mod arena {
               f19 = rp_v as i32;
               rp_req_19 = true;
             }
-            (20u32, ::rapidproto::wire::WireType::Varint) => {
+            160u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -770,7 +797,7 @@ pub mod arena {
               f20 = rp_v as i32;
               rp_req_20 = true;
             }
-            (21u32, ::rapidproto::wire::WireType::Varint) => {
+            168u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -779,7 +806,7 @@ pub mod arena {
               f21 = rp_v as i32;
               rp_req_21 = true;
             }
-            (22u32, ::rapidproto::wire::WireType::Varint) => {
+            176u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -788,7 +815,7 @@ pub mod arena {
               f22 = rp_v as i32;
               rp_req_22 = true;
             }
-            (23u32, ::rapidproto::wire::WireType::Varint) => {
+            184u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -797,7 +824,7 @@ pub mod arena {
               f23 = rp_v as i32;
               rp_req_23 = true;
             }
-            (24u32, ::rapidproto::wire::WireType::Varint) => {
+            192u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -806,7 +833,7 @@ pub mod arena {
               f24 = rp_v as i32;
               rp_req_24 = true;
             }
-            (25u32, ::rapidproto::wire::WireType::Varint) => {
+            200u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -815,7 +842,7 @@ pub mod arena {
               f25 = rp_v as i32;
               rp_req_25 = true;
             }
-            (26u32, ::rapidproto::wire::WireType::Varint) => {
+            208u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -824,7 +851,7 @@ pub mod arena {
               f26 = rp_v as i32;
               rp_req_26 = true;
             }
-            (27u32, ::rapidproto::wire::WireType::Varint) => {
+            216u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -833,7 +860,7 @@ pub mod arena {
               f27 = rp_v as i32;
               rp_req_27 = true;
             }
-            (28u32, ::rapidproto::wire::WireType::Varint) => {
+            224u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -842,7 +869,7 @@ pub mod arena {
               f28 = rp_v as i32;
               rp_req_28 = true;
             }
-            (29u32, ::rapidproto::wire::WireType::Varint) => {
+            232u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -851,7 +878,7 @@ pub mod arena {
               f29 = rp_v as i32;
               rp_req_29 = true;
             }
-            (30u32, ::rapidproto::wire::WireType::Varint) => {
+            240u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -860,7 +887,7 @@ pub mod arena {
               f30 = rp_v as i32;
               rp_req_30 = true;
             }
-            (31u32, ::rapidproto::wire::WireType::Varint) => {
+            248u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -869,7 +896,7 @@ pub mod arena {
               f31 = rp_v as i32;
               rp_req_31 = true;
             }
-            (32u32, ::rapidproto::wire::WireType::Varint) => {
+            256u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -878,7 +905,7 @@ pub mod arena {
               f32 = rp_v as i32;
               rp_req_32 = true;
             }
-            (33u32, ::rapidproto::wire::WireType::Varint) => {
+            264u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -887,7 +914,7 @@ pub mod arena {
               f33 = rp_v as i32;
               rp_req_33 = true;
             }
-            (34u32, ::rapidproto::wire::WireType::Varint) => {
+            272u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -896,7 +923,7 @@ pub mod arena {
               f34 = rp_v as i32;
               rp_req_34 = true;
             }
-            (35u32, ::rapidproto::wire::WireType::Varint) => {
+            280u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -905,7 +932,7 @@ pub mod arena {
               f35 = rp_v as i32;
               rp_req_35 = true;
             }
-            (36u32, ::rapidproto::wire::WireType::Varint) => {
+            288u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -914,7 +941,7 @@ pub mod arena {
               f36 = rp_v as i32;
               rp_req_36 = true;
             }
-            (37u32, ::rapidproto::wire::WireType::Varint) => {
+            296u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -923,7 +950,7 @@ pub mod arena {
               f37 = rp_v as i32;
               rp_req_37 = true;
             }
-            (38u32, ::rapidproto::wire::WireType::Varint) => {
+            304u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -932,7 +959,7 @@ pub mod arena {
               f38 = rp_v as i32;
               rp_req_38 = true;
             }
-            (39u32, ::rapidproto::wire::WireType::Varint) => {
+            312u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -941,7 +968,7 @@ pub mod arena {
               f39 = rp_v as i32;
               rp_req_39 = true;
             }
-            (40u32, ::rapidproto::wire::WireType::Varint) => {
+            320u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -950,7 +977,7 @@ pub mod arena {
               f40 = rp_v as i32;
               rp_req_40 = true;
             }
-            (41u32, ::rapidproto::wire::WireType::Varint) => {
+            328u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -959,7 +986,7 @@ pub mod arena {
               f41 = rp_v as i32;
               rp_req_41 = true;
             }
-            (42u32, ::rapidproto::wire::WireType::Varint) => {
+            336u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -968,7 +995,7 @@ pub mod arena {
               f42 = rp_v as i32;
               rp_req_42 = true;
             }
-            (43u32, ::rapidproto::wire::WireType::Varint) => {
+            344u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -977,7 +1004,7 @@ pub mod arena {
               f43 = rp_v as i32;
               rp_req_43 = true;
             }
-            (44u32, ::rapidproto::wire::WireType::Varint) => {
+            352u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -986,7 +1013,7 @@ pub mod arena {
               f44 = rp_v as i32;
               rp_req_44 = true;
             }
-            (45u32, ::rapidproto::wire::WireType::Varint) => {
+            360u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -995,7 +1022,7 @@ pub mod arena {
               f45 = rp_v as i32;
               rp_req_45 = true;
             }
-            (46u32, ::rapidproto::wire::WireType::Varint) => {
+            368u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -1004,7 +1031,7 @@ pub mod arena {
               f46 = rp_v as i32;
               rp_req_46 = true;
             }
-            (47u32, ::rapidproto::wire::WireType::Varint) => {
+            376u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -1013,7 +1040,7 @@ pub mod arena {
               f47 = rp_v as i32;
               rp_req_47 = true;
             }
-            (48u32, ::rapidproto::wire::WireType::Varint) => {
+            384u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -1022,7 +1049,7 @@ pub mod arena {
               f48 = rp_v as i32;
               rp_req_48 = true;
             }
-            (49u32, ::rapidproto::wire::WireType::Varint) => {
+            392u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -1031,7 +1058,7 @@ pub mod arena {
               f49 = rp_v as i32;
               rp_req_49 = true;
             }
-            (50u32, ::rapidproto::wire::WireType::Varint) => {
+            400u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -1040,7 +1067,7 @@ pub mod arena {
               f50 = rp_v as i32;
               rp_req_50 = true;
             }
-            (51u32, ::rapidproto::wire::WireType::Varint) => {
+            408u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -1049,7 +1076,7 @@ pub mod arena {
               f51 = rp_v as i32;
               rp_req_51 = true;
             }
-            (52u32, ::rapidproto::wire::WireType::Varint) => {
+            416u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -1058,7 +1085,7 @@ pub mod arena {
               f52 = rp_v as i32;
               rp_req_52 = true;
             }
-            (53u32, ::rapidproto::wire::WireType::Varint) => {
+            424u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -1067,7 +1094,7 @@ pub mod arena {
               f53 = rp_v as i32;
               rp_req_53 = true;
             }
-            (54u32, ::rapidproto::wire::WireType::Varint) => {
+            432u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -1076,7 +1103,7 @@ pub mod arena {
               f54 = rp_v as i32;
               rp_req_54 = true;
             }
-            (55u32, ::rapidproto::wire::WireType::Varint) => {
+            440u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -1085,7 +1112,7 @@ pub mod arena {
               f55 = rp_v as i32;
               rp_req_55 = true;
             }
-            (56u32, ::rapidproto::wire::WireType::Varint) => {
+            448u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -1094,7 +1121,7 @@ pub mod arena {
               f56 = rp_v as i32;
               rp_req_56 = true;
             }
-            (57u32, ::rapidproto::wire::WireType::Varint) => {
+            456u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -1103,7 +1130,7 @@ pub mod arena {
               f57 = rp_v as i32;
               rp_req_57 = true;
             }
-            (58u32, ::rapidproto::wire::WireType::Varint) => {
+            464u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -1112,7 +1139,7 @@ pub mod arena {
               f58 = rp_v as i32;
               rp_req_58 = true;
             }
-            (59u32, ::rapidproto::wire::WireType::Varint) => {
+            472u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -1121,7 +1148,7 @@ pub mod arena {
               f59 = rp_v as i32;
               rp_req_59 = true;
             }
-            (60u32, ::rapidproto::wire::WireType::Varint) => {
+            480u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -1130,7 +1157,7 @@ pub mod arena {
               f60 = rp_v as i32;
               rp_req_60 = true;
             }
-            (61u32, ::rapidproto::wire::WireType::Varint) => {
+            488u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -1139,7 +1166,7 @@ pub mod arena {
               f61 = rp_v as i32;
               rp_req_61 = true;
             }
-            (62u32, ::rapidproto::wire::WireType::Varint) => {
+            496u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -1148,7 +1175,7 @@ pub mod arena {
               f62 = rp_v as i32;
               rp_req_62 = true;
             }
-            (63u32, ::rapidproto::wire::WireType::Varint) => {
+            504u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -1157,7 +1184,7 @@ pub mod arena {
               f63 = rp_v as i32;
               rp_req_63 = true;
             }
-            (64u32, ::rapidproto::wire::WireType::Varint) => {
+            512u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -1166,7 +1193,7 @@ pub mod arena {
               f64 = rp_v as i32;
               rp_req_64 = true;
             }
-            (65u32, ::rapidproto::wire::WireType::Varint) => {
+            520u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -1176,7 +1203,7 @@ pub mod arena {
               rp_req_65 = true;
             }
             _ => {
-              rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
+              rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
