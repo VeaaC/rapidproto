@@ -482,6 +482,58 @@ fn skip_depth(rest: &[u8], tag: Tag, depth: u32) -> Result<&[u8], ErrorKind> {
     }
 }
 
+/// Decode a proto2 group: `rest` is positioned just after the group's start tag (at the group body),
+/// and `field` is the group's field number. Scans to the matching end-group tag (field number ==
+/// `field`, nested groups recursing, capped by [`MAX_SKIP_DEPTH`]) and writes the group BODY span --
+/// everything between the start tag and the matching end tag -- to `out`, returning the slice past the
+/// end tag. The decoding counterpart of [`skip`]'s group case (which only advances), and the Rust
+/// mirror of C++ `wire::read_group`: the generated decoder then decodes `out` as the group message's
+/// body, exactly as it decodes a length-delimited payload.
+#[inline]
+pub fn read_group<'a>(
+    rest: &'a [u8],
+    field: u32,
+    out: &mut &'a [u8],
+) -> Result<&'a [u8], ErrorKind> {
+    read_group_depth(rest, field, 0, out)
+}
+
+fn read_group_depth<'a>(
+    rest: &'a [u8],
+    field: u32,
+    depth: u32,
+    out: &mut &'a [u8],
+) -> Result<&'a [u8], ErrorKind> {
+    if depth >= MAX_SKIP_DEPTH {
+        return Err(ErrorKind::DepthLimitExceeded);
+    }
+    let body_start = rest;
+    let mut rest = rest;
+    loop {
+        // The slice at the next tag: the body ends here when that tag is the matching end-group.
+        let at_tag = rest;
+        let mut inner = Tag {
+            field: 0,
+            wire: WireType::Varint,
+        };
+        rest = read_tag(rest, &mut inner)?;
+        if inner.wire == WireType::EGroup {
+            // The end tag must close THIS group (field number matches), like `skip` and the C++ reader.
+            if inner.field != field {
+                return Err(ErrorKind::InvalidWireType);
+            }
+            // Body = [body_start, the matching end-group tag): the content to decode as the message.
+            let body_len = body_start.len() - at_tag.len();
+            *out = &body_start[..body_len];
+            break;
+        }
+        // Advance past this inner field's value (nested groups skipped to their own end), so the scan
+        // stops only at THIS group's matching end -- the nested content stays in the returned body span.
+        rest = skip_depth(rest, inner, depth + 1)?;
+    }
+    Ok(rest)
+}
+
 /// Skip a field the generated decoder had no typed arm for, given its raw tag key
 /// (`field << 3 | wire_code` -- the value the decode loop's one-byte peek hub dispatches on).
 /// Reconstructs the wire type and skips the field's value, returning the slice past it.
@@ -769,6 +821,34 @@ mod tests {
                 .unwrap_err()
                 .kind(),
             ErrorKind::Truncated
+        );
+    }
+
+    #[test]
+    fn read_group_returns_the_body_span_and_the_tail() {
+        // Start tag already consumed by the caller. Body: field-1 varint (0x08 0x01), a nested group
+        // field 2 (start 0x13, end 0x14), then THIS group's end (field 1 -> 0x0c); 0xde 0xad trail.
+        let buf = [0x08, 0x01, 0x13, 0x14, 0x0c, 0xde, 0xad];
+        let mut body: &[u8] = &[];
+        let tail = read_group(&buf, 1, &mut body).unwrap();
+        // Body is everything up to (not including) the matching end tag -- the nested group included.
+        assert_eq!(body, &[0x08, 0x01, 0x13, 0x14]);
+        assert_eq!(tail, &[0xde, 0xad]);
+    }
+
+    #[test]
+    fn read_group_rejects_mismatched_end_and_caps_depth() {
+        let mut body: &[u8] = &[];
+        // An end tag for a different field number does not close this group.
+        assert_eq!(
+            read_group(&[0x14], 1, &mut body).unwrap_err(),
+            ErrorKind::InvalidWireType
+        );
+        // A run of start tags with no ends hits the depth cap, never recursing unboundedly.
+        let starts = vec![0x0b_u8; (MAX_SKIP_DEPTH as usize) + 5];
+        assert_eq!(
+            read_group(&starts, 1, &mut body).unwrap_err(),
+            ErrorKind::DepthLimitExceeded
         );
     }
 

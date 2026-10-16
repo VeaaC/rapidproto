@@ -520,24 +520,25 @@ arenagen::FieldMode map_mode(const FieldModes& modes, const MapFieldNode& map) {
     return it == modes.maps.end() ? arenagen::FieldMode::Materialize : it->second;
 }
 
-// Whether a message is a decode candidate on its OWN shape (ignoring what it references): no delimited
-// (group) message field it must MATERIALIZE -- in a regular field or a oneof member. A group arrives as
-// SGROUP/EGROUP (wire type 3/4), not a length prefix, so a length-prefixed decode arm would silently
-// drop it -- it stays a skeleton until a group slice. A `drop` field is skip-validated (never blocks,
-// and can even make a group-bearing message decodable); a `raw` field stores its payload bytes without
-// decoding (never blocks) -- except a `raw` GROUP field, which would need group-span capture (deferred)
-// and so still blocks. (Maps, oneofs, proto2 `required` and proto2 custom defaults are handled.)
+// Whether a message is a decode candidate on its OWN shape (ignoring what it references). A materialized
+// group (delimited) message field decodes via `read_group` (SGROUP..matching EGROUP → body span), so it
+// no longer blocks. The one remaining block is a `raw` GROUP field: `raw` stores a field's payload
+// bytes undecoded, and a group's "payload" is a scanned span (not a length prefix) that the raw path
+// does not yet capture -- deferred, so a raw group field still keeps the message a skeleton. A `drop`
+// field is skip-validated (never blocks, and can even rescue a group-bearing message under a profile
+// that drops the group). (Maps, oneofs, proto2 `required` and proto2 custom defaults are handled.)
 bool self_decodable(const MessageNode& msg, const FieldModes& modes) {
     const auto field_ok = [&](const FieldNode& field) {
         switch (field_mode(modes, field)) {
             case arenagen::FieldMode::Drop:
                 return true;
             case arenagen::FieldMode::Raw:
+                // A raw group needs group-span capture (deferred); other raw fields store bytes fine.
                 return field.message_encoding != MessageEncoding::Delimited;
             case arenagen::FieldMode::Materialize:
                 break;
         }
-        return !field.is_message_type || field.message_encoding != MessageEncoding::Delimited;
+        return true;  // materialized scalar/message/group field -- all decodable now
     };
     if (!std::all_of(msg.fields.begin(), msg.fields.end(), field_ok)) {
         return false;
@@ -872,6 +873,7 @@ enum WireCode : std::uint8_t {
     kWireVarint = 0,
     kWireI64 = 1,
     kWireLen = 2,
+    kWireSGroup = 3,  // proto2 group start (a materialized group message field dispatches on this)
     kWireI32 = 5,
 };
 
@@ -887,6 +889,8 @@ std::int64_t raw_tag_value(std::int64_t number, const std::string& wire) {
         code = kWireI64;
     } else if (wire == "Len") {
         code = kWireLen;
+    } else if (wire == "SGroup") {
+        code = kWireSGroup;
     }
     return (number << 3) | code;
 }
@@ -1115,6 +1119,32 @@ void emit_len_read(Printer& printer, const ReadAt& at) {
     printer.print("};\n");
 }
 
+// The wire form a message field arrives in: a proto2 group (delimited) is `SGroup` (start-group tag,
+// scanned to its matching end), every other message field is length-prefixed (`Len`). Drives both the
+// dispatch key and which payload reader runs.
+std::string message_field_wire(const FieldNode& field) {
+    return field.message_encoding == MessageEncoding::Delimited ? "SGroup" : "Len";
+}
+
+// Read a message field's payload from `at.src` into `rp_p`: a length-delimited body for a normal
+// message, or a group body (start-tag already consumed, scanned to the matching end-group) via
+// `read_group` for a proto2 group field. Either way `rp_p` is the bytes to decode as the message body.
+void emit_msg_payload_read(Printer& printer, const FieldNode& field, const ReadAt& at) {
+    if (field.message_encoding != MessageEncoding::Delimited) {
+        emit_len_read(printer, at);
+        return;
+    }
+    printer.print("let mut rp_p: &[u8] = &[];\n");
+    printer.print("$s$ = match ::rapidproto::wire::read_group($s$, $n$, &mut rp_p) {\n",
+                  {{"s", at.src}, {"n", std::to_string(field.number)}});
+    printer.indent();
+    printer.print("Ok(r) => r,\n");
+    printer.print("Err(k) => return Err(::rapidproto::DecodeError::new(k, $off$)),\n",
+                  {{"off", at.off}});
+    printer.outdent();
+    printer.print("};\n");
+}
+
 // A `DecodeVec::push`, mapping arena exhaustion to a DecodeError.
 void emit_push(Printer& printer, const std::string& acc, const std::string& value) {
     printer.print(
@@ -1254,7 +1284,7 @@ void emit_repeated_native_body(Printer& printer, const NameTable& table,
     const std::string acc = "rp_acc_" + std::to_string(field.number);
     if (field.is_message_type) {
         const std::string path = arena_message_path(table, current_mod, field.resolved_type_fqn);
-        emit_len_read(printer, loop_read());
+        emit_msg_payload_read(printer, field, loop_read());
         printer.print(
             "$acc$.emplace(|rp_out| $p$::decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;\n",
             {{"acc", acc}, {"p", path}});
@@ -1304,7 +1334,7 @@ void emit_singular_message_body(Printer& printer, const NameTable& table,
         {{"off", kLoopOff}, {"n", nstr}});
     printer.outdent();
     printer.print("}\n");
-    emit_len_read(printer, loop_read());
+    emit_msg_payload_read(printer, field, loop_read());
     if (inlined) {
         // Decode by value directly into the inline storage slot (no arena alloc, no pointer).
         printer.print(
@@ -1336,7 +1366,7 @@ void emit_singular_message_arm(Printer& printer, const NameTable& table,
                                const std::vector<std::string>& current_mod, const FieldNode& field,
                                const std::string& accessor, bool required,
                                const arenagen::MemberPlan* member, int mask_bits) {
-    printer.print("$k$ => {\n", {{"k", raw_tag_key(field.number, "Len")}});
+    printer.print("$k$ => {\n", {{"k", raw_tag_key(field.number, message_field_wire(field))}});
     printer.indent();
     emit_singular_message_body(printer, table, current_mod, field, accessor, required, member,
                                mask_bits);
@@ -1454,7 +1484,7 @@ void emit_field_arms(Printer& printer, const NameTable& table,
         return;
     }
     if (field.is_message_type && field.is_repeated) {
-        printer.print("$k$ => {\n", {{"k", raw_tag_key(field.number, "Len")}});
+        printer.print("$k$ => {\n", {{"k", raw_tag_key(field.number, message_field_wire(field))}});
         printer.indent();
         emit_repeated_native_body(printer, table, current_mod, field);  // one element -> array slot
         printer.outdent();
@@ -1539,7 +1569,7 @@ void emit_oneof_body(Printer& printer, const NameTable& table,
             {{"off", kLoopOff}, {"n", nstr}});
         printer.outdent();
         printer.print("}\n");
-        emit_len_read(printer, loop_read());
+        emit_msg_payload_read(printer, field, loop_read());
         // Decode the oneof's message member directly into its arena slot (no by-value copy).
         printer.print(
             "let rp_ptr = rp_arena.emplace(|rp_out| $p$::decode_into(rp_out, rp_p, rp_arena, "
@@ -1573,7 +1603,8 @@ void emit_oneof_arm(Printer& printer, const NameTable& table,
                     const std::vector<std::string>& current_mod, const FieldNode& field,
                     const std::string& oneof_local, const std::string& enum_path,
                     const std::string& variant) {
-    const std::string wire = field.is_message_type ? "Len" : scalar_wire_variant(field);
+    const std::string wire =
+        field.is_message_type ? message_field_wire(field) : scalar_wire_variant(field);
     printer.print("$k$ => {\n", {{"k", raw_tag_key(field.number, wire)}});
     printer.indent();
     emit_oneof_body(printer, table, current_mod, field, oneof_local, enum_path, variant);
