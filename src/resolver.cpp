@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <ios>
 #include <optional>
 #include <sstream>
@@ -81,12 +82,80 @@ Result<FileNode> parse_source(const std::string& filename, std::string source, S
 
 enum class Color : std::uint8_t { Gray, Black };
 
+// How the resolver obtains source text. Chosen ONCE from the config -- the filesystem (search the
+// include paths) or the in-memory provider (the wasm front-end, no disk) -- so the resolver body has
+// a single uniform path with no per-call "do we have a provider?" branch. The well-known-type
+// fallback is NOT here: both sources share it, so it stays in the resolver body.
+struct SourceAccess {
+    // Resolve the entry ARGUMENT to {canonical name, text}, or nullopt if it cannot be read. The
+    // name is the identity key the file registers under (so an entry that is also imported dedupes);
+    // it is derived differently from how the file is read, which is why this returns both.
+    std::function<std::optional<std::pair<std::string, std::string>>(const std::string&)>
+        fetch_entry;
+    // Read an import by its canonical path, or nullopt if this source has no such file.
+    std::function<std::optional<std::string>(const std::string&)> fetch_import;
+    // Appended to an "import not found" error: the actionable hint differs by source.
+    std::string import_not_found_hint;
+};
+
+SourceAccess make_source_access(const ResolverConfig& config) {
+    if (config.source_provider) {
+        // In-memory (wasm): the host hands the entry under the canonical name any importer would use,
+        // so that name is both the identity and the lookup key; imports look up the same provider.
+        // Filesystem canonicalization is skipped -- it would touch a disk that is not there.
+        const auto provider = config.source_provider;
+        return SourceAccess{
+            [provider](
+                const std::string& entry) -> std::optional<std::pair<std::string, std::string>> {
+                if (auto text = provider(entry)) {
+                    return std::make_pair(entry, std::move(*text));
+                }
+                return std::nullopt;
+            },
+            [provider](const std::string& import_path) { return provider(import_path); },
+            "; it was not in the source set provided",
+        };
+    }
+    // Filesystem (native CLI): an entry's identity is its name relative to the include paths, but it
+    // is READ from the path given (which may be outside any include path); imports are searched
+    // across the include paths, the first match owning the file.
+    const std::vector<std::string> include_paths = config.include_paths;
+    std::string hint = include_paths.empty()
+                           ? "; no include paths were given -- add -I <dir>"
+                           : "; searched " + std::to_string(include_paths.size()) +
+                                 " include path(s) -- add the right -I <dir>";
+    return SourceAccess{
+        [include_paths](
+            const std::string& entry) -> std::optional<std::pair<std::string, std::string>> {
+            if (auto text = read_file_contents(entry)) {
+                return std::make_pair(canonical_entry_name(entry, include_paths), std::move(*text));
+            }
+            return std::nullopt;
+        },
+        [include_paths](const std::string& import_path) -> std::optional<std::string> {
+            for (const auto& include : include_paths) {
+                if (include.empty()) {
+                    continue;  // an empty include entry would silently mean "search CWD"
+                }
+                const std::filesystem::path full = std::filesystem::path(include) / import_path;
+                if (std::filesystem::exists(full)) {
+                    // The first include path that has the file owns it: do not fall through to a
+                    // shadowed copy (or the embedded WKT) if it happens to be unreadable.
+                    return read_file_contents(full);
+                }
+            }
+            return std::nullopt;
+        },
+        std::move(hint),
+    };
+}
+
 // DFS import resolver with white/gray/black cycle detection and post-order (topological)
 // collection.
 class Resolver {
 public:
     Resolver(ResolverConfig config, SourceRegistry& sources)
-        : m_config(std::move(config)), m_sources(sources) {}
+        : m_config(std::move(config)), m_access(make_source_access(m_config)), m_sources(sources) {}
 
     // Resolve every entry into ONE union set. Entries visit in argument order; a file reached
     // twice -- listed twice, or listed AND imported by an earlier entry -- resolves once (the
@@ -94,21 +163,18 @@ public:
     // across entries.
     Result<ResolvedFileSet> run(const std::vector<std::string>& entry_files) {
         for (const std::string& entry_file : entry_files) {
-            // With an in-memory provider the entry is keyed by the name it was given (the host has
-            // already resolved it); the filesystem canonicalization would touch a disk that is not
-            // there.
-            const std::string entry_name =
-                m_config.source_provider ? entry_file
-                                         : canonical_entry_name(entry_file, m_config.include_paths);
-            if (m_parsed.count(entry_name) != 0) {
-                continue;  // already resolved via an earlier entry (as it, or as its import)
-            }
-            auto source = m_config.source_provider ? m_config.source_provider(entry_name)
-                                                   : read_file_contents(entry_file);
-            if (!source) {
+            auto resolved = m_access.fetch_entry(entry_file);
+            if (!resolved) {
                 return Error{0, "entry file not found: " + entry_file};
             }
-            if (auto error = visit(entry_name, std::move(*source))) {
+            auto& [entry_name, text] = *resolved;
+            if (m_parsed.count(entry_name) != 0) {
+                // Already resolved via an earlier entry (as it, or as its import). We read it to
+                // learn its name; the re-read of an already-resolved file is negligible and keeps
+                // the single fetch_entry op.
+                continue;
+            }
+            if (auto error = visit(entry_name, std::move(text))) {
                 return *error;
             }
         }
@@ -122,27 +188,11 @@ public:
     }
 
 private:
-    // Look up an import in the include paths (or the in-memory provider), then the embedded
-    // well-known types.
-    std::optional<std::string> read_import(const std::string& import_path) {
-        if (m_config.source_provider) {
-            // The provider owns the file if it has it; otherwise fall through to the WKTs, so a
-            // host need not carry them. (No include-path disk search in this mode.)
-            if (auto provided = m_config.source_provider(import_path)) {
-                return provided;
-            }
-        } else {
-            for (const auto& include : m_config.include_paths) {
-                if (include.empty()) {
-                    continue;  // an empty include entry would silently mean "search CWD"
-                }
-                const std::filesystem::path full = std::filesystem::path(include) / import_path;
-                if (std::filesystem::exists(full)) {
-                    // The first include path that has the file owns it: do not fall through to a
-                    // shadowed copy (or the embedded WKT) if it happens to be unreadable.
-                    return read_file_contents(full);
-                }
-            }
+    // Look up an import through the chosen source, then fall back to the embedded well-known types
+    // (shared by both sources, so a host need not carry them).
+    std::optional<std::string> read_import(const std::string& import_path) const {
+        if (auto found = m_access.fetch_import(import_path)) {
+            return found;
         }
         if (m_config.use_wellknown) {
             if (auto embedded = wellknown_source(import_path)) {
@@ -208,17 +258,7 @@ private:
                 message += " (imported by ";
                 message += name;
                 message += ")";
-                // The most common new-user failure is a missing -I, so say what was searched. In
-                // provider mode there are no include paths -- the host owns the source set -- so the
-                // -I advice would be wrong; say the file was not in the set instead.
-                if (m_config.source_provider) {
-                    message += "; it was not in the source set provided";
-                } else {
-                    message += m_config.include_paths.empty()
-                                   ? "; no include paths were given -- add -I <dir>"
-                                   : "; searched " + std::to_string(m_config.include_paths.size()) +
-                                         " include path(s) -- add the right -I <dir>";
-                }
+                message += m_access.import_not_found_hint;
                 return Error{0, std::move(message)};
             }
             if (auto error = visit(import_path, std::move(*import_source))) {
@@ -233,6 +273,7 @@ private:
     }
 
     ResolverConfig m_config;
+    SourceAccess m_access;  // filesystem or in-memory; chosen once from m_config
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-const-or-ref-data-members): borrowed for the run
     SourceRegistry& m_sources;  // every loaded file is registered here (filename + text)
     std::unordered_map<std::string, Color> m_color;
