@@ -745,6 +745,20 @@ TEST_CASE("rustgen modes: drop / raw / unknown-fields on a decodable message") {
     CHECK(!has(out, "todo!()"));  // M + Sub both decodable -> real decoders
 }
 
+TEST_CASE("rustgen modes: an empty unknown-tracked message sets the bit unconditionally") {
+    // A fieldless message with unknown tracking has NO declared field numbers, so the loop's `_`
+    // catch-all must set rp_unknown unconditionally -- an `if !matches!(rp_tagkey >> 3, )` with an
+    // empty or-pattern is a Rust syntax error. (Regression guard: the per-field `matches!` routing
+    // only applies when there is at least one declared number.)
+    arenagen::FieldModesSpec spec;
+    spec.unknowns.push_back({"p.Empty", "test"});
+    const std::string out =
+        gen_arena_modes(R"(syntax = "proto3"; package p; message Empty {})", spec);
+    CHECK(has(out, "rp_unknown = true;"));
+    CHECK(!has(out, "matches!(rp_tagkey >> 3, )"));   // the broken empty-pattern form
+    CHECK(!has(out, "if !matches!(rp_tagkey >> 3"));  // fieldless -> no routing guard at all
+}
+
 TEST_CASE("rustgen modes: raw rescues a group-bearing reference from skeleton") {
     // A message whose only blocker is referencing a group-bearing (skeleton) message becomes decodable
     // when that field is `raw`: the payload is stored undecoded, so the referent's decodability is moot.

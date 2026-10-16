@@ -1293,8 +1293,9 @@ void emit_singular_message_arm(Printer& printer, const NameTable& table,
     printer.print("}\n");
 }
 
-// Emit the `match (field, wire)` arm(s) for one field: one arm for a singular value, two for a
-// repeated numeric (unpacked + packed), reading via the value-threaded wire primitives and storing
+// Emit the `match rp_tagkey` arm(s) for one field, keyed by its raw tag `field << 3 | wire`: one arm
+// for a singular value, two for a repeated numeric (unpacked + packed), reading via the value-threaded
+// wire primitives and storing
 // into the field's local (`accessor`) or pushing into its accumulator (`rp_acc_<n>`). A singular
 // message is decoded in place (see emit_singular_message_arm); a repeated message's element is decoded
 // into the growable array slot. A singular message seen twice is rejected (matching C++).
@@ -1732,12 +1733,18 @@ void emit_decode_arms(Printer& printer, const NameTable& table,
     if (wants_unknown) {
         // A declared field number with a wrong wire type is still "known" (skip, no bit); only an
         // undeclared number trips the unknown bit. The `_` arm cannot pattern out the field bits of a
-        // single key, so route on `rp_tagkey >> 3` in the cold catch-all.
-        printer.print("if !matches!(rp_tagkey >> 3, $k$) {\n", {{"k", known_numbers}});
-        printer.indent();
-        printer.print("rp_unknown = true;\n");  // a genuinely unknown field number was seen
-        printer.outdent();
-        printer.print("}\n");
+        // single key, so route on `rp_tagkey >> 3` in the cold catch-all. A fieldless message has no
+        // known numbers, so every field on the wire is unknown -- set the bit unconditionally (an empty
+        // `matches!(.., )` pattern is a Rust syntax error).
+        if (known_numbers.empty()) {
+            printer.print("rp_unknown = true;\n");
+        } else {
+            printer.print("if !matches!(rp_tagkey >> 3, $k$) {\n", {{"k", known_numbers}});
+            printer.indent();
+            printer.print("rp_unknown = true;\n");  // a genuinely unknown field number was seen
+            printer.outdent();
+            printer.print("}\n");
+        }
     }
     emit_skip_field_body(printer, loop_read());
     printer.outdent();
