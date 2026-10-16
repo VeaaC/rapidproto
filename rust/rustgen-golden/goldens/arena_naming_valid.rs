@@ -110,6 +110,7 @@ pub mod arena {
           Ok(&*rp_root)
         }
 
+        #[inline(always)]
         #[doc(hidden)]
         pub(crate) fn decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Outer<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
           if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
@@ -316,6 +317,7 @@ pub mod arena {
         Ok(&*rp_root)
       }
 
+      #[inline(always)]
       #[doc(hidden)]
       pub(crate) fn decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Collide<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
@@ -586,6 +588,7 @@ pub mod arena {
         Ok(&*rp_root)
       }
 
+      #[inline(always)]
       #[doc(hidden)]
       pub(crate) fn decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Callback<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
@@ -677,6 +680,7 @@ pub mod arena {
         Ok(&*rp_root)
       }
 
+      #[inline(always)]
       #[doc(hidden)]
       pub(crate) fn decode_into<'id>(rp_out: ::rapidproto::Slot<'id, FooEntry<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
@@ -831,6 +835,7 @@ pub mod arena {
         Ok(&*rp_root)
       }
 
+      #[inline(always)]
       #[doc(hidden)]
       pub(crate) fn decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Outer<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
@@ -905,6 +910,7 @@ pub mod arena {
         Ok(&*rp_root)
       }
 
+      #[inline(always)]
       #[doc(hidden)]
       pub(crate) fn decode_into<'id>(rp_out: ::rapidproto::Slot<'id, m_x<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
@@ -970,6 +976,7 @@ pub mod arena {
         Ok(&*rp_root)
       }
 
+      #[inline(always)]
       #[doc(hidden)]
       pub(crate) fn decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Sibling<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
@@ -1054,6 +1061,7 @@ pub mod arena {
         Ok(&*rp_root)
       }
 
+      #[inline(always)]
       #[doc(hidden)]
       pub(crate) fn decode_into<'id>(rp_out: ::rapidproto::Slot<'id, config_<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
@@ -1118,6 +1126,7 @@ pub mod arena {
         Ok(&*rp_root)
       }
 
+      #[inline(always)]
       #[doc(hidden)]
       pub(crate) fn decode_into<'id>(rp_out: ::rapidproto::Slot<'id, MaskOneof<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
@@ -1206,6 +1215,7 @@ pub mod arena {
         Ok(&*rp_root)
       }
 
+      #[inline(always)]
       #[doc(hidden)]
       pub(crate) fn decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Bytes<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
@@ -1289,6 +1299,7 @@ pub mod arena {
         Ok(&*rp_root)
       }
 
+      #[inline(always)]
       #[doc(hidden)]
       pub(crate) fn decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Keywords<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {

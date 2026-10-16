@@ -2097,6 +2097,17 @@ void emit_decode(Printer& printer, const NameTable& table,
     printer.outdent();
     printer.print("}\n\n");
 
+    // Emulate the C++ decoder's RP_FLATTEN / RP_NOINLINE, driven by the SAME flatten-budget decision
+    // (`plan_layouts` sets `noinline_decode`, so the two generators flatten identically). A message
+    // under budget is `#[inline(always)]`, so a parent's decode absorbs it -- and, since its own
+    // sub-message decoders are likewise `#[inline(always)]` until the next marked message, the whole
+    // closure collapses into one function (the Rust analog of flatten). A budget-marked message is
+    // `#[inline(never)]`: the out-of-line boundary that stops a parent from absorbing it, which bounds
+    // whole-closure (and compile-time) growth on a large or recursive schema. A message with no layout
+    // (defensive; decodable messages always have one) keeps the compiler's default.
+    if (layout != nullptr) {
+        printer.print(layout->noinline_decode ? "#[inline(never)]\n" : "#[inline(always)]\n");
+    }
     // `rp_arena` is unused when the body neither accumulates a repeated field nor allocates a
     // sub-message (a message of only singular scalar/enum/string/bytes fields); name it `_rp_arena`
     // then to avoid an unused-variable warning.
