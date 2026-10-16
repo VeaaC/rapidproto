@@ -205,6 +205,22 @@ arenagen::FieldModesSpec modes_golden_spec() {
     return spec;
 }
 
+// A second field-modes golden over the proto2 `arena_modes` schema under the SAME `lean` profile as the
+// C++ arena_modes golden (tests/arena_modes_profile.hpp): drop debug/extra/old_ids, raw the Blob type
+// (blob/blobs/req_blob) and -- the point -- a RAW GROUP field (fm.Holder.grp). It gives the Rust
+// decoder a compiled raw-group round-trip (tests/decode.rs), the one group-decode path no plain golden
+// reaches, matching C++ `test_arena_decode` "raw fields hold their exact payloads".
+constexpr std::string_view kArenaModesGoldenStem = "arena_modes_lean";
+arenagen::FieldModesSpec arena_modes_golden_spec() {
+    arenagen::FieldModesSpec spec;
+    spec.entries.push_back({arenagen::FieldMode::Drop, "fm.Holder.debug", "golden-modes"});
+    spec.entries.push_back({arenagen::FieldMode::Drop, "fm.Holder.extra", "golden-modes"});
+    spec.entries.push_back({arenagen::FieldMode::Drop, "fm.Holder.old_ids", "golden-modes"});
+    spec.entries.push_back({arenagen::FieldMode::Raw, "fm.Blob", "golden-modes"});
+    spec.entries.push_back({arenagen::FieldMode::Raw, "fm.Holder.grp", "golden-modes"});
+    return spec;
+}
+
 // Analyze several in-memory schemas as ONE set and emit them together, for cross-package edge cases
 // the on-disk corpus does not cover. The schemas need not import one another -- the merged module
 // tree is built from their packages alone -- so this exercises the package trie directly.
@@ -828,6 +844,11 @@ TEST_CASE("rustgen goldens match the corpus (compile smoke-test)", "[rustgen-gol
     check_golden(std::string(kModesGoldenStem),
                  gen_corpus_modes("proto3.proto", modes_golden_spec()));
     stems.emplace_back(kModesGoldenStem);
+    // A second modes golden: the proto2 arena_modes schema (raw group + raw/drop fields), mirroring
+    // the C++ arena_modes profile, so the Rust raw-group decode path has a compiled round-trip.
+    check_golden(std::string(kArenaModesGoldenStem),
+                 gen_corpus_modes("arena_modes.proto", arena_modes_golden_spec()));
+    stems.emplace_back(kArenaModesGoldenStem);
     // The shared benchmark schema (tests/bench/bench.proto, package `bench`) -- generated so the Rust
     // decode benchmark (rust/rustgen-golden/benches/decode.rs) measures a realistic record decoder over
     // the SAME schema the C++ arena bench uses.
