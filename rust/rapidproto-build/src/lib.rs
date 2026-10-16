@@ -9,6 +9,7 @@
 //! to stdout (see [`frame`] for the wire format, which mirrors `src/rustgen/wasm_entry.cpp`). Errors
 //! come back on stderr with a nonzero exit code, surfaced here as [`GenError`].
 
+use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
 use std::io::Cursor;
 use std::path::{Component, Path, PathBuf};
@@ -62,32 +63,40 @@ impl std::error::Error for GenError {}
 /// `.modes` text, and a one-byte unknown-all flag. Bodies are length-prefixed, so a proto's
 /// newlines/quotes need no escaping.
 mod frame {
-    use super::Request;
+    use super::{GenError, Request};
 
-    fn put_u32(buf: &mut Vec<u8>, value: u32) {
-        buf.extend_from_slice(&value.to_le_bytes());
+    /// Write a u32 little-endian count/length, rejecting (never truncating) a value past u32::MAX --
+    /// so a pathologically large source can't silently wrap its length prefix and corrupt the frame.
+    fn put_len(buf: &mut Vec<u8>, n: usize) -> Result<(), GenError> {
+        let len = u32::try_from(n).map_err(|_| GenError {
+            code: -1,
+            message: format!("frame field too large: {n} bytes (max {})", u32::MAX),
+        })?;
+        buf.extend_from_slice(&len.to_le_bytes());
+        Ok(())
     }
 
-    fn put_bytes(buf: &mut Vec<u8>, bytes: &[u8]) {
-        put_u32(buf, bytes.len() as u32);
+    fn put_bytes(buf: &mut Vec<u8>, bytes: &[u8]) -> Result<(), GenError> {
+        put_len(buf, bytes.len())?;
         buf.extend_from_slice(bytes);
+        Ok(())
     }
 
-    pub(super) fn encode(request: &Request) -> Vec<u8> {
+    pub(super) fn encode(request: &Request) -> Result<Vec<u8>, GenError> {
         let mut buf = Vec::new();
         buf.extend_from_slice(b"RPWF1\n");
-        put_u32(&mut buf, request.entries.len() as u32);
+        put_len(&mut buf, request.entries.len())?;
         for entry in &request.entries {
-            put_bytes(&mut buf, entry.as_bytes());
+            put_bytes(&mut buf, entry.as_bytes())?;
         }
-        put_u32(&mut buf, request.sources.len() as u32);
+        put_len(&mut buf, request.sources.len())?;
         for source in &request.sources {
-            put_bytes(&mut buf, source.name.as_bytes());
-            put_bytes(&mut buf, source.body.as_bytes());
+            put_bytes(&mut buf, source.name.as_bytes())?;
+            put_bytes(&mut buf, source.body.as_bytes())?;
         }
-        put_bytes(&mut buf, request.modes.as_bytes());
+        put_bytes(&mut buf, request.modes.as_bytes())?;
         buf.push(u8::from(request.unknown_all));
-        buf
+        Ok(buf)
     }
 }
 
@@ -95,7 +104,7 @@ mod frame {
 /// whole closure) or the blob's error. The blob is a pure function of its input: same frame, same
 /// bytes out — and byte-identical to native `rapidprotoc --rust`.
 pub fn generate(request: &Request) -> Result<String, GenError> {
-    let frame = frame::encode(request);
+    let frame = frame::encode(request)?;
 
     // Validating/translating the ~1 MB blob is the expensive step, and it never changes, so compile
     // it once and reuse it: a caller that generates many files (our golden gate does 49) pays it
@@ -185,14 +194,29 @@ pub fn generate_from_disk(
     modes: &str,
     unknown_all: bool,
 ) -> Result<String, GenError> {
+    // Canonicalize the include dirs once, so the source walk and the entry-key derivation compare in
+    // the same absolute/normalized/symlink-resolved terms native `canonical_entry_name` uses. Without
+    // this a `./`-prefixed or relative-vs-absolute entry path would key differently from how an
+    // importer names the same file, splitting the closure into two entries.
+    let includes: Vec<PathBuf> = includes
+        .iter()
+        .map(|dir| {
+            dir.canonicalize()
+                .map_err(|e| internal(format!("include dir {}: {e}", dir.display())))
+        })
+        .collect::<Result<_, _>>()?;
+
     let mut sources: BTreeMap<String, String> = BTreeMap::new();
-    for include in includes {
+    for include in &includes {
         collect_protos(include, include, &mut sources).map_err(internal)?;
     }
     let mut entry_names = Vec::with_capacity(entries.len());
     for entry in entries {
-        let name = import_relative_name(entry, includes);
-        let body = read(entry).map_err(internal)?;
+        let canonical = entry
+            .canonicalize()
+            .map_err(|e| internal(format!("entry {}: {e}", entry.display())))?;
+        let name = import_relative_name(&canonical, &includes);
+        let body = read(&canonical).map_err(internal)?;
         sources.insert(name.clone(), body);
         entry_names.push(name);
     }
@@ -208,7 +232,8 @@ pub fn generate_from_disk(
 }
 
 /// The name an `import` would use for `entry`: its path relative to the first include dir that
-/// contains it, else its file name. Matches the generator's canonical entry key.
+/// contains it, else its file name. `entry` and `includes` must already be canonicalized (see
+/// [`generate_from_disk`]) so the prefix comparison matches native's canonical entry key.
 pub fn import_relative_name(entry: &Path, includes: &[PathBuf]) -> String {
     for include in includes {
         if let Ok(rel) = entry.strip_prefix(include) {
@@ -238,7 +263,12 @@ fn collect_protos(
             collect_protos(root, &path, out)?;
         } else if path.extension().is_some_and(|e| e == "proto") {
             let rel = path.strip_prefix(root).unwrap_or(&path);
-            out.insert(to_slash(rel), read(&path)?);
+            // First include dir wins (match native/protoc), so skip a path an earlier -I already
+            // provided -- and skip reading it, too.
+            // Read (and keep) only if an earlier -I has not already provided this key.
+            if let Entry::Vacant(slot) = out.entry(to_slash(rel)) {
+                slot.insert(read(&path)?);
+            }
         }
     }
     Ok(())

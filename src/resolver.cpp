@@ -84,42 +84,60 @@ enum class Color : std::uint8_t { Gray, Black };
 
 // How the resolver obtains source text. Chosen ONCE from the config -- the filesystem (search the
 // include paths) or the in-memory provider (the wasm front-end, no disk) -- so the resolver body has
-// a single uniform path with no per-call "do we have a provider?" branch. The well-known-type
-// fallback is NOT here: both sources share it, so it stays in the resolver body.
+// a single uniform path with no per-call "do we have a provider?" branch.
 struct SourceAccess {
     // Resolve the entry ARGUMENT to {canonical name, text}, or nullopt if it cannot be read. The
     // name is the identity key the file registers under (so an entry that is also imported dedupes);
     // it is derived differently from how the file is read, which is why this returns both.
     std::function<std::optional<std::pair<std::string, std::string>>(const std::string&)>
         fetch_entry;
-    // Read an import by its canonical path, or nullopt if this source has no such file.
+    // Resolve an import by its canonical path to its text, or nullopt if neither this source nor the
+    // embedded well-known types have it. The WKT fallback lives INSIDE each source (not in the
+    // resolver body) so a source that OWNS a path -- a first include-path match, even an unreadable
+    // one -- is never silently shadowed by a stock WKT.
     std::function<std::optional<std::string>(const std::string&)> fetch_import;
     // Appended to an "import not found" error: the actionable hint differs by source.
     std::string import_not_found_hint;
 };
 
-SourceAccess make_source_access(const ResolverConfig& config) {
-    if (config.source_provider) {
-        // In-memory (wasm): the host hands the entry under the canonical name any importer would use,
-        // so that name is both the identity and the lookup key; imports look up the same provider.
-        // Filesystem canonicalization is skipped -- it would touch a disk that is not there.
-        const auto provider = config.source_provider;
-        return SourceAccess{
-            [provider](
-                const std::string& entry) -> std::optional<std::pair<std::string, std::string>> {
-                if (auto text = provider(entry)) {
-                    return std::make_pair(entry, std::move(*text));
-                }
-                return std::nullopt;
-            },
-            [provider](const std::string& import_path) { return provider(import_path); },
-            "; it was not in the source set provided",
-        };
+// The embedded well-known types, the shared last resort when a source does not own an import path.
+std::optional<std::string> wellknown_fallback(const std::string& import_path, bool use_wellknown) {
+    if (use_wellknown) {
+        if (auto embedded = wellknown_source(import_path)) {
+            return std::string(*embedded);
+        }
     }
-    // Filesystem (native CLI): an entry's identity is its name relative to the include paths, but it
-    // is READ from the path given (which may be outside any include path); imports are searched
-    // across the include paths, the first match owning the file.
-    const std::vector<std::string> include_paths = config.include_paths;
+    return std::nullopt;
+}
+
+// In-memory (wasm): the host hands the entry under the canonical name any importer would use, so
+// that name is both the identity and the lookup key; imports look up the same provider. Filesystem
+// canonicalization is skipped -- it would touch a disk that is not there.
+SourceAccess make_provider_access(const ResolverConfig::SourceProvider& provider,
+                                  bool use_wellknown) {
+    return SourceAccess{
+        [provider](const std::string& entry) -> std::optional<std::pair<std::string, std::string>> {
+            if (auto text = provider(entry)) {
+                return std::make_pair(entry, std::move(*text));
+            }
+            return std::nullopt;
+        },
+        [provider, use_wellknown](const std::string& import_path) {
+            // The provider owns the file if it has it; otherwise the embedded WKTs.
+            if (auto provided = provider(import_path)) {
+                return provided;
+            }
+            return wellknown_fallback(import_path, use_wellknown);
+        },
+        "; it was not in the source set provided",
+    };
+}
+
+// Filesystem (native CLI): an entry's identity is its name relative to the include paths, but it is
+// READ from the path given (which may be outside any include path); imports are searched across the
+// include paths, the first match owning the file.
+SourceAccess make_filesystem_access(const std::vector<std::string>& include_paths,
+                                    bool use_wellknown) {
     std::string hint = include_paths.empty()
                            ? "; no include paths were given -- add -I <dir>"
                            : "; searched " + std::to_string(include_paths.size()) +
@@ -132,7 +150,8 @@ SourceAccess make_source_access(const ResolverConfig& config) {
             }
             return std::nullopt;
         },
-        [include_paths](const std::string& import_path) -> std::optional<std::string> {
+        [include_paths,
+         use_wellknown](const std::string& import_path) -> std::optional<std::string> {
             for (const auto& include : include_paths) {
                 if (include.empty()) {
                     continue;  // an empty include entry would silently mean "search CWD"
@@ -140,22 +159,31 @@ SourceAccess make_source_access(const ResolverConfig& config) {
                 const std::filesystem::path full = std::filesystem::path(include) / import_path;
                 if (std::filesystem::exists(full)) {
                     // The first include path that has the file owns it: do not fall through to a
-                    // shadowed copy (or the embedded WKT) if it happens to be unreadable.
+                    // shadowed copy (or the embedded WKT) if it happens to be unreadable -- return
+                    // read_file_contents directly, nullopt and all.
                     return read_file_contents(full);
                 }
             }
-            return std::nullopt;
+            return wellknown_fallback(import_path,
+                                      use_wellknown);  // no owner: WKTs are last resort
         },
         std::move(hint),
     };
+}
+
+SourceAccess make_source_access(const ResolverConfig& config) {
+    if (config.source_provider) {
+        return make_provider_access(config.source_provider, config.use_wellknown);
+    }
+    return make_filesystem_access(config.include_paths, config.use_wellknown);
 }
 
 // DFS import resolver with white/gray/black cycle detection and post-order (topological)
 // collection.
 class Resolver {
 public:
-    Resolver(ResolverConfig config, SourceRegistry& sources)
-        : m_config(std::move(config)), m_access(make_source_access(m_config)), m_sources(sources) {}
+    Resolver(const ResolverConfig& config, SourceRegistry& sources)
+        : m_access(make_source_access(config)), m_sources(sources) {}
 
     // Resolve every entry into ONE union set. Entries visit in argument order; a file reached
     // twice -- listed twice, or listed AND imported by an earlier entry -- resolves once (the
@@ -188,20 +216,6 @@ public:
     }
 
 private:
-    // Look up an import through the chosen source, then fall back to the embedded well-known types
-    // (shared by both sources, so a host need not carry them).
-    std::optional<std::string> read_import(const std::string& import_path) const {
-        if (auto found = m_access.fetch_import(import_path)) {
-            return found;
-        }
-        if (m_config.use_wellknown) {
-            if (auto embedded = wellknown_source(import_path)) {
-                return std::string(*embedded);
-            }
-        }
-        return std::nullopt;
-    }
-
     // Render the current gray DFS stack as a cycle path ending back at `import_path`.
     std::string render_cycle(const std::string& import_path) const {
         std::string message = "import cycle: ";
@@ -251,7 +265,7 @@ private:
                 }
                 continue;  // Black: already fully resolved (diamond dependency)
             }
-            auto import_source = read_import(import_path);
+            auto import_source = m_access.fetch_import(import_path);
             if (!import_source) {
                 std::string message = "import not found: ";
                 message += import_path;
@@ -272,8 +286,7 @@ private:
         return std::nullopt;
     }
 
-    ResolverConfig m_config;
-    SourceAccess m_access;  // filesystem or in-memory; chosen once from m_config
+    SourceAccess m_access;  // filesystem or in-memory; chosen once from the config
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-const-or-ref-data-members): borrowed for the run
     SourceRegistry& m_sources;  // every loaded file is registered here (filename + text)
     std::unordered_map<std::string, Color> m_color;

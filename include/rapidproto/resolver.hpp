@@ -20,6 +20,9 @@
 namespace rapidproto {
 
 struct ResolverConfig {
+    // Reads a file's text by name, or nullopt if it has no such file (see source_provider).
+    using SourceProvider = std::function<std::optional<std::string>(const std::string&)>;
+
     std::vector<std::string> include_paths;  // searched in order for imports
     bool use_wellknown = true;               // fall back to embedded WKTs after include paths
     // In-memory source override for a host with no filesystem (the wasm front-end): when set, every
@@ -33,7 +36,7 @@ struct ResolverConfig {
     // is looked up verbatim by the name it was given (no filesystem canonicalization runs). So the
     // host must pass an entry under the SAME name any importer would use for it -- otherwise the same
     // file resolves twice (once as the entry, once as the import) and its types collide downstream.
-    std::function<std::optional<std::string>(const std::string&)> source_provider;
+    SourceProvider source_provider;
 };
 
 struct ResolvedFileSet {
