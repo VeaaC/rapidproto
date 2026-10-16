@@ -254,12 +254,27 @@ pub fn read_varint<'a>(rest: &'a [u8], out: &mut u64) -> Result<&'a [u8], ErrorK
     read_varint_cold(rest, out)
 }
 
-// The multibyte / empty / malformed continuation of `read_varint`: everything the 1-byte fast path
-// did not handle. `#[cold]` + `#[inline(never)]` so it stays out-of-line and the caller keeps only the
-// tiny fast path inline. Re-reads from `rest` (including byte 0) so it is a correct standalone decode.
+// The multibyte / empty / malformed continuation of `read_varint`: everything the 1-byte fast path did
+// not handle. `#[cold]` + `#[inline(never)]` so it stays out-of-line and the MAIN per-field decode loop
+// (`read_varint`'s many call sites) keeps only the tiny fast path inline. A thin wrapper over the fully
+// inlined [`read_varint_full`] so the multibyte decode has a single definition.
 #[cold]
 #[inline(never)]
 fn read_varint_cold<'a>(rest: &'a [u8], out: &mut u64) -> Result<&'a [u8], ErrorKind> {
+    read_varint_full(rest, out)
+}
+
+/// The complete varint decode, fully inlined: the 1-byte fast path AND the multibyte loop in one
+/// `#[inline(always)]` body with no out-of-line `#[cold]` tail. For a tight inner loop over a packed /
+/// repeated-field span, where inlining the whole decode avoids the per-element out-of-line call that
+/// [`read_varint`]'s `#[cold]` multibyte tail would cost on multibyte values -- matching the C++
+/// `RP_FLATTEN`ed small packed kernel. The 1-byte case costs the same as `read_varint`'s fast path (the
+/// loop returns on its first iteration). NOT for the main per-field decode loop: inlining the full loop
+/// at its many call sites spills the value-threaded slice (see `read_varint`). Re-reads from `rest`
+/// (including byte 0) so it is a correct standalone decode. `VarintOverflow` on an over-long encoding
+/// (10th byte above bit 0, or ten continuation bytes), `Truncated` if the input runs out mid-varint.
+#[inline(always)]
+pub(crate) fn read_varint_full<'a>(rest: &'a [u8], out: &mut u64) -> Result<&'a [u8], ErrorKind> {
     let mut result: u64 = 0;
     let mut shift: u32 = 0;
     for (i, &byte) in rest.iter().take(10).enumerate() {
