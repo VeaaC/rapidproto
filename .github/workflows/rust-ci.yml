@@ -1,7 +1,7 @@
 # Rust support CI — runs only on the `rust` feature branch and PRs targeting it, so `main`'s C++
 # gate is untouched. Kept light for the public 4-core runners: fmt, clippy, test, and a
-# no_std-no-alloc build. Miri (arena), the wasm build, and the generated-code-compiles check are
-# added as their sub-steps land.
+# no_std-no-alloc build, plus the wasm-blob staleness gate. Miri (arena) and the
+# generated-code-compiles check are added as their sub-steps land.
 name: Rust CI
 
 on:
@@ -49,6 +49,29 @@ jobs:
         run: cargo build --no-default-features --features alloc
       - name: Build no_std (no-alloc embedded tier)
         run: cargo build --no-default-features
+
+  wasm-blob:
+    # The rapidproto-build crate ships a committed wasm blob (the Rust generator front-end) so
+    # consumers need no C++ toolchain. This gate rebuilds it from source with the pinned wasi-sdk and
+    # byte-diffs it against the committed copy: a difference means the C++ generator changed without
+    # the blob being regenerated. The build is byte-reproducible, so the diff is exact.
+    runs-on: ubuntu-latest
+    env:
+      WASI_SDK_VERSION: "34.0"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install wasi-sdk
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          major="${WASI_SDK_VERSION%%.*}"
+          url="https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${major}/wasi-sdk-${WASI_SDK_VERSION}-x86_64-linux.tar.gz"
+          curl -fsSL "$url" -o /tmp/wasi-sdk.tar.gz
+          sudo mkdir -p /opt/wasi-sdk
+          sudo tar xf /tmp/wasi-sdk.tar.gz -C /opt/wasi-sdk --strip-components=1
+      - name: Blob is in sync with the C++ generator
+        working-directory: ${{ github.workspace }}
+        run: rust/rapidproto-build/wasm/check-wasm.sh
 
   miri:
     # The arena hands out `&mut` from `&self` and does raw-pointer bumping; Miri checks that

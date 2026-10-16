@@ -94,11 +94,17 @@ public:
     // across entries.
     Result<ResolvedFileSet> run(const std::vector<std::string>& entry_files) {
         for (const std::string& entry_file : entry_files) {
-            const std::string entry_name = canonical_entry_name(entry_file, m_config.include_paths);
+            // With an in-memory provider the entry is keyed by the name it was given (the host has
+            // already resolved it); the filesystem canonicalization would touch a disk that is not
+            // there.
+            const std::string entry_name =
+                m_config.source_provider ? entry_file
+                                         : canonical_entry_name(entry_file, m_config.include_paths);
             if (m_parsed.count(entry_name) != 0) {
                 continue;  // already resolved via an earlier entry (as it, or as its import)
             }
-            auto source = read_file_contents(entry_file);
+            auto source = m_config.source_provider ? m_config.source_provider(entry_name)
+                                                   : read_file_contents(entry_file);
             if (!source) {
                 return Error{0, "entry file not found: " + entry_file};
             }
@@ -116,17 +122,26 @@ public:
     }
 
 private:
-    // Look up an import in the include paths, then the embedded well-known types.
+    // Look up an import in the include paths (or the in-memory provider), then the embedded
+    // well-known types.
     std::optional<std::string> read_import(const std::string& import_path) {
-        for (const auto& include : m_config.include_paths) {
-            if (include.empty()) {
-                continue;  // an empty include entry would silently mean "search CWD"
+        if (m_config.source_provider) {
+            // The provider owns the file if it has it; otherwise fall through to the WKTs, so a
+            // host need not carry them. (No include-path disk search in this mode.)
+            if (auto provided = m_config.source_provider(import_path)) {
+                return provided;
             }
-            const std::filesystem::path full = std::filesystem::path(include) / import_path;
-            if (std::filesystem::exists(full)) {
-                // The first include path that has the file owns it: do not fall through to a
-                // shadowed copy (or the embedded WKT) if it happens to be unreadable.
-                return read_file_contents(full);
+        } else {
+            for (const auto& include : m_config.include_paths) {
+                if (include.empty()) {
+                    continue;  // an empty include entry would silently mean "search CWD"
+                }
+                const std::filesystem::path full = std::filesystem::path(include) / import_path;
+                if (std::filesystem::exists(full)) {
+                    // The first include path that has the file owns it: do not fall through to a
+                    // shadowed copy (or the embedded WKT) if it happens to be unreadable.
+                    return read_file_contents(full);
+                }
             }
         }
         if (m_config.use_wellknown) {
