@@ -221,6 +221,24 @@ arenagen::FieldModesSpec arena_modes_golden_spec() {
     return spec;
 }
 
+// Unknown-tracked goldens: `has_unknown_fields()` is only emitted under an `--unknown-present` profile,
+// so these carry the one Rust decode round-trip for (a) an inlined sub-message's OWN unknown mask being
+// distinct from its parent's (au.Holder + its inlined au.Flag wrapper), and (b) a MessageSet payload
+// being observed as unknown content (ms.Outer.Container). Both reuse existing corpus schemas.
+constexpr std::string_view kArenaUnknownTrackedGoldenStem = "arena_unknown_tracked";
+arenagen::FieldModesSpec arena_unknown_tracked_spec() {
+    arenagen::FieldModesSpec spec;
+    spec.unknowns.push_back({"au.Holder", "golden-modes"});
+    spec.unknowns.push_back({"au.Flag", "golden-modes"});
+    return spec;
+}
+constexpr std::string_view kMessageSetUnknownGoldenStem = "messageset_unknown";
+arenagen::FieldModesSpec messageset_unknown_spec() {
+    arenagen::FieldModesSpec spec;
+    spec.unknowns.push_back({"ms.Outer.Container", "golden-modes"});
+    return spec;
+}
+
 // Analyze several in-memory schemas as ONE set and emit them together, for cross-package edge cases
 // the on-disk corpus does not cover. The schemas need not import one another -- the merged module
 // tree is built from their packages alone -- so this exercises the package trie directly.
@@ -849,6 +867,13 @@ TEST_CASE("rustgen goldens match the corpus (compile smoke-test)", "[rustgen-gol
     check_golden(std::string(kArenaModesLeanGoldenStem),
                  gen_corpus_modes("arena_modes.proto", arena_modes_golden_spec()));
     stems.emplace_back(kArenaModesLeanGoldenStem);
+    // Unknown-tracked goldens for the two MessageSet / inlined-wrapper unknown-mask decode round-trips.
+    check_golden(std::string(kArenaUnknownTrackedGoldenStem),
+                 gen_corpus_modes("arena_unknown.proto", arena_unknown_tracked_spec()));
+    stems.emplace_back(kArenaUnknownTrackedGoldenStem);
+    check_golden(std::string(kMessageSetUnknownGoldenStem),
+                 gen_corpus_modes("messageset.proto", messageset_unknown_spec()));
+    stems.emplace_back(kMessageSetUnknownGoldenStem);
     // The shared benchmark schema (tests/bench/bench.proto, package `bench`) -- generated so the Rust
     // decode benchmark (rust/rustgen-golden/benches/decode.rs) measures a realistic record decoder over
     // the SAME schema the C++ arena bench uses.

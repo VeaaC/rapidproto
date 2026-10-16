@@ -26,8 +26,17 @@ use rustgen_golden::arena_manyreq::arena::mr::ManyRequired;
 use rustgen_golden::arena_manyreq::arena::mr::ReqInline;
 use rustgen_golden::arena_modes_lean::arena::fm::holder::Grp as ModedGrp;
 use rustgen_golden::arena_modes_lean::arena::fm::Holder as ModedHolder;
+use rustgen_golden::arena_naming::arena::an::collide::Letters;
+use rustgen_golden::arena_naming::arena::an::Collide;
+use rustgen_golden::arena_unknown_tracked::arena::au::Holder as UnkHolder;
+use rustgen_golden::editions2023::arena::ed23::M as Ed23M;
+use rustgen_golden::editions2024::arena::ed24::M as Ed24M;
 use rustgen_golden::expanded::arena::xp::Expanded;
 use rustgen_golden::expanded::common::xp::expanded::Kind;
+use rustgen_golden::main::arena::main::main::Choice as MainChoice;
+use rustgen_golden::main::arena::main::Main;
+use rustgen_golden::messageset::arena::ms::Outer as MsOuter;
+use rustgen_golden::messageset_unknown::arena::ms::Outer as MsuOuter;
 use rustgen_golden::proto2::arena::p2::container::{Choice, Nested};
 use rustgen_golden::proto2::arena::p2::oneof_group::Pick as GroupPick;
 use rustgen_golden::proto2::arena::p2::oneof_group_straddle::Pick as StraddlePick;
@@ -925,4 +934,357 @@ fn raw_required_group_bearing_holder_rejects_missing_required() {
         ModedHolder::decode(&buf, &arena),
         Err(e) if e.kind() == ErrorKind::MissingRequired
     ));
+}
+
+// --- parity pendants for tests/test_arena_decode.cpp cases with no prior Rust coverage ------------
+
+#[test]
+fn a_capacity_limited_arena_surfaces_arena_exhausted() {
+    // A tiny arena cannot even allocate the root message -> decode returns ArenaExhausted, never
+    // panics (the never-crash invariant under allocation failure). Mirrors C++ "capacity-limited
+    // arena surfaces OutOfMemory".
+    let mut buf = Vec::new();
+    put_var(&mut buf, 1, 1); // implicit_i = 1
+    let arena = Arena::new();
+    arena.set_capacity_limit(8); // smaller than a Msg
+    assert!(matches!(
+        Msg::decode(&buf, &arena),
+        Err(e) if e.kind() == ErrorKind::ArenaExhausted
+    ));
+}
+
+#[test]
+fn packed_varint_fill_empty_regrow_and_mixed_forms() {
+    // nums (field 6, packed int32): (a) an empty packed span yields an empty array; (b) two packed
+    // occurrences of the same field accumulate (the second re-grows after the first's trim); (c) a
+    // packed run followed by a bare expanded element of the same field accumulate. Mirrors C++
+    // "packed-varint fill (pre-size / trim / re-grow / mixed forms)".
+    let mut empty = Vec::new();
+    put_len(&mut empty, 6, &[]); // zero-length packed span
+    let arena0 = Arena::new();
+    assert!(Msg::decode(&empty, &arena0).unwrap().nums().is_empty());
+
+    let mut buf = Vec::new();
+    let mut run1 = Vec::new();
+    for v in [1u64, 2, 3] {
+        put_varint(&mut run1, v);
+    }
+    put_len(&mut buf, 6, &run1); // first packed run
+    let mut run2 = Vec::new();
+    for v in [4u64, 5] {
+        put_varint(&mut run2, v);
+    }
+    put_len(&mut buf, 6, &run2); // second packed run -> re-grow
+    put_var(&mut buf, 6, 6); // a bare (expanded) element of the same field
+    let arena = Arena::new();
+    let m = Msg::decode(&buf, &arena).unwrap();
+    assert_eq!(m.nums(), &[1, 2, 3, 4, 5, 6]);
+}
+
+#[test]
+fn non_minimal_tag_decodes_identically_to_the_canonical_form() {
+    // An over-long (non-minimal) varint tag decodes the same field as its canonical one-byte form --
+    // the general (multi-byte) tag path accepts it, like the C++ reader. name's canonical tag is 0x1a
+    // = (3<<3)|2; encode it over-long as 0x9a 0x00. Mirrors C++ "non-minimal tags decode identically".
+    let mut buf = Vec::new();
+    buf.extend_from_slice(&[0x9a, 0x00]); // (3<<3)|2, two-byte non-minimal encoding
+    put_varint(&mut buf, 2);
+    buf.extend_from_slice(b"hi"); // the LEN payload
+    let arena = Arena::new();
+    let m = Msg::decode(&buf, &arena).unwrap();
+    assert_eq!(m.name().as_bytes(), b"hi");
+
+    // ...and across a different field kind -- a varint field (implicit_i, field 1): canonical tag
+    // 0x08, encoded over-long as 0x88 0x00.
+    let mut vbuf = Vec::new();
+    vbuf.extend_from_slice(&[0x88, 0x00]); // (1<<3)|0, two-byte non-minimal
+    put_varint(&mut vbuf, 42);
+    let va = Arena::new();
+    assert_eq!(Msg::decode(&vbuf, &va).unwrap().implicit_i(), 42);
+}
+
+#[test]
+fn strings_borrow_the_input_buffer_zero_copy() {
+    // A decoded string view aliases the input bytes (zero-copy borrow), not an arena copy. Mirrors
+    // C++ "strings borrow the input buffer (no copy)".
+    let mut buf = Vec::new();
+    put_len(&mut buf, 3, b"borrowed"); // name
+    let arena = Arena::new();
+    let m = Msg::decode(&buf, &arena).unwrap();
+    let name = m.name().as_bytes();
+    assert_eq!(name, b"borrowed");
+    let base = buf.as_ptr() as usize;
+    let p = name.as_ptr() as usize;
+    assert!(p >= base && p + name.len() <= base + buf.len()); // the view points into the input
+}
+
+// A minimal valid arena_modes_lean Holder (must + req_blob present) that further fields extend.
+fn moded_holder_base(buf: &mut Vec<u8>) {
+    put_var(buf, 5, 1); // must (required)
+    let mut rb = Vec::new();
+    put_len(&mut rb, 1, b"r"); // Blob { payload = "r" }
+    put_len(buf, 13, &rb); // req_blob (required, raw)
+}
+
+#[test]
+fn raw_message_present_empty_is_distinct_from_absent() {
+    // blob (field 7, raw singular message): present with a zero-length payload is a non-null empty
+    // view, distinct from absent (None). Mirrors C++ "raw absence and present-empty payloads".
+    let mut absent = Vec::new();
+    moded_holder_base(&mut absent);
+    let arena = Arena::new();
+    assert_eq!(ModedHolder::decode(&absent, &arena).unwrap().blob(), None);
+
+    let mut present = Vec::new();
+    moded_holder_base(&mut present);
+    put_len(&mut present, 7, &[]); // blob present, empty payload
+    let arena2 = Arena::new();
+    let b = ModedHolder::decode(&present, &arena2).unwrap().blob();
+    assert_eq!(b, Some(&[][..])); // present-and-empty (not None)
+}
+
+#[test]
+fn raw_singular_message_rejects_a_second_occurrence() {
+    // blob (field 7): a second occurrence -> RepeatedSingularMessage (even when the first was
+    // present-empty); a wrong-wire-type field-7 occurrence is skip-validated, not counted as a dup.
+    let mut dup = Vec::new();
+    moded_holder_base(&mut dup);
+    put_len(&mut dup, 7, &[]); // first (empty) -> "seen"
+    put_len(&mut dup, 7, b"x"); // second -> reject
+    let arena = Arena::new();
+    assert!(matches!(
+        ModedHolder::decode(&dup, &arena),
+        Err(e) if e.kind() == ErrorKind::RepeatedSingularMessage
+    ));
+
+    let mut wrong = Vec::new();
+    moded_holder_base(&mut wrong);
+    put_var(&mut wrong, 7, 42); // field 7 as varint (wrong wire) -> skipped, not stored
+    let arena2 = Arena::new();
+    assert_eq!(ModedHolder::decode(&wrong, &arena2).unwrap().blob(), None);
+}
+
+#[test]
+fn dropped_field_record_is_still_wire_validated() {
+    // old_ids (field 4) is DROPPED, but its records are still wire-validated: a truncated field-4
+    // varint fails with a wire error. Mirrors C++ "dropped fields keep decode guarantees".
+    let mut buf = Vec::new();
+    moded_holder_base(&mut buf);
+    put_tag(&mut buf, 4, 0); // field 4 varint tag...
+    buf.push(0x80); // ...truncated varint (continuation, no terminator)
+    let arena = Arena::new();
+    assert!(matches!(
+        ModedHolder::decode(&buf, &arena),
+        Err(e) if e.kind() == ErrorKind::Truncated
+    ));
+}
+
+#[test]
+fn cross_file_imported_submessages_decode_through_the_forwarder() {
+    // Main's fields are imported dep.Dep types -- singular (d), repeated (ds), map value (dm), oneof
+    // member (od). They decode through the cross-file decode_into forwarder. Mirrors C++ "imported
+    // (cross-file) sub-messages decode through the forwarder".
+    let dep = |v: u64| {
+        let mut d = Vec::new();
+        put_var(&mut d, 1, v); // dep.Dep { v }
+        d
+    };
+    let mut buf = Vec::new();
+    put_len(&mut buf, 1, &dep(10)); // d
+    put_len(&mut buf, 5, &dep(20)); // ds[0]
+    put_len(&mut buf, 5, &dep(21)); // ds[1]
+    let mut entry = Vec::new();
+    put_var(&mut entry, 1, 7); // dm key (int32)
+    put_len(&mut entry, 2, &dep(30)); // dm value (Dep)
+    put_len(&mut buf, 6, &entry); // dm[7] = Dep{30}
+    put_len(&mut buf, 7, &dep(40)); // choice = od (Dep)
+    let arena = Arena::new();
+    let m = Main::decode(&buf, &arena).unwrap();
+    assert_eq!(m.d().unwrap().v(), Some(10));
+    assert_eq!(m.ds().len(), 2);
+    assert_eq!(m.ds()[1].v(), Some(21));
+    assert_eq!(m.dm().get(&7).unwrap().v(), Some(30));
+    match m.choice() {
+        Some(MainChoice::Od(d)) => assert_eq!(d.v(), Some(40)),
+        _ => panic!("expected the od (Dep) oneof member"),
+    }
+}
+
+#[test]
+fn editions2023_presence_and_delimited_encoding() {
+    // ed23 M: file-level IMPLICIT presence (implicit_scalar bare), a per-field EXPLICIT override
+    // (explicit_scalar -> Option, present-zero != absent), and a DELIMITED (group-framed) message
+    // field (delim). Mirrors C++ "editions 2023 presence features and DELIMITED encoding".
+    let mut buf = Vec::new();
+    put_var(&mut buf, 1, 9); // implicit_scalar
+    put_var(&mut buf, 2, 0); // explicit_scalar present = 0
+    put_tag(&mut buf, 6, 3); // delim: start group (DELIMITED message field 6)
+    put_var(&mut buf, 1, 5); //   child's implicit_scalar = 5
+    put_tag(&mut buf, 6, 4); // delim: end group
+    let arena = Arena::new();
+    let m = Ed23M::decode(&buf, &arena).unwrap();
+    assert_eq!(m.implicit_scalar(), 9);
+    assert_eq!(m.explicit_scalar(), Some(0)); // present-and-zero, not None
+    assert_eq!(m.delim().unwrap().implicit_scalar(), 5);
+    let empty = Arena::new();
+    assert_eq!(Ed23M::decode(&[], &empty).unwrap().explicit_scalar(), None);
+}
+
+#[test]
+fn editions2024_explicit_presence_and_packed_defaults() {
+    // ed24 M: edition-2024 defaults -> `a` is EXPLICIT (Option), `b` is PACKED-by-default repeated.
+    // Mirrors C++ "editions 2024 defaults (EXPLICIT presence, PACKED repeated)".
+    let mut packed = Vec::new();
+    for v in [1u64, 2, 3] {
+        put_varint(&mut packed, v);
+    }
+    let mut buf = Vec::new();
+    put_var(&mut buf, 1, 7); // a
+    put_len(&mut buf, 2, &packed); // b (packed)
+    let arena = Arena::new();
+    let m = Ed24M::decode(&buf, &arena).unwrap();
+    assert_eq!(m.a(), Some(7));
+    assert_eq!(m.b(), &[1, 2, 3]);
+    let empty = Arena::new();
+    assert_eq!(Ed24M::decode(&[], &empty).unwrap().a(), None); // EXPLICIT: absent -> None
+}
+
+#[test]
+fn messageset_payload_is_skipped_as_unknown_and_ordinary_decodes() {
+    // ms Outer: an ordinary field decodes normally; a Container carrying a MessageSet group item is
+    // accepted and the group skipped (not materialized, not rejected). A truncated group still fails
+    // with a wire error. Mirrors C++ "a MessageSet payload decodes as unknown fields".
+    let mut container = Vec::new();
+    put_tag(&mut container, 1, 3); // messageset item: start group
+    put_var(&mut container, 2, 1234); //   type_id
+    put_len(&mut container, 3, b"\x0a\x01s"); //   message payload (opaque)
+    put_tag(&mut container, 1, 4); // end group
+    let mut buf = Vec::new();
+    put_var(&mut buf, 1, 99); // ordinary
+    put_len(&mut buf, 2, &container); // container
+    let arena = Arena::new();
+    let m = MsOuter::decode(&buf, &arena).unwrap();
+    assert_eq!(m.ordinary(), Some(99));
+    assert!(m.container().is_some()); // decoded; the MessageSet group was skipped
+
+    let mut bad = Vec::new();
+    let mut badc = Vec::new();
+    put_tag(&mut badc, 1, 3); // start group, never closed
+    put_var(&mut badc, 2, 1);
+    put_len(&mut bad, 2, &badc);
+    let arena2 = Arena::new();
+    assert!(MsOuter::decode(&bad, &arena2).is_err());
+}
+
+#[test]
+fn same_typed_oneof_members_route_by_tag() {
+    // Collide.letters: same-typed members a(7) / A(8) route to distinct Letters variants by tag
+    // (A for `a`, A_ for the colliding `A`). Mirrors C++ "oneof routes same-typed members by tag".
+    let mut buf = Vec::new();
+    put_var(&mut buf, 7, 11); // a
+    let arena = Arena::new();
+    assert!(matches!(
+        Collide::decode(&buf, &arena).unwrap().letters(),
+        Some(Letters::A(11))
+    ));
+    let mut buf2 = Vec::new();
+    put_var(&mut buf2, 8, 22); // A
+    let arena2 = Arena::new();
+    assert!(matches!(
+        Collide::decode(&buf2, &arena2).unwrap().letters(),
+        Some(Letters::A_(22))
+    ));
+}
+
+#[test]
+fn inlined_wrapper_tracks_its_own_unknown_fields_separately_from_the_parent() {
+    // Holder (unknown-tracked) has an inlined Flag wrapper (field 1, itself unknown-tracked) + n
+    // (field 2). An unknown field INSIDE the Flag trips the Flag's mask, not the Holder's; an unknown
+    // field at the Holder level trips the Holder's, not the Flag's. Mirrors C++ "a bool-wrapper field
+    // reports has_unknown_fields (--unknown-present)".
+    let mut flag_body = Vec::new();
+    put_var(&mut flag_body, 1, 1); // Flag.value = true
+    put_var(&mut flag_body, 5, 7); // an unknown field INSIDE Flag
+    let mut buf = Vec::new();
+    put_len(&mut buf, 1, &flag_body); // flag
+    put_var(&mut buf, 2, 3); // n
+    let arena = Arena::new();
+    let h = UnkHolder::decode(&buf, &arena).unwrap();
+    assert_eq!(h.n(), 3);
+    let f = h.flag().unwrap();
+    assert!(f.value());
+    assert!(f.has_unknown_fields()); // the Flag saw the unknown
+    assert!(!h.has_unknown_fields()); // ...the Holder did not
+
+    let mut flag2 = Vec::new();
+    put_var(&mut flag2, 1, 1);
+    let mut buf2 = Vec::new();
+    put_len(&mut buf2, 1, &flag2);
+    put_var(&mut buf2, 9, 1); // an unknown field at the HOLDER level
+    let arena2 = Arena::new();
+    let h2 = UnkHolder::decode(&buf2, &arena2).unwrap();
+    assert!(h2.has_unknown_fields()); // the Holder saw the unknown
+    assert!(!h2.flag().unwrap().has_unknown_fields()); // ...the Flag did not
+
+    // A field at the wrapper's OWN known number (1 = value) but the WRONG wire type is skipped as a
+    // known field, NOT counted as unknown (the mask keys on field number, not the full tag).
+    let mut flag3 = Vec::new();
+    put_len(&mut flag3, 1, b"x"); // Flag.value (field 1) as LEN -- wrong wire (value is a bool/varint)
+    let mut buf3 = Vec::new();
+    put_len(&mut buf3, 1, &flag3);
+    let arena3 = Arena::new();
+    assert!(!UnkHolder::decode(&buf3, &arena3)
+        .unwrap()
+        .flag()
+        .unwrap()
+        .has_unknown_fields());
+}
+
+#[test]
+fn unknown_present_observes_messageset_carried_content() {
+    // Under --unknown-present, Container::has_unknown_fields() is the only way to observe that a
+    // MessageSet carried content (skipped, not materialized); false when empty. Mirrors C++
+    // "--unknown-present observes that a MessageSet carried content".
+    let mut c = Vec::new();
+    put_tag(&mut c, 1, 3); // messageset item group
+    put_var(&mut c, 2, 1234);
+    put_len(&mut c, 3, b"\x0a\x01s");
+    put_tag(&mut c, 1, 4);
+    let mut buf = Vec::new();
+    put_len(&mut buf, 2, &c); // container
+    let arena = Arena::new();
+    assert!(MsuOuter::decode(&buf, &arena)
+        .unwrap()
+        .container()
+        .unwrap()
+        .has_unknown_fields()); // content observed
+
+    let mut empty = Vec::new();
+    put_len(&mut empty, 2, &[]); // empty container
+    let arena2 = Arena::new();
+    assert!(!MsuOuter::decode(&empty, &arena2)
+        .unwrap()
+        .container()
+        .unwrap()
+        .has_unknown_fields());
+}
+
+#[test]
+fn packed_fixed_span_with_a_partial_element_is_rejected() {
+    // codes (field 13, packed fixed32 = 4 bytes/elt): a span whose length is not a whole multiple of
+    // the element width is malformed -> decode errors (never silently truncates or panics).
+    let mut buf = Vec::new();
+    put_len(&mut buf, 13, &[1, 2, 3, 4, 5, 6]); // 6 bytes: one whole fixed32 + a 2-byte remainder
+    let arena = Arena::new();
+    assert!(Msg::decode(&buf, &arena).is_err());
+}
+
+#[test]
+fn a_stray_end_group_tag_is_rejected_by_the_decode_loop() {
+    // An end-group tag (wire type 4) with no matching start, seen as a top-level field, is malformed
+    // -> the decode loop's skip rejects it with a wire error, never panicking.
+    let mut buf = Vec::new();
+    put_tag(&mut buf, 1, 4); // stray EGROUP for field 1
+    let arena = Arena::new();
+    assert!(Msg::decode(&buf, &arena).is_err());
 }
