@@ -362,23 +362,22 @@ TEST_CASE("rustgen arena: proto2 required/optional presence") {
     CHECK(has(out, "pub fn opt(&self) -> Option<i32> {"));  // optional -> explicit presence
 }
 
-TEST_CASE("rustgen arena: a message with a group field stays a decode skeleton") {
-    // A proto2 `group` field is delimited (SGROUP/EGROUP on the wire, not a length prefix), so a
-    // length-prefixed decode arm would silently drop it. Until a dedicated group slice, a group-bearing
-    // message must keep the skeleton rather than emit a wrong decoder.
+TEST_CASE("rustgen arena: a group field decodes via read_group on the SGROUP key") {
+    // A proto2 `group` field is delimited (SGROUP/EGROUP on the wire, not a length prefix), so its
+    // decode arm keys on the start-group tag (`field << 3 | 3`) and reads the body with `read_group` --
+    // NOT the length-delimited tag (`| 2`), which would never match an SGROUP tag and would decode the
+    // group as absent. A group-bearing message is fully decodable (no longer a skeleton).
     const std::string out = gen_arena(R"(syntax = "proto2";
         message WithGroup {
           optional group MyGroup = 1 {
             optional int32 a = 2;
           }
         })");
-    CHECK(has(out, "pub fn mygroup(&self)"));  // the group field is still exposed as an accessor
-    // The bug was WithGroup getting a real decoder whose field-1 arm keys on the length-delimited tag
-    // (`1 << 3 | 2` = 10), which never matches an SGROUP tag -> the group decodes as absent. The
-    // skeleton emits no decode arm at all.
-    CHECK_FALSE(has(out, "10u32 => {"));
-    // The inner group message is an ordinary length-prefixed message and still gets a real decoder.
-    CHECK(has(out, "decode_into"));
+    CHECK(has(out, "pub fn mygroup(&self)"));  // the group field is exposed as an accessor
+    CHECK(has(out, "11u32 => {"));             // field 1 SGROUP tag (1 << 3 | 3)
+    CHECK(has(out, "::rapidproto::wire::read_group("));  // decoded via the group-body reader
+    CHECK_FALSE(has(out, "10u32 => {"));  // never the length-delimited tag (1 << 3 | 2)
+    CHECK_FALSE(has(out, "todo!()"));     // not a skeleton
 }
 
 TEST_CASE("rustgen arena: accessor names dedup against decode and each other") {
@@ -759,16 +758,20 @@ TEST_CASE("rustgen modes: an empty unknown-tracked message sets the bit uncondit
     CHECK(!has(out, "if !matches!(rp_tagkey >> 3"));  // fieldless -> no routing guard at all
 }
 
-TEST_CASE("rustgen modes: raw rescues a group-bearing reference from skeleton") {
-    // A message whose only blocker is referencing a group-bearing (skeleton) message becomes decodable
-    // when that field is `raw`: the payload is stored undecoded, so the referent's decodability is moot.
+TEST_CASE("rustgen modes: raw rescues a reference to a message a raw group kept a skeleton") {
+    // A MATERIALIZED group decodes, so a group field alone no longer blocks. But a RAW group field is
+    // the one deferred case (the raw path cannot yet capture a group's scanned span), so a message with
+    // a raw group field stays a skeleton -- and a message referencing it becomes decodable only if that
+    // reference is itself `raw` (payload stored undecoded, so the referent's decodability is moot).
     const char* schema = R"(syntax = "proto2"; package p;
         message HasGroup { optional group G = 1 { optional int32 a = 2; } }
         message Wrap { optional HasGroup hg = 1; })";
     arenagen::FieldModesSpec spec;
-    spec.entries.push_back({arenagen::FieldMode::Raw, "p.Wrap.hg", "test"});
+    spec.entries.push_back(
+        {arenagen::FieldMode::Raw, "p.HasGroup.G", "test"});  // raw group -> skeleton
+    spec.entries.push_back({arenagen::FieldMode::Raw, "p.Wrap.hg", "test"});  // raw ref -> rescued
     const std::string out = gen_arena_modes(schema, spec);
-    // Wrap now decodes (hg kept raw); HasGroup stays a skeleton (its group field).
+    // HasGroup stays a skeleton (its raw group field); Wrap still decodes (hg kept raw).
     CHECK(has(out, "pub fn hg(&self) -> Option<&'a [u8]> {"));
     CHECK(has(out, "hg = Some(rp_p);"));
 }

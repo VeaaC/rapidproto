@@ -28,8 +28,9 @@ use rustgen_golden::expanded::arena::xp::Expanded;
 use rustgen_golden::expanded::common::xp::expanded::Kind;
 use rustgen_golden::proto2::arena::p2::container::{Choice, Nested};
 use rustgen_golden::proto2::arena::p2::oneof_group::Pick as GroupPick;
+use rustgen_golden::proto2::arena::p2::oneof_group_straddle::Pick as StraddlePick;
 use rustgen_golden::proto2::arena::p2::{
-    Container, GroupNumberReuse, OneofGroup, RepeatedGroup, Scalars, WithGroup,
+    Container, GroupNumberReuse, OneofGroup, OneofGroupStraddle, RepeatedGroup, Scalars, WithGroup,
 };
 use rustgen_golden::proto2::common::p2::Color;
 use rustgen_golden::proto3::arena::p3::msg::Pick;
@@ -825,6 +826,58 @@ fn group_unterminated_errors_without_panicking() {
     let mut buf = Vec::new();
     put_tag(&mut buf, 1, 3); // start MyGroup, then no matching end
     put_var(&mut buf, 2, 42);
+    let arena = Arena::new();
+    assert!(WithGroup::decode(&buf, &arena).is_err());
+}
+
+#[test]
+fn oneof_group_straddle_decodes_either_member() {
+    // OneofGroupStraddle mixes an (unthreadable) group member Head(2){x(3)} with an int member tail(5)
+    // in one oneof, plus a plain mid(4). Both oneof routes must decode, and the plain field alongside.
+    // Group member: Head { x = 7 }, mid = 4.
+    let mut g = Vec::new();
+    put_tag(&mut g, 2, 3); // start Head (field 2)
+    put_var(&mut g, 3, 7); //   x = 7
+    put_tag(&mut g, 2, 4); // end Head
+    put_var(&mut g, 4, 4); // mid = 4
+    let arena = Arena::new();
+    let m = OneofGroupStraddle::decode(&g, &arena).unwrap();
+    assert_eq!(m.mid(), Some(4));
+    match m.pick() {
+        Some(StraddlePick::Head(h)) => assert_eq!(h.x(), Some(7)),
+        _ => panic!("expected the Head group member"),
+    }
+    // Int member: tail(5) = 9 (reached past the plain field 4 probe).
+    let mut i = Vec::new();
+    put_var(&mut i, 5, 9);
+    let arena2 = Arena::new();
+    let m2 = OneofGroupStraddle::decode(&i, &arena2).unwrap();
+    assert!(matches!(m2.pick(), Some(StraddlePick::Tail(9))));
+}
+
+#[test]
+fn repeated_group_rejects_a_malformed_element() {
+    // A good first element then a second whose group is never closed must error cleanly, not hang or
+    // silently keep the first (the never-crash invariant on adversarial input).
+    let mut buf = Vec::new();
+    put_tag(&mut buf, 1, 3); // start Item
+    put_var(&mut buf, 2, 10); //   v = 10
+    put_tag(&mut buf, 1, 4); // end Item
+    put_tag(&mut buf, 1, 3); // start a SECOND Item with no matching end
+    put_var(&mut buf, 2, 20);
+    let arena = Arena::new();
+    assert!(RepeatedGroup::decode(&buf, &arena).is_err());
+}
+
+#[test]
+fn group_with_mismatched_nested_end_errors() {
+    // A nested group (field 3) closed by an end tag for a DIFFERENT field number must be rejected while
+    // scanning the outer group's body -- not swallowed -- so the outer group never finds its own end.
+    let mut buf = Vec::new();
+    put_tag(&mut buf, 1, 3); // start MyGroup (field 1)
+    put_tag(&mut buf, 3, 3); //   start Inner (field 3)
+    put_tag(&mut buf, 9, 4); //   end-group for field 9 (mismatched) -> malformed
+    put_tag(&mut buf, 1, 4); // (unreached) end MyGroup
     let arena = Arena::new();
     assert!(WithGroup::decode(&buf, &arena).is_err());
 }

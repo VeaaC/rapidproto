@@ -22,10 +22,11 @@
 //! decoder working on a sub-message body computes `body.len() - rest.len()`. Keeping the offset off the
 //! hot path (computed only on failure) is why the readers thread just the slice.
 //!
-//! One deliberate divergence from the C++ reader: a failure *inside* a group being [`skip`]ped is
-//! reported at the group field's start, not at the deep byte where it was detected (the value-threaded
-//! `skip` returns a bare kind and the caller still holds the field-start slice). C++ reports the deep
-//! position within the body. This is cold (unknown/dropped fields) and the offset is diagnostic only.
+//! One deliberate divergence from the C++ reader: a failure *inside* a group -- whether being
+//! [`skip`]ped (an unknown/dropped field) or decoded via [`read_group`] (a materialized group field) --
+//! is reported at the group field's start, not at the deep byte where it was detected (the
+//! value-threaded readers return a bare kind and the caller still holds the field-start slice). C++
+//! reports the deep position within the body. The offset here is diagnostic only.
 //!
 //! # Safety
 //!
@@ -495,18 +496,6 @@ pub fn read_group<'a>(
     field: u32,
     out: &mut &'a [u8],
 ) -> Result<&'a [u8], ErrorKind> {
-    read_group_depth(rest, field, 0, out)
-}
-
-fn read_group_depth<'a>(
-    rest: &'a [u8],
-    field: u32,
-    depth: u32,
-    out: &mut &'a [u8],
-) -> Result<&'a [u8], ErrorKind> {
-    if depth >= MAX_SKIP_DEPTH {
-        return Err(ErrorKind::DepthLimitExceeded);
-    }
     let body_start = rest;
     let mut rest = rest;
     loop {
@@ -527,9 +516,11 @@ fn read_group_depth<'a>(
             *out = &body_start[..body_len];
             break;
         }
-        // Advance past this inner field's value (nested groups skipped to their own end), so the scan
-        // stops only at THIS group's matching end -- the nested content stays in the returned body span.
-        rest = skip_depth(rest, inner, depth + 1)?;
+        // Advance past this inner field's value (nested groups skipped to their own end via `skip_depth`,
+        // capped by `MAX_SKIP_DEPTH`), so the scan stops only at THIS group's matching end and the nested
+        // content stays inside the returned body span. The cap bounds a group body's nesting; the
+        // generated decoder's own `rp_depth`/`MAX_DECODE_DEPTH` cap independently bounds decode recursion.
+        rest = skip_depth(rest, inner, 1)?;
     }
     Ok(rest)
 }
