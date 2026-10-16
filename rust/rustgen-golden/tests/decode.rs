@@ -24,6 +24,7 @@ use rapidproto::{Arena, ErrorKind};
 use rustgen_golden::arena_layout::arena::al::Layout;
 use rustgen_golden::arena_manyreq::arena::mr::ManyRequired;
 use rustgen_golden::arena_manyreq::arena::mr::ReqInline;
+use rustgen_golden::arena_modes_lean::arena::fm::holder::Grp as ModedGrp;
 use rustgen_golden::arena_modes_lean::arena::fm::Holder as ModedHolder;
 use rustgen_golden::expanded::arena::xp::Expanded;
 use rustgen_golden::expanded::common::xp::expanded::Kind;
@@ -906,6 +907,9 @@ fn raw_group_field_stores_its_bare_body_undecoded() {
     assert_eq!(h.must(), 7);
     assert_eq!(h.req_blob(), Some(&blob[..])); // raw message: the length-delimited payload
     assert_eq!(h.grp(), Some(&body[..])); // raw group: the bare body, framing stripped
+                                          // The stored bare body is a valid group payload: it re-decodes through the group's own decoder.
+    let g = ModedGrp::decode(h.grp().unwrap(), &arena).unwrap();
+    assert_eq!(g.g(), Some(5));
 }
 
 #[test]

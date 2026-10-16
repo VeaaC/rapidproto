@@ -210,7 +210,7 @@ arenagen::FieldModesSpec modes_golden_spec() {
 // (blob/blobs/req_blob) and -- the point -- a RAW GROUP field (fm.Holder.grp). It gives the Rust
 // decoder a compiled raw-group round-trip (tests/decode.rs), the one group-decode path no plain golden
 // reaches, matching C++ `test_arena_decode` "raw fields hold their exact payloads".
-constexpr std::string_view kArenaModesGoldenStem = "arena_modes_lean";
+constexpr std::string_view kArenaModesLeanGoldenStem = "arena_modes_lean";
 arenagen::FieldModesSpec arena_modes_golden_spec() {
     arenagen::FieldModesSpec spec;
     spec.entries.push_back({arenagen::FieldMode::Drop, "fm.Holder.debug", "golden-modes"});
@@ -846,9 +846,9 @@ TEST_CASE("rustgen goldens match the corpus (compile smoke-test)", "[rustgen-gol
     stems.emplace_back(kModesGoldenStem);
     // A second modes golden: the proto2 arena_modes schema (raw group + raw/drop fields), mirroring
     // the C++ arena_modes profile, so the Rust raw-group decode path has a compiled round-trip.
-    check_golden(std::string(kArenaModesGoldenStem),
+    check_golden(std::string(kArenaModesLeanGoldenStem),
                  gen_corpus_modes("arena_modes.proto", arena_modes_golden_spec()));
-    stems.emplace_back(kArenaModesGoldenStem);
+    stems.emplace_back(kArenaModesLeanGoldenStem);
     // The shared benchmark schema (tests/bench/bench.proto, package `bench`) -- generated so the Rust
     // decode benchmark (rust/rustgen-golden/benches/decode.rs) measures a realistic record decoder over
     // the SAME schema the C++ arena bench uses.
