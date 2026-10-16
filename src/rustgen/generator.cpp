@@ -867,6 +867,30 @@ std::string scalar_wire_variant(const FieldNode& field) {
     return "Varint";  // int*/uint*/sint*/bool/enum
 }
 
+// The low-3-bit wire code of each wire type (its on-wire value, matching `wire::WireType as u8`).
+enum WireCode : std::uint8_t {
+    kWireVarint = 0,
+    kWireI64 = 1,
+    kWireLen = 2,
+    kWireI32 = 5,
+};
+
+// The raw tag key `field << 3 | wire_code` a decode arm matches on -- the value the loop's one-byte
+// peek hub dispatches with (the tag byte itself for a one-byte tag, else `(field << 3) | wire` rebuilt
+// after a full read). `wire` is a `scalar_wire_variant` result or the literal "Len". Field numbers go
+// up to 2^29 - 1, so the key stays within u32 (the loop's dispatch type).
+std::string raw_tag_key(std::int64_t number, const std::string& wire) {
+    std::int64_t code = kWireI32;
+    if (wire == "Varint") {
+        code = kWireVarint;
+    } else if (wire == "I64") {
+        code = kWireI64;
+    } else if (wire == "Len") {
+        code = kWireLen;
+    }
+    return std::to_string((number << 3) | code) + "u32";
+}
+
 // The expression converting the just-read raw wire value (`rp_v`: u64 for Varint, u32 for I32, u64 for
 // I64; `rp_p`: &[u8] for Len) into the field's Rust value type.
 std::string scalar_convert_expr(const NameTable& table, const std::vector<std::string>& current_mod,
@@ -1104,28 +1128,58 @@ void emit_reserve(Printer& printer, const std::string& acc, const std::string& c
         {{"acc", acc}, {"c", count}});
 }
 
-// Advance `rp_rest` past the current field (whatever its wire type), erroring body-relative.
-void emit_skip_body(Printer& printer) {
-    printer.print("rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {\n");
+// Advance the slice `at.src` past the current unmatched field via `skip_field` (given its raw tag key
+// `rp_tagkey`), erroring at `at.off`. The loop's `_` catch-all uses this: the peek hub dispatches on
+// the raw key, so an unknown or wrong-wire field reaches here with only the key (no rebuilt Tag), and
+// `skip_field` reconstructs the wire type -- rejecting a malformed one-byte tag (field 0 / reserved
+// wire code) as InvalidTag, the kind a full tag read would have raised.
+void emit_skip_field_body(Printer& printer, const ReadAt& at) {
+    printer.print("$s$ = match ::rapidproto::wire::skip_field($s$, rp_tagkey) {\n",
+                  {{"s", at.src}});
     printer.indent();
     printer.print("Ok(r) => r,\n");
     printer.print("Err(k) => return Err(::rapidproto::DecodeError::new(k, $off$)),\n",
-                  {{"off", kLoopOff}});
+                  {{"off", at.off}});
     printer.outdent();
     printer.print("};\n");
 }
 
-// A known-field skip arm `($n$u32, _) => skip`: the field number matched for ANY wire type and
-// skip-validated, so it never falls to the `_` catch-all and so never trips the unknown-fields bit.
-// Used for a `drop` field/map, and (in an unknown-tracked message) as the trailing fall-through after a
-// kept field's typed arm(s), so a KNOWN field arriving with the wrong wire type is still "known", not
-// "unknown" -- matching the C++ decoder, which switches on field number and never flags a known number.
-void emit_known_skip_arm(Printer& printer, const std::string& nstr) {
-    printer.print("($n$u32, _) => {\n", {{"n", nstr}});
+// Emit the field loop's one-byte peek hub: read the next tag's raw key into `rp_tagkey` (u32), or
+// `break` at end of the slice `at.src`. A one-byte tag (high bit clear) becomes the key directly after
+// bumping the slice past it -- no Tag built and no field/wire validation (a malformed one-byte tag
+// flows to the `_` arm's `skip_field`, which rejects it); a multi-byte tag goes through the fused
+// `read_tag` and is rebuilt as `(field << 3) | wire`. The caller then `match`es `rp_tagkey` against
+// each field's raw key (see `raw_tag_key`). `tag` is the scratch Tag local (`rp_tag` / `rp_etag`);
+// `at.off` is the body-relative error offset for a malformed multi-byte tag.
+void emit_peek_hub(Printer& printer, const ReadAt& at, const std::string& tag) {
+    printer.print("let rp_b = match $s$.first() {\n", {{"s", at.src}});
     printer.indent();
-    emit_skip_body(printer);
+    printer.print("Some(&rp_b) => rp_b,\n");
+    printer.print("None => break,\n");
     printer.outdent();
-    printer.print("}\n");
+    printer.print("};\n");
+    printer.print("let rp_tagkey: u32 = if rp_b < 0x80 {\n");
+    printer.indent();
+    printer.print("$s$ = &$s$[1..];\n", {{"s", at.src}});
+    printer.print("u32::from(rp_b)\n");
+    printer.outdent();
+    printer.print("} else {\n");
+    printer.indent();
+    printer.print(
+        "let mut $t$ = ::rapidproto::wire::Tag { field: 0, wire: "
+        "::rapidproto::wire::WireType::Varint };\n",
+        {{"t", tag}});
+    printer.print("$s$ = match ::rapidproto::wire::read_tag($s$, &mut $t$) {\n",
+                  {{"s", at.src}, {"t", tag}});
+    printer.indent();
+    printer.print("Ok(r) => r,\n");
+    printer.print("Err(k) => return Err(::rapidproto::DecodeError::new(k, $off$)),\n",
+                  {{"off", at.off}});
+    printer.outdent();
+    printer.print("};\n");
+    printer.print("($t$.field << 3) | $t$.wire as u32\n", {{"t", tag}});
+    printer.outdent();
+    printer.print("};\n");
 }
 
 // Emit the packed (length-delimited run) arm for a repeated numeric field, pre-sizing the
@@ -1141,7 +1195,7 @@ void emit_packed_arm(Printer& printer, const NameTable& table,
     const std::string acc = "rp_acc_" + nstr;
     const std::string wire = scalar_wire_variant(field);
     const std::string conv = scalar_convert_expr(table, current_mod, field);
-    printer.print("($n$u32, ::rapidproto::wire::WireType::Len) => {\n", {{"n", nstr}});
+    printer.print("$k$ => {\n", {{"k", raw_tag_key(field.number, "Len")}});
     printer.indent();
     emit_len_read(printer, loop_read());
     if (wire == "Varint") {
@@ -1190,7 +1244,7 @@ void emit_singular_message_arm(Printer& printer, const NameTable& table,
     const bool inlined = rust_store(member, field) == RustStore::InlineMsg;
     const bool inlined_masked =
         inlined && member->presence_bit >= 0;  // Explicit: mask-bit presence
-    printer.print("($n$u32, ::rapidproto::wire::WireType::Len) => {\n", {{"n", nstr}});
+    printer.print("$k$ => {\n", {{"k", raw_tag_key(field.number, "Len")}});
     printer.indent();
     // Duplicate-singular-message rejection tests "already seen": an Explicit inlined message by its
     // mask presence bit, a Required inlined message by its transient `rp_req_<n>` flag (it has no
@@ -1262,13 +1316,15 @@ void emit_field_arms(Printer& printer, const NameTable& table,
 
     const arenagen::FieldMode mode = field_mode(modes, field);
     if (mode == arenagen::FieldMode::Drop) {
-        emit_known_skip_arm(printer, nstr);
+        // A dropped field gets no arm: it falls to the loop's `_` catch-all, which skips it. Its
+        // number is still in the catch-all's known-number set, so (in an unknown-tracked message) it
+        // never trips the unknown-fields bit -- matching the old explicit `(n, _)` known-skip arm.
         return;
     }
     if (mode == arenagen::FieldMode::Raw) {
         // A message field kept as its undecoded LEN payload bytes (no recursion). Singular rejects a
         // second occurrence like a materialized singular message; repeated pushes each payload.
-        printer.print("($n$u32, ::rapidproto::wire::WireType::Len) => {\n", {{"n", nstr}});
+        printer.print("$k$ => {\n", {{"k", raw_tag_key(field.number, "Len")}});
         printer.indent();
         if (field.is_repeated) {
             emit_len_read(printer, loop_read());
@@ -1300,7 +1356,7 @@ void emit_field_arms(Printer& printer, const NameTable& table,
     }
     if (field.is_message_type && field.is_repeated) {
         const std::string path = arena_message_path(table, current_mod, field.resolved_type_fqn);
-        printer.print("($n$u32, ::rapidproto::wire::WireType::Len) => {\n", {{"n", nstr}});
+        printer.print("$k$ => {\n", {{"k", raw_tag_key(field.number, "Len")}});
         printer.indent();
         emit_len_read(printer, loop_read());
         // Decode each element directly into the growable array slot (no by-value copy).
@@ -1317,8 +1373,7 @@ void emit_field_arms(Printer& printer, const NameTable& table,
     if (field.is_repeated && wire != "Len") {
         // Repeated numeric: an unpacked arm (one value per occurrence) and a packed arm (a
         // length-delimited run of values). proto permits mixing both on the wire.
-        printer.print("($n$u32, ::rapidproto::wire::WireType::$w$) => {\n",
-                      {{"n", nstr}, {"w", wire}});
+        printer.print("$k$ => {\n", {{"k", raw_tag_key(field.number, wire)}});
         printer.indent();
         emit_scalar_value_read(printer, field, loop_read());
         emit_push(printer, acc, conv);
@@ -1328,7 +1383,7 @@ void emit_field_arms(Printer& printer, const NameTable& table,
         return;
     }
     if (field.is_repeated) {  // repeated string/bytes (wire == Len, not packable)
-        printer.print("($n$u32, ::rapidproto::wire::WireType::Len) => {\n", {{"n", nstr}});
+        printer.print("$k$ => {\n", {{"k", raw_tag_key(field.number, "Len")}});
         printer.indent();
         emit_len_read(printer, loop_read());
         emit_push(printer, acc, conv);
@@ -1337,7 +1392,7 @@ void emit_field_arms(Printer& printer, const NameTable& table,
         return;
     }
     // Singular scalar / enum / string / bytes.
-    printer.print("($n$u32, ::rapidproto::wire::WireType::$w$) => {\n", {{"n", nstr}, {"w", wire}});
+    printer.print("$k$ => {\n", {{"k", raw_tag_key(field.number, wire)}});
     printer.indent();
     if (wire == "Len") {
         emit_len_read(printer, loop_read());
@@ -1415,7 +1470,7 @@ void emit_oneof_arm(Printer& printer, const NameTable& table,
     const std::string nstr = std::to_string(field.number);
     if (field.is_message_type) {
         const std::string path = arena_message_path(table, current_mod, field.resolved_type_fqn);
-        printer.print("($n$u32, ::rapidproto::wire::WireType::Len) => {\n", {{"n", nstr}});
+        printer.print("$k$ => {\n", {{"k", raw_tag_key(field.number, "Len")}});
         printer.indent();
         printer.print("if matches!($l$, Some($e$::$v$(_))) {\n",
                       {{"l", oneof_local}, {"e", enum_path}, {"v", variant}});
@@ -1441,7 +1496,7 @@ void emit_oneof_arm(Printer& printer, const NameTable& table,
     }
     const std::string wire = scalar_wire_variant(field);
     const std::string conv = scalar_convert_expr(table, current_mod, field);
-    printer.print("($n$u32, ::rapidproto::wire::WireType::$w$) => {\n", {{"n", nstr}, {"w", wire}});
+    printer.print("$k$ => {\n", {{"k", raw_tag_key(field.number, wire)}});
     printer.indent();
     if (wire == "Len") {
         emit_len_read(printer, loop_read());
@@ -1461,10 +1516,9 @@ void emit_oneof_arm(Printer& printer, const NameTable& table,
 void emit_map_component(Printer& printer, const NameTable& table,
                         const std::vector<std::string>& current_mod, const FieldNode& field,
                         const std::string& local, const ReadAt& at, std::int32_t map_number) {
-    const std::string nstr = std::to_string(field.number);
     if (field.is_message_type) {  // the value field; held in an `Option` (None = not yet seen)
         const std::string path = arena_message_path(table, current_mod, field.resolved_type_fqn);
-        printer.print("($n$u32, ::rapidproto::wire::WireType::Len) => {\n", {{"n", nstr}});
+        printer.print("$k$ => {\n", {{"k", raw_tag_key(field.number, "Len")}});
         printer.indent();
         printer.print("if $l$.is_some() {\n", {{"l", local}});
         printer.indent();
@@ -1488,7 +1542,7 @@ void emit_map_component(Printer& printer, const NameTable& table,
     }
     const std::string wire = scalar_wire_variant(field);
     const std::string conv = scalar_convert_expr(table, current_mod, field);
-    printer.print("($n$u32, ::rapidproto::wire::WireType::$w$) => {\n", {{"n", nstr}, {"w", wire}});
+    printer.print("$k$ => {\n", {{"k", raw_tag_key(field.number, wire)}});
     printer.indent();
     if (wire == "Len") {
         emit_len_read(printer, at);
@@ -1506,11 +1560,10 @@ void emit_map_component(Printer& printer, const NameTable& table,
 void emit_map_arm(Printer& printer, const NameTable& table,
                   const std::vector<std::string>& current_mod, const MapFieldNode& map,
                   const std::string& map_local) {
-    const std::string nstr = std::to_string(map.number);
     const FieldNode key = map_key_field(map);
     const FieldNode val = map_value_field(map);
     const ReadAt entry_at{"rp_ent", "rp_ent_body.len() - rp_ent.len()"};
-    printer.print("($n$u32, ::rapidproto::wire::WireType::Len) => {\n", {{"n", nstr}});
+    printer.print("$k$ => {\n", {{"k", raw_tag_key(map.number, "Len")}});
     printer.indent();
     emit_len_read(printer, loop_read());  // the entry payload -> rp_p
     printer.print("let rp_ent_body: &'a [u8] = rp_p;\n");
@@ -1530,30 +1583,14 @@ void emit_map_arm(Printer& printer, const NameTable& table,
     printer.print("let mut rp_ent: &'a [u8] = rp_ent_body;\n");
     printer.print("loop {\n");
     printer.indent();
-    printer.print(
-        "let mut rp_etag = ::rapidproto::wire::Tag { field: 0, wire: "
-        "::rapidproto::wire::WireType::Varint };\n");
-    printer.print("rp_ent = match ::rapidproto::wire::read_tag_or_end(rp_ent, &mut rp_etag) {\n");
-    printer.indent();
-    printer.print("Ok(Some(r)) => r,\n");
-    printer.print("Ok(None) => break,\n");
-    printer.print("Err(k) => return Err(::rapidproto::DecodeError::new(k, $o$)),\n",
-                  {{"o", entry_at.off}});
-    printer.outdent();
-    printer.print("};\n");
-    printer.print("match (rp_etag.field, rp_etag.wire) {\n");
+    emit_peek_hub(printer, entry_at, "rp_etag");
+    printer.print("match rp_tagkey {\n");
     printer.indent();
     emit_map_component(printer, table, current_mod, key, "rp_key", entry_at, map.number);
     emit_map_component(printer, table, current_mod, val, "rp_val", entry_at, map.number);
     printer.print("_ => {\n");
     printer.indent();
-    printer.print("rp_ent = match ::rapidproto::wire::skip(rp_ent, rp_etag) {\n");
-    printer.indent();
-    printer.print("Ok(r) => r,\n");
-    printer.print("Err(k) => return Err(::rapidproto::DecodeError::new(k, $o$)),\n",
-                  {{"o", entry_at.off}});
-    printer.outdent();
-    printer.print("};\n");
+    emit_skip_field_body(printer, entry_at);
     printer.outdent();
     printer.print("}\n");
     printer.outdent();
@@ -1581,11 +1618,12 @@ void emit_map_arm(Printer& printer, const NameTable& table,
 }
 
 // Emit `decode()` + the `decode_into()` worker for a decodable message: a field loop over `rp_body`
-// driving the fused `read_tag_or_end`, matching `(field, wire)` to read each known regular / oneof-
-// member / map field (a wrong wire type for a known field falls to `skip`, like an unknown field),
-// accumulating repeated fields and maps in `DecodeVec`s and recursing into sub-messages, then
-// constructing the message (checking proto2 `required` fields were all seen). `decode_into` is
-// `pub(crate)` so sub-messages in other modules can recurse into it.
+// driven by a one-byte peek hub (`emit_peek_hub`) that reads each tag's raw key into `rp_tagkey`, then
+// `match rp_tagkey` to read each known regular / oneof-member / map field by its `field << 3 | wire`
+// key (a wrong wire type for a known field falls to `skip_field`, like an unknown field), accumulating
+// repeated fields and maps in `DecodeVec`s and recursing into sub-messages, then constructing the
+// message (checking proto2 `required` fields were all seen). `decode_into` is `pub(crate)` so
+// sub-messages in other modules can recurse into it.
 // The decode locals: a repeated field / map accumulates into a `DecodeVec`; a oneof holds its enum
 // (None until a member is seen); a proto2 `required` field a transient seen-flag; `unknown-fields` a
 // bool; the rest plain values at their proto3 zero / None default. A dropped field/map has no local
@@ -1642,35 +1680,41 @@ void emit_decode_locals(Printer& printer, const NameTable& table,
     }
 }
 
-// The `match (field, wire)` arm for every regular / map / oneof-member field, then a catch-all that
-// skips genuinely-unknown fields -- tripping the unknown-fields bit when the profile reserves it.
-// Dropped fields/maps get a known skip arm (via emit_field_arms / emit_known_skip_arm) so they never
-// reach the catch-all. For an unknown-tracked message, every KEPT known field also gets a trailing
-// `(n, _)` skip arm (after its typed arm(s)) so a known field arriving with the WRONG wire type is
-// skipped as known, not counted unknown -- matching C++ (which flags only unrecognized field numbers).
+// The `match rp_tagkey` arm for every regular / map / oneof-member field (keyed by its raw tag
+// `field << 3 | wire`), then a `_` catch-all that skips anything else. A dropped field/map gets no
+// arm -- it falls to the catch-all and is skipped like an unknown field. The catch-all reconstructs
+// and skips via `skip_field` (the peek hub handed it only the raw key). In an unknown-tracked message
+// the catch-all first routes on the field NUMBER (`rp_tagkey >> 3`): a declared number (a kept or
+// dropped field/map/oneof member arriving with the wrong wire type) is skipped silently, an undeclared
+// one trips the unknown-fields bit -- matching C++ (which flags only unrecognized field numbers, never
+// a known number with a wrong wire type).
 void emit_decode_arms(Printer& printer, const NameTable& table,
                       const std::vector<std::string>& current_mod, const MessageNode& msg,
                       const FieldModes& modes, const AccessorNames& accessors,
                       const std::string& submodule, const arenagen::MessageLayout* layout) {
     const bool wants_unknown = modes.wants_unknown(&msg);
     const int mask_bits = layout != nullptr ? rust_mask_bits(*layout) : 0;
+    // Every declared field number (regular -- kept OR dropped -- plus map and oneof-member numbers)
+    // as an or-pattern: the set the catch-all treats as "known" so a wrong-wire occurrence never trips
+    // the unknown bit. Built only for an unknown-tracked message (unused otherwise).
+    std::string known_numbers;
+    const auto note_known = [&](std::int64_t number) {
+        if (!known_numbers.empty()) {
+            known_numbers += " | ";
+        }
+        known_numbers += std::to_string(number) + "u32";
+    };
     for (std::size_t i = 0; i < msg.fields.size(); ++i) {
         emit_field_arms(printer, table, current_mod, msg.fields[i], accessors.fields[i],
                         msg.fields[i].presence == FieldPresence::Required, modes,
                         member_for(layout, msg.fields[i]), mask_bits);
-        if (wants_unknown && field_mode(modes, msg.fields[i]) != arenagen::FieldMode::Drop) {
-            emit_known_skip_arm(printer, std::to_string(msg.fields[i].number));
-        }
+        note_known(msg.fields[i].number);
     }
     for (const MapFieldNode& map : msg.map_fields) {
-        if (map_mode(modes, map) == arenagen::FieldMode::Drop) {
-            emit_known_skip_arm(printer, std::to_string(map.number));
-        } else {
+        if (map_mode(modes, map) != arenagen::FieldMode::Drop) {
             emit_map_arm(printer, table, current_mod, map, "rp_map_" + std::to_string(map.number));
-            if (wants_unknown) {
-                emit_known_skip_arm(printer, std::to_string(map.number));
-            }
         }
+        note_known(map.number);
     }
     for (std::size_t i = 0; i < msg.oneofs.size(); ++i) {
         const OneofNode& oneof = msg.oneofs[i];
@@ -1680,17 +1724,22 @@ void emit_decode_arms(Printer& printer, const NameTable& table,
         for (std::size_t j = 0; j < oneof.fields.size(); ++j) {
             emit_oneof_arm(printer, table, current_mod, oneof.fields[j], local, enum_path,
                            variants[j]);
-            if (wants_unknown) {
-                emit_known_skip_arm(printer, std::to_string(oneof.fields[j].number));
-            }
+            note_known(oneof.fields[j].number);
         }
     }
     printer.print("_ => {\n");
     printer.indent();
     if (wants_unknown) {
+        // A declared field number with a wrong wire type is still "known" (skip, no bit); only an
+        // undeclared number trips the unknown bit. The `_` arm cannot pattern out the field bits of a
+        // single key, so route on `rp_tagkey >> 3` in the cold catch-all.
+        printer.print("if !matches!(rp_tagkey >> 3, $k$) {\n", {{"k", known_numbers}});
+        printer.indent();
         printer.print("rp_unknown = true;\n");  // a genuinely unknown field number was seen
+        printer.outdent();
+        printer.print("}\n");
     }
-    emit_skip_body(printer);
+    emit_skip_field_body(printer, loop_read());
     printer.outdent();
     printer.print("}\n");
 }
@@ -1796,18 +1845,8 @@ void emit_decode(Printer& printer, const NameTable& table,
     printer.print("let mut rp_rest: &'a [u8] = rp_body;\n");
     printer.print("loop {\n");
     printer.indent();
-    printer.print(
-        "let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: "
-        "::rapidproto::wire::WireType::Varint };\n");
-    printer.print("rp_rest = match ::rapidproto::wire::read_tag_or_end(rp_rest, &mut rp_tag) {\n");
-    printer.indent();
-    printer.print("Ok(Some(r)) => r,\n");
-    printer.print("Ok(None) => break,\n");
-    printer.print("Err(k) => return Err(::rapidproto::DecodeError::new(k, $off$)),\n",
-                  {{"off", kLoopOff}});
-    printer.outdent();
-    printer.print("};\n");
-    printer.print("match (rp_tag.field, rp_tag.wire) {\n");
+    emit_peek_hub(printer, loop_read(), "rp_tag");
+    printer.print("match rp_tagkey {\n");
     printer.indent();
     emit_decode_arms(printer, table, current_mod, msg, modes, accessors, submodule, layout);
     printer.outdent();
@@ -1841,13 +1880,14 @@ std::unordered_set<std::string> decode_reserved_idents(const MessageNode& msg, b
     if (!supported) {
         return {};
     }
-    std::unordered_set<std::string> reserved =
-        {
-            "decode_into", "_marker",     "rp_body",    "rp_arena", "_rp_arena",
-            "rp_depth",    "rp_rest",     "rp_tag",     "rp_v",     "rp_p",
-            "rp_sub",      "rp_ptr",      "rp_etag",    "rp_ent",   "rp_key",
-            "rp_val",      "rp_ent_body", "rp_unknown",  // the has_unknown_fields() storage + its decode flag
-            "rp_presence"};  // the packed presence/bool mask (storage field + decode local)
+    // Fixed decode-body locals (plus `_marker`): `rp_b`/`rp_tagkey` are the peek hub's tag byte and raw
+    // key; `rp_unknown` the has_unknown_fields() storage + its decode flag; `rp_presence` the packed
+    // presence/bool mask (also a storage field).
+    std::unordered_set<std::string> reserved = {
+        "decode_into", "_marker",    "rp_body",    "rp_arena", "_rp_arena",   "rp_depth",
+        "rp_rest",     "rp_tag",     "rp_v",       "rp_p",     "rp_sub",      "rp_ptr",
+        "rp_etag",     "rp_ent",     "rp_key",     "rp_val",   "rp_ent_body", "rp_b",
+        "rp_tagkey",   "rp_unknown", "rp_presence"};
     for (const FieldNode& field : msg.fields) {
         if (field.is_repeated) {
             reserved.insert("rp_acc_" + std::to_string(field.number));

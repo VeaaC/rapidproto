@@ -373,9 +373,10 @@ TEST_CASE("rustgen arena: a message with a group field stays a decode skeleton")
           }
         })");
     CHECK(has(out, "pub fn mygroup(&self)"));  // the group field is still exposed as an accessor
-    // The bug was WithGroup getting a real decoder whose field-1 arm is `(1u32, ..::WireType::Len)`,
-    // which never matches an SGROUP tag -> the group decodes as absent. The skeleton emits no such arm.
-    CHECK_FALSE(has(out, "(1u32, ::rapidproto::wire::WireType::Len)"));
+    // The bug was WithGroup getting a real decoder whose field-1 arm keys on the length-delimited tag
+    // (`1 << 3 | 2` = 10), which never matches an SGROUP tag -> the group decodes as absent. The
+    // skeleton emits no decode arm at all.
+    CHECK_FALSE(has(out, "10u32 => {"));
     // The inner group message is an ordinary length-prefixed message and still gets a real decoder.
     CHECK(has(out, "decode_into"));
 }
@@ -720,10 +721,10 @@ TEST_CASE("rustgen modes: drop / raw / unknown-fields on a decodable message") {
     spec.unknowns.push_back({"p.M", "test"});
     const std::string out = gen_arena_modes(schema, spec);
 
-    // drop: no storage field, no getter, and a skip arm keyed to the field number (any wire type).
+    // drop: no storage field, no getter, and no arm -- it falls to the loop's `_` catch-all (which
+    // skips it), its number carried in the catch-all's known-number set (checked below).
     CHECK(!has(out, "pub fn gone(&self)"));
     CHECK(!has(out, "gone:"));
-    CHECK(has(out, "(2u32, _) => {"));
     CHECK(has(out, "keep: i32,"));  // the untouched field is unaffected
     // raw: the payload bytes, not a decoded Sub -- borrowed-slice storage + getter, no decode_into.
     CHECK(has(out, "sub: Option<&'a [u8]>,"));
@@ -732,13 +733,14 @@ TEST_CASE("rustgen modes: drop / raw / unknown-fields on a decodable message") {
     CHECK(has(out, "pub fn subs(&self) -> &'a [&'a [u8]] {"));
     CHECK(has(out, "sub = Some(rp_p);"));  // singular raw stores the payload directly
     CHECK(!has(out, "Sub::decode_into"));  // a raw field is NOT recursed into
-    // unknown-fields: the accessor, its storage bit, and the catch-all that sets it.
+    // unknown-fields: the accessor, its storage bit, and the catch-all that sets it only for a field
+    // number NOT declared in the message. The known-number set covers every declared field (kept 1/3/4
+    // AND dropped 2), so a wrong-wire known field -- or the dropped field -- is skipped as known, never
+    // counted unknown. One `matches!` over `rp_tagkey >> 3` replaces the old per-field `(n, _)` arms.
     CHECK(has(out, "pub fn has_unknown_fields(&self) -> bool {"));
     CHECK(has(out, "rp_unknown: bool,"));
+    CHECK(has(out, "if !matches!(rp_tagkey >> 3, 1u32 | 2u32 | 3u32 | 4u32) {"));
     CHECK(has(out, "rp_unknown = true;"));
-    // A kept field in an unknown-tracked message gets a trailing `(n, _)` skip, so a wrong-wire known
-    // field is skipped as known (not counted unknown) -- here field 1 (keep).
-    CHECK(has(out, "(1u32, _) => {"));
     // The banner is added by generate_file (not generate_arena); the arena body carries no profile id.
     CHECK(!has(out, "todo!()"));  // M + Sub both decodable -> real decoders
 }

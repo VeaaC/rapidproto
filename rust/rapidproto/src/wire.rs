@@ -467,6 +467,26 @@ fn skip_depth(rest: &[u8], tag: Tag, depth: u32) -> Result<&[u8], ErrorKind> {
     }
 }
 
+/// Skip a field the generated decoder had no typed arm for, given its raw tag key
+/// (`field << 3 | wire_code` -- the value the decode loop's one-byte peek hub dispatches on).
+/// Reconstructs the wire type and skips the field's value, returning the slice past it.
+///
+/// `rest` is positioned at the field's VALUE (the tag already consumed), like [`skip`]. The key may
+/// be unvalidated: the hot loop's one-byte fast path builds it straight from the tag byte without the
+/// field/wire checks [`read_tag`] makes, so a malformed one-byte tag (field number 0, or a reserved
+/// wire code 6/7) reaches here and is rejected as `InvalidTag` -- the same kind [`read_tag`] would
+/// have raised, only detected after the tag byte rather than before it. (Multi-byte tags still go
+/// through [`read_tag`] in the hot loop, so a malformed one never reaches this function.)
+#[inline]
+pub fn skip_field(rest: &[u8], key: u32) -> Result<&[u8], ErrorKind> {
+    let field = key >> 3;
+    if field == 0 {
+        return Err(ErrorKind::InvalidTag);
+    }
+    let wire = WireType::from_bits(key & 0x07).ok_or(ErrorKind::InvalidTag)?;
+    skip(rest, Tag { field, wire })
+}
+
 /// Decode a zigzag-encoded 32-bit signed integer (sint32) from its varint value.
 #[inline]
 #[must_use]
@@ -735,6 +755,42 @@ mod tests {
                 .kind(),
             ErrorKind::Truncated
         );
+    }
+
+    #[test]
+    fn skip_field_dispatches_on_the_raw_key() {
+        // A raw key is `field << 3 | wire_code`; skip_field reconstructs the wire type and skips the
+        // value at `rest` (the tag already consumed), agreeing with `skip` given the same tag.
+        let key = |field: u32, wire: WireType| (field << 3) | u32::from(wire as u8);
+        // Varint value 300 (0xac 0x02) for field 1.
+        assert_eq!(
+            skip_field(&[0xac, 0x02, 0x7f], key(1, WireType::Varint)).unwrap(),
+            &[0x7f]
+        );
+        // Len payload "hi" for field 2.
+        assert_eq!(
+            skip_field(&[0x02, b'h', b'i', 0xff], key(2, WireType::Len)).unwrap(),
+            &[0xff]
+        );
+        // I32 / I64 consume exactly 4 / 8 bytes.
+        assert_eq!(
+            skip_field(&[0; 4], key(3, WireType::I32)).unwrap(),
+            &[] as &[u8]
+        );
+        assert_eq!(
+            skip_field(&[0; 8], key(4, WireType::I64)).unwrap(),
+            &[] as &[u8]
+        );
+
+        // A field number of 0 (a malformed one-byte tag like 0x04 = field 0, wire 4) is InvalidTag --
+        // the kind read_tag raises for the same tag, just detected one byte later.
+        assert_eq!(skip_field(&[], 0x04).unwrap_err(), ErrorKind::InvalidTag);
+        // A reserved wire code (7) is InvalidTag: field 1, wire 7 -> key 0x0f.
+        assert_eq!(skip_field(&[], 0x0f).unwrap_err(), ErrorKind::InvalidTag);
+        // A large (multi-byte) field number round-trips through the key losslessly: field 2^29 - 1,
+        // wire Len, skipping an empty payload.
+        let big = key(MAX_FIELD_NUMBER, WireType::Len);
+        assert_eq!(skip_field(&[0x00], big).unwrap(), &[] as &[u8]);
     }
 
     #[test]

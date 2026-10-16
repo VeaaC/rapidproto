@@ -563,7 +563,19 @@ fn field_modes_drop_raw_unknown() {
 #[test]
 fn malformed_tag_is_an_error() {
     let arena = Arena::new();
+    // A malformed ONE-byte tag (field number 0: 0x00) is InvalidTag. The decode loop's peek hub takes
+    // a one-byte tag without validating it and only rejects it when the catch-all's `skip_field` sees
+    // the bad field/wire, so the diagnostic offset is one byte past the tag (1), not the tag start.
     let err = match Msg::decode(&[0x00u8], &arena) {
+        Ok(_) => panic!("expected a decode error"),
+        Err(e) => e,
+    };
+    assert_eq!(err.kind(), ErrorKind::InvalidTag);
+    assert_eq!(err.offset(), 1);
+    // A malformed MULTI-byte tag still goes through `read_tag`, which validates before advancing, so it
+    // is reported at the tag start (0). Field 2047 with reserved wire type 7: (2047 << 3 | 7) = 0x3fff
+    // -> 2-byte varint 0xff 0x7f.
+    let err = match Msg::decode(&[0xffu8, 0x7f], &arena) {
         Ok(_) => panic!("expected a decode error"),
         Err(e) => e,
     };

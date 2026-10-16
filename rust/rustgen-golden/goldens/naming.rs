@@ -268,14 +268,23 @@ pub mod arena {
           let mut x: i32 = 0;
           let mut rp_rest: &'a [u8] = rp_body;
           loop {
-            let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
-            rp_rest = match ::rapidproto::wire::read_tag_or_end(rp_rest, &mut rp_tag) {
-              Ok(Some(r)) => r,
-              Ok(None) => break,
-              Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            let rp_b = match rp_rest.first() {
+              Some(&rp_b) => rp_b,
+              None => break,
             };
-            match (rp_tag.field, rp_tag.wire) {
-              (1u32, ::rapidproto::wire::WireType::Varint) => {
+            let rp_tagkey: u32 = if rp_b < 0x80 {
+              rp_rest = &rp_rest[1..];
+              u32::from(rp_b)
+            } else {
+              let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+              rp_rest = match ::rapidproto::wire::read_tag(rp_rest, &mut rp_tag) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              (rp_tag.field << 3) | rp_tag.wire as u32
+            };
+            match rp_tagkey {
+              8u32 => {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
@@ -285,7 +294,7 @@ pub mod arena {
                 rp_presence |= 1 << 0;
               }
               _ => {
-                rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
@@ -350,14 +359,23 @@ pub mod arena {
           let mut k: super::super::super::common::nm::outer::outer::K = super::super::super::common::nm::outer::outer::K(0);
           let mut rp_rest: &'a [u8] = rp_body;
           loop {
-            let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
-            rp_rest = match ::rapidproto::wire::read_tag_or_end(rp_rest, &mut rp_tag) {
-              Ok(Some(r)) => r,
-              Ok(None) => break,
-              Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            let rp_b = match rp_rest.first() {
+              Some(&rp_b) => rp_b,
+              None => break,
             };
-            match (rp_tag.field, rp_tag.wire) {
-              (1u32, ::rapidproto::wire::WireType::Varint) => {
+            let rp_tagkey: u32 = if rp_b < 0x80 {
+              rp_rest = &rp_rest[1..];
+              u32::from(rp_b)
+            } else {
+              let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+              rp_rest = match ::rapidproto::wire::read_tag(rp_rest, &mut rp_tag) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              (rp_tag.field << 3) | rp_tag.wire as u32
+            };
+            match rp_tagkey {
+              8u32 => {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
@@ -366,7 +384,7 @@ pub mod arena {
                 v = rp_v as i32;
                 rp_presence |= 1 << 0;
               }
-              (2u32, ::rapidproto::wire::WireType::Varint) => {
+              16u32 => {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
@@ -376,7 +394,7 @@ pub mod arena {
                 rp_presence |= 1 << 1;
               }
               _ => {
-                rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
@@ -441,14 +459,23 @@ pub mod arena {
           let mut a: i32 = 0;
           let mut rp_rest: &'a [u8] = rp_body;
           loop {
-            let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
-            rp_rest = match ::rapidproto::wire::read_tag_or_end(rp_rest, &mut rp_tag) {
-              Ok(Some(r)) => r,
-              Ok(None) => break,
-              Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            let rp_b = match rp_rest.first() {
+              Some(&rp_b) => rp_b,
+              None => break,
             };
-            match (rp_tag.field, rp_tag.wire) {
-              (1u32, ::rapidproto::wire::WireType::Varint) => {
+            let rp_tagkey: u32 = if rp_b < 0x80 {
+              rp_rest = &rp_rest[1..];
+              u32::from(rp_b)
+            } else {
+              let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+              rp_rest = match ::rapidproto::wire::read_tag(rp_rest, &mut rp_tag) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              (rp_tag.field << 3) | rp_tag.wire as u32
+            };
+            match rp_tagkey {
+              8u32 => {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
@@ -458,7 +485,7 @@ pub mod arena {
                 rp_presence |= 1 << 0;
               }
               _ => {
-                rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
@@ -576,14 +603,23 @@ pub mod arena {
           let mut e: super::super::super::common::nm::shadow::inner::Shadow = super::super::super::common::nm::shadow::inner::Shadow(0);
           let mut rp_rest: &'a [u8] = rp_body;
           loop {
-            let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
-            rp_rest = match ::rapidproto::wire::read_tag_or_end(rp_rest, &mut rp_tag) {
-              Ok(Some(r)) => r,
-              Ok(None) => break,
-              Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            let rp_b = match rp_rest.first() {
+              Some(&rp_b) => rp_b,
+              None => break,
             };
-            match (rp_tag.field, rp_tag.wire) {
-              (1u32, ::rapidproto::wire::WireType::Varint) => {
+            let rp_tagkey: u32 = if rp_b < 0x80 {
+              rp_rest = &rp_rest[1..];
+              u32::from(rp_b)
+            } else {
+              let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+              rp_rest = match ::rapidproto::wire::read_tag(rp_rest, &mut rp_tag) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              (rp_tag.field << 3) | rp_tag.wire as u32
+            };
+            match rp_tagkey {
+              8u32 => {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
@@ -593,7 +629,7 @@ pub mod arena {
                 rp_presence |= 1 << 0;
               }
               _ => {
-                rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
@@ -666,14 +702,23 @@ pub mod arena {
             let mut x: i32 = 0;
             let mut rp_rest: &'a [u8] = rp_body;
             loop {
-              let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
-              rp_rest = match ::rapidproto::wire::read_tag_or_end(rp_rest, &mut rp_tag) {
-                Ok(Some(r)) => r,
-                Ok(None) => break,
-                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              let rp_b = match rp_rest.first() {
+                Some(&rp_b) => rp_b,
+                None => break,
               };
-              match (rp_tag.field, rp_tag.wire) {
-                (1u32, ::rapidproto::wire::WireType::Varint) => {
+              let rp_tagkey: u32 = if rp_b < 0x80 {
+                rp_rest = &rp_rest[1..];
+                u32::from(rp_b)
+              } else {
+                let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+                rp_rest = match ::rapidproto::wire::read_tag(rp_rest, &mut rp_tag) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                (rp_tag.field << 3) | rp_tag.wire as u32
+              };
+              match rp_tagkey {
+                8u32 => {
                   let mut rp_v = 0u64;
                   rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                     Ok(r) => r,
@@ -683,7 +728,7 @@ pub mod arena {
                   rp_presence |= 1 << 0;
                 }
                 _ => {
-                  rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
+                  rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
                     Ok(r) => r,
                     Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                   };
@@ -717,14 +762,23 @@ pub mod arena {
           let mut inner: deep::Deep<'a> = Default::default();
           let mut rp_rest: &'a [u8] = rp_body;
           loop {
-            let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
-            rp_rest = match ::rapidproto::wire::read_tag_or_end(rp_rest, &mut rp_tag) {
-              Ok(Some(r)) => r,
-              Ok(None) => break,
-              Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            let rp_b = match rp_rest.first() {
+              Some(&rp_b) => rp_b,
+              None => break,
             };
-            match (rp_tag.field, rp_tag.wire) {
-              (1u32, ::rapidproto::wire::WireType::Len) => {
+            let rp_tagkey: u32 = if rp_b < 0x80 {
+              rp_rest = &rp_rest[1..];
+              u32::from(rp_b)
+            } else {
+              let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+              rp_rest = match ::rapidproto::wire::read_tag(rp_rest, &mut rp_tag) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              (rp_tag.field << 3) | rp_tag.wire as u32
+            };
+            match rp_tagkey {
+              10u32 => {
                 if (rp_presence & (1 << 0)) != 0 {
                   return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::RepeatedSingularMessage, rp_body.len() - rp_rest.len()).with_field(1));
                 }
@@ -737,7 +791,7 @@ pub mod arena {
                 rp_presence |= 1 << 0;
               }
               _ => {
-                rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
@@ -796,14 +850,23 @@ pub mod arena {
           let mut a: i32 = 0;
           let mut rp_rest: &'a [u8] = rp_body;
           loop {
-            let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
-            rp_rest = match ::rapidproto::wire::read_tag_or_end(rp_rest, &mut rp_tag) {
-              Ok(Some(r)) => r,
-              Ok(None) => break,
-              Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            let rp_b = match rp_rest.first() {
+              Some(&rp_b) => rp_b,
+              None => break,
             };
-            match (rp_tag.field, rp_tag.wire) {
-              (1u32, ::rapidproto::wire::WireType::Varint) => {
+            let rp_tagkey: u32 = if rp_b < 0x80 {
+              rp_rest = &rp_rest[1..];
+              u32::from(rp_b)
+            } else {
+              let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+              rp_rest = match ::rapidproto::wire::read_tag(rp_rest, &mut rp_tag) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              (rp_tag.field << 3) | rp_tag.wire as u32
+            };
+            match rp_tagkey {
+              8u32 => {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
@@ -813,7 +876,7 @@ pub mod arena {
                 rp_presence |= 1 << 0;
               }
               _ => {
-                rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
@@ -916,14 +979,23 @@ pub mod arena {
           let mut a: i32 = 0;
           let mut rp_rest: &'a [u8] = rp_body;
           loop {
-            let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
-            rp_rest = match ::rapidproto::wire::read_tag_or_end(rp_rest, &mut rp_tag) {
-              Ok(Some(r)) => r,
-              Ok(None) => break,
-              Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            let rp_b = match rp_rest.first() {
+              Some(&rp_b) => rp_b,
+              None => break,
             };
-            match (rp_tag.field, rp_tag.wire) {
-              (1u32, ::rapidproto::wire::WireType::Varint) => {
+            let rp_tagkey: u32 = if rp_b < 0x80 {
+              rp_rest = &rp_rest[1..];
+              u32::from(rp_b)
+            } else {
+              let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+              rp_rest = match ::rapidproto::wire::read_tag(rp_rest, &mut rp_tag) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              (rp_tag.field << 3) | rp_tag.wire as u32
+            };
+            match rp_tagkey {
+              8u32 => {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
@@ -933,7 +1005,7 @@ pub mod arena {
                 rp_presence |= 1 << 0;
               }
               _ => {
-                rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
@@ -1069,14 +1141,23 @@ pub mod arena {
         let mut rp_oneof_0: Option<m::Pick> = None;
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
-          let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
-          rp_rest = match ::rapidproto::wire::read_tag_or_end(rp_rest, &mut rp_tag) {
-            Ok(Some(r)) => r,
-            Ok(None) => break,
-            Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          let rp_b = match rp_rest.first() {
+            Some(&rp_b) => rp_b,
+            None => break,
           };
-          match (rp_tag.field, rp_tag.wire) {
-            (1u32, ::rapidproto::wire::WireType::Varint) => {
+          let rp_tagkey: u32 = if rp_b < 0x80 {
+            rp_rest = &rp_rest[1..];
+            u32::from(rp_b)
+          } else {
+            let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+            rp_rest = match ::rapidproto::wire::read_tag(rp_rest, &mut rp_tag) {
+              Ok(r) => r,
+              Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+            (rp_tag.field << 3) | rp_tag.wire as u32
+          };
+          match rp_tagkey {
+            8u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -1085,7 +1166,7 @@ pub mod arena {
               decode_ = rp_v as i32;
               rp_presence |= 1 << 0;
             }
-            (2u32, ::rapidproto::wire::WireType::Varint) => {
+            16u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -1094,7 +1175,7 @@ pub mod arena {
               decode__ = rp_v as i32;
               rp_presence |= 1 << 1;
             }
-            (3u32, ::rapidproto::wire::WireType::Len) => {
+            26u32 => {
               if (rp_presence & (1 << 2)) != 0 {
                 return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::RepeatedSingularMessage, rp_body.len() - rp_rest.len()).with_field(3));
               }
@@ -1106,7 +1187,7 @@ pub mod arena {
               int_field = ::rapidproto::decode_value(|rp_out| m::int::decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
               rp_presence |= 1 << 2;
             }
-            (4u32, ::rapidproto::wire::WireType::Varint) => {
+            32u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -1115,7 +1196,7 @@ pub mod arena {
               int_ = rp_v as i32;
               rp_presence |= 1 << 3;
             }
-            (5u32, ::rapidproto::wire::WireType::Varint) => {
+            40u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -1124,7 +1205,7 @@ pub mod arena {
               e = super::super::common::nm::E(rp_v as i32);
               rp_presence |= 1 << 4;
             }
-            (6u32, ::rapidproto::wire::WireType::Varint) => {
+            48u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -1133,7 +1214,7 @@ pub mod arena {
               rp_oneof_0 = Some(m::Pick::Decode(rp_v as i32));
             }
             _ => {
-              rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
+              rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
@@ -1170,14 +1251,23 @@ pub mod arena {
         let mut inner: outer::Outer<'a> = Default::default();
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
-          let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
-          rp_rest = match ::rapidproto::wire::read_tag_or_end(rp_rest, &mut rp_tag) {
-            Ok(Some(r)) => r,
-            Ok(None) => break,
-            Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          let rp_b = match rp_rest.first() {
+            Some(&rp_b) => rp_b,
+            None => break,
           };
-          match (rp_tag.field, rp_tag.wire) {
-            (1u32, ::rapidproto::wire::WireType::Len) => {
+          let rp_tagkey: u32 = if rp_b < 0x80 {
+            rp_rest = &rp_rest[1..];
+            u32::from(rp_b)
+          } else {
+            let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+            rp_rest = match ::rapidproto::wire::read_tag(rp_rest, &mut rp_tag) {
+              Ok(r) => r,
+              Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+            (rp_tag.field << 3) | rp_tag.wire as u32
+          };
+          match rp_tagkey {
+            10u32 => {
               if (rp_presence & (1 << 0)) != 0 {
                 return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::RepeatedSingularMessage, rp_body.len() - rp_rest.len()).with_field(1));
               }
@@ -1190,7 +1280,7 @@ pub mod arena {
               rp_presence |= 1 << 0;
             }
             _ => {
-              rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
+              rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
@@ -1223,14 +1313,23 @@ pub mod arena {
         let mut unix: i32 = 0;
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
-          let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
-          rp_rest = match ::rapidproto::wire::read_tag_or_end(rp_rest, &mut rp_tag) {
-            Ok(Some(r)) => r,
-            Ok(None) => break,
-            Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          let rp_b = match rp_rest.first() {
+            Some(&rp_b) => rp_b,
+            None => break,
           };
-          match (rp_tag.field, rp_tag.wire) {
-            (1u32, ::rapidproto::wire::WireType::Len) => {
+          let rp_tagkey: u32 = if rp_b < 0x80 {
+            rp_rest = &rp_rest[1..];
+            u32::from(rp_b)
+          } else {
+            let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+            rp_rest = match ::rapidproto::wire::read_tag(rp_rest, &mut rp_tag) {
+              Ok(r) => r,
+              Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+            (rp_tag.field << 3) | rp_tag.wire as u32
+          };
+          match rp_tagkey {
+            10u32 => {
               if (rp_presence & (1 << 0)) != 0 {
                 return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::RepeatedSingularMessage, rp_body.len() - rp_rest.len()).with_field(1));
               }
@@ -1242,7 +1341,7 @@ pub mod arena {
               l = ::rapidproto::decode_value(|rp_out| gnu::linux::decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
               rp_presence |= 1 << 0;
             }
-            (2u32, ::rapidproto::wire::WireType::Varint) => {
+            16u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -1252,7 +1351,7 @@ pub mod arena {
               rp_presence |= 1 << 1;
             }
             _ => {
-              rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
+              rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
@@ -1286,14 +1385,23 @@ pub mod arena {
         let mut INT8_C: i32 = 0;
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
-          let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
-          rp_rest = match ::rapidproto::wire::read_tag_or_end(rp_rest, &mut rp_tag) {
-            Ok(Some(r)) => r,
-            Ok(None) => break,
-            Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          let rp_b = match rp_rest.first() {
+            Some(&rp_b) => rp_b,
+            None => break,
           };
-          match (rp_tag.field, rp_tag.wire) {
-            (1u32, ::rapidproto::wire::WireType::Varint) => {
+          let rp_tagkey: u32 = if rp_b < 0x80 {
+            rp_rest = &rp_rest[1..];
+            u32::from(rp_b)
+          } else {
+            let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+            rp_rest = match ::rapidproto::wire::read_tag(rp_rest, &mut rp_tag) {
+              Ok(r) => r,
+              Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+            (rp_tag.field << 3) | rp_tag.wire as u32
+          };
+          match rp_tagkey {
+            8u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -1302,7 +1410,7 @@ pub mod arena {
               INT32_MAX = rp_v as i32;
               rp_presence |= 1 << 0;
             }
-            (2u32, ::rapidproto::wire::WireType::Varint) => {
+            16u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -1312,7 +1420,7 @@ pub mod arena {
               rp_presence |= 1 << 1;
             }
             _ => {
-              rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
+              rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
@@ -1346,14 +1454,23 @@ pub mod arena {
         let mut a: i32 = 0;
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
-          let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
-          rp_rest = match ::rapidproto::wire::read_tag_or_end(rp_rest, &mut rp_tag) {
-            Ok(Some(r)) => r,
-            Ok(None) => break,
-            Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          let rp_b = match rp_rest.first() {
+            Some(&rp_b) => rp_b,
+            None => break,
           };
-          match (rp_tag.field, rp_tag.wire) {
-            (1u32, ::rapidproto::wire::WireType::Varint) => {
+          let rp_tagkey: u32 = if rp_b < 0x80 {
+            rp_rest = &rp_rest[1..];
+            u32::from(rp_b)
+          } else {
+            let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+            rp_rest = match ::rapidproto::wire::read_tag(rp_rest, &mut rp_tag) {
+              Ok(r) => r,
+              Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+            (rp_tag.field << 3) | rp_tag.wire as u32
+          };
+          match rp_tagkey {
+            8u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -1363,7 +1480,7 @@ pub mod arena {
               rp_presence |= 1 << 0;
             }
             _ => {
-              rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
+              rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
@@ -1396,14 +1513,23 @@ pub mod arena {
         let mut v: i32 = 0;
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
-          let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
-          rp_rest = match ::rapidproto::wire::read_tag_or_end(rp_rest, &mut rp_tag) {
-            Ok(Some(r)) => r,
-            Ok(None) => break,
-            Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          let rp_b = match rp_rest.first() {
+            Some(&rp_b) => rp_b,
+            None => break,
           };
-          match (rp_tag.field, rp_tag.wire) {
-            (1u32, ::rapidproto::wire::WireType::Varint) => {
+          let rp_tagkey: u32 = if rp_b < 0x80 {
+            rp_rest = &rp_rest[1..];
+            u32::from(rp_b)
+          } else {
+            let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+            rp_rest = match ::rapidproto::wire::read_tag(rp_rest, &mut rp_tag) {
+              Ok(r) => r,
+              Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+            (rp_tag.field << 3) | rp_tag.wire as u32
+          };
+          match rp_tagkey {
+            8u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -1413,7 +1539,7 @@ pub mod arena {
               rp_presence |= 1 << 0;
             }
             _ => {
-              rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
+              rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
@@ -1447,14 +1573,23 @@ pub mod arena {
         let mut other: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
-          let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
-          rp_rest = match ::rapidproto::wire::read_tag_or_end(rp_rest, &mut rp_tag) {
-            Ok(Some(r)) => r,
-            Ok(None) => break,
-            Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          let rp_b = match rp_rest.first() {
+            Some(&rp_b) => rp_b,
+            None => break,
           };
-          match (rp_tag.field, rp_tag.wire) {
-            (1u32, ::rapidproto::wire::WireType::Varint) => {
+          let rp_tagkey: u32 = if rp_b < 0x80 {
+            rp_rest = &rp_rest[1..];
+            u32::from(rp_b)
+          } else {
+            let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+            rp_rest = match ::rapidproto::wire::read_tag(rp_rest, &mut rp_tag) {
+              Ok(r) => r,
+              Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+            (rp_tag.field << 3) | rp_tag.wire as u32
+          };
+          match rp_tagkey {
+            8u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -1463,7 +1598,7 @@ pub mod arena {
               m_bytes = rp_v as i32;
               rp_presence |= 1 << 0;
             }
-            (2u32, ::rapidproto::wire::WireType::Len) => {
+            18u32 => {
               let mut rp_p: &[u8] = &[];
               rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
                 Ok(r) => r,
@@ -1473,7 +1608,7 @@ pub mod arena {
               rp_presence |= 1 << 1;
             }
             _ => {
-              rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
+              rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
@@ -1506,14 +1641,23 @@ pub mod arena {
         let mut inner: shadow::Inner<'a> = Default::default();
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
-          let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
-          rp_rest = match ::rapidproto::wire::read_tag_or_end(rp_rest, &mut rp_tag) {
-            Ok(Some(r)) => r,
-            Ok(None) => break,
-            Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          let rp_b = match rp_rest.first() {
+            Some(&rp_b) => rp_b,
+            None => break,
           };
-          match (rp_tag.field, rp_tag.wire) {
-            (1u32, ::rapidproto::wire::WireType::Len) => {
+          let rp_tagkey: u32 = if rp_b < 0x80 {
+            rp_rest = &rp_rest[1..];
+            u32::from(rp_b)
+          } else {
+            let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+            rp_rest = match ::rapidproto::wire::read_tag(rp_rest, &mut rp_tag) {
+              Ok(r) => r,
+              Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+            (rp_tag.field << 3) | rp_tag.wire as u32
+          };
+          match rp_tagkey {
+            10u32 => {
               if (rp_presence & (1 << 0)) != 0 {
                 return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::RepeatedSingularMessage, rp_body.len() - rp_rest.len()).with_field(1));
               }
@@ -1526,7 +1670,7 @@ pub mod arena {
               rp_presence |= 1 << 0;
             }
             _ => {
-              rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
+              rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
@@ -1558,14 +1702,23 @@ pub mod arena {
         let mut mid: deep::Deep<'a> = Default::default();
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
-          let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
-          rp_rest = match ::rapidproto::wire::read_tag_or_end(rp_rest, &mut rp_tag) {
-            Ok(Some(r)) => r,
-            Ok(None) => break,
-            Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          let rp_b = match rp_rest.first() {
+            Some(&rp_b) => rp_b,
+            None => break,
           };
-          match (rp_tag.field, rp_tag.wire) {
-            (1u32, ::rapidproto::wire::WireType::Len) => {
+          let rp_tagkey: u32 = if rp_b < 0x80 {
+            rp_rest = &rp_rest[1..];
+            u32::from(rp_b)
+          } else {
+            let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+            rp_rest = match ::rapidproto::wire::read_tag(rp_rest, &mut rp_tag) {
+              Ok(r) => r,
+              Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+            (rp_tag.field << 3) | rp_tag.wire as u32
+          };
+          match rp_tagkey {
+            10u32 => {
               if (rp_presence & (1 << 0)) != 0 {
                 return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::RepeatedSingularMessage, rp_body.len() - rp_rest.len()).with_field(1));
               }
@@ -1578,7 +1731,7 @@ pub mod arena {
               rp_presence |= 1 << 0;
             }
             _ => {
-              rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
+              rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
@@ -1610,14 +1763,23 @@ pub mod arena {
         let mut s: std::std<'a> = Default::default();
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
-          let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
-          rp_rest = match ::rapidproto::wire::read_tag_or_end(rp_rest, &mut rp_tag) {
-            Ok(Some(r)) => r,
-            Ok(None) => break,
-            Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          let rp_b = match rp_rest.first() {
+            Some(&rp_b) => rp_b,
+            None => break,
           };
-          match (rp_tag.field, rp_tag.wire) {
-            (1u32, ::rapidproto::wire::WireType::Len) => {
+          let rp_tagkey: u32 = if rp_b < 0x80 {
+            rp_rest = &rp_rest[1..];
+            u32::from(rp_b)
+          } else {
+            let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+            rp_rest = match ::rapidproto::wire::read_tag(rp_rest, &mut rp_tag) {
+              Ok(r) => r,
+              Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+            (rp_tag.field << 3) | rp_tag.wire as u32
+          };
+          match rp_tagkey {
+            10u32 => {
               if (rp_presence & (1 << 0)) != 0 {
                 return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::RepeatedSingularMessage, rp_body.len() - rp_rest.len()).with_field(1));
               }
@@ -1630,7 +1792,7 @@ pub mod arena {
               rp_presence |= 1 << 0;
             }
             _ => {
-              rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
+              rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
@@ -1662,14 +1824,23 @@ pub mod arena {
         let mut e: super::super::common::nm::std_enum::std = super::super::common::nm::std_enum::std(0);
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
-          let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
-          rp_rest = match ::rapidproto::wire::read_tag_or_end(rp_rest, &mut rp_tag) {
-            Ok(Some(r)) => r,
-            Ok(None) => break,
-            Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          let rp_b = match rp_rest.first() {
+            Some(&rp_b) => rp_b,
+            None => break,
           };
-          match (rp_tag.field, rp_tag.wire) {
-            (1u32, ::rapidproto::wire::WireType::Varint) => {
+          let rp_tagkey: u32 = if rp_b < 0x80 {
+            rp_rest = &rp_rest[1..];
+            u32::from(rp_b)
+          } else {
+            let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+            rp_rest = match ::rapidproto::wire::read_tag(rp_rest, &mut rp_tag) {
+              Ok(r) => r,
+              Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+            (rp_tag.field << 3) | rp_tag.wire as u32
+          };
+          match rp_tagkey {
+            8u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -1679,7 +1850,7 @@ pub mod arena {
               rp_presence |= 1 << 0;
             }
             _ => {
-              rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
+              rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
@@ -1712,14 +1883,23 @@ pub mod arena {
         let mut std: i32 = 0;
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
-          let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
-          rp_rest = match ::rapidproto::wire::read_tag_or_end(rp_rest, &mut rp_tag) {
-            Ok(Some(r)) => r,
-            Ok(None) => break,
-            Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          let rp_b = match rp_rest.first() {
+            Some(&rp_b) => rp_b,
+            None => break,
           };
-          match (rp_tag.field, rp_tag.wire) {
-            (1u32, ::rapidproto::wire::WireType::Varint) => {
+          let rp_tagkey: u32 = if rp_b < 0x80 {
+            rp_rest = &rp_rest[1..];
+            u32::from(rp_b)
+          } else {
+            let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+            rp_rest = match ::rapidproto::wire::read_tag(rp_rest, &mut rp_tag) {
+              Ok(r) => r,
+              Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+            (rp_tag.field << 3) | rp_tag.wire as u32
+          };
+          match rp_tagkey {
+            8u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -1729,7 +1909,7 @@ pub mod arena {
               rp_presence |= 1 << 0;
             }
             _ => {
-              rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
+              rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
@@ -1761,14 +1941,23 @@ pub mod arena {
         let mut rp_map_1 = ::rapidproto::DecodeVec::new(rp_arena);
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
-          let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
-          rp_rest = match ::rapidproto::wire::read_tag_or_end(rp_rest, &mut rp_tag) {
-            Ok(Some(r)) => r,
-            Ok(None) => break,
-            Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          let rp_b = match rp_rest.first() {
+            Some(&rp_b) => rp_b,
+            None => break,
           };
-          match (rp_tag.field, rp_tag.wire) {
-            (1u32, ::rapidproto::wire::WireType::Len) => {
+          let rp_tagkey: u32 = if rp_b < 0x80 {
+            rp_rest = &rp_rest[1..];
+            u32::from(rp_b)
+          } else {
+            let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+            rp_rest = match ::rapidproto::wire::read_tag(rp_rest, &mut rp_tag) {
+              Ok(r) => r,
+              Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+            (rp_tag.field << 3) | rp_tag.wire as u32
+          };
+          match rp_tagkey {
+            10u32 => {
               let mut rp_p: &[u8] = &[];
               rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
                 Ok(r) => r,
@@ -1779,14 +1968,23 @@ pub mod arena {
               let mut rp_val: i32 = 0;
               let mut rp_ent: &'a [u8] = rp_ent_body;
               loop {
-                let mut rp_etag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
-                rp_ent = match ::rapidproto::wire::read_tag_or_end(rp_ent, &mut rp_etag) {
-                  Ok(Some(r)) => r,
-                  Ok(None) => break,
-                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
+                let rp_b = match rp_ent.first() {
+                  Some(&rp_b) => rp_b,
+                  None => break,
                 };
-                match (rp_etag.field, rp_etag.wire) {
-                  (1u32, ::rapidproto::wire::WireType::Len) => {
+                let rp_tagkey: u32 = if rp_b < 0x80 {
+                  rp_ent = &rp_ent[1..];
+                  u32::from(rp_b)
+                } else {
+                  let mut rp_etag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+                  rp_ent = match ::rapidproto::wire::read_tag(rp_ent, &mut rp_etag) {
+                    Ok(r) => r,
+                    Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
+                  };
+                  (rp_etag.field << 3) | rp_etag.wire as u32
+                };
+                match rp_tagkey {
+                  10u32 => {
                     let mut rp_p: &[u8] = &[];
                     rp_ent = match ::rapidproto::wire::read_length_delimited(rp_ent, &mut rp_p) {
                       Ok(r) => r,
@@ -1794,7 +1992,7 @@ pub mod arena {
                     };
                     rp_key = ::rapidproto::ProtoStr::new(rp_p);
                   }
-                  (2u32, ::rapidproto::wire::WireType::Varint) => {
+                  16u32 => {
                     let mut rp_v = 0u64;
                     rp_ent = match ::rapidproto::wire::read_varint(rp_ent, &mut rp_v) {
                       Ok(r) => r,
@@ -1803,7 +2001,7 @@ pub mod arena {
                     rp_val = rp_v as i32;
                   }
                   _ => {
-                    rp_ent = match ::rapidproto::wire::skip(rp_ent, rp_etag) {
+                    rp_ent = match ::rapidproto::wire::skip_field(rp_ent, rp_tagkey) {
                       Ok(r) => r,
                       Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                     };
@@ -1813,7 +2011,7 @@ pub mod arena {
               rp_map_1.push((rp_key, rp_val)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
             }
             _ => {
-              rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
+              rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
@@ -1846,14 +2044,23 @@ pub mod arena {
         let mut rp_map_3 = ::rapidproto::DecodeVec::new(rp_arena);
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
-          let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
-          rp_rest = match ::rapidproto::wire::read_tag_or_end(rp_rest, &mut rp_tag) {
-            Ok(Some(r)) => r,
-            Ok(None) => break,
-            Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          let rp_b = match rp_rest.first() {
+            Some(&rp_b) => rp_b,
+            None => break,
           };
-          match (rp_tag.field, rp_tag.wire) {
-            (1u32, ::rapidproto::wire::WireType::Len) => {
+          let rp_tagkey: u32 = if rp_b < 0x80 {
+            rp_rest = &rp_rest[1..];
+            u32::from(rp_b)
+          } else {
+            let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+            rp_rest = match ::rapidproto::wire::read_tag(rp_rest, &mut rp_tag) {
+              Ok(r) => r,
+              Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+            (rp_tag.field << 3) | rp_tag.wire as u32
+          };
+          match rp_tagkey {
+            10u32 => {
               if (rp_presence & (1 << 0)) != 0 {
                 return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::RepeatedSingularMessage, rp_body.len() - rp_rest.len()).with_field(1));
               }
@@ -1865,7 +2072,7 @@ pub mod arena {
               m = ::rapidproto::decode_value(|rp_out| macros::RP_FLATTEN::decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
               rp_presence |= 1 << 0;
             }
-            (2u32, ::rapidproto::wire::WireType::Varint) => {
+            16u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -1874,7 +2081,7 @@ pub mod arena {
               RP_NOINLINE = rp_v as i32;
               rp_presence |= 1 << 1;
             }
-            (3u32, ::rapidproto::wire::WireType::Len) => {
+            26u32 => {
               let mut rp_p: &[u8] = &[];
               rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
                 Ok(r) => r,
@@ -1885,14 +2092,23 @@ pub mod arena {
               let mut rp_val: i32 = 0;
               let mut rp_ent: &'a [u8] = rp_ent_body;
               loop {
-                let mut rp_etag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
-                rp_ent = match ::rapidproto::wire::read_tag_or_end(rp_ent, &mut rp_etag) {
-                  Ok(Some(r)) => r,
-                  Ok(None) => break,
-                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
+                let rp_b = match rp_ent.first() {
+                  Some(&rp_b) => rp_b,
+                  None => break,
                 };
-                match (rp_etag.field, rp_etag.wire) {
-                  (1u32, ::rapidproto::wire::WireType::Len) => {
+                let rp_tagkey: u32 = if rp_b < 0x80 {
+                  rp_ent = &rp_ent[1..];
+                  u32::from(rp_b)
+                } else {
+                  let mut rp_etag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+                  rp_ent = match ::rapidproto::wire::read_tag(rp_ent, &mut rp_etag) {
+                    Ok(r) => r,
+                    Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
+                  };
+                  (rp_etag.field << 3) | rp_etag.wire as u32
+                };
+                match rp_tagkey {
+                  10u32 => {
                     let mut rp_p: &[u8] = &[];
                     rp_ent = match ::rapidproto::wire::read_length_delimited(rp_ent, &mut rp_p) {
                       Ok(r) => r,
@@ -1900,7 +2116,7 @@ pub mod arena {
                     };
                     rp_key = ::rapidproto::ProtoStr::new(rp_p);
                   }
-                  (2u32, ::rapidproto::wire::WireType::Varint) => {
+                  16u32 => {
                     let mut rp_v = 0u64;
                     rp_ent = match ::rapidproto::wire::read_varint(rp_ent, &mut rp_v) {
                       Ok(r) => r,
@@ -1909,7 +2125,7 @@ pub mod arena {
                     rp_val = rp_v as i32;
                   }
                   _ => {
-                    rp_ent = match ::rapidproto::wire::skip(rp_ent, rp_etag) {
+                    rp_ent = match ::rapidproto::wire::skip_field(rp_ent, rp_tagkey) {
                       Ok(r) => r,
                       Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                     };
@@ -1919,7 +2135,7 @@ pub mod arena {
               rp_map_3.push((rp_key, rp_val)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
             }
             _ => {
-              rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
+              rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
@@ -1954,14 +2170,23 @@ pub mod arena {
         let mut rp_oneof_2: Option<oneof_tags::RpFlatten> = None;
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
-          let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
-          rp_rest = match ::rapidproto::wire::read_tag_or_end(rp_rest, &mut rp_tag) {
-            Ok(Some(r)) => r,
-            Ok(None) => break,
-            Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          let rp_b = match rp_rest.first() {
+            Some(&rp_b) => rp_b,
+            None => break,
           };
-          match (rp_tag.field, rp_tag.wire) {
-            (1u32, ::rapidproto::wire::WireType::Varint) => {
+          let rp_tagkey: u32 = if rp_b < 0x80 {
+            rp_rest = &rp_rest[1..];
+            u32::from(rp_b)
+          } else {
+            let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+            rp_rest = match ::rapidproto::wire::read_tag(rp_rest, &mut rp_tag) {
+              Ok(r) => r,
+              Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+            (rp_tag.field << 3) | rp_tag.wire as u32
+          };
+          match rp_tagkey {
+            8u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -1969,7 +2194,7 @@ pub mod arena {
               };
               rp_oneof_0 = Some(oneof_tags::Eof::A(rp_v as i32));
             }
-            (2u32, ::rapidproto::wire::WireType::Varint) => {
+            16u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -1977,7 +2202,7 @@ pub mod arena {
               };
               rp_oneof_1 = Some(oneof_tags::Value::B(rp_v as i32));
             }
-            (3u32, ::rapidproto::wire::WireType::Varint) => {
+            24u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -1986,7 +2211,7 @@ pub mod arena {
               rp_oneof_2 = Some(oneof_tags::RpFlatten::C(rp_v as i32));
             }
             _ => {
-              rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
+              rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
@@ -2020,14 +2245,23 @@ pub mod arena {
         let mut stream: i32 = 0;
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
-          let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
-          rp_rest = match ::rapidproto::wire::read_tag_or_end(rp_rest, &mut rp_tag) {
-            Ok(Some(r)) => r,
-            Ok(None) => break,
-            Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          let rp_b = match rp_rest.first() {
+            Some(&rp_b) => rp_b,
+            None => break,
           };
-          match (rp_tag.field, rp_tag.wire) {
-            (1u32, ::rapidproto::wire::WireType::Varint) => {
+          let rp_tagkey: u32 = if rp_b < 0x80 {
+            rp_rest = &rp_rest[1..];
+            u32::from(rp_b)
+          } else {
+            let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+            rp_rest = match ::rapidproto::wire::read_tag(rp_rest, &mut rp_tag) {
+              Ok(r) => r,
+              Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+            (rp_tag.field << 3) | rp_tag.wire as u32
+          };
+          match rp_tagkey {
+            8u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -2037,7 +2271,7 @@ pub mod arena {
               rp_presence |= 1 << 0;
             }
             _ => {
-              rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
+              rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
@@ -2074,14 +2308,23 @@ pub mod arena {
         let mut rp_oneof_0: Option<freed::RpfsOneof> = None;
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
-          let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
-          rp_rest = match ::rapidproto::wire::read_tag_or_end(rp_rest, &mut rp_tag) {
-            Ok(Some(r)) => r,
-            Ok(None) => break,
-            Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          let rp_b = match rp_rest.first() {
+            Some(&rp_b) => rp_b,
+            None => break,
           };
-          match (rp_tag.field, rp_tag.wire) {
-            (1u32, ::rapidproto::wire::WireType::Varint) => {
+          let rp_tagkey: u32 = if rp_b < 0x80 {
+            rp_rest = &rp_rest[1..];
+            u32::from(rp_b)
+          } else {
+            let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+            rp_rest = match ::rapidproto::wire::read_tag(rp_rest, &mut rp_tag) {
+              Ok(r) => r,
+              Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+            (rp_tag.field << 3) | rp_tag.wire as u32
+          };
+          match rp_tagkey {
+            8u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -2090,7 +2333,7 @@ pub mod arena {
               Callbacks = rp_v as i32;
               rp_presence |= 1 << 0;
             }
-            (2u32, ::rapidproto::wire::WireType::Varint) => {
+            16u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -2099,7 +2342,7 @@ pub mod arena {
               RpFs = rp_v as i32;
               rp_presence |= 1 << 1;
             }
-            (3u32, ::rapidproto::wire::WireType::Varint) => {
+            24u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -2108,7 +2351,7 @@ pub mod arena {
               RpT = rp_v as i32;
               rp_presence |= 1 << 2;
             }
-            (4u32, ::rapidproto::wire::WireType::Varint) => {
+            32u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -2117,7 +2360,7 @@ pub mod arena {
               RpTag = rp_v as i32;
               rp_presence |= 1 << 3;
             }
-            (5u32, ::rapidproto::wire::WireType::Varint) => {
+            40u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -2126,7 +2369,7 @@ pub mod arena {
               rp_oneof_0 = Some(freed::RpfsOneof::X(rp_v as i32));
             }
             _ => {
-              rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
+              rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
@@ -2162,14 +2405,23 @@ pub mod arena {
         let mut rp_oneof_0: Option<freed_oneof::Rpfs> = None;
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
-          let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
-          rp_rest = match ::rapidproto::wire::read_tag_or_end(rp_rest, &mut rp_tag) {
-            Ok(Some(r)) => r,
-            Ok(None) => break,
-            Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          let rp_b = match rp_rest.first() {
+            Some(&rp_b) => rp_b,
+            None => break,
           };
-          match (rp_tag.field, rp_tag.wire) {
-            (1u32, ::rapidproto::wire::WireType::Varint) => {
+          let rp_tagkey: u32 = if rp_b < 0x80 {
+            rp_rest = &rp_rest[1..];
+            u32::from(rp_b)
+          } else {
+            let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+            rp_rest = match ::rapidproto::wire::read_tag(rp_rest, &mut rp_tag) {
+              Ok(r) => r,
+              Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+            (rp_tag.field << 3) | rp_tag.wire as u32
+          };
+          match rp_tagkey {
+            8u32 => {
               let mut rp_v = 0u64;
               rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                 Ok(r) => r,
@@ -2178,7 +2430,7 @@ pub mod arena {
               rp_oneof_0 = Some(freed_oneof::Rpfs::A(rp_v as i32));
             }
             _ => {
-              rp_rest = match ::rapidproto::wire::skip(rp_rest, rp_tag) {
+              rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
                 Ok(r) => r,
                 Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
