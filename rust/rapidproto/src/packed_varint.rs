@@ -155,7 +155,13 @@ unsafe fn classify(p: *const u8, span: usize) -> (Kernel, usize) {
 ///
 /// # Safety
 /// `q <= end` and both point into one allocation (the packed span).
-#[inline]
+///
+/// `#[inline(always)]`, not `#[inline]`: inlining the full varint decode (`read_varint_full`) grows
+/// this body past LLVM's inline threshold, so a plain hint lets it be out-of-lined -- and then every
+/// scalar element (packed small-span fill, SWAR tail) pays a per-element call, which regresses large
+/// packed spans (e.g. `big_osm`). Forcing the inline keeps the element read folded into the caller's
+/// loop (as it was before the full-varint change, and as the C++ RP_FLATTENed small kernel does).
+#[inline(always)]
 unsafe fn read_one(q: *const u8, end: *const u8) -> Result<(u64, *const u8), ErrorKind> {
     // SAFETY: q <= end in the same span, so this is a valid subslice of the input.
     let rest = unsafe { core::slice::from_raw_parts(q, end.offset_from(q) as usize) };
