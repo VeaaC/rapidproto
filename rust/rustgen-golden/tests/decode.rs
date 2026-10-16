@@ -993,6 +993,14 @@ fn non_minimal_tag_decodes_identically_to_the_canonical_form() {
     let arena = Arena::new();
     let m = Msg::decode(&buf, &arena).unwrap();
     assert_eq!(m.name().as_bytes(), b"hi");
+
+    // ...and across a different field kind -- a varint field (implicit_i, field 1): canonical tag
+    // 0x08, encoded over-long as 0x88 0x00.
+    let mut vbuf = Vec::new();
+    vbuf.extend_from_slice(&[0x88, 0x00]); // (1<<3)|0, two-byte non-minimal
+    put_varint(&mut vbuf, 42);
+    let va = Arena::new();
+    assert_eq!(Msg::decode(&vbuf, &va).unwrap().implicit_i(), 42);
 }
 
 #[test]
@@ -1065,7 +1073,10 @@ fn dropped_field_record_is_still_wire_validated() {
     put_tag(&mut buf, 4, 0); // field 4 varint tag...
     buf.push(0x80); // ...truncated varint (continuation, no terminator)
     let arena = Arena::new();
-    assert!(ModedHolder::decode(&buf, &arena).is_err());
+    assert!(matches!(
+        ModedHolder::decode(&buf, &arena),
+        Err(e) if e.kind() == ErrorKind::Truncated
+    ));
 }
 
 #[test]
@@ -1214,6 +1225,19 @@ fn inlined_wrapper_tracks_its_own_unknown_fields_separately_from_the_parent() {
     let h2 = UnkHolder::decode(&buf2, &arena2).unwrap();
     assert!(h2.has_unknown_fields()); // the Holder saw the unknown
     assert!(!h2.flag().unwrap().has_unknown_fields()); // ...the Flag did not
+
+    // A field at the wrapper's OWN known number (1 = value) but the WRONG wire type is skipped as a
+    // known field, NOT counted as unknown (the mask keys on field number, not the full tag).
+    let mut flag3 = Vec::new();
+    put_len(&mut flag3, 1, b"x"); // Flag.value (field 1) as LEN -- wrong wire (value is a bool/varint)
+    let mut buf3 = Vec::new();
+    put_len(&mut buf3, 1, &flag3);
+    let arena3 = Arena::new();
+    assert!(!UnkHolder::decode(&buf3, &arena3)
+        .unwrap()
+        .flag()
+        .unwrap()
+        .has_unknown_fields());
 }
 
 #[test]
