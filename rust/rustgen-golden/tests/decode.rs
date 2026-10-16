@@ -118,16 +118,29 @@ fn singular_scalar_last_occurrence_wins() {
 
 #[test]
 fn threaded_fields_decode_regardless_of_wire_order() {
-    // The decode loop threads singular scalar/enum fields (1 implicit_i, 2 explicit_i, 4 state) with
-    // an ascending-order straight-line prologue. Fields written OUT OF ORDER (descending here) make
-    // the prologue probes mostly miss, so the general hub loop must decode them to the same result --
-    // the fast path and the fallback cannot disagree.
+    // The decode loop threads singular scalar/enum fields with an ascending-order straight-line
+    // prologue, probing a one-byte tag for fields 1 implicit_i / 2 explicit_i / 4 state and a TWO-byte
+    // tag for fields 20 ratio (fixed64) / 21 scale (fixed32). Fields written OUT OF ORDER (descending
+    // here) make the prologue probes mostly miss, so the general hub loop must decode them to the same
+    // result -- the one- and two-byte fast paths and the fallback cannot disagree.
     let arena = Arena::new();
+    let put_f64 = |b: &mut Vec<u8>, field: u32, v: f64| {
+        put_tag(b, field, 1);
+        b.extend_from_slice(&v.to_bits().to_le_bytes());
+    };
+    let put_f32 = |b: &mut Vec<u8>, field: u32, v: f32| {
+        put_tag(b, field, 5);
+        b.extend_from_slice(&v.to_bits().to_le_bytes());
+    };
     let mut ascending = Vec::new();
-    put_var(&mut ascending, 1, 300); // implicit_i
-    put_var(&mut ascending, 2, 42); // explicit_i
-    put_var(&mut ascending, 4, 1); // state = ON
+    put_var(&mut ascending, 1, 300); // implicit_i (1-byte tag)
+    put_var(&mut ascending, 2, 42); // explicit_i (1-byte tag)
+    put_var(&mut ascending, 4, 1); // state = ON (1-byte tag)
+    put_f64(&mut ascending, 20, 2.5); // ratio (2-byte tag)
+    put_f32(&mut ascending, 21, 1.5); // scale (2-byte tag)
     let mut descending = Vec::new();
+    put_f32(&mut descending, 21, 1.5);
+    put_f64(&mut descending, 20, 2.5);
     put_var(&mut descending, 4, 1);
     put_var(&mut descending, 2, 42);
     put_var(&mut descending, 1, 300);
@@ -137,6 +150,41 @@ fn threaded_fields_decode_regardless_of_wire_order() {
         assert_eq!(m.implicit_i(), 300);
         assert_eq!(m.explicit_i(), Some(42));
         assert_eq!(m.state(), State::ON);
+        assert_eq!(m.ratio(), 2.5);
+        assert_eq!(m.scale(), 1.5);
+    }
+}
+
+#[test]
+fn threaded_repeated_oneof_and_message_match_fallback() {
+    // Threading covers every field kind, not just scalars: a repeated field self-loops on its own
+    // element tag (nums, 6), a oneof member is threaded (pick::a, 10), and a singular sub-message is
+    // threaded (self, 5). Decoding the SAME fields ascending (prologue threads them) vs scrambled
+    // (prologue misses, the hub loop decodes them) must agree -- the self-loop, oneof slot, and
+    // in-place message decode cannot diverge from the fallback.
+    let arena = Arena::new();
+    let mut nested = Vec::new();
+    put_var(&mut nested, 1, 9); // self.implicit_i = 9
+
+    let mut ascending = Vec::new();
+    put_len(&mut ascending, 5, &nested); // self (message)
+    put_var(&mut ascending, 6, 100); // nums[0] (repeated, unpacked)
+    put_var(&mut ascending, 6, 200); // nums[1]
+    put_var(&mut ascending, 6, 300); // nums[2]
+    put_var(&mut ascending, 10, 42); // pick::a (oneof)
+
+    let mut scrambled = Vec::new();
+    put_var(&mut scrambled, 10, 42); // oneof first
+    put_len(&mut scrambled, 5, &nested); // then the message
+    put_var(&mut scrambled, 6, 100); // then the repeated run
+    put_var(&mut scrambled, 6, 200);
+    put_var(&mut scrambled, 6, 300);
+
+    for buf in [&ascending, &scrambled] {
+        let m = Msg::decode(buf, &arena).unwrap();
+        assert_eq!(m.nums(), &[100, 200, 300]);
+        assert_eq!(m.self_().expect("self present").implicit_i(), 9);
+        assert!(matches!(m.pick(), Some(Pick::A(42))));
     }
 }
 

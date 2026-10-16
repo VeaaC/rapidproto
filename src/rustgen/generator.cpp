@@ -1193,14 +1193,13 @@ void emit_peek_hub(Printer& printer, const ReadAt& at, const std::string& tag) {
 // exact count (`shrink_to_fit`). Fixed-width elements reserve the exact count (span / width); on a
 // little-endian host a whole-multiple span fills in one bulk copy (`extend_from_le_bytes`, the span
 // IS the native byte image), else a per-element read reports an exact truncation error.
-void emit_packed_arm(Printer& printer, const NameTable& table,
-                     const std::vector<std::string>& current_mod, const FieldNode& field) {
-    const std::string nstr = std::to_string(field.number);
-    const std::string acc = "rp_acc_" + nstr;
+// Body of the packed (length-delimited run) decode for a repeated numeric field (no arm wrapper),
+// shared by the hub `(n,Len)` arm and the threaded prologue's packed probe.
+void emit_packed_body(Printer& printer, const NameTable& table,
+                      const std::vector<std::string>& current_mod, const FieldNode& field) {
+    const std::string acc = "rp_acc_" + std::to_string(field.number);
     const std::string wire = scalar_wire_variant(field);
     const std::string conv = scalar_convert_expr(table, current_mod, field);
-    printer.print("$k$ => {\n", {{"k", raw_tag_key(field.number, "Len")}});
-    printer.indent();
     emit_len_read(printer, loop_read());
     if (wire == "Varint") {
         // Packed varint: the width-classified SWAR kernel (large spans) / scalar loop (small) reserves
@@ -1231,25 +1230,61 @@ void emit_packed_arm(Printer& printer, const NameTable& table,
         printer.outdent();
         printer.print("}\n");
     }
+}
+
+// Emit the packed arm for a repeated numeric field (body shared with the threaded prologue). Pre-sizes
+// the accumulator from the span before the fill -- the Rust mirror of the C++ decoder's standalone
+// `emit_packed_fill`.
+void emit_packed_arm(Printer& printer, const NameTable& table,
+                     const std::vector<std::string>& current_mod, const FieldNode& field) {
+    printer.print("$k$ => {\n", {{"k", raw_tag_key(field.number, "Len")}});
+    printer.indent();
+    emit_packed_body(printer, table, current_mod, field);
     printer.outdent();
     printer.print("}\n");
 }
 
-// Emit the `(n, Len) => { .. }` arm for a singular (non-repeated) MATERIALIZED message field. It is
-// decoded in place -- by value into inline storage (`decode_value`, no alloc, presence = a mask bit) if
-// the planner inlined it, else into an arena slot behind a pointer (`emplace`, presence = `Option` is
-// `Some`). A second occurrence is rejected (matching C++).
-void emit_singular_message_arm(Printer& printer, const NameTable& table,
-                               const std::vector<std::string>& current_mod, const FieldNode& field,
-                               const std::string& accessor, bool required,
-                               const arenagen::MemberPlan* member, int mask_bits) {
+// Body of one repeated-field element decode (no arm wrapper): read ONE native element and push it into
+// the accumulator -- a numeric value, a string/bytes payload, or a sub-message decoded into the growable
+// slot. Shared by the hub arm and the threaded prologue's element self-loop (both read `rp_rest` via
+// `loop_read()`), so the element decode cannot drift.
+void emit_repeated_native_body(Printer& printer, const NameTable& table,
+                               const std::vector<std::string>& current_mod,
+                               const FieldNode& field) {
+    const std::string acc = "rp_acc_" + std::to_string(field.number);
+    if (field.is_message_type) {
+        const std::string path = arena_message_path(table, current_mod, field.resolved_type_fqn);
+        emit_len_read(printer, loop_read());
+        printer.print(
+            "$acc$.emplace(|rp_out| $p$::decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;\n",
+            {{"acc", acc}, {"p", path}});
+        return;
+    }
+    const std::string wire = scalar_wire_variant(field);
+    const std::string conv = scalar_convert_expr(table, current_mod, field);
+    if (wire == "Len") {
+        emit_len_read(printer, loop_read());
+    } else {
+        emit_scalar_value_read(printer, field, loop_read());
+    }
+    emit_push(printer, acc, conv);
+}
+
+// Body of a singular (non-repeated) MATERIALIZED message decode (no arm wrapper): reject a second
+// occurrence, read the LEN payload, decode it in place -- by value into inline storage
+// (`decode_value`, no alloc, presence = a mask bit) if the planner inlined it, else into an arena slot
+// behind a pointer (`emplace`, presence = `Option` is `Some`) -- and record presence/required. Shared
+// by the hub `(n,Len)` arm and the threaded prologue; both operate on `rp_rest` (`loop_read()`), so the
+// body is identical either way.
+void emit_singular_message_body(Printer& printer, const NameTable& table,
+                                const std::vector<std::string>& current_mod, const FieldNode& field,
+                                const std::string& accessor, bool required,
+                                const arenagen::MemberPlan* member, int mask_bits) {
     const std::string nstr = std::to_string(field.number);
     const std::string path = arena_message_path(table, current_mod, field.resolved_type_fqn);
     const bool inlined = rust_store(member, field) == RustStore::InlineMsg;
     const bool inlined_masked =
         inlined && member->presence_bit >= 0;  // Explicit: mask-bit presence
-    printer.print("$k$ => {\n", {{"k", raw_tag_key(field.number, "Len")}});
-    printer.indent();
     // Duplicate-singular-message rejection tests "already seen": an Explicit inlined message by its
     // mask presence bit, a Required inlined message by its transient `rp_req_<n>` flag (it has no
     // resting bit), and a pointer message by its `Option` being `Some`.
@@ -1293,6 +1328,18 @@ void emit_singular_message_arm(Printer& printer, const NameTable& table,
     if (required) {
         printer.print("rp_req_$n$ = true;\n", {{"n", nstr}});
     }
+}
+
+// Emit the `(n, Len) => { .. }` arm for a singular materialized message field (body shared with the
+// threaded prologue). A second occurrence is rejected (matching C++).
+void emit_singular_message_arm(Printer& printer, const NameTable& table,
+                               const std::vector<std::string>& current_mod, const FieldNode& field,
+                               const std::string& accessor, bool required,
+                               const arenagen::MemberPlan* member, int mask_bits) {
+    printer.print("$k$ => {\n", {{"k", raw_tag_key(field.number, "Len")}});
+    printer.indent();
+    emit_singular_message_body(printer, table, current_mod, field, accessor, required, member,
+                               mask_bits);
     printer.outdent();
     printer.print("}\n");
 }
@@ -1407,28 +1454,21 @@ void emit_field_arms(Printer& printer, const NameTable& table,
         return;
     }
     if (field.is_message_type && field.is_repeated) {
-        const std::string path = arena_message_path(table, current_mod, field.resolved_type_fqn);
         printer.print("$k$ => {\n", {{"k", raw_tag_key(field.number, "Len")}});
         printer.indent();
-        emit_len_read(printer, loop_read());
-        // Decode each element directly into the growable array slot (no by-value copy).
-        printer.print(
-            "$acc$.emplace(|rp_out| $p$::decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;\n",
-            {{"acc", acc}, {"p", path}});
+        emit_repeated_native_body(printer, table, current_mod, field);  // one element -> array slot
         printer.outdent();
         printer.print("}\n");
         return;
     }
 
     const std::string wire = scalar_wire_variant(field);
-    const std::string conv = scalar_convert_expr(table, current_mod, field);
     if (field.is_repeated && wire != "Len") {
         // Repeated numeric: an unpacked arm (one value per occurrence) and a packed arm (a
         // length-delimited run of values). proto permits mixing both on the wire.
         printer.print("$k$ => {\n", {{"k", raw_tag_key(field.number, wire)}});
         printer.indent();
-        emit_scalar_value_read(printer, field, loop_read());
-        emit_push(printer, acc, conv);
+        emit_repeated_native_body(printer, table, current_mod, field);
         printer.outdent();
         printer.print("}\n");
         emit_packed_arm(printer, table, current_mod, field);
@@ -1437,8 +1477,7 @@ void emit_field_arms(Printer& printer, const NameTable& table,
     if (field.is_repeated) {  // repeated string/bytes (wire == Len, not packable)
         printer.print("$k$ => {\n", {{"k", raw_tag_key(field.number, "Len")}});
         printer.indent();
-        emit_len_read(printer, loop_read());
-        emit_push(printer, acc, conv);
+        emit_repeated_native_body(printer, table, current_mod, field);
         printer.outdent();
         printer.print("}\n");
         return;
@@ -1482,15 +1521,15 @@ FieldNode map_value_field(const MapFieldNode& map) {
 // singular-message-field / map-value rules). An intervening different member clears the slot, so that
 // later occurrence starts fresh and keeps the plain last-wins. `enum_path` is the `<submodule>::<Enum>`
 // prefix; a message variant carries a borrowed `&'a T` (arena-allocated).
-void emit_oneof_arm(Printer& printer, const NameTable& table,
-                    const std::vector<std::string>& current_mod, const FieldNode& field,
-                    const std::string& oneof_local, const std::string& enum_path,
-                    const std::string& variant) {
+// Body of one oneof member decode (no arm wrapper), shared by the hub arm and the threaded prologue
+// (both read from `rp_rest` via `loop_read()`).
+void emit_oneof_body(Printer& printer, const NameTable& table,
+                     const std::vector<std::string>& current_mod, const FieldNode& field,
+                     const std::string& oneof_local, const std::string& enum_path,
+                     const std::string& variant) {
     const std::string nstr = std::to_string(field.number);
     if (field.is_message_type) {
         const std::string path = arena_message_path(table, current_mod, field.resolved_type_fqn);
-        printer.print("$k$ => {\n", {{"k", raw_tag_key(field.number, "Len")}});
-        printer.indent();
         printer.print("if matches!($l$, Some($e$::$v$(_))) {\n",
                       {{"l", oneof_local}, {"e", enum_path}, {"v", variant}});
         printer.indent();
@@ -1509,14 +1548,10 @@ void emit_oneof_arm(Printer& printer, const NameTable& table,
             {{"p", path}});
         printer.print("$l$ = Some($e$::$v$(rp_ptr));\n",
                       {{"l", oneof_local}, {"e", enum_path}, {"v", variant}});
-        printer.outdent();
-        printer.print("}\n");
         return;
     }
     const std::string wire = scalar_wire_variant(field);
     const std::string conv = scalar_convert_expr(table, current_mod, field);
-    printer.print("$k$ => {\n", {{"k", raw_tag_key(field.number, wire)}});
-    printer.indent();
     if (wire == "Len") {
         emit_len_read(printer, loop_read());
     } else {
@@ -1524,6 +1559,24 @@ void emit_oneof_arm(Printer& printer, const NameTable& table,
     }
     printer.print("$l$ = Some($e$::$v$($c$));\n",
                   {{"l", oneof_local}, {"e", enum_path}, {"v", variant}, {"c", conv}});
+}
+
+// Emit the match arm for one oneof member field: read its value and set the oneof's local to
+// `Some(<Enum>::<Variant>(value))`. The last tag wins -- the slot simply overwrites -- EXCEPT a message
+// member seen while the oneof already holds THAT member is rejected (`RepeatedSingularMessage`): two
+// occurrences of the same sub-message would be merged by protobuf, which a read-only tree cannot do, so
+// last-wins there would hand back a value differing from protobuf (matching the C++ decoder and the
+// singular-message-field / map-value rules). An intervening different member clears the slot, so that
+// later occurrence starts fresh and keeps the plain last-wins. `enum_path` is the `<submodule>::<Enum>`
+// prefix; a message variant carries a borrowed `&'a T` (arena-allocated).
+void emit_oneof_arm(Printer& printer, const NameTable& table,
+                    const std::vector<std::string>& current_mod, const FieldNode& field,
+                    const std::string& oneof_local, const std::string& enum_path,
+                    const std::string& variant) {
+    const std::string wire = field.is_message_type ? "Len" : scalar_wire_variant(field);
+    printer.print("$k$ => {\n", {{"k", raw_tag_key(field.number, wire)}});
+    printer.indent();
+    emit_oneof_body(printer, table, current_mod, field, oneof_local, enum_path, variant);
     printer.outdent();
     printer.print("}\n");
 }
@@ -1817,58 +1870,161 @@ void emit_decode_construct(Printer& printer, const MessageNode& msg, const Field
     printer.print("}))\n");
 }
 
-// Field-order threading: before the general peek-hub loop, probe each threadable field in field-number
-// order with a cheap one-byte tag compare; on a match, consume the tag and decode+store the value
-// inline (via the shared `emit_singular_scalar_store`), then fall through to the next probe. Encoders
-// write fields in ascending order, so the common case runs this straight-line chain with no tag-varint
-// parse and no `match` dispatch -- the hub loop then handles only what the prologue did not consume
-// (out-of-order, repeats, unknown/wrong-wire, or non-threaded fields), so correctness and last-wins
-// semantics are unchanged (the prologue is a pure fast path over the SAME validated reads and the same
-// store). Rust has no goto, so each threaded field's body is duplicated here and in its hub arm (decode
-// code roughly doubles for threaded fields); the tail-call form that would share one body relies on
-// opportunistic TCO (an unbounded-stack risk on adversarial input), so the robust straight-line form is
-// used -- the same choice the C++ reference makes.
-//
-// Scope (this slice): singular scalar/enum/bool fields with a one-byte tag (number <= 15, non-Len
-// wire), not oneof/map/drop/raw. Two-byte-tag fields, oneof members, and messages are decoded by the
-// hub loop exactly as before; threading them is a follow-up.
-void emit_threaded_prologue(Printer& printer, const NameTable& table,
-                            const std::vector<std::string>& current_mod, const MessageNode& msg,
-                            const FieldModes& modes, const AccessorNames& accessors,
-                            const arenagen::MessageLayout* layout) {
-    const int mask_bits = layout != nullptr ? rust_mask_bits(*layout) : 0;
-    std::vector<std::size_t> idx;
+// A field the threaded prologue will probe, with everything its body emitter needs. Collected across a
+// message's regular fields and oneof members by `collect_threaded_items`, then emitted in ascending
+// field-number order.
+enum class ThreadKind : std::uint8_t { Scalar, Message, Oneof, Repeated };
+struct ThreadItem {
+    int number;
+    ThreadKind kind;
+    bool packable;     // repeated numeric: also probe its packed LEN form
+    std::string wire;  // the native/singular tag's wire variant (what the probe matches)
+    const FieldNode* field;
+    std::string accessor;  // scalar/message storage local
+    bool required;
+    const arenagen::MemberPlan* member;
+    std::string oneof_local, enum_path, variant;  // oneof members only
+};
+
+// Append the threadable oneof members of `msg` to `items` (each oneof member shares the field-number
+// space, so they interleave with regular fields once the caller sorts).
+void append_oneof_threaded_items(const NameTable& table, const MessageNode& msg,
+                                 const std::string& submodule, std::vector<ThreadItem>& items) {
+    for (std::size_t oi = 0; oi < msg.oneofs.size(); ++oi) {
+        const OneofNode& oneof = msg.oneofs[oi];
+        const std::string enum_path = submodule + "::" + table.oneofs.at(&oneof);
+        const std::vector<std::string> variants = oneof_variant_names(oneof);
+        const std::string local = "rp_oneof_" + std::to_string(oi);
+        for (std::size_t j = 0; j < oneof.fields.size(); ++j) {
+            const FieldNode& mf = oneof.fields[j];
+            if (!codegen::is_threadable_singular(mf)) {
+                continue;
+            }
+            const std::string wire = mf.is_message_type ? "Len" : scalar_wire_variant(mf);
+            items.push_back({mf.number, ThreadKind::Oneof, false, wire, &mf, "", false, nullptr,
+                             local, enum_path, variants[j]});
+        }
+    }
+}
+
+// Collect the fields this message threads (see `emit_threaded_prologue` for the scope). Regular fields
+// and oneof members are gathered together; the caller sorts by field number before emitting.
+std::vector<ThreadItem> collect_threaded_items(const NameTable& table, const MessageNode& msg,
+                                               const FieldModes& modes,
+                                               const AccessorNames& accessors,
+                                               const std::string& submodule,
+                                               const arenagen::MessageLayout* layout) {
+    std::vector<ThreadItem> items;
     for (std::size_t i = 0; i < msg.fields.size(); ++i) {
         const FieldNode& f = msg.fields[i];
         const arenagen::FieldMode mode = field_mode(modes, f);
         if (mode == arenagen::FieldMode::Drop || mode == arenagen::FieldMode::Raw) {
+            continue;  // dropped/raw fields are never threaded (handled by the hub loop / catch-all)
+        }
+        if (f.is_repeated) {
+            // Repeated threads at a ONE-byte tag only (matching the reference): the element self-loops.
+            if (f.number <= codegen::kMaxOneByteTagField) {
+                const std::string wire = f.is_message_type ? "Len" : scalar_wire_variant(f);
+                const bool packable = !f.is_message_type && wire != "Len";
+                items.push_back({f.number, ThreadKind::Repeated, packable, wire, &f, "", false,
+                                 nullptr, "", "", ""});
+            }
             continue;
         }
-        // Singular scalar/enum/bool only: exclude messages/groups (scalar_wire_variant mislabels a
-        // message as "Varint") and string/bytes (wire "Len"). number <= 15 keeps the tag one byte.
-        if (f.is_repeated || f.is_message_type || f.number > codegen::kMaxOneByteTagField ||
-            scalar_wire_variant(f) == "Len") {
-            continue;
+        if (!codegen::is_threadable_singular(f)) {
+            continue;  // number out of 1..2047, or a delimited (group) message -- not threadable
         }
-        idx.push_back(i);
+        const bool required = f.presence == FieldPresence::Required;
+        const ThreadKind kind = f.is_message_type ? ThreadKind::Message : ThreadKind::Scalar;
+        const std::string wire = f.is_message_type ? "Len" : scalar_wire_variant(f);
+        items.push_back({f.number, kind, false, wire, &f, accessors.fields[i], required,
+                         member_for(layout, f), "", "", ""});
     }
-    // Probe in ascending field-number order to match the typical ascending wire order.
-    std::sort(idx.begin(), idx.end(), [&](std::size_t a, std::size_t b) {
-        return msg.fields[a].number < msg.fields[b].number;
-    });
-    for (const std::size_t i : idx) {
-        const FieldNode& f = msg.fields[i];
-        // The one-byte tag to compare the next input byte against: field << 3 | wire code (fits a byte
-        // since number <= 15 and the wire code is < 8).
-        const std::string tag = std::to_string(raw_tag_value(f.number, scalar_wire_variant(f)));
-        printer.print("if rp_rest.first() == Some(&$t$u8) {\n", {{"t", tag}});
+    append_oneof_threaded_items(table, msg, submodule, items);
+    return items;
+}
+
+// Open a threading probe: an `if`/`while` that matches the field's whole constant tag against the next
+// input byte(s) and, on a match, consumes exactly that tag. `wire` is the tag's wire variant; one byte
+// for field <= 15, two for 16..2047 (`b0` = low 7 bits + continuation, `b1` = next 7). The caller emits
+// the body, then `emit_probe_close`.
+void emit_probe_open(Printer& printer, int number, const std::string& wire, bool self_loop) {
+    const std::int64_t v = raw_tag_value(number, wire);
+    const char* kw = self_loop ? "while" : "if";
+    if (number <= codegen::kMaxOneByteTagField) {
+        printer.print("$kw$ rp_rest.first() == Some(&$t$u8) {\n",
+                      {{"kw", kw}, {"t", std::to_string(v)}});
         printer.indent();
         printer.print("rp_rest = &rp_rest[1..];\n");
-        emit_singular_scalar_store(printer, table, current_mod, f, accessors.fields[i],
-                                   f.presence == FieldPresence::Required, member_for(layout, f),
-                                   mask_bits, loop_read());
-        printer.outdent();
-        printer.print("}\n");
+    } else {
+        const std::int64_t b0 = (v & codegen::kVarintPayload) | codegen::kVarintContinue;
+        const std::int64_t b1 = v >> codegen::kVarintShift;
+        printer.print("$kw$ rp_rest.first_chunk::<2>() == Some(&[$b0$u8, $b1$u8]) {\n",
+                      {{"kw", kw}, {"b0", std::to_string(b0)}, {"b1", std::to_string(b1)}});
+        printer.indent();
+        printer.print("rp_rest = &rp_rest[2..];\n");
+    }
+}
+
+void emit_probe_close(Printer& printer) {
+    printer.outdent();
+    printer.print("}\n");
+}
+
+// Field-order threading: before the general peek-hub loop, probe each threadable field in field-number
+// order with a cheap constant-tag compare; on a match, consume the tag and decode+store the value
+// inline (via the SAME body emitters the hub arms use), then fall through to the next probe. Encoders
+// write fields in ascending order, so the common case runs this straight-line chain with no tag-varint
+// parse and no `match` dispatch -- the hub loop then handles only what the prologue did not consume
+// (out-of-order, repeats, unknown/wrong-wire, or non-threaded fields), so correctness and last-wins
+// semantics are unchanged (the prologue is a pure fast path over the SAME validated reads and stores).
+// Rust has no goto, so each threaded field's body is duplicated here and in its hub arm (decode code
+// grows for threaded fields); the tail-call form that would share one body relies on opportunistic TCO
+// (an unbounded-stack risk on adversarial input), so the robust straight-line form is used -- the same
+// choice the C++ reference makes.
+//
+// Scope (matching the C++ reference's is_threaded): every singular field admitted by
+// codegen::is_threadable_singular (scalar/enum/bool/string/bytes/message, one- or two-byte tag,
+// non-group) AND oneof members likewise; plus repeated non-group fields with a ONE-byte tag, which
+// self-loop on their own element tag (and probe their packed LEN form if numeric). Maps are never
+// threaded (they fall to the hub loop), matching the reference.
+void emit_threaded_prologue(Printer& printer, const NameTable& table,
+                            const std::vector<std::string>& current_mod, const MessageNode& msg,
+                            const FieldModes& modes, const AccessorNames& accessors,
+                            const std::string& submodule, const arenagen::MessageLayout* layout) {
+    const int mask_bits = layout != nullptr ? rust_mask_bits(*layout) : 0;
+    std::vector<ThreadItem> items =
+        collect_threaded_items(table, msg, modes, accessors, submodule, layout);
+    // Probe in ascending field-number order to match the typical ascending wire order.
+    std::sort(items.begin(), items.end(),
+              [](const ThreadItem& a, const ThreadItem& b) { return a.number < b.number; });
+    for (const ThreadItem& it : items) {
+        emit_probe_open(printer, it.number, it.wire, it.kind == ThreadKind::Repeated);
+        switch (it.kind) {
+            case ThreadKind::Scalar:
+                emit_singular_scalar_store(printer, table, current_mod, *it.field, it.accessor,
+                                           it.required, it.member, mask_bits, loop_read());
+                break;
+            case ThreadKind::Message:
+                emit_singular_message_body(printer, table, current_mod, *it.field, it.accessor,
+                                           it.required, it.member, mask_bits);
+                break;
+            case ThreadKind::Oneof:
+                emit_oneof_body(printer, table, current_mod, *it.field, it.oneof_local,
+                                it.enum_path, it.variant);
+                break;
+            case ThreadKind::Repeated:
+                emit_repeated_native_body(printer, table, current_mod, *it.field);
+                break;
+        }
+        emit_probe_close(printer);
+        if (it.kind == ThreadKind::Repeated && it.packable) {
+            // A packed run of the same field: one LEN payload. Probed once (a second run falls to the
+            // hub loop). number <= 15, so the packed tag is one byte.
+            emit_probe_open(printer, it.number, "Len", /*self_loop=*/false);
+            emit_packed_body(printer, table, current_mod, *it.field);
+            emit_probe_close(printer);
+        }
     }
 }
 
@@ -1923,7 +2079,7 @@ void emit_decode(Printer& printer, const NameTable& table,
         msg.oneofs.empty() ? std::string() : table.messages.at(msg.fqn).submodule;
     emit_decode_locals(printer, table, current_mod, msg, modes, accessors, submodule, layout);
     printer.print("let mut rp_rest: &'a [u8] = rp_body;\n");
-    emit_threaded_prologue(printer, table, current_mod, msg, modes, accessors, layout);
+    emit_threaded_prologue(printer, table, current_mod, msg, modes, accessors, submodule, layout);
     printer.print("loop {\n");
     printer.indent();
     emit_peek_hub(printer, loop_read(), "rp_tag");

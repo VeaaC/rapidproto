@@ -108,6 +108,19 @@ pub mod arena {
           };
           e = super::super::common::pa::linux_::E(rp_v as i32);
         }
+        if rp_rest.first() == Some(&18u8) {
+          rp_rest = &rp_rest[1..];
+          if (rp_presence & (1 << 0)) != 0 {
+            return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::RepeatedSingularMessage, rp_body.len() - rp_rest.len()).with_field(2));
+          }
+          let mut rp_p: &[u8] = &[];
+          rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+            Ok(r) => r,
+            Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          };
+          sub = ::rapidproto::decode_value(|rp_out| linux::Sub::decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+          rp_presence |= 1 << 0;
+        }
         if rp_rest.first() == Some(&24u8) {
           rp_rest = &rp_rest[1..];
           let mut rp_v = 0u64;
