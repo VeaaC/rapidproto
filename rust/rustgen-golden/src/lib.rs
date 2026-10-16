@@ -193,6 +193,10 @@ pub mod proto3_modes {
     include!("../goldens/proto3_modes.rs");
 }
 
+pub mod arena_modes_lean {
+    include!("../goldens/arena_modes_lean.rs");
+}
+
 pub mod bench {
     include!("../goldens/bench.rs");
 }

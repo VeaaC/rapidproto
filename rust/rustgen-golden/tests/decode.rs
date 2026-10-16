@@ -24,6 +24,8 @@ use rapidproto::{Arena, ErrorKind};
 use rustgen_golden::arena_layout::arena::al::Layout;
 use rustgen_golden::arena_manyreq::arena::mr::ManyRequired;
 use rustgen_golden::arena_manyreq::arena::mr::ReqInline;
+use rustgen_golden::arena_modes_lean::arena::fm::holder::Grp as ModedGrp;
+use rustgen_golden::arena_modes_lean::arena::fm::Holder as ModedHolder;
 use rustgen_golden::expanded::arena::xp::Expanded;
 use rustgen_golden::expanded::common::xp::expanded::Kind;
 use rustgen_golden::proto2::arena::p2::container::{Choice, Nested};
@@ -880,4 +882,47 @@ fn group_with_mismatched_nested_end_errors() {
     put_tag(&mut buf, 1, 4); // (unreached) end MyGroup
     let arena = Arena::new();
     assert!(WithGroup::decode(&buf, &arena).is_err());
+}
+
+#[test]
+fn raw_group_field_stores_its_bare_body_undecoded() {
+    // Holder under the `lean` field-modes profile (mirrors the C++ arena_modes golden): `grp` is a
+    // proto2 GROUP field (14) kept RAW, and `req_blob` (13) a raw message field -- both stored as
+    // borrowed, undecoded payload bytes. A raw group's payload is its BARE body (SGROUP/EGROUP framing
+    // stripped by read_group), the same view the C++ `test_arena_decode` raw-payloads test asserts.
+    let mut blob = Vec::new();
+    put_len(&mut blob, 1, b"r"); // Blob { payload = "r" }
+    let mut body = Vec::new();
+    put_var(&mut body, 1, 5); // the group body: g (field 1) = 5
+
+    let mut buf = Vec::new();
+    put_var(&mut buf, 5, 7); // must = 7 (required)
+    put_len(&mut buf, 13, &blob); // req_blob (required, raw) -> stores the Blob payload bytes
+    put_tag(&mut buf, 14, 3); // grp: start group (field 14)
+    buf.extend_from_slice(&body); //   group body
+    put_tag(&mut buf, 14, 4); // grp: end group
+
+    let arena = Arena::new();
+    let h = ModedHolder::decode(&buf, &arena).unwrap();
+    assert_eq!(h.must(), 7);
+    assert_eq!(h.req_blob(), Some(&blob[..])); // raw message: the length-delimited payload
+    assert_eq!(h.grp(), Some(&body[..])); // raw group: the bare body, framing stripped
+                                          // The stored bare body is a valid group payload: it re-decodes through the group's own decoder.
+    let g = ModedGrp::decode(h.grp().unwrap(), &arena).unwrap();
+    assert_eq!(g.g(), Some(5));
+}
+
+#[test]
+fn raw_required_group_bearing_holder_rejects_missing_required() {
+    // The same message with the required `must`/`req_blob` omitted still errors cleanly (never panics),
+    // so the raw-group path composes with required validation.
+    let mut buf = Vec::new();
+    put_tag(&mut buf, 14, 3);
+    put_var(&mut buf, 1, 5);
+    put_tag(&mut buf, 14, 4);
+    let arena = Arena::new();
+    assert!(matches!(
+        ModedHolder::decode(&buf, &arena),
+        Err(e) if e.kind() == ErrorKind::MissingRequired
+    ));
 }

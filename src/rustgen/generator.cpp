@@ -496,20 +496,6 @@ AccessorNames message_accessor_names(const MessageNode& msg,
     return names;
 }
 
-// --- scalar-only message decode (M1.4 slice 1) ---------------------------------------------------
-// A message whose decode body this slice emits fully: no maps, no oneofs, and every field a SINGULAR
-// scalar / enum / string / bytes with implicit or explicit presence and no proto2 custom default.
-// Messages with repeated / message / map / oneof fields, `required` fields, or custom defaults keep
-// the skeleton (todo!() getters + todo!() decode) until later slices, so every golden still compiles.
-// Collect every message (top-level and nested) across the generation, keyed by FQN.
-void collect_messages(const std::vector<const MessageNode*>& msgs,
-                      std::unordered_map<std::string, const MessageNode*>& out) {
-    for (const MessageNode* msg : msgs) {
-        out.emplace(msg->fqn, msg);
-        collect_messages(addrs(msg->nested_messages), out);
-    }
-}
-
 // The resolved field mode for a field / map field (Materialize when the profile is silent on it).
 arenagen::FieldMode field_mode(const FieldModes& modes, const FieldNode& field) {
     const auto it = modes.fields.find(&field);
@@ -518,92 +504,6 @@ arenagen::FieldMode field_mode(const FieldModes& modes, const FieldNode& field) 
 arenagen::FieldMode map_mode(const FieldModes& modes, const MapFieldNode& map) {
     const auto it = modes.maps.find(&map);
     return it == modes.maps.end() ? arenagen::FieldMode::Materialize : it->second;
-}
-
-// Whether a message is a decode candidate on its OWN shape (ignoring what it references). A materialized
-// group (delimited) message field decodes via `read_group` (SGROUP..matching EGROUP → body span), so it
-// no longer blocks. The one remaining block is a `raw` GROUP field: `raw` stores a field's payload
-// bytes undecoded, and a group's "payload" is a scanned span (not a length prefix) that the raw path
-// does not yet capture -- deferred, so a raw group field still keeps the message a skeleton. A `drop`
-// field is skip-validated (never blocks, and can even rescue a group-bearing message under a profile
-// that drops the group). (Maps, oneofs, proto2 `required` and proto2 custom defaults are handled.)
-bool self_decodable(const MessageNode& msg, const FieldModes& modes) {
-    const auto field_ok = [&](const FieldNode& field) {
-        switch (field_mode(modes, field)) {
-            case arenagen::FieldMode::Drop:
-                return true;
-            case arenagen::FieldMode::Raw:
-                // A raw group needs group-span capture (deferred); other raw fields store bytes fine.
-                return field.message_encoding != MessageEncoding::Delimited;
-            case arenagen::FieldMode::Materialize:
-                break;
-        }
-        return true;  // materialized scalar/message/group field -- all decodable now
-    };
-    if (!std::all_of(msg.fields.begin(), msg.fields.end(), field_ok)) {
-        return false;
-    }
-    return std::all_of(msg.oneofs.begin(), msg.oneofs.end(), [&](const OneofNode& oneof) {
-        return std::all_of(oneof.fields.begin(), oneof.fields.end(), field_ok);
-    });
-}
-
-// The FQNs of messages to emit a full decoder for: self-decodable AND every message they reference
-// (via a singular or repeated message field) is itself decodable -- otherwise the emitted
-// `decode_into` would call one that was never emitted. A fixpoint propagates non-decodability up the
-// reference graph; a cycle of otherwise-decodable messages stays decodable (the runtime depth cap
-// bounds the recursion). Messages not in the set keep the skeleton (todo!()) for a later slice.
-std::unordered_set<std::string> compute_decodable(const std::vector<const FileNode*>& files,
-                                                  const FieldModes& modes) {
-    std::unordered_map<std::string, const MessageNode*> all;
-    for (const FileNode* file : files) {
-        collect_messages(addrs(file->messages), all);
-    }
-    std::unordered_set<std::string> decodable;
-    for (const auto& [fqn, msg] : all) {
-        if (self_decodable(*msg, modes)) {
-            decodable.insert(fqn);
-        }
-    }
-    // A message references a skeleton (non-decodable) message -- via a regular field, a oneof member,
-    // or a map value -- if so it cannot itself be decoded (its decode_into would call a worker that was
-    // never emitted), so it drops out of the set. All three member collections are scanned. A `raw` or
-    // `drop` message field is NOT a reference (it is stored as bytes / skipped, never recursed into), so
-    // it does not pull its type's decodability in -- `raw` can thus rescue a message that only referenced
-    // a skeleton.
-    const auto field_refs_skeleton = [&](const FieldNode& field) {
-        return field.is_message_type &&
-               field_mode(modes, field) == arenagen::FieldMode::Materialize &&
-               decodable.count(field.resolved_type_fqn) == 0;
-    };
-    const auto refs_skeleton = [&](const MessageNode& msg) {
-        if (std::any_of(msg.fields.begin(), msg.fields.end(), field_refs_skeleton)) {
-            return true;
-        }
-        if (std::any_of(msg.map_fields.begin(), msg.map_fields.end(), [&](const MapFieldNode& map) {
-                return map_mode(modes, map) != arenagen::FieldMode::Drop && map.value_is_message &&
-                       decodable.count(map.resolved_value_type_fqn) == 0;
-            })) {
-            return true;
-        }
-        return std::any_of(msg.oneofs.begin(), msg.oneofs.end(), [&](const OneofNode& oneof) {
-            return std::any_of(oneof.fields.begin(), oneof.fields.end(), field_refs_skeleton);
-        });
-    };
-    bool changed = true;
-    while (changed) {
-        changed = false;
-        for (auto it = decodable.begin(); it != decodable.end();) {
-            const MessageNode& msg = *all.at(*it);
-            if (refs_skeleton(msg)) {
-                it = decodable.erase(it);
-                changed = true;
-            } else {
-                ++it;
-            }
-        }
-    }
-    return decodable;
 }
 
 // Does the message's struct use the `'a` lifetime through a field (string/bytes borrow the input; a
@@ -659,7 +559,7 @@ bool body_uses_arena(const MessageNode& msg, const FieldModes& modes) {
 // bit-packed presence/bool mask -- so both decoders inline and track presence for the same fields. The
 // planner's C++ byte offsets/sizes are ignored (Rust lays out its own structs).
 
-// The planner's MemberPlan for `field` in `layout`, or null (a skeleton message has no layout; a
+// The planner's MemberPlan for `field` in `layout`, or null (a message may lack a layout plan, and a
 // map-entry synthetic field is not a member of its parent message). Matched by FieldNode identity.
 const arenagen::MemberPlan* member_for(const arenagen::MessageLayout* layout,
                                        const FieldNode& field) {
@@ -683,8 +583,8 @@ enum class RustStore : std::uint8_t {
     PointerMsg,   // `Option<&'a T<'a>>`, no bit (null = absent)
 };
 
-// Classify a singular (non-repeated), materialized field. `member` may be null for a skeleton message
-// or a fallback; then the pre-planner behavior (Explicit -> Option, message -> pointer) is reproduced.
+// Classify a singular (non-repeated), materialized field. `member` may be null (no layout plan, or a
+// fallback); then the pre-planner behavior (Explicit -> Option, message -> pointer) is reproduced.
 RustStore rust_store(const arenagen::MemberPlan* member, const FieldNode& field) {
     if (member == nullptr) {
         if (field.is_message_type) {
@@ -945,23 +845,17 @@ std::string scalar_convert_expr(const NameTable& table, const std::vector<std::s
     return "rp_v";  // defensive
 }
 
-// Emit a `pub fn <field>(&self) -> ...` accessor. `real` reads the storage (skeleton messages emit
-// `todo!()`). The return type is the SEMANTIC presence-wrapped type; the body reads the bare storage
-// and -- for presence/bool-packed fields -- tests the `rp_presence` mask (set-index == test-index,
-// both from the shared planner's bit assignment). `mask_bits` is the message's Rust mask width.
+// Emit a `pub fn <field>(&self) -> ...` accessor. The return type is the SEMANTIC presence-wrapped
+// type; the body reads the bare storage and -- for presence/bool-packed fields -- tests the
+// `rp_presence` mask (set-index == test-index, both from the shared planner's bit assignment).
+// `mask_bits` is the message's Rust mask width.
 void emit_field_accessor(Printer& printer, const NameTable& table,
                          const std::vector<std::string>& current_mod, const FieldNode& field,
-                         const std::string& accessor, bool real, const FieldModes& modes,
+                         const std::string& accessor, const FieldModes& modes,
                          const arenagen::MemberPlan* member, int mask_bits) {
     const std::string ret = field_getter_type(table, current_mod, field, modes, member);
     printer.print("pub fn $a$(&self) -> $t$ {\n", {{"a", accessor}, {"t", ret}});
     printer.indent();
-    if (!real) {
-        printer.print("todo!()\n");
-        printer.outdent();
-        printer.print("}\n");
-        return;
-    }
     const RustStore store = rust_store(member, field);
     const bool masked = field_mode(modes, field) != arenagen::FieldMode::Raw &&
                         !field.is_repeated && member != nullptr;
@@ -1030,30 +924,32 @@ std::string oneof_storage_type(const NameTable& table, const OneofNode& oneof,
            (oneof_borrows(oneof) ? "<'a>" : "") + ">";
 }
 
-// Emit a `pub fn <map>(&self) -> MapView<'a, K, V>` accessor. `real` reads the stored view; otherwise
-// `todo!()` (a skeleton message). `accessor` is the pre-deduped name.
+// Emit a `pub fn <map>(&self) -> MapView<'a, K, V>` accessor reading the stored view. `accessor` is
+// the pre-deduped name.
 void emit_map_accessor(Printer& printer, const NameTable& table,
                        const std::vector<std::string>& current_mod, const MapFieldNode& map,
-                       const std::string& accessor, bool real) {
+                       const std::string& accessor) {
     printer.print("pub fn $a$(&self) -> $t$ {\n",
                   {{"a", accessor}, {"t", map_view_type(table, current_mod, map)}});
     printer.indent();
-    printer.print(real ? "self.$a$\n" : "todo!()\n", {{"a", accessor}});
+    printer.print("self.$a$\n", {{"a", accessor}});
     printer.outdent();
     printer.print("}\n");
 }
 
-// Emit a `pub fn <oneof>(&self) -> Option<&<submodule>::Payload['a]>` accessor (None = unset). `real`
-// borrows the stored enum (`as_ref`); otherwise `todo!()`. The getter hands back a reference -- the
-// oneof is not `Copy` (see `emit_oneof_enum`) -- so matching binds the variant payloads by reference.
-// The oneof enum lives in this message's own submodule. `accessor` is the pre-deduped method name.
+// Emit a `pub fn <oneof>(&self) -> Option<&<submodule>::Payload['a]>` accessor (None = unset),
+// borrowing the stored enum (`as_ref`). The getter hands back a reference -- the oneof is not `Copy`
+// (see `emit_oneof_enum`) -- so matching binds the variant payloads by reference. The oneof enum lives
+// in this message's own submodule. `accessor` is the pre-deduped method name.
+// NOLINTBEGIN(bugprone-easily-swappable-parameters): accessor (method name) vs submodule (module path)
 void emit_oneof_accessor(Printer& printer, const NameTable& table, const OneofNode& oneof,
-                         const std::string& accessor, bool real, const std::string& submodule) {
+                         const std::string& accessor, const std::string& submodule) {
+    // NOLINTEND(bugprone-easily-swappable-parameters)
     const std::string ret = "Option<&" + submodule + "::" + table.oneofs.at(&oneof) +
                             (oneof_borrows(oneof) ? "<'a>" : "") + ">";
     printer.print("pub fn $a$(&self) -> $t$ {\n", {{"a", accessor}, {"t", ret}});
     printer.indent();
-    printer.print(real ? "self.$a$.as_ref()\n" : "todo!()\n", {{"a", accessor}});
+    printer.print("self.$a$.as_ref()\n", {{"a", accessor}});
     printer.outdent();
     printer.print("}\n");
 }
@@ -1451,12 +1347,14 @@ void emit_field_arms(Printer& printer, const NameTable& table,
         return;
     }
     if (mode == arenagen::FieldMode::Raw) {
-        // A message field kept as its undecoded LEN payload bytes (no recursion). Singular rejects a
-        // second occurrence like a materialized singular message; repeated pushes each payload.
-        printer.print("$k$ => {\n", {{"k", raw_tag_key(field.number, "Len")}});
+        // A message field kept as its undecoded payload bytes (no recursion): the LEN payload, or -- for
+        // a proto2 group field -- the scanned group body via `read_group` (dispatched on the SGroup
+        // key). Singular rejects a second occurrence like a materialized singular message; repeated
+        // pushes each payload.
+        printer.print("$k$ => {\n", {{"k", raw_tag_key(field.number, message_field_wire(field))}});
         printer.indent();
         if (field.is_repeated) {
-            emit_len_read(printer, loop_read());
+            emit_msg_payload_read(printer, field, loop_read());
             emit_push(printer, acc, "rp_p");
         } else {
             printer.print("if $a$.is_some() {\n", {{"a", accessor}});
@@ -1467,7 +1365,7 @@ void emit_field_arms(Printer& printer, const NameTable& table,
                 {{"off", kLoopOff}, {"n", nstr}});
             printer.outdent();
             printer.print("}\n");
-            emit_len_read(printer, loop_read());
+            emit_msg_payload_read(printer, field, loop_read());
             printer.print("$a$ = Some(rp_p);\n", {{"a", accessor}});
             if (required) {
                 printer.print("rp_req_$n$ = true;\n", {{"n", nstr}});
@@ -1979,10 +1877,9 @@ std::vector<ThreadItem> collect_threaded_items(const NameTable& table, const Mes
         }
         if (f.is_repeated) {
             // Repeated fields self-loop on their own element tag. A group element (SGROUP/EGROUP-
-            // delimited) must NOT thread as a bare LEN self-loop. Today a group-bearing message is
-            // non-decodable (no decoder is emitted), so this is unreachable; guard it explicitly
-            // anyway, mirroring arenagen's `is_threaded`, so the two generators cannot drift if a
-            // future group slice makes such messages decodable (cf. rustgen-decodable-ref-scan).
+            // delimited) must NOT thread as a bare LEN self-loop -- it dispatches on the SGroup hub arm
+            // and reads via `read_group` -- so a repeated group field is excluded here (mirroring
+            // arenagen's `is_threaded` "delimited never thread"); its elements decode through the hub.
             // Unlike the C++ reference (repeated threads at a one-byte tag only), Rust threads up to a
             // two-byte tag (<= 2047): lacking C++'s goto re-entry, an unthreaded field ends the
             // straight-line prologue for everything after it, so a two-byte repeated field left out
@@ -2201,11 +2098,8 @@ void emit_decode(Printer& printer, const NameTable& table,
 
 // The decode body's internal identifiers (fixed locals + `_marker`, plus each repeated field / map
 // accumulator, oneof slot and required seen-flag), reserved so no field accessor -- which is also the
-// struct storage field name -- collides with a decode local. Empty for a skeleton message (no body).
-std::unordered_set<std::string> decode_reserved_idents(const MessageNode& msg, bool supported) {
-    if (!supported) {
-        return {};
-    }
+// struct storage field name -- collides with a decode local.
+std::unordered_set<std::string> decode_reserved_idents(const MessageNode& msg) {
     // Fixed decode-body locals (plus `_marker`): `rp_b`/`rp_tagkey` are the peek hub's tag byte and raw
     // key; `rp_unknown` the has_unknown_fields() storage + its decode flag; `rp_presence` the packed
     // presence/bool mask (also a storage field).
@@ -2231,17 +2125,13 @@ std::unordered_set<std::string> decode_reserved_idents(const MessageNode& msg, b
     return reserved;
 }
 
-// Emit `pub struct Msg<'a> { .. } impl<'a> Msg<'a> { accessors; decode }`. `current_mod` is the module
-// the struct is emitted in, used to compute cross-references. A decodable message
-// ([`compute_decodable`]) gets real field storage, reading accessors and a real decode; any other
-// message keeps the skeleton (`PhantomData`, `todo!()` accessors + decode) for a later slice.
-// Emit `pub struct Msg<'a> { .. }` -- the storage fields (= getters' return types). A dropped field/map
-// has no storage; a `raw` message field stores its payload bytes; `unknown-fields` adds the bit.
+// Emit `pub struct Msg<'a> { .. }` -- the storage fields (= getters' return types). `current_mod` is
+// the module the struct is emitted in, used to compute cross-references. A dropped field/map has no
+// storage; a `raw` message field stores its payload bytes; `unknown-fields` adds the bit.
 void emit_message_struct(Printer& printer, const NameTable& table,
                          const std::vector<std::string>& current_mod, const MessageNode& msg,
                          const FieldModes& modes, const AccessorNames& accessors,
-                         const std::string& submodule, bool supported,
-                         const arenagen::MessageLayout* layout) {
+                         const std::string& submodule, const arenagen::MessageLayout* layout) {
     // A fixed-size message can `derive(Default)` (all fields are scalars/enum newtypes/nested fixed
     // messages/the mask word, all `Default`), giving the zero value an absent inlined sub-message uses.
     if (layout != nullptr && layout->fixed_size) {
@@ -2249,12 +2139,6 @@ void emit_message_struct(Printer& printer, const NameTable& table,
     }
     printer.print("pub struct $M$<'a> {\n");
     printer.indent();
-    if (!supported) {
-        printer.print("_marker: ::core::marker::PhantomData<&'a ()>,\n");
-        printer.outdent();
-        printer.print("}\n\n");
-        return;
-    }
     for (std::size_t i = 0; i < msg.fields.size(); ++i) {
         const FieldNode& field = msg.fields[i];
         if (field_mode(modes, field) == arenagen::FieldMode::Drop) {
@@ -2312,8 +2196,7 @@ bool message_has_accessors(const MessageNode& msg, const FieldModes& modes) {
 void emit_message_accessors(Printer& printer, const NameTable& table,
                             const std::vector<std::string>& current_mod, const MessageNode& msg,
                             const FieldModes& modes, const AccessorNames& accessors,
-                            const std::string& submodule, bool supported,
-                            const arenagen::MessageLayout* layout) {
+                            const std::string& submodule, const arenagen::MessageLayout* layout) {
     if (!message_has_accessors(msg, modes)) {
         return;
     }
@@ -2323,23 +2206,21 @@ void emit_message_accessors(Printer& printer, const NameTable& table,
     for (std::size_t i = 0; i < msg.fields.size(); ++i) {
         if (field_mode(modes, msg.fields[i]) != arenagen::FieldMode::Drop) {
             emit_field_accessor(printer, table, current_mod, msg.fields[i], accessors.fields[i],
-                                supported, modes, member_for(layout, msg.fields[i]), mask_bits);
+                                modes, member_for(layout, msg.fields[i]), mask_bits);
         }
     }
     for (std::size_t i = 0; i < msg.map_fields.size(); ++i) {
         if (map_mode(modes, msg.map_fields[i]) != arenagen::FieldMode::Drop) {
-            emit_map_accessor(printer, table, current_mod, msg.map_fields[i], accessors.maps[i],
-                              supported);
+            emit_map_accessor(printer, table, current_mod, msg.map_fields[i], accessors.maps[i]);
         }
     }
     for (std::size_t i = 0; i < msg.oneofs.size(); ++i) {
-        emit_oneof_accessor(printer, table, msg.oneofs[i], accessors.oneofs[i], supported,
-                            submodule);
+        emit_oneof_accessor(printer, table, msg.oneofs[i], accessors.oneofs[i], submodule);
     }
     if (modes.wants_unknown(&msg)) {
         printer.print("pub fn has_unknown_fields(&self) -> bool {\n");
         printer.indent();
-        printer.print(supported ? "self.rp_unknown\n" : "todo!()\n");
+        printer.print("self.rp_unknown\n");
         printer.outdent();
         printer.print("}\n");
     }
@@ -2349,47 +2230,29 @@ void emit_message_accessors(Printer& printer, const NameTable& table,
 
 void emit_message(Printer& printer, const NameTable& table,
                   const std::vector<std::string>& current_mod, const MessageNode& msg,
-                  const std::unordered_set<std::string>& decodable, const FieldModes& modes,
-                  const LayoutSet& layouts) {
+                  const FieldModes& modes, const LayoutSet& layouts) {
     printer.set("M", table.messages.at(msg.fqn).type_name);
-    const bool supported = decodable.count(msg.fqn) != 0;
     const arenagen::MessageLayout* layout = layouts.find(msg.fqn);
-    const AccessorNames accessors =
-        message_accessor_names(msg, decode_reserved_idents(msg, supported));
+    const AccessorNames accessors = message_accessor_names(msg, decode_reserved_idents(msg));
     const std::string& submodule = table.messages.at(msg.fqn).submodule;
-    emit_message_struct(printer, table, current_mod, msg, modes, accessors, submodule, supported,
-                        layout);
+    emit_message_struct(printer, table, current_mod, msg, modes, accessors, submodule, layout);
     // The `decode`/`decode_into` impl is emitted at the end of the arena module ([`emit_message_decode`])
     // so a reader skims the whole getter API without the wire-loop bodies in between.
-    emit_message_accessors(printer, table, current_mod, msg, modes, accessors, submodule, supported,
-                           layout);
+    emit_message_accessors(printer, table, current_mod, msg, modes, accessors, submodule, layout);
 }
 
 // Emit the `decode` + `decode_into` impl for one message, in its OWN module (`current_mod`) but after
 // that module's structs/getters and submodules, so a reader skims the getters first and the wire-loop
 // bodies sit at the bottom of each module. It must stay in the message's module: `decode_into`
-// constructs the struct from its PRIVATE storage fields, which only the defining module may do. A
-// skeleton (not-yet-decodable) message gets just a `todo!()` `decode`.
+// constructs the struct from its PRIVATE storage fields, which only the defining module may do.
 void emit_message_decode(Printer& printer, const NameTable& table,
                          const std::vector<std::string>& current_mod, const MessageNode& msg,
-                         const std::unordered_set<std::string>& decodable, const FieldModes& modes,
-                         const LayoutSet& layouts) {
+                         const FieldModes& modes, const LayoutSet& layouts) {
     printer.set("M", table.messages.at(msg.fqn).type_name);
     printer.print("impl<'a> $M$<'a> {\n");
     printer.indent();
-    if (decodable.count(msg.fqn) != 0) {
-        const AccessorNames accessors =
-            message_accessor_names(msg, decode_reserved_idents(msg, true));
-        emit_decode(printer, table, current_mod, msg, accessors, modes, layouts.find(msg.fqn));
-    } else {
-        printer.print(
-            "pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) "
-            "-> Result<&'a $M$<'a>, ::rapidproto::DecodeError> {\n");
-        printer.indent();
-        printer.print("todo!()\n");
-        printer.outdent();
-        printer.print("}\n");
-    }
+    const AccessorNames accessors = message_accessor_names(msg, decode_reserved_idents(msg));
+    emit_decode(printer, table, current_mod, msg, accessors, modes, layouts.find(msg.fqn));
     printer.outdent();
     printer.print("}\n");
 }
@@ -2401,14 +2264,13 @@ void emit_message_decode(Printer& printer, const NameTable& table,
 // oneofs (both live there).
 void emit_arena_messages(Printer& printer, const NameTable& table,
                          const std::vector<const MessageNode*>& msgs,
-                         std::vector<std::string>& current_mod,
-                         const std::unordered_set<std::string>& decodable, const FieldModes& modes,
+                         std::vector<std::string>& current_mod, const FieldModes& modes,
                          const LayoutSet& layouts) {
     for (std::size_t i = 0; i < msgs.size(); ++i) {
         if (i != 0) {
             printer.print("\n");
         }
-        emit_message(printer, table, current_mod, *msgs[i], decodable, modes, layouts);
+        emit_message(printer, table, current_mod, *msgs[i], modes, layouts);
         const bool has_submodule = !msgs[i]->nested_messages.empty() || !msgs[i]->oneofs.empty();
         if (has_submodule) {
             const std::string& sub = table.messages.at(msgs[i]->fqn).submodule;
@@ -2424,8 +2286,8 @@ void emit_arena_messages(Printer& printer, const NameTable& table,
             if (!msgs[i]->oneofs.empty() && !msgs[i]->nested_messages.empty()) {
                 printer.print("\n");  // separate the oneof enums from the nested messages
             }
-            emit_arena_messages(printer, table, addrs(msgs[i]->nested_messages), current_mod,
-                                decodable, modes, layouts);
+            emit_arena_messages(printer, table, addrs(msgs[i]->nested_messages), current_mod, modes,
+                                layouts);
             current_mod.pop_back();
             printer.outdent();
             printer.print("}\n");
@@ -2435,7 +2297,7 @@ void emit_arena_messages(Printer& printer, const NameTable& table,
     // submodules above), so the getters read uninterrupted. Each stays in its message's own module.
     for (const MessageNode* msg : msgs) {
         printer.print("\n");
-        emit_message_decode(printer, table, current_mod, *msg, decodable, modes, layouts);
+        emit_message_decode(printer, table, current_mod, *msg, modes, layouts);
     }
 }
 
@@ -2505,16 +2367,14 @@ void emit_common_node(Printer& printer, const NameTable& table, const PkgTrie& n
 // Emit the `arena` subtree for one package node: this package's message structs, then a
 // `pub mod <component>` per sub-package. `current_mod` is the node's emitted package path.
 void emit_arena_node(Printer& printer, const NameTable& table, const PkgTrie& node,
-                     std::vector<std::string>& current_mod,
-                     const std::unordered_set<std::string>& decodable, const FieldModes& modes,
+                     std::vector<std::string>& current_mod, const FieldModes& modes,
                      const LayoutSet& layouts) {
-    emit_arena_messages(printer, table, node_messages(node), current_mod, decodable, modes,
-                        layouts);
+    emit_arena_messages(printer, table, node_messages(node), current_mod, modes, layouts);
     for (const auto& [component, child] : node.children) {
         printer.print("\npub mod $m$ {\n", {{"m", child.emitted}});
         printer.indent();
         current_mod.push_back(child.emitted);
-        emit_arena_node(printer, table, child, current_mod, decodable, modes, layouts);
+        emit_arena_node(printer, table, child, current_mod, modes, layouts);
         current_mod.pop_back();
         printer.outdent();
         printer.print("}\n");
@@ -2544,12 +2404,11 @@ std::string generate_arena(const std::vector<const FileNode*>& files, const Layo
     PkgTrie root = build_pkg_trie(files);
     assign_emitted_names(root);
     const NameTable table = build_name_table(root);
-    const std::unordered_set<std::string> decodable = compute_decodable(files, modes);
     Printer printer;
     printer.print("pub mod arena {\n");
     printer.indent();
     std::vector<std::string> current_mod;
-    emit_arena_node(printer, table, root, current_mod, decodable, modes, layouts);
+    emit_arena_node(printer, table, root, current_mod, modes, layouts);
     printer.outdent();
     printer.print("}\n");
     return printer.str();
