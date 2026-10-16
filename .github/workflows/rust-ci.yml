@@ -31,24 +31,28 @@ jobs:
           components: rustfmt, clippy
       - name: Format
         run: cargo fmt --all --check
+      # std+alloc covers the whole workspace, including rapidproto-build (the wasmi generator driver
+      # and its golden dogfooding gate). The no_std/no-alloc tiers exercise the `rapidproto` runtime
+      # crate's embedded tiers, so they --exclude rapidproto-build: it is a std-only build tool (it
+      # pulls wasmi), meaningless under no_std and costly to recompile per tier on the 4-core runners.
       - name: Clippy (std + alloc)
         run: cargo clippy --all-targets --all-features -- -D warnings
       - name: Clippy (no_std + alloc)
-        run: cargo clippy --all-targets --no-default-features --features alloc -- -D warnings
+        run: cargo clippy --workspace --exclude rapidproto-build --all-targets --no-default-features --features alloc -- -D warnings
       - name: Clippy (no_std, no-alloc)
-        run: cargo clippy --all-targets --no-default-features -- -D warnings
+        run: cargo clippy --workspace --exclude rapidproto-build --all-targets --no-default-features -- -D warnings
       - name: Test (std + alloc)
         run: cargo test --all-features
       - name: Test (no_std + alloc)
-        run: cargo test --no-default-features --features alloc
+        run: cargo test --workspace --exclude rapidproto-build --no-default-features --features alloc
       - name: Test (no_std, no-alloc)
         # The test harness keeps std (crate is no_std only outside tests), while the `alloc`
         # feature is off — so this exercises the arena's no-allocator / exhaustion path.
-        run: cargo test --no-default-features
+        run: cargo test --workspace --exclude rapidproto-build --no-default-features
       - name: Build no_std + alloc tier
-        run: cargo build --no-default-features --features alloc
+        run: cargo build --workspace --exclude rapidproto-build --no-default-features --features alloc
       - name: Build no_std (no-alloc embedded tier)
-        run: cargo build --no-default-features
+        run: cargo build --workspace --exclude rapidproto-build --no-default-features
 
   wasm-blob:
     # The rapidproto-build crate ships a committed wasm blob (the Rust generator front-end) so
