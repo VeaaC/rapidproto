@@ -377,7 +377,6 @@ TEST_CASE("rustgen arena: a group field decodes via read_group on the SGROUP key
     CHECK(has(out, "11u32 => {"));             // field 1 SGROUP tag (1 << 3 | 3)
     CHECK(has(out, "::rapidproto::wire::read_group("));  // decoded via the group-body reader
     CHECK_FALSE(has(out, "10u32 => {"));  // never the length-delimited tag (1 << 3 | 2)
-    CHECK_FALSE(has(out, "todo!()"));     // not a skeleton
 }
 
 TEST_CASE("rustgen arena: accessor names dedup against decode and each other") {
@@ -630,7 +629,6 @@ TEST_CASE("rustgen decode: a message with map / oneof / required gets a real dec
           map<string, Sub> by_name = 2;
           oneof pick { int32 n = 3; Sub s = 4; }
         })");
-    CHECK(!has(out, "todo!()"));  // M + Sub both decodable -> real bodies, no skeleton
     CHECK(has(out, "by_name: ::rapidproto::MapView<"));  // real struct storage
     CHECK(has(out, "pick: Option<"));
     // proto2 required: a MissingRequired check keyed to the field, emitted after the loop.
@@ -654,7 +652,6 @@ TEST_CASE("rustgen decode: a required small fixed-size message inlines with no p
     const std::string out = gen_arena(R"(syntax = "proto2"; package p;
         message Small { optional int32 x = 1; }
         message Holder { required Small s = 1; })");
-    CHECK(!has(out, "todo!()"));
     // The never-emit-`1 << -1` invariant, stated directly.
     CHECK_FALSE(has(out, "1 << -1"));
     // Inlined by value (bare `T`, not a pointer), with a derived zero for the absent/default local.
@@ -684,7 +681,6 @@ TEST_CASE(
           optional Color c = 4 [default = COLOR_RED];
           optional int32 plain = 5;
         })");
-    CHECK(!has(out, "todo!()"));  // decodable, not a skeleton
     // Defaulted optional reads exactly like a no-default optional: the getter still returns `Option`,
     // but presence is packed into `rp_presence` and the value stored bare (default 0, never 42).
     CHECK(has(out, "pub fn n(&self) -> Option<i32> {"));
@@ -741,7 +737,6 @@ TEST_CASE("rustgen modes: drop / raw / unknown-fields on a decodable message") {
     CHECK(has(out, "if !matches!(rp_tagkey >> 3, 1u32 | 2u32 | 3u32 | 4u32) {"));
     CHECK(has(out, "rp_unknown = true;"));
     // The banner is added by generate_file (not generate_arena); the arena body carries no profile id.
-    CHECK(!has(out, "todo!()"));  // M + Sub both decodable -> real decoders
 }
 
 TEST_CASE("rustgen modes: an empty unknown-tracked message sets the bit unconditionally") {
@@ -758,22 +753,19 @@ TEST_CASE("rustgen modes: an empty unknown-tracked message sets the bit uncondit
     CHECK(!has(out, "if !matches!(rp_tagkey >> 3"));  // fieldless -> no routing guard at all
 }
 
-TEST_CASE("rustgen modes: raw rescues a reference to a message a raw group kept a skeleton") {
-    // A MATERIALIZED group decodes, so a group field alone no longer blocks. But a RAW group field is
-    // the one deferred case (the raw path cannot yet capture a group's scanned span), so a message with
-    // a raw group field stays a skeleton -- and a message referencing it becomes decodable only if that
-    // reference is itself `raw` (payload stored undecoded, so the referent's decodability is moot).
+TEST_CASE("rustgen modes: a raw group field stores its scanned body undecoded") {
+    // `raw` on a group field stores the group's scanned body span -- read via `read_group` on the
+    // SGroup key -- as undecoded bytes, the group analogue of a raw length-delimited payload. The
+    // owning message is fully decodable (every message is; there are no skeletons).
     const char* schema = R"(syntax = "proto2"; package p;
-        message HasGroup { optional group G = 1 { optional int32 a = 2; } }
-        message Wrap { optional HasGroup hg = 1; })";
+        message HasGroup { optional group G = 1 { optional int32 a = 2; } })";
     arenagen::FieldModesSpec spec;
-    spec.entries.push_back(
-        {arenagen::FieldMode::Raw, "p.HasGroup.G", "test"});  // raw group -> skeleton
-    spec.entries.push_back({arenagen::FieldMode::Raw, "p.Wrap.hg", "test"});  // raw ref -> rescued
+    spec.entries.push_back({arenagen::FieldMode::Raw, "p.HasGroup.G", "test"});
     const std::string out = gen_arena_modes(schema, spec);
-    // HasGroup stays a skeleton (its raw group field); Wrap still decodes (hg kept raw).
-    CHECK(has(out, "pub fn hg(&self) -> Option<&'a [u8]> {"));
-    CHECK(has(out, "hg = Some(rp_p);"));
+    CHECK(has(out, "pub fn g(&self) -> Option<&'a [u8]> {"));  // raw -> stored as borrowed bytes
+    CHECK(has(out, "::rapidproto::wire::read_group("));        // body read via the group reader
+    CHECK(has(out, "11u32 => {"));       // dispatched on the SGroup key (field 1)
+    CHECK(has(out, "g = Some(rp_p);"));  // the scanned body stored undecoded
 }
 
 TEST_CASE("rustgen imports: a cross-file closure merges into one tree with resolving refs") {
