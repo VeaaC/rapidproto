@@ -73,3 +73,17 @@ fn proto3_default_valued_implicit_fields_are_omitted() {
     let msg = Msg::decode(&buf, &arena).unwrap();
     assert_eq!(to_line(msg).unwrap(), "{}");
 }
+
+#[test]
+fn proto3_bytes_valued_map_renders_as_opaque_hex() {
+    // A `map<string, bytes>` value must serialize as an opaque lowercase-hex string, NOT serde's
+    // default sequence of u8 -- the one map-value type the generic serializer gets wrong.
+    let mut entry = Vec::new();
+    put_len(&mut entry, 1, b"k"); // map key (string)
+    put_len(&mut entry, 2, &[0x68, 0x69]); // map value (bytes "hi")
+    let mut buf = Vec::new();
+    put_len(&mut buf, 22, &entry); // blobs = map<string, bytes>
+    let arena = Arena::new();
+    let msg = Msg::decode(&buf, &arena).unwrap();
+    assert_eq!(to_line(msg).unwrap(), r#"{"blobs":{"k":"6869"}}"#);
+}

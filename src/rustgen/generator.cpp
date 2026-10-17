@@ -2340,8 +2340,10 @@ void emit_field_serialize(Printer& printer, const FieldNode& field, const std::s
     printer.print("}\n");
 }
 
+// NOLINTBEGIN(bugprone-easily-swappable-parameters): accessor (method name) vs submodule (module path)
 void emit_oneof_serialize(Printer& printer, const NameTable& table, const OneofNode& oneof,
                           const std::string& accessor, const std::string& submodule) {
+    // NOLINTEND(bugprone-easily-swappable-parameters)
     const std::vector<std::string> variants = oneof_variant_names(oneof);
     const std::string enum_path = submodule + "::" + table.oneofs.at(&oneof);
     printer.print("if let Some(rp_o) = self.$a$() {\n", {{"a", accessor}});
@@ -2389,13 +2391,20 @@ void emit_message_serialize(Printer& printer, const NameTable& table, const Mess
     }
     for (std::size_t i = 0; i < msg.map_fields.size(); ++i) {
         if (map_mode(modes, msg.map_fields[i]) != arenagen::FieldMode::Drop) {
+            const MapFieldNode& map = msg.map_fields[i];
+            // A bytes-valued map must serialize its values opaquely (BytesMapView), not via the
+            // generic MapView impl -- serde would otherwise render a `&[u8]` value as a seq of u8.
+            const bool bytes_value =
+                !map.value_is_message && !map.value_is_enum && map.value_type == "bytes";
+            const std::string val =
+                bytes_value ? "&::rapidproto::serde_support::BytesMapView(rp_v)" : "&rp_v";
             printer.print("{\n");
             printer.indent();
             printer.print("let rp_v = self.$a$();\n", {{"a", accessors.maps[i]}});
             printer.print("if !rp_v.is_empty() {\n");
             printer.indent();
-            printer.print("rp_map.serialize_entry($n$, &rp_v)?;\n",
-                          {{"n", rust_str_lit(msg.map_fields[i].name)}});
+            printer.print("rp_map.serialize_entry($n$, $val$)?;\n",
+                          {{"n", rust_str_lit(map.name)}, {"val", val}});
             printer.outdent();
             printer.print("}\n");
             printer.outdent();

@@ -57,6 +57,14 @@ class Msg {
     double rp_value;
     ::rapidproto::ArenaString rp_key;
   };
+  struct BlobsEntry {
+    std::string_view key() const noexcept { return rp_key.view(); }
+    std::string_view value() const noexcept { return rp_value.view(); }
+    friend class Msg;
+   private:
+    ::rapidproto::ArenaString rp_key;
+    ::rapidproto::ArenaString rp_value;
+  };
   std::int32_t implicit_i() const noexcept { return m_implicit_i; }
   std::optional<std::int32_t> explicit_i() const noexcept { return (m_rp_mask & (std::uint8_t{1} << 0)) != 0 ? std::optional<std::int32_t>(m_explicit_i) : std::nullopt; }
   std::string_view name() const noexcept { return m_name.view(); }
@@ -74,6 +82,7 @@ class Msg {
   ::rapidproto::MapView<FlagsEntry> flags() const noexcept { return m_flags; }
   ::rapidproto::MapView<TogglesEntry> toggles() const noexcept { return m_toggles; }
   ::rapidproto::MapView<RatiosEntry> ratios() const noexcept { return m_ratios; }
+  ::rapidproto::MapView<BlobsEntry> blobs() const noexcept { return m_blobs; }
   template <class... rp_Fs> void pick(rp_Fs&&... rp_fs) const {
     static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Fs, Pick::a, typename Pick::a::Value>)) <= 1U, "oneof member 'Msg::a' is handled by more than one callback");
     static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Fs, Pick::a, typename Pick::a::Value>)) <= 1U, "oneof member 'Msg::a' is matched by more than one catch-all callback");
@@ -149,6 +158,7 @@ class Msg {
   ::rapidproto::ArrayView<bool> m_bools;
   ::rapidproto::MapView<TogglesEntry> m_toggles;
   ::rapidproto::MapView<RatiosEntry> m_ratios;
+  ::rapidproto::MapView<BlobsEntry> m_blobs;
   std::int32_t m_implicit_i;
   std::int32_t m_explicit_i;
   ::rp::common::p3::State m_state;
@@ -300,6 +310,20 @@ RP_FLATTEN RP_NOINLINE inline bool ::rp::arena::p3::Msg::rp_decode_into([[maybe_
       rp_cap_ratios = rp_nc;
     }
     return &rp_acc_ratios[rp_n_ratios++];
+  };
+  BlobsEntry* rp_acc_blobs = nullptr;
+  std::size_t rp_n_blobs = 0;
+  std::size_t rp_cap_blobs = 0;
+  const auto rp_slot_blobs = [&]() noexcept -> BlobsEntry* {
+    if (rp_n_blobs == rp_cap_blobs) {
+      const std::size_t rp_nc = rp_cap_blobs == 0 ? std::size_t{4} : rp_cap_blobs * 2;
+      BlobsEntry* const rp_nb = arena.allocate_array<BlobsEntry>(rp_nc);
+      if (rp_nb == nullptr) { return nullptr; }
+      for (std::size_t rp_i = 0; rp_i < rp_n_blobs; ++rp_i) { rp_nb[rp_i] = rp_acc_blobs[rp_i]; }
+      rp_acc_blobs = rp_nb;
+      rp_cap_blobs = rp_nc;
+    }
+    return &rp_acc_blobs[rp_n_blobs++];
   };
   const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(body);
   const std::uint8_t* const rp_cend = rp_c + body.size();
@@ -878,6 +902,45 @@ RP_FLATTEN RP_NOINLINE inline bool ::rp::arena::p3::Msg::rp_decode_into([[maybe_
         }
         break;
       }
+      case 22: {
+        if (rp_tag.wire_type == ::rapidproto::WireType::Len) {
+          ::rapidproto::ByteView rp_ent;
+          { const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_ent, &rp_we); if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; } rp_c = rp_np; }
+          BlobsEntry* const rp_slot = rp_slot_blobs();
+          if (rp_slot == nullptr) { ::rapidproto::rp_fail_oom(err); return false; }
+          *rp_slot = BlobsEntry{};
+          const std::uint8_t* rp_ec = ::rapidproto::wire::byte_ptr(rp_ent);
+          const std::uint8_t* const rp_ee = rp_ec + rp_ent.size();
+          ::rapidproto::Tag rp_et{};
+          for (;;) {
+            ::rapidproto::wire::TagState rp_st = ::rapidproto::wire::TagState::End;
+            const std::uint8_t* const rp_etp = ::rapidproto::wire::read_tag_or_end(rp_ec, rp_ee, &rp_et, &rp_we, &rp_st);
+            if (rp_st == ::rapidproto::wire::TagState::End) { break; }
+            if (rp_st == ::rapidproto::wire::TagState::Error) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_ec - ::rapidproto::wire::byte_ptr(rp_ent))); return false; }
+            rp_ec = rp_etp;
+            if (rp_et.field_number == 1 && rp_et.wire_type == ::rapidproto::WireType::Len) {
+              ::rapidproto::ByteView rp_v;
+              const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_ec, rp_ee, &rp_v, &rp_we);
+              if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_ec - ::rapidproto::wire::byte_ptr(rp_ent))); return false; }
+              rp_ec = rp_np;
+              rp_slot->rp_key = ::rapidproto::ArenaString::make(rp_v, arena);
+            } else if (rp_et.field_number == 2 && rp_et.wire_type == ::rapidproto::WireType::Len) {
+              ::rapidproto::ByteView rp_v;
+              const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_ec, rp_ee, &rp_v, &rp_we);
+              if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_ec - ::rapidproto::wire::byte_ptr(rp_ent))); return false; }
+              rp_ec = rp_np;
+              rp_slot->rp_value = ::rapidproto::ArenaString::make(rp_v, arena);
+            } else {
+              std::size_t rp_fo = 0;
+              const std::uint8_t* const rp_sp = ::rapidproto::wire::skip_value(rp_ec, rp_ee, ::rapidproto::wire::byte_ptr(rp_ent), rp_et, 0, &rp_we, &rp_fo);
+              if (rp_sp == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, rp_fo); return false; }
+              rp_ec = rp_sp;
+            }
+          }
+          continue;
+        }
+        break;
+      }
       case 10: { if (rp_tag.wire_type == ::rapidproto::WireType::Varint) { goto rp_do_10; } break; }
       case 11: { if (rp_tag.wire_type == ::rapidproto::WireType::Len) { goto rp_do_11; } break; }
       case 15: { if (rp_tag.wire_type == ::rapidproto::WireType::Varint) { goto rp_do_15; } break; }
@@ -899,6 +962,7 @@ RP_FLATTEN RP_NOINLINE inline bool ::rp::arena::p3::Msg::rp_decode_into([[maybe_
   out.m_flags = ::rapidproto::MapView<FlagsEntry>(::rapidproto::ArrayView<FlagsEntry>(rp_acc_flags, rp_n_flags));
   out.m_toggles = ::rapidproto::MapView<TogglesEntry>(::rapidproto::ArrayView<TogglesEntry>(rp_acc_toggles, rp_n_toggles));
   out.m_ratios = ::rapidproto::MapView<RatiosEntry>(::rapidproto::ArrayView<RatiosEntry>(rp_acc_ratios, rp_n_ratios));
+  out.m_blobs = ::rapidproto::MapView<BlobsEntry>(::rapidproto::ArrayView<BlobsEntry>(rp_acc_blobs, rp_n_blobs));
   return true;
 }
 inline const ::rp::arena::p3::Msg* ::rp::arena::p3::Msg::decode(::rapidproto::ByteView input, ::rapidproto::Arena& arena, ::rapidproto::ArenaDecodeError* err) noexcept {

@@ -55,3 +55,18 @@ impl<K: Serialize, V: Serialize> Serialize for MapView<'_, K, V> {
         map.end()
     }
 }
+
+/// A `map` with `bytes` values: each value serializes as [`Bytes`] (opaque), not serde's default
+/// sequence-of-`u8`. Generated code uses this instead of the plain `MapView` impl for a bytes-valued
+/// map -- the one map-value type the generic impl would get wrong.
+pub struct BytesMapView<'a, K>(pub MapView<'a, K, &'a [u8]>);
+
+impl<K: Serialize> Serialize for BytesMapView<'_, K> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut map = serializer.serialize_map(Some(self.0.len()))?;
+        for (key, &value) in self.0.iter() {
+            map.serialize_entry(key, &Bytes(value))?;
+        }
+        map.end()
+    }
+}

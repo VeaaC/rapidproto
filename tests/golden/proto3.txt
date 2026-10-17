@@ -23,6 +23,7 @@ file proto3.proto
     map flags num=14 key=bool value=string
     map toggles num=18 key=string value=bool
     map ratios num=19 key=string value=double
+    map blobs num=22 key=string value=bytes
     oneof pick
       field a num=10 presence=explicit type=int32
       field b num=11 presence=explicit type=string

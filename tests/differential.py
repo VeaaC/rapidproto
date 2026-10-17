@@ -930,8 +930,10 @@ def main() -> int:
             tools["rustc"] = Path(rustc)
             tools["rust_lib_dir"] = rust_dir / "target" / "debug"
         else:
-            print("differential: Rust arm disabled -- prebuilding its rlibs failed:\n"
-                  + built.stderr[-800:])
+            # The toolchain IS present, so a prebuild failure is a real Rust-side regression (a broken
+            # serde impl / rapidproto-diff), not a reason to skip -- fail, don't quietly drop the arm.
+            raise SystemExit("differential: Rust toolchain present but prebuilding its rlibs failed "
+                             "(a regression, not a skip):\n" + built.stderr[-1500:])
     else:
         print("differential: Rust arm disabled (rustc/cargo/rust workspace not all present); "
               "the C++ arm still runs")
