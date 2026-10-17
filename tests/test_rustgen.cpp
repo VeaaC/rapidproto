@@ -276,18 +276,18 @@ TEST_CASE("rustgen common: strippable enum strips the prefix and builds the clas
     CHECK(has(out, "pub const RED: Color = Color(1);"));
     CHECK(has(out, "pub const GREEN: Color = Color(2);"));
 
-    CHECK(has(out, "pub fn kind(self) -> ColorKind {"));
-    CHECK(has(out, "1 => ColorKind::Red,"));
-    CHECK(has(out, "2 => ColorKind::Green,"));
-    CHECK(has(out, "other => ColorKind::Unknown(other),"));
+    CHECK(has(out, "pub fn classify(self) -> ColorClass {"));
+    CHECK(has(out, "1 => ColorClass::Red,"));
+    CHECK(has(out, "2 => ColorClass::Green,"));
+    CHECK(has(out, "other => ColorClass::Unknown(other),"));
 
     CHECK(has(out, "#[non_exhaustive]"));
-    CHECK(has(out, "pub enum ColorKind {"));
+    CHECK(has(out, "pub enum ColorClass {"));
     CHECK(has(out, "Unknown(i32),"));
     // COLOR_UNKNOWN strips to UNKNOWN; its PascalCase variant `Unknown` collides with the reserved
     // `Unknown(i32)`, so it is deduped to `Unknown_`.
     CHECK(has(out, "Unknown_,"));
-    CHECK(has(out, "0 => ColorKind::Unknown_,"));
+    CHECK(has(out, "0 => ColorClass::Unknown_,"));
 }
 
 TEST_CASE("rustgen common: a value missing the prefix disables stripping for the whole enum") {
@@ -322,9 +322,9 @@ TEST_CASE("rustgen common: alias values collapse to one match arm") {
 
     CHECK(has(out, "pub const A: E = E(0);"));
     CHECK(has(out, "pub const B: E = E(0);"));
-    CHECK(has(out, "0 => EKind::A,"));
-    CHECK_FALSE(has(out, "0 => EKind::B,"));  // the second alias for 0 is skipped
-    CHECK(has(out, "1 => EKind::C,"));
+    CHECK(has(out, "0 => EClass::A,"));
+    CHECK_FALSE(has(out, "0 => EClass::B,"));  // the second alias for 0 is skipped
+    CHECK(has(out, "1 => EClass::C,"));
 }
 
 TEST_CASE("rustgen common: underscore/digit-head value names yield valid variants") {
@@ -337,11 +337,11 @@ TEST_CASE("rustgen common: underscore/digit-head value names yield valid variant
     CHECK(has(out, "pub const _x: E = E(1);"));  // escape_rust_ident("_") -> "_x"
     CHECK(has(out, "pub const _2D: E = E(2);"));
     // variants get a `V` head where PascalCase left an empty/digit-leading name.
-    CHECK(has(out, "pub enum EKind {"));
+    CHECK(has(out, "pub enum EClass {"));
     CHECK(has(out, "V,"));    // from value `_`
     CHECK(has(out, "V2d,"));  // from value `_2D`
-    CHECK(has(out, "1 => EKind::V,"));
-    CHECK(has(out, "2 => EKind::V2d,"));
+    CHECK(has(out, "1 => EClass::V,"));
+    CHECK(has(out, "2 => EClass::V2d,"));
 }
 
 TEST_CASE("rustgen common: empty file emits nothing") {
@@ -527,16 +527,16 @@ TEST_CASE("rustgen: a message name colliding with a sibling's submodule bumps th
 }
 
 TEST_CASE("rustgen: a classify-enum name colliding with a sibling enum is deduped") {
-    // `Color`'s classify enum is `ColorKind`; a sibling enum literally named `ColorKind` must not
-    // collide with it. The second enum's newtype and its Kind both gain a trailing `_`.
+    // `Color`'s classify enum is `ColorClass`; a sibling enum literally named `ColorClass` must not
+    // collide with it. The second enum's newtype and its Class both gain a trailing `_`.
     const std::string out = gen(R"(syntax = "proto3"; package p;
         enum Color { COLOR_UNSPECIFIED = 0; }
-        enum ColorKind { COLOR_KIND_UNSPECIFIED = 0; })");
+        enum ColorClass { COLOR_CLASS_UNSPECIFIED = 0; })");
     CHECK(has(out, "pub struct Color(pub i32);"));
-    CHECK(has(out, "pub enum ColorKind {"));             // Color's classify enum
-    CHECK(has(out, "pub struct ColorKind_(pub i32);"));  // the sibling enum's newtype, bumped
-    CHECK(has(out, "pub enum ColorKind_Kind {"));        // and its classify enum
-    CHECK(count(out, "pub enum ColorKind {") == 1);
+    CHECK(has(out, "pub enum ColorClass {"));             // Color's classify enum
+    CHECK(has(out, "pub struct ColorClass_(pub i32);"));  // the sibling enum's newtype, bumped
+    CHECK(has(out, "pub enum ColorClass_Class {"));       // and its classify enum
+    CHECK(count(out, "pub enum ColorClass {") == 1);
 }
 
 TEST_CASE("rustgen: a message whose own snake submodule collides with its struct name") {

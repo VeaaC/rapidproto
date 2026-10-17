@@ -13,18 +13,18 @@ pub mod common {
       /// The matchable classification of this value.
       #[inline]
       #[must_use]
-      pub fn kind(self) -> StateKind {
+      pub fn classify(self) -> StateClass {
         match self.0 {
-          0 => StateKind::Unknown_,
-          1 => StateKind::On,
-          other => StateKind::Unknown(other),
+          0 => StateClass::Unknown_,
+          1 => StateClass::On,
+          other => StateClass::Unknown(other),
         }
       }
     }
 
     #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
     #[non_exhaustive]
-    pub enum StateKind {
+    pub enum StateClass {
       Unknown_,
       On,
       Unknown(i32),

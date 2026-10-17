@@ -12,17 +12,17 @@ pub mod common {
       /// The matchable classification of this value.
       #[inline]
       #[must_use]
-      pub fn kind(self) -> streamKind {
+      pub fn classify(self) -> streamClass {
         match self.0 {
-          0 => streamKind::Unset,
-          other => streamKind::Unknown(other),
+          0 => streamClass::Unset,
+          other => streamClass::Unknown(other),
         }
       }
     }
 
     #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
     #[non_exhaustive]
-    pub enum streamKind {
+    pub enum streamClass {
       Unset,
       Unknown(i32),
     }
@@ -37,17 +37,17 @@ pub mod common {
       /// The matchable classification of this value.
       #[inline]
       #[must_use]
-      pub fn kind(self) -> arenaKind {
+      pub fn classify(self) -> arenaClass {
         match self.0 {
-          0 => arenaKind::Unset,
-          other => arenaKind::Unknown(other),
+          0 => arenaClass::Unset,
+          other => arenaClass::Unknown(other),
         }
       }
     }
 
     #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
     #[non_exhaustive]
-    pub enum arenaKind {
+    pub enum arenaClass {
       Unset,
       Unknown(i32),
     }
@@ -62,17 +62,17 @@ pub mod common {
       /// The matchable classification of this value.
       #[inline]
       #[must_use]
-      pub fn kind(self) -> commonKind {
+      pub fn classify(self) -> commonClass {
         match self.0 {
-          0 => commonKind::Unset,
-          other => commonKind::Unknown(other),
+          0 => commonClass::Unset,
+          other => commonClass::Unknown(other),
         }
       }
     }
 
     #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
     #[non_exhaustive]
-    pub enum commonKind {
+    pub enum commonClass {
       Unset,
       Unknown(i32),
     }

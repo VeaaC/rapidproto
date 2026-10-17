@@ -13,17 +13,17 @@ pub mod common {
         /// The matchable classification of this value.
         #[inline]
         #[must_use]
-        pub fn kind(self) -> EKind {
+        pub fn classify(self) -> EClass {
           match self.0 {
-            0 => EKind::E0,
-            other => EKind::Unknown(other),
+            0 => EClass::E0,
+            other => EClass::Unknown(other),
           }
         }
       }
 
       #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
       #[non_exhaustive]
-      pub enum EKind {
+      pub enum EClass {
         E0,
         Unknown(i32),
       }
@@ -39,17 +39,17 @@ pub mod common {
         /// The matchable classification of this value.
         #[inline]
         #[must_use]
-        pub fn kind(self) -> EKind {
+        pub fn classify(self) -> EClass {
           match self.0 {
-            0 => EKind::F0,
-            other => EKind::Unknown(other),
+            0 => EClass::F0,
+            other => EClass::Unknown(other),
           }
         }
       }
 
       #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
       #[non_exhaustive]
-      pub enum EKind {
+      pub enum EClass {
         F0,
         Unknown(i32),
       }

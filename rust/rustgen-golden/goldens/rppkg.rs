@@ -12,17 +12,17 @@ pub mod common {
       /// The matchable classification of this value.
       #[inline]
       #[must_use]
-      pub fn kind(self) -> WireTypeKind {
+      pub fn classify(self) -> WireTypeClass {
         match self.0 {
-          0 => WireTypeKind::A,
-          other => WireTypeKind::Unknown(other),
+          0 => WireTypeClass::A,
+          other => WireTypeClass::Unknown(other),
         }
       }
     }
 
     #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
     #[non_exhaustive]
-    pub enum WireTypeKind {
+    pub enum WireTypeClass {
       A,
       Unknown(i32),
     }
@@ -37,17 +37,17 @@ pub mod common {
       /// The matchable classification of this value.
       #[inline]
       #[must_use]
-      pub fn kind(self) -> DecodeStatusKind {
+      pub fn classify(self) -> DecodeStatusClass {
         match self.0 {
-          0 => DecodeStatusKind::A,
-          other => DecodeStatusKind::Unknown(other),
+          0 => DecodeStatusClass::A,
+          other => DecodeStatusClass::Unknown(other),
         }
       }
     }
 
     #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
     #[non_exhaustive]
-    pub enum DecodeStatusKind {
+    pub enum DecodeStatusClass {
       A,
       Unknown(i32),
     }

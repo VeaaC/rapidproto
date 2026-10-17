@@ -13,18 +13,18 @@ pub mod common {
       /// The matchable classification of this value.
       #[inline]
       #[must_use]
-      pub fn kind(self) -> KindKind {
+      pub fn classify(self) -> KindClass {
         match self.0 {
-          0 => KindKind::Unspecified,
-          1 => KindKind::One,
-          other => KindKind::Unknown(other),
+          0 => KindClass::Unspecified,
+          1 => KindClass::One,
+          other => KindClass::Unknown(other),
         }
       }
     }
 
     #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
     #[non_exhaustive]
-    pub enum KindKind {
+    pub enum KindClass {
       Unspecified,
       One,
       Unknown(i32),

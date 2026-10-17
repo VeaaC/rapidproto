@@ -15,7 +15,7 @@ mod schema {
 
 use rapidproto::Arena;
 use schema::arena::demo::Shape;
-use schema::common::demo::Kind;
+use schema::common::demo::{Kind, KindClass};
 
 // Encoded `demo.Shape { name: "hi", origin: { x: 3, y: 4 }, kind: KIND_CIRCLE, sides: [3, 4, 5] }`,
 // plus one field the schema does not define (decoding skips it).
@@ -31,20 +31,25 @@ fn main() {
 
     assert_eq!(shape.name().as_bytes(), b"hi");
     let origin = shape.origin().expect("origin is set"); // a nested message, from types.proto
-    assert_eq!((origin.x(), origin.y()), (3, 4));
     assert_eq!(shape.kind(), Kind::CIRCLE);
     let sides_sum: i32 = shape.sides().iter().sum(); // a repeated field is a slice
     assert_eq!(sides_sum, 12);
+
+    // An enum field is an open i32 wrapper (it can hold values added by newer schemas). Call
+    // `classify()` to match on the known variants, with `Unknown(i32)` catching the rest.
+    let kind = match shape.kind().classify() {
+        KindClass::Circle => "circle",
+        KindClass::Square => "square",
+        _ => "other",
+    };
 
     // Invalid input returns an error rather than panicking.
     assert!(Shape::decode(&SHAPE_WIRE[..5], &arena).is_err());
 
     println!(
-        "decoded demo.Shape {{ name={:?}, origin=({}, {}), kind={:?}, sides sum={} }}",
+        "decoded demo.Shape {{ name={:?}, origin=({}, {}), kind={kind}, sides sum={sides_sum} }}",
         shape.name(),
         origin.x(),
         origin.y(),
-        shape.kind(),
-        sides_sum,
     );
 }

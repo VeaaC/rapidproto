@@ -14,18 +14,18 @@ pub mod common {
         /// The matchable classification of this value.
         #[inline]
         #[must_use]
-        pub fn kind(self) -> KindKind {
+        pub fn classify(self) -> KindClass {
           match self.0 {
-            0 => KindKind::A,
-            1 => KindKind::B,
-            other => KindKind::Unknown(other),
+            0 => KindClass::A,
+            1 => KindClass::B,
+            other => KindClass::Unknown(other),
           }
         }
       }
 
       #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
       #[non_exhaustive]
-      pub enum KindKind {
+      pub enum KindClass {
         A,
         B,
         Unknown(i32),
@@ -41,17 +41,17 @@ pub mod common {
           /// The matchable classification of this value.
           #[inline]
           #[must_use]
-          pub fn kind(self) -> DeepKind {
+          pub fn classify(self) -> DeepClass {
             match self.0 {
-              0 => DeepKind::A,
-              other => DeepKind::Unknown(other),
+              0 => DeepClass::A,
+              other => DeepClass::Unknown(other),
             }
           }
         }
 
         #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
         #[non_exhaustive]
-        pub enum DeepKind {
+        pub enum DeepClass {
           A,
           Unknown(i32),
         }
