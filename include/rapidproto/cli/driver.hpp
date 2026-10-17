@@ -350,7 +350,6 @@ struct SelectedModels {
     bool arena = false;
     bool stream = false;
     bool dump = false;
-    bool rust = false;
 };
 
 // One planned output file: its path relative to --out-dir (header_path with an empty out-dir is
@@ -360,7 +359,6 @@ enum class OutputKind : std::uint8_t {
     Stream,
     Dump,
     Common,
-    Rust,  // one <stem>.rs holding the common + arena module trees; depends only on the external crate
     Runtime,
     ArenaRuntime,
     DumpRuntime
@@ -386,8 +384,7 @@ struct PlannedOutput {
 // write_shared_file output re-runs forever under Make once any input is newer). The CMake helper
 // anchors its custom command on line 1 of --list-outputs, which prints this plan verbatim.
 inline std::vector<PlannedOutput> plan_outputs(const Options& opts, const ResolvedFileSet& set,
-                                               SelectedModels models,
-                                               const std::string& rust_out = "") {
+                                               SelectedModels models) {
     std::vector<PlannedOutput> plan;
     const auto plan_file = [&](const FileNode& file, bool entry) {
         if (models.arena) {
@@ -400,12 +397,11 @@ inline std::vector<PlannedOutput> plan_outputs(const Options& opts, const Resolv
         if (models.dump) {
             plan.push_back({header_path("", file, ".rp.dump.hpp"), &file, OutputKind::Dump, entry});
         }
-        // The C++ common header serves the C++ models; a Rust-only run does not emit it.
+        // The common header (the schema's enums) serves every model.
         if (models.arena || models.stream || models.dump) {
             plan.push_back(
                 {header_path("", file, ".rp.common.hpp"), &file, OutputKind::Common, entry});
         }
-        // Rust is NOT per-file: the whole import closure is one <rust_out>.rs, planned once below.
     };
     std::vector<const FileNode*> entry_files;
     for (const std::string& entry : opts.entries) {
@@ -426,13 +422,7 @@ inline std::vector<PlannedOutput> plan_outputs(const Options& opts, const Resolv
             plan_file(file, /*entry=*/false);
         }
     }
-    // Rust: ONE user-named file for the whole import closure (Option A), not per schema. `file` is
-    // null (it covers the set); entry so it joins the depfile targets. The Rust runtime is the
-    // external crate, so there is no runtime copy to plan.
-    if (models.rust) {
-        plan.push_back({std::filesystem::path(rust_out), nullptr, OutputKind::Rust, true});
-    }
-    // The C++ runtime copies serve the C++ models; a Rust-only run needs none (external crate).
+    // The self-contained runtime copies.
     if (models.arena || models.stream || models.dump) {
         plan.push_back({std::filesystem::path("rapidproto") / "runtime.hpp", nullptr,
                         OutputKind::Runtime, false});

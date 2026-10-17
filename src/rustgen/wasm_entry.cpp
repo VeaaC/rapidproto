@@ -1,17 +1,17 @@
 // rapidproto's Rust code-generator front-end, compiled to a standalone wasm32-wasi command module.
 //
 // The native `rustgen` library and the wasm blob are ONE codebase: this entry drives the same
-// resolve -> analyze -> plan_layouts(modes) -> rustgen::generate_file pipeline the C++ CLI drives
-// (src/rapidprotoc/main.cpp), so the blob's output is byte-identical to native rustgen for the same
-// input -- the `rapidproto-build` crate ships the blob and never needs a C++ toolchain. A CI gate
-// rebuilds the blob and byte-diffs it against the committed copy; a second check diffs blob output
-// against native, so the two can never silently drift.
+// post-analysis tail (rustgen::generate_rust -- plan_layouts(modes) then generate_file) that native
+// rustgen runs via the `[rustgen-golden]` test, so the blob's output is byte-identical to native
+// rustgen for the same input -- the `rapidproto-build` crate ships the blob and never needs a C++
+// toolchain. A CI gate rebuilds the blob and byte-diffs it against the committed copy; the golden
+// dogfood diffs blob output against the native goldens, so the two can never silently drift.
 //
 // No filesystem: wasi gives us only stdin/stdout/stderr, so the host (the build crate) feeds the
 // whole source closure in on stdin and the resolver reads it through an in-memory provider
-// (ResolverConfig::source_provider). Field-modes parity with the C++ CLI is kept by carrying the
-// profile as its `.modes` text (parsed in-blob via arenagen::parse_modes_file) plus the global
-// "unknown fields present" flag -- the same raw/drop/unknown knobs native exposes.
+// (ResolverConfig::source_provider). Field modes travel as the profile's `.modes` text (parsed
+// in-blob via arenagen::parse_modes_file) plus the global "unknown fields present" flag -- the same
+// raw/drop/unknown knobs native exposes.
 //
 // Stdin frame (all lengths little-endian u32; bodies are raw bytes, so a proto's newlines/quotes
 // need no escaping):
@@ -220,7 +220,7 @@ int main() {
     }
 
     // Plan layouts and emit the merged module tree through the shared post-analysis pipeline, the
-    // exact tail native `rapidprotoc --rust` runs (see rustgen/pipeline.hpp) -- so the two cannot
+    // exact tail native rustgen runs (see rustgen/pipeline.hpp) -- so the two cannot
     // drift.
     const std::string out = rustgen::generate_rust(set, symbols, modes);
     std::fwrite(out.data(), 1, out.size(), stdout);

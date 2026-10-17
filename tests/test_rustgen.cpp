@@ -23,7 +23,8 @@
 #include "rapidproto/resolve.hpp"
 #include "rapidproto/resolver.hpp"
 #include "rapidproto/rustgen/generator.hpp"
-#include "rapidproto/rustgen/names.hpp"  // escape_rust_ident for the golden crate's module names
+#include "rapidproto/rustgen/names.hpp"     // escape_rust_ident for the golden crate's module names
+#include "rapidproto/rustgen/pipeline.hpp"  // generate_rust: the shared post-analysis tail
 
 using namespace rapidproto;  // NOLINT(google-build-using-namespace): test convenience
 
@@ -148,9 +149,11 @@ std::string golden_stem(std::string_view rel) {
     return std::filesystem::path(rel).stem().string();
 }
 
-// Generate the `.rs` for a corpus schema's whole import closure, exactly as `rapidprotoc --rust`
-// does: resolve + analyze from disk (so imports + well-known types are pulled in), then
-// generate_file over every file in the set. The include path is the schema's own directory.
+// Generate the `.rs` for a corpus schema's whole import closure through the SAME post-analysis tail
+// the wasm blob runs (rustgen::generate_rust): resolve + analyze from disk (so imports + well-known
+// types are pulled in), then plan layouts and emit one file over the whole set. Sharing that tail is
+// what keeps native generation and the blob byte-identical by construction. The include path is the
+// schema's own directory.
 std::string gen_corpus(std::string_view rel) {
     const std::string path = std::string(RAPIDPROTO_CORPUS_DIR) + "/" + std::string(rel);
     cli::Options opts;
@@ -159,19 +162,12 @@ std::string gen_corpus(std::string_view rel) {
     REQUIRE(resolved.has_value());
     // NOLINTNEXTLINE(bugprone-unchecked-optional-access): guarded by the REQUIRE above
     const auto& analyzed_set = resolved.value();
-    const ResolvedFileSet& set = analyzed_set.first;
-    const auto layouts = arenagen::plan_layouts(set, analyzed_set.second);
-    std::vector<const FileNode*> files;
-    files.reserve(set.files.size());
-    for (const FileNode& file : set.files) {
-        files.push_back(&file);
-    }
-    return rustgen::generate_file(files, layouts);
+    return rustgen::generate_rust(analyzed_set.first, analyzed_set.second, {});
 }
 
-// Generate a corpus schema under a resolved field-modes profile (drop/raw/unknown), as the CLI's
-// `--rust --drop=... --raw=... --unknown=...` does. Modes are a generation option over the SAME global
-// schema, so this reuses the corpus rather than a modes-specific proto.
+// Generate a corpus schema under a resolved field-modes profile (drop/raw/unknown). Modes are a
+// generation option over the SAME global schema, so this reuses the corpus rather than a
+// modes-specific proto.
 std::string gen_corpus_modes(std::string_view rel, const arenagen::FieldModesSpec& spec) {
     const std::string path = std::string(RAPIDPROTO_CORPUS_DIR) + "/" + std::string(rel);
     cli::Options opts;
@@ -180,18 +176,9 @@ std::string gen_corpus_modes(std::string_view rel, const arenagen::FieldModesSpe
     REQUIRE(resolved.has_value());
     // NOLINTNEXTLINE(bugprone-unchecked-optional-access): guarded by the REQUIRE above
     const auto& analyzed_set = resolved.value();
-    const ResolvedFileSet& set = analyzed_set.first;
-    auto modes = arenagen::resolve_field_modes(spec, set, analyzed_set.second);
+    auto modes = arenagen::resolve_field_modes(spec, analyzed_set.first, analyzed_set.second);
     REQUIRE(modes.is_ok());
-    arenagen::LayoutOptions options;
-    options.modes = &modes.value();
-    const auto layouts = arenagen::plan_layouts(set, analyzed_set.second, options);
-    std::vector<const FileNode*> files;
-    files.reserve(set.files.size());
-    for (const FileNode& file : set.files) {
-        files.push_back(&file);
-    }
-    return rustgen::generate_file(files, layouts, modes.value());
+    return rustgen::generate_rust(analyzed_set.first, analyzed_set.second, modes.value());
 }
 
 // The field-modes golden: proto3 under a drop/raw/unknown profile, compiled by the golden crate and
@@ -847,10 +834,10 @@ TEST_CASE("rustgen imports: sibling packages whose Rust names collide are dedupe
 }
 
 // Compile smoke-test over the whole corpus: every corpus schema's import closure is emitted via the
-// same generate_file() the CLI uses, committed as a golden, and compiled by Rust CI
-// (rust/rustgen-golden) -- proving the generated common+arena+oneof output is valid Rust, including
-// cross-file and cross-package references. Byte-compared here so a generator change that is not
-// regenerated fails. Regenerate with tests/regen_goldens.sh.
+// same post-analysis tail (rustgen::generate_rust) the wasm blob runs, committed as a golden, and
+// compiled by Rust CI (rust/rustgen-golden) -- proving the generated common+arena+oneof output is
+// valid Rust, including cross-file and cross-package references. Byte-compared here so a generator
+// change that is not regenerated fails. Regenerate with tests/regen_goldens.sh.
 TEST_CASE("rustgen goldens match the corpus (compile smoke-test)", "[rustgen-golden]") {
     std::vector<std::string> stems;
     for (const std::string& rel : corpus_schemas()) {
