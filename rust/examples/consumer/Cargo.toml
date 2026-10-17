@@ -7,6 +7,12 @@ edition = "2021"
 license = "Apache-2.0"
 publish = false
 
+# The generated decoders carry serde `Serialize` impls behind a `serde` feature. A consumer that
+# includes generated code declares this feature (even when leaving it off) so the generated
+# `#[cfg(feature = "serde")]` is a known cfg; enable it to serialize decoded messages.
+[features]
+serde = ["rapidproto/serde"]
+
 [dependencies]
 rapidproto = { path = "../../rapidproto" }
 
