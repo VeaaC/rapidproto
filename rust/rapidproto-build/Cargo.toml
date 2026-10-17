@@ -15,5 +15,5 @@ wasmi = "2.0.0"
 wasmi_wasi = "2.0.0"
 
 [[bin]]
-name = "rapidproto-gen"
+name = "rapidproto-rust"
 path = "src/main.rs"
