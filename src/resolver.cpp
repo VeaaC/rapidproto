@@ -199,7 +199,11 @@ public:
             if (m_parsed.count(entry_name) != 0) {
                 // Already resolved via an earlier entry (as it, or as its import). We read it to
                 // learn its name; the re-read of an already-resolved file is negligible and keeps
-                // the single fetch_entry op.
+                // the single fetch_entry op. One intended consequence of reading before this check:
+                // an entry listed by a path that is not readable as typed is now reported above even
+                // if its canonical name was already imported -- where the pre-seam resolver named it
+                // without reading and deduped it silently. Surfacing a typo'd/absent entry path is
+                // the better behavior, and no successful run's output changes.
                 continue;
             }
             if (auto error = visit(entry_name, std::move(text))) {
