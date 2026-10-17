@@ -298,11 +298,12 @@ fn singular_message_and_recursion_cap() {
         }
         buf
     }
-    // Decoding to MAX_DECODE_DEPTH recurses that deep; in a debug build each `decode_into` frame of
-    // a large message is sizeable, so ~100 levels exceed the default 2 MiB test-THREAD stack (a real
-    // program decodes on the larger main-thread stack). Run the deep case on a thread with headroom:
-    // it asserts the depth CAP, not the stack. The guard still returns an error rather than recursing
-    // unbounded (verified: it stops at 100), so this is a test-environment stack size, not a crash.
+    // Decoding to MAX_DECODE_DEPTH recurses that deep. In a RELEASE build the cap holds within a
+    // default stack -- 100-deep fits even a 1 MiB thread stack (measured) -- so a real consumer on
+    // any default thread stack gets DepthLimitExceeded, never a stack overflow: the cap does its job.
+    // A DEBUG build's unoptimized `decode_into` frames are several times larger, so ~100 levels
+    // exceed the default 2 MiB TEST-thread stack. Give the (debug) test thread headroom; it asserts
+    // the depth CAP, not the stack (the guard stops at 100 either way -- verified with a large stack).
     std::thread::Builder::new()
         .stack_size(32 * 1024 * 1024)
         .spawn(|| {
