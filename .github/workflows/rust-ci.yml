@@ -1,7 +1,7 @@
 # Rust support CI — runs only on the `rust` feature branch and PRs targeting it, so `main`'s C++
 # gate is untouched. Kept light for the public 4-core runners: fmt, clippy, test, and a
-# no_std-no-alloc build, plus the wasm-blob staleness gate. Miri (arena) and the
-# generated-code-compiles check are added as their sub-steps land.
+# no_std-no-alloc build, plus the wasm-blob staleness gate, Miri (arena provenance/borrows), and a
+# libFuzzer+ASan smoke over the arena decoder.
 name: Rust CI
 
 on:
@@ -79,6 +79,33 @@ jobs:
       - name: Blob is in sync with the C++ generator
         working-directory: ${{ github.workspace }}
         run: rust/rapidproto-build/wasm/check-wasm.sh
+
+  fuzz:
+    # Never-crash / no-UB gate for the arena decoder: a libFuzzer + AddressSanitizer harness
+    # (rust/rustgen-golden/fuzz) that drives arbitrary bytes through five generated decoders whose
+    # arms differ most, mirroring the C++ tests/fuzz/fuzz_arena.cpp. cargo-fuzz needs nightly.
+    # `fuzz build` is the always-on compile gate (catches harness / generated-code bitrot); the short
+    # seeded run then actually exercises the decoders -- a crash saves the input and fails the job.
+    # The C++ keeps its long multi-sanitizer fuzz in the opt-in deep tier; a single ASan target for
+    # 30s is the CI-affordable mirror here (raise -max_total_time for a deeper local run).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+      - name: Install cargo-fuzz
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-fuzz
+      - name: Build the fuzz target (ASan)
+        working-directory: rust/rustgen-golden
+        run: cargo +nightly fuzz build fuzz_arena
+      - name: Smoke run over the committed seeds
+        working-directory: rust/rustgen-golden
+        # First dir is libFuzzer's writable corpus (must exist; gitignored); seeds/ is read-only
+        # input, so the committed fixtures are never written back to.
+        run: |
+          mkdir -p fuzz/corpus/fuzz_arena
+          cargo +nightly fuzz run fuzz_arena fuzz/corpus/fuzz_arena fuzz/seeds/fuzz_arena -- -max_total_time=30 -timeout=10
 
   miri:
     # The arena hands out `&mut` from `&self` and does raw-pointer bumping; Miri checks that
