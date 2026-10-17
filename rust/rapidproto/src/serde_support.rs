@@ -10,6 +10,11 @@
 //! `bytes` is a single opaque value, so generated code wraps it in [`Bytes`], which calls
 //! `serialize_bytes` and lets the chosen serializer decide the representation (e.g. hex). Scalars,
 //! enums (as their `i32`), strings and sub-messages serialize through their own impls.
+//!
+//! Serializer caveat: these impls are faithful to the protobuf value model, but a given serializer
+//! may not support all of it. `serde_json`, for one, errors on non-string map keys (so a
+//! `map<bool, _>` / `map<int32, _>` fails) and turns a non-finite `float`/`double` into `null`. A
+//! serializer that handles those (or a different target format) is needed for such schemas.
 
 use serde::ser::{Serialize, SerializeMap, Serializer};
 
