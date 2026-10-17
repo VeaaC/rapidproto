@@ -298,12 +298,24 @@ fn singular_message_and_recursion_cap() {
         }
         buf
     }
-    assert!(Msg::decode(&nest(100), &arena).is_ok());
-    let err = match Msg::decode(&nest(101), &arena) {
-        Ok(_) => panic!("expected a depth error"),
-        Err(e) => e,
-    };
-    assert_eq!(err.kind(), ErrorKind::DepthLimitExceeded);
+    // Decoding to MAX_DECODE_DEPTH recurses that deep; in a debug build each `decode_into` frame of
+    // a large message is sizeable, so ~100 levels exceed the default 2 MiB test-THREAD stack (a real
+    // program decodes on the larger main-thread stack). Run the deep case on a thread with headroom:
+    // it asserts the depth CAP, not the stack. The guard still returns an error rather than recursing
+    // unbounded (verified: it stops at 100), so this is a test-environment stack size, not a crash.
+    std::thread::Builder::new()
+        .stack_size(32 * 1024 * 1024)
+        .spawn(|| {
+            let arena = Arena::new();
+            assert!(Msg::decode(&nest(100), &arena).is_ok());
+            match Msg::decode(&nest(101), &arena) {
+                Ok(_) => panic!("expected a depth error"),
+                Err(e) => assert_eq!(e.kind(), ErrorKind::DepthLimitExceeded),
+            }
+        })
+        .expect("spawn deep-decode thread")
+        .join()
+        .expect("deep-decode thread panicked");
 }
 
 #[test]
