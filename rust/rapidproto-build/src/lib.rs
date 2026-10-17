@@ -1,13 +1,26 @@
-//! RapidProto's Rust code generator, driven from Rust with no C++ toolchain.
+//! Generate Rust protobuf **decoders** from `.proto` files, using only cargo — no `protoc` and no
+//! separate code generator to install.
 //!
-//! The generator is rapidproto's C++ front-end compiled to a `wasm32-wasi` blob (see
-//! `wasm/build-wasm.sh`); this crate embeds that blob and runs it through the [`wasmi`] interpreter.
-//! [`generate`] hands the blob a source closure + a decode profile and returns the generated Rust,
-//! so a build (our own golden regeneration, a consumer's `build.rs`) needs only cargo.
+//! Most consumers call [`Config`] from a `build.rs` to generate at build time:
 //!
-//! The blob is a WASI command module: it reads a length-prefixed frame on stdin and writes the Rust
-//! to stdout (see [`frame`] for the wire format, which mirrors `src/rustgen/wasm_entry.cpp`). Errors
-//! come back on stderr with a nonzero exit code, surfaced here as [`GenError`].
+//! ```no_run
+//! // build.rs
+//! rapidproto_build::Config::new()
+//!     .include("proto")
+//!     .compile(&["proto/message.proto"])
+//!     .expect("generate decoders");
+//! ```
+//!
+//! then include the generated code (one file per import closure) and decode with it:
+//!
+//! ```ignore
+//! mod schema {
+//!     include!(concat!(env!("OUT_DIR"), "/message.rs"));
+//! }
+//! ```
+//!
+//! The generated decoders use the `rapidproto` runtime crate. To generate from sources already in
+//! memory, use [`generate`]; [`generate_from_disk`] is the file-based entry point `Config` builds on.
 
 use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
@@ -21,33 +34,40 @@ use wasmi_wasi::sync::WasiCtxBuilder;
 use wasmi_wasi::wasi_common::pipe::{ReadPipe, WritePipe};
 use wasmi_wasi::WasiCtx;
 
-/// The embedded generator blob. Regenerated from the C++ source by `wasm/build-wasm.sh`; a CI gate
-/// byte-diffs it against a fresh build so it can never drift from the generator.
+/// The embedded generator. Rebuilt by `wasm/build-wasm.sh` and byte-checked in CI, so it stays in
+/// sync with the generator source.
 const RUSTGEN_WASM: &[u8] = include_bytes!("../wasm/rustgen.wasm");
 
-/// One source file handed to the generator: its import-closure name (the key an `import` resolves
-/// to, e.g. `"types.proto"`) and its text.
+/// One in-memory source file: `name` is how an `import` refers to it (e.g. `"types.proto"`), and
+/// `body` is its text.
 pub struct SourceFile {
+    /// How an `import` statement spells this file (e.g. `"types.proto"`).
     pub name: String,
+    /// The file's `.proto` text.
     pub body: String,
 }
 
-/// The inputs for one generation: the entry files (closure roots, named as any importer would name
-/// them), every source the closure might reach (a superset is fine — the generator pulls exactly
-/// what it needs), and the decode profile.
+/// The inputs for one generation: the entry files (the roots of the import closure, each named the
+/// way an `import` would spell it), the sources those entries and their imports may pull in (a
+/// superset is fine — only what the closure reaches is used), and the decode profile.
 pub struct Request {
+    /// The entry `.proto`s, named as an `import` would spell them.
     pub entries: Vec<String>,
+    /// The entries and every file they may import (a superset is fine).
     pub sources: Vec<SourceFile>,
-    /// A `.modes` profile (`drop`/`raw`/`unknown-fields` lines), or empty for none.
+    /// A decode profile — the text of a `.modes` file (`drop` / `raw` / `unknown-fields` lines) — or
+    /// empty for the default (decode every field).
     pub modes: String,
-    /// Reserve the "unknown fields present" bit on every message (`--unknown-present`).
+    /// Reserve space to track unknown fields on every message (see [`Config::unknown_present`]).
     pub unknown_all: bool,
 }
 
-/// A generation that the blob rejected: its exit code and the message it wrote to stderr.
+/// An error from the generator.
 #[derive(Debug)]
 pub struct GenError {
+    /// The generator's exit status (negative for an I/O or internal failure).
     pub code: i32,
+    /// A human-readable description of the failure.
     pub message: String,
 }
 
@@ -59,10 +79,10 @@ impl std::fmt::Display for GenError {
 
 impl std::error::Error for GenError {}
 
-/// The stdin frame the blob reads. Mirror of the reader in `src/rustgen/wasm_entry.cpp`: a `RPWF1`
-/// magic, then little-endian-u32-counted entry names, u32-counted `{name, body}` sources, the
-/// `.modes` text, and a one-byte unknown-all flag. Bodies are length-prefixed, so a proto's
-/// newlines/quotes need no escaping.
+/// Encodes a [`Request`] into the byte frame the generator reads on stdin: a `RPWF1` magic, then
+/// little-endian-u32-counted entry names, u32-counted `{name, body}` sources, the `.modes` text, and
+/// a one-byte unknown-all flag. Bodies are length-prefixed, so a proto's newlines/quotes need no
+/// escaping. (Internal: the decode side lives in the generator.)
 mod frame {
     use super::{GenError, Request};
 
@@ -101,15 +121,16 @@ mod frame {
     }
 }
 
-/// Run the embedded generator over `request`, returning the generated Rust (one module tree for the
-/// whole closure) or the blob's error. The blob is a pure function of its input: same frame, same
-/// bytes out — and byte-identical to native `rapidprotoc --rust`.
+/// Generate decoders from sources already in memory (no filesystem access), returning the generated
+/// Rust — one module tree covering the whole import closure — or a [`GenError`]. Generation is a
+/// pure function of the request: the same inputs always produce the same output. See
+/// [`generate_from_disk`] or [`Config`] to generate from `.proto` files on disk instead.
 pub fn generate(request: &Request) -> Result<String, GenError> {
     let frame = frame::encode(request)?;
 
-    // Validating/translating the ~1 MB blob is the expensive step, and it never changes, so compile
-    // it once and reuse it: a caller that generates many files (our golden gate does 49) pays it
-    // once, not per file. Only the lightweight Store/instance is per-call.
+    // Validating the embedded generator is the one expensive step, and it never changes, so compile
+    // it once and reuse it: a caller that generates many files pays that cost once, not per file.
+    // Only the lightweight Store/instance is per-call.
     let (engine, module) = compiled();
 
     // In-memory stdio: feed the frame as stdin, capture stdout/stderr. The pipes are cloneable
@@ -156,15 +177,15 @@ pub fn generate(request: &Request) -> Result<String, GenError> {
     }
 }
 
-/// The embedded blob, compiled once and reused across [`generate`] calls. The blob is validated at
-/// build time (it is our own asset, byte-checked by the staleness gate), so a compile failure here
-/// is a broken build, not a runtime condition -- hence the panic.
+/// The embedded generator, compiled once and reused across [`generate`] calls. It is a fixed,
+/// build-time asset, so a compile failure here means a broken build, not a runtime condition --
+/// hence the panic.
 fn compiled() -> &'static (Engine, Module) {
     static CELL: OnceLock<(Engine, Module)> = OnceLock::new();
     CELL.get_or_init(|| {
         let engine = Engine::default();
-        let module = Module::new(&engine, RUSTGEN_WASM)
-            .expect("the embedded rustgen blob is a valid module");
+        let module =
+            Module::new(&engine, RUSTGEN_WASM).expect("the embedded generator is a valid module");
         (engine, module)
     })
 }
@@ -184,21 +205,22 @@ fn internal(error: impl std::fmt::Display) -> GenError {
     }
 }
 
-/// Generate from files on disk, the way the CLI (and our golden regeneration) drives it: hand the
-/// generator every `.proto` under the `include` dirs (keyed by its import-relative path) plus each
-/// entry under the name an importer would use, then [`generate`]. The import closure is resolved
-/// inside the generator; over-inclusion here is harmless. An I/O failure is reported as a -1
-/// [`GenError`] (there is no generator exit code for it).
+/// Generate decoders from `.proto` files on disk. Every `.proto` under the `include` directories is
+/// made available to the generator (over-inclusion is harmless — only the closure the `entries`
+/// reach is used), and each entry is named by its path relative to the include directory that holds
+/// it. `modes` is a decode profile (see [`Config::field_modes`]); `unknown_all` matches
+/// [`Config::unknown_present`]. Returns the generated Rust (one module tree for the closure) or a
+/// [`GenError`]. For a `build.rs`, prefer [`Config`], which also writes the output and tracks inputs.
 pub fn generate_from_disk(
     entries: &[PathBuf],
     includes: &[PathBuf],
     modes: &str,
     unknown_all: bool,
 ) -> Result<String, GenError> {
-    // Canonicalize the include dirs once, so the source walk and the entry-key derivation compare in
-    // the same absolute/normalized/symlink-resolved terms native `canonical_entry_name` uses. Without
-    // this a `./`-prefixed or relative-vs-absolute entry path would key differently from how an
-    // importer names the same file, splitting the closure into two entries.
+    // Canonicalize the include dirs once, so the source walk and the entry-key derivation compare
+    // paths in the same absolute/normalized/symlink-resolved terms. Without this a `./`-prefixed or
+    // relative-vs-absolute entry path would key differently from how an import names the same file,
+    // splitting the closure into two entries.
     let includes: Vec<PathBuf> = includes
         .iter()
         .map(|dir| {
@@ -232,18 +254,17 @@ pub fn generate_from_disk(
     })
 }
 
-/// A `build.rs` driver for the Rust generator: generate the decoders for a schema's import closure
-/// into `OUT_DIR` with no C++ toolchain, and wire up cargo's rebuild tracking. A thin layer over
-/// [`generate_from_disk`] (the same engine the golden gate dogfoods) plus the build-script plumbing.
+/// Generate decoders from a `build.rs`: run the generator over a schema's import closure, write the
+/// result into `OUT_DIR`, and register the inputs so cargo re-runs when a `.proto` changes.
 ///
 /// ```no_run
 /// // build.rs
 /// rapidproto_build::Config::new()
 ///     .include("proto")
 ///     .compile(&["proto/message.proto"])
-///     .expect("generate rapidproto decoders");
+///     .expect("generate decoders");
 /// ```
-/// then, in the crate, include the one generated file (the whole closure is one module tree):
+/// then include the generated file (one per import closure) in your crate:
 /// ```ignore
 /// mod schema {
 ///     include!(concat!(env!("OUT_DIR"), "/message.rs"));
@@ -262,29 +283,29 @@ impl Config {
         Self::default()
     }
 
-    /// Add an import search directory (repeatable; the first that holds a file wins, like `-I`).
+    /// Add a directory to search for `.proto` files (repeatable; if a file is found under more than
+    /// one, the first added wins).
     pub fn include(mut self, dir: impl Into<PathBuf>) -> Self {
         self.includes.push(dir.into());
         self
     }
 
-    /// Set the decode profile: the text of a `.modes` file (`drop`/`raw`/`unknown-fields` lines).
+    /// Set a decode profile: the text of a `.modes` file (`drop` / `raw` / `unknown-fields` lines).
     pub fn field_modes(mut self, modes: impl Into<String>) -> Self {
         self.modes = modes.into();
         self
     }
 
-    /// Reserve the "unknown fields present" bit on every message (the CLI's `--unknown-present`).
+    /// Reserve space to track unknown fields on every message.
     pub fn unknown_present(mut self, yes: bool) -> Self {
         self.unknown_all = yes;
         self
     }
 
-    /// Generate the decoders for `entries` (one import closure) into `OUT_DIR` and return the path to
-    /// the single generated `.rs` to `include!`. Emits `cargo:rerun-if-changed` for the entries and
-    /// every `.proto` on the include path, so editing a schema retriggers generation. Must be called
-    /// from a cargo build script (it reads `OUT_DIR`). Over-inclusion on the include path is harmless
-    /// -- the generator pulls exactly the closure the entries reach.
+    /// Generate decoders for `entries` (one import closure) into `OUT_DIR` and return the path to the
+    /// generated file to `include!`. Registers the entries and every `.proto` on the include path
+    /// with cargo, so editing a schema re-runs the build. Call this from a `build.rs` (it reads the
+    /// `OUT_DIR` cargo sets).
     pub fn compile(&self, entries: &[impl AsRef<Path>]) -> Result<PathBuf, GenError> {
         let entry_paths: Vec<PathBuf> = entries.iter().map(|e| e.as_ref().to_path_buf()).collect();
         if entry_paths.is_empty() {
@@ -293,8 +314,7 @@ impl Config {
                 message: "compile(): no entry .proto given".to_owned(),
             });
         }
-        // Default the include path to the cwd (the crate root in a build script), matching how the
-        // CLI behaves with no -I.
+        // Default the include path to the cwd (the crate root in a build script) when none is given.
         let includes = if self.includes.is_empty() {
             vec![PathBuf::from(".")]
         } else {
@@ -306,7 +326,7 @@ impl Config {
             code: -1,
             message: "compile(): OUT_DIR is unset -- call it from a cargo build script".to_owned(),
         })?;
-        // ONE file for the whole closure (Option A); name it after the first entry's stem, so several
+        // One file covers the whole closure; name it after the first entry's stem, so several
         // compile() calls in one build script land in distinct files.
         let stem = entry_paths[0]
             .file_stem()
@@ -318,7 +338,7 @@ impl Config {
         })?;
 
         // Rebuild tracking: the entries themselves, plus every proto on the include path. Watching the
-        // whole include path (not just the resolved closure, which the blob does not report) is
+        // whole include path (not just the resolved closure, which the generator does not report) is
         // deliberately broad: a build never goes stale, at the cost of an occasional rebuild when an
         // unrelated proto on the path changes.
         for entry in &entry_paths {
@@ -348,10 +368,10 @@ fn track_protos(dir: &Path) {
     }
 }
 
-/// The name an `import` would use for `entry`: its path relative to the first include dir that
-/// contains it, else its file name. `entry` and `includes` must already be canonicalized (see
-/// [`generate_from_disk`]) so the prefix comparison matches native's canonical entry key.
-pub fn import_relative_name(entry: &Path, includes: &[PathBuf]) -> String {
+/// The name an `import` would use for `entry`: its path relative to the first `includes` directory
+/// that contains it, otherwise its file name. `entry` and `includes` must already be canonicalized
+/// (see [`generate_from_disk`]) so the prefix comparison is done in matching terms.
+fn import_relative_name(entry: &Path, includes: &[PathBuf]) -> String {
     for include in includes {
         if let Ok(rel) = entry.strip_prefix(include) {
             return to_slash(rel);
@@ -380,9 +400,8 @@ fn collect_protos(
             collect_protos(root, &path, out)?;
         } else if path.extension().is_some_and(|e| e == "proto") {
             let rel = path.strip_prefix(root).unwrap_or(&path);
-            // First include dir wins (match native/protoc), so skip a path an earlier -I already
-            // provided -- and skip reading it, too.
-            // Read (and keep) only if an earlier -I has not already provided this key.
+            // First include dir wins (like protoc): read and keep this file only if an earlier
+            // include dir has not already provided the same key.
             if let Entry::Vacant(slot) = out.entry(to_slash(rel)) {
                 slot.insert(read(&path)?);
             }

@@ -1,22 +1,14 @@
-# Rust consumer example
+# Consumer example
 
-A runnable, **cargo-only** consumer of the generated Rust decoders — no C++ toolchain. It mirrors the
-C++ [`examples/consumer`](../../../examples/consumer) and decodes the identical `demo.Shape` bytes,
-over the same schema ([`examples/consumer/proto/message.proto`](../../../examples/consumer/proto/message.proto),
-which imports [`types.proto`](../../../examples/consumer/proto/types.proto) so the import closure is
-exercised).
+A minimal crate that decodes protobuf with RapidProto. [`build.rs`](build.rs) turns
+[`proto/message.proto`](proto/message.proto) into Rust decoders at build time, and
+[`src/main.rs`](src/main.rs) includes them and decodes a message — reading a string, a nested
+message, an enum, and a repeated field, and handling invalid input.
 
-- [`build.rs`](build.rs) calls `rapidproto_build::Config::compile()`, which runs the committed wasm
-  generator blob (through the `wasmi` interpreter) and writes the decoders to `OUT_DIR`.
-- [`src/main.rs`](src/main.rs) `include!`s that generated file and decodes a buffer with the arena
-  object-tree API: a cross-file message reference, the shared enum, a string, and a packed repeated
-  field, plus a truncated-input error case.
+It builds with cargo alone: no `protoc` and no separate code generator to install.
 
-## Running
+## Run
 
 ```sh
 cargo run -p consumer-example
 ```
-
-The only build input is cargo and this workspace: the generator ships as a prebuilt blob in the
-`rapidproto-build` build-dependency, so nothing here needs `protoc`, CMake, or a C++ compiler.
