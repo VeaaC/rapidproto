@@ -1,4 +1,1 @@
 /target
-# Zero runtime dependencies for now, so the lockfile is empty noise; revisit committing it
-# once the build crate pulls in wasmi etc.
-Cargo.lock

@@ -1,7 +1,7 @@
 # Rust support CI — runs only on the `rust` feature branch and PRs targeting it, so `main`'s C++
 # gate is untouched. Kept light for the public 4-core runners: fmt, clippy, test, and a
-# no_std-no-alloc build. Miri (arena), the wasm build, and the generated-code-compiles check are
-# added as their sub-steps land.
+# no_std-no-alloc build, plus the wasm-blob staleness gate. Miri (arena) and the
+# generated-code-compiles check are added as their sub-steps land.
 name: Rust CI
 
 on:
@@ -31,28 +31,58 @@ jobs:
           components: rustfmt, clippy
       - name: Format
         run: cargo fmt --all --check
+      # std+alloc covers the whole workspace, including rapidproto-build (the wasmi generator driver
+      # and its golden dogfooding gate). The no_std/no-alloc tiers exercise the `rapidproto` runtime
+      # crate's embedded tiers, so they --exclude rapidproto-build: it is a std-only build tool (it
+      # pulls wasmi), meaningless under no_std and costly to recompile per tier on the 4-core runners.
       - name: Clippy (std + alloc)
         run: cargo clippy --all-targets --all-features -- -D warnings
       - name: Clippy (no_std + alloc)
-        run: cargo clippy --all-targets --no-default-features --features alloc -- -D warnings
+        run: cargo clippy --workspace --exclude rapidproto-build --all-targets --no-default-features --features alloc -- -D warnings
       - name: Clippy (no_std, no-alloc)
-        run: cargo clippy --all-targets --no-default-features -- -D warnings
+        run: cargo clippy --workspace --exclude rapidproto-build --all-targets --no-default-features -- -D warnings
       - name: Test (std + alloc)
         run: cargo test --all-features
       - name: Test (no_std + alloc)
-        run: cargo test --no-default-features --features alloc
+        run: cargo test --workspace --exclude rapidproto-build --no-default-features --features alloc
       - name: Test (no_std, no-alloc)
         # The test harness keeps std (crate is no_std only outside tests), while the `alloc`
         # feature is off — so this exercises the arena's no-allocator / exhaustion path.
-        run: cargo test --no-default-features
+        run: cargo test --workspace --exclude rapidproto-build --no-default-features
       - name: Build no_std + alloc tier
-        run: cargo build --no-default-features --features alloc
+        run: cargo build --workspace --exclude rapidproto-build --no-default-features --features alloc
       - name: Build no_std (no-alloc embedded tier)
-        run: cargo build --no-default-features
+        run: cargo build --workspace --exclude rapidproto-build --no-default-features
+
+  wasm-blob:
+    # The rapidproto-build crate ships a committed wasm blob (the Rust generator front-end) so
+    # consumers need no C++ toolchain. This gate rebuilds it from source with the pinned wasi-sdk and
+    # byte-diffs it against the committed copy: a difference means the C++ generator changed without
+    # the blob being regenerated. The build is byte-reproducible, so the diff is exact.
+    runs-on: ubuntu-latest
+    env:
+      WASI_SDK_VERSION: "34.0"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install wasi-sdk
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          major="${WASI_SDK_VERSION%%.*}"
+          url="https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${major}/wasi-sdk-${WASI_SDK_VERSION}-x86_64-linux.tar.gz"
+          curl -fsSL "$url" -o /tmp/wasi-sdk.tar.gz
+          sudo mkdir -p /opt/wasi-sdk
+          sudo tar xf /tmp/wasi-sdk.tar.gz -C /opt/wasi-sdk --strip-components=1
+      - name: Blob is in sync with the C++ generator
+        working-directory: ${{ github.workspace }}
+        run: rust/rapidproto-build/wasm/check-wasm.sh
 
   miri:
     # The arena hands out `&mut` from `&self` and does raw-pointer bumping; Miri checks that
     # against strict provenance and Stacked/Tree Borrows. Runs on both the alloc and no-alloc tiers.
+    # rapidproto-build is --exclude'd: it is safe Rust that drives the wasmi interpreter over the
+    # blob and does filesystem I/O (goldens), which Miri's isolation forbids and has nothing unsafe
+    # for Miri to check anyway.
     runs-on: ubuntu-latest
     env:
       # Actively enforce the arena's strict-provenance claim (it uses no int→ptr casts).
@@ -63,6 +93,6 @@ jobs:
         with:
           components: miri
       - name: Miri (std + alloc)
-        run: cargo miri test --all-features
+        run: cargo miri test --workspace --exclude rapidproto-build --all-features
       - name: Miri (no_std, no-alloc)
-        run: cargo miri test --no-default-features
+        run: cargo miri test --workspace --exclude rapidproto-build --no-default-features

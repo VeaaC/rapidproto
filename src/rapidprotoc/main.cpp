@@ -34,7 +34,7 @@
 #include "rapidproto/codegen/runtime_embedded.hpp"
 #include "rapidproto/dumpgen/generator.hpp"
 #include "rapidproto/dumpgen/runtime_embedded.hpp"
-#include "rapidproto/rustgen/generator.hpp"
+#include "rapidproto/rustgen/pipeline.hpp"
 #include "rapidproto/streamgen/generator.hpp"
 
 int main(int argc, char** argv) {
@@ -284,7 +284,8 @@ int main(int argc, char** argv) {
         modes = std::move(resolved).value();
     }
     std::optional<rapidproto::arenagen::LayoutSet> layouts;
-    if (arena || rust) {  // the Rust decoder shares the arena storage-layout planner
+    if (arena) {  // the C++ arena model (and --dump, which implies it) plans storage layout here;
+        // the Rust decoder plans its own with the same planner/options inside rustgen::generate_rust.
         rapidproto::arenagen::LayoutOptions options;
         options.modes = &modes;
         layouts = rapidproto::arenagen::plan_layouts(set, symbols, options);
@@ -355,21 +356,17 @@ int main(int argc, char** argv) {
                          opts->verbose)
                          .has_value();
                 break;
-            case rapidproto::cli::OutputKind::Rust: {
+            case rapidproto::cli::OutputKind::Rust:
                 // ONE file for the whole import closure (Option A): cross-file/cross-package
                 // references resolve within the single merged module tree, so every file in the set
-                // contributes its types. `out.file` is null for this combined row.
-                std::vector<const rapidproto::FileNode*> rust_files;
-                rust_files.reserve(set.files.size());
-                for (const rapidproto::FileNode& f : set.files) {
-                    rust_files.push_back(&f);
-                }
+                // contributes its types. Runs the shared post-analysis tail (rustgen/pipeline.hpp)
+                // the wasm blob also runs, so native and the blob cannot drift. `out.file` is null
+                // for this combined row.
                 ok = rapidproto::cli::write_file(
-                         path, rapidproto::rustgen::generate_file(rust_files, *layouts, modes),
+                         path, rapidproto::rustgen::generate_rust(set, symbols, modes),
                          opts->verbose)
                          .has_value();
                 break;
-            }
             // The self-contained runtime copies, so the generated #includes resolve with no
             // rapidproto build-tree dependency. runtime.hpp serves both models;
             // arena_runtime.hpp (which #includes runtime.hpp) only the arena decoder;

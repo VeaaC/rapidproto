@@ -32,6 +32,7 @@
 #include "rapidproto/runtime.hpp"                    // IWYU pragma: keep
 #include "rapidproto/rustgen/generator.hpp"          // IWYU pragma: keep
 #include "rapidproto/rustgen/names.hpp"              // IWYU pragma: keep
+#include "rapidproto/rustgen/pipeline.hpp"           // IWYU pragma: keep
 #include "rapidproto/scalar.hpp"                     // IWYU pragma: keep
 #include "rapidproto/source.hpp"                     // IWYU pragma: keep
 #include "rapidproto/source_id.hpp"                  // IWYU pragma: keep

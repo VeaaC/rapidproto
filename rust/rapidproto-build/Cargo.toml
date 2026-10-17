@@ -7,6 +7,13 @@ description = "Build-time code generator driver for RapidProto Rust decoders (wo
 repository = "https://github.com/VeaaC/rapidproto"
 publish = false
 
-# The WASM-embedded generator runtime (wasmi) and the generation entry points are added later;
-# this crate is currently an empty-but-real skeleton.
+# The Rust generator is a wasm blob (rapidproto's C++ front-end, built by wasm/build-wasm.sh) run
+# through the wasmi interpreter: pure Rust, so a consumer builds this with cargo alone, no C++. The
+# blob talks the minimal WASI surface (stdin/stdout), so wasmi_wasi's preview-1 shim is all we need.
 [dependencies]
+wasmi = "2.0.0"
+wasmi_wasi = "2.0.0"
+
+[[bin]]
+name = "rapidproto-gen"
+path = "src/main.rs"
