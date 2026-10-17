@@ -13,18 +13,18 @@ pub mod common {
       /// The matchable classification of this value.
       #[inline]
       #[must_use]
-      pub fn kind(self) -> EKind {
+      pub fn classify(self) -> EClass {
         match self.0 {
-          0 => EKind::Decode,
-          1 => EKind::Decode_,
-          other => EKind::Unknown(other),
+          0 => EClass::Decode,
+          1 => EClass::Decode_,
+          other => EClass::Unknown(other),
         }
       }
     }
 
     #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
     #[non_exhaustive]
-    pub enum EKind {
+    pub enum EClass {
       Decode,
       Decode_,
       Unknown(i32),
@@ -41,18 +41,18 @@ pub mod common {
       /// The matchable classification of this value.
       #[inline]
       #[must_use]
-      pub fn kind(self) -> GnuEnumKind {
+      pub fn classify(self) -> GnuEnumClass {
         match self.0 {
-          0 => GnuEnumKind::GnuEnumZero,
-          1 => GnuEnumKind::Linux,
-          other => GnuEnumKind::Unknown(other),
+          0 => GnuEnumClass::GnuEnumZero,
+          1 => GnuEnumClass::Linux,
+          other => GnuEnumClass::Unknown(other),
         }
       }
     }
 
     #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
     #[non_exhaustive]
-    pub enum GnuEnumKind {
+    pub enum GnuEnumClass {
       GnuEnumZero,
       Linux,
       Unknown(i32),
@@ -69,18 +69,18 @@ pub mod common {
       /// The matchable classification of this value.
       #[inline]
       #[must_use]
-      pub fn kind(self) -> StdintEnumKind {
+      pub fn classify(self) -> StdintEnumClass {
         match self.0 {
-          0 => StdintEnumKind::Unset,
-          1 => StdintEnumKind::SizeMax,
-          other => StdintEnumKind::Unknown(other),
+          0 => StdintEnumClass::Unset,
+          1 => StdintEnumClass::SizeMax,
+          other => StdintEnumClass::Unknown(other),
         }
       }
     }
 
     #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
     #[non_exhaustive]
-    pub enum StdintEnumKind {
+    pub enum StdintEnumClass {
       Unset,
       SizeMax,
       Unknown(i32),
@@ -97,18 +97,18 @@ pub mod common {
       /// The matchable classification of this value.
       #[inline]
       #[must_use]
-      pub fn kind(self) -> MacroEnumKind {
+      pub fn classify(self) -> MacroEnumClass {
         match self.0 {
-          0 => MacroEnumKind::RpFlatten,
-          1 => MacroEnumKind::MacroEnumOther,
-          other => MacroEnumKind::Unknown(other),
+          0 => MacroEnumClass::RpFlatten,
+          1 => MacroEnumClass::MacroEnumOther,
+          other => MacroEnumClass::Unknown(other),
         }
       }
     }
 
     #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
     #[non_exhaustive]
-    pub enum MacroEnumKind {
+    pub enum MacroEnumClass {
       RpFlatten,
       MacroEnumOther,
       Unknown(i32),
@@ -125,17 +125,17 @@ pub mod common {
           /// The matchable classification of this value.
           #[inline]
           #[must_use]
-          pub fn kind(self) -> KKind {
+          pub fn classify(self) -> KClass {
             match self.0 {
-              0 => KKind::K0,
-              other => KKind::Unknown(other),
+              0 => KClass::K0,
+              other => KClass::Unknown(other),
             }
           }
         }
 
         #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
         #[non_exhaustive]
-        pub enum KKind {
+        pub enum KClass {
           K0,
           Unknown(i32),
         }
@@ -153,17 +153,17 @@ pub mod common {
           /// The matchable classification of this value.
           #[inline]
           #[must_use]
-          pub fn kind(self) -> ShadowKind {
+          pub fn classify(self) -> ShadowClass {
             match self.0 {
-              0 => ShadowKind::X,
-              other => ShadowKind::Unknown(other),
+              0 => ShadowClass::X,
+              other => ShadowClass::Unknown(other),
             }
           }
         }
 
         #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
         #[non_exhaustive]
-        pub enum ShadowKind {
+        pub enum ShadowClass {
           X,
           Unknown(i32),
         }
@@ -180,17 +180,17 @@ pub mod common {
         /// The matchable classification of this value.
         #[inline]
         #[must_use]
-        pub fn kind(self) -> stdKind {
+        pub fn classify(self) -> stdClass {
           match self.0 {
-            0 => stdKind::X,
-            other => stdKind::Unknown(other),
+            0 => stdClass::X,
+            other => stdClass::Unknown(other),
           }
         }
       }
 
       #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
       #[non_exhaustive]
-      pub enum stdKind {
+      pub enum stdClass {
         X,
         Unknown(i32),
       }

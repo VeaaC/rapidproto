@@ -125,8 +125,8 @@ struct MsgNames {
 };
 struct EnumNames {
     std::vector<std::string> module;
-    std::string type_name;  // the newtype identifier
-    std::string kind_name;  // the `<Name>Kind` classify-enum identifier
+    std::string type_name;   // the newtype identifier
+    std::string class_name;  // the `<Name>Class` classify-enum identifier
 };
 struct NameTable {
     std::unordered_map<std::string, MsgNames> messages;  // message FQN -> names
@@ -182,14 +182,14 @@ void build_scope(const std::vector<const MessageNode*>& msgs,
         }
     }
     // Common enum names: the SAME reserved set first (so a nested message's/sub-package's `pub mod`
-    // and an enum newtype in this common scope cannot collide), then each newtype and its Kind.
+    // and an enum newtype in this common scope cannot collide), then each newtype and its Class.
     {
         std::unordered_set<std::string> taken = submods;
         for (const EnumNode* node : enums) {
             EnumNames names;
             names.module = module;
             names.type_name = codegen::dedup_suffix(taken, escape_rust_ident(node->name));
-            names.kind_name = codegen::dedup_suffix(taken, names.type_name + "Kind");
+            names.class_name = codegen::dedup_suffix(taken, names.type_name + "Class");
             table.enums.emplace(node->fqn, std::move(names));
         }
     }
@@ -249,23 +249,23 @@ NameTable build_name_table(const PkgTrie& root) {
 //   impl Color {
 //       pub const RED: Color = Color(1);
 //       ...
-//       #[inline] pub fn kind(self) -> ColorKind { match self.0 { 1 => ColorKind::Red, ..,
-//                                                                  other => ColorKind::Unknown(other) } }
+//       #[inline] pub fn classify(self) -> ColorClass { match self.0 { 1 => ColorClass::Red, ..,
+//                                                                  other => ColorClass::Unknown(other) } }
 //   }
 //   #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 //   #[non_exhaustive]
-//   pub enum ColorKind { Red, .., Unknown(i32) }
+//   pub enum ColorClass { Red, .., Unknown(i32) }
 //
 // Storage is the raw `i32` (open enum, full range); the classify enum is the ergonomic match
-// surface and `kind()` fuses to a branchless switch at the call site. The newtype and Kind names come
-// from the name table (deduped against everything else in the enum's common scope).
+// surface and `classify()` fuses to a branchless switch at the call site. The newtype and Class names
+// come from the name table (deduped against everything else in the enum's common scope).
 void emit_enum(Printer& printer, const NameTable& table, const EnumNode& node) {
     const EnumNames& names = table.enums.at(node.fqn);
     const std::vector<std::string> consts = enum_const_names(node);
     const std::vector<std::string> variants = enum_variant_names(node);
 
     printer.set("T", names.type_name);
-    printer.set("K", names.kind_name);
+    printer.set("K", names.class_name);
 
     // `Default` yields the all-zero enum value (`$T$(0)`), so a fixed-size message holding an enum
     // field can itself `derive(Default)` -- the zero used for an absent inlined sub-message.
@@ -286,7 +286,7 @@ void emit_enum(Printer& printer, const NameTable& table, const EnumNode& node) {
     printer.print("/// The matchable classification of this value.\n");
     printer.print("#[inline]\n");
     printer.print("#[must_use]\n");
-    printer.print("pub fn kind(self) -> $K$ {\n");
+    printer.print("pub fn classify(self) -> $K$ {\n");
     printer.indent();
     printer.print("match self.0 {\n");
     printer.indent();

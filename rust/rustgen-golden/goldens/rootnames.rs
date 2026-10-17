@@ -12,17 +12,17 @@ pub mod common {
       /// The matchable classification of this value.
       #[inline]
       #[must_use]
-      pub fn kind(self) -> rpKind {
+      pub fn classify(self) -> rpClass {
         match self.0 {
-          0 => rpKind::Unset,
-          other => rpKind::Unknown(other),
+          0 => rpClass::Unset,
+          other => rpClass::Unknown(other),
         }
       }
     }
 
     #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
     #[non_exhaustive]
-    pub enum rpKind {
+    pub enum rpClass {
       Unset,
       Unknown(i32),
     }

@@ -13,18 +13,18 @@ pub mod common {
       /// The matchable classification of this value.
       #[inline]
       #[must_use]
-      pub fn kind(self) -> VersionKind {
+      pub fn classify(self) -> VersionClass {
         match self.0 {
-          0 => VersionKind::Version1,
-          1 => VersionKind::Version2,
-          other => VersionKind::Unknown(other),
+          0 => VersionClass::Version1,
+          1 => VersionClass::Version2,
+          other => VersionClass::Unknown(other),
         }
       }
     }
 
     #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
     #[non_exhaustive]
-    pub enum VersionKind {
+    pub enum VersionClass {
       Version1,
       Version2,
       Unknown(i32),
@@ -41,18 +41,18 @@ pub mod common {
       /// The matchable classification of this value.
       #[inline]
       #[must_use]
-      pub fn kind(self) -> MixedKind {
+      pub fn classify(self) -> MixedClass {
         match self.0 {
-          0 => MixedKind::MixedA,
-          1 => MixedKind::Other,
-          other => MixedKind::Unknown(other),
+          0 => MixedClass::MixedA,
+          1 => MixedClass::Other,
+          other => MixedClass::Unknown(other),
         }
       }
     }
 
     #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
     #[non_exhaustive]
-    pub enum MixedKind {
+    pub enum MixedClass {
       MixedA,
       Other,
       Unknown(i32),
@@ -69,18 +69,18 @@ pub mod common {
       /// The matchable classification of this value.
       #[inline]
       #[must_use]
-      pub fn kind(self) -> StreamKind {
+      pub fn classify(self) -> StreamClass {
         match self.0 {
-          0 => StreamKind::Ok,
-          1 => StreamKind::Eof,
-          other => StreamKind::Unknown(other),
+          0 => StreamClass::Ok,
+          1 => StreamClass::Eof,
+          other => StreamClass::Unknown(other),
         }
       }
     }
 
     #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
     #[non_exhaustive]
-    pub enum StreamKind {
+    pub enum StreamClass {
       Ok,
       Eof,
       Unknown(i32),
@@ -98,18 +98,18 @@ pub mod common {
           /// The matchable classification of this value.
           #[inline]
           #[must_use]
-          pub fn kind(self) -> KindKind {
+          pub fn classify(self) -> KindClass {
             match self.0 {
-              0 => KindKind::Unknown_,
-              1 => KindKind::A,
-              other => KindKind::Unknown(other),
+              0 => KindClass::Unknown_,
+              1 => KindClass::A,
+              other => KindClass::Unknown(other),
             }
           }
         }
 
         #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
         #[non_exhaustive]
-        pub enum KindKind {
+        pub enum KindClass {
           Unknown_,
           A,
           Unknown(i32),
@@ -128,18 +128,18 @@ pub mod common {
         /// The matchable classification of this value.
         #[inline]
         #[must_use]
-        pub fn kind(self) -> TagKind {
+        pub fn classify(self) -> TagClass {
           match self.0 {
-            0 => TagKind::None,
-            1 => TagKind::X,
-            other => TagKind::Unknown(other),
+            0 => TagClass::None,
+            1 => TagClass::X,
+            other => TagClass::Unknown(other),
           }
         }
       }
 
       #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
       #[non_exhaustive]
-      pub enum TagKind {
+      pub enum TagClass {
         None,
         X,
         Unknown(i32),

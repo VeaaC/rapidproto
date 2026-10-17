@@ -1,9 +1,9 @@
-//! `rapidproto-gen` — the RapidProto Rust code generator as a standalone CLI.
+//! `rapidproto-gen` — generate Rust protobuf decoders from `.proto` files on the command line.
 //!
-//! Mirrors the Rust slice of `rapidprotoc`'s interface (entry `.proto`s, `-I` include dirs, the
-//! field-modes knobs) but needs no C++: it runs the embedded wasm generator through wasmi. The
-//! actual generation lives in the library ([`rapidproto_build::generate_from_disk`]); this is just
-//! argument parsing and output.
+//! The same code generation as [`rapidproto_build::Config`] (used from a `build.rs`), exposed as a
+//! standalone tool: pass entry `.proto`s, `-I` include dirs, and decode-profile options, and it
+//! writes the generated Rust to a file or stdout. Needs only cargo — no `protoc`. Argument parsing
+//! and output live here; the generation itself is [`rapidproto_build::generate_from_disk`].
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;

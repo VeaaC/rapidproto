@@ -19,18 +19,18 @@ pub mod common {
       /// The matchable classification of this value.
       #[inline]
       #[must_use]
-      pub fn kind(self) -> LevelKind {
+      pub fn classify(self) -> LevelClass {
         match self.0 {
-          0 => LevelKind::LZero,
-          1 => LevelKind::LOne,
-          other => LevelKind::Unknown(other),
+          0 => LevelClass::LZero,
+          1 => LevelClass::LOne,
+          other => LevelClass::Unknown(other),
         }
       }
     }
 
     #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
     #[non_exhaustive]
-    pub enum LevelKind {
+    pub enum LevelClass {
       LZero,
       LOne,
       Unknown(i32),
@@ -47,18 +47,18 @@ pub mod common {
         /// The matchable classification of this value.
         #[inline]
         #[must_use]
-        pub fn kind(self) -> KindKind {
+        pub fn classify(self) -> KindClass {
           match self.0 {
-            0 => KindKind::KUnset,
-            1 => KindKind::KInline,
-            other => KindKind::Unknown(other),
+            0 => KindClass::KUnset,
+            1 => KindClass::KInline,
+            other => KindClass::Unknown(other),
           }
         }
       }
 
       #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
       #[non_exhaustive]
-      pub enum KindKind {
+      pub enum KindClass {
         KUnset,
         KInline,
         Unknown(i32),

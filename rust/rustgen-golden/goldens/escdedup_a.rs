@@ -13,18 +13,18 @@ pub mod common {
       /// The matchable classification of this value.
       #[inline]
       #[must_use]
-      pub fn kind(self) -> decodeKind {
+      pub fn classify(self) -> decodeClass {
         match self.0 {
-          0 => decodeKind::Unset,
-          1 => decodeKind::On,
-          other => decodeKind::Unknown(other),
+          0 => decodeClass::Unset,
+          1 => decodeClass::On,
+          other => decodeClass::Unknown(other),
         }
       }
     }
 
     #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
     #[non_exhaustive]
-    pub enum decodeKind {
+    pub enum decodeClass {
       Unset,
       On,
       Unknown(i32),

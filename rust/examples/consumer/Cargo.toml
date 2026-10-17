@@ -1,0 +1,14 @@
+# A minimal consumer of the generated Rust decoders: build.rs generates them from proto/, main.rs
+# decodes a message. Built with cargo alone.
+[package]
+name = "consumer-example"
+version = "0.0.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+
+[dependencies]
+rapidproto = { path = "../../rapidproto" }
+
+[build-dependencies]
+rapidproto-build = { path = "../../rapidproto-build" }

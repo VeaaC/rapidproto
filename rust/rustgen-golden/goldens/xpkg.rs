@@ -15,18 +15,18 @@ pub mod common {
           /// The matchable classification of this value.
           #[inline]
           #[must_use]
-          pub fn kind(self) -> ModeKind {
+          pub fn classify(self) -> ModeClass {
             match self.0 {
-              0 => ModeKind::Off,
-              1 => ModeKind::On,
-              other => ModeKind::Unknown(other),
+              0 => ModeClass::Off,
+              1 => ModeClass::On,
+              other => ModeClass::Unknown(other),
             }
           }
         }
 
         #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
         #[non_exhaustive]
-        pub enum ModeKind {
+        pub enum ModeClass {
           Off,
           On,
           Unknown(i32),

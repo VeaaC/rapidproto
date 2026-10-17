@@ -13,18 +13,18 @@ pub mod common {
       /// The matchable classification of this value.
       #[inline]
       #[must_use]
-      pub fn kind(self) -> DepEnumKind {
+      pub fn classify(self) -> DepEnumClass {
         match self.0 {
-          0 => DepEnumKind::DepZero,
-          1 => DepEnumKind::DepOne,
-          other => DepEnumKind::Unknown(other),
+          0 => DepEnumClass::DepZero,
+          1 => DepEnumClass::DepOne,
+          other => DepEnumClass::Unknown(other),
         }
       }
     }
 
     #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
     #[non_exhaustive]
-    pub enum DepEnumKind {
+    pub enum DepEnumClass {
       DepZero,
       DepOne,
       Unknown(i32),

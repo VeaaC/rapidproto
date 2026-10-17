@@ -14,19 +14,19 @@ pub mod common {
       /// The matchable classification of this value.
       #[inline]
       #[must_use]
-      pub fn kind(self) -> ColorKind {
+      pub fn classify(self) -> ColorClass {
         match self.0 {
-          0 => ColorKind::Red,
-          1 => ColorKind::Green,
-          2 => ColorKind::Blue,
-          other => ColorKind::Unknown(other),
+          0 => ColorClass::Red,
+          1 => ColorClass::Green,
+          2 => ColorClass::Blue,
+          other => ColorClass::Unknown(other),
         }
       }
     }
 
     #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
     #[non_exhaustive]
-    pub enum ColorKind {
+    pub enum ColorClass {
       Red,
       Green,
       Blue,

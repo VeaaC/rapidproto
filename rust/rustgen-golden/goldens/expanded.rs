@@ -15,19 +15,19 @@ pub mod common {
         /// The matchable classification of this value.
         #[inline]
         #[must_use]
-        pub fn kind(self) -> KindKind {
+        pub fn classify(self) -> KindClass {
           match self.0 {
-            0 => KindKind::A,
-            1 => KindKind::B,
-            5 => KindKind::C,
-            other => KindKind::Unknown(other),
+            0 => KindClass::A,
+            1 => KindClass::B,
+            5 => KindClass::C,
+            other => KindClass::Unknown(other),
           }
         }
       }
 
       #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
       #[non_exhaustive]
-      pub enum KindKind {
+      pub enum KindClass {
         A,
         B,
         C,
