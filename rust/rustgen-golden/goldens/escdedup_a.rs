@@ -6,6 +6,16 @@ pub mod common {
     #[repr(transparent)]
     pub struct decode(pub i32);
 
+    #[cfg(feature = "serde")]
+    impl ::rapidproto::serde::Serialize for decode {
+      fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+      where
+        RpS: ::rapidproto::serde::Serializer,
+      {
+        rp_ser.serialize_i32(self.0)
+      }
+    }
+
     impl decode {
       pub const UNSET: decode = decode(0);
       pub const ON: decode = decode(1);
@@ -46,6 +56,24 @@ pub mod arena {
         self.x
       }
     }
+    #[cfg(feature = "serde")]
+    impl<'a> ::rapidproto::serde::Serialize for decode_<'a> {
+      fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+      where
+        RpS: ::rapidproto::serde::Serializer,
+      {
+        use ::rapidproto::serde::ser::SerializeMap as _;
+        let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
+        {
+          let rp_v = self.x();
+          if rp_v != 0 {
+            rp_map.serialize_entry("x", &rp_v)?;
+          }
+        }
+        rp_map.end()
+      }
+    }
+
 
     #[derive(Default)]
     pub struct Holder<'a> {
@@ -62,6 +90,29 @@ pub mod arena {
         self.kind
       }
     }
+    #[cfg(feature = "serde")]
+    impl<'a> ::rapidproto::serde::Serialize for Holder<'a> {
+      fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+      where
+        RpS: ::rapidproto::serde::Serializer,
+      {
+        use ::rapidproto::serde::ser::SerializeMap as _;
+        let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
+        {
+          if let Some(rp_v) = self.r#ref() {
+            rp_map.serialize_entry("ref", rp_v)?;
+          }
+        }
+        {
+          let rp_v = self.kind();
+          if rp_v.0 != 0 {
+            rp_map.serialize_entry("kind", &rp_v)?;
+          }
+        }
+        rp_map.end()
+      }
+    }
+
 
     impl<'a> decode_<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a decode_<'a>, ::rapidproto::DecodeError> {

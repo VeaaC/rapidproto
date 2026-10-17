@@ -19,6 +19,24 @@ pub mod arena {
         self.x
       }
     }
+    #[cfg(feature = "serde")]
+    impl<'a> ::rapidproto::serde::Serialize for logging<'a> {
+      fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+      where
+        RpS: ::rapidproto::serde::Serializer,
+      {
+        use ::rapidproto::serde::ser::SerializeMap as _;
+        let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
+        {
+          let rp_v = self.x();
+          if rp_v != 0 {
+            rp_map.serialize_entry("x", &rp_v)?;
+          }
+        }
+        rp_map.end()
+      }
+    }
+
 
     impl<'a> logging<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a logging<'a>, ::rapidproto::DecodeError> {

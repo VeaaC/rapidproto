@@ -32,6 +32,38 @@ pub mod arena {
         if (self.rp_presence & (1 << 3)) != 0 { Some(self.special3) } else { None }
       }
     }
+    #[cfg(feature = "serde")]
+    impl<'a> ::rapidproto::serde::Serialize for M<'a> {
+      fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+      where
+        RpS: ::rapidproto::serde::Serializer,
+      {
+        use ::rapidproto::serde::ser::SerializeMap as _;
+        let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
+        {
+          if let Some(rp_v) = self.f() {
+            rp_map.serialize_entry("f", &rp_v)?;
+          }
+        }
+        {
+          if let Some(rp_v) = self.special() {
+            rp_map.serialize_entry("special", &rp_v)?;
+          }
+        }
+        {
+          if let Some(rp_v) = self.special2() {
+            rp_map.serialize_entry("special2", &rp_v)?;
+          }
+        }
+        {
+          if let Some(rp_v) = self.special3() {
+            rp_map.serialize_entry("special3", &rp_v)?;
+          }
+        }
+        rp_map.end()
+      }
+    }
+
 
     impl<'a> M<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a M<'a>, ::rapidproto::DecodeError> {

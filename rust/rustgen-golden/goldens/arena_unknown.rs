@@ -19,6 +19,24 @@ pub mod arena {
         (self.rp_presence & (1 << 0)) != 0
       }
     }
+    #[cfg(feature = "serde")]
+    impl<'a> ::rapidproto::serde::Serialize for Flag<'a> {
+      fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+      where
+        RpS: ::rapidproto::serde::Serializer,
+      {
+        use ::rapidproto::serde::ser::SerializeMap as _;
+        let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
+        {
+          let rp_v = self.value();
+          if rp_v {
+            rp_map.serialize_entry("value", &rp_v)?;
+          }
+        }
+        rp_map.end()
+      }
+    }
+
 
     #[derive(Default)]
     pub struct Holder<'a> {
@@ -35,6 +53,29 @@ pub mod arena {
         self.n
       }
     }
+    #[cfg(feature = "serde")]
+    impl<'a> ::rapidproto::serde::Serialize for Holder<'a> {
+      fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+      where
+        RpS: ::rapidproto::serde::Serializer,
+      {
+        use ::rapidproto::serde::ser::SerializeMap as _;
+        let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
+        {
+          if let Some(rp_v) = self.flag() {
+            rp_map.serialize_entry("flag", rp_v)?;
+          }
+        }
+        {
+          let rp_v = self.n();
+          if rp_v != 0 {
+            rp_map.serialize_entry("n", &rp_v)?;
+          }
+        }
+        rp_map.end()
+      }
+    }
+
 
     impl<'a> Flag<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Flag<'a>, ::rapidproto::DecodeError> {

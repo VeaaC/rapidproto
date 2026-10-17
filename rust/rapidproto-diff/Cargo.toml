@@ -1,0 +1,13 @@
+[package]
+name = "rapidproto-diff"
+version = "0.0.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+
+# Dev/test-only support for the randomized differential test (tests/differential.py's Rust arm): a
+# serde Serializer that renders a decoded message as the one-line JSON the Python harness canonicalizes
+# and compares against protobuf. NOT part of the shipped runtime -- it only formats; the generated
+# Serialize impls it drives live behind rapidproto's `serde` feature.
+[dependencies]
+serde = "1"

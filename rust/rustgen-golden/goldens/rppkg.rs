@@ -6,6 +6,16 @@ pub mod common {
     #[repr(transparent)]
     pub struct WireType(pub i32);
 
+    #[cfg(feature = "serde")]
+    impl ::rapidproto::serde::Serialize for WireType {
+      fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+      where
+        RpS: ::rapidproto::serde::Serializer,
+      {
+        rp_ser.serialize_i32(self.0)
+      }
+    }
+
     impl WireType {
       pub const A: WireType = WireType(0);
 
@@ -30,6 +40,16 @@ pub mod common {
     #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
     #[repr(transparent)]
     pub struct DecodeStatus(pub i32);
+
+    #[cfg(feature = "serde")]
+    impl ::rapidproto::serde::Serialize for DecodeStatus {
+      fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+      where
+        RpS: ::rapidproto::serde::Serializer,
+      {
+        rp_ser.serialize_i32(self.0)
+      }
+    }
 
     impl DecodeStatus {
       pub const A: DecodeStatus = DecodeStatus(0);
@@ -68,6 +88,24 @@ pub mod arena {
         self.x
       }
     }
+    #[cfg(feature = "serde")]
+    impl<'a> ::rapidproto::serde::Serialize for wire<'a> {
+      fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+      where
+        RpS: ::rapidproto::serde::Serializer,
+      {
+        use ::rapidproto::serde::ser::SerializeMap as _;
+        let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
+        {
+          let rp_v = self.x();
+          if rp_v != 0 {
+            rp_map.serialize_entry("x", &rp_v)?;
+          }
+        }
+        rp_map.end()
+      }
+    }
+
 
     #[derive(Default)]
     pub struct Arena<'a> {
@@ -80,6 +118,24 @@ pub mod arena {
         self.y
       }
     }
+    #[cfg(feature = "serde")]
+    impl<'a> ::rapidproto::serde::Serialize for Arena<'a> {
+      fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+      where
+        RpS: ::rapidproto::serde::Serializer,
+      {
+        use ::rapidproto::serde::ser::SerializeMap as _;
+        let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
+        {
+          let rp_v = self.y();
+          if rp_v != 0 {
+            rp_map.serialize_entry("y", &rp_v)?;
+          }
+        }
+        rp_map.end()
+      }
+    }
+
 
     pub struct Tag<'a> {
       s: ::rapidproto::ProtoStr<'a>,
@@ -90,6 +146,24 @@ pub mod arena {
         self.s
       }
     }
+    #[cfg(feature = "serde")]
+    impl<'a> ::rapidproto::serde::Serialize for Tag<'a> {
+      fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+      where
+        RpS: ::rapidproto::serde::Serializer,
+      {
+        use ::rapidproto::serde::ser::SerializeMap as _;
+        let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
+        {
+          let rp_v = self.s();
+          if !rp_v.is_empty() {
+            rp_map.serialize_entry("s", &rp_v)?;
+          }
+        }
+        rp_map.end()
+      }
+    }
+
 
     pub struct ByteView<'a> {
       b: &'a [u8],
@@ -100,6 +174,24 @@ pub mod arena {
         self.b
       }
     }
+    #[cfg(feature = "serde")]
+    impl<'a> ::rapidproto::serde::Serialize for ByteView<'a> {
+      fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+      where
+        RpS: ::rapidproto::serde::Serializer,
+      {
+        use ::rapidproto::serde::ser::SerializeMap as _;
+        let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
+        {
+          let rp_v = self.b();
+          if !rp_v.is_empty() {
+            rp_map.serialize_entry("b", &::rapidproto::serde_support::Bytes(rp_v))?;
+          }
+        }
+        rp_map.end()
+      }
+    }
+
 
     impl<'a> wire<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a wire<'a>, ::rapidproto::DecodeError> {

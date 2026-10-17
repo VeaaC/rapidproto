@@ -24,6 +24,28 @@ pub mod arena {
         if (self.rp_presence & (1 << 1)) != 0 { Some(self.y) } else { None }
       }
     }
+    #[cfg(feature = "serde")]
+    impl<'a> ::rapidproto::serde::Serialize for Small<'a> {
+      fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+      where
+        RpS: ::rapidproto::serde::Serializer,
+      {
+        use ::rapidproto::serde::ser::SerializeMap as _;
+        let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
+        {
+          if let Some(rp_v) = self.x() {
+            rp_map.serialize_entry("x", &rp_v)?;
+          }
+        }
+        {
+          if let Some(rp_v) = self.y() {
+            rp_map.serialize_entry("y", &rp_v)?;
+          }
+        }
+        rp_map.end()
+      }
+    }
+
 
     #[derive(Default)]
     pub struct ReqInline<'a> {
@@ -40,6 +62,28 @@ pub mod arena {
         if (self.rp_presence & (1 << 0)) != 0 { Some(self.tag) } else { None }
       }
     }
+    #[cfg(feature = "serde")]
+    impl<'a> ::rapidproto::serde::Serialize for ReqInline<'a> {
+      fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+      where
+        RpS: ::rapidproto::serde::Serializer,
+      {
+        use ::rapidproto::serde::ser::SerializeMap as _;
+        let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
+        {
+          if let Some(rp_v) = self.s() {
+            rp_map.serialize_entry("s", rp_v)?;
+          }
+        }
+        {
+          if let Some(rp_v) = self.tag() {
+            rp_map.serialize_entry("tag", &rp_v)?;
+          }
+        }
+        rp_map.end()
+      }
+    }
+
 
     #[derive(Default)]
     pub struct ManyRequired<'a> {
@@ -308,6 +352,278 @@ pub mod arena {
         self.f65
       }
     }
+    #[cfg(feature = "serde")]
+    impl<'a> ::rapidproto::serde::Serialize for ManyRequired<'a> {
+      fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+      where
+        RpS: ::rapidproto::serde::Serializer,
+      {
+        use ::rapidproto::serde::ser::SerializeMap as _;
+        let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
+        {
+          let rp_v = self.f1();
+          rp_map.serialize_entry("f1", &rp_v)?;
+        }
+        {
+          let rp_v = self.f2();
+          rp_map.serialize_entry("f2", &rp_v)?;
+        }
+        {
+          let rp_v = self.f3();
+          rp_map.serialize_entry("f3", &rp_v)?;
+        }
+        {
+          let rp_v = self.f4();
+          rp_map.serialize_entry("f4", &rp_v)?;
+        }
+        {
+          let rp_v = self.f5();
+          rp_map.serialize_entry("f5", &rp_v)?;
+        }
+        {
+          let rp_v = self.f6();
+          rp_map.serialize_entry("f6", &rp_v)?;
+        }
+        {
+          let rp_v = self.f7();
+          rp_map.serialize_entry("f7", &rp_v)?;
+        }
+        {
+          let rp_v = self.f8();
+          rp_map.serialize_entry("f8", &rp_v)?;
+        }
+        {
+          let rp_v = self.f9();
+          rp_map.serialize_entry("f9", &rp_v)?;
+        }
+        {
+          let rp_v = self.f10();
+          rp_map.serialize_entry("f10", &rp_v)?;
+        }
+        {
+          let rp_v = self.f11();
+          rp_map.serialize_entry("f11", &rp_v)?;
+        }
+        {
+          let rp_v = self.f12();
+          rp_map.serialize_entry("f12", &rp_v)?;
+        }
+        {
+          let rp_v = self.f13();
+          rp_map.serialize_entry("f13", &rp_v)?;
+        }
+        {
+          let rp_v = self.f14();
+          rp_map.serialize_entry("f14", &rp_v)?;
+        }
+        {
+          let rp_v = self.f15();
+          rp_map.serialize_entry("f15", &rp_v)?;
+        }
+        {
+          let rp_v = self.f16();
+          rp_map.serialize_entry("f16", &rp_v)?;
+        }
+        {
+          let rp_v = self.f17();
+          rp_map.serialize_entry("f17", &rp_v)?;
+        }
+        {
+          let rp_v = self.f18();
+          rp_map.serialize_entry("f18", &rp_v)?;
+        }
+        {
+          let rp_v = self.f19();
+          rp_map.serialize_entry("f19", &rp_v)?;
+        }
+        {
+          let rp_v = self.f20();
+          rp_map.serialize_entry("f20", &rp_v)?;
+        }
+        {
+          let rp_v = self.f21();
+          rp_map.serialize_entry("f21", &rp_v)?;
+        }
+        {
+          let rp_v = self.f22();
+          rp_map.serialize_entry("f22", &rp_v)?;
+        }
+        {
+          let rp_v = self.f23();
+          rp_map.serialize_entry("f23", &rp_v)?;
+        }
+        {
+          let rp_v = self.f24();
+          rp_map.serialize_entry("f24", &rp_v)?;
+        }
+        {
+          let rp_v = self.f25();
+          rp_map.serialize_entry("f25", &rp_v)?;
+        }
+        {
+          let rp_v = self.f26();
+          rp_map.serialize_entry("f26", &rp_v)?;
+        }
+        {
+          let rp_v = self.f27();
+          rp_map.serialize_entry("f27", &rp_v)?;
+        }
+        {
+          let rp_v = self.f28();
+          rp_map.serialize_entry("f28", &rp_v)?;
+        }
+        {
+          let rp_v = self.f29();
+          rp_map.serialize_entry("f29", &rp_v)?;
+        }
+        {
+          let rp_v = self.f30();
+          rp_map.serialize_entry("f30", &rp_v)?;
+        }
+        {
+          let rp_v = self.f31();
+          rp_map.serialize_entry("f31", &rp_v)?;
+        }
+        {
+          let rp_v = self.f32();
+          rp_map.serialize_entry("f32", &rp_v)?;
+        }
+        {
+          let rp_v = self.f33();
+          rp_map.serialize_entry("f33", &rp_v)?;
+        }
+        {
+          let rp_v = self.f34();
+          rp_map.serialize_entry("f34", &rp_v)?;
+        }
+        {
+          let rp_v = self.f35();
+          rp_map.serialize_entry("f35", &rp_v)?;
+        }
+        {
+          let rp_v = self.f36();
+          rp_map.serialize_entry("f36", &rp_v)?;
+        }
+        {
+          let rp_v = self.f37();
+          rp_map.serialize_entry("f37", &rp_v)?;
+        }
+        {
+          let rp_v = self.f38();
+          rp_map.serialize_entry("f38", &rp_v)?;
+        }
+        {
+          let rp_v = self.f39();
+          rp_map.serialize_entry("f39", &rp_v)?;
+        }
+        {
+          let rp_v = self.f40();
+          rp_map.serialize_entry("f40", &rp_v)?;
+        }
+        {
+          let rp_v = self.f41();
+          rp_map.serialize_entry("f41", &rp_v)?;
+        }
+        {
+          let rp_v = self.f42();
+          rp_map.serialize_entry("f42", &rp_v)?;
+        }
+        {
+          let rp_v = self.f43();
+          rp_map.serialize_entry("f43", &rp_v)?;
+        }
+        {
+          let rp_v = self.f44();
+          rp_map.serialize_entry("f44", &rp_v)?;
+        }
+        {
+          let rp_v = self.f45();
+          rp_map.serialize_entry("f45", &rp_v)?;
+        }
+        {
+          let rp_v = self.f46();
+          rp_map.serialize_entry("f46", &rp_v)?;
+        }
+        {
+          let rp_v = self.f47();
+          rp_map.serialize_entry("f47", &rp_v)?;
+        }
+        {
+          let rp_v = self.f48();
+          rp_map.serialize_entry("f48", &rp_v)?;
+        }
+        {
+          let rp_v = self.f49();
+          rp_map.serialize_entry("f49", &rp_v)?;
+        }
+        {
+          let rp_v = self.f50();
+          rp_map.serialize_entry("f50", &rp_v)?;
+        }
+        {
+          let rp_v = self.f51();
+          rp_map.serialize_entry("f51", &rp_v)?;
+        }
+        {
+          let rp_v = self.f52();
+          rp_map.serialize_entry("f52", &rp_v)?;
+        }
+        {
+          let rp_v = self.f53();
+          rp_map.serialize_entry("f53", &rp_v)?;
+        }
+        {
+          let rp_v = self.f54();
+          rp_map.serialize_entry("f54", &rp_v)?;
+        }
+        {
+          let rp_v = self.f55();
+          rp_map.serialize_entry("f55", &rp_v)?;
+        }
+        {
+          let rp_v = self.f56();
+          rp_map.serialize_entry("f56", &rp_v)?;
+        }
+        {
+          let rp_v = self.f57();
+          rp_map.serialize_entry("f57", &rp_v)?;
+        }
+        {
+          let rp_v = self.f58();
+          rp_map.serialize_entry("f58", &rp_v)?;
+        }
+        {
+          let rp_v = self.f59();
+          rp_map.serialize_entry("f59", &rp_v)?;
+        }
+        {
+          let rp_v = self.f60();
+          rp_map.serialize_entry("f60", &rp_v)?;
+        }
+        {
+          let rp_v = self.f61();
+          rp_map.serialize_entry("f61", &rp_v)?;
+        }
+        {
+          let rp_v = self.f62();
+          rp_map.serialize_entry("f62", &rp_v)?;
+        }
+        {
+          let rp_v = self.f63();
+          rp_map.serialize_entry("f63", &rp_v)?;
+        }
+        {
+          let rp_v = self.f64();
+          rp_map.serialize_entry("f64", &rp_v)?;
+        }
+        {
+          let rp_v = self.f65();
+          rp_map.serialize_entry("f65", &rp_v)?;
+        }
+        rp_map.end()
+      }
+    }
+
 
     impl<'a> Small<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Small<'a>, ::rapidproto::DecodeError> {

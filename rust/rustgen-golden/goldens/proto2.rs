@@ -6,6 +6,16 @@ pub mod common {
     #[repr(transparent)]
     pub struct Color(pub i32);
 
+    #[cfg(feature = "serde")]
+    impl ::rapidproto::serde::Serialize for Color {
+      fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+      where
+        RpS: ::rapidproto::serde::Serializer,
+      {
+        rp_ser.serialize_i32(self.0)
+      }
+    }
+
     impl Color {
       pub const UNKNOWN: Color = Color(0);
       pub const RED: Color = Color(1);
@@ -117,6 +127,109 @@ pub mod arena {
         self.expanded_nums
       }
     }
+    #[cfg(feature = "serde")]
+    impl<'a> ::rapidproto::serde::Serialize for Scalars<'a> {
+      fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+      where
+        RpS: ::rapidproto::serde::Serializer,
+      {
+        use ::rapidproto::serde::ser::SerializeMap as _;
+        let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
+        {
+          let rp_v = self.i32();
+          rp_map.serialize_entry("i32", &rp_v)?;
+        }
+        {
+          if let Some(rp_v) = self.i64() {
+            rp_map.serialize_entry("i64", &rp_v)?;
+          }
+        }
+        {
+          if let Some(rp_v) = self.u32() {
+            rp_map.serialize_entry("u32", &rp_v)?;
+          }
+        }
+        {
+          if let Some(rp_v) = self.u64() {
+            rp_map.serialize_entry("u64", &rp_v)?;
+          }
+        }
+        {
+          if let Some(rp_v) = self.s32() {
+            rp_map.serialize_entry("s32", &rp_v)?;
+          }
+        }
+        {
+          if let Some(rp_v) = self.s64() {
+            rp_map.serialize_entry("s64", &rp_v)?;
+          }
+        }
+        {
+          if let Some(rp_v) = self.f32() {
+            rp_map.serialize_entry("f32", &rp_v)?;
+          }
+        }
+        {
+          if let Some(rp_v) = self.f64() {
+            rp_map.serialize_entry("f64", &rp_v)?;
+          }
+        }
+        {
+          if let Some(rp_v) = self.sf32() {
+            rp_map.serialize_entry("sf32", &rp_v)?;
+          }
+        }
+        {
+          if let Some(rp_v) = self.sf64() {
+            rp_map.serialize_entry("sf64", &rp_v)?;
+          }
+        }
+        {
+          if let Some(rp_v) = self.b() {
+            rp_map.serialize_entry("b", &rp_v)?;
+          }
+        }
+        {
+          if let Some(rp_v) = self.s() {
+            rp_map.serialize_entry("s", &rp_v)?;
+          }
+        }
+        {
+          if let Some(rp_v) = self.by() {
+            rp_map.serialize_entry("by", &::rapidproto::serde_support::Bytes(rp_v))?;
+          }
+        }
+        {
+          if let Some(rp_v) = self.fl() {
+            rp_map.serialize_entry("fl", &rp_v)?;
+          }
+        }
+        {
+          if let Some(rp_v) = self.db() {
+            rp_map.serialize_entry("db", &rp_v)?;
+          }
+        }
+        {
+          if let Some(rp_v) = self.color() {
+            rp_map.serialize_entry("color", &rp_v)?;
+          }
+        }
+        {
+          let rp_v = self.packed_nums();
+          if !rp_v.is_empty() {
+            rp_map.serialize_entry("packed_nums", &rp_v)?;
+          }
+        }
+        {
+          let rp_v = self.expanded_nums();
+          if !rp_v.is_empty() {
+            rp_map.serialize_entry("expanded_nums", &rp_v)?;
+          }
+        }
+        rp_map.end()
+      }
+    }
+
 
     #[derive(Default)]
     pub struct WithGroup<'a> {
@@ -129,6 +242,23 @@ pub mod arena {
         if (self.rp_presence & (1 << 0)) != 0 { Some(&self.mygroup) } else { None }
       }
     }
+    #[cfg(feature = "serde")]
+    impl<'a> ::rapidproto::serde::Serialize for WithGroup<'a> {
+      fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+      where
+        RpS: ::rapidproto::serde::Serializer,
+      {
+        use ::rapidproto::serde::ser::SerializeMap as _;
+        let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
+        {
+          if let Some(rp_v) = self.mygroup() {
+            rp_map.serialize_entry("mygroup", rp_v)?;
+          }
+        }
+        rp_map.end()
+      }
+    }
+
 
     pub mod with_group {
       #[derive(Default)]
@@ -146,6 +276,28 @@ pub mod arena {
           if (self.rp_presence & (1 << 1)) != 0 { Some(&self.inner) } else { None }
         }
       }
+      #[cfg(feature = "serde")]
+      impl<'a> ::rapidproto::serde::Serialize for MyGroup<'a> {
+        fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+        where
+          RpS: ::rapidproto::serde::Serializer,
+        {
+          use ::rapidproto::serde::ser::SerializeMap as _;
+          let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
+          {
+            if let Some(rp_v) = self.a() {
+              rp_map.serialize_entry("a", &rp_v)?;
+            }
+          }
+          {
+            if let Some(rp_v) = self.inner() {
+              rp_map.serialize_entry("inner", rp_v)?;
+            }
+          }
+          rp_map.end()
+        }
+      }
+
 
       pub mod my_group {
         #[derive(Default)]
@@ -159,6 +311,23 @@ pub mod arena {
             if (self.rp_presence & (1 << 0)) != 0 { Some((self.rp_presence & (1 << 1)) != 0) } else { None }
           }
         }
+        #[cfg(feature = "serde")]
+        impl<'a> ::rapidproto::serde::Serialize for Inner<'a> {
+          fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+          where
+            RpS: ::rapidproto::serde::Serializer,
+          {
+            use ::rapidproto::serde::ser::SerializeMap as _;
+            let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
+            {
+              if let Some(rp_v) = self.flag() {
+                rp_map.serialize_entry("flag", &rp_v)?;
+              }
+            }
+            rp_map.end()
+          }
+        }
+
 
         impl<'a> Inner<'a> {
           pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Inner<'a>, ::rapidproto::DecodeError> {
@@ -335,6 +504,29 @@ pub mod arena {
         self.pick.as_ref()
       }
     }
+    #[cfg(feature = "serde")]
+    impl<'a> ::rapidproto::serde::Serialize for OneofGroup<'a> {
+      fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+      where
+        RpS: ::rapidproto::serde::Serializer,
+      {
+        use ::rapidproto::serde::ser::SerializeMap as _;
+        let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
+        {
+          if let Some(rp_v) = self.after() {
+            rp_map.serialize_entry("after", &rp_v)?;
+          }
+        }
+        if let Some(rp_o) = self.pick() {
+          match rp_o {
+            oneof_group::Pick::I(rp_v) => rp_map.serialize_entry("i", rp_v)?,
+            oneof_group::Pick::G(rp_v) => rp_map.serialize_entry("g", rp_v)?,
+          }
+        }
+        rp_map.end()
+      }
+    }
+
 
     pub mod oneof_group {
       pub enum Pick<'a> {
@@ -356,6 +548,28 @@ pub mod arena {
           if (self.rp_presence & (1 << 1)) != 0 { Some(self.s) } else { None }
         }
       }
+      #[cfg(feature = "serde")]
+      impl<'a> ::rapidproto::serde::Serialize for G<'a> {
+        fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+        where
+          RpS: ::rapidproto::serde::Serializer,
+        {
+          use ::rapidproto::serde::ser::SerializeMap as _;
+          let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
+          {
+            if let Some(rp_v) = self.x() {
+              rp_map.serialize_entry("x", &rp_v)?;
+            }
+          }
+          {
+            if let Some(rp_v) = self.s() {
+              rp_map.serialize_entry("s", &rp_v)?;
+            }
+          }
+          rp_map.end()
+        }
+      }
+
 
       impl<'a> G<'a> {
         pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a G<'a>, ::rapidproto::DecodeError> {
@@ -459,6 +673,23 @@ pub mod arena {
         if (self.rp_presence & (1 << 0)) != 0 { Some(&self.g) } else { None }
       }
     }
+    #[cfg(feature = "serde")]
+    impl<'a> ::rapidproto::serde::Serialize for GroupNumberReuse<'a> {
+      fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+      where
+        RpS: ::rapidproto::serde::Serializer,
+      {
+        use ::rapidproto::serde::ser::SerializeMap as _;
+        let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
+        {
+          if let Some(rp_v) = self.g() {
+            rp_map.serialize_entry("g", rp_v)?;
+          }
+        }
+        rp_map.end()
+      }
+    }
+
 
     pub mod group_number_reuse {
       #[derive(Default)]
@@ -473,6 +704,23 @@ pub mod arena {
           if (self.rp_presence & (1 << 0)) != 0 { Some(self.two) } else { None }
         }
       }
+      #[cfg(feature = "serde")]
+      impl<'a> ::rapidproto::serde::Serialize for G<'a> {
+        fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+        where
+          RpS: ::rapidproto::serde::Serializer,
+        {
+          use ::rapidproto::serde::ser::SerializeMap as _;
+          let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
+          {
+            if let Some(rp_v) = self.two() {
+              rp_map.serialize_entry("two", &rp_v)?;
+            }
+          }
+          rp_map.end()
+        }
+      }
+
 
       impl<'a> G<'a> {
         pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a G<'a>, ::rapidproto::DecodeError> {
@@ -559,6 +807,29 @@ pub mod arena {
         if (self.rp_presence & (1 << 0)) != 0 { Some(self.tail) } else { None }
       }
     }
+    #[cfg(feature = "serde")]
+    impl<'a> ::rapidproto::serde::Serialize for RepeatedGroup<'a> {
+      fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+      where
+        RpS: ::rapidproto::serde::Serializer,
+      {
+        use ::rapidproto::serde::ser::SerializeMap as _;
+        let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
+        {
+          let rp_v = self.item();
+          if !rp_v.is_empty() {
+            rp_map.serialize_entry("item", &rp_v)?;
+          }
+        }
+        {
+          if let Some(rp_v) = self.tail() {
+            rp_map.serialize_entry("tail", &rp_v)?;
+          }
+        }
+        rp_map.end()
+      }
+    }
+
 
     pub mod repeated_group {
       #[derive(Default)]
@@ -573,6 +844,23 @@ pub mod arena {
           if (self.rp_presence & (1 << 0)) != 0 { Some(self.v) } else { None }
         }
       }
+      #[cfg(feature = "serde")]
+      impl<'a> ::rapidproto::serde::Serialize for Item<'a> {
+        fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+        where
+          RpS: ::rapidproto::serde::Serializer,
+        {
+          use ::rapidproto::serde::ser::SerializeMap as _;
+          let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
+          {
+            if let Some(rp_v) = self.v() {
+              rp_map.serialize_entry("v", &rp_v)?;
+            }
+          }
+          rp_map.end()
+        }
+      }
+
 
       impl<'a> Item<'a> {
         pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Item<'a>, ::rapidproto::DecodeError> {
@@ -659,6 +947,29 @@ pub mod arena {
         self.pick.as_ref()
       }
     }
+    #[cfg(feature = "serde")]
+    impl<'a> ::rapidproto::serde::Serialize for OneofGroupStraddle<'a> {
+      fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+      where
+        RpS: ::rapidproto::serde::Serializer,
+      {
+        use ::rapidproto::serde::ser::SerializeMap as _;
+        let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
+        {
+          if let Some(rp_v) = self.mid() {
+            rp_map.serialize_entry("mid", &rp_v)?;
+          }
+        }
+        if let Some(rp_o) = self.pick() {
+          match rp_o {
+            oneof_group_straddle::Pick::Head(rp_v) => rp_map.serialize_entry("head", rp_v)?,
+            oneof_group_straddle::Pick::Tail(rp_v) => rp_map.serialize_entry("tail", rp_v)?,
+          }
+        }
+        rp_map.end()
+      }
+    }
+
 
     pub mod oneof_group_straddle {
       pub enum Pick<'a> {
@@ -678,6 +989,23 @@ pub mod arena {
           if (self.rp_presence & (1 << 0)) != 0 { Some(self.x) } else { None }
         }
       }
+      #[cfg(feature = "serde")]
+      impl<'a> ::rapidproto::serde::Serialize for Head<'a> {
+        fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+        where
+          RpS: ::rapidproto::serde::Serializer,
+        {
+          use ::rapidproto::serde::ser::SerializeMap as _;
+          let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
+          {
+            if let Some(rp_v) = self.x() {
+              rp_map.serialize_entry("x", &rp_v)?;
+            }
+          }
+          rp_map.end()
+        }
+      }
+
 
       impl<'a> Head<'a> {
         pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Head<'a>, ::rapidproto::DecodeError> {
@@ -771,6 +1099,42 @@ pub mod arena {
         self.choice.as_ref()
       }
     }
+    #[cfg(feature = "serde")]
+    impl<'a> ::rapidproto::serde::Serialize for Container<'a> {
+      fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+      where
+        RpS: ::rapidproto::serde::Serializer,
+      {
+        use ::rapidproto::serde::ser::SerializeMap as _;
+        let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
+        {
+          let rp_v = self.items();
+          if !rp_v.is_empty() {
+            rp_map.serialize_entry("items", &rp_v)?;
+          }
+        }
+        {
+          let rp_v = self.by_name();
+          if !rp_v.is_empty() {
+            rp_map.serialize_entry("by_name", &rp_v)?;
+          }
+        }
+        {
+          let rp_v = self.by_id();
+          if !rp_v.is_empty() {
+            rp_map.serialize_entry("by_id", &rp_v)?;
+          }
+        }
+        if let Some(rp_o) = self.choice() {
+          match rp_o {
+            container::Choice::Ci(rp_v) => rp_map.serialize_entry("ci", rp_v)?,
+            container::Choice::Cn(rp_v) => rp_map.serialize_entry("cn", rp_v)?,
+          }
+        }
+        rp_map.end()
+      }
+    }
+
 
     pub mod container {
       pub enum Choice<'a> {
@@ -790,6 +1154,23 @@ pub mod arena {
           if (self.rp_presence & (1 << 0)) != 0 { Some(self.x) } else { None }
         }
       }
+      #[cfg(feature = "serde")]
+      impl<'a> ::rapidproto::serde::Serialize for Nested<'a> {
+        fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+        where
+          RpS: ::rapidproto::serde::Serializer,
+        {
+          use ::rapidproto::serde::ser::SerializeMap as _;
+          let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
+          {
+            if let Some(rp_v) = self.x() {
+              rp_map.serialize_entry("x", &rp_v)?;
+            }
+          }
+          rp_map.end()
+        }
+      }
+
 
       impl<'a> Nested<'a> {
         pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Nested<'a>, ::rapidproto::DecodeError> {

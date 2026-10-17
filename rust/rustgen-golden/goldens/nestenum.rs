@@ -7,6 +7,16 @@ pub mod common {
       #[repr(transparent)]
       pub struct Kind(pub i32);
 
+      #[cfg(feature = "serde")]
+      impl ::rapidproto::serde::Serialize for Kind {
+        fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+        where
+          RpS: ::rapidproto::serde::Serializer,
+        {
+          rp_ser.serialize_i32(self.0)
+        }
+      }
+
       impl Kind {
         pub const A: Kind = Kind(0);
         pub const B: Kind = Kind(1);
@@ -34,6 +44,16 @@ pub mod common {
         #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
         #[repr(transparent)]
         pub struct Deep(pub i32);
+
+        #[cfg(feature = "serde")]
+        impl ::rapidproto::serde::Serialize for Deep {
+          fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+          where
+            RpS: ::rapidproto::serde::Serializer,
+          {
+            rp_ser.serialize_i32(self.0)
+          }
+        }
 
         impl Deep {
           pub const A: Deep = Deep(0);
@@ -78,6 +98,29 @@ pub mod arena {
         if (self.rp_presence & (1 << 0)) != 0 { Some(&self.i) } else { None }
       }
     }
+    #[cfg(feature = "serde")]
+    impl<'a> ::rapidproto::serde::Serialize for Outer<'a> {
+      fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+      where
+        RpS: ::rapidproto::serde::Serializer,
+      {
+        use ::rapidproto::serde::ser::SerializeMap as _;
+        let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
+        {
+          let rp_v = self.k();
+          if rp_v.0 != 0 {
+            rp_map.serialize_entry("k", &rp_v)?;
+          }
+        }
+        {
+          if let Some(rp_v) = self.i() {
+            rp_map.serialize_entry("i", rp_v)?;
+          }
+        }
+        rp_map.end()
+      }
+    }
+
 
     pub mod outer {
       #[derive(Default)]
@@ -91,6 +134,24 @@ pub mod arena {
           self.d
         }
       }
+      #[cfg(feature = "serde")]
+      impl<'a> ::rapidproto::serde::Serialize for Inner<'a> {
+        fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+        where
+          RpS: ::rapidproto::serde::Serializer,
+        {
+          use ::rapidproto::serde::ser::SerializeMap as _;
+          let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
+          {
+            let rp_v = self.d();
+            if rp_v.0 != 0 {
+              rp_map.serialize_entry("d", &rp_v)?;
+            }
+          }
+          rp_map.end()
+        }
+      }
+
 
       impl<'a> Inner<'a> {
         pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Inner<'a>, ::rapidproto::DecodeError> {

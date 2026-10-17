@@ -10,9 +10,20 @@ publish = false # the crates.io `rapidproto` placeholder is reserved; this is no
 [features]
 default = ["std"]
 # `std` implies `alloc`; `alloc` alone is the no_std + allocator tier; neither is the
-# no_std-no-alloc embedded tier (a caller-seeded arena). No 3rd-party runtime deps.
+# no_std-no-alloc embedded tier (a caller-seeded arena). No 3rd-party runtime deps in the default
+# build.
 std = ["alloc"]
 alloc = []
+# Optional, OFF by default: enables the generated `Serialize` impls (serialize-only; decode-only, no
+# `Deserialize`). A default build pulls in no serde and stays dependency-free; the generated code
+# references `::rapidproto::serde` (re-exported in lib.rs), so a consumer only enables
+# `rapidproto/serde`.
+serde = ["dep:serde"]
+
+[dependencies]
+# Optional (see the `serde` feature). default-features = false keeps it no_std-compatible; the
+# `Serialize` impls are hand-written in generated code, so no `derive`.
+serde = { version = "1", default-features = false, optional = true }
 
 # Dev-only: criterion drives the wire-layer micro-benchmarks (not a runtime dependency). Default
 # features off -- the benches want timings, not its HTML/plotting stack.

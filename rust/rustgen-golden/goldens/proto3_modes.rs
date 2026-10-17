@@ -10,6 +10,16 @@ pub mod common {
     #[repr(transparent)]
     pub struct State(pub i32);
 
+    #[cfg(feature = "serde")]
+    impl ::rapidproto::serde::Serialize for State {
+      fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+      where
+        RpS: ::rapidproto::serde::Serializer,
+      {
+        rp_ser.serialize_i32(self.0)
+      }
+    }
+
     impl State {
       pub const UNKNOWN: State = State(0);
       pub const ON: State = State(1);
@@ -117,6 +127,120 @@ pub mod arena {
         self.rp_unknown
       }
     }
+    #[cfg(feature = "serde")]
+    impl<'a> ::rapidproto::serde::Serialize for Msg<'a> {
+      fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+      where
+        RpS: ::rapidproto::serde::Serializer,
+      {
+        use ::rapidproto::serde::ser::SerializeMap as _;
+        let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
+        {
+          let rp_v = self.implicit_i();
+          if rp_v != 0 {
+            rp_map.serialize_entry("implicit_i", &rp_v)?;
+          }
+        }
+        {
+          if let Some(rp_v) = self.explicit_i() {
+            rp_map.serialize_entry("explicit_i", &rp_v)?;
+          }
+        }
+        {
+          let rp_v = self.state();
+          if rp_v.0 != 0 {
+            rp_map.serialize_entry("state", &rp_v)?;
+          }
+        }
+        {
+          if let Some(rp_v) = self.self_() {
+            rp_map.serialize_entry("self", &::rapidproto::serde_support::Bytes(rp_v))?;
+          }
+        }
+        {
+          let rp_v = self.nums();
+          if !rp_v.is_empty() {
+            rp_map.serialize_entry("nums", &rp_v)?;
+          }
+        }
+        {
+          let rp_v = self.unpacked();
+          if !rp_v.is_empty() {
+            rp_map.serialize_entry("unpacked", &rp_v)?;
+          }
+        }
+        {
+          let rp_v = self.states();
+          if !rp_v.is_empty() {
+            rp_map.serialize_entry("states", &rp_v)?;
+          }
+        }
+        {
+          let rp_v = self.reals();
+          if !rp_v.is_empty() {
+            rp_map.serialize_entry("reals", &rp_v)?;
+          }
+        }
+        {
+          let rp_v = self.codes();
+          if !rp_v.is_empty() {
+            rp_map.serialize_entry("codes", &rp_v)?;
+          }
+        }
+        {
+          let rp_v = self.bools();
+          if !rp_v.is_empty() {
+            rp_map.serialize_entry("bools", &rp_v)?;
+          }
+        }
+        {
+          let rp_v = self.ratio();
+          if rp_v != 0.0 {
+            rp_map.serialize_entry("ratio", &rp_v)?;
+          }
+        }
+        {
+          let rp_v = self.scale();
+          if rp_v != 0.0 {
+            rp_map.serialize_entry("scale", &rp_v)?;
+          }
+        }
+        {
+          let rp_v = self.counts();
+          if !rp_v.is_empty() {
+            rp_map.serialize_entry("counts", &rp_v)?;
+          }
+        }
+        {
+          let rp_v = self.flags();
+          if !rp_v.is_empty() {
+            rp_map.serialize_entry("flags", &rp_v)?;
+          }
+        }
+        {
+          let rp_v = self.toggles();
+          if !rp_v.is_empty() {
+            rp_map.serialize_entry("toggles", &rp_v)?;
+          }
+        }
+        {
+          let rp_v = self.ratios();
+          if !rp_v.is_empty() {
+            rp_map.serialize_entry("ratios", &rp_v)?;
+          }
+        }
+        if let Some(rp_o) = self.pick() {
+          match rp_o {
+            msg::Pick::A(rp_v) => rp_map.serialize_entry("a", rp_v)?,
+            msg::Pick::B(rp_v) => rp_map.serialize_entry("b", rp_v)?,
+            msg::Pick::C(rp_v) => rp_map.serialize_entry("c", rp_v)?,
+            msg::Pick::D(rp_v) => rp_map.serialize_entry("d", rp_v)?,
+          }
+        }
+        rp_map.end()
+      }
+    }
+
 
     pub mod msg {
       pub enum Pick<'a> {

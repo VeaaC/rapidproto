@@ -29,7 +29,14 @@ mod error;
 mod map;
 mod packed_varint;
 mod proto_str;
+#[cfg(feature = "serde")]
+pub mod serde_support;
 pub mod wire;
+
+/// Re-export of `serde` (only with the `serde` feature), so generated `Serialize` impls can name
+/// `::rapidproto::serde` and a consumer need only enable `rapidproto/serde`, not add serde directly.
+#[cfg(feature = "serde")]
+pub use serde;
 
 pub use arena::{Arena, ArenaExhausted};
 pub use decode_slot::{decode_value, Init, Slot};

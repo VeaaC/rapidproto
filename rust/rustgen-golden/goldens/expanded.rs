@@ -7,6 +7,16 @@ pub mod common {
       #[repr(transparent)]
       pub struct Kind(pub i32);
 
+      #[cfg(feature = "serde")]
+      impl ::rapidproto::serde::Serialize for Kind {
+        fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+        where
+          RpS: ::rapidproto::serde::Serializer,
+        {
+          rp_ser.serialize_i32(self.0)
+        }
+      }
+
       impl Kind {
         pub const A: Kind = Kind(0);
         pub const B: Kind = Kind(1);
@@ -65,6 +75,48 @@ pub mod arena {
         self.usf
       }
     }
+    #[cfg(feature = "serde")]
+    impl<'a> ::rapidproto::serde::Serialize for Expanded<'a> {
+      fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+      where
+        RpS: ::rapidproto::serde::Serializer,
+      {
+        use ::rapidproto::serde::ser::SerializeMap as _;
+        let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
+        {
+          let rp_v = self.uzz();
+          if !rp_v.is_empty() {
+            rp_map.serialize_entry("uzz", &rp_v)?;
+          }
+        }
+        {
+          let rp_v = self.ub();
+          if !rp_v.is_empty() {
+            rp_map.serialize_entry("ub", &rp_v)?;
+          }
+        }
+        {
+          let rp_v = self.uk();
+          if !rp_v.is_empty() {
+            rp_map.serialize_entry("uk", &rp_v)?;
+          }
+        }
+        {
+          let rp_v = self.ufx();
+          if !rp_v.is_empty() {
+            rp_map.serialize_entry("ufx", &rp_v)?;
+          }
+        }
+        {
+          let rp_v = self.usf();
+          if !rp_v.is_empty() {
+            rp_map.serialize_entry("usf", &rp_v)?;
+          }
+        }
+        rp_map.end()
+      }
+    }
+
 
     impl<'a> Expanded<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Expanded<'a>, ::rapidproto::DecodeError> {
