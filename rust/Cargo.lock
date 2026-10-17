@@ -178,6 +178,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "consumer-example"
+version = "0.0.0"
+dependencies = [
+ "rapidproto",
+ "rapidproto-build",
+]
+
+[[package]]
 name = "core-foundation-sys"
 version = "0.8.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -11,6 +11,7 @@
 
 use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
+use std::env;
 use std::io::Cursor;
 use std::path::{Component, Path, PathBuf};
 use std::sync::OnceLock;
@@ -229,6 +230,122 @@ pub fn generate_from_disk(
         modes: modes.to_owned(),
         unknown_all,
     })
+}
+
+/// A `build.rs` driver for the Rust generator: generate the decoders for a schema's import closure
+/// into `OUT_DIR` with no C++ toolchain, and wire up cargo's rebuild tracking. A thin layer over
+/// [`generate_from_disk`] (the same engine the golden gate dogfoods) plus the build-script plumbing.
+///
+/// ```no_run
+/// // build.rs
+/// rapidproto_build::Config::new()
+///     .include("proto")
+///     .compile(&["proto/message.proto"])
+///     .expect("generate rapidproto decoders");
+/// ```
+/// then, in the crate, include the one generated file (the whole closure is one module tree):
+/// ```ignore
+/// mod schema {
+///     include!(concat!(env!("OUT_DIR"), "/message.rs"));
+/// }
+/// ```
+#[derive(Default)]
+pub struct Config {
+    includes: Vec<PathBuf>,
+    modes: String,
+    unknown_all: bool,
+}
+
+impl Config {
+    /// A fresh config: no include dirs, no decode profile.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Add an import search directory (repeatable; the first that holds a file wins, like `-I`).
+    pub fn include(mut self, dir: impl Into<PathBuf>) -> Self {
+        self.includes.push(dir.into());
+        self
+    }
+
+    /// Set the decode profile: the text of a `.modes` file (`drop`/`raw`/`unknown-fields` lines).
+    pub fn field_modes(mut self, modes: impl Into<String>) -> Self {
+        self.modes = modes.into();
+        self
+    }
+
+    /// Reserve the "unknown fields present" bit on every message (the CLI's `--unknown-present`).
+    pub fn unknown_present(mut self, yes: bool) -> Self {
+        self.unknown_all = yes;
+        self
+    }
+
+    /// Generate the decoders for `entries` (one import closure) into `OUT_DIR` and return the path to
+    /// the single generated `.rs` to `include!`. Emits `cargo:rerun-if-changed` for the entries and
+    /// every `.proto` on the include path, so editing a schema retriggers generation. Must be called
+    /// from a cargo build script (it reads `OUT_DIR`). Over-inclusion on the include path is harmless
+    /// -- the generator pulls exactly the closure the entries reach.
+    pub fn compile(&self, entries: &[impl AsRef<Path>]) -> Result<PathBuf, GenError> {
+        let entry_paths: Vec<PathBuf> = entries.iter().map(|e| e.as_ref().to_path_buf()).collect();
+        if entry_paths.is_empty() {
+            return Err(GenError {
+                code: -1,
+                message: "compile(): no entry .proto given".to_owned(),
+            });
+        }
+        // Default the include path to the cwd (the crate root in a build script), matching how the
+        // CLI behaves with no -I.
+        let includes = if self.includes.is_empty() {
+            vec![PathBuf::from(".")]
+        } else {
+            self.includes.clone()
+        };
+        let code = generate_from_disk(&entry_paths, &includes, &self.modes, self.unknown_all)?;
+
+        let out_dir = env::var_os("OUT_DIR").ok_or_else(|| GenError {
+            code: -1,
+            message: "compile(): OUT_DIR is unset -- call it from a cargo build script".to_owned(),
+        })?;
+        // ONE file for the whole closure (Option A); name it after the first entry's stem, so several
+        // compile() calls in one build script land in distinct files.
+        let stem = entry_paths[0]
+            .file_stem()
+            .map_or_else(|| "schema".to_owned(), |s| s.to_string_lossy().into_owned());
+        let out_path = PathBuf::from(out_dir).join(format!("{stem}.rs"));
+        std::fs::write(&out_path, code).map_err(|e| GenError {
+            code: -1,
+            message: format!("compile(): cannot write {}: {e}", out_path.display()),
+        })?;
+
+        // Rebuild tracking: the entries themselves, plus every proto on the include path. Watching the
+        // whole include path (not just the resolved closure, which the blob does not report) is
+        // deliberately broad: a build never goes stale, at the cost of an occasional rebuild when an
+        // unrelated proto on the path changes.
+        for entry in &entry_paths {
+            println!("cargo:rerun-if-changed={}", entry.display());
+        }
+        for dir in &includes {
+            track_protos(dir);
+        }
+        Ok(out_path)
+    }
+}
+
+/// Emit `cargo:rerun-if-changed` for every `.proto` under `dir` (recursively). An unreadable dir is
+/// skipped silently -- it just means nothing there is tracked, and a real missing include surfaces as
+/// a generation error, not here.
+fn track_protos(dir: &Path) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            track_protos(&path);
+        } else if path.extension().is_some_and(|e| e == "proto") {
+            println!("cargo:rerun-if-changed={}", path.display());
+        }
+    }
 }
 
 /// The name an `import` would use for `entry`: its path relative to the first include dir that

@@ -1,0 +1,17 @@
+# A runnable, cargo-only consumer of the generated Rust decoders: build.rs generates them from the
+# shared example schema through the committed wasm blob (NO C++ toolchain), and main.rs decodes a
+# buffer with the arena API. The in-tree Rust mirror of examples/consumer (the C++ find_package
+# consumer), decoding the identical demo.Shape bytes. Excluded from the no_std/miri tiers (it is a
+# std demo binary); the generator runs in build.rs on the host, so no_std is irrelevant to it.
+[package]
+name = "consumer-example"
+version = "0.0.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+
+[dependencies]
+rapidproto = { path = "../../rapidproto" }
+
+[build-dependencies]
+rapidproto-build = { path = "../../rapidproto-build" }
