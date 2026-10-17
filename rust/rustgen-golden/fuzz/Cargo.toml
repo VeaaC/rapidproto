@@ -1,0 +1,28 @@
+[package]
+name = "rapidproto-fuzz"
+version = "0.0.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+# The decoder under test: the committed generated goldens (included by rustgen-golden's lib.rs) and
+# the runtime they use. Mirrors the C++ harness including the arenagen_golden headers.
+rapidproto = { path = "../../rapidproto" }
+rustgen-golden = { path = ".." }
+
+[[bin]]
+name = "fuzz_arena"
+path = "fuzz_targets/fuzz_arena.rs"
+test = false
+doc = false
+bench = false
+
+# A standalone workspace (own Cargo.lock): cargo-fuzz crates build only under `cargo fuzz` on
+# nightly with AddressSanitizer, so the parent `rust/` workspace -- whose no_std / Miri tiers run on
+# stable and over every member -- must never pull this in.
+[workspace]
