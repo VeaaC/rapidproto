@@ -36,13 +36,11 @@
 #include <utility>
 #include <vector>
 
-#include "rapidproto/arenagen/layout.hpp"
 #include "rapidproto/arenagen/modes.hpp"
-#include "rapidproto/ast.hpp"
 #include "rapidproto/resolve.hpp"
 #include "rapidproto/resolver.hpp"
 #include "rapidproto/result.hpp"
-#include "rapidproto/rustgen/generator.hpp"
+#include "rapidproto/rustgen/pipeline.hpp"
 #include "rapidproto/source.hpp"
 
 namespace {
@@ -221,18 +219,10 @@ int main() {
         modes = std::move(resolved_modes).value();
     }
 
-    arenagen::LayoutOptions layout_options;
-    layout_options.modes = &modes;  // the Rust decoder shares the arena storage-layout planner
-    const arenagen::LayoutSet layouts = arenagen::plan_layouts(set, symbols, layout_options);
-
-    // ONE file for the whole import closure: every file in the set contributes its types to the
-    // single merged module tree (matches the CLI's --rust=<file> Option A).
-    std::vector<const FileNode*> files;
-    files.reserve(set.files.size());
-    for (const FileNode& file : set.files) {
-        files.push_back(&file);
-    }
-    const std::string out = rustgen::generate_file(files, layouts, modes);
+    // Plan layouts and emit the merged module tree through the shared post-analysis pipeline, the
+    // exact tail native `rapidprotoc --rust` runs (see rustgen/pipeline.hpp) -- so the two cannot
+    // drift.
+    const std::string out = rustgen::generate_rust(set, symbols, modes);
     std::fwrite(out.data(), 1, out.size(), stdout);
     return kOk;
 }
