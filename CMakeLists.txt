@@ -376,7 +376,10 @@ if(RAPIDPROTO_BUILD_TESTS)
   # CppNameTable rather than re-deriving from proto names (keyword escapes and collision suffixes
   # make that unpredictable). The Python driver runs it per schema and compiles what it emits.
   add_executable(rapidproto_diffgen tests/diffgen/main.cpp)
+  # rustgen (+ its arenagen layout planner dep) so diffgen emits the Rust decoders and the FQN -> Rust
+  # type-path dispatch alongside the C++ harness, in one resolve pass.
   target_link_libraries(rapidproto_diffgen PRIVATE rapidproto_lib rapidproto_codegen_lib
+                                                   rapidproto_arenagen_lib rapidproto_rustgen_lib
                                                    rapidproto_strict)
 
   # Consumer example: exercises rapidproto_generate() end to end -- generate a cross-file schema,

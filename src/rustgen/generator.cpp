@@ -2583,6 +2583,26 @@ std::string generate_common(const std::vector<const FileNode*>& files) {
     return printer.str();
 }
 
+std::vector<std::pair<std::string, std::string>> arena_type_paths(
+    const std::vector<const FileNode*>& files) {
+    PkgTrie root = build_pkg_trie(files);
+    assign_emitted_names(root);
+    const NameTable table = build_name_table(root);
+    std::vector<std::pair<std::string, std::string>> out;
+    out.reserve(table.messages.size());
+    for (const auto& [fqn, names] : table.messages) {
+        std::string path = "arena";
+        for (const std::string& seg : names.module) {
+            path += "::";
+            path += seg;
+        }
+        path += "::";
+        path += names.type_name;
+        out.emplace_back(fqn, path);
+    }
+    return out;
+}
+
 std::string generate_arena(const std::vector<const FileNode*>& files, const LayoutSet& layouts,
                            const FieldModes& modes) {
     PkgTrie root = build_pkg_trie(files);
