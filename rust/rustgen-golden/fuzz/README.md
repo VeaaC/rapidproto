@@ -30,6 +30,7 @@ local / manual step, as with the C++ deep tier.
 
 ## Seeds
 
-`seeds/fuzz_arena/` holds the binary wire fixtures reused from `tests/wire_fixtures` — valid
-messages that reach decoder arms random bytes rarely will. The growing corpus (`corpus/`),
-`artifacts/`, and `target/` are gitignored.
+`seeds/fuzz_arena/` holds the binary wire fixtures reused from `tests/wire_fixtures` — real
+protobuf wire encodings whose valid tag/length framing random bytes rarely produce, so they
+bootstrap coverage of the decoder arms faster. The growing corpus (`corpus/`), `artifacts/`, and
+`target/` are gitignored.

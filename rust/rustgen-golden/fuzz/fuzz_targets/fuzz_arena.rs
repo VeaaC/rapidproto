@@ -13,9 +13,10 @@
 //!
 //! Sanitizer: cargo-fuzz builds this under AddressSanitizer, which catches any out-of-bounds read,
 //! use-after-free, or leak. Rust has no direct equivalent of C's UBSan, but the decoder's UB
-//! surface is covered here by ASan plus debug overflow/bounds checks, and by the separate Miri job
-//! (strict provenance + Stacked/Tree Borrows over the unsafe arena). Together they are the
-//! never-crash / no-UB gate the arena decoder needs against hostile input.
+//! surface is covered here by ASan, Rust's always-on slice-bounds checks and the fuzz profile's
+//! integer-overflow checks, and by the separate Miri job (strict provenance + Stacked/Tree Borrows
+//! over the unsafe arena). Together they are the never-crash / no-UB gate the arena decoder needs
+//! against hostile input.
 #![no_main]
 
 use std::hint::black_box;
