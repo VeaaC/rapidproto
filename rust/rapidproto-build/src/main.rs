@@ -1,4 +1,4 @@
-//! `rapidproto-gen` — generate Rust protobuf decoders from `.proto` files on the command line.
+//! `rapidproto-rust` — generate Rust protobuf decoders from `.proto` files on the command line.
 //!
 //! The same code generation as [`rapidproto_build::Config`] (used from a `build.rs`), exposed as a
 //! standalone tool: pass entry `.proto`s, `-I` include dirs, and decode-profile options, and it
@@ -19,7 +19,7 @@ struct Args {
 }
 
 const USAGE: &str = "\
-usage: rapidproto-gen [options] <entry.proto>...
+usage: rapidproto-rust [options] <entry.proto>...
   -I <dir>              add an import search path (repeatable)
   -o, --out <file>      write the generated Rust here (default: stdout)
   --field-modes <file>  a decode profile (drop/raw/unknown-fields lines; repeatable)

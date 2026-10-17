@@ -21,6 +21,10 @@
 //!
 //! The generated decoders use the `rapidproto` runtime crate. To generate from sources already in
 //! memory, use [`generate`]; [`generate_from_disk`] is the file-based entry point `Config` builds on.
+//!
+//! The same generator is also available as a command-line tool, `rapidproto-rust` (install this crate
+//! with `cargo install` and run `rapidproto-rust --help`), for generating decoders outside a build
+//! script.
 
 use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;

@@ -2,14 +2,13 @@
 // Copyright 2026 Christian Vetter
 #pragma once
 
-// The post-analysis Rust generation pipeline, shared by the native CLI (src/rapidprotoc/main.cpp)
-// and the wasm front-end (src/rustgen/wasm_entry.cpp) so the two cannot drift. Each caller resolves
-// the field-modes profile its own way (the CLI from --field-modes/--drop/--raw/--unknown flags, the
-// blob from an in-frame `.modes` text) and reports errors its own way; from the resolved FieldModes
-// on, the sequence -- plan the (arena-shared) storage layout, then emit the one merged Rust module
-// tree for the whole import closure -- is identical and lives here once. That single tail is what
-// makes the blob's output byte-identical to native `rapidprotoc --rust`, by construction rather than
-// by matching golden-by-golden.
+// The post-analysis Rust generation pipeline, shared by native rustgen -- driven by the
+// `[rustgen-golden]` test (tests/test_rustgen.cpp), which pins the committed goldens -- and the wasm
+// front-end (src/rustgen/wasm_entry.cpp) that ships as the blob. Each caller resolves the field-modes
+// profile its own way and reports errors its own way; from the resolved FieldModes on, the sequence
+// -- plan the (arena-shared) storage layout, then emit the one merged Rust module tree for the whole
+// import closure -- is identical and lives here once. That single shared tail is what makes the
+// blob's output byte-identical to native rustgen by construction, not just golden-by-golden.
 
 #include <string>
 #include <vector>
