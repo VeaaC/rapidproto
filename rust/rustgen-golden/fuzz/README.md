@@ -22,6 +22,11 @@ cargo +nightly fuzz run fuzz_arena fuzz/corpus/fuzz_arena fuzz/seeds/fuzz_arena 
 The first dir is libFuzzer's growing corpus (writable, gitignored); the committed `seeds/` dir is
 read-only input. New finds accumulate in `corpus/`, so repeat runs get faster.
 
+If you installed a *prebuilt* `cargo-fuzz` (the release binaries are musl-static), it defaults
+`--target` to musl — whose std you likely don't have and whose static libc ASan rejects. Pass your
+gnu host triple, e.g. `--target x86_64-unknown-linux-gnu`, to both commands (CI does this). A
+`cargo install`-built cargo-fuzz targets your host already and needs no flag.
+
 Add `-- -max_total_time=300` (or `-runs=N`) to bound a run. A crash writes the offending input to
 `fuzz/artifacts/fuzz_arena/`; replay it with `cargo +nightly fuzz run fuzz_arena <path>`.
 
