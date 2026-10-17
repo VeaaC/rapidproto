@@ -2320,7 +2320,9 @@ void emit_field_serialize(Printer& printer, const FieldNode& field, const std::s
             } else if (field.type_name == "bool") {
                 cond = "rp_v";
             } else if (field.type_name == "float" || field.type_name == "double") {
-                cond = "rp_v != 0.0";
+                // Only +0.0 is the omittable default; -0.0 (and NaN) are present -- matching the
+                // dumper's is_positive_zero rule and protobuf. `!= 0.0` would wrongly drop -0.0.
+                cond = "rp_v.to_bits() != 0";
             } else if (field.type_name == "string" || field.type_name == "bytes") {
                 cond = "!rp_v.is_empty()";
             } else {

@@ -197,13 +197,13 @@ pub mod arena {
         }
         {
           let rp_v = self.ratio();
-          if rp_v != 0.0 {
+          if rp_v.to_bits() != 0 {
             rp_map.serialize_entry("ratio", &rp_v)?;
           }
         }
         {
           let rp_v = self.scale();
-          if rp_v != 0.0 {
+          if rp_v.to_bits() != 0 {
             rp_map.serialize_entry("scale", &rp_v)?;
           }
         }

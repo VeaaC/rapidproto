@@ -10,4 +10,8 @@ publish = false
 # and compares against protobuf. NOT part of the shipped runtime -- it only formats; the generated
 # Serialize impls it drives live behind rapidproto's `serde` feature.
 [dependencies]
+# The harness links this crate AND rapidproto, so their serde must be the SAME build (one serde_core)
+# or `Msg: Serialize` won't match `to_line`'s bound. differential.py guarantees that by building both
+# in one cargo invocation, where feature unification yields a single shared serde -- so the exact
+# features here don't matter for that; std is fine (this is a std dev/test crate).
 serde = "1"

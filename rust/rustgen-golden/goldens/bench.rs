@@ -214,7 +214,7 @@ pub mod arena {
         }
         {
           let rp_v = self.score();
-          if rp_v != 0.0 {
+          if rp_v.to_bits() != 0 {
             rp_map.serialize_entry("score", &rp_v)?;
           }
         }
@@ -527,19 +527,19 @@ pub mod arena {
         let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
         {
           let rp_v = self.x();
-          if rp_v != 0.0 {
+          if rp_v.to_bits() != 0 {
             rp_map.serialize_entry("x", &rp_v)?;
           }
         }
         {
           let rp_v = self.y();
-          if rp_v != 0.0 {
+          if rp_v.to_bits() != 0 {
             rp_map.serialize_entry("y", &rp_v)?;
           }
         }
         {
           let rp_v = self.z();
-          if rp_v != 0.0 {
+          if rp_v.to_bits() != 0 {
             rp_map.serialize_entry("z", &rp_v)?;
           }
         }
