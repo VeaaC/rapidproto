@@ -30,14 +30,15 @@
 //! cross-arm checksum agreement (no timing -- valid on any box); `RAPIDPROTO_BENCH_JSON` also emit one
 //! `rec:"arm"` ndjson line per measurement (the format the C++ bench + bench.py use; `cyc_b`/`ins_b`
 //! are null here -- Rust has no in-process counters, read instructions/byte with an external
-//! `perf stat -e instructions:u`); `ITERS` inner decodes per sample (default 50); `ROUNDS` samples per
-//! arm (default 20).
+//! `perf stat -e instructions:u`); `ARMS` a comma-separated arm allowlist, e.g. `rapidproto,prost`
+//! (arm 0 is always kept; unset runs every arm); `ITERS` inner decodes per sample (default 50);
+//! `ROUNDS` samples per arm (default 20).
 
 use std::hint::black_box;
 use std::path::Path;
 use std::time::Instant;
 
-use bench_ecosystem::{scenario_specs, Arm};
+use rapidproto_bench::{scenario_specs, Arm};
 
 fn median(xs: &[f64]) -> f64 {
     let mut v = xs.to_vec();
@@ -83,6 +84,20 @@ fn env_usize(key: &str, default: usize) -> usize {
         .unwrap_or(default)
 }
 
+// Keep the arms named in `filter` (plus arm 0, the baseline, always -- ratios need a reference); with
+// no filter, keep every arm. Lets a run pick competitors at runtime without recompiling.
+fn select_arms(arms: Vec<Arm>, filter: Option<&[String]>) -> Vec<Arm> {
+    match filter {
+        None => arms,
+        Some(keep) => arms
+            .into_iter()
+            .enumerate()
+            .filter(|(i, a)| *i == 0 || keep.iter().any(|k| k == a.name))
+            .map(|(_, a)| a)
+            .collect(),
+    }
+}
+
 fn main() {
     let dir = match std::env::var_os("RAPIDPROTO_BENCH_DIR") {
         Some(d) => d,
@@ -100,6 +115,14 @@ fn main() {
     let json = std::env::var_os("RAPIDPROTO_BENCH_JSON").is_some();
     let inner = env_usize("ITERS", 50);
     let rounds = env_usize("ROUNDS", 20);
+    // Optional runtime arm selection: `ARMS=rapidproto,prost` keeps just those (arm 0 is always kept);
+    // unset runs every arm.
+    let arm_filter: Option<Vec<String>> = std::env::var("ARMS").ok().map(|v| {
+        v.split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect()
+    });
 
     // Load every payload and gate on cross-arm checksum agreement before timing anything.
     let mut loaded: Vec<(&'static str, Vec<u8>, Vec<Arm>)> = Vec::new();
@@ -108,7 +131,7 @@ fn main() {
         let bytes =
             std::fs::read(&path).unwrap_or_else(|e| panic!("cannot read payload {path:?}: {e}"));
         assert!(!bytes.is_empty(), "payload {path:?} is empty");
-        let arms = build();
+        let arms = select_arms(build(), arm_filter.as_deref());
         let sums: Vec<u64> = arms.iter().map(|a| (a.run)(&bytes)).collect();
         if !sums.iter().all(|&s| s == sums[0]) {
             eprintln!("CHECKSUM MISMATCH in scenario {name}:");

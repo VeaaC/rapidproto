@@ -13,6 +13,7 @@
 //! per-LANGUAGE agreement gate, NOT a cross-language checksum. Because these are proto3 messages
 //! (zero/empty defaults contribute 0), a straight walk of every accessor equals present-fields-only.
 
+pub mod checksum;
 mod competitors;
 mod ours;
 

@@ -1,63 +1,12 @@
-//! Arm 0 / the baseline: RapidProto's generated arena decoder (reused from the golden crate, so the
-//! comparison runs the exact code a consumer compiles). The checksum walks mirror the Rust A/B bench
-//! (`rustgen-golden/benches/decode.rs`) exactly, so this arm and that bench agree.
+//! The one canonical per-scenario checksum walk over RapidProto's generated `bench` decoders, shared
+//! by every "ours" measurement: the ecosystem arm (`ours`), the criterion A/B bench (`benches/
+//! decode.rs`), and the perf-stat harnesses. A full field read (wrapping `u64` sum) that defeats
+//! dead-code elimination and, in the ecosystem bench, is mirrored field-for-field by each competitor
+//! arm so all arms must agree. See the crate docs for the per-type contribution convention.
 
-use rapidproto::Arena;
 use rustgen_golden::bench::arena::bench::{BigSet, Dataset, ParticleSet, RecordSet, WideSet};
 
-use crate::Arm;
-
-pub fn dataset() -> Arm {
-    Arm {
-        name: "rapidproto",
-        run: Box::new(|b| {
-            let arena = Arena::new();
-            checksum_dataset(Dataset::decode(b, &arena).expect("rapidproto decode"))
-        }),
-    }
-}
-
-pub fn bigset() -> Arm {
-    Arm {
-        name: "rapidproto",
-        run: Box::new(|b| {
-            let arena = Arena::new();
-            checksum_bigset(BigSet::decode(b, &arena).expect("rapidproto decode"))
-        }),
-    }
-}
-
-pub fn wideset() -> Arm {
-    Arm {
-        name: "rapidproto",
-        run: Box::new(|b| {
-            let arena = Arena::new();
-            checksum_wideset(WideSet::decode(b, &arena).expect("rapidproto decode"))
-        }),
-    }
-}
-
-pub fn recordset() -> Arm {
-    Arm {
-        name: "rapidproto",
-        run: Box::new(|b| {
-            let arena = Arena::new();
-            checksum_recordset(RecordSet::decode(b, &arena).expect("rapidproto decode"))
-        }),
-    }
-}
-
-pub fn particleset() -> Arm {
-    Arm {
-        name: "rapidproto",
-        run: Box::new(|b| {
-            let arena = Arena::new();
-            checksum_particleset(ParticleSet::decode(b, &arena).expect("rapidproto decode"))
-        }),
-    }
-}
-
-fn checksum_dataset(ds: &Dataset) -> u64 {
+pub fn checksum_dataset(ds: &Dataset) -> u64 {
     let mut sum = ds.name().as_bytes().len() as u64 ^ (ds.version() as u64);
     for p in ds.people() {
         sum = sum
@@ -80,7 +29,7 @@ fn checksum_dataset(ds: &Dataset) -> u64 {
     sum
 }
 
-fn checksum_bigset(bs: &BigSet) -> u64 {
+pub fn checksum_bigset(bs: &BigSet) -> u64 {
     let mut sum = 0u64;
     for it in bs.items() {
         for &n in it.numbers() {
@@ -99,7 +48,7 @@ fn checksum_bigset(bs: &BigSet) -> u64 {
     sum
 }
 
-fn checksum_wideset(ws: &WideSet) -> u64 {
+pub fn checksum_wideset(ws: &WideSet) -> u64 {
     let mut sum = 0u64;
     for it in ws.items() {
         for &v in it.a() {
@@ -124,7 +73,7 @@ fn checksum_wideset(ws: &WideSet) -> u64 {
     sum
 }
 
-fn checksum_recordset(rs: &RecordSet) -> u64 {
+pub fn checksum_recordset(rs: &RecordSet) -> u64 {
     let mut sum = 0u64;
     for r in rs.records() {
         sum = sum
@@ -159,7 +108,7 @@ fn checksum_recordset(rs: &RecordSet) -> u64 {
     sum
 }
 
-fn checksum_particleset(ps: &ParticleSet) -> u64 {
+pub fn checksum_particleset(ps: &ParticleSet) -> u64 {
     let mut sum = 0u64;
     for p in ps.items() {
         sum = sum

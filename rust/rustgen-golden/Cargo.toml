@@ -35,15 +35,7 @@ rapidproto = { path = "../rapidproto" }
 # Dev-only: the serde Serializer that renders a decoded message as the differential dump JSON. Used by
 # tests/serialize.rs (run with `--features serde`) to exercise the generated Serialize impls.
 rapidproto-diff = { path = "../rapidproto-diff" }
-# Dev-only: criterion drives the decode benchmark (not a runtime dependency); default features off --
-# the bench wants timings, not the HTML/plotting stack. Matches the rapidproto wire bench.
-criterion = { version = "0.3", default-features = false }
 
-# The decode benchmark measures the generated `bench.rs` decoder (package `bench`) across the same
-# scenario shapes the C++ arena bench runs, over shared protoc-canonical payloads. std-only (criterion
-# needs std). Run it PINNED and ALIGNED (see the bench header for the shared-payload directory):
-#   RUSTFLAGS="-Cllvm-args=-align-all-functions=6" taskset -c 0 cargo bench -p rustgen-golden --bench decode
-[[bench]]
-name = "decode"
-harness = false
-required-features = ["std"]
+# Benchmarks live in the `rapidproto-bench` crate (it depends on this one for the generated decoders),
+# not here -- this crate stays golden compile-check + integration tests, which is all the no_std/Miri
+# CI tiers need to exercise.
