@@ -253,6 +253,23 @@ pub mod arena {
       }
     }
 
+    #[cfg(feature = "alloc")]
+    impl<'a> ::rapidproto::ArenaDecode<'a> for Msg<'static> {
+      type Message = Msg<'a>;
+      fn decode_borrowed(rp_input: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a Msg<'a>, ::rapidproto::DecodeError> {
+        Msg::decode(rp_input, rp_arena)
+      }
+    }
+
+    #[cfg(feature = "alloc")]
+    impl<'a> Msg<'a> {
+      /// Decode `input` into a self-contained handle that owns the bytes and the arena; read
+      /// the message with `::rapidproto::Owned::get`. No external lifetime to manage.
+      pub fn decode_owned(rp_input: impl ::core::convert::Into<::rapidproto::Box<[u8]>>) -> ::core::result::Result<::rapidproto::Owned<Msg<'static>>, ::rapidproto::DecodeError> {
+        ::rapidproto::decode_owned::<Msg<'static>>(rp_input)
+      }
+    }
+
 
     pub mod msg {
       pub enum Pick<'a> {

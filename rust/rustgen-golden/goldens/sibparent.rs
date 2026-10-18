@@ -37,6 +37,23 @@ pub mod arena {
       }
     }
 
+    #[cfg(feature = "alloc")]
+    impl<'a> ::rapidproto::ArenaDecode<'a> for logging<'static> {
+      type Message = logging<'a>;
+      fn decode_borrowed(rp_input: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a logging<'a>, ::rapidproto::DecodeError> {
+        logging::decode(rp_input, rp_arena)
+      }
+    }
+
+    #[cfg(feature = "alloc")]
+    impl<'a> logging<'a> {
+      /// Decode `input` into a self-contained handle that owns the bytes and the arena; read
+      /// the message with `::rapidproto::Owned::get`. No external lifetime to manage.
+      pub fn decode_owned(rp_input: impl ::core::convert::Into<::rapidproto::Box<[u8]>>) -> ::core::result::Result<::rapidproto::Owned<logging<'static>>, ::rapidproto::DecodeError> {
+        ::rapidproto::decode_owned::<logging<'static>>(rp_input)
+      }
+    }
+
 
     impl<'a> logging<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a logging<'a>, ::rapidproto::DecodeError> {

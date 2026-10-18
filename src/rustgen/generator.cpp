@@ -2431,6 +2431,45 @@ void emit_message_serialize(Printer& printer, const NameTable& table, const Mess
     printer.print("}\n\n");
 }
 
+// The owning-handle API (behind `alloc`): `$M$<'static>` is the zero-cost `ArenaDecode` tag (no
+// separate marker type needed), and `decode_owned` is the self-contained-decode convenience over the
+// runtime `::rapidproto::decode_owned` -- the Rust pendant of C++'s `decode_owned`. `$M$` is set by
+// the caller.
+void emit_message_owned(Printer& printer) {
+    printer.print("#[cfg(feature = \"alloc\")]\n");
+    printer.print("impl<'a> ::rapidproto::ArenaDecode<'a> for $M$<'static> {\n");
+    printer.indent();
+    printer.print("type Message = $M$<'a>;\n");
+    printer.print(
+        "fn decode_borrowed(rp_input: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>) "
+        "-> ::core::result::Result<&'a $M$<'a>, ::rapidproto::DecodeError> {\n");
+    printer.indent();
+    printer.print("$M$::decode(rp_input, rp_arena)\n");
+    printer.outdent();
+    printer.print("}\n");
+    printer.outdent();
+    printer.print("}\n\n");
+
+    printer.print("#[cfg(feature = \"alloc\")]\n");
+    printer.print("impl<'a> $M$<'a> {\n");
+    printer.indent();
+    printer.print(
+        "/// Decode `input` into a self-contained handle that owns the bytes and the arena; "
+        "read\n");
+    printer.print(
+        "/// the message with `::rapidproto::Owned::get`. No external lifetime to manage.\n");
+    printer.print(
+        "pub fn decode_owned(rp_input: impl ::core::convert::Into<::rapidproto::Box<[u8]>>) "
+        "-> ::core::result::Result<::rapidproto::Owned<$M$<'static>>, ::rapidproto::DecodeError> "
+        "{\n");
+    printer.indent();
+    printer.print("::rapidproto::decode_owned::<$M$<'static>>(rp_input)\n");
+    printer.outdent();
+    printer.print("}\n");
+    printer.outdent();
+    printer.print("}\n\n");
+}
+
 void emit_message(Printer& printer, const NameTable& table,
                   const std::vector<std::string>& current_mod, const MessageNode& msg,
                   const FieldModes& modes, const LayoutSet& layouts) {
@@ -2444,6 +2483,8 @@ void emit_message(Printer& printer, const NameTable& table,
     emit_message_accessors(printer, table, current_mod, msg, modes, accessors, submodule, layout);
     // The `serde::Serialize` impl (behind the `serde` feature) reads those same getters.
     emit_message_serialize(printer, table, msg, modes, accessors, submodule);
+    // The owning-handle API (`decode_owned`, behind `alloc`).
+    emit_message_owned(printer);
 }
 
 // Emit the `decode` + `decode_into` impl for one message, in its OWN module (`current_mod`) but after

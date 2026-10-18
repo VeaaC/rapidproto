@@ -32,6 +32,8 @@ mod decode_slot;
 mod decode_vec;
 mod error;
 mod map;
+#[cfg(feature = "alloc")]
+mod owned;
 mod packed_varint;
 mod proto_str;
 #[cfg(feature = "serde")]
@@ -48,7 +50,14 @@ pub use decode_slot::{decode_value, Init, Slot};
 pub use decode_vec::DecodeVec;
 pub use error::{DecodeError, ErrorKind};
 pub use map::MapView;
+#[cfg(feature = "alloc")]
+pub use owned::{decode_owned, ArenaDecode, Owned};
 pub use proto_str::ProtoStr;
+
+/// Re-export of the standard `Box` (only with `alloc`), so a generated `decode_owned` can name
+/// `::rapidproto::Box<[u8]>` without the consumer crate spelling an `alloc`/`std` path itself.
+#[cfg(feature = "alloc")]
+pub use alloc::boxed::Box;
 
 /// The maximum nesting a generated `decode` descends through length-delimited sub-messages before
 /// giving up with [`ErrorKind::DepthLimitExceeded`], so pathological nesting cannot exhaust the stack.

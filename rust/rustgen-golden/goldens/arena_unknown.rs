@@ -37,6 +37,23 @@ pub mod arena {
       }
     }
 
+    #[cfg(feature = "alloc")]
+    impl<'a> ::rapidproto::ArenaDecode<'a> for Flag<'static> {
+      type Message = Flag<'a>;
+      fn decode_borrowed(rp_input: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a Flag<'a>, ::rapidproto::DecodeError> {
+        Flag::decode(rp_input, rp_arena)
+      }
+    }
+
+    #[cfg(feature = "alloc")]
+    impl<'a> Flag<'a> {
+      /// Decode `input` into a self-contained handle that owns the bytes and the arena; read
+      /// the message with `::rapidproto::Owned::get`. No external lifetime to manage.
+      pub fn decode_owned(rp_input: impl ::core::convert::Into<::rapidproto::Box<[u8]>>) -> ::core::result::Result<::rapidproto::Owned<Flag<'static>>, ::rapidproto::DecodeError> {
+        ::rapidproto::decode_owned::<Flag<'static>>(rp_input)
+      }
+    }
+
 
     #[derive(Default)]
     pub struct Holder<'a> {
@@ -73,6 +90,23 @@ pub mod arena {
           }
         }
         rp_map.end()
+      }
+    }
+
+    #[cfg(feature = "alloc")]
+    impl<'a> ::rapidproto::ArenaDecode<'a> for Holder<'static> {
+      type Message = Holder<'a>;
+      fn decode_borrowed(rp_input: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a Holder<'a>, ::rapidproto::DecodeError> {
+        Holder::decode(rp_input, rp_arena)
+      }
+    }
+
+    #[cfg(feature = "alloc")]
+    impl<'a> Holder<'a> {
+      /// Decode `input` into a self-contained handle that owns the bytes and the arena; read
+      /// the message with `::rapidproto::Owned::get`. No external lifetime to manage.
+      pub fn decode_owned(rp_input: impl ::core::convert::Into<::rapidproto::Box<[u8]>>) -> ::core::result::Result<::rapidproto::Owned<Holder<'static>>, ::rapidproto::DecodeError> {
+        ::rapidproto::decode_owned::<Holder<'static>>(rp_input)
       }
     }
 

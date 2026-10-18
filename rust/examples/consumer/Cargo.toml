@@ -13,6 +13,10 @@ publish = false
 # also prints the decoded message as JSON via serde_json).
 [features]
 serde = ["rapidproto/serde", "dep:serde_json"]
+# Generated code gates its owning-handle API (`decode_owned`) behind `alloc`. A consumer that
+# includes generated code declares this feature (even when leaving it off) so the generated
+# `#[cfg(feature = "alloc")]` is a known cfg; enable it for `decode_owned`.
+alloc = ["rapidproto/alloc"]
 
 [dependencies]
 rapidproto = { path = "../../rapidproto" }

@@ -15,7 +15,9 @@ publish = false
 # otherwise force rapidproto/std on via this edge) — and proves the generated code is no_std-clean.
 [features]
 default = ["std"]
-std = ["rapidproto/std"]
+# `std` implies the local `alloc` (as rapidproto's does), so the generated alloc-gated code (the
+# owning-handle `decode_owned`) is present under a default build.
+std = ["rapidproto/std", "alloc"]
 alloc = ["rapidproto/alloc"]
 # Compile-checks the generated `#[cfg(feature = "serde")]` Serialize impls (the generated code reads
 # the including crate's `serde` feature, and turns on rapidproto's).
