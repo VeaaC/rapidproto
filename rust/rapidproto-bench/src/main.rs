@@ -176,7 +176,7 @@ fn main() {
          fixed_slice` in the ndjson.)\n"
     );
     println!(
-        "\n{:<11} {:<14} {:>9}  {:>9}",
+        "\n{:<11} {:<16} {:>9}  {:>9}",
         "scenario", "arm", "GB/s", "vs base"
     );
     for (name, bytes, arms) in &loaded {
@@ -189,7 +189,7 @@ fn main() {
             let ub = has_unaligned_fixed_slice_ub(name, a.name);
             let armcol = format!("{}{}", a.name, if ub { " ‡" } else { "" });
             println!(
-                "{name:<11} {armcol:<14} {gbs:>9.3}  {:>8.1}%",
+                "{name:<11} {armcol:<16} {gbs:>9.3}  {:>8.1}%",
                 if baseline { 0.0 } else { vs }
             );
             if json {
