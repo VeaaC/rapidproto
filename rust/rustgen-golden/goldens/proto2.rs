@@ -231,7 +231,8 @@ pub mod arena {
     }
 
     #[cfg(feature = "alloc")]
-    impl<'a> ::rapidproto::ArenaDecode<'a> for Scalars<'static> {
+    // SAFETY: a generated message borrows the input/arena only through shared `&'a` references (scalars, `ProtoStr`, slices, `MapView`, by-value/`&` sub-messages) -- covariant in 'a, layout-stable, no interior mutability over the borrow, as ArenaDecode requires.
+    unsafe impl<'a> ::rapidproto::ArenaDecode<'a> for Scalars<'static> {
       type Message = Scalars<'a>;
       fn decode_borrowed(rp_input: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a Scalars<'a>, ::rapidproto::DecodeError> {
         Scalars::decode(rp_input, rp_arena)
@@ -277,7 +278,8 @@ pub mod arena {
     }
 
     #[cfg(feature = "alloc")]
-    impl<'a> ::rapidproto::ArenaDecode<'a> for WithGroup<'static> {
+    // SAFETY: a generated message borrows the input/arena only through shared `&'a` references (scalars, `ProtoStr`, slices, `MapView`, by-value/`&` sub-messages) -- covariant in 'a, layout-stable, no interior mutability over the borrow, as ArenaDecode requires.
+    unsafe impl<'a> ::rapidproto::ArenaDecode<'a> for WithGroup<'static> {
       type Message = WithGroup<'a>;
       fn decode_borrowed(rp_input: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a WithGroup<'a>, ::rapidproto::DecodeError> {
         WithGroup::decode(rp_input, rp_arena)
@@ -333,7 +335,8 @@ pub mod arena {
       }
 
       #[cfg(feature = "alloc")]
-      impl<'a> ::rapidproto::ArenaDecode<'a> for MyGroup<'static> {
+      // SAFETY: a generated message borrows the input/arena only through shared `&'a` references (scalars, `ProtoStr`, slices, `MapView`, by-value/`&` sub-messages) -- covariant in 'a, layout-stable, no interior mutability over the borrow, as ArenaDecode requires.
+      unsafe impl<'a> ::rapidproto::ArenaDecode<'a> for MyGroup<'static> {
         type Message = MyGroup<'a>;
         fn decode_borrowed(rp_input: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a MyGroup<'a>, ::rapidproto::DecodeError> {
           MyGroup::decode(rp_input, rp_arena)
@@ -380,7 +383,8 @@ pub mod arena {
         }
 
         #[cfg(feature = "alloc")]
-        impl<'a> ::rapidproto::ArenaDecode<'a> for Inner<'static> {
+        // SAFETY: a generated message borrows the input/arena only through shared `&'a` references (scalars, `ProtoStr`, slices, `MapView`, by-value/`&` sub-messages) -- covariant in 'a, layout-stable, no interior mutability over the borrow, as ArenaDecode requires.
+        unsafe impl<'a> ::rapidproto::ArenaDecode<'a> for Inner<'static> {
           type Message = Inner<'a>;
           fn decode_borrowed(rp_input: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a Inner<'a>, ::rapidproto::DecodeError> {
             Inner::decode(rp_input, rp_arena)
@@ -596,7 +600,8 @@ pub mod arena {
     }
 
     #[cfg(feature = "alloc")]
-    impl<'a> ::rapidproto::ArenaDecode<'a> for OneofGroup<'static> {
+    // SAFETY: a generated message borrows the input/arena only through shared `&'a` references (scalars, `ProtoStr`, slices, `MapView`, by-value/`&` sub-messages) -- covariant in 'a, layout-stable, no interior mutability over the borrow, as ArenaDecode requires.
+    unsafe impl<'a> ::rapidproto::ArenaDecode<'a> for OneofGroup<'static> {
       type Message = OneofGroup<'a>;
       fn decode_borrowed(rp_input: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a OneofGroup<'a>, ::rapidproto::DecodeError> {
         OneofGroup::decode(rp_input, rp_arena)
@@ -656,7 +661,8 @@ pub mod arena {
       }
 
       #[cfg(feature = "alloc")]
-      impl<'a> ::rapidproto::ArenaDecode<'a> for G<'static> {
+      // SAFETY: a generated message borrows the input/arena only through shared `&'a` references (scalars, `ProtoStr`, slices, `MapView`, by-value/`&` sub-messages) -- covariant in 'a, layout-stable, no interior mutability over the borrow, as ArenaDecode requires.
+      unsafe impl<'a> ::rapidproto::ArenaDecode<'a> for G<'static> {
         type Message = G<'a>;
         fn decode_borrowed(rp_input: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a G<'a>, ::rapidproto::DecodeError> {
           G::decode(rp_input, rp_arena)
@@ -793,7 +799,8 @@ pub mod arena {
     }
 
     #[cfg(feature = "alloc")]
-    impl<'a> ::rapidproto::ArenaDecode<'a> for GroupNumberReuse<'static> {
+    // SAFETY: a generated message borrows the input/arena only through shared `&'a` references (scalars, `ProtoStr`, slices, `MapView`, by-value/`&` sub-messages) -- covariant in 'a, layout-stable, no interior mutability over the borrow, as ArenaDecode requires.
+    unsafe impl<'a> ::rapidproto::ArenaDecode<'a> for GroupNumberReuse<'static> {
       type Message = GroupNumberReuse<'a>;
       fn decode_borrowed(rp_input: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a GroupNumberReuse<'a>, ::rapidproto::DecodeError> {
         GroupNumberReuse::decode(rp_input, rp_arena)
@@ -841,7 +848,8 @@ pub mod arena {
       }
 
       #[cfg(feature = "alloc")]
-      impl<'a> ::rapidproto::ArenaDecode<'a> for G<'static> {
+      // SAFETY: a generated message borrows the input/arena only through shared `&'a` references (scalars, `ProtoStr`, slices, `MapView`, by-value/`&` sub-messages) -- covariant in 'a, layout-stable, no interior mutability over the borrow, as ArenaDecode requires.
+      unsafe impl<'a> ::rapidproto::ArenaDecode<'a> for G<'static> {
         type Message = G<'a>;
         fn decode_borrowed(rp_input: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a G<'a>, ::rapidproto::DecodeError> {
           G::decode(rp_input, rp_arena)
@@ -967,7 +975,8 @@ pub mod arena {
     }
 
     #[cfg(feature = "alloc")]
-    impl<'a> ::rapidproto::ArenaDecode<'a> for RepeatedGroup<'static> {
+    // SAFETY: a generated message borrows the input/arena only through shared `&'a` references (scalars, `ProtoStr`, slices, `MapView`, by-value/`&` sub-messages) -- covariant in 'a, layout-stable, no interior mutability over the borrow, as ArenaDecode requires.
+    unsafe impl<'a> ::rapidproto::ArenaDecode<'a> for RepeatedGroup<'static> {
       type Message = RepeatedGroup<'a>;
       fn decode_borrowed(rp_input: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a RepeatedGroup<'a>, ::rapidproto::DecodeError> {
         RepeatedGroup::decode(rp_input, rp_arena)
@@ -1015,7 +1024,8 @@ pub mod arena {
       }
 
       #[cfg(feature = "alloc")]
-      impl<'a> ::rapidproto::ArenaDecode<'a> for Item<'static> {
+      // SAFETY: a generated message borrows the input/arena only through shared `&'a` references (scalars, `ProtoStr`, slices, `MapView`, by-value/`&` sub-messages) -- covariant in 'a, layout-stable, no interior mutability over the borrow, as ArenaDecode requires.
+      unsafe impl<'a> ::rapidproto::ArenaDecode<'a> for Item<'static> {
         type Message = Item<'a>;
         fn decode_borrowed(rp_input: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a Item<'a>, ::rapidproto::DecodeError> {
           Item::decode(rp_input, rp_arena)
@@ -1141,7 +1151,8 @@ pub mod arena {
     }
 
     #[cfg(feature = "alloc")]
-    impl<'a> ::rapidproto::ArenaDecode<'a> for OneofGroupStraddle<'static> {
+    // SAFETY: a generated message borrows the input/arena only through shared `&'a` references (scalars, `ProtoStr`, slices, `MapView`, by-value/`&` sub-messages) -- covariant in 'a, layout-stable, no interior mutability over the borrow, as ArenaDecode requires.
+    unsafe impl<'a> ::rapidproto::ArenaDecode<'a> for OneofGroupStraddle<'static> {
       type Message = OneofGroupStraddle<'a>;
       fn decode_borrowed(rp_input: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a OneofGroupStraddle<'a>, ::rapidproto::DecodeError> {
         OneofGroupStraddle::decode(rp_input, rp_arena)
@@ -1194,7 +1205,8 @@ pub mod arena {
       }
 
       #[cfg(feature = "alloc")]
-      impl<'a> ::rapidproto::ArenaDecode<'a> for Head<'static> {
+      // SAFETY: a generated message borrows the input/arena only through shared `&'a` references (scalars, `ProtoStr`, slices, `MapView`, by-value/`&` sub-messages) -- covariant in 'a, layout-stable, no interior mutability over the borrow, as ArenaDecode requires.
+      unsafe impl<'a> ::rapidproto::ArenaDecode<'a> for Head<'static> {
         type Message = Head<'a>;
         fn decode_borrowed(rp_input: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a Head<'a>, ::rapidproto::DecodeError> {
           Head::decode(rp_input, rp_arena)
@@ -1340,7 +1352,8 @@ pub mod arena {
     }
 
     #[cfg(feature = "alloc")]
-    impl<'a> ::rapidproto::ArenaDecode<'a> for Container<'static> {
+    // SAFETY: a generated message borrows the input/arena only through shared `&'a` references (scalars, `ProtoStr`, slices, `MapView`, by-value/`&` sub-messages) -- covariant in 'a, layout-stable, no interior mutability over the borrow, as ArenaDecode requires.
+    unsafe impl<'a> ::rapidproto::ArenaDecode<'a> for Container<'static> {
       type Message = Container<'a>;
       fn decode_borrowed(rp_input: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a Container<'a>, ::rapidproto::DecodeError> {
         Container::decode(rp_input, rp_arena)
@@ -1393,7 +1406,8 @@ pub mod arena {
       }
 
       #[cfg(feature = "alloc")]
-      impl<'a> ::rapidproto::ArenaDecode<'a> for Nested<'static> {
+      // SAFETY: a generated message borrows the input/arena only through shared `&'a` references (scalars, `ProtoStr`, slices, `MapView`, by-value/`&` sub-messages) -- covariant in 'a, layout-stable, no interior mutability over the borrow, as ArenaDecode requires.
+      unsafe impl<'a> ::rapidproto::ArenaDecode<'a> for Nested<'static> {
         type Message = Nested<'a>;
         fn decode_borrowed(rp_input: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a Nested<'a>, ::rapidproto::DecodeError> {
           Nested::decode(rp_input, rp_arena)

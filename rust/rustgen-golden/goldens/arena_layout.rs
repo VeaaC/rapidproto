@@ -88,7 +88,8 @@ pub mod arena {
     }
 
     #[cfg(feature = "alloc")]
-    impl<'a> ::rapidproto::ArenaDecode<'a> for Point<'static> {
+    // SAFETY: a generated message borrows the input/arena only through shared `&'a` references (scalars, `ProtoStr`, slices, `MapView`, by-value/`&` sub-messages) -- covariant in 'a, layout-stable, no interior mutability over the borrow, as ArenaDecode requires.
+    unsafe impl<'a> ::rapidproto::ArenaDecode<'a> for Point<'static> {
       type Message = Point<'a>;
       fn decode_borrowed(rp_input: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a Point<'a>, ::rapidproto::DecodeError> {
         Point::decode(rp_input, rp_arena)
@@ -155,7 +156,8 @@ pub mod arena {
     }
 
     #[cfg(feature = "alloc")]
-    impl<'a> ::rapidproto::ArenaDecode<'a> for Big<'static> {
+    // SAFETY: a generated message borrows the input/arena only through shared `&'a` references (scalars, `ProtoStr`, slices, `MapView`, by-value/`&` sub-messages) -- covariant in 'a, layout-stable, no interior mutability over the borrow, as ArenaDecode requires.
+    unsafe impl<'a> ::rapidproto::ArenaDecode<'a> for Big<'static> {
       type Message = Big<'a>;
       fn decode_borrowed(rp_input: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a Big<'a>, ::rapidproto::DecodeError> {
         Big::decode(rp_input, rp_arena)
@@ -200,7 +202,8 @@ pub mod arena {
     }
 
     #[cfg(feature = "alloc")]
-    impl<'a> ::rapidproto::ArenaDecode<'a> for HasString<'static> {
+    // SAFETY: a generated message borrows the input/arena only through shared `&'a` references (scalars, `ProtoStr`, slices, `MapView`, by-value/`&` sub-messages) -- covariant in 'a, layout-stable, no interior mutability over the borrow, as ArenaDecode requires.
+    unsafe impl<'a> ::rapidproto::ArenaDecode<'a> for HasString<'static> {
       type Message = HasString<'a>;
       fn decode_borrowed(rp_input: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a HasString<'a>, ::rapidproto::DecodeError> {
         HasString::decode(rp_input, rp_arena)
@@ -247,7 +250,8 @@ pub mod arena {
     }
 
     #[cfg(feature = "alloc")]
-    impl<'a> ::rapidproto::ArenaDecode<'a> for BoolWrap<'static> {
+    // SAFETY: a generated message borrows the input/arena only through shared `&'a` references (scalars, `ProtoStr`, slices, `MapView`, by-value/`&` sub-messages) -- covariant in 'a, layout-stable, no interior mutability over the borrow, as ArenaDecode requires.
+    unsafe impl<'a> ::rapidproto::ArenaDecode<'a> for BoolWrap<'static> {
       type Message = BoolWrap<'a>;
       fn decode_borrowed(rp_input: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a BoolWrap<'a>, ::rapidproto::DecodeError> {
         BoolWrap::decode(rp_input, rp_arena)
@@ -301,7 +305,8 @@ pub mod arena {
     }
 
     #[cfg(feature = "alloc")]
-    impl<'a> ::rapidproto::ArenaDecode<'a> for SelfRef<'static> {
+    // SAFETY: a generated message borrows the input/arena only through shared `&'a` references (scalars, `ProtoStr`, slices, `MapView`, by-value/`&` sub-messages) -- covariant in 'a, layout-stable, no interior mutability over the borrow, as ArenaDecode requires.
+    unsafe impl<'a> ::rapidproto::ArenaDecode<'a> for SelfRef<'static> {
       type Message = SelfRef<'a>;
       fn decode_borrowed(rp_input: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a SelfRef<'a>, ::rapidproto::DecodeError> {
         SelfRef::decode(rp_input, rp_arena)
@@ -510,7 +515,8 @@ pub mod arena {
     }
 
     #[cfg(feature = "alloc")]
-    impl<'a> ::rapidproto::ArenaDecode<'a> for Layout<'static> {
+    // SAFETY: a generated message borrows the input/arena only through shared `&'a` references (scalars, `ProtoStr`, slices, `MapView`, by-value/`&` sub-messages) -- covariant in 'a, layout-stable, no interior mutability over the borrow, as ArenaDecode requires.
+    unsafe impl<'a> ::rapidproto::ArenaDecode<'a> for Layout<'static> {
       type Message = Layout<'a>;
       fn decode_borrowed(rp_input: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a Layout<'a>, ::rapidproto::DecodeError> {
         Layout::decode(rp_input, rp_arena)

@@ -46,7 +46,8 @@ pub mod arena {
     }
 
     #[cfg(feature = "alloc")]
-    impl<'a> ::rapidproto::ArenaDecode<'a> for Outer<'static> {
+    // SAFETY: a generated message borrows the input/arena only through shared `&'a` references (scalars, `ProtoStr`, slices, `MapView`, by-value/`&` sub-messages) -- covariant in 'a, layout-stable, no interior mutability over the borrow, as ArenaDecode requires.
+    unsafe impl<'a> ::rapidproto::ArenaDecode<'a> for Outer<'static> {
       type Message = Outer<'a>;
       fn decode_borrowed(rp_input: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a Outer<'a>, ::rapidproto::DecodeError> {
         Outer::decode(rp_input, rp_arena)
@@ -82,7 +83,8 @@ pub mod arena {
       }
 
       #[cfg(feature = "alloc")]
-      impl<'a> ::rapidproto::ArenaDecode<'a> for Container<'static> {
+      // SAFETY: a generated message borrows the input/arena only through shared `&'a` references (scalars, `ProtoStr`, slices, `MapView`, by-value/`&` sub-messages) -- covariant in 'a, layout-stable, no interior mutability over the borrow, as ArenaDecode requires.
+      unsafe impl<'a> ::rapidproto::ArenaDecode<'a> for Container<'static> {
         type Message = Container<'a>;
         fn decode_borrowed(rp_input: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a Container<'a>, ::rapidproto::DecodeError> {
           Container::decode(rp_input, rp_arena)
@@ -175,7 +177,8 @@ pub mod arena {
     }
 
     #[cfg(feature = "alloc")]
-    impl<'a> ::rapidproto::ArenaDecode<'a> for Ext<'static> {
+    // SAFETY: a generated message borrows the input/arena only through shared `&'a` references (scalars, `ProtoStr`, slices, `MapView`, by-value/`&` sub-messages) -- covariant in 'a, layout-stable, no interior mutability over the borrow, as ArenaDecode requires.
+    unsafe impl<'a> ::rapidproto::ArenaDecode<'a> for Ext<'static> {
       type Message = Ext<'a>;
       fn decode_borrowed(rp_input: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a Ext<'a>, ::rapidproto::DecodeError> {
         Ext::decode(rp_input, rp_arena)

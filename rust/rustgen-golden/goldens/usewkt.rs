@@ -54,7 +54,8 @@ pub mod arena {
       }
 
       #[cfg(feature = "alloc")]
-      impl<'a> ::rapidproto::ArenaDecode<'a> for Timestamp<'static> {
+      // SAFETY: a generated message borrows the input/arena only through shared `&'a` references (scalars, `ProtoStr`, slices, `MapView`, by-value/`&` sub-messages) -- covariant in 'a, layout-stable, no interior mutability over the borrow, as ArenaDecode requires.
+      unsafe impl<'a> ::rapidproto::ArenaDecode<'a> for Timestamp<'static> {
         type Message = Timestamp<'a>;
         fn decode_borrowed(rp_input: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a Timestamp<'a>, ::rapidproto::DecodeError> {
           Timestamp::decode(rp_input, rp_arena)
@@ -111,7 +112,8 @@ pub mod arena {
       }
 
       #[cfg(feature = "alloc")]
-      impl<'a> ::rapidproto::ArenaDecode<'a> for Duration<'static> {
+      // SAFETY: a generated message borrows the input/arena only through shared `&'a` references (scalars, `ProtoStr`, slices, `MapView`, by-value/`&` sub-messages) -- covariant in 'a, layout-stable, no interior mutability over the borrow, as ArenaDecode requires.
+      unsafe impl<'a> ::rapidproto::ArenaDecode<'a> for Duration<'static> {
         type Message = Duration<'a>;
         fn decode_borrowed(rp_input: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a Duration<'a>, ::rapidproto::DecodeError> {
           Duration::decode(rp_input, rp_arena)
@@ -339,7 +341,8 @@ pub mod arena {
     }
 
     #[cfg(feature = "alloc")]
-    impl<'a> ::rapidproto::ArenaDecode<'a> for Event<'static> {
+    // SAFETY: a generated message borrows the input/arena only through shared `&'a` references (scalars, `ProtoStr`, slices, `MapView`, by-value/`&` sub-messages) -- covariant in 'a, layout-stable, no interior mutability over the borrow, as ArenaDecode requires.
+    unsafe impl<'a> ::rapidproto::ArenaDecode<'a> for Event<'static> {
       type Message = Event<'a>;
       fn decode_borrowed(rp_input: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a Event<'a>, ::rapidproto::DecodeError> {
         Event::decode(rp_input, rp_arena)

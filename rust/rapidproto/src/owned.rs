@@ -17,10 +17,21 @@ use alloc::boxed::Box;
 use crate::{Arena, DecodeError};
 
 /// How [`decode_owned`] decodes a message type whose borrow it will own. Generated code implements it
-/// on a zero-size per-message marker: `type Message` names the message at the borrow `'a`, and
-/// `decode_borrowed` is the ordinary `T::decode`. A lifetime-parameter trait + a `for<'a>` bound (not
-/// a GAT) names "the message at any lifetime" on a stable-for-years rustc.
-pub trait ArenaDecode<'a> {
+/// on the message type itself at `'static` (a zero-cost tag): `type Message` names the message at the
+/// borrow `'a`, and `decode_borrowed` is the ordinary `T::decode`. A lifetime-parameter trait + a
+/// `for<'a>` bound (not a GAT) names "the message at any lifetime" on a stable-for-years rustc.
+///
+/// # Safety
+/// [`Owned`] stores the decoded root with its borrow erased to `'static` and reborrows it (shorter)
+/// in [`get`](Owned::get). That is sound only if `Self::Message` is:
+/// - **covariant** in `'a` (so `Message<'static>` can be read as `Message<'shorter>`),
+/// - **layout-identical** at every lifetime (the erasure is an address reinterpret), and
+/// - free of **interior mutability over the `'a` borrow** (no `Cell<&'a _>` / `&'a mut _` reachable),
+///   so a short-lived `&self` view cannot store a short reference into a `'static`-typed slot.
+///
+/// Every generated message satisfies this (borrowed/by-value fields only, no interior mutability).
+/// Do not implement this trait by hand without upholding all three.
+pub unsafe trait ArenaDecode<'a> {
     /// The decoded message, borrowing the input and arena for `'a`.
     type Message: 'a;
 
@@ -74,8 +85,9 @@ impl<D: for<'a> ArenaDecode<'a>> Owned<D> {
         // SAFETY: `root` points into `self.arena`/`self.input`, both owned by `self` and unmoved and
         // unmutated since construction, so the pointee is live and valid for all of `&self`. The
         // returned reference is tied to `&self` (elision), so it cannot outlive the owner. The stored
-        // pointee type is `Message` at `'static`; `Message` is covariant in that lifetime, so reading
-        // it as `Message` at the shorter `&self` lifetime is sound.
+        // pointee is `Message` at `'static`; reading it as `Message` at the shorter `&self` lifetime
+        // is sound because `ArenaDecode`'s safety contract makes `Message` covariant, layout-stable,
+        // and free of interior mutability over the borrow.
         unsafe { self.root.cast::<<D as ArenaDecode<'_>>::Message>().as_ref() }
     }
 }
@@ -87,7 +99,8 @@ impl<D: for<'a> ArenaDecode<'a>> Owned<D> {
 ///
 /// # Errors
 /// Returns the decoder's [`DecodeError`] (and drops the bytes/arena) for malformed or over-nested
-/// input.
+/// input. (A generated decoder never panics; were one to unwind, the input bytes would leak — a
+/// leak, never UB.)
 pub fn decode_owned<D>(input: impl Into<Box<[u8]>>) -> Result<Owned<D>, DecodeError>
 where
     D: for<'a> ArenaDecode<'a>,
@@ -137,7 +150,9 @@ mod tests {
         DecodeError::new(crate::ErrorKind::InputTooLarge, 0)
     }
 
-    impl<'a> ArenaDecode<'a> for MockDecoder {
+    // SAFETY: `Mock<'a>` holds only `&'a` shared references -- covariant, layout-stable, no interior
+    // mutability over `'a`.
+    unsafe impl<'a> ArenaDecode<'a> for MockDecoder {
         type Message = Mock<'a>;
         fn decode_borrowed(
             input: &'a [u8],
