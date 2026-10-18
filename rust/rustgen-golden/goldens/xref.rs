@@ -237,6 +237,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(A);
 
     pub struct B<'a> {
       a: Option<&'a A<'a>>,
@@ -264,6 +265,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(B);
 
     #[derive(Default)]
     pub struct Nested<'a> {
@@ -282,6 +284,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(Nested);
 
     pub mod nested {
       pub struct User<'a> {
@@ -389,6 +392,7 @@ pub mod arena {
         }
       }
 
+      ::rapidproto::impl_decode_owned!(User);
 
       pub mod user {
         pub enum Pick<'a> {
@@ -434,6 +438,7 @@ pub mod arena {
         }
       }
 
+      ::rapidproto::impl_decode_owned!(Def);
 
       pub mod def {
         pub struct Inner<'a> {
@@ -463,6 +468,7 @@ pub mod arena {
           }
         }
 
+        ::rapidproto::impl_decode_owned!(Inner);
 
         impl<'a> Inner<'a> {
           pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Inner<'a>, ::rapidproto::DecodeError> {
@@ -556,6 +562,7 @@ pub mod arena {
         }
       }
 
+      ::rapidproto::impl_decode_owned!(P);
 
       pub struct Q<'a> {
         p: Option<&'a P<'a>>,
@@ -583,6 +590,7 @@ pub mod arena {
         }
       }
 
+      ::rapidproto::impl_decode_owned!(Q);
 
       impl<'a> User<'a> {
         pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a User<'a>, ::rapidproto::DecodeError> {
@@ -1293,6 +1301,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(FwdMsg);
 
     pub mod fwd_msg {
       pub struct Ref<'a> {
@@ -1350,6 +1359,7 @@ pub mod arena {
         }
       }
 
+      ::rapidproto::impl_decode_owned!(Ref);
 
       pub mod r#ref {
         pub enum Pick<'a> {
@@ -1394,6 +1404,7 @@ pub mod arena {
         }
       }
 
+      ::rapidproto::impl_decode_owned!(Target);
 
       impl<'a> Ref<'a> {
         pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Ref<'a>, ::rapidproto::DecodeError> {
@@ -1737,6 +1748,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(CousinA);
 
     pub mod cousin_a {
       pub struct Use<'a> {
@@ -1785,6 +1797,7 @@ pub mod arena {
         }
       }
 
+      ::rapidproto::impl_decode_owned!(Use);
 
       impl<'a> Use<'a> {
         pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Use<'a>, ::rapidproto::DecodeError> {
@@ -1913,6 +1926,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(CousinB);
 
     pub mod cousin_b {
       pub struct Thing<'a> {
@@ -1942,6 +1956,7 @@ pub mod arena {
         }
       }
 
+      ::rapidproto::impl_decode_owned!(Thing);
 
       impl<'a> Thing<'a> {
         pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Thing<'a>, ::rapidproto::DecodeError> {
@@ -2098,6 +2113,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(ReservedNames);
 
     #[derive(Default)]
     pub struct IntWrap<'a> {
@@ -2128,6 +2144,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(IntWrap);
 
     #[derive(Default)]
     pub struct BoolWrap<'a> {
@@ -2158,6 +2175,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(BoolWrap);
 
     pub struct BytesWrap<'a> {
       value: &'a [u8],
@@ -2186,6 +2204,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(BytesWrap);
 
     impl<'a> A<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a A<'a>, ::rapidproto::DecodeError> {

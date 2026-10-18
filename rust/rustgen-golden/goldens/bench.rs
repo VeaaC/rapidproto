@@ -92,6 +92,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(Address);
 
     pub struct Attribute<'a> {
       key: ::rapidproto::ProtoStr<'a>,
@@ -130,6 +131,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(Attribute);
 
     pub struct Person<'a> {
       id: i64,
@@ -257,6 +259,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(Person);
 
     pub struct Dataset<'a> {
       name: ::rapidproto::ProtoStr<'a>,
@@ -305,6 +308,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(Dataset);
 
     pub struct Wide<'a> {
       a: &'a [i32],
@@ -383,6 +387,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(Wide);
 
     pub struct WideSet<'a> {
       items: &'a [Wide<'a>],
@@ -411,6 +416,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(WideSet);
 
     pub struct Big<'a> {
       numbers: &'a [i64],
@@ -469,6 +475,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(Big);
 
     pub struct BigSet<'a> {
       items: &'a [Big<'a>],
@@ -497,6 +504,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(BigSet);
 
     #[derive(Default)]
     pub struct Vec3<'a> {
@@ -547,6 +555,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(Vec3);
 
     pub struct Particle<'a> {
       id: i64,
@@ -603,6 +612,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(Particle);
 
     pub struct ParticleSet<'a> {
       items: &'a [Particle<'a>],
@@ -631,6 +641,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(ParticleSet);
 
     #[derive(Default)]
     pub struct Sample<'a> {
@@ -711,6 +722,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(Sample);
 
     pub struct Record<'a> {
       f1: i32,
@@ -927,6 +939,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(Record);
 
     pub struct RecordSet<'a> {
       records: &'a [Record<'a>],
@@ -955,6 +968,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(RecordSet);
 
     impl<'a> Address<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Address<'a>, ::rapidproto::DecodeError> {

@@ -343,6 +343,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(M);
 
     pub mod m {
       pub enum Pick {
@@ -378,6 +379,7 @@ pub mod arena {
         }
       }
 
+      ::rapidproto::impl_decode_owned!(int);
 
       impl<'a> int<'a> {
         pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a int<'a>, ::rapidproto::DecodeError> {
@@ -478,6 +480,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(Outer);
 
     pub mod outer {
       #[derive(Default)]
@@ -518,6 +521,7 @@ pub mod arena {
         }
       }
 
+      ::rapidproto::impl_decode_owned!(Outer);
 
       impl<'a> Outer<'a> {
         pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Outer<'a>, ::rapidproto::DecodeError> {
@@ -648,6 +652,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(Gnu);
 
     pub mod gnu {
       #[derive(Default)]
@@ -679,6 +684,7 @@ pub mod arena {
         }
       }
 
+      ::rapidproto::impl_decode_owned!(linux);
 
       impl<'a> linux<'a> {
         pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a linux<'a>, ::rapidproto::DecodeError> {
@@ -789,6 +795,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(Stdint);
 
     #[derive(Default)]
     pub struct unix<'a> {
@@ -819,6 +826,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(unix);
 
     #[derive(Default)]
     pub struct m_bytes<'a> {
@@ -849,6 +857,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(m_bytes);
 
     pub struct UsesMBytes<'a> {
       m_bytes: i32,
@@ -886,6 +895,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(UsesMBytes);
 
     #[derive(Default)]
     pub struct Shadow<'a> {
@@ -915,6 +925,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(Shadow);
 
     pub mod shadow {
       #[derive(Default)]
@@ -946,6 +957,7 @@ pub mod arena {
         }
       }
 
+      ::rapidproto::impl_decode_owned!(Inner);
 
       impl<'a> Inner<'a> {
         pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Inner<'a>, ::rapidproto::DecodeError> {
@@ -1046,6 +1058,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(Deep);
 
     pub mod deep {
       #[derive(Default)]
@@ -1076,6 +1089,7 @@ pub mod arena {
         }
       }
 
+      ::rapidproto::impl_decode_owned!(Deep);
 
       pub mod deep {
         #[derive(Default)]
@@ -1107,6 +1121,7 @@ pub mod arena {
           }
         }
 
+        ::rapidproto::impl_decode_owned!(Deep);
 
         impl<'a> Deep<'a> {
           pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Deep<'a>, ::rapidproto::DecodeError> {
@@ -1283,6 +1298,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(Std);
 
     pub mod std {
       #[derive(Default)]
@@ -1314,6 +1330,7 @@ pub mod arena {
         }
       }
 
+      ::rapidproto::impl_decode_owned!(std);
 
       impl<'a> std<'a> {
         pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a std<'a>, ::rapidproto::DecodeError> {
@@ -1415,6 +1432,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(StdEnum);
 
     #[derive(Default)]
     pub struct StdField<'a> {
@@ -1445,6 +1463,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(StdField);
 
     pub struct StdMap<'a> {
       std: ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, i32>,
@@ -1473,6 +1492,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(StdMap);
 
     pub struct Macros<'a> {
       m: macros::RP_FLATTEN<'a>,
@@ -1520,6 +1540,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(Macros);
 
     pub mod macros {
       #[derive(Default)]
@@ -1551,6 +1572,7 @@ pub mod arena {
         }
       }
 
+      ::rapidproto::impl_decode_owned!(RP_FLATTEN);
 
       impl<'a> RP_FLATTEN<'a> {
         pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a RP_FLATTEN<'a>, ::rapidproto::DecodeError> {
@@ -1668,6 +1690,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(OneofTags);
 
     pub mod oneof_tags {
       pub enum Eof {
@@ -1712,6 +1735,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(UsesStream);
 
     pub struct Freed<'a> {
       Callbacks: i32,
@@ -1777,6 +1801,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(Freed);
 
     pub mod freed {
       pub enum RpfsOneof {
@@ -1811,6 +1836,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(FreedOneof);
 
     pub mod freed_oneof {
       pub enum Rpfs {

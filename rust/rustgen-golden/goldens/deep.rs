@@ -99,6 +99,7 @@ pub mod arena {
           }
         }
 
+        ::rapidproto::impl_decode_owned!(Outer);
 
         pub mod outer {
           #[derive(Default)]
@@ -130,6 +131,7 @@ pub mod arena {
             }
           }
 
+          ::rapidproto::impl_decode_owned!(Inner);
 
           impl<'a> Inner<'a> {
             pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Inner<'a>, ::rapidproto::DecodeError> {

@@ -494,7 +494,8 @@ struct AccessorNames {
 AccessorNames message_accessor_names(const MessageNode& msg,
                                      const std::unordered_set<std::string>& extra_reserved) {
     std::unordered_set<std::string> taken = extra_reserved;
-    taken.insert("decode");              // the generated decode() method lives in the same impl
+    taken.insert("decode");        // the generated decode() method lives in the same impl
+    taken.insert("decode_owned");  // the alloc-gated owning-handle constructor (impl_decode_owned!)
     taken.insert("has_unknown_fields");  // the field-modes unknown-fields accessor (when enabled)
     AccessorNames names;
     const auto assign = [&taken](const std::string& raw) {
@@ -2431,6 +2432,17 @@ void emit_message_serialize(Printer& printer, const NameTable& table, const Mess
     printer.print("}\n\n");
 }
 
+// The owning-handle API (behind `alloc`): one runtime macro expands to the `ArenaDecode` tag impl on
+// `$M$<'static>` (no separate marker type) + the `$M$::decode_owned` convenience over the runtime
+// `::rapidproto::decode_owned` -- the Rust pendant of C++'s `decode_owned`. Emitting the macro call,
+// not the boilerplate, keeps each message to one line and the SAFETY rationale in one place (the
+// macro definition). The macro `alloc`-gates its own output, so no `#[cfg]` is emitted here. Ends
+// with a single newline (no trailing blank): the caller separates items with its own blank lines.
+// `$M$` is set by the caller.
+void emit_message_owned(Printer& printer) {
+    printer.print("::rapidproto::impl_decode_owned!($M$);\n");
+}
+
 void emit_message(Printer& printer, const NameTable& table,
                   const std::vector<std::string>& current_mod, const MessageNode& msg,
                   const FieldModes& modes, const LayoutSet& layouts) {
@@ -2444,6 +2456,8 @@ void emit_message(Printer& printer, const NameTable& table,
     emit_message_accessors(printer, table, current_mod, msg, modes, accessors, submodule, layout);
     // The `serde::Serialize` impl (behind the `serde` feature) reads those same getters.
     emit_message_serialize(printer, table, msg, modes, accessors, submodule);
+    // The owning-handle API (`decode_owned`, behind `alloc`).
+    emit_message_owned(printer);
 }
 
 // Emit the `decode` + `decode_into` impl for one message, in its OWN module (`current_mod`) but after

@@ -46,6 +46,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(Small);
 
     #[derive(Default)]
     pub struct ReqInline<'a> {
@@ -84,6 +85,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(ReqInline);
 
     #[derive(Default)]
     pub struct ManyRequired<'a> {
@@ -624,6 +626,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(ManyRequired);
 
     impl<'a> Small<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Small<'a>, ::rapidproto::DecodeError> {

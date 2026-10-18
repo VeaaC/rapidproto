@@ -1301,3 +1301,28 @@ fn a_stray_end_group_tag_is_rejected_by_the_decode_loop() {
     let arena = Arena::new();
     assert!(Msg::decode(&buf, &arena).is_err());
 }
+
+// The owning handle (§4 decode_owned): the deferred parity N/A, now covered. `alloc`-gated.
+#[cfg(feature = "alloc")]
+#[test]
+fn decode_owned_is_self_contained() {
+    // self (field 5) wrapping { implicit_i: 7, name: "deep" }, with the outer implicit_i = 1.
+    let mut inner = Vec::new();
+    put_var(&mut inner, 1, 7);
+    put_len(&mut inner, 3, b"deep");
+    let mut buf = Vec::new();
+    put_var(&mut buf, 1, 1);
+    put_len(&mut buf, 5, &inner);
+
+    let owned = Msg::decode_owned(buf).expect("decode_owned");
+    // Move the handle (it owns its bytes + arena, so the tree stays valid with no external lifetime).
+    let owned = vec![owned].into_iter().next().unwrap();
+    let msg = owned.get();
+    assert_eq!(msg.implicit_i(), 1);
+    let nested = msg.self_().expect("self present");
+    assert_eq!(nested.implicit_i(), 7);
+    assert_eq!(nested.name().as_bytes(), b"deep");
+
+    // Invalid input returns an error (no panic); the bytes + arena are dropped.
+    assert!(Msg::decode_owned(vec![0xffu8]).is_err());
+}

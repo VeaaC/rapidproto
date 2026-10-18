@@ -117,6 +117,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(Expanded);
 
     impl<'a> Expanded<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Expanded<'a>, ::rapidproto::DecodeError> {

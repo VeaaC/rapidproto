@@ -32,6 +32,8 @@ mod decode_slot;
 mod decode_vec;
 mod error;
 mod map;
+#[cfg(feature = "alloc")]
+mod owned;
 mod packed_varint;
 mod proto_str;
 #[cfg(feature = "serde")]
@@ -48,7 +50,60 @@ pub use decode_slot::{decode_value, Init, Slot};
 pub use decode_vec::DecodeVec;
 pub use error::{DecodeError, ErrorKind};
 pub use map::MapView;
+#[cfg(feature = "alloc")]
+pub use owned::{decode_owned, ArenaDecode, Owned};
 pub use proto_str::ProtoStr;
+
+/// Re-export of the standard `Box` (only with `alloc`), so a generated `decode_owned` can name
+/// `::rapidproto::Box<[u8]>` without the consumer crate spelling an `alloc`/`std` path itself.
+/// Internal to the generated glue, not part of the public API.
+#[cfg(feature = "alloc")]
+#[doc(hidden)]
+pub use alloc::boxed::Box;
+
+/// Implement the owning-handle API for a generated message type `$msg`: the [`ArenaDecode`] tag impl
+/// on `$msg<'static>` plus the `$msg::decode_owned` convenience over [`decode_owned`]. Generated code
+/// invokes this once per message instead of expanding the boilerplate into every file; `$msg`
+/// resolves at the call site. Internal to the generated glue, not a consumer-facing macro.
+///
+/// The emitted items are themselves `#[cfg(feature = "alloc")]`-gated (on the *including* crate's
+/// feature), so the invocation needs no gate: without `alloc` it expands to nothing. Defined here at
+/// the crate root (not in the `alloc`-only `owned` module) so the macro resolves even in a no-`alloc`
+/// build, where it expands away.
+///
+/// # Safety of the emitted `unsafe impl`
+/// A generated message borrows the input/arena only through shared `&'a` references (scalars,
+/// `ProtoStr`, slices, `MapView`, by-value or `&` sub-messages): it is covariant in `'a`,
+/// layout-identical at every lifetime, and free of interior mutability over the borrow — exactly
+/// [`ArenaDecode`]'s contract. Only invoke this for a type with those properties (every `rustgen`
+/// message has them).
+#[macro_export]
+#[doc(hidden)]
+macro_rules! impl_decode_owned {
+    ($msg:ident) => {
+        #[cfg(feature = "alloc")]
+        unsafe impl $crate::ArenaDecode for $msg<'static> {
+            type Message<'a> = $msg<'a>;
+            fn decode_borrowed<'a>(
+                rp_input: &'a [u8],
+                rp_arena: &'a $crate::Arena<'a>,
+            ) -> ::core::result::Result<&'a $msg<'a>, $crate::DecodeError> {
+                $msg::decode(rp_input, rp_arena)
+            }
+        }
+
+        #[cfg(feature = "alloc")]
+        impl<'a> $msg<'a> {
+            /// Decode `input` into a self-contained handle that owns the bytes and the arena; read
+            /// the message with `Owned::get`. No external lifetime to manage.
+            pub fn decode_owned(
+                rp_input: impl ::core::convert::Into<$crate::Box<[u8]>>,
+            ) -> ::core::result::Result<$crate::Owned<$msg<'static>>, $crate::DecodeError> {
+                $crate::decode_owned::<$msg<'static>>(rp_input)
+            }
+        }
+    };
+}
 
 /// The maximum nesting a generated `decode` descends through length-delimited sub-messages before
 /// giving up with [`ErrorKind::DepthLimitExceeded`], so pathological nesting cannot exhaust the stack.

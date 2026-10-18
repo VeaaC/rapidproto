@@ -40,6 +40,7 @@ pub mod arena {
     }
   }
 
+  ::rapidproto::impl_decode_owned!(Root);
 
   pub mod root {
     #[derive(Default)]
@@ -71,6 +72,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(Sub);
 
     impl<'a> Sub<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Sub<'a>, ::rapidproto::DecodeError> {

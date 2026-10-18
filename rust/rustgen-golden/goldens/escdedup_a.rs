@@ -74,6 +74,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(decode_);
 
     #[derive(Default)]
     pub struct Holder<'a> {
@@ -113,6 +114,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(Holder);
 
     impl<'a> decode_<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a decode_<'a>, ::rapidproto::DecodeError> {

@@ -49,6 +49,7 @@ pub mod arena {
             }
           }
 
+          ::rapidproto::impl_decode_owned!(Entry);
 
           impl<'a> Entry<'a> {
             pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Entry<'a>, ::rapidproto::DecodeError> {

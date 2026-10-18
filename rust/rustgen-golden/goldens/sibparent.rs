@@ -37,6 +37,7 @@ pub mod arena {
       }
     }
 
+    ::rapidproto::impl_decode_owned!(logging);
 
     impl<'a> logging<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a logging<'a>, ::rapidproto::DecodeError> {
