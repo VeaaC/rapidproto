@@ -12,6 +12,7 @@
 // the files to emit together (the resolved set) as a vector of pointers.
 
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "rapidproto/arenagen/layout.hpp"  // LayoutSet: the shared storage-layout planner's output
@@ -52,5 +53,12 @@ std::string generate_arena(const std::vector<const FileNode*>& files, const Layo
 // the resolved field-modes profile (default: materialize everything).
 std::string generate_file(const std::vector<const FileNode*>& files, const LayoutSet& layouts,
                           const FieldModes& modes = {});
+
+// The absolute arena type path (e.g. `arena::pkg::Msg`) for every message in `files`, keyed by its
+// protobuf FQN -- the path that `include!`-ing the generated `.rs` exposes. The differential test's
+// harness generator uses this to decode a message named at runtime by its FQN (the Rust analog of
+// the C++ harness computing C++ type names); it is independent of the layout/modes, since naming is.
+std::vector<std::pair<std::string, std::string>> arena_type_paths(
+    const std::vector<const FileNode*>& files);
 
 }  // namespace rapidproto::rustgen

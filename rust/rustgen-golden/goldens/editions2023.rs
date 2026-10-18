@@ -6,6 +6,16 @@ pub mod common {
     #[repr(transparent)]
     pub struct E(pub i32);
 
+    #[cfg(feature = "serde")]
+    impl ::rapidproto::serde::Serialize for E {
+      fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+      where
+        RpS: ::rapidproto::serde::Serializer,
+      {
+        rp_ser.serialize_i32(self.0)
+      }
+    }
+
     impl E {
       pub const ZERO: E = E(0);
       pub const ONE: E = E(1);
@@ -33,6 +43,16 @@ pub mod common {
       #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
       #[repr(transparent)]
       pub struct Inner(pub i32);
+
+      #[cfg(feature = "serde")]
+      impl ::rapidproto::serde::Serialize for Inner {
+        fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+        where
+          RpS: ::rapidproto::serde::Serializer,
+        {
+          rp_ser.serialize_i32(self.0)
+        }
+      }
 
       impl Inner {
         pub const ZERO: Inner = Inner(0);
@@ -91,6 +111,51 @@ pub mod arena {
         self.delim
       }
     }
+    #[cfg(feature = "serde")]
+    impl<'a> ::rapidproto::serde::Serialize for M<'a> {
+      fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+      where
+        RpS: ::rapidproto::serde::Serializer,
+      {
+        use ::rapidproto::serde::ser::SerializeMap as _;
+        let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
+        {
+          let rp_v = self.implicit_scalar();
+          if rp_v != 0 {
+            rp_map.serialize_entry("implicit_scalar", &rp_v)?;
+          }
+        }
+        {
+          if let Some(rp_v) = self.explicit_scalar() {
+            rp_map.serialize_entry("explicit_scalar", &rp_v)?;
+          }
+        }
+        {
+          if let Some(rp_v) = self.child() {
+            rp_map.serialize_entry("child", rp_v)?;
+          }
+        }
+        {
+          let rp_v = self.packed_nums();
+          if !rp_v.is_empty() {
+            rp_map.serialize_entry("packed_nums", &rp_v)?;
+          }
+        }
+        {
+          let rp_v = self.expanded_nums();
+          if !rp_v.is_empty() {
+            rp_map.serialize_entry("expanded_nums", &rp_v)?;
+          }
+        }
+        {
+          if let Some(rp_v) = self.delim() {
+            rp_map.serialize_entry("delim", rp_v)?;
+          }
+        }
+        rp_map.end()
+      }
+    }
+
 
     impl<'a> M<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a M<'a>, ::rapidproto::DecodeError> {

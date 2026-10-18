@@ -276,6 +276,25 @@ void emit_enum(Printer& printer, const NameTable& table, const EnumNode& node) {
     printer.print("#[repr(transparent)]\n");
     printer.print("pub struct $T$(pub i32);\n\n");
 
+    // serde (behind the `serde` feature): an open enum serializes as its raw `i32`, preserving any
+    // value the schema does not name -- the lossless choice for a forward-compatible enum.
+    printer.print("#[cfg(feature = \"serde\")]\n");
+    printer.print("impl ::rapidproto::serde::Serialize for $T$ {\n");
+    printer.indent();
+    printer.print(
+        "fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>\n");
+    printer.print("where\n");
+    printer.indent();
+    printer.print("RpS: ::rapidproto::serde::Serializer,\n");
+    printer.outdent();
+    printer.print("{\n");
+    printer.indent();
+    printer.print("rp_ser.serialize_i32(self.0)\n");
+    printer.outdent();
+    printer.print("}\n");
+    printer.outdent();
+    printer.print("}\n\n");
+
     printer.print("impl $T$ {\n");
     printer.indent();
     for (std::size_t i = 0; i < node.values.size(); ++i) {
@@ -2228,6 +2247,190 @@ void emit_message_accessors(Printer& printer, const NameTable& table,
     printer.print("}\n");
 }
 
+// --- serde Serialize (behind the `serde` feature) --------------------------------------------------
+// A message serializes as a map keyed by PROTO field names, carrying exactly the fields the debug
+// dumper prints (so the two agree): explicit => when set; proto3 implicit => when non-default;
+// required => always; repeated/map => when non-empty; a oneof => its active member as a direct entry.
+// Values route through serde -- `bytes` via the Bytes helper (one opaque value, not a seq of u8),
+// an open enum as its i32, strings/sub-messages/maps through their own impls. Reads the SAME public
+// getters as the accessors, so a wrong decoded value shows up here too.
+
+// A Rust string literal for a proto field name (names are `[A-Za-z0-9_]`, so no escaping needed).
+std::string rust_str_lit(const std::string& name) {
+    return "\"" + name + "\"";
+}
+
+// Is a field/map-value/oneof-member a `bytes` scalar? (Shared so the three serialize sites -- field,
+// map value, oneof member, each over a different node struct -- test it one way.) The two bool flags
+// are both negated and ANDed, so transposing them cannot change the result.
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
+bool is_scalar_bytes(bool is_message, bool is_enum, const std::string& type_name) {
+    return !is_message && !is_enum && type_name == "bytes";
+}
+
+// Serialized as an opaque `bytes` value? True for a `bytes` scalar and for any raw-mode field (its
+// payload materializes as bytes).
+bool serialize_as_bytes(const FieldModes& modes, const FieldNode& field) {
+    return field_mode(modes, field) == arenagen::FieldMode::Raw ||
+           is_scalar_bytes(field.is_message_type, field.is_enum_type, field.type_name);
+}
+
+void emit_field_serialize(Printer& printer, const FieldNode& field, const std::string& accessor,
+                          const FieldModes& modes) {
+    const std::string key = rust_str_lit(field.name);
+    const arenagen::FieldMode mode = field_mode(modes, field);
+    const bool bytes = serialize_as_bytes(modes, field);
+    printer.print("{\n");
+    printer.indent();
+    if (field.is_repeated) {
+        printer.print("let rp_v = self.$a$();\n", {{"a", accessor}});
+        printer.print("if !rp_v.is_empty() {\n");
+        printer.indent();
+        if (bytes) {
+            printer.print(
+                "rp_map.serialize_entry($n$, &::rapidproto::serde_support::BytesSeq(rp_v))?;\n",
+                {{"n", key}});
+        } else {
+            printer.print("rp_map.serialize_entry($n$, &rp_v)?;\n", {{"n", key}});
+        }
+        printer.outdent();
+        printer.print("}\n");
+    } else if (mode == arenagen::FieldMode::Raw) {
+        // Raw singular (a message/group kept as its wire payload) comes back as `Option<&[u8]>`.
+        printer.print("if let Some(rp_v) = self.$a$() {\n", {{"a", accessor}});
+        printer.indent();
+        printer.print("rp_map.serialize_entry($n$, &::rapidproto::serde_support::Bytes(rp_v))?;\n",
+                      {{"n", key}});
+        printer.outdent();
+        printer.print("}\n");
+    } else if (field.is_message_type) {
+        // A singular message getter returns `Option<&Msg>` for every presence (required => Some).
+        printer.print("if let Some(rp_v) = self.$a$() {\n", {{"a", accessor}});
+        printer.indent();
+        printer.print("rp_map.serialize_entry($n$, rp_v)?;\n", {{"n", key}});
+        printer.outdent();
+        printer.print("}\n");
+    } else {
+        const std::string val = bytes ? "&::rapidproto::serde_support::Bytes(rp_v)" : "&rp_v";
+        if (field.presence == FieldPresence::Explicit) {
+            printer.print("if let Some(rp_v) = self.$a$() {\n", {{"a", accessor}});
+            printer.indent();
+            printer.print("rp_map.serialize_entry($n$, $val$)?;\n", {{"n", key}, {"val", val}});
+            printer.outdent();
+            printer.print("}\n");
+        } else if (field.presence == FieldPresence::Required) {
+            printer.print("let rp_v = self.$a$();\n", {{"a", accessor}});
+            printer.print("rp_map.serialize_entry($n$, $val$)?;\n", {{"n", key}, {"val", val}});
+        } else {  // Implicit (proto3 singular): emit only a non-default value, as protobuf JSON does.
+            std::string cond;
+            if (field.is_enum_type) {
+                cond = "rp_v.0 != 0";
+            } else if (field.type_name == "bool") {
+                cond = "rp_v";
+            } else if (field.type_name == "float" || field.type_name == "double") {
+                // Only +0.0 is the omittable default; -0.0 (and NaN) are present -- matching the
+                // dumper's is_positive_zero rule and protobuf. `!= 0.0` would wrongly drop -0.0.
+                cond = "rp_v.to_bits() != 0";
+            } else if (field.type_name == "string" || field.type_name == "bytes") {
+                cond = "!rp_v.is_empty()";
+            } else {
+                cond = "rp_v != 0";
+            }
+            printer.print("let rp_v = self.$a$();\n", {{"a", accessor}});
+            printer.print("if $c$ {\n", {{"c", cond}});
+            printer.indent();
+            printer.print("rp_map.serialize_entry($n$, $val$)?;\n", {{"n", key}, {"val", val}});
+            printer.outdent();
+            printer.print("}\n");
+        }
+    }
+    printer.outdent();
+    printer.print("}\n");
+}
+
+// NOLINTBEGIN(bugprone-easily-swappable-parameters): accessor (method name) vs submodule (module path)
+void emit_oneof_serialize(Printer& printer, const NameTable& table, const OneofNode& oneof,
+                          const std::string& accessor, const std::string& submodule) {
+    // NOLINTEND(bugprone-easily-swappable-parameters)
+    const std::vector<std::string> variants = oneof_variant_names(oneof);
+    const std::string enum_path = submodule + "::" + table.oneofs.at(&oneof);
+    printer.print("if let Some(rp_o) = self.$a$() {\n", {{"a", accessor}});
+    printer.indent();
+    printer.print("match rp_o {\n");
+    printer.indent();
+    for (std::size_t i = 0; i < oneof.fields.size(); ++i) {
+        const FieldNode& member = oneof.fields[i];
+        const std::string key = rust_str_lit(member.name);
+        // A `bytes` member is matched as `&&[u8]`; deref once for the Bytes helper. Everything else
+        // (scalar/enum by value, string, message-by-ref) is passed through the bound reference.
+        const std::string val =
+            is_scalar_bytes(member.is_message_type, member.is_enum_type, member.type_name)
+                ? "&::rapidproto::serde_support::Bytes(*rp_v)"
+                : "rp_v";
+        printer.print("$e$::$v$(rp_v) => rp_map.serialize_entry($n$, $val$)?,\n",
+                      {{"e", enum_path}, {"v", variants[i]}, {"n", key}, {"val", val}});
+    }
+    printer.outdent();
+    printer.print("}\n");
+    printer.outdent();
+    printer.print("}\n");
+}
+
+void emit_map_serialize(Printer& printer, const MapFieldNode& map, const std::string& accessor) {
+    // A bytes-valued map must serialize its values opaquely (BytesMapView), not via the generic
+    // MapView impl -- serde would otherwise render a `&[u8]` value as a seq of u8.
+    const std::string val = is_scalar_bytes(map.value_is_message, map.value_is_enum, map.value_type)
+                                ? "&::rapidproto::serde_support::BytesMapView(rp_v)"
+                                : "&rp_v";
+    printer.print("{\n");
+    printer.indent();
+    printer.print("let rp_v = self.$a$();\n", {{"a", accessor}});
+    printer.print("if !rp_v.is_empty() {\n");
+    printer.indent();
+    printer.print("rp_map.serialize_entry($n$, $val$)?;\n",
+                  {{"n", rust_str_lit(map.name)}, {"val", val}});
+    printer.outdent();
+    printer.print("}\n");
+    printer.outdent();
+    printer.print("}\n");
+}
+
+void emit_message_serialize(Printer& printer, const NameTable& table, const MessageNode& msg,
+                            const FieldModes& modes, const AccessorNames& accessors,
+                            const std::string& submodule) {
+    printer.print("#[cfg(feature = \"serde\")]\n");
+    printer.print("impl<'a> ::rapidproto::serde::Serialize for $M$<'a> {\n");
+    printer.indent();
+    printer.print(
+        "fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>\n");
+    printer.print("where\n");
+    printer.indent();
+    printer.print("RpS: ::rapidproto::serde::Serializer,\n");
+    printer.outdent();
+    printer.print("{\n");
+    printer.indent();
+    printer.print("use ::rapidproto::serde::ser::SerializeMap as _;\n");
+    printer.print("let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;\n");
+    for (std::size_t i = 0; i < msg.fields.size(); ++i) {
+        if (field_mode(modes, msg.fields[i]) != arenagen::FieldMode::Drop) {
+            emit_field_serialize(printer, msg.fields[i], accessors.fields[i], modes);
+        }
+    }
+    for (std::size_t i = 0; i < msg.map_fields.size(); ++i) {
+        if (map_mode(modes, msg.map_fields[i]) != arenagen::FieldMode::Drop) {
+            emit_map_serialize(printer, msg.map_fields[i], accessors.maps[i]);
+        }
+    }
+    for (std::size_t i = 0; i < msg.oneofs.size(); ++i) {
+        emit_oneof_serialize(printer, table, msg.oneofs[i], accessors.oneofs[i], submodule);
+    }
+    printer.print("rp_map.end()\n");
+    printer.outdent();
+    printer.print("}\n");
+    printer.outdent();
+    printer.print("}\n\n");
+}
+
 void emit_message(Printer& printer, const NameTable& table,
                   const std::vector<std::string>& current_mod, const MessageNode& msg,
                   const FieldModes& modes, const LayoutSet& layouts) {
@@ -2239,6 +2442,8 @@ void emit_message(Printer& printer, const NameTable& table,
     // The `decode`/`decode_into` impl is emitted at the end of the arena module ([`emit_message_decode`])
     // so a reader skims the whole getter API without the wire-loop bodies in between.
     emit_message_accessors(printer, table, current_mod, msg, modes, accessors, submodule, layout);
+    // The `serde::Serialize` impl (behind the `serde` feature) reads those same getters.
+    emit_message_serialize(printer, table, msg, modes, accessors, submodule);
 }
 
 // Emit the `decode` + `decode_into` impl for one message, in its OWN module (`current_mod`) but after
@@ -2397,6 +2602,30 @@ std::string generate_common(const std::vector<const FileNode*>& files) {
     printer.outdent();
     printer.print("}\n");
     return printer.str();
+}
+
+std::vector<std::pair<std::string, std::string>> arena_type_paths(
+    const std::vector<const FileNode*>& files) {
+    // Rebuilds the name table independently of generate_rust (a caller may want the paths alone, and
+    // naming is modes-independent, so this stays a standalone entry point). The rebuild is
+    // generation-time and O(small); the type path mirrors emission -- `arena` + the module segments
+    // + the type name -- so the two must move together.
+    PkgTrie root = build_pkg_trie(files);
+    assign_emitted_names(root);
+    const NameTable table = build_name_table(root);
+    std::vector<std::pair<std::string, std::string>> out;
+    out.reserve(table.messages.size());
+    for (const auto& [fqn, names] : table.messages) {
+        std::string path = "arena";
+        for (const std::string& seg : names.module) {
+            path += "::";
+            path += seg;
+        }
+        path += "::";
+        path += names.type_name;
+        out.emplace_back(fqn, path);
+    }
+    return out;
 }
 
 std::string generate_arena(const std::vector<const FileNode*>& files, const LayoutSet& layouts,

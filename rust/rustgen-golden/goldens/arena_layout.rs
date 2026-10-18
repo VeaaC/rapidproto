@@ -6,6 +6,16 @@ pub mod common {
     #[repr(transparent)]
     pub struct Color(pub i32);
 
+    #[cfg(feature = "serde")]
+    impl ::rapidproto::serde::Serialize for Color {
+      fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+      where
+        RpS: ::rapidproto::serde::Serializer,
+      {
+        rp_ser.serialize_i32(self.0)
+      }
+    }
+
     impl Color {
       pub const RED: Color = Color(0);
       pub const GREEN: Color = Color(1);
@@ -53,6 +63,30 @@ pub mod arena {
         self.y
       }
     }
+    #[cfg(feature = "serde")]
+    impl<'a> ::rapidproto::serde::Serialize for Point<'a> {
+      fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+      where
+        RpS: ::rapidproto::serde::Serializer,
+      {
+        use ::rapidproto::serde::ser::SerializeMap as _;
+        let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
+        {
+          let rp_v = self.x();
+          if rp_v != 0 {
+            rp_map.serialize_entry("x", &rp_v)?;
+          }
+        }
+        {
+          let rp_v = self.y();
+          if rp_v != 0 {
+            rp_map.serialize_entry("y", &rp_v)?;
+          }
+        }
+        rp_map.end()
+      }
+    }
+
 
     #[derive(Default)]
     pub struct Big<'a> {
@@ -73,6 +107,36 @@ pub mod arena {
         self.c
       }
     }
+    #[cfg(feature = "serde")]
+    impl<'a> ::rapidproto::serde::Serialize for Big<'a> {
+      fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+      where
+        RpS: ::rapidproto::serde::Serializer,
+      {
+        use ::rapidproto::serde::ser::SerializeMap as _;
+        let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
+        {
+          let rp_v = self.a();
+          if rp_v != 0 {
+            rp_map.serialize_entry("a", &rp_v)?;
+          }
+        }
+        {
+          let rp_v = self.b();
+          if rp_v != 0 {
+            rp_map.serialize_entry("b", &rp_v)?;
+          }
+        }
+        {
+          let rp_v = self.c();
+          if rp_v != 0 {
+            rp_map.serialize_entry("c", &rp_v)?;
+          }
+        }
+        rp_map.end()
+      }
+    }
+
 
     pub struct HasString<'a> {
       s: ::rapidproto::ProtoStr<'a>,
@@ -83,6 +147,24 @@ pub mod arena {
         self.s
       }
     }
+    #[cfg(feature = "serde")]
+    impl<'a> ::rapidproto::serde::Serialize for HasString<'a> {
+      fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+      where
+        RpS: ::rapidproto::serde::Serializer,
+      {
+        use ::rapidproto::serde::ser::SerializeMap as _;
+        let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
+        {
+          let rp_v = self.s();
+          if !rp_v.is_empty() {
+            rp_map.serialize_entry("s", &rp_v)?;
+          }
+        }
+        rp_map.end()
+      }
+    }
+
 
     #[derive(Default)]
     pub struct BoolWrap<'a> {
@@ -95,6 +177,24 @@ pub mod arena {
         (self.rp_presence & (1 << 0)) != 0
       }
     }
+    #[cfg(feature = "serde")]
+    impl<'a> ::rapidproto::serde::Serialize for BoolWrap<'a> {
+      fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+      where
+        RpS: ::rapidproto::serde::Serializer,
+      {
+        use ::rapidproto::serde::ser::SerializeMap as _;
+        let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
+        {
+          let rp_v = self.value();
+          if rp_v {
+            rp_map.serialize_entry("value", &rp_v)?;
+          }
+        }
+        rp_map.end()
+      }
+    }
+
 
     pub struct SelfRef<'a> {
       next: Option<&'a SelfRef<'a>>,
@@ -109,6 +209,29 @@ pub mod arena {
         self.v
       }
     }
+    #[cfg(feature = "serde")]
+    impl<'a> ::rapidproto::serde::Serialize for SelfRef<'a> {
+      fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+      where
+        RpS: ::rapidproto::serde::Serializer,
+      {
+        use ::rapidproto::serde::ser::SerializeMap as _;
+        let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
+        {
+          if let Some(rp_v) = self.next() {
+            rp_map.serialize_entry("next", rp_v)?;
+          }
+        }
+        {
+          let rp_v = self.v();
+          if rp_v != 0 {
+            rp_map.serialize_entry("v", &rp_v)?;
+          }
+        }
+        rp_map.end()
+      }
+    }
+
 
     pub struct Layout<'a> {
       big: i64,
@@ -186,6 +309,121 @@ pub mod arena {
         self.choice.as_ref()
       }
     }
+    #[cfg(feature = "serde")]
+    impl<'a> ::rapidproto::serde::Serialize for Layout<'a> {
+      fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+      where
+        RpS: ::rapidproto::serde::Serializer,
+      {
+        use ::rapidproto::serde::ser::SerializeMap as _;
+        let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
+        {
+          let rp_v = self.b1();
+          if rp_v {
+            rp_map.serialize_entry("b1", &rp_v)?;
+          }
+        }
+        {
+          let rp_v = self.big();
+          if rp_v != 0 {
+            rp_map.serialize_entry("big", &rp_v)?;
+          }
+        }
+        {
+          let rp_v = self.b2();
+          if rp_v {
+            rp_map.serialize_entry("b2", &rp_v)?;
+          }
+        }
+        {
+          let rp_v = self.small();
+          if rp_v != 0 {
+            rp_map.serialize_entry("small", &rp_v)?;
+          }
+        }
+        {
+          if let Some(rp_v) = self.opt() {
+            rp_map.serialize_entry("opt", &rp_v)?;
+          }
+        }
+        {
+          let rp_v = self.name();
+          if !rp_v.is_empty() {
+            rp_map.serialize_entry("name", &rp_v)?;
+          }
+        }
+        {
+          if let Some(rp_v) = self.oname() {
+            rp_map.serialize_entry("oname", &rp_v)?;
+          }
+        }
+        {
+          let rp_v = self.color();
+          if rp_v.0 != 0 {
+            rp_map.serialize_entry("color", &rp_v)?;
+          }
+        }
+        {
+          if let Some(rp_v) = self.pt() {
+            rp_map.serialize_entry("pt", rp_v)?;
+          }
+        }
+        {
+          if let Some(rp_v) = self.bg() {
+            rp_map.serialize_entry("bg", rp_v)?;
+          }
+        }
+        {
+          if let Some(rp_v) = self.hs() {
+            rp_map.serialize_entry("hs", rp_v)?;
+          }
+        }
+        {
+          if let Some(rp_v) = self.flag() {
+            rp_map.serialize_entry("flag", rp_v)?;
+          }
+        }
+        {
+          let rp_v = self.nums();
+          if !rp_v.is_empty() {
+            rp_map.serialize_entry("nums", &rp_v)?;
+          }
+        }
+        {
+          let rp_v = self.points();
+          if !rp_v.is_empty() {
+            rp_map.serialize_entry("points", &rp_v)?;
+          }
+        }
+        {
+          let rp_v = self.labels();
+          if !rp_v.is_empty() {
+            rp_map.serialize_entry("labels", &rp_v)?;
+          }
+        }
+        {
+          let rp_v = self.counts();
+          if !rp_v.is_empty() {
+            rp_map.serialize_entry("counts", &rp_v)?;
+          }
+        }
+        {
+          let rp_v = self.grid();
+          if !rp_v.is_empty() {
+            rp_map.serialize_entry("grid", &rp_v)?;
+          }
+        }
+        if let Some(rp_o) = self.choice() {
+          match rp_o {
+            layout::Choice::Ci(rp_v) => rp_map.serialize_entry("ci", rp_v)?,
+            layout::Choice::Cs(rp_v) => rp_map.serialize_entry("cs", rp_v)?,
+            layout::Choice::Cp(rp_v) => rp_map.serialize_entry("cp", rp_v)?,
+          }
+        }
+        rp_map.end()
+      }
+    }
+
 
     pub mod layout {
       pub enum Choice<'a> {

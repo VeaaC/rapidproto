@@ -17,6 +17,9 @@ publish = false
 default = ["std"]
 std = ["rapidproto/std"]
 alloc = ["rapidproto/alloc"]
+# Compile-checks the generated `#[cfg(feature = "serde")]` Serialize impls (the generated code reads
+# the including crate's `serde` feature, and turns on rapidproto's).
+serde = ["rapidproto/serde"]
 
 [dependencies]
 rapidproto = { path = "../rapidproto", default-features = false }
@@ -27,6 +30,9 @@ rapidproto = { path = "../rapidproto", default-features = false }
 # normal dependency above.
 [dev-dependencies]
 rapidproto = { path = "../rapidproto" }
+# Dev-only: the serde Serializer that renders a decoded message as the differential dump JSON. Used by
+# tests/serialize.rs (run with `--features serde`) to exercise the generated Serialize impls.
+rapidproto-diff = { path = "../rapidproto-diff" }
 # Dev-only: criterion drives the decode benchmark (not a runtime dependency); default features off --
 # the bench wants timings, not the HTML/plotting stack. Matches the rapidproto wire bench.
 criterion = { version = "0.3", default-features = false }

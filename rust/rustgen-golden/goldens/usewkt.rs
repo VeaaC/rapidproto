@@ -29,6 +29,30 @@ pub mod arena {
           self.nanos
         }
       }
+      #[cfg(feature = "serde")]
+      impl<'a> ::rapidproto::serde::Serialize for Timestamp<'a> {
+        fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+        where
+          RpS: ::rapidproto::serde::Serializer,
+        {
+          use ::rapidproto::serde::ser::SerializeMap as _;
+          let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
+          {
+            let rp_v = self.seconds();
+            if rp_v != 0 {
+              rp_map.serialize_entry("seconds", &rp_v)?;
+            }
+          }
+          {
+            let rp_v = self.nanos();
+            if rp_v != 0 {
+              rp_map.serialize_entry("nanos", &rp_v)?;
+            }
+          }
+          rp_map.end()
+        }
+      }
+
 
       #[derive(Default)]
       pub struct Duration<'a> {
@@ -45,6 +69,30 @@ pub mod arena {
           self.nanos
         }
       }
+      #[cfg(feature = "serde")]
+      impl<'a> ::rapidproto::serde::Serialize for Duration<'a> {
+        fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+        where
+          RpS: ::rapidproto::serde::Serializer,
+        {
+          use ::rapidproto::serde::ser::SerializeMap as _;
+          let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
+          {
+            let rp_v = self.seconds();
+            if rp_v != 0 {
+              rp_map.serialize_entry("seconds", &rp_v)?;
+            }
+          }
+          {
+            let rp_v = self.nanos();
+            if rp_v != 0 {
+              rp_map.serialize_entry("nanos", &rp_v)?;
+            }
+          }
+          rp_map.end()
+        }
+      }
+
 
       impl<'a> Timestamp<'a> {
         pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Timestamp<'a>, ::rapidproto::DecodeError> {
@@ -234,6 +282,28 @@ pub mod arena {
         if (self.rp_presence & (1 << 1)) != 0 { Some(&self.took) } else { None }
       }
     }
+    #[cfg(feature = "serde")]
+    impl<'a> ::rapidproto::serde::Serialize for Event<'a> {
+      fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+      where
+        RpS: ::rapidproto::serde::Serializer,
+      {
+        use ::rapidproto::serde::ser::SerializeMap as _;
+        let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
+        {
+          if let Some(rp_v) = self.at() {
+            rp_map.serialize_entry("at", rp_v)?;
+          }
+        }
+        {
+          if let Some(rp_v) = self.took() {
+            rp_map.serialize_entry("took", rp_v)?;
+          }
+        }
+        rp_map.end()
+      }
+    }
+
 
     impl<'a> Event<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Event<'a>, ::rapidproto::DecodeError> {

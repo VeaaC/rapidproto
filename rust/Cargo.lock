@@ -183,6 +183,7 @@ version = "0.0.0"
 dependencies = [
  "rapidproto",
  "rapidproto-build",
+ "serde_json",
 ]
 
 [[package]]
@@ -653,6 +654,7 @@ name = "rapidproto"
 version = "0.0.0"
 dependencies = [
  "criterion",
+ "serde",
 ]
 
 [[package]]
@@ -661,6 +663,13 @@ version = "0.0.0"
 dependencies = [
  "wasmi",
  "wasmi_wasi",
+]
+
+[[package]]
+name = "rapidproto-diff"
+version = "0.0.0"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
@@ -718,6 +727,7 @@ version = "0.0.0"
 dependencies = [
  "criterion",
  "rapidproto",
+ "rapidproto-diff",
 ]
 
 [[package]]

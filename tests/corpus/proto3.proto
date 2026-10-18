@@ -39,4 +39,7 @@ message Msg {
   // comparison drops it. Nothing else in the corpus has one, so nothing else covers that.
   double ratio = 20;
   float scale = 21;
+  // A map with `bytes` VALUES: these render as opaque bytes (hex), not a seq of u8 -- the one
+  // map-value type a generic serializer gets wrong. Nothing else in the corpus has one.
+  map<string, bytes> blobs = 22;
 }

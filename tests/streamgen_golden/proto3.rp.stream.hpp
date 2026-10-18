@@ -39,6 +39,7 @@ struct Msg {
   struct flags { using Key = bool; using Value = std::string_view; static constexpr std::uint32_t kNumber = 14; static constexpr std::string_view kName = "flags"; };
   struct toggles { using Key = std::string_view; using Value = bool; static constexpr std::uint32_t kNumber = 18; static constexpr std::string_view kName = "toggles"; };
   struct ratios { using Key = std::string_view; using Value = double; static constexpr std::uint32_t kNumber = 19; static constexpr std::string_view kName = "ratios"; };
+  struct blobs { using Key = std::string_view; using Value = std::string_view; static constexpr std::uint32_t kNumber = 22; static constexpr std::string_view kName = "blobs"; };
 
   template <class... rp_Callbacks>
   [[nodiscard]] ::rapidproto::DecodeStatus decode(rp_Callbacks&&... rp_callbacks) const;
@@ -48,7 +49,7 @@ struct Msg {
 
 template <class... rp_Callbacks>
 RP_FLATTEN ::rapidproto::DecodeStatus Msg::decode(rp_Callbacks&&... rp_callbacks) const {
-  static_assert((true && ... && !::rapidproto::is_stray_callback<rp_Callbacks, implicit_i, explicit_i, name, state, self, nums, unpacked, states, reals, codes, bools, ratio, scale, a, b, c, d, counts, flags, toggles, ratios>), "a callback matches no field of '::rp::stream::p3::Msg' (and is not a catch-all or unknown-field handler)");
+  static_assert((true && ... && !::rapidproto::is_stray_callback<rp_Callbacks, implicit_i, explicit_i, name, state, self, nums, unpacked, states, reals, codes, bools, ratio, scale, a, b, c, d, counts, flags, toggles, ratios, blobs>), "a callback matches no field of '::rp::stream::p3::Msg' (and is not a catch-all or unknown-field handler)");
   [[maybe_unused]] auto rp_dispatch = ::rapidproto::combine(static_cast<rp_Callbacks&&>(rp_callbacks)...);
   const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(rp_span);
   const std::uint8_t* const rp_cend = rp_c + rp_span.size();
@@ -814,6 +815,52 @@ RP_FLATTEN ::rapidproto::DecodeStatus Msg::decode(rp_Callbacks&&... rp_callbacks
               }
             }
             if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, ratios{}, rp_key, rp_value); !rp_status.ok()) {
+              return rp_status;
+            }
+            continue;
+          }
+        }
+        break;
+      case blobs::kNumber:
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Callbacks, blobs, blobs::Key, blobs::Value>)) <= 1U, "map field 'Msg::blobs' is handled by more than one callback");
+        static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Callbacks, blobs, blobs::Key, blobs::Value>)) <= 1U, "map field 'Msg::blobs' is matched by more than one catch-all callback");
+        static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Callbacks, blobs, blobs::Key, blobs::Value>), "a callback for map field 'Msg::blobs' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+        static_assert((true && ... && !(::rapidproto::targets<rp_Callbacks, blobs, blobs::Key, blobs::Value> && !::rapidproto::specifically_handles<rp_Callbacks, blobs, blobs::Key, blobs::Value>)), "a callback for map field 'Msg::blobs' has the wrong value type (expected blobs::Key, blobs::Value)");
+        if constexpr ((false || ... || ::rapidproto::handles_one<rp_Callbacks, blobs, blobs::Key, blobs::Value>)) {
+          if (rp_tag.wire_type == ::rapidproto::WireType::Len) {
+            ::rapidproto::ByteView rp_entry;
+            { const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_entry, &rp_we); if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; } rp_c = rp_np; }
+            blobs::Key rp_key{};
+            blobs::Value rp_value{};
+            const std::uint8_t* rp_ec = ::rapidproto::wire::byte_ptr(rp_entry);
+            const std::uint8_t* const rp_ee = rp_ec + rp_entry.size();
+            ::rapidproto::Tag rp_et{};
+            for (;;) {
+              ::rapidproto::wire::TagState rp_es = ::rapidproto::wire::TagState::End;
+              const std::uint8_t* const rp_etp = ::rapidproto::wire::read_tag_or_end(rp_ec, rp_ee, &rp_et, &rp_we, &rp_es);
+              if (rp_es == ::rapidproto::wire::TagState::End) { break; }
+              if (rp_es == ::rapidproto::wire::TagState::Error) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_ec - ::rapidproto::wire::byte_ptr(rp_entry))}; }
+              rp_ec = rp_etp;
+              if (rp_et.field_number == 1 && rp_et.wire_type == ::rapidproto::WireType::Len) {
+                ::rapidproto::ByteView rp_val;
+                const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_ec, rp_ee, &rp_val, &rp_we);
+                if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_ec - ::rapidproto::wire::byte_ptr(rp_entry))}; }
+                rp_ec = rp_np;
+                rp_key = rp_val;
+              } else if (rp_et.field_number == 2 && rp_et.wire_type == ::rapidproto::WireType::Len) {
+                ::rapidproto::ByteView rp_val;
+                const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_ec, rp_ee, &rp_val, &rp_we);
+                if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_ec - ::rapidproto::wire::byte_ptr(rp_entry))}; }
+                rp_ec = rp_np;
+                rp_value = rp_val;
+              } else {
+                std::size_t rp_efo = 0;
+                const std::uint8_t* const rp_esp = ::rapidproto::wire::skip_value(rp_ec, rp_ee, ::rapidproto::wire::byte_ptr(rp_entry), rp_et, 0, &rp_we, &rp_efo);
+                if (rp_esp == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, rp_efo}; }
+                rp_ec = rp_esp;
+              }
+            }
+            if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, blobs{}, rp_key, rp_value); !rp_status.ok()) {
               return rp_status;
             }
             continue;

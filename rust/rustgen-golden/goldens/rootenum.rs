@@ -6,6 +6,16 @@ pub mod common {
     #[repr(transparent)]
     pub struct stream(pub i32);
 
+    #[cfg(feature = "serde")]
+    impl ::rapidproto::serde::Serialize for stream {
+      fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+      where
+        RpS: ::rapidproto::serde::Serializer,
+      {
+        rp_ser.serialize_i32(self.0)
+      }
+    }
+
     impl stream {
       pub const UNSET: stream = stream(0);
 
@@ -31,6 +41,16 @@ pub mod common {
     #[repr(transparent)]
     pub struct arena(pub i32);
 
+    #[cfg(feature = "serde")]
+    impl ::rapidproto::serde::Serialize for arena {
+      fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+      where
+        RpS: ::rapidproto::serde::Serializer,
+      {
+        rp_ser.serialize_i32(self.0)
+      }
+    }
+
     impl arena {
       pub const UNSET: arena = arena(0);
 
@@ -55,6 +75,16 @@ pub mod common {
     #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
     #[repr(transparent)]
     pub struct common(pub i32);
+
+    #[cfg(feature = "serde")]
+    impl ::rapidproto::serde::Serialize for common {
+      fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+      where
+        RpS: ::rapidproto::serde::Serializer,
+      {
+        rp_ser.serialize_i32(self.0)
+      }
+    }
 
     impl common {
       pub const UNSET: common = common(0);
@@ -101,6 +131,36 @@ pub mod arena {
         self.c
       }
     }
+    #[cfg(feature = "serde")]
+    impl<'a> ::rapidproto::serde::Serialize for Holder<'a> {
+      fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+      where
+        RpS: ::rapidproto::serde::Serializer,
+      {
+        use ::rapidproto::serde::ser::SerializeMap as _;
+        let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
+        {
+          let rp_v = self.s();
+          if rp_v.0 != 0 {
+            rp_map.serialize_entry("s", &rp_v)?;
+          }
+        }
+        {
+          let rp_v = self.a();
+          if rp_v.0 != 0 {
+            rp_map.serialize_entry("a", &rp_v)?;
+          }
+        }
+        {
+          let rp_v = self.c();
+          if rp_v.0 != 0 {
+            rp_map.serialize_entry("c", &rp_v)?;
+          }
+        }
+        rp_map.end()
+      }
+    }
+
 
     impl<'a> Holder<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Holder<'a>, ::rapidproto::DecodeError> {
