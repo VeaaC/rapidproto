@@ -4,4 +4,5 @@
 //! competitor in the `arms!` macro in `lib.rs` (one line per competitor).
 
 pub mod prost;
+pub mod quick_protobuf;
 pub mod rust_protobuf;
