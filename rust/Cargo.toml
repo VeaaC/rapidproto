@@ -3,4 +3,4 @@
 # stay untracked.
 [workspace]
 resolver = "2"
-members = ["rapidproto", "rapidproto-build", "rapidproto-diff", "rustgen-golden", "examples/consumer"]
+members = ["rapidproto", "rapidproto-build", "rapidproto-diff", "rustgen-golden", "examples/consumer", "rapidproto-bench"]
