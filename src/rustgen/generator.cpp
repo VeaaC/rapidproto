@@ -2438,7 +2438,8 @@ void emit_message_serialize(Printer& printer, const NameTable& table, const Mess
 void emit_message_owned(Printer& printer) {
     printer.print("#[cfg(feature = \"alloc\")]\n");
     printer.print(
-        "// SAFETY: a generated message borrows the input/arena only through shared `&'a` references "
+        "// SAFETY: a generated message borrows the input/arena only through shared `&'a` "
+        "references "
         "(scalars, `ProtoStr`, slices, `MapView`, by-value/`&` sub-messages) -- covariant in 'a, "
         "layout-stable, no interior mutability over the borrow, as ArenaDecode requires.\n");
     printer.print("unsafe impl<'a> ::rapidproto::ArenaDecode<'a> for $M$<'static> {\n");
