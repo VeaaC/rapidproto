@@ -1,8 +1,8 @@
 //! Ecosystem comparison harness: decode the shared `bench.proto` payloads with RapidProto's arena
 //! decoder (arm 0, the baseline) and with each competitor crate, walking every field with one shared
 //! checksum so a lazy/owned decoder is not flattered by skipping work. Competitors are added one at a
-//! time (one module each under `competitors/`, one line in the `arms!` macro below): prost, then
-//! rust-protobuf.
+//! time (one module each under `competitors/`, one line in the `arms!` macro below): prost,
+//! rust-protobuf, then quick-protobuf.
 //!
 //! The checksum is the same walk the Rust A/B bench uses (`rustgen-golden/benches/decode.rs`): a
 //! wrapping `u64` sum, mirrored field-for-field across arms so every arm in a scenario produces the
@@ -39,6 +39,7 @@ macro_rules! arms {
             ours::$ty(),
             competitors::prost::$ty(),
             competitors::rust_protobuf::$ty(),
+            competitors::quick_protobuf::$ty(),
         ]
     };
 }
@@ -57,6 +58,19 @@ fn recordset_arms() -> Vec<Arm> {
 }
 fn particleset_arms() -> Vec<Arm> {
     arms!(particleset)
+}
+
+/// Whether `arm`'s decode of `scenario` reads a packed fixed-width float field as an UNALIGNED
+/// borrowed slice -- undefined behaviour. Only quick-protobuf's zero-copy `read_packed_fixed` does
+/// this (see [`competitors::quick_protobuf`]), and only on the `Big`-shaped scenarios whose `reals`
+/// field is `repeated double`: it hands back a `&[f64]` pointing straight into the (align-1) input.
+/// Correct on x86 in a release build where the check is compiled out, but a misaligned reference --
+/// it aborts under debug UB-checks / Miri, and would misread on a big-endian host. (Our own arena
+/// decoder instead memcpy's packed fixed data into an aligned arena array, so it is sound.) The runner
+/// uses this to drop the arm from these scenarios in a debug build and to flag the measurement in the
+/// release table / ndjson, so the generated benchmark tables can mark it.
+pub fn has_unaligned_fixed_slice_ub(scenario: &str, arm: &str) -> bool {
+    arm == "quick-protobuf" && matches!(scenario, "big" | "big_varint" | "big_fixed" | "big_osm")
 }
 
 /// The 8 shared scenarios, in the C++ bench's order: `(scenario/file name, arms-for-its-type)`.
@@ -166,6 +180,12 @@ mod tests {
         all_agree(recordset_arms(), &rs.encode_to_vec());
     }
 
+    // Release-only. This scenario's `Big.reals` is `repeated double`, and quick-protobuf decodes it by
+    // borrowing the input as an unaligned `&[f64]` -- UB that aborts under the debug `assert_unsafe_
+    // precondition` alignment check (see `has_unaligned_fixed_slice_ub` and the quick_protobuf module).
+    // A release build compiles that check out; the per-field checksums still agree on x86. CI runs it
+    // via a dedicated `cargo test -p rapidproto-bench --release` step.
+    #[cfg(not(debug_assertions))]
     #[test]
     fn bigset_arms_agree() {
         let bs = pb::BigSet {
@@ -173,7 +193,11 @@ mod tests {
                 numbers: vec![1, -2, 3_000_000_000],
                 reals: vec![1.5, -2.25, 0.0],
                 zz: vec![-1, 2, -3],
-                kinds: vec![pb::Kind::One as i32, 0, 42],
+                // Only DEFINED Kind values here: pb-rs (quick-protobuf) generates closed enums whose
+                // `From<i32>` maps any unknown value to the default, so it cannot round-trip an
+                // out-of-range open-enum value the way the other arms do. The shared payloads likewise
+                // carry only 0/1, so this stays faithful to what the bench actually measures.
+                kinds: vec![pb::Kind::One as i32, 0, pb::Kind::One as i32],
             }],
         };
         all_agree(bigset_arms(), &bs.encode_to_vec());

@@ -22,6 +22,10 @@ prost = "0.13"
 # Competitor: rust-protobuf, the 2nd most-used Rust protobuf crate. Also an owned model
 # (`parse_from_bytes` -> owned structs, UTF-8-validated); same read-every-field treatment.
 protobuf = "3"
+# Competitor: quick-protobuf, the first NON-owned competitor. Generated types borrow strings/bytes
+# (`Cow<'a, _>`) from the input and nest sub-messages inline, but repeated fields still materialize to
+# heap `Vec`s -- "borrowed-string, allocating-tree," decoded via `from_reader`.
+quick-protobuf = "0.8"
 
 [build-dependencies]
 # Pure-Rust protobuf compiler (no `protoc` / C toolchain): compiles bench.proto to a descriptor set
@@ -31,6 +35,9 @@ prost-build = "0.13"
 # rust-protobuf's codegen, driven with its pure-Rust parser (`.pure()`, no `protoc`) to match the
 # no-toolchain story above.
 protobuf-codegen = "3"
+# quick-protobuf's codegen (also pure Rust, no `protoc`): renders bench.proto to its borrowed-view
+# decoders.
+pb-rs = "0.10"
 
 [dev-dependencies]
 # Drives the Rust-vs-Rust A/B bench (benches/decode.rs); default features off -- it wants timings, not

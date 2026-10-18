@@ -38,7 +38,7 @@ use std::hint::black_box;
 use std::path::Path;
 use std::time::Instant;
 
-use rapidproto_bench::{scenario_specs, Arm};
+use rapidproto_bench::{has_unaligned_fixed_slice_ub, scenario_specs, Arm};
 
 fn median(xs: &[f64]) -> f64 {
     let mut v = xs.to_vec();
@@ -131,7 +131,14 @@ fn main() {
         let bytes =
             std::fs::read(&path).unwrap_or_else(|e| panic!("cannot read payload {path:?}: {e}"));
         assert!(!bytes.is_empty(), "payload {path:?} is empty");
-        let arms = select_arms(build(), arm_filter.as_deref());
+        let mut arms = select_arms(build(), arm_filter.as_deref());
+        // An arm whose decode of this scenario reads a packed fixed-width float as an unaligned slice
+        // (quick-protobuf on the Big scenarios) only behaves in a release build; in a debug build the
+        // alignment UB-check aborts the process. Drop it there so `cargo run`/`cargo test` still work --
+        // it is measured in release only, and flagged there (see below).
+        if cfg!(debug_assertions) {
+            arms.retain(|a| !has_unaligned_fixed_slice_ub(name, a.name));
+        }
         let sums: Vec<u64> = arms.iter().map(|a| (a.run)(&bytes)).collect();
         if !sums.iter().all(|&s| s == sums[0]) {
             eprintln!("CHECKSUM MISMATCH in scenario {name}:");
@@ -163,7 +170,13 @@ fn main() {
          build.\n"
     );
     println!(
-        "\n{:<11} {:<12} {:>9}  {:>9}",
+        "\n‡ = this measurement relied on UNDEFINED BEHAVIOUR: the arm read a packed fixed-width float \
+         field (`Big.reals`, `repeated double`) as an unaligned borrowed slice. Correct on x86 here, \
+         but a misaligned reference -- flag it in any table built from these numbers. (`ub_unaligned_\
+         fixed_slice` in the ndjson.)\n"
+    );
+    println!(
+        "\n{:<11} {:<16} {:>9}  {:>9}",
         "scenario", "arm", "GB/s", "vs base"
     );
     for (name, bytes, arms) in &loaded {
@@ -173,16 +186,18 @@ fn main() {
             let gbs = bytes.len() as f64 / meds[i];
             let vs = (gbs / base_gbs - 1.0) * 100.0;
             let baseline = i == 0;
+            let ub = has_unaligned_fixed_slice_ub(name, a.name);
+            let armcol = format!("{}{}", a.name, if ub { " ‡" } else { "" });
             println!(
-                "{name:<11} {:<12} {gbs:>9.3}  {:>8.1}%",
-                a.name,
+                "{name:<11} {armcol:<16} {gbs:>9.3}  {:>8.1}%",
                 if baseline { 0.0 } else { vs }
             );
             if json {
                 println!(
                     "{{\"rec\":\"arm\",\"decoder\":\"rust-ecosystem\",\"scenario\":\"{name}\",\
                      \"arm\":\"{}\",\"bytes\":{},\"baseline\":{baseline},\"gb_s\":{gbs:.6},\
-                     \"cyc_b\":null,\"ins_b\":null,\"vs_base_pct\":{:.3},\"ok\":true}}",
+                     \"cyc_b\":null,\"ins_b\":null,\"vs_base_pct\":{:.3},\
+                     \"ub_unaligned_fixed_slice\":{ub},\"ok\":true}}",
                     a.name,
                     bytes.len(),
                     if baseline { 0.0 } else { vs }

@@ -46,6 +46,13 @@ jobs:
         run: cargo clippy --workspace --exclude rapidproto-build --exclude consumer-example --exclude rapidproto-diff --exclude rapidproto-bench --all-targets --no-default-features -- -D warnings
       - name: Test (std + alloc)
         run: cargo test --all-features
+      # rapidproto-bench's quick-protobuf arm decodes `Big.reals` (repeated double) by borrowing the
+      # input as an unaligned `&[f64]` -- UB that the debug build's alignment check aborts on. Its
+      # `bigset` agreement test is therefore release-only (`#[cfg(not(debug_assertions))]`) and the
+      # bench binary drops that arm from the packed-double scenarios in debug, so the step above never
+      # runs it; this release step exercises it (the UB-check is compiled out, correct on this x86 host).
+      - name: Test the ecosystem bench in release (exercises the release-only quick-protobuf arm)
+        run: cargo test -p rapidproto-bench --release
       - name: Run the consumer example (build.rs -> blob -> decode, cargo only)
         run: cargo run -p consumer-example
       - name: Test (no_std + alloc)
