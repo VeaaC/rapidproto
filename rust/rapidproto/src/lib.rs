@@ -14,6 +14,11 @@
 //!
 //! This is an early stage: the generated code that uses these types is still being built out.
 //!
+//! With the optional `serde` feature (off by default), generated decoders implement
+//! `serde::Serialize` — serialize-only; RapidProto stays decode-only, so there is no
+//! `Deserialize`. A default build pulls in no serde. See the `serde_support` module (compiled only
+//! with that feature) for what the runtime types serialize to.
+//!
 //! `no_std` outside of tests whenever the `std` feature is off; the test harness keeps `std` so
 //! the no-allocator path can still be unit-tested with `--no-default-features`.
 #![cfg_attr(not(any(feature = "std", test)), no_std)]

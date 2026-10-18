@@ -9,12 +9,14 @@ publish = false
 
 # The generated decoders carry serde `Serialize` impls behind a `serde` feature. A consumer that
 # includes generated code declares this feature (even when leaving it off) so the generated
-# `#[cfg(feature = "serde")]` is a known cfg; enable it to serialize decoded messages.
+# `#[cfg(feature = "serde")]` is a known cfg; enable it to serialize decoded messages (main.rs then
+# also prints the decoded message as JSON via serde_json).
 [features]
-serde = ["rapidproto/serde"]
+serde = ["rapidproto/serde", "dep:serde_json"]
 
 [dependencies]
 rapidproto = { path = "../../rapidproto" }
+serde_json = { version = "1", optional = true }
 
 [build-dependencies]
 rapidproto-build = { path = "../../rapidproto-build" }

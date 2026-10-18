@@ -183,6 +183,7 @@ version = "0.0.0"
 dependencies = [
  "rapidproto",
  "rapidproto-build",
+ "serde_json",
 ]
 
 [[package]]
