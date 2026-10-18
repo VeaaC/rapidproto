@@ -2,7 +2,7 @@
 //! decoder (arm 0, the baseline) and with each competitor crate, walking every field with one shared
 //! checksum so a lazy/owned decoder is not flattered by skipping work. Competitors are added one at a
 //! time (one module each under `competitors/`, one line in the `arms!` macro below): prost,
-//! rust-protobuf, then quick-protobuf.
+//! rust-protobuf, quick-protobuf, then femtopb.
 //!
 //! The checksum is the same walk the Rust A/B bench uses (`rustgen-golden/benches/decode.rs`): a
 //! wrapping `u64` sum, mirrored field-for-field across arms so every arm in a scenario produces the
@@ -40,12 +40,21 @@ macro_rules! arms {
             competitors::prost::$ty(),
             competitors::rust_protobuf::$ty(),
             competitors::quick_protobuf::$ty(),
+            competitors::femtopb::$ty(),
         ]
     };
 }
 
+// `dataset` is the one scenario whose message (`Person`) has a `map` field, which femtopb cannot
+// decode (see `competitors::femtopb`), so this arm list omits femtopb; the macro (all competitors) is
+// used for every other scenario.
 fn dataset_arms() -> Vec<Arm> {
-    arms!(dataset)
+    vec![
+        ours::dataset(),
+        competitors::prost::dataset(),
+        competitors::rust_protobuf::dataset(),
+        competitors::quick_protobuf::dataset(),
+    ]
 }
 fn bigset_arms() -> Vec<Arm> {
     arms!(bigset)
