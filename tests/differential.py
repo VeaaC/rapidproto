@@ -63,10 +63,29 @@ import sys
 import tempfile
 from itertools import repeat
 from pathlib import Path
+from typing import NamedTuple
 
 # Reserved exit code for "I could not run, and that is expected" -- check.sh reports it as a
 # self-skip rather than a pass, so a green gate cannot quietly have checked nothing.
 SKIP_RC = 77
+
+
+class MessageResult(NamedTuple):
+    """One message type's round-trip outcome (named, so the wide aggregation reads clearly and can't
+    be unpacked positionally wrong)."""
+    failures: list  # (category, text) pairs
+    shuffled: int  # payloads whose wire-shuffled variant differed (anti-vacuity for the mutator)
+    rust_compared: int  # payloads compared through the Rust arm (anti-vacuity for that arm)
+
+
+class SchemaResult(NamedTuple):
+    """One schema's outcome. `skip` is a reason string when the schema was skipped, else None; a
+    skip or a build failure means the other counts are zero."""
+    checked: int
+    skip: str | None
+    failures: list
+    shuffled: int
+    rust_compared: int
 
 REPO = Path(__file__).resolve().parent.parent
 CORPUS = REPO / "tests" / "corpus"
@@ -750,7 +769,7 @@ def compare_arm(arm: str, harness: Path, descriptor, payload_file: Path, expecte
 
 
 def check_message(harness: Path, rust_harness: Path | None, work: Path, factory, descriptor, meta,
-                  count: int, rng: random.Random, seed_dir: Path | None = None) -> tuple[list, int]:
+                  count: int, rng: random.Random, seed_dir: Path | None = None) -> MessageResult:
     """Round-trip `count` random messages of one type.
 
     Returns (failures, shuffled_count, rust_compared). Each failure is a (category, text) pair -- the category is
@@ -768,8 +787,8 @@ def check_message(harness: Path, rust_harness: Path | None, work: Path, factory,
         try:
             encoded = message.SerializeToString()
         except Exception as error:  # noqa: BLE001 - report and move on
-            return [("tool", "%s: protobuf could not serialize a generated message: %s"
-                     % (descriptor.full_name, error))], shuffled_count, 0
+            return MessageResult([("tool", "%s: protobuf could not serialize a generated message: %s"
+                                   % (descriptor.full_name, error))], shuffled_count, 0)
         # A payload the wire shuffler can change is decoded twice: as serialized, and shuffled
         # (see the mutation section above) -- otherwise the canonical shape is the only one whose
         # VALUES are ever compared. Single-record payloads often shuffle to themselves; decoding
@@ -777,8 +796,9 @@ def check_message(harness: Path, rust_harness: Path | None, work: Path, factory,
         try:
             shuffled = shuffle_wire(encoded, descriptor, rng) if encoded else encoded
         except Exception as error:  # noqa: BLE001 - a crashed wire mutator must not kill the sweep
-            return [("tool", "%s: the wire mutator crashed: %r\n    payload: %s"
-                     % (descriptor.full_name, error, encoded.hex()))], shuffled_count, 0
+            return MessageResult([("tool", "%s: the wire mutator crashed: %r\n    payload: %s"
+                                   % (descriptor.full_name, error, encoded.hex()))],
+                                 shuffled_count, 0)
         variants = [("serialized", encoded)]
         if shuffled != encoded:
             variants.append(("shuffled", shuffled))
@@ -793,9 +813,10 @@ def check_message(harness: Path, rust_harness: Path | None, work: Path, factory,
             except Exception as error:  # noqa: BLE001 - a broken mutator must name itself
                 if label == "serialized":
                     raise  # protobuf rejecting its own serializer's bytes is not ours to classify
-                return [("tool", "%s: protobuf rejected a shuffled payload -- the wire mutator "
-                         "broke framing: %s\n    payload: %s"
-                         % (descriptor.full_name, error, payload.hex()))], shuffled_count, 0
+                return MessageResult([("tool", "%s: protobuf rejected a shuffled payload -- the wire "
+                                       "mutator broke framing: %s\n    payload: %s"
+                                       % (descriptor.full_name, error, payload.hex()))],
+                                     shuffled_count, 0)
     payload_file.write_bytes(bytes(blob))
     if seed_dir is not None:
         # One file per payload, for use as a fuzzer seed corpus (see check.sh's fuzz smoke). These
@@ -814,7 +835,7 @@ def check_message(harness: Path, rust_harness: Path | None, work: Path, factory,
     if rust_harness is not None and ("." + descriptor.full_name) in meta.get("rust", {}):
         failures += compare_arm("Rust", rust_harness, descriptor, payload_file, expected, meta, True)
         rust_compared = len(expected)
-    return failures, shuffled_count, rust_compared
+    return MessageResult(failures, shuffled_count, rust_compared)
 
 
 def describe_difference(wanted, got, path: str = "") -> str:
@@ -838,7 +859,7 @@ def describe_difference(wanted, got, path: str = "") -> str:
 
 
 def check_schema(schema: Path, tools: dict[str, Path], cxx: str, seed: int, messages: int,
-                 seed_dir: Path | None) -> tuple[int, str | None, list, int, int]:
+                 seed_dir: Path | None) -> SchemaResult:
     """One schema end to end: (messages checked, skip reason or None, (category, text) failures,
     shuffled-variant count, Rust-arm comparison count). A "build" failure aborts the whole schema --
     that categorization is what lets main() subtract exactly those from the schema count.
@@ -854,9 +875,9 @@ def check_schema(schema: Path, tools: dict[str, Path], cxx: str, seed: int, mess
         try:
             harness, rust_harness, pool, meta = build_schema(schema, work, tools, cxx)
         except Skip as reason:
-            return 0, f"{schema.name}: {reason}", [], 0, 0
+            return SchemaResult(0, f"{schema.name}: {reason}", [], 0, 0)
         except HarnessError as error:
-            return 0, None, [("build", f"{schema.name}: {error}")], 0, 0
+            return SchemaResult(0, None, [("build", f"{schema.name}: {error}")], 0, 0)
         factory = message_factory.MessageFactory(pool)
         checked = 0
         failures: list = []
@@ -872,7 +893,7 @@ def check_schema(schema: Path, tools: dict[str, Path], cxx: str, seed: int, mess
             rust_compared += message_rust
             failures += message_failures
             shuffled += message_shuffled
-        return checked, None, failures, shuffled, rust_compared
+        return SchemaResult(checked, None, failures, shuffled, rust_compared)
 
 
 def main() -> int:
@@ -975,14 +996,13 @@ def main() -> int:
     with concurrent.futures.ProcessPoolExecutor(max_workers=args.jobs) as pool_exec:
         results = pool_exec.map(check_schema, schemas, repeat(tools), repeat(args.cxx),
                                 repeat(args.seed), repeat(args.messages), repeat(seed_dir))
-        for schema, (count, skip, schema_failures, schema_shuffled, schema_rust) in zip(schemas,
-                                                                                         results):
-            checked += count
-            shuffled += schema_shuffled
-            rust_compared += schema_rust
-            if skip is not None:
-                skipped.append(skip)
-            failures += schema_failures
+        for schema, result in zip(schemas, results):
+            checked += result.checked
+            shuffled += result.shuffled
+            rust_compared += result.rust_compared
+            if result.skip is not None:
+                skipped.append(result.skip)
+            failures += result.failures
             if args.verbose:
                 print(f"  {schema.name}: done")
 

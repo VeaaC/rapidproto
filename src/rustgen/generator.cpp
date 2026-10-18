@@ -2260,11 +2260,19 @@ std::string rust_str_lit(const std::string& name) {
     return "\"" + name + "\"";
 }
 
+// Is a field/map-value/oneof-member a `bytes` scalar? (Shared so the three serialize sites -- field,
+// map value, oneof member, each over a different node struct -- test it one way.) The two bool flags
+// are both negated and ANDed, so transposing them cannot change the result.
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
+bool is_scalar_bytes(bool is_message, bool is_enum, const std::string& type_name) {
+    return !is_message && !is_enum && type_name == "bytes";
+}
+
 // Serialized as an opaque `bytes` value? True for a `bytes` scalar and for any raw-mode field (its
 // payload materializes as bytes).
 bool serialize_as_bytes(const FieldModes& modes, const FieldNode& field) {
     return field_mode(modes, field) == arenagen::FieldMode::Raw ||
-           (!field.is_message_type && !field.is_enum_type && field.type_name == "bytes");
+           is_scalar_bytes(field.is_message_type, field.is_enum_type, field.type_name);
 }
 
 void emit_field_serialize(Printer& printer, const FieldNode& field, const std::string& accessor,
@@ -2356,12 +2364,31 @@ void emit_oneof_serialize(Printer& printer, const NameTable& table, const OneofN
         // A `bytes` member is matched as `&&[u8]`; deref once for the Bytes helper. Everything else
         // (scalar/enum by value, string, message-by-ref) is passed through the bound reference.
         const std::string val =
-            (!member.is_message_type && !member.is_enum_type && member.type_name == "bytes")
+            is_scalar_bytes(member.is_message_type, member.is_enum_type, member.type_name)
                 ? "&::rapidproto::serde_support::Bytes(*rp_v)"
                 : "rp_v";
         printer.print("$e$::$v$(rp_v) => rp_map.serialize_entry($n$, $val$)?,\n",
                       {{"e", enum_path}, {"v", variants[i]}, {"n", key}, {"val", val}});
     }
+    printer.outdent();
+    printer.print("}\n");
+    printer.outdent();
+    printer.print("}\n");
+}
+
+void emit_map_serialize(Printer& printer, const MapFieldNode& map, const std::string& accessor) {
+    // A bytes-valued map must serialize its values opaquely (BytesMapView), not via the generic
+    // MapView impl -- serde would otherwise render a `&[u8]` value as a seq of u8.
+    const std::string val = is_scalar_bytes(map.value_is_message, map.value_is_enum, map.value_type)
+                                ? "&::rapidproto::serde_support::BytesMapView(rp_v)"
+                                : "&rp_v";
+    printer.print("{\n");
+    printer.indent();
+    printer.print("let rp_v = self.$a$();\n", {{"a", accessor}});
+    printer.print("if !rp_v.is_empty() {\n");
+    printer.indent();
+    printer.print("rp_map.serialize_entry($n$, $val$)?;\n",
+                  {{"n", rust_str_lit(map.name)}, {"val", val}});
     printer.outdent();
     printer.print("}\n");
     printer.outdent();
@@ -2391,24 +2418,7 @@ void emit_message_serialize(Printer& printer, const NameTable& table, const Mess
     }
     for (std::size_t i = 0; i < msg.map_fields.size(); ++i) {
         if (map_mode(modes, msg.map_fields[i]) != arenagen::FieldMode::Drop) {
-            const MapFieldNode& map = msg.map_fields[i];
-            // A bytes-valued map must serialize its values opaquely (BytesMapView), not via the
-            // generic MapView impl -- serde would otherwise render a `&[u8]` value as a seq of u8.
-            const bool bytes_value =
-                !map.value_is_message && !map.value_is_enum && map.value_type == "bytes";
-            const std::string val =
-                bytes_value ? "&::rapidproto::serde_support::BytesMapView(rp_v)" : "&rp_v";
-            printer.print("{\n");
-            printer.indent();
-            printer.print("let rp_v = self.$a$();\n", {{"a", accessors.maps[i]}});
-            printer.print("if !rp_v.is_empty() {\n");
-            printer.indent();
-            printer.print("rp_map.serialize_entry($n$, $val$)?;\n",
-                          {{"n", rust_str_lit(map.name)}, {"val", val}});
-            printer.outdent();
-            printer.print("}\n");
-            printer.outdent();
-            printer.print("}\n");
+            emit_map_serialize(printer, msg.map_fields[i], accessors.maps[i]);
         }
     }
     for (std::size_t i = 0; i < msg.oneofs.size(); ++i) {
@@ -2596,6 +2606,10 @@ std::string generate_common(const std::vector<const FileNode*>& files) {
 
 std::vector<std::pair<std::string, std::string>> arena_type_paths(
     const std::vector<const FileNode*>& files) {
+    // Rebuilds the name table independently of generate_rust (a caller may want the paths alone, and
+    // naming is modes-independent, so this stays a standalone entry point). The rebuild is
+    // generation-time and O(small); the type path mirrors emission -- `arena` + the module segments
+    // + the type name -- so the two must move together.
     PkgTrie root = build_pkg_trie(files);
     assign_emitted_names(root);
     const NameTable table = build_name_table(root);
