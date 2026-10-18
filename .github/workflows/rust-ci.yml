@@ -32,30 +32,32 @@ jobs:
       - name: Format
         run: cargo fmt --all --check
       # std+alloc covers the whole workspace, including rapidproto-build (the wasmi generator driver
-      # and its golden dogfooding gate) and consumer-example (whose build.rs runs the blob end to
-      # end). The no_std/no-alloc tiers exercise the `rapidproto` runtime crate's embedded tiers, so
-      # they --exclude both: each is a std-only build tool / demo that pulls wasmi, meaningless under
-      # no_std and costly to recompile per tier on the 4-core runners.
+      # and its golden dogfooding gate), consumer-example (whose build.rs runs the blob end to end),
+      # rapidproto-diff (the differential Serializer) and bench-ecosystem (the competitor-crate
+      # comparison, which pulls prost/protox). The no_std/no-alloc tiers exercise the `rapidproto`
+      # runtime crate's embedded tiers, so they --exclude all of these: each is a std-only build
+      # tool / demo / bench, meaningless under no_std and costly to recompile per tier on the 4-core
+      # runners.
       - name: Clippy (std + alloc)
         run: cargo clippy --all-targets --all-features -- -D warnings
       - name: Clippy (no_std + alloc)
-        run: cargo clippy --workspace --exclude rapidproto-build --exclude consumer-example --exclude rapidproto-diff --all-targets --no-default-features --features alloc -- -D warnings
+        run: cargo clippy --workspace --exclude rapidproto-build --exclude consumer-example --exclude rapidproto-diff --exclude bench-ecosystem --all-targets --no-default-features --features alloc -- -D warnings
       - name: Clippy (no_std, no-alloc)
-        run: cargo clippy --workspace --exclude rapidproto-build --exclude consumer-example --exclude rapidproto-diff --all-targets --no-default-features -- -D warnings
+        run: cargo clippy --workspace --exclude rapidproto-build --exclude consumer-example --exclude rapidproto-diff --exclude bench-ecosystem --all-targets --no-default-features -- -D warnings
       - name: Test (std + alloc)
         run: cargo test --all-features
       - name: Run the consumer example (build.rs -> blob -> decode, cargo only)
         run: cargo run -p consumer-example
       - name: Test (no_std + alloc)
-        run: cargo test --workspace --exclude rapidproto-build --exclude consumer-example --exclude rapidproto-diff --no-default-features --features alloc
+        run: cargo test --workspace --exclude rapidproto-build --exclude consumer-example --exclude rapidproto-diff --exclude bench-ecosystem --no-default-features --features alloc
       - name: Test (no_std, no-alloc)
         # The test harness keeps std (crate is no_std only outside tests), while the `alloc`
         # feature is off — so this exercises the arena's no-allocator / exhaustion path.
-        run: cargo test --workspace --exclude rapidproto-build --exclude consumer-example --exclude rapidproto-diff --no-default-features
+        run: cargo test --workspace --exclude rapidproto-build --exclude consumer-example --exclude rapidproto-diff --exclude bench-ecosystem --no-default-features
       - name: Build no_std + alloc tier
-        run: cargo build --workspace --exclude rapidproto-build --exclude consumer-example --exclude rapidproto-diff --no-default-features --features alloc
+        run: cargo build --workspace --exclude rapidproto-build --exclude consumer-example --exclude rapidproto-diff --exclude bench-ecosystem --no-default-features --features alloc
       - name: Build no_std (no-alloc embedded tier)
-        run: cargo build --workspace --exclude rapidproto-build --exclude consumer-example --exclude rapidproto-diff --no-default-features
+        run: cargo build --workspace --exclude rapidproto-build --exclude consumer-example --exclude rapidproto-diff --exclude bench-ecosystem --no-default-features
       # The generated serde Serialize impls must also stay no_std-clean (alloc and no-alloc), since a
       # consumer may enable rapidproto/serde on an embedded target. (--all-features above covers std.)
       - name: Build generated serde impls on the no_std tiers
@@ -133,6 +135,6 @@ jobs:
         with:
           components: miri
       - name: Miri (std + alloc)
-        run: cargo miri test --workspace --exclude rapidproto-build --exclude consumer-example --exclude rapidproto-diff --all-features
+        run: cargo miri test --workspace --exclude rapidproto-build --exclude consumer-example --exclude rapidproto-diff --exclude bench-ecosystem --all-features
       - name: Miri (no_std, no-alloc)
-        run: cargo miri test --workspace --exclude rapidproto-build --exclude consumer-example --exclude rapidproto-diff --no-default-features
+        run: cargo miri test --workspace --exclude rapidproto-build --exclude consumer-example --exclude rapidproto-diff --exclude bench-ecosystem --no-default-features

@@ -1,0 +1,30 @@
+# Ecosystem comparison: RapidProto's Rust arena decoder vs the major Rust protobuf crates, over the
+# SAME shared `bench.proto` payloads and the SAME per-field checksum walk the C++ ecosystem bench
+# uses (tests/bench_baselines.*). Bench-only and `publish = false`: the competitor crates and their
+# codegen are build/dev-deps HERE only, so they never reach the `rapidproto` runtime, the generated
+# code, or the no_std tiers. Competitors are added one at a time; prost is the first arm.
+[package]
+name = "bench-ecosystem"
+version = "0.0.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+
+[dependencies]
+# Arm 0 / baseline: our runtime + the generated `bench` decoders (reused from the golden crate, so the
+# comparison runs the exact code a consumer compiles).
+rapidproto = { path = "../rapidproto" }
+rustgen-golden = { path = "../rustgen-golden" }
+# Competitor: prost (materializes into owned Vec/String -- a different model from our borrowed views;
+# the checksum walk reads every field so the owned allocation is paid for, not elided).
+prost = "0.13"
+
+[build-dependencies]
+# Pure-Rust protobuf compiler (no `protoc` / C toolchain): compiles bench.proto to a descriptor set
+# that prost-build turns into Rust -- keeps this crate cargo-only like the rest of the workspace.
+protox = "0.7"
+prost-build = "0.13"
+
+[[bin]]
+name = "bench"
+path = "src/main.rs"
