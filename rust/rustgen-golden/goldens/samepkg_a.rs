@@ -39,7 +39,6 @@ pub mod arena {
 
     ::rapidproto::impl_decode_owned!(SecondB);
 
-
     #[derive(Default)]
     pub struct FirstA<'a> {
       b: SecondB<'a>,
@@ -69,7 +68,6 @@ pub mod arena {
     }
 
     ::rapidproto::impl_decode_owned!(FirstA);
-
 
     impl<'a> SecondB<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a SecondB<'a>, ::rapidproto::DecodeError> {

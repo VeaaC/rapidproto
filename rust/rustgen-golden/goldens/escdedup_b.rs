@@ -39,7 +39,6 @@ pub mod arena {
 
     ::rapidproto::impl_decode_owned!(decode_);
 
-
     impl<'a> decode_<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a decode_<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {

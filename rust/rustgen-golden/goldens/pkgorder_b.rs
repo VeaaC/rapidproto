@@ -43,7 +43,6 @@ pub mod arena {
 
     ::rapidproto::impl_decode_owned!(linux_);
 
-
     #[derive(Default)]
     pub struct linux__<'a> {
       v: i32,
@@ -74,7 +73,6 @@ pub mod arena {
     }
 
     ::rapidproto::impl_decode_owned!(linux__);
-
 
     impl<'a> linux_<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a linux_<'a>, ::rapidproto::DecodeError> {
@@ -239,7 +237,6 @@ pub mod arena {
       }
 
       ::rapidproto::impl_decode_owned!(Sub);
-
 
       impl<'a> Sub<'a> {
         pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Sub<'a>, ::rapidproto::DecodeError> {

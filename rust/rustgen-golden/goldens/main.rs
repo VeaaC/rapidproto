@@ -91,7 +91,6 @@ pub mod arena {
 
     ::rapidproto::impl_decode_owned!(Dep);
 
-
     impl<'a> Dep<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Dep<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
@@ -215,7 +214,6 @@ pub mod arena {
     }
 
     ::rapidproto::impl_decode_owned!(Fwd);
-
 
     impl<'a> Fwd<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Fwd<'a>, ::rapidproto::DecodeError> {
@@ -374,7 +372,6 @@ pub mod arena {
     }
 
     ::rapidproto::impl_decode_owned!(Main);
-
 
     pub mod main {
       pub enum Choice<'a> {
@@ -751,7 +748,6 @@ pub mod arena {
     }
 
     ::rapidproto::impl_decode_owned!(Pub);
-
 
     impl<'a> Pub<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Pub<'a>, ::rapidproto::DecodeError> {

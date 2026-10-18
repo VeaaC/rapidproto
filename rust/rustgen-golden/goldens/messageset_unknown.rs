@@ -49,7 +49,6 @@ pub mod arena {
 
     ::rapidproto::impl_decode_owned!(Outer);
 
-
     pub mod outer {
       #[derive(Default)]
       pub struct Container<'a> {
@@ -75,7 +74,6 @@ pub mod arena {
       }
 
       ::rapidproto::impl_decode_owned!(Container);
-
 
       impl<'a> Container<'a> {
         pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Container<'a>, ::rapidproto::DecodeError> {
@@ -156,7 +154,6 @@ pub mod arena {
     }
 
     ::rapidproto::impl_decode_owned!(Ext);
-
 
     impl<'a> Outer<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Outer<'a>, ::rapidproto::DecodeError> {

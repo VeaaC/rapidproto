@@ -89,7 +89,6 @@ pub mod arena {
 
     ::rapidproto::impl_decode_owned!(Point);
 
-
     #[derive(Default)]
     pub struct Big<'a> {
       a: u64,
@@ -141,7 +140,6 @@ pub mod arena {
 
     ::rapidproto::impl_decode_owned!(Big);
 
-
     pub struct HasString<'a> {
       s: ::rapidproto::ProtoStr<'a>,
     }
@@ -170,7 +168,6 @@ pub mod arena {
     }
 
     ::rapidproto::impl_decode_owned!(HasString);
-
 
     #[derive(Default)]
     pub struct BoolWrap<'a> {
@@ -202,7 +199,6 @@ pub mod arena {
     }
 
     ::rapidproto::impl_decode_owned!(BoolWrap);
-
 
     pub struct SelfRef<'a> {
       next: Option<&'a SelfRef<'a>>,
@@ -241,7 +237,6 @@ pub mod arena {
     }
 
     ::rapidproto::impl_decode_owned!(SelfRef);
-
 
     pub struct Layout<'a> {
       big: i64,
@@ -435,7 +430,6 @@ pub mod arena {
     }
 
     ::rapidproto::impl_decode_owned!(Layout);
-
 
     pub mod layout {
       pub enum Choice<'a> {

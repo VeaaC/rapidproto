@@ -87,7 +87,6 @@ pub mod arena {
 
     ::rapidproto::impl_decode_owned!(Collide);
 
-
     pub mod collide {
       pub enum Pick {
         P1(i32),
@@ -133,7 +132,6 @@ pub mod arena {
 
     ::rapidproto::impl_decode_owned!(Callback);
 
-
     pub mod callback {
       pub enum Callback<'a> {
         PythonCode(::rapidproto::ProtoStr<'a>),
@@ -169,7 +167,6 @@ pub mod arena {
 
     ::rapidproto::impl_decode_owned!(FooEntry);
 
-
     #[derive(Default)]
     pub struct Outer<'a> {
       inner: outer::Outer<'a>,
@@ -199,7 +196,6 @@ pub mod arena {
     }
 
     ::rapidproto::impl_decode_owned!(Outer);
-
 
     pub mod outer {
       #[derive(Default)]
@@ -232,7 +228,6 @@ pub mod arena {
       }
 
       ::rapidproto::impl_decode_owned!(Outer);
-
 
       impl<'a> Outer<'a> {
         pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Outer<'a>, ::rapidproto::DecodeError> {
@@ -332,7 +327,6 @@ pub mod arena {
 
     ::rapidproto::impl_decode_owned!(m_x);
 
-
     #[derive(Default)]
     pub struct Sibling<'a> {
       foo: i32,
@@ -374,7 +368,6 @@ pub mod arena {
 
     ::rapidproto::impl_decode_owned!(Sibling);
 
-
     pub struct config_<'a> {
       config: Option<config::Config<'a>>,
     }
@@ -402,7 +395,6 @@ pub mod arena {
     }
 
     ::rapidproto::impl_decode_owned!(config_);
-
 
     pub mod config {
       pub enum Config<'a> {
@@ -449,7 +441,6 @@ pub mod arena {
 
     ::rapidproto::impl_decode_owned!(MaskOneof);
 
-
     pub mod mask_oneof {
       pub enum Mask {
         A(i32),
@@ -494,7 +485,6 @@ pub mod arena {
     }
 
     ::rapidproto::impl_decode_owned!(Bytes);
-
 
     #[derive(Default)]
     pub struct Keywords<'a> {
@@ -646,7 +636,6 @@ pub mod arena {
     }
 
     ::rapidproto::impl_decode_owned!(Keywords);
-
 
     impl<'a> Collide<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Collide<'a>, ::rapidproto::DecodeError> {

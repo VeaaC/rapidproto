@@ -73,7 +73,6 @@ pub mod arena {
 
     ::rapidproto::impl_decode_owned!(stream);
 
-
     #[derive(Default)]
     pub struct arena<'a> {
       x: i32,
@@ -105,7 +104,6 @@ pub mod arena {
 
     ::rapidproto::impl_decode_owned!(arena);
 
-
     #[derive(Default)]
     pub struct common<'a> {
       x: i32,
@@ -136,7 +134,6 @@ pub mod arena {
     }
 
     ::rapidproto::impl_decode_owned!(common);
-
 
     #[derive(Default)]
     pub struct Holder<'a> {
@@ -195,7 +192,6 @@ pub mod arena {
     }
 
     ::rapidproto::impl_decode_owned!(Holder);
-
 
     impl<'a> stream<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a stream<'a>, ::rapidproto::DecodeError> {

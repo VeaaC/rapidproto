@@ -128,7 +128,6 @@ pub mod arena {
 
     ::rapidproto::impl_decode_owned!(Blob);
 
-
     pub struct Holder<'a> {
       keep: i32,
       must: i32,
@@ -251,7 +250,6 @@ pub mod arena {
 
     ::rapidproto::impl_decode_owned!(Holder);
 
-
     pub mod holder {
       #[derive(Default)]
       pub struct Grp<'a> {
@@ -283,7 +281,6 @@ pub mod arena {
       }
 
       ::rapidproto::impl_decode_owned!(Grp);
-
 
       impl<'a> Grp<'a> {
         pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Grp<'a>, ::rapidproto::DecodeError> {

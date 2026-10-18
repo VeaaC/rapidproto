@@ -108,7 +108,6 @@ pub mod arena {
 
     ::rapidproto::impl_decode_owned!(wire);
 
-
     #[derive(Default)]
     pub struct Arena<'a> {
       y: i32,
@@ -140,7 +139,6 @@ pub mod arena {
 
     ::rapidproto::impl_decode_owned!(Arena);
 
-
     pub struct Tag<'a> {
       s: ::rapidproto::ProtoStr<'a>,
     }
@@ -170,7 +168,6 @@ pub mod arena {
 
     ::rapidproto::impl_decode_owned!(Tag);
 
-
     pub struct ByteView<'a> {
       b: &'a [u8],
     }
@@ -199,7 +196,6 @@ pub mod arena {
     }
 
     ::rapidproto::impl_decode_owned!(ByteView);
-
 
     impl<'a> wire<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a wire<'a>, ::rapidproto::DecodeError> {

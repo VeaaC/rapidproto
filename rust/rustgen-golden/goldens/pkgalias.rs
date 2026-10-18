@@ -130,7 +130,6 @@ pub mod arena {
 
     ::rapidproto::impl_decode_owned!(linux__);
 
-
     impl<'a> linux__<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a linux__<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
@@ -275,7 +274,6 @@ pub mod arena {
       }
 
       ::rapidproto::impl_decode_owned!(Sub);
-
 
       impl<'a> Sub<'a> {
         pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Sub<'a>, ::rapidproto::DecodeError> {

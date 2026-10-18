@@ -55,7 +55,6 @@ pub mod arena {
 
       ::rapidproto::impl_decode_owned!(Timestamp);
 
-
       #[derive(Default)]
       pub struct Duration<'a> {
         seconds: i64,
@@ -96,7 +95,6 @@ pub mod arena {
       }
 
       ::rapidproto::impl_decode_owned!(Duration);
-
 
       impl<'a> Timestamp<'a> {
         pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Timestamp<'a>, ::rapidproto::DecodeError> {
@@ -309,7 +307,6 @@ pub mod arena {
     }
 
     ::rapidproto::impl_decode_owned!(Event);
-
 
     impl<'a> Event<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Event<'a>, ::rapidproto::DecodeError> {

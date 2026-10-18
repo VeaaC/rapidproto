@@ -253,7 +253,6 @@ pub mod arena {
 
     ::rapidproto::impl_decode_owned!(Msg);
 
-
     pub mod msg {
       pub enum Pick<'a> {
         A(i32),

@@ -232,7 +232,6 @@ pub mod arena {
 
     ::rapidproto::impl_decode_owned!(Scalars);
 
-
     #[derive(Default)]
     pub struct WithGroup<'a> {
       mygroup: with_group::MyGroup<'a>,
@@ -262,7 +261,6 @@ pub mod arena {
     }
 
     ::rapidproto::impl_decode_owned!(WithGroup);
-
 
     pub mod with_group {
       #[derive(Default)]
@@ -304,7 +302,6 @@ pub mod arena {
 
       ::rapidproto::impl_decode_owned!(MyGroup);
 
-
       pub mod my_group {
         #[derive(Default)]
         pub struct Inner<'a> {
@@ -335,7 +332,6 @@ pub mod arena {
         }
 
         ::rapidproto::impl_decode_owned!(Inner);
-
 
         impl<'a> Inner<'a> {
           pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Inner<'a>, ::rapidproto::DecodeError> {
@@ -537,7 +533,6 @@ pub mod arena {
 
     ::rapidproto::impl_decode_owned!(OneofGroup);
 
-
     pub mod oneof_group {
       pub enum Pick<'a> {
         I(i32),
@@ -581,7 +576,6 @@ pub mod arena {
       }
 
       ::rapidproto::impl_decode_owned!(G);
-
 
       impl<'a> G<'a> {
         pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a G<'a>, ::rapidproto::DecodeError> {
@@ -704,7 +698,6 @@ pub mod arena {
 
     ::rapidproto::impl_decode_owned!(GroupNumberReuse);
 
-
     pub mod group_number_reuse {
       #[derive(Default)]
       pub struct G<'a> {
@@ -736,7 +729,6 @@ pub mod arena {
       }
 
       ::rapidproto::impl_decode_owned!(G);
-
 
       impl<'a> G<'a> {
         pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a G<'a>, ::rapidproto::DecodeError> {
@@ -848,7 +840,6 @@ pub mod arena {
 
     ::rapidproto::impl_decode_owned!(RepeatedGroup);
 
-
     pub mod repeated_group {
       #[derive(Default)]
       pub struct Item<'a> {
@@ -880,7 +871,6 @@ pub mod arena {
       }
 
       ::rapidproto::impl_decode_owned!(Item);
-
 
       impl<'a> Item<'a> {
         pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Item<'a>, ::rapidproto::DecodeError> {
@@ -992,7 +982,6 @@ pub mod arena {
 
     ::rapidproto::impl_decode_owned!(OneofGroupStraddle);
 
-
     pub mod oneof_group_straddle {
       pub enum Pick<'a> {
         Head(&'a Head<'a>),
@@ -1029,7 +1018,6 @@ pub mod arena {
       }
 
       ::rapidproto::impl_decode_owned!(Head);
-
 
       impl<'a> Head<'a> {
         pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Head<'a>, ::rapidproto::DecodeError> {
@@ -1161,7 +1149,6 @@ pub mod arena {
 
     ::rapidproto::impl_decode_owned!(Container);
 
-
     pub mod container {
       pub enum Choice<'a> {
         Ci(i32),
@@ -1198,7 +1185,6 @@ pub mod arena {
       }
 
       ::rapidproto::impl_decode_owned!(Nested);
-
 
       impl<'a> Nested<'a> {
         pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a Nested<'a>, ::rapidproto::DecodeError> {
