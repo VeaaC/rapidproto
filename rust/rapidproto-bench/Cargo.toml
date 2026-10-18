@@ -3,7 +3,7 @@
 # protobuf crates (the ecosystem comparison), over the shared bench.proto payloads and one shared
 # per-field checksum walk. Competitor crates and their codegen are deps HERE only, so they never
 # reach the `rapidproto` runtime, the generated code, or the no_std tiers. Competitors are added one
-# at a time and selected at runtime (the `bench` binary's ARMS filter); prost is the first.
+# at a time and selected at runtime (the `bench` binary's ARMS filter): prost, then rust-protobuf.
 [package]
 name = "rapidproto-bench"
 version = "0.0.0"
@@ -19,12 +19,18 @@ rustgen-golden = { path = "../rustgen-golden" }
 # Competitor: prost (materializes into owned Vec/String; the checksum walk reads every field so the
 # owned allocation is paid for, not elided).
 prost = "0.13"
+# Competitor: rust-protobuf, the 2nd most-used Rust protobuf crate. Also an owned model
+# (`parse_from_bytes` -> owned structs, UTF-8-validated); same read-every-field treatment.
+protobuf = "3"
 
 [build-dependencies]
 # Pure-Rust protobuf compiler (no `protoc` / C toolchain): compiles bench.proto to a descriptor set
 # that prost-build turns into Rust -- keeps this crate cargo-only like the rest of the workspace.
 protox = "0.7"
 prost-build = "0.13"
+# rust-protobuf's codegen, driven with its pure-Rust parser (`.pure()`, no `protoc`) to match the
+# no-toolchain story above.
+protobuf-codegen = "3"
 
 [dev-dependencies]
 # Drives the Rust-vs-Rust A/B bench (benches/decode.rs); default features off -- it wants timings, not
