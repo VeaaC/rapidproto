@@ -12,9 +12,10 @@
 //!
 //! FEATURE GAP: femtopb does NOT support proto3 `map` fields -- its codegen emits a `compile_error!`.
 //! The only map in the schema is `Person.counters`, so `build.rs` strips that field before running
-//! femtopb-build, and the femtopb arm is OMITTED from the `dataset` scenario (the only one using
-//! `Person`); this module therefore has no `dataset` builder. The other seven scenarios have no maps
-//! and are unaffected.
+//! femtopb-build (so the rest of the schema compiles), and the femtopb arm reports `dataset` (the only
+//! scenario using `Person`) as UNSUPPORTED -- `dataset()` returns `Arm::unsupported`, so the gap is
+//! listed and flagged in the table rather than silently skipped. The other seven scenarios have no
+//! maps and are decoded normally.
 //!
 //! Decode entry is `M::decode(bytes)` (the top-level, non-length-delimited read).
 
@@ -35,35 +36,30 @@ fn decode<'a, M: Message<'a>>(bytes: &'a [u8]) -> M {
     M::decode(bytes).expect("femtopb decode")
 }
 
-// No `dataset` builder: femtopb cannot decode that scenario -- its `Person` has no `counters` map
-// (femtopb rejects `map` fields, so build.rs strips it), and the `dataset` arm list omits femtopb.
+// femtopb cannot decode `dataset`: `Person` has a `map` field (`counters`) and femtopb rejects maps,
+// so this arm is UNSUPPORTED for that scenario -- listed and flagged in the table, not dropped.
+pub fn dataset() -> Arm {
+    Arm::unsupported("femtopb", "no map<> support")
+}
 
 pub fn bigset() -> Arm {
-    Arm {
-        name: "femtopb",
-        run: Box::new(|b| checksum_bigset(&decode::<pb::BigSet>(b))),
-    }
+    Arm::new("femtopb", |b| checksum_bigset(&decode::<pb::BigSet>(b)))
 }
 
 pub fn wideset() -> Arm {
-    Arm {
-        name: "femtopb",
-        run: Box::new(|b| checksum_wideset(&decode::<pb::WideSet>(b))),
-    }
+    Arm::new("femtopb", |b| checksum_wideset(&decode::<pb::WideSet>(b)))
 }
 
 pub fn recordset() -> Arm {
-    Arm {
-        name: "femtopb",
-        run: Box::new(|b| checksum_recordset(&decode::<pb::RecordSet>(b))),
-    }
+    Arm::new("femtopb", |b| {
+        checksum_recordset(&decode::<pb::RecordSet>(b))
+    })
 }
 
 pub fn particleset() -> Arm {
-    Arm {
-        name: "femtopb",
-        run: Box::new(|b| checksum_particleset(&decode::<pb::ParticleSet>(b))),
-    }
+    Arm::new("femtopb", |b| {
+        checksum_particleset(&decode::<pb::ParticleSet>(b))
+    })
 }
 
 // Each lazy element is a `Result` (decode can fail mid-walk) and is reached via `.iter()` (only the

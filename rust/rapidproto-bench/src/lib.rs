@@ -24,15 +24,62 @@ pub type Decode = Box<dyn Fn(&[u8]) -> u64>;
 /// Builds the arms for a scenario (arm 0 = baseline), so several scenarios can share one builder.
 pub type ArmsFn = fn() -> Vec<Arm>;
 
+/// How an arm handles a given scenario.
+pub enum ArmRun {
+    /// Decodes the payload and returns the fairness checksum.
+    Supported(Decode),
+    /// The arm cannot decode this scenario's schema (a feature gap, e.g. femtopb has no `map` support
+    /// so it cannot decode `dataset`). The string is the reason, shown in the table. An unsupported
+    /// arm is still LISTED and flagged in the output, never silently dropped, but it is excluded from
+    /// the agreement gate and from timing.
+    Unsupported(&'static str),
+}
+
 /// One decoder under test.
 pub struct Arm {
     pub name: &'static str,
-    pub run: Decode,
+    pub run: ArmRun,
+}
+
+impl Arm {
+    /// A supported arm: `f` decodes the payload and returns its fairness checksum.
+    pub fn new(name: &'static str, f: impl Fn(&[u8]) -> u64 + 'static) -> Self {
+        Self {
+            name,
+            run: ArmRun::Supported(Box::new(f)),
+        }
+    }
+
+    /// An arm that cannot decode this scenario; `reason` is shown in the table.
+    pub fn unsupported(name: &'static str, reason: &'static str) -> Self {
+        Self {
+            name,
+            run: ArmRun::Unsupported(reason),
+        }
+    }
+
+    /// The decoder, or `None` if this arm is unsupported for its scenario.
+    pub fn decoder(&self) -> Option<&Decode> {
+        match &self.run {
+            ArmRun::Supported(d) => Some(d),
+            ArmRun::Unsupported(_) => None,
+        }
+    }
+
+    /// The unsupported reason, or `None` if this arm is supported.
+    pub fn unsupported_reason(&self) -> Option<&'static str> {
+        match &self.run {
+            ArmRun::Unsupported(r) => Some(r),
+            ArmRun::Supported(_) => None,
+        }
+    }
 }
 
 // The arms for a scenario, arm 0 (baseline) first, then each competitor. To add a competitor: write
 // its module under `competitors/` and append one `competitors::<name>::$ty()` call here -- it then
-// joins every scenario of its message type AND the agreement test, no other edits.
+// joins every scenario of its message type AND the agreement test, no other edits. An arm that cannot
+// support a scenario returns `Arm::unsupported(..)` for it (e.g. femtopb for `dataset`), so it stays
+// in the list and is flagged in the table rather than dropped.
 macro_rules! arms {
     ($ty:ident) => {
         vec![
@@ -45,16 +92,8 @@ macro_rules! arms {
     };
 }
 
-// `dataset` is the one scenario whose message (`Person`) has a `map` field, which femtopb cannot
-// decode (see `competitors::femtopb`), so this arm list omits femtopb; the macro (all competitors) is
-// used for every other scenario.
 fn dataset_arms() -> Vec<Arm> {
-    vec![
-        ours::dataset(),
-        competitors::prost::dataset(),
-        competitors::rust_protobuf::dataset(),
-        competitors::quick_protobuf::dataset(),
-    ]
+    arms!(dataset)
 }
 fn bigset_arms() -> Vec<Arm> {
     arms!(bigset)
@@ -102,14 +141,18 @@ mod tests {
     use competitors::prost::pb;
     use prost::Message;
 
-    // Encode a populated message with prost, then run EVERY arm over the same bytes and assert they
-    // all agree -- the cross-arm correctness gate, without the external payload directory, so it runs
-    // in CI. Generic over the scenario's arm list, so a newly-registered competitor is covered with no
-    // extra test. The three types below exercise every field kind the schema has (scalars/strings/
-    // nested/repeated scalar+string+message/map in Dataset; dispatch + nested in RecordSet; packed
-    // varint/fixed/zigzag + enum + double in BigSet). prost is the reference encoder.
+    // Encode a populated message with prost, then run every SUPPORTED arm over the same bytes and
+    // assert they all agree -- the cross-arm correctness gate, without the external payload directory,
+    // so it runs in CI. Unsupported arms (e.g. femtopb on `dataset`) carry no decoder and are skipped.
+    // Generic over the scenario's arm list, so a newly-registered competitor is covered with no extra
+    // test. The three types below exercise every field kind the schema has (scalars/strings/nested/
+    // repeated scalar+string+message/map in Dataset; dispatch + nested in RecordSet; packed varint/
+    // fixed/zigzag + enum + double in BigSet). prost is the reference encoder.
     fn all_agree(arms: Vec<Arm>, bytes: &[u8]) {
-        let sums: Vec<u64> = arms.iter().map(|a| (a.run)(bytes)).collect();
+        let sums: Vec<u64> = arms
+            .iter()
+            .filter_map(|a| a.decoder().map(|d| d(bytes)))
+            .collect();
         assert!(
             sums.iter().all(|&s| s == sums[0]),
             "arm checksums disagree: {sums:?}"

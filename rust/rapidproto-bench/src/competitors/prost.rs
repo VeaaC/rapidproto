@@ -15,38 +15,33 @@ pub mod pb {
 }
 
 pub fn dataset() -> Arm {
-    Arm {
-        name: "prost",
-        run: Box::new(|b| checksum_dataset(&pb::Dataset::decode(b).expect("prost decode"))),
-    }
+    Arm::new("prost", |b| {
+        checksum_dataset(&pb::Dataset::decode(b).expect("prost decode"))
+    })
 }
 
 pub fn bigset() -> Arm {
-    Arm {
-        name: "prost",
-        run: Box::new(|b| checksum_bigset(&pb::BigSet::decode(b).expect("prost decode"))),
-    }
+    Arm::new("prost", |b| {
+        checksum_bigset(&pb::BigSet::decode(b).expect("prost decode"))
+    })
 }
 
 pub fn wideset() -> Arm {
-    Arm {
-        name: "prost",
-        run: Box::new(|b| checksum_wideset(&pb::WideSet::decode(b).expect("prost decode"))),
-    }
+    Arm::new("prost", |b| {
+        checksum_wideset(&pb::WideSet::decode(b).expect("prost decode"))
+    })
 }
 
 pub fn recordset() -> Arm {
-    Arm {
-        name: "prost",
-        run: Box::new(|b| checksum_recordset(&pb::RecordSet::decode(b).expect("prost decode"))),
-    }
+    Arm::new("prost", |b| {
+        checksum_recordset(&pb::RecordSet::decode(b).expect("prost decode"))
+    })
 }
 
 pub fn particleset() -> Arm {
-    Arm {
-        name: "prost",
-        run: Box::new(|b| checksum_particleset(&pb::ParticleSet::decode(b).expect("prost decode"))),
-    }
+    Arm::new("prost", |b| {
+        checksum_particleset(&pb::ParticleSet::decode(b).expect("prost decode"))
+    })
 }
 
 fn checksum_dataset(ds: &pb::Dataset) -> u64 {
