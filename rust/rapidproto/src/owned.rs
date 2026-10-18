@@ -134,6 +134,42 @@ where
     })
 }
 
+/// Implement the owning-handle API for a generated message type `$msg`: the [`ArenaDecode`] tag impl
+/// on `$msg<'static>` plus the `$msg::decode_owned` convenience over [`decode_owned`]. Generated code
+/// invokes this once per message (behind `alloc`) instead of expanding the boilerplate into every
+/// file; `$msg` resolves at the call site. Not a consumer-facing macro.
+///
+/// # Safety of the emitted `unsafe impl`
+/// A generated message borrows the input/arena only through shared `&'a` references (scalars,
+/// `ProtoStr`, slices, `MapView`, by-value or `&` sub-messages): it is covariant in `'a`,
+/// layout-identical at every lifetime, and free of interior mutability over the borrow — exactly
+/// [`ArenaDecode`]'s contract. Only invoke this for a type with those properties (every `rustgen`
+/// message has them).
+#[macro_export]
+macro_rules! impl_decode_owned {
+    ($msg:ident) => {
+        unsafe impl<'a> $crate::ArenaDecode<'a> for $msg<'static> {
+            type Message = $msg<'a>;
+            fn decode_borrowed(
+                rp_input: &'a [u8],
+                rp_arena: &'a $crate::Arena<'a>,
+            ) -> ::core::result::Result<&'a $msg<'a>, $crate::DecodeError> {
+                $msg::decode(rp_input, rp_arena)
+            }
+        }
+
+        impl<'a> $msg<'a> {
+            /// Decode `input` into a self-contained handle that owns the bytes and the arena; read
+            /// the message with `Owned::get`. No external lifetime to manage.
+            pub fn decode_owned(
+                rp_input: impl ::core::convert::Into<$crate::Box<[u8]>>,
+            ) -> ::core::result::Result<$crate::Owned<$msg<'static>>, $crate::DecodeError> {
+                $crate::decode_owned::<$msg<'static>>(rp_input)
+            }
+        }
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

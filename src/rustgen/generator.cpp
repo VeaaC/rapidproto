@@ -495,6 +495,7 @@ AccessorNames message_accessor_names(const MessageNode& msg,
                                      const std::unordered_set<std::string>& extra_reserved) {
     std::unordered_set<std::string> taken = extra_reserved;
     taken.insert("decode");              // the generated decode() method lives in the same impl
+    taken.insert("decode_owned");        // the alloc-gated owning-handle constructor (impl_decode_owned!)
     taken.insert("has_unknown_fields");  // the field-modes unknown-fields accessor (when enabled)
     AccessorNames names;
     const auto assign = [&taken](const std::string& raw) {
@@ -2431,48 +2432,14 @@ void emit_message_serialize(Printer& printer, const NameTable& table, const Mess
     printer.print("}\n\n");
 }
 
-// The owning-handle API (behind `alloc`): `$M$<'static>` is the zero-cost `ArenaDecode` tag (no
-// separate marker type needed), and `decode_owned` is the self-contained-decode convenience over the
-// runtime `::rapidproto::decode_owned` -- the Rust pendant of C++'s `decode_owned`. `$M$` is set by
-// the caller.
+// The owning-handle API (behind `alloc`): one runtime macro expands to the `ArenaDecode` tag impl on
+// `$M$<'static>` (no separate marker type) + the `$M$::decode_owned` convenience over the runtime
+// `::rapidproto::decode_owned` -- the Rust pendant of C++'s `decode_owned`. Emitting the macro call,
+// not the boilerplate, keeps each message to one line and the SAFETY rationale in one place (the
+// macro definition). `$M$` is set by the caller.
 void emit_message_owned(Printer& printer) {
     printer.print("#[cfg(feature = \"alloc\")]\n");
-    printer.print(
-        "// SAFETY: a generated message borrows the input/arena only through shared `&'a` "
-        "references "
-        "(scalars, `ProtoStr`, slices, `MapView`, by-value/`&` sub-messages) -- covariant in 'a, "
-        "layout-stable, no interior mutability over the borrow, as ArenaDecode requires.\n");
-    printer.print("unsafe impl<'a> ::rapidproto::ArenaDecode<'a> for $M$<'static> {\n");
-    printer.indent();
-    printer.print("type Message = $M$<'a>;\n");
-    printer.print(
-        "fn decode_borrowed(rp_input: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>) "
-        "-> ::core::result::Result<&'a $M$<'a>, ::rapidproto::DecodeError> {\n");
-    printer.indent();
-    printer.print("$M$::decode(rp_input, rp_arena)\n");
-    printer.outdent();
-    printer.print("}\n");
-    printer.outdent();
-    printer.print("}\n\n");
-
-    printer.print("#[cfg(feature = \"alloc\")]\n");
-    printer.print("impl<'a> $M$<'a> {\n");
-    printer.indent();
-    printer.print(
-        "/// Decode `input` into a self-contained handle that owns the bytes and the arena; "
-        "read\n");
-    printer.print(
-        "/// the message with `::rapidproto::Owned::get`. No external lifetime to manage.\n");
-    printer.print(
-        "pub fn decode_owned(rp_input: impl ::core::convert::Into<::rapidproto::Box<[u8]>>) "
-        "-> ::core::result::Result<::rapidproto::Owned<$M$<'static>>, ::rapidproto::DecodeError> "
-        "{\n");
-    printer.indent();
-    printer.print("::rapidproto::decode_owned::<$M$<'static>>(rp_input)\n");
-    printer.outdent();
-    printer.print("}\n");
-    printer.outdent();
-    printer.print("}\n\n");
+    printer.print("::rapidproto::impl_decode_owned!($M$);\n\n");
 }
 
 void emit_message(Printer& printer, const NameTable& table,

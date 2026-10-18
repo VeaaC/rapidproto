@@ -42,22 +42,7 @@ pub mod arena {
     }
 
     #[cfg(feature = "alloc")]
-    // SAFETY: a generated message borrows the input/arena only through shared `&'a` references (scalars, `ProtoStr`, slices, `MapView`, by-value/`&` sub-messages) -- covariant in 'a, layout-stable, no interior mutability over the borrow, as ArenaDecode requires.
-    unsafe impl<'a> ::rapidproto::ArenaDecode<'a> for linux_<'static> {
-      type Message = linux_<'a>;
-      fn decode_borrowed(rp_input: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a linux_<'a>, ::rapidproto::DecodeError> {
-        linux_::decode(rp_input, rp_arena)
-      }
-    }
-
-    #[cfg(feature = "alloc")]
-    impl<'a> linux_<'a> {
-      /// Decode `input` into a self-contained handle that owns the bytes and the arena; read
-      /// the message with `::rapidproto::Owned::get`. No external lifetime to manage.
-      pub fn decode_owned(rp_input: impl ::core::convert::Into<::rapidproto::Box<[u8]>>) -> ::core::result::Result<::rapidproto::Owned<linux_<'static>>, ::rapidproto::DecodeError> {
-        ::rapidproto::decode_owned::<linux_<'static>>(rp_input)
-      }
-    }
+    ::rapidproto::impl_decode_owned!(linux_);
 
 
     #[derive(Default)]
@@ -90,22 +75,7 @@ pub mod arena {
     }
 
     #[cfg(feature = "alloc")]
-    // SAFETY: a generated message borrows the input/arena only through shared `&'a` references (scalars, `ProtoStr`, slices, `MapView`, by-value/`&` sub-messages) -- covariant in 'a, layout-stable, no interior mutability over the borrow, as ArenaDecode requires.
-    unsafe impl<'a> ::rapidproto::ArenaDecode<'a> for linux__<'static> {
-      type Message = linux__<'a>;
-      fn decode_borrowed(rp_input: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a linux__<'a>, ::rapidproto::DecodeError> {
-        linux__::decode(rp_input, rp_arena)
-      }
-    }
-
-    #[cfg(feature = "alloc")]
-    impl<'a> linux__<'a> {
-      /// Decode `input` into a self-contained handle that owns the bytes and the arena; read
-      /// the message with `::rapidproto::Owned::get`. No external lifetime to manage.
-      pub fn decode_owned(rp_input: impl ::core::convert::Into<::rapidproto::Box<[u8]>>) -> ::core::result::Result<::rapidproto::Owned<linux__<'static>>, ::rapidproto::DecodeError> {
-        ::rapidproto::decode_owned::<linux__<'static>>(rp_input)
-      }
-    }
+    ::rapidproto::impl_decode_owned!(linux__);
 
 
     impl<'a> linux_<'a> {
@@ -271,22 +241,7 @@ pub mod arena {
       }
 
       #[cfg(feature = "alloc")]
-      // SAFETY: a generated message borrows the input/arena only through shared `&'a` references (scalars, `ProtoStr`, slices, `MapView`, by-value/`&` sub-messages) -- covariant in 'a, layout-stable, no interior mutability over the borrow, as ArenaDecode requires.
-      unsafe impl<'a> ::rapidproto::ArenaDecode<'a> for Sub<'static> {
-        type Message = Sub<'a>;
-        fn decode_borrowed(rp_input: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a Sub<'a>, ::rapidproto::DecodeError> {
-          Sub::decode(rp_input, rp_arena)
-        }
-      }
-
-      #[cfg(feature = "alloc")]
-      impl<'a> Sub<'a> {
-        /// Decode `input` into a self-contained handle that owns the bytes and the arena; read
-        /// the message with `::rapidproto::Owned::get`. No external lifetime to manage.
-        pub fn decode_owned(rp_input: impl ::core::convert::Into<::rapidproto::Box<[u8]>>) -> ::core::result::Result<::rapidproto::Owned<Sub<'static>>, ::rapidproto::DecodeError> {
-          ::rapidproto::decode_owned::<Sub<'static>>(rp_input)
-        }
-      }
+      ::rapidproto::impl_decode_owned!(Sub);
 
 
       impl<'a> Sub<'a> {
