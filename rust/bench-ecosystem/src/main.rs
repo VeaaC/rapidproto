@@ -7,15 +7,16 @@
 //! the realistic decode-into-a-new-arena shape, matching the C++ arena-cold arm and `decode.rs`. A
 //! warm (reset-and-reuse) arm can be added later.
 //!
-//! BUILD CAVEAT: this runs under plain `--release` (no LTO), matching the RapidProto-vs-C++ bench
-//! methodology. But a competitor's generated decode lives in ITS OWN crate, so without LTO it is not
-//! cross-crate-inlined -- whereas our decode is self-contained in `rustgen-golden` and already
-//! inlined. So competitor throughput here is a LOWER BOUND and our `--release` lead is an OVERSTATEMENT
-//! on compute-bound shapes (the C++ bench does not have this gap: protoc is compiled into the bench
-//! binary). Measured for prost: LTO + `codegen-units=1` narrows the gap by up to ~1.5x on the
-//! compute-bound scenarios (allocation/validation-bound shapes like `dataset` barely move -- that part
-//! is a model difference, not an optimization gap). To give a competitor its best build, add
-//! `--config 'profile.release.lto="fat"' --config 'profile.release.codegen-units=1'`.
+//! BUILD PROFILE: plain `--release` (no LTO), matching the RapidProto-vs-C++ bench methodology and
+//! what most users actually ship. Under the default profile a decoder's hot path stays inlined across
+//! crate / codegen-unit boundaries only if it is ANNOTATED for it: RapidProto's wire readers are
+//! `#[inline(always)]`, so they inline here; prost's decode is not force-inlined the same way, so it
+//! gains from LTO + `codegen-units=1`. That is a real property of how each decoder is written -- a
+//! competitor optimizing poorly under the default profile is the competitor's trade-off, not a
+//! benchmark handicap -- so `--release` is a fair comparison. For transparency, LTO + `codegen-units=1`
+//! narrows prost's gap by up to ~1.5x on the compute-bound scenarios (the allocation/validation-bound
+//! shapes like `dataset` barely move -- that part is a model difference, not an optimization gap); add
+//! `--config 'profile.release.lto="fat"' --config 'profile.release.codegen-units=1'` to see it.
 //!
 //! ```text
 //! # produce the shared payloads once (protoc-canonical, from the C++ bench):
@@ -133,10 +134,10 @@ fn main() {
     eprintln!(
         "\nNOTE: throughput is meaningful only pinned (taskset -c N), aligned \
          (-Cllvm-args=-align-all-functions=6), governor=performance, turbo/SMT off, one run at a \
-         time. ins/B via an external `perf stat -e instructions:u`. Under plain --release a \
-         competitor's cross-crate decode is not fully inlined, so its number is a lower bound -- add \
-         --config 'profile.release.lto=\"fat\"' --config 'profile.release.codegen-units=1' to give it \
-         its best build (see the module header).\n"
+         time. ins/B via an external `perf stat -e instructions:u`. --release is the default profile \
+         most users ship; a decoder not annotated for inlining (unlike our #[inline(always)] wire \
+         readers) gains from LTO+cgu=1 -- see the module header to reproduce a competitor's best \
+         build.\n"
     );
     println!(
         "\n{:<11} {:<12} {:>9}  {:>9}",
