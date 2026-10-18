@@ -494,8 +494,8 @@ struct AccessorNames {
 AccessorNames message_accessor_names(const MessageNode& msg,
                                      const std::unordered_set<std::string>& extra_reserved) {
     std::unordered_set<std::string> taken = extra_reserved;
-    taken.insert("decode");              // the generated decode() method lives in the same impl
-    taken.insert("decode_owned");        // the alloc-gated owning-handle constructor (impl_decode_owned!)
+    taken.insert("decode");        // the generated decode() method lives in the same impl
+    taken.insert("decode_owned");  // the alloc-gated owning-handle constructor (impl_decode_owned!)
     taken.insert("has_unknown_fields");  // the field-modes unknown-fields accessor (when enabled)
     AccessorNames names;
     const auto assign = [&taken](const std::string& raw) {
