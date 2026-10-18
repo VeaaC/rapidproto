@@ -3,12 +3,14 @@
 //! checksum so a lazy/owned decoder is not flattered by skipping work. Competitors are added one at a
 //! time; prost is the first.
 //!
-//! The checksum convention mirrors the C++ ecosystem bench (`tests/bench_baselines.*`): a wrapping
-//! `u64` sum with a fixed per-type contribution (string/bytes -> byte length, bool -> 0/1, double ->
-//! IEEE bit pattern, int32/enum/uint32 -> value, int64/uint64/fixed -> value), read over present
-//! fields. Every arm in a scenario must produce the identical sum or the run aborts -- the same gate
-//! the C++ bench enforces. Because these are proto3 messages (zero/empty defaults contribute 0), a
-//! straight walk of every accessor equals the present-fields-only convention.
+//! The checksum is the same walk the Rust A/B bench uses (`rustgen-golden/benches/decode.rs`): a
+//! wrapping `u64` sum, mirrored field-for-field across arms so every arm in a scenario produces the
+//! identical value or the run aborts. For scalars it follows the C++ ecosystem bench convention
+//! (string/bytes -> byte length, bool -> 0/1, double -> IEEE bit pattern, int32/enum/uint32 -> value,
+//! int64/uint64/fixed -> value); for repeated strings, repeated sub-messages and maps it contributes
+//! the element COUNT (`.len()`), where the C++ bench sums each element's length -- so the sum is a
+//! per-LANGUAGE agreement gate, NOT a cross-language checksum. Because these are proto3 messages
+//! (zero/empty defaults contribute 0), a straight walk of every accessor equals present-fields-only.
 
 /// prost's generated decoders for `bench.proto` (rendered by `build.rs`; package `bench` -> top-level
 /// items here).

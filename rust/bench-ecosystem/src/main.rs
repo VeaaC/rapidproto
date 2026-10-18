@@ -3,6 +3,10 @@
 //! RapidProto's arena decoder (baseline) and each competitor, enforces that every arm agrees on the
 //! per-field checksum, then times them and reports throughput relative to the baseline.
 //!
+//! Cold path only: a fresh `Arena` per decode for our arm (and a fresh owned allocation for prost) --
+//! the realistic decode-into-a-new-arena shape, matching the C++ arena-cold arm and `decode.rs`. A
+//! warm (reset-and-reuse) arm can be added later.
+//!
 //! ```text
 //! # produce the shared payloads once (protoc-canonical, from the C++ bench):
 //! RAPIDPROTO_BENCH_DUMP_DIR=/tmp/bench ./build/<cfg>/rapidproto_arena_bench
