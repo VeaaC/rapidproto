@@ -1,8 +1,8 @@
 //! Ecosystem comparison harness: decode the shared `bench.proto` payloads with RapidProto's arena
 //! decoder (arm 0, the baseline) and with each competitor crate, walking every field with one shared
 //! checksum so a lazy/owned decoder is not flattered by skipping work. Competitors are added one at a
-//! time (one module each under `competitors/`, one line in the `arms!` macro below); prost is the
-//! first.
+//! time (one module each under `competitors/`, one line in the `arms!` macro below): prost, then
+//! rust-protobuf.
 //!
 //! The checksum is the same walk the Rust A/B bench uses (`rustgen-golden/benches/decode.rs`): a
 //! wrapping `u64` sum, mirrored field-for-field across arms so every arm in a scenario produces the
@@ -35,7 +35,11 @@ pub struct Arm {
 // joins every scenario of its message type AND the agreement test, no other edits.
 macro_rules! arms {
     ($ty:ident) => {
-        vec![ours::$ty(), competitors::prost::$ty()]
+        vec![
+            ours::$ty(),
+            competitors::prost::$ty(),
+            competitors::rust_protobuf::$ty(),
+        ]
     };
 }
 
