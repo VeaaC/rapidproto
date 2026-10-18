@@ -343,7 +343,6 @@ pub mod arena {
       }
     }
 
-    #[cfg(feature = "alloc")]
     ::rapidproto::impl_decode_owned!(M);
 
 
@@ -381,7 +380,6 @@ pub mod arena {
         }
       }
 
-      #[cfg(feature = "alloc")]
       ::rapidproto::impl_decode_owned!(int);
 
 
@@ -484,7 +482,6 @@ pub mod arena {
       }
     }
 
-    #[cfg(feature = "alloc")]
     ::rapidproto::impl_decode_owned!(Outer);
 
 
@@ -527,7 +524,6 @@ pub mod arena {
         }
       }
 
-      #[cfg(feature = "alloc")]
       ::rapidproto::impl_decode_owned!(Outer);
 
 
@@ -660,7 +656,6 @@ pub mod arena {
       }
     }
 
-    #[cfg(feature = "alloc")]
     ::rapidproto::impl_decode_owned!(Gnu);
 
 
@@ -694,7 +689,6 @@ pub mod arena {
         }
       }
 
-      #[cfg(feature = "alloc")]
       ::rapidproto::impl_decode_owned!(linux);
 
 
@@ -807,7 +801,6 @@ pub mod arena {
       }
     }
 
-    #[cfg(feature = "alloc")]
     ::rapidproto::impl_decode_owned!(Stdint);
 
 
@@ -840,7 +833,6 @@ pub mod arena {
       }
     }
 
-    #[cfg(feature = "alloc")]
     ::rapidproto::impl_decode_owned!(unix);
 
 
@@ -873,7 +865,6 @@ pub mod arena {
       }
     }
 
-    #[cfg(feature = "alloc")]
     ::rapidproto::impl_decode_owned!(m_bytes);
 
 
@@ -913,7 +904,6 @@ pub mod arena {
       }
     }
 
-    #[cfg(feature = "alloc")]
     ::rapidproto::impl_decode_owned!(UsesMBytes);
 
 
@@ -945,7 +935,6 @@ pub mod arena {
       }
     }
 
-    #[cfg(feature = "alloc")]
     ::rapidproto::impl_decode_owned!(Shadow);
 
 
@@ -979,7 +968,6 @@ pub mod arena {
         }
       }
 
-      #[cfg(feature = "alloc")]
       ::rapidproto::impl_decode_owned!(Inner);
 
 
@@ -1082,7 +1070,6 @@ pub mod arena {
       }
     }
 
-    #[cfg(feature = "alloc")]
     ::rapidproto::impl_decode_owned!(Deep);
 
 
@@ -1115,7 +1102,6 @@ pub mod arena {
         }
       }
 
-      #[cfg(feature = "alloc")]
       ::rapidproto::impl_decode_owned!(Deep);
 
 
@@ -1149,7 +1135,6 @@ pub mod arena {
           }
         }
 
-        #[cfg(feature = "alloc")]
         ::rapidproto::impl_decode_owned!(Deep);
 
 
@@ -1328,7 +1313,6 @@ pub mod arena {
       }
     }
 
-    #[cfg(feature = "alloc")]
     ::rapidproto::impl_decode_owned!(Std);
 
 
@@ -1362,7 +1346,6 @@ pub mod arena {
         }
       }
 
-      #[cfg(feature = "alloc")]
       ::rapidproto::impl_decode_owned!(std);
 
 
@@ -1466,7 +1449,6 @@ pub mod arena {
       }
     }
 
-    #[cfg(feature = "alloc")]
     ::rapidproto::impl_decode_owned!(StdEnum);
 
 
@@ -1499,7 +1481,6 @@ pub mod arena {
       }
     }
 
-    #[cfg(feature = "alloc")]
     ::rapidproto::impl_decode_owned!(StdField);
 
 
@@ -1530,7 +1511,6 @@ pub mod arena {
       }
     }
 
-    #[cfg(feature = "alloc")]
     ::rapidproto::impl_decode_owned!(StdMap);
 
 
@@ -1580,7 +1560,6 @@ pub mod arena {
       }
     }
 
-    #[cfg(feature = "alloc")]
     ::rapidproto::impl_decode_owned!(Macros);
 
 
@@ -1614,7 +1593,6 @@ pub mod arena {
         }
       }
 
-      #[cfg(feature = "alloc")]
       ::rapidproto::impl_decode_owned!(RP_FLATTEN);
 
 
@@ -1734,7 +1712,6 @@ pub mod arena {
       }
     }
 
-    #[cfg(feature = "alloc")]
     ::rapidproto::impl_decode_owned!(OneofTags);
 
 
@@ -1781,7 +1758,6 @@ pub mod arena {
       }
     }
 
-    #[cfg(feature = "alloc")]
     ::rapidproto::impl_decode_owned!(UsesStream);
 
 
@@ -1849,7 +1825,6 @@ pub mod arena {
       }
     }
 
-    #[cfg(feature = "alloc")]
     ::rapidproto::impl_decode_owned!(Freed);
 
 
@@ -1886,7 +1861,6 @@ pub mod arena {
       }
     }
 
-    #[cfg(feature = "alloc")]
     ::rapidproto::impl_decode_owned!(FreedOneof);
 
 

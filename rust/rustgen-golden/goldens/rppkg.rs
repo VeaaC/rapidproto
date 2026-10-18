@@ -106,7 +106,6 @@ pub mod arena {
       }
     }
 
-    #[cfg(feature = "alloc")]
     ::rapidproto::impl_decode_owned!(wire);
 
 
@@ -139,7 +138,6 @@ pub mod arena {
       }
     }
 
-    #[cfg(feature = "alloc")]
     ::rapidproto::impl_decode_owned!(Arena);
 
 
@@ -170,7 +168,6 @@ pub mod arena {
       }
     }
 
-    #[cfg(feature = "alloc")]
     ::rapidproto::impl_decode_owned!(Tag);
 
 
@@ -201,7 +198,6 @@ pub mod arena {
       }
     }
 
-    #[cfg(feature = "alloc")]
     ::rapidproto::impl_decode_owned!(ByteView);
 
 

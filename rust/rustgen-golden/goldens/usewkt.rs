@@ -53,7 +53,6 @@ pub mod arena {
         }
       }
 
-      #[cfg(feature = "alloc")]
       ::rapidproto::impl_decode_owned!(Timestamp);
 
 
@@ -96,7 +95,6 @@ pub mod arena {
         }
       }
 
-      #[cfg(feature = "alloc")]
       ::rapidproto::impl_decode_owned!(Duration);
 
 
@@ -310,7 +308,6 @@ pub mod arena {
       }
     }
 
-    #[cfg(feature = "alloc")]
     ::rapidproto::impl_decode_owned!(Event);
 
 

@@ -121,7 +121,6 @@ pub mod arena {
       }
     }
 
-    #[cfg(feature = "alloc")]
     ::rapidproto::impl_decode_owned!(Outer);
 
 
@@ -155,7 +154,6 @@ pub mod arena {
         }
       }
 
-      #[cfg(feature = "alloc")]
       ::rapidproto::impl_decode_owned!(Inner);
 
 

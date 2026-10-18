@@ -230,7 +230,6 @@ pub mod arena {
       }
     }
 
-    #[cfg(feature = "alloc")]
     ::rapidproto::impl_decode_owned!(Scalars);
 
 
@@ -262,7 +261,6 @@ pub mod arena {
       }
     }
 
-    #[cfg(feature = "alloc")]
     ::rapidproto::impl_decode_owned!(WithGroup);
 
 
@@ -304,7 +302,6 @@ pub mod arena {
         }
       }
 
-      #[cfg(feature = "alloc")]
       ::rapidproto::impl_decode_owned!(MyGroup);
 
 
@@ -337,7 +334,6 @@ pub mod arena {
           }
         }
 
-        #[cfg(feature = "alloc")]
         ::rapidproto::impl_decode_owned!(Inner);
 
 
@@ -539,7 +535,6 @@ pub mod arena {
       }
     }
 
-    #[cfg(feature = "alloc")]
     ::rapidproto::impl_decode_owned!(OneofGroup);
 
 
@@ -585,7 +580,6 @@ pub mod arena {
         }
       }
 
-      #[cfg(feature = "alloc")]
       ::rapidproto::impl_decode_owned!(G);
 
 
@@ -708,7 +702,6 @@ pub mod arena {
       }
     }
 
-    #[cfg(feature = "alloc")]
     ::rapidproto::impl_decode_owned!(GroupNumberReuse);
 
 
@@ -742,7 +735,6 @@ pub mod arena {
         }
       }
 
-      #[cfg(feature = "alloc")]
       ::rapidproto::impl_decode_owned!(G);
 
 
@@ -854,7 +846,6 @@ pub mod arena {
       }
     }
 
-    #[cfg(feature = "alloc")]
     ::rapidproto::impl_decode_owned!(RepeatedGroup);
 
 
@@ -888,7 +879,6 @@ pub mod arena {
         }
       }
 
-      #[cfg(feature = "alloc")]
       ::rapidproto::impl_decode_owned!(Item);
 
 
@@ -1000,7 +990,6 @@ pub mod arena {
       }
     }
 
-    #[cfg(feature = "alloc")]
     ::rapidproto::impl_decode_owned!(OneofGroupStraddle);
 
 
@@ -1039,7 +1028,6 @@ pub mod arena {
         }
       }
 
-      #[cfg(feature = "alloc")]
       ::rapidproto::impl_decode_owned!(Head);
 
 
@@ -1171,7 +1159,6 @@ pub mod arena {
       }
     }
 
-    #[cfg(feature = "alloc")]
     ::rapidproto::impl_decode_owned!(Container);
 
 
@@ -1210,7 +1197,6 @@ pub mod arena {
         }
       }
 
-      #[cfg(feature = "alloc")]
       ::rapidproto::impl_decode_owned!(Nested);
 
 

@@ -237,7 +237,6 @@ pub mod arena {
       }
     }
 
-    #[cfg(feature = "alloc")]
     ::rapidproto::impl_decode_owned!(A);
 
 
@@ -267,7 +266,6 @@ pub mod arena {
       }
     }
 
-    #[cfg(feature = "alloc")]
     ::rapidproto::impl_decode_owned!(B);
 
 
@@ -288,7 +286,6 @@ pub mod arena {
       }
     }
 
-    #[cfg(feature = "alloc")]
     ::rapidproto::impl_decode_owned!(Nested);
 
 
@@ -398,7 +395,6 @@ pub mod arena {
         }
       }
 
-      #[cfg(feature = "alloc")]
       ::rapidproto::impl_decode_owned!(User);
 
 
@@ -446,7 +442,6 @@ pub mod arena {
         }
       }
 
-      #[cfg(feature = "alloc")]
       ::rapidproto::impl_decode_owned!(Def);
 
 
@@ -478,7 +473,6 @@ pub mod arena {
           }
         }
 
-        #[cfg(feature = "alloc")]
         ::rapidproto::impl_decode_owned!(Inner);
 
 
@@ -574,7 +568,6 @@ pub mod arena {
         }
       }
 
-      #[cfg(feature = "alloc")]
       ::rapidproto::impl_decode_owned!(P);
 
 
@@ -604,7 +597,6 @@ pub mod arena {
         }
       }
 
-      #[cfg(feature = "alloc")]
       ::rapidproto::impl_decode_owned!(Q);
 
 
@@ -1317,7 +1309,6 @@ pub mod arena {
       }
     }
 
-    #[cfg(feature = "alloc")]
     ::rapidproto::impl_decode_owned!(FwdMsg);
 
 
@@ -1377,7 +1368,6 @@ pub mod arena {
         }
       }
 
-      #[cfg(feature = "alloc")]
       ::rapidproto::impl_decode_owned!(Ref);
 
 
@@ -1424,7 +1414,6 @@ pub mod arena {
         }
       }
 
-      #[cfg(feature = "alloc")]
       ::rapidproto::impl_decode_owned!(Target);
 
 
@@ -1770,7 +1759,6 @@ pub mod arena {
       }
     }
 
-    #[cfg(feature = "alloc")]
     ::rapidproto::impl_decode_owned!(CousinA);
 
 
@@ -1821,7 +1809,6 @@ pub mod arena {
         }
       }
 
-      #[cfg(feature = "alloc")]
       ::rapidproto::impl_decode_owned!(Use);
 
 
@@ -1952,7 +1939,6 @@ pub mod arena {
       }
     }
 
-    #[cfg(feature = "alloc")]
     ::rapidproto::impl_decode_owned!(CousinB);
 
 
@@ -1984,7 +1970,6 @@ pub mod arena {
         }
       }
 
-      #[cfg(feature = "alloc")]
       ::rapidproto::impl_decode_owned!(Thing);
 
 
@@ -2143,7 +2128,6 @@ pub mod arena {
       }
     }
 
-    #[cfg(feature = "alloc")]
     ::rapidproto::impl_decode_owned!(ReservedNames);
 
 
@@ -2176,7 +2160,6 @@ pub mod arena {
       }
     }
 
-    #[cfg(feature = "alloc")]
     ::rapidproto::impl_decode_owned!(IntWrap);
 
 
@@ -2209,7 +2192,6 @@ pub mod arena {
       }
     }
 
-    #[cfg(feature = "alloc")]
     ::rapidproto::impl_decode_owned!(BoolWrap);
 
 
@@ -2240,7 +2222,6 @@ pub mod arena {
       }
     }
 
-    #[cfg(feature = "alloc")]
     ::rapidproto::impl_decode_owned!(BytesWrap);
 
 

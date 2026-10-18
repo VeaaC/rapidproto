@@ -2436,9 +2436,9 @@ void emit_message_serialize(Printer& printer, const NameTable& table, const Mess
 // `$M$<'static>` (no separate marker type) + the `$M$::decode_owned` convenience over the runtime
 // `::rapidproto::decode_owned` -- the Rust pendant of C++'s `decode_owned`. Emitting the macro call,
 // not the boilerplate, keeps each message to one line and the SAFETY rationale in one place (the
-// macro definition). `$M$` is set by the caller.
+// macro definition). The macro `alloc`-gates its own output, so no `#[cfg]` is emitted here. `$M$`
+// is set by the caller.
 void emit_message_owned(Printer& printer) {
-    printer.print("#[cfg(feature = \"alloc\")]\n");
     printer.print("::rapidproto::impl_decode_owned!($M$);\n\n");
 }
 
