@@ -4,6 +4,11 @@
 //! competitor in the `arms!` macro in `lib.rs` (one line per competitor).
 
 pub mod femtopb;
+// The google-upb capstone arm, gated behind the off-by-default `google-upb` feature: it wraps Google's
+// upb-backed `protobuf` v4 (in the separate `rapidproto-bench-upb` crate, to isolate its `::protobuf::`
+// from the v3 the rust-protobuf arm uses) and needs an exact-version protoc to build.
+#[cfg(feature = "google-upb")]
+pub mod google_upb;
 pub mod prost;
 pub mod quick_protobuf;
 pub mod rust_protobuf;

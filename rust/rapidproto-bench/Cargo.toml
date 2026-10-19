@@ -30,6 +30,18 @@ quick-protobuf = "0.8"
 # repeated fields LAZILY (no `Vec`) -- the every-field checksum walk forces that work so it is not
 # flattered. The nearest ecosystem analog to our arena-of-borrowed-views allocation profile.
 femtopb = "0.9"
+# Capstone: Google's official upb-backed `protobuf` v4 (the true arena-vs-arena peer), isolated in its
+# own crate because its `::protobuf::` is v4 while the rust-protobuf arm above needs v3. OPTIONAL +
+# OFF BY DEFAULT (the `google-upb` feature): building it needs an exact-version protoc + a C toolchain,
+# so the normal cargo-only build/CI never pulls it. Excluded from the workspace (see ../Cargo.toml).
+rapidproto-bench-upb = { path = "../rapidproto-bench-upb", optional = true }
+
+[features]
+# Add the google-upb capstone arm. Off by default; enabling it requires `protoc` 36.2 at build time
+# (point `RAPIDPROTO_UPB_PROTOC` at one -- see this crate's src/main.rs header). Run with:
+#   RAPIDPROTO_UPB_PROTOC=/path/to/protoc RAPIDPROTO_BENCH_DIR=<payloads> \
+#       cargo run -p rapidproto-bench --release --features google-upb
+google-upb = ["dep:rapidproto-bench-upb"]
 
 [build-dependencies]
 # Pure-Rust protobuf compiler (no `protoc` / C toolchain): compiles bench.proto to a descriptor set

@@ -33,6 +33,22 @@
 //! `perf stat -e instructions:u`); `ARMS` a comma-separated arm allowlist, e.g. `rapidproto,prost`
 //! (arm 0 is always kept; unset runs every arm); `ITERS` inner decodes per sample (default 50);
 //! `ROUNDS` samples per arm (default 20).
+//!
+//! GOOGLE-UPB CAPSTONE (feature `google-upb`, OFF by default): adds Google's official upb-backed
+//! `protobuf` crate -- the only true arena-vs-arena peer (borrowed `*View<'_>` over a upb C arena). It
+//! is the one arm that is NOT cargo-only: Google's codegen drives an external `protoc` whose version
+//! must EXACTLY match the crate (currently 36.2), and the upb kernel needs a C compiler. So it lives in
+//! the separate `rapidproto-bench-upb` crate (its `::protobuf::` is v4; the rust-protobuf arm's is v3 --
+//! incompatible, hence the split) and is gated behind the feature. Build a matching protoc from source
+//! (portable; the prebuilt release binary also works) and point the bench at it:
+//! ```text
+//! git clone --depth 1 --recurse-submodules --shallow-submodules -b v36.2 \
+//!     https://github.com/protocolbuffers/protobuf
+//! cmake -S protobuf -B protobuf/_b -DCMAKE_BUILD_TYPE=Release -Dprotobuf_BUILD_TESTS=OFF
+//! cmake --build protobuf/_b --target protoc -j   # -> protobuf/_b/protoc-36.2.0
+//! RAPIDPROTO_UPB_PROTOC="$PWD/protobuf/_b/protoc-36.2.0" RAPIDPROTO_BENCH_DIR=<payloads> \
+//!     taskset -c 0 cargo run -p rapidproto-bench --release --features google-upb
+//! ```
 
 use std::hint::black_box;
 use std::path::Path;

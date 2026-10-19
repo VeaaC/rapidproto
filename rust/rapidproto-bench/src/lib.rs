@@ -79,17 +79,22 @@ impl Arm {
 // its module under `competitors/` and append one `competitors::<name>::$ty()` call here -- it then
 // joins every scenario of its message type AND the agreement test, no other edits. An arm that cannot
 // support a scenario returns `Arm::unsupported(..)` for it (e.g. femtopb for `dataset`), so it stays
-// in the list and is flagged in the table rather than dropped.
+// in the list and is flagged in the table rather than dropped. The google-upb capstone is appended only
+// under its off-by-default feature (it carries a protoc/C-toolchain build dep the other arms avoid).
 macro_rules! arms {
-    ($ty:ident) => {
-        vec![
+    ($ty:ident) => {{
+        #[allow(unused_mut)]
+        let mut v = vec![
             ours::$ty(),
             competitors::prost::$ty(),
             competitors::rust_protobuf::$ty(),
             competitors::quick_protobuf::$ty(),
             competitors::femtopb::$ty(),
-        ]
-    };
+        ];
+        #[cfg(feature = "google-upb")]
+        v.push(competitors::google_upb::$ty());
+        v
+    }};
 }
 
 fn dataset_arms() -> Vec<Arm> {

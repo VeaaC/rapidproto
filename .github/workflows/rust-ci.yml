@@ -33,19 +33,23 @@ jobs:
         run: cargo fmt --all --check
       # std+alloc covers the whole workspace, including rapidproto-build (the wasmi generator driver
       # and its golden dogfooding gate), consumer-example (whose build.rs runs the blob end to end),
-      # rapidproto-diff (the differential Serializer) and rapidproto-bench (the competitor-crate
-      # comparison, which pulls prost/protox). The no_std/no-alloc tiers exercise the `rapidproto`
-      # runtime crate's embedded tiers, so they --exclude all of these: each is a std-only build
-      # tool / demo / bench, meaningless under no_std and costly to recompile per tier on the 4-core
-      # runners.
+      # and rapidproto-diff (the differential Serializer). rapidproto-bench is linted and tested
+      # SEPARATELY (below) at its DEFAULT features, NOT via the blanket `--all-features` runs: its
+      # off-by-default `google-upb` arm pulls Google's upb `protobuf` crate, which needs an exact-version
+      # protoc + a C toolchain this runner lacks, so `--all-features` would fail to build it. The
+      # no_std/no-alloc tiers exercise the `rapidproto` runtime crate's embedded tiers, so they --exclude
+      # all of these: each is a std-only build tool / demo / bench, meaningless under no_std and costly
+      # to recompile per tier on the 4-core runners.
       - name: Clippy (std + alloc)
-        run: cargo clippy --all-targets --all-features -- -D warnings
+        run: cargo clippy --workspace --exclude rapidproto-bench --all-targets --all-features -- -D warnings
+      - name: Clippy (rapidproto-bench, default features)
+        run: cargo clippy -p rapidproto-bench --all-targets -- -D warnings
       - name: Clippy (no_std + alloc)
         run: cargo clippy --workspace --exclude rapidproto-build --exclude consumer-example --exclude rapidproto-diff --exclude rapidproto-bench --all-targets --no-default-features --features alloc -- -D warnings
       - name: Clippy (no_std, no-alloc)
         run: cargo clippy --workspace --exclude rapidproto-build --exclude consumer-example --exclude rapidproto-diff --exclude rapidproto-bench --all-targets --no-default-features -- -D warnings
       - name: Test (std + alloc)
-        run: cargo test --all-features
+        run: cargo test --workspace --exclude rapidproto-bench --all-features
       # rapidproto-bench's quick-protobuf arm decodes `Big.reals` (repeated double) by borrowing the
       # input as an unaligned `&[f64]` -- UB that the debug build's alignment check aborts on. Its
       # `bigset` agreement test is therefore release-only (`#[cfg(not(debug_assertions))]`) and the

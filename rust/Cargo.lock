@@ -475,6 +475,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "google-protobuf"
+version = "0.36.2-release"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eb6a2d5d79f0041702be6081437d082721099677d4a708e80bca4e6a831df343"
+dependencies = [
+ "cc",
+ "linkme",
+ "paste-complete",
+ "protobuf-macros",
+]
+
+[[package]]
 name = "half"
 version = "1.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -635,6 +647,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b6d2cec3eae94f9f509c767b45932f1ada8350c4bdb85af2fcab4a3c14807981"
 
 [[package]]
+name = "linkme"
+version = "0.3.37"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3045e122bd98aef8ec3ad58ce84f0791f64e70163d1a02710af4aa11a4d54cc5"
+dependencies = [
+ "linkme-impl",
+]
+
+[[package]]
+name = "linkme-impl"
+version = "0.3.37"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77060ebe535362c3da75682cd17b0431017b6e7c5661e714fc69a7ad017d1301"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 3.0.9",
+]
+
+[[package]]
 name = "linux-raw-sys"
 version = "0.4.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -761,6 +793,12 @@ name = "oorandom"
 version = "11.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6790f58c7ff633d8771f42965289203411a5e5c68388703c06e14f24770b41e"
+
+[[package]]
+name = "paste-complete"
+version = "1.0.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3a4cf96a295ab7f0ec2334fa557745c0e9526595f6ebabbb129563a98dfc1b2a"
 
 [[package]]
 name = "pb-rs"
@@ -923,6 +961,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "protobuf"
+version = "4.36.2-release"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4c351b2f1b637e2682f884159b6150683c98f5e29e15c126b7acc77979e9e390"
+dependencies = [
+ "google-protobuf",
+]
+
+[[package]]
 name = "protobuf-codegen"
 version = "3.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -930,11 +977,27 @@ checksum = "5d3976825c0014bbd2f3b34f0001876604fe87e0c86cd8fa54251530f1544ace"
 dependencies = [
  "anyhow",
  "once_cell",
- "protobuf",
+ "protobuf 3.7.2",
  "protobuf-parse",
  "regex",
  "tempfile",
  "thiserror 1.0.69",
+]
+
+[[package]]
+name = "protobuf-codegen"
+version = "4.36.2-release"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9736ac5d6daf50e96988dabf170662b96e0db7d1063c288e06ecc8ddc40b5d59"
+
+[[package]]
+name = "protobuf-macros"
+version = "0.36.2-release"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3efdd431f0efb3b196516e124416be3a3b09bf733ba42397c6cff71ea34539d2"
+dependencies = [
+ "quote",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -946,7 +1009,7 @@ dependencies = [
  "anyhow",
  "indexmap",
  "log",
- "protobuf",
+ "protobuf 3.7.2",
  "protobuf-support",
  "tempfile",
  "thiserror 1.0.69",
@@ -1067,12 +1130,21 @@ dependencies = [
  "pb-rs",
  "prost",
  "prost-build",
- "protobuf",
- "protobuf-codegen",
+ "protobuf 3.7.2",
+ "protobuf-codegen 3.7.2",
  "protox",
  "quick-protobuf",
  "rapidproto",
+ "rapidproto-bench-upb",
  "rustgen-golden",
+]
+
+[[package]]
+name = "rapidproto-bench-upb"
+version = "0.0.0"
+dependencies = [
+ "protobuf 4.36.2-release",
+ "protobuf-codegen 4.36.2-release",
 ]
 
 [[package]]
