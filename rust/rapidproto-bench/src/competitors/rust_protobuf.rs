@@ -18,50 +18,33 @@ pub mod pb {
 }
 
 pub fn dataset() -> Arm {
-    Arm {
-        name: "rust-protobuf",
-        run: Box::new(|b| {
-            checksum_dataset(&pb::Dataset::parse_from_bytes(b).expect("rust-protobuf decode"))
-        }),
-    }
+    Arm::new("rust-protobuf", |b| {
+        checksum_dataset(&pb::Dataset::parse_from_bytes(b).expect("rust-protobuf decode"))
+    })
 }
 
 pub fn bigset() -> Arm {
-    Arm {
-        name: "rust-protobuf",
-        run: Box::new(|b| {
-            checksum_bigset(&pb::BigSet::parse_from_bytes(b).expect("rust-protobuf decode"))
-        }),
-    }
+    Arm::new("rust-protobuf", |b| {
+        checksum_bigset(&pb::BigSet::parse_from_bytes(b).expect("rust-protobuf decode"))
+    })
 }
 
 pub fn wideset() -> Arm {
-    Arm {
-        name: "rust-protobuf",
-        run: Box::new(|b| {
-            checksum_wideset(&pb::WideSet::parse_from_bytes(b).expect("rust-protobuf decode"))
-        }),
-    }
+    Arm::new("rust-protobuf", |b| {
+        checksum_wideset(&pb::WideSet::parse_from_bytes(b).expect("rust-protobuf decode"))
+    })
 }
 
 pub fn recordset() -> Arm {
-    Arm {
-        name: "rust-protobuf",
-        run: Box::new(|b| {
-            checksum_recordset(&pb::RecordSet::parse_from_bytes(b).expect("rust-protobuf decode"))
-        }),
-    }
+    Arm::new("rust-protobuf", |b| {
+        checksum_recordset(&pb::RecordSet::parse_from_bytes(b).expect("rust-protobuf decode"))
+    })
 }
 
 pub fn particleset() -> Arm {
-    Arm {
-        name: "rust-protobuf",
-        run: Box::new(|b| {
-            checksum_particleset(
-                &pb::ParticleSet::parse_from_bytes(b).expect("rust-protobuf decode"),
-            )
-        }),
-    }
+    Arm::new("rust-protobuf", |b| {
+        checksum_particleset(&pb::ParticleSet::parse_from_bytes(b).expect("rust-protobuf decode"))
+    })
 }
 
 fn checksum_dataset(ds: &pb::Dataset) -> u64 {

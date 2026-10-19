@@ -45,38 +45,33 @@ fn decode<'a, M: MessageRead<'a>>(bytes: &'a [u8]) -> M {
 }
 
 pub fn dataset() -> Arm {
-    Arm {
-        name: "quick-protobuf",
-        run: Box::new(|b| checksum_dataset(&decode::<pb::Dataset>(b))),
-    }
+    Arm::new("quick-protobuf", |b| {
+        checksum_dataset(&decode::<pb::Dataset>(b))
+    })
 }
 
 pub fn bigset() -> Arm {
-    Arm {
-        name: "quick-protobuf",
-        run: Box::new(|b| checksum_bigset(&decode::<pb::BigSet>(b))),
-    }
+    Arm::new("quick-protobuf", |b| {
+        checksum_bigset(&decode::<pb::BigSet>(b))
+    })
 }
 
 pub fn wideset() -> Arm {
-    Arm {
-        name: "quick-protobuf",
-        run: Box::new(|b| checksum_wideset(&decode::<pb::WideSet>(b))),
-    }
+    Arm::new("quick-protobuf", |b| {
+        checksum_wideset(&decode::<pb::WideSet>(b))
+    })
 }
 
 pub fn recordset() -> Arm {
-    Arm {
-        name: "quick-protobuf",
-        run: Box::new(|b| checksum_recordset(&decode::<pb::RecordSet>(b))),
-    }
+    Arm::new("quick-protobuf", |b| {
+        checksum_recordset(&decode::<pb::RecordSet>(b))
+    })
 }
 
 pub fn particleset() -> Arm {
-    Arm {
-        name: "quick-protobuf",
-        run: Box::new(|b| checksum_particleset(&decode::<pb::ParticleSet>(b))),
-    }
+    Arm::new("quick-protobuf", |b| {
+        checksum_particleset(&decode::<pb::ParticleSet>(b))
+    })
 }
 
 fn checksum_dataset(ds: &pb::Dataset) -> u64 {

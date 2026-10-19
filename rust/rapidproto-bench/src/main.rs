@@ -51,30 +51,38 @@ fn median(xs: &[f64]) -> f64 {
     }
 }
 
-// Median ns/op per arm. Arms run back-to-back within each round, their order rotated per round to
-// cancel slot bias (the C++ harness does the same); `inner` decodes amortize the timer per sample.
-fn measure(arms: &[Arm], bytes: &[u8], rounds: usize, inner: usize) -> Vec<f64> {
-    let n = arms.len();
-    for a in arms {
+// Median ns/op per arm (`None` for an arm that is unsupported for this scenario -- it has no decoder
+// to time). Supported arms run back-to-back within each round, their order rotated per round to cancel
+// slot bias (the C++ harness does the same); `inner` decodes amortize the timer per sample.
+fn measure(arms: &[Arm], bytes: &[u8], rounds: usize, inner: usize) -> Vec<Option<f64>> {
+    let sup: Vec<usize> = (0..arms.len())
+        .filter(|&i| arms[i].decoder().is_some())
+        .collect();
+    let m = sup.len();
+    for &i in &sup {
+        let f = arms[i].decoder().unwrap();
         for _ in 0..3 {
-            black_box((a.run)(black_box(bytes)));
+            black_box(f(black_box(bytes)));
         }
     }
-    let mut samples: Vec<Vec<f64>> = vec![Vec::with_capacity(rounds); n];
+    let mut samples: Vec<Vec<f64>> = vec![Vec::with_capacity(rounds); arms.len()];
     for r in 0..rounds {
-        for i in 0..n {
-            let idx = (i + r) % n;
+        for j in 0..m {
+            let idx = sup[(j + r) % m];
+            let f = arms[idx].decoder().unwrap();
             let t0 = Instant::now();
             let mut acc = 0u64;
             for _ in 0..inner {
-                acc = acc.wrapping_add((arms[idx].run)(black_box(bytes)));
+                acc = acc.wrapping_add(f(black_box(bytes)));
             }
             let ns = t0.elapsed().as_nanos() as f64 / inner as f64;
             black_box(acc);
             samples[idx].push(ns);
         }
     }
-    samples.iter().map(|s| median(s)).collect()
+    (0..arms.len())
+        .map(|i| (!samples[i].is_empty()).then(|| median(&samples[i])))
+        .collect()
 }
 
 fn env_usize(key: &str, default: usize) -> usize {
@@ -139,18 +147,37 @@ fn main() {
         if cfg!(debug_assertions) {
             arms.retain(|a| !has_unaligned_fixed_slice_ub(name, a.name));
         }
-        let sums: Vec<u64> = arms.iter().map(|a| (a.run)(&bytes)).collect();
-        if !sums.iter().all(|&s| s == sums[0]) {
+        // Supported arms must agree on the checksum; unsupported arms carry no decoder and are listed
+        // but excluded from the gate.
+        let sums: Vec<Option<u64>> = arms
+            .iter()
+            .map(|a| a.decoder().map(|d| d(&bytes)))
+            .collect();
+        let agreed: Vec<u64> = sums.iter().filter_map(|&s| s).collect();
+        if !agreed.iter().all(|&s| s == agreed[0]) {
             eprintln!("CHECKSUM MISMATCH in scenario {name}:");
             for (a, s) in arms.iter().zip(&sums) {
-                eprintln!("  {:<12} {s:#018x}", a.name);
+                match s {
+                    Some(s) => eprintln!("  {:<14} {s:#018x}", a.name),
+                    None => eprintln!(
+                        "  {:<14} unsupported: {}",
+                        a.name,
+                        a.unsupported_reason().unwrap_or("")
+                    ),
+                }
             }
             std::process::exit(1);
         }
+        let n_unsupported = sums.iter().filter(|s| s.is_none()).count();
         println!(
-            "checksum ok  {name:<11} {:#018x}  ({} arms, {} bytes)",
-            sums[0],
-            arms.len(),
+            "checksum ok  {name:<11} {:#018x}  ({} arms{}, {} bytes)",
+            agreed[0],
+            agreed.len(),
+            if n_unsupported > 0 {
+                format!(", {n_unsupported} unsupported")
+            } else {
+                String::new()
+            },
             bytes.len()
         );
         loaded.push((name, bytes, arms));
@@ -181,27 +208,47 @@ fn main() {
     );
     for (name, bytes, arms) in &loaded {
         let meds = measure(arms, bytes, rounds, inner);
-        let base_gbs = bytes.len() as f64 / meds[0];
+        // arm 0 (the baseline) is always supported, so `meds[0]` is `Some`.
+        let base_gbs = bytes.len() as f64 / meds[0].expect("baseline arm must be supported");
         for (i, a) in arms.iter().enumerate() {
-            let gbs = bytes.len() as f64 / meds[i];
-            let vs = (gbs / base_gbs - 1.0) * 100.0;
-            let baseline = i == 0;
             let ub = has_unaligned_fixed_slice_ub(name, a.name);
-            let armcol = format!("{}{}", a.name, if ub { " ‡" } else { "" });
-            println!(
-                "{name:<11} {armcol:<16} {gbs:>9.3}  {:>8.1}%",
-                if baseline { 0.0 } else { vs }
-            );
-            if json {
-                println!(
-                    "{{\"rec\":\"arm\",\"decoder\":\"rust-ecosystem\",\"scenario\":\"{name}\",\
-                     \"arm\":\"{}\",\"bytes\":{},\"baseline\":{baseline},\"gb_s\":{gbs:.6},\
-                     \"cyc_b\":null,\"ins_b\":null,\"vs_base_pct\":{:.3},\
-                     \"ub_unaligned_fixed_slice\":{ub},\"ok\":true}}",
-                    a.name,
-                    bytes.len(),
-                    if baseline { 0.0 } else { vs }
-                );
+            match meds[i] {
+                Some(med) => {
+                    let gbs = bytes.len() as f64 / med;
+                    let vs = (gbs / base_gbs - 1.0) * 100.0;
+                    let baseline = i == 0;
+                    let armcol = format!("{}{}", a.name, if ub { " ‡" } else { "" });
+                    println!(
+                        "{name:<11} {armcol:<16} {gbs:>9.3}  {:>8.1}%",
+                        if baseline { 0.0 } else { vs }
+                    );
+                    if json {
+                        println!(
+                            "{{\"rec\":\"arm\",\"decoder\":\"rust-ecosystem\",\"scenario\":\"{name}\",\
+                             \"arm\":\"{}\",\"bytes\":{},\"baseline\":{baseline},\"gb_s\":{gbs:.6},\
+                             \"cyc_b\":null,\"ins_b\":null,\"vs_base_pct\":{:.3},\
+                             \"ub_unaligned_fixed_slice\":{ub},\"supported\":true,\"ok\":true}}",
+                            a.name,
+                            bytes.len(),
+                            if baseline { 0.0 } else { vs }
+                        );
+                    }
+                }
+                None => {
+                    // Unsupported for this scenario (a feature gap): listed + flagged, not timed.
+                    let reason = a.unsupported_reason().unwrap_or("unsupported");
+                    println!("{name:<11} {:<16} {:>9}  ({reason})", a.name, "unsupported");
+                    if json {
+                        println!(
+                            "{{\"rec\":\"arm\",\"decoder\":\"rust-ecosystem\",\"scenario\":\"{name}\",\
+                             \"arm\":\"{}\",\"bytes\":{},\"baseline\":false,\"gb_s\":null,\
+                             \"cyc_b\":null,\"ins_b\":null,\"vs_base_pct\":null,\
+                             \"supported\":false,\"unsupported_reason\":\"{reason}\",\"ok\":false}}",
+                            a.name,
+                            bytes.len()
+                        );
+                    }
+                }
             }
         }
     }

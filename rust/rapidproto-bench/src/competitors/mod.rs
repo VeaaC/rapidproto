@@ -3,6 +3,7 @@
 //! [`Arm`](crate::Arm) that decodes and walks every field with the shared checksum. Register a new
 //! competitor in the `arms!` macro in `lib.rs` (one line per competitor).
 
+pub mod femtopb;
 pub mod prost;
 pub mod quick_protobuf;
 pub mod rust_protobuf;

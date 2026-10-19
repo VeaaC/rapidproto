@@ -26,6 +26,10 @@ protobuf = "3"
 # (`Cow<'a, _>`) from the input and nest sub-messages inline, but repeated fields still materialize to
 # heap `Vec`s -- "borrowed-string, allocating-tree," decoded via `from_reader`.
 quick-protobuf = "0.8"
+# Competitor: femtopb, the no-alloc borrowed peer. `#![no_std]`, borrows `&'a str`, and decodes
+# repeated fields LAZILY (no `Vec`) -- the every-field checksum walk forces that work so it is not
+# flattered. The nearest ecosystem analog to our arena-of-borrowed-views allocation profile.
+femtopb = "0.9"
 
 [build-dependencies]
 # Pure-Rust protobuf compiler (no `protoc` / C toolchain): compiles bench.proto to a descriptor set
@@ -38,6 +42,8 @@ protobuf-codegen = "3"
 # quick-protobuf's codegen (also pure Rust, no `protoc`): renders bench.proto to its borrowed-view
 # decoders.
 pb-rs = "0.10"
+# femtopb's codegen (pure Rust, no `protoc`): renders bench.proto to its lazy/borrowed decoders.
+femtopb-build = "0.9"
 
 [dev-dependencies]
 # Drives the Rust-vs-Rust A/B bench (benches/decode.rs); default features off -- it wants timings, not

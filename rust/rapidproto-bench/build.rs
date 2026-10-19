@@ -6,6 +6,8 @@
 //     (included by `competitors/rust_protobuf.rs`).
 //   * quick-protobuf: pb-rs renders `$OUT_DIR/quick_protobuf_gen/bench.rs`
 //     (included by `competitors/quick_protobuf.rs`).
+//   * femtopb: femtopb-build (protox + prost-build internally, no protoc) renders
+//     `$OUT_DIR/femtopb_gen/bench.rs` (included by `competitors/femtopb.rs`).
 use std::path::PathBuf;
 
 fn main() {
@@ -41,4 +43,28 @@ fn main() {
     .expect("pb-rs: config")
     .build();
     pb_rs::types::FileDescriptor::run(&cfg).expect("pb-rs: render bench.proto");
+
+    // femtopb does not support proto3 `map` fields -- its codegen emits a `compile_error!` for them.
+    // Strip the one map field (`Person.counters`) before handing the schema to femtopb-build, so the
+    // rest of the schema compiles. Consequence: femtopb's `Person`/`Dataset` lack `counters`, so the
+    // femtopb arm cannot faithfully decode the `dataset` scenario and is omitted from it (see lib.rs).
+    let femto_src = PathBuf::from(std::env::var("OUT_DIR").unwrap()).join("femtopb_src");
+    std::fs::create_dir_all(&femto_src).expect("mkdir femtopb_src");
+    let femto_proto = femto_src.join("bench.proto");
+    let schema = std::fs::read_to_string(&proto).expect("read bench.proto");
+    let stripped = schema
+        .lines()
+        .filter(|l| !l.contains("map<string, int32> counters"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    std::fs::write(&femto_proto, stripped).expect("write stripped femtopb proto");
+
+    let femto_out = PathBuf::from(std::env::var("OUT_DIR").unwrap()).join("femtopb_gen");
+    std::fs::create_dir_all(&femto_out).expect("mkdir femtopb_gen");
+    femtopb_build::Config::new()
+        .protos(std::slice::from_ref(&femto_proto))
+        .includes(std::slice::from_ref(&femto_src))
+        .target(&femto_out)
+        .compile()
+        .expect("femtopb-build: render bench.proto");
 }

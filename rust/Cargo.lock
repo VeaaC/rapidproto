@@ -358,6 +358,42 @@ dependencies = [
 ]
 
 [[package]]
+name = "femtopb"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dddecb649dc058925ce27cee20b98903d5343161e4fcc78d6d35fc08cdeb2ccb"
+dependencies = [
+ "femtopb-derive",
+]
+
+[[package]]
+name = "femtopb-build"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d35406972b5a5c0c7983bfe9d7658cd2899c95f0ebb8256e3268432f52753244"
+dependencies = [
+ "anyhow",
+ "prettyplease",
+ "proc-macro2",
+ "prost-build",
+ "protox",
+ "quote",
+ "syn 2.0.119",
+ "tracing",
+]
+
+[[package]]
+name = "femtopb-derive"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "de4e8c9270d9e206793df94443185b451b9fc606fe67767c645cc6181356f668"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+]
+
+[[package]]
 name = "find-msvc-tools"
 version = "0.1.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1026,6 +1062,8 @@ name = "rapidproto-bench"
 version = "0.0.0"
 dependencies = [
  "criterion",
+ "femtopb",
+ "femtopb-build",
  "pb-rs",
  "prost",
  "prost-build",
