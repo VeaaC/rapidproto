@@ -33,7 +33,8 @@ jobs:
         run: cargo fmt --all --check
       # std+alloc covers the whole workspace, including rapidproto-build (the wasmi generator driver
       # and its golden dogfooding gate), consumer-example (whose build.rs runs the blob end to end),
-      # and rapidproto-diff (the differential Serializer). rapidproto-bench is linted and tested
+      # osm-pbf-example (the OSM showcase + its golden fixture test) and rapidproto-diff (the
+      # differential Serializer). rapidproto-bench is linted and tested
       # SEPARATELY (below) at its DEFAULT features, NOT via the blanket `--all-features` runs: its
       # off-by-default `google-upb` arm pulls Google's upb `protobuf` crate, which needs an exact-version
       # protoc + a C toolchain this runner lacks, so `--all-features` would fail to build it. The
@@ -45,9 +46,9 @@ jobs:
       - name: Clippy (rapidproto-bench, default features)
         run: cargo clippy -p rapidproto-bench --all-targets -- -D warnings
       - name: Clippy (no_std + alloc)
-        run: cargo clippy --workspace --exclude rapidproto-build --exclude consumer-example --exclude rapidproto-diff --exclude rapidproto-bench --all-targets --no-default-features --features alloc -- -D warnings
+        run: cargo clippy --workspace --exclude rapidproto-build --exclude consumer-example --exclude osm-pbf-example --exclude rapidproto-diff --exclude rapidproto-bench --all-targets --no-default-features --features alloc -- -D warnings
       - name: Clippy (no_std, no-alloc)
-        run: cargo clippy --workspace --exclude rapidproto-build --exclude consumer-example --exclude rapidproto-diff --exclude rapidproto-bench --all-targets --no-default-features -- -D warnings
+        run: cargo clippy --workspace --exclude rapidproto-build --exclude consumer-example --exclude osm-pbf-example --exclude rapidproto-diff --exclude rapidproto-bench --all-targets --no-default-features -- -D warnings
       - name: Test (std + alloc)
         run: cargo test --workspace --exclude rapidproto-bench --all-features
       # rapidproto-bench is excluded above (its off-by-default `google-upb` arm would need protoc under
@@ -65,15 +66,15 @@ jobs:
       - name: Run the consumer example (build.rs -> blob -> decode, cargo only)
         run: cargo run -p consumer-example
       - name: Test (no_std + alloc)
-        run: cargo test --workspace --exclude rapidproto-build --exclude consumer-example --exclude rapidproto-diff --exclude rapidproto-bench --no-default-features --features alloc
+        run: cargo test --workspace --exclude rapidproto-build --exclude consumer-example --exclude osm-pbf-example --exclude rapidproto-diff --exclude rapidproto-bench --no-default-features --features alloc
       - name: Test (no_std, no-alloc)
         # The test harness keeps std (crate is no_std only outside tests), while the `alloc`
         # feature is off — so this exercises the arena's no-allocator / exhaustion path.
-        run: cargo test --workspace --exclude rapidproto-build --exclude consumer-example --exclude rapidproto-diff --exclude rapidproto-bench --no-default-features
+        run: cargo test --workspace --exclude rapidproto-build --exclude consumer-example --exclude osm-pbf-example --exclude rapidproto-diff --exclude rapidproto-bench --no-default-features
       - name: Build no_std + alloc tier
-        run: cargo build --workspace --exclude rapidproto-build --exclude consumer-example --exclude rapidproto-diff --exclude rapidproto-bench --no-default-features --features alloc
+        run: cargo build --workspace --exclude rapidproto-build --exclude consumer-example --exclude osm-pbf-example --exclude rapidproto-diff --exclude rapidproto-bench --no-default-features --features alloc
       - name: Build no_std (no-alloc embedded tier)
-        run: cargo build --workspace --exclude rapidproto-build --exclude consumer-example --exclude rapidproto-diff --exclude rapidproto-bench --no-default-features
+        run: cargo build --workspace --exclude rapidproto-build --exclude consumer-example --exclude osm-pbf-example --exclude rapidproto-diff --exclude rapidproto-bench --no-default-features
       # The generated serde Serialize impls must also stay no_std-clean (alloc and no-alloc), since a
       # consumer may enable rapidproto/serde on an embedded target. (--all-features above covers std.)
       - name: Build generated serde impls on the no_std tiers
@@ -138,9 +139,9 @@ jobs:
   miri:
     # The arena hands out `&mut` from `&self` and does raw-pointer bumping; Miri checks that
     # against strict provenance and Stacked/Tree Borrows. Runs on both the alloc and no-alloc tiers.
-    # rapidproto-build and consumer-example are --exclude'd: both are safe Rust that drive the wasmi
-    # interpreter over the blob and do filesystem I/O, which Miri's isolation forbids and has nothing
-    # unsafe for Miri to check anyway.
+    # rapidproto-build, consumer-example and osm-pbf-example are --exclude'd: all are safe Rust that
+    # drive the wasmi interpreter over the blob and do filesystem I/O (osm-pbf-example also spawns its
+    # binary), which Miri's isolation forbids and has nothing unsafe for Miri to check anyway.
     runs-on: ubuntu-latest
     env:
       # Actively enforce the arena's strict-provenance claim (it uses no int→ptr casts).
@@ -151,6 +152,6 @@ jobs:
         with:
           components: miri
       - name: Miri (std + alloc)
-        run: cargo miri test --workspace --exclude rapidproto-build --exclude consumer-example --exclude rapidproto-diff --exclude rapidproto-bench --all-features
+        run: cargo miri test --workspace --exclude rapidproto-build --exclude consumer-example --exclude osm-pbf-example --exclude rapidproto-diff --exclude rapidproto-bench --all-features
       - name: Miri (no_std, no-alloc)
-        run: cargo miri test --workspace --exclude rapidproto-build --exclude consumer-example --exclude rapidproto-diff --exclude rapidproto-bench --no-default-features
+        run: cargo miri test --workspace --exclude rapidproto-build --exclude consumer-example --exclude osm-pbf-example --exclude rapidproto-diff --exclude rapidproto-bench --no-default-features
