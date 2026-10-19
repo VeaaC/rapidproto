@@ -1,0 +1,40 @@
+# OSM PBF showcase (Rust): `osmstat` decodes an OpenStreetMap .osm.pbf planet/extract and prints
+# statistics, using RapidProto's generated arena decoders -- a worked example of decoding bulky
+# protobuf efficiently. Blocks are independent, so it decodes them in parallel by default (rayon), and
+# `--baseline` compares throughput against the `osmpbf` crate. Built with cargo alone -- zlib is the
+# pure-Rust miniz_oxide via flate2, no system library.
+[package]
+name = "osm-pbf-example"
+version = "0.0.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+
+[features]
+# Declared (like the consumer example) so the generated code's `#[cfg(feature = ...)]` are known cfgs
+# even when left off; the showcase does not need the owning-handle or serde surfaces.
+serde = ["rapidproto/serde"]
+alloc = ["rapidproto/alloc"]
+
+[dependencies]
+# RapidProto runtime + the generated OSM decoders (via build.rs).
+rapidproto = { path = "../../rapidproto" }
+# zlib inflate, pure-Rust backend (miniz_oxide) -- a dependency of this example, not of RapidProto.
+flate2 = "1"
+# Parallel per-block decode: each PrimitiveBlock is independent, so blocks fan out across cores.
+rayon = "1"
+# Baseline for comparison: the `osmpbf` crate (a materializing reader, pure-Rust zlib via `rust-zlib`).
+# Its throughput is printed beside ours with `--baseline`.
+osmpbf = "0.3"
+
+[build-dependencies]
+# Pure-Rust codegen (no protoc / C toolchain), like every other example.
+rapidproto-build = { path = "../../rapidproto-build" }
+
+[[bin]]
+name = "osmstat"
+path = "src/main.rs"
+
+[[test]]
+name = "fixture"
+path = "tests/fixture.rs"
