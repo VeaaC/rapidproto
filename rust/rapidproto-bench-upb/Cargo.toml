@@ -1,0 +1,27 @@
+# The google-upb capstone arm, isolated in its OWN crate. Reason: Google's official upb-backed runtime
+# is published as the `protobuf` crate at its v4 line, and its generated code hard-references
+# `::protobuf::`; `rapidproto-bench` already depends on stepancheg's `protobuf` v3 (the rust-protobuf
+# arm), whose generated code ALSO wants `::protobuf::`. Two incompatible majors cannot both own the
+# bare `protobuf` name in one crate's dep tree, and neither codegen remaps that path. So the v4 arm
+# lives here, where `::protobuf::` resolves to v4 only; `rapidproto-bench` depends on this crate (behind
+# its off-by-default `google-upb` feature) and keeps v3 for itself -- Cargo allows both majors in one
+# graph as long as no single crate directly depends on both.
+#
+# This crate is EXCLUDED from the workspace (see ../Cargo.toml) so no workspace-wide command builds it;
+# it is compiled only when `rapidproto-bench --features google-upb` pulls it in, which also requires a
+# `protoc` whose version EXACTLY matches the crate (36.2). See build.rs and docs/benchmarks.md.
+[package]
+name = "rapidproto-bench-upb"
+version = "0.0.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+
+[dependencies]
+# Google's official Rust runtime, upb kernel (C, compiled by `cc`). Pinned to the EXACT prerelease
+# string: every v4 is `-release`-tagged on crates.io, so a plain `4`/`^4` requirement does not resolve.
+protobuf = "=4.36.2-release"
+
+[build-dependencies]
+# Google's codegen: drives `protoc --rust_out ... kernel=upb`. Must match the runtime version exactly.
+protobuf-codegen = "=4.36.2-release"

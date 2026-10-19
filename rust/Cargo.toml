@@ -4,3 +4,8 @@
 [workspace]
 resolver = "2"
 members = ["rapidproto", "rapidproto-build", "rapidproto-diff", "rustgen-golden", "examples/consumer", "rapidproto-bench"]
+# The google-upb capstone arm lives in its own crate (it needs Google's `protobuf` v4, incompatible
+# with the v3 the rust-protobuf arm uses) and is EXCLUDED here so no workspace-wide command builds it:
+# it requires an exact-version `protoc` (36.2) + a C toolchain, and is compiled only when
+# `rapidproto-bench --features google-upb` opts in. See rapidproto-bench-upb/Cargo.toml.
+exclude = ["rapidproto-bench-upb"]
