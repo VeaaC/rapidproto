@@ -1,18 +1,11 @@
 //! `osmstat` -- decode an OpenStreetMap .osm.pbf file with RapidProto's arena decoders and print
-//! statistics (counts, tags, bounding box, top tag keys). It is a worked example of decoding real,
-//! bulky protobuf efficiently with this crate.
+//! statistics (counts, tags, bounding box, top tag keys). A worked example of decoding bulky protobuf
+//! efficiently; the README walks through what it shows.
 //!
-//! A .osm.pbf is a sequence of `[4-byte BE length][BlobHeader][Blob]`, and each data Blob holds an
-//! independent `PrimitiveBlock`. That independence is the point: by default the blocks decode in
-//! parallel across cores (rayon), each into its own [`Arena`], and their partial stats merge
-//! order-independently -- `--sequential` runs the exact same per-block work on one thread and prints
-//! identical output. `--baseline` additionally decodes the file with the `osmpbf` crate and prints its
-//! throughput beside ours, for comparison.
-//!
-//! The decode flow a crate user cares about is short: give each block a fresh `Arena`, call the
-//! generated `decode()`, then read fields off the borrowed view ([`walk`]). Framing and zlib inflate
-//! (neither specific to RapidProto) live in [`pbf_input`]; [`process_block`] ties one block together
-//! and is what both the parallel and sequential paths run.
+//! Each data Blob in the file holds an independent `PrimitiveBlock`, so blocks decode in parallel by
+//! default (one [`Arena`] per rayon worker, stats merged order-independently); `--sequential` runs the
+//! same work on one thread. Framing and zlib inflate (not RapidProto-specific) are in [`pbf_input`];
+//! [`process_block`] decodes and walks one block.
 
 mod baseline;
 mod osm;

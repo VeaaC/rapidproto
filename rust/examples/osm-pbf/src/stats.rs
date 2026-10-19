@@ -1,10 +1,7 @@
-//! The statistics the `osmstat` tool accumulates and prints. Everything here is plain aggregation; it
-//! knows nothing about protobuf or the file format, so it is not RapidProto-specific.
-//!
-//! All aggregates are order-independent (counts sum, bbox is per-axis min/max, the key histogram
-//! merges by key), which is what lets the parallel path reduce per-block partials in any order and
-//! still match the sequential run -- [`Stats::merge`] folds one block's (or one worker's) partial into
-//! another.
+//! The statistics `osmstat` accumulates and prints -- plain aggregation, nothing protobuf-specific.
+//! Every aggregate is order-independent (counts sum, bbox per-axis min/max, key histogram merges by
+//! key), so the parallel path can reduce per-block partials in any order and match the sequential run
+//! ([`Stats::merge`] folds one partial into another).
 
 use std::collections::HashMap;
 use std::io::{self, Write};

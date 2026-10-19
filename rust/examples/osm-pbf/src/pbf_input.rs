@@ -1,9 +1,8 @@
-//! Plumbing shared by the osmstat paths: file reading, blob framing, zlib inflate. None of this is
-//! RapidProto-specific -- it is the generic .osm.pbf container handling that gets you to the protobuf
-//! bytes; `main` does the actual decode with the generated arena decoders.
+//! File reading, blob framing and zlib inflate -- the generic .osm.pbf container handling that gets to
+//! the protobuf bytes, none of it RapidProto-specific (`main` does the decode).
 //!
-//! A .osm.pbf file is a sequence of `[4-byte big-endian length][BlobHeader][Blob]`: the BlobHeader
-//! names the blob type and the Blob's size, the Blob wraps the payload raw or zlib-deflated.
+//! A .osm.pbf is a sequence of `[4-byte big-endian length][BlobHeader][Blob]`: the BlobHeader names the
+//! blob's type and size, the Blob wraps the payload raw or zlib-deflated.
 
 use std::io::Read;
 use std::time::Instant;

@@ -21,26 +21,20 @@ Statistics go to **stdout**; timing goes to **stderr**, so you can redirect one 
 
 ## How it uses RapidProto
 
-The whole point of this example is the shape of an efficient decode. Four things to take away:
+The point of the example is the shape of an efficient decode:
 
-- **Codegen is a build step, no `protoc`.** `build.rs` adds `rapidproto-build` as a build-dependency
-  and calls `Config::new().include("proto").compile(&[...])` — pure Rust, no C++ toolchain. The schema
-  lives in [`proto/`](proto); the generated code lands in `OUT_DIR` and is pulled in from
-  [`src/osm.rs`](src/osm.rs).
-- **Decode into an `Arena`, read borrowed views.** One `decode()` bump-allocates the whole message
-  into an arena and hands back a lightweight view that borrows it — no per-field heap allocation, no
-  copying. Repeated scalar columns come back as `&[i64]`, every stringtable entry as a borrowed
-  `&[u8]`. The field walk in [`src/walk.rs`](src/walk.rs) is just reads off that arena.
-- **Arenas make parallelism trivial.** Each `PrimitiveBlock` in the file is independent, so blocks
-  decode in parallel by default — one `Arena` per rayon worker, partial stats merged
-  order-independently. `--sequential` runs the identical per-block work on one thread and prints the
-  *same* output.
-- **Untrusted input stays safe.** The example never trusts lengths or deltas from the file: allocation
-  is capped, and delta/coordinate arithmetic wraps rather than panicking in release (see
-  [`src/stats.rs`](src/stats.rs)). A malformed file is rejected with a nonzero exit, never UB.
+- **Codegen is a build step, no `protoc`.** `build.rs` runs `rapidproto-build` over
+  [`proto/`](proto) — pure Rust, no C++ toolchain; the output is pulled in by [`src/osm.rs`](src/osm.rs).
+- **Decode into an `Arena`, read borrowed views.** One `decode()` bump-allocates the message and hands
+  back a view that borrows it: no per-field allocation, repeated columns as `&[i64]`, strings as
+  `&[u8]` (see [`src/walk.rs`](src/walk.rs)).
+- **Arenas make parallelism trivial.** Blocks are independent, so they decode in parallel by default —
+  one arena per rayon worker, partials merged order-independently. `--sequential` prints the same thing.
+- **Untrusted input stays safe.** Lengths are capped and arithmetic wraps rather than panicking; a
+  malformed file exits nonzero, never UB.
 
-`--baseline` additionally decodes the file with the [`osmpbf`](https://crates.io/crates/osmpbf) crate
-(a materializing reader) and prints its counts + throughput on stderr, for a side-by-side comparison.
+`--baseline` also decodes the file with the [`osmpbf`](https://crates.io/crates/osmpbf) crate (a
+materializing reader) and prints its counts + throughput on stderr, for a side-by-side comparison.
 
 ## Schema and fixture
 

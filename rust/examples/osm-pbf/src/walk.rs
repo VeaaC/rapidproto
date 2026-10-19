@@ -1,8 +1,7 @@
-//! Read one already-decoded `PrimitiveBlock` into a [`Stats`]. This is the part that shows how you
-//! consume RapidProto's arena views: decoding happened once in the caller's `decode()`, and every
-//! accessor here just reads the arena -- repeated scalar columns come back as `&[i64]`, stringtable
-//! entries as borrowed `&[u8]`, so the walk copies nothing. It returns a per-block `Stats` so the
-//! caller can fold blocks on one thread or reduce them across many.
+//! Read one already-decoded `PrimitiveBlock` into a [`Stats`] -- this is where the example consumes the
+//! arena views. Nothing decodes here; each accessor just reads the arena, repeated scalar columns as
+//! `&[i64]` and stringtable entries as borrowed `&[u8]` (no copies). Returns a per-block `Stats`, so
+//! blocks fold on one thread or reduce across many.
 
 use crate::osm::OSMPBF::PrimitiveBlock;
 use crate::stats::{coord_nano, wrap_add, Stats};
