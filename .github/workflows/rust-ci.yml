@@ -50,6 +50,11 @@ jobs:
         run: cargo clippy --workspace --exclude rapidproto-build --exclude consumer-example --exclude rapidproto-diff --exclude rapidproto-bench --all-targets --no-default-features -- -D warnings
       - name: Test (std + alloc)
         run: cargo test --workspace --exclude rapidproto-bench --all-features
+      # rapidproto-bench is excluded above (its off-by-default `google-upb` arm would need protoc under
+      # `--all-features`), so test it on its own at DEFAULT features -- debug here (the agreement tests
+      # + the debug-only quick-protobuf drop path) and release below.
+      - name: Test the ecosystem bench (debug, default features)
+        run: cargo test -p rapidproto-bench
       # rapidproto-bench's quick-protobuf arm decodes `Big.reals` (repeated double) by borrowing the
       # input as an unaligned `&[f64]` -- UB that the debug build's alignment check aborts on. Its
       # `bigset` agreement test is therefore release-only (`#[cfg(not(debug_assertions))]`) and the
