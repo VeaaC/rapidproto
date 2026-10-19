@@ -1,20 +1,14 @@
-//! The osmstat fixture test, mirroring the C++ example's `check_fixture.py` (minus the
-//! regenerate-from-generator check, which the C++ CTest owns -- the fixture is single-sourced):
+//! The osmstat fixture test, over the committed `testdata/mini.osm.pbf`:
 //!
-//! 1. the committed `mini.osm.pbf` decodes, and the PARALLEL and SEQUENTIAL paths print
-//!    BYTE-IDENTICAL stdout (the two execution modes must agree on what the file contains);
-//! 2. that output equals the golden -- the SAME golden the C++ tool is held to, so the Rust and C++
-//!    implementations are cross-validated against each other;
+//! 1. the file decodes, and the PARALLEL and SEQUENTIAL paths print BYTE-IDENTICAL stdout (the two
+//!    execution modes must agree on what the file contains);
+//! 2. that output equals the golden below;
 //! 3. a TRUNCATED file makes osmstat exit nonzero (a framing error must not pass as success).
-//!
-//! The fixture is the one the C++ example vendors; this test reads it by relative path, so there is a
-//! single committed artifact (validated against its generator by the C++ CTest).
 
 use std::path::PathBuf;
 use std::process::Command;
 
-// Hand-derived from what the C++ example's make_fixture.py encodes; identical to that example's
-// golden (see examples/osm-pbf/testdata/check_fixture.py).
+// Hand-derived from what testdata/make_fixture.py encodes (the generator for the committed fixture).
 const GOLDEN: &str = "\
 blocks           2
 nodes            4 (dense 3, plain 1)
@@ -31,8 +25,7 @@ distinct keys    3
 ";
 
 fn fixture() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../../examples/osm-pbf/testdata/mini.osm.pbf")
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("testdata/mini.osm.pbf")
 }
 
 fn osmstat(args: &[&str]) -> std::process::Output {

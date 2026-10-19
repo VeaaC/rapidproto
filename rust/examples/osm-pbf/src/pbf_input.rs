@@ -1,6 +1,6 @@
-//! Plumbing shared by the osmstat paths: file reading, blob framing, zlib inflate. A port of the C++
-//! example's `pbf_input.hpp`; nothing here decodes protobuf -- `main` does that with the generated
-//! arena decoders.
+//! Plumbing shared by the osmstat paths: file reading, blob framing, zlib inflate. None of this is
+//! RapidProto-specific -- it is the generic .osm.pbf container handling that gets you to the protobuf
+//! bytes; `main` does the actual decode with the generated arena decoders.
 //!
 //! A .osm.pbf file is a sequence of `[4-byte big-endian length][BlobHeader][Blob]`: the BlobHeader
 //! names the blob type and the Blob's size, the Blob wraps the payload raw or zlib-deflated.
@@ -77,9 +77,8 @@ pub fn blob_payload<'a>(
     inflated.clear();
     inflated.reserve(raw_size as usize);
     // The blob's zlib stream must inflate to EXACTLY `raw_size` bytes. Cap the reader at `raw_size + 1`
-    // so a hostile stream is bounded AND an oversized one reads one byte too many -- then the exact
-    // length check below rejects both too-short and too-long (matching C++ `uncompress`, which fails
-    // unless the stream decompresses to exactly `raw_size`).
+    // so a hostile stream stays bounded AND an oversized one reads one byte too many -- then the exact
+    // length check below rejects both too-short and too-long.
     let mut dec = ZlibDecoder::new(deflated).take(raw_size as u64 + 1);
     match dec.read_to_end(inflated) {
         Ok(_) if inflated.len() == raw_size as usize => Some(inflated),

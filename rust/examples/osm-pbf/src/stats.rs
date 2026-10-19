@@ -1,10 +1,10 @@
-//! The statistics the `osmstat` tool accumulates and prints -- a port of the C++ example's
-//! `osm_stats.hpp`, producing BYTE-IDENTICAL stdout (the fixture test holds both to the same golden).
-//! Everything here is aggregation only; it knows nothing about protobuf or the file format.
+//! The statistics the `osmstat` tool accumulates and prints. Everything here is plain aggregation; it
+//! knows nothing about protobuf or the file format, so it is not RapidProto-specific.
 //!
 //! All aggregates are order-independent (counts sum, bbox is per-axis min/max, the key histogram
-//! merges by key), so the sequential and parallel decoders produce identical output -- [`Stats::merge`]
-//! folds one block's (or one worker's) partial into another.
+//! merges by key), which is what lets the parallel path reduce per-block partials in any order and
+//! still match the sequential run -- [`Stats::merge`] folds one block's (or one worker's) partial into
+//! another.
 
 use std::collections::HashMap;
 use std::io::{self, Write};
@@ -108,8 +108,7 @@ impl Stats {
         }
     }
 
-    /// Print the statistics. The format is byte-identical to the C++ example's (labels left-justified
-    /// to width 17); the fixture test pins both to the same golden.
+    /// Print the statistics (labels left-justified to width 17); the fixture test pins this to a golden.
     pub fn print(&self, out: &mut impl Write) -> io::Result<()> {
         writeln!(out, "{:<17}{}", "blocks", self.blocks)?;
         writeln!(
@@ -173,13 +172,14 @@ pub fn mib_per_s(bytes: u64, seconds: f64) -> f64 {
     }
 }
 
-/// `a + b` with wraparound instead of signed overflow (hostile deltas are protoc-valid).
+/// `a + b` with wraparound instead of signed overflow: the deltas come straight off the wire, so an
+/// adversarial file must wrap rather than panic in a release build.
 pub fn wrap_add(a: i64, b: i64) -> i64 {
     (a as u64).wrapping_add(b as u64) as i64
 }
 
-/// `offset + granularity * raw`, in nanodegrees, computed in `u64` so a hostile (still protoc-valid)
-/// value wraps instead of overflowing signed arithmetic: garbage in, garbage out, never UB.
+/// `offset + granularity * raw`, in nanodegrees, computed in `u64` so untrusted wire values wrap
+/// instead of overflowing signed arithmetic (bogus input yields a bogus coordinate, never a panic).
 pub fn coord_nano(offset: i64, granularity: i64, raw: i64) -> i64 {
     (offset as u64).wrapping_add((granularity as u64).wrapping_mul(raw as u64)) as i64
 }

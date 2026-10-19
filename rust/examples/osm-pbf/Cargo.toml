@@ -1,9 +1,8 @@
 # OSM PBF showcase (Rust): `osmstat` decodes an OpenStreetMap .osm.pbf planet/extract and prints
-# statistics, using RapidProto's generated arena decoders. It mirrors the C++ example at
-# ../../../examples/osm-pbf (and reuses that example's vendored schema + fixture + golden, so there is
-# one source of truth), and adds what Rust makes natural: parallel per-block decode (rayon), and an
-# optional baseline against the `osmpbf` crate. Built with cargo alone -- zlib is the pure-Rust
-# miniz_oxide via flate2, no system library.
+# statistics, using RapidProto's generated arena decoders -- a worked example of decoding bulky
+# protobuf efficiently. Blocks are independent, so it decodes them in parallel by default (rayon), and
+# `--baseline` compares throughput against the `osmpbf` crate. Built with cargo alone -- zlib is the
+# pure-Rust miniz_oxide via flate2, no system library.
 [package]
 name = "osm-pbf-example"
 version = "0.0.0"

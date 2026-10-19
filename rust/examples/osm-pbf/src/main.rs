@@ -1,12 +1,18 @@
 //! `osmstat` -- decode an OpenStreetMap .osm.pbf file with RapidProto's arena decoders and print
-//! statistics. A Rust companion to the C++ example at `../../../examples/osm-pbf`; it prints
-//! BYTE-IDENTICAL stdout (the fixture test holds both to the same golden) and adds what Rust makes
-//! natural: PrimitiveBlocks are independent, so by default they decode in parallel across cores
-//! (rayon), each in its own arena. `--sequential` forces one thread (same output); `--baseline` also
-//! runs the `osmpbf` crate over the file and prints its throughput beside ours.
+//! statistics (counts, tags, bounding box, top tag keys). It is a worked example of decoding real,
+//! bulky protobuf efficiently with this crate.
 //!
-//! A .osm.pbf is `[4-byte BE length][BlobHeader][Blob]`*. Framing + inflate live in `pbf_input`; the
-//! per-block decode+walk is `process_block`, used by both the sequential and parallel paths.
+//! A .osm.pbf is a sequence of `[4-byte BE length][BlobHeader][Blob]`, and each data Blob holds an
+//! independent `PrimitiveBlock`. That independence is the point: by default the blocks decode in
+//! parallel across cores (rayon), each into its own [`Arena`], and their partial stats merge
+//! order-independently -- `--sequential` runs the exact same per-block work on one thread and prints
+//! identical output. `--baseline` additionally decodes the file with the `osmpbf` crate and prints its
+//! throughput beside ours, for comparison.
+//!
+//! The decode flow a crate user cares about is short: give each block a fresh `Arena`, call the
+//! generated `decode()`, then read fields off the borrowed view ([`walk`]). Framing and zlib inflate
+//! (neither specific to RapidProto) live in [`pbf_input`]; [`process_block`] ties one block together
+//! and is what both the parallel and sequential paths run.
 
 mod baseline;
 mod osm;

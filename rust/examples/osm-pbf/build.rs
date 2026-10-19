@@ -1,14 +1,11 @@
-// Generate the OSM decoders from the schema the C++ example already vendors (OSM-binary v1.7.0,
-// MIT), so the two examples share one copy. `compile` emits a single file covering the whole closure,
-// named after the first entry's stem (`fileformat.rs`); it holds both schemas' types (package
-// `OSMPBF`). Editing either .proto re-runs this.
+// Generate the OSM arena decoders from the two .proto files in proto/. This is all it takes to use
+// RapidProto: add rapidproto-build as a build-dependency and point `compile` at your schema -- no
+// protoc, no C toolchain. `compile` renders the whole import closure into one generated file named
+// after the first entry's stem (here `fileformat.rs`, holding every `OSMPBF` type), re-running
+// whenever a .proto changes.
 
 fn main() {
-    // This crate is rust/examples/osm-pbf/; the vendored schema is at the repo root's examples/.
-    let proto = concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../../examples/osm-pbf/proto"
-    );
+    let proto = concat!(env!("CARGO_MANIFEST_DIR"), "/proto");
     rapidproto_build::Config::new()
         .include(proto)
         .compile(&[
