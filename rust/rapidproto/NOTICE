@@ -6,8 +6,4 @@ file. You may obtain a copy of the License at
 
     http://www.apache.org/licenses/LICENSE-2.0
 
-This product bundles third-party material whose own copyright notices and
-license terms must be preserved; see THIRD_PARTY_NOTICES.md. In particular, the
-Protocol Buffers well-known-type definitions under wellknown/ (compiled into
-src/wellknown_generated.cpp and therefore distributed) are
-Copyright 2008 Google Inc., licensed under the 3-Clause BSD License.
+This crate (the decode-only runtime) bundles no third-party material.
