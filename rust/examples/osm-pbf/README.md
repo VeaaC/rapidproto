@@ -7,7 +7,7 @@ lot of data out of protobuf quickly with this crate.
 ```sh
 cargo run -p osm-pbf-example --release -- <file.osm.pbf>
 cargo run -p osm-pbf-example --release -- --sequential --baseline <file.osm.pbf>
-cargo test -p osm-pbf-example          # the fixture test (both modes, golden, truncation)
+cargo test -p osm-pbf-example          # fixture test: modes agree, golden, baseline, truncation
 ```
 
 Grab real data from [Geofabrik](https://download.geofabrik.de/), e.g. the ~20 MB Bremen extract:

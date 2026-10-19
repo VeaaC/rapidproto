@@ -1,5 +1,5 @@
-//! The generated OSM decoders (from `build.rs`). RapidProto emits several decode models; this example
-//! uses `arena` -- views that borrow a bump [`Arena`](rapidproto::Arena) -- re-exported here as `OSMPBF`.
+//! The generated OSM decoders (from `build.rs`). The generated types are `arena` views -- they borrow
+//! a bump [`Arena`](rapidproto::Arena) rather than owning their fields -- re-exported here as `OSMPBF`.
 
 #[allow(
     clippy::all,
