@@ -76,8 +76,11 @@ pub fn blob_payload<'a>(
     }
     inflated.clear();
     inflated.reserve(raw_size as usize);
-    // The blob's zlib stream must inflate to exactly `raw_size` bytes; `take` caps a hostile stream.
-    let mut dec = ZlibDecoder::new(deflated).take(raw_size as u64);
+    // The blob's zlib stream must inflate to EXACTLY `raw_size` bytes. Cap the reader at `raw_size + 1`
+    // so a hostile stream is bounded AND an oversized one reads one byte too many -- then the exact
+    // length check below rejects both too-short and too-long (matching C++ `uncompress`, which fails
+    // unless the stream decompresses to exactly `raw_size`).
+    let mut dec = ZlibDecoder::new(deflated).take(raw_size as u64 + 1);
     match dec.read_to_end(inflated) {
         Ok(_) if inflated.len() == raw_size as usize => Some(inflated),
         Ok(got) => {
