@@ -677,6 +677,83 @@ pub mod stream {
         impl<'rp_a, $($rp_g)*> MVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
         RpVis { $($rp_ct)* }
       }};
+      ( $rp_state:expr ; { $( $rp_f:ident => $rp_c:expr ),* $(,)? } ) => {{
+        let rp_state = $rp_state;
+        m_stream!(@ms [] [] [] [] [] rp_state $( $rp_f => $rp_c , )*)
+      }};
+      (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident implicit_scalar => $rp_c:expr , $($rp_rest:tt)*) => {
+        m_stream!(@ms
+          [$($rp_g)* F_implicit_scalar,]
+          [$($rp_w)* F_implicit_scalar: ::rapidproto::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_implicit_scalar: bool = true; #[inline(always)] fn on_implicit_scalar(&mut self, rp_x: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler2::call(&mut self.f_implicit_scalar, &mut *self.rp_state, rp_x) }]
+          [$($rp_fl)* f_implicit_scalar: F_implicit_scalar,]
+          [$($rp_ct)* f_implicit_scalar: ::rapidproto::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+        $rp_s $($rp_rest)*)
+      };
+      (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident explicit_scalar => $rp_c:expr , $($rp_rest:tt)*) => {
+        m_stream!(@ms
+          [$($rp_g)* F_explicit_scalar,]
+          [$($rp_w)* F_explicit_scalar: ::rapidproto::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_explicit_scalar: bool = true; #[inline(always)] fn on_explicit_scalar(&mut self, rp_x: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler2::call(&mut self.f_explicit_scalar, &mut *self.rp_state, rp_x) }]
+          [$($rp_fl)* f_explicit_scalar: F_explicit_scalar,]
+          [$($rp_ct)* f_explicit_scalar: ::rapidproto::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+        $rp_s $($rp_rest)*)
+      };
+      (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident child => $rp_c:expr , $($rp_rest:tt)*) => {
+        m_stream!(@ms
+          [$($rp_g)* F_child,]
+          [$($rp_w)* F_child: ::rapidproto::stream::Handler2<RpS, M<'rp_a>>,]
+          [$($rp_i)* const WANT_child: bool = true; #[inline(always)] fn on_child(&mut self, rp_x: M<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler2::call(&mut self.f_child, &mut *self.rp_state, rp_x) }]
+          [$($rp_fl)* f_child: F_child,]
+          [$($rp_ct)* f_child: ::rapidproto::stream::typed2::<_, M<'_>, _, _>(&*$rp_s, $rp_c),]
+        $rp_s $($rp_rest)*)
+      };
+      (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident packed_nums => $rp_c:expr , $($rp_rest:tt)*) => {
+        m_stream!(@ms
+          [$($rp_g)* F_packed_nums,]
+          [$($rp_w)* F_packed_nums: ::rapidproto::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_packed_nums: bool = true; #[inline(always)] fn on_packed_nums(&mut self, rp_x: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler2::call(&mut self.f_packed_nums, &mut *self.rp_state, rp_x) }]
+          [$($rp_fl)* f_packed_nums: F_packed_nums,]
+          [$($rp_ct)* f_packed_nums: ::rapidproto::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+        $rp_s $($rp_rest)*)
+      };
+      (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident expanded_nums => $rp_c:expr , $($rp_rest:tt)*) => {
+        m_stream!(@ms
+          [$($rp_g)* F_expanded_nums,]
+          [$($rp_w)* F_expanded_nums: ::rapidproto::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_expanded_nums: bool = true; #[inline(always)] fn on_expanded_nums(&mut self, rp_x: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler2::call(&mut self.f_expanded_nums, &mut *self.rp_state, rp_x) }]
+          [$($rp_fl)* f_expanded_nums: F_expanded_nums,]
+          [$($rp_ct)* f_expanded_nums: ::rapidproto::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+        $rp_s $($rp_rest)*)
+      };
+      (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident delim => $rp_c:expr , $($rp_rest:tt)*) => {
+        m_stream!(@ms
+          [$($rp_g)* F_delim,]
+          [$($rp_w)* F_delim: ::rapidproto::stream::Handler2<RpS, M<'rp_a>>,]
+          [$($rp_i)* const WANT_delim: bool = true; #[inline(always)] fn on_delim(&mut self, rp_x: M<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler2::call(&mut self.f_delim, &mut *self.rp_state, rp_x) }]
+          [$($rp_fl)* f_delim: F_delim,]
+          [$($rp_ct)* f_delim: ::rapidproto::stream::typed2::<_, M<'_>, _, _>(&*$rp_s, $rp_c),]
+        $rp_s $($rp_rest)*)
+      };
+      (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident unknown => $rp_c:expr , $($rp_rest:tt)*) => {
+        m_stream!(@ms
+          [$($rp_g)* F_unknown,]
+          [$($rp_w)* F_unknown: ::rapidproto::stream::Handler2<RpS, ::rapidproto::stream::UnknownField<'rp_a>>,]
+          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: ::rapidproto::stream::UnknownField<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler2::call(&mut self.f_unknown, &mut *self.rp_state, rp_x) }]
+          [$($rp_fl)* f_unknown: F_unknown,]
+          [$($rp_ct)* f_unknown: ::rapidproto::stream::typed2::<_, ::rapidproto::stream::UnknownField<'_>, _, _>(&*$rp_s, $rp_c),]
+        $rp_s $($rp_rest)*)
+      };
+      (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
+        compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: implicit_scalar, explicit_scalar, child, packed_nums, expanded_nums, delim, unknown"))
+      };
+      (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident ) => {{
+        #[allow(nonstandard_style)]
+        struct RpVis<'rp_s, RpS: ?Sized, $($rp_g)*> { $($rp_fl)* rp_state: &'rp_s mut RpS }
+        #[allow(nonstandard_style)]
+        impl<'rp_a, 'rp_s, RpS: ?Sized, $($rp_g)*> MVisitor<'rp_a> for RpVis<'rp_s, RpS, $($rp_g)*> where $($rp_w)* { $($rp_i)* }
+        RpVis { $($rp_ct)* rp_state: $rp_s }
+      }};
     }
     pub(crate) use m_stream;
   }

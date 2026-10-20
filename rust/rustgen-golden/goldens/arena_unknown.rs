@@ -368,6 +368,38 @@ pub mod stream {
         impl<'rp_a, $($rp_g)*> FlagVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
         RpVis { $($rp_ct)* }
       }};
+      ( $rp_state:expr ; { $( $rp_f:ident => $rp_c:expr ),* $(,)? } ) => {{
+        let rp_state = $rp_state;
+        flag_stream!(@ms [] [] [] [] [] rp_state $( $rp_f => $rp_c , )*)
+      }};
+      (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident value => $rp_c:expr , $($rp_rest:tt)*) => {
+        flag_stream!(@ms
+          [$($rp_g)* F_value,]
+          [$($rp_w)* F_value: ::rapidproto::stream::Handler2<RpS, bool>,]
+          [$($rp_i)* const WANT_value: bool = true; #[inline(always)] fn on_value(&mut self, rp_x: bool) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler2::call(&mut self.f_value, &mut *self.rp_state, rp_x) }]
+          [$($rp_fl)* f_value: F_value,]
+          [$($rp_ct)* f_value: ::rapidproto::stream::typed2::<_, bool, _, _>(&*$rp_s, $rp_c),]
+        $rp_s $($rp_rest)*)
+      };
+      (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident unknown => $rp_c:expr , $($rp_rest:tt)*) => {
+        flag_stream!(@ms
+          [$($rp_g)* F_unknown,]
+          [$($rp_w)* F_unknown: ::rapidproto::stream::Handler2<RpS, ::rapidproto::stream::UnknownField<'rp_a>>,]
+          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: ::rapidproto::stream::UnknownField<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler2::call(&mut self.f_unknown, &mut *self.rp_state, rp_x) }]
+          [$($rp_fl)* f_unknown: F_unknown,]
+          [$($rp_ct)* f_unknown: ::rapidproto::stream::typed2::<_, ::rapidproto::stream::UnknownField<'_>, _, _>(&*$rp_s, $rp_c),]
+        $rp_s $($rp_rest)*)
+      };
+      (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
+        compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: value, unknown"))
+      };
+      (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident ) => {{
+        #[allow(nonstandard_style)]
+        struct RpVis<'rp_s, RpS: ?Sized, $($rp_g)*> { $($rp_fl)* rp_state: &'rp_s mut RpS }
+        #[allow(nonstandard_style)]
+        impl<'rp_a, 'rp_s, RpS: ?Sized, $($rp_g)*> FlagVisitor<'rp_a> for RpVis<'rp_s, RpS, $($rp_g)*> where $($rp_w)* { $($rp_i)* }
+        RpVis { $($rp_ct)* rp_state: $rp_s }
+      }};
     }
     pub(crate) use flag_stream;
 
@@ -516,6 +548,47 @@ pub mod stream {
         #[allow(nonstandard_style)]
         impl<'rp_a, $($rp_g)*> HolderVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
         RpVis { $($rp_ct)* }
+      }};
+      ( $rp_state:expr ; { $( $rp_f:ident => $rp_c:expr ),* $(,)? } ) => {{
+        let rp_state = $rp_state;
+        holder_stream!(@ms [] [] [] [] [] rp_state $( $rp_f => $rp_c , )*)
+      }};
+      (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident flag => $rp_c:expr , $($rp_rest:tt)*) => {
+        holder_stream!(@ms
+          [$($rp_g)* F_flag,]
+          [$($rp_w)* F_flag: ::rapidproto::stream::Handler2<RpS, Flag<'rp_a>>,]
+          [$($rp_i)* const WANT_flag: bool = true; #[inline(always)] fn on_flag(&mut self, rp_x: Flag<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler2::call(&mut self.f_flag, &mut *self.rp_state, rp_x) }]
+          [$($rp_fl)* f_flag: F_flag,]
+          [$($rp_ct)* f_flag: ::rapidproto::stream::typed2::<_, Flag<'_>, _, _>(&*$rp_s, $rp_c),]
+        $rp_s $($rp_rest)*)
+      };
+      (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident n => $rp_c:expr , $($rp_rest:tt)*) => {
+        holder_stream!(@ms
+          [$($rp_g)* F_n,]
+          [$($rp_w)* F_n: ::rapidproto::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_n: bool = true; #[inline(always)] fn on_n(&mut self, rp_x: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler2::call(&mut self.f_n, &mut *self.rp_state, rp_x) }]
+          [$($rp_fl)* f_n: F_n,]
+          [$($rp_ct)* f_n: ::rapidproto::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+        $rp_s $($rp_rest)*)
+      };
+      (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident unknown => $rp_c:expr , $($rp_rest:tt)*) => {
+        holder_stream!(@ms
+          [$($rp_g)* F_unknown,]
+          [$($rp_w)* F_unknown: ::rapidproto::stream::Handler2<RpS, ::rapidproto::stream::UnknownField<'rp_a>>,]
+          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: ::rapidproto::stream::UnknownField<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler2::call(&mut self.f_unknown, &mut *self.rp_state, rp_x) }]
+          [$($rp_fl)* f_unknown: F_unknown,]
+          [$($rp_ct)* f_unknown: ::rapidproto::stream::typed2::<_, ::rapidproto::stream::UnknownField<'_>, _, _>(&*$rp_s, $rp_c),]
+        $rp_s $($rp_rest)*)
+      };
+      (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
+        compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: flag, n, unknown"))
+      };
+      (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident ) => {{
+        #[allow(nonstandard_style)]
+        struct RpVis<'rp_s, RpS: ?Sized, $($rp_g)*> { $($rp_fl)* rp_state: &'rp_s mut RpS }
+        #[allow(nonstandard_style)]
+        impl<'rp_a, 'rp_s, RpS: ?Sized, $($rp_g)*> HolderVisitor<'rp_a> for RpVis<'rp_s, RpS, $($rp_g)*> where $($rp_w)* { $($rp_i)* }
+        RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
     pub(crate) use holder_stream;

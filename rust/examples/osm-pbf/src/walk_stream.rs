@@ -9,11 +9,14 @@
 //!   decoder cannot look back. So pass 1 collects just the stringtable + scaling (skipping everything
 //!   else, which is exactly what streaming is cheap at), and pass 2 walks the groups.
 //!
-//! * **Macro for simple captures, hand-implemented visitors for aggregation.** Pass 1 uses the
-//!   generated `*_stream!` macro: each selected field sets a disjoint local. The group and entity
-//!   walks instead implement the generated `*Visitor` traits by hand, because every handler mutates the
-//!   same `Stats` + key-count state -- one `&mut self` shared across all of them, which the macro's
-//!   separate per-field closures (each needing `&mut stats`) could not express.
+//! * **One shared accumulator, not a visitor per message.** Pass 1 fills disjoint locals, so it uses
+//!   the plain `*_stream!` macro. Pass 2 aggregates every entity into one [`Agg`], so it uses the
+//!   macro's shared-state form, `*_stream!(&mut agg; { field => |agg, value| .. })`: the decoder lends
+//!   the same `&mut agg` to every handler at every nesting level (re-threaded with `&mut *agg`), which
+//!   exclusive-`&mut` closure captures could not do. The whole walk is one nested expression that
+//!   mirrors the message tree -- block -> group -> entity -> metadata. The only explicit struct is
+//!   [`Dense`], holding the per-group delta accumulators that reset at each `DenseNodes` (there is no
+//!   enclosing scope to park them in, the way a nested closure walk would have).
 //!
 //! The tag-key histogram is counted index-wise into a `Vec<u64>` (no key strings on the hot path) and
 //! resolved against the stringtable once per block, identically to the arena walk.
@@ -25,8 +28,7 @@
 
 #![allow(non_upper_case_globals)] // the generated `WANT_<field>` associated consts
 
-use rapidproto::stream::Flow;
-use rapidproto::{DecodeError, ProtoStr};
+use rapidproto::ProtoStr;
 
 use crate::osm::stream::*;
 use crate::stats::{coord_nano, feature_supported, wrap_add, Stats};
@@ -39,12 +41,33 @@ fn count_key(keys: &mut [u64], k: usize) {
     }
 }
 
+/// Everything the group walk aggregates into: the block's running [`Stats`], the index-wise tag-key
+/// histogram, and the coordinate scaling read in pass 1. One `&mut Agg` is lent to every handler.
+struct Agg<'s> {
+    stats: &'s mut Stats,
+    keys: &'s mut [u64],
+    gran: i64,
+    lat_off: i64,
+    lon_off: i64,
+}
+
+/// A `DenseNodes` group's per-group state: the shared [`Agg`] plus the delta-coded id/lat/lon
+/// accumulators and the `keys_vals` cursor, all of which reset at each group (hence a fresh `Dense` per
+/// `on_dense`). `pending_key` holds a tag key awaiting its value in the `(key, val)*` stream.
+struct Dense<'a, 's> {
+    agg: &'a mut Agg<'s>,
+    id: u64,
+    lat: i64,
+    lon: i64,
+    pending_key: Option<usize>,
+}
+
 /// Decode one OSMData `PrimitiveBlock` payload into a per-block [`Stats`] via the streaming model.
 pub fn walk_block_stream(payload: &[u8]) -> Result<Stats, String> {
     let bad_block = |e| format!("bad PrimitiveBlock ({e:?})");
 
     // Pass 1: the stringtable (tag keys index it) and the coordinate scaling. Each field sets a
-    // disjoint local, so the `*_stream!` macro fits; absent fields keep their proto2 schema defaults.
+    // disjoint local, so the plain macro fits; absent fields keep their proto2 schema defaults.
     let mut strings: Vec<&[u8]> = Vec::new();
     let mut granularity = 100i64;
     let mut lat_offset = 0i64;
@@ -58,19 +81,89 @@ pub fn walk_block_stream(payload: &[u8]) -> Result<Stats, String> {
         })
         .map_err(bad_block)?;
 
-    // Pass 2: walk the groups into the stats (hand-implemented visitors, below).
+    // Pass 2: walk the groups into one shared `Agg` via the macro's shared-state form.
     let mut stats = Stats::default();
     let mut key_counts = vec![0u64; strings.len()];
+    let mut agg = Agg {
+        stats: &mut stats,
+        keys: &mut key_counts,
+        gran: granularity,
+        lat_off: lat_offset,
+        lon_off: lon_offset,
+    };
     PrimitiveBlock::new(payload)
-        .decode(primitive_block_stream! {
-            primitivegroup => |g| g.decode(GroupWalk {
-                stats: &mut stats,
-                keys: &mut key_counts,
-                gran: granularity,
-                lat_off: lat_offset,
-                lon_off: lon_offset,
-            }),
-        })
+        .decode(primitive_block_stream!(&mut agg; {
+            primitivegroup => |agg, g| g.decode(primitive_group_stream!(&mut *agg; {
+                // Plain Node: a single id/lat/lon (not delta-coded) and packed tag-key ids.
+                nodes => |agg, node| {
+                    agg.stats.plain_nodes += 1;
+                    node.decode(node_stream!(&mut *agg; {
+                        id => |agg, id| agg.stats.id_sum = agg.stats.id_sum.wrapping_add(id as u64),
+                        lat => |agg, lat| agg.stats.see_lat(coord_nano(agg.lat_off, agg.gran, lat)),
+                        lon => |agg, lon| agg.stats.see_lon(coord_nano(agg.lon_off, agg.gran, lon)),
+                        keys => |agg, k| { agg.stats.node_tags += 1; count_key(agg.keys, k as usize); },
+                        info => |agg, _info| agg.stats.info_rows += 1, // presence only, like the arena walk
+                    }))
+                },
+                // Way: an id, packed node refs (counted, not resolved), and tag keys.
+                ways => |agg, way| {
+                    agg.stats.ways += 1;
+                    way.decode(way_stream!(&mut *agg; {
+                        id => |agg, id| agg.stats.id_sum = agg.stats.id_sum.wrapping_add(id as u64),
+                        refs => |agg, _ref| agg.stats.way_refs += 1,
+                        keys => |agg, k| { agg.stats.way_tags += 1; count_key(agg.keys, k as usize); },
+                        info => |agg, _info| agg.stats.info_rows += 1,
+                    }))
+                },
+                // Relation: an id, packed member ids (counted), and tag keys.
+                relations => |agg, rel| {
+                    agg.stats.relations += 1;
+                    rel.decode(relation_stream!(&mut *agg; {
+                        id => |agg, id| agg.stats.id_sum = agg.stats.id_sum.wrapping_add(id as u64),
+                        memids => |agg, _memid| agg.stats.relation_members += 1,
+                        keys => |agg, k| { agg.stats.relation_tags += 1; count_key(agg.keys, k as usize); },
+                        info => |agg, _info| agg.stats.info_rows += 1,
+                    }))
+                },
+                // DenseNodes: delta-coded id/lat/lon columns and a 0-terminated (key, val) tag stream,
+                // accumulated in a per-group `Dense` (the columns arrive one whole packed array at a
+                // time; per-axis aggregates need no lat/lon pairing, matching the arena walk).
+                dense => |agg, d| {
+                    let mut den = Dense { agg, id: 0, lat: 0, lon: 0, pending_key: None };
+                    d.decode(dense_nodes_stream!(&mut den; {
+                        id => |den, delta| {
+                            den.id = den.id.wrapping_add(delta as u64);
+                            den.agg.stats.id_sum = den.agg.stats.id_sum.wrapping_add(den.id);
+                            den.agg.stats.dense_nodes += 1;
+                        },
+                        lat => |den, delta| {
+                            den.lat = wrap_add(den.lat, delta);
+                            let nano = coord_nano(den.agg.lat_off, den.agg.gran, den.lat);
+                            den.agg.stats.see_lat(nano);
+                        },
+                        lon => |den, delta| {
+                            den.lon = wrap_add(den.lon, delta);
+                            let nano = coord_nano(den.agg.lon_off, den.agg.gran, den.lon);
+                            den.agg.stats.see_lon(nano);
+                        },
+                        keys_vals => |den, x| match den.pending_key.take() {
+                            // This element is the value for the pending key; count the key now.
+                            Some(k) => {
+                                den.agg.stats.node_tags += 1;
+                                count_key(den.agg.keys, k);
+                            }
+                            // 0 is a node boundary; any other value starts a (key, val) pair.
+                            None if x != 0 => den.pending_key = Some(x as usize),
+                            None => {}
+                        },
+                        // One metadata row per `version` column entry.
+                        denseinfo => |den, info| info.decode(dense_info_stream!(&mut *den.agg; {
+                            version => |agg, _v| agg.stats.info_rows += 1,
+                        })),
+                    }))
+                },
+            })),
+        }))
         .map_err(bad_block)?;
 
     stats.blocks = 1;
@@ -79,7 +172,8 @@ pub fn walk_block_stream(payload: &[u8]) -> Result<Stats, String> {
 }
 
 /// Decode an OSMHeader `HeaderBlock` payload via streaming and refuse any required feature we do not
-/// implement -- the streaming counterpart of the arena header check.
+/// implement -- the streaming counterpart of the arena header check. One disjoint local, so the plain
+/// macro fits.
 pub fn check_header_stream(payload: &[u8]) -> Result<(), String> {
     let mut unsupported: Option<String> = None;
     HeaderBlock::new(payload)
@@ -97,257 +191,5 @@ pub fn check_header_stream(payload: &[u8]) -> Result<(), String> {
     match unsupported {
         Some(name) => Err(format!("file requires unsupported feature '{name}'")),
         None => Ok(()),
-    }
-}
-
-/// One `PrimitiveGroup`: dispatch each entity kind to its own walker, counting the entity itself here
-/// (so it is counted even if its fields are absent, matching the arena walk's per-message loop).
-struct GroupWalk<'s> {
-    stats: &'s mut Stats,
-    keys: &'s mut [u64],
-    gran: i64,
-    lat_off: i64,
-    lon_off: i64,
-}
-
-impl<'a> PrimitiveGroupVisitor<'a> for GroupWalk<'_> {
-    const WANT_dense: bool = true;
-    const WANT_nodes: bool = true;
-    const WANT_ways: bool = true;
-    const WANT_relations: bool = true;
-
-    fn on_dense(&mut self, dense: DenseNodes<'a>) -> Result<Flow, DecodeError> {
-        dense.decode(DenseWalk {
-            stats: self.stats,
-            keys: self.keys,
-            gran: self.gran,
-            lat_off: self.lat_off,
-            lon_off: self.lon_off,
-            id: 0,
-            lat: 0,
-            lon: 0,
-            pending_key: None,
-        })?;
-        Ok(Flow::Continue)
-    }
-
-    fn on_nodes(&mut self, node: Node<'a>) -> Result<Flow, DecodeError> {
-        self.stats.plain_nodes += 1;
-        node.decode(NodeWalk {
-            stats: self.stats,
-            keys: self.keys,
-            gran: self.gran,
-            lat_off: self.lat_off,
-            lon_off: self.lon_off,
-        })?;
-        Ok(Flow::Continue)
-    }
-
-    fn on_ways(&mut self, way: Way<'a>) -> Result<Flow, DecodeError> {
-        self.stats.ways += 1;
-        way.decode(WayWalk {
-            stats: self.stats,
-            keys: self.keys,
-        })?;
-        Ok(Flow::Continue)
-    }
-
-    fn on_relations(&mut self, rel: Relation<'a>) -> Result<Flow, DecodeError> {
-        self.stats.relations += 1;
-        rel.decode(RelationWalk {
-            stats: self.stats,
-            keys: self.keys,
-        })?;
-        Ok(Flow::Continue)
-    }
-}
-
-/// `DenseNodes`: delta-coded id/lat/lon columns accumulated in locals, tags as a 0-terminated
-/// (key, val) stream. The columns arrive one whole packed array at a time; per-axis aggregates need no
-/// lat/lon pairing, so walking them independently matches the arena walk.
-struct DenseWalk<'s> {
-    stats: &'s mut Stats,
-    keys: &'s mut [u64],
-    gran: i64,
-    lat_off: i64,
-    lon_off: i64,
-    id: u64,
-    lat: i64,
-    lon: i64,
-    /// A tag key awaiting its value in the `keys_vals` stream (so the key is counted only once a value
-    /// slot follows, as the arena walk's `i + 1 < len` requires).
-    pending_key: Option<usize>,
-}
-
-impl<'a> DenseNodesVisitor<'a> for DenseWalk<'_> {
-    const WANT_id: bool = true;
-    const WANT_lat: bool = true;
-    const WANT_lon: bool = true;
-    const WANT_keys_vals: bool = true;
-    const WANT_denseinfo: bool = true;
-
-    fn on_id(&mut self, d: i64) -> Result<Flow, DecodeError> {
-        self.id = self.id.wrapping_add(d as u64);
-        self.stats.id_sum = self.stats.id_sum.wrapping_add(self.id);
-        self.stats.dense_nodes += 1;
-        Ok(Flow::Continue)
-    }
-
-    fn on_lat(&mut self, d: i64) -> Result<Flow, DecodeError> {
-        self.lat = wrap_add(self.lat, d);
-        self.stats
-            .see_lat(coord_nano(self.lat_off, self.gran, self.lat));
-        Ok(Flow::Continue)
-    }
-
-    fn on_lon(&mut self, d: i64) -> Result<Flow, DecodeError> {
-        self.lon = wrap_add(self.lon, d);
-        self.stats
-            .see_lon(coord_nano(self.lon_off, self.gran, self.lon));
-        Ok(Flow::Continue)
-    }
-
-    fn on_keys_vals(&mut self, x: i32) -> Result<Flow, DecodeError> {
-        match self.pending_key.take() {
-            // This element is the value for the pending key; count the key now.
-            Some(k) => {
-                self.stats.node_tags += 1;
-                count_key(self.keys, k);
-            }
-            // 0 is a node boundary; any other value starts a (key, val) pair.
-            None if x != 0 => self.pending_key = Some(x as usize),
-            None => {}
-        }
-        Ok(Flow::Continue)
-    }
-
-    fn on_denseinfo(&mut self, info: DenseInfo<'a>) -> Result<Flow, DecodeError> {
-        info.decode(DenseInfoCount { stats: self.stats })?;
-        Ok(Flow::Continue)
-    }
-}
-
-/// `DenseInfo`: one metadata row per `version` column entry.
-struct DenseInfoCount<'s> {
-    stats: &'s mut Stats,
-}
-
-impl<'a> DenseInfoVisitor<'a> for DenseInfoCount<'_> {
-    const WANT_version: bool = true;
-
-    fn on_version(&mut self, _v: i32) -> Result<Flow, DecodeError> {
-        self.stats.info_rows += 1;
-        Ok(Flow::Continue)
-    }
-}
-
-/// A plain `Node`: a single id/lat/lon (not delta-coded) and packed tag-key ids.
-struct NodeWalk<'s> {
-    stats: &'s mut Stats,
-    keys: &'s mut [u64],
-    gran: i64,
-    lat_off: i64,
-    lon_off: i64,
-}
-
-impl<'a> NodeVisitor<'a> for NodeWalk<'_> {
-    const WANT_id: bool = true;
-    const WANT_lat: bool = true;
-    const WANT_lon: bool = true;
-    const WANT_keys: bool = true;
-    const WANT_info: bool = true;
-
-    fn on_id(&mut self, id: i64) -> Result<Flow, DecodeError> {
-        self.stats.id_sum = self.stats.id_sum.wrapping_add(id as u64);
-        Ok(Flow::Continue)
-    }
-
-    fn on_lat(&mut self, lat: i64) -> Result<Flow, DecodeError> {
-        self.stats.see_lat(coord_nano(self.lat_off, self.gran, lat));
-        Ok(Flow::Continue)
-    }
-
-    fn on_lon(&mut self, lon: i64) -> Result<Flow, DecodeError> {
-        self.stats.see_lon(coord_nano(self.lon_off, self.gran, lon));
-        Ok(Flow::Continue)
-    }
-
-    fn on_keys(&mut self, k: u32) -> Result<Flow, DecodeError> {
-        self.stats.node_tags += 1;
-        count_key(self.keys, k as usize);
-        Ok(Flow::Continue)
-    }
-
-    fn on_info(&mut self, _info: Info<'a>) -> Result<Flow, DecodeError> {
-        self.stats.info_rows += 1; // presence only, like the arena walk's `info().is_some()`
-        Ok(Flow::Continue)
-    }
-}
-
-/// A `Way`: an id, packed node refs (counted, not resolved), and tag keys.
-struct WayWalk<'s> {
-    stats: &'s mut Stats,
-    keys: &'s mut [u64],
-}
-
-impl<'a> WayVisitor<'a> for WayWalk<'_> {
-    const WANT_id: bool = true;
-    const WANT_refs: bool = true;
-    const WANT_keys: bool = true;
-    const WANT_info: bool = true;
-
-    fn on_id(&mut self, id: i64) -> Result<Flow, DecodeError> {
-        self.stats.id_sum = self.stats.id_sum.wrapping_add(id as u64);
-        Ok(Flow::Continue)
-    }
-
-    fn on_refs(&mut self, _ref: i64) -> Result<Flow, DecodeError> {
-        self.stats.way_refs += 1;
-        Ok(Flow::Continue)
-    }
-
-    fn on_keys(&mut self, k: u32) -> Result<Flow, DecodeError> {
-        self.stats.way_tags += 1;
-        count_key(self.keys, k as usize);
-        Ok(Flow::Continue)
-    }
-
-    fn on_info(&mut self, _info: Info<'a>) -> Result<Flow, DecodeError> {
-        self.stats.info_rows += 1;
-        Ok(Flow::Continue)
-    }
-}
-
-/// A `Relation`: an id, packed member ids (counted), and tag keys.
-struct RelationWalk<'s> {
-    stats: &'s mut Stats,
-    keys: &'s mut [u64],
-}
-
-impl<'a> RelationVisitor<'a> for RelationWalk<'_> {
-    const WANT_id: bool = true;
-    const WANT_memids: bool = true;
-    const WANT_keys: bool = true;
-    const WANT_info: bool = true;
-
-    fn on_id(&mut self, id: i64) -> Result<Flow, DecodeError> {
-        self.stats.id_sum = self.stats.id_sum.wrapping_add(id as u64);
-        Ok(Flow::Continue)
-    }
-
-    fn on_memids(&mut self, _memid: i64) -> Result<Flow, DecodeError> {
-        self.stats.relation_members += 1;
-        Ok(Flow::Continue)
-    }
-
-    fn on_keys(&mut self, k: u32) -> Result<Flow, DecodeError> {
-        self.stats.relation_tags += 1;
-        count_key(self.keys, k as usize);
-        Ok(Flow::Continue)
-    }
-
-    fn on_info(&mut self, _info: Info<'a>) -> Result<Flow, DecodeError> {
-        self.stats.info_rows += 1;
-        Ok(Flow::Continue)
     }
 }

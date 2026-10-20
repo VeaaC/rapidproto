@@ -37,10 +37,12 @@ The point of the example is the shape of an efficient decode:
 - **Arena: decode once, read borrowed views.** One `decode()` bump-allocates the message and hands back
   a view that borrows it: no per-field allocation, repeated columns as `&[i64]`, strings as `&[u8]`.
 - **Streaming: materialize nothing, visit fields.** `Msg::new(bytes).decode(visitor)` fires one callback
-  per field as it is decoded. The walk shows both ways to build a visitor: the generated `*_stream!`
-  macro for the simple capture-a-local pass, and hand-implemented `*Visitor` traits where many handlers
-  share the same accumulator (which `&mut`-exclusive closures can't). It also shows the two-pass idiom a
-  back-referencing schema needs (the stringtable must be read before the groups that index it).
+  per field as it is decoded. The walk shows both macro forms: the plain `*_stream! { field => |v| .. }`
+  for pass 1 (each field sets a disjoint local), and the shared-state form
+  `*_stream!(&mut agg; { field => |agg, v| .. })` for pass 2, where the decoder lends one `&mut agg`
+  accumulator to every handler across the whole nested walk (which `&mut`-exclusive closure captures
+  can't). It also shows the two-pass idiom a back-referencing schema needs (the stringtable must be read
+  before the groups that index it).
 - **Parallelism is trivial either way.** Blocks are independent, so they decode in parallel by default,
   partials merged order-independently. `--sequential` prints the same thing.
 - **Untrusted input stays safe.** Lengths are capped and arithmetic wraps rather than panicking; a
