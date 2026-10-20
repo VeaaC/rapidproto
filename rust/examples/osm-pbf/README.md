@@ -14,15 +14,15 @@ to one golden.
 ```sh
 cargo run -p osm-pbf-example --release -- <file.osm.pbf>            # arena (default)
 cargo run -p osm-pbf-example --release -- --stream <file.osm.pbf>  # streaming visitor
-cargo run -p osm-pbf-example --release -- --sequential --baseline <file.osm.pbf>
-cargo test -p osm-pbf-example          # fixture: both models agree, golden, baseline, truncation
+cargo run -p osm-pbf-example --release -- --sequential <file.osm.pbf>
+cargo test -p osm-pbf-example          # fixture: both models agree, golden, truncation
 ```
 
 Grab real data from [Geofabrik](https://download.geofabrik.de/), e.g. the ~20 MB Bremen extract:
 
 ```sh
 curl -O https://download.geofabrik.de/europe/germany/bremen-latest.osm.pbf
-cargo run -p osm-pbf-example --release -- --baseline bremen-latest.osm.pbf
+cargo run -p osm-pbf-example --release -- bremen-latest.osm.pbf
 ```
 
 Statistics go to **stdout**; timing goes to **stderr**, so you can redirect one without the other.
@@ -49,9 +49,6 @@ The point of the example is the shape of an efficient decode:
   wire-malformed file exits nonzero, never UB. (Streaming hands sub-messages to the consumer as child
   handles — recursing into them is the consumer's depth to bound; this walk recurses a fixed, shallow
   depth set by the schema, not the input: block → group → entity → metadata.)
-
-`--baseline` also decodes the file with the [`osmpbf`](https://crates.io/crates/osmpbf) crate (a
-materializing reader) and prints its counts + throughput on stderr, for a side-by-side comparison.
 
 ## Schema and fixture
 

@@ -32,6 +32,38 @@
 //! the stack through the decoder. A consumer that walks a self-referential schema by calling
 //! `child.decode(..)` inside a handler owns that recursion depth and must bound it if the input is
 //! untrusted — the arena model's decode-depth cap does not apply to consumer-driven recursion.
+//!
+//! # Hand-implementing a visitor
+//!
+//! The `msg_stream!` macro is the usual way to build a visitor, but the generated `<Msg>Visitor` trait
+//! can be implemented by hand (e.g. for a reusable visitor type). A field is selected by overriding
+//! **both** its `WANT_<field>` const **and** its `on_<field>` method: the macro always emits the pair,
+//! but by hand it is easy to write `on_<field>` and forget `WANT_<field> = true`, leaving the field at
+//! its default `WANT_<field> = false` so the driver never dispatches it — the method silently never
+//! fires. The generated trait is shaped like the toy one below:
+//!
+//! ```
+//! use rapidproto::stream::Flow;
+//! use rapidproto::DecodeError;
+//!
+//! // Shaped like a generated `<Msg>Visitor` (one `WANT_`/`on_` pair per field).
+//! trait ExampleVisitor<'a> {
+//!     #[allow(non_upper_case_globals)]
+//!     const WANT_value: bool = false;
+//!     fn on_value(&mut self, _v: i64) -> Result<Flow, DecodeError> { Ok(Flow::Continue) }
+//! }
+//!
+//! struct Collect(Vec<i64>);
+//! impl<'a> ExampleVisitor<'a> for Collect {
+//!     #[allow(non_upper_case_globals)]
+//!     const WANT_value: bool = true; // required, or `on_value` is never dispatched
+//!     fn on_value(&mut self, v: i64) -> Result<Flow, DecodeError> {
+//!         self.0.push(v);
+//!         Ok(Flow::Continue)
+//!     }
+//! }
+//! # let _ = Collect(Vec::new());
+//! ```
 
 use crate::error::DecodeError;
 use crate::wire::WireType;

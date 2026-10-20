@@ -66,24 +66,6 @@ fn golden_and_modes_agree() {
 }
 
 #[test]
-fn baseline_agrees_on_the_fixture() {
-    // --baseline runs the osmpbf crate over the same file; it must succeed and (on stderr) agree with
-    // our id sum -- an independent third decoder cross-checking the fixture.
-    let fix = fixture();
-    let out = osmstat(&["--baseline", fix.to_str().unwrap()]);
-    assert!(
-        out.status.success(),
-        "baseline run failed: {}",
-        String::from_utf8_lossy(&out.stderr)
-    );
-    let err = String::from_utf8_lossy(&out.stderr);
-    assert!(
-        err.contains("id sum 0000000000002ee9"),
-        "osmpbf baseline disagrees on id sum:\n{err}"
-    );
-}
-
-#[test]
 fn truncated_file_is_rejected() {
     let bytes = std::fs::read(fixture()).expect("read fixture");
     let mut tmp = std::env::temp_dir();

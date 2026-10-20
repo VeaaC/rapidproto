@@ -3132,6 +3132,18 @@ void emit_stream_decode(Printer& printer, const NameTable& table,
     printer.indent();
     printer.print("#[inline(always)]\n");
     printer.print("pub fn new(rp_input: &'a [u8]) -> $M$<'a> { $M$ { rp_input } }\n\n");
+    // The handle wraps the message BODY (post-length-prefix) -- the same bytes the arena model's
+    // `decode(bytes, &arena)` expects -- so exposing them lets a consumer stream the outer message and
+    // materialize a chosen sub-message mid-stream (the stream->arena hybrid), composing the two models
+    // without any coupling in the generated code.
+    printer.print(
+        "/// The message body bytes this handle reads -- the slice `decode` walks. Pass them to "
+        "the\n"
+        "/// arena model's `decode(.., &arena)` for this message to materialize it as a tree "
+        "instead\n"
+        "/// (stream the outer message, arena-decode a chosen sub-message mid-stream).\n");
+    printer.print("#[inline(always)]\n");
+    printer.print("pub fn bytes(&self) -> &'a [u8] { self.rp_input }\n\n");
     printer.print(
         "pub fn decode<V: $M$Visitor<'a>>(self, mut rp_vis: V) "
         "-> ::core::result::Result<(), ::rapidproto::DecodeError> {\n");
@@ -3317,7 +3329,9 @@ void emit_stream_macro(Printer& printer, const NameTable& table,
         "(@ms [$$($$rp_g:tt)*] [$$($$rp_w:tt)*] [$$($$rp_i:tt)*] [$$($$rp_fl:tt)*] "
         "[$$($$rp_ct:tt)*] $$rp_s:ident ) => {{\n");
     printer.indent();
-    printer.print("#[allow(nonstandard_style)]\n");
+    // `dead_code` too (unlike the non-state struct): a zero-field selection `$mac$!(&mut s; {})` leaves
+    // `rp_state` read by no handler, which would warn under a consumer's `deny(warnings)`.
+    printer.print("#[allow(nonstandard_style, dead_code)]\n");
     printer.print(
         "struct RpVis<'rp_s, RpS: ?Sized, $$($$rp_g)*> { $$($$rp_fl)* rp_state: &'rp_s mut RpS "
         "}\n");

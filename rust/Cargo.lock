@@ -756,15 +756,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
 
 [[package]]
-name = "memmap2"
-version = "0.5.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "83faa42c0a078c393f6b29d5db232d8be22776a891f8f56e5284faee4a20b327"
-dependencies = [
- "libc",
-]
-
-[[package]]
 name = "miette"
 version = "7.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -844,23 +835,8 @@ name = "osm-pbf-example"
 version = "0.0.0"
 dependencies = [
  "flate2",
- "osmpbf",
  "rapidproto",
  "rapidproto-build",
- "rayon",
-]
-
-[[package]]
-name = "osmpbf"
-version = "0.3.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d689d6e9f254bbd63893ce00a27147e41fe94bf3abca70f85b5345afb3cb728"
-dependencies = [
- "byteorder",
- "flate2",
- "memmap2",
- "protobuf 3.7.2",
- "protobuf-codegen 3.7.2",
  "rayon",
 ]
 

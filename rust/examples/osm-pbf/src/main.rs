@@ -11,7 +11,6 @@
 //! and zlib inflate (not RapidProto-specific) are in [`pbf_input`]; [`process_block`] decodes and walks
 //! one block in the selected model.
 
-mod baseline;
 mod osm;
 mod pbf_input;
 mod stats;
@@ -92,19 +91,16 @@ fn check_header(blob_bytes: &[u8], stream: bool) -> Result<(), String> {
 struct Args {
     path: String,
     sequential: bool,
-    baseline: bool,
     stream: bool,
 }
 
 fn parse_args() -> Result<Args, String> {
     let mut path = None;
     let mut sequential = false;
-    let mut baseline = false;
     let mut stream = false;
     for arg in std::env::args().skip(1) {
         match arg.as_str() {
             "--sequential" => sequential = true,
-            "--baseline" => baseline = true,
             "--stream" => stream = true,
             s if s.starts_with("--") => return Err(format!("unknown flag {s}")),
             s => {
@@ -118,7 +114,6 @@ fn parse_args() -> Result<Args, String> {
         Some(path) => Ok(Args {
             path,
             sequential,
-            baseline,
             stream,
         }),
         None => Err("no input file".into()),
@@ -208,10 +203,6 @@ fn run() -> Result<(), String> {
         mib_per_s(stats.payload_bytes, t_process),
         stats.payload_bytes
     );
-
-    if args.baseline {
-        baseline::run(&args.path)?;
-    }
     Ok(())
 }
 

@@ -219,6 +219,16 @@ fn shared_state_form_handles_stop_and_maps() {
 }
 
 #[test]
+fn shared_state_form_with_no_fields_is_valid() {
+    // A zero-field state selection decodes nothing (every field skipped) and must still compile
+    // warning-clean -- the generated struct's `rp_state` is read by no handler, so the state struct
+    // carries a `dead_code` allow for exactly this case.
+    let mut touched = false;
+    Msg::new(MSG).decode(msg_stream!(&mut touched; {})).unwrap();
+    assert!(!touched);
+}
+
+#[test]
 fn a_visitor_type_can_be_hand_implemented() {
     // The macro is sugar over the generated trait; a consumer may implement it directly.
     struct Count(u32);

@@ -3,6 +3,9 @@
 
 fn main() {
     rapidproto_build::Config::new()
+        // Emit BOTH decode models into the one generated file: the arena tree (`schema::arena`) and the
+        // streaming visitor (`schema::stream`). main.rs decodes the same buffer with each.
+        .stream(true)
         .include("proto")
         .compile(&["proto/message.proto"])
         .expect("generate decoders");
