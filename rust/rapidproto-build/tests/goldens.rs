@@ -41,24 +41,44 @@ fn check(stem: &str, generated: &str, verified: &mut BTreeSet<String>) {
     verified.insert(stem.to_owned());
 }
 
-/// A plain golden (no field modes): entry is the proto, include path is its own directory.
+/// A plain golden (no field modes): entry is the proto, include path is its own directory. Emitted
+/// with BOTH models (arena + stream), matching the committed plain goldens (test_rustgen's `kBoth`).
 fn gen_plain(proto: &Path) -> String {
     let include = proto
         .parent()
         .expect("proto has a parent dir")
         .to_path_buf();
-    generate_from_disk(&[proto.to_path_buf()], &[include], "", false)
+    generate_from_disk(&[proto.to_path_buf()], &[include], "", false, true, true)
         .unwrap_or_else(|e| panic!("generate {}: {e}", proto.display()))
 }
 
-/// A field-modes golden: `modes` is a `.modes` profile; include path is the proto's directory.
+/// A field-modes golden: `modes` is a `.modes` profile; include path is the proto's directory. Emitted
+/// arena-only (field modes are arena-storage options, N/A to a streaming visitor), matching
+/// test_rustgen's modes goldens.
 fn gen_modes(proto: &Path, modes: &str) -> String {
     let include = proto
         .parent()
         .expect("proto has a parent dir")
         .to_path_buf();
-    generate_from_disk(&[proto.to_path_buf()], &[include], modes, false)
-        .unwrap_or_else(|e| panic!("generate {} with modes: {e}", proto.display()))
+    generate_from_disk(
+        &[proto.to_path_buf()],
+        &[include],
+        modes,
+        false,
+        true,
+        false,
+    )
+    .unwrap_or_else(|e| panic!("generate {} with modes: {e}", proto.display()))
+}
+
+/// A stream-only golden (stream model, no arena): the `Config::arena(false).stream(true)` path.
+fn gen_stream_only(proto: &Path) -> String {
+    let include = proto
+        .parent()
+        .expect("proto has a parent dir")
+        .to_path_buf();
+    generate_from_disk(&[proto.to_path_buf()], &[include], "", false, false, true)
+        .unwrap_or_else(|e| panic!("generate {} stream-only: {e}", proto.display()))
 }
 
 /// Every `*.proto` under `dir`, recursively, sorted (deterministic) — the plain-golden corpus.
@@ -94,6 +114,13 @@ fn goldens_match_native_through_the_blob() {
     // The bench schema's golden (generated like a corpus proto, from tests/bench/).
     let bench = root.join("tests/bench/bench.proto");
     check("bench", &gen_plain(&bench), &mut verified);
+
+    // The stream-only golden (no arena), mirroring test_rustgen.cpp's `streamonly` case.
+    check(
+        "streamonly",
+        &gen_stream_only(&root.join("tests/corpus/nsedge/nestenum.proto")),
+        &mut verified,
+    );
 
     // Field-modes goldens — profiles mirrored from test_rustgen.cpp's *_spec() helpers (no `name`
     // directive, matching the empty profile_name there).

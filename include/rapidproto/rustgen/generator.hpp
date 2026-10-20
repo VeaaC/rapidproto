@@ -47,12 +47,39 @@ std::string generate_common(const std::vector<const FileNode*>& files);
 std::string generate_arena(const std::vector<const FileNode*>& files, const LayoutSet& layouts,
                            const FieldModes& modes = {});
 
-// The full generated Rust source for `files`: the `common` tree followed by the `arena` tree (the two
-// are siblings, included together under one parent module). This is the single source of truth for an
-// invocation's `.rs` content -- the CLI writes it and the golden test compares against it. `modes` is
-// the resolved field-modes profile (default: materialize everything).
+// Emit the `stream` module body for `files`, under `pub mod stream` mirroring `arena`'s module
+// structure: per message a reader handle `<Msg><'a>` (`Msg::new(bytes).decode(visitor)`), a
+// `<Msg>Visitor<'a>` trait (one `const WANT_<field>: bool = false` + a defaulted
+// `on_<field>(&mut self, V) -> Result<Flow, DecodeError>` method per field, plus an `unknown` handler),
+// a `<Msg>::decode` driver whose per-field arm gates on `V::WANT_<field>` (an unselected field
+// const-folds to a wire-skip), and a per-message `<msg>_stream! { field => closure, .. }` macro. A
+// handler receives a scalar as its Rust primitive, a string as `ProtoStr`, bytes as `&[u8]`, an ENUM as
+// its generated `common`-tree newtype, a message/group as the child's reader handle (recurse with
+// `child.decode(..)`), and a MAP field as a `(key, value)` pair per entry (the value a child handle when
+// it is a message); `Flow::Stop` and an `Err` propagate out of `decode`. The trait and driver name a
+// foreign enum newtype / child handle by its real tree-relative path; the `*_stream!` macro expands at
+// the consumer's call site where that path is invalid, so each such type is also re-exported into the
+// message's stream module as a `#[doc(hidden)] pub type rp_stream_ty_<n>` alias (reserved `rp_` prefix ->
+// never clashes) that only the macro names. A consumer glob-imports the stream module. Field modes
+// (drop/raw/unknown) are arena-storage options that do not apply to a streaming visitor (which
+// materializes nothing), so streaming ignores them.
+std::string generate_stream(const std::vector<const FileNode*>& files);
+
+// Which decoder model(s) `generate_file` emits. `common` is always emitted (both models reference it).
+// Default is arena only -- byte-for-byte what every existing arena consumer gets. At least one must be
+// set; the caller enforces that.
+struct RustModels {
+    bool arena = true;
+    bool stream = false;
+};
+
+// The full generated Rust source for `files`: the `common` tree, then the selected decoder tree(s)
+// (`arena` and/or `stream`), all siblings included together under one parent module. This is the single
+// source of truth for an invocation's `.rs` content -- the CLI writes it and the golden test compares
+// against it. `modes` is the resolved field-modes profile (default: materialize everything); `models`
+// selects which decoder model(s) to emit (default: arena only).
 std::string generate_file(const std::vector<const FileNode*>& files, const LayoutSet& layouts,
-                          const FieldModes& modes = {});
+                          const FieldModes& modes = {}, const RustModels& models = {});
 
 // The absolute arena type path (e.g. `arena::pkg::Msg`) for every message in `files`, keyed by its
 // protobuf FQN -- the path that `include!`-ing the generated `.rs` exposes. The differential test's

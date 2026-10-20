@@ -15,6 +15,8 @@ struct Args {
     includes: Vec<PathBuf>,
     modes: String,
     unknown_all: bool,
+    arena: bool,
+    stream: bool,
     out: Option<PathBuf>,
 }
 
@@ -27,6 +29,8 @@ usage: rapidproto-rust [options] <entry.proto>...
   --raw <name>          keep a message field's/type's payloads for deferred decodes
   --unknown <name>      reserve the unknown-fields bit on one message (repeatable)
   --unknown-present     reserve the unknown-fields bit on every message
+  --stream              also emit the stream visitor model (<Msg>Visitor + <msg>_stream!)
+  --no-arena            omit the arena model (combine with --stream for stream-only output)
   -h, --help            show this help";
 
 fn main() -> ExitCode {
@@ -51,8 +55,15 @@ fn run(args: &Args) -> Result<(), String> {
     if args.entries.is_empty() {
         return Err("no entry .proto given".to_owned());
     }
-    let rust = generate_from_disk(&args.entries, &args.includes, &args.modes, args.unknown_all)
-        .map_err(|e| e.to_string())?;
+    let rust = generate_from_disk(
+        &args.entries,
+        &args.includes,
+        &args.modes,
+        args.unknown_all,
+        args.arena,
+        args.stream,
+    )
+    .map_err(|e| e.to_string())?;
     match &args.out {
         Some(path) => {
             std::fs::write(path, rust).map_err(|e| format!("cannot write {}: {e}", path.display()))
@@ -72,6 +83,8 @@ fn parse_args() -> Result<Option<Args>, String> {
         includes: Vec::new(),
         modes: String::new(),
         unknown_all: false,
+        arena: true,
+        stream: false,
         out: None,
     };
     let mut argv = std::env::args().skip(1);
@@ -110,6 +123,8 @@ fn parse_args() -> Result<Option<Args>, String> {
                 &take(inline.as_deref(), "--unknown")?,
             ),
             "--unknown-present" => args.unknown_all = true,
+            "--stream" => args.stream = true,
+            "--no-arena" => args.arena = false,
             other if other.starts_with('-') && other != "-" => {
                 return Err(format!("unknown option '{other}'"));
             }

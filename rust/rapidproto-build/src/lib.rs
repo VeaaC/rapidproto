@@ -64,6 +64,10 @@ pub struct Request {
     pub modes: String,
     /// Reserve space to track unknown fields on every message (see [`Config::unknown_present`]).
     pub unknown_all: bool,
+    /// Emit the random-access `arena` decoder model (default on; see [`Config::arena`]).
+    pub arena: bool,
+    /// Emit the `stream` visitor model (default off; see [`Config::stream`]).
+    pub stream: bool,
 }
 
 /// An error from the generator.
@@ -83,10 +87,11 @@ impl std::fmt::Display for GenError {
 
 impl std::error::Error for GenError {}
 
-/// Encodes a [`Request`] into the byte frame the generator reads on stdin: a `RPWF1` magic, then
-/// little-endian-u32-counted entry names, u32-counted `{name, body}` sources, the `.modes` text, and
-/// a one-byte unknown-all flag. Bodies are length-prefixed, so a proto's newlines/quotes need no
-/// escaping. (Internal: the decode side lives in the generator.)
+/// Encodes a [`Request`] into the byte frame the generator reads on stdin: a `RPWF2` magic, then
+/// little-endian-u32-counted entry names, u32-counted `{name, body}` sources, the `.modes` text, a
+/// one-byte unknown-all flag, and two one-byte model flags (arena, stream). Bodies are
+/// length-prefixed, so a proto's newlines/quotes need no escaping. (Internal: the decode side lives in
+/// the generator; the frame and the blob move together, byte-checked in CI.)
 mod frame {
     use super::{GenError, Request};
 
@@ -109,7 +114,7 @@ mod frame {
 
     pub(super) fn encode(request: &Request) -> Result<Vec<u8>, GenError> {
         let mut buf = Vec::new();
-        buf.extend_from_slice(b"RPWF1\n");
+        buf.extend_from_slice(b"RPWF2\n");
         put_len(&mut buf, request.entries.len())?;
         for entry in &request.entries {
             put_bytes(&mut buf, entry.as_bytes())?;
@@ -121,6 +126,8 @@ mod frame {
         }
         put_bytes(&mut buf, request.modes.as_bytes())?;
         buf.push(u8::from(request.unknown_all));
+        buf.push(u8::from(request.arena));
+        buf.push(u8::from(request.stream));
         Ok(buf)
     }
 }
@@ -213,14 +220,24 @@ fn internal(error: impl std::fmt::Display) -> GenError {
 /// made available to the generator (over-inclusion is harmless — only the closure the `entries`
 /// reach is used), and each entry is named by its path relative to the include directory that holds
 /// it. `modes` is a decode profile (see [`Config::field_modes`]); `unknown_all` matches
-/// [`Config::unknown_present`]. Returns the generated Rust (one module tree for the closure) or a
-/// [`GenError`]. For a `build.rs`, prefer [`Config`], which also writes the output and tracks inputs.
+/// [`Config::unknown_present`]. `arena`/`stream` select the decoder model(s) to emit (see
+/// [`Config::arena`] / [`Config::stream`]); at least one must be set. Returns the generated Rust (one
+/// module tree for the closure) or a [`GenError`]. For a `build.rs`, prefer [`Config`], which also
+/// writes the output and tracks inputs.
 pub fn generate_from_disk(
     entries: &[PathBuf],
     includes: &[PathBuf],
     modes: &str,
     unknown_all: bool,
+    arena: bool,
+    stream: bool,
 ) -> Result<String, GenError> {
+    if !arena && !stream {
+        return Err(GenError {
+            code: -1,
+            message: "no decoder model selected: enable arena and/or stream".to_owned(),
+        });
+    }
     // Canonicalize the include dirs once, so the source walk and the entry-key derivation compare
     // paths in the same absolute/normalized/symlink-resolved terms. Without this a `./`-prefixed or
     // relative-vs-absolute entry path would key differently from how an import names the same file,
@@ -255,6 +272,8 @@ pub fn generate_from_disk(
             .collect(),
         modes: modes.to_owned(),
         unknown_all,
+        arena,
+        stream,
     })
 }
 
@@ -274,15 +293,30 @@ pub fn generate_from_disk(
 ///     include!(concat!(env!("OUT_DIR"), "/message.rs"));
 /// }
 /// ```
-#[derive(Default)]
 pub struct Config {
     includes: Vec<PathBuf>,
     modes: String,
     unknown_all: bool,
+    arena: bool,
+    stream: bool,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        // arena on, stream off: the default output is the random-access decoder, unchanged for every
+        // existing consumer.
+        Config {
+            includes: Vec::new(),
+            modes: String::new(),
+            unknown_all: false,
+            arena: true,
+            stream: false,
+        }
+    }
 }
 
 impl Config {
-    /// A fresh config: no include dirs, no decode profile.
+    /// A fresh config: no include dirs, no decode profile, the `arena` model only.
     pub fn new() -> Self {
         Self::default()
     }
@@ -306,6 +340,21 @@ impl Config {
         self
     }
 
+    /// Emit the random-access `arena` decoder model (the generated `arena::` module). On by default;
+    /// pass `false` to omit it (e.g. for a stream-only consumer). At least one model must stay enabled.
+    pub fn arena(mut self, yes: bool) -> Self {
+        self.arena = yes;
+        self
+    }
+
+    /// Emit the `stream` visitor model (the generated `stream::` module: a `<Msg>Visitor` trait, a
+    /// `<Msg>::decode` driver, and a `<msg>_stream!` builder macro) for decoding a few fields without
+    /// materializing the message. Off by default.
+    pub fn stream(mut self, yes: bool) -> Self {
+        self.stream = yes;
+        self
+    }
+
     /// Generate decoders for `entries` (one import closure) into `OUT_DIR` and return the path to the
     /// generated file to `include!`. Registers the entries and every `.proto` on the include path
     /// with cargo, so editing a schema re-runs the build. Call this from a `build.rs` (it reads the
@@ -324,7 +373,14 @@ impl Config {
         } else {
             self.includes.clone()
         };
-        let code = generate_from_disk(&entry_paths, &includes, &self.modes, self.unknown_all)?;
+        let code = generate_from_disk(
+            &entry_paths,
+            &includes,
+            &self.modes,
+            self.unknown_all,
+            self.arena,
+            self.stream,
+        )?;
 
         let out_dir = env::var_os("OUT_DIR").ok_or_else(|| GenError {
             code: -1,
