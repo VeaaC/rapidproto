@@ -2472,14 +2472,24 @@ pub mod arena {
 pub mod stream {
 
   pub mod p2 {
+    #[doc(hidden)]
     pub type rp_stream_ty_0 = super::super::common::p2::Color;
+    #[doc(hidden)]
     pub type rp_stream_ty_1<'a> = with_group::MyGroup<'a>;
+    #[doc(hidden)]
     pub type rp_stream_ty_2<'a> = oneof_group::G<'a>;
+    #[doc(hidden)]
     pub type rp_stream_ty_3<'a> = group_number_reuse::G<'a>;
+    #[doc(hidden)]
     pub type rp_stream_ty_4<'a> = repeated_group::Item<'a>;
+    #[doc(hidden)]
     pub type rp_stream_ty_5<'a> = oneof_group_straddle::Head<'a>;
+    #[doc(hidden)]
     pub type rp_stream_ty_6<'a> = container::Nested<'a>;
 
+    /// Streaming visitor for `Scalars`. Select a field by overriding its `WANT_<field>` const AND
+    /// its `on_<field>` method (the `scalars_stream` macro does both); a field left at the default
+    /// `WANT_<field> = false` is skipped on the wire with no dispatch.
     pub trait ScalarsVisitor<'a> {
       const WANT_i32: bool = false;
       #[inline(always)]
@@ -2528,7 +2538,7 @@ pub mod stream {
       fn on_db(&mut self, _rp_v: f64) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_color: bool = false;
       #[inline(always)]
-      fn on_color(&mut self, _rp_v: rp_stream_ty_0) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_color(&mut self, _rp_v: super::super::common::p2::Color) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_packed_nums: bool = false;
       #[inline(always)]
       fn on_packed_nums(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -3143,6 +3153,9 @@ pub mod stream {
           [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
         $($rp_rest)*)
       };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
+        compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: i32, i64, u32, u64, s32, s64, f32, f64, sf32, sf64, b, s, by, fl, db, color, packed_nums, expanded_nums, unknown"))
+      };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
         #[allow(nonstandard_style)]
         struct RpVis<$($rp_g)*> { $($rp_fl)* }
@@ -3153,10 +3166,13 @@ pub mod stream {
     }
     pub(crate) use scalars_stream;
 
+    /// Streaming visitor for `WithGroup`. Select a field by overriding its `WANT_<field>` const AND
+    /// its `on_<field>` method (the `with_group_stream` macro does both); a field left at the default
+    /// `WANT_<field> = false` is skipped on the wire with no dispatch.
     pub trait WithGroupVisitor<'a> {
       const WANT_mygroup: bool = false;
       #[inline(always)]
-      fn on_mygroup(&mut self, _rp_v: rp_stream_ty_1<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_mygroup(&mut self, _rp_v: with_group::MyGroup<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_UNKNOWN: bool = false;
       #[inline(always)]
       fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -3256,6 +3272,9 @@ pub mod stream {
           [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
         $($rp_rest)*)
       };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
+        compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: mygroup, unknown"))
+      };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
         #[allow(nonstandard_style)]
         struct RpVis<$($rp_g)*> { $($rp_fl)* }
@@ -3267,15 +3286,19 @@ pub mod stream {
     pub(crate) use with_group_stream;
 
     pub mod with_group {
+      #[doc(hidden)]
       pub type rp_stream_ty_0<'a> = my_group::Inner<'a>;
 
+      /// Streaming visitor for `MyGroup`. Select a field by overriding its `WANT_<field>` const AND
+      /// its `on_<field>` method (the `my_group_stream` macro does both); a field left at the default
+      /// `WANT_<field> = false` is skipped on the wire with no dispatch.
       pub trait MyGroupVisitor<'a> {
         const WANT_a: bool = false;
         #[inline(always)]
         fn on_a(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_inner: bool = false;
         #[inline(always)]
-        fn on_inner(&mut self, _rp_v: rp_stream_ty_0<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        fn on_inner(&mut self, _rp_v: my_group::Inner<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_UNKNOWN: bool = false;
         #[inline(always)]
         fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -3402,6 +3425,9 @@ pub mod stream {
             [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
           $($rp_rest)*)
         };
+        (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
+          compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: a, inner, unknown"))
+        };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
           #[allow(nonstandard_style)]
           struct RpVis<$($rp_g)*> { $($rp_fl)* }
@@ -3413,6 +3439,9 @@ pub mod stream {
       pub(crate) use my_group_stream;
 
       pub mod my_group {
+        /// Streaming visitor for `Inner`. Select a field by overriding its `WANT_<field>` const AND
+        /// its `on_<field>` method (the `inner_stream` macro does both); a field left at the default
+        /// `WANT_<field> = false` is skipped on the wire with no dispatch.
         pub trait InnerVisitor<'a> {
           const WANT_flag: bool = false;
           #[inline(always)]
@@ -3516,6 +3545,9 @@ pub mod stream {
               [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
             $($rp_rest)*)
           };
+          (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
+            compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: flag, unknown"))
+          };
           (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
             #[allow(nonstandard_style)]
             struct RpVis<$($rp_g)*> { $($rp_fl)* }
@@ -3528,6 +3560,9 @@ pub mod stream {
       }
     }
 
+    /// Streaming visitor for `OneofGroup`. Select a field by overriding its `WANT_<field>` const AND
+    /// its `on_<field>` method (the `oneof_group_stream` macro does both); a field left at the default
+    /// `WANT_<field> = false` is skipped on the wire with no dispatch.
     pub trait OneofGroupVisitor<'a> {
       const WANT_after: bool = false;
       #[inline(always)]
@@ -3537,7 +3572,7 @@ pub mod stream {
       fn on_i(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_g: bool = false;
       #[inline(always)]
-      fn on_g(&mut self, _rp_v: rp_stream_ty_2<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_g(&mut self, _rp_v: oneof_group::G<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_UNKNOWN: bool = false;
       #[inline(always)]
       fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -3691,6 +3726,9 @@ pub mod stream {
           [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
         $($rp_rest)*)
       };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
+        compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: after, i, g, unknown"))
+      };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
         #[allow(nonstandard_style)]
         struct RpVis<$($rp_g)*> { $($rp_fl)* }
@@ -3702,6 +3740,9 @@ pub mod stream {
     pub(crate) use oneof_group_stream;
 
     pub mod oneof_group {
+      /// Streaming visitor for `G`. Select a field by overriding its `WANT_<field>` const AND
+      /// its `on_<field>` method (the `g_stream` macro does both); a field left at the default
+      /// `WANT_<field> = false` is skipped on the wire with no dispatch.
       pub trait GVisitor<'a> {
         const WANT_x: bool = false;
         #[inline(always)]
@@ -3835,6 +3876,9 @@ pub mod stream {
             [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
           $($rp_rest)*)
         };
+        (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
+          compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: x, s, unknown"))
+        };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
           #[allow(nonstandard_style)]
           struct RpVis<$($rp_g)*> { $($rp_fl)* }
@@ -3846,10 +3890,13 @@ pub mod stream {
       pub(crate) use g_stream;
     }
 
+    /// Streaming visitor for `GroupNumberReuse`. Select a field by overriding its `WANT_<field>` const AND
+    /// its `on_<field>` method (the `group_number_reuse_stream` macro does both); a field left at the default
+    /// `WANT_<field> = false` is skipped on the wire with no dispatch.
     pub trait GroupNumberReuseVisitor<'a> {
       const WANT_g: bool = false;
       #[inline(always)]
-      fn on_g(&mut self, _rp_v: rp_stream_ty_3<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_g(&mut self, _rp_v: group_number_reuse::G<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_UNKNOWN: bool = false;
       #[inline(always)]
       fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -3949,6 +3996,9 @@ pub mod stream {
           [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
         $($rp_rest)*)
       };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
+        compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: g, unknown"))
+      };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
         #[allow(nonstandard_style)]
         struct RpVis<$($rp_g)*> { $($rp_fl)* }
@@ -3960,6 +4010,9 @@ pub mod stream {
     pub(crate) use group_number_reuse_stream;
 
     pub mod group_number_reuse {
+      /// Streaming visitor for `G`. Select a field by overriding its `WANT_<field>` const AND
+      /// its `on_<field>` method (the `g_stream` macro does both); a field left at the default
+      /// `WANT_<field> = false` is skipped on the wire with no dispatch.
       pub trait GVisitor<'a> {
         const WANT_two: bool = false;
         #[inline(always)]
@@ -4063,6 +4116,9 @@ pub mod stream {
             [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
           $($rp_rest)*)
         };
+        (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
+          compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: two, unknown"))
+        };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
           #[allow(nonstandard_style)]
           struct RpVis<$($rp_g)*> { $($rp_fl)* }
@@ -4074,10 +4130,13 @@ pub mod stream {
       pub(crate) use g_stream;
     }
 
+    /// Streaming visitor for `RepeatedGroup`. Select a field by overriding its `WANT_<field>` const AND
+    /// its `on_<field>` method (the `repeated_group_stream` macro does both); a field left at the default
+    /// `WANT_<field> = false` is skipped on the wire with no dispatch.
     pub trait RepeatedGroupVisitor<'a> {
       const WANT_item: bool = false;
       #[inline(always)]
-      fn on_item(&mut self, _rp_v: rp_stream_ty_4<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_item(&mut self, _rp_v: repeated_group::Item<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_tail: bool = false;
       #[inline(always)]
       fn on_tail(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -4207,6 +4266,9 @@ pub mod stream {
           [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
         $($rp_rest)*)
       };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
+        compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: item, tail, unknown"))
+      };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
         #[allow(nonstandard_style)]
         struct RpVis<$($rp_g)*> { $($rp_fl)* }
@@ -4218,6 +4280,9 @@ pub mod stream {
     pub(crate) use repeated_group_stream;
 
     pub mod repeated_group {
+      /// Streaming visitor for `Item`. Select a field by overriding its `WANT_<field>` const AND
+      /// its `on_<field>` method (the `item_stream` macro does both); a field left at the default
+      /// `WANT_<field> = false` is skipped on the wire with no dispatch.
       pub trait ItemVisitor<'a> {
         const WANT_v: bool = false;
         #[inline(always)]
@@ -4321,6 +4386,9 @@ pub mod stream {
             [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
           $($rp_rest)*)
         };
+        (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
+          compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: v, unknown"))
+        };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
           #[allow(nonstandard_style)]
           struct RpVis<$($rp_g)*> { $($rp_fl)* }
@@ -4332,13 +4400,16 @@ pub mod stream {
       pub(crate) use item_stream;
     }
 
+    /// Streaming visitor for `OneofGroupStraddle`. Select a field by overriding its `WANT_<field>` const AND
+    /// its `on_<field>` method (the `oneof_group_straddle_stream` macro does both); a field left at the default
+    /// `WANT_<field> = false` is skipped on the wire with no dispatch.
     pub trait OneofGroupStraddleVisitor<'a> {
       const WANT_mid: bool = false;
       #[inline(always)]
       fn on_mid(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_head: bool = false;
       #[inline(always)]
-      fn on_head(&mut self, _rp_v: rp_stream_ty_5<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_head(&mut self, _rp_v: oneof_group_straddle::Head<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_tail: bool = false;
       #[inline(always)]
       fn on_tail(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -4495,6 +4566,9 @@ pub mod stream {
           [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
         $($rp_rest)*)
       };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
+        compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: mid, head, tail, unknown"))
+      };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
         #[allow(nonstandard_style)]
         struct RpVis<$($rp_g)*> { $($rp_fl)* }
@@ -4506,6 +4580,9 @@ pub mod stream {
     pub(crate) use oneof_group_straddle_stream;
 
     pub mod oneof_group_straddle {
+      /// Streaming visitor for `Head`. Select a field by overriding its `WANT_<field>` const AND
+      /// its `on_<field>` method (the `head_stream` macro does both); a field left at the default
+      /// `WANT_<field> = false` is skipped on the wire with no dispatch.
       pub trait HeadVisitor<'a> {
         const WANT_x: bool = false;
         #[inline(always)]
@@ -4609,6 +4686,9 @@ pub mod stream {
             [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
           $($rp_rest)*)
         };
+        (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
+          compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: x, unknown"))
+        };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
           #[allow(nonstandard_style)]
           struct RpVis<$($rp_g)*> { $($rp_fl)* }
@@ -4620,16 +4700,25 @@ pub mod stream {
       pub(crate) use head_stream;
     }
 
+    /// Streaming visitor for `Container`. Select a field by overriding its `WANT_<field>` const AND
+    /// its `on_<field>` method (the `container_stream` macro does both); a field left at the default
+    /// `WANT_<field> = false` is skipped on the wire with no dispatch.
     pub trait ContainerVisitor<'a> {
       const WANT_items: bool = false;
       #[inline(always)]
-      fn on_items(&mut self, _rp_v: rp_stream_ty_6<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_items(&mut self, _rp_v: container::Nested<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      const WANT_by_name: bool = false;
+      #[inline(always)]
+      fn on_by_name(&mut self, _rp_v: (::rapidproto::ProtoStr<'a>, container::Nested<'a>)) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      const WANT_by_id: bool = false;
+      #[inline(always)]
+      fn on_by_id(&mut self, _rp_v: (i32, super::super::common::p2::Color)) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_ci: bool = false;
       #[inline(always)]
       fn on_ci(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_cn: bool = false;
       #[inline(always)]
-      fn on_cn(&mut self, _rp_v: rp_stream_ty_6<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_cn(&mut self, _rp_v: container::Nested<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_UNKNOWN: bool = false;
       #[inline(always)]
       fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -4672,6 +4761,132 @@ pub mod stream {
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
                 match rp_vis.on_items(container::Nested::new(rp_p))? {
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Continue => {}
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
+            }
+            10u32 => {
+              if V::WANT_by_name {
+                let mut rp_p: &[u8] = &[];
+                rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                let rp_ent_body: &'a [u8] = rp_p;
+                let mut rp_key: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+                let mut rp_val: &'a [u8] = &[];
+                let mut rp_ent: &'a [u8] = rp_ent_body;
+                loop {
+                  let rp_b = match rp_ent.first() {
+                    Some(&rp_b) => rp_b,
+                    None => break,
+                  };
+                  let rp_tagkey: u32 = if rp_b < 0x80 {
+                    rp_ent = &rp_ent[1..];
+                    u32::from(rp_b)
+                  } else {
+                    let mut rp_etag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+                    rp_ent = match ::rapidproto::wire::read_tag(rp_ent, &mut rp_etag) {
+                      Ok(r) => r,
+                      Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
+                    };
+                    (rp_etag.field << 3) | rp_etag.wire as u32
+                  };
+                  match rp_tagkey {
+                    10u32 => {
+                      let mut rp_p: &[u8] = &[];
+                      rp_ent = match ::rapidproto::wire::read_length_delimited(rp_ent, &mut rp_p) {
+                        Ok(r) => r,
+                        Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
+                      };
+                      rp_key = ::rapidproto::ProtoStr::new(rp_p);
+                    }
+                    18u32 => {
+                      let mut rp_p: &[u8] = &[];
+                      rp_ent = match ::rapidproto::wire::read_length_delimited(rp_ent, &mut rp_p) {
+                        Ok(r) => r,
+                        Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
+                      };
+                      rp_val = rp_p;
+                    }
+                    _ => {
+                      rp_ent = match ::rapidproto::wire::skip_field(rp_ent, rp_tagkey) {
+                        Ok(r) => r,
+                        Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
+                      };
+                    }
+                  }
+                }
+                match rp_vis.on_by_name((rp_key, container::Nested::new(rp_val)))? {
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Continue => {}
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
+            }
+            18u32 => {
+              if V::WANT_by_id {
+                let mut rp_p: &[u8] = &[];
+                rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                let rp_ent_body: &'a [u8] = rp_p;
+                let mut rp_key: i32 = 0;
+                let mut rp_val: super::super::common::p2::Color = ::core::default::Default::default();
+                let mut rp_ent: &'a [u8] = rp_ent_body;
+                loop {
+                  let rp_b = match rp_ent.first() {
+                    Some(&rp_b) => rp_b,
+                    None => break,
+                  };
+                  let rp_tagkey: u32 = if rp_b < 0x80 {
+                    rp_ent = &rp_ent[1..];
+                    u32::from(rp_b)
+                  } else {
+                    let mut rp_etag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+                    rp_ent = match ::rapidproto::wire::read_tag(rp_ent, &mut rp_etag) {
+                      Ok(r) => r,
+                      Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
+                    };
+                    (rp_etag.field << 3) | rp_etag.wire as u32
+                  };
+                  match rp_tagkey {
+                    8u32 => {
+                      let mut rp_v = 0u64;
+                      rp_ent = match ::rapidproto::wire::read_varint(rp_ent, &mut rp_v) {
+                        Ok(r) => r,
+                        Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
+                      };
+                      rp_key = rp_v as i32;
+                    }
+                    16u32 => {
+                      let mut rp_v = 0u64;
+                      rp_ent = match ::rapidproto::wire::read_varint(rp_ent, &mut rp_v) {
+                        Ok(r) => r,
+                        Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
+                      };
+                      rp_val = super::super::common::p2::Color(rp_v as i32);
+                    }
+                    _ => {
+                      rp_ent = match ::rapidproto::wire::skip_field(rp_ent, rp_tagkey) {
+                        Ok(r) => r,
+                        Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
+                      };
+                    }
+                  }
+                }
+                match rp_vis.on_by_id((rp_key, rp_val))? {
                   ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
@@ -4756,6 +4971,24 @@ pub mod stream {
           [$($rp_ct)* f_items: ::rapidproto::stream::typed::<rp_stream_ty_6<'_>, _, _>($rp_c),]
         $($rp_rest)*)
       };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] by_name => $rp_c:expr , $($rp_rest:tt)*) => {
+        container_stream!(@m
+          [$($rp_g)* F_by_name,]
+          [$($rp_w)* F_by_name: ::rapidproto::stream::Handler<(::rapidproto::ProtoStr<'rp_a>, rp_stream_ty_6<'rp_a>)>,]
+          [$($rp_i)* const WANT_by_name: bool = true; #[inline(always)] fn on_by_name(&mut self, rp_x: (::rapidproto::ProtoStr<'rp_a>, rp_stream_ty_6<'rp_a>)) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_by_name, rp_x) }]
+          [$($rp_fl)* f_by_name: F_by_name,]
+          [$($rp_ct)* f_by_name: ::rapidproto::stream::typed::<(::rapidproto::ProtoStr<'_>, rp_stream_ty_6<'_>), _, _>($rp_c),]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] by_id => $rp_c:expr , $($rp_rest:tt)*) => {
+        container_stream!(@m
+          [$($rp_g)* F_by_id,]
+          [$($rp_w)* F_by_id: ::rapidproto::stream::Handler<(i32, rp_stream_ty_0)>,]
+          [$($rp_i)* const WANT_by_id: bool = true; #[inline(always)] fn on_by_id(&mut self, rp_x: (i32, rp_stream_ty_0)) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_by_id, rp_x) }]
+          [$($rp_fl)* f_by_id: F_by_id,]
+          [$($rp_ct)* f_by_id: ::rapidproto::stream::typed::<(i32, rp_stream_ty_0), _, _>($rp_c),]
+        $($rp_rest)*)
+      };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ci => $rp_c:expr , $($rp_rest:tt)*) => {
         container_stream!(@m
           [$($rp_g)* F_ci,]
@@ -4783,6 +5016,9 @@ pub mod stream {
           [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
         $($rp_rest)*)
       };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
+        compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: items, by_name, by_id, ci, cn, unknown"))
+      };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
         #[allow(nonstandard_style)]
         struct RpVis<$($rp_g)*> { $($rp_fl)* }
@@ -4794,6 +5030,9 @@ pub mod stream {
     pub(crate) use container_stream;
 
     pub mod container {
+      /// Streaming visitor for `Nested`. Select a field by overriding its `WANT_<field>` const AND
+      /// its `on_<field>` method (the `nested_stream` macro does both); a field left at the default
+      /// `WANT_<field> = false` is skipped on the wire with no dispatch.
       pub trait NestedVisitor<'a> {
         const WANT_x: bool = false;
         #[inline(always)]
@@ -4896,6 +5135,9 @@ pub mod stream {
             [$($rp_fl)* f_unknown: F_unknown,]
             [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
           $($rp_rest)*)
+        };
+        (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
+          compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: x, unknown"))
         };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
           #[allow(nonstandard_style)]

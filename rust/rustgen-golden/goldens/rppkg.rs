@@ -464,6 +464,9 @@ pub mod arena {
 pub mod stream {
 
   pub mod rapidproto {
+    /// Streaming visitor for `wire`. Select a field by overriding its `WANT_<field>` const AND
+    /// its `on_<field>` method (the `wire_stream` macro does both); a field left at the default
+    /// `WANT_<field> = false` is skipped on the wire with no dispatch.
     pub trait wireVisitor<'a> {
       const WANT_x: bool = false;
       #[inline(always)]
@@ -567,6 +570,9 @@ pub mod stream {
           [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
         $($rp_rest)*)
       };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
+        compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: x, unknown"))
+      };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
         #[allow(nonstandard_style)]
         struct RpVis<$($rp_g)*> { $($rp_fl)* }
@@ -577,6 +583,9 @@ pub mod stream {
     }
     pub(crate) use wire_stream;
 
+    /// Streaming visitor for `Arena`. Select a field by overriding its `WANT_<field>` const AND
+    /// its `on_<field>` method (the `arena_stream` macro does both); a field left at the default
+    /// `WANT_<field> = false` is skipped on the wire with no dispatch.
     pub trait ArenaVisitor<'a> {
       const WANT_y: bool = false;
       #[inline(always)]
@@ -680,6 +689,9 @@ pub mod stream {
           [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
         $($rp_rest)*)
       };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
+        compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: y, unknown"))
+      };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
         #[allow(nonstandard_style)]
         struct RpVis<$($rp_g)*> { $($rp_fl)* }
@@ -690,6 +702,9 @@ pub mod stream {
     }
     pub(crate) use arena_stream;
 
+    /// Streaming visitor for `Tag`. Select a field by overriding its `WANT_<field>` const AND
+    /// its `on_<field>` method (the `tag_stream` macro does both); a field left at the default
+    /// `WANT_<field> = false` is skipped on the wire with no dispatch.
     pub trait TagVisitor<'a> {
       const WANT_s: bool = false;
       #[inline(always)]
@@ -793,6 +808,9 @@ pub mod stream {
           [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
         $($rp_rest)*)
       };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
+        compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: s, unknown"))
+      };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
         #[allow(nonstandard_style)]
         struct RpVis<$($rp_g)*> { $($rp_fl)* }
@@ -803,6 +821,9 @@ pub mod stream {
     }
     pub(crate) use tag_stream;
 
+    /// Streaming visitor for `ByteView`. Select a field by overriding its `WANT_<field>` const AND
+    /// its `on_<field>` method (the `byte_view_stream` macro does both); a field left at the default
+    /// `WANT_<field> = false` is skipped on the wire with no dispatch.
     pub trait ByteViewVisitor<'a> {
       const WANT_b: bool = false;
       #[inline(always)]
@@ -905,6 +926,9 @@ pub mod stream {
           [$($rp_fl)* f_unknown: F_unknown,]
           [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
         $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
+        compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: b, unknown"))
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
         #[allow(nonstandard_style)]

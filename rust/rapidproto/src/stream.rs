@@ -8,19 +8,26 @@
 //! `msg_stream! { field => closure, .. }` macro that builds a visitor whose closures capture local
 //! state. The decode driver gates each field on `V::WANT_<field>` (an associated `const`, so a release
 //! build folds the branch and drops the decode+dispatch for every unselected field, leaving only the
-//! wire-skip). A handler returns `()`/`Flow`/`Result` (see [`Handler`]): `Flow::Stop` ends the decode
-//! early as a clean `Ok(())`, and an `Err(DecodeError)` propagates out of `decode` — so a handler that
-//! decodes a sub-message with `child.decode(..)?` surfaces a malformed-child error naturally.
+//! wire-skip). A handler returns `()`/`Flow`/`Result` (see [`HandlerRet`]): `Flow::Stop` ends the
+//! decode early as a clean `Ok(())`, and an `Err(DecodeError)` propagates out of `decode` — so a handler
+//! that decodes a sub-message with `child.decode(..)?` surfaces a malformed-child error naturally.
 //!
 //! Streaming is a raw field visit, not a materialized message, so the consumer owns anything the arena
 //! model would resolve: a handler fires once per wire occurrence of its field (a repeated field, or a
 //! singular one duplicated by a non-canonical encoder, calls the handler more than once), and the
 //! members of a `oneof` are independent handlers, not collapsed to last-wins — overwrite in the closure
 //! if that is what you want. A sub-message or group field hands the consumer the child's reader handle
-//! (`child.decode(child_visitor)`); an enum is delivered as its generated newtype. There is no
+//! (`child.decode(child_visitor)`); an enum is delivered as its generated newtype; a map field delivers
+//! each entry as a `(key, value)` pair (a message value is the child's reader handle). There is no
 //! catch-all ("every known field") handler: the per-field visitor is the selection mechanism. For
 //! fields a schema does not declare, select the per-message `unknown` handler (it receives an
 //! [`UnknownField`]).
+//!
+//! `decode` itself never recurses: a nested message/group/map value is handed over as a child reader
+//! handle (and anything unselected is skipped iteratively), so adversarial input alone cannot overflow
+//! the stack through the decoder. A consumer that walks a self-referential schema by calling
+//! `child.decode(..)` inside a handler owns that recursion depth and must bound it if the input is
+//! untrusted — the arena model's decode-depth cap does not apply to consumer-driven recursion.
 
 use crate::error::DecodeError;
 use crate::wire::WireType;
@@ -99,9 +106,9 @@ pub fn typed<V, R, F: FnMut(V) -> R>(f: F) -> F {
 }
 
 /// A field on the wire that the message's schema does not declare, delivered to a message's `unknown`
-/// handler (when selected). Carries the field number, its wire type, and the field's raw value bytes
-/// (the bytes after the tag — the payload for a length-delimited field, the encoded value for a
-/// varint/fixed field, or the group body for a group).
+/// handler (when selected). Carries the field number, its wire type, and the field's raw value bytes:
+/// the bytes after the tag, exactly as they appear on the wire — for a length-delimited field this
+/// includes the length prefix, and for a group it is the body plus the trailing end-group tag.
 #[derive(Clone, Copy)]
 pub struct UnknownField<'a> {
     key: u32,

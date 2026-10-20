@@ -314,15 +314,19 @@ pub mod arena {
 pub mod stream {
 
   pub mod ms {
+    #[doc(hidden)]
     pub type rp_stream_ty_0<'a> = outer::Container<'a>;
 
+    /// Streaming visitor for `Outer`. Select a field by overriding its `WANT_<field>` const AND
+    /// its `on_<field>` method (the `outer_stream` macro does both); a field left at the default
+    /// `WANT_<field> = false` is skipped on the wire with no dispatch.
     pub trait OuterVisitor<'a> {
       const WANT_ordinary: bool = false;
       #[inline(always)]
       fn on_ordinary(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_container: bool = false;
       #[inline(always)]
-      fn on_container(&mut self, _rp_v: rp_stream_ty_0<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_container(&mut self, _rp_v: outer::Container<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_UNKNOWN: bool = false;
       #[inline(always)]
       fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -449,6 +453,9 @@ pub mod stream {
           [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
         $($rp_rest)*)
       };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
+        compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: ordinary, container, unknown"))
+      };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
         #[allow(nonstandard_style)]
         struct RpVis<$($rp_g)*> { $($rp_fl)* }
@@ -460,6 +467,9 @@ pub mod stream {
     pub(crate) use outer_stream;
 
     pub mod outer {
+      /// Streaming visitor for `Container`. Select a field by overriding its `WANT_<field>` const AND
+      /// its `on_<field>` method (the `container_stream` macro does both); a field left at the default
+      /// `WANT_<field> = false` is skipped on the wire with no dispatch.
       pub trait ContainerVisitor<'a> {
         const WANT_UNKNOWN: bool = false;
         #[inline(always)]
@@ -533,6 +543,9 @@ pub mod stream {
             [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
           $($rp_rest)*)
         };
+        (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
+          compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: unknown"))
+        };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
           #[allow(nonstandard_style)]
           struct RpVis<$($rp_g)*> { $($rp_fl)* }
@@ -544,6 +557,9 @@ pub mod stream {
       pub(crate) use container_stream;
     }
 
+    /// Streaming visitor for `Ext`. Select a field by overriding its `WANT_<field>` const AND
+    /// its `on_<field>` method (the `ext_stream` macro does both); a field left at the default
+    /// `WANT_<field> = false` is skipped on the wire with no dispatch.
     pub trait ExtVisitor<'a> {
       const WANT_s: bool = false;
       #[inline(always)]
@@ -646,6 +662,9 @@ pub mod stream {
           [$($rp_fl)* f_unknown: F_unknown,]
           [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
         $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
+        compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: s, unknown"))
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
         #[allow(nonstandard_style)]

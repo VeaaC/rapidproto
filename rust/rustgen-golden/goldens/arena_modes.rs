@@ -972,17 +972,23 @@ pub mod arena {
 pub mod stream {
 
   pub mod fm {
+    #[doc(hidden)]
     pub type rp_stream_ty_0 = super::super::common::fm::blob::Kind;
+    #[doc(hidden)]
     pub type rp_stream_ty_1 = super::super::common::fm::Level;
+    #[doc(hidden)]
     pub type rp_stream_ty_2<'a> = holder::Grp<'a>;
 
+    /// Streaming visitor for `Blob`. Select a field by overriding its `WANT_<field>` const AND
+    /// its `on_<field>` method (the `blob_stream` macro does both); a field left at the default
+    /// `WANT_<field> = false` is skipped on the wire with no dispatch.
     pub trait BlobVisitor<'a> {
       const WANT_payload: bool = false;
       #[inline(always)]
       fn on_payload(&mut self, _rp_v: &'a [u8]) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_kind: bool = false;
       #[inline(always)]
-      fn on_kind(&mut self, _rp_v: rp_stream_ty_0) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_kind(&mut self, _rp_v: super::super::common::fm::blob::Kind) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_UNKNOWN: bool = false;
       #[inline(always)]
       fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -1109,6 +1115,9 @@ pub mod stream {
           [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
         $($rp_rest)*)
       };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
+        compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: payload, kind, unknown"))
+      };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
         #[allow(nonstandard_style)]
         struct RpVis<$($rp_g)*> { $($rp_fl)* }
@@ -1119,6 +1128,9 @@ pub mod stream {
     }
     pub(crate) use blob_stream;
 
+    /// Streaming visitor for `Holder`. Select a field by overriding its `WANT_<field>` const AND
+    /// its `on_<field>` method (the `holder_stream` macro does both); a field left at the default
+    /// `WANT_<field> = false` is skipped on the wire with no dispatch.
     pub trait HolderVisitor<'a> {
       const WANT_keep: bool = false;
       #[inline(always)]
@@ -1152,13 +1164,16 @@ pub mod stream {
       fn on_spread(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_level: bool = false;
       #[inline(always)]
-      fn on_level(&mut self, _rp_v: rp_stream_ty_1) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_level(&mut self, _rp_v: super::super::common::fm::Level) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_req_blob: bool = false;
       #[inline(always)]
       fn on_req_blob(&mut self, _rp_v: Blob<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_grp: bool = false;
       #[inline(always)]
-      fn on_grp(&mut self, _rp_v: rp_stream_ty_2<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_grp(&mut self, _rp_v: holder::Grp<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      const WANT_by_name: bool = false;
+      #[inline(always)]
+      fn on_by_name(&mut self, _rp_v: (::rapidproto::ProtoStr<'a>, Blob<'a>)) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_UNKNOWN: bool = false;
       #[inline(always)]
       fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -1502,6 +1517,69 @@ pub mod stream {
                 };
               }
             }
+            90u32 => {
+              if V::WANT_by_name {
+                let mut rp_p: &[u8] = &[];
+                rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                let rp_ent_body: &'a [u8] = rp_p;
+                let mut rp_key: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+                let mut rp_val: &'a [u8] = &[];
+                let mut rp_ent: &'a [u8] = rp_ent_body;
+                loop {
+                  let rp_b = match rp_ent.first() {
+                    Some(&rp_b) => rp_b,
+                    None => break,
+                  };
+                  let rp_tagkey: u32 = if rp_b < 0x80 {
+                    rp_ent = &rp_ent[1..];
+                    u32::from(rp_b)
+                  } else {
+                    let mut rp_etag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+                    rp_ent = match ::rapidproto::wire::read_tag(rp_ent, &mut rp_etag) {
+                      Ok(r) => r,
+                      Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
+                    };
+                    (rp_etag.field << 3) | rp_etag.wire as u32
+                  };
+                  match rp_tagkey {
+                    10u32 => {
+                      let mut rp_p: &[u8] = &[];
+                      rp_ent = match ::rapidproto::wire::read_length_delimited(rp_ent, &mut rp_p) {
+                        Ok(r) => r,
+                        Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
+                      };
+                      rp_key = ::rapidproto::ProtoStr::new(rp_p);
+                    }
+                    18u32 => {
+                      let mut rp_p: &[u8] = &[];
+                      rp_ent = match ::rapidproto::wire::read_length_delimited(rp_ent, &mut rp_p) {
+                        Ok(r) => r,
+                        Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
+                      };
+                      rp_val = rp_p;
+                    }
+                    _ => {
+                      rp_ent = match ::rapidproto::wire::skip_field(rp_ent, rp_tagkey) {
+                        Ok(r) => r,
+                        Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
+                      };
+                    }
+                  }
+                }
+                match rp_vis.on_by_name((rp_key, Blob::new(rp_val)))? {
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Continue => {}
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
+            }
             _ => {
               if V::WANT_UNKNOWN && !matches!(rp_tagkey >> 3, 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 12 | 13 | 14 | 11) {
                 let rp_before = rp_rest;
@@ -1648,6 +1726,15 @@ pub mod stream {
           [$($rp_ct)* f_grp: ::rapidproto::stream::typed::<rp_stream_ty_2<'_>, _, _>($rp_c),]
         $($rp_rest)*)
       };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] by_name => $rp_c:expr , $($rp_rest:tt)*) => {
+        holder_stream!(@m
+          [$($rp_g)* F_by_name,]
+          [$($rp_w)* F_by_name: ::rapidproto::stream::Handler<(::rapidproto::ProtoStr<'rp_a>, Blob<'rp_a>)>,]
+          [$($rp_i)* const WANT_by_name: bool = true; #[inline(always)] fn on_by_name(&mut self, rp_x: (::rapidproto::ProtoStr<'rp_a>, Blob<'rp_a>)) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_by_name, rp_x) }]
+          [$($rp_fl)* f_by_name: F_by_name,]
+          [$($rp_ct)* f_by_name: ::rapidproto::stream::typed::<(::rapidproto::ProtoStr<'_>, Blob<'_>), _, _>($rp_c),]
+        $($rp_rest)*)
+      };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] unknown => $rp_c:expr , $($rp_rest:tt)*) => {
         holder_stream!(@m
           [$($rp_g)* F_unknown,]
@@ -1656,6 +1743,9 @@ pub mod stream {
           [$($rp_fl)* f_unknown: F_unknown,]
           [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
         $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
+        compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: keep, debug, extra, old_ids, must, big_num, blob, blobs, samples, spread, level, req_blob, grp, by_name, unknown"))
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
         #[allow(nonstandard_style)]
@@ -1668,6 +1758,9 @@ pub mod stream {
     pub(crate) use holder_stream;
 
     pub mod holder {
+      /// Streaming visitor for `Grp`. Select a field by overriding its `WANT_<field>` const AND
+      /// its `on_<field>` method (the `grp_stream` macro does both); a field left at the default
+      /// `WANT_<field> = false` is skipped on the wire with no dispatch.
       pub trait GrpVisitor<'a> {
         const WANT_g: bool = false;
         #[inline(always)]
@@ -1770,6 +1863,9 @@ pub mod stream {
             [$($rp_fl)* f_unknown: F_unknown,]
             [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
           $($rp_rest)*)
+        };
+        (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
+          compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: g, unknown"))
         };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
           #[allow(nonstandard_style)]

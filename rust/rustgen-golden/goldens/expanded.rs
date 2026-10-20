@@ -398,8 +398,12 @@ pub mod arena {
 pub mod stream {
 
   pub mod xp {
+    #[doc(hidden)]
     pub type rp_stream_ty_0 = super::super::common::xp::expanded::Kind;
 
+    /// Streaming visitor for `Expanded`. Select a field by overriding its `WANT_<field>` const AND
+    /// its `on_<field>` method (the `expanded_stream` macro does both); a field left at the default
+    /// `WANT_<field> = false` is skipped on the wire with no dispatch.
     pub trait ExpandedVisitor<'a> {
       const WANT_uzz: bool = false;
       #[inline(always)]
@@ -409,7 +413,7 @@ pub mod stream {
       fn on_ub(&mut self, _rp_v: bool) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_uk: bool = false;
       #[inline(always)]
-      fn on_uk(&mut self, _rp_v: rp_stream_ty_0) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_uk(&mut self, _rp_v: super::super::common::xp::expanded::Kind) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_ufx: bool = false;
       #[inline(always)]
       fn on_ufx(&mut self, _rp_v: u64) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -747,6 +751,9 @@ pub mod stream {
           [$($rp_fl)* f_unknown: F_unknown,]
           [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
         $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
+        compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: uzz, ub, uk, ufx, usf, unknown"))
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
         #[allow(nonstandard_style)]

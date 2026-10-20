@@ -417,6 +417,9 @@ pub mod stream {
   pub mod google {
 
     pub mod protobuf {
+      /// Streaming visitor for `Timestamp`. Select a field by overriding its `WANT_<field>` const AND
+      /// its `on_<field>` method (the `timestamp_stream` macro does both); a field left at the default
+      /// `WANT_<field> = false` is skipped on the wire with no dispatch.
       pub trait TimestampVisitor<'a> {
         const WANT_seconds: bool = false;
         #[inline(always)]
@@ -550,6 +553,9 @@ pub mod stream {
             [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
           $($rp_rest)*)
         };
+        (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
+          compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: seconds, nanos, unknown"))
+        };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
           #[allow(nonstandard_style)]
           struct RpVis<$($rp_g)*> { $($rp_fl)* }
@@ -560,6 +566,9 @@ pub mod stream {
       }
       pub(crate) use timestamp_stream;
 
+      /// Streaming visitor for `Duration`. Select a field by overriding its `WANT_<field>` const AND
+      /// its `on_<field>` method (the `duration_stream` macro does both); a field left at the default
+      /// `WANT_<field> = false` is skipped on the wire with no dispatch.
       pub trait DurationVisitor<'a> {
         const WANT_seconds: bool = false;
         #[inline(always)]
@@ -693,6 +702,9 @@ pub mod stream {
             [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
           $($rp_rest)*)
         };
+        (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
+          compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: seconds, nanos, unknown"))
+        };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
           #[allow(nonstandard_style)]
           struct RpVis<$($rp_g)*> { $($rp_fl)* }
@@ -706,16 +718,21 @@ pub mod stream {
   }
 
   pub mod uw {
+    #[doc(hidden)]
     pub type rp_stream_ty_0<'a> = super::google::protobuf::Timestamp<'a>;
+    #[doc(hidden)]
     pub type rp_stream_ty_1<'a> = super::google::protobuf::Duration<'a>;
 
+    /// Streaming visitor for `Event`. Select a field by overriding its `WANT_<field>` const AND
+    /// its `on_<field>` method (the `event_stream` macro does both); a field left at the default
+    /// `WANT_<field> = false` is skipped on the wire with no dispatch.
     pub trait EventVisitor<'a> {
       const WANT_at: bool = false;
       #[inline(always)]
-      fn on_at(&mut self, _rp_v: rp_stream_ty_0<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_at(&mut self, _rp_v: super::google::protobuf::Timestamp<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_took: bool = false;
       #[inline(always)]
-      fn on_took(&mut self, _rp_v: rp_stream_ty_1<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_took(&mut self, _rp_v: super::google::protobuf::Duration<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_UNKNOWN: bool = false;
       #[inline(always)]
       fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -841,6 +858,9 @@ pub mod stream {
           [$($rp_fl)* f_unknown: F_unknown,]
           [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
         $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
+        compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: at, took, unknown"))
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
         #[allow(nonstandard_style)]

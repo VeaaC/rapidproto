@@ -116,6 +116,56 @@ fn flow_stop_halts_early() {
 }
 
 #[test]
+fn map_delivers_key_value_per_entry() {
+    // `counts` is field 9, map<string, int32>. Three LEN entries: ("a", 1), ("bb", 2), and ("z", _)
+    // which omits field 2 -> the value defaults to 0 (the absent-value rule).
+    const MAP_MSG: &[u8] = &[
+        0x4a, 0x05, 0x0a, 0x01, b'a', 0x10, 0x01, // counts["a"] = 1
+        0x4a, 0x06, 0x0a, 0x02, b'b', b'b', 0x10, 0x02, // counts["bb"] = 2
+        0x4a, 0x03, 0x0a, 0x01, b'z', // counts["z"] = <absent> -> 0
+    ];
+    let mut entries: Vec<(String, i32)> = Vec::new();
+    Msg::new(MAP_MSG)
+        .decode(msg_stream! {
+            counts => |(k, v)| entries.push((k.to_str().unwrap().to_owned(), v)),
+        })
+        .unwrap();
+    assert_eq!(
+        entries,
+        vec![
+            ("a".to_owned(), 1),
+            ("bb".to_owned(), 2),
+            ("z".to_owned(), 0)
+        ]
+    );
+}
+
+#[test]
+fn map_with_message_value_delivers_a_child_handle() {
+    // `al.Layout.grid` is field 16, map<int32, Point> -- a message value delivered as the child's
+    // reader handle, which the consumer recurses into with `point_stream!`. One entry: 7 -> {x=3, y=4}.
+    use crate::arena_layout::stream::al::*;
+    const LAYOUT: &[u8] = &[
+        0x82, 0x01, // field 16, wire LEN (two-byte tag)
+        0x08, // entry length = 8
+        0x08, 0x07, // key (field 1) = 7
+        0x12, 0x04, 0x08, 0x03, 0x10, 0x04, // value (field 2) = Point { x=3, y=4 }
+    ];
+    let mut seen: Vec<(i32, i32, i32)> = Vec::new();
+    Layout::new(LAYOUT)
+        .decode(layout_stream! {
+            grid => |(k, pt)| {
+                let (mut x, mut y) = (0i32, 0i32);
+                pt.decode(point_stream! { x => |v| x = v, y => |v| y = v })?;
+                seen.push((k, x, y));
+                Ok::<_, DecodeError>(())
+            },
+        })
+        .unwrap();
+    assert_eq!(seen, vec![(7, 3, 4)]);
+}
+
+#[test]
 fn a_visitor_type_can_be_hand_implemented() {
     // The macro is sugar over the generated trait; a consumer may implement it directly.
     struct Count(u32);

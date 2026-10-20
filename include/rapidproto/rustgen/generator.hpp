@@ -54,13 +54,15 @@ std::string generate_arena(const std::vector<const FileNode*>& files, const Layo
 // a `<Msg>::decode` driver whose per-field arm gates on `V::WANT_<field>` (an unselected field
 // const-folds to a wire-skip), and a per-message `<msg>_stream! { field => closure, .. }` macro. A
 // handler receives a scalar as its Rust primitive, a string as `ProtoStr`, bytes as `&[u8]`, an ENUM as
-// its generated `common`-tree newtype, and a message/group as the child's reader handle (recurse with
-// `child.decode(..)`); `Flow::Stop` and an `Err` propagate out of `decode`. A handler's enum newtype /
-// child handle lives elsewhere in the tree and the macro expands at the consumer's call site, so each
-// such foreign type is re-exported into the message's stream module as a `pub type rp_stream_ty_<n>`
-// alias (reserved `rp_` prefix -> never clashes); a consumer glob-imports the stream module. Map fields
-// are not selectable yet; field modes (drop/raw/unknown) are arena-storage options that do not apply to
-// a streaming visitor (which materializes nothing), so streaming ignores them.
+// its generated `common`-tree newtype, a message/group as the child's reader handle (recurse with
+// `child.decode(..)`), and a MAP field as a `(key, value)` pair per entry (the value a child handle when
+// it is a message); `Flow::Stop` and an `Err` propagate out of `decode`. The trait and driver name a
+// foreign enum newtype / child handle by its real tree-relative path; the `*_stream!` macro expands at
+// the consumer's call site where that path is invalid, so each such type is also re-exported into the
+// message's stream module as a `#[doc(hidden)] pub type rp_stream_ty_<n>` alias (reserved `rp_` prefix ->
+// never clashes) that only the macro names. A consumer glob-imports the stream module. Field modes
+// (drop/raw/unknown) are arena-storage options that do not apply to a streaming visitor (which
+// materializes nothing), so streaming ignores them.
 std::string generate_stream(const std::vector<const FileNode*>& files);
 
 // Which decoder model(s) `generate_file` emits. `common` is always emitted (both models reference it).
