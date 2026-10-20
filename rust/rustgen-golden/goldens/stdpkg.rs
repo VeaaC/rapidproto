@@ -182,64 +182,23 @@ pub mod arena {
 pub mod stream {
 
   pub mod std {
-    pub struct Types<'a, H0 = ::rapidproto::stream::Skip, H1 = ::rapidproto::stream::Skip, H2 = ::rapidproto::stream::Skip> {
-      input: &'a [u8],
-      h_n: H0,
-      h_s: H1,
-      h_many: H2,
+    pub trait TypesVisitor<'a> {
+      const WANT_n: bool = false;
+      #[inline(always)]
+      fn on_n(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_s: bool = false;
+      #[inline(always)]
+      fn on_s(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_many: bool = false;
+      #[inline(always)]
+      fn on_many(&mut self, _rp_v: i64) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
     }
 
-    impl<'a> Types<'a> {
-      pub fn stream(input: &'a [u8]) -> Types<'a> {
-        Types {
-          input,
-          h_n: ::rapidproto::stream::Skip,
-          h_s: ::rapidproto::stream::Skip,
-          h_many: ::rapidproto::stream::Skip,
-        }
-      }
-    }
+    pub struct Types;
 
-    impl<'a, H1, H2> Types<'a, ::rapidproto::stream::Skip, H1, H2> {
-      pub fn on_n<F, R>(self, rp_f: F) -> Types<'a, ::rapidproto::stream::On<F>, H1, H2>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        Types {
-          input: self.input,
-          h_n: ::rapidproto::stream::On(rp_f),
-          h_s: self.h_s,
-          h_many: self.h_many,
-        }
-      }
-    }
-
-    impl<'a, H0, H2> Types<'a, H0, ::rapidproto::stream::Skip, H2> {
-      pub fn on_s<F, R>(self, rp_f: F) -> Types<'a, H0, ::rapidproto::stream::On<F>, H2>
-      where F: FnMut(::rapidproto::ProtoStr<'a>) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        Types {
-          input: self.input,
-          h_n: self.h_n,
-          h_s: ::rapidproto::stream::On(rp_f),
-          h_many: self.h_many,
-        }
-      }
-    }
-
-    impl<'a, H0, H1> Types<'a, H0, H1, ::rapidproto::stream::Skip> {
-      pub fn on_many<F, R>(self, rp_f: F) -> Types<'a, H0, H1, ::rapidproto::stream::On<F>>
-      where F: FnMut(i64) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        Types {
-          input: self.input,
-          h_n: self.h_n,
-          h_s: self.h_s,
-          h_many: ::rapidproto::stream::On(rp_f),
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2> Types<'a, H0, H1, H2>
-    where H0: ::rapidproto::stream::FieldHandler<i32>, H1: ::rapidproto::stream::FieldHandler<::rapidproto::ProtoStr<'a>>, H2: ::rapidproto::stream::FieldHandler<i64> {
-      pub fn decode(mut self) -> Result<(), ::rapidproto::DecodeError> {
-        let rp_body: &'a [u8] = self.input;
+    impl Types {
+      pub fn decode<'a, V: TypesVisitor<'a>>(rp_input: &'a [u8], mut rp_vis: V) -> Result<(), ::rapidproto::DecodeError> {
+        let rp_body: &'a [u8] = rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
           let rp_b = match rp_rest.first() {
@@ -259,13 +218,13 @@ pub mod stream {
           };
           match rp_tagkey {
             8u32 => {
-              if H0::WANTED {
+              if V::WANT_n {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_n.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_n(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -276,13 +235,13 @@ pub mod stream {
               }
             }
             18u32 => {
-              if H1::WANTED {
+              if V::WANT_s {
                 let mut rp_p: &[u8] = &[];
                 rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_s.handle(::rapidproto::ProtoStr::new(rp_p)) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_s(::rapidproto::ProtoStr::new(rp_p)) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -293,13 +252,13 @@ pub mod stream {
               }
             }
             24u32 => {
-              if H2::WANTED {
+              if V::WANT_many {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_many.handle(rp_v as i64) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_many(rp_v as i64) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -310,7 +269,7 @@ pub mod stream {
               }
             }
             26u32 => {
-              if H2::WANTED {
+              if V::WANT_many {
                 let mut rp_p: &[u8] = &[];
                 rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
                   Ok(r) => r,
@@ -322,7 +281,7 @@ pub mod stream {
                     Ok(r) => r,
                     Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len() - rp_p.len())),
                   };
-                  if self.h_many.handle(rp_v as i64) == ::rapidproto::stream::Flow::Stop {
+                  if rp_vis.on_many(rp_v as i64) == ::rapidproto::stream::Flow::Stop {
                     return Ok(());
                   }
                 }
@@ -344,5 +303,44 @@ pub mod stream {
         Ok(())
       }
     }
+
+    macro_rules! types_stream {
+      ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
+        types_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] n => $rp_c:expr , $($rp_rest:tt)*) => {
+        types_stream!(@m
+          [$($rp_g)* F_n,]
+          [$($rp_w)* F_n: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_n: bool = true; #[inline(always)] fn on_n(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_n, rp_x) }]
+          [$($rp_fl)* f_n: F_n,]
+          [$($rp_ct)* f_n: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] s => $rp_c:expr , $($rp_rest:tt)*) => {
+        types_stream!(@m
+          [$($rp_g)* F_s,]
+          [$($rp_w)* F_s: ::rapidproto::stream::Handler<::rapidproto::ProtoStr<'rp_a>>,]
+          [$($rp_i)* const WANT_s: bool = true; #[inline(always)] fn on_s(&mut self, rp_x: ::rapidproto::ProtoStr<'rp_a>) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_s, rp_x) }]
+          [$($rp_fl)* f_s: F_s,]
+          [$($rp_ct)* f_s: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] many => $rp_c:expr , $($rp_rest:tt)*) => {
+        types_stream!(@m
+          [$($rp_g)* F_many,]
+          [$($rp_w)* F_many: ::rapidproto::stream::Handler<i64>,]
+          [$($rp_i)* const WANT_many: bool = true; #[inline(always)] fn on_many(&mut self, rp_x: i64) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_many, rp_x) }]
+          [$($rp_fl)* f_many: F_many,]
+          [$($rp_ct)* f_many: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
+        struct RpVis<$($rp_g)*> { $($rp_fl)* }
+        impl<'rp_a, $($rp_g)*> TypesVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
+        RpVis { $($rp_ct)* }
+      }};
+    }
+    pub(crate) use types_stream;
   }
 }

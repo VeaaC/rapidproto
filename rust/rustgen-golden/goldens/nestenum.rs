@@ -321,48 +321,20 @@ pub mod arena {
 pub mod stream {
 
   pub mod ne {
-    pub struct Outer<'a, H0 = ::rapidproto::stream::Skip, H1 = ::rapidproto::stream::Skip> {
-      input: &'a [u8],
-      h_k: H0,
-      h_i: H1,
+    pub trait OuterVisitor<'a> {
+      const WANT_k: bool = false;
+      #[inline(always)]
+      fn on_k(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_i: bool = false;
+      #[inline(always)]
+      fn on_i(&mut self, _rp_v: &'a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
     }
 
-    impl<'a> Outer<'a> {
-      pub fn stream(input: &'a [u8]) -> Outer<'a> {
-        Outer {
-          input,
-          h_k: ::rapidproto::stream::Skip,
-          h_i: ::rapidproto::stream::Skip,
-        }
-      }
-    }
+    pub struct Outer;
 
-    impl<'a, H1> Outer<'a, ::rapidproto::stream::Skip, H1> {
-      pub fn on_k<F, R>(self, rp_f: F) -> Outer<'a, ::rapidproto::stream::On<F>, H1>
-      where F: FnMut(super::super::common::ne::outer::Kind) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        Outer {
-          input: self.input,
-          h_k: ::rapidproto::stream::On(rp_f),
-          h_i: self.h_i,
-        }
-      }
-    }
-
-    impl<'a, H0> Outer<'a, H0, ::rapidproto::stream::Skip> {
-      pub fn on_i<F, R>(self, rp_f: F) -> Outer<'a, H0, ::rapidproto::stream::On<F>>
-      where F: FnMut(outer::Inner<'a>) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        Outer {
-          input: self.input,
-          h_k: self.h_k,
-          h_i: ::rapidproto::stream::On(rp_f),
-        }
-      }
-    }
-
-    impl<'a, H0, H1> Outer<'a, H0, H1>
-    where H0: ::rapidproto::stream::FieldHandler<super::super::common::ne::outer::Kind>, H1: ::rapidproto::stream::FieldHandler<outer::Inner<'a>> {
-      pub fn decode(mut self) -> Result<(), ::rapidproto::DecodeError> {
-        let rp_body: &'a [u8] = self.input;
+    impl Outer {
+      pub fn decode<'a, V: OuterVisitor<'a>>(rp_input: &'a [u8], mut rp_vis: V) -> Result<(), ::rapidproto::DecodeError> {
+        let rp_body: &'a [u8] = rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
           let rp_b = match rp_rest.first() {
@@ -382,13 +354,13 @@ pub mod stream {
           };
           match rp_tagkey {
             8u32 => {
-              if H0::WANTED {
+              if V::WANT_k {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_k.handle(super::super::common::ne::outer::Kind(rp_v as i32)) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_k(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -399,13 +371,13 @@ pub mod stream {
               }
             }
             18u32 => {
-              if H1::WANTED {
+              if V::WANT_i {
                 let mut rp_p: &[u8] = &[];
                 rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_i.handle(outer::Inner::stream(rp_p)) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_i(rp_p) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -427,35 +399,48 @@ pub mod stream {
       }
     }
 
+    macro_rules! outer_stream {
+      ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
+        outer_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] k => $rp_c:expr , $($rp_rest:tt)*) => {
+        outer_stream!(@m
+          [$($rp_g)* F_k,]
+          [$($rp_w)* F_k: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_k: bool = true; #[inline(always)] fn on_k(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_k, rp_x) }]
+          [$($rp_fl)* f_k: F_k,]
+          [$($rp_ct)* f_k: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] i => $rp_c:expr , $($rp_rest:tt)*) => {
+        outer_stream!(@m
+          [$($rp_g)* F_i,]
+          [$($rp_w)* F_i: ::rapidproto::stream::Handler<&'rp_a [u8]>,]
+          [$($rp_i)* const WANT_i: bool = true; #[inline(always)] fn on_i(&mut self, rp_x: &'rp_a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_i, rp_x) }]
+          [$($rp_fl)* f_i: F_i,]
+          [$($rp_ct)* f_i: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
+        struct RpVis<$($rp_g)*> { $($rp_fl)* }
+        impl<'rp_a, $($rp_g)*> OuterVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
+        RpVis { $($rp_ct)* }
+      }};
+    }
+    pub(crate) use outer_stream;
+
     pub mod outer {
-      pub struct Inner<'a, H0 = ::rapidproto::stream::Skip> {
-        input: &'a [u8],
-        h_d: H0,
+      pub trait InnerVisitor<'a> {
+        const WANT_d: bool = false;
+        #[inline(always)]
+        fn on_d(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
       }
 
-      impl<'a> Inner<'a> {
-        pub fn stream(input: &'a [u8]) -> Inner<'a> {
-          Inner {
-            input,
-            h_d: ::rapidproto::stream::Skip,
-          }
-        }
-      }
+      pub struct Inner;
 
-      impl<'a> Inner<'a, ::rapidproto::stream::Skip> {
-        pub fn on_d<F, R>(self, rp_f: F) -> Inner<'a, ::rapidproto::stream::On<F>>
-        where F: FnMut(super::super::super::common::ne::outer::inner::Deep) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-          Inner {
-            input: self.input,
-            h_d: ::rapidproto::stream::On(rp_f),
-          }
-        }
-      }
-
-      impl<'a, H0> Inner<'a, H0>
-      where H0: ::rapidproto::stream::FieldHandler<super::super::super::common::ne::outer::inner::Deep> {
-        pub fn decode(mut self) -> Result<(), ::rapidproto::DecodeError> {
-          let rp_body: &'a [u8] = self.input;
+      impl Inner {
+        pub fn decode<'a, V: InnerVisitor<'a>>(rp_input: &'a [u8], mut rp_vis: V) -> Result<(), ::rapidproto::DecodeError> {
+          let rp_body: &'a [u8] = rp_input;
           let mut rp_rest: &'a [u8] = rp_body;
           loop {
             let rp_b = match rp_rest.first() {
@@ -475,13 +460,13 @@ pub mod stream {
             };
             match rp_tagkey {
               8u32 => {
-                if H0::WANTED {
+                if V::WANT_d {
                   let mut rp_v = 0u64;
                   rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                     Ok(r) => r,
                     Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                   };
-                  if self.h_d.handle(super::super::super::common::ne::outer::inner::Deep(rp_v as i32)) == ::rapidproto::stream::Flow::Stop {
+                  if rp_vis.on_d(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                     return Ok(());
                   }
                 } else {
@@ -502,6 +487,27 @@ pub mod stream {
           Ok(())
         }
       }
+
+      macro_rules! inner_stream {
+        ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
+          inner_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
+        };
+        (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] d => $rp_c:expr , $($rp_rest:tt)*) => {
+          inner_stream!(@m
+            [$($rp_g)* F_d,]
+            [$($rp_w)* F_d: ::rapidproto::stream::Handler<i32>,]
+            [$($rp_i)* const WANT_d: bool = true; #[inline(always)] fn on_d(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_d, rp_x) }]
+            [$($rp_fl)* f_d: F_d,]
+            [$($rp_ct)* f_d: $rp_c,]
+          $($rp_rest)*)
+        };
+        (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
+          struct RpVis<$($rp_g)*> { $($rp_fl)* }
+          impl<'rp_a, $($rp_g)*> InnerVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
+          RpVis { $($rp_ct)* }
+        }};
+      }
+      pub(crate) use inner_stream;
     }
   }
 }

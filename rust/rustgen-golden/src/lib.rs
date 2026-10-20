@@ -208,3 +208,6 @@ pub mod messageset_unknown {
 pub mod bench {
     include!("../goldens/bench.rs");
 }
+
+#[cfg(all(test, feature = "std"))]
+mod stream_smoke;

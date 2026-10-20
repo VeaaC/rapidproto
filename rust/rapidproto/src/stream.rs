@@ -1,13 +1,14 @@
-//! Streaming-decode primitives: the handler types a generated per-message *stream builder* is built
-//! from. Streaming visits fields as they appear on the wire and never materializes the message, so a
+//! Streaming-decode primitives: the handful of runtime types a generated streaming decoder builds on.
+//! Streaming visits fields as they appear on the wire and never materializes the message, so a
 //! consumer pays only for the fields it selects; unselected fields are skipped on the wire with no
 //! dispatch.
 //!
-//! A generated `MsgStream` carries one type parameter per field, each a [`FieldHandler`]: [`Skip`]
-//! (the default — the field is not selected) or [`On`] (a selected field's closure). The builder's
-//! `.on_<field>(..)` methods swap a slot from `Skip` to `On`, and the generated decode loop gates
-//! each field on [`FieldHandler::WANTED`]; since that is an associated `const`, a release build folds
-//! the branch and drops the decode+dispatch for every unselected field, leaving only the skip.
+//! The generator emits, per message, a `MsgVisitor` trait (one `const WANT_<field>: bool = false` plus
+//! a defaulted `on_<field>` method per field) and a `Msg::decode` driver generic over any visitor. The
+//! driver gates each field on `V::WANT_<field>`; since that is an associated `const`, a release build
+//! folds the branch and drops the decode+dispatch for every unselected field, leaving only the skip. A
+//! consumer implements the trait directly, or uses the generated per-message `msg_stream! { field =>
+//! closure, .. }` macro, which builds an anonymous visitor whose closures capture local state.
 
 /// Whether a streaming handler wants decoding to continue after a field, or stop early with the
 /// message decoded so far. A handler closure may return `()` ([`Flow::Continue`]) or a `Flow`.
@@ -26,34 +27,18 @@ impl From<()> for Flow {
     }
 }
 
-/// A per-field handler slot on a generated stream builder. Implemented by exactly two types: [`Skip`]
-/// (unselected, [`WANTED`](FieldHandler::WANTED) `= false`) and [`On`] (selected, `= true`). The
-/// generated decode loop reads `WANTED` as a `const` to decide decode-and-dispatch vs. wire-skip.
-pub trait FieldHandler<V> {
-    /// `true` iff this field is selected. A `const` so the generated loop folds it at monomorphization.
-    const WANTED: bool;
-    /// Deliver one occurrence of the field's value. Never called when `WANTED` is `false`.
-    fn handle(&mut self, value: V) -> Flow;
+/// The glue that lets a field handler be any `FnMut(V)` returning `()` or [`Flow`]. The generated
+/// `msg_stream!` macro bounds each selected field's closure as `Handler<V>` and calls [`call`](Handler::call),
+/// so a handler can end with a plain expression (`Flow::Continue`) or return `Flow::Stop` to halt. Not
+/// implemented by consumers; the blanket impl covers every suitable closure.
+pub trait Handler<V> {
+    /// Deliver one occurrence of the field's value to the handler.
+    fn call(&mut self, value: V) -> Flow;
 }
 
-/// An unselected field: zero-sized, never invoked (the generated loop skips the field on the wire).
-pub struct Skip;
-
-impl<V> FieldHandler<V> for Skip {
-    const WANTED: bool = false;
+impl<V, R: Into<Flow>, F: FnMut(V) -> R> Handler<V> for F {
     #[inline(always)]
-    fn handle(&mut self, _value: V) -> Flow {
-        Flow::Continue
-    }
-}
-
-/// A selected field: wraps the consumer's closure, called once per occurrence.
-pub struct On<F>(pub F);
-
-impl<V, R: Into<Flow>, F: FnMut(V) -> R> FieldHandler<V> for On<F> {
-    const WANTED: bool = true;
-    #[inline(always)]
-    fn handle(&mut self, value: V) -> Flow {
-        (self.0)(value).into()
+    fn call(&mut self, value: V) -> Flow {
+        (self)(value).into()
     }
 }

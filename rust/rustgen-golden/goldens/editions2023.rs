@@ -361,124 +361,32 @@ pub mod arena {
 pub mod stream {
 
   pub mod ed23 {
-    pub struct M<'a, H0 = ::rapidproto::stream::Skip, H1 = ::rapidproto::stream::Skip, H2 = ::rapidproto::stream::Skip, H3 = ::rapidproto::stream::Skip, H4 = ::rapidproto::stream::Skip, H5 = ::rapidproto::stream::Skip> {
-      input: &'a [u8],
-      h_implicit_scalar: H0,
-      h_explicit_scalar: H1,
-      h_child: H2,
-      h_packed_nums: H3,
-      h_expanded_nums: H4,
-      h_delim: H5,
+    pub trait MVisitor<'a> {
+      const WANT_implicit_scalar: bool = false;
+      #[inline(always)]
+      fn on_implicit_scalar(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_explicit_scalar: bool = false;
+      #[inline(always)]
+      fn on_explicit_scalar(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_child: bool = false;
+      #[inline(always)]
+      fn on_child(&mut self, _rp_v: &'a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_packed_nums: bool = false;
+      #[inline(always)]
+      fn on_packed_nums(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_expanded_nums: bool = false;
+      #[inline(always)]
+      fn on_expanded_nums(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_delim: bool = false;
+      #[inline(always)]
+      fn on_delim(&mut self, _rp_v: &'a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
     }
 
-    impl<'a> M<'a> {
-      pub fn stream(input: &'a [u8]) -> M<'a> {
-        M {
-          input,
-          h_implicit_scalar: ::rapidproto::stream::Skip,
-          h_explicit_scalar: ::rapidproto::stream::Skip,
-          h_child: ::rapidproto::stream::Skip,
-          h_packed_nums: ::rapidproto::stream::Skip,
-          h_expanded_nums: ::rapidproto::stream::Skip,
-          h_delim: ::rapidproto::stream::Skip,
-        }
-      }
-    }
+    pub struct M;
 
-    impl<'a, H1, H2, H3, H4, H5> M<'a, ::rapidproto::stream::Skip, H1, H2, H3, H4, H5> {
-      pub fn on_implicit_scalar<F, R>(self, rp_f: F) -> M<'a, ::rapidproto::stream::On<F>, H1, H2, H3, H4, H5>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        M {
-          input: self.input,
-          h_implicit_scalar: ::rapidproto::stream::On(rp_f),
-          h_explicit_scalar: self.h_explicit_scalar,
-          h_child: self.h_child,
-          h_packed_nums: self.h_packed_nums,
-          h_expanded_nums: self.h_expanded_nums,
-          h_delim: self.h_delim,
-        }
-      }
-    }
-
-    impl<'a, H0, H2, H3, H4, H5> M<'a, H0, ::rapidproto::stream::Skip, H2, H3, H4, H5> {
-      pub fn on_explicit_scalar<F, R>(self, rp_f: F) -> M<'a, H0, ::rapidproto::stream::On<F>, H2, H3, H4, H5>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        M {
-          input: self.input,
-          h_implicit_scalar: self.h_implicit_scalar,
-          h_explicit_scalar: ::rapidproto::stream::On(rp_f),
-          h_child: self.h_child,
-          h_packed_nums: self.h_packed_nums,
-          h_expanded_nums: self.h_expanded_nums,
-          h_delim: self.h_delim,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H3, H4, H5> M<'a, H0, H1, ::rapidproto::stream::Skip, H3, H4, H5> {
-      pub fn on_child<F, R>(self, rp_f: F) -> M<'a, H0, H1, ::rapidproto::stream::On<F>, H3, H4, H5>
-      where F: FnMut(M<'a>) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        M {
-          input: self.input,
-          h_implicit_scalar: self.h_implicit_scalar,
-          h_explicit_scalar: self.h_explicit_scalar,
-          h_child: ::rapidproto::stream::On(rp_f),
-          h_packed_nums: self.h_packed_nums,
-          h_expanded_nums: self.h_expanded_nums,
-          h_delim: self.h_delim,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H4, H5> M<'a, H0, H1, H2, ::rapidproto::stream::Skip, H4, H5> {
-      pub fn on_packed_nums<F, R>(self, rp_f: F) -> M<'a, H0, H1, H2, ::rapidproto::stream::On<F>, H4, H5>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        M {
-          input: self.input,
-          h_implicit_scalar: self.h_implicit_scalar,
-          h_explicit_scalar: self.h_explicit_scalar,
-          h_child: self.h_child,
-          h_packed_nums: ::rapidproto::stream::On(rp_f),
-          h_expanded_nums: self.h_expanded_nums,
-          h_delim: self.h_delim,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H5> M<'a, H0, H1, H2, H3, ::rapidproto::stream::Skip, H5> {
-      pub fn on_expanded_nums<F, R>(self, rp_f: F) -> M<'a, H0, H1, H2, H3, ::rapidproto::stream::On<F>, H5>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        M {
-          input: self.input,
-          h_implicit_scalar: self.h_implicit_scalar,
-          h_explicit_scalar: self.h_explicit_scalar,
-          h_child: self.h_child,
-          h_packed_nums: self.h_packed_nums,
-          h_expanded_nums: ::rapidproto::stream::On(rp_f),
-          h_delim: self.h_delim,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4> M<'a, H0, H1, H2, H3, H4, ::rapidproto::stream::Skip> {
-      pub fn on_delim<F, R>(self, rp_f: F) -> M<'a, H0, H1, H2, H3, H4, ::rapidproto::stream::On<F>>
-      where F: FnMut(M<'a>) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        M {
-          input: self.input,
-          h_implicit_scalar: self.h_implicit_scalar,
-          h_explicit_scalar: self.h_explicit_scalar,
-          h_child: self.h_child,
-          h_packed_nums: self.h_packed_nums,
-          h_expanded_nums: self.h_expanded_nums,
-          h_delim: ::rapidproto::stream::On(rp_f),
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5> M<'a, H0, H1, H2, H3, H4, H5>
-    where H0: ::rapidproto::stream::FieldHandler<i32>, H1: ::rapidproto::stream::FieldHandler<i32>, H2: ::rapidproto::stream::FieldHandler<M<'a>>, H3: ::rapidproto::stream::FieldHandler<i32>, H4: ::rapidproto::stream::FieldHandler<i32>, H5: ::rapidproto::stream::FieldHandler<M<'a>> {
-      pub fn decode(mut self) -> Result<(), ::rapidproto::DecodeError> {
-        let rp_body: &'a [u8] = self.input;
+    impl M {
+      pub fn decode<'a, V: MVisitor<'a>>(rp_input: &'a [u8], mut rp_vis: V) -> Result<(), ::rapidproto::DecodeError> {
+        let rp_body: &'a [u8] = rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
           let rp_b = match rp_rest.first() {
@@ -498,13 +406,13 @@ pub mod stream {
           };
           match rp_tagkey {
             8u32 => {
-              if H0::WANTED {
+              if V::WANT_implicit_scalar {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_implicit_scalar.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_implicit_scalar(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -515,13 +423,13 @@ pub mod stream {
               }
             }
             16u32 => {
-              if H1::WANTED {
+              if V::WANT_explicit_scalar {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_explicit_scalar.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_explicit_scalar(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -532,13 +440,13 @@ pub mod stream {
               }
             }
             26u32 => {
-              if H2::WANTED {
+              if V::WANT_child {
                 let mut rp_p: &[u8] = &[];
                 rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_child.handle(M::stream(rp_p)) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_child(rp_p) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -549,13 +457,13 @@ pub mod stream {
               }
             }
             32u32 => {
-              if H3::WANTED {
+              if V::WANT_packed_nums {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_packed_nums.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_packed_nums(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -566,7 +474,7 @@ pub mod stream {
               }
             }
             34u32 => {
-              if H3::WANTED {
+              if V::WANT_packed_nums {
                 let mut rp_p: &[u8] = &[];
                 rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
                   Ok(r) => r,
@@ -578,7 +486,7 @@ pub mod stream {
                     Ok(r) => r,
                     Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len() - rp_p.len())),
                   };
-                  if self.h_packed_nums.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                  if rp_vis.on_packed_nums(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                     return Ok(());
                   }
                 }
@@ -590,13 +498,13 @@ pub mod stream {
               }
             }
             40u32 => {
-              if H4::WANTED {
+              if V::WANT_expanded_nums {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_expanded_nums.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_expanded_nums(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -607,7 +515,7 @@ pub mod stream {
               }
             }
             42u32 => {
-              if H4::WANTED {
+              if V::WANT_expanded_nums {
                 let mut rp_p: &[u8] = &[];
                 rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
                   Ok(r) => r,
@@ -619,7 +527,7 @@ pub mod stream {
                     Ok(r) => r,
                     Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len() - rp_p.len())),
                   };
-                  if self.h_expanded_nums.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                  if rp_vis.on_expanded_nums(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                     return Ok(());
                   }
                 }
@@ -631,13 +539,13 @@ pub mod stream {
               }
             }
             51u32 => {
-              if H5::WANTED {
+              if V::WANT_delim {
                 let mut rp_p: &[u8] = &[];
                 rp_rest = match ::rapidproto::wire::read_group(rp_rest, 6, &mut rp_p) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_delim.handle(M::stream(rp_p)) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_delim(rp_p) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -658,5 +566,71 @@ pub mod stream {
         Ok(())
       }
     }
+
+    macro_rules! m_stream {
+      ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
+        m_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] implicit_scalar => $rp_c:expr , $($rp_rest:tt)*) => {
+        m_stream!(@m
+          [$($rp_g)* F_implicit_scalar,]
+          [$($rp_w)* F_implicit_scalar: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_implicit_scalar: bool = true; #[inline(always)] fn on_implicit_scalar(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_implicit_scalar, rp_x) }]
+          [$($rp_fl)* f_implicit_scalar: F_implicit_scalar,]
+          [$($rp_ct)* f_implicit_scalar: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] explicit_scalar => $rp_c:expr , $($rp_rest:tt)*) => {
+        m_stream!(@m
+          [$($rp_g)* F_explicit_scalar,]
+          [$($rp_w)* F_explicit_scalar: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_explicit_scalar: bool = true; #[inline(always)] fn on_explicit_scalar(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_explicit_scalar, rp_x) }]
+          [$($rp_fl)* f_explicit_scalar: F_explicit_scalar,]
+          [$($rp_ct)* f_explicit_scalar: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] child => $rp_c:expr , $($rp_rest:tt)*) => {
+        m_stream!(@m
+          [$($rp_g)* F_child,]
+          [$($rp_w)* F_child: ::rapidproto::stream::Handler<&'rp_a [u8]>,]
+          [$($rp_i)* const WANT_child: bool = true; #[inline(always)] fn on_child(&mut self, rp_x: &'rp_a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_child, rp_x) }]
+          [$($rp_fl)* f_child: F_child,]
+          [$($rp_ct)* f_child: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] packed_nums => $rp_c:expr , $($rp_rest:tt)*) => {
+        m_stream!(@m
+          [$($rp_g)* F_packed_nums,]
+          [$($rp_w)* F_packed_nums: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_packed_nums: bool = true; #[inline(always)] fn on_packed_nums(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_packed_nums, rp_x) }]
+          [$($rp_fl)* f_packed_nums: F_packed_nums,]
+          [$($rp_ct)* f_packed_nums: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] expanded_nums => $rp_c:expr , $($rp_rest:tt)*) => {
+        m_stream!(@m
+          [$($rp_g)* F_expanded_nums,]
+          [$($rp_w)* F_expanded_nums: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_expanded_nums: bool = true; #[inline(always)] fn on_expanded_nums(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_expanded_nums, rp_x) }]
+          [$($rp_fl)* f_expanded_nums: F_expanded_nums,]
+          [$($rp_ct)* f_expanded_nums: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] delim => $rp_c:expr , $($rp_rest:tt)*) => {
+        m_stream!(@m
+          [$($rp_g)* F_delim,]
+          [$($rp_w)* F_delim: ::rapidproto::stream::Handler<&'rp_a [u8]>,]
+          [$($rp_i)* const WANT_delim: bool = true; #[inline(always)] fn on_delim(&mut self, rp_x: &'rp_a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_delim, rp_x) }]
+          [$($rp_fl)* f_delim: F_delim,]
+          [$($rp_ct)* f_delim: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
+        struct RpVis<$($rp_g)*> { $($rp_fl)* }
+        impl<'rp_a, $($rp_g)*> MVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
+        RpVis { $($rp_ct)* }
+      }};
+    }
+    pub(crate) use m_stream;
   }
 }

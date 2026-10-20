@@ -972,48 +972,20 @@ pub mod arena {
 pub mod stream {
 
   pub mod fm {
-    pub struct Blob<'a, H0 = ::rapidproto::stream::Skip, H1 = ::rapidproto::stream::Skip> {
-      input: &'a [u8],
-      h_payload: H0,
-      h_kind: H1,
+    pub trait BlobVisitor<'a> {
+      const WANT_payload: bool = false;
+      #[inline(always)]
+      fn on_payload(&mut self, _rp_v: &'a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_kind: bool = false;
+      #[inline(always)]
+      fn on_kind(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
     }
 
-    impl<'a> Blob<'a> {
-      pub fn stream(input: &'a [u8]) -> Blob<'a> {
-        Blob {
-          input,
-          h_payload: ::rapidproto::stream::Skip,
-          h_kind: ::rapidproto::stream::Skip,
-        }
-      }
-    }
+    pub struct Blob;
 
-    impl<'a, H1> Blob<'a, ::rapidproto::stream::Skip, H1> {
-      pub fn on_payload<F, R>(self, rp_f: F) -> Blob<'a, ::rapidproto::stream::On<F>, H1>
-      where F: FnMut(&'a [u8]) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        Blob {
-          input: self.input,
-          h_payload: ::rapidproto::stream::On(rp_f),
-          h_kind: self.h_kind,
-        }
-      }
-    }
-
-    impl<'a, H0> Blob<'a, H0, ::rapidproto::stream::Skip> {
-      pub fn on_kind<F, R>(self, rp_f: F) -> Blob<'a, H0, ::rapidproto::stream::On<F>>
-      where F: FnMut(super::super::common::fm::blob::Kind) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        Blob {
-          input: self.input,
-          h_payload: self.h_payload,
-          h_kind: ::rapidproto::stream::On(rp_f),
-        }
-      }
-    }
-
-    impl<'a, H0, H1> Blob<'a, H0, H1>
-    where H0: ::rapidproto::stream::FieldHandler<&'a [u8]>, H1: ::rapidproto::stream::FieldHandler<super::super::common::fm::blob::Kind> {
-      pub fn decode(mut self) -> Result<(), ::rapidproto::DecodeError> {
-        let rp_body: &'a [u8] = self.input;
+    impl Blob {
+      pub fn decode<'a, V: BlobVisitor<'a>>(rp_input: &'a [u8], mut rp_vis: V) -> Result<(), ::rapidproto::DecodeError> {
+        let rp_body: &'a [u8] = rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
           let rp_b = match rp_rest.first() {
@@ -1033,13 +1005,13 @@ pub mod stream {
           };
           match rp_tagkey {
             10u32 => {
-              if H0::WANTED {
+              if V::WANT_payload {
                 let mut rp_p: &[u8] = &[];
                 rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_payload.handle(rp_p) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_payload(rp_p) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -1050,13 +1022,13 @@ pub mod stream {
               }
             }
             16u32 => {
-              if H1::WANTED {
+              if V::WANT_kind {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_kind.handle(super::super::common::fm::blob::Kind(rp_v as i32)) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_kind(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -1078,334 +1050,83 @@ pub mod stream {
       }
     }
 
-    pub struct Holder<'a, H0 = ::rapidproto::stream::Skip, H1 = ::rapidproto::stream::Skip, H2 = ::rapidproto::stream::Skip, H3 = ::rapidproto::stream::Skip, H4 = ::rapidproto::stream::Skip, H5 = ::rapidproto::stream::Skip, H6 = ::rapidproto::stream::Skip, H7 = ::rapidproto::stream::Skip, H8 = ::rapidproto::stream::Skip, H9 = ::rapidproto::stream::Skip, H10 = ::rapidproto::stream::Skip, H11 = ::rapidproto::stream::Skip, H12 = ::rapidproto::stream::Skip> {
-      input: &'a [u8],
-      h_keep: H0,
-      h_debug: H1,
-      h_extra: H2,
-      h_old_ids: H3,
-      h_must: H4,
-      h_big_num: H5,
-      h_blob: H6,
-      h_blobs: H7,
-      h_samples: H8,
-      h_spread: H9,
-      h_level: H10,
-      h_req_blob: H11,
-      h_grp: H12,
+    macro_rules! blob_stream {
+      ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
+        blob_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] payload => $rp_c:expr , $($rp_rest:tt)*) => {
+        blob_stream!(@m
+          [$($rp_g)* F_payload,]
+          [$($rp_w)* F_payload: ::rapidproto::stream::Handler<&'rp_a [u8]>,]
+          [$($rp_i)* const WANT_payload: bool = true; #[inline(always)] fn on_payload(&mut self, rp_x: &'rp_a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_payload, rp_x) }]
+          [$($rp_fl)* f_payload: F_payload,]
+          [$($rp_ct)* f_payload: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] kind => $rp_c:expr , $($rp_rest:tt)*) => {
+        blob_stream!(@m
+          [$($rp_g)* F_kind,]
+          [$($rp_w)* F_kind: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_kind: bool = true; #[inline(always)] fn on_kind(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_kind, rp_x) }]
+          [$($rp_fl)* f_kind: F_kind,]
+          [$($rp_ct)* f_kind: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
+        struct RpVis<$($rp_g)*> { $($rp_fl)* }
+        impl<'rp_a, $($rp_g)*> BlobVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
+        RpVis { $($rp_ct)* }
+      }};
+    }
+    pub(crate) use blob_stream;
+
+    pub trait HolderVisitor<'a> {
+      const WANT_keep: bool = false;
+      #[inline(always)]
+      fn on_keep(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_debug: bool = false;
+      #[inline(always)]
+      fn on_debug(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_extra: bool = false;
+      #[inline(always)]
+      fn on_extra(&mut self, _rp_v: &'a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_old_ids: bool = false;
+      #[inline(always)]
+      fn on_old_ids(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_must: bool = false;
+      #[inline(always)]
+      fn on_must(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_big_num: bool = false;
+      #[inline(always)]
+      fn on_big_num(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_blob: bool = false;
+      #[inline(always)]
+      fn on_blob(&mut self, _rp_v: &'a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_blobs: bool = false;
+      #[inline(always)]
+      fn on_blobs(&mut self, _rp_v: &'a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_samples: bool = false;
+      #[inline(always)]
+      fn on_samples(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_spread: bool = false;
+      #[inline(always)]
+      fn on_spread(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_level: bool = false;
+      #[inline(always)]
+      fn on_level(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_req_blob: bool = false;
+      #[inline(always)]
+      fn on_req_blob(&mut self, _rp_v: &'a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_grp: bool = false;
+      #[inline(always)]
+      fn on_grp(&mut self, _rp_v: &'a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
     }
 
-    impl<'a> Holder<'a> {
-      pub fn stream(input: &'a [u8]) -> Holder<'a> {
-        Holder {
-          input,
-          h_keep: ::rapidproto::stream::Skip,
-          h_debug: ::rapidproto::stream::Skip,
-          h_extra: ::rapidproto::stream::Skip,
-          h_old_ids: ::rapidproto::stream::Skip,
-          h_must: ::rapidproto::stream::Skip,
-          h_big_num: ::rapidproto::stream::Skip,
-          h_blob: ::rapidproto::stream::Skip,
-          h_blobs: ::rapidproto::stream::Skip,
-          h_samples: ::rapidproto::stream::Skip,
-          h_spread: ::rapidproto::stream::Skip,
-          h_level: ::rapidproto::stream::Skip,
-          h_req_blob: ::rapidproto::stream::Skip,
-          h_grp: ::rapidproto::stream::Skip,
-        }
-      }
-    }
+    pub struct Holder;
 
-    impl<'a, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12> Holder<'a, ::rapidproto::stream::Skip, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12> {
-      pub fn on_keep<F, R>(self, rp_f: F) -> Holder<'a, ::rapidproto::stream::On<F>, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        Holder {
-          input: self.input,
-          h_keep: ::rapidproto::stream::On(rp_f),
-          h_debug: self.h_debug,
-          h_extra: self.h_extra,
-          h_old_ids: self.h_old_ids,
-          h_must: self.h_must,
-          h_big_num: self.h_big_num,
-          h_blob: self.h_blob,
-          h_blobs: self.h_blobs,
-          h_samples: self.h_samples,
-          h_spread: self.h_spread,
-          h_level: self.h_level,
-          h_req_blob: self.h_req_blob,
-          h_grp: self.h_grp,
-        }
-      }
-    }
-
-    impl<'a, H0, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12> Holder<'a, H0, ::rapidproto::stream::Skip, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12> {
-      pub fn on_debug<F, R>(self, rp_f: F) -> Holder<'a, H0, ::rapidproto::stream::On<F>, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        Holder {
-          input: self.input,
-          h_keep: self.h_keep,
-          h_debug: ::rapidproto::stream::On(rp_f),
-          h_extra: self.h_extra,
-          h_old_ids: self.h_old_ids,
-          h_must: self.h_must,
-          h_big_num: self.h_big_num,
-          h_blob: self.h_blob,
-          h_blobs: self.h_blobs,
-          h_samples: self.h_samples,
-          h_spread: self.h_spread,
-          h_level: self.h_level,
-          h_req_blob: self.h_req_blob,
-          h_grp: self.h_grp,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12> Holder<'a, H0, H1, ::rapidproto::stream::Skip, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12> {
-      pub fn on_extra<F, R>(self, rp_f: F) -> Holder<'a, H0, H1, ::rapidproto::stream::On<F>, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12>
-      where F: FnMut(Blob<'a>) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        Holder {
-          input: self.input,
-          h_keep: self.h_keep,
-          h_debug: self.h_debug,
-          h_extra: ::rapidproto::stream::On(rp_f),
-          h_old_ids: self.h_old_ids,
-          h_must: self.h_must,
-          h_big_num: self.h_big_num,
-          h_blob: self.h_blob,
-          h_blobs: self.h_blobs,
-          h_samples: self.h_samples,
-          h_spread: self.h_spread,
-          h_level: self.h_level,
-          h_req_blob: self.h_req_blob,
-          h_grp: self.h_grp,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H4, H5, H6, H7, H8, H9, H10, H11, H12> Holder<'a, H0, H1, H2, ::rapidproto::stream::Skip, H4, H5, H6, H7, H8, H9, H10, H11, H12> {
-      pub fn on_old_ids<F, R>(self, rp_f: F) -> Holder<'a, H0, H1, H2, ::rapidproto::stream::On<F>, H4, H5, H6, H7, H8, H9, H10, H11, H12>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        Holder {
-          input: self.input,
-          h_keep: self.h_keep,
-          h_debug: self.h_debug,
-          h_extra: self.h_extra,
-          h_old_ids: ::rapidproto::stream::On(rp_f),
-          h_must: self.h_must,
-          h_big_num: self.h_big_num,
-          h_blob: self.h_blob,
-          h_blobs: self.h_blobs,
-          h_samples: self.h_samples,
-          h_spread: self.h_spread,
-          h_level: self.h_level,
-          h_req_blob: self.h_req_blob,
-          h_grp: self.h_grp,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H5, H6, H7, H8, H9, H10, H11, H12> Holder<'a, H0, H1, H2, H3, ::rapidproto::stream::Skip, H5, H6, H7, H8, H9, H10, H11, H12> {
-      pub fn on_must<F, R>(self, rp_f: F) -> Holder<'a, H0, H1, H2, H3, ::rapidproto::stream::On<F>, H5, H6, H7, H8, H9, H10, H11, H12>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        Holder {
-          input: self.input,
-          h_keep: self.h_keep,
-          h_debug: self.h_debug,
-          h_extra: self.h_extra,
-          h_old_ids: self.h_old_ids,
-          h_must: ::rapidproto::stream::On(rp_f),
-          h_big_num: self.h_big_num,
-          h_blob: self.h_blob,
-          h_blobs: self.h_blobs,
-          h_samples: self.h_samples,
-          h_spread: self.h_spread,
-          h_level: self.h_level,
-          h_req_blob: self.h_req_blob,
-          h_grp: self.h_grp,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H6, H7, H8, H9, H10, H11, H12> Holder<'a, H0, H1, H2, H3, H4, ::rapidproto::stream::Skip, H6, H7, H8, H9, H10, H11, H12> {
-      pub fn on_big_num<F, R>(self, rp_f: F) -> Holder<'a, H0, H1, H2, H3, H4, ::rapidproto::stream::On<F>, H6, H7, H8, H9, H10, H11, H12>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        Holder {
-          input: self.input,
-          h_keep: self.h_keep,
-          h_debug: self.h_debug,
-          h_extra: self.h_extra,
-          h_old_ids: self.h_old_ids,
-          h_must: self.h_must,
-          h_big_num: ::rapidproto::stream::On(rp_f),
-          h_blob: self.h_blob,
-          h_blobs: self.h_blobs,
-          h_samples: self.h_samples,
-          h_spread: self.h_spread,
-          h_level: self.h_level,
-          h_req_blob: self.h_req_blob,
-          h_grp: self.h_grp,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H7, H8, H9, H10, H11, H12> Holder<'a, H0, H1, H2, H3, H4, H5, ::rapidproto::stream::Skip, H7, H8, H9, H10, H11, H12> {
-      pub fn on_blob<F, R>(self, rp_f: F) -> Holder<'a, H0, H1, H2, H3, H4, H5, ::rapidproto::stream::On<F>, H7, H8, H9, H10, H11, H12>
-      where F: FnMut(Blob<'a>) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        Holder {
-          input: self.input,
-          h_keep: self.h_keep,
-          h_debug: self.h_debug,
-          h_extra: self.h_extra,
-          h_old_ids: self.h_old_ids,
-          h_must: self.h_must,
-          h_big_num: self.h_big_num,
-          h_blob: ::rapidproto::stream::On(rp_f),
-          h_blobs: self.h_blobs,
-          h_samples: self.h_samples,
-          h_spread: self.h_spread,
-          h_level: self.h_level,
-          h_req_blob: self.h_req_blob,
-          h_grp: self.h_grp,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H8, H9, H10, H11, H12> Holder<'a, H0, H1, H2, H3, H4, H5, H6, ::rapidproto::stream::Skip, H8, H9, H10, H11, H12> {
-      pub fn on_blobs<F, R>(self, rp_f: F) -> Holder<'a, H0, H1, H2, H3, H4, H5, H6, ::rapidproto::stream::On<F>, H8, H9, H10, H11, H12>
-      where F: FnMut(Blob<'a>) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        Holder {
-          input: self.input,
-          h_keep: self.h_keep,
-          h_debug: self.h_debug,
-          h_extra: self.h_extra,
-          h_old_ids: self.h_old_ids,
-          h_must: self.h_must,
-          h_big_num: self.h_big_num,
-          h_blob: self.h_blob,
-          h_blobs: ::rapidproto::stream::On(rp_f),
-          h_samples: self.h_samples,
-          h_spread: self.h_spread,
-          h_level: self.h_level,
-          h_req_blob: self.h_req_blob,
-          h_grp: self.h_grp,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H9, H10, H11, H12> Holder<'a, H0, H1, H2, H3, H4, H5, H6, H7, ::rapidproto::stream::Skip, H9, H10, H11, H12> {
-      pub fn on_samples<F, R>(self, rp_f: F) -> Holder<'a, H0, H1, H2, H3, H4, H5, H6, H7, ::rapidproto::stream::On<F>, H9, H10, H11, H12>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        Holder {
-          input: self.input,
-          h_keep: self.h_keep,
-          h_debug: self.h_debug,
-          h_extra: self.h_extra,
-          h_old_ids: self.h_old_ids,
-          h_must: self.h_must,
-          h_big_num: self.h_big_num,
-          h_blob: self.h_blob,
-          h_blobs: self.h_blobs,
-          h_samples: ::rapidproto::stream::On(rp_f),
-          h_spread: self.h_spread,
-          h_level: self.h_level,
-          h_req_blob: self.h_req_blob,
-          h_grp: self.h_grp,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H10, H11, H12> Holder<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, ::rapidproto::stream::Skip, H10, H11, H12> {
-      pub fn on_spread<F, R>(self, rp_f: F) -> Holder<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, ::rapidproto::stream::On<F>, H10, H11, H12>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        Holder {
-          input: self.input,
-          h_keep: self.h_keep,
-          h_debug: self.h_debug,
-          h_extra: self.h_extra,
-          h_old_ids: self.h_old_ids,
-          h_must: self.h_must,
-          h_big_num: self.h_big_num,
-          h_blob: self.h_blob,
-          h_blobs: self.h_blobs,
-          h_samples: self.h_samples,
-          h_spread: ::rapidproto::stream::On(rp_f),
-          h_level: self.h_level,
-          h_req_blob: self.h_req_blob,
-          h_grp: self.h_grp,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H11, H12> Holder<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, ::rapidproto::stream::Skip, H11, H12> {
-      pub fn on_level<F, R>(self, rp_f: F) -> Holder<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, ::rapidproto::stream::On<F>, H11, H12>
-      where F: FnMut(super::super::common::fm::Level) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        Holder {
-          input: self.input,
-          h_keep: self.h_keep,
-          h_debug: self.h_debug,
-          h_extra: self.h_extra,
-          h_old_ids: self.h_old_ids,
-          h_must: self.h_must,
-          h_big_num: self.h_big_num,
-          h_blob: self.h_blob,
-          h_blobs: self.h_blobs,
-          h_samples: self.h_samples,
-          h_spread: self.h_spread,
-          h_level: ::rapidproto::stream::On(rp_f),
-          h_req_blob: self.h_req_blob,
-          h_grp: self.h_grp,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H12> Holder<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, ::rapidproto::stream::Skip, H12> {
-      pub fn on_req_blob<F, R>(self, rp_f: F) -> Holder<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, ::rapidproto::stream::On<F>, H12>
-      where F: FnMut(Blob<'a>) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        Holder {
-          input: self.input,
-          h_keep: self.h_keep,
-          h_debug: self.h_debug,
-          h_extra: self.h_extra,
-          h_old_ids: self.h_old_ids,
-          h_must: self.h_must,
-          h_big_num: self.h_big_num,
-          h_blob: self.h_blob,
-          h_blobs: self.h_blobs,
-          h_samples: self.h_samples,
-          h_spread: self.h_spread,
-          h_level: self.h_level,
-          h_req_blob: ::rapidproto::stream::On(rp_f),
-          h_grp: self.h_grp,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11> Holder<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, ::rapidproto::stream::Skip> {
-      pub fn on_grp<F, R>(self, rp_f: F) -> Holder<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, ::rapidproto::stream::On<F>>
-      where F: FnMut(holder::Grp<'a>) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        Holder {
-          input: self.input,
-          h_keep: self.h_keep,
-          h_debug: self.h_debug,
-          h_extra: self.h_extra,
-          h_old_ids: self.h_old_ids,
-          h_must: self.h_must,
-          h_big_num: self.h_big_num,
-          h_blob: self.h_blob,
-          h_blobs: self.h_blobs,
-          h_samples: self.h_samples,
-          h_spread: self.h_spread,
-          h_level: self.h_level,
-          h_req_blob: self.h_req_blob,
-          h_grp: ::rapidproto::stream::On(rp_f),
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12> Holder<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12>
-    where H0: ::rapidproto::stream::FieldHandler<i32>, H1: ::rapidproto::stream::FieldHandler<i32>, H2: ::rapidproto::stream::FieldHandler<Blob<'a>>, H3: ::rapidproto::stream::FieldHandler<i32>, H4: ::rapidproto::stream::FieldHandler<i32>, H5: ::rapidproto::stream::FieldHandler<i32>, H6: ::rapidproto::stream::FieldHandler<Blob<'a>>, H7: ::rapidproto::stream::FieldHandler<Blob<'a>>, H8: ::rapidproto::stream::FieldHandler<i32>, H9: ::rapidproto::stream::FieldHandler<i32>, H10: ::rapidproto::stream::FieldHandler<super::super::common::fm::Level>, H11: ::rapidproto::stream::FieldHandler<Blob<'a>>, H12: ::rapidproto::stream::FieldHandler<holder::Grp<'a>> {
-      pub fn decode(mut self) -> Result<(), ::rapidproto::DecodeError> {
-        let rp_body: &'a [u8] = self.input;
+    impl Holder {
+      pub fn decode<'a, V: HolderVisitor<'a>>(rp_input: &'a [u8], mut rp_vis: V) -> Result<(), ::rapidproto::DecodeError> {
+        let rp_body: &'a [u8] = rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
           let rp_b = match rp_rest.first() {
@@ -1425,13 +1146,13 @@ pub mod stream {
           };
           match rp_tagkey {
             8u32 => {
-              if H0::WANTED {
+              if V::WANT_keep {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_keep.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_keep(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -1442,13 +1163,13 @@ pub mod stream {
               }
             }
             16u32 => {
-              if H1::WANTED {
+              if V::WANT_debug {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_debug.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_debug(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -1459,13 +1180,13 @@ pub mod stream {
               }
             }
             26u32 => {
-              if H2::WANTED {
+              if V::WANT_extra {
                 let mut rp_p: &[u8] = &[];
                 rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_extra.handle(Blob::stream(rp_p)) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_extra(rp_p) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -1476,13 +1197,13 @@ pub mod stream {
               }
             }
             32u32 => {
-              if H3::WANTED {
+              if V::WANT_old_ids {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_old_ids.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_old_ids(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -1493,7 +1214,7 @@ pub mod stream {
               }
             }
             34u32 => {
-              if H3::WANTED {
+              if V::WANT_old_ids {
                 let mut rp_p: &[u8] = &[];
                 rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
                   Ok(r) => r,
@@ -1505,7 +1226,7 @@ pub mod stream {
                     Ok(r) => r,
                     Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len() - rp_p.len())),
                   };
-                  if self.h_old_ids.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                  if rp_vis.on_old_ids(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                     return Ok(());
                   }
                 }
@@ -1517,13 +1238,13 @@ pub mod stream {
               }
             }
             40u32 => {
-              if H4::WANTED {
+              if V::WANT_must {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_must.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_must(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -1534,13 +1255,13 @@ pub mod stream {
               }
             }
             48u32 => {
-              if H5::WANTED {
+              if V::WANT_big_num {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_big_num.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_big_num(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -1551,13 +1272,13 @@ pub mod stream {
               }
             }
             58u32 => {
-              if H6::WANTED {
+              if V::WANT_blob {
                 let mut rp_p: &[u8] = &[];
                 rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_blob.handle(Blob::stream(rp_p)) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_blob(rp_p) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -1568,13 +1289,13 @@ pub mod stream {
               }
             }
             66u32 => {
-              if H7::WANTED {
+              if V::WANT_blobs {
                 let mut rp_p: &[u8] = &[];
                 rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_blobs.handle(Blob::stream(rp_p)) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_blobs(rp_p) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -1585,13 +1306,13 @@ pub mod stream {
               }
             }
             72u32 => {
-              if H8::WANTED {
+              if V::WANT_samples {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_samples.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_samples(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -1602,7 +1323,7 @@ pub mod stream {
               }
             }
             74u32 => {
-              if H8::WANTED {
+              if V::WANT_samples {
                 let mut rp_p: &[u8] = &[];
                 rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
                   Ok(r) => r,
@@ -1614,7 +1335,7 @@ pub mod stream {
                     Ok(r) => r,
                     Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len() - rp_p.len())),
                   };
-                  if self.h_samples.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                  if rp_vis.on_samples(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                     return Ok(());
                   }
                 }
@@ -1626,13 +1347,13 @@ pub mod stream {
               }
             }
             80u32 => {
-              if H9::WANTED {
+              if V::WANT_spread {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_spread.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_spread(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -1643,7 +1364,7 @@ pub mod stream {
               }
             }
             82u32 => {
-              if H9::WANTED {
+              if V::WANT_spread {
                 let mut rp_p: &[u8] = &[];
                 rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
                   Ok(r) => r,
@@ -1655,7 +1376,7 @@ pub mod stream {
                     Ok(r) => r,
                     Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len() - rp_p.len())),
                   };
-                  if self.h_spread.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                  if rp_vis.on_spread(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                     return Ok(());
                   }
                 }
@@ -1667,13 +1388,13 @@ pub mod stream {
               }
             }
             96u32 => {
-              if H10::WANTED {
+              if V::WANT_level {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_level.handle(super::super::common::fm::Level(rp_v as i32)) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_level(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -1684,13 +1405,13 @@ pub mod stream {
               }
             }
             106u32 => {
-              if H11::WANTED {
+              if V::WANT_req_blob {
                 let mut rp_p: &[u8] = &[];
                 rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_req_blob.handle(Blob::stream(rp_p)) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_req_blob(rp_p) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -1701,13 +1422,13 @@ pub mod stream {
               }
             }
             115u32 => {
-              if H12::WANTED {
+              if V::WANT_grp {
                 let mut rp_p: &[u8] = &[];
                 rp_rest = match ::rapidproto::wire::read_group(rp_rest, 14, &mut rp_p) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_grp.handle(holder::Grp::stream(rp_p)) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_grp(rp_p) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -1729,35 +1450,147 @@ pub mod stream {
       }
     }
 
+    macro_rules! holder_stream {
+      ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
+        holder_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] keep => $rp_c:expr , $($rp_rest:tt)*) => {
+        holder_stream!(@m
+          [$($rp_g)* F_keep,]
+          [$($rp_w)* F_keep: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_keep: bool = true; #[inline(always)] fn on_keep(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_keep, rp_x) }]
+          [$($rp_fl)* f_keep: F_keep,]
+          [$($rp_ct)* f_keep: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] debug => $rp_c:expr , $($rp_rest:tt)*) => {
+        holder_stream!(@m
+          [$($rp_g)* F_debug,]
+          [$($rp_w)* F_debug: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_debug: bool = true; #[inline(always)] fn on_debug(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_debug, rp_x) }]
+          [$($rp_fl)* f_debug: F_debug,]
+          [$($rp_ct)* f_debug: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] extra => $rp_c:expr , $($rp_rest:tt)*) => {
+        holder_stream!(@m
+          [$($rp_g)* F_extra,]
+          [$($rp_w)* F_extra: ::rapidproto::stream::Handler<&'rp_a [u8]>,]
+          [$($rp_i)* const WANT_extra: bool = true; #[inline(always)] fn on_extra(&mut self, rp_x: &'rp_a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_extra, rp_x) }]
+          [$($rp_fl)* f_extra: F_extra,]
+          [$($rp_ct)* f_extra: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] old_ids => $rp_c:expr , $($rp_rest:tt)*) => {
+        holder_stream!(@m
+          [$($rp_g)* F_old_ids,]
+          [$($rp_w)* F_old_ids: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_old_ids: bool = true; #[inline(always)] fn on_old_ids(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_old_ids, rp_x) }]
+          [$($rp_fl)* f_old_ids: F_old_ids,]
+          [$($rp_ct)* f_old_ids: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] must => $rp_c:expr , $($rp_rest:tt)*) => {
+        holder_stream!(@m
+          [$($rp_g)* F_must,]
+          [$($rp_w)* F_must: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_must: bool = true; #[inline(always)] fn on_must(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_must, rp_x) }]
+          [$($rp_fl)* f_must: F_must,]
+          [$($rp_ct)* f_must: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] big_num => $rp_c:expr , $($rp_rest:tt)*) => {
+        holder_stream!(@m
+          [$($rp_g)* F_big_num,]
+          [$($rp_w)* F_big_num: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_big_num: bool = true; #[inline(always)] fn on_big_num(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_big_num, rp_x) }]
+          [$($rp_fl)* f_big_num: F_big_num,]
+          [$($rp_ct)* f_big_num: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] blob => $rp_c:expr , $($rp_rest:tt)*) => {
+        holder_stream!(@m
+          [$($rp_g)* F_blob,]
+          [$($rp_w)* F_blob: ::rapidproto::stream::Handler<&'rp_a [u8]>,]
+          [$($rp_i)* const WANT_blob: bool = true; #[inline(always)] fn on_blob(&mut self, rp_x: &'rp_a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_blob, rp_x) }]
+          [$($rp_fl)* f_blob: F_blob,]
+          [$($rp_ct)* f_blob: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] blobs => $rp_c:expr , $($rp_rest:tt)*) => {
+        holder_stream!(@m
+          [$($rp_g)* F_blobs,]
+          [$($rp_w)* F_blobs: ::rapidproto::stream::Handler<&'rp_a [u8]>,]
+          [$($rp_i)* const WANT_blobs: bool = true; #[inline(always)] fn on_blobs(&mut self, rp_x: &'rp_a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_blobs, rp_x) }]
+          [$($rp_fl)* f_blobs: F_blobs,]
+          [$($rp_ct)* f_blobs: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] samples => $rp_c:expr , $($rp_rest:tt)*) => {
+        holder_stream!(@m
+          [$($rp_g)* F_samples,]
+          [$($rp_w)* F_samples: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_samples: bool = true; #[inline(always)] fn on_samples(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_samples, rp_x) }]
+          [$($rp_fl)* f_samples: F_samples,]
+          [$($rp_ct)* f_samples: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] spread => $rp_c:expr , $($rp_rest:tt)*) => {
+        holder_stream!(@m
+          [$($rp_g)* F_spread,]
+          [$($rp_w)* F_spread: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_spread: bool = true; #[inline(always)] fn on_spread(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_spread, rp_x) }]
+          [$($rp_fl)* f_spread: F_spread,]
+          [$($rp_ct)* f_spread: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] level => $rp_c:expr , $($rp_rest:tt)*) => {
+        holder_stream!(@m
+          [$($rp_g)* F_level,]
+          [$($rp_w)* F_level: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_level: bool = true; #[inline(always)] fn on_level(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_level, rp_x) }]
+          [$($rp_fl)* f_level: F_level,]
+          [$($rp_ct)* f_level: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] req_blob => $rp_c:expr , $($rp_rest:tt)*) => {
+        holder_stream!(@m
+          [$($rp_g)* F_req_blob,]
+          [$($rp_w)* F_req_blob: ::rapidproto::stream::Handler<&'rp_a [u8]>,]
+          [$($rp_i)* const WANT_req_blob: bool = true; #[inline(always)] fn on_req_blob(&mut self, rp_x: &'rp_a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_req_blob, rp_x) }]
+          [$($rp_fl)* f_req_blob: F_req_blob,]
+          [$($rp_ct)* f_req_blob: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] grp => $rp_c:expr , $($rp_rest:tt)*) => {
+        holder_stream!(@m
+          [$($rp_g)* F_grp,]
+          [$($rp_w)* F_grp: ::rapidproto::stream::Handler<&'rp_a [u8]>,]
+          [$($rp_i)* const WANT_grp: bool = true; #[inline(always)] fn on_grp(&mut self, rp_x: &'rp_a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_grp, rp_x) }]
+          [$($rp_fl)* f_grp: F_grp,]
+          [$($rp_ct)* f_grp: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
+        struct RpVis<$($rp_g)*> { $($rp_fl)* }
+        impl<'rp_a, $($rp_g)*> HolderVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
+        RpVis { $($rp_ct)* }
+      }};
+    }
+    pub(crate) use holder_stream;
+
     pub mod holder {
-      pub struct Grp<'a, H0 = ::rapidproto::stream::Skip> {
-        input: &'a [u8],
-        h_g: H0,
+      pub trait GrpVisitor<'a> {
+        const WANT_g: bool = false;
+        #[inline(always)]
+        fn on_g(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
       }
 
-      impl<'a> Grp<'a> {
-        pub fn stream(input: &'a [u8]) -> Grp<'a> {
-          Grp {
-            input,
-            h_g: ::rapidproto::stream::Skip,
-          }
-        }
-      }
+      pub struct Grp;
 
-      impl<'a> Grp<'a, ::rapidproto::stream::Skip> {
-        pub fn on_g<F, R>(self, rp_f: F) -> Grp<'a, ::rapidproto::stream::On<F>>
-        where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-          Grp {
-            input: self.input,
-            h_g: ::rapidproto::stream::On(rp_f),
-          }
-        }
-      }
-
-      impl<'a, H0> Grp<'a, H0>
-      where H0: ::rapidproto::stream::FieldHandler<i32> {
-        pub fn decode(mut self) -> Result<(), ::rapidproto::DecodeError> {
-          let rp_body: &'a [u8] = self.input;
+      impl Grp {
+        pub fn decode<'a, V: GrpVisitor<'a>>(rp_input: &'a [u8], mut rp_vis: V) -> Result<(), ::rapidproto::DecodeError> {
+          let rp_body: &'a [u8] = rp_input;
           let mut rp_rest: &'a [u8] = rp_body;
           loop {
             let rp_b = match rp_rest.first() {
@@ -1777,13 +1610,13 @@ pub mod stream {
             };
             match rp_tagkey {
               8u32 => {
-                if H0::WANTED {
+                if V::WANT_g {
                   let mut rp_v = 0u64;
                   rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                     Ok(r) => r,
                     Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                   };
-                  if self.h_g.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                  if rp_vis.on_g(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                     return Ok(());
                   }
                 } else {
@@ -1804,6 +1637,27 @@ pub mod stream {
           Ok(())
         }
       }
+
+      macro_rules! grp_stream {
+        ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
+          grp_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
+        };
+        (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] g => $rp_c:expr , $($rp_rest:tt)*) => {
+          grp_stream!(@m
+            [$($rp_g)* F_g,]
+            [$($rp_w)* F_g: ::rapidproto::stream::Handler<i32>,]
+            [$($rp_i)* const WANT_g: bool = true; #[inline(always)] fn on_g(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_g, rp_x) }]
+            [$($rp_fl)* f_g: F_g,]
+            [$($rp_ct)* f_g: $rp_c,]
+          $($rp_rest)*)
+        };
+        (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
+          struct RpVis<$($rp_g)*> { $($rp_fl)* }
+          impl<'rp_a, $($rp_g)*> GrpVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
+          RpVis { $($rp_ct)* }
+        }};
+      }
+      pub(crate) use grp_stream;
     }
   }
 }

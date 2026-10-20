@@ -2496,48 +2496,20 @@ pub mod arena {
 pub mod stream {
 
   pub mod mr {
-    pub struct Small<'a, H0 = ::rapidproto::stream::Skip, H1 = ::rapidproto::stream::Skip> {
-      input: &'a [u8],
-      h_x: H0,
-      h_y: H1,
+    pub trait SmallVisitor<'a> {
+      const WANT_x: bool = false;
+      #[inline(always)]
+      fn on_x(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_y: bool = false;
+      #[inline(always)]
+      fn on_y(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
     }
 
-    impl<'a> Small<'a> {
-      pub fn stream(input: &'a [u8]) -> Small<'a> {
-        Small {
-          input,
-          h_x: ::rapidproto::stream::Skip,
-          h_y: ::rapidproto::stream::Skip,
-        }
-      }
-    }
+    pub struct Small;
 
-    impl<'a, H1> Small<'a, ::rapidproto::stream::Skip, H1> {
-      pub fn on_x<F, R>(self, rp_f: F) -> Small<'a, ::rapidproto::stream::On<F>, H1>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        Small {
-          input: self.input,
-          h_x: ::rapidproto::stream::On(rp_f),
-          h_y: self.h_y,
-        }
-      }
-    }
-
-    impl<'a, H0> Small<'a, H0, ::rapidproto::stream::Skip> {
-      pub fn on_y<F, R>(self, rp_f: F) -> Small<'a, H0, ::rapidproto::stream::On<F>>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        Small {
-          input: self.input,
-          h_x: self.h_x,
-          h_y: ::rapidproto::stream::On(rp_f),
-        }
-      }
-    }
-
-    impl<'a, H0, H1> Small<'a, H0, H1>
-    where H0: ::rapidproto::stream::FieldHandler<i32>, H1: ::rapidproto::stream::FieldHandler<i32> {
-      pub fn decode(mut self) -> Result<(), ::rapidproto::DecodeError> {
-        let rp_body: &'a [u8] = self.input;
+    impl Small {
+      pub fn decode<'a, V: SmallVisitor<'a>>(rp_input: &'a [u8], mut rp_vis: V) -> Result<(), ::rapidproto::DecodeError> {
+        let rp_body: &'a [u8] = rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
           let rp_b = match rp_rest.first() {
@@ -2557,13 +2529,13 @@ pub mod stream {
           };
           match rp_tagkey {
             8u32 => {
-              if H0::WANTED {
+              if V::WANT_x {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_x.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_x(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -2574,13 +2546,13 @@ pub mod stream {
               }
             }
             16u32 => {
-              if H1::WANTED {
+              if V::WANT_y {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_y.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_y(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -2602,48 +2574,50 @@ pub mod stream {
       }
     }
 
-    pub struct ReqInline<'a, H0 = ::rapidproto::stream::Skip, H1 = ::rapidproto::stream::Skip> {
-      input: &'a [u8],
-      h_s: H0,
-      h_tag: H1,
+    macro_rules! small_stream {
+      ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
+        small_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] x => $rp_c:expr , $($rp_rest:tt)*) => {
+        small_stream!(@m
+          [$($rp_g)* F_x,]
+          [$($rp_w)* F_x: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_x: bool = true; #[inline(always)] fn on_x(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_x, rp_x) }]
+          [$($rp_fl)* f_x: F_x,]
+          [$($rp_ct)* f_x: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] y => $rp_c:expr , $($rp_rest:tt)*) => {
+        small_stream!(@m
+          [$($rp_g)* F_y,]
+          [$($rp_w)* F_y: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_y: bool = true; #[inline(always)] fn on_y(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_y, rp_x) }]
+          [$($rp_fl)* f_y: F_y,]
+          [$($rp_ct)* f_y: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
+        struct RpVis<$($rp_g)*> { $($rp_fl)* }
+        impl<'rp_a, $($rp_g)*> SmallVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
+        RpVis { $($rp_ct)* }
+      }};
+    }
+    pub(crate) use small_stream;
+
+    pub trait ReqInlineVisitor<'a> {
+      const WANT_s: bool = false;
+      #[inline(always)]
+      fn on_s(&mut self, _rp_v: &'a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_tag: bool = false;
+      #[inline(always)]
+      fn on_tag(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
     }
 
-    impl<'a> ReqInline<'a> {
-      pub fn stream(input: &'a [u8]) -> ReqInline<'a> {
-        ReqInline {
-          input,
-          h_s: ::rapidproto::stream::Skip,
-          h_tag: ::rapidproto::stream::Skip,
-        }
-      }
-    }
+    pub struct ReqInline;
 
-    impl<'a, H1> ReqInline<'a, ::rapidproto::stream::Skip, H1> {
-      pub fn on_s<F, R>(self, rp_f: F) -> ReqInline<'a, ::rapidproto::stream::On<F>, H1>
-      where F: FnMut(Small<'a>) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ReqInline {
-          input: self.input,
-          h_s: ::rapidproto::stream::On(rp_f),
-          h_tag: self.h_tag,
-        }
-      }
-    }
-
-    impl<'a, H0> ReqInline<'a, H0, ::rapidproto::stream::Skip> {
-      pub fn on_tag<F, R>(self, rp_f: F) -> ReqInline<'a, H0, ::rapidproto::stream::On<F>>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ReqInline {
-          input: self.input,
-          h_s: self.h_s,
-          h_tag: ::rapidproto::stream::On(rp_f),
-        }
-      }
-    }
-
-    impl<'a, H0, H1> ReqInline<'a, H0, H1>
-    where H0: ::rapidproto::stream::FieldHandler<Small<'a>>, H1: ::rapidproto::stream::FieldHandler<i32> {
-      pub fn decode(mut self) -> Result<(), ::rapidproto::DecodeError> {
-        let rp_body: &'a [u8] = self.input;
+    impl ReqInline {
+      pub fn decode<'a, V: ReqInlineVisitor<'a>>(rp_input: &'a [u8], mut rp_vis: V) -> Result<(), ::rapidproto::DecodeError> {
+        let rp_body: &'a [u8] = rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
           let rp_b = match rp_rest.first() {
@@ -2663,13 +2637,13 @@ pub mod stream {
           };
           match rp_tagkey {
             10u32 => {
-              if H0::WANTED {
+              if V::WANT_s {
                 let mut rp_p: &[u8] = &[];
                 rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_s.handle(Small::stream(rp_p)) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_s(rp_p) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -2680,13 +2654,13 @@ pub mod stream {
               }
             }
             16u32 => {
-              if H1::WANTED {
+              if V::WANT_tag {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_tag.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_tag(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -2708,4962 +2682,239 @@ pub mod stream {
       }
     }
 
-    pub struct ManyRequired<'a, H0 = ::rapidproto::stream::Skip, H1 = ::rapidproto::stream::Skip, H2 = ::rapidproto::stream::Skip, H3 = ::rapidproto::stream::Skip, H4 = ::rapidproto::stream::Skip, H5 = ::rapidproto::stream::Skip, H6 = ::rapidproto::stream::Skip, H7 = ::rapidproto::stream::Skip, H8 = ::rapidproto::stream::Skip, H9 = ::rapidproto::stream::Skip, H10 = ::rapidproto::stream::Skip, H11 = ::rapidproto::stream::Skip, H12 = ::rapidproto::stream::Skip, H13 = ::rapidproto::stream::Skip, H14 = ::rapidproto::stream::Skip, H15 = ::rapidproto::stream::Skip, H16 = ::rapidproto::stream::Skip, H17 = ::rapidproto::stream::Skip, H18 = ::rapidproto::stream::Skip, H19 = ::rapidproto::stream::Skip, H20 = ::rapidproto::stream::Skip, H21 = ::rapidproto::stream::Skip, H22 = ::rapidproto::stream::Skip, H23 = ::rapidproto::stream::Skip, H24 = ::rapidproto::stream::Skip, H25 = ::rapidproto::stream::Skip, H26 = ::rapidproto::stream::Skip, H27 = ::rapidproto::stream::Skip, H28 = ::rapidproto::stream::Skip, H29 = ::rapidproto::stream::Skip, H30 = ::rapidproto::stream::Skip, H31 = ::rapidproto::stream::Skip, H32 = ::rapidproto::stream::Skip, H33 = ::rapidproto::stream::Skip, H34 = ::rapidproto::stream::Skip, H35 = ::rapidproto::stream::Skip, H36 = ::rapidproto::stream::Skip, H37 = ::rapidproto::stream::Skip, H38 = ::rapidproto::stream::Skip, H39 = ::rapidproto::stream::Skip, H40 = ::rapidproto::stream::Skip, H41 = ::rapidproto::stream::Skip, H42 = ::rapidproto::stream::Skip, H43 = ::rapidproto::stream::Skip, H44 = ::rapidproto::stream::Skip, H45 = ::rapidproto::stream::Skip, H46 = ::rapidproto::stream::Skip, H47 = ::rapidproto::stream::Skip, H48 = ::rapidproto::stream::Skip, H49 = ::rapidproto::stream::Skip, H50 = ::rapidproto::stream::Skip, H51 = ::rapidproto::stream::Skip, H52 = ::rapidproto::stream::Skip, H53 = ::rapidproto::stream::Skip, H54 = ::rapidproto::stream::Skip, H55 = ::rapidproto::stream::Skip, H56 = ::rapidproto::stream::Skip, H57 = ::rapidproto::stream::Skip, H58 = ::rapidproto::stream::Skip, H59 = ::rapidproto::stream::Skip, H60 = ::rapidproto::stream::Skip, H61 = ::rapidproto::stream::Skip, H62 = ::rapidproto::stream::Skip, H63 = ::rapidproto::stream::Skip, H64 = ::rapidproto::stream::Skip> {
-      input: &'a [u8],
-      h_f1: H0,
-      h_f2: H1,
-      h_f3: H2,
-      h_f4: H3,
-      h_f5: H4,
-      h_f6: H5,
-      h_f7: H6,
-      h_f8: H7,
-      h_f9: H8,
-      h_f10: H9,
-      h_f11: H10,
-      h_f12: H11,
-      h_f13: H12,
-      h_f14: H13,
-      h_f15: H14,
-      h_f16: H15,
-      h_f17: H16,
-      h_f18: H17,
-      h_f19: H18,
-      h_f20: H19,
-      h_f21: H20,
-      h_f22: H21,
-      h_f23: H22,
-      h_f24: H23,
-      h_f25: H24,
-      h_f26: H25,
-      h_f27: H26,
-      h_f28: H27,
-      h_f29: H28,
-      h_f30: H29,
-      h_f31: H30,
-      h_f32: H31,
-      h_f33: H32,
-      h_f34: H33,
-      h_f35: H34,
-      h_f36: H35,
-      h_f37: H36,
-      h_f38: H37,
-      h_f39: H38,
-      h_f40: H39,
-      h_f41: H40,
-      h_f42: H41,
-      h_f43: H42,
-      h_f44: H43,
-      h_f45: H44,
-      h_f46: H45,
-      h_f47: H46,
-      h_f48: H47,
-      h_f49: H48,
-      h_f50: H49,
-      h_f51: H50,
-      h_f52: H51,
-      h_f53: H52,
-      h_f54: H53,
-      h_f55: H54,
-      h_f56: H55,
-      h_f57: H56,
-      h_f58: H57,
-      h_f59: H58,
-      h_f60: H59,
-      h_f61: H60,
-      h_f62: H61,
-      h_f63: H62,
-      h_f64: H63,
-      h_f65: H64,
-    }
-
-    impl<'a> ManyRequired<'a> {
-      pub fn stream(input: &'a [u8]) -> ManyRequired<'a> {
-        ManyRequired {
-          input,
-          h_f1: ::rapidproto::stream::Skip,
-          h_f2: ::rapidproto::stream::Skip,
-          h_f3: ::rapidproto::stream::Skip,
-          h_f4: ::rapidproto::stream::Skip,
-          h_f5: ::rapidproto::stream::Skip,
-          h_f6: ::rapidproto::stream::Skip,
-          h_f7: ::rapidproto::stream::Skip,
-          h_f8: ::rapidproto::stream::Skip,
-          h_f9: ::rapidproto::stream::Skip,
-          h_f10: ::rapidproto::stream::Skip,
-          h_f11: ::rapidproto::stream::Skip,
-          h_f12: ::rapidproto::stream::Skip,
-          h_f13: ::rapidproto::stream::Skip,
-          h_f14: ::rapidproto::stream::Skip,
-          h_f15: ::rapidproto::stream::Skip,
-          h_f16: ::rapidproto::stream::Skip,
-          h_f17: ::rapidproto::stream::Skip,
-          h_f18: ::rapidproto::stream::Skip,
-          h_f19: ::rapidproto::stream::Skip,
-          h_f20: ::rapidproto::stream::Skip,
-          h_f21: ::rapidproto::stream::Skip,
-          h_f22: ::rapidproto::stream::Skip,
-          h_f23: ::rapidproto::stream::Skip,
-          h_f24: ::rapidproto::stream::Skip,
-          h_f25: ::rapidproto::stream::Skip,
-          h_f26: ::rapidproto::stream::Skip,
-          h_f27: ::rapidproto::stream::Skip,
-          h_f28: ::rapidproto::stream::Skip,
-          h_f29: ::rapidproto::stream::Skip,
-          h_f30: ::rapidproto::stream::Skip,
-          h_f31: ::rapidproto::stream::Skip,
-          h_f32: ::rapidproto::stream::Skip,
-          h_f33: ::rapidproto::stream::Skip,
-          h_f34: ::rapidproto::stream::Skip,
-          h_f35: ::rapidproto::stream::Skip,
-          h_f36: ::rapidproto::stream::Skip,
-          h_f37: ::rapidproto::stream::Skip,
-          h_f38: ::rapidproto::stream::Skip,
-          h_f39: ::rapidproto::stream::Skip,
-          h_f40: ::rapidproto::stream::Skip,
-          h_f41: ::rapidproto::stream::Skip,
-          h_f42: ::rapidproto::stream::Skip,
-          h_f43: ::rapidproto::stream::Skip,
-          h_f44: ::rapidproto::stream::Skip,
-          h_f45: ::rapidproto::stream::Skip,
-          h_f46: ::rapidproto::stream::Skip,
-          h_f47: ::rapidproto::stream::Skip,
-          h_f48: ::rapidproto::stream::Skip,
-          h_f49: ::rapidproto::stream::Skip,
-          h_f50: ::rapidproto::stream::Skip,
-          h_f51: ::rapidproto::stream::Skip,
-          h_f52: ::rapidproto::stream::Skip,
-          h_f53: ::rapidproto::stream::Skip,
-          h_f54: ::rapidproto::stream::Skip,
-          h_f55: ::rapidproto::stream::Skip,
-          h_f56: ::rapidproto::stream::Skip,
-          h_f57: ::rapidproto::stream::Skip,
-          h_f58: ::rapidproto::stream::Skip,
-          h_f59: ::rapidproto::stream::Skip,
-          h_f60: ::rapidproto::stream::Skip,
-          h_f61: ::rapidproto::stream::Skip,
-          h_f62: ::rapidproto::stream::Skip,
-          h_f63: ::rapidproto::stream::Skip,
-          h_f64: ::rapidproto::stream::Skip,
-          h_f65: ::rapidproto::stream::Skip,
-        }
-      }
-    }
-
-    impl<'a, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, ::rapidproto::stream::Skip, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f1<F, R>(self, rp_f: F) -> ManyRequired<'a, ::rapidproto::stream::On<F>, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: ::rapidproto::stream::On(rp_f),
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, ::rapidproto::stream::Skip, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f2<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, ::rapidproto::stream::On<F>, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: ::rapidproto::stream::On(rp_f),
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, ::rapidproto::stream::Skip, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f3<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, ::rapidproto::stream::On<F>, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: ::rapidproto::stream::On(rp_f),
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, ::rapidproto::stream::Skip, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f4<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, ::rapidproto::stream::On<F>, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: ::rapidproto::stream::On(rp_f),
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, ::rapidproto::stream::Skip, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f5<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, ::rapidproto::stream::On<F>, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: ::rapidproto::stream::On(rp_f),
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, ::rapidproto::stream::Skip, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f6<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, ::rapidproto::stream::On<F>, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: ::rapidproto::stream::On(rp_f),
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, ::rapidproto::stream::Skip, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f7<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, ::rapidproto::stream::On<F>, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: ::rapidproto::stream::On(rp_f),
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, ::rapidproto::stream::Skip, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f8<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, ::rapidproto::stream::On<F>, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: ::rapidproto::stream::On(rp_f),
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, ::rapidproto::stream::Skip, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f9<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, ::rapidproto::stream::On<F>, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: ::rapidproto::stream::On(rp_f),
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, ::rapidproto::stream::Skip, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f10<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, ::rapidproto::stream::On<F>, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: ::rapidproto::stream::On(rp_f),
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, ::rapidproto::stream::Skip, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f11<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, ::rapidproto::stream::On<F>, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: ::rapidproto::stream::On(rp_f),
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, ::rapidproto::stream::Skip, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f12<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, ::rapidproto::stream::On<F>, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: ::rapidproto::stream::On(rp_f),
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, ::rapidproto::stream::Skip, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f13<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, ::rapidproto::stream::On<F>, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: ::rapidproto::stream::On(rp_f),
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, ::rapidproto::stream::Skip, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f14<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, ::rapidproto::stream::On<F>, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: ::rapidproto::stream::On(rp_f),
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, ::rapidproto::stream::Skip, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f15<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, ::rapidproto::stream::On<F>, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: ::rapidproto::stream::On(rp_f),
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, ::rapidproto::stream::Skip, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f16<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, ::rapidproto::stream::On<F>, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: ::rapidproto::stream::On(rp_f),
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, ::rapidproto::stream::Skip, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f17<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, ::rapidproto::stream::On<F>, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: ::rapidproto::stream::On(rp_f),
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, ::rapidproto::stream::Skip, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f18<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, ::rapidproto::stream::On<F>, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: ::rapidproto::stream::On(rp_f),
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, ::rapidproto::stream::Skip, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f19<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, ::rapidproto::stream::On<F>, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: ::rapidproto::stream::On(rp_f),
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, ::rapidproto::stream::Skip, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f20<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, ::rapidproto::stream::On<F>, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: ::rapidproto::stream::On(rp_f),
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, ::rapidproto::stream::Skip, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f21<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, ::rapidproto::stream::On<F>, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: ::rapidproto::stream::On(rp_f),
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, ::rapidproto::stream::Skip, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f22<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, ::rapidproto::stream::On<F>, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: ::rapidproto::stream::On(rp_f),
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, ::rapidproto::stream::Skip, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f23<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, ::rapidproto::stream::On<F>, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: ::rapidproto::stream::On(rp_f),
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, ::rapidproto::stream::Skip, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f24<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, ::rapidproto::stream::On<F>, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: ::rapidproto::stream::On(rp_f),
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, ::rapidproto::stream::Skip, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f25<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, ::rapidproto::stream::On<F>, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: ::rapidproto::stream::On(rp_f),
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, ::rapidproto::stream::Skip, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f26<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, ::rapidproto::stream::On<F>, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: ::rapidproto::stream::On(rp_f),
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, ::rapidproto::stream::Skip, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f27<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, ::rapidproto::stream::On<F>, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: ::rapidproto::stream::On(rp_f),
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, ::rapidproto::stream::Skip, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f28<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, ::rapidproto::stream::On<F>, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: ::rapidproto::stream::On(rp_f),
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, ::rapidproto::stream::Skip, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f29<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, ::rapidproto::stream::On<F>, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: ::rapidproto::stream::On(rp_f),
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, ::rapidproto::stream::Skip, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f30<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, ::rapidproto::stream::On<F>, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: ::rapidproto::stream::On(rp_f),
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, ::rapidproto::stream::Skip, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f31<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, ::rapidproto::stream::On<F>, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: ::rapidproto::stream::On(rp_f),
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, ::rapidproto::stream::Skip, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f32<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, ::rapidproto::stream::On<F>, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: ::rapidproto::stream::On(rp_f),
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, ::rapidproto::stream::Skip, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f33<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, ::rapidproto::stream::On<F>, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: ::rapidproto::stream::On(rp_f),
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, ::rapidproto::stream::Skip, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f34<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, ::rapidproto::stream::On<F>, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: ::rapidproto::stream::On(rp_f),
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, ::rapidproto::stream::Skip, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f35<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, ::rapidproto::stream::On<F>, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: ::rapidproto::stream::On(rp_f),
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, ::rapidproto::stream::Skip, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f36<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, ::rapidproto::stream::On<F>, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: ::rapidproto::stream::On(rp_f),
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, ::rapidproto::stream::Skip, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f37<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, ::rapidproto::stream::On<F>, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: ::rapidproto::stream::On(rp_f),
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, ::rapidproto::stream::Skip, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f38<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, ::rapidproto::stream::On<F>, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: ::rapidproto::stream::On(rp_f),
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, ::rapidproto::stream::Skip, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f39<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, ::rapidproto::stream::On<F>, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: ::rapidproto::stream::On(rp_f),
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, ::rapidproto::stream::Skip, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f40<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, ::rapidproto::stream::On<F>, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: ::rapidproto::stream::On(rp_f),
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, ::rapidproto::stream::Skip, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f41<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, ::rapidproto::stream::On<F>, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: ::rapidproto::stream::On(rp_f),
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, ::rapidproto::stream::Skip, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f42<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, ::rapidproto::stream::On<F>, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: ::rapidproto::stream::On(rp_f),
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, ::rapidproto::stream::Skip, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f43<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, ::rapidproto::stream::On<F>, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: ::rapidproto::stream::On(rp_f),
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, ::rapidproto::stream::Skip, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f44<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, ::rapidproto::stream::On<F>, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: ::rapidproto::stream::On(rp_f),
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, ::rapidproto::stream::Skip, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f45<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, ::rapidproto::stream::On<F>, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: ::rapidproto::stream::On(rp_f),
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, ::rapidproto::stream::Skip, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f46<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, ::rapidproto::stream::On<F>, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: ::rapidproto::stream::On(rp_f),
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, ::rapidproto::stream::Skip, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f47<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, ::rapidproto::stream::On<F>, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: ::rapidproto::stream::On(rp_f),
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, ::rapidproto::stream::Skip, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f48<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, ::rapidproto::stream::On<F>, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: ::rapidproto::stream::On(rp_f),
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, ::rapidproto::stream::Skip, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f49<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, ::rapidproto::stream::On<F>, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: ::rapidproto::stream::On(rp_f),
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, ::rapidproto::stream::Skip, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f50<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, ::rapidproto::stream::On<F>, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: ::rapidproto::stream::On(rp_f),
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, ::rapidproto::stream::Skip, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f51<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, ::rapidproto::stream::On<F>, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: ::rapidproto::stream::On(rp_f),
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, ::rapidproto::stream::Skip, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f52<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, ::rapidproto::stream::On<F>, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: ::rapidproto::stream::On(rp_f),
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, ::rapidproto::stream::Skip, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f53<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, ::rapidproto::stream::On<F>, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: ::rapidproto::stream::On(rp_f),
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, ::rapidproto::stream::Skip, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f54<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, ::rapidproto::stream::On<F>, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: ::rapidproto::stream::On(rp_f),
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, ::rapidproto::stream::Skip, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f55<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, ::rapidproto::stream::On<F>, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: ::rapidproto::stream::On(rp_f),
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, ::rapidproto::stream::Skip, H56, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f56<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, ::rapidproto::stream::On<F>, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: ::rapidproto::stream::On(rp_f),
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, ::rapidproto::stream::Skip, H57, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f57<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, ::rapidproto::stream::On<F>, H57, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: ::rapidproto::stream::On(rp_f),
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, ::rapidproto::stream::Skip, H58, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f58<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, ::rapidproto::stream::On<F>, H58, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: ::rapidproto::stream::On(rp_f),
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, ::rapidproto::stream::Skip, H59, H60, H61, H62, H63, H64> {
-      pub fn on_f59<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, ::rapidproto::stream::On<F>, H59, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: ::rapidproto::stream::On(rp_f),
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, ::rapidproto::stream::Skip, H60, H61, H62, H63, H64> {
-      pub fn on_f60<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, ::rapidproto::stream::On<F>, H60, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: ::rapidproto::stream::On(rp_f),
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, ::rapidproto::stream::Skip, H61, H62, H63, H64> {
-      pub fn on_f61<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, ::rapidproto::stream::On<F>, H61, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: ::rapidproto::stream::On(rp_f),
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, ::rapidproto::stream::Skip, H62, H63, H64> {
-      pub fn on_f62<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, ::rapidproto::stream::On<F>, H62, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: ::rapidproto::stream::On(rp_f),
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, ::rapidproto::stream::Skip, H63, H64> {
-      pub fn on_f63<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, ::rapidproto::stream::On<F>, H63, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: ::rapidproto::stream::On(rp_f),
-          h_f64: self.h_f64,
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, ::rapidproto::stream::Skip, H64> {
-      pub fn on_f64<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, ::rapidproto::stream::On<F>, H64>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: ::rapidproto::stream::On(rp_f),
-          h_f65: self.h_f65,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, ::rapidproto::stream::Skip> {
-      pub fn on_f65<F, R>(self, rp_f: F) -> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, ::rapidproto::stream::On<F>>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        ManyRequired {
-          input: self.input,
-          h_f1: self.h_f1,
-          h_f2: self.h_f2,
-          h_f3: self.h_f3,
-          h_f4: self.h_f4,
-          h_f5: self.h_f5,
-          h_f6: self.h_f6,
-          h_f7: self.h_f7,
-          h_f8: self.h_f8,
-          h_f9: self.h_f9,
-          h_f10: self.h_f10,
-          h_f11: self.h_f11,
-          h_f12: self.h_f12,
-          h_f13: self.h_f13,
-          h_f14: self.h_f14,
-          h_f15: self.h_f15,
-          h_f16: self.h_f16,
-          h_f17: self.h_f17,
-          h_f18: self.h_f18,
-          h_f19: self.h_f19,
-          h_f20: self.h_f20,
-          h_f21: self.h_f21,
-          h_f22: self.h_f22,
-          h_f23: self.h_f23,
-          h_f24: self.h_f24,
-          h_f25: self.h_f25,
-          h_f26: self.h_f26,
-          h_f27: self.h_f27,
-          h_f28: self.h_f28,
-          h_f29: self.h_f29,
-          h_f30: self.h_f30,
-          h_f31: self.h_f31,
-          h_f32: self.h_f32,
-          h_f33: self.h_f33,
-          h_f34: self.h_f34,
-          h_f35: self.h_f35,
-          h_f36: self.h_f36,
-          h_f37: self.h_f37,
-          h_f38: self.h_f38,
-          h_f39: self.h_f39,
-          h_f40: self.h_f40,
-          h_f41: self.h_f41,
-          h_f42: self.h_f42,
-          h_f43: self.h_f43,
-          h_f44: self.h_f44,
-          h_f45: self.h_f45,
-          h_f46: self.h_f46,
-          h_f47: self.h_f47,
-          h_f48: self.h_f48,
-          h_f49: self.h_f49,
-          h_f50: self.h_f50,
-          h_f51: self.h_f51,
-          h_f52: self.h_f52,
-          h_f53: self.h_f53,
-          h_f54: self.h_f54,
-          h_f55: self.h_f55,
-          h_f56: self.h_f56,
-          h_f57: self.h_f57,
-          h_f58: self.h_f58,
-          h_f59: self.h_f59,
-          h_f60: self.h_f60,
-          h_f61: self.h_f61,
-          h_f62: self.h_f62,
-          h_f63: self.h_f63,
-          h_f64: self.h_f64,
-          h_f65: ::rapidproto::stream::On(rp_f),
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64> ManyRequired<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H29, H30, H31, H32, H33, H34, H35, H36, H37, H38, H39, H40, H41, H42, H43, H44, H45, H46, H47, H48, H49, H50, H51, H52, H53, H54, H55, H56, H57, H58, H59, H60, H61, H62, H63, H64>
-    where H0: ::rapidproto::stream::FieldHandler<i32>, H1: ::rapidproto::stream::FieldHandler<i32>, H2: ::rapidproto::stream::FieldHandler<i32>, H3: ::rapidproto::stream::FieldHandler<i32>, H4: ::rapidproto::stream::FieldHandler<i32>, H5: ::rapidproto::stream::FieldHandler<i32>, H6: ::rapidproto::stream::FieldHandler<i32>, H7: ::rapidproto::stream::FieldHandler<i32>, H8: ::rapidproto::stream::FieldHandler<i32>, H9: ::rapidproto::stream::FieldHandler<i32>, H10: ::rapidproto::stream::FieldHandler<i32>, H11: ::rapidproto::stream::FieldHandler<i32>, H12: ::rapidproto::stream::FieldHandler<i32>, H13: ::rapidproto::stream::FieldHandler<i32>, H14: ::rapidproto::stream::FieldHandler<i32>, H15: ::rapidproto::stream::FieldHandler<i32>, H16: ::rapidproto::stream::FieldHandler<i32>, H17: ::rapidproto::stream::FieldHandler<i32>, H18: ::rapidproto::stream::FieldHandler<i32>, H19: ::rapidproto::stream::FieldHandler<i32>, H20: ::rapidproto::stream::FieldHandler<i32>, H21: ::rapidproto::stream::FieldHandler<i32>, H22: ::rapidproto::stream::FieldHandler<i32>, H23: ::rapidproto::stream::FieldHandler<i32>, H24: ::rapidproto::stream::FieldHandler<i32>, H25: ::rapidproto::stream::FieldHandler<i32>, H26: ::rapidproto::stream::FieldHandler<i32>, H27: ::rapidproto::stream::FieldHandler<i32>, H28: ::rapidproto::stream::FieldHandler<i32>, H29: ::rapidproto::stream::FieldHandler<i32>, H30: ::rapidproto::stream::FieldHandler<i32>, H31: ::rapidproto::stream::FieldHandler<i32>, H32: ::rapidproto::stream::FieldHandler<i32>, H33: ::rapidproto::stream::FieldHandler<i32>, H34: ::rapidproto::stream::FieldHandler<i32>, H35: ::rapidproto::stream::FieldHandler<i32>, H36: ::rapidproto::stream::FieldHandler<i32>, H37: ::rapidproto::stream::FieldHandler<i32>, H38: ::rapidproto::stream::FieldHandler<i32>, H39: ::rapidproto::stream::FieldHandler<i32>, H40: ::rapidproto::stream::FieldHandler<i32>, H41: ::rapidproto::stream::FieldHandler<i32>, H42: ::rapidproto::stream::FieldHandler<i32>, H43: ::rapidproto::stream::FieldHandler<i32>, H44: ::rapidproto::stream::FieldHandler<i32>, H45: ::rapidproto::stream::FieldHandler<i32>, H46: ::rapidproto::stream::FieldHandler<i32>, H47: ::rapidproto::stream::FieldHandler<i32>, H48: ::rapidproto::stream::FieldHandler<i32>, H49: ::rapidproto::stream::FieldHandler<i32>, H50: ::rapidproto::stream::FieldHandler<i32>, H51: ::rapidproto::stream::FieldHandler<i32>, H52: ::rapidproto::stream::FieldHandler<i32>, H53: ::rapidproto::stream::FieldHandler<i32>, H54: ::rapidproto::stream::FieldHandler<i32>, H55: ::rapidproto::stream::FieldHandler<i32>, H56: ::rapidproto::stream::FieldHandler<i32>, H57: ::rapidproto::stream::FieldHandler<i32>, H58: ::rapidproto::stream::FieldHandler<i32>, H59: ::rapidproto::stream::FieldHandler<i32>, H60: ::rapidproto::stream::FieldHandler<i32>, H61: ::rapidproto::stream::FieldHandler<i32>, H62: ::rapidproto::stream::FieldHandler<i32>, H63: ::rapidproto::stream::FieldHandler<i32>, H64: ::rapidproto::stream::FieldHandler<i32> {
-      pub fn decode(mut self) -> Result<(), ::rapidproto::DecodeError> {
-        let rp_body: &'a [u8] = self.input;
+    macro_rules! req_inline_stream {
+      ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
+        req_inline_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] s => $rp_c:expr , $($rp_rest:tt)*) => {
+        req_inline_stream!(@m
+          [$($rp_g)* F_s,]
+          [$($rp_w)* F_s: ::rapidproto::stream::Handler<&'rp_a [u8]>,]
+          [$($rp_i)* const WANT_s: bool = true; #[inline(always)] fn on_s(&mut self, rp_x: &'rp_a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_s, rp_x) }]
+          [$($rp_fl)* f_s: F_s,]
+          [$($rp_ct)* f_s: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] tag => $rp_c:expr , $($rp_rest:tt)*) => {
+        req_inline_stream!(@m
+          [$($rp_g)* F_tag,]
+          [$($rp_w)* F_tag: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_tag: bool = true; #[inline(always)] fn on_tag(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_tag, rp_x) }]
+          [$($rp_fl)* f_tag: F_tag,]
+          [$($rp_ct)* f_tag: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
+        struct RpVis<$($rp_g)*> { $($rp_fl)* }
+        impl<'rp_a, $($rp_g)*> ReqInlineVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
+        RpVis { $($rp_ct)* }
+      }};
+    }
+    pub(crate) use req_inline_stream;
+
+    pub trait ManyRequiredVisitor<'a> {
+      const WANT_f1: bool = false;
+      #[inline(always)]
+      fn on_f1(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f2: bool = false;
+      #[inline(always)]
+      fn on_f2(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f3: bool = false;
+      #[inline(always)]
+      fn on_f3(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f4: bool = false;
+      #[inline(always)]
+      fn on_f4(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f5: bool = false;
+      #[inline(always)]
+      fn on_f5(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f6: bool = false;
+      #[inline(always)]
+      fn on_f6(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f7: bool = false;
+      #[inline(always)]
+      fn on_f7(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f8: bool = false;
+      #[inline(always)]
+      fn on_f8(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f9: bool = false;
+      #[inline(always)]
+      fn on_f9(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f10: bool = false;
+      #[inline(always)]
+      fn on_f10(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f11: bool = false;
+      #[inline(always)]
+      fn on_f11(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f12: bool = false;
+      #[inline(always)]
+      fn on_f12(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f13: bool = false;
+      #[inline(always)]
+      fn on_f13(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f14: bool = false;
+      #[inline(always)]
+      fn on_f14(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f15: bool = false;
+      #[inline(always)]
+      fn on_f15(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f16: bool = false;
+      #[inline(always)]
+      fn on_f16(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f17: bool = false;
+      #[inline(always)]
+      fn on_f17(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f18: bool = false;
+      #[inline(always)]
+      fn on_f18(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f19: bool = false;
+      #[inline(always)]
+      fn on_f19(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f20: bool = false;
+      #[inline(always)]
+      fn on_f20(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f21: bool = false;
+      #[inline(always)]
+      fn on_f21(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f22: bool = false;
+      #[inline(always)]
+      fn on_f22(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f23: bool = false;
+      #[inline(always)]
+      fn on_f23(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f24: bool = false;
+      #[inline(always)]
+      fn on_f24(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f25: bool = false;
+      #[inline(always)]
+      fn on_f25(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f26: bool = false;
+      #[inline(always)]
+      fn on_f26(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f27: bool = false;
+      #[inline(always)]
+      fn on_f27(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f28: bool = false;
+      #[inline(always)]
+      fn on_f28(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f29: bool = false;
+      #[inline(always)]
+      fn on_f29(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f30: bool = false;
+      #[inline(always)]
+      fn on_f30(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f31: bool = false;
+      #[inline(always)]
+      fn on_f31(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f32: bool = false;
+      #[inline(always)]
+      fn on_f32(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f33: bool = false;
+      #[inline(always)]
+      fn on_f33(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f34: bool = false;
+      #[inline(always)]
+      fn on_f34(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f35: bool = false;
+      #[inline(always)]
+      fn on_f35(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f36: bool = false;
+      #[inline(always)]
+      fn on_f36(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f37: bool = false;
+      #[inline(always)]
+      fn on_f37(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f38: bool = false;
+      #[inline(always)]
+      fn on_f38(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f39: bool = false;
+      #[inline(always)]
+      fn on_f39(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f40: bool = false;
+      #[inline(always)]
+      fn on_f40(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f41: bool = false;
+      #[inline(always)]
+      fn on_f41(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f42: bool = false;
+      #[inline(always)]
+      fn on_f42(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f43: bool = false;
+      #[inline(always)]
+      fn on_f43(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f44: bool = false;
+      #[inline(always)]
+      fn on_f44(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f45: bool = false;
+      #[inline(always)]
+      fn on_f45(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f46: bool = false;
+      #[inline(always)]
+      fn on_f46(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f47: bool = false;
+      #[inline(always)]
+      fn on_f47(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f48: bool = false;
+      #[inline(always)]
+      fn on_f48(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f49: bool = false;
+      #[inline(always)]
+      fn on_f49(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f50: bool = false;
+      #[inline(always)]
+      fn on_f50(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f51: bool = false;
+      #[inline(always)]
+      fn on_f51(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f52: bool = false;
+      #[inline(always)]
+      fn on_f52(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f53: bool = false;
+      #[inline(always)]
+      fn on_f53(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f54: bool = false;
+      #[inline(always)]
+      fn on_f54(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f55: bool = false;
+      #[inline(always)]
+      fn on_f55(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f56: bool = false;
+      #[inline(always)]
+      fn on_f56(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f57: bool = false;
+      #[inline(always)]
+      fn on_f57(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f58: bool = false;
+      #[inline(always)]
+      fn on_f58(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f59: bool = false;
+      #[inline(always)]
+      fn on_f59(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f60: bool = false;
+      #[inline(always)]
+      fn on_f60(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f61: bool = false;
+      #[inline(always)]
+      fn on_f61(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f62: bool = false;
+      #[inline(always)]
+      fn on_f62(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f63: bool = false;
+      #[inline(always)]
+      fn on_f63(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f64: bool = false;
+      #[inline(always)]
+      fn on_f64(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_f65: bool = false;
+      #[inline(always)]
+      fn on_f65(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+    }
+
+    pub struct ManyRequired;
+
+    impl ManyRequired {
+      pub fn decode<'a, V: ManyRequiredVisitor<'a>>(rp_input: &'a [u8], mut rp_vis: V) -> Result<(), ::rapidproto::DecodeError> {
+        let rp_body: &'a [u8] = rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
           let rp_b = match rp_rest.first() {
@@ -7683,13 +2934,13 @@ pub mod stream {
           };
           match rp_tagkey {
             8u32 => {
-              if H0::WANTED {
+              if V::WANT_f1 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f1.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f1(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -7700,13 +2951,13 @@ pub mod stream {
               }
             }
             16u32 => {
-              if H1::WANTED {
+              if V::WANT_f2 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f2.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f2(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -7717,13 +2968,13 @@ pub mod stream {
               }
             }
             24u32 => {
-              if H2::WANTED {
+              if V::WANT_f3 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f3.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f3(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -7734,13 +2985,13 @@ pub mod stream {
               }
             }
             32u32 => {
-              if H3::WANTED {
+              if V::WANT_f4 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f4.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f4(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -7751,13 +3002,13 @@ pub mod stream {
               }
             }
             40u32 => {
-              if H4::WANTED {
+              if V::WANT_f5 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f5.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f5(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -7768,13 +3019,13 @@ pub mod stream {
               }
             }
             48u32 => {
-              if H5::WANTED {
+              if V::WANT_f6 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f6.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f6(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -7785,13 +3036,13 @@ pub mod stream {
               }
             }
             56u32 => {
-              if H6::WANTED {
+              if V::WANT_f7 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f7.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f7(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -7802,13 +3053,13 @@ pub mod stream {
               }
             }
             64u32 => {
-              if H7::WANTED {
+              if V::WANT_f8 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f8.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f8(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -7819,13 +3070,13 @@ pub mod stream {
               }
             }
             72u32 => {
-              if H8::WANTED {
+              if V::WANT_f9 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f9.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f9(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -7836,13 +3087,13 @@ pub mod stream {
               }
             }
             80u32 => {
-              if H9::WANTED {
+              if V::WANT_f10 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f10.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f10(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -7853,13 +3104,13 @@ pub mod stream {
               }
             }
             88u32 => {
-              if H10::WANTED {
+              if V::WANT_f11 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f11.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f11(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -7870,13 +3121,13 @@ pub mod stream {
               }
             }
             96u32 => {
-              if H11::WANTED {
+              if V::WANT_f12 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f12.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f12(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -7887,13 +3138,13 @@ pub mod stream {
               }
             }
             104u32 => {
-              if H12::WANTED {
+              if V::WANT_f13 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f13.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f13(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -7904,13 +3155,13 @@ pub mod stream {
               }
             }
             112u32 => {
-              if H13::WANTED {
+              if V::WANT_f14 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f14.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f14(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -7921,13 +3172,13 @@ pub mod stream {
               }
             }
             120u32 => {
-              if H14::WANTED {
+              if V::WANT_f15 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f15.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f15(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -7938,13 +3189,13 @@ pub mod stream {
               }
             }
             128u32 => {
-              if H15::WANTED {
+              if V::WANT_f16 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f16.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f16(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -7955,13 +3206,13 @@ pub mod stream {
               }
             }
             136u32 => {
-              if H16::WANTED {
+              if V::WANT_f17 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f17.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f17(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -7972,13 +3223,13 @@ pub mod stream {
               }
             }
             144u32 => {
-              if H17::WANTED {
+              if V::WANT_f18 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f18.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f18(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -7989,13 +3240,13 @@ pub mod stream {
               }
             }
             152u32 => {
-              if H18::WANTED {
+              if V::WANT_f19 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f19.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f19(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8006,13 +3257,13 @@ pub mod stream {
               }
             }
             160u32 => {
-              if H19::WANTED {
+              if V::WANT_f20 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f20.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f20(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8023,13 +3274,13 @@ pub mod stream {
               }
             }
             168u32 => {
-              if H20::WANTED {
+              if V::WANT_f21 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f21.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f21(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8040,13 +3291,13 @@ pub mod stream {
               }
             }
             176u32 => {
-              if H21::WANTED {
+              if V::WANT_f22 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f22.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f22(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8057,13 +3308,13 @@ pub mod stream {
               }
             }
             184u32 => {
-              if H22::WANTED {
+              if V::WANT_f23 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f23.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f23(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8074,13 +3325,13 @@ pub mod stream {
               }
             }
             192u32 => {
-              if H23::WANTED {
+              if V::WANT_f24 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f24.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f24(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8091,13 +3342,13 @@ pub mod stream {
               }
             }
             200u32 => {
-              if H24::WANTED {
+              if V::WANT_f25 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f25.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f25(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8108,13 +3359,13 @@ pub mod stream {
               }
             }
             208u32 => {
-              if H25::WANTED {
+              if V::WANT_f26 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f26.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f26(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8125,13 +3376,13 @@ pub mod stream {
               }
             }
             216u32 => {
-              if H26::WANTED {
+              if V::WANT_f27 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f27.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f27(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8142,13 +3393,13 @@ pub mod stream {
               }
             }
             224u32 => {
-              if H27::WANTED {
+              if V::WANT_f28 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f28.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f28(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8159,13 +3410,13 @@ pub mod stream {
               }
             }
             232u32 => {
-              if H28::WANTED {
+              if V::WANT_f29 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f29.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f29(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8176,13 +3427,13 @@ pub mod stream {
               }
             }
             240u32 => {
-              if H29::WANTED {
+              if V::WANT_f30 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f30.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f30(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8193,13 +3444,13 @@ pub mod stream {
               }
             }
             248u32 => {
-              if H30::WANTED {
+              if V::WANT_f31 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f31.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f31(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8210,13 +3461,13 @@ pub mod stream {
               }
             }
             256u32 => {
-              if H31::WANTED {
+              if V::WANT_f32 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f32.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f32(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8227,13 +3478,13 @@ pub mod stream {
               }
             }
             264u32 => {
-              if H32::WANTED {
+              if V::WANT_f33 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f33.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f33(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8244,13 +3495,13 @@ pub mod stream {
               }
             }
             272u32 => {
-              if H33::WANTED {
+              if V::WANT_f34 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f34.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f34(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8261,13 +3512,13 @@ pub mod stream {
               }
             }
             280u32 => {
-              if H34::WANTED {
+              if V::WANT_f35 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f35.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f35(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8278,13 +3529,13 @@ pub mod stream {
               }
             }
             288u32 => {
-              if H35::WANTED {
+              if V::WANT_f36 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f36.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f36(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8295,13 +3546,13 @@ pub mod stream {
               }
             }
             296u32 => {
-              if H36::WANTED {
+              if V::WANT_f37 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f37.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f37(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8312,13 +3563,13 @@ pub mod stream {
               }
             }
             304u32 => {
-              if H37::WANTED {
+              if V::WANT_f38 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f38.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f38(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8329,13 +3580,13 @@ pub mod stream {
               }
             }
             312u32 => {
-              if H38::WANTED {
+              if V::WANT_f39 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f39.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f39(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8346,13 +3597,13 @@ pub mod stream {
               }
             }
             320u32 => {
-              if H39::WANTED {
+              if V::WANT_f40 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f40.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f40(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8363,13 +3614,13 @@ pub mod stream {
               }
             }
             328u32 => {
-              if H40::WANTED {
+              if V::WANT_f41 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f41.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f41(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8380,13 +3631,13 @@ pub mod stream {
               }
             }
             336u32 => {
-              if H41::WANTED {
+              if V::WANT_f42 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f42.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f42(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8397,13 +3648,13 @@ pub mod stream {
               }
             }
             344u32 => {
-              if H42::WANTED {
+              if V::WANT_f43 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f43.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f43(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8414,13 +3665,13 @@ pub mod stream {
               }
             }
             352u32 => {
-              if H43::WANTED {
+              if V::WANT_f44 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f44.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f44(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8431,13 +3682,13 @@ pub mod stream {
               }
             }
             360u32 => {
-              if H44::WANTED {
+              if V::WANT_f45 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f45.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f45(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8448,13 +3699,13 @@ pub mod stream {
               }
             }
             368u32 => {
-              if H45::WANTED {
+              if V::WANT_f46 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f46.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f46(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8465,13 +3716,13 @@ pub mod stream {
               }
             }
             376u32 => {
-              if H46::WANTED {
+              if V::WANT_f47 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f47.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f47(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8482,13 +3733,13 @@ pub mod stream {
               }
             }
             384u32 => {
-              if H47::WANTED {
+              if V::WANT_f48 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f48.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f48(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8499,13 +3750,13 @@ pub mod stream {
               }
             }
             392u32 => {
-              if H48::WANTED {
+              if V::WANT_f49 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f49.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f49(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8516,13 +3767,13 @@ pub mod stream {
               }
             }
             400u32 => {
-              if H49::WANTED {
+              if V::WANT_f50 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f50.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f50(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8533,13 +3784,13 @@ pub mod stream {
               }
             }
             408u32 => {
-              if H50::WANTED {
+              if V::WANT_f51 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f51.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f51(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8550,13 +3801,13 @@ pub mod stream {
               }
             }
             416u32 => {
-              if H51::WANTED {
+              if V::WANT_f52 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f52.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f52(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8567,13 +3818,13 @@ pub mod stream {
               }
             }
             424u32 => {
-              if H52::WANTED {
+              if V::WANT_f53 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f53.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f53(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8584,13 +3835,13 @@ pub mod stream {
               }
             }
             432u32 => {
-              if H53::WANTED {
+              if V::WANT_f54 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f54.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f54(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8601,13 +3852,13 @@ pub mod stream {
               }
             }
             440u32 => {
-              if H54::WANTED {
+              if V::WANT_f55 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f55.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f55(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8618,13 +3869,13 @@ pub mod stream {
               }
             }
             448u32 => {
-              if H55::WANTED {
+              if V::WANT_f56 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f56.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f56(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8635,13 +3886,13 @@ pub mod stream {
               }
             }
             456u32 => {
-              if H56::WANTED {
+              if V::WANT_f57 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f57.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f57(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8652,13 +3903,13 @@ pub mod stream {
               }
             }
             464u32 => {
-              if H57::WANTED {
+              if V::WANT_f58 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f58.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f58(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8669,13 +3920,13 @@ pub mod stream {
               }
             }
             472u32 => {
-              if H58::WANTED {
+              if V::WANT_f59 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f59.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f59(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8686,13 +3937,13 @@ pub mod stream {
               }
             }
             480u32 => {
-              if H59::WANTED {
+              if V::WANT_f60 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f60.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f60(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8703,13 +3954,13 @@ pub mod stream {
               }
             }
             488u32 => {
-              if H60::WANTED {
+              if V::WANT_f61 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f61.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f61(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8720,13 +3971,13 @@ pub mod stream {
               }
             }
             496u32 => {
-              if H61::WANTED {
+              if V::WANT_f62 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f62.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f62(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8737,13 +3988,13 @@ pub mod stream {
               }
             }
             504u32 => {
-              if H62::WANTED {
+              if V::WANT_f63 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f63.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f63(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8754,13 +4005,13 @@ pub mod stream {
               }
             }
             512u32 => {
-              if H63::WANTED {
+              if V::WANT_f64 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f64.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f64(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8771,13 +4022,13 @@ pub mod stream {
               }
             }
             520u32 => {
-              if H64::WANTED {
+              if V::WANT_f65 {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_f65.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_f65(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -8798,5 +4049,602 @@ pub mod stream {
         Ok(())
       }
     }
+
+    macro_rules! many_required_stream {
+      ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
+        many_required_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f1 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f1,]
+          [$($rp_w)* F_f1: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f1: bool = true; #[inline(always)] fn on_f1(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f1, rp_x) }]
+          [$($rp_fl)* f_f1: F_f1,]
+          [$($rp_ct)* f_f1: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f2 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f2,]
+          [$($rp_w)* F_f2: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f2: bool = true; #[inline(always)] fn on_f2(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f2, rp_x) }]
+          [$($rp_fl)* f_f2: F_f2,]
+          [$($rp_ct)* f_f2: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f3 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f3,]
+          [$($rp_w)* F_f3: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f3: bool = true; #[inline(always)] fn on_f3(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f3, rp_x) }]
+          [$($rp_fl)* f_f3: F_f3,]
+          [$($rp_ct)* f_f3: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f4 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f4,]
+          [$($rp_w)* F_f4: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f4: bool = true; #[inline(always)] fn on_f4(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f4, rp_x) }]
+          [$($rp_fl)* f_f4: F_f4,]
+          [$($rp_ct)* f_f4: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f5 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f5,]
+          [$($rp_w)* F_f5: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f5: bool = true; #[inline(always)] fn on_f5(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f5, rp_x) }]
+          [$($rp_fl)* f_f5: F_f5,]
+          [$($rp_ct)* f_f5: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f6 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f6,]
+          [$($rp_w)* F_f6: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f6: bool = true; #[inline(always)] fn on_f6(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f6, rp_x) }]
+          [$($rp_fl)* f_f6: F_f6,]
+          [$($rp_ct)* f_f6: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f7 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f7,]
+          [$($rp_w)* F_f7: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f7: bool = true; #[inline(always)] fn on_f7(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f7, rp_x) }]
+          [$($rp_fl)* f_f7: F_f7,]
+          [$($rp_ct)* f_f7: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f8 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f8,]
+          [$($rp_w)* F_f8: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f8: bool = true; #[inline(always)] fn on_f8(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f8, rp_x) }]
+          [$($rp_fl)* f_f8: F_f8,]
+          [$($rp_ct)* f_f8: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f9 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f9,]
+          [$($rp_w)* F_f9: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f9: bool = true; #[inline(always)] fn on_f9(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f9, rp_x) }]
+          [$($rp_fl)* f_f9: F_f9,]
+          [$($rp_ct)* f_f9: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f10 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f10,]
+          [$($rp_w)* F_f10: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f10: bool = true; #[inline(always)] fn on_f10(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f10, rp_x) }]
+          [$($rp_fl)* f_f10: F_f10,]
+          [$($rp_ct)* f_f10: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f11 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f11,]
+          [$($rp_w)* F_f11: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f11: bool = true; #[inline(always)] fn on_f11(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f11, rp_x) }]
+          [$($rp_fl)* f_f11: F_f11,]
+          [$($rp_ct)* f_f11: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f12 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f12,]
+          [$($rp_w)* F_f12: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f12: bool = true; #[inline(always)] fn on_f12(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f12, rp_x) }]
+          [$($rp_fl)* f_f12: F_f12,]
+          [$($rp_ct)* f_f12: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f13 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f13,]
+          [$($rp_w)* F_f13: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f13: bool = true; #[inline(always)] fn on_f13(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f13, rp_x) }]
+          [$($rp_fl)* f_f13: F_f13,]
+          [$($rp_ct)* f_f13: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f14 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f14,]
+          [$($rp_w)* F_f14: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f14: bool = true; #[inline(always)] fn on_f14(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f14, rp_x) }]
+          [$($rp_fl)* f_f14: F_f14,]
+          [$($rp_ct)* f_f14: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f15 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f15,]
+          [$($rp_w)* F_f15: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f15: bool = true; #[inline(always)] fn on_f15(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f15, rp_x) }]
+          [$($rp_fl)* f_f15: F_f15,]
+          [$($rp_ct)* f_f15: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f16 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f16,]
+          [$($rp_w)* F_f16: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f16: bool = true; #[inline(always)] fn on_f16(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f16, rp_x) }]
+          [$($rp_fl)* f_f16: F_f16,]
+          [$($rp_ct)* f_f16: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f17 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f17,]
+          [$($rp_w)* F_f17: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f17: bool = true; #[inline(always)] fn on_f17(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f17, rp_x) }]
+          [$($rp_fl)* f_f17: F_f17,]
+          [$($rp_ct)* f_f17: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f18 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f18,]
+          [$($rp_w)* F_f18: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f18: bool = true; #[inline(always)] fn on_f18(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f18, rp_x) }]
+          [$($rp_fl)* f_f18: F_f18,]
+          [$($rp_ct)* f_f18: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f19 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f19,]
+          [$($rp_w)* F_f19: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f19: bool = true; #[inline(always)] fn on_f19(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f19, rp_x) }]
+          [$($rp_fl)* f_f19: F_f19,]
+          [$($rp_ct)* f_f19: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f20 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f20,]
+          [$($rp_w)* F_f20: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f20: bool = true; #[inline(always)] fn on_f20(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f20, rp_x) }]
+          [$($rp_fl)* f_f20: F_f20,]
+          [$($rp_ct)* f_f20: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f21 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f21,]
+          [$($rp_w)* F_f21: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f21: bool = true; #[inline(always)] fn on_f21(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f21, rp_x) }]
+          [$($rp_fl)* f_f21: F_f21,]
+          [$($rp_ct)* f_f21: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f22 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f22,]
+          [$($rp_w)* F_f22: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f22: bool = true; #[inline(always)] fn on_f22(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f22, rp_x) }]
+          [$($rp_fl)* f_f22: F_f22,]
+          [$($rp_ct)* f_f22: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f23 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f23,]
+          [$($rp_w)* F_f23: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f23: bool = true; #[inline(always)] fn on_f23(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f23, rp_x) }]
+          [$($rp_fl)* f_f23: F_f23,]
+          [$($rp_ct)* f_f23: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f24 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f24,]
+          [$($rp_w)* F_f24: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f24: bool = true; #[inline(always)] fn on_f24(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f24, rp_x) }]
+          [$($rp_fl)* f_f24: F_f24,]
+          [$($rp_ct)* f_f24: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f25 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f25,]
+          [$($rp_w)* F_f25: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f25: bool = true; #[inline(always)] fn on_f25(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f25, rp_x) }]
+          [$($rp_fl)* f_f25: F_f25,]
+          [$($rp_ct)* f_f25: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f26 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f26,]
+          [$($rp_w)* F_f26: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f26: bool = true; #[inline(always)] fn on_f26(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f26, rp_x) }]
+          [$($rp_fl)* f_f26: F_f26,]
+          [$($rp_ct)* f_f26: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f27 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f27,]
+          [$($rp_w)* F_f27: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f27: bool = true; #[inline(always)] fn on_f27(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f27, rp_x) }]
+          [$($rp_fl)* f_f27: F_f27,]
+          [$($rp_ct)* f_f27: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f28 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f28,]
+          [$($rp_w)* F_f28: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f28: bool = true; #[inline(always)] fn on_f28(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f28, rp_x) }]
+          [$($rp_fl)* f_f28: F_f28,]
+          [$($rp_ct)* f_f28: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f29 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f29,]
+          [$($rp_w)* F_f29: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f29: bool = true; #[inline(always)] fn on_f29(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f29, rp_x) }]
+          [$($rp_fl)* f_f29: F_f29,]
+          [$($rp_ct)* f_f29: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f30 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f30,]
+          [$($rp_w)* F_f30: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f30: bool = true; #[inline(always)] fn on_f30(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f30, rp_x) }]
+          [$($rp_fl)* f_f30: F_f30,]
+          [$($rp_ct)* f_f30: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f31 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f31,]
+          [$($rp_w)* F_f31: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f31: bool = true; #[inline(always)] fn on_f31(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f31, rp_x) }]
+          [$($rp_fl)* f_f31: F_f31,]
+          [$($rp_ct)* f_f31: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f32 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f32,]
+          [$($rp_w)* F_f32: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f32: bool = true; #[inline(always)] fn on_f32(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f32, rp_x) }]
+          [$($rp_fl)* f_f32: F_f32,]
+          [$($rp_ct)* f_f32: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f33 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f33,]
+          [$($rp_w)* F_f33: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f33: bool = true; #[inline(always)] fn on_f33(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f33, rp_x) }]
+          [$($rp_fl)* f_f33: F_f33,]
+          [$($rp_ct)* f_f33: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f34 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f34,]
+          [$($rp_w)* F_f34: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f34: bool = true; #[inline(always)] fn on_f34(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f34, rp_x) }]
+          [$($rp_fl)* f_f34: F_f34,]
+          [$($rp_ct)* f_f34: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f35 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f35,]
+          [$($rp_w)* F_f35: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f35: bool = true; #[inline(always)] fn on_f35(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f35, rp_x) }]
+          [$($rp_fl)* f_f35: F_f35,]
+          [$($rp_ct)* f_f35: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f36 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f36,]
+          [$($rp_w)* F_f36: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f36: bool = true; #[inline(always)] fn on_f36(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f36, rp_x) }]
+          [$($rp_fl)* f_f36: F_f36,]
+          [$($rp_ct)* f_f36: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f37 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f37,]
+          [$($rp_w)* F_f37: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f37: bool = true; #[inline(always)] fn on_f37(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f37, rp_x) }]
+          [$($rp_fl)* f_f37: F_f37,]
+          [$($rp_ct)* f_f37: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f38 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f38,]
+          [$($rp_w)* F_f38: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f38: bool = true; #[inline(always)] fn on_f38(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f38, rp_x) }]
+          [$($rp_fl)* f_f38: F_f38,]
+          [$($rp_ct)* f_f38: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f39 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f39,]
+          [$($rp_w)* F_f39: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f39: bool = true; #[inline(always)] fn on_f39(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f39, rp_x) }]
+          [$($rp_fl)* f_f39: F_f39,]
+          [$($rp_ct)* f_f39: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f40 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f40,]
+          [$($rp_w)* F_f40: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f40: bool = true; #[inline(always)] fn on_f40(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f40, rp_x) }]
+          [$($rp_fl)* f_f40: F_f40,]
+          [$($rp_ct)* f_f40: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f41 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f41,]
+          [$($rp_w)* F_f41: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f41: bool = true; #[inline(always)] fn on_f41(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f41, rp_x) }]
+          [$($rp_fl)* f_f41: F_f41,]
+          [$($rp_ct)* f_f41: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f42 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f42,]
+          [$($rp_w)* F_f42: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f42: bool = true; #[inline(always)] fn on_f42(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f42, rp_x) }]
+          [$($rp_fl)* f_f42: F_f42,]
+          [$($rp_ct)* f_f42: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f43 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f43,]
+          [$($rp_w)* F_f43: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f43: bool = true; #[inline(always)] fn on_f43(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f43, rp_x) }]
+          [$($rp_fl)* f_f43: F_f43,]
+          [$($rp_ct)* f_f43: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f44 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f44,]
+          [$($rp_w)* F_f44: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f44: bool = true; #[inline(always)] fn on_f44(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f44, rp_x) }]
+          [$($rp_fl)* f_f44: F_f44,]
+          [$($rp_ct)* f_f44: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f45 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f45,]
+          [$($rp_w)* F_f45: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f45: bool = true; #[inline(always)] fn on_f45(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f45, rp_x) }]
+          [$($rp_fl)* f_f45: F_f45,]
+          [$($rp_ct)* f_f45: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f46 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f46,]
+          [$($rp_w)* F_f46: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f46: bool = true; #[inline(always)] fn on_f46(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f46, rp_x) }]
+          [$($rp_fl)* f_f46: F_f46,]
+          [$($rp_ct)* f_f46: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f47 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f47,]
+          [$($rp_w)* F_f47: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f47: bool = true; #[inline(always)] fn on_f47(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f47, rp_x) }]
+          [$($rp_fl)* f_f47: F_f47,]
+          [$($rp_ct)* f_f47: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f48 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f48,]
+          [$($rp_w)* F_f48: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f48: bool = true; #[inline(always)] fn on_f48(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f48, rp_x) }]
+          [$($rp_fl)* f_f48: F_f48,]
+          [$($rp_ct)* f_f48: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f49 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f49,]
+          [$($rp_w)* F_f49: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f49: bool = true; #[inline(always)] fn on_f49(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f49, rp_x) }]
+          [$($rp_fl)* f_f49: F_f49,]
+          [$($rp_ct)* f_f49: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f50 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f50,]
+          [$($rp_w)* F_f50: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f50: bool = true; #[inline(always)] fn on_f50(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f50, rp_x) }]
+          [$($rp_fl)* f_f50: F_f50,]
+          [$($rp_ct)* f_f50: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f51 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f51,]
+          [$($rp_w)* F_f51: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f51: bool = true; #[inline(always)] fn on_f51(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f51, rp_x) }]
+          [$($rp_fl)* f_f51: F_f51,]
+          [$($rp_ct)* f_f51: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f52 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f52,]
+          [$($rp_w)* F_f52: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f52: bool = true; #[inline(always)] fn on_f52(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f52, rp_x) }]
+          [$($rp_fl)* f_f52: F_f52,]
+          [$($rp_ct)* f_f52: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f53 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f53,]
+          [$($rp_w)* F_f53: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f53: bool = true; #[inline(always)] fn on_f53(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f53, rp_x) }]
+          [$($rp_fl)* f_f53: F_f53,]
+          [$($rp_ct)* f_f53: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f54 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f54,]
+          [$($rp_w)* F_f54: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f54: bool = true; #[inline(always)] fn on_f54(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f54, rp_x) }]
+          [$($rp_fl)* f_f54: F_f54,]
+          [$($rp_ct)* f_f54: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f55 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f55,]
+          [$($rp_w)* F_f55: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f55: bool = true; #[inline(always)] fn on_f55(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f55, rp_x) }]
+          [$($rp_fl)* f_f55: F_f55,]
+          [$($rp_ct)* f_f55: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f56 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f56,]
+          [$($rp_w)* F_f56: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f56: bool = true; #[inline(always)] fn on_f56(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f56, rp_x) }]
+          [$($rp_fl)* f_f56: F_f56,]
+          [$($rp_ct)* f_f56: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f57 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f57,]
+          [$($rp_w)* F_f57: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f57: bool = true; #[inline(always)] fn on_f57(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f57, rp_x) }]
+          [$($rp_fl)* f_f57: F_f57,]
+          [$($rp_ct)* f_f57: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f58 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f58,]
+          [$($rp_w)* F_f58: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f58: bool = true; #[inline(always)] fn on_f58(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f58, rp_x) }]
+          [$($rp_fl)* f_f58: F_f58,]
+          [$($rp_ct)* f_f58: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f59 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f59,]
+          [$($rp_w)* F_f59: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f59: bool = true; #[inline(always)] fn on_f59(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f59, rp_x) }]
+          [$($rp_fl)* f_f59: F_f59,]
+          [$($rp_ct)* f_f59: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f60 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f60,]
+          [$($rp_w)* F_f60: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f60: bool = true; #[inline(always)] fn on_f60(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f60, rp_x) }]
+          [$($rp_fl)* f_f60: F_f60,]
+          [$($rp_ct)* f_f60: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f61 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f61,]
+          [$($rp_w)* F_f61: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f61: bool = true; #[inline(always)] fn on_f61(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f61, rp_x) }]
+          [$($rp_fl)* f_f61: F_f61,]
+          [$($rp_ct)* f_f61: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f62 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f62,]
+          [$($rp_w)* F_f62: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f62: bool = true; #[inline(always)] fn on_f62(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f62, rp_x) }]
+          [$($rp_fl)* f_f62: F_f62,]
+          [$($rp_ct)* f_f62: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f63 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f63,]
+          [$($rp_w)* F_f63: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f63: bool = true; #[inline(always)] fn on_f63(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f63, rp_x) }]
+          [$($rp_fl)* f_f63: F_f63,]
+          [$($rp_ct)* f_f63: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f64 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f64,]
+          [$($rp_w)* F_f64: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f64: bool = true; #[inline(always)] fn on_f64(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f64, rp_x) }]
+          [$($rp_fl)* f_f64: F_f64,]
+          [$($rp_ct)* f_f64: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f65 => $rp_c:expr , $($rp_rest:tt)*) => {
+        many_required_stream!(@m
+          [$($rp_g)* F_f65,]
+          [$($rp_w)* F_f65: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f65: bool = true; #[inline(always)] fn on_f65(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_f65, rp_x) }]
+          [$($rp_fl)* f_f65: F_f65,]
+          [$($rp_ct)* f_f65: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
+        struct RpVis<$($rp_g)*> { $($rp_fl)* }
+        impl<'rp_a, $($rp_g)*> ManyRequiredVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
+        RpVis { $($rp_ct)* }
+      }};
+    }
+    pub(crate) use many_required_stream;
   }
 }

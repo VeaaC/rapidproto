@@ -398,102 +398,29 @@ pub mod arena {
 pub mod stream {
 
   pub mod xp {
-    pub struct Expanded<'a, H0 = ::rapidproto::stream::Skip, H1 = ::rapidproto::stream::Skip, H2 = ::rapidproto::stream::Skip, H3 = ::rapidproto::stream::Skip, H4 = ::rapidproto::stream::Skip> {
-      input: &'a [u8],
-      h_uzz: H0,
-      h_ub: H1,
-      h_uk: H2,
-      h_ufx: H3,
-      h_usf: H4,
+    pub trait ExpandedVisitor<'a> {
+      const WANT_uzz: bool = false;
+      #[inline(always)]
+      fn on_uzz(&mut self, _rp_v: i64) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_ub: bool = false;
+      #[inline(always)]
+      fn on_ub(&mut self, _rp_v: bool) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_uk: bool = false;
+      #[inline(always)]
+      fn on_uk(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_ufx: bool = false;
+      #[inline(always)]
+      fn on_ufx(&mut self, _rp_v: u64) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_usf: bool = false;
+      #[inline(always)]
+      fn on_usf(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
     }
 
-    impl<'a> Expanded<'a> {
-      pub fn stream(input: &'a [u8]) -> Expanded<'a> {
-        Expanded {
-          input,
-          h_uzz: ::rapidproto::stream::Skip,
-          h_ub: ::rapidproto::stream::Skip,
-          h_uk: ::rapidproto::stream::Skip,
-          h_ufx: ::rapidproto::stream::Skip,
-          h_usf: ::rapidproto::stream::Skip,
-        }
-      }
-    }
+    pub struct Expanded;
 
-    impl<'a, H1, H2, H3, H4> Expanded<'a, ::rapidproto::stream::Skip, H1, H2, H3, H4> {
-      pub fn on_uzz<F, R>(self, rp_f: F) -> Expanded<'a, ::rapidproto::stream::On<F>, H1, H2, H3, H4>
-      where F: FnMut(i64) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        Expanded {
-          input: self.input,
-          h_uzz: ::rapidproto::stream::On(rp_f),
-          h_ub: self.h_ub,
-          h_uk: self.h_uk,
-          h_ufx: self.h_ufx,
-          h_usf: self.h_usf,
-        }
-      }
-    }
-
-    impl<'a, H0, H2, H3, H4> Expanded<'a, H0, ::rapidproto::stream::Skip, H2, H3, H4> {
-      pub fn on_ub<F, R>(self, rp_f: F) -> Expanded<'a, H0, ::rapidproto::stream::On<F>, H2, H3, H4>
-      where F: FnMut(bool) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        Expanded {
-          input: self.input,
-          h_uzz: self.h_uzz,
-          h_ub: ::rapidproto::stream::On(rp_f),
-          h_uk: self.h_uk,
-          h_ufx: self.h_ufx,
-          h_usf: self.h_usf,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H3, H4> Expanded<'a, H0, H1, ::rapidproto::stream::Skip, H3, H4> {
-      pub fn on_uk<F, R>(self, rp_f: F) -> Expanded<'a, H0, H1, ::rapidproto::stream::On<F>, H3, H4>
-      where F: FnMut(super::super::common::xp::expanded::Kind) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        Expanded {
-          input: self.input,
-          h_uzz: self.h_uzz,
-          h_ub: self.h_ub,
-          h_uk: ::rapidproto::stream::On(rp_f),
-          h_ufx: self.h_ufx,
-          h_usf: self.h_usf,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H4> Expanded<'a, H0, H1, H2, ::rapidproto::stream::Skip, H4> {
-      pub fn on_ufx<F, R>(self, rp_f: F) -> Expanded<'a, H0, H1, H2, ::rapidproto::stream::On<F>, H4>
-      where F: FnMut(u64) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        Expanded {
-          input: self.input,
-          h_uzz: self.h_uzz,
-          h_ub: self.h_ub,
-          h_uk: self.h_uk,
-          h_ufx: ::rapidproto::stream::On(rp_f),
-          h_usf: self.h_usf,
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3> Expanded<'a, H0, H1, H2, H3, ::rapidproto::stream::Skip> {
-      pub fn on_usf<F, R>(self, rp_f: F) -> Expanded<'a, H0, H1, H2, H3, ::rapidproto::stream::On<F>>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        Expanded {
-          input: self.input,
-          h_uzz: self.h_uzz,
-          h_ub: self.h_ub,
-          h_uk: self.h_uk,
-          h_ufx: self.h_ufx,
-          h_usf: ::rapidproto::stream::On(rp_f),
-        }
-      }
-    }
-
-    impl<'a, H0, H1, H2, H3, H4> Expanded<'a, H0, H1, H2, H3, H4>
-    where H0: ::rapidproto::stream::FieldHandler<i64>, H1: ::rapidproto::stream::FieldHandler<bool>, H2: ::rapidproto::stream::FieldHandler<super::super::common::xp::expanded::Kind>, H3: ::rapidproto::stream::FieldHandler<u64>, H4: ::rapidproto::stream::FieldHandler<i32> {
-      pub fn decode(mut self) -> Result<(), ::rapidproto::DecodeError> {
-        let rp_body: &'a [u8] = self.input;
+    impl Expanded {
+      pub fn decode<'a, V: ExpandedVisitor<'a>>(rp_input: &'a [u8], mut rp_vis: V) -> Result<(), ::rapidproto::DecodeError> {
+        let rp_body: &'a [u8] = rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
           let rp_b = match rp_rest.first() {
@@ -513,13 +440,13 @@ pub mod stream {
           };
           match rp_tagkey {
             8u32 => {
-              if H0::WANTED {
+              if V::WANT_uzz {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_uzz.handle(::rapidproto::wire::zigzag64(rp_v)) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_uzz(::rapidproto::wire::zigzag64(rp_v)) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -530,7 +457,7 @@ pub mod stream {
               }
             }
             10u32 => {
-              if H0::WANTED {
+              if V::WANT_uzz {
                 let mut rp_p: &[u8] = &[];
                 rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
                   Ok(r) => r,
@@ -542,7 +469,7 @@ pub mod stream {
                     Ok(r) => r,
                     Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len() - rp_p.len())),
                   };
-                  if self.h_uzz.handle(::rapidproto::wire::zigzag64(rp_v)) == ::rapidproto::stream::Flow::Stop {
+                  if rp_vis.on_uzz(::rapidproto::wire::zigzag64(rp_v)) == ::rapidproto::stream::Flow::Stop {
                     return Ok(());
                   }
                 }
@@ -554,13 +481,13 @@ pub mod stream {
               }
             }
             16u32 => {
-              if H1::WANTED {
+              if V::WANT_ub {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_ub.handle(rp_v != 0) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_ub(rp_v != 0) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -571,7 +498,7 @@ pub mod stream {
               }
             }
             18u32 => {
-              if H1::WANTED {
+              if V::WANT_ub {
                 let mut rp_p: &[u8] = &[];
                 rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
                   Ok(r) => r,
@@ -583,7 +510,7 @@ pub mod stream {
                     Ok(r) => r,
                     Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len() - rp_p.len())),
                   };
-                  if self.h_ub.handle(rp_v != 0) == ::rapidproto::stream::Flow::Stop {
+                  if rp_vis.on_ub(rp_v != 0) == ::rapidproto::stream::Flow::Stop {
                     return Ok(());
                   }
                 }
@@ -595,13 +522,13 @@ pub mod stream {
               }
             }
             24u32 => {
-              if H2::WANTED {
+              if V::WANT_uk {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_uk.handle(super::super::common::xp::expanded::Kind(rp_v as i32)) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_uk(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -612,7 +539,7 @@ pub mod stream {
               }
             }
             26u32 => {
-              if H2::WANTED {
+              if V::WANT_uk {
                 let mut rp_p: &[u8] = &[];
                 rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
                   Ok(r) => r,
@@ -624,7 +551,7 @@ pub mod stream {
                     Ok(r) => r,
                     Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len() - rp_p.len())),
                   };
-                  if self.h_uk.handle(super::super::common::xp::expanded::Kind(rp_v as i32)) == ::rapidproto::stream::Flow::Stop {
+                  if rp_vis.on_uk(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                     return Ok(());
                   }
                 }
@@ -636,13 +563,13 @@ pub mod stream {
               }
             }
             33u32 => {
-              if H3::WANTED {
+              if V::WANT_ufx {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_fixed64(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_ufx.handle(rp_v) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_ufx(rp_v) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -653,7 +580,7 @@ pub mod stream {
               }
             }
             34u32 => {
-              if H3::WANTED {
+              if V::WANT_ufx {
                 let mut rp_p: &[u8] = &[];
                 rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
                   Ok(r) => r,
@@ -665,7 +592,7 @@ pub mod stream {
                     Ok(r) => r,
                     Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len() - rp_p.len())),
                   };
-                  if self.h_ufx.handle(rp_v) == ::rapidproto::stream::Flow::Stop {
+                  if rp_vis.on_ufx(rp_v) == ::rapidproto::stream::Flow::Stop {
                     return Ok(());
                   }
                 }
@@ -677,13 +604,13 @@ pub mod stream {
               }
             }
             45u32 => {
-              if H4::WANTED {
+              if V::WANT_usf {
                 let mut rp_v = 0u32;
                 rp_rest = match ::rapidproto::wire::read_fixed32(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_usf.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_usf(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -694,7 +621,7 @@ pub mod stream {
               }
             }
             42u32 => {
-              if H4::WANTED {
+              if V::WANT_usf {
                 let mut rp_p: &[u8] = &[];
                 rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
                   Ok(r) => r,
@@ -706,7 +633,7 @@ pub mod stream {
                     Ok(r) => r,
                     Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len() - rp_p.len())),
                   };
-                  if self.h_usf.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                  if rp_vis.on_usf(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                     return Ok(());
                   }
                 }
@@ -728,5 +655,62 @@ pub mod stream {
         Ok(())
       }
     }
+
+    macro_rules! expanded_stream {
+      ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
+        expanded_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] uzz => $rp_c:expr , $($rp_rest:tt)*) => {
+        expanded_stream!(@m
+          [$($rp_g)* F_uzz,]
+          [$($rp_w)* F_uzz: ::rapidproto::stream::Handler<i64>,]
+          [$($rp_i)* const WANT_uzz: bool = true; #[inline(always)] fn on_uzz(&mut self, rp_x: i64) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_uzz, rp_x) }]
+          [$($rp_fl)* f_uzz: F_uzz,]
+          [$($rp_ct)* f_uzz: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ub => $rp_c:expr , $($rp_rest:tt)*) => {
+        expanded_stream!(@m
+          [$($rp_g)* F_ub,]
+          [$($rp_w)* F_ub: ::rapidproto::stream::Handler<bool>,]
+          [$($rp_i)* const WANT_ub: bool = true; #[inline(always)] fn on_ub(&mut self, rp_x: bool) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_ub, rp_x) }]
+          [$($rp_fl)* f_ub: F_ub,]
+          [$($rp_ct)* f_ub: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] uk => $rp_c:expr , $($rp_rest:tt)*) => {
+        expanded_stream!(@m
+          [$($rp_g)* F_uk,]
+          [$($rp_w)* F_uk: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_uk: bool = true; #[inline(always)] fn on_uk(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_uk, rp_x) }]
+          [$($rp_fl)* f_uk: F_uk,]
+          [$($rp_ct)* f_uk: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ufx => $rp_c:expr , $($rp_rest:tt)*) => {
+        expanded_stream!(@m
+          [$($rp_g)* F_ufx,]
+          [$($rp_w)* F_ufx: ::rapidproto::stream::Handler<u64>,]
+          [$($rp_i)* const WANT_ufx: bool = true; #[inline(always)] fn on_ufx(&mut self, rp_x: u64) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_ufx, rp_x) }]
+          [$($rp_fl)* f_ufx: F_ufx,]
+          [$($rp_ct)* f_ufx: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] usf => $rp_c:expr , $($rp_rest:tt)*) => {
+        expanded_stream!(@m
+          [$($rp_g)* F_usf,]
+          [$($rp_w)* F_usf: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_usf: bool = true; #[inline(always)] fn on_usf(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_usf, rp_x) }]
+          [$($rp_fl)* f_usf: F_usf,]
+          [$($rp_ct)* f_usf: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
+        struct RpVis<$($rp_g)*> { $($rp_fl)* }
+        impl<'rp_a, $($rp_g)*> ExpandedVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
+        RpVis { $($rp_ct)* }
+      }};
+    }
+    pub(crate) use expanded_stream;
   }
 }

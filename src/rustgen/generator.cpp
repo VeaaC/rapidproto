@@ -2603,46 +2603,50 @@ void emit_arena_node(Printer& printer, const NameTable& table, const PkgTrie& no
 // ===== streaming decoder =====
 //
 // The `stream` tree is the counterpart to `arena`: a consumer that only wants a few fields visits them
-// as they appear on the wire and never materializes the message. Per message it emits a `stream`
-// BUILDER (named after the message, so types sit at `stream::<pkg>::Msg` -- the same layout C++
-// streamgen uses) carrying one `FieldHandler` type parameter per selectable field, each defaulting to
-// `Skip`. `.on_<field>(closure)` swaps a slot to `On<closure>`; the decode loop gates each field on
-// `<Handler>::WANTED` (an associated const), so a release build folds the branch and keeps only the
-// wire-skip for every unselected field. The loop, peek hub, wire reads and skip are all shared with the
-// arena emitter above -- streaming only changes storage+construct into gate+dispatch.
+// as they appear on the wire and never materializes the message. Per message it emits a `MsgVisitor`
+// trait (one `const WANT_<field>: bool = false` + a defaulted `on_<field>` method per field) and a
+// `Msg::decode` driver generic over any visitor. The driver gates each field on `V::WANT_<field>` (an
+// associated const), so a release build folds the branch and keeps only the wire-skip for every
+// unselected field. A consumer implements the trait directly, or uses the generated per-message
+// `<msg>_stream! { field => closure, .. }` macro, which builds an anonymous visitor whose closures
+// capture local state. The loop, peek hub, wire reads and skip are shared with the arena emitter above;
+// streaming replaces storage+construct with a gate + a direct visitor call.
 //
-// Field modes (drop/raw/unknown-fields) and map fields are not yet wired into streaming; a map field is
-// simply not selectable (it falls to the loop's skip), and modes are ignored. Groups ride the message
-// path for free (`message_field_wire` / `emit_msg_payload_read` handle the start/end-group framing).
+// The generated code is O(N): the trait, the decode driver and the macro definition are each one unit
+// per field -- no quadratic setter reconstruction (there is no builder). Field modes (drop/raw/unknown)
+// and map fields are not yet wired into streaming (a map field is not selectable -- it falls to the
+// loop's skip); groups ride the message path (`message_field_wire` / `emit_msg_payload_read`).
 
-// One selectable field on a message's stream builder: its deduped accessor (names the `h_<accessor>`
-// slot and the `on_<accessor>` method), its handler type parameter, the value type the handler receives
-// (`field_value_type` -- a message field yields the child's all-`Skip` sub-builder `Child<'a>`), and the
-// field itself (a regular field or a oneof member; both dispatch identically).
+// One selectable field on a message's stream visitor: the RAW proto field name (names the `WANT_<name>`
+// const, the `on_<name>` method, the macro's `f_<name>` slot and `F_<name>` type param -- the fixed
+// prefixes keep every one a valid, non-keyword identifier and mutually distinct, and proto field names
+// are already unique within a message, so no dedup is needed) plus the field itself. Regular fields and
+// oneof members are both slots and dispatch identically; map fields are omitted (not yet streamable).
 struct StreamSlot {
-    std::string accessor;
-    std::string param;
-    std::string value_type;
+    std::string name;
     const FieldNode* field;
 };
 
-// The builder slots for a message: one per regular field, then one per oneof MEMBER (each member is
-// individually selectable, unlike arena's single oneof accessor). The accessor is the RAW proto field
-// name -- it names the `h_<accessor>` struct slot and the `on_<accessor>` method, and the `h_`/`on_`
-// prefix makes both valid identifiers (never a bare keyword, so no raw-escape) and keeps them distinct
-// from the builder's own `stream`/`decode` methods; proto field names are already unique within a
-// message, so no dedup is needed. Map fields are intentionally omitted (not yet streamable). Handler
-// type parameters are `H0..H{n-1}` in slot order.
-std::vector<StreamSlot> collect_stream_slots(const NameTable& table,
-                                             const std::vector<std::string>& current_mod,
-                                             const MessageNode& msg) {
+// A proto field name as a PLAIN, non-keyword Rust identifier safe both to prefix (`on_`/`WANT_`/`f_`/
+// `F_`) and to capture as a macro `:ident`: a keyword (or a raw-ineligible `self`/`crate`/..) gets a
+// trailing `_`, NEVER an `r#` raw-escape (which cannot be prefixed, and which a macro key/`:ident`
+// cannot always carry). The consumer types this escaped name as the macro key, matching how the arena
+// accessor escapes the same field.
+std::string stream_ident(const std::string& name) {
+    if (name == "_") {
+        return "_x";
+    }
+    if (is_raw_ineligible(name) || is_rust_keyword(name)) {
+        return name + "_";
+    }
+    return name;
+}
+
+std::vector<StreamSlot> collect_stream_slots(const MessageNode& msg) {
+    std::unordered_set<std::string> taken;
     std::vector<StreamSlot> slots;
     const auto add = [&](const FieldNode& field) {
-        StreamSlot slot;
-        slot.accessor = field.name;
-        slot.field = &field;
-        slot.value_type = field_value_type(table, current_mod, field);
-        slots.push_back(std::move(slot));
+        slots.push_back({codegen::dedup_suffix(taken, stream_ident(field.name)), &field});
     };
     for (const FieldNode& field : msg.fields) {
         add(field);
@@ -2652,39 +2656,84 @@ std::vector<StreamSlot> collect_stream_slots(const NameTable& table,
             add(field);
         }
     }
-    for (std::size_t i = 0; i < slots.size(); ++i) {
-        slots[i].param = "H" + std::to_string(i);
-    }
     return slots;
 }
 
-// `if self.h_<accessor>.handle(<value>) == Flow::Stop { return Ok(()); }` -- deliver one occurrence of a
-// field to its handler and honor an early stop.
-void emit_stream_dispatch(Printer& printer, const std::string& accessor, const std::string& value) {
-    printer.print("if self.h_$a$.handle($v$) == ::rapidproto::stream::Flow::Stop {\n",
-                  {{"a", accessor}, {"v", value}});
+// The Rust type a handler receives for one field, with its borrow written as lifetime `lt`: a message
+// (or group) field delivers its undecoded payload `&<lt> [u8]` (the consumer recurses with the child's
+// own `decode`); string -> `ProtoStr<lt>`, bytes -> `&<lt> [u8]`, enum -> the common newtype, scalar ->
+// a primitive. `lt` is `'a` in the trait/driver and `'rp_a` inside the macro's generated impl.
+std::string stream_value_type(const NameTable& table, const std::vector<std::string>& current_mod,
+                              const FieldNode& field, const std::string& lt) {
+    if (field.is_message_type) {
+        return "&" + lt + " [u8]";
+    }
+    if (field.is_enum_type) {
+        // A streaming handler receives an enum as its raw `i32` (not the `common`-tree newtype): the
+        // newtype's path is relative to the generated tree, but the `*_stream!` macro's generated impl
+        // expands at the CONSUMER'S call site where that relative path is invalid -- so streaming stays
+        // at the wire-level `i32` (the consumer wraps it if desired), keeping every macro value type a
+        // builtin or an absolute `::rapidproto::` path. The decode driver delivers `rp_v as i32` too.
+        (void)table;
+        (void)current_mod;
+        return "i32";
+    }
+    const std::string& t = field.type_name;
+    if (t == "string") {
+        return "::rapidproto::ProtoStr<" + lt + ">";
+    }
+    if (t == "bytes") {
+        return "&" + lt + " [u8]";
+    }
+    return rust_scalar_type(t);  // numeric: no lifetime
+}
+
+// `pub trait <Msg>Visitor<'a> { const WANT_<f>: bool = false; fn on_<f>(&mut self, _: V) -> Flow { .. } ..}`
+// -- the handler surface a consumer overrides. Every const defaults false and every method to a no-op,
+// so an un-overridden field is genuinely unselected (its arm folds to a pure skip). The `<'a>` is always
+// present (string/message handlers borrow it); a trait may carry an unused lifetime, unlike a struct.
+void emit_stream_visitor_trait(Printer& printer, const NameTable& table,
+                               const std::vector<std::string>& current_mod,
+                               const std::vector<StreamSlot>& slots) {
+    printer.print("pub trait $M$Visitor<'a> {\n");
+    printer.indent();
+    for (const StreamSlot& slot : slots) {
+        printer.print("const WANT_$n$: bool = false;\n", {{"n", slot.name}});
+        printer.print("#[inline(always)]\n");
+        printer.print(
+            "fn on_$n$(&mut self, _rp_v: $t$) -> ::rapidproto::stream::Flow "
+            "{ ::rapidproto::stream::Flow::Continue }\n",
+            {{"n", slot.name}, {"t", stream_value_type(table, current_mod, *slot.field, "'a")}});
+    }
+    printer.outdent();
+    printer.print("}\n");
+}
+
+// The `match rp_tagkey` arm(s) for one slot in the decode driver: gate on `V::WANT_<name>`, read +
+// deliver to `rp_vis.on_<name>` when selected (honoring an early `Flow::Stop`), else skip on the wire. A
+// repeated numeric field emits an unpacked arm + a packed arm (firing once per element); a message slot
+// delivers its payload bytes; every other slot fires once per occurrence.
+void emit_stream_dispatch(Printer& printer, const std::string& name, const std::string& value) {
+    printer.print("if rp_vis.on_$n$($v$) == ::rapidproto::stream::Flow::Stop {\n",
+                  {{"n", name}, {"v", value}});
     printer.indent();
     printer.print("return Ok(());\n");
     printer.outdent();
     printer.print("}\n");
 }
 
-// The `match rp_tagkey` arm(s) for one slot: gate on `<Param>::WANTED`, decode+dispatch when selected,
-// else skip on the wire. A repeated numeric field emits both an unpacked arm and a packed arm (firing
-// the handler once per element); every other field is a single arm firing once per occurrence.
 void emit_stream_arm(Printer& printer, const NameTable& table,
                      const std::vector<std::string>& current_mod, const StreamSlot& slot) {
     const FieldNode& field = *slot.field;
-    const std::string gate = slot.param + "::WANTED";
+    const std::string gate = "V::WANT_" + slot.name;
 
     if (field.is_message_type) {
-        const std::string path = arena_message_path(table, current_mod, field.resolved_type_fqn);
         printer.print("$k$ => {\n", {{"k", raw_tag_key(field.number, message_field_wire(field))}});
         printer.indent();
         printer.print("if $g$ {\n", {{"g", gate}});
         printer.indent();
         emit_msg_payload_read(printer, field, loop_read());
-        emit_stream_dispatch(printer, slot.accessor, path + "::stream(rp_p)");
+        emit_stream_dispatch(printer, slot.name, "rp_p");
         printer.outdent();
         printer.print("} else {\n");
         printer.indent();
@@ -2697,7 +2746,10 @@ void emit_stream_arm(Printer& printer, const NameTable& table,
     }
 
     const std::string wire = scalar_wire_variant(field);
-    const std::string conv = scalar_convert_expr(table, current_mod, field);
+    // An enum is delivered as its raw `i32` (see `stream_value_type`); every other scalar uses the
+    // shared convert.
+    const std::string conv =
+        field.is_enum_type ? "rp_v as i32" : scalar_convert_expr(table, current_mod, field);
 
     if (field.is_repeated && wire != "Len") {
         // Unpacked: one value per occurrence.
@@ -2706,7 +2758,7 @@ void emit_stream_arm(Printer& printer, const NameTable& table,
         printer.print("if $g$ {\n", {{"g", gate}});
         printer.indent();
         emit_scalar_value_read(printer, field, loop_read());
-        emit_stream_dispatch(printer, slot.accessor, conv);
+        emit_stream_dispatch(printer, slot.name, conv);
         printer.outdent();
         printer.print("} else {\n");
         printer.indent();
@@ -2724,7 +2776,7 @@ void emit_stream_arm(Printer& printer, const NameTable& table,
         printer.print("while !rp_p.is_empty() {\n");
         printer.indent();
         emit_scalar_value_read(printer, field, packed_read());
-        emit_stream_dispatch(printer, slot.accessor, conv);
+        emit_stream_dispatch(printer, slot.name, conv);
         printer.outdent();
         printer.print("}\n");
         printer.outdent();
@@ -2748,7 +2800,7 @@ void emit_stream_arm(Printer& printer, const NameTable& table,
     } else {
         emit_scalar_value_read(printer, field, loop_read());
     }
-    emit_stream_dispatch(printer, slot.accessor, conv);
+    emit_stream_dispatch(printer, slot.name, conv);
     printer.outdent();
     printer.print("} else {\n");
     printer.indent();
@@ -2759,114 +2811,24 @@ void emit_stream_arm(Printer& printer, const NameTable& table,
     printer.print("}\n");
 }
 
-// Emit one message's stream builder: the struct (one `Skip`-defaulted handler param per slot), the
-// `stream(input)` constructor, the `on_<field>` builder methods, and the `decode` loop.
-void emit_stream_message(Printer& printer, const NameTable& table,
-                         const std::vector<std::string>& current_mod, const MessageNode& msg) {
-    const std::vector<StreamSlot> slots = collect_stream_slots(table, current_mod, msg);
-    const std::size_t n = slots.size();
-    printer.set("M", table.messages.at(msg.fqn).type_name);
-
-    // Builder struct.
-    std::string header = "pub struct $M$<'a";
-    for (const StreamSlot& slot : slots) {
-        header += ", " + slot.param + " = ::rapidproto::stream::Skip";
-    }
-    header += "> {\n";
-    printer.print(header);
+// `pub struct <Msg>;` marker + `impl <Msg> { pub fn decode<'a, V: <Msg>Visitor<'a>>(input, visitor) }`:
+// the shared peek-hub field loop, each arm gated on its field's `WANT_` const.
+void emit_stream_decode(Printer& printer, const NameTable& table,
+                        const std::vector<std::string>& current_mod,
+                        const std::vector<StreamSlot>& slots) {
+    printer.print("pub struct $M$;\n\n");
+    printer.print("impl $M$ {\n");
     printer.indent();
-    printer.print("input: &'a [u8],\n");
-    for (const StreamSlot& slot : slots) {
-        printer.print("h_$a$: $p$,\n", {{"a", slot.accessor}, {"p", slot.param}});
-    }
-    printer.outdent();
-    printer.print("}\n\n");
-
-    // `stream(input)` constructor (all slots start at `Skip`).
-    printer.print("impl<'a> $M$<'a> {\n");
+    printer.print(
+        "pub fn decode<'a, V: $M$Visitor<'a>>(rp_input: &'a [u8], mut rp_vis: V) "
+        "-> Result<(), ::rapidproto::DecodeError> {\n");
     printer.indent();
-    printer.print("pub fn stream(input: &'a [u8]) -> $M$<'a> {\n");
-    printer.indent();
-    printer.print("$M$ {\n");
-    printer.indent();
-    printer.print("input,\n");
-    for (const StreamSlot& slot : slots) {
-        printer.print("h_$a$: ::rapidproto::stream::Skip,\n", {{"a", slot.accessor}});
-    }
-    printer.outdent();
-    printer.print("}\n");
-    printer.outdent();
-    printer.print("}\n");
-    printer.outdent();
-    printer.print("}\n");
-
-    // `on_<field>` builder methods: each callable only while its slot is still `Skip` (so a field
-    // cannot be selected twice -- a second call is a compile error), swapping that one slot to `On<F>`.
-    const auto self_args = [&](std::size_t k, const std::string& repl) {
-        std::string out = "'a";
-        for (std::size_t i = 0; i < n; ++i) {
-            out += ", ";
-            out += (i == k) ? repl : slots[i].param;
-        }
-        return out;
-    };
-    for (std::size_t k = 0; k < n; ++k) {
-        printer.print("\n");
-        std::string gen = "'a";
-        for (std::size_t i = 0; i < n; ++i) {
-            if (i != k) {
-                gen += ", " + slots[i].param;
-            }
-        }
-        printer.print("impl<$g$> $M$<$s$> {\n",
-                      {{"g", gen}, {"s", self_args(k, "::rapidproto::stream::Skip")}});
-        printer.indent();
-        printer.print("pub fn on_$a$<F, R>(self, rp_f: F) -> $M$<$r$>\n",
-                      {{"a", slots[k].accessor}, {"r", self_args(k, "::rapidproto::stream::On<F>")}});
-        printer.print(
-            "where F: FnMut($v$) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {\n",
-            {{"v", slots[k].value_type}});
-        printer.indent();
-        printer.print("$M$ {\n");
-        printer.indent();
-        printer.print("input: self.input,\n");
-        for (std::size_t i = 0; i < n; ++i) {
-            if (i == k) {
-                printer.print("h_$a$: ::rapidproto::stream::On(rp_f),\n", {{"a", slots[i].accessor}});
-            } else {
-                printer.print("h_$a$: self.h_$a$,\n", {{"a", slots[i].accessor}});
-            }
-        }
-        printer.outdent();
-        printer.print("}\n");
-        printer.outdent();
-        printer.print("}\n");
-        printer.outdent();
-        printer.print("}\n");
-    }
-
-    // `decode()`: the shared peek-hub field loop, each arm gated on its handler's `WANTED`.
-    printer.print("\n");
-    if (n == 0) {
-        printer.print("impl<'a> $M$<'a> {\n");
-    } else {
-        std::string gen = "'a";
-        std::string where;
-        for (std::size_t i = 0; i < n; ++i) {
-            gen += ", " + slots[i].param;
-            where += (i == 0 ? "" : ", ");
-            where += slots[i].param + ": ::rapidproto::stream::FieldHandler<" + slots[i].value_type +
-                     ">";
-        }
-        printer.print("impl<$g$> $M$<$g$>\n", {{"g", gen}});
-        printer.print("where $w$ {\n", {{"w", where}});
-    }
-    printer.indent();
-    printer.print("pub fn decode($mv$self) -> Result<(), ::rapidproto::DecodeError> {\n",
-                  {{"mv", n == 0 ? "" : "mut "}});
-    printer.indent();
-    printer.print("let rp_body: &'a [u8] = self.input;\n");
+    printer.print("let rp_body: &'a [u8] = rp_input;\n");
     printer.print("let mut rp_rest: &'a [u8] = rp_body;\n");
+    // `rp_vis` is read only inside selected arms; a visitor that selects nothing never touches it.
+    if (slots.empty()) {
+        printer.print("let _ = &mut rp_vis;\n");
+    }
     printer.print("loop {\n");
     printer.indent();
     emit_peek_hub(printer, loop_read(), "rp_tag");
@@ -2891,18 +2853,104 @@ void emit_stream_message(Printer& printer, const NameTable& table,
     printer.print("}\n");  // impl
 }
 
-// Recursively emit the stream builders for a list of sibling messages, each followed -- when it has
+// The per-message `<name>_stream!` macro: a token muncher with one arm per field (the field's literal
+// names/type baked in by the generator, so no ident concatenation is needed). Given `field => closure`
+// pairs in any order it builds an anonymous visitor -- a struct of the selected closures plus an impl of
+// `<Msg>Visitor` overriding exactly those fields (`WANT_ = true`, method calls the closure via
+// `::rapidproto::stream::Handler`). Path-addressable via `pub(crate) use` (no `#[macro_export]`, so two
+// messages of the same name in different packages do not clash). The impl names the trait by its bare
+// name, so a caller brings the trait into scope (as it already does the `Msg` decode marker); runtime
+// types are absolute (`::rapidproto::stream::..`), valid from any include point. Expands to O(k) for k
+// selected fields; the definition is O(N). `macro_name` is deduped against sibling macros.
+void emit_stream_macro(Printer& printer, const NameTable& table,
+                       const std::vector<std::string>& current_mod,
+                       const std::vector<StreamSlot>& slots, const std::string& macro_name) {
+    printer.set("mac", macro_name);
+    printer.print("macro_rules! $mac$ {\n");
+    printer.indent();
+    // Entry: start five empty accumulators (generics, where-bounds, impl items, struct fields, ctor
+    // fields) and munch the provided list.
+    printer.print("( $$( $$rp_f:ident => $$rp_c:expr ),* $$(,)? ) => {\n");
+    printer.indent();
+    printer.print("$mac$!(@m [] [] [] [] [] $$( $$rp_f => $$rp_c , )*)\n");
+    printer.outdent();
+    printer.print("};\n");
+    // One arm per field: recognize its literal name, append its (generic, bound, items, field, ctor).
+    for (const StreamSlot& slot : slots) {
+        printer.print(
+            "(@m [$$($$rp_g:tt)*] [$$($$rp_w:tt)*] [$$($$rp_i:tt)*] [$$($$rp_fl:tt)*] "
+            "[$$($$rp_ct:tt)*] $n$ => $$rp_c:expr , $$($$rp_rest:tt)*) => {\n",
+            {{"n", slot.name}});
+        printer.indent();
+        printer.print("$mac$!(@m\n");
+        printer.indent();
+        printer.print("[$$($$rp_g)* F_$n$,]\n", {{"n", slot.name}});
+        printer.print(
+            "[$$($$rp_w)* F_$n$: ::rapidproto::stream::Handler<$t$>,]\n",
+            {{"n", slot.name}, {"t", stream_value_type(table, current_mod, *slot.field, "'rp_a")}});
+        printer.print(
+            "[$$($$rp_i)* const WANT_$n$: bool = true; #[inline(always)] fn on_$n$(&mut self, "
+            "rp_x: $t$) -> ::rapidproto::stream::Flow { "
+            "::rapidproto::stream::Handler::call(&mut self.f_$n$, rp_x) }]\n",
+            {{"n", slot.name}, {"t", stream_value_type(table, current_mod, *slot.field, "'rp_a")}});
+        printer.print("[$$($$rp_fl)* f_$n$: F_$n$,]\n", {{"n", slot.name}});
+        printer.print("[$$($$rp_ct)* f_$n$: $$rp_c,]\n", {{"n", slot.name}});
+        printer.outdent();
+        printer.print("$$($$rp_rest)*)\n");
+        printer.outdent();
+        printer.print("};\n");
+    }
+    // Terminal: emit the anonymous visitor from the accumulators.
+    printer.print(
+        "(@m [$$($$rp_g:tt)*] [$$($$rp_w:tt)*] [$$($$rp_i:tt)*] [$$($$rp_fl:tt)*] "
+        "[$$($$rp_ct:tt)*] ) => {{\n");
+    printer.indent();
+    printer.print("struct RpVis<$$($$rp_g)*> { $$($$rp_fl)* }\n");
+    printer.print(
+        "impl<'rp_a, $$($$rp_g)*> $M$Visitor<'rp_a> for RpVis<$$($$rp_g)*> where $$($$rp_w)* "
+        "{ $$($$rp_i)* }\n");
+    printer.print("RpVis { $$($$rp_ct)* }\n");
+    printer.outdent();
+    printer.print("}};\n");
+    printer.outdent();
+    printer.print("}\n");
+    // `pub(crate) use` makes the macro reachable by path within the crate that includes the generated
+    // file (the normal consumer case -- generated code is `include!`d into the consumer's own crate).
+    // This is the no-`#[macro_export]` path-addressing idiom; `#[macro_export]` is avoided because it
+    // puts the macro in the flat crate-root namespace (two same-named messages would clash) -- a
+    // `macro_rules!` cannot be `pub use`-re-exported across a crate boundary (E0364) regardless.
+    printer.print("pub(crate) use $mac$;\n");
+}
+
+// Emit one message's streaming decoder: the visitor trait, the decode marker+driver, and the builder
+// macro. `macro_name` is pre-deduped against its siblings.
+void emit_stream_message(Printer& printer, const NameTable& table,
+                         const std::vector<std::string>& current_mod, const MessageNode& msg,
+                         const std::string& macro_name) {
+    const std::vector<StreamSlot> slots = collect_stream_slots(msg);
+    printer.set("M", table.messages.at(msg.fqn).type_name);
+    emit_stream_visitor_trait(printer, table, current_mod, slots);
+    printer.print("\n");
+    emit_stream_decode(printer, table, current_mod, slots);
+    printer.print("\n");
+    emit_stream_macro(printer, table, current_mod, slots, macro_name);
+}
+
+// Recursively emit the stream decoders for a list of sibling messages, each followed -- when it has
 // nested messages -- by a `pub mod <submodule>` (the same table-assigned name as the arena tree, so the
-// relative type paths match) holding the nested builders. No oneof-enum submodule: streaming carries no
-// oneof enum.
+// relative type paths match) holding the nested decoders. Builder-macro names (`<snake>_stream`) are
+// deduped among siblings in the module (macros share one namespace; proto names could snake-collide).
 void emit_stream_messages(Printer& printer, const NameTable& table,
                           const std::vector<const MessageNode*>& msgs,
                           std::vector<std::string>& current_mod) {
+    std::unordered_set<std::string> macro_names;
     for (std::size_t i = 0; i < msgs.size(); ++i) {
         if (i != 0) {
             printer.print("\n");
         }
-        emit_stream_message(printer, table, current_mod, *msgs[i]);
+        const std::string macro_name = codegen::dedup_suffix(
+            macro_names, to_snake_case(table.messages.at(msgs[i]->fqn).type_name) + "_stream");
+        emit_stream_message(printer, table, current_mod, *msgs[i], macro_name);
         if (!msgs[i]->nested_messages.empty()) {
             const std::string& sub = table.messages.at(msgs[i]->fqn).submodule;
             printer.print("\npub mod $m$ {\n", {{"m", sub}});
@@ -2916,7 +2964,7 @@ void emit_stream_messages(Printer& printer, const NameTable& table,
     }
 }
 
-// Emit the `stream` subtree for one package node: this package's message builders, then a
+// Emit the `stream` subtree for one package node: this package's message decoders, then a
 // `pub mod <component>` per sub-package (mirroring `emit_arena_node`).
 void emit_stream_node(Printer& printer, const NameTable& table, const PkgTrie& node,
                       std::vector<std::string>& current_mod) {

@@ -903,6 +903,11 @@ TEST_CASE("rustgen goldens match the corpus (compile smoke-test)", "[rustgen-gol
             lib += "pub mod " + rustgen::escape_rust_ident(stem) +
                    " {\n    include!(\"../goldens/" + stem + ".rs\");\n}\n\n";
         }
+        // An in-crate test module exercising the streaming decoders' `*_stream!` macros, which are
+        // `pub(crate) use`-exported (reachable only within the including crate, not cross-crate, so a
+        // `tests/` integration test cannot drive them). Hand-written (not generated); kept out of a
+        // no_std build and compiled only under test.
+        lib += "#[cfg(all(test, feature = \"std\"))]\nmod stream_smoke;\n\n";
         if (lib.size() >= 2 && lib[lib.size() - 1] == '\n' && lib[lib.size() - 2] == '\n') {
             lib.pop_back();  // rustfmt: one trailing newline, no blank line before EOF
         }

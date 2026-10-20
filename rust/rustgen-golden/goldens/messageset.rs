@@ -314,48 +314,20 @@ pub mod arena {
 pub mod stream {
 
   pub mod ms {
-    pub struct Outer<'a, H0 = ::rapidproto::stream::Skip, H1 = ::rapidproto::stream::Skip> {
-      input: &'a [u8],
-      h_ordinary: H0,
-      h_container: H1,
+    pub trait OuterVisitor<'a> {
+      const WANT_ordinary: bool = false;
+      #[inline(always)]
+      fn on_ordinary(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_container: bool = false;
+      #[inline(always)]
+      fn on_container(&mut self, _rp_v: &'a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
     }
 
-    impl<'a> Outer<'a> {
-      pub fn stream(input: &'a [u8]) -> Outer<'a> {
-        Outer {
-          input,
-          h_ordinary: ::rapidproto::stream::Skip,
-          h_container: ::rapidproto::stream::Skip,
-        }
-      }
-    }
+    pub struct Outer;
 
-    impl<'a, H1> Outer<'a, ::rapidproto::stream::Skip, H1> {
-      pub fn on_ordinary<F, R>(self, rp_f: F) -> Outer<'a, ::rapidproto::stream::On<F>, H1>
-      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        Outer {
-          input: self.input,
-          h_ordinary: ::rapidproto::stream::On(rp_f),
-          h_container: self.h_container,
-        }
-      }
-    }
-
-    impl<'a, H0> Outer<'a, H0, ::rapidproto::stream::Skip> {
-      pub fn on_container<F, R>(self, rp_f: F) -> Outer<'a, H0, ::rapidproto::stream::On<F>>
-      where F: FnMut(outer::Container<'a>) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        Outer {
-          input: self.input,
-          h_ordinary: self.h_ordinary,
-          h_container: ::rapidproto::stream::On(rp_f),
-        }
-      }
-    }
-
-    impl<'a, H0, H1> Outer<'a, H0, H1>
-    where H0: ::rapidproto::stream::FieldHandler<i32>, H1: ::rapidproto::stream::FieldHandler<outer::Container<'a>> {
-      pub fn decode(mut self) -> Result<(), ::rapidproto::DecodeError> {
-        let rp_body: &'a [u8] = self.input;
+    impl Outer {
+      pub fn decode<'a, V: OuterVisitor<'a>>(rp_input: &'a [u8], mut rp_vis: V) -> Result<(), ::rapidproto::DecodeError> {
+        let rp_body: &'a [u8] = rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
           let rp_b = match rp_rest.first() {
@@ -375,13 +347,13 @@ pub mod stream {
           };
           match rp_tagkey {
             8u32 => {
-              if H0::WANTED {
+              if V::WANT_ordinary {
                 let mut rp_v = 0u64;
                 rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_ordinary.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_ordinary(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -392,13 +364,13 @@ pub mod stream {
               }
             }
             18u32 => {
-              if H1::WANTED {
+              if V::WANT_container {
                 let mut rp_p: &[u8] = &[];
                 rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_container.handle(outer::Container::stream(rp_p)) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_container(rp_p) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -420,23 +392,47 @@ pub mod stream {
       }
     }
 
+    macro_rules! outer_stream {
+      ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
+        outer_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ordinary => $rp_c:expr , $($rp_rest:tt)*) => {
+        outer_stream!(@m
+          [$($rp_g)* F_ordinary,]
+          [$($rp_w)* F_ordinary: ::rapidproto::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_ordinary: bool = true; #[inline(always)] fn on_ordinary(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_ordinary, rp_x) }]
+          [$($rp_fl)* f_ordinary: F_ordinary,]
+          [$($rp_ct)* f_ordinary: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] container => $rp_c:expr , $($rp_rest:tt)*) => {
+        outer_stream!(@m
+          [$($rp_g)* F_container,]
+          [$($rp_w)* F_container: ::rapidproto::stream::Handler<&'rp_a [u8]>,]
+          [$($rp_i)* const WANT_container: bool = true; #[inline(always)] fn on_container(&mut self, rp_x: &'rp_a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_container, rp_x) }]
+          [$($rp_fl)* f_container: F_container,]
+          [$($rp_ct)* f_container: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
+        struct RpVis<$($rp_g)*> { $($rp_fl)* }
+        impl<'rp_a, $($rp_g)*> OuterVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
+        RpVis { $($rp_ct)* }
+      }};
+    }
+    pub(crate) use outer_stream;
+
     pub mod outer {
-      pub struct Container<'a> {
-        input: &'a [u8],
+      pub trait ContainerVisitor<'a> {
       }
 
-      impl<'a> Container<'a> {
-        pub fn stream(input: &'a [u8]) -> Container<'a> {
-          Container {
-            input,
-          }
-        }
-      }
+      pub struct Container;
 
-      impl<'a> Container<'a> {
-        pub fn decode(self) -> Result<(), ::rapidproto::DecodeError> {
-          let rp_body: &'a [u8] = self.input;
+      impl Container {
+        pub fn decode<'a, V: ContainerVisitor<'a>>(rp_input: &'a [u8], mut rp_vis: V) -> Result<(), ::rapidproto::DecodeError> {
+          let rp_body: &'a [u8] = rp_input;
           let mut rp_rest: &'a [u8] = rp_body;
+          let _ = &mut rp_vis;
           loop {
             let rp_b = match rp_rest.first() {
               Some(&rp_b) => rp_b,
@@ -465,36 +461,31 @@ pub mod stream {
           Ok(())
         }
       }
-    }
 
-    pub struct Ext<'a, H0 = ::rapidproto::stream::Skip> {
-      input: &'a [u8],
-      h_s: H0,
-    }
-
-    impl<'a> Ext<'a> {
-      pub fn stream(input: &'a [u8]) -> Ext<'a> {
-        Ext {
-          input,
-          h_s: ::rapidproto::stream::Skip,
-        }
+      macro_rules! container_stream {
+        ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
+          container_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
+        };
+        (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
+          struct RpVis<$($rp_g)*> { $($rp_fl)* }
+          impl<'rp_a, $($rp_g)*> ContainerVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
+          RpVis { $($rp_ct)* }
+        }};
       }
+      pub(crate) use container_stream;
     }
 
-    impl<'a> Ext<'a, ::rapidproto::stream::Skip> {
-      pub fn on_s<F, R>(self, rp_f: F) -> Ext<'a, ::rapidproto::stream::On<F>>
-      where F: FnMut(::rapidproto::ProtoStr<'a>) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        Ext {
-          input: self.input,
-          h_s: ::rapidproto::stream::On(rp_f),
-        }
-      }
+    pub trait ExtVisitor<'a> {
+      const WANT_s: bool = false;
+      #[inline(always)]
+      fn on_s(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
     }
 
-    impl<'a, H0> Ext<'a, H0>
-    where H0: ::rapidproto::stream::FieldHandler<::rapidproto::ProtoStr<'a>> {
-      pub fn decode(mut self) -> Result<(), ::rapidproto::DecodeError> {
-        let rp_body: &'a [u8] = self.input;
+    pub struct Ext;
+
+    impl Ext {
+      pub fn decode<'a, V: ExtVisitor<'a>>(rp_input: &'a [u8], mut rp_vis: V) -> Result<(), ::rapidproto::DecodeError> {
+        let rp_body: &'a [u8] = rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
           let rp_b = match rp_rest.first() {
@@ -514,13 +505,13 @@ pub mod stream {
           };
           match rp_tagkey {
             10u32 => {
-              if H0::WANTED {
+              if V::WANT_s {
                 let mut rp_p: &[u8] = &[];
                 rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_s.handle(::rapidproto::ProtoStr::new(rp_p)) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_s(::rapidproto::ProtoStr::new(rp_p)) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -541,5 +532,26 @@ pub mod stream {
         Ok(())
       }
     }
+
+    macro_rules! ext_stream {
+      ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
+        ext_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] s => $rp_c:expr , $($rp_rest:tt)*) => {
+        ext_stream!(@m
+          [$($rp_g)* F_s,]
+          [$($rp_w)* F_s: ::rapidproto::stream::Handler<::rapidproto::ProtoStr<'rp_a>>,]
+          [$($rp_i)* const WANT_s: bool = true; #[inline(always)] fn on_s(&mut self, rp_x: ::rapidproto::ProtoStr<'rp_a>) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_s, rp_x) }]
+          [$($rp_fl)* f_s: F_s,]
+          [$($rp_ct)* f_s: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
+        struct RpVis<$($rp_g)*> { $($rp_fl)* }
+        impl<'rp_a, $($rp_g)*> ExtVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
+        RpVis { $($rp_ct)* }
+      }};
+    }
+    pub(crate) use ext_stream;
   }
 }

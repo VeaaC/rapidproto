@@ -417,48 +417,20 @@ pub mod stream {
   pub mod google {
 
     pub mod protobuf {
-      pub struct Timestamp<'a, H0 = ::rapidproto::stream::Skip, H1 = ::rapidproto::stream::Skip> {
-        input: &'a [u8],
-        h_seconds: H0,
-        h_nanos: H1,
+      pub trait TimestampVisitor<'a> {
+        const WANT_seconds: bool = false;
+        #[inline(always)]
+        fn on_seconds(&mut self, _rp_v: i64) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+        const WANT_nanos: bool = false;
+        #[inline(always)]
+        fn on_nanos(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
       }
 
-      impl<'a> Timestamp<'a> {
-        pub fn stream(input: &'a [u8]) -> Timestamp<'a> {
-          Timestamp {
-            input,
-            h_seconds: ::rapidproto::stream::Skip,
-            h_nanos: ::rapidproto::stream::Skip,
-          }
-        }
-      }
+      pub struct Timestamp;
 
-      impl<'a, H1> Timestamp<'a, ::rapidproto::stream::Skip, H1> {
-        pub fn on_seconds<F, R>(self, rp_f: F) -> Timestamp<'a, ::rapidproto::stream::On<F>, H1>
-        where F: FnMut(i64) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-          Timestamp {
-            input: self.input,
-            h_seconds: ::rapidproto::stream::On(rp_f),
-            h_nanos: self.h_nanos,
-          }
-        }
-      }
-
-      impl<'a, H0> Timestamp<'a, H0, ::rapidproto::stream::Skip> {
-        pub fn on_nanos<F, R>(self, rp_f: F) -> Timestamp<'a, H0, ::rapidproto::stream::On<F>>
-        where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-          Timestamp {
-            input: self.input,
-            h_seconds: self.h_seconds,
-            h_nanos: ::rapidproto::stream::On(rp_f),
-          }
-        }
-      }
-
-      impl<'a, H0, H1> Timestamp<'a, H0, H1>
-      where H0: ::rapidproto::stream::FieldHandler<i64>, H1: ::rapidproto::stream::FieldHandler<i32> {
-        pub fn decode(mut self) -> Result<(), ::rapidproto::DecodeError> {
-          let rp_body: &'a [u8] = self.input;
+      impl Timestamp {
+        pub fn decode<'a, V: TimestampVisitor<'a>>(rp_input: &'a [u8], mut rp_vis: V) -> Result<(), ::rapidproto::DecodeError> {
+          let rp_body: &'a [u8] = rp_input;
           let mut rp_rest: &'a [u8] = rp_body;
           loop {
             let rp_b = match rp_rest.first() {
@@ -478,13 +450,13 @@ pub mod stream {
             };
             match rp_tagkey {
               8u32 => {
-                if H0::WANTED {
+                if V::WANT_seconds {
                   let mut rp_v = 0u64;
                   rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                     Ok(r) => r,
                     Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                   };
-                  if self.h_seconds.handle(rp_v as i64) == ::rapidproto::stream::Flow::Stop {
+                  if rp_vis.on_seconds(rp_v as i64) == ::rapidproto::stream::Flow::Stop {
                     return Ok(());
                   }
                 } else {
@@ -495,13 +467,13 @@ pub mod stream {
                 }
               }
               16u32 => {
-                if H1::WANTED {
+                if V::WANT_nanos {
                   let mut rp_v = 0u64;
                   rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                     Ok(r) => r,
                     Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                   };
-                  if self.h_nanos.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                  if rp_vis.on_nanos(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                     return Ok(());
                   }
                 } else {
@@ -523,48 +495,50 @@ pub mod stream {
         }
       }
 
-      pub struct Duration<'a, H0 = ::rapidproto::stream::Skip, H1 = ::rapidproto::stream::Skip> {
-        input: &'a [u8],
-        h_seconds: H0,
-        h_nanos: H1,
+      macro_rules! timestamp_stream {
+        ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
+          timestamp_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
+        };
+        (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] seconds => $rp_c:expr , $($rp_rest:tt)*) => {
+          timestamp_stream!(@m
+            [$($rp_g)* F_seconds,]
+            [$($rp_w)* F_seconds: ::rapidproto::stream::Handler<i64>,]
+            [$($rp_i)* const WANT_seconds: bool = true; #[inline(always)] fn on_seconds(&mut self, rp_x: i64) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_seconds, rp_x) }]
+            [$($rp_fl)* f_seconds: F_seconds,]
+            [$($rp_ct)* f_seconds: $rp_c,]
+          $($rp_rest)*)
+        };
+        (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] nanos => $rp_c:expr , $($rp_rest:tt)*) => {
+          timestamp_stream!(@m
+            [$($rp_g)* F_nanos,]
+            [$($rp_w)* F_nanos: ::rapidproto::stream::Handler<i32>,]
+            [$($rp_i)* const WANT_nanos: bool = true; #[inline(always)] fn on_nanos(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_nanos, rp_x) }]
+            [$($rp_fl)* f_nanos: F_nanos,]
+            [$($rp_ct)* f_nanos: $rp_c,]
+          $($rp_rest)*)
+        };
+        (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
+          struct RpVis<$($rp_g)*> { $($rp_fl)* }
+          impl<'rp_a, $($rp_g)*> TimestampVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
+          RpVis { $($rp_ct)* }
+        }};
+      }
+      pub(crate) use timestamp_stream;
+
+      pub trait DurationVisitor<'a> {
+        const WANT_seconds: bool = false;
+        #[inline(always)]
+        fn on_seconds(&mut self, _rp_v: i64) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+        const WANT_nanos: bool = false;
+        #[inline(always)]
+        fn on_nanos(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
       }
 
-      impl<'a> Duration<'a> {
-        pub fn stream(input: &'a [u8]) -> Duration<'a> {
-          Duration {
-            input,
-            h_seconds: ::rapidproto::stream::Skip,
-            h_nanos: ::rapidproto::stream::Skip,
-          }
-        }
-      }
+      pub struct Duration;
 
-      impl<'a, H1> Duration<'a, ::rapidproto::stream::Skip, H1> {
-        pub fn on_seconds<F, R>(self, rp_f: F) -> Duration<'a, ::rapidproto::stream::On<F>, H1>
-        where F: FnMut(i64) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-          Duration {
-            input: self.input,
-            h_seconds: ::rapidproto::stream::On(rp_f),
-            h_nanos: self.h_nanos,
-          }
-        }
-      }
-
-      impl<'a, H0> Duration<'a, H0, ::rapidproto::stream::Skip> {
-        pub fn on_nanos<F, R>(self, rp_f: F) -> Duration<'a, H0, ::rapidproto::stream::On<F>>
-        where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-          Duration {
-            input: self.input,
-            h_seconds: self.h_seconds,
-            h_nanos: ::rapidproto::stream::On(rp_f),
-          }
-        }
-      }
-
-      impl<'a, H0, H1> Duration<'a, H0, H1>
-      where H0: ::rapidproto::stream::FieldHandler<i64>, H1: ::rapidproto::stream::FieldHandler<i32> {
-        pub fn decode(mut self) -> Result<(), ::rapidproto::DecodeError> {
-          let rp_body: &'a [u8] = self.input;
+      impl Duration {
+        pub fn decode<'a, V: DurationVisitor<'a>>(rp_input: &'a [u8], mut rp_vis: V) -> Result<(), ::rapidproto::DecodeError> {
+          let rp_body: &'a [u8] = rp_input;
           let mut rp_rest: &'a [u8] = rp_body;
           loop {
             let rp_b = match rp_rest.first() {
@@ -584,13 +558,13 @@ pub mod stream {
             };
             match rp_tagkey {
               8u32 => {
-                if H0::WANTED {
+                if V::WANT_seconds {
                   let mut rp_v = 0u64;
                   rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                     Ok(r) => r,
                     Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                   };
-                  if self.h_seconds.handle(rp_v as i64) == ::rapidproto::stream::Flow::Stop {
+                  if rp_vis.on_seconds(rp_v as i64) == ::rapidproto::stream::Flow::Stop {
                     return Ok(());
                   }
                 } else {
@@ -601,13 +575,13 @@ pub mod stream {
                 }
               }
               16u32 => {
-                if H1::WANTED {
+                if V::WANT_nanos {
                   let mut rp_v = 0u64;
                   rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
                     Ok(r) => r,
                     Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                   };
-                  if self.h_nanos.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                  if rp_vis.on_nanos(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
                     return Ok(());
                   }
                 } else {
@@ -628,52 +602,54 @@ pub mod stream {
           Ok(())
         }
       }
+
+      macro_rules! duration_stream {
+        ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
+          duration_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
+        };
+        (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] seconds => $rp_c:expr , $($rp_rest:tt)*) => {
+          duration_stream!(@m
+            [$($rp_g)* F_seconds,]
+            [$($rp_w)* F_seconds: ::rapidproto::stream::Handler<i64>,]
+            [$($rp_i)* const WANT_seconds: bool = true; #[inline(always)] fn on_seconds(&mut self, rp_x: i64) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_seconds, rp_x) }]
+            [$($rp_fl)* f_seconds: F_seconds,]
+            [$($rp_ct)* f_seconds: $rp_c,]
+          $($rp_rest)*)
+        };
+        (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] nanos => $rp_c:expr , $($rp_rest:tt)*) => {
+          duration_stream!(@m
+            [$($rp_g)* F_nanos,]
+            [$($rp_w)* F_nanos: ::rapidproto::stream::Handler<i32>,]
+            [$($rp_i)* const WANT_nanos: bool = true; #[inline(always)] fn on_nanos(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_nanos, rp_x) }]
+            [$($rp_fl)* f_nanos: F_nanos,]
+            [$($rp_ct)* f_nanos: $rp_c,]
+          $($rp_rest)*)
+        };
+        (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
+          struct RpVis<$($rp_g)*> { $($rp_fl)* }
+          impl<'rp_a, $($rp_g)*> DurationVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
+          RpVis { $($rp_ct)* }
+        }};
+      }
+      pub(crate) use duration_stream;
     }
   }
 
   pub mod uw {
-    pub struct Event<'a, H0 = ::rapidproto::stream::Skip, H1 = ::rapidproto::stream::Skip> {
-      input: &'a [u8],
-      h_at: H0,
-      h_took: H1,
+    pub trait EventVisitor<'a> {
+      const WANT_at: bool = false;
+      #[inline(always)]
+      fn on_at(&mut self, _rp_v: &'a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      const WANT_took: bool = false;
+      #[inline(always)]
+      fn on_took(&mut self, _rp_v: &'a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
     }
 
-    impl<'a> Event<'a> {
-      pub fn stream(input: &'a [u8]) -> Event<'a> {
-        Event {
-          input,
-          h_at: ::rapidproto::stream::Skip,
-          h_took: ::rapidproto::stream::Skip,
-        }
-      }
-    }
+    pub struct Event;
 
-    impl<'a, H1> Event<'a, ::rapidproto::stream::Skip, H1> {
-      pub fn on_at<F, R>(self, rp_f: F) -> Event<'a, ::rapidproto::stream::On<F>, H1>
-      where F: FnMut(super::google::protobuf::Timestamp<'a>) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        Event {
-          input: self.input,
-          h_at: ::rapidproto::stream::On(rp_f),
-          h_took: self.h_took,
-        }
-      }
-    }
-
-    impl<'a, H0> Event<'a, H0, ::rapidproto::stream::Skip> {
-      pub fn on_took<F, R>(self, rp_f: F) -> Event<'a, H0, ::rapidproto::stream::On<F>>
-      where F: FnMut(super::google::protobuf::Duration<'a>) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
-        Event {
-          input: self.input,
-          h_at: self.h_at,
-          h_took: ::rapidproto::stream::On(rp_f),
-        }
-      }
-    }
-
-    impl<'a, H0, H1> Event<'a, H0, H1>
-    where H0: ::rapidproto::stream::FieldHandler<super::google::protobuf::Timestamp<'a>>, H1: ::rapidproto::stream::FieldHandler<super::google::protobuf::Duration<'a>> {
-      pub fn decode(mut self) -> Result<(), ::rapidproto::DecodeError> {
-        let rp_body: &'a [u8] = self.input;
+    impl Event {
+      pub fn decode<'a, V: EventVisitor<'a>>(rp_input: &'a [u8], mut rp_vis: V) -> Result<(), ::rapidproto::DecodeError> {
+        let rp_body: &'a [u8] = rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
           let rp_b = match rp_rest.first() {
@@ -693,13 +669,13 @@ pub mod stream {
           };
           match rp_tagkey {
             10u32 => {
-              if H0::WANTED {
+              if V::WANT_at {
                 let mut rp_p: &[u8] = &[];
                 rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_at.handle(super::google::protobuf::Timestamp::stream(rp_p)) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_at(rp_p) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -710,13 +686,13 @@ pub mod stream {
               }
             }
             18u32 => {
-              if H1::WANTED {
+              if V::WANT_took {
                 let mut rp_p: &[u8] = &[];
                 rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if self.h_took.handle(super::google::protobuf::Duration::stream(rp_p)) == ::rapidproto::stream::Flow::Stop {
+                if rp_vis.on_took(rp_p) == ::rapidproto::stream::Flow::Stop {
                   return Ok(());
                 }
               } else {
@@ -737,5 +713,35 @@ pub mod stream {
         Ok(())
       }
     }
+
+    macro_rules! event_stream {
+      ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
+        event_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] at => $rp_c:expr , $($rp_rest:tt)*) => {
+        event_stream!(@m
+          [$($rp_g)* F_at,]
+          [$($rp_w)* F_at: ::rapidproto::stream::Handler<&'rp_a [u8]>,]
+          [$($rp_i)* const WANT_at: bool = true; #[inline(always)] fn on_at(&mut self, rp_x: &'rp_a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_at, rp_x) }]
+          [$($rp_fl)* f_at: F_at,]
+          [$($rp_ct)* f_at: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] took => $rp_c:expr , $($rp_rest:tt)*) => {
+        event_stream!(@m
+          [$($rp_g)* F_took,]
+          [$($rp_w)* F_took: ::rapidproto::stream::Handler<&'rp_a [u8]>,]
+          [$($rp_i)* const WANT_took: bool = true; #[inline(always)] fn on_took(&mut self, rp_x: &'rp_a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_took, rp_x) }]
+          [$($rp_fl)* f_took: F_took,]
+          [$($rp_ct)* f_took: $rp_c,]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
+        struct RpVis<$($rp_g)*> { $($rp_fl)* }
+        impl<'rp_a, $($rp_g)*> EventVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
+        RpVis { $($rp_ct)* }
+      }};
+    }
+    pub(crate) use event_stream;
   }
 }
