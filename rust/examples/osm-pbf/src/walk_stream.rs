@@ -17,6 +17,11 @@
 //!
 //! The tag-key histogram is counted index-wise into a `Vec<u64>` (no key strings on the hot path) and
 //! resolved against the stringtable once per block, identically to the arena walk.
+//!
+//! The two models print identical statistics for any protoc-valid file. They can differ only on input
+//! protoc never produces: streaming is a raw per-occurrence field visit, so (unlike the arena, which
+//! materializes and resolves singular fields) it does not reject a missing `required` field and counts
+//! a duplicated singular message field more than once. Neither can crash or read out of bounds.
 
 #![allow(non_upper_case_globals)] // the generated `WANT_<field>` associated consts
 

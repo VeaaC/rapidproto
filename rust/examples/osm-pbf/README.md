@@ -44,8 +44,9 @@ The point of the example is the shape of an efficient decode:
 - **Parallelism is trivial either way.** Blocks are independent, so they decode in parallel by default,
   partials merged order-independently. `--sequential` prints the same thing.
 - **Untrusted input stays safe.** Lengths are capped and arithmetic wraps rather than panicking; a
-  malformed file exits nonzero, never UB. (Streaming hands sub-messages to the consumer as child
-  handles — recursing into them is the consumer's depth to bound; this walk recurses a fixed two levels.)
+  wire-malformed file exits nonzero, never UB. (Streaming hands sub-messages to the consumer as child
+  handles — recursing into them is the consumer's depth to bound; this walk recurses a fixed, shallow
+  depth set by the schema, not the input: block → group → entity → metadata.)
 
 `--baseline` also decodes the file with the [`osmpbf`](https://crates.io/crates/osmpbf) crate (a
 materializing reader) and prints its counts + throughput on stderr, for a side-by-side comparison.
