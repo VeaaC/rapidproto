@@ -4,7 +4,7 @@
 tags, bounding box, top tag keys). It is a worked example of pulling a lot of data out of protobuf
 quickly — and it runs the **same workload through both decode models**, so you can compare them:
 
-- **arena** (default): decode each block into an `Arena`, then read borrowed views ([`src/walk.rs`](src/walk.rs));
+- **arena** (default): decode each block into an `Arena`, then read borrowed views ([`src/walk_arena.rs`](src/walk_arena.rs));
 - **streaming** (`--stream`): materialize nothing, handle each field with a callback as it is decoded
   ([`src/walk_stream.rs`](src/walk_stream.rs)).
 

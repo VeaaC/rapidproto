@@ -2,7 +2,7 @@
 //! tags, bounding box, top tag keys). A worked example of decoding bulky protobuf efficiently; the
 //! README walks through what it shows.
 //!
-//! The same workload runs through BOTH decode models: the default arena model ([`walk`], materialize a
+//! The same workload runs through BOTH decode models: the default arena model ([`walk_arena`], materialize a
 //! block then read borrowed views) and, with `--stream`, the streaming visitor model ([`walk_stream`],
 //! materialize nothing, one callback per field). Both print byte-identical statistics.
 //!
@@ -14,7 +14,7 @@
 mod osm;
 mod pbf_input;
 mod stats;
-mod walk;
+mod walk_arena;
 mod walk_stream;
 
 use std::io;
@@ -26,7 +26,7 @@ use rayon::prelude::*;
 use osm::arena::{blob::Data, Blob, BlobHeader, HeaderBlock, PrimitiveBlock};
 use pbf_input::{blob_payload, next_frame, read_file, take_blob, Stopwatch};
 use stats::{feature_supported, mib_per_s, Stats};
-use walk::walk_block;
+use walk_arena::walk_block;
 
 // Decode a Blob's payload: extract the oneof (raw bytes or zlib), then resolve to a byte slice. The
 // returned slice borrows `blob_bytes` (raw) or `inflated` (zlib), so both -- plus `blob_arena` -- must

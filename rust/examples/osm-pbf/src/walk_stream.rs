@@ -1,4 +1,4 @@
-//! The STREAMING walk: compute the same [`Stats`] as [`walk`](crate::walk), but with the streaming
+//! The STREAMING walk: compute the same [`Stats`] as [`walk_arena`](crate::walk_arena), but with the streaming
 //! visitor model instead of materialized arena views -- nothing is allocated for the message, each
 //! field is handled by a callback as it is decoded.
 //!
