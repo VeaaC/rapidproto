@@ -43,6 +43,7 @@
 #include "rapidproto/resolve.hpp"
 #include "rapidproto/resolver.hpp"
 #include "rapidproto/result.hpp"
+#include "rapidproto/rustgen/generator.hpp"  // RustModels
 #include "rapidproto/rustgen/pipeline.hpp"
 #include "rapidproto/source.hpp"
 

@@ -2661,6 +2661,11 @@ std::string stream_ident(const std::string& name) {
 std::vector<StreamSlot> collect_stream_slots(const MessageNode& msg) {
     std::unordered_set<std::string> taken = {"unknown", "UNKNOWN"};
     std::vector<StreamSlot> slots;
+    std::size_t slot_count = msg.fields.size() + msg.map_fields.size();
+    for (const OneofNode& oneof : msg.oneofs) {
+        slot_count += oneof.fields.size();
+    }
+    slots.reserve(slot_count);
     for (const FieldNode& field : msg.fields) {
         slots.push_back({codegen::dedup_suffix(taken, stream_ident(field.name)), &field, nullptr});
     }
@@ -2690,7 +2695,7 @@ std::string stream_foreign_path(const NameTable& table, const std::vector<std::s
     if (field.is_enum_type) {
         return common_type_path(table, current_mod, field.resolved_type_fqn);
     }
-    return std::string();
+    return {};
 }
 
 using StreamAliases =
