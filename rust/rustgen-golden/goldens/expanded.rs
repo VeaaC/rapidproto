@@ -394,3 +394,339 @@ pub mod arena {
     }
   }
 }
+
+pub mod stream {
+
+  pub mod xp {
+    pub struct Expanded<'a, H0 = ::rapidproto::stream::Skip, H1 = ::rapidproto::stream::Skip, H2 = ::rapidproto::stream::Skip, H3 = ::rapidproto::stream::Skip, H4 = ::rapidproto::stream::Skip> {
+      input: &'a [u8],
+      h_uzz: H0,
+      h_ub: H1,
+      h_uk: H2,
+      h_ufx: H3,
+      h_usf: H4,
+    }
+
+    impl<'a> Expanded<'a> {
+      pub fn stream(input: &'a [u8]) -> Expanded<'a> {
+        Expanded {
+          input,
+          h_uzz: ::rapidproto::stream::Skip,
+          h_ub: ::rapidproto::stream::Skip,
+          h_uk: ::rapidproto::stream::Skip,
+          h_ufx: ::rapidproto::stream::Skip,
+          h_usf: ::rapidproto::stream::Skip,
+        }
+      }
+    }
+
+    impl<'a, H1, H2, H3, H4> Expanded<'a, ::rapidproto::stream::Skip, H1, H2, H3, H4> {
+      pub fn on_uzz<F, R>(self, rp_f: F) -> Expanded<'a, ::rapidproto::stream::On<F>, H1, H2, H3, H4>
+      where F: FnMut(i64) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
+        Expanded {
+          input: self.input,
+          h_uzz: ::rapidproto::stream::On(rp_f),
+          h_ub: self.h_ub,
+          h_uk: self.h_uk,
+          h_ufx: self.h_ufx,
+          h_usf: self.h_usf,
+        }
+      }
+    }
+
+    impl<'a, H0, H2, H3, H4> Expanded<'a, H0, ::rapidproto::stream::Skip, H2, H3, H4> {
+      pub fn on_ub<F, R>(self, rp_f: F) -> Expanded<'a, H0, ::rapidproto::stream::On<F>, H2, H3, H4>
+      where F: FnMut(bool) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
+        Expanded {
+          input: self.input,
+          h_uzz: self.h_uzz,
+          h_ub: ::rapidproto::stream::On(rp_f),
+          h_uk: self.h_uk,
+          h_ufx: self.h_ufx,
+          h_usf: self.h_usf,
+        }
+      }
+    }
+
+    impl<'a, H0, H1, H3, H4> Expanded<'a, H0, H1, ::rapidproto::stream::Skip, H3, H4> {
+      pub fn on_uk<F, R>(self, rp_f: F) -> Expanded<'a, H0, H1, ::rapidproto::stream::On<F>, H3, H4>
+      where F: FnMut(super::super::common::xp::expanded::Kind) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
+        Expanded {
+          input: self.input,
+          h_uzz: self.h_uzz,
+          h_ub: self.h_ub,
+          h_uk: ::rapidproto::stream::On(rp_f),
+          h_ufx: self.h_ufx,
+          h_usf: self.h_usf,
+        }
+      }
+    }
+
+    impl<'a, H0, H1, H2, H4> Expanded<'a, H0, H1, H2, ::rapidproto::stream::Skip, H4> {
+      pub fn on_ufx<F, R>(self, rp_f: F) -> Expanded<'a, H0, H1, H2, ::rapidproto::stream::On<F>, H4>
+      where F: FnMut(u64) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
+        Expanded {
+          input: self.input,
+          h_uzz: self.h_uzz,
+          h_ub: self.h_ub,
+          h_uk: self.h_uk,
+          h_ufx: ::rapidproto::stream::On(rp_f),
+          h_usf: self.h_usf,
+        }
+      }
+    }
+
+    impl<'a, H0, H1, H2, H3> Expanded<'a, H0, H1, H2, H3, ::rapidproto::stream::Skip> {
+      pub fn on_usf<F, R>(self, rp_f: F) -> Expanded<'a, H0, H1, H2, H3, ::rapidproto::stream::On<F>>
+      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
+        Expanded {
+          input: self.input,
+          h_uzz: self.h_uzz,
+          h_ub: self.h_ub,
+          h_uk: self.h_uk,
+          h_ufx: self.h_ufx,
+          h_usf: ::rapidproto::stream::On(rp_f),
+        }
+      }
+    }
+
+    impl<'a, H0, H1, H2, H3, H4> Expanded<'a, H0, H1, H2, H3, H4>
+    where H0: ::rapidproto::stream::FieldHandler<i64>, H1: ::rapidproto::stream::FieldHandler<bool>, H2: ::rapidproto::stream::FieldHandler<super::super::common::xp::expanded::Kind>, H3: ::rapidproto::stream::FieldHandler<u64>, H4: ::rapidproto::stream::FieldHandler<i32> {
+      pub fn decode(mut self) -> Result<(), ::rapidproto::DecodeError> {
+        let rp_body: &'a [u8] = self.input;
+        let mut rp_rest: &'a [u8] = rp_body;
+        loop {
+          let rp_b = match rp_rest.first() {
+            Some(&rp_b) => rp_b,
+            None => break,
+          };
+          let rp_tagkey: u32 = if rp_b < 0x80 {
+            rp_rest = &rp_rest[1..];
+            u32::from(rp_b)
+          } else {
+            let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+            rp_rest = match ::rapidproto::wire::read_tag(rp_rest, &mut rp_tag) {
+              Ok(r) => r,
+              Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+            (rp_tag.field << 3) | rp_tag.wire as u32
+          };
+          match rp_tagkey {
+            8u32 => {
+              if H0::WANTED {
+                let mut rp_v = 0u64;
+                rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                if self.h_uzz.handle(::rapidproto::wire::zigzag64(rp_v)) == ::rapidproto::stream::Flow::Stop {
+                  return Ok(());
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
+            }
+            10u32 => {
+              if H0::WANTED {
+                let mut rp_p: &[u8] = &[];
+                rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                while !rp_p.is_empty() {
+                  let mut rp_v = 0u64;
+                  rp_p = match ::rapidproto::wire::read_varint(rp_p, &mut rp_v) {
+                    Ok(r) => r,
+                    Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len() - rp_p.len())),
+                  };
+                  if self.h_uzz.handle(::rapidproto::wire::zigzag64(rp_v)) == ::rapidproto::stream::Flow::Stop {
+                    return Ok(());
+                  }
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
+            }
+            16u32 => {
+              if H1::WANTED {
+                let mut rp_v = 0u64;
+                rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                if self.h_ub.handle(rp_v != 0) == ::rapidproto::stream::Flow::Stop {
+                  return Ok(());
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
+            }
+            18u32 => {
+              if H1::WANTED {
+                let mut rp_p: &[u8] = &[];
+                rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                while !rp_p.is_empty() {
+                  let mut rp_v = 0u64;
+                  rp_p = match ::rapidproto::wire::read_varint(rp_p, &mut rp_v) {
+                    Ok(r) => r,
+                    Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len() - rp_p.len())),
+                  };
+                  if self.h_ub.handle(rp_v != 0) == ::rapidproto::stream::Flow::Stop {
+                    return Ok(());
+                  }
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
+            }
+            24u32 => {
+              if H2::WANTED {
+                let mut rp_v = 0u64;
+                rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                if self.h_uk.handle(super::super::common::xp::expanded::Kind(rp_v as i32)) == ::rapidproto::stream::Flow::Stop {
+                  return Ok(());
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
+            }
+            26u32 => {
+              if H2::WANTED {
+                let mut rp_p: &[u8] = &[];
+                rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                while !rp_p.is_empty() {
+                  let mut rp_v = 0u64;
+                  rp_p = match ::rapidproto::wire::read_varint(rp_p, &mut rp_v) {
+                    Ok(r) => r,
+                    Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len() - rp_p.len())),
+                  };
+                  if self.h_uk.handle(super::super::common::xp::expanded::Kind(rp_v as i32)) == ::rapidproto::stream::Flow::Stop {
+                    return Ok(());
+                  }
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
+            }
+            33u32 => {
+              if H3::WANTED {
+                let mut rp_v = 0u64;
+                rp_rest = match ::rapidproto::wire::read_fixed64(rp_rest, &mut rp_v) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                if self.h_ufx.handle(rp_v) == ::rapidproto::stream::Flow::Stop {
+                  return Ok(());
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
+            }
+            34u32 => {
+              if H3::WANTED {
+                let mut rp_p: &[u8] = &[];
+                rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                while !rp_p.is_empty() {
+                  let mut rp_v = 0u64;
+                  rp_p = match ::rapidproto::wire::read_fixed64(rp_p, &mut rp_v) {
+                    Ok(r) => r,
+                    Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len() - rp_p.len())),
+                  };
+                  if self.h_ufx.handle(rp_v) == ::rapidproto::stream::Flow::Stop {
+                    return Ok(());
+                  }
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
+            }
+            45u32 => {
+              if H4::WANTED {
+                let mut rp_v = 0u32;
+                rp_rest = match ::rapidproto::wire::read_fixed32(rp_rest, &mut rp_v) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                if self.h_usf.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                  return Ok(());
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
+            }
+            42u32 => {
+              if H4::WANTED {
+                let mut rp_p: &[u8] = &[];
+                rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                while !rp_p.is_empty() {
+                  let mut rp_v = 0u32;
+                  rp_p = match ::rapidproto::wire::read_fixed32(rp_p, &mut rp_v) {
+                    Ok(r) => r,
+                    Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len() - rp_p.len())),
+                  };
+                  if self.h_usf.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                    return Ok(());
+                  }
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
+            }
+            _ => {
+              rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+            }
+          }
+        }
+        Ok(())
+      }
+    }
+  }
+}

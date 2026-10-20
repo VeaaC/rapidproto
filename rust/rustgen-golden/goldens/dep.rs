@@ -177,3 +177,114 @@ pub mod arena {
     }
   }
 }
+
+pub mod stream {
+
+  pub mod dep {
+    pub struct Dep<'a, H0 = ::rapidproto::stream::Skip, H1 = ::rapidproto::stream::Skip> {
+      input: &'a [u8],
+      h_v: H0,
+      h_de: H1,
+    }
+
+    impl<'a> Dep<'a> {
+      pub fn stream(input: &'a [u8]) -> Dep<'a> {
+        Dep {
+          input,
+          h_v: ::rapidproto::stream::Skip,
+          h_de: ::rapidproto::stream::Skip,
+        }
+      }
+    }
+
+    impl<'a, H1> Dep<'a, ::rapidproto::stream::Skip, H1> {
+      pub fn on_v<F, R>(self, rp_f: F) -> Dep<'a, ::rapidproto::stream::On<F>, H1>
+      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
+        Dep {
+          input: self.input,
+          h_v: ::rapidproto::stream::On(rp_f),
+          h_de: self.h_de,
+        }
+      }
+    }
+
+    impl<'a, H0> Dep<'a, H0, ::rapidproto::stream::Skip> {
+      pub fn on_de<F, R>(self, rp_f: F) -> Dep<'a, H0, ::rapidproto::stream::On<F>>
+      where F: FnMut(super::super::common::dep::DepEnum) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
+        Dep {
+          input: self.input,
+          h_v: self.h_v,
+          h_de: ::rapidproto::stream::On(rp_f),
+        }
+      }
+    }
+
+    impl<'a, H0, H1> Dep<'a, H0, H1>
+    where H0: ::rapidproto::stream::FieldHandler<i32>, H1: ::rapidproto::stream::FieldHandler<super::super::common::dep::DepEnum> {
+      pub fn decode(mut self) -> Result<(), ::rapidproto::DecodeError> {
+        let rp_body: &'a [u8] = self.input;
+        let mut rp_rest: &'a [u8] = rp_body;
+        loop {
+          let rp_b = match rp_rest.first() {
+            Some(&rp_b) => rp_b,
+            None => break,
+          };
+          let rp_tagkey: u32 = if rp_b < 0x80 {
+            rp_rest = &rp_rest[1..];
+            u32::from(rp_b)
+          } else {
+            let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+            rp_rest = match ::rapidproto::wire::read_tag(rp_rest, &mut rp_tag) {
+              Ok(r) => r,
+              Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+            (rp_tag.field << 3) | rp_tag.wire as u32
+          };
+          match rp_tagkey {
+            8u32 => {
+              if H0::WANTED {
+                let mut rp_v = 0u64;
+                rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                if self.h_v.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                  return Ok(());
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
+            }
+            16u32 => {
+              if H1::WANTED {
+                let mut rp_v = 0u64;
+                rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                if self.h_de.handle(super::super::common::dep::DepEnum(rp_v as i32)) == ::rapidproto::stream::Flow::Stop {
+                  return Ok(());
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
+            }
+            _ => {
+              rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+            }
+          }
+        }
+        Ok(())
+      }
+    }
+  }
+}

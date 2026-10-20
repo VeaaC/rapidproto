@@ -145,3 +145,86 @@ pub mod arena {
     }
   }
 }
+
+pub mod stream {
+
+  pub mod pa {
+
+    pub mod linux {
+      pub struct Sub<'a, H0 = ::rapidproto::stream::Skip> {
+        input: &'a [u8],
+        h_f: H0,
+      }
+
+      impl<'a> Sub<'a> {
+        pub fn stream(input: &'a [u8]) -> Sub<'a> {
+          Sub {
+            input,
+            h_f: ::rapidproto::stream::Skip,
+          }
+        }
+      }
+
+      impl<'a> Sub<'a, ::rapidproto::stream::Skip> {
+        pub fn on_f<F, R>(self, rp_f: F) -> Sub<'a, ::rapidproto::stream::On<F>>
+        where F: FnMut(super::super::super::common::pa::linux::E) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
+          Sub {
+            input: self.input,
+            h_f: ::rapidproto::stream::On(rp_f),
+          }
+        }
+      }
+
+      impl<'a, H0> Sub<'a, H0>
+      where H0: ::rapidproto::stream::FieldHandler<super::super::super::common::pa::linux::E> {
+        pub fn decode(mut self) -> Result<(), ::rapidproto::DecodeError> {
+          let rp_body: &'a [u8] = self.input;
+          let mut rp_rest: &'a [u8] = rp_body;
+          loop {
+            let rp_b = match rp_rest.first() {
+              Some(&rp_b) => rp_b,
+              None => break,
+            };
+            let rp_tagkey: u32 = if rp_b < 0x80 {
+              rp_rest = &rp_rest[1..];
+              u32::from(rp_b)
+            } else {
+              let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+              rp_rest = match ::rapidproto::wire::read_tag(rp_rest, &mut rp_tag) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              (rp_tag.field << 3) | rp_tag.wire as u32
+            };
+            match rp_tagkey {
+              8u32 => {
+                if H0::WANTED {
+                  let mut rp_v = 0u64;
+                  rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                    Ok(r) => r,
+                    Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                  };
+                  if self.h_f.handle(super::super::super::common::pa::linux::E(rp_v as i32)) == ::rapidproto::stream::Flow::Stop {
+                    return Ok(());
+                  }
+                } else {
+                  rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                    Ok(r) => r,
+                    Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                  };
+                }
+              }
+              _ => {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
+            }
+          }
+          Ok(())
+        }
+      }
+    }
+  }
+}

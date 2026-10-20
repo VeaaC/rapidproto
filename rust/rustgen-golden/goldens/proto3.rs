@@ -1333,3 +1333,963 @@ pub mod arena {
     }
   }
 }
+
+pub mod stream {
+
+  pub mod p3 {
+    pub struct Msg<'a, H0 = ::rapidproto::stream::Skip, H1 = ::rapidproto::stream::Skip, H2 = ::rapidproto::stream::Skip, H3 = ::rapidproto::stream::Skip, H4 = ::rapidproto::stream::Skip, H5 = ::rapidproto::stream::Skip, H6 = ::rapidproto::stream::Skip, H7 = ::rapidproto::stream::Skip, H8 = ::rapidproto::stream::Skip, H9 = ::rapidproto::stream::Skip, H10 = ::rapidproto::stream::Skip, H11 = ::rapidproto::stream::Skip, H12 = ::rapidproto::stream::Skip, H13 = ::rapidproto::stream::Skip, H14 = ::rapidproto::stream::Skip, H15 = ::rapidproto::stream::Skip, H16 = ::rapidproto::stream::Skip> {
+      input: &'a [u8],
+      h_implicit_i: H0,
+      h_explicit_i: H1,
+      h_name: H2,
+      h_state: H3,
+      h_self: H4,
+      h_nums: H5,
+      h_unpacked: H6,
+      h_states: H7,
+      h_reals: H8,
+      h_codes: H9,
+      h_bools: H10,
+      h_ratio: H11,
+      h_scale: H12,
+      h_a: H13,
+      h_b: H14,
+      h_c: H15,
+      h_d: H16,
+    }
+
+    impl<'a> Msg<'a> {
+      pub fn stream(input: &'a [u8]) -> Msg<'a> {
+        Msg {
+          input,
+          h_implicit_i: ::rapidproto::stream::Skip,
+          h_explicit_i: ::rapidproto::stream::Skip,
+          h_name: ::rapidproto::stream::Skip,
+          h_state: ::rapidproto::stream::Skip,
+          h_self: ::rapidproto::stream::Skip,
+          h_nums: ::rapidproto::stream::Skip,
+          h_unpacked: ::rapidproto::stream::Skip,
+          h_states: ::rapidproto::stream::Skip,
+          h_reals: ::rapidproto::stream::Skip,
+          h_codes: ::rapidproto::stream::Skip,
+          h_bools: ::rapidproto::stream::Skip,
+          h_ratio: ::rapidproto::stream::Skip,
+          h_scale: ::rapidproto::stream::Skip,
+          h_a: ::rapidproto::stream::Skip,
+          h_b: ::rapidproto::stream::Skip,
+          h_c: ::rapidproto::stream::Skip,
+          h_d: ::rapidproto::stream::Skip,
+        }
+      }
+    }
+
+    impl<'a, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16> Msg<'a, ::rapidproto::stream::Skip, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16> {
+      pub fn on_implicit_i<F, R>(self, rp_f: F) -> Msg<'a, ::rapidproto::stream::On<F>, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16>
+      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
+        Msg {
+          input: self.input,
+          h_implicit_i: ::rapidproto::stream::On(rp_f),
+          h_explicit_i: self.h_explicit_i,
+          h_name: self.h_name,
+          h_state: self.h_state,
+          h_self: self.h_self,
+          h_nums: self.h_nums,
+          h_unpacked: self.h_unpacked,
+          h_states: self.h_states,
+          h_reals: self.h_reals,
+          h_codes: self.h_codes,
+          h_bools: self.h_bools,
+          h_ratio: self.h_ratio,
+          h_scale: self.h_scale,
+          h_a: self.h_a,
+          h_b: self.h_b,
+          h_c: self.h_c,
+          h_d: self.h_d,
+        }
+      }
+    }
+
+    impl<'a, H0, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16> Msg<'a, H0, ::rapidproto::stream::Skip, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16> {
+      pub fn on_explicit_i<F, R>(self, rp_f: F) -> Msg<'a, H0, ::rapidproto::stream::On<F>, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16>
+      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
+        Msg {
+          input: self.input,
+          h_implicit_i: self.h_implicit_i,
+          h_explicit_i: ::rapidproto::stream::On(rp_f),
+          h_name: self.h_name,
+          h_state: self.h_state,
+          h_self: self.h_self,
+          h_nums: self.h_nums,
+          h_unpacked: self.h_unpacked,
+          h_states: self.h_states,
+          h_reals: self.h_reals,
+          h_codes: self.h_codes,
+          h_bools: self.h_bools,
+          h_ratio: self.h_ratio,
+          h_scale: self.h_scale,
+          h_a: self.h_a,
+          h_b: self.h_b,
+          h_c: self.h_c,
+          h_d: self.h_d,
+        }
+      }
+    }
+
+    impl<'a, H0, H1, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16> Msg<'a, H0, H1, ::rapidproto::stream::Skip, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16> {
+      pub fn on_name<F, R>(self, rp_f: F) -> Msg<'a, H0, H1, ::rapidproto::stream::On<F>, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16>
+      where F: FnMut(::rapidproto::ProtoStr<'a>) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
+        Msg {
+          input: self.input,
+          h_implicit_i: self.h_implicit_i,
+          h_explicit_i: self.h_explicit_i,
+          h_name: ::rapidproto::stream::On(rp_f),
+          h_state: self.h_state,
+          h_self: self.h_self,
+          h_nums: self.h_nums,
+          h_unpacked: self.h_unpacked,
+          h_states: self.h_states,
+          h_reals: self.h_reals,
+          h_codes: self.h_codes,
+          h_bools: self.h_bools,
+          h_ratio: self.h_ratio,
+          h_scale: self.h_scale,
+          h_a: self.h_a,
+          h_b: self.h_b,
+          h_c: self.h_c,
+          h_d: self.h_d,
+        }
+      }
+    }
+
+    impl<'a, H0, H1, H2, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16> Msg<'a, H0, H1, H2, ::rapidproto::stream::Skip, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16> {
+      pub fn on_state<F, R>(self, rp_f: F) -> Msg<'a, H0, H1, H2, ::rapidproto::stream::On<F>, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16>
+      where F: FnMut(super::super::common::p3::State) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
+        Msg {
+          input: self.input,
+          h_implicit_i: self.h_implicit_i,
+          h_explicit_i: self.h_explicit_i,
+          h_name: self.h_name,
+          h_state: ::rapidproto::stream::On(rp_f),
+          h_self: self.h_self,
+          h_nums: self.h_nums,
+          h_unpacked: self.h_unpacked,
+          h_states: self.h_states,
+          h_reals: self.h_reals,
+          h_codes: self.h_codes,
+          h_bools: self.h_bools,
+          h_ratio: self.h_ratio,
+          h_scale: self.h_scale,
+          h_a: self.h_a,
+          h_b: self.h_b,
+          h_c: self.h_c,
+          h_d: self.h_d,
+        }
+      }
+    }
+
+    impl<'a, H0, H1, H2, H3, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16> Msg<'a, H0, H1, H2, H3, ::rapidproto::stream::Skip, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16> {
+      pub fn on_self<F, R>(self, rp_f: F) -> Msg<'a, H0, H1, H2, H3, ::rapidproto::stream::On<F>, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16>
+      where F: FnMut(Msg<'a>) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
+        Msg {
+          input: self.input,
+          h_implicit_i: self.h_implicit_i,
+          h_explicit_i: self.h_explicit_i,
+          h_name: self.h_name,
+          h_state: self.h_state,
+          h_self: ::rapidproto::stream::On(rp_f),
+          h_nums: self.h_nums,
+          h_unpacked: self.h_unpacked,
+          h_states: self.h_states,
+          h_reals: self.h_reals,
+          h_codes: self.h_codes,
+          h_bools: self.h_bools,
+          h_ratio: self.h_ratio,
+          h_scale: self.h_scale,
+          h_a: self.h_a,
+          h_b: self.h_b,
+          h_c: self.h_c,
+          h_d: self.h_d,
+        }
+      }
+    }
+
+    impl<'a, H0, H1, H2, H3, H4, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16> Msg<'a, H0, H1, H2, H3, H4, ::rapidproto::stream::Skip, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16> {
+      pub fn on_nums<F, R>(self, rp_f: F) -> Msg<'a, H0, H1, H2, H3, H4, ::rapidproto::stream::On<F>, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16>
+      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
+        Msg {
+          input: self.input,
+          h_implicit_i: self.h_implicit_i,
+          h_explicit_i: self.h_explicit_i,
+          h_name: self.h_name,
+          h_state: self.h_state,
+          h_self: self.h_self,
+          h_nums: ::rapidproto::stream::On(rp_f),
+          h_unpacked: self.h_unpacked,
+          h_states: self.h_states,
+          h_reals: self.h_reals,
+          h_codes: self.h_codes,
+          h_bools: self.h_bools,
+          h_ratio: self.h_ratio,
+          h_scale: self.h_scale,
+          h_a: self.h_a,
+          h_b: self.h_b,
+          h_c: self.h_c,
+          h_d: self.h_d,
+        }
+      }
+    }
+
+    impl<'a, H0, H1, H2, H3, H4, H5, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16> Msg<'a, H0, H1, H2, H3, H4, H5, ::rapidproto::stream::Skip, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16> {
+      pub fn on_unpacked<F, R>(self, rp_f: F) -> Msg<'a, H0, H1, H2, H3, H4, H5, ::rapidproto::stream::On<F>, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16>
+      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
+        Msg {
+          input: self.input,
+          h_implicit_i: self.h_implicit_i,
+          h_explicit_i: self.h_explicit_i,
+          h_name: self.h_name,
+          h_state: self.h_state,
+          h_self: self.h_self,
+          h_nums: self.h_nums,
+          h_unpacked: ::rapidproto::stream::On(rp_f),
+          h_states: self.h_states,
+          h_reals: self.h_reals,
+          h_codes: self.h_codes,
+          h_bools: self.h_bools,
+          h_ratio: self.h_ratio,
+          h_scale: self.h_scale,
+          h_a: self.h_a,
+          h_b: self.h_b,
+          h_c: self.h_c,
+          h_d: self.h_d,
+        }
+      }
+    }
+
+    impl<'a, H0, H1, H2, H3, H4, H5, H6, H8, H9, H10, H11, H12, H13, H14, H15, H16> Msg<'a, H0, H1, H2, H3, H4, H5, H6, ::rapidproto::stream::Skip, H8, H9, H10, H11, H12, H13, H14, H15, H16> {
+      pub fn on_states<F, R>(self, rp_f: F) -> Msg<'a, H0, H1, H2, H3, H4, H5, H6, ::rapidproto::stream::On<F>, H8, H9, H10, H11, H12, H13, H14, H15, H16>
+      where F: FnMut(super::super::common::p3::State) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
+        Msg {
+          input: self.input,
+          h_implicit_i: self.h_implicit_i,
+          h_explicit_i: self.h_explicit_i,
+          h_name: self.h_name,
+          h_state: self.h_state,
+          h_self: self.h_self,
+          h_nums: self.h_nums,
+          h_unpacked: self.h_unpacked,
+          h_states: ::rapidproto::stream::On(rp_f),
+          h_reals: self.h_reals,
+          h_codes: self.h_codes,
+          h_bools: self.h_bools,
+          h_ratio: self.h_ratio,
+          h_scale: self.h_scale,
+          h_a: self.h_a,
+          h_b: self.h_b,
+          h_c: self.h_c,
+          h_d: self.h_d,
+        }
+      }
+    }
+
+    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H9, H10, H11, H12, H13, H14, H15, H16> Msg<'a, H0, H1, H2, H3, H4, H5, H6, H7, ::rapidproto::stream::Skip, H9, H10, H11, H12, H13, H14, H15, H16> {
+      pub fn on_reals<F, R>(self, rp_f: F) -> Msg<'a, H0, H1, H2, H3, H4, H5, H6, H7, ::rapidproto::stream::On<F>, H9, H10, H11, H12, H13, H14, H15, H16>
+      where F: FnMut(f64) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
+        Msg {
+          input: self.input,
+          h_implicit_i: self.h_implicit_i,
+          h_explicit_i: self.h_explicit_i,
+          h_name: self.h_name,
+          h_state: self.h_state,
+          h_self: self.h_self,
+          h_nums: self.h_nums,
+          h_unpacked: self.h_unpacked,
+          h_states: self.h_states,
+          h_reals: ::rapidproto::stream::On(rp_f),
+          h_codes: self.h_codes,
+          h_bools: self.h_bools,
+          h_ratio: self.h_ratio,
+          h_scale: self.h_scale,
+          h_a: self.h_a,
+          h_b: self.h_b,
+          h_c: self.h_c,
+          h_d: self.h_d,
+        }
+      }
+    }
+
+    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H10, H11, H12, H13, H14, H15, H16> Msg<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, ::rapidproto::stream::Skip, H10, H11, H12, H13, H14, H15, H16> {
+      pub fn on_codes<F, R>(self, rp_f: F) -> Msg<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, ::rapidproto::stream::On<F>, H10, H11, H12, H13, H14, H15, H16>
+      where F: FnMut(u32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
+        Msg {
+          input: self.input,
+          h_implicit_i: self.h_implicit_i,
+          h_explicit_i: self.h_explicit_i,
+          h_name: self.h_name,
+          h_state: self.h_state,
+          h_self: self.h_self,
+          h_nums: self.h_nums,
+          h_unpacked: self.h_unpacked,
+          h_states: self.h_states,
+          h_reals: self.h_reals,
+          h_codes: ::rapidproto::stream::On(rp_f),
+          h_bools: self.h_bools,
+          h_ratio: self.h_ratio,
+          h_scale: self.h_scale,
+          h_a: self.h_a,
+          h_b: self.h_b,
+          h_c: self.h_c,
+          h_d: self.h_d,
+        }
+      }
+    }
+
+    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H11, H12, H13, H14, H15, H16> Msg<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, ::rapidproto::stream::Skip, H11, H12, H13, H14, H15, H16> {
+      pub fn on_bools<F, R>(self, rp_f: F) -> Msg<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, ::rapidproto::stream::On<F>, H11, H12, H13, H14, H15, H16>
+      where F: FnMut(bool) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
+        Msg {
+          input: self.input,
+          h_implicit_i: self.h_implicit_i,
+          h_explicit_i: self.h_explicit_i,
+          h_name: self.h_name,
+          h_state: self.h_state,
+          h_self: self.h_self,
+          h_nums: self.h_nums,
+          h_unpacked: self.h_unpacked,
+          h_states: self.h_states,
+          h_reals: self.h_reals,
+          h_codes: self.h_codes,
+          h_bools: ::rapidproto::stream::On(rp_f),
+          h_ratio: self.h_ratio,
+          h_scale: self.h_scale,
+          h_a: self.h_a,
+          h_b: self.h_b,
+          h_c: self.h_c,
+          h_d: self.h_d,
+        }
+      }
+    }
+
+    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H12, H13, H14, H15, H16> Msg<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, ::rapidproto::stream::Skip, H12, H13, H14, H15, H16> {
+      pub fn on_ratio<F, R>(self, rp_f: F) -> Msg<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, ::rapidproto::stream::On<F>, H12, H13, H14, H15, H16>
+      where F: FnMut(f64) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
+        Msg {
+          input: self.input,
+          h_implicit_i: self.h_implicit_i,
+          h_explicit_i: self.h_explicit_i,
+          h_name: self.h_name,
+          h_state: self.h_state,
+          h_self: self.h_self,
+          h_nums: self.h_nums,
+          h_unpacked: self.h_unpacked,
+          h_states: self.h_states,
+          h_reals: self.h_reals,
+          h_codes: self.h_codes,
+          h_bools: self.h_bools,
+          h_ratio: ::rapidproto::stream::On(rp_f),
+          h_scale: self.h_scale,
+          h_a: self.h_a,
+          h_b: self.h_b,
+          h_c: self.h_c,
+          h_d: self.h_d,
+        }
+      }
+    }
+
+    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H13, H14, H15, H16> Msg<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, ::rapidproto::stream::Skip, H13, H14, H15, H16> {
+      pub fn on_scale<F, R>(self, rp_f: F) -> Msg<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, ::rapidproto::stream::On<F>, H13, H14, H15, H16>
+      where F: FnMut(f32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
+        Msg {
+          input: self.input,
+          h_implicit_i: self.h_implicit_i,
+          h_explicit_i: self.h_explicit_i,
+          h_name: self.h_name,
+          h_state: self.h_state,
+          h_self: self.h_self,
+          h_nums: self.h_nums,
+          h_unpacked: self.h_unpacked,
+          h_states: self.h_states,
+          h_reals: self.h_reals,
+          h_codes: self.h_codes,
+          h_bools: self.h_bools,
+          h_ratio: self.h_ratio,
+          h_scale: ::rapidproto::stream::On(rp_f),
+          h_a: self.h_a,
+          h_b: self.h_b,
+          h_c: self.h_c,
+          h_d: self.h_d,
+        }
+      }
+    }
+
+    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H14, H15, H16> Msg<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, ::rapidproto::stream::Skip, H14, H15, H16> {
+      pub fn on_a<F, R>(self, rp_f: F) -> Msg<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, ::rapidproto::stream::On<F>, H14, H15, H16>
+      where F: FnMut(i32) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
+        Msg {
+          input: self.input,
+          h_implicit_i: self.h_implicit_i,
+          h_explicit_i: self.h_explicit_i,
+          h_name: self.h_name,
+          h_state: self.h_state,
+          h_self: self.h_self,
+          h_nums: self.h_nums,
+          h_unpacked: self.h_unpacked,
+          h_states: self.h_states,
+          h_reals: self.h_reals,
+          h_codes: self.h_codes,
+          h_bools: self.h_bools,
+          h_ratio: self.h_ratio,
+          h_scale: self.h_scale,
+          h_a: ::rapidproto::stream::On(rp_f),
+          h_b: self.h_b,
+          h_c: self.h_c,
+          h_d: self.h_d,
+        }
+      }
+    }
+
+    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H15, H16> Msg<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, ::rapidproto::stream::Skip, H15, H16> {
+      pub fn on_b<F, R>(self, rp_f: F) -> Msg<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, ::rapidproto::stream::On<F>, H15, H16>
+      where F: FnMut(::rapidproto::ProtoStr<'a>) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
+        Msg {
+          input: self.input,
+          h_implicit_i: self.h_implicit_i,
+          h_explicit_i: self.h_explicit_i,
+          h_name: self.h_name,
+          h_state: self.h_state,
+          h_self: self.h_self,
+          h_nums: self.h_nums,
+          h_unpacked: self.h_unpacked,
+          h_states: self.h_states,
+          h_reals: self.h_reals,
+          h_codes: self.h_codes,
+          h_bools: self.h_bools,
+          h_ratio: self.h_ratio,
+          h_scale: self.h_scale,
+          h_a: self.h_a,
+          h_b: ::rapidproto::stream::On(rp_f),
+          h_c: self.h_c,
+          h_d: self.h_d,
+        }
+      }
+    }
+
+    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H16> Msg<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, ::rapidproto::stream::Skip, H16> {
+      pub fn on_c<F, R>(self, rp_f: F) -> Msg<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, ::rapidproto::stream::On<F>, H16>
+      where F: FnMut(bool) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
+        Msg {
+          input: self.input,
+          h_implicit_i: self.h_implicit_i,
+          h_explicit_i: self.h_explicit_i,
+          h_name: self.h_name,
+          h_state: self.h_state,
+          h_self: self.h_self,
+          h_nums: self.h_nums,
+          h_unpacked: self.h_unpacked,
+          h_states: self.h_states,
+          h_reals: self.h_reals,
+          h_codes: self.h_codes,
+          h_bools: self.h_bools,
+          h_ratio: self.h_ratio,
+          h_scale: self.h_scale,
+          h_a: self.h_a,
+          h_b: self.h_b,
+          h_c: ::rapidproto::stream::On(rp_f),
+          h_d: self.h_d,
+        }
+      }
+    }
+
+    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15> Msg<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, ::rapidproto::stream::Skip> {
+      pub fn on_d<F, R>(self, rp_f: F) -> Msg<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, ::rapidproto::stream::On<F>>
+      where F: FnMut(f64) -> R, R: ::core::convert::Into<::rapidproto::stream::Flow> {
+        Msg {
+          input: self.input,
+          h_implicit_i: self.h_implicit_i,
+          h_explicit_i: self.h_explicit_i,
+          h_name: self.h_name,
+          h_state: self.h_state,
+          h_self: self.h_self,
+          h_nums: self.h_nums,
+          h_unpacked: self.h_unpacked,
+          h_states: self.h_states,
+          h_reals: self.h_reals,
+          h_codes: self.h_codes,
+          h_bools: self.h_bools,
+          h_ratio: self.h_ratio,
+          h_scale: self.h_scale,
+          h_a: self.h_a,
+          h_b: self.h_b,
+          h_c: self.h_c,
+          h_d: ::rapidproto::stream::On(rp_f),
+        }
+      }
+    }
+
+    impl<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16> Msg<'a, H0, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16>
+    where H0: ::rapidproto::stream::FieldHandler<i32>, H1: ::rapidproto::stream::FieldHandler<i32>, H2: ::rapidproto::stream::FieldHandler<::rapidproto::ProtoStr<'a>>, H3: ::rapidproto::stream::FieldHandler<super::super::common::p3::State>, H4: ::rapidproto::stream::FieldHandler<Msg<'a>>, H5: ::rapidproto::stream::FieldHandler<i32>, H6: ::rapidproto::stream::FieldHandler<i32>, H7: ::rapidproto::stream::FieldHandler<super::super::common::p3::State>, H8: ::rapidproto::stream::FieldHandler<f64>, H9: ::rapidproto::stream::FieldHandler<u32>, H10: ::rapidproto::stream::FieldHandler<bool>, H11: ::rapidproto::stream::FieldHandler<f64>, H12: ::rapidproto::stream::FieldHandler<f32>, H13: ::rapidproto::stream::FieldHandler<i32>, H14: ::rapidproto::stream::FieldHandler<::rapidproto::ProtoStr<'a>>, H15: ::rapidproto::stream::FieldHandler<bool>, H16: ::rapidproto::stream::FieldHandler<f64> {
+      pub fn decode(mut self) -> Result<(), ::rapidproto::DecodeError> {
+        let rp_body: &'a [u8] = self.input;
+        let mut rp_rest: &'a [u8] = rp_body;
+        loop {
+          let rp_b = match rp_rest.first() {
+            Some(&rp_b) => rp_b,
+            None => break,
+          };
+          let rp_tagkey: u32 = if rp_b < 0x80 {
+            rp_rest = &rp_rest[1..];
+            u32::from(rp_b)
+          } else {
+            let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+            rp_rest = match ::rapidproto::wire::read_tag(rp_rest, &mut rp_tag) {
+              Ok(r) => r,
+              Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+            (rp_tag.field << 3) | rp_tag.wire as u32
+          };
+          match rp_tagkey {
+            8u32 => {
+              if H0::WANTED {
+                let mut rp_v = 0u64;
+                rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                if self.h_implicit_i.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                  return Ok(());
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
+            }
+            16u32 => {
+              if H1::WANTED {
+                let mut rp_v = 0u64;
+                rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                if self.h_explicit_i.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                  return Ok(());
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
+            }
+            26u32 => {
+              if H2::WANTED {
+                let mut rp_p: &[u8] = &[];
+                rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                if self.h_name.handle(::rapidproto::ProtoStr::new(rp_p)) == ::rapidproto::stream::Flow::Stop {
+                  return Ok(());
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
+            }
+            32u32 => {
+              if H3::WANTED {
+                let mut rp_v = 0u64;
+                rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                if self.h_state.handle(super::super::common::p3::State(rp_v as i32)) == ::rapidproto::stream::Flow::Stop {
+                  return Ok(());
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
+            }
+            42u32 => {
+              if H4::WANTED {
+                let mut rp_p: &[u8] = &[];
+                rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                if self.h_self.handle(Msg::stream(rp_p)) == ::rapidproto::stream::Flow::Stop {
+                  return Ok(());
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
+            }
+            48u32 => {
+              if H5::WANTED {
+                let mut rp_v = 0u64;
+                rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                if self.h_nums.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                  return Ok(());
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
+            }
+            50u32 => {
+              if H5::WANTED {
+                let mut rp_p: &[u8] = &[];
+                rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                while !rp_p.is_empty() {
+                  let mut rp_v = 0u64;
+                  rp_p = match ::rapidproto::wire::read_varint(rp_p, &mut rp_v) {
+                    Ok(r) => r,
+                    Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len() - rp_p.len())),
+                  };
+                  if self.h_nums.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                    return Ok(());
+                  }
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
+            }
+            56u32 => {
+              if H6::WANTED {
+                let mut rp_v = 0u64;
+                rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                if self.h_unpacked.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                  return Ok(());
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
+            }
+            58u32 => {
+              if H6::WANTED {
+                let mut rp_p: &[u8] = &[];
+                rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                while !rp_p.is_empty() {
+                  let mut rp_v = 0u64;
+                  rp_p = match ::rapidproto::wire::read_varint(rp_p, &mut rp_v) {
+                    Ok(r) => r,
+                    Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len() - rp_p.len())),
+                  };
+                  if self.h_unpacked.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                    return Ok(());
+                  }
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
+            }
+            64u32 => {
+              if H7::WANTED {
+                let mut rp_v = 0u64;
+                rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                if self.h_states.handle(super::super::common::p3::State(rp_v as i32)) == ::rapidproto::stream::Flow::Stop {
+                  return Ok(());
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
+            }
+            66u32 => {
+              if H7::WANTED {
+                let mut rp_p: &[u8] = &[];
+                rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                while !rp_p.is_empty() {
+                  let mut rp_v = 0u64;
+                  rp_p = match ::rapidproto::wire::read_varint(rp_p, &mut rp_v) {
+                    Ok(r) => r,
+                    Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len() - rp_p.len())),
+                  };
+                  if self.h_states.handle(super::super::common::p3::State(rp_v as i32)) == ::rapidproto::stream::Flow::Stop {
+                    return Ok(());
+                  }
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
+            }
+            97u32 => {
+              if H8::WANTED {
+                let mut rp_v = 0u64;
+                rp_rest = match ::rapidproto::wire::read_fixed64(rp_rest, &mut rp_v) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                if self.h_reals.handle(f64::from_bits(rp_v)) == ::rapidproto::stream::Flow::Stop {
+                  return Ok(());
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
+            }
+            98u32 => {
+              if H8::WANTED {
+                let mut rp_p: &[u8] = &[];
+                rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                while !rp_p.is_empty() {
+                  let mut rp_v = 0u64;
+                  rp_p = match ::rapidproto::wire::read_fixed64(rp_p, &mut rp_v) {
+                    Ok(r) => r,
+                    Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len() - rp_p.len())),
+                  };
+                  if self.h_reals.handle(f64::from_bits(rp_v)) == ::rapidproto::stream::Flow::Stop {
+                    return Ok(());
+                  }
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
+            }
+            109u32 => {
+              if H9::WANTED {
+                let mut rp_v = 0u32;
+                rp_rest = match ::rapidproto::wire::read_fixed32(rp_rest, &mut rp_v) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                if self.h_codes.handle(rp_v) == ::rapidproto::stream::Flow::Stop {
+                  return Ok(());
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
+            }
+            106u32 => {
+              if H9::WANTED {
+                let mut rp_p: &[u8] = &[];
+                rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                while !rp_p.is_empty() {
+                  let mut rp_v = 0u32;
+                  rp_p = match ::rapidproto::wire::read_fixed32(rp_p, &mut rp_v) {
+                    Ok(r) => r,
+                    Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len() - rp_p.len())),
+                  };
+                  if self.h_codes.handle(rp_v) == ::rapidproto::stream::Flow::Stop {
+                    return Ok(());
+                  }
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
+            }
+            136u32 => {
+              if H10::WANTED {
+                let mut rp_v = 0u64;
+                rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                if self.h_bools.handle(rp_v != 0) == ::rapidproto::stream::Flow::Stop {
+                  return Ok(());
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
+            }
+            138u32 => {
+              if H10::WANTED {
+                let mut rp_p: &[u8] = &[];
+                rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                while !rp_p.is_empty() {
+                  let mut rp_v = 0u64;
+                  rp_p = match ::rapidproto::wire::read_varint(rp_p, &mut rp_v) {
+                    Ok(r) => r,
+                    Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len() - rp_p.len())),
+                  };
+                  if self.h_bools.handle(rp_v != 0) == ::rapidproto::stream::Flow::Stop {
+                    return Ok(());
+                  }
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
+            }
+            161u32 => {
+              if H11::WANTED {
+                let mut rp_v = 0u64;
+                rp_rest = match ::rapidproto::wire::read_fixed64(rp_rest, &mut rp_v) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                if self.h_ratio.handle(f64::from_bits(rp_v)) == ::rapidproto::stream::Flow::Stop {
+                  return Ok(());
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
+            }
+            173u32 => {
+              if H12::WANTED {
+                let mut rp_v = 0u32;
+                rp_rest = match ::rapidproto::wire::read_fixed32(rp_rest, &mut rp_v) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                if self.h_scale.handle(f32::from_bits(rp_v)) == ::rapidproto::stream::Flow::Stop {
+                  return Ok(());
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
+            }
+            80u32 => {
+              if H13::WANTED {
+                let mut rp_v = 0u64;
+                rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                if self.h_a.handle(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
+                  return Ok(());
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
+            }
+            90u32 => {
+              if H14::WANTED {
+                let mut rp_p: &[u8] = &[];
+                rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                if self.h_b.handle(::rapidproto::ProtoStr::new(rp_p)) == ::rapidproto::stream::Flow::Stop {
+                  return Ok(());
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
+            }
+            120u32 => {
+              if H15::WANTED {
+                let mut rp_v = 0u64;
+                rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                if self.h_c.handle(rp_v != 0) == ::rapidproto::stream::Flow::Stop {
+                  return Ok(());
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
+            }
+            129u32 => {
+              if H16::WANTED {
+                let mut rp_v = 0u64;
+                rp_rest = match ::rapidproto::wire::read_fixed64(rp_rest, &mut rp_v) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                if self.h_d.handle(f64::from_bits(rp_v)) == ::rapidproto::stream::Flow::Stop {
+                  return Ok(());
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
+            }
+            _ => {
+              rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                Ok(r) => r,
+                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+            }
+          }
+        }
+        Ok(())
+      }
+    }
+  }
+}

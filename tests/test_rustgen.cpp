@@ -154,7 +154,7 @@ std::string golden_stem(std::string_view rel) {
 // types are pulled in), then plan layouts and emit one file over the whole set. Sharing that tail is
 // what keeps native generation and the blob byte-identical by construction. The include path is the
 // schema's own directory.
-std::string gen_corpus(std::string_view rel) {
+std::string gen_corpus(std::string_view rel, const rustgen::RustModels& models = {}) {
     const std::string path = std::string(RAPIDPROTO_CORPUS_DIR) + "/" + std::string(rel);
     cli::Options opts;
     opts.config.include_paths = {std::filesystem::path(path).parent_path().string()};
@@ -162,7 +162,7 @@ std::string gen_corpus(std::string_view rel) {
     REQUIRE(resolved.has_value());
     // NOLINTNEXTLINE(bugprone-unchecked-optional-access): guarded by the REQUIRE above
     const auto& analyzed_set = resolved.value();
-    return rustgen::generate_rust(analyzed_set.first, analyzed_set.second, {});
+    return rustgen::generate_rust(analyzed_set.first, analyzed_set.second, {}, models);
 }
 
 // Generate a corpus schema under a resolved field-modes profile (drop/raw/unknown). Modes are a
@@ -839,10 +839,15 @@ TEST_CASE("rustgen imports: sibling packages whose Rust names collide are dedupe
 // valid Rust, including cross-file and cross-package references. Byte-compared here so a generator
 // change that is not regenerated fails. Regenerate with tests/regen_goldens.sh.
 TEST_CASE("rustgen goldens match the corpus (compile smoke-test)", "[rustgen-golden]") {
+    // Every corpus golden carries BOTH decoder models (arena + stream) in one file, so streaming
+    // coverage tracks arena coverage over the whole corpus automatically (no bespoke stream schema)
+    // and the two trees are proven to coexist. Streaming is still opt-in for a consumer (the default
+    // `generate_rust` emits arena only); the golden just always exercises both.
+    constexpr rustgen::RustModels kBoth{/*arena=*/true, /*stream=*/true};
     std::vector<std::string> stems;
     for (const std::string& rel : corpus_schemas()) {
         const std::string stem = golden_stem(rel);
-        check_golden(stem, gen_corpus(rel));
+        check_golden(stem, gen_corpus(rel, kBoth));
         stems.push_back(stem);
     }
     // A field-modes variant golden alongside the plain corpus goldens (see kModesGoldenStem).
@@ -864,7 +869,7 @@ TEST_CASE("rustgen goldens match the corpus (compile smoke-test)", "[rustgen-gol
     // The shared benchmark schema (tests/bench/bench.proto, package `bench`) -- generated so the Rust
     // decode benchmark (rust/rustgen-golden/benches/decode.rs) measures a realistic record decoder over
     // the SAME schema the C++ arena bench uses.
-    check_golden("bench", gen_corpus("../bench/bench.proto"));
+    check_golden("bench", gen_corpus("../bench/bench.proto", kBoth));
     stems.emplace_back("bench");
     // Golden file names (and lib.rs module names) are the bare stems, so they must be distinct across
     // subdirs -- otherwise two schemas (e.g. nsedge/foo + imports/foo) would silently share one

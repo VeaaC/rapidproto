@@ -38,6 +38,7 @@ mod packed_varint;
 mod proto_str;
 #[cfg(feature = "serde")]
 pub mod serde_support;
+pub mod stream;
 pub mod wire;
 
 /// Re-export of `serde` (only with the `serde` feature), so generated `Serialize` impls can name
