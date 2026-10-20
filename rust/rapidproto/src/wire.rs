@@ -60,7 +60,7 @@ pub enum WireType {
 impl WireType {
     /// Map the low 3 bits of a tag to a wire type, or `None` for the two unused codes (6, 7).
     #[inline]
-    fn from_bits(bits: u32) -> Option<WireType> {
+    pub fn from_bits(bits: u32) -> Option<WireType> {
         match bits {
             0 => Some(WireType::Varint),
             1 => Some(WireType::I64),

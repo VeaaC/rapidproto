@@ -2948,17 +2948,26 @@ pub mod stream {
     pub trait AVisitor<'a> {
       const WANT_b: bool = false;
       #[inline(always)]
-      fn on_b(&mut self, _rp_v: &'a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      fn on_b(&mut self, _rp_v: B<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_id: bool = false;
       #[inline(always)]
-      fn on_id(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      fn on_id(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      const WANT_UNKNOWN: bool = false;
+      #[inline(always)]
+      fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
     }
 
-    pub struct A;
+    #[derive(Clone, Copy)]
+    pub struct A<'a> {
+      rp_input: &'a [u8],
+    }
 
-    impl A {
-      pub fn decode<'a, V: AVisitor<'a>>(rp_input: &'a [u8], mut rp_vis: V) -> Result<(), ::rapidproto::DecodeError> {
-        let rp_body: &'a [u8] = rp_input;
+    impl<'a> A<'a> {
+      #[inline(always)]
+      pub fn new(rp_input: &'a [u8]) -> A<'a> { A { rp_input } }
+
+      pub fn decode<V: AVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<(), ::rapidproto::DecodeError> {
+        let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
           let rp_b = match rp_rest.first() {
@@ -2984,8 +2993,9 @@ pub mod stream {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if rp_vis.on_b(rp_p) == ::rapidproto::stream::Flow::Stop {
-                  return Ok(());
+                match rp_vis.on_b(B::new(rp_p))? {
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Continue => {}
                 }
               } else {
                 rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -3001,8 +3011,9 @@ pub mod stream {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if rp_vis.on_id(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
-                  return Ok(());
+                match rp_vis.on_id(rp_v as i32)? {
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Continue => {}
                 }
               } else {
                 rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -3012,14 +3023,27 @@ pub mod stream {
               }
             }
             _ => {
-              rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
-                Ok(r) => r,
-                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
-              };
+              if V::WANT_UNKNOWN && !matches!(rp_tagkey >> 3, 1 | 2) {
+                let rp_before = rp_rest;
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                let rp_u = ::rapidproto::stream::UnknownField::new(rp_tagkey, &rp_before[..rp_before.len() - rp_rest.len()]);
+                match rp_vis.on_unknown(rp_u)? {
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Continue => {}
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
             }
           }
         }
-        Ok(())
+        ::core::result::Result::Ok(())
       }
     }
 
@@ -3030,19 +3054,28 @@ pub mod stream {
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] b => $rp_c:expr , $($rp_rest:tt)*) => {
         a_stream!(@m
           [$($rp_g)* F_b,]
-          [$($rp_w)* F_b: ::rapidproto::stream::Handler<&'rp_a [u8]>,]
-          [$($rp_i)* const WANT_b: bool = true; #[inline(always)] fn on_b(&mut self, rp_x: &'rp_a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_b, rp_x) }]
+          [$($rp_w)* F_b: ::rapidproto::stream::Handler<B<'rp_a>>,]
+          [$($rp_i)* const WANT_b: bool = true; #[inline(always)] fn on_b(&mut self, rp_x: B<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_b, rp_x) }]
           [$($rp_fl)* f_b: F_b,]
-          [$($rp_ct)* f_b: $rp_c,]
+          [$($rp_ct)* f_b: ::rapidproto::stream::typed::<B<'_>, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] id => $rp_c:expr , $($rp_rest:tt)*) => {
         a_stream!(@m
           [$($rp_g)* F_id,]
           [$($rp_w)* F_id: ::rapidproto::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_id: bool = true; #[inline(always)] fn on_id(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_id, rp_x) }]
+          [$($rp_i)* const WANT_id: bool = true; #[inline(always)] fn on_id(&mut self, rp_x: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_id, rp_x) }]
           [$($rp_fl)* f_id: F_id,]
-          [$($rp_ct)* f_id: $rp_c,]
+          [$($rp_ct)* f_id: ::rapidproto::stream::typed::<i32, _, _>($rp_c),]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] unknown => $rp_c:expr , $($rp_rest:tt)*) => {
+        a_stream!(@m
+          [$($rp_g)* F_unknown,]
+          [$($rp_w)* F_unknown: ::rapidproto::stream::Handler<::rapidproto::stream::UnknownField<'rp_a>>,]
+          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: ::rapidproto::stream::UnknownField<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_unknown, rp_x) }]
+          [$($rp_fl)* f_unknown: F_unknown,]
+          [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
@@ -3058,14 +3091,23 @@ pub mod stream {
     pub trait BVisitor<'a> {
       const WANT_a: bool = false;
       #[inline(always)]
-      fn on_a(&mut self, _rp_v: &'a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      fn on_a(&mut self, _rp_v: A<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      const WANT_UNKNOWN: bool = false;
+      #[inline(always)]
+      fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
     }
 
-    pub struct B;
+    #[derive(Clone, Copy)]
+    pub struct B<'a> {
+      rp_input: &'a [u8],
+    }
 
-    impl B {
-      pub fn decode<'a, V: BVisitor<'a>>(rp_input: &'a [u8], mut rp_vis: V) -> Result<(), ::rapidproto::DecodeError> {
-        let rp_body: &'a [u8] = rp_input;
+    impl<'a> B<'a> {
+      #[inline(always)]
+      pub fn new(rp_input: &'a [u8]) -> B<'a> { B { rp_input } }
+
+      pub fn decode<V: BVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<(), ::rapidproto::DecodeError> {
+        let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
           let rp_b = match rp_rest.first() {
@@ -3091,8 +3133,9 @@ pub mod stream {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if rp_vis.on_a(rp_p) == ::rapidproto::stream::Flow::Stop {
-                  return Ok(());
+                match rp_vis.on_a(A::new(rp_p))? {
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Continue => {}
                 }
               } else {
                 rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -3102,14 +3145,27 @@ pub mod stream {
               }
             }
             _ => {
-              rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
-                Ok(r) => r,
-                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
-              };
+              if V::WANT_UNKNOWN && !matches!(rp_tagkey >> 3, 1) {
+                let rp_before = rp_rest;
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                let rp_u = ::rapidproto::stream::UnknownField::new(rp_tagkey, &rp_before[..rp_before.len() - rp_rest.len()]);
+                match rp_vis.on_unknown(rp_u)? {
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Continue => {}
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
             }
           }
         }
-        Ok(())
+        ::core::result::Result::Ok(())
       }
     }
 
@@ -3120,10 +3176,19 @@ pub mod stream {
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] a => $rp_c:expr , $($rp_rest:tt)*) => {
         b_stream!(@m
           [$($rp_g)* F_a,]
-          [$($rp_w)* F_a: ::rapidproto::stream::Handler<&'rp_a [u8]>,]
-          [$($rp_i)* const WANT_a: bool = true; #[inline(always)] fn on_a(&mut self, rp_x: &'rp_a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_a, rp_x) }]
+          [$($rp_w)* F_a: ::rapidproto::stream::Handler<A<'rp_a>>,]
+          [$($rp_i)* const WANT_a: bool = true; #[inline(always)] fn on_a(&mut self, rp_x: A<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_a, rp_x) }]
           [$($rp_fl)* f_a: F_a,]
-          [$($rp_ct)* f_a: $rp_c,]
+          [$($rp_ct)* f_a: ::rapidproto::stream::typed::<A<'_>, _, _>($rp_c),]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] unknown => $rp_c:expr , $($rp_rest:tt)*) => {
+        b_stream!(@m
+          [$($rp_g)* F_unknown,]
+          [$($rp_w)* F_unknown: ::rapidproto::stream::Handler<::rapidproto::stream::UnknownField<'rp_a>>,]
+          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: ::rapidproto::stream::UnknownField<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_unknown, rp_x) }]
+          [$($rp_fl)* f_unknown: F_unknown,]
+          [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
@@ -3137,15 +3202,23 @@ pub mod stream {
     pub(crate) use b_stream;
 
     pub trait NestedVisitor<'a> {
+      const WANT_UNKNOWN: bool = false;
+      #[inline(always)]
+      fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
     }
 
-    pub struct Nested;
+    #[derive(Clone, Copy)]
+    pub struct Nested<'a> {
+      rp_input: &'a [u8],
+    }
 
-    impl Nested {
-      pub fn decode<'a, V: NestedVisitor<'a>>(rp_input: &'a [u8], mut rp_vis: V) -> Result<(), ::rapidproto::DecodeError> {
-        let rp_body: &'a [u8] = rp_input;
+    impl<'a> Nested<'a> {
+      #[inline(always)]
+      pub fn new(rp_input: &'a [u8]) -> Nested<'a> { Nested { rp_input } }
+
+      pub fn decode<V: NestedVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<(), ::rapidproto::DecodeError> {
+        let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
-        let _ = &mut rp_vis;
         loop {
           let rp_b = match rp_rest.first() {
             Some(&rp_b) => rp_b,
@@ -3164,20 +3237,42 @@ pub mod stream {
           };
           match rp_tagkey {
             _ => {
-              rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
-                Ok(r) => r,
-                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
-              };
+              if V::WANT_UNKNOWN {
+                let rp_before = rp_rest;
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                let rp_u = ::rapidproto::stream::UnknownField::new(rp_tagkey, &rp_before[..rp_before.len() - rp_rest.len()]);
+                match rp_vis.on_unknown(rp_u)? {
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Continue => {}
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
             }
           }
         }
-        Ok(())
+        ::core::result::Result::Ok(())
       }
     }
 
     macro_rules! nested_stream {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         nested_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] unknown => $rp_c:expr , $($rp_rest:tt)*) => {
+        nested_stream!(@m
+          [$($rp_g)* F_unknown,]
+          [$($rp_w)* F_unknown: ::rapidproto::stream::Handler<::rapidproto::stream::UnknownField<'rp_a>>,]
+          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: ::rapidproto::stream::UnknownField<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_unknown, rp_x) }]
+          [$($rp_fl)* f_unknown: F_unknown,]
+          [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
+        $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
         #[allow(nonstandard_style)]
@@ -3190,38 +3285,50 @@ pub mod stream {
     pub(crate) use nested_stream;
 
     pub mod nested {
+      pub type rp_stream_ty_0 = super::super::super::common::xr::nested::def::Kind;
+      pub type rp_stream_ty_1<'a> = def::Inner<'a>;
+
       pub trait UserVisitor<'a> {
         const WANT_single: bool = false;
         #[inline(always)]
-        fn on_single(&mut self, _rp_v: &'a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+        fn on_single(&mut self, _rp_v: Def<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_many: bool = false;
         #[inline(always)]
-        fn on_many(&mut self, _rp_v: &'a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+        fn on_many(&mut self, _rp_v: Def<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_kind: bool = false;
         #[inline(always)]
-        fn on_kind(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+        fn on_kind(&mut self, _rp_v: rp_stream_ty_0) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_kinds: bool = false;
         #[inline(always)]
-        fn on_kinds(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+        fn on_kinds(&mut self, _rp_v: rp_stream_ty_0) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_inner: bool = false;
         #[inline(always)]
-        fn on_inner(&mut self, _rp_v: &'a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+        fn on_inner(&mut self, _rp_v: rp_stream_ty_1<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_inners: bool = false;
         #[inline(always)]
-        fn on_inners(&mut self, _rp_v: &'a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+        fn on_inners(&mut self, _rp_v: rp_stream_ty_1<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_chosen: bool = false;
         #[inline(always)]
-        fn on_chosen(&mut self, _rp_v: &'a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+        fn on_chosen(&mut self, _rp_v: Def<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_tagged: bool = false;
         #[inline(always)]
-        fn on_tagged(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+        fn on_tagged(&mut self, _rp_v: rp_stream_ty_0) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        const WANT_UNKNOWN: bool = false;
+        #[inline(always)]
+        fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       }
 
-      pub struct User;
+      #[derive(Clone, Copy)]
+      pub struct User<'a> {
+        rp_input: &'a [u8],
+      }
 
-      impl User {
-        pub fn decode<'a, V: UserVisitor<'a>>(rp_input: &'a [u8], mut rp_vis: V) -> Result<(), ::rapidproto::DecodeError> {
-          let rp_body: &'a [u8] = rp_input;
+      impl<'a> User<'a> {
+        #[inline(always)]
+        pub fn new(rp_input: &'a [u8]) -> User<'a> { User { rp_input } }
+
+        pub fn decode<V: UserVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<(), ::rapidproto::DecodeError> {
+          let rp_body: &'a [u8] = self.rp_input;
           let mut rp_rest: &'a [u8] = rp_body;
           loop {
             let rp_b = match rp_rest.first() {
@@ -3247,8 +3354,9 @@ pub mod stream {
                     Ok(r) => r,
                     Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                   };
-                  if rp_vis.on_single(rp_p) == ::rapidproto::stream::Flow::Stop {
-                    return Ok(());
+                  match rp_vis.on_single(Def::new(rp_p))? {
+                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                    ::rapidproto::stream::Flow::Continue => {}
                   }
                 } else {
                   rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -3264,8 +3372,9 @@ pub mod stream {
                     Ok(r) => r,
                     Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                   };
-                  if rp_vis.on_many(rp_p) == ::rapidproto::stream::Flow::Stop {
-                    return Ok(());
+                  match rp_vis.on_many(Def::new(rp_p))? {
+                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                    ::rapidproto::stream::Flow::Continue => {}
                   }
                 } else {
                   rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -3281,8 +3390,9 @@ pub mod stream {
                     Ok(r) => r,
                     Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                   };
-                  if rp_vis.on_kind(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
-                    return Ok(());
+                  match rp_vis.on_kind(super::super::super::common::xr::nested::def::Kind(rp_v as i32))? {
+                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                    ::rapidproto::stream::Flow::Continue => {}
                   }
                 } else {
                   rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -3298,8 +3408,9 @@ pub mod stream {
                     Ok(r) => r,
                     Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                   };
-                  if rp_vis.on_kinds(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
-                    return Ok(());
+                  match rp_vis.on_kinds(super::super::super::common::xr::nested::def::Kind(rp_v as i32))? {
+                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                    ::rapidproto::stream::Flow::Continue => {}
                   }
                 } else {
                   rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -3321,8 +3432,9 @@ pub mod stream {
                       Ok(r) => r,
                       Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len() - rp_p.len())),
                     };
-                    if rp_vis.on_kinds(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
-                      return Ok(());
+                    match rp_vis.on_kinds(super::super::super::common::xr::nested::def::Kind(rp_v as i32))? {
+                      ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                      ::rapidproto::stream::Flow::Continue => {}
                     }
                   }
                 } else {
@@ -3339,8 +3451,9 @@ pub mod stream {
                     Ok(r) => r,
                     Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                   };
-                  if rp_vis.on_inner(rp_p) == ::rapidproto::stream::Flow::Stop {
-                    return Ok(());
+                  match rp_vis.on_inner(def::Inner::new(rp_p))? {
+                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                    ::rapidproto::stream::Flow::Continue => {}
                   }
                 } else {
                   rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -3356,8 +3469,9 @@ pub mod stream {
                     Ok(r) => r,
                     Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                   };
-                  if rp_vis.on_inners(rp_p) == ::rapidproto::stream::Flow::Stop {
-                    return Ok(());
+                  match rp_vis.on_inners(def::Inner::new(rp_p))? {
+                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                    ::rapidproto::stream::Flow::Continue => {}
                   }
                 } else {
                   rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -3373,8 +3487,9 @@ pub mod stream {
                     Ok(r) => r,
                     Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                   };
-                  if rp_vis.on_chosen(rp_p) == ::rapidproto::stream::Flow::Stop {
-                    return Ok(());
+                  match rp_vis.on_chosen(Def::new(rp_p))? {
+                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                    ::rapidproto::stream::Flow::Continue => {}
                   }
                 } else {
                   rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -3390,8 +3505,9 @@ pub mod stream {
                     Ok(r) => r,
                     Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                   };
-                  if rp_vis.on_tagged(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
-                    return Ok(());
+                  match rp_vis.on_tagged(super::super::super::common::xr::nested::def::Kind(rp_v as i32))? {
+                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                    ::rapidproto::stream::Flow::Continue => {}
                   }
                 } else {
                   rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -3401,14 +3517,27 @@ pub mod stream {
                 }
               }
               _ => {
-                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
-                  Ok(r) => r,
-                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
-                };
+                if V::WANT_UNKNOWN && !matches!(rp_tagkey >> 3, 1 | 2 | 5 | 6 | 9 | 10 | 4 | 8 | 3 | 7) {
+                  let rp_before = rp_rest;
+                  rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                    Ok(r) => r,
+                    Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                  };
+                  let rp_u = ::rapidproto::stream::UnknownField::new(rp_tagkey, &rp_before[..rp_before.len() - rp_rest.len()]);
+                  match rp_vis.on_unknown(rp_u)? {
+                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                    ::rapidproto::stream::Flow::Continue => {}
+                  }
+                } else {
+                  rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                    Ok(r) => r,
+                    Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                  };
+                }
               }
             }
           }
-          Ok(())
+          ::core::result::Result::Ok(())
         }
       }
 
@@ -3419,73 +3548,82 @@ pub mod stream {
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] single => $rp_c:expr , $($rp_rest:tt)*) => {
           user_stream!(@m
             [$($rp_g)* F_single,]
-            [$($rp_w)* F_single: ::rapidproto::stream::Handler<&'rp_a [u8]>,]
-            [$($rp_i)* const WANT_single: bool = true; #[inline(always)] fn on_single(&mut self, rp_x: &'rp_a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_single, rp_x) }]
+            [$($rp_w)* F_single: ::rapidproto::stream::Handler<Def<'rp_a>>,]
+            [$($rp_i)* const WANT_single: bool = true; #[inline(always)] fn on_single(&mut self, rp_x: Def<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_single, rp_x) }]
             [$($rp_fl)* f_single: F_single,]
-            [$($rp_ct)* f_single: $rp_c,]
+            [$($rp_ct)* f_single: ::rapidproto::stream::typed::<Def<'_>, _, _>($rp_c),]
           $($rp_rest)*)
         };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] many => $rp_c:expr , $($rp_rest:tt)*) => {
           user_stream!(@m
             [$($rp_g)* F_many,]
-            [$($rp_w)* F_many: ::rapidproto::stream::Handler<&'rp_a [u8]>,]
-            [$($rp_i)* const WANT_many: bool = true; #[inline(always)] fn on_many(&mut self, rp_x: &'rp_a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_many, rp_x) }]
+            [$($rp_w)* F_many: ::rapidproto::stream::Handler<Def<'rp_a>>,]
+            [$($rp_i)* const WANT_many: bool = true; #[inline(always)] fn on_many(&mut self, rp_x: Def<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_many, rp_x) }]
             [$($rp_fl)* f_many: F_many,]
-            [$($rp_ct)* f_many: $rp_c,]
+            [$($rp_ct)* f_many: ::rapidproto::stream::typed::<Def<'_>, _, _>($rp_c),]
           $($rp_rest)*)
         };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] kind => $rp_c:expr , $($rp_rest:tt)*) => {
           user_stream!(@m
             [$($rp_g)* F_kind,]
-            [$($rp_w)* F_kind: ::rapidproto::stream::Handler<i32>,]
-            [$($rp_i)* const WANT_kind: bool = true; #[inline(always)] fn on_kind(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_kind, rp_x) }]
+            [$($rp_w)* F_kind: ::rapidproto::stream::Handler<rp_stream_ty_0>,]
+            [$($rp_i)* const WANT_kind: bool = true; #[inline(always)] fn on_kind(&mut self, rp_x: rp_stream_ty_0) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_kind, rp_x) }]
             [$($rp_fl)* f_kind: F_kind,]
-            [$($rp_ct)* f_kind: $rp_c,]
+            [$($rp_ct)* f_kind: ::rapidproto::stream::typed::<rp_stream_ty_0, _, _>($rp_c),]
           $($rp_rest)*)
         };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] kinds => $rp_c:expr , $($rp_rest:tt)*) => {
           user_stream!(@m
             [$($rp_g)* F_kinds,]
-            [$($rp_w)* F_kinds: ::rapidproto::stream::Handler<i32>,]
-            [$($rp_i)* const WANT_kinds: bool = true; #[inline(always)] fn on_kinds(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_kinds, rp_x) }]
+            [$($rp_w)* F_kinds: ::rapidproto::stream::Handler<rp_stream_ty_0>,]
+            [$($rp_i)* const WANT_kinds: bool = true; #[inline(always)] fn on_kinds(&mut self, rp_x: rp_stream_ty_0) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_kinds, rp_x) }]
             [$($rp_fl)* f_kinds: F_kinds,]
-            [$($rp_ct)* f_kinds: $rp_c,]
+            [$($rp_ct)* f_kinds: ::rapidproto::stream::typed::<rp_stream_ty_0, _, _>($rp_c),]
           $($rp_rest)*)
         };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] inner => $rp_c:expr , $($rp_rest:tt)*) => {
           user_stream!(@m
             [$($rp_g)* F_inner,]
-            [$($rp_w)* F_inner: ::rapidproto::stream::Handler<&'rp_a [u8]>,]
-            [$($rp_i)* const WANT_inner: bool = true; #[inline(always)] fn on_inner(&mut self, rp_x: &'rp_a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_inner, rp_x) }]
+            [$($rp_w)* F_inner: ::rapidproto::stream::Handler<rp_stream_ty_1<'rp_a>>,]
+            [$($rp_i)* const WANT_inner: bool = true; #[inline(always)] fn on_inner(&mut self, rp_x: rp_stream_ty_1<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_inner, rp_x) }]
             [$($rp_fl)* f_inner: F_inner,]
-            [$($rp_ct)* f_inner: $rp_c,]
+            [$($rp_ct)* f_inner: ::rapidproto::stream::typed::<rp_stream_ty_1<'_>, _, _>($rp_c),]
           $($rp_rest)*)
         };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] inners => $rp_c:expr , $($rp_rest:tt)*) => {
           user_stream!(@m
             [$($rp_g)* F_inners,]
-            [$($rp_w)* F_inners: ::rapidproto::stream::Handler<&'rp_a [u8]>,]
-            [$($rp_i)* const WANT_inners: bool = true; #[inline(always)] fn on_inners(&mut self, rp_x: &'rp_a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_inners, rp_x) }]
+            [$($rp_w)* F_inners: ::rapidproto::stream::Handler<rp_stream_ty_1<'rp_a>>,]
+            [$($rp_i)* const WANT_inners: bool = true; #[inline(always)] fn on_inners(&mut self, rp_x: rp_stream_ty_1<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_inners, rp_x) }]
             [$($rp_fl)* f_inners: F_inners,]
-            [$($rp_ct)* f_inners: $rp_c,]
+            [$($rp_ct)* f_inners: ::rapidproto::stream::typed::<rp_stream_ty_1<'_>, _, _>($rp_c),]
           $($rp_rest)*)
         };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] chosen => $rp_c:expr , $($rp_rest:tt)*) => {
           user_stream!(@m
             [$($rp_g)* F_chosen,]
-            [$($rp_w)* F_chosen: ::rapidproto::stream::Handler<&'rp_a [u8]>,]
-            [$($rp_i)* const WANT_chosen: bool = true; #[inline(always)] fn on_chosen(&mut self, rp_x: &'rp_a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_chosen, rp_x) }]
+            [$($rp_w)* F_chosen: ::rapidproto::stream::Handler<Def<'rp_a>>,]
+            [$($rp_i)* const WANT_chosen: bool = true; #[inline(always)] fn on_chosen(&mut self, rp_x: Def<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_chosen, rp_x) }]
             [$($rp_fl)* f_chosen: F_chosen,]
-            [$($rp_ct)* f_chosen: $rp_c,]
+            [$($rp_ct)* f_chosen: ::rapidproto::stream::typed::<Def<'_>, _, _>($rp_c),]
           $($rp_rest)*)
         };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] tagged => $rp_c:expr , $($rp_rest:tt)*) => {
           user_stream!(@m
             [$($rp_g)* F_tagged,]
-            [$($rp_w)* F_tagged: ::rapidproto::stream::Handler<i32>,]
-            [$($rp_i)* const WANT_tagged: bool = true; #[inline(always)] fn on_tagged(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_tagged, rp_x) }]
+            [$($rp_w)* F_tagged: ::rapidproto::stream::Handler<rp_stream_ty_0>,]
+            [$($rp_i)* const WANT_tagged: bool = true; #[inline(always)] fn on_tagged(&mut self, rp_x: rp_stream_ty_0) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_tagged, rp_x) }]
             [$($rp_fl)* f_tagged: F_tagged,]
-            [$($rp_ct)* f_tagged: $rp_c,]
+            [$($rp_ct)* f_tagged: ::rapidproto::stream::typed::<rp_stream_ty_0, _, _>($rp_c),]
+          $($rp_rest)*)
+        };
+        (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] unknown => $rp_c:expr , $($rp_rest:tt)*) => {
+          user_stream!(@m
+            [$($rp_g)* F_unknown,]
+            [$($rp_w)* F_unknown: ::rapidproto::stream::Handler<::rapidproto::stream::UnknownField<'rp_a>>,]
+            [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: ::rapidproto::stream::UnknownField<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_unknown, rp_x) }]
+            [$($rp_fl)* f_unknown: F_unknown,]
+            [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
           $($rp_rest)*)
         };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
@@ -3501,17 +3639,26 @@ pub mod stream {
       pub trait DefVisitor<'a> {
         const WANT_s: bool = false;
         #[inline(always)]
-        fn on_s(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+        fn on_s(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_n: bool = false;
         #[inline(always)]
-        fn on_n(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+        fn on_n(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        const WANT_UNKNOWN: bool = false;
+        #[inline(always)]
+        fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       }
 
-      pub struct Def;
+      #[derive(Clone, Copy)]
+      pub struct Def<'a> {
+        rp_input: &'a [u8],
+      }
 
-      impl Def {
-        pub fn decode<'a, V: DefVisitor<'a>>(rp_input: &'a [u8], mut rp_vis: V) -> Result<(), ::rapidproto::DecodeError> {
-          let rp_body: &'a [u8] = rp_input;
+      impl<'a> Def<'a> {
+        #[inline(always)]
+        pub fn new(rp_input: &'a [u8]) -> Def<'a> { Def { rp_input } }
+
+        pub fn decode<V: DefVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<(), ::rapidproto::DecodeError> {
+          let rp_body: &'a [u8] = self.rp_input;
           let mut rp_rest: &'a [u8] = rp_body;
           loop {
             let rp_b = match rp_rest.first() {
@@ -3537,8 +3684,9 @@ pub mod stream {
                     Ok(r) => r,
                     Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                   };
-                  if rp_vis.on_s(::rapidproto::ProtoStr::new(rp_p)) == ::rapidproto::stream::Flow::Stop {
-                    return Ok(());
+                  match rp_vis.on_s(::rapidproto::ProtoStr::new(rp_p))? {
+                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                    ::rapidproto::stream::Flow::Continue => {}
                   }
                 } else {
                   rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -3554,8 +3702,9 @@ pub mod stream {
                     Ok(r) => r,
                     Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                   };
-                  if rp_vis.on_n(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
-                    return Ok(());
+                  match rp_vis.on_n(rp_v as i32)? {
+                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                    ::rapidproto::stream::Flow::Continue => {}
                   }
                 } else {
                   rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -3565,14 +3714,27 @@ pub mod stream {
                 }
               }
               _ => {
-                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
-                  Ok(r) => r,
-                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
-                };
+                if V::WANT_UNKNOWN && !matches!(rp_tagkey >> 3, 1 | 2) {
+                  let rp_before = rp_rest;
+                  rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                    Ok(r) => r,
+                    Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                  };
+                  let rp_u = ::rapidproto::stream::UnknownField::new(rp_tagkey, &rp_before[..rp_before.len() - rp_rest.len()]);
+                  match rp_vis.on_unknown(rp_u)? {
+                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                    ::rapidproto::stream::Flow::Continue => {}
+                  }
+                } else {
+                  rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                    Ok(r) => r,
+                    Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                  };
+                }
               }
             }
           }
-          Ok(())
+          ::core::result::Result::Ok(())
         }
       }
 
@@ -3584,18 +3746,27 @@ pub mod stream {
           def_stream!(@m
             [$($rp_g)* F_s,]
             [$($rp_w)* F_s: ::rapidproto::stream::Handler<::rapidproto::ProtoStr<'rp_a>>,]
-            [$($rp_i)* const WANT_s: bool = true; #[inline(always)] fn on_s(&mut self, rp_x: ::rapidproto::ProtoStr<'rp_a>) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_s, rp_x) }]
+            [$($rp_i)* const WANT_s: bool = true; #[inline(always)] fn on_s(&mut self, rp_x: ::rapidproto::ProtoStr<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_s, rp_x) }]
             [$($rp_fl)* f_s: F_s,]
-            [$($rp_ct)* f_s: $rp_c,]
+            [$($rp_ct)* f_s: ::rapidproto::stream::typed::<::rapidproto::ProtoStr<'_>, _, _>($rp_c),]
           $($rp_rest)*)
         };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] n => $rp_c:expr , $($rp_rest:tt)*) => {
           def_stream!(@m
             [$($rp_g)* F_n,]
             [$($rp_w)* F_n: ::rapidproto::stream::Handler<i32>,]
-            [$($rp_i)* const WANT_n: bool = true; #[inline(always)] fn on_n(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_n, rp_x) }]
+            [$($rp_i)* const WANT_n: bool = true; #[inline(always)] fn on_n(&mut self, rp_x: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_n, rp_x) }]
             [$($rp_fl)* f_n: F_n,]
-            [$($rp_ct)* f_n: $rp_c,]
+            [$($rp_ct)* f_n: ::rapidproto::stream::typed::<i32, _, _>($rp_c),]
+          $($rp_rest)*)
+        };
+        (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] unknown => $rp_c:expr , $($rp_rest:tt)*) => {
+          def_stream!(@m
+            [$($rp_g)* F_unknown,]
+            [$($rp_w)* F_unknown: ::rapidproto::stream::Handler<::rapidproto::stream::UnknownField<'rp_a>>,]
+            [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: ::rapidproto::stream::UnknownField<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_unknown, rp_x) }]
+            [$($rp_fl)* f_unknown: F_unknown,]
+            [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
           $($rp_rest)*)
         };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
@@ -3612,14 +3783,23 @@ pub mod stream {
         pub trait InnerVisitor<'a> {
           const WANT_s: bool = false;
           #[inline(always)]
-          fn on_s(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+          fn on_s(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+          const WANT_UNKNOWN: bool = false;
+          #[inline(always)]
+          fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         }
 
-        pub struct Inner;
+        #[derive(Clone, Copy)]
+        pub struct Inner<'a> {
+          rp_input: &'a [u8],
+        }
 
-        impl Inner {
-          pub fn decode<'a, V: InnerVisitor<'a>>(rp_input: &'a [u8], mut rp_vis: V) -> Result<(), ::rapidproto::DecodeError> {
-            let rp_body: &'a [u8] = rp_input;
+        impl<'a> Inner<'a> {
+          #[inline(always)]
+          pub fn new(rp_input: &'a [u8]) -> Inner<'a> { Inner { rp_input } }
+
+          pub fn decode<V: InnerVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<(), ::rapidproto::DecodeError> {
+            let rp_body: &'a [u8] = self.rp_input;
             let mut rp_rest: &'a [u8] = rp_body;
             loop {
               let rp_b = match rp_rest.first() {
@@ -3645,8 +3825,9 @@ pub mod stream {
                       Ok(r) => r,
                       Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                     };
-                    if rp_vis.on_s(::rapidproto::ProtoStr::new(rp_p)) == ::rapidproto::stream::Flow::Stop {
-                      return Ok(());
+                    match rp_vis.on_s(::rapidproto::ProtoStr::new(rp_p))? {
+                      ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                      ::rapidproto::stream::Flow::Continue => {}
                     }
                   } else {
                     rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -3656,14 +3837,27 @@ pub mod stream {
                   }
                 }
                 _ => {
-                  rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
-                    Ok(r) => r,
-                    Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
-                  };
+                  if V::WANT_UNKNOWN && !matches!(rp_tagkey >> 3, 1) {
+                    let rp_before = rp_rest;
+                    rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                      Ok(r) => r,
+                      Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                    };
+                    let rp_u = ::rapidproto::stream::UnknownField::new(rp_tagkey, &rp_before[..rp_before.len() - rp_rest.len()]);
+                    match rp_vis.on_unknown(rp_u)? {
+                      ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                      ::rapidproto::stream::Flow::Continue => {}
+                    }
+                  } else {
+                    rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                      Ok(r) => r,
+                      Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                    };
+                  }
                 }
               }
             }
-            Ok(())
+            ::core::result::Result::Ok(())
           }
         }
 
@@ -3675,9 +3869,18 @@ pub mod stream {
             inner_stream!(@m
               [$($rp_g)* F_s,]
               [$($rp_w)* F_s: ::rapidproto::stream::Handler<::rapidproto::ProtoStr<'rp_a>>,]
-              [$($rp_i)* const WANT_s: bool = true; #[inline(always)] fn on_s(&mut self, rp_x: ::rapidproto::ProtoStr<'rp_a>) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_s, rp_x) }]
+              [$($rp_i)* const WANT_s: bool = true; #[inline(always)] fn on_s(&mut self, rp_x: ::rapidproto::ProtoStr<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_s, rp_x) }]
               [$($rp_fl)* f_s: F_s,]
-              [$($rp_ct)* f_s: $rp_c,]
+              [$($rp_ct)* f_s: ::rapidproto::stream::typed::<::rapidproto::ProtoStr<'_>, _, _>($rp_c),]
+            $($rp_rest)*)
+          };
+          (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] unknown => $rp_c:expr , $($rp_rest:tt)*) => {
+            inner_stream!(@m
+              [$($rp_g)* F_unknown,]
+              [$($rp_w)* F_unknown: ::rapidproto::stream::Handler<::rapidproto::stream::UnknownField<'rp_a>>,]
+              [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: ::rapidproto::stream::UnknownField<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_unknown, rp_x) }]
+              [$($rp_fl)* f_unknown: F_unknown,]
+              [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
             $($rp_rest)*)
           };
           (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
@@ -3694,14 +3897,23 @@ pub mod stream {
       pub trait PVisitor<'a> {
         const WANT_q: bool = false;
         #[inline(always)]
-        fn on_q(&mut self, _rp_v: &'a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+        fn on_q(&mut self, _rp_v: Q<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        const WANT_UNKNOWN: bool = false;
+        #[inline(always)]
+        fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       }
 
-      pub struct P;
+      #[derive(Clone, Copy)]
+      pub struct P<'a> {
+        rp_input: &'a [u8],
+      }
 
-      impl P {
-        pub fn decode<'a, V: PVisitor<'a>>(rp_input: &'a [u8], mut rp_vis: V) -> Result<(), ::rapidproto::DecodeError> {
-          let rp_body: &'a [u8] = rp_input;
+      impl<'a> P<'a> {
+        #[inline(always)]
+        pub fn new(rp_input: &'a [u8]) -> P<'a> { P { rp_input } }
+
+        pub fn decode<V: PVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<(), ::rapidproto::DecodeError> {
+          let rp_body: &'a [u8] = self.rp_input;
           let mut rp_rest: &'a [u8] = rp_body;
           loop {
             let rp_b = match rp_rest.first() {
@@ -3727,8 +3939,9 @@ pub mod stream {
                     Ok(r) => r,
                     Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                   };
-                  if rp_vis.on_q(rp_p) == ::rapidproto::stream::Flow::Stop {
-                    return Ok(());
+                  match rp_vis.on_q(Q::new(rp_p))? {
+                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                    ::rapidproto::stream::Flow::Continue => {}
                   }
                 } else {
                   rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -3738,14 +3951,27 @@ pub mod stream {
                 }
               }
               _ => {
-                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
-                  Ok(r) => r,
-                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
-                };
+                if V::WANT_UNKNOWN && !matches!(rp_tagkey >> 3, 1) {
+                  let rp_before = rp_rest;
+                  rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                    Ok(r) => r,
+                    Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                  };
+                  let rp_u = ::rapidproto::stream::UnknownField::new(rp_tagkey, &rp_before[..rp_before.len() - rp_rest.len()]);
+                  match rp_vis.on_unknown(rp_u)? {
+                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                    ::rapidproto::stream::Flow::Continue => {}
+                  }
+                } else {
+                  rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                    Ok(r) => r,
+                    Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                  };
+                }
               }
             }
           }
-          Ok(())
+          ::core::result::Result::Ok(())
         }
       }
 
@@ -3756,10 +3982,19 @@ pub mod stream {
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] q => $rp_c:expr , $($rp_rest:tt)*) => {
           p_stream!(@m
             [$($rp_g)* F_q,]
-            [$($rp_w)* F_q: ::rapidproto::stream::Handler<&'rp_a [u8]>,]
-            [$($rp_i)* const WANT_q: bool = true; #[inline(always)] fn on_q(&mut self, rp_x: &'rp_a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_q, rp_x) }]
+            [$($rp_w)* F_q: ::rapidproto::stream::Handler<Q<'rp_a>>,]
+            [$($rp_i)* const WANT_q: bool = true; #[inline(always)] fn on_q(&mut self, rp_x: Q<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_q, rp_x) }]
             [$($rp_fl)* f_q: F_q,]
-            [$($rp_ct)* f_q: $rp_c,]
+            [$($rp_ct)* f_q: ::rapidproto::stream::typed::<Q<'_>, _, _>($rp_c),]
+          $($rp_rest)*)
+        };
+        (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] unknown => $rp_c:expr , $($rp_rest:tt)*) => {
+          p_stream!(@m
+            [$($rp_g)* F_unknown,]
+            [$($rp_w)* F_unknown: ::rapidproto::stream::Handler<::rapidproto::stream::UnknownField<'rp_a>>,]
+            [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: ::rapidproto::stream::UnknownField<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_unknown, rp_x) }]
+            [$($rp_fl)* f_unknown: F_unknown,]
+            [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
           $($rp_rest)*)
         };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
@@ -3775,14 +4010,23 @@ pub mod stream {
       pub trait QVisitor<'a> {
         const WANT_p: bool = false;
         #[inline(always)]
-        fn on_p(&mut self, _rp_v: &'a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+        fn on_p(&mut self, _rp_v: P<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        const WANT_UNKNOWN: bool = false;
+        #[inline(always)]
+        fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       }
 
-      pub struct Q;
+      #[derive(Clone, Copy)]
+      pub struct Q<'a> {
+        rp_input: &'a [u8],
+      }
 
-      impl Q {
-        pub fn decode<'a, V: QVisitor<'a>>(rp_input: &'a [u8], mut rp_vis: V) -> Result<(), ::rapidproto::DecodeError> {
-          let rp_body: &'a [u8] = rp_input;
+      impl<'a> Q<'a> {
+        #[inline(always)]
+        pub fn new(rp_input: &'a [u8]) -> Q<'a> { Q { rp_input } }
+
+        pub fn decode<V: QVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<(), ::rapidproto::DecodeError> {
+          let rp_body: &'a [u8] = self.rp_input;
           let mut rp_rest: &'a [u8] = rp_body;
           loop {
             let rp_b = match rp_rest.first() {
@@ -3808,8 +4052,9 @@ pub mod stream {
                     Ok(r) => r,
                     Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                   };
-                  if rp_vis.on_p(rp_p) == ::rapidproto::stream::Flow::Stop {
-                    return Ok(());
+                  match rp_vis.on_p(P::new(rp_p))? {
+                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                    ::rapidproto::stream::Flow::Continue => {}
                   }
                 } else {
                   rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -3819,14 +4064,27 @@ pub mod stream {
                 }
               }
               _ => {
-                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
-                  Ok(r) => r,
-                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
-                };
+                if V::WANT_UNKNOWN && !matches!(rp_tagkey >> 3, 1) {
+                  let rp_before = rp_rest;
+                  rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                    Ok(r) => r,
+                    Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                  };
+                  let rp_u = ::rapidproto::stream::UnknownField::new(rp_tagkey, &rp_before[..rp_before.len() - rp_rest.len()]);
+                  match rp_vis.on_unknown(rp_u)? {
+                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                    ::rapidproto::stream::Flow::Continue => {}
+                  }
+                } else {
+                  rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                    Ok(r) => r,
+                    Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                  };
+                }
               }
             }
           }
-          Ok(())
+          ::core::result::Result::Ok(())
         }
       }
 
@@ -3837,10 +4095,19 @@ pub mod stream {
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] p => $rp_c:expr , $($rp_rest:tt)*) => {
           q_stream!(@m
             [$($rp_g)* F_p,]
-            [$($rp_w)* F_p: ::rapidproto::stream::Handler<&'rp_a [u8]>,]
-            [$($rp_i)* const WANT_p: bool = true; #[inline(always)] fn on_p(&mut self, rp_x: &'rp_a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_p, rp_x) }]
+            [$($rp_w)* F_p: ::rapidproto::stream::Handler<P<'rp_a>>,]
+            [$($rp_i)* const WANT_p: bool = true; #[inline(always)] fn on_p(&mut self, rp_x: P<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_p, rp_x) }]
             [$($rp_fl)* f_p: F_p,]
-            [$($rp_ct)* f_p: $rp_c,]
+            [$($rp_ct)* f_p: ::rapidproto::stream::typed::<P<'_>, _, _>($rp_c),]
+          $($rp_rest)*)
+        };
+        (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] unknown => $rp_c:expr , $($rp_rest:tt)*) => {
+          q_stream!(@m
+            [$($rp_g)* F_unknown,]
+            [$($rp_w)* F_unknown: ::rapidproto::stream::Handler<::rapidproto::stream::UnknownField<'rp_a>>,]
+            [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: ::rapidproto::stream::UnknownField<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_unknown, rp_x) }]
+            [$($rp_fl)* f_unknown: F_unknown,]
+            [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
           $($rp_rest)*)
         };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
@@ -3855,15 +4122,23 @@ pub mod stream {
     }
 
     pub trait FwdMsgVisitor<'a> {
+      const WANT_UNKNOWN: bool = false;
+      #[inline(always)]
+      fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
     }
 
-    pub struct FwdMsg;
+    #[derive(Clone, Copy)]
+    pub struct FwdMsg<'a> {
+      rp_input: &'a [u8],
+    }
 
-    impl FwdMsg {
-      pub fn decode<'a, V: FwdMsgVisitor<'a>>(rp_input: &'a [u8], mut rp_vis: V) -> Result<(), ::rapidproto::DecodeError> {
-        let rp_body: &'a [u8] = rp_input;
+    impl<'a> FwdMsg<'a> {
+      #[inline(always)]
+      pub fn new(rp_input: &'a [u8]) -> FwdMsg<'a> { FwdMsg { rp_input } }
+
+      pub fn decode<V: FwdMsgVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<(), ::rapidproto::DecodeError> {
+        let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
-        let _ = &mut rp_vis;
         loop {
           let rp_b = match rp_rest.first() {
             Some(&rp_b) => rp_b,
@@ -3882,20 +4157,42 @@ pub mod stream {
           };
           match rp_tagkey {
             _ => {
-              rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
-                Ok(r) => r,
-                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
-              };
+              if V::WANT_UNKNOWN {
+                let rp_before = rp_rest;
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                let rp_u = ::rapidproto::stream::UnknownField::new(rp_tagkey, &rp_before[..rp_before.len() - rp_rest.len()]);
+                match rp_vis.on_unknown(rp_u)? {
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Continue => {}
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
             }
           }
         }
-        Ok(())
+        ::core::result::Result::Ok(())
       }
     }
 
     macro_rules! fwd_msg_stream {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         fwd_msg_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] unknown => $rp_c:expr , $($rp_rest:tt)*) => {
+        fwd_msg_stream!(@m
+          [$($rp_g)* F_unknown,]
+          [$($rp_w)* F_unknown: ::rapidproto::stream::Handler<::rapidproto::stream::UnknownField<'rp_a>>,]
+          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: ::rapidproto::stream::UnknownField<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_unknown, rp_x) }]
+          [$($rp_fl)* f_unknown: F_unknown,]
+          [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
+        $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
         #[allow(nonstandard_style)]
@@ -3911,20 +4208,29 @@ pub mod stream {
       pub trait RefVisitor<'a> {
         const WANT_one: bool = false;
         #[inline(always)]
-        fn on_one(&mut self, _rp_v: &'a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+        fn on_one(&mut self, _rp_v: Target<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_many: bool = false;
         #[inline(always)]
-        fn on_many(&mut self, _rp_v: &'a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+        fn on_many(&mut self, _rp_v: Target<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_chosen: bool = false;
         #[inline(always)]
-        fn on_chosen(&mut self, _rp_v: &'a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+        fn on_chosen(&mut self, _rp_v: Target<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        const WANT_UNKNOWN: bool = false;
+        #[inline(always)]
+        fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       }
 
-      pub struct Ref;
+      #[derive(Clone, Copy)]
+      pub struct Ref<'a> {
+        rp_input: &'a [u8],
+      }
 
-      impl Ref {
-        pub fn decode<'a, V: RefVisitor<'a>>(rp_input: &'a [u8], mut rp_vis: V) -> Result<(), ::rapidproto::DecodeError> {
-          let rp_body: &'a [u8] = rp_input;
+      impl<'a> Ref<'a> {
+        #[inline(always)]
+        pub fn new(rp_input: &'a [u8]) -> Ref<'a> { Ref { rp_input } }
+
+        pub fn decode<V: RefVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<(), ::rapidproto::DecodeError> {
+          let rp_body: &'a [u8] = self.rp_input;
           let mut rp_rest: &'a [u8] = rp_body;
           loop {
             let rp_b = match rp_rest.first() {
@@ -3950,8 +4256,9 @@ pub mod stream {
                     Ok(r) => r,
                     Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                   };
-                  if rp_vis.on_one(rp_p) == ::rapidproto::stream::Flow::Stop {
-                    return Ok(());
+                  match rp_vis.on_one(Target::new(rp_p))? {
+                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                    ::rapidproto::stream::Flow::Continue => {}
                   }
                 } else {
                   rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -3967,8 +4274,9 @@ pub mod stream {
                     Ok(r) => r,
                     Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                   };
-                  if rp_vis.on_many(rp_p) == ::rapidproto::stream::Flow::Stop {
-                    return Ok(());
+                  match rp_vis.on_many(Target::new(rp_p))? {
+                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                    ::rapidproto::stream::Flow::Continue => {}
                   }
                 } else {
                   rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -3984,8 +4292,9 @@ pub mod stream {
                     Ok(r) => r,
                     Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                   };
-                  if rp_vis.on_chosen(rp_p) == ::rapidproto::stream::Flow::Stop {
-                    return Ok(());
+                  match rp_vis.on_chosen(Target::new(rp_p))? {
+                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                    ::rapidproto::stream::Flow::Continue => {}
                   }
                 } else {
                   rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -3995,14 +4304,27 @@ pub mod stream {
                 }
               }
               _ => {
-                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
-                  Ok(r) => r,
-                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
-                };
+                if V::WANT_UNKNOWN && !matches!(rp_tagkey >> 3, 1 | 2 | 4 | 3) {
+                  let rp_before = rp_rest;
+                  rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                    Ok(r) => r,
+                    Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                  };
+                  let rp_u = ::rapidproto::stream::UnknownField::new(rp_tagkey, &rp_before[..rp_before.len() - rp_rest.len()]);
+                  match rp_vis.on_unknown(rp_u)? {
+                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                    ::rapidproto::stream::Flow::Continue => {}
+                  }
+                } else {
+                  rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                    Ok(r) => r,
+                    Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                  };
+                }
               }
             }
           }
-          Ok(())
+          ::core::result::Result::Ok(())
         }
       }
 
@@ -4013,28 +4335,37 @@ pub mod stream {
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] one => $rp_c:expr , $($rp_rest:tt)*) => {
           ref_stream!(@m
             [$($rp_g)* F_one,]
-            [$($rp_w)* F_one: ::rapidproto::stream::Handler<&'rp_a [u8]>,]
-            [$($rp_i)* const WANT_one: bool = true; #[inline(always)] fn on_one(&mut self, rp_x: &'rp_a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_one, rp_x) }]
+            [$($rp_w)* F_one: ::rapidproto::stream::Handler<Target<'rp_a>>,]
+            [$($rp_i)* const WANT_one: bool = true; #[inline(always)] fn on_one(&mut self, rp_x: Target<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_one, rp_x) }]
             [$($rp_fl)* f_one: F_one,]
-            [$($rp_ct)* f_one: $rp_c,]
+            [$($rp_ct)* f_one: ::rapidproto::stream::typed::<Target<'_>, _, _>($rp_c),]
           $($rp_rest)*)
         };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] many => $rp_c:expr , $($rp_rest:tt)*) => {
           ref_stream!(@m
             [$($rp_g)* F_many,]
-            [$($rp_w)* F_many: ::rapidproto::stream::Handler<&'rp_a [u8]>,]
-            [$($rp_i)* const WANT_many: bool = true; #[inline(always)] fn on_many(&mut self, rp_x: &'rp_a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_many, rp_x) }]
+            [$($rp_w)* F_many: ::rapidproto::stream::Handler<Target<'rp_a>>,]
+            [$($rp_i)* const WANT_many: bool = true; #[inline(always)] fn on_many(&mut self, rp_x: Target<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_many, rp_x) }]
             [$($rp_fl)* f_many: F_many,]
-            [$($rp_ct)* f_many: $rp_c,]
+            [$($rp_ct)* f_many: ::rapidproto::stream::typed::<Target<'_>, _, _>($rp_c),]
           $($rp_rest)*)
         };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] chosen => $rp_c:expr , $($rp_rest:tt)*) => {
           ref_stream!(@m
             [$($rp_g)* F_chosen,]
-            [$($rp_w)* F_chosen: ::rapidproto::stream::Handler<&'rp_a [u8]>,]
-            [$($rp_i)* const WANT_chosen: bool = true; #[inline(always)] fn on_chosen(&mut self, rp_x: &'rp_a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_chosen, rp_x) }]
+            [$($rp_w)* F_chosen: ::rapidproto::stream::Handler<Target<'rp_a>>,]
+            [$($rp_i)* const WANT_chosen: bool = true; #[inline(always)] fn on_chosen(&mut self, rp_x: Target<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_chosen, rp_x) }]
             [$($rp_fl)* f_chosen: F_chosen,]
-            [$($rp_ct)* f_chosen: $rp_c,]
+            [$($rp_ct)* f_chosen: ::rapidproto::stream::typed::<Target<'_>, _, _>($rp_c),]
+          $($rp_rest)*)
+        };
+        (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] unknown => $rp_c:expr , $($rp_rest:tt)*) => {
+          ref_stream!(@m
+            [$($rp_g)* F_unknown,]
+            [$($rp_w)* F_unknown: ::rapidproto::stream::Handler<::rapidproto::stream::UnknownField<'rp_a>>,]
+            [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: ::rapidproto::stream::UnknownField<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_unknown, rp_x) }]
+            [$($rp_fl)* f_unknown: F_unknown,]
+            [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
           $($rp_rest)*)
         };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
@@ -4050,17 +4381,26 @@ pub mod stream {
       pub trait TargetVisitor<'a> {
         const WANT_s: bool = false;
         #[inline(always)]
-        fn on_s(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+        fn on_s(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_n: bool = false;
         #[inline(always)]
-        fn on_n(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+        fn on_n(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        const WANT_UNKNOWN: bool = false;
+        #[inline(always)]
+        fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       }
 
-      pub struct Target;
+      #[derive(Clone, Copy)]
+      pub struct Target<'a> {
+        rp_input: &'a [u8],
+      }
 
-      impl Target {
-        pub fn decode<'a, V: TargetVisitor<'a>>(rp_input: &'a [u8], mut rp_vis: V) -> Result<(), ::rapidproto::DecodeError> {
-          let rp_body: &'a [u8] = rp_input;
+      impl<'a> Target<'a> {
+        #[inline(always)]
+        pub fn new(rp_input: &'a [u8]) -> Target<'a> { Target { rp_input } }
+
+        pub fn decode<V: TargetVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<(), ::rapidproto::DecodeError> {
+          let rp_body: &'a [u8] = self.rp_input;
           let mut rp_rest: &'a [u8] = rp_body;
           loop {
             let rp_b = match rp_rest.first() {
@@ -4086,8 +4426,9 @@ pub mod stream {
                     Ok(r) => r,
                     Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                   };
-                  if rp_vis.on_s(::rapidproto::ProtoStr::new(rp_p)) == ::rapidproto::stream::Flow::Stop {
-                    return Ok(());
+                  match rp_vis.on_s(::rapidproto::ProtoStr::new(rp_p))? {
+                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                    ::rapidproto::stream::Flow::Continue => {}
                   }
                 } else {
                   rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -4103,8 +4444,9 @@ pub mod stream {
                     Ok(r) => r,
                     Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                   };
-                  if rp_vis.on_n(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
-                    return Ok(());
+                  match rp_vis.on_n(rp_v as i32)? {
+                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                    ::rapidproto::stream::Flow::Continue => {}
                   }
                 } else {
                   rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -4114,14 +4456,27 @@ pub mod stream {
                 }
               }
               _ => {
-                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
-                  Ok(r) => r,
-                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
-                };
+                if V::WANT_UNKNOWN && !matches!(rp_tagkey >> 3, 1 | 2) {
+                  let rp_before = rp_rest;
+                  rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                    Ok(r) => r,
+                    Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                  };
+                  let rp_u = ::rapidproto::stream::UnknownField::new(rp_tagkey, &rp_before[..rp_before.len() - rp_rest.len()]);
+                  match rp_vis.on_unknown(rp_u)? {
+                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                    ::rapidproto::stream::Flow::Continue => {}
+                  }
+                } else {
+                  rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                    Ok(r) => r,
+                    Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                  };
+                }
               }
             }
           }
-          Ok(())
+          ::core::result::Result::Ok(())
         }
       }
 
@@ -4133,18 +4488,27 @@ pub mod stream {
           target_stream!(@m
             [$($rp_g)* F_s,]
             [$($rp_w)* F_s: ::rapidproto::stream::Handler<::rapidproto::ProtoStr<'rp_a>>,]
-            [$($rp_i)* const WANT_s: bool = true; #[inline(always)] fn on_s(&mut self, rp_x: ::rapidproto::ProtoStr<'rp_a>) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_s, rp_x) }]
+            [$($rp_i)* const WANT_s: bool = true; #[inline(always)] fn on_s(&mut self, rp_x: ::rapidproto::ProtoStr<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_s, rp_x) }]
             [$($rp_fl)* f_s: F_s,]
-            [$($rp_ct)* f_s: $rp_c,]
+            [$($rp_ct)* f_s: ::rapidproto::stream::typed::<::rapidproto::ProtoStr<'_>, _, _>($rp_c),]
           $($rp_rest)*)
         };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] n => $rp_c:expr , $($rp_rest:tt)*) => {
           target_stream!(@m
             [$($rp_g)* F_n,]
             [$($rp_w)* F_n: ::rapidproto::stream::Handler<i32>,]
-            [$($rp_i)* const WANT_n: bool = true; #[inline(always)] fn on_n(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_n, rp_x) }]
+            [$($rp_i)* const WANT_n: bool = true; #[inline(always)] fn on_n(&mut self, rp_x: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_n, rp_x) }]
             [$($rp_fl)* f_n: F_n,]
-            [$($rp_ct)* f_n: $rp_c,]
+            [$($rp_ct)* f_n: ::rapidproto::stream::typed::<i32, _, _>($rp_c),]
+          $($rp_rest)*)
+        };
+        (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] unknown => $rp_c:expr , $($rp_rest:tt)*) => {
+          target_stream!(@m
+            [$($rp_g)* F_unknown,]
+            [$($rp_w)* F_unknown: ::rapidproto::stream::Handler<::rapidproto::stream::UnknownField<'rp_a>>,]
+            [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: ::rapidproto::stream::UnknownField<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_unknown, rp_x) }]
+            [$($rp_fl)* f_unknown: F_unknown,]
+            [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
           $($rp_rest)*)
         };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
@@ -4159,15 +4523,23 @@ pub mod stream {
     }
 
     pub trait CousinAVisitor<'a> {
+      const WANT_UNKNOWN: bool = false;
+      #[inline(always)]
+      fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
     }
 
-    pub struct CousinA;
+    #[derive(Clone, Copy)]
+    pub struct CousinA<'a> {
+      rp_input: &'a [u8],
+    }
 
-    impl CousinA {
-      pub fn decode<'a, V: CousinAVisitor<'a>>(rp_input: &'a [u8], mut rp_vis: V) -> Result<(), ::rapidproto::DecodeError> {
-        let rp_body: &'a [u8] = rp_input;
+    impl<'a> CousinA<'a> {
+      #[inline(always)]
+      pub fn new(rp_input: &'a [u8]) -> CousinA<'a> { CousinA { rp_input } }
+
+      pub fn decode<V: CousinAVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<(), ::rapidproto::DecodeError> {
+        let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
-        let _ = &mut rp_vis;
         loop {
           let rp_b = match rp_rest.first() {
             Some(&rp_b) => rp_b,
@@ -4186,20 +4558,42 @@ pub mod stream {
           };
           match rp_tagkey {
             _ => {
-              rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
-                Ok(r) => r,
-                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
-              };
+              if V::WANT_UNKNOWN {
+                let rp_before = rp_rest;
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                let rp_u = ::rapidproto::stream::UnknownField::new(rp_tagkey, &rp_before[..rp_before.len() - rp_rest.len()]);
+                match rp_vis.on_unknown(rp_u)? {
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Continue => {}
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
             }
           }
         }
-        Ok(())
+        ::core::result::Result::Ok(())
       }
     }
 
     macro_rules! cousin_a_stream {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         cousin_a_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] unknown => $rp_c:expr , $($rp_rest:tt)*) => {
+        cousin_a_stream!(@m
+          [$($rp_g)* F_unknown,]
+          [$($rp_w)* F_unknown: ::rapidproto::stream::Handler<::rapidproto::stream::UnknownField<'rp_a>>,]
+          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: ::rapidproto::stream::UnknownField<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_unknown, rp_x) }]
+          [$($rp_fl)* f_unknown: F_unknown,]
+          [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
+        $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
         #[allow(nonstandard_style)]
@@ -4212,23 +4606,35 @@ pub mod stream {
     pub(crate) use cousin_a_stream;
 
     pub mod cousin_a {
+      pub type rp_stream_ty_0<'a> = super::cousin_b::Thing<'a>;
+      pub type rp_stream_ty_1 = super::super::super::common::xr::cousin_b::Tag;
+
       pub trait UseVisitor<'a> {
         const WANT_thing: bool = false;
         #[inline(always)]
-        fn on_thing(&mut self, _rp_v: &'a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+        fn on_thing(&mut self, _rp_v: rp_stream_ty_0<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_things: bool = false;
         #[inline(always)]
-        fn on_things(&mut self, _rp_v: &'a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+        fn on_things(&mut self, _rp_v: rp_stream_ty_0<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_tag: bool = false;
         #[inline(always)]
-        fn on_tag(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+        fn on_tag(&mut self, _rp_v: rp_stream_ty_1) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        const WANT_UNKNOWN: bool = false;
+        #[inline(always)]
+        fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       }
 
-      pub struct Use;
+      #[derive(Clone, Copy)]
+      pub struct Use<'a> {
+        rp_input: &'a [u8],
+      }
 
-      impl Use {
-        pub fn decode<'a, V: UseVisitor<'a>>(rp_input: &'a [u8], mut rp_vis: V) -> Result<(), ::rapidproto::DecodeError> {
-          let rp_body: &'a [u8] = rp_input;
+      impl<'a> Use<'a> {
+        #[inline(always)]
+        pub fn new(rp_input: &'a [u8]) -> Use<'a> { Use { rp_input } }
+
+        pub fn decode<V: UseVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<(), ::rapidproto::DecodeError> {
+          let rp_body: &'a [u8] = self.rp_input;
           let mut rp_rest: &'a [u8] = rp_body;
           loop {
             let rp_b = match rp_rest.first() {
@@ -4254,8 +4660,9 @@ pub mod stream {
                     Ok(r) => r,
                     Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                   };
-                  if rp_vis.on_thing(rp_p) == ::rapidproto::stream::Flow::Stop {
-                    return Ok(());
+                  match rp_vis.on_thing(super::cousin_b::Thing::new(rp_p))? {
+                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                    ::rapidproto::stream::Flow::Continue => {}
                   }
                 } else {
                   rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -4271,8 +4678,9 @@ pub mod stream {
                     Ok(r) => r,
                     Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                   };
-                  if rp_vis.on_things(rp_p) == ::rapidproto::stream::Flow::Stop {
-                    return Ok(());
+                  match rp_vis.on_things(super::cousin_b::Thing::new(rp_p))? {
+                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                    ::rapidproto::stream::Flow::Continue => {}
                   }
                 } else {
                   rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -4288,8 +4696,9 @@ pub mod stream {
                     Ok(r) => r,
                     Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                   };
-                  if rp_vis.on_tag(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
-                    return Ok(());
+                  match rp_vis.on_tag(super::super::super::common::xr::cousin_b::Tag(rp_v as i32))? {
+                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                    ::rapidproto::stream::Flow::Continue => {}
                   }
                 } else {
                   rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -4299,14 +4708,27 @@ pub mod stream {
                 }
               }
               _ => {
-                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
-                  Ok(r) => r,
-                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
-                };
+                if V::WANT_UNKNOWN && !matches!(rp_tagkey >> 3, 1 | 2 | 3) {
+                  let rp_before = rp_rest;
+                  rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                    Ok(r) => r,
+                    Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                  };
+                  let rp_u = ::rapidproto::stream::UnknownField::new(rp_tagkey, &rp_before[..rp_before.len() - rp_rest.len()]);
+                  match rp_vis.on_unknown(rp_u)? {
+                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                    ::rapidproto::stream::Flow::Continue => {}
+                  }
+                } else {
+                  rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                    Ok(r) => r,
+                    Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                  };
+                }
               }
             }
           }
-          Ok(())
+          ::core::result::Result::Ok(())
         }
       }
 
@@ -4317,28 +4739,37 @@ pub mod stream {
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] thing => $rp_c:expr , $($rp_rest:tt)*) => {
           use_stream!(@m
             [$($rp_g)* F_thing,]
-            [$($rp_w)* F_thing: ::rapidproto::stream::Handler<&'rp_a [u8]>,]
-            [$($rp_i)* const WANT_thing: bool = true; #[inline(always)] fn on_thing(&mut self, rp_x: &'rp_a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_thing, rp_x) }]
+            [$($rp_w)* F_thing: ::rapidproto::stream::Handler<rp_stream_ty_0<'rp_a>>,]
+            [$($rp_i)* const WANT_thing: bool = true; #[inline(always)] fn on_thing(&mut self, rp_x: rp_stream_ty_0<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_thing, rp_x) }]
             [$($rp_fl)* f_thing: F_thing,]
-            [$($rp_ct)* f_thing: $rp_c,]
+            [$($rp_ct)* f_thing: ::rapidproto::stream::typed::<rp_stream_ty_0<'_>, _, _>($rp_c),]
           $($rp_rest)*)
         };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] things => $rp_c:expr , $($rp_rest:tt)*) => {
           use_stream!(@m
             [$($rp_g)* F_things,]
-            [$($rp_w)* F_things: ::rapidproto::stream::Handler<&'rp_a [u8]>,]
-            [$($rp_i)* const WANT_things: bool = true; #[inline(always)] fn on_things(&mut self, rp_x: &'rp_a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_things, rp_x) }]
+            [$($rp_w)* F_things: ::rapidproto::stream::Handler<rp_stream_ty_0<'rp_a>>,]
+            [$($rp_i)* const WANT_things: bool = true; #[inline(always)] fn on_things(&mut self, rp_x: rp_stream_ty_0<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_things, rp_x) }]
             [$($rp_fl)* f_things: F_things,]
-            [$($rp_ct)* f_things: $rp_c,]
+            [$($rp_ct)* f_things: ::rapidproto::stream::typed::<rp_stream_ty_0<'_>, _, _>($rp_c),]
           $($rp_rest)*)
         };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] tag => $rp_c:expr , $($rp_rest:tt)*) => {
           use_stream!(@m
             [$($rp_g)* F_tag,]
-            [$($rp_w)* F_tag: ::rapidproto::stream::Handler<i32>,]
-            [$($rp_i)* const WANT_tag: bool = true; #[inline(always)] fn on_tag(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_tag, rp_x) }]
+            [$($rp_w)* F_tag: ::rapidproto::stream::Handler<rp_stream_ty_1>,]
+            [$($rp_i)* const WANT_tag: bool = true; #[inline(always)] fn on_tag(&mut self, rp_x: rp_stream_ty_1) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_tag, rp_x) }]
             [$($rp_fl)* f_tag: F_tag,]
-            [$($rp_ct)* f_tag: $rp_c,]
+            [$($rp_ct)* f_tag: ::rapidproto::stream::typed::<rp_stream_ty_1, _, _>($rp_c),]
+          $($rp_rest)*)
+        };
+        (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] unknown => $rp_c:expr , $($rp_rest:tt)*) => {
+          use_stream!(@m
+            [$($rp_g)* F_unknown,]
+            [$($rp_w)* F_unknown: ::rapidproto::stream::Handler<::rapidproto::stream::UnknownField<'rp_a>>,]
+            [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: ::rapidproto::stream::UnknownField<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_unknown, rp_x) }]
+            [$($rp_fl)* f_unknown: F_unknown,]
+            [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
           $($rp_rest)*)
         };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
@@ -4353,15 +4784,23 @@ pub mod stream {
     }
 
     pub trait CousinBVisitor<'a> {
+      const WANT_UNKNOWN: bool = false;
+      #[inline(always)]
+      fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
     }
 
-    pub struct CousinB;
+    #[derive(Clone, Copy)]
+    pub struct CousinB<'a> {
+      rp_input: &'a [u8],
+    }
 
-    impl CousinB {
-      pub fn decode<'a, V: CousinBVisitor<'a>>(rp_input: &'a [u8], mut rp_vis: V) -> Result<(), ::rapidproto::DecodeError> {
-        let rp_body: &'a [u8] = rp_input;
+    impl<'a> CousinB<'a> {
+      #[inline(always)]
+      pub fn new(rp_input: &'a [u8]) -> CousinB<'a> { CousinB { rp_input } }
+
+      pub fn decode<V: CousinBVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<(), ::rapidproto::DecodeError> {
+        let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
-        let _ = &mut rp_vis;
         loop {
           let rp_b = match rp_rest.first() {
             Some(&rp_b) => rp_b,
@@ -4380,20 +4819,42 @@ pub mod stream {
           };
           match rp_tagkey {
             _ => {
-              rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
-                Ok(r) => r,
-                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
-              };
+              if V::WANT_UNKNOWN {
+                let rp_before = rp_rest;
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                let rp_u = ::rapidproto::stream::UnknownField::new(rp_tagkey, &rp_before[..rp_before.len() - rp_rest.len()]);
+                match rp_vis.on_unknown(rp_u)? {
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Continue => {}
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
             }
           }
         }
-        Ok(())
+        ::core::result::Result::Ok(())
       }
     }
 
     macro_rules! cousin_b_stream {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         cousin_b_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] unknown => $rp_c:expr , $($rp_rest:tt)*) => {
+        cousin_b_stream!(@m
+          [$($rp_g)* F_unknown,]
+          [$($rp_w)* F_unknown: ::rapidproto::stream::Handler<::rapidproto::stream::UnknownField<'rp_a>>,]
+          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: ::rapidproto::stream::UnknownField<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_unknown, rp_x) }]
+          [$($rp_fl)* f_unknown: F_unknown,]
+          [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
+        $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
         #[allow(nonstandard_style)]
@@ -4409,14 +4870,23 @@ pub mod stream {
       pub trait ThingVisitor<'a> {
         const WANT_s: bool = false;
         #[inline(always)]
-        fn on_s(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+        fn on_s(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        const WANT_UNKNOWN: bool = false;
+        #[inline(always)]
+        fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       }
 
-      pub struct Thing;
+      #[derive(Clone, Copy)]
+      pub struct Thing<'a> {
+        rp_input: &'a [u8],
+      }
 
-      impl Thing {
-        pub fn decode<'a, V: ThingVisitor<'a>>(rp_input: &'a [u8], mut rp_vis: V) -> Result<(), ::rapidproto::DecodeError> {
-          let rp_body: &'a [u8] = rp_input;
+      impl<'a> Thing<'a> {
+        #[inline(always)]
+        pub fn new(rp_input: &'a [u8]) -> Thing<'a> { Thing { rp_input } }
+
+        pub fn decode<V: ThingVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<(), ::rapidproto::DecodeError> {
+          let rp_body: &'a [u8] = self.rp_input;
           let mut rp_rest: &'a [u8] = rp_body;
           loop {
             let rp_b = match rp_rest.first() {
@@ -4442,8 +4912,9 @@ pub mod stream {
                     Ok(r) => r,
                     Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                   };
-                  if rp_vis.on_s(::rapidproto::ProtoStr::new(rp_p)) == ::rapidproto::stream::Flow::Stop {
-                    return Ok(());
+                  match rp_vis.on_s(::rapidproto::ProtoStr::new(rp_p))? {
+                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                    ::rapidproto::stream::Flow::Continue => {}
                   }
                 } else {
                   rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -4453,14 +4924,27 @@ pub mod stream {
                 }
               }
               _ => {
-                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
-                  Ok(r) => r,
-                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
-                };
+                if V::WANT_UNKNOWN && !matches!(rp_tagkey >> 3, 1) {
+                  let rp_before = rp_rest;
+                  rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                    Ok(r) => r,
+                    Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                  };
+                  let rp_u = ::rapidproto::stream::UnknownField::new(rp_tagkey, &rp_before[..rp_before.len() - rp_rest.len()]);
+                  match rp_vis.on_unknown(rp_u)? {
+                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                    ::rapidproto::stream::Flow::Continue => {}
+                  }
+                } else {
+                  rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                    Ok(r) => r,
+                    Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                  };
+                }
               }
             }
           }
-          Ok(())
+          ::core::result::Result::Ok(())
         }
       }
 
@@ -4472,9 +4956,18 @@ pub mod stream {
           thing_stream!(@m
             [$($rp_g)* F_s,]
             [$($rp_w)* F_s: ::rapidproto::stream::Handler<::rapidproto::ProtoStr<'rp_a>>,]
-            [$($rp_i)* const WANT_s: bool = true; #[inline(always)] fn on_s(&mut self, rp_x: ::rapidproto::ProtoStr<'rp_a>) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_s, rp_x) }]
+            [$($rp_i)* const WANT_s: bool = true; #[inline(always)] fn on_s(&mut self, rp_x: ::rapidproto::ProtoStr<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_s, rp_x) }]
             [$($rp_fl)* f_s: F_s,]
-            [$($rp_ct)* f_s: $rp_c,]
+            [$($rp_ct)* f_s: ::rapidproto::stream::typed::<::rapidproto::ProtoStr<'_>, _, _>($rp_c),]
+          $($rp_rest)*)
+        };
+        (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] unknown => $rp_c:expr , $($rp_rest:tt)*) => {
+          thing_stream!(@m
+            [$($rp_g)* F_unknown,]
+            [$($rp_w)* F_unknown: ::rapidproto::stream::Handler<::rapidproto::stream::UnknownField<'rp_a>>,]
+            [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: ::rapidproto::stream::UnknownField<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_unknown, rp_x) }]
+            [$($rp_fl)* f_unknown: F_unknown,]
+            [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
           $($rp_rest)*)
         };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
@@ -4491,32 +4984,41 @@ pub mod stream {
     pub trait ReservedNamesVisitor<'a> {
       const WANT_value: bool = false;
       #[inline(always)]
-      fn on_value(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      fn on_value(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_tag: bool = false;
       #[inline(always)]
-      fn on_tag(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      fn on_tag(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_status: bool = false;
       #[inline(always)]
-      fn on_status(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      fn on_status(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_reader: bool = false;
       #[inline(always)]
-      fn on_reader(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      fn on_reader(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_dispatch: bool = false;
       #[inline(always)]
-      fn on_dispatch(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      fn on_dispatch(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_callbacks: bool = false;
       #[inline(always)]
-      fn on_callbacks(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      fn on_callbacks(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_read: bool = false;
       #[inline(always)]
-      fn on_read(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      fn on_read(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      const WANT_UNKNOWN: bool = false;
+      #[inline(always)]
+      fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
     }
 
-    pub struct ReservedNames;
+    #[derive(Clone, Copy)]
+    pub struct ReservedNames<'a> {
+      rp_input: &'a [u8],
+    }
 
-    impl ReservedNames {
-      pub fn decode<'a, V: ReservedNamesVisitor<'a>>(rp_input: &'a [u8], mut rp_vis: V) -> Result<(), ::rapidproto::DecodeError> {
-        let rp_body: &'a [u8] = rp_input;
+    impl<'a> ReservedNames<'a> {
+      #[inline(always)]
+      pub fn new(rp_input: &'a [u8]) -> ReservedNames<'a> { ReservedNames { rp_input } }
+
+      pub fn decode<V: ReservedNamesVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<(), ::rapidproto::DecodeError> {
+        let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
           let rp_b = match rp_rest.first() {
@@ -4542,8 +5044,9 @@ pub mod stream {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if rp_vis.on_value(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
-                  return Ok(());
+                match rp_vis.on_value(rp_v as i32)? {
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Continue => {}
                 }
               } else {
                 rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -4559,8 +5062,9 @@ pub mod stream {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if rp_vis.on_tag(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
-                  return Ok(());
+                match rp_vis.on_tag(rp_v as i32)? {
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Continue => {}
                 }
               } else {
                 rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -4576,8 +5080,9 @@ pub mod stream {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if rp_vis.on_status(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
-                  return Ok(());
+                match rp_vis.on_status(rp_v as i32)? {
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Continue => {}
                 }
               } else {
                 rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -4593,8 +5098,9 @@ pub mod stream {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if rp_vis.on_reader(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
-                  return Ok(());
+                match rp_vis.on_reader(rp_v as i32)? {
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Continue => {}
                 }
               } else {
                 rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -4610,8 +5116,9 @@ pub mod stream {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if rp_vis.on_dispatch(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
-                  return Ok(());
+                match rp_vis.on_dispatch(rp_v as i32)? {
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Continue => {}
                 }
               } else {
                 rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -4627,8 +5134,9 @@ pub mod stream {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if rp_vis.on_callbacks(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
-                  return Ok(());
+                match rp_vis.on_callbacks(rp_v as i32)? {
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Continue => {}
                 }
               } else {
                 rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -4644,8 +5152,9 @@ pub mod stream {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if rp_vis.on_read(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
-                  return Ok(());
+                match rp_vis.on_read(rp_v as i32)? {
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Continue => {}
                 }
               } else {
                 rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -4655,14 +5164,27 @@ pub mod stream {
               }
             }
             _ => {
-              rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
-                Ok(r) => r,
-                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
-              };
+              if V::WANT_UNKNOWN && !matches!(rp_tagkey >> 3, 1 | 2 | 3 | 4 | 5 | 6 | 7) {
+                let rp_before = rp_rest;
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                let rp_u = ::rapidproto::stream::UnknownField::new(rp_tagkey, &rp_before[..rp_before.len() - rp_rest.len()]);
+                match rp_vis.on_unknown(rp_u)? {
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Continue => {}
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
             }
           }
         }
-        Ok(())
+        ::core::result::Result::Ok(())
       }
     }
 
@@ -4674,63 +5196,72 @@ pub mod stream {
         reserved_names_stream!(@m
           [$($rp_g)* F_value,]
           [$($rp_w)* F_value: ::rapidproto::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_value: bool = true; #[inline(always)] fn on_value(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_value, rp_x) }]
+          [$($rp_i)* const WANT_value: bool = true; #[inline(always)] fn on_value(&mut self, rp_x: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_value, rp_x) }]
           [$($rp_fl)* f_value: F_value,]
-          [$($rp_ct)* f_value: $rp_c,]
+          [$($rp_ct)* f_value: ::rapidproto::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] tag => $rp_c:expr , $($rp_rest:tt)*) => {
         reserved_names_stream!(@m
           [$($rp_g)* F_tag,]
           [$($rp_w)* F_tag: ::rapidproto::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_tag: bool = true; #[inline(always)] fn on_tag(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_tag, rp_x) }]
+          [$($rp_i)* const WANT_tag: bool = true; #[inline(always)] fn on_tag(&mut self, rp_x: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_tag, rp_x) }]
           [$($rp_fl)* f_tag: F_tag,]
-          [$($rp_ct)* f_tag: $rp_c,]
+          [$($rp_ct)* f_tag: ::rapidproto::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] status => $rp_c:expr , $($rp_rest:tt)*) => {
         reserved_names_stream!(@m
           [$($rp_g)* F_status,]
           [$($rp_w)* F_status: ::rapidproto::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_status: bool = true; #[inline(always)] fn on_status(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_status, rp_x) }]
+          [$($rp_i)* const WANT_status: bool = true; #[inline(always)] fn on_status(&mut self, rp_x: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_status, rp_x) }]
           [$($rp_fl)* f_status: F_status,]
-          [$($rp_ct)* f_status: $rp_c,]
+          [$($rp_ct)* f_status: ::rapidproto::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] reader => $rp_c:expr , $($rp_rest:tt)*) => {
         reserved_names_stream!(@m
           [$($rp_g)* F_reader,]
           [$($rp_w)* F_reader: ::rapidproto::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_reader: bool = true; #[inline(always)] fn on_reader(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_reader, rp_x) }]
+          [$($rp_i)* const WANT_reader: bool = true; #[inline(always)] fn on_reader(&mut self, rp_x: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_reader, rp_x) }]
           [$($rp_fl)* f_reader: F_reader,]
-          [$($rp_ct)* f_reader: $rp_c,]
+          [$($rp_ct)* f_reader: ::rapidproto::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] dispatch => $rp_c:expr , $($rp_rest:tt)*) => {
         reserved_names_stream!(@m
           [$($rp_g)* F_dispatch,]
           [$($rp_w)* F_dispatch: ::rapidproto::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_dispatch: bool = true; #[inline(always)] fn on_dispatch(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_dispatch, rp_x) }]
+          [$($rp_i)* const WANT_dispatch: bool = true; #[inline(always)] fn on_dispatch(&mut self, rp_x: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_dispatch, rp_x) }]
           [$($rp_fl)* f_dispatch: F_dispatch,]
-          [$($rp_ct)* f_dispatch: $rp_c,]
+          [$($rp_ct)* f_dispatch: ::rapidproto::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] callbacks => $rp_c:expr , $($rp_rest:tt)*) => {
         reserved_names_stream!(@m
           [$($rp_g)* F_callbacks,]
           [$($rp_w)* F_callbacks: ::rapidproto::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_callbacks: bool = true; #[inline(always)] fn on_callbacks(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_callbacks, rp_x) }]
+          [$($rp_i)* const WANT_callbacks: bool = true; #[inline(always)] fn on_callbacks(&mut self, rp_x: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_callbacks, rp_x) }]
           [$($rp_fl)* f_callbacks: F_callbacks,]
-          [$($rp_ct)* f_callbacks: $rp_c,]
+          [$($rp_ct)* f_callbacks: ::rapidproto::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] read => $rp_c:expr , $($rp_rest:tt)*) => {
         reserved_names_stream!(@m
           [$($rp_g)* F_read,]
           [$($rp_w)* F_read: ::rapidproto::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_read: bool = true; #[inline(always)] fn on_read(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_read, rp_x) }]
+          [$($rp_i)* const WANT_read: bool = true; #[inline(always)] fn on_read(&mut self, rp_x: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_read, rp_x) }]
           [$($rp_fl)* f_read: F_read,]
-          [$($rp_ct)* f_read: $rp_c,]
+          [$($rp_ct)* f_read: ::rapidproto::stream::typed::<i32, _, _>($rp_c),]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] unknown => $rp_c:expr , $($rp_rest:tt)*) => {
+        reserved_names_stream!(@m
+          [$($rp_g)* F_unknown,]
+          [$($rp_w)* F_unknown: ::rapidproto::stream::Handler<::rapidproto::stream::UnknownField<'rp_a>>,]
+          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: ::rapidproto::stream::UnknownField<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_unknown, rp_x) }]
+          [$($rp_fl)* f_unknown: F_unknown,]
+          [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
@@ -4746,14 +5277,23 @@ pub mod stream {
     pub trait IntWrapVisitor<'a> {
       const WANT_value: bool = false;
       #[inline(always)]
-      fn on_value(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      fn on_value(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      const WANT_UNKNOWN: bool = false;
+      #[inline(always)]
+      fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
     }
 
-    pub struct IntWrap;
+    #[derive(Clone, Copy)]
+    pub struct IntWrap<'a> {
+      rp_input: &'a [u8],
+    }
 
-    impl IntWrap {
-      pub fn decode<'a, V: IntWrapVisitor<'a>>(rp_input: &'a [u8], mut rp_vis: V) -> Result<(), ::rapidproto::DecodeError> {
-        let rp_body: &'a [u8] = rp_input;
+    impl<'a> IntWrap<'a> {
+      #[inline(always)]
+      pub fn new(rp_input: &'a [u8]) -> IntWrap<'a> { IntWrap { rp_input } }
+
+      pub fn decode<V: IntWrapVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<(), ::rapidproto::DecodeError> {
+        let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
           let rp_b = match rp_rest.first() {
@@ -4779,8 +5319,9 @@ pub mod stream {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if rp_vis.on_value(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
-                  return Ok(());
+                match rp_vis.on_value(rp_v as i32)? {
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Continue => {}
                 }
               } else {
                 rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -4790,14 +5331,27 @@ pub mod stream {
               }
             }
             _ => {
-              rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
-                Ok(r) => r,
-                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
-              };
+              if V::WANT_UNKNOWN && !matches!(rp_tagkey >> 3, 1) {
+                let rp_before = rp_rest;
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                let rp_u = ::rapidproto::stream::UnknownField::new(rp_tagkey, &rp_before[..rp_before.len() - rp_rest.len()]);
+                match rp_vis.on_unknown(rp_u)? {
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Continue => {}
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
             }
           }
         }
-        Ok(())
+        ::core::result::Result::Ok(())
       }
     }
 
@@ -4809,9 +5363,18 @@ pub mod stream {
         int_wrap_stream!(@m
           [$($rp_g)* F_value,]
           [$($rp_w)* F_value: ::rapidproto::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_value: bool = true; #[inline(always)] fn on_value(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_value, rp_x) }]
+          [$($rp_i)* const WANT_value: bool = true; #[inline(always)] fn on_value(&mut self, rp_x: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_value, rp_x) }]
           [$($rp_fl)* f_value: F_value,]
-          [$($rp_ct)* f_value: $rp_c,]
+          [$($rp_ct)* f_value: ::rapidproto::stream::typed::<i32, _, _>($rp_c),]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] unknown => $rp_c:expr , $($rp_rest:tt)*) => {
+        int_wrap_stream!(@m
+          [$($rp_g)* F_unknown,]
+          [$($rp_w)* F_unknown: ::rapidproto::stream::Handler<::rapidproto::stream::UnknownField<'rp_a>>,]
+          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: ::rapidproto::stream::UnknownField<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_unknown, rp_x) }]
+          [$($rp_fl)* f_unknown: F_unknown,]
+          [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
@@ -4827,14 +5390,23 @@ pub mod stream {
     pub trait BoolWrapVisitor<'a> {
       const WANT_value: bool = false;
       #[inline(always)]
-      fn on_value(&mut self, _rp_v: bool) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      fn on_value(&mut self, _rp_v: bool) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      const WANT_UNKNOWN: bool = false;
+      #[inline(always)]
+      fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
     }
 
-    pub struct BoolWrap;
+    #[derive(Clone, Copy)]
+    pub struct BoolWrap<'a> {
+      rp_input: &'a [u8],
+    }
 
-    impl BoolWrap {
-      pub fn decode<'a, V: BoolWrapVisitor<'a>>(rp_input: &'a [u8], mut rp_vis: V) -> Result<(), ::rapidproto::DecodeError> {
-        let rp_body: &'a [u8] = rp_input;
+    impl<'a> BoolWrap<'a> {
+      #[inline(always)]
+      pub fn new(rp_input: &'a [u8]) -> BoolWrap<'a> { BoolWrap { rp_input } }
+
+      pub fn decode<V: BoolWrapVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<(), ::rapidproto::DecodeError> {
+        let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
           let rp_b = match rp_rest.first() {
@@ -4860,8 +5432,9 @@ pub mod stream {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if rp_vis.on_value(rp_v != 0) == ::rapidproto::stream::Flow::Stop {
-                  return Ok(());
+                match rp_vis.on_value(rp_v != 0)? {
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Continue => {}
                 }
               } else {
                 rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -4871,14 +5444,27 @@ pub mod stream {
               }
             }
             _ => {
-              rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
-                Ok(r) => r,
-                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
-              };
+              if V::WANT_UNKNOWN && !matches!(rp_tagkey >> 3, 1) {
+                let rp_before = rp_rest;
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                let rp_u = ::rapidproto::stream::UnknownField::new(rp_tagkey, &rp_before[..rp_before.len() - rp_rest.len()]);
+                match rp_vis.on_unknown(rp_u)? {
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Continue => {}
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
             }
           }
         }
-        Ok(())
+        ::core::result::Result::Ok(())
       }
     }
 
@@ -4890,9 +5476,18 @@ pub mod stream {
         bool_wrap_stream!(@m
           [$($rp_g)* F_value,]
           [$($rp_w)* F_value: ::rapidproto::stream::Handler<bool>,]
-          [$($rp_i)* const WANT_value: bool = true; #[inline(always)] fn on_value(&mut self, rp_x: bool) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_value, rp_x) }]
+          [$($rp_i)* const WANT_value: bool = true; #[inline(always)] fn on_value(&mut self, rp_x: bool) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_value, rp_x) }]
           [$($rp_fl)* f_value: F_value,]
-          [$($rp_ct)* f_value: $rp_c,]
+          [$($rp_ct)* f_value: ::rapidproto::stream::typed::<bool, _, _>($rp_c),]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] unknown => $rp_c:expr , $($rp_rest:tt)*) => {
+        bool_wrap_stream!(@m
+          [$($rp_g)* F_unknown,]
+          [$($rp_w)* F_unknown: ::rapidproto::stream::Handler<::rapidproto::stream::UnknownField<'rp_a>>,]
+          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: ::rapidproto::stream::UnknownField<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_unknown, rp_x) }]
+          [$($rp_fl)* f_unknown: F_unknown,]
+          [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
@@ -4908,14 +5503,23 @@ pub mod stream {
     pub trait BytesWrapVisitor<'a> {
       const WANT_value: bool = false;
       #[inline(always)]
-      fn on_value(&mut self, _rp_v: &'a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      fn on_value(&mut self, _rp_v: &'a [u8]) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      const WANT_UNKNOWN: bool = false;
+      #[inline(always)]
+      fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
     }
 
-    pub struct BytesWrap;
+    #[derive(Clone, Copy)]
+    pub struct BytesWrap<'a> {
+      rp_input: &'a [u8],
+    }
 
-    impl BytesWrap {
-      pub fn decode<'a, V: BytesWrapVisitor<'a>>(rp_input: &'a [u8], mut rp_vis: V) -> Result<(), ::rapidproto::DecodeError> {
-        let rp_body: &'a [u8] = rp_input;
+    impl<'a> BytesWrap<'a> {
+      #[inline(always)]
+      pub fn new(rp_input: &'a [u8]) -> BytesWrap<'a> { BytesWrap { rp_input } }
+
+      pub fn decode<V: BytesWrapVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<(), ::rapidproto::DecodeError> {
+        let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
           let rp_b = match rp_rest.first() {
@@ -4941,8 +5545,9 @@ pub mod stream {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if rp_vis.on_value(rp_p) == ::rapidproto::stream::Flow::Stop {
-                  return Ok(());
+                match rp_vis.on_value(rp_p)? {
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Continue => {}
                 }
               } else {
                 rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -4952,14 +5557,27 @@ pub mod stream {
               }
             }
             _ => {
-              rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
-                Ok(r) => r,
-                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
-              };
+              if V::WANT_UNKNOWN && !matches!(rp_tagkey >> 3, 1) {
+                let rp_before = rp_rest;
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                let rp_u = ::rapidproto::stream::UnknownField::new(rp_tagkey, &rp_before[..rp_before.len() - rp_rest.len()]);
+                match rp_vis.on_unknown(rp_u)? {
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Continue => {}
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
             }
           }
         }
-        Ok(())
+        ::core::result::Result::Ok(())
       }
     }
 
@@ -4971,9 +5589,18 @@ pub mod stream {
         bytes_wrap_stream!(@m
           [$($rp_g)* F_value,]
           [$($rp_w)* F_value: ::rapidproto::stream::Handler<&'rp_a [u8]>,]
-          [$($rp_i)* const WANT_value: bool = true; #[inline(always)] fn on_value(&mut self, rp_x: &'rp_a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_value, rp_x) }]
+          [$($rp_i)* const WANT_value: bool = true; #[inline(always)] fn on_value(&mut self, rp_x: &'rp_a [u8]) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_value, rp_x) }]
           [$($rp_fl)* f_value: F_value,]
-          [$($rp_ct)* f_value: $rp_c,]
+          [$($rp_ct)* f_value: ::rapidproto::stream::typed::<&'_ [u8], _, _>($rp_c),]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] unknown => $rp_c:expr , $($rp_rest:tt)*) => {
+        bytes_wrap_stream!(@m
+          [$($rp_g)* F_unknown,]
+          [$($rp_w)* F_unknown: ::rapidproto::stream::Handler<::rapidproto::stream::UnknownField<'rp_a>>,]
+          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: ::rapidproto::stream::UnknownField<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_unknown, rp_x) }]
+          [$($rp_fl)* f_unknown: F_unknown,]
+          [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{

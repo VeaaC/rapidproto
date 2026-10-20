@@ -364,29 +364,38 @@ pub mod stream {
     pub trait MVisitor<'a> {
       const WANT_implicit_scalar: bool = false;
       #[inline(always)]
-      fn on_implicit_scalar(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      fn on_implicit_scalar(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_explicit_scalar: bool = false;
       #[inline(always)]
-      fn on_explicit_scalar(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      fn on_explicit_scalar(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_child: bool = false;
       #[inline(always)]
-      fn on_child(&mut self, _rp_v: &'a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      fn on_child(&mut self, _rp_v: M<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_packed_nums: bool = false;
       #[inline(always)]
-      fn on_packed_nums(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      fn on_packed_nums(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_expanded_nums: bool = false;
       #[inline(always)]
-      fn on_expanded_nums(&mut self, _rp_v: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      fn on_expanded_nums(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_delim: bool = false;
       #[inline(always)]
-      fn on_delim(&mut self, _rp_v: &'a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Flow::Continue }
+      fn on_delim(&mut self, _rp_v: M<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      const WANT_UNKNOWN: bool = false;
+      #[inline(always)]
+      fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
     }
 
-    pub struct M;
+    #[derive(Clone, Copy)]
+    pub struct M<'a> {
+      rp_input: &'a [u8],
+    }
 
-    impl M {
-      pub fn decode<'a, V: MVisitor<'a>>(rp_input: &'a [u8], mut rp_vis: V) -> Result<(), ::rapidproto::DecodeError> {
-        let rp_body: &'a [u8] = rp_input;
+    impl<'a> M<'a> {
+      #[inline(always)]
+      pub fn new(rp_input: &'a [u8]) -> M<'a> { M { rp_input } }
+
+      pub fn decode<V: MVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<(), ::rapidproto::DecodeError> {
+        let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
           let rp_b = match rp_rest.first() {
@@ -412,8 +421,9 @@ pub mod stream {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if rp_vis.on_implicit_scalar(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
-                  return Ok(());
+                match rp_vis.on_implicit_scalar(rp_v as i32)? {
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Continue => {}
                 }
               } else {
                 rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -429,8 +439,9 @@ pub mod stream {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if rp_vis.on_explicit_scalar(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
-                  return Ok(());
+                match rp_vis.on_explicit_scalar(rp_v as i32)? {
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Continue => {}
                 }
               } else {
                 rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -446,8 +457,9 @@ pub mod stream {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if rp_vis.on_child(rp_p) == ::rapidproto::stream::Flow::Stop {
-                  return Ok(());
+                match rp_vis.on_child(M::new(rp_p))? {
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Continue => {}
                 }
               } else {
                 rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -463,8 +475,9 @@ pub mod stream {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if rp_vis.on_packed_nums(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
-                  return Ok(());
+                match rp_vis.on_packed_nums(rp_v as i32)? {
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Continue => {}
                 }
               } else {
                 rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -486,8 +499,9 @@ pub mod stream {
                     Ok(r) => r,
                     Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len() - rp_p.len())),
                   };
-                  if rp_vis.on_packed_nums(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
-                    return Ok(());
+                  match rp_vis.on_packed_nums(rp_v as i32)? {
+                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                    ::rapidproto::stream::Flow::Continue => {}
                   }
                 }
               } else {
@@ -504,8 +518,9 @@ pub mod stream {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if rp_vis.on_expanded_nums(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
-                  return Ok(());
+                match rp_vis.on_expanded_nums(rp_v as i32)? {
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Continue => {}
                 }
               } else {
                 rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -527,8 +542,9 @@ pub mod stream {
                     Ok(r) => r,
                     Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len() - rp_p.len())),
                   };
-                  if rp_vis.on_expanded_nums(rp_v as i32) == ::rapidproto::stream::Flow::Stop {
-                    return Ok(());
+                  match rp_vis.on_expanded_nums(rp_v as i32)? {
+                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                    ::rapidproto::stream::Flow::Continue => {}
                   }
                 }
               } else {
@@ -545,8 +561,9 @@ pub mod stream {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                if rp_vis.on_delim(rp_p) == ::rapidproto::stream::Flow::Stop {
-                  return Ok(());
+                match rp_vis.on_delim(M::new(rp_p))? {
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Continue => {}
                 }
               } else {
                 rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -556,14 +573,27 @@ pub mod stream {
               }
             }
             _ => {
-              rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
-                Ok(r) => r,
-                Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
-              };
+              if V::WANT_UNKNOWN && !matches!(rp_tagkey >> 3, 1 | 2 | 3 | 4 | 5 | 6) {
+                let rp_before = rp_rest;
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                let rp_u = ::rapidproto::stream::UnknownField::new(rp_tagkey, &rp_before[..rp_before.len() - rp_rest.len()]);
+                match rp_vis.on_unknown(rp_u)? {
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Continue => {}
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  Ok(r) => r,
+                  Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
             }
           }
         }
-        Ok(())
+        ::core::result::Result::Ok(())
       }
     }
 
@@ -575,54 +605,63 @@ pub mod stream {
         m_stream!(@m
           [$($rp_g)* F_implicit_scalar,]
           [$($rp_w)* F_implicit_scalar: ::rapidproto::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_implicit_scalar: bool = true; #[inline(always)] fn on_implicit_scalar(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_implicit_scalar, rp_x) }]
+          [$($rp_i)* const WANT_implicit_scalar: bool = true; #[inline(always)] fn on_implicit_scalar(&mut self, rp_x: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_implicit_scalar, rp_x) }]
           [$($rp_fl)* f_implicit_scalar: F_implicit_scalar,]
-          [$($rp_ct)* f_implicit_scalar: $rp_c,]
+          [$($rp_ct)* f_implicit_scalar: ::rapidproto::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] explicit_scalar => $rp_c:expr , $($rp_rest:tt)*) => {
         m_stream!(@m
           [$($rp_g)* F_explicit_scalar,]
           [$($rp_w)* F_explicit_scalar: ::rapidproto::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_explicit_scalar: bool = true; #[inline(always)] fn on_explicit_scalar(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_explicit_scalar, rp_x) }]
+          [$($rp_i)* const WANT_explicit_scalar: bool = true; #[inline(always)] fn on_explicit_scalar(&mut self, rp_x: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_explicit_scalar, rp_x) }]
           [$($rp_fl)* f_explicit_scalar: F_explicit_scalar,]
-          [$($rp_ct)* f_explicit_scalar: $rp_c,]
+          [$($rp_ct)* f_explicit_scalar: ::rapidproto::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] child => $rp_c:expr , $($rp_rest:tt)*) => {
         m_stream!(@m
           [$($rp_g)* F_child,]
-          [$($rp_w)* F_child: ::rapidproto::stream::Handler<&'rp_a [u8]>,]
-          [$($rp_i)* const WANT_child: bool = true; #[inline(always)] fn on_child(&mut self, rp_x: &'rp_a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_child, rp_x) }]
+          [$($rp_w)* F_child: ::rapidproto::stream::Handler<M<'rp_a>>,]
+          [$($rp_i)* const WANT_child: bool = true; #[inline(always)] fn on_child(&mut self, rp_x: M<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_child, rp_x) }]
           [$($rp_fl)* f_child: F_child,]
-          [$($rp_ct)* f_child: $rp_c,]
+          [$($rp_ct)* f_child: ::rapidproto::stream::typed::<M<'_>, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] packed_nums => $rp_c:expr , $($rp_rest:tt)*) => {
         m_stream!(@m
           [$($rp_g)* F_packed_nums,]
           [$($rp_w)* F_packed_nums: ::rapidproto::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_packed_nums: bool = true; #[inline(always)] fn on_packed_nums(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_packed_nums, rp_x) }]
+          [$($rp_i)* const WANT_packed_nums: bool = true; #[inline(always)] fn on_packed_nums(&mut self, rp_x: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_packed_nums, rp_x) }]
           [$($rp_fl)* f_packed_nums: F_packed_nums,]
-          [$($rp_ct)* f_packed_nums: $rp_c,]
+          [$($rp_ct)* f_packed_nums: ::rapidproto::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] expanded_nums => $rp_c:expr , $($rp_rest:tt)*) => {
         m_stream!(@m
           [$($rp_g)* F_expanded_nums,]
           [$($rp_w)* F_expanded_nums: ::rapidproto::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_expanded_nums: bool = true; #[inline(always)] fn on_expanded_nums(&mut self, rp_x: i32) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_expanded_nums, rp_x) }]
+          [$($rp_i)* const WANT_expanded_nums: bool = true; #[inline(always)] fn on_expanded_nums(&mut self, rp_x: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_expanded_nums, rp_x) }]
           [$($rp_fl)* f_expanded_nums: F_expanded_nums,]
-          [$($rp_ct)* f_expanded_nums: $rp_c,]
+          [$($rp_ct)* f_expanded_nums: ::rapidproto::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] delim => $rp_c:expr , $($rp_rest:tt)*) => {
         m_stream!(@m
           [$($rp_g)* F_delim,]
-          [$($rp_w)* F_delim: ::rapidproto::stream::Handler<&'rp_a [u8]>,]
-          [$($rp_i)* const WANT_delim: bool = true; #[inline(always)] fn on_delim(&mut self, rp_x: &'rp_a [u8]) -> ::rapidproto::stream::Flow { ::rapidproto::stream::Handler::call(&mut self.f_delim, rp_x) }]
+          [$($rp_w)* F_delim: ::rapidproto::stream::Handler<M<'rp_a>>,]
+          [$($rp_i)* const WANT_delim: bool = true; #[inline(always)] fn on_delim(&mut self, rp_x: M<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_delim, rp_x) }]
           [$($rp_fl)* f_delim: F_delim,]
-          [$($rp_ct)* f_delim: $rp_c,]
+          [$($rp_ct)* f_delim: ::rapidproto::stream::typed::<M<'_>, _, _>($rp_c),]
+        $($rp_rest)*)
+      };
+      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] unknown => $rp_c:expr , $($rp_rest:tt)*) => {
+        m_stream!(@m
+          [$($rp_g)* F_unknown,]
+          [$($rp_w)* F_unknown: ::rapidproto::stream::Handler<::rapidproto::stream::UnknownField<'rp_a>>,]
+          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: ::rapidproto::stream::UnknownField<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_unknown, rp_x) }]
+          [$($rp_fl)* f_unknown: F_unknown,]
+          [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{

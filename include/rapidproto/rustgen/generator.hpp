@@ -48,16 +48,19 @@ std::string generate_arena(const std::vector<const FileNode*>& files, const Layo
                            const FieldModes& modes = {});
 
 // Emit the `stream` module body for `files`, under `pub mod stream` mirroring `arena`'s module
-// structure: per message a `<Msg>Visitor<'a>` trait (one `const WANT_<field>: bool = false` + a
-// defaulted `on_<field>` method per field), a `<Msg>::decode<V: <Msg>Visitor>(input, visitor)` driver
-// whose per-field arm gates on `V::WANT_<field>` (an unselected field const-folds to a wire-skip), and
-// a per-message `<msg>_stream! { field => closure, .. }` builder macro. A handler receives a scalar as
-// its Rust primitive, a string as `ProtoStr`, bytes/message/group as `&[u8]` (the message/group
-// payload -- the consumer recurses with the child decoder), and an ENUM as its raw `i32` (NOT the
-// `common`-tree newtype): the macro expands at the consumer's call site, so every value type it names
-// must be a builtin or an absolute `::rapidproto::` path, never a tree-relative one. Map fields are not
-// selectable yet; field modes (drop/raw/unknown) are arena-storage options that do not apply to a
-// streaming visitor (which materializes nothing), so streaming ignores them.
+// structure: per message a reader handle `<Msg><'a>` (`Msg::new(bytes).decode(visitor)`), a
+// `<Msg>Visitor<'a>` trait (one `const WANT_<field>: bool = false` + a defaulted
+// `on_<field>(&mut self, V) -> Result<Flow, DecodeError>` method per field, plus an `unknown` handler),
+// a `<Msg>::decode` driver whose per-field arm gates on `V::WANT_<field>` (an unselected field
+// const-folds to a wire-skip), and a per-message `<msg>_stream! { field => closure, .. }` macro. A
+// handler receives a scalar as its Rust primitive, a string as `ProtoStr`, bytes as `&[u8]`, an ENUM as
+// its generated `common`-tree newtype, and a message/group as the child's reader handle (recurse with
+// `child.decode(..)`); `Flow::Stop` and an `Err` propagate out of `decode`. A handler's enum newtype /
+// child handle lives elsewhere in the tree and the macro expands at the consumer's call site, so each
+// such foreign type is re-exported into the message's stream module as a `pub type rp_stream_ty_<n>`
+// alias (reserved `rp_` prefix -> never clashes); a consumer glob-imports the stream module. Map fields
+// are not selectable yet; field modes (drop/raw/unknown) are arena-storage options that do not apply to
+// a streaming visitor (which materializes nothing), so streaming ignores them.
 std::string generate_stream(const std::vector<const FileNode*>& files);
 
 // Which decoder model(s) `generate_file` emits. `common` is always emitted (both models reference it).
