@@ -11,6 +11,9 @@
 //! - [`DecodeError`] / [`ErrorKind`] — the error returned by generated `decode` entry points.
 //! - [`wire`] — the wire-decode primitives (varint, fixed, length-delimited, tag, skip) generated
 //!   `decode` bodies read fields with.
+//! - [`stream`] — the primitives a generated *streaming* decoder builds on (a visitor that reads only
+//!   the fields it selects, never materializing the message); emitted when `rapidproto-build`'s
+//!   `Config::stream` is enabled.
 //!
 //! This is an early stage: the generated code that uses these types is still being built out.
 //!

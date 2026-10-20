@@ -23,6 +23,8 @@ fn generates_rust_for_the_consumer_example() {
         sources: vec![proto("message.proto"), proto("types.proto")],
         modes: String::new(),
         unknown_all: false,
+        arena: true,
+        stream: true, // exercise both models through the blob
     };
     let rust = generate(&request).expect("generation succeeds");
     assert!(
@@ -32,6 +34,10 @@ fn generates_rust_for_the_consumer_example() {
     assert!(
         rust.contains("Shape"),
         "expected the Shape message:\n{rust}"
+    );
+    assert!(
+        rust.contains("pub mod stream") && rust.contains("Visitor<'a>"),
+        "expected the stream visitor model:\n{rust}"
     );
 }
 
@@ -43,6 +49,8 @@ fn a_missing_import_is_reported_not_panicked() {
         sources: vec![proto("message.proto")],
         modes: String::new(),
         unknown_all: false,
+        arena: true,
+        stream: false,
     };
     let error = generate(&request).expect_err("missing import should fail");
     assert_eq!(error.code, 3, "resolve-stage exit code");

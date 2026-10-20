@@ -15,13 +15,16 @@
 //
 // Stdin frame (all lengths little-endian u32; bodies are raw bytes, so a proto's newlines/quotes
 // need no escaping):
-//   "RPWF1\n"                                     magic
+//   "RPWF2\n"                                     magic
 //   u32 n_entries   { u32 len, bytes }*n_entries  entry names (the import-closure roots)
 //   u32 n_files     { u32 len, name,              every source the host could offer (a superset);
 //                     u32 len, body }*n_files      the resolver pulls exactly the closure it needs
 //   u32 len, modes_text                           the `.modes` profile ("" = no field modes)
 //   u8  unknown_all                               1 => reserve the unknown-fields bit on every message
-// Stdout: the generated Rust. On any error: a message on stderr and a nonzero exit; stdout stays empty.
+//   u8  arena                                     1 => emit the random-access `arena` decoder model
+//   u8  stream                                    1 => emit the `stream` visitor decoder model
+// At least one of arena/stream must be set. Stdout: the generated Rust. On any error: a message on
+// stderr and a nonzero exit; stdout stays empty.
 
 #include <algorithm>
 #include <array>
@@ -73,10 +76,10 @@ public:
     explicit FrameReader(std::string_view data) : m_data(data) {}
 
     void expect_magic() {
-        static constexpr std::string_view kMagic = "RPWF1\n";
+        static constexpr std::string_view kMagic = "RPWF2\n";
         // substr clamps to what is present, so a short input simply compares unequal -- no throw.
         if (m_data.substr(m_pos, kMagic.size()) != kMagic) {
-            fail(kBadFrame, "input is not a RPWF1 frame");
+            fail(kBadFrame, "input is not a RPWF2 frame");
         }
         m_pos += kMagic.size();
     }
@@ -169,10 +172,15 @@ int main() {
 
     const std::string modes_text = frame.bytes();
     const bool unknown_all = frame.u8() != 0;
+    const bool emit_arena = frame.u8() != 0;
+    const bool emit_stream = frame.u8() != 0;
     frame.expect_end();
 
     if (entries.empty()) {
         fail(kBadFrame, "no entry files given");
+    }
+    if (!emit_arena && !emit_stream) {
+        fail(kBadFrame, "no decoder model selected: enable arena and/or stream");
     }
 
     // The resolver reads every source through this map; the embedded well-known types are still
@@ -222,7 +230,8 @@ int main() {
     // Plan layouts and emit the merged module tree through the shared post-analysis pipeline, the
     // exact tail native rustgen runs (see rustgen/pipeline.hpp) -- so the two cannot
     // drift.
-    const std::string out = rustgen::generate_rust(set, symbols, modes);
+    const std::string out =
+        rustgen::generate_rust(set, symbols, modes, rustgen::RustModels{emit_arena, emit_stream});
     std::fwrite(out.data(), 1, out.size(), stdout);
     return kOk;
 }

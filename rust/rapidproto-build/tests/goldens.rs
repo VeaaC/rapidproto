@@ -41,24 +41,33 @@ fn check(stem: &str, generated: &str, verified: &mut BTreeSet<String>) {
     verified.insert(stem.to_owned());
 }
 
-/// A plain golden (no field modes): entry is the proto, include path is its own directory.
+/// A plain golden (no field modes): entry is the proto, include path is its own directory. Emitted
+/// with BOTH models (arena + stream), matching the committed plain goldens (test_rustgen's `kBoth`).
 fn gen_plain(proto: &Path) -> String {
     let include = proto
         .parent()
         .expect("proto has a parent dir")
         .to_path_buf();
-    generate_from_disk(&[proto.to_path_buf()], &[include], "", false)
+    generate_from_disk(&[proto.to_path_buf()], &[include], "", false, true, true)
         .unwrap_or_else(|e| panic!("generate {}: {e}", proto.display()))
 }
 
-/// A field-modes golden: `modes` is a `.modes` profile; include path is the proto's directory.
+/// A field-modes golden: `modes` is a `.modes` profile; include path is the proto's directory. Emitted
+/// arena-only (field modes are not wired into streaming), matching test_rustgen's modes goldens.
 fn gen_modes(proto: &Path, modes: &str) -> String {
     let include = proto
         .parent()
         .expect("proto has a parent dir")
         .to_path_buf();
-    generate_from_disk(&[proto.to_path_buf()], &[include], modes, false)
-        .unwrap_or_else(|e| panic!("generate {} with modes: {e}", proto.display()))
+    generate_from_disk(
+        &[proto.to_path_buf()],
+        &[include],
+        modes,
+        false,
+        true,
+        false,
+    )
+    .unwrap_or_else(|e| panic!("generate {} with modes: {e}", proto.display()))
 }
 
 /// Every `*.proto` under `dir`, recursively, sorted (deterministic) — the plain-golden corpus.
