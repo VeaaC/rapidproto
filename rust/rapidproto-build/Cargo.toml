@@ -5,6 +5,13 @@ edition = "2021"
 license = "Apache-2.0"
 description = "Generate Rust protobuf decoders from .proto files with cargo alone (RapidProto; work in progress)."
 repository = "https://github.com/VeaaC/rapidproto"
+readme = "README.md"
+keywords = ["protobuf", "protocol-buffers", "codegen", "build-dependencies", "wasm"]
+categories = ["development-tools::build-utils", "encoding"]
+# The integration tests are workspace-only dogfood gates (they regenerate the sibling
+# `rustgen-golden` goldens and drive the `examples/consumer` schema), so they cannot run from a
+# published tarball -- keep them out of the package rather than ship tests that can't build.
+exclude = ["tests"]
 publish = false
 
 # The generator ships as a prebuilt WebAssembly module run through the wasmi interpreter (pure Rust),

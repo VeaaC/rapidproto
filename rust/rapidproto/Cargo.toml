@@ -5,6 +5,9 @@ edition = "2021"
 license = "Apache-2.0"
 description = "Decode-only Protobuf runtime for generated RapidProto decoders (work in progress)."
 repository = "https://github.com/VeaaC/rapidproto"
+readme = "README.md"
+keywords = ["protobuf", "protocol-buffers", "decode", "zero-copy", "no-std"]
+categories = ["encoding", "parser-implementations", "no-std"]
 publish = false # the crates.io `rapidproto` placeholder is reserved; this is not published yet
 
 [features]
