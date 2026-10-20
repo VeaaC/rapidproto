@@ -55,8 +55,9 @@ std::string generate_arena(const std::vector<const FileNode*>& files, const Layo
 // its Rust primitive, a string as `ProtoStr`, bytes/message/group as `&[u8]` (the message/group
 // payload -- the consumer recurses with the child decoder), and an ENUM as its raw `i32` (NOT the
 // `common`-tree newtype): the macro expands at the consumer's call site, so every value type it names
-// must be a builtin or an absolute `::rapidproto::` path, never a tree-relative one. Field modes and
-// map fields are not yet wired into streaming (a map field is not selectable).
+// must be a builtin or an absolute `::rapidproto::` path, never a tree-relative one. Map fields are not
+// selectable yet; field modes (drop/raw/unknown) are arena-storage options that do not apply to a
+// streaming visitor (which materializes nothing), so streaming ignores them.
 std::string generate_stream(const std::vector<const FileNode*>& files);
 
 // Which decoder model(s) `generate_file` emits. `common` is always emitted (both models reference it).

@@ -53,7 +53,8 @@ fn gen_plain(proto: &Path) -> String {
 }
 
 /// A field-modes golden: `modes` is a `.modes` profile; include path is the proto's directory. Emitted
-/// arena-only (field modes are not wired into streaming), matching test_rustgen's modes goldens.
+/// arena-only (field modes are arena-storage options, N/A to a streaming visitor), matching
+/// test_rustgen's modes goldens.
 fn gen_modes(proto: &Path, modes: &str) -> String {
     let include = proto
         .parent()

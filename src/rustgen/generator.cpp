@@ -2613,15 +2613,17 @@ void emit_arena_node(Printer& printer, const NameTable& table, const PkgTrie& no
 // streaming replaces storage+construct with a gate + a direct visitor call.
 //
 // The generated code is O(N): the trait, the decode driver and the macro definition are each one unit
-// per field -- no quadratic setter reconstruction (there is no builder). Field modes (drop/raw/unknown)
-// and map fields are not yet wired into streaming (a map field is not selectable -- it falls to the
-// loop's skip); groups ride the message path (`message_field_wire` / `emit_msg_payload_read`).
+// per field -- no quadratic setter reconstruction (there is no builder). Map fields are not selectable
+// yet (a map field falls to the loop's skip); delivering map entries is a follow-up. Field modes
+// (drop/raw/unknown-fields) are arena-STORAGE options and do not apply to a streaming visitor, which
+// materializes nothing, so streaming ignores the modes. Groups ride the message path
+// (`message_field_wire` / `emit_msg_payload_read`).
 
 // One selectable field on a message's stream visitor: the RAW proto field name (names the `WANT_<name>`
 // const, the `on_<name>` method, the macro's `f_<name>` slot and `F_<name>` type param -- the fixed
 // prefixes keep every one a valid, non-keyword identifier and mutually distinct, and proto field names
 // are already unique within a message, so no dedup is needed) plus the field itself. Regular fields and
-// oneof members are both slots and dispatch identically; map fields are omitted (not yet streamable).
+// oneof members are both slots and dispatch identically; map fields are omitted (not selectable yet).
 struct StreamSlot {
     std::string name;
     const FieldNode* field;
