@@ -1,13 +1,21 @@
 # OSM PBF showcase (Rust)
 
-`osmstat` decodes an OpenStreetMap `.osm.pbf` extract with RapidProto's generated **arena** decoders
-and prints statistics (counts, tags, bounding box, top tag keys). It is a worked example of pulling a
-lot of data out of protobuf quickly with this crate.
+`osmstat` decodes an OpenStreetMap `.osm.pbf` extract with RapidProto and prints statistics (counts,
+tags, bounding box, top tag keys). It is a worked example of pulling a lot of data out of protobuf
+quickly — and it runs the **same workload through both decode models**, so you can compare them:
+
+- **arena** (default): decode each block into an `Arena`, then read borrowed views ([`src/walk.rs`](src/walk.rs));
+- **streaming** (`--stream`): materialize nothing, handle each field with a callback as it is decoded
+  ([`src/walk_stream.rs`](src/walk_stream.rs)).
+
+Both print byte-identical statistics — the fixture test holds all four (model × execution) combinations
+to one golden.
 
 ```sh
-cargo run -p osm-pbf-example --release -- <file.osm.pbf>
+cargo run -p osm-pbf-example --release -- <file.osm.pbf>            # arena (default)
+cargo run -p osm-pbf-example --release -- --stream <file.osm.pbf>  # streaming visitor
 cargo run -p osm-pbf-example --release -- --sequential --baseline <file.osm.pbf>
-cargo test -p osm-pbf-example          # fixture test: modes agree, golden, baseline, truncation
+cargo test -p osm-pbf-example          # fixture: both models agree, golden, baseline, truncation
 ```
 
 Grab real data from [Geofabrik](https://download.geofabrik.de/), e.g. the ~20 MB Bremen extract:
@@ -24,14 +32,20 @@ Statistics go to **stdout**; timing goes to **stderr**, so you can redirect one 
 The point of the example is the shape of an efficient decode:
 
 - **Codegen is a build step, no `protoc`.** `build.rs` runs `rapidproto-build` over
-  [`proto/`](proto) — pure Rust, no C++ toolchain; the output is pulled in by [`src/osm.rs`](src/osm.rs).
-- **Decode into an `Arena`, read borrowed views.** One `decode()` bump-allocates the message and hands
-  back a view that borrows it: no per-field allocation, repeated columns as `&[i64]`, strings as
-  `&[u8]` (see [`src/walk.rs`](src/walk.rs)).
-- **Arenas make parallelism trivial.** Blocks are independent, so they decode in parallel by default —
-  one arena per rayon worker, partials merged order-independently. `--sequential` prints the same thing.
+  [`proto/`](proto) — pure Rust, no C++ toolchain. `.stream(true)` asks for both models, so the one
+  generated file exposes `arena::OSMPBF` and `stream::OSMPBF` (pulled in by [`src/osm.rs`](src/osm.rs)).
+- **Arena: decode once, read borrowed views.** One `decode()` bump-allocates the message and hands back
+  a view that borrows it: no per-field allocation, repeated columns as `&[i64]`, strings as `&[u8]`.
+- **Streaming: materialize nothing, visit fields.** `Msg::new(bytes).decode(visitor)` fires one callback
+  per field as it is decoded. The walk shows both ways to build a visitor: the generated `*_stream!`
+  macro for the simple capture-a-local pass, and hand-implemented `*Visitor` traits where many handlers
+  share the same accumulator (which `&mut`-exclusive closures can't). It also shows the two-pass idiom a
+  back-referencing schema needs (the stringtable must be read before the groups that index it).
+- **Parallelism is trivial either way.** Blocks are independent, so they decode in parallel by default,
+  partials merged order-independently. `--sequential` prints the same thing.
 - **Untrusted input stays safe.** Lengths are capped and arithmetic wraps rather than panicking; a
-  malformed file exits nonzero, never UB.
+  malformed file exits nonzero, never UB. (Streaming hands sub-messages to the consumer as child
+  handles — recursing into them is the consumer's depth to bound; this walk recurses a fixed two levels.)
 
 `--baseline` also decodes the file with the [`osmpbf`](https://crates.io/crates/osmpbf) crate (a
 materializing reader) and prints its counts + throughput on stderr, for a side-by-side comparison.

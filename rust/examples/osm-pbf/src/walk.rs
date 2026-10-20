@@ -1,9 +1,12 @@
-//! Read one already-decoded `PrimitiveBlock` into a [`Stats`] -- this is where the example consumes the
-//! arena views. Nothing decodes here; each accessor just reads the arena, repeated scalar columns as
-//! `&[i64]` and stringtable entries as borrowed `&[u8]` (no copies). Returns a per-block `Stats`, so
-//! blocks fold on one thread or reduce across many.
+//! The ARENA walk: read one already-decoded `PrimitiveBlock` into a [`Stats`]. This is where the
+//! example consumes the arena views; nothing decodes here, each accessor just reads the arena --
+//! repeated scalar columns as `&[i64]` and stringtable entries as borrowed `&[u8]` (no copies).
+//! Returns a per-block `Stats`, so blocks fold on one thread or reduce across many. [`walk_stream`] is
+//! the streaming counterpart (same statistics, a visitor instead of materialized views).
+//!
+//! [`walk_stream`]: crate::walk_stream
 
-use crate::osm::OSMPBF::PrimitiveBlock;
+use crate::osm::arena::PrimitiveBlock;
 use crate::stats::{coord_nano, wrap_add, Stats};
 
 pub fn walk_block(block: &PrimitiveBlock) -> Stats {

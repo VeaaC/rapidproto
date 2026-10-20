@@ -1,6 +1,7 @@
 # OSM PBF showcase (Rust): `osmstat` decodes an OpenStreetMap .osm.pbf planet/extract and prints
-# statistics, using RapidProto's generated arena decoders -- a worked example of decoding bulky
-# protobuf efficiently. Blocks are independent, so it decodes them in parallel by default (rayon), and
+# statistics, running the same workload through RapidProto's generated arena decoders and (with
+# `--stream`) its streaming visitor decoders -- a worked example of decoding bulky protobuf efficiently
+# in both models. Blocks are independent, so it decodes them in parallel by default (rayon), and
 # `--baseline` compares throughput against the `osmpbf` crate. Built with cargo alone -- zlib is the
 # pure-Rust miniz_oxide via flate2, no system library.
 [package]
