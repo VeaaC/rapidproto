@@ -2630,8 +2630,10 @@ struct StreamSlot {
 // A proto field name as a PLAIN, non-keyword Rust identifier safe both to prefix (`on_`/`WANT_`/`f_`/
 // `F_`) and to capture as a macro `:ident`: a keyword (or a raw-ineligible `self`/`crate`/..) gets a
 // trailing `_`, NEVER an `r#` raw-escape (which cannot be prefixed, and which a macro key/`:ident`
-// cannot always carry). The consumer types this escaped name as the macro key, matching how the arena
-// accessor escapes the same field.
+// cannot always carry). The consumer types this escaped name as the macro key. For a keyword this is
+// the same as the arena accessor (`self` -> `self_`); a non-keyword the arena accessor suffixes only to
+// dodge the message's own `decode` method (a field `decode` -> arena `decode_`) stays bare here, since
+// the stream method is `on_decode` and cannot collide.
 std::string stream_ident(const std::string& name) {
     if (name == "_") {
         return "_x";
@@ -2905,7 +2907,13 @@ void emit_stream_macro(Printer& printer, const NameTable& table,
         "(@m [$$($$rp_g:tt)*] [$$($$rp_w:tt)*] [$$($$rp_i:tt)*] [$$($$rp_fl:tt)*] "
         "[$$($$rp_ct:tt)*] ) => {{\n");
     printer.indent();
+    // The macro expands at the CONSUMER'S call site, not inside the generated file, so an `#[allow]`
+    // wrapping the `include!` cannot reach these items -- the generated `F_<field>` type params and
+    // `WANT_<field>` consts carry the field's own (proto) casing. Make the expansion self-contained so
+    // it is warning-clean even under `#![deny(warnings)]`.
+    printer.print("#[allow(nonstandard_style)]\n");
     printer.print("struct RpVis<$$($$rp_g)*> { $$($$rp_fl)* }\n");
+    printer.print("#[allow(nonstandard_style)]\n");
     printer.print(
         "impl<'rp_a, $$($$rp_g)*> $M$Visitor<'rp_a> for RpVis<$$($$rp_g)*> where $$($$rp_w)* "
         "{ $$($$rp_i)* }\n");

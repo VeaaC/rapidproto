@@ -344,7 +344,9 @@ pub mod stream {
       $($rp_rest)*)
     };
     (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
+      #[allow(nonstandard_style)]
       struct RpVis<$($rp_g)*> { $($rp_fl)* }
+      #[allow(nonstandard_style)]
       impl<'rp_a, $($rp_g)*> RootVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
       RpVis { $($rp_ct)* }
     }};
@@ -424,7 +426,9 @@ pub mod stream {
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
+        #[allow(nonstandard_style)]
         struct RpVis<$($rp_g)*> { $($rp_fl)* }
+        #[allow(nonstandard_style)]
         impl<'rp_a, $($rp_g)*> SubVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
         RpVis { $($rp_ct)* }
       }};

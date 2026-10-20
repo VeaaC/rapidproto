@@ -54,7 +54,7 @@ fn packed_repeated_fires_once_per_element() {
 
 #[test]
 fn recursive_submessage_delivers_payload_bytes() {
-    // `self` is a keyword, so its slot escapes to `self_` (matching the arena accessor).
+    // `self` is a keyword, so its slot (and macro key) escapes to `self_`.
     let mut inner_i = 0i32;
     Msg::decode(
         MSG,

@@ -70,6 +70,16 @@ fn gen_modes(proto: &Path, modes: &str) -> String {
     .unwrap_or_else(|e| panic!("generate {} with modes: {e}", proto.display()))
 }
 
+/// A stream-only golden (stream model, no arena): the `Config::arena(false).stream(true)` path.
+fn gen_stream_only(proto: &Path) -> String {
+    let include = proto
+        .parent()
+        .expect("proto has a parent dir")
+        .to_path_buf();
+    generate_from_disk(&[proto.to_path_buf()], &[include], "", false, false, true)
+        .unwrap_or_else(|e| panic!("generate {} stream-only: {e}", proto.display()))
+}
+
 /// Every `*.proto` under `dir`, recursively, sorted (deterministic) — the plain-golden corpus.
 fn corpus_protos(dir: &Path, out: &mut Vec<PathBuf>) {
     let mut entries: Vec<_> = std::fs::read_dir(dir)
@@ -103,6 +113,13 @@ fn goldens_match_native_through_the_blob() {
     // The bench schema's golden (generated like a corpus proto, from tests/bench/).
     let bench = root.join("tests/bench/bench.proto");
     check("bench", &gen_plain(&bench), &mut verified);
+
+    // The stream-only golden (no arena), mirroring test_rustgen.cpp's `streamonly` case.
+    check(
+        "streamonly",
+        &gen_stream_only(&root.join("tests/corpus/nsedge/nestenum.proto")),
+        &mut verified,
+    );
 
     // Field-modes goldens — profiles mirrored from test_rustgen.cpp's *_spec() helpers (no `name`
     // directive, matching the empty profile_name there).

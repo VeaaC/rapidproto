@@ -9,6 +9,14 @@
 //! folds the branch and drops the decode+dispatch for every unselected field, leaving only the skip. A
 //! consumer implements the trait directly, or uses the generated per-message `msg_stream! { field =>
 //! closure, .. }` macro, which builds an anonymous visitor whose closures capture local state.
+//!
+//! Streaming is a raw field visit, not a materialized message, so the consumer owns anything the arena
+//! model would resolve for it: a handler fires **once per wire occurrence** of its field, so a field
+//! repeated on the wire (including a singular one duplicated by a non-canonical encoder) calls the
+//! handler more than once, and the members of a `oneof` are independent handlers that are **not**
+//! collapsed to last-wins — overwrite in the closure if that is what you want. (The `msg_stream!` macro
+//! recurses once per *selected* field; selecting more than ~120 fields of one message in a single
+//! invocation can hit the default `recursion_limit` — rare, and raised with `#![recursion_limit]`.)
 
 /// Whether a streaming handler wants decoding to continue after a field, or stop early with the
 /// message decoded so far. A handler closure may return `()` ([`Flow::Continue`]) or a `Flow`.

@@ -209,5 +209,9 @@ pub mod bench {
     include!("../goldens/bench.rs");
 }
 
+pub mod streamonly {
+    include!("../goldens/streamonly.rs");
+}
+
 #[cfg(all(test, feature = "std"))]
 mod stream_smoke;

@@ -47,11 +47,16 @@ std::string generate_common(const std::vector<const FileNode*>& files);
 std::string generate_arena(const std::vector<const FileNode*>& files, const LayoutSet& layouts,
                            const FieldModes& modes = {});
 
-// Emit the `stream` module body for `files`: the streaming decoder's per-message builders (one
-// `FieldHandler` type parameter per selectable field, a `stream()` constructor, `on_<field>` methods,
-// and a `decode()` field loop), under `pub mod stream` mirroring `arena`'s module structure. Enum- and
-// message-typed fields reference the sibling `common`/`stream` trees. Field modes and map fields are
-// not yet wired into streaming (a map field is not selectable); groups ride the message path.
+// Emit the `stream` module body for `files`, under `pub mod stream` mirroring `arena`'s module
+// structure: per message a `<Msg>Visitor<'a>` trait (one `const WANT_<field>: bool = false` + a
+// defaulted `on_<field>` method per field), a `<Msg>::decode<V: <Msg>Visitor>(input, visitor)` driver
+// whose per-field arm gates on `V::WANT_<field>` (an unselected field const-folds to a wire-skip), and
+// a per-message `<msg>_stream! { field => closure, .. }` builder macro. A handler receives a scalar as
+// its Rust primitive, a string as `ProtoStr`, bytes/message/group as `&[u8]` (the message/group
+// payload -- the consumer recurses with the child decoder), and an ENUM as its raw `i32` (NOT the
+// `common`-tree newtype): the macro expands at the consumer's call site, so every value type it names
+// must be a builtin or an absolute `::rapidproto::` path, never a tree-relative one. Field modes and
+// map fields are not yet wired into streaming (a map field is not selectable).
 std::string generate_stream(const std::vector<const FileNode*>& files);
 
 // Which decoder model(s) `generate_file` emits. `common` is always emitted (both models reference it).

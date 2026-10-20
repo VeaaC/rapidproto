@@ -871,6 +871,12 @@ TEST_CASE("rustgen goldens match the corpus (compile smoke-test)", "[rustgen-gol
     // the SAME schema the C++ arena bench uses.
     check_golden("bench", gen_corpus("../bench/bench.proto", kBoth));
     stems.emplace_back("bench");
+    // A stream-ONLY golden (no arena): guards that `common` + the stream tree compile on their own --
+    // the public `Config::arena(false).stream(true)` path, which the both-model goldens never exercise.
+    // nestenum is compact yet has enums (common) + nested messages.
+    check_golden("streamonly", gen_corpus("nsedge/nestenum.proto",
+                                          rustgen::RustModels{/*arena=*/false, /*stream=*/true}));
+    stems.emplace_back("streamonly");
     // Golden file names (and lib.rs module names) are the bare stems, so they must be distinct across
     // subdirs -- otherwise two schemas (e.g. nsedge/foo + imports/foo) would silently share one
     // golden and one module. Pin that invariant rather than trust the hand-kept list.
