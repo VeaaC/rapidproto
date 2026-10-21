@@ -25,6 +25,7 @@ fn generates_rust_for_the_consumer_example() {
         unknown_all: false,
         arena: true,
         stream: true, // exercise both models through the blob
+        export_stream_macros: false,
     };
     let rust = generate(&request).expect("generation succeeds");
     assert!(
@@ -51,12 +52,33 @@ fn a_missing_import_is_reported_not_panicked() {
         unknown_all: false,
         arena: true,
         stream: false,
+        export_stream_macros: false,
     };
     let error = generate(&request).expect_err("missing import should fail");
     assert_eq!(error.code, 3, "resolve-stage exit code");
     assert!(
         error.message.contains("types.proto"),
         "error should name the missing import: {}",
+        error.message
+    );
+}
+
+#[test]
+fn exporting_stream_macros_without_the_stream_model_is_rejected() {
+    let request = Request {
+        entries: vec!["message.proto".to_owned()],
+        sources: vec![proto("message.proto"), proto("types.proto")],
+        modes: String::new(),
+        unknown_all: false,
+        arena: true,
+        stream: false,
+        export_stream_macros: true,
+    };
+    let error = generate(&request).expect_err("export without stream should fail");
+    assert_eq!(error.code, 2, "bad-frame exit code");
+    assert!(
+        error.message.contains("export_stream_macros"),
+        "error should name the flag: {}",
         error.message
     );
 }

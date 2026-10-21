@@ -213,5 +213,9 @@ pub mod streamonly {
     include!("../goldens/streamonly.rs");
 }
 
+pub mod streamexport {
+    include!("../goldens/streamexport.rs");
+}
+
 #[cfg(all(test, feature = "std"))]
 mod stream_smoke;

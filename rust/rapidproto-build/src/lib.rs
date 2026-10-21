@@ -68,6 +68,9 @@ pub struct Request {
     pub arena: bool,
     /// Emit the `stream` visitor model (default off; see [`Config::stream`]).
     pub stream: bool,
+    /// Make the `*_stream!` macros callable from other crates (default off; needs `stream`; see
+    /// [`Config::export_stream_macros`]).
+    pub export_stream_macros: bool,
 }
 
 /// An error from the generator.
@@ -87,9 +90,10 @@ impl std::fmt::Display for GenError {
 
 impl std::error::Error for GenError {}
 
-/// Encodes a [`Request`] into the byte frame the generator reads on stdin: a `RPWF2` magic, then
+/// Encodes a [`Request`] into the byte frame the generator reads on stdin: a `RPWF3` magic, then
 /// little-endian-u32-counted entry names, u32-counted `{name, body}` sources, the `.modes` text, a
-/// one-byte unknown-all flag, and two one-byte model flags (arena, stream). Bodies are
+/// one-byte unknown-all flag, two one-byte model flags (arena, stream), and a one-byte
+/// export-stream-macros flag. Bodies are
 /// length-prefixed, so a proto's newlines/quotes need no escaping. (Internal: the decode side lives in
 /// the generator; the frame and the blob move together, byte-checked in CI.)
 mod frame {
@@ -114,7 +118,7 @@ mod frame {
 
     pub(super) fn encode(request: &Request) -> Result<Vec<u8>, GenError> {
         let mut buf = Vec::new();
-        buf.extend_from_slice(b"RPWF2\n");
+        buf.extend_from_slice(b"RPWF3\n");
         put_len(&mut buf, request.entries.len())?;
         for entry in &request.entries {
             put_bytes(&mut buf, entry.as_bytes())?;
@@ -128,6 +132,7 @@ mod frame {
         buf.push(u8::from(request.unknown_all));
         buf.push(u8::from(request.arena));
         buf.push(u8::from(request.stream));
+        buf.push(u8::from(request.export_stream_macros));
         Ok(buf)
     }
 }
@@ -221,9 +226,10 @@ fn internal(error: impl std::fmt::Display) -> GenError {
 /// reach is used), and each entry is named by its path relative to the include directory that holds
 /// it. `modes` is a decode profile (see [`Config::field_modes`]); `unknown_all` matches
 /// [`Config::unknown_present`]. `arena`/`stream` select the decoder model(s) to emit (see
-/// [`Config::arena`] / [`Config::stream`]); at least one must be set. Returns the generated Rust (one
-/// module tree for the closure) or a [`GenError`]. For a `build.rs`, prefer [`Config`], which also
-/// writes the output and tracks inputs.
+/// [`Config::arena`] / [`Config::stream`]); at least one must be set. `export_stream_macros` matches
+/// [`Config::export_stream_macros`] and needs `stream`. Returns the generated Rust (one module tree
+/// for the closure) or a [`GenError`]. For a `build.rs`, prefer [`Config`], which also writes the
+/// output and tracks inputs.
 pub fn generate_from_disk(
     entries: &[PathBuf],
     includes: &[PathBuf],
@@ -231,11 +237,18 @@ pub fn generate_from_disk(
     unknown_all: bool,
     arena: bool,
     stream: bool,
+    export_stream_macros: bool,
 ) -> Result<String, GenError> {
     if !arena && !stream {
         return Err(GenError {
             code: -1,
             message: "no decoder model selected: enable arena and/or stream".to_owned(),
+        });
+    }
+    if export_stream_macros && !stream {
+        return Err(GenError {
+            code: -1,
+            message: "export_stream_macros needs the stream model: enable stream".to_owned(),
         });
     }
     // Canonicalize the include dirs once, so the source walk and the entry-key derivation compare
@@ -274,6 +287,7 @@ pub fn generate_from_disk(
         unknown_all,
         arena,
         stream,
+        export_stream_macros,
     })
 }
 
@@ -299,6 +313,7 @@ pub struct Config {
     unknown_all: bool,
     arena: bool,
     stream: bool,
+    export_stream_macros: bool,
 }
 
 impl Default for Config {
@@ -311,6 +326,7 @@ impl Default for Config {
             unknown_all: false,
             arena: true,
             stream: false,
+            export_stream_macros: false,
         }
     }
 }
@@ -349,9 +365,25 @@ impl Config {
 
     /// Emit the `stream` visitor model (the generated `stream::` module: a `<Msg>Visitor` trait, a
     /// `<Msg>::decode` driver, and a `<msg>_stream!` builder macro) for decoding a few fields without
-    /// materializing the message. Off by default.
+    /// materializing the message. Off by default. The macros are usable within the crate that
+    /// `include!`s the file (glob-import the message's stream module); to call them from its `tests/`
+    /// or from another crate, see [`Config::export_stream_macros`].
     pub fn stream(mut self, yes: bool) -> Self {
         self.stream = yes;
+        self
+    }
+
+    /// Make each `<msg>_stream!` macro callable from outside the crate that `include!`s the generated
+    /// file: from that crate's `tests/`, or from crates that depend on a crate holding the generated
+    /// code. Needs [`Config::stream`]. Off by default. (The generated types and `<Msg>Visitor` traits
+    /// are public either way, so a hand-written visitor works from any crate.)
+    ///
+    /// Each macro is then also defined at the including crate's root under a hidden, collision-free
+    /// name. Two limits follow: include a given generated file at most once per crate (a second copy
+    /// redefines those names), and not into a proc-macro crate (which cannot export `macro_rules!`
+    /// macros).
+    pub fn export_stream_macros(mut self, yes: bool) -> Self {
+        self.export_stream_macros = yes;
         self
     }
 
@@ -380,6 +412,7 @@ impl Config {
             self.unknown_all,
             self.arena,
             self.stream,
+            self.export_stream_macros,
         )?;
 
         let out_dir = env::var_os("OUT_DIR").ok_or_else(|| GenError {

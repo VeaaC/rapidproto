@@ -65,14 +65,23 @@ std::string generate_arena(const std::vector<const FileNode*>& files, const Layo
 // per-module scope name, which a consumer's glob of the stream module brings in, so two globbed
 // modules never make it ambiguous. Field modes (drop/raw/unknown) are arena-storage options that do not
 // apply to a streaming visitor (which materializes nothing), so streaming ignores them.
-std::string generate_stream(const std::vector<const FileNode*>& files);
+//
+// The macros are `pub(crate)` (usable only in the crate that `include!`s the file) unless `export_salt`
+// is non-empty: then each is a hidden `#[macro_export] __rp_<salt>_<fqn>` re-exported at its module
+// path under the friendly name, so `tests/` or another crate can call it too. `generate_file` derives
+// the salt, which keeps two generated files' crate-root names apart.
+std::string generate_stream(const std::vector<const FileNode*>& files,
+                            const std::string& export_salt = {});
 
 // Which decoder model(s) `generate_file` emits. `common` is always emitted (both models reference it).
-// Default is arena only -- byte-for-byte what every existing arena consumer gets. At least one must be
-// set; the caller enforces that.
+// Default is arena only -- byte-for-byte what every existing arena consumer gets. At least one model
+// must be set; the caller enforces that, and that `export_stream_macros` comes with `stream`.
 struct RustModels {
     bool arena = true;
     bool stream = false;
+    // Make every `*_stream!` macro callable from another crate (see generate_stream). Off by default:
+    // it puts one hidden `#[macro_export]` name per message at the including crate's root.
+    bool export_stream_macros = false;
 };
 
 // The full generated Rust source for `files`: the `common` tree, then the selected decoder tree(s)

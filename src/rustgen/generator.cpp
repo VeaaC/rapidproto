@@ -2704,19 +2704,44 @@ std::string stream_foreign_path(const NameTable& table, const std::vector<std::s
 using StreamAliases =
     std::map<std::string, std::string>;  // foreign relative path -> local alias name
 
+// Append `seg` as its length then its text. A sequence of identifiers encoded this way is injective
+// (an identifier never starts with a digit, so each length ends where the name begins), which makes
+// the generated `rp_mod_<path>` and exported `__rp_<salt>_<fqn>` names collision-free by construction.
+void append_length_prefixed(std::string& out, std::string_view seg) {
+    out += std::to_string(seg.size());
+    out += seg;
+}
+
 // The name a stream module re-exports ITSELF under, `rp_mod_<path>`: the module's segments below
-// `stream`, each written as its length then its (raw-prefix-stripped) name, e.g. `p3` -> `rp_mod_2p3`,
-// `anv::outer` -> `rp_mod_3anv5outer`, and `rp_mod_` for a package-less schema's `stream` itself. The
-// encoding is injective (a Rust identifier never starts with a digit), so no two modules of one
+// `stream`, length-prefixed and raw-prefix-stripped, e.g. `p3` -> `rp_mod_2p3`, `anv::outer` ->
+// `rp_mod_3anv5outer`, and `rp_mod_` for a package-less schema's `stream` itself. No two modules of one
 // generated file share the name, and the reserved `rp_` prefix keeps it clear of every proto-derived
 // name. See emit_stream_reexports for why the macros need it.
 std::string stream_scope_name(const std::vector<std::string>& current_mod) {
     std::string name = "rp_mod_";
     for (const std::string& seg : current_mod) {
-        const std::string_view bare =
-            seg.rfind("r#", 0) == 0 ? std::string_view(seg).substr(2) : std::string_view(seg);
-        name += std::to_string(bare.size());
-        name += bare;
+        append_length_prefixed(name, seg.rfind("r#", 0) == 0 ? std::string_view(seg).substr(2)
+                                                             : std::string_view(seg));
+    }
+    return name;
+}
+
+// The crate-root name `msg`'s exported `*_stream!` macro is defined under (see emit_stream_macro):
+// `__rp_<salt>_<fqn>`, the message's proto FQN length-prefixed segment by segment (`.p3.Msg` ->
+// `2p33Msg`). The FQN is unique within a generated file and the salt differs between generated files
+// (generate_file), so two included files never define the same `#[macro_export]` name.
+std::string stream_export_name(std::string_view salt, const MessageNode& msg) {
+    const std::string_view fqn = msg.fqn;
+    std::string name = "__rp_";
+    name += salt;
+    name += '_';
+    std::size_t pos = 0;
+    while (pos <= fqn.size()) {
+        const std::size_t dot = std::min(fqn.find('.', pos), fqn.size());
+        if (dot > pos) {
+            append_length_prefixed(name, fqn.substr(pos, dot - pos));
+        }
+        pos = dot + 1;
     }
     return name;
 }
@@ -3212,13 +3237,23 @@ void emit_stream_decode(Printer& printer, const NameTable& table,
 // runtime -- goes through the module's self re-export `$scope$` (emit_stream_reexports), which the
 // caller's glob of the stream module brings into scope. Expands to O(k) for k selected fields; the
 // definition is O(N).
+//
+// With a non-empty `exported_name` the macro is also usable from another crate (`tests/`, or a crate
+// depending on a shared proto crate). A `pub(crate)` macro cannot be re-exported past the crate (E0364)
+// and `#[macro_export]` hoists to the crate root, where per-message names collide across modules; so
+// the macro is defined under the hidden, crate-root-unique `exported_name` and re-exported at the
+// module path under its friendly name (`#[doc(inline)]` so rustdoc shows it there). The body is the
+// same in both forms: its recursion already goes through `$scope$::$mac$!`, the friendly path, which
+// resolves in either crate -- unlike `$crate::<exported>!`, which the deny-by-default
+// `macro_expanded_macro_exports_accessed_by_absolute_paths` rejects for `include!`d code.
 void emit_stream_macro(Printer& printer, const NameTable& table,
                        const std::vector<std::string>& current_mod,
                        const std::vector<StreamSlot>& slots, const StreamAliases& aliases,
-                       const std::string& macro_name) {
+                       const std::string& macro_name, const std::string& exported_name) {
     const std::string scope = stream_scope_name(current_mod);
     printer.set("mac", macro_name);
     printer.set("scope", scope);
+    printer.set("exp", exported_name);
     // One (name, value-type-at-'rp_a, method, const, slot, param) per selectable field plus the
     // reserved `unknown` handler, so the muncher arms are emitted uniformly.
     struct MacroField {
@@ -3245,7 +3280,11 @@ void emit_stream_macro(Printer& printer, const NameTable& table,
                       scope + "::rp_rt::stream::UnknownField<'_>"});
     valid_keys += valid_keys.empty() ? "unknown" : ", unknown";
 
-    printer.print("macro_rules! $mac$ {\n");
+    if (exported_name.empty()) {
+        printer.print("macro_rules! $mac$ {\n");
+    } else {
+        printer.print("#[doc(hidden)]\n#[macro_export]\nmacro_rules! $exp$ {\n");
+    }
     printer.indent();
     printer.print("( $$( $$rp_f:ident => $$rp_c:expr ),* $$(,)? ) => {\n");
     printer.indent();
@@ -3383,14 +3422,20 @@ void emit_stream_macro(Printer& printer, const NameTable& table,
 
     printer.outdent();
     printer.print("}\n");
-    printer.print("pub(crate) use $mac$;\n");
+    if (exported_name.empty()) {
+        printer.print("pub(crate) use $mac$;\n");
+    } else {
+        printer.print("#[doc(inline)]\npub use $exp$ as $mac$;\n");
+    }
 }
 
 // Emit one message's streaming decoder: the visitor trait, the reader handle + decode driver, and the
-// builder macro. `aliases` is the module's re-export map; `macro_name` is pre-deduped against siblings.
+// builder macro. `aliases` is the module's re-export map; `macro_name` is pre-deduped against siblings;
+// a non-empty `export_salt` exports the macro across the crate boundary (emit_stream_macro).
 void emit_stream_message(Printer& printer, const NameTable& table,
                          const std::vector<std::string>& current_mod, const MessageNode& msg,
-                         const StreamAliases& aliases, const std::string& macro_name) {
+                         const StreamAliases& aliases, const std::string& macro_name,
+                         const std::string& export_salt) {
     const std::vector<StreamSlot> slots = collect_stream_slots(msg);
     printer.set("M", table.messages.at(msg.fqn).type_name);
     printer.set("mac_hint", macro_name);
@@ -3398,7 +3443,8 @@ void emit_stream_message(Printer& printer, const NameTable& table,
     printer.print("\n");
     emit_stream_decode(printer, table, current_mod, msg, slots);
     printer.print("\n");
-    emit_stream_macro(printer, table, current_mod, slots, aliases, macro_name);
+    emit_stream_macro(printer, table, current_mod, slots, aliases, macro_name,
+                      export_salt.empty() ? std::string() : stream_export_name(export_salt, msg));
 }
 
 // Recursively emit the stream decoders for a list of sibling messages: the module's re-exports, then
@@ -3407,7 +3453,7 @@ void emit_stream_message(Printer& printer, const NameTable& table,
 // Builder-macro names (`<snake>_stream`) are deduped among siblings (macros share one namespace).
 void emit_stream_messages(Printer& printer, const NameTable& table,
                           const std::vector<const MessageNode*>& msgs,
-                          std::vector<std::string>& current_mod) {
+                          std::vector<std::string>& current_mod, const std::string& export_salt) {
     const StreamAliases aliases = emit_stream_reexports(printer, table, msgs, current_mod);
     std::unordered_set<std::string> macro_names;
     for (std::size_t i = 0; i < msgs.size(); ++i) {
@@ -3416,13 +3462,15 @@ void emit_stream_messages(Printer& printer, const NameTable& table,
         }
         const std::string macro_name = codegen::dedup_suffix(
             macro_names, to_snake_case(table.messages.at(msgs[i]->fqn).type_name) + "_stream");
-        emit_stream_message(printer, table, current_mod, *msgs[i], aliases, macro_name);
+        emit_stream_message(printer, table, current_mod, *msgs[i], aliases, macro_name,
+                            export_salt);
         if (!msgs[i]->nested_messages.empty()) {
             const std::string& sub = table.messages.at(msgs[i]->fqn).submodule;
             printer.print("\npub mod $m$ {\n", {{"m", sub}});
             printer.indent();
             current_mod.push_back(sub);
-            emit_stream_messages(printer, table, addrs(msgs[i]->nested_messages), current_mod);
+            emit_stream_messages(printer, table, addrs(msgs[i]->nested_messages), current_mod,
+                                 export_salt);
             current_mod.pop_back();
             printer.outdent();
             printer.print("}\n");
@@ -3433,17 +3481,65 @@ void emit_stream_messages(Printer& printer, const NameTable& table,
 // Emit the `stream` subtree for one package node: this package's message decoders, then a
 // `pub mod <component>` per sub-package (mirroring `emit_arena_node`).
 void emit_stream_node(Printer& printer, const NameTable& table, const PkgTrie& node,
-                      std::vector<std::string>& current_mod) {
-    emit_stream_messages(printer, table, node_messages(node), current_mod);
+                      std::vector<std::string>& current_mod, const std::string& export_salt) {
+    emit_stream_messages(printer, table, node_messages(node), current_mod, export_salt);
     for (const auto& [component, child] : node.children) {
         printer.print("\npub mod $m$ {\n", {{"m", child.emitted}});
         printer.indent();
         current_mod.push_back(child.emitted);
-        emit_stream_node(printer, table, child, current_mod);
+        emit_stream_node(printer, table, child, current_mod, export_salt);
         current_mod.pop_back();
         printer.outdent();
         printer.print("}\n");
     }
+}
+
+void collect_message_fqns(const MessageNode& msg, std::vector<std::string_view>& out) {
+    out.emplace_back(msg.fqn);
+    for (const MessageNode& nested : msg.nested_messages) {
+        collect_message_fqns(nested, out);
+    }
+}
+
+// The per-file salt in exported `*_stream!` names (stream_export_name): FNV-1a-64, as 16 hex digits,
+// over what tells two generated files apart when both could be `include!`d into one crate -- the
+// closure's message FQNs (sorted), the field-modes profile and the model flags. Generating a different
+// closure, or the same closure under another profile or model set, gives a different salt, so their
+// `#[macro_export]` names cannot collide. A pure function of the generation inputs (not of file
+// names or paths), so native and wasm output stay byte-identical.
+std::string stream_export_salt(const std::vector<const FileNode*>& files, const FieldModes& modes,
+                               const RustModels& models) {
+    std::vector<std::string_view> fqns;
+    for (const FileNode* file : files) {
+        for (const MessageNode& msg : file->messages) {
+            collect_message_fqns(msg, fqns);
+        }
+    }
+    std::sort(fqns.begin(), fqns.end());
+    std::string key;
+    for (const std::string_view fqn : fqns) {
+        key += fqn;
+        key += '\n';
+    }
+    key += modes.active() ? modes.profile_id : std::string();
+    key += models.arena ? "\n1" : "\n0";
+    key += models.stream ? '1' : '0';
+    constexpr std::uint64_t kFnvOffsetBasis = 0xcbf29ce484222325ULL;
+    constexpr std::uint64_t kFnvPrime = 0x100000001b3ULL;
+    std::uint64_t hash = kFnvOffsetBasis;
+    for (const char c : key) {
+        hash = (hash ^ static_cast<unsigned char>(c)) * kFnvPrime;
+    }
+    constexpr std::string_view kHexDigits = "0123456789abcdef";
+    constexpr std::size_t kSaltDigits = 16;  // one hex digit per nibble of the 64-bit hash
+    constexpr unsigned kNibbleBits = 4;
+    constexpr std::uint64_t kNibbleMask = 0xF;
+    std::string salt(kSaltDigits, '0');
+    for (std::size_t i = kSaltDigits; i > 0; --i) {
+        salt[i - 1] = kHexDigits[hash & kNibbleMask];
+        hash >>= kNibbleBits;
+    }
+    return salt;
 }
 
 }  // namespace
@@ -3503,7 +3599,8 @@ std::string generate_arena(const std::vector<const FileNode*>& files, const Layo
     return printer.str();
 }
 
-std::string generate_stream(const std::vector<const FileNode*>& files) {
+std::string generate_stream(const std::vector<const FileNode*>& files,
+                            const std::string& export_salt) {
     PkgTrie root = build_pkg_trie(files);
     assign_emitted_names(root);
     const NameTable table = build_name_table(root);
@@ -3511,7 +3608,7 @@ std::string generate_stream(const std::vector<const FileNode*>& files) {
     printer.print("pub mod stream {\n");
     printer.indent();
     std::vector<std::string> current_mod;
-    emit_stream_node(printer, table, root, current_mod);
+    emit_stream_node(printer, table, root, current_mod, export_salt);
     printer.outdent();
     printer.print("}\n");
     return printer.str();
@@ -3538,7 +3635,9 @@ std::string generate_file(const std::vector<const FileNode*>& files, const Layou
         out += "\n" + generate_arena(files, layouts, modes);
     }
     if (models.stream) {
-        out += "\n" + generate_stream(files);
+        out += "\n" + generate_stream(files, models.export_stream_macros
+                                                 ? stream_export_salt(files, modes, models)
+                                                 : std::string());
     }
     return out;
 }

@@ -877,6 +877,13 @@ TEST_CASE("rustgen goldens match the corpus (compile smoke-test)", "[rustgen-gol
     check_golden("streamonly", gen_corpus("nsedge/nestenum.proto",
                                           rustgen::RustModels{/*arena=*/false, /*stream=*/true}));
     stems.emplace_back("streamonly");
+    // Stream-only with exported macros (`Config::export_stream_macros`): proto3 covers enum, recursive
+    // child, map and oneof slots. The golden crate drives these macros in-crate (src/stream_smoke.rs)
+    // and from a separate crate (tests/stream_export.rs).
+    check_golden("streamexport",
+                 gen_corpus("proto3.proto", rustgen::RustModels{/*arena=*/false, /*stream=*/true,
+                                                                /*export_stream_macros=*/true}));
+    stems.emplace_back("streamexport");
     // Golden file names (and lib.rs module names) are the bare stems, so they must be distinct across
     // subdirs -- otherwise two schemas (e.g. nsedge/foo + imports/foo) would silently share one
     // golden and one module. Pin that invariant rather than trust the hand-kept list.

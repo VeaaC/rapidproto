@@ -246,6 +246,33 @@ fn a_visitor_type_can_be_hand_implemented() {
     assert_eq!(c.0, 3);
 }
 
+// Its own module: `streamexport` is a second copy of package `p3`, so globbing it in a scope that
+// already sees the file-level `proto3::stream::p3` glob would make both copies' names ambiguous.
+mod exported {
+    use super::MSG;
+    use crate::streamexport::stream::p3::*;
+
+    #[test]
+    fn exported_macros_also_work_in_the_crate_that_includes_them() {
+        // `streamexport` is proto3 generated with `export_stream_macros` (its cross-crate use is in
+        // tests/stream_export.rs). Inside the defining crate the expansion's recursion runs through
+        // the friendly module path too; a `$crate::`-absolute call to the hidden `#[macro_export]`
+        // name would be rejected here (`macro_expanded_macro_exports_accessed_by_absolute_paths`,
+        // since the golden is `include!`d).
+        let (mut outer, mut inner, mut sum) = (0i32, 0i32, 0i32);
+        Msg::new(MSG)
+            .decode(msg_stream! {
+                implicit_i => |v| outer = v,
+                self_ => |sub| sub.decode(msg_stream! { implicit_i => |v| inner = v }),
+            })
+            .unwrap();
+        Msg::new(MSG)
+            .decode(msg_stream!(&mut sum; { nums => |s, v| *s += v }))
+            .unwrap();
+        assert_eq!((outer, inner, sum), (42, 7, 6));
+    }
+}
+
 #[test]
 fn globbing_two_packages_keeps_cross_package_types_unambiguous() {
     // `stream::main` and `stream::dep` each define an `rp_stream_ty_0` (a `Dep` handle in one, the

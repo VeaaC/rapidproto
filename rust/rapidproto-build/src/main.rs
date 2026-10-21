@@ -17,6 +17,7 @@ struct Args {
     unknown_all: bool,
     arena: bool,
     stream: bool,
+    export_stream_macros: bool,
     out: Option<PathBuf>,
 }
 
@@ -30,6 +31,8 @@ usage: rapidproto-rust [options] <entry.proto>...
   --unknown <name>      reserve the unknown-fields bit on one message (repeatable)
   --unknown-present     reserve the unknown-fields bit on every message
   --stream              also emit the stream visitor model (<Msg>Visitor + <msg>_stream!)
+  --export-stream-macros
+                        make the <msg>_stream! macros callable from other crates (needs --stream)
   --no-arena            omit the arena model (combine with --stream for stream-only output)
   -h, --help            show this help";
 
@@ -62,6 +65,7 @@ fn run(args: &Args) -> Result<(), String> {
         args.unknown_all,
         args.arena,
         args.stream,
+        args.export_stream_macros,
     )
     .map_err(|e| e.to_string())?;
     match &args.out {
@@ -85,6 +89,7 @@ fn parse_args() -> Result<Option<Args>, String> {
         unknown_all: false,
         arena: true,
         stream: false,
+        export_stream_macros: false,
         out: None,
     };
     let mut argv = std::env::args().skip(1);
@@ -124,6 +129,7 @@ fn parse_args() -> Result<Option<Args>, String> {
             ),
             "--unknown-present" => args.unknown_all = true,
             "--stream" => args.stream = true,
+            "--export-stream-macros" => args.export_stream_macros = true,
             "--no-arena" => args.arena = false,
             other if other.starts_with('-') && other != "-" => {
                 return Err(format!("unknown option '{other}'"));
