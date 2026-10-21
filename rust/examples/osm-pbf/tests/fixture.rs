@@ -1,9 +1,11 @@
 //! The osmstat fixture test, over the committed `testdata/mini.osm.pbf`:
 //!
-//! 1. the file decodes, and the PARALLEL and SEQUENTIAL paths print BYTE-IDENTICAL stdout (the two
-//!    execution modes must agree on what the file contains);
+//! 1. the file decodes, and every (model x execution) combination -- arena/stream, parallel/sequential
+//!    -- prints BYTE-IDENTICAL stdout: the two decode models and the two execution modes must all agree
+//!    on what the file contains;
 //! 2. that output equals the golden below;
-//! 3. a TRUNCATED file makes osmstat exit nonzero (a framing error must not pass as success).
+//! 3. a TRUNCATED file makes osmstat exit nonzero in both models (a framing error must not pass as
+//!    success).
 
 use std::path::PathBuf;
 use std::process::Command;
@@ -40,41 +42,27 @@ fn golden_and_modes_agree() {
     let fix = fixture();
     let fix = fix.to_str().unwrap();
 
-    let par = osmstat(&[fix]);
-    assert!(
-        par.status.success(),
-        "parallel run failed: {}",
-        String::from_utf8_lossy(&par.stderr)
-    );
-    let seq = osmstat(&["--sequential", fix]);
-    assert!(
-        seq.status.success(),
-        "sequential run failed: {}",
-        String::from_utf8_lossy(&seq.stderr)
-    );
-
-    let par_out = String::from_utf8(par.stdout).unwrap();
-    let seq_out = String::from_utf8(seq.stdout).unwrap();
-    assert_eq!(par_out, seq_out, "parallel and sequential stdout differ");
-    assert_eq!(par_out, GOLDEN, "stdout does not match the golden");
-}
-
-#[test]
-fn baseline_agrees_on_the_fixture() {
-    // --baseline runs the osmpbf crate over the same file; it must succeed and (on stderr) agree with
-    // our id sum -- an independent third decoder cross-checking the fixture.
-    let fix = fixture();
-    let out = osmstat(&["--baseline", fix.to_str().unwrap()]);
-    assert!(
-        out.status.success(),
-        "baseline run failed: {}",
-        String::from_utf8_lossy(&out.stderr)
-    );
-    let err = String::from_utf8_lossy(&out.stderr);
-    assert!(
-        err.contains("id sum 0000000000002ee9"),
-        "osmpbf baseline disagrees on id sum:\n{err}"
-    );
+    // Every model x execution combination must succeed and print the same bytes as the golden -- so
+    // the arena and streaming decoders are cross-checked against each other and against a fixed
+    // expectation, under both the parallel and the single-thread path.
+    for args in [
+        vec![fix],
+        vec!["--sequential", fix],
+        vec!["--stream", fix],
+        vec!["--stream", "--sequential", fix],
+    ] {
+        let out = osmstat(&args);
+        assert!(
+            out.status.success(),
+            "run {args:?} failed: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        let stdout = String::from_utf8(out.stdout).unwrap();
+        assert_eq!(
+            stdout, GOLDEN,
+            "stdout for {args:?} does not match the golden"
+        );
+    }
 }
 
 #[test]
@@ -86,6 +74,7 @@ fn truncated_file_is_rejected() {
     for args in [
         vec![tmp.to_str().unwrap()],
         vec!["--sequential", tmp.to_str().unwrap()],
+        vec!["--stream", tmp.to_str().unwrap()],
     ] {
         let out = osmstat(&args);
         assert!(

@@ -2607,10 +2607,13 @@ void emit_arena_node(Printer& printer, const NameTable& table, const PkgTrie& no
 // `Msg<'a>` (`Msg::new(bytes).decode(visitor)`), a `MsgVisitor<'a>` trait (one
 // `const WANT_<field>: bool = false` + a defaulted `on_<field>(&mut self, V) -> Result<Flow, _>` per
 // field, plus an `unknown` handler), and a per-message `<msg>_stream! { field => closure, .. }` macro
-// building an anonymous visitor whose closures capture local state. The decode driver gates each field
-// on `V::WANT_<field>` (const-folded: unselected => a wire-skip), and a handler's `?`/`Flow::Stop`
-// propagate out of `decode`. The loop, peek hub, wire reads and skip are shared with the arena emitter
-// above; streaming replaces storage+construct with a gate + a direct visitor call.
+// building an anonymous visitor whose closures capture local state. The macro also takes a shared-state
+// form, `<msg>_stream!(&mut state; { field => |state, value| .. })`: the driver lends one `&mut state`
+// to every handler instead of each closure capturing it, so a walk can aggregate many fields into one
+// accumulator (or parse into one struct) -- which exclusive-`&mut` captures cannot. The decode driver
+// gates each field on `V::WANT_<field>` (const-folded: unselected => a wire-skip), and a handler's
+// `?`/`Flow::Stop` propagate out of `decode`. The loop, peek hub, wire reads and skip are shared with
+// the arena emitter above; streaming replaces storage+construct with a gate + a direct visitor call.
 //
 // The generated code is O(N): the trait, the driver and the macro are each one unit per field -- no
 // quadratic setter reconstruction (there is no builder). A map field is a selectable slot too: its
@@ -3129,6 +3132,18 @@ void emit_stream_decode(Printer& printer, const NameTable& table,
     printer.indent();
     printer.print("#[inline(always)]\n");
     printer.print("pub fn new(rp_input: &'a [u8]) -> $M$<'a> { $M$ { rp_input } }\n\n");
+    // The handle wraps the message BODY (post-length-prefix) -- the same bytes the arena model's
+    // `decode(bytes, &arena)` expects -- so exposing them lets a consumer stream the outer message and
+    // materialize a chosen sub-message mid-stream (the stream->arena hybrid), composing the two models
+    // without any coupling in the generated code.
+    printer.print(
+        "/// The message body bytes this handle reads -- the slice `decode` walks. Pass them to "
+        "the\n"
+        "/// arena model's `decode(.., &arena)` for this message to materialize it as a tree "
+        "instead\n"
+        "/// (stream the outer message, arena-decode a chosen sub-message mid-stream).\n");
+    printer.print("#[inline(always)]\n");
+    printer.print("pub fn bytes(&self) -> &'a [u8] { self.rp_input }\n\n");
     printer.print(
         "pub fn decode<V: $M$Visitor<'a>>(self, mut rp_vis: V) "
         "-> ::core::result::Result<(), ::rapidproto::DecodeError> {\n");
@@ -3256,6 +3271,78 @@ void emit_stream_macro(Printer& printer, const NameTable& table,
     printer.print("RpVis { $$($$rp_ct)* }\n");
     printer.outdent();
     printer.print("}};\n");
+
+    // ---- shared-state form: `$mac$!(&mut state; { field => |state, value| .. })` ----
+    // The driver owns one `&mut state` and lends it to every handler (`&mut *self.rp_state`), so the
+    // handlers can aggregate into shared state (or parse into one struct) that exclusive-`&mut` captures
+    // could not express. A parallel muncher (`@ms`) threads the state binding's ident through the arms;
+    // each handler is bound `Handler2<RpS, V>` and both its parameter types are pinned by `typed2` -- the
+    // `&*state` hint fixes the state type, the turbofish the value type -- so `|state, value|` needs no
+    // annotations. `rp_state` is stored as the last struct field so the handler closures (built from
+    // `&*state` borrows) are evaluated before the `&mut state` is moved in.
+    printer.print("( $$rp_state:expr ; { $$( $$rp_f:ident => $$rp_c:expr ),* $$(,)? } ) => {{\n");
+    printer.indent();
+    printer.print("let rp_state = $$rp_state;\n");
+    printer.print("$mac$!(@ms [] [] [] [] [] rp_state $$( $$rp_f => $$rp_c , )*)\n");
+    printer.outdent();
+    printer.print("}};\n");
+    for (const MacroField& mf : fields) {
+        printer.print(
+            "(@ms [$$($$rp_g:tt)*] [$$($$rp_w:tt)*] [$$($$rp_i:tt)*] [$$($$rp_fl:tt)*] "
+            "[$$($$rp_ct:tt)*] $$rp_s:ident $n$ => $$rp_c:expr , $$($$rp_rest:tt)*) => {\n",
+            {{"n", mf.key}});
+        printer.indent();
+        printer.print("$mac$!(@ms\n");
+        printer.indent();
+        printer.print("[$$($$rp_g)* F_$n$,]\n", {{"n", mf.key}});
+        printer.print("[$$($$rp_w)* F_$n$: ::rapidproto::stream::Handler2<RpS, $t$>,]\n",
+                      {{"n", mf.key}, {"t", mf.value}});
+        printer.print(
+            "[$$($$rp_i)* const WANT_$N$: bool = true; #[inline(always)] fn on_$n$(&mut self, "
+            "rp_x: $t$) -> ::core::result::Result<::rapidproto::stream::Flow, "
+            "::rapidproto::DecodeError> { ::rapidproto::stream::Handler2::call(&mut self.f_$n$, "
+            "&mut *self.rp_state, rp_x) }]\n",
+            {{"n", mf.key}, {"N", mf.key == "unknown" ? "UNKNOWN" : mf.key}, {"t", mf.value}});
+        printer.print("[$$($$rp_fl)* f_$n$: F_$n$,]\n", {{"n", mf.key}});
+        // Pin both handler parameter types without a consumer annotation: the `&*rp_state` hint fixes
+        // the state type `S` and the `'_` turbofish the value type `V`. The hint is a transient shared
+        // reborrow (dropped before `rp_state`'s `&mut` is moved into the struct below).
+        printer.print(
+            "[$$($$rp_ct)* f_$n$: ::rapidproto::stream::typed2::<_, $t$, _, _>(&*$$rp_s, "
+            "$$rp_c),]\n",
+            {{"n", mf.key}, {"t", mf.anon}});
+        printer.outdent();
+        printer.print("$$rp_s $$($$rp_rest)*)\n");
+        printer.outdent();
+        printer.print("};\n");
+    }
+    printer.print(
+        "(@ms [$$($$rp_g:tt)*] [$$($$rp_w:tt)*] [$$($$rp_i:tt)*] [$$($$rp_fl:tt)*] "
+        "[$$($$rp_ct:tt)*] $$rp_s:ident $$rp_bad:ident => $$rp_c:expr , $$($$rp_rest:tt)*) => {\n");
+    printer.indent();
+    printer.print(
+        "compile_error!(concat!(\"unknown field `\", stringify!($$rp_bad), \"` for this message; "
+        "selectable fields: $valid$\"))\n");
+    printer.outdent();
+    printer.print("};\n");
+    printer.print(
+        "(@ms [$$($$rp_g:tt)*] [$$($$rp_w:tt)*] [$$($$rp_i:tt)*] [$$($$rp_fl:tt)*] "
+        "[$$($$rp_ct:tt)*] $$rp_s:ident ) => {{\n");
+    printer.indent();
+    // `dead_code` too (unlike the non-state struct): a zero-field selection `$mac$!(&mut s; {})` leaves
+    // `rp_state` read by no handler, which would warn under a consumer's `deny(warnings)`.
+    printer.print("#[allow(nonstandard_style, dead_code)]\n");
+    printer.print(
+        "struct RpVis<'rp_s, RpS: ?Sized, $$($$rp_g)*> { $$($$rp_fl)* rp_state: &'rp_s mut RpS "
+        "}\n");
+    printer.print("#[allow(nonstandard_style)]\n");
+    printer.print(
+        "impl<'rp_a, 'rp_s, RpS: ?Sized, $$($$rp_g)*> $M$Visitor<'rp_a> for "
+        "RpVis<'rp_s, RpS, $$($$rp_g)*> where $$($$rp_w)* { $$($$rp_i)* }\n");
+    printer.print("RpVis { $$($$rp_ct)* rp_state: $$rp_s }\n");
+    printer.outdent();
+    printer.print("}};\n");
+
     printer.outdent();
     printer.print("}\n");
     printer.print("pub(crate) use $mac$;\n");

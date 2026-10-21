@@ -441,6 +441,12 @@ pub mod stream {
         #[inline(always)]
         pub fn new(rp_input: &'a [u8]) -> Timestamp<'a> { Timestamp { rp_input } }
 
+        /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
+        /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
+        /// (stream the outer message, arena-decode a chosen sub-message mid-stream).
+        #[inline(always)]
+        pub fn bytes(&self) -> &'a [u8] { self.rp_input }
+
         pub fn decode<V: TimestampVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<(), ::rapidproto::DecodeError> {
           let rp_body: &'a [u8] = self.rp_input;
           let mut rp_rest: &'a [u8] = rp_body;
@@ -563,6 +569,47 @@ pub mod stream {
           impl<'rp_a, $($rp_g)*> TimestampVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
           RpVis { $($rp_ct)* }
         }};
+        ( $rp_state:expr ; { $( $rp_f:ident => $rp_c:expr ),* $(,)? } ) => {{
+          let rp_state = $rp_state;
+          timestamp_stream!(@ms [] [] [] [] [] rp_state $( $rp_f => $rp_c , )*)
+        }};
+        (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident seconds => $rp_c:expr , $($rp_rest:tt)*) => {
+          timestamp_stream!(@ms
+            [$($rp_g)* F_seconds,]
+            [$($rp_w)* F_seconds: ::rapidproto::stream::Handler2<RpS, i64>,]
+            [$($rp_i)* const WANT_seconds: bool = true; #[inline(always)] fn on_seconds(&mut self, rp_x: i64) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler2::call(&mut self.f_seconds, &mut *self.rp_state, rp_x) }]
+            [$($rp_fl)* f_seconds: F_seconds,]
+            [$($rp_ct)* f_seconds: ::rapidproto::stream::typed2::<_, i64, _, _>(&*$rp_s, $rp_c),]
+          $rp_s $($rp_rest)*)
+        };
+        (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident nanos => $rp_c:expr , $($rp_rest:tt)*) => {
+          timestamp_stream!(@ms
+            [$($rp_g)* F_nanos,]
+            [$($rp_w)* F_nanos: ::rapidproto::stream::Handler2<RpS, i32>,]
+            [$($rp_i)* const WANT_nanos: bool = true; #[inline(always)] fn on_nanos(&mut self, rp_x: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler2::call(&mut self.f_nanos, &mut *self.rp_state, rp_x) }]
+            [$($rp_fl)* f_nanos: F_nanos,]
+            [$($rp_ct)* f_nanos: ::rapidproto::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          $rp_s $($rp_rest)*)
+        };
+        (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident unknown => $rp_c:expr , $($rp_rest:tt)*) => {
+          timestamp_stream!(@ms
+            [$($rp_g)* F_unknown,]
+            [$($rp_w)* F_unknown: ::rapidproto::stream::Handler2<RpS, ::rapidproto::stream::UnknownField<'rp_a>>,]
+            [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: ::rapidproto::stream::UnknownField<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler2::call(&mut self.f_unknown, &mut *self.rp_state, rp_x) }]
+            [$($rp_fl)* f_unknown: F_unknown,]
+            [$($rp_ct)* f_unknown: ::rapidproto::stream::typed2::<_, ::rapidproto::stream::UnknownField<'_>, _, _>(&*$rp_s, $rp_c),]
+          $rp_s $($rp_rest)*)
+        };
+        (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
+          compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: seconds, nanos, unknown"))
+        };
+        (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident ) => {{
+          #[allow(nonstandard_style, dead_code)]
+          struct RpVis<'rp_s, RpS: ?Sized, $($rp_g)*> { $($rp_fl)* rp_state: &'rp_s mut RpS }
+          #[allow(nonstandard_style)]
+          impl<'rp_a, 'rp_s, RpS: ?Sized, $($rp_g)*> TimestampVisitor<'rp_a> for RpVis<'rp_s, RpS, $($rp_g)*> where $($rp_w)* { $($rp_i)* }
+          RpVis { $($rp_ct)* rp_state: $rp_s }
+        }};
       }
       pub(crate) use timestamp_stream;
 
@@ -589,6 +636,12 @@ pub mod stream {
       impl<'a> Duration<'a> {
         #[inline(always)]
         pub fn new(rp_input: &'a [u8]) -> Duration<'a> { Duration { rp_input } }
+
+        /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
+        /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
+        /// (stream the outer message, arena-decode a chosen sub-message mid-stream).
+        #[inline(always)]
+        pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
         pub fn decode<V: DurationVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<(), ::rapidproto::DecodeError> {
           let rp_body: &'a [u8] = self.rp_input;
@@ -712,6 +765,47 @@ pub mod stream {
           impl<'rp_a, $($rp_g)*> DurationVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
           RpVis { $($rp_ct)* }
         }};
+        ( $rp_state:expr ; { $( $rp_f:ident => $rp_c:expr ),* $(,)? } ) => {{
+          let rp_state = $rp_state;
+          duration_stream!(@ms [] [] [] [] [] rp_state $( $rp_f => $rp_c , )*)
+        }};
+        (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident seconds => $rp_c:expr , $($rp_rest:tt)*) => {
+          duration_stream!(@ms
+            [$($rp_g)* F_seconds,]
+            [$($rp_w)* F_seconds: ::rapidproto::stream::Handler2<RpS, i64>,]
+            [$($rp_i)* const WANT_seconds: bool = true; #[inline(always)] fn on_seconds(&mut self, rp_x: i64) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler2::call(&mut self.f_seconds, &mut *self.rp_state, rp_x) }]
+            [$($rp_fl)* f_seconds: F_seconds,]
+            [$($rp_ct)* f_seconds: ::rapidproto::stream::typed2::<_, i64, _, _>(&*$rp_s, $rp_c),]
+          $rp_s $($rp_rest)*)
+        };
+        (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident nanos => $rp_c:expr , $($rp_rest:tt)*) => {
+          duration_stream!(@ms
+            [$($rp_g)* F_nanos,]
+            [$($rp_w)* F_nanos: ::rapidproto::stream::Handler2<RpS, i32>,]
+            [$($rp_i)* const WANT_nanos: bool = true; #[inline(always)] fn on_nanos(&mut self, rp_x: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler2::call(&mut self.f_nanos, &mut *self.rp_state, rp_x) }]
+            [$($rp_fl)* f_nanos: F_nanos,]
+            [$($rp_ct)* f_nanos: ::rapidproto::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          $rp_s $($rp_rest)*)
+        };
+        (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident unknown => $rp_c:expr , $($rp_rest:tt)*) => {
+          duration_stream!(@ms
+            [$($rp_g)* F_unknown,]
+            [$($rp_w)* F_unknown: ::rapidproto::stream::Handler2<RpS, ::rapidproto::stream::UnknownField<'rp_a>>,]
+            [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: ::rapidproto::stream::UnknownField<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler2::call(&mut self.f_unknown, &mut *self.rp_state, rp_x) }]
+            [$($rp_fl)* f_unknown: F_unknown,]
+            [$($rp_ct)* f_unknown: ::rapidproto::stream::typed2::<_, ::rapidproto::stream::UnknownField<'_>, _, _>(&*$rp_s, $rp_c),]
+          $rp_s $($rp_rest)*)
+        };
+        (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
+          compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: seconds, nanos, unknown"))
+        };
+        (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident ) => {{
+          #[allow(nonstandard_style, dead_code)]
+          struct RpVis<'rp_s, RpS: ?Sized, $($rp_g)*> { $($rp_fl)* rp_state: &'rp_s mut RpS }
+          #[allow(nonstandard_style)]
+          impl<'rp_a, 'rp_s, RpS: ?Sized, $($rp_g)*> DurationVisitor<'rp_a> for RpVis<'rp_s, RpS, $($rp_g)*> where $($rp_w)* { $($rp_i)* }
+          RpVis { $($rp_ct)* rp_state: $rp_s }
+        }};
       }
       pub(crate) use duration_stream;
     }
@@ -746,6 +840,12 @@ pub mod stream {
     impl<'a> Event<'a> {
       #[inline(always)]
       pub fn new(rp_input: &'a [u8]) -> Event<'a> { Event { rp_input } }
+
+      /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
+      /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
+      /// (stream the outer message, arena-decode a chosen sub-message mid-stream).
+      #[inline(always)]
+      pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
       pub fn decode<V: EventVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<(), ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
@@ -868,6 +968,47 @@ pub mod stream {
         #[allow(nonstandard_style)]
         impl<'rp_a, $($rp_g)*> EventVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
         RpVis { $($rp_ct)* }
+      }};
+      ( $rp_state:expr ; { $( $rp_f:ident => $rp_c:expr ),* $(,)? } ) => {{
+        let rp_state = $rp_state;
+        event_stream!(@ms [] [] [] [] [] rp_state $( $rp_f => $rp_c , )*)
+      }};
+      (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident at => $rp_c:expr , $($rp_rest:tt)*) => {
+        event_stream!(@ms
+          [$($rp_g)* F_at,]
+          [$($rp_w)* F_at: ::rapidproto::stream::Handler2<RpS, rp_stream_ty_0<'rp_a>>,]
+          [$($rp_i)* const WANT_at: bool = true; #[inline(always)] fn on_at(&mut self, rp_x: rp_stream_ty_0<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler2::call(&mut self.f_at, &mut *self.rp_state, rp_x) }]
+          [$($rp_fl)* f_at: F_at,]
+          [$($rp_ct)* f_at: ::rapidproto::stream::typed2::<_, rp_stream_ty_0<'_>, _, _>(&*$rp_s, $rp_c),]
+        $rp_s $($rp_rest)*)
+      };
+      (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident took => $rp_c:expr , $($rp_rest:tt)*) => {
+        event_stream!(@ms
+          [$($rp_g)* F_took,]
+          [$($rp_w)* F_took: ::rapidproto::stream::Handler2<RpS, rp_stream_ty_1<'rp_a>>,]
+          [$($rp_i)* const WANT_took: bool = true; #[inline(always)] fn on_took(&mut self, rp_x: rp_stream_ty_1<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler2::call(&mut self.f_took, &mut *self.rp_state, rp_x) }]
+          [$($rp_fl)* f_took: F_took,]
+          [$($rp_ct)* f_took: ::rapidproto::stream::typed2::<_, rp_stream_ty_1<'_>, _, _>(&*$rp_s, $rp_c),]
+        $rp_s $($rp_rest)*)
+      };
+      (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident unknown => $rp_c:expr , $($rp_rest:tt)*) => {
+        event_stream!(@ms
+          [$($rp_g)* F_unknown,]
+          [$($rp_w)* F_unknown: ::rapidproto::stream::Handler2<RpS, ::rapidproto::stream::UnknownField<'rp_a>>,]
+          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: ::rapidproto::stream::UnknownField<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler2::call(&mut self.f_unknown, &mut *self.rp_state, rp_x) }]
+          [$($rp_fl)* f_unknown: F_unknown,]
+          [$($rp_ct)* f_unknown: ::rapidproto::stream::typed2::<_, ::rapidproto::stream::UnknownField<'_>, _, _>(&*$rp_s, $rp_c),]
+        $rp_s $($rp_rest)*)
+      };
+      (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
+        compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: at, took, unknown"))
+      };
+      (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident ) => {{
+        #[allow(nonstandard_style, dead_code)]
+        struct RpVis<'rp_s, RpS: ?Sized, $($rp_g)*> { $($rp_fl)* rp_state: &'rp_s mut RpS }
+        #[allow(nonstandard_style)]
+        impl<'rp_a, 'rp_s, RpS: ?Sized, $($rp_g)*> EventVisitor<'rp_a> for RpVis<'rp_s, RpS, $($rp_g)*> where $($rp_w)* { $($rp_i)* }
+        RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
     pub(crate) use event_stream;

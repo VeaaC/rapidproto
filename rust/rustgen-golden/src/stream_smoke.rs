@@ -9,7 +9,9 @@
 //! subset selection with the rest skipped, a packed repeated field fired per element, an enum delivered
 //! as its typed newtype, a oneof member selected individually, a recursive sub-message handed its typed
 //! reader handle (`sub.decode(..)`), error propagation from a malformed sub-message out through the
-//! outer decode, the `unknown`-field handler, `Flow::Stop`, and a hand-implemented visitor.
+//! outer decode, the `unknown`-field handler, `Flow::Stop`, and a hand-implemented visitor. The
+//! shared-state form `msg_stream!(&mut state; { field => |state, value| .. })` is covered too: many
+//! fields aggregating into one `&mut` accumulator, re-threaded across a nested `sub.decode(..)`.
 //!
 //! A `use crate::proto3::stream::p3::*;` glob brings the handle, visitor trait, macro, and the enum
 //! newtypes the macro names (re-exported into the stream module) into scope together.
@@ -163,6 +165,67 @@ fn map_with_message_value_delivers_a_child_handle() {
         })
         .unwrap();
     assert_eq!(seen, vec![(7, 3, 4)]);
+}
+
+#[test]
+fn shared_state_form_aggregates_many_fields() {
+    // The whole point of the state form: several handlers mutate ONE accumulator, which exclusive-&mut
+    // closure captures cannot express. No type annotations on the `|s, v|` parameters.
+    #[derive(Default)]
+    struct Acc {
+        i: i32,
+        name_len: usize,
+        nums_sum: i32,
+        inner_i: i32,
+    }
+    let mut acc = Acc::default();
+    Msg::new(MSG)
+        .decode(msg_stream!(&mut acc; {
+            implicit_i => |a, v| a.i = v,
+            name => |a, n| a.name_len = n.to_str().unwrap().len(),
+            nums => |a, v| a.nums_sum += v,
+            // the SAME accumulator re-threaded into the nested decode via `&mut *a`
+            self_ => |a, sub| sub.decode(msg_stream!(&mut *a; { implicit_i => |a, v| a.inner_i = v })),
+        }))
+        .unwrap();
+    assert_eq!(acc.i, 42);
+    assert_eq!(acc.name_len, 5);
+    assert_eq!(acc.nums_sum, 6);
+    assert_eq!(acc.inner_i, 7);
+}
+
+#[test]
+fn shared_state_form_handles_stop_and_maps() {
+    // Flow::Stop out of a state handler halts; a map entry arrives as `(key, value)` beside the state.
+    let mut sum = 0i32;
+    Msg::new(MSG)
+        .decode(msg_stream!(&mut sum; {
+            nums => |s, v| { *s += v; Flow::Stop },
+        }))
+        .unwrap();
+    assert_eq!(sum, 1); // stopped after the first packed element
+
+    const MAP_MSG: &[u8] = &[
+        0x4a, 0x05, 0x0a, 0x01, b'a', 0x10, 0x01, // counts["a"] = 1
+        0x4a, 0x06, 0x0a, 0x02, b'b', b'b', 0x10, 0x02, // counts["bb"] = 2
+    ];
+    let mut total = 0i32;
+    Msg::new(MAP_MSG)
+        .decode(msg_stream!(&mut total; {
+            counts => |s, (_k, v)| *s += v,
+        }))
+        .unwrap();
+    assert_eq!(total, 3);
+}
+
+#[test]
+fn shared_state_form_with_no_fields_is_valid() {
+    // A zero-field state selection decodes nothing (every field skipped) and must still compile
+    // warning-clean -- the generated struct's `rp_state` is read by no handler, so the state struct
+    // carries a `dead_code` allow for exactly this case.
+    let mut touched = false;
+    Msg::new(MSG).decode(msg_stream!(&mut touched; {})).unwrap();
+    assert!(!touched);
 }
 
 #[test]

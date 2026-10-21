@@ -1,17 +1,21 @@
-//! `osmstat` -- decode an OpenStreetMap .osm.pbf file with RapidProto's arena decoders and print
-//! statistics (counts, tags, bounding box, top tag keys). A worked example of decoding bulky protobuf
-//! efficiently; the README walks through what it shows.
+//! `osmstat` -- decode an OpenStreetMap .osm.pbf file with RapidProto and print statistics (counts,
+//! tags, bounding box, top tag keys). A worked example of decoding bulky protobuf efficiently; the
+//! README walks through what it shows.
+//!
+//! The same workload runs through BOTH decode models: the default arena model ([`walk_arena`], materialize a
+//! block then read borrowed views) and, with `--stream`, the streaming visitor model ([`walk_stream`],
+//! materialize nothing, one callback per field). Both print byte-identical statistics.
 //!
 //! Each data Blob in the file holds an independent `PrimitiveBlock`, so blocks decode in parallel by
-//! default (one [`Arena`] per rayon worker, stats merged order-independently); `--sequential` runs the
-//! same work on one thread. Framing and zlib inflate (not RapidProto-specific) are in [`pbf_input`];
-//! [`process_block`] decodes and walks one block.
+//! default (stats merged order-independently); `--sequential` runs the same work on one thread. Framing
+//! and zlib inflate (not RapidProto-specific) are in [`pbf_input`]; [`process_block`] decodes and walks
+//! one block in the selected model.
 
-mod baseline;
 mod osm;
 mod pbf_input;
 mod stats;
-mod walk;
+mod walk_arena;
+mod walk_stream;
 
 use std::io;
 use std::process::ExitCode;
@@ -19,10 +23,10 @@ use std::process::ExitCode;
 use rapidproto::Arena;
 use rayon::prelude::*;
 
-use osm::OSMPBF::{blob::Data, Blob, BlobHeader, HeaderBlock, PrimitiveBlock};
+use osm::arena::{blob::Data, Blob, BlobHeader, HeaderBlock, PrimitiveBlock};
 use pbf_input::{blob_payload, next_frame, read_file, take_blob, Stopwatch};
 use stats::{feature_supported, mib_per_s, Stats};
-use walk::walk_block;
+use walk_arena::walk_block;
 
 // Decode a Blob's payload: extract the oneof (raw bytes or zlib), then resolve to a byte slice. The
 // returned slice borrows `blob_bytes` (raw) or `inflated` (zlib), so both -- plus `blob_arena` -- must
@@ -43,26 +47,36 @@ fn blob_to_payload<'a>(
     blob_payload(raw, deflated, raw_size, inflated).ok_or_else(|| "blob payload failed".into())
 }
 
-// Decode one OSMData Blob (wire bytes) and walk its PrimitiveBlock into a per-block `Stats`.
-// Self-contained (own arenas + inflate buffer), so it runs on any thread.
-fn process_block(blob_bytes: &[u8]) -> Result<Stats, String> {
+// Decode one OSMData Blob (wire bytes) and walk its PrimitiveBlock into a per-block `Stats`, in the
+// selected model. Self-contained (own arenas + inflate buffer), so it runs on any thread. The Blob
+// container itself is decoded with the arena model either way -- `stream` selects the model for the
+// PrimitiveBlock, where all the data is.
+fn process_block(blob_bytes: &[u8], stream: bool) -> Result<Stats, String> {
     let blob_arena = Arena::new();
-    let arena = Arena::new();
     let mut inflated = Vec::new();
     let payload = blob_to_payload(blob_bytes, &blob_arena, &mut inflated)?;
-    let block = PrimitiveBlock::decode(payload, &arena)
-        .map_err(|e| format!("bad PrimitiveBlock ({e:?})"))?;
-    let mut s = walk_block(block);
+    let mut s = if stream {
+        walk_stream::walk_block_stream(payload)?
+    } else {
+        let arena = Arena::new();
+        let block = PrimitiveBlock::decode(payload, &arena)
+            .map_err(|e| format!("bad PrimitiveBlock ({e:?})"))?;
+        walk_block(block)
+    };
     s.payload_bytes = payload.len() as u64;
     Ok(s)
 }
 
-// An OSMHeader block: decode it and refuse any required feature we do not implement.
-fn check_header(blob_bytes: &[u8]) -> Result<(), String> {
+// An OSMHeader block: decode it (in the selected model) and refuse any required feature we do not
+// implement.
+fn check_header(blob_bytes: &[u8], stream: bool) -> Result<(), String> {
     let blob_arena = Arena::new();
-    let arena = Arena::new();
     let mut inflated = Vec::new();
     let payload = blob_to_payload(blob_bytes, &blob_arena, &mut inflated)?;
+    if stream {
+        return walk_stream::check_header_stream(payload);
+    }
+    let arena = Arena::new();
     let hb =
         HeaderBlock::decode(payload, &arena).map_err(|e| format!("bad OSMHeader block ({e:?})"))?;
     for f in hb.required_features() {
@@ -77,17 +91,17 @@ fn check_header(blob_bytes: &[u8]) -> Result<(), String> {
 struct Args {
     path: String,
     sequential: bool,
-    baseline: bool,
+    stream: bool,
 }
 
 fn parse_args() -> Result<Args, String> {
     let mut path = None;
     let mut sequential = false;
-    let mut baseline = false;
+    let mut stream = false;
     for arg in std::env::args().skip(1) {
         match arg.as_str() {
             "--sequential" => sequential = true,
-            "--baseline" => baseline = true,
+            "--stream" => stream = true,
             s if s.starts_with("--") => return Err(format!("unknown flag {s}")),
             s => {
                 if path.replace(s.to_owned()).is_some() {
@@ -100,7 +114,7 @@ fn parse_args() -> Result<Args, String> {
         Some(path) => Ok(Args {
             path,
             sequential,
-            baseline,
+            stream,
         }),
         None => Err("no input file".into()),
     }
@@ -126,7 +140,7 @@ fn run() -> Result<(), String> {
         let blob = take_blob(&file, &mut offset, bh.datasize())
             .ok_or_else(|| "bad Blob framing".to_owned())?;
         if is_header {
-            check_header(blob)?;
+            check_header(blob, args.stream)?;
             header_seen = true;
         } else if is_data {
             data_blobs.push(blob);
@@ -144,18 +158,19 @@ fn run() -> Result<(), String> {
     // rayon task owns its arenas; `try_fold` accumulates within a worker and `try_reduce` merges the
     // workers. Sequential is the same `process_block` folded on one thread -- identical output.
     clock.take();
+    let stream = args.stream;
     let stats: Stats = if args.sequential {
         data_blobs
             .iter()
             .try_fold(Stats::default(), |mut acc, &b| {
-                acc.merge(process_block(b)?);
+                acc.merge(process_block(b, stream)?);
                 Ok::<_, String>(acc)
             })?
     } else {
         data_blobs
             .par_iter()
             .try_fold(Stats::default, |mut acc, &b| {
-                acc.merge(process_block(b)?);
+                acc.merge(process_block(b, stream)?);
                 Ok::<_, String>(acc)
             })
             .try_reduce(Stats::default, |mut a, b| {
@@ -175,7 +190,8 @@ fn run() -> Result<(), String> {
     } else {
         format!("parallel, {} threads", rayon::current_num_threads())
     };
-    eprintln!("model            arena ({mode})");
+    let model = if args.stream { "stream" } else { "arena" };
+    eprintln!("model            {model} ({mode})");
     eprintln!(
         "read             {t_read:.3}s ({:.1} MiB/s, {} bytes)",
         mib_per_s(file.len() as u64, t_read),
@@ -187,10 +203,6 @@ fn run() -> Result<(), String> {
         mib_per_s(stats.payload_bytes, t_process),
         stats.payload_bytes
     );
-
-    if args.baseline {
-        baseline::run(&args.path)?;
-    }
     Ok(())
 }
 

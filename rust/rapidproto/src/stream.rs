@@ -6,7 +6,11 @@
 //! a `MsgVisitor<'a>` trait (one `const WANT_<field>: bool = false` plus a defaulted
 //! `on_<field>(&mut self, V) -> Result<Flow, DecodeError>` method per field), and a per-message
 //! `msg_stream! { field => closure, .. }` macro that builds a visitor whose closures capture local
-//! state. The decode driver gates each field on `V::WANT_<field>` (an associated `const`, so a release
+//! state. The macro also takes an optional shared-state form,
+//! `msg_stream!(&mut state; { field => |state, value| .. })`, where the driver lends one `&mut state`
+//! to every handler as its first argument instead of each closure capturing it — the way to aggregate
+//! many fields into one accumulator (or parse into one struct), which exclusive-`&mut` captures cannot
+//! express. The decode driver gates each field on `V::WANT_<field>` (an associated `const`, so a release
 //! build folds the branch and drops the decode+dispatch for every unselected field, leaving only the
 //! wire-skip). A handler returns `()`/`Flow`/`Result` (see [`HandlerRet`]): `Flow::Stop` ends the
 //! decode early as a clean `Ok(())`, and an `Err(DecodeError)` propagates out of `decode` — so a handler
@@ -28,6 +32,38 @@
 //! the stack through the decoder. A consumer that walks a self-referential schema by calling
 //! `child.decode(..)` inside a handler owns that recursion depth and must bound it if the input is
 //! untrusted — the arena model's decode-depth cap does not apply to consumer-driven recursion.
+//!
+//! # Hand-implementing a visitor
+//!
+//! The `msg_stream!` macro is the usual way to build a visitor, but the generated `<Msg>Visitor` trait
+//! can be implemented by hand (e.g. for a reusable visitor type). A field is selected by overriding
+//! **both** its `WANT_<field>` const **and** its `on_<field>` method: the macro always emits the pair,
+//! but by hand it is easy to write `on_<field>` and forget `WANT_<field> = true`, leaving the field at
+//! its default `WANT_<field> = false` so the driver never dispatches it — the method silently never
+//! fires. The generated trait is shaped like the toy one below:
+//!
+//! ```
+//! use rapidproto::stream::Flow;
+//! use rapidproto::DecodeError;
+//!
+//! // Shaped like a generated `<Msg>Visitor` (one `WANT_`/`on_` pair per field).
+//! trait ExampleVisitor<'a> {
+//!     #[allow(non_upper_case_globals)]
+//!     const WANT_value: bool = false;
+//!     fn on_value(&mut self, _v: i64) -> Result<Flow, DecodeError> { Ok(Flow::Continue) }
+//! }
+//!
+//! struct Collect(Vec<i64>);
+//! impl<'a> ExampleVisitor<'a> for Collect {
+//!     #[allow(non_upper_case_globals)]
+//!     const WANT_value: bool = true; // required, or `on_value` is never dispatched
+//!     fn on_value(&mut self, v: i64) -> Result<Flow, DecodeError> {
+//!         self.0.push(v);
+//!         Ok(Flow::Continue)
+//!     }
+//! }
+//! # let _ = Collect(Vec::new());
+//! ```
 
 use crate::error::DecodeError;
 use crate::wire::WireType;
@@ -102,6 +138,34 @@ impl<V, R: HandlerRet, F: FnMut(V) -> R> Handler<V> for F {
 #[doc(hidden)]
 #[inline(always)]
 pub fn typed<V, R, F: FnMut(V) -> R>(f: F) -> F {
+    f
+}
+
+/// The glue for the shared-state macro form: a field handler that takes the lent `&mut S` as its first
+/// argument and the field's value as its second. The generated `msg_stream!(&mut state; { .. })` form
+/// bounds each selected field's closure as `Handler2<S, V>` and calls [`call`](Handler2::call),
+/// passing one reborrow of the visitor's `&mut state` per occurrence; because the state is passed, not
+/// captured, every field's handler can touch it without the aliasing an `FnMut(V)` capture would need.
+/// Not implemented by consumers (the blanket impl covers every suitable closure).
+pub trait Handler2<S: ?Sized, V> {
+    /// Deliver one occurrence of the field's value together with the lent state, returning the outcome.
+    fn call(&mut self, state: &mut S, value: V) -> Result<Flow, DecodeError>;
+}
+
+impl<S: ?Sized, V, R: HandlerRet, F: FnMut(&mut S, V) -> R> Handler2<S, V> for F {
+    #[inline(always)]
+    fn call(&mut self, state: &mut S, value: V) -> Result<Flow, DecodeError> {
+        (self)(state, value).into_outcome()
+    }
+}
+
+/// Pin a shared-state handler's two parameter types so the consumer annotates neither: the state type
+/// `S` is fixed from the `&*state` hint the generated macro passes, and the value type `V` from the
+/// turbofish. The `_state_hint` reference is a transient borrow only used to infer `S`; the returned
+/// closure is unchanged. Internal to the generated glue, not called by consumers directly.
+#[doc(hidden)]
+#[inline(always)]
+pub fn typed2<S: ?Sized, V, R, F: FnMut(&mut S, V) -> R>(_state_hint: &S, f: F) -> F {
     f
 }
 
