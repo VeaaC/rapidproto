@@ -23,8 +23,9 @@
 //   u8  unknown_all                               1 => reserve the unknown-fields bit on every message
 //   u8  arena                                     1 => emit the random-access `arena` decoder model
 //   u8  stream                                    1 => emit the `stream` visitor decoder model
-//   u8  export_stream_macros                      1 => make the `*_stream!` macros cross-crate
-// At least one of arena/stream must be set, and export_stream_macros needs stream. Stdout: the
+//   u32 len, export_prefix                        non-empty => export the `*_stream!` macros under it
+// At least one of arena/stream must be set; a non-empty export_prefix needs stream and must be an
+// identifier ([A-Za-z_][A-Za-z0-9_]*). This is the one place those options are validated. Stdout: the
 // generated Rust. On any error: a message on stderr and a nonzero exit; stdout stays empty.
 
 #include <algorithm>
@@ -132,6 +133,16 @@ private:
     std::size_t m_pos = 0;
 };
 
+// The exported macros' crate-root names embed the prefix, so it must be an identifier.
+bool is_export_prefix(std::string_view prefix) {
+    const auto alpha = [](char c) {
+        return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
+    };
+    const auto digit = [](char c) { return c >= '0' && c <= '9'; };
+    return !prefix.empty() && alpha(prefix.front()) &&
+           std::all_of(prefix.begin(), prefix.end(), [&](char c) { return alpha(c) || digit(c); });
+}
+
 std::string read_all_stdin() {
     std::string data;
     // Modest stack buffer: the wasm stack is small (see the linker's stack-size), so a large
@@ -176,7 +187,7 @@ int main() {
     const bool unknown_all = frame.u8() != 0;
     const bool emit_arena = frame.u8() != 0;
     const bool emit_stream = frame.u8() != 0;
-    const bool export_stream_macros = frame.u8() != 0;
+    const std::string export_prefix = frame.bytes();
     frame.expect_end();
 
     if (entries.empty()) {
@@ -185,8 +196,14 @@ int main() {
     if (!emit_arena && !emit_stream) {
         fail(kBadFrame, "no decoder model selected: enable arena and/or stream");
     }
-    if (export_stream_macros && !emit_stream) {
-        fail(kBadFrame, "export_stream_macros needs the stream model: enable stream");
+    if (!export_prefix.empty()) {
+        if (!emit_stream) {
+            fail(kBadFrame, "export_stream_macros needs the stream model: enable stream");
+        }
+        if (!is_export_prefix(export_prefix)) {
+            fail(kBadFrame, "export_stream_macros prefix '" + export_prefix +
+                                "' is not an identifier ([A-Za-z_][A-Za-z0-9_]*)");
+        }
     }
 
     // The resolver reads every source through this map; the embedded well-known types are still
@@ -237,7 +254,7 @@ int main() {
     // exact tail native rustgen runs (see rustgen/pipeline.hpp) -- so the two cannot
     // drift.
     const std::string out = rustgen::generate_rust(
-        set, symbols, modes, rustgen::RustModels{emit_arena, emit_stream, export_stream_macros});
+        set, symbols, modes, rustgen::RustModels{emit_arena, emit_stream, export_prefix});
     std::fwrite(out.data(), 1, out.size(), stdout);
     return kOk;
 }

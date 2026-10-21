@@ -843,7 +843,7 @@ TEST_CASE("rustgen goldens match the corpus (compile smoke-test)", "[rustgen-gol
     // coverage tracks arena coverage over the whole corpus automatically (no bespoke stream schema)
     // and the two trees are proven to coexist. Streaming is still opt-in for a consumer (the default
     // `generate_rust` emits arena only); the golden just always exercises both.
-    constexpr rustgen::RustModels kBoth{/*arena=*/true, /*stream=*/true};
+    const rustgen::RustModels kBoth{/*arena=*/true, /*stream=*/true, /*stream_export_prefix=*/{}};
     std::vector<std::string> stems;
     for (const std::string& rel : corpus_schemas()) {
         const std::string stem = golden_stem(rel);
@@ -875,15 +875,24 @@ TEST_CASE("rustgen goldens match the corpus (compile smoke-test)", "[rustgen-gol
     // the public `Config::arena(false).stream(true)` path, which the both-model goldens never exercise.
     // nestenum is compact yet has enums (common) + nested messages.
     check_golden("streamonly", gen_corpus("nsedge/nestenum.proto",
-                                          rustgen::RustModels{/*arena=*/false, /*stream=*/true}));
+                                          rustgen::RustModels{/*arena=*/false, /*stream=*/true,
+                                                              /*stream_export_prefix=*/{}}));
     stems.emplace_back("streamonly");
-    // Stream-only with exported macros (`Config::export_stream_macros`): proto3 covers enum, recursive
-    // child, map and oneof slots. The golden crate drives these macros in-crate (src/stream_smoke.rs)
-    // and from a separate crate (tests/stream_export.rs).
-    check_golden("streamexport",
-                 gen_corpus("proto3.proto", rustgen::RustModels{/*arena=*/false, /*stream=*/true,
-                                                                /*export_stream_macros=*/true}));
-    stems.emplace_back("streamexport");
+    // Stream-only goldens with exported macros (`Config::export_stream_macros`), each under its stem
+    // as the prefix, so the golden crate also holds several exported files at once: proto3 covers
+    // enum, recursive child, map, bytes and oneof slots; main a cross-package closure; nopkg a
+    // package-less schema with a nested message. The golden crate drives these macros in-crate
+    // (src/stream_smoke.rs) and from a separate crate (tests/stream_export.rs).
+    for (const auto& [stem, rel] :
+         {std::pair<std::string_view, std::string_view>{"streamexport_p3", "proto3.proto"},
+          {"streamexport_main", "imports/main.proto"},
+          {"streamexport_nopkg", "nsedge/nopkg.proto"}}) {
+        check_golden(
+            std::string(stem),
+            gen_corpus(rel, rustgen::RustModels{/*arena=*/false, /*stream=*/true,
+                                                /*stream_export_prefix=*/std::string(stem)}));
+        stems.emplace_back(stem);
+    }
     // Golden file names (and lib.rs module names) are the bare stems, so they must be distinct across
     // subdirs -- otherwise two schemas (e.g. nsedge/foo + imports/foo) would silently share one
     // golden and one module. Pin that invariant rather than trust the hand-kept list.

@@ -2497,7 +2497,11 @@ pub mod stream {
 
   pub mod mr {
     #[doc(hidden)]
-    pub use super::mr as rp_mod_2mr;
+    pub use super::mr as rp_mod_2mr5Small;
+    #[doc(hidden)]
+    pub use super::mr as rp_mod_2mr9ReqInline;
+    #[doc(hidden)]
+    pub use super::mr as rp_mod_2mr12ManyRequired;
     #[doc(hidden)]
     pub use ::rapidproto as rp_rt;
 
@@ -2612,90 +2616,90 @@ pub mod stream {
       }
     }
 
-    macro_rules! small_stream {
+    macro_rules! rp_mac_2mr5Small {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
-        rp_mod_2mr::small_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
+        rp_mod_2mr5Small::small_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] x => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::small_stream!(@m
+        rp_mod_2mr5Small::small_stream!(@m
           [$($rp_g)* F_x,]
-          [$($rp_w)* F_x: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_x: bool = true; #[inline(always)] fn on_x(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_x, rp_x) }]
+          [$($rp_w)* F_x: rp_mod_2mr5Small::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_x: bool = true; #[inline(always)] fn on_x(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr5Small::rp_rt::stream::Flow, rp_mod_2mr5Small::rp_rt::DecodeError> { rp_mod_2mr5Small::rp_rt::stream::Handler::call(&mut self.f_x, rp_x) }]
           [$($rp_fl)* f_x: F_x,]
-          [$($rp_ct)* f_x: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_x: rp_mod_2mr5Small::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] y => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::small_stream!(@m
+        rp_mod_2mr5Small::small_stream!(@m
           [$($rp_g)* F_y,]
-          [$($rp_w)* F_y: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_y: bool = true; #[inline(always)] fn on_y(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_y, rp_x) }]
+          [$($rp_w)* F_y: rp_mod_2mr5Small::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_y: bool = true; #[inline(always)] fn on_y(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr5Small::rp_rt::stream::Flow, rp_mod_2mr5Small::rp_rt::DecodeError> { rp_mod_2mr5Small::rp_rt::stream::Handler::call(&mut self.f_y, rp_x) }]
           [$($rp_fl)* f_y: F_y,]
-          [$($rp_ct)* f_y: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_y: rp_mod_2mr5Small::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] unknown => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::small_stream!(@m
+        rp_mod_2mr5Small::small_stream!(@m
           [$($rp_g)* F_unknown,]
-          [$($rp_w)* F_unknown: rp_mod_2mr::rp_rt::stream::Handler<rp_mod_2mr::rp_rt::stream::UnknownField<'rp_a>>,]
-          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_2mr::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_unknown, rp_x) }]
+          [$($rp_w)* F_unknown: rp_mod_2mr5Small::rp_rt::stream::Handler<rp_mod_2mr5Small::rp_rt::stream::UnknownField<'rp_a>>,]
+          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_2mr5Small::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_2mr5Small::rp_rt::stream::Flow, rp_mod_2mr5Small::rp_rt::DecodeError> { rp_mod_2mr5Small::rp_rt::stream::Handler::call(&mut self.f_unknown, rp_x) }]
           [$($rp_fl)* f_unknown: F_unknown,]
-          [$($rp_ct)* f_unknown: rp_mod_2mr::rp_rt::stream::typed::<rp_mod_2mr::rp_rt::stream::UnknownField<'_>, _, _>($rp_c),]
+          [$($rp_ct)* f_unknown: rp_mod_2mr5Small::rp_rt::stream::typed::<rp_mod_2mr5Small::rp_rt::stream::UnknownField<'_>, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
-        compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: x, y, unknown"))
+        ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($rp_bad), "` for this message; selectable fields: x, y, unknown"))
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
         #[allow(nonstandard_style)]
         struct RpVis<$($rp_g)*> { $($rp_fl)* }
         #[allow(nonstandard_style)]
-        impl<'rp_a, $($rp_g)*> rp_mod_2mr::SmallVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
+        impl<'rp_a, $($rp_g)*> rp_mod_2mr5Small::SmallVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
         RpVis { $($rp_ct)* }
       }};
       ( $rp_state:expr ; { $( $rp_f:ident => $rp_c:expr ),* $(,)? } ) => {{
         let rp_state = $rp_state;
-        rp_mod_2mr::small_stream!(@ms [] [] [] [] [] rp_state $( $rp_f => $rp_c , )*)
+        rp_mod_2mr5Small::small_stream!(@ms [] [] [] [] [] rp_state $( $rp_f => $rp_c , )*)
       }};
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident x => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::small_stream!(@ms
+        rp_mod_2mr5Small::small_stream!(@ms
           [$($rp_g)* F_x,]
-          [$($rp_w)* F_x: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_x: bool = true; #[inline(always)] fn on_x(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_x, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_x: rp_mod_2mr5Small::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_x: bool = true; #[inline(always)] fn on_x(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr5Small::rp_rt::stream::Flow, rp_mod_2mr5Small::rp_rt::DecodeError> { rp_mod_2mr5Small::rp_rt::stream::Handler2::call(&mut self.f_x, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_x: F_x,]
-          [$($rp_ct)* f_x: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_x: rp_mod_2mr5Small::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident y => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::small_stream!(@ms
+        rp_mod_2mr5Small::small_stream!(@ms
           [$($rp_g)* F_y,]
-          [$($rp_w)* F_y: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_y: bool = true; #[inline(always)] fn on_y(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_y, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_y: rp_mod_2mr5Small::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_y: bool = true; #[inline(always)] fn on_y(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr5Small::rp_rt::stream::Flow, rp_mod_2mr5Small::rp_rt::DecodeError> { rp_mod_2mr5Small::rp_rt::stream::Handler2::call(&mut self.f_y, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_y: F_y,]
-          [$($rp_ct)* f_y: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_y: rp_mod_2mr5Small::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident unknown => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::small_stream!(@ms
+        rp_mod_2mr5Small::small_stream!(@ms
           [$($rp_g)* F_unknown,]
-          [$($rp_w)* F_unknown: rp_mod_2mr::rp_rt::stream::Handler2<RpS, rp_mod_2mr::rp_rt::stream::UnknownField<'rp_a>>,]
-          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_2mr::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_unknown, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_unknown: rp_mod_2mr5Small::rp_rt::stream::Handler2<RpS, rp_mod_2mr5Small::rp_rt::stream::UnknownField<'rp_a>>,]
+          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_2mr5Small::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_2mr5Small::rp_rt::stream::Flow, rp_mod_2mr5Small::rp_rt::DecodeError> { rp_mod_2mr5Small::rp_rt::stream::Handler2::call(&mut self.f_unknown, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_unknown: F_unknown,]
-          [$($rp_ct)* f_unknown: rp_mod_2mr::rp_rt::stream::typed2::<_, rp_mod_2mr::rp_rt::stream::UnknownField<'_>, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_unknown: rp_mod_2mr5Small::rp_rt::stream::typed2::<_, rp_mod_2mr5Small::rp_rt::stream::UnknownField<'_>, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
-        compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: x, y, unknown"))
+        ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($rp_bad), "` for this message; selectable fields: x, y, unknown"))
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident ) => {{
         #[allow(nonstandard_style, dead_code)]
-        struct RpVis<'rp_s, RpS: ?Sized, $($rp_g)*> { $($rp_fl)* rp_state: &'rp_s mut RpS }
+        struct RpVis<'rp_s, RpS: ?::core::marker::Sized, $($rp_g)*> { $($rp_fl)* rp_state: &'rp_s mut RpS }
         #[allow(nonstandard_style)]
-        impl<'rp_a, 'rp_s, RpS: ?Sized, $($rp_g)*> rp_mod_2mr::SmallVisitor<'rp_a> for RpVis<'rp_s, RpS, $($rp_g)*> where $($rp_w)* { $($rp_i)* }
+        impl<'rp_a, 'rp_s, RpS: ?::core::marker::Sized, $($rp_g)*> rp_mod_2mr5Small::SmallVisitor<'rp_a> for RpVis<'rp_s, RpS, $($rp_g)*> where $($rp_w)* { $($rp_i)* }
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use small_stream;
+    pub(crate) use rp_mac_2mr5Small as small_stream;
 
     /// Streaming visitor for `ReqInline`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `req_inline_stream` macro does both); a field left at the default
@@ -2808,90 +2812,90 @@ pub mod stream {
       }
     }
 
-    macro_rules! req_inline_stream {
+    macro_rules! rp_mac_2mr9ReqInline {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
-        rp_mod_2mr::req_inline_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
+        rp_mod_2mr9ReqInline::req_inline_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] s => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::req_inline_stream!(@m
+        rp_mod_2mr9ReqInline::req_inline_stream!(@m
           [$($rp_g)* F_s,]
-          [$($rp_w)* F_s: rp_mod_2mr::rp_rt::stream::Handler<rp_mod_2mr::Small<'rp_a>>,]
-          [$($rp_i)* const WANT_s: bool = true; #[inline(always)] fn on_s(&mut self, rp_x: rp_mod_2mr::Small<'rp_a>) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_s, rp_x) }]
+          [$($rp_w)* F_s: rp_mod_2mr9ReqInline::rp_rt::stream::Handler<rp_mod_2mr9ReqInline::Small<'rp_a>>,]
+          [$($rp_i)* const WANT_s: bool = true; #[inline(always)] fn on_s(&mut self, rp_x: rp_mod_2mr9ReqInline::Small<'rp_a>) -> ::core::result::Result<rp_mod_2mr9ReqInline::rp_rt::stream::Flow, rp_mod_2mr9ReqInline::rp_rt::DecodeError> { rp_mod_2mr9ReqInline::rp_rt::stream::Handler::call(&mut self.f_s, rp_x) }]
           [$($rp_fl)* f_s: F_s,]
-          [$($rp_ct)* f_s: rp_mod_2mr::rp_rt::stream::typed::<rp_mod_2mr::Small<'_>, _, _>($rp_c),]
+          [$($rp_ct)* f_s: rp_mod_2mr9ReqInline::rp_rt::stream::typed::<rp_mod_2mr9ReqInline::Small<'_>, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] tag => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::req_inline_stream!(@m
+        rp_mod_2mr9ReqInline::req_inline_stream!(@m
           [$($rp_g)* F_tag,]
-          [$($rp_w)* F_tag: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_tag: bool = true; #[inline(always)] fn on_tag(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_tag, rp_x) }]
+          [$($rp_w)* F_tag: rp_mod_2mr9ReqInline::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_tag: bool = true; #[inline(always)] fn on_tag(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr9ReqInline::rp_rt::stream::Flow, rp_mod_2mr9ReqInline::rp_rt::DecodeError> { rp_mod_2mr9ReqInline::rp_rt::stream::Handler::call(&mut self.f_tag, rp_x) }]
           [$($rp_fl)* f_tag: F_tag,]
-          [$($rp_ct)* f_tag: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_tag: rp_mod_2mr9ReqInline::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] unknown => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::req_inline_stream!(@m
+        rp_mod_2mr9ReqInline::req_inline_stream!(@m
           [$($rp_g)* F_unknown,]
-          [$($rp_w)* F_unknown: rp_mod_2mr::rp_rt::stream::Handler<rp_mod_2mr::rp_rt::stream::UnknownField<'rp_a>>,]
-          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_2mr::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_unknown, rp_x) }]
+          [$($rp_w)* F_unknown: rp_mod_2mr9ReqInline::rp_rt::stream::Handler<rp_mod_2mr9ReqInline::rp_rt::stream::UnknownField<'rp_a>>,]
+          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_2mr9ReqInline::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_2mr9ReqInline::rp_rt::stream::Flow, rp_mod_2mr9ReqInline::rp_rt::DecodeError> { rp_mod_2mr9ReqInline::rp_rt::stream::Handler::call(&mut self.f_unknown, rp_x) }]
           [$($rp_fl)* f_unknown: F_unknown,]
-          [$($rp_ct)* f_unknown: rp_mod_2mr::rp_rt::stream::typed::<rp_mod_2mr::rp_rt::stream::UnknownField<'_>, _, _>($rp_c),]
+          [$($rp_ct)* f_unknown: rp_mod_2mr9ReqInline::rp_rt::stream::typed::<rp_mod_2mr9ReqInline::rp_rt::stream::UnknownField<'_>, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
-        compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: s, tag, unknown"))
+        ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($rp_bad), "` for this message; selectable fields: s, tag, unknown"))
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
         #[allow(nonstandard_style)]
         struct RpVis<$($rp_g)*> { $($rp_fl)* }
         #[allow(nonstandard_style)]
-        impl<'rp_a, $($rp_g)*> rp_mod_2mr::ReqInlineVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
+        impl<'rp_a, $($rp_g)*> rp_mod_2mr9ReqInline::ReqInlineVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
         RpVis { $($rp_ct)* }
       }};
       ( $rp_state:expr ; { $( $rp_f:ident => $rp_c:expr ),* $(,)? } ) => {{
         let rp_state = $rp_state;
-        rp_mod_2mr::req_inline_stream!(@ms [] [] [] [] [] rp_state $( $rp_f => $rp_c , )*)
+        rp_mod_2mr9ReqInline::req_inline_stream!(@ms [] [] [] [] [] rp_state $( $rp_f => $rp_c , )*)
       }};
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident s => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::req_inline_stream!(@ms
+        rp_mod_2mr9ReqInline::req_inline_stream!(@ms
           [$($rp_g)* F_s,]
-          [$($rp_w)* F_s: rp_mod_2mr::rp_rt::stream::Handler2<RpS, rp_mod_2mr::Small<'rp_a>>,]
-          [$($rp_i)* const WANT_s: bool = true; #[inline(always)] fn on_s(&mut self, rp_x: rp_mod_2mr::Small<'rp_a>) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_s, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_s: rp_mod_2mr9ReqInline::rp_rt::stream::Handler2<RpS, rp_mod_2mr9ReqInline::Small<'rp_a>>,]
+          [$($rp_i)* const WANT_s: bool = true; #[inline(always)] fn on_s(&mut self, rp_x: rp_mod_2mr9ReqInline::Small<'rp_a>) -> ::core::result::Result<rp_mod_2mr9ReqInline::rp_rt::stream::Flow, rp_mod_2mr9ReqInline::rp_rt::DecodeError> { rp_mod_2mr9ReqInline::rp_rt::stream::Handler2::call(&mut self.f_s, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_s: F_s,]
-          [$($rp_ct)* f_s: rp_mod_2mr::rp_rt::stream::typed2::<_, rp_mod_2mr::Small<'_>, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_s: rp_mod_2mr9ReqInline::rp_rt::stream::typed2::<_, rp_mod_2mr9ReqInline::Small<'_>, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident tag => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::req_inline_stream!(@ms
+        rp_mod_2mr9ReqInline::req_inline_stream!(@ms
           [$($rp_g)* F_tag,]
-          [$($rp_w)* F_tag: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_tag: bool = true; #[inline(always)] fn on_tag(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_tag, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_tag: rp_mod_2mr9ReqInline::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_tag: bool = true; #[inline(always)] fn on_tag(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr9ReqInline::rp_rt::stream::Flow, rp_mod_2mr9ReqInline::rp_rt::DecodeError> { rp_mod_2mr9ReqInline::rp_rt::stream::Handler2::call(&mut self.f_tag, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_tag: F_tag,]
-          [$($rp_ct)* f_tag: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_tag: rp_mod_2mr9ReqInline::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident unknown => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::req_inline_stream!(@ms
+        rp_mod_2mr9ReqInline::req_inline_stream!(@ms
           [$($rp_g)* F_unknown,]
-          [$($rp_w)* F_unknown: rp_mod_2mr::rp_rt::stream::Handler2<RpS, rp_mod_2mr::rp_rt::stream::UnknownField<'rp_a>>,]
-          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_2mr::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_unknown, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_unknown: rp_mod_2mr9ReqInline::rp_rt::stream::Handler2<RpS, rp_mod_2mr9ReqInline::rp_rt::stream::UnknownField<'rp_a>>,]
+          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_2mr9ReqInline::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_2mr9ReqInline::rp_rt::stream::Flow, rp_mod_2mr9ReqInline::rp_rt::DecodeError> { rp_mod_2mr9ReqInline::rp_rt::stream::Handler2::call(&mut self.f_unknown, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_unknown: F_unknown,]
-          [$($rp_ct)* f_unknown: rp_mod_2mr::rp_rt::stream::typed2::<_, rp_mod_2mr::rp_rt::stream::UnknownField<'_>, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_unknown: rp_mod_2mr9ReqInline::rp_rt::stream::typed2::<_, rp_mod_2mr9ReqInline::rp_rt::stream::UnknownField<'_>, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
-        compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: s, tag, unknown"))
+        ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($rp_bad), "` for this message; selectable fields: s, tag, unknown"))
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident ) => {{
         #[allow(nonstandard_style, dead_code)]
-        struct RpVis<'rp_s, RpS: ?Sized, $($rp_g)*> { $($rp_fl)* rp_state: &'rp_s mut RpS }
+        struct RpVis<'rp_s, RpS: ?::core::marker::Sized, $($rp_g)*> { $($rp_fl)* rp_state: &'rp_s mut RpS }
         #[allow(nonstandard_style)]
-        impl<'rp_a, 'rp_s, RpS: ?Sized, $($rp_g)*> rp_mod_2mr::ReqInlineVisitor<'rp_a> for RpVis<'rp_s, RpS, $($rp_g)*> where $($rp_w)* { $($rp_i)* }
+        impl<'rp_a, 'rp_s, RpS: ?::core::marker::Sized, $($rp_g)*> rp_mod_2mr9ReqInline::ReqInlineVisitor<'rp_a> for RpVis<'rp_s, RpS, $($rp_g)*> where $($rp_w)* { $($rp_i)* }
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use req_inline_stream;
+    pub(crate) use rp_mac_2mr9ReqInline as req_inline_stream;
 
     /// Streaming visitor for `ManyRequired`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `many_required_stream` macro does both); a field left at the default
@@ -4327,1223 +4331,1223 @@ pub mod stream {
       }
     }
 
-    macro_rules! many_required_stream {
+    macro_rules! rp_mac_2mr12ManyRequired {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
-        rp_mod_2mr::many_required_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f1 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f1,]
-          [$($rp_w)* F_f1: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f1: bool = true; #[inline(always)] fn on_f1(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f1, rp_x) }]
+          [$($rp_w)* F_f1: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f1: bool = true; #[inline(always)] fn on_f1(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f1, rp_x) }]
           [$($rp_fl)* f_f1: F_f1,]
-          [$($rp_ct)* f_f1: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f1: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f2 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f2,]
-          [$($rp_w)* F_f2: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f2: bool = true; #[inline(always)] fn on_f2(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f2, rp_x) }]
+          [$($rp_w)* F_f2: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f2: bool = true; #[inline(always)] fn on_f2(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f2, rp_x) }]
           [$($rp_fl)* f_f2: F_f2,]
-          [$($rp_ct)* f_f2: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f2: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f3 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f3,]
-          [$($rp_w)* F_f3: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f3: bool = true; #[inline(always)] fn on_f3(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f3, rp_x) }]
+          [$($rp_w)* F_f3: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f3: bool = true; #[inline(always)] fn on_f3(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f3, rp_x) }]
           [$($rp_fl)* f_f3: F_f3,]
-          [$($rp_ct)* f_f3: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f3: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f4 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f4,]
-          [$($rp_w)* F_f4: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f4: bool = true; #[inline(always)] fn on_f4(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f4, rp_x) }]
+          [$($rp_w)* F_f4: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f4: bool = true; #[inline(always)] fn on_f4(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f4, rp_x) }]
           [$($rp_fl)* f_f4: F_f4,]
-          [$($rp_ct)* f_f4: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f4: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f5 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f5,]
-          [$($rp_w)* F_f5: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f5: bool = true; #[inline(always)] fn on_f5(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f5, rp_x) }]
+          [$($rp_w)* F_f5: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f5: bool = true; #[inline(always)] fn on_f5(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f5, rp_x) }]
           [$($rp_fl)* f_f5: F_f5,]
-          [$($rp_ct)* f_f5: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f5: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f6 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f6,]
-          [$($rp_w)* F_f6: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f6: bool = true; #[inline(always)] fn on_f6(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f6, rp_x) }]
+          [$($rp_w)* F_f6: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f6: bool = true; #[inline(always)] fn on_f6(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f6, rp_x) }]
           [$($rp_fl)* f_f6: F_f6,]
-          [$($rp_ct)* f_f6: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f6: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f7 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f7,]
-          [$($rp_w)* F_f7: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f7: bool = true; #[inline(always)] fn on_f7(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f7, rp_x) }]
+          [$($rp_w)* F_f7: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f7: bool = true; #[inline(always)] fn on_f7(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f7, rp_x) }]
           [$($rp_fl)* f_f7: F_f7,]
-          [$($rp_ct)* f_f7: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f7: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f8 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f8,]
-          [$($rp_w)* F_f8: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f8: bool = true; #[inline(always)] fn on_f8(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f8, rp_x) }]
+          [$($rp_w)* F_f8: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f8: bool = true; #[inline(always)] fn on_f8(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f8, rp_x) }]
           [$($rp_fl)* f_f8: F_f8,]
-          [$($rp_ct)* f_f8: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f8: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f9 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f9,]
-          [$($rp_w)* F_f9: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f9: bool = true; #[inline(always)] fn on_f9(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f9, rp_x) }]
+          [$($rp_w)* F_f9: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f9: bool = true; #[inline(always)] fn on_f9(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f9, rp_x) }]
           [$($rp_fl)* f_f9: F_f9,]
-          [$($rp_ct)* f_f9: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f9: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f10 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f10,]
-          [$($rp_w)* F_f10: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f10: bool = true; #[inline(always)] fn on_f10(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f10, rp_x) }]
+          [$($rp_w)* F_f10: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f10: bool = true; #[inline(always)] fn on_f10(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f10, rp_x) }]
           [$($rp_fl)* f_f10: F_f10,]
-          [$($rp_ct)* f_f10: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f10: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f11 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f11,]
-          [$($rp_w)* F_f11: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f11: bool = true; #[inline(always)] fn on_f11(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f11, rp_x) }]
+          [$($rp_w)* F_f11: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f11: bool = true; #[inline(always)] fn on_f11(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f11, rp_x) }]
           [$($rp_fl)* f_f11: F_f11,]
-          [$($rp_ct)* f_f11: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f11: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f12 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f12,]
-          [$($rp_w)* F_f12: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f12: bool = true; #[inline(always)] fn on_f12(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f12, rp_x) }]
+          [$($rp_w)* F_f12: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f12: bool = true; #[inline(always)] fn on_f12(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f12, rp_x) }]
           [$($rp_fl)* f_f12: F_f12,]
-          [$($rp_ct)* f_f12: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f12: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f13 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f13,]
-          [$($rp_w)* F_f13: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f13: bool = true; #[inline(always)] fn on_f13(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f13, rp_x) }]
+          [$($rp_w)* F_f13: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f13: bool = true; #[inline(always)] fn on_f13(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f13, rp_x) }]
           [$($rp_fl)* f_f13: F_f13,]
-          [$($rp_ct)* f_f13: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f13: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f14 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f14,]
-          [$($rp_w)* F_f14: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f14: bool = true; #[inline(always)] fn on_f14(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f14, rp_x) }]
+          [$($rp_w)* F_f14: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f14: bool = true; #[inline(always)] fn on_f14(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f14, rp_x) }]
           [$($rp_fl)* f_f14: F_f14,]
-          [$($rp_ct)* f_f14: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f14: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f15 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f15,]
-          [$($rp_w)* F_f15: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f15: bool = true; #[inline(always)] fn on_f15(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f15, rp_x) }]
+          [$($rp_w)* F_f15: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f15: bool = true; #[inline(always)] fn on_f15(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f15, rp_x) }]
           [$($rp_fl)* f_f15: F_f15,]
-          [$($rp_ct)* f_f15: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f15: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f16 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f16,]
-          [$($rp_w)* F_f16: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f16: bool = true; #[inline(always)] fn on_f16(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f16, rp_x) }]
+          [$($rp_w)* F_f16: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f16: bool = true; #[inline(always)] fn on_f16(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f16, rp_x) }]
           [$($rp_fl)* f_f16: F_f16,]
-          [$($rp_ct)* f_f16: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f16: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f17 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f17,]
-          [$($rp_w)* F_f17: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f17: bool = true; #[inline(always)] fn on_f17(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f17, rp_x) }]
+          [$($rp_w)* F_f17: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f17: bool = true; #[inline(always)] fn on_f17(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f17, rp_x) }]
           [$($rp_fl)* f_f17: F_f17,]
-          [$($rp_ct)* f_f17: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f17: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f18 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f18,]
-          [$($rp_w)* F_f18: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f18: bool = true; #[inline(always)] fn on_f18(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f18, rp_x) }]
+          [$($rp_w)* F_f18: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f18: bool = true; #[inline(always)] fn on_f18(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f18, rp_x) }]
           [$($rp_fl)* f_f18: F_f18,]
-          [$($rp_ct)* f_f18: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f18: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f19 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f19,]
-          [$($rp_w)* F_f19: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f19: bool = true; #[inline(always)] fn on_f19(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f19, rp_x) }]
+          [$($rp_w)* F_f19: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f19: bool = true; #[inline(always)] fn on_f19(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f19, rp_x) }]
           [$($rp_fl)* f_f19: F_f19,]
-          [$($rp_ct)* f_f19: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f19: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f20 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f20,]
-          [$($rp_w)* F_f20: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f20: bool = true; #[inline(always)] fn on_f20(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f20, rp_x) }]
+          [$($rp_w)* F_f20: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f20: bool = true; #[inline(always)] fn on_f20(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f20, rp_x) }]
           [$($rp_fl)* f_f20: F_f20,]
-          [$($rp_ct)* f_f20: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f20: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f21 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f21,]
-          [$($rp_w)* F_f21: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f21: bool = true; #[inline(always)] fn on_f21(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f21, rp_x) }]
+          [$($rp_w)* F_f21: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f21: bool = true; #[inline(always)] fn on_f21(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f21, rp_x) }]
           [$($rp_fl)* f_f21: F_f21,]
-          [$($rp_ct)* f_f21: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f21: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f22 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f22,]
-          [$($rp_w)* F_f22: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f22: bool = true; #[inline(always)] fn on_f22(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f22, rp_x) }]
+          [$($rp_w)* F_f22: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f22: bool = true; #[inline(always)] fn on_f22(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f22, rp_x) }]
           [$($rp_fl)* f_f22: F_f22,]
-          [$($rp_ct)* f_f22: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f22: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f23 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f23,]
-          [$($rp_w)* F_f23: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f23: bool = true; #[inline(always)] fn on_f23(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f23, rp_x) }]
+          [$($rp_w)* F_f23: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f23: bool = true; #[inline(always)] fn on_f23(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f23, rp_x) }]
           [$($rp_fl)* f_f23: F_f23,]
-          [$($rp_ct)* f_f23: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f23: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f24 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f24,]
-          [$($rp_w)* F_f24: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f24: bool = true; #[inline(always)] fn on_f24(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f24, rp_x) }]
+          [$($rp_w)* F_f24: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f24: bool = true; #[inline(always)] fn on_f24(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f24, rp_x) }]
           [$($rp_fl)* f_f24: F_f24,]
-          [$($rp_ct)* f_f24: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f24: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f25 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f25,]
-          [$($rp_w)* F_f25: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f25: bool = true; #[inline(always)] fn on_f25(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f25, rp_x) }]
+          [$($rp_w)* F_f25: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f25: bool = true; #[inline(always)] fn on_f25(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f25, rp_x) }]
           [$($rp_fl)* f_f25: F_f25,]
-          [$($rp_ct)* f_f25: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f25: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f26 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f26,]
-          [$($rp_w)* F_f26: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f26: bool = true; #[inline(always)] fn on_f26(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f26, rp_x) }]
+          [$($rp_w)* F_f26: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f26: bool = true; #[inline(always)] fn on_f26(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f26, rp_x) }]
           [$($rp_fl)* f_f26: F_f26,]
-          [$($rp_ct)* f_f26: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f26: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f27 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f27,]
-          [$($rp_w)* F_f27: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f27: bool = true; #[inline(always)] fn on_f27(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f27, rp_x) }]
+          [$($rp_w)* F_f27: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f27: bool = true; #[inline(always)] fn on_f27(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f27, rp_x) }]
           [$($rp_fl)* f_f27: F_f27,]
-          [$($rp_ct)* f_f27: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f27: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f28 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f28,]
-          [$($rp_w)* F_f28: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f28: bool = true; #[inline(always)] fn on_f28(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f28, rp_x) }]
+          [$($rp_w)* F_f28: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f28: bool = true; #[inline(always)] fn on_f28(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f28, rp_x) }]
           [$($rp_fl)* f_f28: F_f28,]
-          [$($rp_ct)* f_f28: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f28: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f29 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f29,]
-          [$($rp_w)* F_f29: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f29: bool = true; #[inline(always)] fn on_f29(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f29, rp_x) }]
+          [$($rp_w)* F_f29: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f29: bool = true; #[inline(always)] fn on_f29(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f29, rp_x) }]
           [$($rp_fl)* f_f29: F_f29,]
-          [$($rp_ct)* f_f29: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f29: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f30 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f30,]
-          [$($rp_w)* F_f30: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f30: bool = true; #[inline(always)] fn on_f30(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f30, rp_x) }]
+          [$($rp_w)* F_f30: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f30: bool = true; #[inline(always)] fn on_f30(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f30, rp_x) }]
           [$($rp_fl)* f_f30: F_f30,]
-          [$($rp_ct)* f_f30: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f30: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f31 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f31,]
-          [$($rp_w)* F_f31: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f31: bool = true; #[inline(always)] fn on_f31(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f31, rp_x) }]
+          [$($rp_w)* F_f31: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f31: bool = true; #[inline(always)] fn on_f31(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f31, rp_x) }]
           [$($rp_fl)* f_f31: F_f31,]
-          [$($rp_ct)* f_f31: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f31: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f32 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f32,]
-          [$($rp_w)* F_f32: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f32: bool = true; #[inline(always)] fn on_f32(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f32, rp_x) }]
+          [$($rp_w)* F_f32: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f32: bool = true; #[inline(always)] fn on_f32(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f32, rp_x) }]
           [$($rp_fl)* f_f32: F_f32,]
-          [$($rp_ct)* f_f32: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f32: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f33 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f33,]
-          [$($rp_w)* F_f33: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f33: bool = true; #[inline(always)] fn on_f33(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f33, rp_x) }]
+          [$($rp_w)* F_f33: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f33: bool = true; #[inline(always)] fn on_f33(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f33, rp_x) }]
           [$($rp_fl)* f_f33: F_f33,]
-          [$($rp_ct)* f_f33: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f33: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f34 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f34,]
-          [$($rp_w)* F_f34: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f34: bool = true; #[inline(always)] fn on_f34(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f34, rp_x) }]
+          [$($rp_w)* F_f34: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f34: bool = true; #[inline(always)] fn on_f34(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f34, rp_x) }]
           [$($rp_fl)* f_f34: F_f34,]
-          [$($rp_ct)* f_f34: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f34: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f35 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f35,]
-          [$($rp_w)* F_f35: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f35: bool = true; #[inline(always)] fn on_f35(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f35, rp_x) }]
+          [$($rp_w)* F_f35: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f35: bool = true; #[inline(always)] fn on_f35(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f35, rp_x) }]
           [$($rp_fl)* f_f35: F_f35,]
-          [$($rp_ct)* f_f35: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f35: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f36 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f36,]
-          [$($rp_w)* F_f36: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f36: bool = true; #[inline(always)] fn on_f36(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f36, rp_x) }]
+          [$($rp_w)* F_f36: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f36: bool = true; #[inline(always)] fn on_f36(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f36, rp_x) }]
           [$($rp_fl)* f_f36: F_f36,]
-          [$($rp_ct)* f_f36: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f36: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f37 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f37,]
-          [$($rp_w)* F_f37: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f37: bool = true; #[inline(always)] fn on_f37(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f37, rp_x) }]
+          [$($rp_w)* F_f37: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f37: bool = true; #[inline(always)] fn on_f37(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f37, rp_x) }]
           [$($rp_fl)* f_f37: F_f37,]
-          [$($rp_ct)* f_f37: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f37: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f38 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f38,]
-          [$($rp_w)* F_f38: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f38: bool = true; #[inline(always)] fn on_f38(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f38, rp_x) }]
+          [$($rp_w)* F_f38: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f38: bool = true; #[inline(always)] fn on_f38(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f38, rp_x) }]
           [$($rp_fl)* f_f38: F_f38,]
-          [$($rp_ct)* f_f38: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f38: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f39 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f39,]
-          [$($rp_w)* F_f39: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f39: bool = true; #[inline(always)] fn on_f39(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f39, rp_x) }]
+          [$($rp_w)* F_f39: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f39: bool = true; #[inline(always)] fn on_f39(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f39, rp_x) }]
           [$($rp_fl)* f_f39: F_f39,]
-          [$($rp_ct)* f_f39: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f39: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f40 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f40,]
-          [$($rp_w)* F_f40: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f40: bool = true; #[inline(always)] fn on_f40(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f40, rp_x) }]
+          [$($rp_w)* F_f40: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f40: bool = true; #[inline(always)] fn on_f40(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f40, rp_x) }]
           [$($rp_fl)* f_f40: F_f40,]
-          [$($rp_ct)* f_f40: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f40: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f41 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f41,]
-          [$($rp_w)* F_f41: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f41: bool = true; #[inline(always)] fn on_f41(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f41, rp_x) }]
+          [$($rp_w)* F_f41: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f41: bool = true; #[inline(always)] fn on_f41(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f41, rp_x) }]
           [$($rp_fl)* f_f41: F_f41,]
-          [$($rp_ct)* f_f41: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f41: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f42 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f42,]
-          [$($rp_w)* F_f42: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f42: bool = true; #[inline(always)] fn on_f42(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f42, rp_x) }]
+          [$($rp_w)* F_f42: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f42: bool = true; #[inline(always)] fn on_f42(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f42, rp_x) }]
           [$($rp_fl)* f_f42: F_f42,]
-          [$($rp_ct)* f_f42: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f42: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f43 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f43,]
-          [$($rp_w)* F_f43: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f43: bool = true; #[inline(always)] fn on_f43(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f43, rp_x) }]
+          [$($rp_w)* F_f43: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f43: bool = true; #[inline(always)] fn on_f43(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f43, rp_x) }]
           [$($rp_fl)* f_f43: F_f43,]
-          [$($rp_ct)* f_f43: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f43: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f44 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f44,]
-          [$($rp_w)* F_f44: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f44: bool = true; #[inline(always)] fn on_f44(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f44, rp_x) }]
+          [$($rp_w)* F_f44: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f44: bool = true; #[inline(always)] fn on_f44(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f44, rp_x) }]
           [$($rp_fl)* f_f44: F_f44,]
-          [$($rp_ct)* f_f44: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f44: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f45 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f45,]
-          [$($rp_w)* F_f45: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f45: bool = true; #[inline(always)] fn on_f45(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f45, rp_x) }]
+          [$($rp_w)* F_f45: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f45: bool = true; #[inline(always)] fn on_f45(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f45, rp_x) }]
           [$($rp_fl)* f_f45: F_f45,]
-          [$($rp_ct)* f_f45: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f45: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f46 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f46,]
-          [$($rp_w)* F_f46: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f46: bool = true; #[inline(always)] fn on_f46(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f46, rp_x) }]
+          [$($rp_w)* F_f46: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f46: bool = true; #[inline(always)] fn on_f46(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f46, rp_x) }]
           [$($rp_fl)* f_f46: F_f46,]
-          [$($rp_ct)* f_f46: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f46: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f47 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f47,]
-          [$($rp_w)* F_f47: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f47: bool = true; #[inline(always)] fn on_f47(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f47, rp_x) }]
+          [$($rp_w)* F_f47: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f47: bool = true; #[inline(always)] fn on_f47(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f47, rp_x) }]
           [$($rp_fl)* f_f47: F_f47,]
-          [$($rp_ct)* f_f47: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f47: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f48 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f48,]
-          [$($rp_w)* F_f48: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f48: bool = true; #[inline(always)] fn on_f48(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f48, rp_x) }]
+          [$($rp_w)* F_f48: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f48: bool = true; #[inline(always)] fn on_f48(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f48, rp_x) }]
           [$($rp_fl)* f_f48: F_f48,]
-          [$($rp_ct)* f_f48: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f48: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f49 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f49,]
-          [$($rp_w)* F_f49: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f49: bool = true; #[inline(always)] fn on_f49(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f49, rp_x) }]
+          [$($rp_w)* F_f49: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f49: bool = true; #[inline(always)] fn on_f49(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f49, rp_x) }]
           [$($rp_fl)* f_f49: F_f49,]
-          [$($rp_ct)* f_f49: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f49: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f50 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f50,]
-          [$($rp_w)* F_f50: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f50: bool = true; #[inline(always)] fn on_f50(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f50, rp_x) }]
+          [$($rp_w)* F_f50: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f50: bool = true; #[inline(always)] fn on_f50(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f50, rp_x) }]
           [$($rp_fl)* f_f50: F_f50,]
-          [$($rp_ct)* f_f50: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f50: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f51 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f51,]
-          [$($rp_w)* F_f51: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f51: bool = true; #[inline(always)] fn on_f51(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f51, rp_x) }]
+          [$($rp_w)* F_f51: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f51: bool = true; #[inline(always)] fn on_f51(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f51, rp_x) }]
           [$($rp_fl)* f_f51: F_f51,]
-          [$($rp_ct)* f_f51: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f51: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f52 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f52,]
-          [$($rp_w)* F_f52: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f52: bool = true; #[inline(always)] fn on_f52(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f52, rp_x) }]
+          [$($rp_w)* F_f52: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f52: bool = true; #[inline(always)] fn on_f52(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f52, rp_x) }]
           [$($rp_fl)* f_f52: F_f52,]
-          [$($rp_ct)* f_f52: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f52: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f53 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f53,]
-          [$($rp_w)* F_f53: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f53: bool = true; #[inline(always)] fn on_f53(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f53, rp_x) }]
+          [$($rp_w)* F_f53: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f53: bool = true; #[inline(always)] fn on_f53(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f53, rp_x) }]
           [$($rp_fl)* f_f53: F_f53,]
-          [$($rp_ct)* f_f53: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f53: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f54 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f54,]
-          [$($rp_w)* F_f54: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f54: bool = true; #[inline(always)] fn on_f54(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f54, rp_x) }]
+          [$($rp_w)* F_f54: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f54: bool = true; #[inline(always)] fn on_f54(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f54, rp_x) }]
           [$($rp_fl)* f_f54: F_f54,]
-          [$($rp_ct)* f_f54: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f54: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f55 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f55,]
-          [$($rp_w)* F_f55: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f55: bool = true; #[inline(always)] fn on_f55(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f55, rp_x) }]
+          [$($rp_w)* F_f55: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f55: bool = true; #[inline(always)] fn on_f55(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f55, rp_x) }]
           [$($rp_fl)* f_f55: F_f55,]
-          [$($rp_ct)* f_f55: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f55: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f56 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f56,]
-          [$($rp_w)* F_f56: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f56: bool = true; #[inline(always)] fn on_f56(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f56, rp_x) }]
+          [$($rp_w)* F_f56: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f56: bool = true; #[inline(always)] fn on_f56(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f56, rp_x) }]
           [$($rp_fl)* f_f56: F_f56,]
-          [$($rp_ct)* f_f56: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f56: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f57 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f57,]
-          [$($rp_w)* F_f57: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f57: bool = true; #[inline(always)] fn on_f57(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f57, rp_x) }]
+          [$($rp_w)* F_f57: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f57: bool = true; #[inline(always)] fn on_f57(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f57, rp_x) }]
           [$($rp_fl)* f_f57: F_f57,]
-          [$($rp_ct)* f_f57: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f57: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f58 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f58,]
-          [$($rp_w)* F_f58: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f58: bool = true; #[inline(always)] fn on_f58(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f58, rp_x) }]
+          [$($rp_w)* F_f58: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f58: bool = true; #[inline(always)] fn on_f58(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f58, rp_x) }]
           [$($rp_fl)* f_f58: F_f58,]
-          [$($rp_ct)* f_f58: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f58: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f59 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f59,]
-          [$($rp_w)* F_f59: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f59: bool = true; #[inline(always)] fn on_f59(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f59, rp_x) }]
+          [$($rp_w)* F_f59: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f59: bool = true; #[inline(always)] fn on_f59(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f59, rp_x) }]
           [$($rp_fl)* f_f59: F_f59,]
-          [$($rp_ct)* f_f59: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f59: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f60 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f60,]
-          [$($rp_w)* F_f60: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f60: bool = true; #[inline(always)] fn on_f60(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f60, rp_x) }]
+          [$($rp_w)* F_f60: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f60: bool = true; #[inline(always)] fn on_f60(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f60, rp_x) }]
           [$($rp_fl)* f_f60: F_f60,]
-          [$($rp_ct)* f_f60: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f60: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f61 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f61,]
-          [$($rp_w)* F_f61: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f61: bool = true; #[inline(always)] fn on_f61(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f61, rp_x) }]
+          [$($rp_w)* F_f61: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f61: bool = true; #[inline(always)] fn on_f61(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f61, rp_x) }]
           [$($rp_fl)* f_f61: F_f61,]
-          [$($rp_ct)* f_f61: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f61: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f62 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f62,]
-          [$($rp_w)* F_f62: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f62: bool = true; #[inline(always)] fn on_f62(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f62, rp_x) }]
+          [$($rp_w)* F_f62: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f62: bool = true; #[inline(always)] fn on_f62(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f62, rp_x) }]
           [$($rp_fl)* f_f62: F_f62,]
-          [$($rp_ct)* f_f62: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f62: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f63 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f63,]
-          [$($rp_w)* F_f63: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f63: bool = true; #[inline(always)] fn on_f63(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f63, rp_x) }]
+          [$($rp_w)* F_f63: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f63: bool = true; #[inline(always)] fn on_f63(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f63, rp_x) }]
           [$($rp_fl)* f_f63: F_f63,]
-          [$($rp_ct)* f_f63: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f63: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f64 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f64,]
-          [$($rp_w)* F_f64: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f64: bool = true; #[inline(always)] fn on_f64(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f64, rp_x) }]
+          [$($rp_w)* F_f64: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f64: bool = true; #[inline(always)] fn on_f64(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f64, rp_x) }]
           [$($rp_fl)* f_f64: F_f64,]
-          [$($rp_ct)* f_f64: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f64: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] f65 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_f65,]
-          [$($rp_w)* F_f65: rp_mod_2mr::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_f65: bool = true; #[inline(always)] fn on_f65(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_f65, rp_x) }]
+          [$($rp_w)* F_f65: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_f65: bool = true; #[inline(always)] fn on_f65(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_f65, rp_x) }]
           [$($rp_fl)* f_f65: F_f65,]
-          [$($rp_ct)* f_f65: rp_mod_2mr::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_f65: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] unknown => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@m
+        rp_mod_2mr12ManyRequired::many_required_stream!(@m
           [$($rp_g)* F_unknown,]
-          [$($rp_w)* F_unknown: rp_mod_2mr::rp_rt::stream::Handler<rp_mod_2mr::rp_rt::stream::UnknownField<'rp_a>>,]
-          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_2mr::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler::call(&mut self.f_unknown, rp_x) }]
+          [$($rp_w)* F_unknown: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler<rp_mod_2mr12ManyRequired::rp_rt::stream::UnknownField<'rp_a>>,]
+          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_2mr12ManyRequired::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler::call(&mut self.f_unknown, rp_x) }]
           [$($rp_fl)* f_unknown: F_unknown,]
-          [$($rp_ct)* f_unknown: rp_mod_2mr::rp_rt::stream::typed::<rp_mod_2mr::rp_rt::stream::UnknownField<'_>, _, _>($rp_c),]
+          [$($rp_ct)* f_unknown: rp_mod_2mr12ManyRequired::rp_rt::stream::typed::<rp_mod_2mr12ManyRequired::rp_rt::stream::UnknownField<'_>, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
-        compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, f21, f22, f23, f24, f25, f26, f27, f28, f29, f30, f31, f32, f33, f34, f35, f36, f37, f38, f39, f40, f41, f42, f43, f44, f45, f46, f47, f48, f49, f50, f51, f52, f53, f54, f55, f56, f57, f58, f59, f60, f61, f62, f63, f64, f65, unknown"))
+        ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($rp_bad), "` for this message; selectable fields: f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, f21, f22, f23, f24, f25, f26, f27, f28, f29, f30, f31, f32, f33, f34, f35, f36, f37, f38, f39, f40, f41, f42, f43, f44, f45, f46, f47, f48, f49, f50, f51, f52, f53, f54, f55, f56, f57, f58, f59, f60, f61, f62, f63, f64, f65, unknown"))
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
         #[allow(nonstandard_style)]
         struct RpVis<$($rp_g)*> { $($rp_fl)* }
         #[allow(nonstandard_style)]
-        impl<'rp_a, $($rp_g)*> rp_mod_2mr::ManyRequiredVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
+        impl<'rp_a, $($rp_g)*> rp_mod_2mr12ManyRequired::ManyRequiredVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
         RpVis { $($rp_ct)* }
       }};
       ( $rp_state:expr ; { $( $rp_f:ident => $rp_c:expr ),* $(,)? } ) => {{
         let rp_state = $rp_state;
-        rp_mod_2mr::many_required_stream!(@ms [] [] [] [] [] rp_state $( $rp_f => $rp_c , )*)
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms [] [] [] [] [] rp_state $( $rp_f => $rp_c , )*)
       }};
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f1 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f1,]
-          [$($rp_w)* F_f1: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f1: bool = true; #[inline(always)] fn on_f1(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f1, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f1: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f1: bool = true; #[inline(always)] fn on_f1(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f1, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f1: F_f1,]
-          [$($rp_ct)* f_f1: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f1: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f2 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f2,]
-          [$($rp_w)* F_f2: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f2: bool = true; #[inline(always)] fn on_f2(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f2, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f2: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f2: bool = true; #[inline(always)] fn on_f2(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f2, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f2: F_f2,]
-          [$($rp_ct)* f_f2: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f2: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f3 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f3,]
-          [$($rp_w)* F_f3: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f3: bool = true; #[inline(always)] fn on_f3(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f3, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f3: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f3: bool = true; #[inline(always)] fn on_f3(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f3, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f3: F_f3,]
-          [$($rp_ct)* f_f3: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f3: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f4 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f4,]
-          [$($rp_w)* F_f4: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f4: bool = true; #[inline(always)] fn on_f4(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f4, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f4: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f4: bool = true; #[inline(always)] fn on_f4(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f4, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f4: F_f4,]
-          [$($rp_ct)* f_f4: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f4: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f5 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f5,]
-          [$($rp_w)* F_f5: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f5: bool = true; #[inline(always)] fn on_f5(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f5, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f5: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f5: bool = true; #[inline(always)] fn on_f5(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f5, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f5: F_f5,]
-          [$($rp_ct)* f_f5: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f5: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f6 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f6,]
-          [$($rp_w)* F_f6: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f6: bool = true; #[inline(always)] fn on_f6(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f6, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f6: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f6: bool = true; #[inline(always)] fn on_f6(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f6, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f6: F_f6,]
-          [$($rp_ct)* f_f6: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f6: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f7 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f7,]
-          [$($rp_w)* F_f7: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f7: bool = true; #[inline(always)] fn on_f7(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f7, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f7: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f7: bool = true; #[inline(always)] fn on_f7(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f7, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f7: F_f7,]
-          [$($rp_ct)* f_f7: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f7: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f8 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f8,]
-          [$($rp_w)* F_f8: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f8: bool = true; #[inline(always)] fn on_f8(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f8, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f8: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f8: bool = true; #[inline(always)] fn on_f8(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f8, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f8: F_f8,]
-          [$($rp_ct)* f_f8: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f8: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f9 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f9,]
-          [$($rp_w)* F_f9: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f9: bool = true; #[inline(always)] fn on_f9(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f9, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f9: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f9: bool = true; #[inline(always)] fn on_f9(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f9, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f9: F_f9,]
-          [$($rp_ct)* f_f9: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f9: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f10 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f10,]
-          [$($rp_w)* F_f10: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f10: bool = true; #[inline(always)] fn on_f10(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f10, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f10: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f10: bool = true; #[inline(always)] fn on_f10(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f10, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f10: F_f10,]
-          [$($rp_ct)* f_f10: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f10: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f11 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f11,]
-          [$($rp_w)* F_f11: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f11: bool = true; #[inline(always)] fn on_f11(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f11, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f11: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f11: bool = true; #[inline(always)] fn on_f11(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f11, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f11: F_f11,]
-          [$($rp_ct)* f_f11: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f11: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f12 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f12,]
-          [$($rp_w)* F_f12: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f12: bool = true; #[inline(always)] fn on_f12(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f12, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f12: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f12: bool = true; #[inline(always)] fn on_f12(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f12, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f12: F_f12,]
-          [$($rp_ct)* f_f12: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f12: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f13 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f13,]
-          [$($rp_w)* F_f13: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f13: bool = true; #[inline(always)] fn on_f13(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f13, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f13: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f13: bool = true; #[inline(always)] fn on_f13(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f13, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f13: F_f13,]
-          [$($rp_ct)* f_f13: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f13: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f14 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f14,]
-          [$($rp_w)* F_f14: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f14: bool = true; #[inline(always)] fn on_f14(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f14, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f14: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f14: bool = true; #[inline(always)] fn on_f14(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f14, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f14: F_f14,]
-          [$($rp_ct)* f_f14: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f14: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f15 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f15,]
-          [$($rp_w)* F_f15: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f15: bool = true; #[inline(always)] fn on_f15(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f15, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f15: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f15: bool = true; #[inline(always)] fn on_f15(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f15, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f15: F_f15,]
-          [$($rp_ct)* f_f15: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f15: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f16 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f16,]
-          [$($rp_w)* F_f16: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f16: bool = true; #[inline(always)] fn on_f16(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f16, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f16: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f16: bool = true; #[inline(always)] fn on_f16(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f16, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f16: F_f16,]
-          [$($rp_ct)* f_f16: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f16: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f17 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f17,]
-          [$($rp_w)* F_f17: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f17: bool = true; #[inline(always)] fn on_f17(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f17, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f17: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f17: bool = true; #[inline(always)] fn on_f17(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f17, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f17: F_f17,]
-          [$($rp_ct)* f_f17: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f17: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f18 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f18,]
-          [$($rp_w)* F_f18: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f18: bool = true; #[inline(always)] fn on_f18(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f18, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f18: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f18: bool = true; #[inline(always)] fn on_f18(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f18, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f18: F_f18,]
-          [$($rp_ct)* f_f18: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f18: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f19 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f19,]
-          [$($rp_w)* F_f19: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f19: bool = true; #[inline(always)] fn on_f19(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f19, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f19: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f19: bool = true; #[inline(always)] fn on_f19(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f19, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f19: F_f19,]
-          [$($rp_ct)* f_f19: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f19: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f20 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f20,]
-          [$($rp_w)* F_f20: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f20: bool = true; #[inline(always)] fn on_f20(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f20, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f20: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f20: bool = true; #[inline(always)] fn on_f20(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f20, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f20: F_f20,]
-          [$($rp_ct)* f_f20: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f20: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f21 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f21,]
-          [$($rp_w)* F_f21: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f21: bool = true; #[inline(always)] fn on_f21(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f21, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f21: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f21: bool = true; #[inline(always)] fn on_f21(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f21, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f21: F_f21,]
-          [$($rp_ct)* f_f21: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f21: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f22 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f22,]
-          [$($rp_w)* F_f22: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f22: bool = true; #[inline(always)] fn on_f22(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f22, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f22: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f22: bool = true; #[inline(always)] fn on_f22(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f22, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f22: F_f22,]
-          [$($rp_ct)* f_f22: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f22: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f23 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f23,]
-          [$($rp_w)* F_f23: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f23: bool = true; #[inline(always)] fn on_f23(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f23, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f23: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f23: bool = true; #[inline(always)] fn on_f23(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f23, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f23: F_f23,]
-          [$($rp_ct)* f_f23: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f23: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f24 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f24,]
-          [$($rp_w)* F_f24: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f24: bool = true; #[inline(always)] fn on_f24(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f24, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f24: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f24: bool = true; #[inline(always)] fn on_f24(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f24, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f24: F_f24,]
-          [$($rp_ct)* f_f24: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f24: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f25 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f25,]
-          [$($rp_w)* F_f25: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f25: bool = true; #[inline(always)] fn on_f25(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f25, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f25: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f25: bool = true; #[inline(always)] fn on_f25(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f25, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f25: F_f25,]
-          [$($rp_ct)* f_f25: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f25: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f26 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f26,]
-          [$($rp_w)* F_f26: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f26: bool = true; #[inline(always)] fn on_f26(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f26, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f26: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f26: bool = true; #[inline(always)] fn on_f26(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f26, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f26: F_f26,]
-          [$($rp_ct)* f_f26: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f26: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f27 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f27,]
-          [$($rp_w)* F_f27: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f27: bool = true; #[inline(always)] fn on_f27(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f27, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f27: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f27: bool = true; #[inline(always)] fn on_f27(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f27, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f27: F_f27,]
-          [$($rp_ct)* f_f27: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f27: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f28 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f28,]
-          [$($rp_w)* F_f28: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f28: bool = true; #[inline(always)] fn on_f28(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f28, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f28: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f28: bool = true; #[inline(always)] fn on_f28(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f28, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f28: F_f28,]
-          [$($rp_ct)* f_f28: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f28: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f29 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f29,]
-          [$($rp_w)* F_f29: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f29: bool = true; #[inline(always)] fn on_f29(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f29, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f29: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f29: bool = true; #[inline(always)] fn on_f29(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f29, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f29: F_f29,]
-          [$($rp_ct)* f_f29: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f29: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f30 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f30,]
-          [$($rp_w)* F_f30: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f30: bool = true; #[inline(always)] fn on_f30(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f30, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f30: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f30: bool = true; #[inline(always)] fn on_f30(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f30, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f30: F_f30,]
-          [$($rp_ct)* f_f30: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f30: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f31 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f31,]
-          [$($rp_w)* F_f31: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f31: bool = true; #[inline(always)] fn on_f31(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f31, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f31: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f31: bool = true; #[inline(always)] fn on_f31(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f31, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f31: F_f31,]
-          [$($rp_ct)* f_f31: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f31: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f32 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f32,]
-          [$($rp_w)* F_f32: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f32: bool = true; #[inline(always)] fn on_f32(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f32, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f32: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f32: bool = true; #[inline(always)] fn on_f32(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f32, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f32: F_f32,]
-          [$($rp_ct)* f_f32: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f32: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f33 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f33,]
-          [$($rp_w)* F_f33: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f33: bool = true; #[inline(always)] fn on_f33(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f33, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f33: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f33: bool = true; #[inline(always)] fn on_f33(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f33, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f33: F_f33,]
-          [$($rp_ct)* f_f33: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f33: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f34 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f34,]
-          [$($rp_w)* F_f34: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f34: bool = true; #[inline(always)] fn on_f34(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f34, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f34: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f34: bool = true; #[inline(always)] fn on_f34(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f34, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f34: F_f34,]
-          [$($rp_ct)* f_f34: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f34: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f35 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f35,]
-          [$($rp_w)* F_f35: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f35: bool = true; #[inline(always)] fn on_f35(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f35, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f35: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f35: bool = true; #[inline(always)] fn on_f35(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f35, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f35: F_f35,]
-          [$($rp_ct)* f_f35: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f35: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f36 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f36,]
-          [$($rp_w)* F_f36: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f36: bool = true; #[inline(always)] fn on_f36(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f36, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f36: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f36: bool = true; #[inline(always)] fn on_f36(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f36, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f36: F_f36,]
-          [$($rp_ct)* f_f36: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f36: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f37 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f37,]
-          [$($rp_w)* F_f37: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f37: bool = true; #[inline(always)] fn on_f37(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f37, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f37: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f37: bool = true; #[inline(always)] fn on_f37(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f37, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f37: F_f37,]
-          [$($rp_ct)* f_f37: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f37: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f38 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f38,]
-          [$($rp_w)* F_f38: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f38: bool = true; #[inline(always)] fn on_f38(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f38, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f38: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f38: bool = true; #[inline(always)] fn on_f38(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f38, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f38: F_f38,]
-          [$($rp_ct)* f_f38: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f38: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f39 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f39,]
-          [$($rp_w)* F_f39: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f39: bool = true; #[inline(always)] fn on_f39(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f39, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f39: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f39: bool = true; #[inline(always)] fn on_f39(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f39, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f39: F_f39,]
-          [$($rp_ct)* f_f39: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f39: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f40 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f40,]
-          [$($rp_w)* F_f40: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f40: bool = true; #[inline(always)] fn on_f40(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f40, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f40: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f40: bool = true; #[inline(always)] fn on_f40(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f40, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f40: F_f40,]
-          [$($rp_ct)* f_f40: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f40: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f41 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f41,]
-          [$($rp_w)* F_f41: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f41: bool = true; #[inline(always)] fn on_f41(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f41, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f41: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f41: bool = true; #[inline(always)] fn on_f41(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f41, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f41: F_f41,]
-          [$($rp_ct)* f_f41: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f41: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f42 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f42,]
-          [$($rp_w)* F_f42: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f42: bool = true; #[inline(always)] fn on_f42(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f42, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f42: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f42: bool = true; #[inline(always)] fn on_f42(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f42, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f42: F_f42,]
-          [$($rp_ct)* f_f42: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f42: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f43 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f43,]
-          [$($rp_w)* F_f43: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f43: bool = true; #[inline(always)] fn on_f43(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f43, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f43: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f43: bool = true; #[inline(always)] fn on_f43(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f43, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f43: F_f43,]
-          [$($rp_ct)* f_f43: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f43: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f44 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f44,]
-          [$($rp_w)* F_f44: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f44: bool = true; #[inline(always)] fn on_f44(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f44, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f44: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f44: bool = true; #[inline(always)] fn on_f44(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f44, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f44: F_f44,]
-          [$($rp_ct)* f_f44: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f44: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f45 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f45,]
-          [$($rp_w)* F_f45: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f45: bool = true; #[inline(always)] fn on_f45(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f45, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f45: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f45: bool = true; #[inline(always)] fn on_f45(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f45, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f45: F_f45,]
-          [$($rp_ct)* f_f45: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f45: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f46 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f46,]
-          [$($rp_w)* F_f46: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f46: bool = true; #[inline(always)] fn on_f46(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f46, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f46: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f46: bool = true; #[inline(always)] fn on_f46(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f46, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f46: F_f46,]
-          [$($rp_ct)* f_f46: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f46: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f47 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f47,]
-          [$($rp_w)* F_f47: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f47: bool = true; #[inline(always)] fn on_f47(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f47, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f47: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f47: bool = true; #[inline(always)] fn on_f47(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f47, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f47: F_f47,]
-          [$($rp_ct)* f_f47: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f47: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f48 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f48,]
-          [$($rp_w)* F_f48: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f48: bool = true; #[inline(always)] fn on_f48(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f48, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f48: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f48: bool = true; #[inline(always)] fn on_f48(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f48, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f48: F_f48,]
-          [$($rp_ct)* f_f48: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f48: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f49 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f49,]
-          [$($rp_w)* F_f49: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f49: bool = true; #[inline(always)] fn on_f49(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f49, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f49: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f49: bool = true; #[inline(always)] fn on_f49(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f49, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f49: F_f49,]
-          [$($rp_ct)* f_f49: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f49: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f50 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f50,]
-          [$($rp_w)* F_f50: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f50: bool = true; #[inline(always)] fn on_f50(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f50, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f50: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f50: bool = true; #[inline(always)] fn on_f50(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f50, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f50: F_f50,]
-          [$($rp_ct)* f_f50: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f50: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f51 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f51,]
-          [$($rp_w)* F_f51: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f51: bool = true; #[inline(always)] fn on_f51(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f51, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f51: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f51: bool = true; #[inline(always)] fn on_f51(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f51, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f51: F_f51,]
-          [$($rp_ct)* f_f51: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f51: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f52 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f52,]
-          [$($rp_w)* F_f52: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f52: bool = true; #[inline(always)] fn on_f52(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f52, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f52: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f52: bool = true; #[inline(always)] fn on_f52(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f52, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f52: F_f52,]
-          [$($rp_ct)* f_f52: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f52: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f53 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f53,]
-          [$($rp_w)* F_f53: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f53: bool = true; #[inline(always)] fn on_f53(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f53, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f53: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f53: bool = true; #[inline(always)] fn on_f53(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f53, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f53: F_f53,]
-          [$($rp_ct)* f_f53: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f53: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f54 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f54,]
-          [$($rp_w)* F_f54: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f54: bool = true; #[inline(always)] fn on_f54(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f54, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f54: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f54: bool = true; #[inline(always)] fn on_f54(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f54, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f54: F_f54,]
-          [$($rp_ct)* f_f54: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f54: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f55 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f55,]
-          [$($rp_w)* F_f55: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f55: bool = true; #[inline(always)] fn on_f55(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f55, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f55: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f55: bool = true; #[inline(always)] fn on_f55(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f55, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f55: F_f55,]
-          [$($rp_ct)* f_f55: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f55: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f56 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f56,]
-          [$($rp_w)* F_f56: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f56: bool = true; #[inline(always)] fn on_f56(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f56, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f56: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f56: bool = true; #[inline(always)] fn on_f56(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f56, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f56: F_f56,]
-          [$($rp_ct)* f_f56: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f56: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f57 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f57,]
-          [$($rp_w)* F_f57: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f57: bool = true; #[inline(always)] fn on_f57(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f57, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f57: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f57: bool = true; #[inline(always)] fn on_f57(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f57, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f57: F_f57,]
-          [$($rp_ct)* f_f57: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f57: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f58 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f58,]
-          [$($rp_w)* F_f58: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f58: bool = true; #[inline(always)] fn on_f58(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f58, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f58: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f58: bool = true; #[inline(always)] fn on_f58(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f58, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f58: F_f58,]
-          [$($rp_ct)* f_f58: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f58: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f59 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f59,]
-          [$($rp_w)* F_f59: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f59: bool = true; #[inline(always)] fn on_f59(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f59, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f59: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f59: bool = true; #[inline(always)] fn on_f59(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f59, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f59: F_f59,]
-          [$($rp_ct)* f_f59: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f59: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f60 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f60,]
-          [$($rp_w)* F_f60: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f60: bool = true; #[inline(always)] fn on_f60(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f60, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f60: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f60: bool = true; #[inline(always)] fn on_f60(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f60, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f60: F_f60,]
-          [$($rp_ct)* f_f60: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f60: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f61 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f61,]
-          [$($rp_w)* F_f61: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f61: bool = true; #[inline(always)] fn on_f61(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f61, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f61: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f61: bool = true; #[inline(always)] fn on_f61(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f61, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f61: F_f61,]
-          [$($rp_ct)* f_f61: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f61: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f62 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f62,]
-          [$($rp_w)* F_f62: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f62: bool = true; #[inline(always)] fn on_f62(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f62, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f62: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f62: bool = true; #[inline(always)] fn on_f62(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f62, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f62: F_f62,]
-          [$($rp_ct)* f_f62: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f62: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f63 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f63,]
-          [$($rp_w)* F_f63: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f63: bool = true; #[inline(always)] fn on_f63(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f63, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f63: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f63: bool = true; #[inline(always)] fn on_f63(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f63, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f63: F_f63,]
-          [$($rp_ct)* f_f63: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f63: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f64 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f64,]
-          [$($rp_w)* F_f64: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f64: bool = true; #[inline(always)] fn on_f64(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f64, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f64: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f64: bool = true; #[inline(always)] fn on_f64(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f64, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f64: F_f64,]
-          [$($rp_ct)* f_f64: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f64: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident f65 => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_f65,]
-          [$($rp_w)* F_f65: rp_mod_2mr::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_f65: bool = true; #[inline(always)] fn on_f65(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_f65, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_f65: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_f65: bool = true; #[inline(always)] fn on_f65(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_f65, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_f65: F_f65,]
-          [$($rp_ct)* f_f65: rp_mod_2mr::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_f65: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident unknown => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2mr::many_required_stream!(@ms
+        rp_mod_2mr12ManyRequired::many_required_stream!(@ms
           [$($rp_g)* F_unknown,]
-          [$($rp_w)* F_unknown: rp_mod_2mr::rp_rt::stream::Handler2<RpS, rp_mod_2mr::rp_rt::stream::UnknownField<'rp_a>>,]
-          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_2mr::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_2mr::rp_rt::stream::Flow, rp_mod_2mr::rp_rt::DecodeError> { rp_mod_2mr::rp_rt::stream::Handler2::call(&mut self.f_unknown, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_unknown: rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2<RpS, rp_mod_2mr12ManyRequired::rp_rt::stream::UnknownField<'rp_a>>,]
+          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_2mr12ManyRequired::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_2mr12ManyRequired::rp_rt::stream::Flow, rp_mod_2mr12ManyRequired::rp_rt::DecodeError> { rp_mod_2mr12ManyRequired::rp_rt::stream::Handler2::call(&mut self.f_unknown, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_unknown: F_unknown,]
-          [$($rp_ct)* f_unknown: rp_mod_2mr::rp_rt::stream::typed2::<_, rp_mod_2mr::rp_rt::stream::UnknownField<'_>, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_unknown: rp_mod_2mr12ManyRequired::rp_rt::stream::typed2::<_, rp_mod_2mr12ManyRequired::rp_rt::stream::UnknownField<'_>, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
-        compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, f21, f22, f23, f24, f25, f26, f27, f28, f29, f30, f31, f32, f33, f34, f35, f36, f37, f38, f39, f40, f41, f42, f43, f44, f45, f46, f47, f48, f49, f50, f51, f52, f53, f54, f55, f56, f57, f58, f59, f60, f61, f62, f63, f64, f65, unknown"))
+        ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($rp_bad), "` for this message; selectable fields: f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, f21, f22, f23, f24, f25, f26, f27, f28, f29, f30, f31, f32, f33, f34, f35, f36, f37, f38, f39, f40, f41, f42, f43, f44, f45, f46, f47, f48, f49, f50, f51, f52, f53, f54, f55, f56, f57, f58, f59, f60, f61, f62, f63, f64, f65, unknown"))
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident ) => {{
         #[allow(nonstandard_style, dead_code)]
-        struct RpVis<'rp_s, RpS: ?Sized, $($rp_g)*> { $($rp_fl)* rp_state: &'rp_s mut RpS }
+        struct RpVis<'rp_s, RpS: ?::core::marker::Sized, $($rp_g)*> { $($rp_fl)* rp_state: &'rp_s mut RpS }
         #[allow(nonstandard_style)]
-        impl<'rp_a, 'rp_s, RpS: ?Sized, $($rp_g)*> rp_mod_2mr::ManyRequiredVisitor<'rp_a> for RpVis<'rp_s, RpS, $($rp_g)*> where $($rp_w)* { $($rp_i)* }
+        impl<'rp_a, 'rp_s, RpS: ?::core::marker::Sized, $($rp_g)*> rp_mod_2mr12ManyRequired::ManyRequiredVisitor<'rp_a> for RpVis<'rp_s, RpS, $($rp_g)*> where $($rp_w)* { $($rp_i)* }
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use many_required_stream;
+    pub(crate) use rp_mac_2mr12ManyRequired as many_required_stream;
   }
 }

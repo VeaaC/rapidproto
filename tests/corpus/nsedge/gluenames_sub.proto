@@ -1,0 +1,14 @@
+// The sub-package half of gluenames.proto: a package component named like the stream glue's runtime
+// re-export (`rp_rt`), holding a message of that name too. Its own file because a package and a
+// message cannot share one full name.
+syntax = "proto3";
+
+package gluenames.rp_rt;
+
+message rp_rt {
+  int32 v = 1;
+}
+
+message Sub {
+  rp_rt inner = 1;
+}

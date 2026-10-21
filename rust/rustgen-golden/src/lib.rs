@@ -121,6 +121,14 @@ pub mod deep {
     include!("../goldens/deep.rs");
 }
 
+pub mod gluenames {
+    include!("../goldens/gluenames.rs");
+}
+
+pub mod gluenames_sub {
+    include!("../goldens/gluenames_sub.rs");
+}
+
 pub mod nestenum {
     include!("../goldens/nestenum.rs");
 }
@@ -213,8 +221,16 @@ pub mod streamonly {
     include!("../goldens/streamonly.rs");
 }
 
-pub mod streamexport {
-    include!("../goldens/streamexport.rs");
+pub mod streamexport_p3 {
+    include!("../goldens/streamexport_p3.rs");
+}
+
+pub mod streamexport_main {
+    include!("../goldens/streamexport_main.rs");
+}
+
+pub mod streamexport_nopkg {
+    include!("../goldens/streamexport_nopkg.rs");
 }
 
 #[cfg(all(test, feature = "std"))]

@@ -34,6 +34,7 @@
 #include "streamgen_golden/proto2.rp.stream.hpp"  // checked-in generated headers
 #include "streamgen_golden/proto3.rp.stream.hpp"
 // IWYU pragma: begin_keep
+#include "streamgen_golden/gluenames.rp.stream.hpp"  // `rp_`-glue-shaped names (pulls gluenames_sub)
 #include "streamgen_golden/main.rp.stream.hpp"    // cross-file: pulls dep/forward/pub via #include
 #include "streamgen_golden/naming.rp.stream.hpp"  // identifier dedup + absolute names: must compile
 #include "streamgen_golden/nopkg.rp.stream.hpp"   // NO package: types directly under rp::stream
@@ -146,7 +147,9 @@ TEST_CASE("streamgen: generated headers match the goldens", "[streamgen]") {
         {"nopkg", nsedge},         // no package at all
         {"xpkg", nsedge},          // cross-file reference into a dotted package
         {"stdpkg", nsedge},        // package `std` -> namespace std_, never namespace std
-        {"rppkg", nsedge}};        // package `rapidproto`, below the runtime's own namespace
+        {"rppkg", nsedge},         // package `rapidproto`, below the runtime's own namespace
+        {"gluenames", nsedge},     // names shaped like the Rust stream glue (`rp_rt`, `Sized`, ...)
+        {"gluenames_sub", nsedge}};  // its sub-package `gluenames.rp_rt`
 
     for (const Case& test : cases) {
         const std::string actual =

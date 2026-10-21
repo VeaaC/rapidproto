@@ -973,7 +973,9 @@ pub mod stream {
 
   pub mod fm {
     #[doc(hidden)]
-    pub use super::fm as rp_mod_2fm;
+    pub use super::fm as rp_mod_2fm4Blob;
+    #[doc(hidden)]
+    pub use super::fm as rp_mod_2fm6Holder;
     #[doc(hidden)]
     pub use ::rapidproto as rp_rt;
     #[doc(hidden)]
@@ -1094,90 +1096,90 @@ pub mod stream {
       }
     }
 
-    macro_rules! blob_stream {
+    macro_rules! rp_mac_2fm4Blob {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
-        rp_mod_2fm::blob_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
+        rp_mod_2fm4Blob::blob_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] payload => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2fm::blob_stream!(@m
+        rp_mod_2fm4Blob::blob_stream!(@m
           [$($rp_g)* F_payload,]
-          [$($rp_w)* F_payload: rp_mod_2fm::rp_rt::stream::Handler<&'rp_a [u8]>,]
-          [$($rp_i)* const WANT_payload: bool = true; #[inline(always)] fn on_payload(&mut self, rp_x: &'rp_a [u8]) -> ::core::result::Result<rp_mod_2fm::rp_rt::stream::Flow, rp_mod_2fm::rp_rt::DecodeError> { rp_mod_2fm::rp_rt::stream::Handler::call(&mut self.f_payload, rp_x) }]
+          [$($rp_w)* F_payload: rp_mod_2fm4Blob::rp_rt::stream::Handler<&'rp_a [u8]>,]
+          [$($rp_i)* const WANT_payload: bool = true; #[inline(always)] fn on_payload(&mut self, rp_x: &'rp_a [u8]) -> ::core::result::Result<rp_mod_2fm4Blob::rp_rt::stream::Flow, rp_mod_2fm4Blob::rp_rt::DecodeError> { rp_mod_2fm4Blob::rp_rt::stream::Handler::call(&mut self.f_payload, rp_x) }]
           [$($rp_fl)* f_payload: F_payload,]
-          [$($rp_ct)* f_payload: rp_mod_2fm::rp_rt::stream::typed::<&'_ [u8], _, _>($rp_c),]
+          [$($rp_ct)* f_payload: rp_mod_2fm4Blob::rp_rt::stream::typed::<&'_ [u8], _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] kind => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2fm::blob_stream!(@m
+        rp_mod_2fm4Blob::blob_stream!(@m
           [$($rp_g)* F_kind,]
-          [$($rp_w)* F_kind: rp_mod_2fm::rp_rt::stream::Handler<rp_mod_2fm::rp_stream_ty_0>,]
-          [$($rp_i)* const WANT_kind: bool = true; #[inline(always)] fn on_kind(&mut self, rp_x: rp_mod_2fm::rp_stream_ty_0) -> ::core::result::Result<rp_mod_2fm::rp_rt::stream::Flow, rp_mod_2fm::rp_rt::DecodeError> { rp_mod_2fm::rp_rt::stream::Handler::call(&mut self.f_kind, rp_x) }]
+          [$($rp_w)* F_kind: rp_mod_2fm4Blob::rp_rt::stream::Handler<rp_mod_2fm4Blob::rp_stream_ty_0>,]
+          [$($rp_i)* const WANT_kind: bool = true; #[inline(always)] fn on_kind(&mut self, rp_x: rp_mod_2fm4Blob::rp_stream_ty_0) -> ::core::result::Result<rp_mod_2fm4Blob::rp_rt::stream::Flow, rp_mod_2fm4Blob::rp_rt::DecodeError> { rp_mod_2fm4Blob::rp_rt::stream::Handler::call(&mut self.f_kind, rp_x) }]
           [$($rp_fl)* f_kind: F_kind,]
-          [$($rp_ct)* f_kind: rp_mod_2fm::rp_rt::stream::typed::<rp_mod_2fm::rp_stream_ty_0, _, _>($rp_c),]
+          [$($rp_ct)* f_kind: rp_mod_2fm4Blob::rp_rt::stream::typed::<rp_mod_2fm4Blob::rp_stream_ty_0, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] unknown => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2fm::blob_stream!(@m
+        rp_mod_2fm4Blob::blob_stream!(@m
           [$($rp_g)* F_unknown,]
-          [$($rp_w)* F_unknown: rp_mod_2fm::rp_rt::stream::Handler<rp_mod_2fm::rp_rt::stream::UnknownField<'rp_a>>,]
-          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_2fm::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_2fm::rp_rt::stream::Flow, rp_mod_2fm::rp_rt::DecodeError> { rp_mod_2fm::rp_rt::stream::Handler::call(&mut self.f_unknown, rp_x) }]
+          [$($rp_w)* F_unknown: rp_mod_2fm4Blob::rp_rt::stream::Handler<rp_mod_2fm4Blob::rp_rt::stream::UnknownField<'rp_a>>,]
+          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_2fm4Blob::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_2fm4Blob::rp_rt::stream::Flow, rp_mod_2fm4Blob::rp_rt::DecodeError> { rp_mod_2fm4Blob::rp_rt::stream::Handler::call(&mut self.f_unknown, rp_x) }]
           [$($rp_fl)* f_unknown: F_unknown,]
-          [$($rp_ct)* f_unknown: rp_mod_2fm::rp_rt::stream::typed::<rp_mod_2fm::rp_rt::stream::UnknownField<'_>, _, _>($rp_c),]
+          [$($rp_ct)* f_unknown: rp_mod_2fm4Blob::rp_rt::stream::typed::<rp_mod_2fm4Blob::rp_rt::stream::UnknownField<'_>, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
-        compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: payload, kind, unknown"))
+        ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($rp_bad), "` for this message; selectable fields: payload, kind, unknown"))
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
         #[allow(nonstandard_style)]
         struct RpVis<$($rp_g)*> { $($rp_fl)* }
         #[allow(nonstandard_style)]
-        impl<'rp_a, $($rp_g)*> rp_mod_2fm::BlobVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
+        impl<'rp_a, $($rp_g)*> rp_mod_2fm4Blob::BlobVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
         RpVis { $($rp_ct)* }
       }};
       ( $rp_state:expr ; { $( $rp_f:ident => $rp_c:expr ),* $(,)? } ) => {{
         let rp_state = $rp_state;
-        rp_mod_2fm::blob_stream!(@ms [] [] [] [] [] rp_state $( $rp_f => $rp_c , )*)
+        rp_mod_2fm4Blob::blob_stream!(@ms [] [] [] [] [] rp_state $( $rp_f => $rp_c , )*)
       }};
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident payload => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2fm::blob_stream!(@ms
+        rp_mod_2fm4Blob::blob_stream!(@ms
           [$($rp_g)* F_payload,]
-          [$($rp_w)* F_payload: rp_mod_2fm::rp_rt::stream::Handler2<RpS, &'rp_a [u8]>,]
-          [$($rp_i)* const WANT_payload: bool = true; #[inline(always)] fn on_payload(&mut self, rp_x: &'rp_a [u8]) -> ::core::result::Result<rp_mod_2fm::rp_rt::stream::Flow, rp_mod_2fm::rp_rt::DecodeError> { rp_mod_2fm::rp_rt::stream::Handler2::call(&mut self.f_payload, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_payload: rp_mod_2fm4Blob::rp_rt::stream::Handler2<RpS, &'rp_a [u8]>,]
+          [$($rp_i)* const WANT_payload: bool = true; #[inline(always)] fn on_payload(&mut self, rp_x: &'rp_a [u8]) -> ::core::result::Result<rp_mod_2fm4Blob::rp_rt::stream::Flow, rp_mod_2fm4Blob::rp_rt::DecodeError> { rp_mod_2fm4Blob::rp_rt::stream::Handler2::call(&mut self.f_payload, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_payload: F_payload,]
-          [$($rp_ct)* f_payload: rp_mod_2fm::rp_rt::stream::typed2::<_, &'_ [u8], _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_payload: rp_mod_2fm4Blob::rp_rt::stream::typed2::<_, &'_ [u8], _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident kind => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2fm::blob_stream!(@ms
+        rp_mod_2fm4Blob::blob_stream!(@ms
           [$($rp_g)* F_kind,]
-          [$($rp_w)* F_kind: rp_mod_2fm::rp_rt::stream::Handler2<RpS, rp_mod_2fm::rp_stream_ty_0>,]
-          [$($rp_i)* const WANT_kind: bool = true; #[inline(always)] fn on_kind(&mut self, rp_x: rp_mod_2fm::rp_stream_ty_0) -> ::core::result::Result<rp_mod_2fm::rp_rt::stream::Flow, rp_mod_2fm::rp_rt::DecodeError> { rp_mod_2fm::rp_rt::stream::Handler2::call(&mut self.f_kind, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_kind: rp_mod_2fm4Blob::rp_rt::stream::Handler2<RpS, rp_mod_2fm4Blob::rp_stream_ty_0>,]
+          [$($rp_i)* const WANT_kind: bool = true; #[inline(always)] fn on_kind(&mut self, rp_x: rp_mod_2fm4Blob::rp_stream_ty_0) -> ::core::result::Result<rp_mod_2fm4Blob::rp_rt::stream::Flow, rp_mod_2fm4Blob::rp_rt::DecodeError> { rp_mod_2fm4Blob::rp_rt::stream::Handler2::call(&mut self.f_kind, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_kind: F_kind,]
-          [$($rp_ct)* f_kind: rp_mod_2fm::rp_rt::stream::typed2::<_, rp_mod_2fm::rp_stream_ty_0, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_kind: rp_mod_2fm4Blob::rp_rt::stream::typed2::<_, rp_mod_2fm4Blob::rp_stream_ty_0, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident unknown => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2fm::blob_stream!(@ms
+        rp_mod_2fm4Blob::blob_stream!(@ms
           [$($rp_g)* F_unknown,]
-          [$($rp_w)* F_unknown: rp_mod_2fm::rp_rt::stream::Handler2<RpS, rp_mod_2fm::rp_rt::stream::UnknownField<'rp_a>>,]
-          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_2fm::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_2fm::rp_rt::stream::Flow, rp_mod_2fm::rp_rt::DecodeError> { rp_mod_2fm::rp_rt::stream::Handler2::call(&mut self.f_unknown, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_unknown: rp_mod_2fm4Blob::rp_rt::stream::Handler2<RpS, rp_mod_2fm4Blob::rp_rt::stream::UnknownField<'rp_a>>,]
+          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_2fm4Blob::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_2fm4Blob::rp_rt::stream::Flow, rp_mod_2fm4Blob::rp_rt::DecodeError> { rp_mod_2fm4Blob::rp_rt::stream::Handler2::call(&mut self.f_unknown, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_unknown: F_unknown,]
-          [$($rp_ct)* f_unknown: rp_mod_2fm::rp_rt::stream::typed2::<_, rp_mod_2fm::rp_rt::stream::UnknownField<'_>, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_unknown: rp_mod_2fm4Blob::rp_rt::stream::typed2::<_, rp_mod_2fm4Blob::rp_rt::stream::UnknownField<'_>, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
-        compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: payload, kind, unknown"))
+        ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($rp_bad), "` for this message; selectable fields: payload, kind, unknown"))
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident ) => {{
         #[allow(nonstandard_style, dead_code)]
-        struct RpVis<'rp_s, RpS: ?Sized, $($rp_g)*> { $($rp_fl)* rp_state: &'rp_s mut RpS }
+        struct RpVis<'rp_s, RpS: ?::core::marker::Sized, $($rp_g)*> { $($rp_fl)* rp_state: &'rp_s mut RpS }
         #[allow(nonstandard_style)]
-        impl<'rp_a, 'rp_s, RpS: ?Sized, $($rp_g)*> rp_mod_2fm::BlobVisitor<'rp_a> for RpVis<'rp_s, RpS, $($rp_g)*> where $($rp_w)* { $($rp_i)* }
+        impl<'rp_a, 'rp_s, RpS: ?::core::marker::Sized, $($rp_g)*> rp_mod_2fm4Blob::BlobVisitor<'rp_a> for RpVis<'rp_s, RpS, $($rp_g)*> where $($rp_w)* { $($rp_i)* }
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use blob_stream;
+    pub(crate) use rp_mac_2fm4Blob as blob_stream;
 
     /// Streaming visitor for `Holder`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `holder_stream` macro does both); a field left at the default
@@ -1662,310 +1664,310 @@ pub mod stream {
       }
     }
 
-    macro_rules! holder_stream {
+    macro_rules! rp_mac_2fm6Holder {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
-        rp_mod_2fm::holder_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
+        rp_mod_2fm6Holder::holder_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] keep => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2fm::holder_stream!(@m
+        rp_mod_2fm6Holder::holder_stream!(@m
           [$($rp_g)* F_keep,]
-          [$($rp_w)* F_keep: rp_mod_2fm::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_keep: bool = true; #[inline(always)] fn on_keep(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2fm::rp_rt::stream::Flow, rp_mod_2fm::rp_rt::DecodeError> { rp_mod_2fm::rp_rt::stream::Handler::call(&mut self.f_keep, rp_x) }]
+          [$($rp_w)* F_keep: rp_mod_2fm6Holder::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_keep: bool = true; #[inline(always)] fn on_keep(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2fm6Holder::rp_rt::stream::Flow, rp_mod_2fm6Holder::rp_rt::DecodeError> { rp_mod_2fm6Holder::rp_rt::stream::Handler::call(&mut self.f_keep, rp_x) }]
           [$($rp_fl)* f_keep: F_keep,]
-          [$($rp_ct)* f_keep: rp_mod_2fm::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_keep: rp_mod_2fm6Holder::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] debug => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2fm::holder_stream!(@m
+        rp_mod_2fm6Holder::holder_stream!(@m
           [$($rp_g)* F_debug,]
-          [$($rp_w)* F_debug: rp_mod_2fm::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_debug: bool = true; #[inline(always)] fn on_debug(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2fm::rp_rt::stream::Flow, rp_mod_2fm::rp_rt::DecodeError> { rp_mod_2fm::rp_rt::stream::Handler::call(&mut self.f_debug, rp_x) }]
+          [$($rp_w)* F_debug: rp_mod_2fm6Holder::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_debug: bool = true; #[inline(always)] fn on_debug(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2fm6Holder::rp_rt::stream::Flow, rp_mod_2fm6Holder::rp_rt::DecodeError> { rp_mod_2fm6Holder::rp_rt::stream::Handler::call(&mut self.f_debug, rp_x) }]
           [$($rp_fl)* f_debug: F_debug,]
-          [$($rp_ct)* f_debug: rp_mod_2fm::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_debug: rp_mod_2fm6Holder::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] extra => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2fm::holder_stream!(@m
+        rp_mod_2fm6Holder::holder_stream!(@m
           [$($rp_g)* F_extra,]
-          [$($rp_w)* F_extra: rp_mod_2fm::rp_rt::stream::Handler<rp_mod_2fm::Blob<'rp_a>>,]
-          [$($rp_i)* const WANT_extra: bool = true; #[inline(always)] fn on_extra(&mut self, rp_x: rp_mod_2fm::Blob<'rp_a>) -> ::core::result::Result<rp_mod_2fm::rp_rt::stream::Flow, rp_mod_2fm::rp_rt::DecodeError> { rp_mod_2fm::rp_rt::stream::Handler::call(&mut self.f_extra, rp_x) }]
+          [$($rp_w)* F_extra: rp_mod_2fm6Holder::rp_rt::stream::Handler<rp_mod_2fm6Holder::Blob<'rp_a>>,]
+          [$($rp_i)* const WANT_extra: bool = true; #[inline(always)] fn on_extra(&mut self, rp_x: rp_mod_2fm6Holder::Blob<'rp_a>) -> ::core::result::Result<rp_mod_2fm6Holder::rp_rt::stream::Flow, rp_mod_2fm6Holder::rp_rt::DecodeError> { rp_mod_2fm6Holder::rp_rt::stream::Handler::call(&mut self.f_extra, rp_x) }]
           [$($rp_fl)* f_extra: F_extra,]
-          [$($rp_ct)* f_extra: rp_mod_2fm::rp_rt::stream::typed::<rp_mod_2fm::Blob<'_>, _, _>($rp_c),]
+          [$($rp_ct)* f_extra: rp_mod_2fm6Holder::rp_rt::stream::typed::<rp_mod_2fm6Holder::Blob<'_>, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] old_ids => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2fm::holder_stream!(@m
+        rp_mod_2fm6Holder::holder_stream!(@m
           [$($rp_g)* F_old_ids,]
-          [$($rp_w)* F_old_ids: rp_mod_2fm::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_old_ids: bool = true; #[inline(always)] fn on_old_ids(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2fm::rp_rt::stream::Flow, rp_mod_2fm::rp_rt::DecodeError> { rp_mod_2fm::rp_rt::stream::Handler::call(&mut self.f_old_ids, rp_x) }]
+          [$($rp_w)* F_old_ids: rp_mod_2fm6Holder::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_old_ids: bool = true; #[inline(always)] fn on_old_ids(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2fm6Holder::rp_rt::stream::Flow, rp_mod_2fm6Holder::rp_rt::DecodeError> { rp_mod_2fm6Holder::rp_rt::stream::Handler::call(&mut self.f_old_ids, rp_x) }]
           [$($rp_fl)* f_old_ids: F_old_ids,]
-          [$($rp_ct)* f_old_ids: rp_mod_2fm::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_old_ids: rp_mod_2fm6Holder::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] must => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2fm::holder_stream!(@m
+        rp_mod_2fm6Holder::holder_stream!(@m
           [$($rp_g)* F_must,]
-          [$($rp_w)* F_must: rp_mod_2fm::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_must: bool = true; #[inline(always)] fn on_must(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2fm::rp_rt::stream::Flow, rp_mod_2fm::rp_rt::DecodeError> { rp_mod_2fm::rp_rt::stream::Handler::call(&mut self.f_must, rp_x) }]
+          [$($rp_w)* F_must: rp_mod_2fm6Holder::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_must: bool = true; #[inline(always)] fn on_must(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2fm6Holder::rp_rt::stream::Flow, rp_mod_2fm6Holder::rp_rt::DecodeError> { rp_mod_2fm6Holder::rp_rt::stream::Handler::call(&mut self.f_must, rp_x) }]
           [$($rp_fl)* f_must: F_must,]
-          [$($rp_ct)* f_must: rp_mod_2fm::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_must: rp_mod_2fm6Holder::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] big_num => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2fm::holder_stream!(@m
+        rp_mod_2fm6Holder::holder_stream!(@m
           [$($rp_g)* F_big_num,]
-          [$($rp_w)* F_big_num: rp_mod_2fm::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_big_num: bool = true; #[inline(always)] fn on_big_num(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2fm::rp_rt::stream::Flow, rp_mod_2fm::rp_rt::DecodeError> { rp_mod_2fm::rp_rt::stream::Handler::call(&mut self.f_big_num, rp_x) }]
+          [$($rp_w)* F_big_num: rp_mod_2fm6Holder::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_big_num: bool = true; #[inline(always)] fn on_big_num(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2fm6Holder::rp_rt::stream::Flow, rp_mod_2fm6Holder::rp_rt::DecodeError> { rp_mod_2fm6Holder::rp_rt::stream::Handler::call(&mut self.f_big_num, rp_x) }]
           [$($rp_fl)* f_big_num: F_big_num,]
-          [$($rp_ct)* f_big_num: rp_mod_2fm::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_big_num: rp_mod_2fm6Holder::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] blob => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2fm::holder_stream!(@m
+        rp_mod_2fm6Holder::holder_stream!(@m
           [$($rp_g)* F_blob,]
-          [$($rp_w)* F_blob: rp_mod_2fm::rp_rt::stream::Handler<rp_mod_2fm::Blob<'rp_a>>,]
-          [$($rp_i)* const WANT_blob: bool = true; #[inline(always)] fn on_blob(&mut self, rp_x: rp_mod_2fm::Blob<'rp_a>) -> ::core::result::Result<rp_mod_2fm::rp_rt::stream::Flow, rp_mod_2fm::rp_rt::DecodeError> { rp_mod_2fm::rp_rt::stream::Handler::call(&mut self.f_blob, rp_x) }]
+          [$($rp_w)* F_blob: rp_mod_2fm6Holder::rp_rt::stream::Handler<rp_mod_2fm6Holder::Blob<'rp_a>>,]
+          [$($rp_i)* const WANT_blob: bool = true; #[inline(always)] fn on_blob(&mut self, rp_x: rp_mod_2fm6Holder::Blob<'rp_a>) -> ::core::result::Result<rp_mod_2fm6Holder::rp_rt::stream::Flow, rp_mod_2fm6Holder::rp_rt::DecodeError> { rp_mod_2fm6Holder::rp_rt::stream::Handler::call(&mut self.f_blob, rp_x) }]
           [$($rp_fl)* f_blob: F_blob,]
-          [$($rp_ct)* f_blob: rp_mod_2fm::rp_rt::stream::typed::<rp_mod_2fm::Blob<'_>, _, _>($rp_c),]
+          [$($rp_ct)* f_blob: rp_mod_2fm6Holder::rp_rt::stream::typed::<rp_mod_2fm6Holder::Blob<'_>, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] blobs => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2fm::holder_stream!(@m
+        rp_mod_2fm6Holder::holder_stream!(@m
           [$($rp_g)* F_blobs,]
-          [$($rp_w)* F_blobs: rp_mod_2fm::rp_rt::stream::Handler<rp_mod_2fm::Blob<'rp_a>>,]
-          [$($rp_i)* const WANT_blobs: bool = true; #[inline(always)] fn on_blobs(&mut self, rp_x: rp_mod_2fm::Blob<'rp_a>) -> ::core::result::Result<rp_mod_2fm::rp_rt::stream::Flow, rp_mod_2fm::rp_rt::DecodeError> { rp_mod_2fm::rp_rt::stream::Handler::call(&mut self.f_blobs, rp_x) }]
+          [$($rp_w)* F_blobs: rp_mod_2fm6Holder::rp_rt::stream::Handler<rp_mod_2fm6Holder::Blob<'rp_a>>,]
+          [$($rp_i)* const WANT_blobs: bool = true; #[inline(always)] fn on_blobs(&mut self, rp_x: rp_mod_2fm6Holder::Blob<'rp_a>) -> ::core::result::Result<rp_mod_2fm6Holder::rp_rt::stream::Flow, rp_mod_2fm6Holder::rp_rt::DecodeError> { rp_mod_2fm6Holder::rp_rt::stream::Handler::call(&mut self.f_blobs, rp_x) }]
           [$($rp_fl)* f_blobs: F_blobs,]
-          [$($rp_ct)* f_blobs: rp_mod_2fm::rp_rt::stream::typed::<rp_mod_2fm::Blob<'_>, _, _>($rp_c),]
+          [$($rp_ct)* f_blobs: rp_mod_2fm6Holder::rp_rt::stream::typed::<rp_mod_2fm6Holder::Blob<'_>, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] samples => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2fm::holder_stream!(@m
+        rp_mod_2fm6Holder::holder_stream!(@m
           [$($rp_g)* F_samples,]
-          [$($rp_w)* F_samples: rp_mod_2fm::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_samples: bool = true; #[inline(always)] fn on_samples(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2fm::rp_rt::stream::Flow, rp_mod_2fm::rp_rt::DecodeError> { rp_mod_2fm::rp_rt::stream::Handler::call(&mut self.f_samples, rp_x) }]
+          [$($rp_w)* F_samples: rp_mod_2fm6Holder::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_samples: bool = true; #[inline(always)] fn on_samples(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2fm6Holder::rp_rt::stream::Flow, rp_mod_2fm6Holder::rp_rt::DecodeError> { rp_mod_2fm6Holder::rp_rt::stream::Handler::call(&mut self.f_samples, rp_x) }]
           [$($rp_fl)* f_samples: F_samples,]
-          [$($rp_ct)* f_samples: rp_mod_2fm::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_samples: rp_mod_2fm6Holder::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] spread => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2fm::holder_stream!(@m
+        rp_mod_2fm6Holder::holder_stream!(@m
           [$($rp_g)* F_spread,]
-          [$($rp_w)* F_spread: rp_mod_2fm::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_spread: bool = true; #[inline(always)] fn on_spread(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2fm::rp_rt::stream::Flow, rp_mod_2fm::rp_rt::DecodeError> { rp_mod_2fm::rp_rt::stream::Handler::call(&mut self.f_spread, rp_x) }]
+          [$($rp_w)* F_spread: rp_mod_2fm6Holder::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_spread: bool = true; #[inline(always)] fn on_spread(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2fm6Holder::rp_rt::stream::Flow, rp_mod_2fm6Holder::rp_rt::DecodeError> { rp_mod_2fm6Holder::rp_rt::stream::Handler::call(&mut self.f_spread, rp_x) }]
           [$($rp_fl)* f_spread: F_spread,]
-          [$($rp_ct)* f_spread: rp_mod_2fm::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_spread: rp_mod_2fm6Holder::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] level => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2fm::holder_stream!(@m
+        rp_mod_2fm6Holder::holder_stream!(@m
           [$($rp_g)* F_level,]
-          [$($rp_w)* F_level: rp_mod_2fm::rp_rt::stream::Handler<rp_mod_2fm::rp_stream_ty_1>,]
-          [$($rp_i)* const WANT_level: bool = true; #[inline(always)] fn on_level(&mut self, rp_x: rp_mod_2fm::rp_stream_ty_1) -> ::core::result::Result<rp_mod_2fm::rp_rt::stream::Flow, rp_mod_2fm::rp_rt::DecodeError> { rp_mod_2fm::rp_rt::stream::Handler::call(&mut self.f_level, rp_x) }]
+          [$($rp_w)* F_level: rp_mod_2fm6Holder::rp_rt::stream::Handler<rp_mod_2fm6Holder::rp_stream_ty_1>,]
+          [$($rp_i)* const WANT_level: bool = true; #[inline(always)] fn on_level(&mut self, rp_x: rp_mod_2fm6Holder::rp_stream_ty_1) -> ::core::result::Result<rp_mod_2fm6Holder::rp_rt::stream::Flow, rp_mod_2fm6Holder::rp_rt::DecodeError> { rp_mod_2fm6Holder::rp_rt::stream::Handler::call(&mut self.f_level, rp_x) }]
           [$($rp_fl)* f_level: F_level,]
-          [$($rp_ct)* f_level: rp_mod_2fm::rp_rt::stream::typed::<rp_mod_2fm::rp_stream_ty_1, _, _>($rp_c),]
+          [$($rp_ct)* f_level: rp_mod_2fm6Holder::rp_rt::stream::typed::<rp_mod_2fm6Holder::rp_stream_ty_1, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] req_blob => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2fm::holder_stream!(@m
+        rp_mod_2fm6Holder::holder_stream!(@m
           [$($rp_g)* F_req_blob,]
-          [$($rp_w)* F_req_blob: rp_mod_2fm::rp_rt::stream::Handler<rp_mod_2fm::Blob<'rp_a>>,]
-          [$($rp_i)* const WANT_req_blob: bool = true; #[inline(always)] fn on_req_blob(&mut self, rp_x: rp_mod_2fm::Blob<'rp_a>) -> ::core::result::Result<rp_mod_2fm::rp_rt::stream::Flow, rp_mod_2fm::rp_rt::DecodeError> { rp_mod_2fm::rp_rt::stream::Handler::call(&mut self.f_req_blob, rp_x) }]
+          [$($rp_w)* F_req_blob: rp_mod_2fm6Holder::rp_rt::stream::Handler<rp_mod_2fm6Holder::Blob<'rp_a>>,]
+          [$($rp_i)* const WANT_req_blob: bool = true; #[inline(always)] fn on_req_blob(&mut self, rp_x: rp_mod_2fm6Holder::Blob<'rp_a>) -> ::core::result::Result<rp_mod_2fm6Holder::rp_rt::stream::Flow, rp_mod_2fm6Holder::rp_rt::DecodeError> { rp_mod_2fm6Holder::rp_rt::stream::Handler::call(&mut self.f_req_blob, rp_x) }]
           [$($rp_fl)* f_req_blob: F_req_blob,]
-          [$($rp_ct)* f_req_blob: rp_mod_2fm::rp_rt::stream::typed::<rp_mod_2fm::Blob<'_>, _, _>($rp_c),]
+          [$($rp_ct)* f_req_blob: rp_mod_2fm6Holder::rp_rt::stream::typed::<rp_mod_2fm6Holder::Blob<'_>, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] grp => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2fm::holder_stream!(@m
+        rp_mod_2fm6Holder::holder_stream!(@m
           [$($rp_g)* F_grp,]
-          [$($rp_w)* F_grp: rp_mod_2fm::rp_rt::stream::Handler<rp_mod_2fm::rp_stream_ty_2<'rp_a>>,]
-          [$($rp_i)* const WANT_grp: bool = true; #[inline(always)] fn on_grp(&mut self, rp_x: rp_mod_2fm::rp_stream_ty_2<'rp_a>) -> ::core::result::Result<rp_mod_2fm::rp_rt::stream::Flow, rp_mod_2fm::rp_rt::DecodeError> { rp_mod_2fm::rp_rt::stream::Handler::call(&mut self.f_grp, rp_x) }]
+          [$($rp_w)* F_grp: rp_mod_2fm6Holder::rp_rt::stream::Handler<rp_mod_2fm6Holder::rp_stream_ty_2<'rp_a>>,]
+          [$($rp_i)* const WANT_grp: bool = true; #[inline(always)] fn on_grp(&mut self, rp_x: rp_mod_2fm6Holder::rp_stream_ty_2<'rp_a>) -> ::core::result::Result<rp_mod_2fm6Holder::rp_rt::stream::Flow, rp_mod_2fm6Holder::rp_rt::DecodeError> { rp_mod_2fm6Holder::rp_rt::stream::Handler::call(&mut self.f_grp, rp_x) }]
           [$($rp_fl)* f_grp: F_grp,]
-          [$($rp_ct)* f_grp: rp_mod_2fm::rp_rt::stream::typed::<rp_mod_2fm::rp_stream_ty_2<'_>, _, _>($rp_c),]
+          [$($rp_ct)* f_grp: rp_mod_2fm6Holder::rp_rt::stream::typed::<rp_mod_2fm6Holder::rp_stream_ty_2<'_>, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] by_name => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2fm::holder_stream!(@m
+        rp_mod_2fm6Holder::holder_stream!(@m
           [$($rp_g)* F_by_name,]
-          [$($rp_w)* F_by_name: rp_mod_2fm::rp_rt::stream::Handler<(rp_mod_2fm::rp_rt::ProtoStr<'rp_a>, rp_mod_2fm::Blob<'rp_a>)>,]
-          [$($rp_i)* const WANT_by_name: bool = true; #[inline(always)] fn on_by_name(&mut self, rp_x: (rp_mod_2fm::rp_rt::ProtoStr<'rp_a>, rp_mod_2fm::Blob<'rp_a>)) -> ::core::result::Result<rp_mod_2fm::rp_rt::stream::Flow, rp_mod_2fm::rp_rt::DecodeError> { rp_mod_2fm::rp_rt::stream::Handler::call(&mut self.f_by_name, rp_x) }]
+          [$($rp_w)* F_by_name: rp_mod_2fm6Holder::rp_rt::stream::Handler<(rp_mod_2fm6Holder::rp_rt::ProtoStr<'rp_a>, rp_mod_2fm6Holder::Blob<'rp_a>)>,]
+          [$($rp_i)* const WANT_by_name: bool = true; #[inline(always)] fn on_by_name(&mut self, rp_x: (rp_mod_2fm6Holder::rp_rt::ProtoStr<'rp_a>, rp_mod_2fm6Holder::Blob<'rp_a>)) -> ::core::result::Result<rp_mod_2fm6Holder::rp_rt::stream::Flow, rp_mod_2fm6Holder::rp_rt::DecodeError> { rp_mod_2fm6Holder::rp_rt::stream::Handler::call(&mut self.f_by_name, rp_x) }]
           [$($rp_fl)* f_by_name: F_by_name,]
-          [$($rp_ct)* f_by_name: rp_mod_2fm::rp_rt::stream::typed::<(rp_mod_2fm::rp_rt::ProtoStr<'_>, rp_mod_2fm::Blob<'_>), _, _>($rp_c),]
+          [$($rp_ct)* f_by_name: rp_mod_2fm6Holder::rp_rt::stream::typed::<(rp_mod_2fm6Holder::rp_rt::ProtoStr<'_>, rp_mod_2fm6Holder::Blob<'_>), _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] unknown => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2fm::holder_stream!(@m
+        rp_mod_2fm6Holder::holder_stream!(@m
           [$($rp_g)* F_unknown,]
-          [$($rp_w)* F_unknown: rp_mod_2fm::rp_rt::stream::Handler<rp_mod_2fm::rp_rt::stream::UnknownField<'rp_a>>,]
-          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_2fm::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_2fm::rp_rt::stream::Flow, rp_mod_2fm::rp_rt::DecodeError> { rp_mod_2fm::rp_rt::stream::Handler::call(&mut self.f_unknown, rp_x) }]
+          [$($rp_w)* F_unknown: rp_mod_2fm6Holder::rp_rt::stream::Handler<rp_mod_2fm6Holder::rp_rt::stream::UnknownField<'rp_a>>,]
+          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_2fm6Holder::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_2fm6Holder::rp_rt::stream::Flow, rp_mod_2fm6Holder::rp_rt::DecodeError> { rp_mod_2fm6Holder::rp_rt::stream::Handler::call(&mut self.f_unknown, rp_x) }]
           [$($rp_fl)* f_unknown: F_unknown,]
-          [$($rp_ct)* f_unknown: rp_mod_2fm::rp_rt::stream::typed::<rp_mod_2fm::rp_rt::stream::UnknownField<'_>, _, _>($rp_c),]
+          [$($rp_ct)* f_unknown: rp_mod_2fm6Holder::rp_rt::stream::typed::<rp_mod_2fm6Holder::rp_rt::stream::UnknownField<'_>, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
-        compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: keep, debug, extra, old_ids, must, big_num, blob, blobs, samples, spread, level, req_blob, grp, by_name, unknown"))
+        ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($rp_bad), "` for this message; selectable fields: keep, debug, extra, old_ids, must, big_num, blob, blobs, samples, spread, level, req_blob, grp, by_name, unknown"))
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
         #[allow(nonstandard_style)]
         struct RpVis<$($rp_g)*> { $($rp_fl)* }
         #[allow(nonstandard_style)]
-        impl<'rp_a, $($rp_g)*> rp_mod_2fm::HolderVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
+        impl<'rp_a, $($rp_g)*> rp_mod_2fm6Holder::HolderVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
         RpVis { $($rp_ct)* }
       }};
       ( $rp_state:expr ; { $( $rp_f:ident => $rp_c:expr ),* $(,)? } ) => {{
         let rp_state = $rp_state;
-        rp_mod_2fm::holder_stream!(@ms [] [] [] [] [] rp_state $( $rp_f => $rp_c , )*)
+        rp_mod_2fm6Holder::holder_stream!(@ms [] [] [] [] [] rp_state $( $rp_f => $rp_c , )*)
       }};
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident keep => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2fm::holder_stream!(@ms
+        rp_mod_2fm6Holder::holder_stream!(@ms
           [$($rp_g)* F_keep,]
-          [$($rp_w)* F_keep: rp_mod_2fm::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_keep: bool = true; #[inline(always)] fn on_keep(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2fm::rp_rt::stream::Flow, rp_mod_2fm::rp_rt::DecodeError> { rp_mod_2fm::rp_rt::stream::Handler2::call(&mut self.f_keep, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_keep: rp_mod_2fm6Holder::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_keep: bool = true; #[inline(always)] fn on_keep(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2fm6Holder::rp_rt::stream::Flow, rp_mod_2fm6Holder::rp_rt::DecodeError> { rp_mod_2fm6Holder::rp_rt::stream::Handler2::call(&mut self.f_keep, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_keep: F_keep,]
-          [$($rp_ct)* f_keep: rp_mod_2fm::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_keep: rp_mod_2fm6Holder::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident debug => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2fm::holder_stream!(@ms
+        rp_mod_2fm6Holder::holder_stream!(@ms
           [$($rp_g)* F_debug,]
-          [$($rp_w)* F_debug: rp_mod_2fm::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_debug: bool = true; #[inline(always)] fn on_debug(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2fm::rp_rt::stream::Flow, rp_mod_2fm::rp_rt::DecodeError> { rp_mod_2fm::rp_rt::stream::Handler2::call(&mut self.f_debug, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_debug: rp_mod_2fm6Holder::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_debug: bool = true; #[inline(always)] fn on_debug(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2fm6Holder::rp_rt::stream::Flow, rp_mod_2fm6Holder::rp_rt::DecodeError> { rp_mod_2fm6Holder::rp_rt::stream::Handler2::call(&mut self.f_debug, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_debug: F_debug,]
-          [$($rp_ct)* f_debug: rp_mod_2fm::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_debug: rp_mod_2fm6Holder::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident extra => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2fm::holder_stream!(@ms
+        rp_mod_2fm6Holder::holder_stream!(@ms
           [$($rp_g)* F_extra,]
-          [$($rp_w)* F_extra: rp_mod_2fm::rp_rt::stream::Handler2<RpS, rp_mod_2fm::Blob<'rp_a>>,]
-          [$($rp_i)* const WANT_extra: bool = true; #[inline(always)] fn on_extra(&mut self, rp_x: rp_mod_2fm::Blob<'rp_a>) -> ::core::result::Result<rp_mod_2fm::rp_rt::stream::Flow, rp_mod_2fm::rp_rt::DecodeError> { rp_mod_2fm::rp_rt::stream::Handler2::call(&mut self.f_extra, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_extra: rp_mod_2fm6Holder::rp_rt::stream::Handler2<RpS, rp_mod_2fm6Holder::Blob<'rp_a>>,]
+          [$($rp_i)* const WANT_extra: bool = true; #[inline(always)] fn on_extra(&mut self, rp_x: rp_mod_2fm6Holder::Blob<'rp_a>) -> ::core::result::Result<rp_mod_2fm6Holder::rp_rt::stream::Flow, rp_mod_2fm6Holder::rp_rt::DecodeError> { rp_mod_2fm6Holder::rp_rt::stream::Handler2::call(&mut self.f_extra, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_extra: F_extra,]
-          [$($rp_ct)* f_extra: rp_mod_2fm::rp_rt::stream::typed2::<_, rp_mod_2fm::Blob<'_>, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_extra: rp_mod_2fm6Holder::rp_rt::stream::typed2::<_, rp_mod_2fm6Holder::Blob<'_>, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident old_ids => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2fm::holder_stream!(@ms
+        rp_mod_2fm6Holder::holder_stream!(@ms
           [$($rp_g)* F_old_ids,]
-          [$($rp_w)* F_old_ids: rp_mod_2fm::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_old_ids: bool = true; #[inline(always)] fn on_old_ids(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2fm::rp_rt::stream::Flow, rp_mod_2fm::rp_rt::DecodeError> { rp_mod_2fm::rp_rt::stream::Handler2::call(&mut self.f_old_ids, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_old_ids: rp_mod_2fm6Holder::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_old_ids: bool = true; #[inline(always)] fn on_old_ids(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2fm6Holder::rp_rt::stream::Flow, rp_mod_2fm6Holder::rp_rt::DecodeError> { rp_mod_2fm6Holder::rp_rt::stream::Handler2::call(&mut self.f_old_ids, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_old_ids: F_old_ids,]
-          [$($rp_ct)* f_old_ids: rp_mod_2fm::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_old_ids: rp_mod_2fm6Holder::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident must => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2fm::holder_stream!(@ms
+        rp_mod_2fm6Holder::holder_stream!(@ms
           [$($rp_g)* F_must,]
-          [$($rp_w)* F_must: rp_mod_2fm::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_must: bool = true; #[inline(always)] fn on_must(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2fm::rp_rt::stream::Flow, rp_mod_2fm::rp_rt::DecodeError> { rp_mod_2fm::rp_rt::stream::Handler2::call(&mut self.f_must, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_must: rp_mod_2fm6Holder::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_must: bool = true; #[inline(always)] fn on_must(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2fm6Holder::rp_rt::stream::Flow, rp_mod_2fm6Holder::rp_rt::DecodeError> { rp_mod_2fm6Holder::rp_rt::stream::Handler2::call(&mut self.f_must, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_must: F_must,]
-          [$($rp_ct)* f_must: rp_mod_2fm::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_must: rp_mod_2fm6Holder::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident big_num => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2fm::holder_stream!(@ms
+        rp_mod_2fm6Holder::holder_stream!(@ms
           [$($rp_g)* F_big_num,]
-          [$($rp_w)* F_big_num: rp_mod_2fm::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_big_num: bool = true; #[inline(always)] fn on_big_num(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2fm::rp_rt::stream::Flow, rp_mod_2fm::rp_rt::DecodeError> { rp_mod_2fm::rp_rt::stream::Handler2::call(&mut self.f_big_num, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_big_num: rp_mod_2fm6Holder::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_big_num: bool = true; #[inline(always)] fn on_big_num(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2fm6Holder::rp_rt::stream::Flow, rp_mod_2fm6Holder::rp_rt::DecodeError> { rp_mod_2fm6Holder::rp_rt::stream::Handler2::call(&mut self.f_big_num, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_big_num: F_big_num,]
-          [$($rp_ct)* f_big_num: rp_mod_2fm::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_big_num: rp_mod_2fm6Holder::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident blob => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2fm::holder_stream!(@ms
+        rp_mod_2fm6Holder::holder_stream!(@ms
           [$($rp_g)* F_blob,]
-          [$($rp_w)* F_blob: rp_mod_2fm::rp_rt::stream::Handler2<RpS, rp_mod_2fm::Blob<'rp_a>>,]
-          [$($rp_i)* const WANT_blob: bool = true; #[inline(always)] fn on_blob(&mut self, rp_x: rp_mod_2fm::Blob<'rp_a>) -> ::core::result::Result<rp_mod_2fm::rp_rt::stream::Flow, rp_mod_2fm::rp_rt::DecodeError> { rp_mod_2fm::rp_rt::stream::Handler2::call(&mut self.f_blob, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_blob: rp_mod_2fm6Holder::rp_rt::stream::Handler2<RpS, rp_mod_2fm6Holder::Blob<'rp_a>>,]
+          [$($rp_i)* const WANT_blob: bool = true; #[inline(always)] fn on_blob(&mut self, rp_x: rp_mod_2fm6Holder::Blob<'rp_a>) -> ::core::result::Result<rp_mod_2fm6Holder::rp_rt::stream::Flow, rp_mod_2fm6Holder::rp_rt::DecodeError> { rp_mod_2fm6Holder::rp_rt::stream::Handler2::call(&mut self.f_blob, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_blob: F_blob,]
-          [$($rp_ct)* f_blob: rp_mod_2fm::rp_rt::stream::typed2::<_, rp_mod_2fm::Blob<'_>, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_blob: rp_mod_2fm6Holder::rp_rt::stream::typed2::<_, rp_mod_2fm6Holder::Blob<'_>, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident blobs => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2fm::holder_stream!(@ms
+        rp_mod_2fm6Holder::holder_stream!(@ms
           [$($rp_g)* F_blobs,]
-          [$($rp_w)* F_blobs: rp_mod_2fm::rp_rt::stream::Handler2<RpS, rp_mod_2fm::Blob<'rp_a>>,]
-          [$($rp_i)* const WANT_blobs: bool = true; #[inline(always)] fn on_blobs(&mut self, rp_x: rp_mod_2fm::Blob<'rp_a>) -> ::core::result::Result<rp_mod_2fm::rp_rt::stream::Flow, rp_mod_2fm::rp_rt::DecodeError> { rp_mod_2fm::rp_rt::stream::Handler2::call(&mut self.f_blobs, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_blobs: rp_mod_2fm6Holder::rp_rt::stream::Handler2<RpS, rp_mod_2fm6Holder::Blob<'rp_a>>,]
+          [$($rp_i)* const WANT_blobs: bool = true; #[inline(always)] fn on_blobs(&mut self, rp_x: rp_mod_2fm6Holder::Blob<'rp_a>) -> ::core::result::Result<rp_mod_2fm6Holder::rp_rt::stream::Flow, rp_mod_2fm6Holder::rp_rt::DecodeError> { rp_mod_2fm6Holder::rp_rt::stream::Handler2::call(&mut self.f_blobs, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_blobs: F_blobs,]
-          [$($rp_ct)* f_blobs: rp_mod_2fm::rp_rt::stream::typed2::<_, rp_mod_2fm::Blob<'_>, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_blobs: rp_mod_2fm6Holder::rp_rt::stream::typed2::<_, rp_mod_2fm6Holder::Blob<'_>, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident samples => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2fm::holder_stream!(@ms
+        rp_mod_2fm6Holder::holder_stream!(@ms
           [$($rp_g)* F_samples,]
-          [$($rp_w)* F_samples: rp_mod_2fm::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_samples: bool = true; #[inline(always)] fn on_samples(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2fm::rp_rt::stream::Flow, rp_mod_2fm::rp_rt::DecodeError> { rp_mod_2fm::rp_rt::stream::Handler2::call(&mut self.f_samples, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_samples: rp_mod_2fm6Holder::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_samples: bool = true; #[inline(always)] fn on_samples(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2fm6Holder::rp_rt::stream::Flow, rp_mod_2fm6Holder::rp_rt::DecodeError> { rp_mod_2fm6Holder::rp_rt::stream::Handler2::call(&mut self.f_samples, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_samples: F_samples,]
-          [$($rp_ct)* f_samples: rp_mod_2fm::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_samples: rp_mod_2fm6Holder::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident spread => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2fm::holder_stream!(@ms
+        rp_mod_2fm6Holder::holder_stream!(@ms
           [$($rp_g)* F_spread,]
-          [$($rp_w)* F_spread: rp_mod_2fm::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_spread: bool = true; #[inline(always)] fn on_spread(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2fm::rp_rt::stream::Flow, rp_mod_2fm::rp_rt::DecodeError> { rp_mod_2fm::rp_rt::stream::Handler2::call(&mut self.f_spread, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_spread: rp_mod_2fm6Holder::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_spread: bool = true; #[inline(always)] fn on_spread(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2fm6Holder::rp_rt::stream::Flow, rp_mod_2fm6Holder::rp_rt::DecodeError> { rp_mod_2fm6Holder::rp_rt::stream::Handler2::call(&mut self.f_spread, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_spread: F_spread,]
-          [$($rp_ct)* f_spread: rp_mod_2fm::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_spread: rp_mod_2fm6Holder::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident level => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2fm::holder_stream!(@ms
+        rp_mod_2fm6Holder::holder_stream!(@ms
           [$($rp_g)* F_level,]
-          [$($rp_w)* F_level: rp_mod_2fm::rp_rt::stream::Handler2<RpS, rp_mod_2fm::rp_stream_ty_1>,]
-          [$($rp_i)* const WANT_level: bool = true; #[inline(always)] fn on_level(&mut self, rp_x: rp_mod_2fm::rp_stream_ty_1) -> ::core::result::Result<rp_mod_2fm::rp_rt::stream::Flow, rp_mod_2fm::rp_rt::DecodeError> { rp_mod_2fm::rp_rt::stream::Handler2::call(&mut self.f_level, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_level: rp_mod_2fm6Holder::rp_rt::stream::Handler2<RpS, rp_mod_2fm6Holder::rp_stream_ty_1>,]
+          [$($rp_i)* const WANT_level: bool = true; #[inline(always)] fn on_level(&mut self, rp_x: rp_mod_2fm6Holder::rp_stream_ty_1) -> ::core::result::Result<rp_mod_2fm6Holder::rp_rt::stream::Flow, rp_mod_2fm6Holder::rp_rt::DecodeError> { rp_mod_2fm6Holder::rp_rt::stream::Handler2::call(&mut self.f_level, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_level: F_level,]
-          [$($rp_ct)* f_level: rp_mod_2fm::rp_rt::stream::typed2::<_, rp_mod_2fm::rp_stream_ty_1, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_level: rp_mod_2fm6Holder::rp_rt::stream::typed2::<_, rp_mod_2fm6Holder::rp_stream_ty_1, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident req_blob => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2fm::holder_stream!(@ms
+        rp_mod_2fm6Holder::holder_stream!(@ms
           [$($rp_g)* F_req_blob,]
-          [$($rp_w)* F_req_blob: rp_mod_2fm::rp_rt::stream::Handler2<RpS, rp_mod_2fm::Blob<'rp_a>>,]
-          [$($rp_i)* const WANT_req_blob: bool = true; #[inline(always)] fn on_req_blob(&mut self, rp_x: rp_mod_2fm::Blob<'rp_a>) -> ::core::result::Result<rp_mod_2fm::rp_rt::stream::Flow, rp_mod_2fm::rp_rt::DecodeError> { rp_mod_2fm::rp_rt::stream::Handler2::call(&mut self.f_req_blob, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_req_blob: rp_mod_2fm6Holder::rp_rt::stream::Handler2<RpS, rp_mod_2fm6Holder::Blob<'rp_a>>,]
+          [$($rp_i)* const WANT_req_blob: bool = true; #[inline(always)] fn on_req_blob(&mut self, rp_x: rp_mod_2fm6Holder::Blob<'rp_a>) -> ::core::result::Result<rp_mod_2fm6Holder::rp_rt::stream::Flow, rp_mod_2fm6Holder::rp_rt::DecodeError> { rp_mod_2fm6Holder::rp_rt::stream::Handler2::call(&mut self.f_req_blob, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_req_blob: F_req_blob,]
-          [$($rp_ct)* f_req_blob: rp_mod_2fm::rp_rt::stream::typed2::<_, rp_mod_2fm::Blob<'_>, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_req_blob: rp_mod_2fm6Holder::rp_rt::stream::typed2::<_, rp_mod_2fm6Holder::Blob<'_>, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident grp => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2fm::holder_stream!(@ms
+        rp_mod_2fm6Holder::holder_stream!(@ms
           [$($rp_g)* F_grp,]
-          [$($rp_w)* F_grp: rp_mod_2fm::rp_rt::stream::Handler2<RpS, rp_mod_2fm::rp_stream_ty_2<'rp_a>>,]
-          [$($rp_i)* const WANT_grp: bool = true; #[inline(always)] fn on_grp(&mut self, rp_x: rp_mod_2fm::rp_stream_ty_2<'rp_a>) -> ::core::result::Result<rp_mod_2fm::rp_rt::stream::Flow, rp_mod_2fm::rp_rt::DecodeError> { rp_mod_2fm::rp_rt::stream::Handler2::call(&mut self.f_grp, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_grp: rp_mod_2fm6Holder::rp_rt::stream::Handler2<RpS, rp_mod_2fm6Holder::rp_stream_ty_2<'rp_a>>,]
+          [$($rp_i)* const WANT_grp: bool = true; #[inline(always)] fn on_grp(&mut self, rp_x: rp_mod_2fm6Holder::rp_stream_ty_2<'rp_a>) -> ::core::result::Result<rp_mod_2fm6Holder::rp_rt::stream::Flow, rp_mod_2fm6Holder::rp_rt::DecodeError> { rp_mod_2fm6Holder::rp_rt::stream::Handler2::call(&mut self.f_grp, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_grp: F_grp,]
-          [$($rp_ct)* f_grp: rp_mod_2fm::rp_rt::stream::typed2::<_, rp_mod_2fm::rp_stream_ty_2<'_>, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_grp: rp_mod_2fm6Holder::rp_rt::stream::typed2::<_, rp_mod_2fm6Holder::rp_stream_ty_2<'_>, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident by_name => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2fm::holder_stream!(@ms
+        rp_mod_2fm6Holder::holder_stream!(@ms
           [$($rp_g)* F_by_name,]
-          [$($rp_w)* F_by_name: rp_mod_2fm::rp_rt::stream::Handler2<RpS, (rp_mod_2fm::rp_rt::ProtoStr<'rp_a>, rp_mod_2fm::Blob<'rp_a>)>,]
-          [$($rp_i)* const WANT_by_name: bool = true; #[inline(always)] fn on_by_name(&mut self, rp_x: (rp_mod_2fm::rp_rt::ProtoStr<'rp_a>, rp_mod_2fm::Blob<'rp_a>)) -> ::core::result::Result<rp_mod_2fm::rp_rt::stream::Flow, rp_mod_2fm::rp_rt::DecodeError> { rp_mod_2fm::rp_rt::stream::Handler2::call(&mut self.f_by_name, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_by_name: rp_mod_2fm6Holder::rp_rt::stream::Handler2<RpS, (rp_mod_2fm6Holder::rp_rt::ProtoStr<'rp_a>, rp_mod_2fm6Holder::Blob<'rp_a>)>,]
+          [$($rp_i)* const WANT_by_name: bool = true; #[inline(always)] fn on_by_name(&mut self, rp_x: (rp_mod_2fm6Holder::rp_rt::ProtoStr<'rp_a>, rp_mod_2fm6Holder::Blob<'rp_a>)) -> ::core::result::Result<rp_mod_2fm6Holder::rp_rt::stream::Flow, rp_mod_2fm6Holder::rp_rt::DecodeError> { rp_mod_2fm6Holder::rp_rt::stream::Handler2::call(&mut self.f_by_name, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_by_name: F_by_name,]
-          [$($rp_ct)* f_by_name: rp_mod_2fm::rp_rt::stream::typed2::<_, (rp_mod_2fm::rp_rt::ProtoStr<'_>, rp_mod_2fm::Blob<'_>), _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_by_name: rp_mod_2fm6Holder::rp_rt::stream::typed2::<_, (rp_mod_2fm6Holder::rp_rt::ProtoStr<'_>, rp_mod_2fm6Holder::Blob<'_>), _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident unknown => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2fm::holder_stream!(@ms
+        rp_mod_2fm6Holder::holder_stream!(@ms
           [$($rp_g)* F_unknown,]
-          [$($rp_w)* F_unknown: rp_mod_2fm::rp_rt::stream::Handler2<RpS, rp_mod_2fm::rp_rt::stream::UnknownField<'rp_a>>,]
-          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_2fm::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_2fm::rp_rt::stream::Flow, rp_mod_2fm::rp_rt::DecodeError> { rp_mod_2fm::rp_rt::stream::Handler2::call(&mut self.f_unknown, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_unknown: rp_mod_2fm6Holder::rp_rt::stream::Handler2<RpS, rp_mod_2fm6Holder::rp_rt::stream::UnknownField<'rp_a>>,]
+          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_2fm6Holder::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_2fm6Holder::rp_rt::stream::Flow, rp_mod_2fm6Holder::rp_rt::DecodeError> { rp_mod_2fm6Holder::rp_rt::stream::Handler2::call(&mut self.f_unknown, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_unknown: F_unknown,]
-          [$($rp_ct)* f_unknown: rp_mod_2fm::rp_rt::stream::typed2::<_, rp_mod_2fm::rp_rt::stream::UnknownField<'_>, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_unknown: rp_mod_2fm6Holder::rp_rt::stream::typed2::<_, rp_mod_2fm6Holder::rp_rt::stream::UnknownField<'_>, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
-        compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: keep, debug, extra, old_ids, must, big_num, blob, blobs, samples, spread, level, req_blob, grp, by_name, unknown"))
+        ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($rp_bad), "` for this message; selectable fields: keep, debug, extra, old_ids, must, big_num, blob, blobs, samples, spread, level, req_blob, grp, by_name, unknown"))
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident ) => {{
         #[allow(nonstandard_style, dead_code)]
-        struct RpVis<'rp_s, RpS: ?Sized, $($rp_g)*> { $($rp_fl)* rp_state: &'rp_s mut RpS }
+        struct RpVis<'rp_s, RpS: ?::core::marker::Sized, $($rp_g)*> { $($rp_fl)* rp_state: &'rp_s mut RpS }
         #[allow(nonstandard_style)]
-        impl<'rp_a, 'rp_s, RpS: ?Sized, $($rp_g)*> rp_mod_2fm::HolderVisitor<'rp_a> for RpVis<'rp_s, RpS, $($rp_g)*> where $($rp_w)* { $($rp_i)* }
+        impl<'rp_a, 'rp_s, RpS: ?::core::marker::Sized, $($rp_g)*> rp_mod_2fm6Holder::HolderVisitor<'rp_a> for RpVis<'rp_s, RpS, $($rp_g)*> where $($rp_w)* { $($rp_i)* }
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use holder_stream;
+    pub(crate) use rp_mac_2fm6Holder as holder_stream;
 
     pub mod holder {
       #[doc(hidden)]
-      pub use super::holder as rp_mod_2fm6holder;
+      pub use super::holder as rp_mod_2fm6Holder3Grp;
       #[doc(hidden)]
       pub use ::rapidproto as rp_rt;
 
@@ -2059,72 +2061,72 @@ pub mod stream {
         }
       }
 
-      macro_rules! grp_stream {
+      macro_rules! rp_mac_2fm6Holder3Grp {
         ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
-          rp_mod_2fm6holder::grp_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
+          rp_mod_2fm6Holder3Grp::grp_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
         };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] g => $rp_c:expr , $($rp_rest:tt)*) => {
-          rp_mod_2fm6holder::grp_stream!(@m
+          rp_mod_2fm6Holder3Grp::grp_stream!(@m
             [$($rp_g)* F_g,]
-            [$($rp_w)* F_g: rp_mod_2fm6holder::rp_rt::stream::Handler<i32>,]
-            [$($rp_i)* const WANT_g: bool = true; #[inline(always)] fn on_g(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2fm6holder::rp_rt::stream::Flow, rp_mod_2fm6holder::rp_rt::DecodeError> { rp_mod_2fm6holder::rp_rt::stream::Handler::call(&mut self.f_g, rp_x) }]
+            [$($rp_w)* F_g: rp_mod_2fm6Holder3Grp::rp_rt::stream::Handler<i32>,]
+            [$($rp_i)* const WANT_g: bool = true; #[inline(always)] fn on_g(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2fm6Holder3Grp::rp_rt::stream::Flow, rp_mod_2fm6Holder3Grp::rp_rt::DecodeError> { rp_mod_2fm6Holder3Grp::rp_rt::stream::Handler::call(&mut self.f_g, rp_x) }]
             [$($rp_fl)* f_g: F_g,]
-            [$($rp_ct)* f_g: rp_mod_2fm6holder::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+            [$($rp_ct)* f_g: rp_mod_2fm6Holder3Grp::rp_rt::stream::typed::<i32, _, _>($rp_c),]
           $($rp_rest)*)
         };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] unknown => $rp_c:expr , $($rp_rest:tt)*) => {
-          rp_mod_2fm6holder::grp_stream!(@m
+          rp_mod_2fm6Holder3Grp::grp_stream!(@m
             [$($rp_g)* F_unknown,]
-            [$($rp_w)* F_unknown: rp_mod_2fm6holder::rp_rt::stream::Handler<rp_mod_2fm6holder::rp_rt::stream::UnknownField<'rp_a>>,]
-            [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_2fm6holder::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_2fm6holder::rp_rt::stream::Flow, rp_mod_2fm6holder::rp_rt::DecodeError> { rp_mod_2fm6holder::rp_rt::stream::Handler::call(&mut self.f_unknown, rp_x) }]
+            [$($rp_w)* F_unknown: rp_mod_2fm6Holder3Grp::rp_rt::stream::Handler<rp_mod_2fm6Holder3Grp::rp_rt::stream::UnknownField<'rp_a>>,]
+            [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_2fm6Holder3Grp::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_2fm6Holder3Grp::rp_rt::stream::Flow, rp_mod_2fm6Holder3Grp::rp_rt::DecodeError> { rp_mod_2fm6Holder3Grp::rp_rt::stream::Handler::call(&mut self.f_unknown, rp_x) }]
             [$($rp_fl)* f_unknown: F_unknown,]
-            [$($rp_ct)* f_unknown: rp_mod_2fm6holder::rp_rt::stream::typed::<rp_mod_2fm6holder::rp_rt::stream::UnknownField<'_>, _, _>($rp_c),]
+            [$($rp_ct)* f_unknown: rp_mod_2fm6Holder3Grp::rp_rt::stream::typed::<rp_mod_2fm6Holder3Grp::rp_rt::stream::UnknownField<'_>, _, _>($rp_c),]
           $($rp_rest)*)
         };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
-          compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: g, unknown"))
+          ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($rp_bad), "` for this message; selectable fields: g, unknown"))
         };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
           #[allow(nonstandard_style)]
           struct RpVis<$($rp_g)*> { $($rp_fl)* }
           #[allow(nonstandard_style)]
-          impl<'rp_a, $($rp_g)*> rp_mod_2fm6holder::GrpVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
+          impl<'rp_a, $($rp_g)*> rp_mod_2fm6Holder3Grp::GrpVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
           RpVis { $($rp_ct)* }
         }};
         ( $rp_state:expr ; { $( $rp_f:ident => $rp_c:expr ),* $(,)? } ) => {{
           let rp_state = $rp_state;
-          rp_mod_2fm6holder::grp_stream!(@ms [] [] [] [] [] rp_state $( $rp_f => $rp_c , )*)
+          rp_mod_2fm6Holder3Grp::grp_stream!(@ms [] [] [] [] [] rp_state $( $rp_f => $rp_c , )*)
         }};
         (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident g => $rp_c:expr , $($rp_rest:tt)*) => {
-          rp_mod_2fm6holder::grp_stream!(@ms
+          rp_mod_2fm6Holder3Grp::grp_stream!(@ms
             [$($rp_g)* F_g,]
-            [$($rp_w)* F_g: rp_mod_2fm6holder::rp_rt::stream::Handler2<RpS, i32>,]
-            [$($rp_i)* const WANT_g: bool = true; #[inline(always)] fn on_g(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2fm6holder::rp_rt::stream::Flow, rp_mod_2fm6holder::rp_rt::DecodeError> { rp_mod_2fm6holder::rp_rt::stream::Handler2::call(&mut self.f_g, &mut *self.rp_state, rp_x) }]
+            [$($rp_w)* F_g: rp_mod_2fm6Holder3Grp::rp_rt::stream::Handler2<RpS, i32>,]
+            [$($rp_i)* const WANT_g: bool = true; #[inline(always)] fn on_g(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2fm6Holder3Grp::rp_rt::stream::Flow, rp_mod_2fm6Holder3Grp::rp_rt::DecodeError> { rp_mod_2fm6Holder3Grp::rp_rt::stream::Handler2::call(&mut self.f_g, &mut *self.rp_state, rp_x) }]
             [$($rp_fl)* f_g: F_g,]
-            [$($rp_ct)* f_g: rp_mod_2fm6holder::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+            [$($rp_ct)* f_g: rp_mod_2fm6Holder3Grp::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
           $rp_s $($rp_rest)*)
         };
         (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident unknown => $rp_c:expr , $($rp_rest:tt)*) => {
-          rp_mod_2fm6holder::grp_stream!(@ms
+          rp_mod_2fm6Holder3Grp::grp_stream!(@ms
             [$($rp_g)* F_unknown,]
-            [$($rp_w)* F_unknown: rp_mod_2fm6holder::rp_rt::stream::Handler2<RpS, rp_mod_2fm6holder::rp_rt::stream::UnknownField<'rp_a>>,]
-            [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_2fm6holder::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_2fm6holder::rp_rt::stream::Flow, rp_mod_2fm6holder::rp_rt::DecodeError> { rp_mod_2fm6holder::rp_rt::stream::Handler2::call(&mut self.f_unknown, &mut *self.rp_state, rp_x) }]
+            [$($rp_w)* F_unknown: rp_mod_2fm6Holder3Grp::rp_rt::stream::Handler2<RpS, rp_mod_2fm6Holder3Grp::rp_rt::stream::UnknownField<'rp_a>>,]
+            [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_2fm6Holder3Grp::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_2fm6Holder3Grp::rp_rt::stream::Flow, rp_mod_2fm6Holder3Grp::rp_rt::DecodeError> { rp_mod_2fm6Holder3Grp::rp_rt::stream::Handler2::call(&mut self.f_unknown, &mut *self.rp_state, rp_x) }]
             [$($rp_fl)* f_unknown: F_unknown,]
-            [$($rp_ct)* f_unknown: rp_mod_2fm6holder::rp_rt::stream::typed2::<_, rp_mod_2fm6holder::rp_rt::stream::UnknownField<'_>, _, _>(&*$rp_s, $rp_c),]
+            [$($rp_ct)* f_unknown: rp_mod_2fm6Holder3Grp::rp_rt::stream::typed2::<_, rp_mod_2fm6Holder3Grp::rp_rt::stream::UnknownField<'_>, _, _>(&*$rp_s, $rp_c),]
           $rp_s $($rp_rest)*)
         };
         (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
-          compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: g, unknown"))
+          ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($rp_bad), "` for this message; selectable fields: g, unknown"))
         };
         (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident ) => {{
           #[allow(nonstandard_style, dead_code)]
-          struct RpVis<'rp_s, RpS: ?Sized, $($rp_g)*> { $($rp_fl)* rp_state: &'rp_s mut RpS }
+          struct RpVis<'rp_s, RpS: ?::core::marker::Sized, $($rp_g)*> { $($rp_fl)* rp_state: &'rp_s mut RpS }
           #[allow(nonstandard_style)]
-          impl<'rp_a, 'rp_s, RpS: ?Sized, $($rp_g)*> rp_mod_2fm6holder::GrpVisitor<'rp_a> for RpVis<'rp_s, RpS, $($rp_g)*> where $($rp_w)* { $($rp_i)* }
+          impl<'rp_a, 'rp_s, RpS: ?::core::marker::Sized, $($rp_g)*> rp_mod_2fm6Holder3Grp::GrpVisitor<'rp_a> for RpVis<'rp_s, RpS, $($rp_g)*> where $($rp_w)* { $($rp_i)* }
           RpVis { $($rp_ct)* rp_state: $rp_s }
         }};
       }
-      pub(crate) use grp_stream;
+      pub(crate) use rp_mac_2fm6Holder3Grp as grp_stream;
     }
   }
 }

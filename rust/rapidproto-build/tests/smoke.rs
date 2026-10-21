@@ -21,11 +21,8 @@ fn generates_rust_for_the_consumer_example() {
     let request = Request {
         entries: vec!["message.proto".to_owned()],
         sources: vec![proto("message.proto"), proto("types.proto")],
-        modes: String::new(),
-        unknown_all: false,
-        arena: true,
         stream: true, // exercise both models through the blob
-        export_stream_macros: false,
+        ..Request::default()
     };
     let rust = generate(&request).expect("generation succeeds");
     assert!(
@@ -48,11 +45,7 @@ fn a_missing_import_is_reported_not_panicked() {
     let request = Request {
         entries: vec!["message.proto".to_owned()],
         sources: vec![proto("message.proto")],
-        modes: String::new(),
-        unknown_all: false,
-        arena: true,
-        stream: false,
-        export_stream_macros: false,
+        ..Request::default()
     };
     let error = generate(&request).expect_err("missing import should fail");
     assert_eq!(error.code, 3, "resolve-stage exit code");
@@ -63,22 +56,28 @@ fn a_missing_import_is_reported_not_panicked() {
     );
 }
 
+/// The generator is the one place the options are validated; an invalid combination is a clean
+/// bad-frame error (exit 2) naming the option.
 #[test]
-fn exporting_stream_macros_without_the_stream_model_is_rejected() {
-    let request = Request {
+fn invalid_stream_macro_exports_are_rejected() {
+    let request = |stream: bool, prefix: &str| Request {
         entries: vec!["message.proto".to_owned()],
         sources: vec![proto("message.proto"), proto("types.proto")],
-        modes: String::new(),
-        unknown_all: false,
-        arena: true,
-        stream: false,
-        export_stream_macros: true,
+        stream,
+        export_stream_macros: Some(prefix.to_owned()),
+        ..Request::default()
     };
-    let error = generate(&request).expect_err("export without stream should fail");
-    assert_eq!(error.code, 2, "bad-frame exit code");
-    assert!(
-        error.message.contains("export_stream_macros"),
-        "error should name the flag: {}",
-        error.message
-    );
+    for (stream, prefix, expected) in [
+        (false, "demo", "needs the stream model"),
+        (true, "1demo", "is not an identifier"),
+        (true, "de-mo", "is not an identifier"),
+    ] {
+        let error = generate(&request(stream, prefix)).expect_err("invalid export should fail");
+        assert_eq!(error.code, 2, "bad-frame exit code for {prefix:?}");
+        assert!(
+            error.message.contains(expected),
+            "error for {prefix:?} should say {expected:?}: {}",
+            error.message
+        );
+    }
 }

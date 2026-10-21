@@ -1,9 +1,10 @@
 //! Decode round-trip for the streaming decoder, over the SAME corpus schema the arena decode test
 //! uses (`proto3`'s `p3.Msg`) -- there are no Rust-local fixture protos. Every corpus golden carries
 //! both an `arena` and a `stream` tree (see tests/test_rustgen.cpp). This is an IN-CRATE test module
-//! (wired into the generated lib.rs), not a `tests/` integration test, because the generated
-//! `*_stream!` macros are `pub(crate) use`-exported -- reachable within the including crate (the normal
+//! (wired into the generated lib.rs), not a `tests/` integration test, because by default the
+//! generated `*_stream!` macros are `pub(crate)` -- reachable within the including crate (the normal
 //! consumer case: generated code is `include!`d into the consumer's own crate) but not cross-crate.
+//! (The exported form, `export_stream_macros`, is driven cross-crate by tests/stream_export.rs.)
 //!
 //! It drives the generated visitor via the per-message `msg_stream!` macro (closures capturing locals):
 //! subset selection with the rest skipped, a packed repeated field fired per element, an enum delivered
@@ -14,9 +15,9 @@
 //! fields aggregating into one `&mut` accumulator, re-threaded across a nested `sub.decode(..)`.
 //!
 //! A `use crate::proto3::stream::p3::*;` glob brings the handle, visitor trait and macro into scope,
-//! plus the module's hidden self re-export that the macro expansion names everything through -- so two
-//! stream modules globbed into one scope never make an expansion ambiguous, even when they share a
-//! message name (pinned by the two `globbing_*` tests).
+//! plus the hidden per-message scope re-export the macro expansion names everything through -- so
+//! globbing several stream modules into one scope leaves every expansion unambiguous, whether they
+//! share a message name or a package across generated files (the `globbing_*` tests).
 #![cfg(feature = "std")]
 
 use crate::proto3::stream::p3::*;
@@ -246,19 +247,19 @@ fn a_visitor_type_can_be_hand_implemented() {
     assert_eq!(c.0, 3);
 }
 
-// Its own module: `streamexport` is a second copy of package `p3`, so globbing it in a scope that
-// already sees the file-level `proto3::stream::p3` glob would make both copies' names ambiguous.
+// Its own module: `streamexport_p3` is a second copy of package `p3`, so globbing it in a scope that
+// already sees the file-level `proto3::stream::p3` glob would make the two copies' names ambiguous.
 mod exported {
     use super::MSG;
-    use crate::streamexport::stream::p3::*;
+    use crate::streamexport_p3::stream::p3::*;
 
     #[test]
     fn exported_macros_also_work_in_the_crate_that_includes_them() {
-        // `streamexport` is proto3 generated with `export_stream_macros` (its cross-crate use is in
-        // tests/stream_export.rs). Inside the defining crate the expansion's recursion runs through
-        // the friendly module path too; a `$crate::`-absolute call to the hidden `#[macro_export]`
-        // name would be rejected here (`macro_expanded_macro_exports_accessed_by_absolute_paths`,
-        // since the golden is `include!`d).
+        // `streamexport_p3` is proto3 generated with `export_stream_macros` (its cross-crate use is
+        // in tests/stream_export.rs). Inside the defining crate the expansion's recursion runs
+        // through the friendly module path too; a `$crate::`-absolute call to the hidden
+        // `#[macro_export]` name would be rejected here
+        // (`macro_expanded_macro_exports_accessed_by_absolute_paths`, since the golden is `include!`d).
         let (mut outer, mut inner, mut sum) = (0i32, 0i32, 0i32);
         Msg::new(MSG)
             .decode(msg_stream! {
@@ -276,8 +277,8 @@ mod exported {
 #[test]
 fn globbing_two_packages_keeps_cross_package_types_unambiguous() {
     // `stream::main` and `stream::dep` each define an `rp_stream_ty_0` (a `Dep` handle in one, the
-    // `DepEnum` newtype in the other). Globbed together they used to make every expansion that names a
-    // foreign type ambiguous (E0659); the expansion now names it through its own module's scope.
+    // `DepEnum` newtype in the other). Globbed together, a bare alias would be ambiguous (E0659); the
+    // expansion names it through its own message's scope.
     use crate::main::stream::dep::*;
     use crate::main::stream::main::*;
     // main.Main { d: dep.Dep { v: 9, de: DEP_ONE }, e: DEP_ONE }
@@ -296,7 +297,7 @@ fn globbing_two_packages_keeps_cross_package_types_unambiguous() {
 fn globbing_two_modules_with_the_same_message_name_keeps_each_macro_usable() {
     // `anv.Outer` and its nested `anv.Outer.Outer` both generate an `Outer`, an `OuterVisitor` and an
     // `outer_stream!`. With both modules globbed, each macro is still callable through its path: the
-    // expansion's own recursion and trait impl go through its module's scope, not the bare names.
+    // expansion's own recursion and trait impl go through its message's scope, not the bare names.
     use crate::arena_naming_valid::stream::anv as parent;
     use crate::arena_naming_valid::stream::anv::outer::*;
     use crate::arena_naming_valid::stream::anv::*;
@@ -310,4 +311,63 @@ fn globbing_two_modules_with_the_same_message_name_keeps_each_macro_usable() {
         })
         .unwrap();
     assert_eq!(v, 5);
+}
+
+#[test]
+fn globbing_one_package_from_two_generated_files_keeps_both_macros_usable() {
+    // pkgorder_t1 and pkgorder_t2 are separate generated files that both declare package `po` (with
+    // different messages), as two `compile()` calls sharing a package produce. Each expansion names
+    // its own message's scope, so globbing both `po` modules leaves both macros usable.
+    use crate::pkgorder_t1::stream::po::*;
+    use crate::pkgorder_t2::stream::po::*;
+    const V7: &[u8] = &[0x08, 0x07];
+    let (mut a, mut b) = (0i32, 0i32);
+    linux_::new(V7)
+        .decode(linux__stream! { v => |x| a = x })
+        .unwrap();
+    linux::new(V7)
+        .decode(linux_stream! { v => |x| b = x })
+        .unwrap();
+    assert_eq!((a, b), (7, 7));
+}
+
+#[test]
+fn schema_names_shaped_like_the_stream_glue_do_not_collide_with_it() {
+    // nsedge/gluenames.proto declares protoc-valid names the stream glue would otherwise clash with:
+    // a message submodule and a sub-package named `rp_rt`, messages named exactly like `Holder`'s
+    // scope and macro definition, a `Sized`, and a `Foo` whose macro shares `FooStream`'s submodule
+    // name. Most of the check is the golden compiling; this drives `Holder`'s macros with all of those
+    // names in scope, through the shared-state form (whose expansion bounds its state `?Sized`).
+    use crate::gluenames::stream::gluenames::rp_rt_::*; // the `rp_rt` sub-package, escaped
+    use crate::gluenames::stream::gluenames::rp_rt__::*; // `RpRt`'s nested types, deduped against it
+    use crate::gluenames::stream::gluenames::*;
+    // Holder { nested: RpRt { x: X { v: 1 } }, sub: Sub { inner: rp_rt { v: 2 } },
+    //          sized: Sized { v: 4 }, foo: Foo { v: 3 } }
+    const HOLDER: &[u8] = &[
+        0x0a, 0x04, 0x0a, 0x02, 0x08, 0x01, // nested (field 1)
+        0x12, 0x04, 0x0a, 0x02, 0x08, 0x02, // sub (field 2)
+        0x1a, 0x02, 0x08, 0x04, // sized (field 3)
+        0x22, 0x02, 0x08, 0x03, // foo (field 4)
+    ];
+    #[derive(Default)]
+    struct Seen {
+        x: i32,
+        inner: i32,
+        sized: i32,
+        foo: i32,
+    }
+    let mut seen = Seen::default();
+    Holder::new(HOLDER)
+        .decode(holder_stream!(&mut seen; {
+            nested => |s, n| n.decode(rp_rt_stream_!(&mut *s; {
+                x => |s, x| x.decode(x_stream!(&mut *s; { v => |s, v| s.x = v })),
+            })),
+            sub => |s, sub| sub.decode(sub_stream!(&mut *s; {
+                inner => |s, i| i.decode(rp_rt__stream_!(&mut *s; { v => |s, v| s.inner = v })),
+            })),
+            sized => |s, z| z.decode(sized_stream!(&mut *s; { v => |s, v| s.sized = v })),
+            foo => |s, f| f.decode(foo_stream!(&mut *s; { v => |s, v| s.foo = v })),
+        }))
+        .unwrap();
+    assert_eq!((seen.x, seen.inner, seen.sized, seen.foo), (1, 2, 4, 3));
 }

@@ -7,15 +7,15 @@
 //! proof-of-function for the blob, through the actual shipping runtime (wasmi).
 //!
 //! The golden set mirrors that C++ case: one plain golden per `tests/corpus/**.proto` (stem =
-//! basename), the `tests/bench/bench.proto` golden, two stream-only goldens (one with exported stream
-//! macros), and four field-modes goldens. The field-modes
-//! profiles are mirrored from `test_rustgen.cpp` (the `*_spec()` helpers); if either side changes,
-//! this test fails loudly with a diff — which is the point.
+//! basename), the `tests/bench/bench.proto` golden, the stream-only goldens (plain and with exported
+//! stream macros), and four field-modes goldens. The field-modes profiles are mirrored from
+//! `test_rustgen.cpp` (the `*_spec()` helpers); if either side changes, this test fails loudly with
+//! a diff — which is the point.
 
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
-use rapidproto_build::generate_from_disk;
+use rapidproto_build::Config;
 
 fn repo_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -42,62 +42,44 @@ fn check(stem: &str, generated: &str, verified: &mut BTreeSet<String>) {
     verified.insert(stem.to_owned());
 }
 
-/// A plain golden (no field modes): entry is the proto, include path is its own directory. Emitted
-/// with BOTH models (arena + stream), matching the committed plain goldens (test_rustgen's `kBoth`).
+/// The config every golden starts from: the proto's own directory as the include path.
+fn config_for(proto: &Path) -> Config {
+    Config::new().include(proto.parent().expect("proto has a parent dir"))
+}
+
+/// Generate `proto` under `config`, panicking with the proto's path on failure.
+fn gen(config: Config, proto: &Path) -> String {
+    config
+        .generate(&[proto])
+        .unwrap_or_else(|e| panic!("generate {}: {e}", proto.display()))
+}
+
+/// A plain golden (no field modes), emitted with BOTH models (arena + stream), matching the committed
+/// plain goldens (test_rustgen's `kBoth`).
 fn gen_plain(proto: &Path) -> String {
-    let include = proto
-        .parent()
-        .expect("proto has a parent dir")
-        .to_path_buf();
-    generate_from_disk(
-        &[proto.to_path_buf()],
-        &[include],
-        "",
-        false,
-        true,
-        true,
-        false,
-    )
-    .unwrap_or_else(|e| panic!("generate {}: {e}", proto.display()))
+    gen(config_for(proto).stream(true), proto)
 }
 
-/// A field-modes golden: `modes` is a `.modes` profile; include path is the proto's directory. Emitted
-/// arena-only (field modes are arena-storage options, N/A to a streaming visitor), matching
-/// test_rustgen's modes goldens.
+/// A field-modes golden: `modes` is a `.modes` profile. Emitted arena-only (field modes are
+/// arena-storage options, N/A to a streaming visitor), matching test_rustgen's modes goldens.
 fn gen_modes(proto: &Path, modes: &str) -> String {
-    let include = proto
-        .parent()
-        .expect("proto has a parent dir")
-        .to_path_buf();
-    generate_from_disk(
-        &[proto.to_path_buf()],
-        &[include],
-        modes,
-        false,
-        true,
-        false,
-        false,
-    )
-    .unwrap_or_else(|e| panic!("generate {} with modes: {e}", proto.display()))
+    gen(config_for(proto).field_modes(modes), proto)
 }
 
-/// A stream-only golden (stream model, no arena): the `Config::arena(false).stream(true)` path,
-/// optionally with `Config::export_stream_macros(true)`.
-fn gen_stream_only(proto: &Path, export_stream_macros: bool) -> String {
-    let include = proto
-        .parent()
-        .expect("proto has a parent dir")
-        .to_path_buf();
-    generate_from_disk(
-        &[proto.to_path_buf()],
-        &[include],
-        "",
-        false,
-        false,
-        true,
-        export_stream_macros,
+/// A stream-only golden (stream model, no arena): the `Config::arena(false).stream(true)` path.
+fn gen_stream_only(proto: &Path) -> String {
+    gen(config_for(proto).arena(false).stream(true), proto)
+}
+
+/// A stream-only golden whose macros are exported under `prefix`.
+fn gen_stream_export(proto: &Path, prefix: &str) -> String {
+    gen(
+        config_for(proto)
+            .arena(false)
+            .stream(true)
+            .export_stream_macros(prefix),
+        proto,
     )
-    .unwrap_or_else(|e| panic!("generate {} stream-only: {e}", proto.display()))
 }
 
 /// Every `*.proto` under `dir`, recursively, sorted (deterministic) — the plain-golden corpus.
@@ -135,17 +117,23 @@ fn goldens_match_native_through_the_blob() {
     check("bench", &gen_plain(&bench), &mut verified);
 
     // The stream-only goldens (no arena), mirroring test_rustgen.cpp's `streamonly` and
-    // `streamexport` cases.
+    // `streamexport_*` cases; each exported golden uses its stem as the prefix.
     check(
         "streamonly",
-        &gen_stream_only(&root.join("tests/corpus/nsedge/nestenum.proto"), false),
+        &gen_stream_only(&root.join("tests/corpus/nsedge/nestenum.proto")),
         &mut verified,
     );
-    check(
-        "streamexport",
-        &gen_stream_only(&root.join("tests/corpus/proto3.proto"), true),
-        &mut verified,
-    );
+    for (stem, rel) in [
+        ("streamexport_p3", "proto3.proto"),
+        ("streamexport_main", "imports/main.proto"),
+        ("streamexport_nopkg", "nsedge/nopkg.proto"),
+    ] {
+        check(
+            stem,
+            &gen_stream_export(&root.join("tests/corpus").join(rel), stem),
+            &mut verified,
+        );
+    }
 
     // Field-modes goldens — profiles mirrored from test_rustgen.cpp's *_spec() helpers (no `name`
     // directive, matching the empty profile_name there).

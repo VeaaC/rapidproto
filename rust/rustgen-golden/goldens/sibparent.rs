@@ -111,7 +111,7 @@ pub mod stream {
 
   pub mod sib {
     #[doc(hidden)]
-    pub use super::sib as rp_mod_3sib;
+    pub use super::sib as rp_mod_3sib7logging;
     #[doc(hidden)]
     pub use ::rapidproto as rp_rt;
 
@@ -205,71 +205,71 @@ pub mod stream {
       }
     }
 
-    macro_rules! logging_stream {
+    macro_rules! rp_mac_3sib7logging {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
-        rp_mod_3sib::logging_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
+        rp_mod_3sib7logging::logging_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] x => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_3sib::logging_stream!(@m
+        rp_mod_3sib7logging::logging_stream!(@m
           [$($rp_g)* F_x,]
-          [$($rp_w)* F_x: rp_mod_3sib::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_x: bool = true; #[inline(always)] fn on_x(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_3sib::rp_rt::stream::Flow, rp_mod_3sib::rp_rt::DecodeError> { rp_mod_3sib::rp_rt::stream::Handler::call(&mut self.f_x, rp_x) }]
+          [$($rp_w)* F_x: rp_mod_3sib7logging::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_x: bool = true; #[inline(always)] fn on_x(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_3sib7logging::rp_rt::stream::Flow, rp_mod_3sib7logging::rp_rt::DecodeError> { rp_mod_3sib7logging::rp_rt::stream::Handler::call(&mut self.f_x, rp_x) }]
           [$($rp_fl)* f_x: F_x,]
-          [$($rp_ct)* f_x: rp_mod_3sib::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_x: rp_mod_3sib7logging::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] unknown => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_3sib::logging_stream!(@m
+        rp_mod_3sib7logging::logging_stream!(@m
           [$($rp_g)* F_unknown,]
-          [$($rp_w)* F_unknown: rp_mod_3sib::rp_rt::stream::Handler<rp_mod_3sib::rp_rt::stream::UnknownField<'rp_a>>,]
-          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_3sib::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_3sib::rp_rt::stream::Flow, rp_mod_3sib::rp_rt::DecodeError> { rp_mod_3sib::rp_rt::stream::Handler::call(&mut self.f_unknown, rp_x) }]
+          [$($rp_w)* F_unknown: rp_mod_3sib7logging::rp_rt::stream::Handler<rp_mod_3sib7logging::rp_rt::stream::UnknownField<'rp_a>>,]
+          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_3sib7logging::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_3sib7logging::rp_rt::stream::Flow, rp_mod_3sib7logging::rp_rt::DecodeError> { rp_mod_3sib7logging::rp_rt::stream::Handler::call(&mut self.f_unknown, rp_x) }]
           [$($rp_fl)* f_unknown: F_unknown,]
-          [$($rp_ct)* f_unknown: rp_mod_3sib::rp_rt::stream::typed::<rp_mod_3sib::rp_rt::stream::UnknownField<'_>, _, _>($rp_c),]
+          [$($rp_ct)* f_unknown: rp_mod_3sib7logging::rp_rt::stream::typed::<rp_mod_3sib7logging::rp_rt::stream::UnknownField<'_>, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
-        compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: x, unknown"))
+        ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($rp_bad), "` for this message; selectable fields: x, unknown"))
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
         #[allow(nonstandard_style)]
         struct RpVis<$($rp_g)*> { $($rp_fl)* }
         #[allow(nonstandard_style)]
-        impl<'rp_a, $($rp_g)*> rp_mod_3sib::loggingVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
+        impl<'rp_a, $($rp_g)*> rp_mod_3sib7logging::loggingVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
         RpVis { $($rp_ct)* }
       }};
       ( $rp_state:expr ; { $( $rp_f:ident => $rp_c:expr ),* $(,)? } ) => {{
         let rp_state = $rp_state;
-        rp_mod_3sib::logging_stream!(@ms [] [] [] [] [] rp_state $( $rp_f => $rp_c , )*)
+        rp_mod_3sib7logging::logging_stream!(@ms [] [] [] [] [] rp_state $( $rp_f => $rp_c , )*)
       }};
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident x => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_3sib::logging_stream!(@ms
+        rp_mod_3sib7logging::logging_stream!(@ms
           [$($rp_g)* F_x,]
-          [$($rp_w)* F_x: rp_mod_3sib::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_x: bool = true; #[inline(always)] fn on_x(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_3sib::rp_rt::stream::Flow, rp_mod_3sib::rp_rt::DecodeError> { rp_mod_3sib::rp_rt::stream::Handler2::call(&mut self.f_x, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_x: rp_mod_3sib7logging::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_x: bool = true; #[inline(always)] fn on_x(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_3sib7logging::rp_rt::stream::Flow, rp_mod_3sib7logging::rp_rt::DecodeError> { rp_mod_3sib7logging::rp_rt::stream::Handler2::call(&mut self.f_x, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_x: F_x,]
-          [$($rp_ct)* f_x: rp_mod_3sib::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_x: rp_mod_3sib7logging::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident unknown => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_3sib::logging_stream!(@ms
+        rp_mod_3sib7logging::logging_stream!(@ms
           [$($rp_g)* F_unknown,]
-          [$($rp_w)* F_unknown: rp_mod_3sib::rp_rt::stream::Handler2<RpS, rp_mod_3sib::rp_rt::stream::UnknownField<'rp_a>>,]
-          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_3sib::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_3sib::rp_rt::stream::Flow, rp_mod_3sib::rp_rt::DecodeError> { rp_mod_3sib::rp_rt::stream::Handler2::call(&mut self.f_unknown, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_unknown: rp_mod_3sib7logging::rp_rt::stream::Handler2<RpS, rp_mod_3sib7logging::rp_rt::stream::UnknownField<'rp_a>>,]
+          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_3sib7logging::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_3sib7logging::rp_rt::stream::Flow, rp_mod_3sib7logging::rp_rt::DecodeError> { rp_mod_3sib7logging::rp_rt::stream::Handler2::call(&mut self.f_unknown, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_unknown: F_unknown,]
-          [$($rp_ct)* f_unknown: rp_mod_3sib::rp_rt::stream::typed2::<_, rp_mod_3sib::rp_rt::stream::UnknownField<'_>, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_unknown: rp_mod_3sib7logging::rp_rt::stream::typed2::<_, rp_mod_3sib7logging::rp_rt::stream::UnknownField<'_>, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
-        compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: x, unknown"))
+        ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($rp_bad), "` for this message; selectable fields: x, unknown"))
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident ) => {{
         #[allow(nonstandard_style, dead_code)]
-        struct RpVis<'rp_s, RpS: ?Sized, $($rp_g)*> { $($rp_fl)* rp_state: &'rp_s mut RpS }
+        struct RpVis<'rp_s, RpS: ?::core::marker::Sized, $($rp_g)*> { $($rp_fl)* rp_state: &'rp_s mut RpS }
         #[allow(nonstandard_style)]
-        impl<'rp_a, 'rp_s, RpS: ?Sized, $($rp_g)*> rp_mod_3sib::loggingVisitor<'rp_a> for RpVis<'rp_s, RpS, $($rp_g)*> where $($rp_w)* { $($rp_i)* }
+        impl<'rp_a, 'rp_s, RpS: ?::core::marker::Sized, $($rp_g)*> rp_mod_3sib7logging::loggingVisitor<'rp_a> for RpVis<'rp_s, RpS, $($rp_g)*> where $($rp_w)* { $($rp_i)* }
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use logging_stream;
+    pub(crate) use rp_mac_3sib7logging as logging_stream;
   }
 }

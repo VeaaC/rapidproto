@@ -465,7 +465,13 @@ pub mod stream {
 
   pub mod rapidproto {
     #[doc(hidden)]
-    pub use super::rapidproto as rp_mod_10rapidproto;
+    pub use super::rapidproto as rp_mod_10rapidproto4wire;
+    #[doc(hidden)]
+    pub use super::rapidproto as rp_mod_10rapidproto5Arena;
+    #[doc(hidden)]
+    pub use super::rapidproto as rp_mod_10rapidproto3Tag;
+    #[doc(hidden)]
+    pub use super::rapidproto as rp_mod_10rapidproto8ByteView;
     #[doc(hidden)]
     pub use ::rapidproto as rp_rt;
 
@@ -559,72 +565,72 @@ pub mod stream {
       }
     }
 
-    macro_rules! wire_stream {
+    macro_rules! rp_mac_10rapidproto4wire {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
-        rp_mod_10rapidproto::wire_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
+        rp_mod_10rapidproto4wire::wire_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] x => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_10rapidproto::wire_stream!(@m
+        rp_mod_10rapidproto4wire::wire_stream!(@m
           [$($rp_g)* F_x,]
-          [$($rp_w)* F_x: rp_mod_10rapidproto::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_x: bool = true; #[inline(always)] fn on_x(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_10rapidproto::rp_rt::stream::Flow, rp_mod_10rapidproto::rp_rt::DecodeError> { rp_mod_10rapidproto::rp_rt::stream::Handler::call(&mut self.f_x, rp_x) }]
+          [$($rp_w)* F_x: rp_mod_10rapidproto4wire::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_x: bool = true; #[inline(always)] fn on_x(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_10rapidproto4wire::rp_rt::stream::Flow, rp_mod_10rapidproto4wire::rp_rt::DecodeError> { rp_mod_10rapidproto4wire::rp_rt::stream::Handler::call(&mut self.f_x, rp_x) }]
           [$($rp_fl)* f_x: F_x,]
-          [$($rp_ct)* f_x: rp_mod_10rapidproto::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_x: rp_mod_10rapidproto4wire::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] unknown => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_10rapidproto::wire_stream!(@m
+        rp_mod_10rapidproto4wire::wire_stream!(@m
           [$($rp_g)* F_unknown,]
-          [$($rp_w)* F_unknown: rp_mod_10rapidproto::rp_rt::stream::Handler<rp_mod_10rapidproto::rp_rt::stream::UnknownField<'rp_a>>,]
-          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_10rapidproto::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_10rapidproto::rp_rt::stream::Flow, rp_mod_10rapidproto::rp_rt::DecodeError> { rp_mod_10rapidproto::rp_rt::stream::Handler::call(&mut self.f_unknown, rp_x) }]
+          [$($rp_w)* F_unknown: rp_mod_10rapidproto4wire::rp_rt::stream::Handler<rp_mod_10rapidproto4wire::rp_rt::stream::UnknownField<'rp_a>>,]
+          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_10rapidproto4wire::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_10rapidproto4wire::rp_rt::stream::Flow, rp_mod_10rapidproto4wire::rp_rt::DecodeError> { rp_mod_10rapidproto4wire::rp_rt::stream::Handler::call(&mut self.f_unknown, rp_x) }]
           [$($rp_fl)* f_unknown: F_unknown,]
-          [$($rp_ct)* f_unknown: rp_mod_10rapidproto::rp_rt::stream::typed::<rp_mod_10rapidproto::rp_rt::stream::UnknownField<'_>, _, _>($rp_c),]
+          [$($rp_ct)* f_unknown: rp_mod_10rapidproto4wire::rp_rt::stream::typed::<rp_mod_10rapidproto4wire::rp_rt::stream::UnknownField<'_>, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
-        compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: x, unknown"))
+        ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($rp_bad), "` for this message; selectable fields: x, unknown"))
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
         #[allow(nonstandard_style)]
         struct RpVis<$($rp_g)*> { $($rp_fl)* }
         #[allow(nonstandard_style)]
-        impl<'rp_a, $($rp_g)*> rp_mod_10rapidproto::wireVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
+        impl<'rp_a, $($rp_g)*> rp_mod_10rapidproto4wire::wireVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
         RpVis { $($rp_ct)* }
       }};
       ( $rp_state:expr ; { $( $rp_f:ident => $rp_c:expr ),* $(,)? } ) => {{
         let rp_state = $rp_state;
-        rp_mod_10rapidproto::wire_stream!(@ms [] [] [] [] [] rp_state $( $rp_f => $rp_c , )*)
+        rp_mod_10rapidproto4wire::wire_stream!(@ms [] [] [] [] [] rp_state $( $rp_f => $rp_c , )*)
       }};
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident x => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_10rapidproto::wire_stream!(@ms
+        rp_mod_10rapidproto4wire::wire_stream!(@ms
           [$($rp_g)* F_x,]
-          [$($rp_w)* F_x: rp_mod_10rapidproto::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_x: bool = true; #[inline(always)] fn on_x(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_10rapidproto::rp_rt::stream::Flow, rp_mod_10rapidproto::rp_rt::DecodeError> { rp_mod_10rapidproto::rp_rt::stream::Handler2::call(&mut self.f_x, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_x: rp_mod_10rapidproto4wire::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_x: bool = true; #[inline(always)] fn on_x(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_10rapidproto4wire::rp_rt::stream::Flow, rp_mod_10rapidproto4wire::rp_rt::DecodeError> { rp_mod_10rapidproto4wire::rp_rt::stream::Handler2::call(&mut self.f_x, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_x: F_x,]
-          [$($rp_ct)* f_x: rp_mod_10rapidproto::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_x: rp_mod_10rapidproto4wire::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident unknown => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_10rapidproto::wire_stream!(@ms
+        rp_mod_10rapidproto4wire::wire_stream!(@ms
           [$($rp_g)* F_unknown,]
-          [$($rp_w)* F_unknown: rp_mod_10rapidproto::rp_rt::stream::Handler2<RpS, rp_mod_10rapidproto::rp_rt::stream::UnknownField<'rp_a>>,]
-          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_10rapidproto::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_10rapidproto::rp_rt::stream::Flow, rp_mod_10rapidproto::rp_rt::DecodeError> { rp_mod_10rapidproto::rp_rt::stream::Handler2::call(&mut self.f_unknown, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_unknown: rp_mod_10rapidproto4wire::rp_rt::stream::Handler2<RpS, rp_mod_10rapidproto4wire::rp_rt::stream::UnknownField<'rp_a>>,]
+          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_10rapidproto4wire::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_10rapidproto4wire::rp_rt::stream::Flow, rp_mod_10rapidproto4wire::rp_rt::DecodeError> { rp_mod_10rapidproto4wire::rp_rt::stream::Handler2::call(&mut self.f_unknown, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_unknown: F_unknown,]
-          [$($rp_ct)* f_unknown: rp_mod_10rapidproto::rp_rt::stream::typed2::<_, rp_mod_10rapidproto::rp_rt::stream::UnknownField<'_>, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_unknown: rp_mod_10rapidproto4wire::rp_rt::stream::typed2::<_, rp_mod_10rapidproto4wire::rp_rt::stream::UnknownField<'_>, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
-        compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: x, unknown"))
+        ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($rp_bad), "` for this message; selectable fields: x, unknown"))
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident ) => {{
         #[allow(nonstandard_style, dead_code)]
-        struct RpVis<'rp_s, RpS: ?Sized, $($rp_g)*> { $($rp_fl)* rp_state: &'rp_s mut RpS }
+        struct RpVis<'rp_s, RpS: ?::core::marker::Sized, $($rp_g)*> { $($rp_fl)* rp_state: &'rp_s mut RpS }
         #[allow(nonstandard_style)]
-        impl<'rp_a, 'rp_s, RpS: ?Sized, $($rp_g)*> rp_mod_10rapidproto::wireVisitor<'rp_a> for RpVis<'rp_s, RpS, $($rp_g)*> where $($rp_w)* { $($rp_i)* }
+        impl<'rp_a, 'rp_s, RpS: ?::core::marker::Sized, $($rp_g)*> rp_mod_10rapidproto4wire::wireVisitor<'rp_a> for RpVis<'rp_s, RpS, $($rp_g)*> where $($rp_w)* { $($rp_i)* }
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use wire_stream;
+    pub(crate) use rp_mac_10rapidproto4wire as wire_stream;
 
     /// Streaming visitor for `Arena`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `arena_stream` macro does both); a field left at the default
@@ -716,72 +722,72 @@ pub mod stream {
       }
     }
 
-    macro_rules! arena_stream {
+    macro_rules! rp_mac_10rapidproto5Arena {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
-        rp_mod_10rapidproto::arena_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
+        rp_mod_10rapidproto5Arena::arena_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] y => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_10rapidproto::arena_stream!(@m
+        rp_mod_10rapidproto5Arena::arena_stream!(@m
           [$($rp_g)* F_y,]
-          [$($rp_w)* F_y: rp_mod_10rapidproto::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_y: bool = true; #[inline(always)] fn on_y(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_10rapidproto::rp_rt::stream::Flow, rp_mod_10rapidproto::rp_rt::DecodeError> { rp_mod_10rapidproto::rp_rt::stream::Handler::call(&mut self.f_y, rp_x) }]
+          [$($rp_w)* F_y: rp_mod_10rapidproto5Arena::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_y: bool = true; #[inline(always)] fn on_y(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_10rapidproto5Arena::rp_rt::stream::Flow, rp_mod_10rapidproto5Arena::rp_rt::DecodeError> { rp_mod_10rapidproto5Arena::rp_rt::stream::Handler::call(&mut self.f_y, rp_x) }]
           [$($rp_fl)* f_y: F_y,]
-          [$($rp_ct)* f_y: rp_mod_10rapidproto::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_y: rp_mod_10rapidproto5Arena::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] unknown => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_10rapidproto::arena_stream!(@m
+        rp_mod_10rapidproto5Arena::arena_stream!(@m
           [$($rp_g)* F_unknown,]
-          [$($rp_w)* F_unknown: rp_mod_10rapidproto::rp_rt::stream::Handler<rp_mod_10rapidproto::rp_rt::stream::UnknownField<'rp_a>>,]
-          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_10rapidproto::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_10rapidproto::rp_rt::stream::Flow, rp_mod_10rapidproto::rp_rt::DecodeError> { rp_mod_10rapidproto::rp_rt::stream::Handler::call(&mut self.f_unknown, rp_x) }]
+          [$($rp_w)* F_unknown: rp_mod_10rapidproto5Arena::rp_rt::stream::Handler<rp_mod_10rapidproto5Arena::rp_rt::stream::UnknownField<'rp_a>>,]
+          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_10rapidproto5Arena::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_10rapidproto5Arena::rp_rt::stream::Flow, rp_mod_10rapidproto5Arena::rp_rt::DecodeError> { rp_mod_10rapidproto5Arena::rp_rt::stream::Handler::call(&mut self.f_unknown, rp_x) }]
           [$($rp_fl)* f_unknown: F_unknown,]
-          [$($rp_ct)* f_unknown: rp_mod_10rapidproto::rp_rt::stream::typed::<rp_mod_10rapidproto::rp_rt::stream::UnknownField<'_>, _, _>($rp_c),]
+          [$($rp_ct)* f_unknown: rp_mod_10rapidproto5Arena::rp_rt::stream::typed::<rp_mod_10rapidproto5Arena::rp_rt::stream::UnknownField<'_>, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
-        compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: y, unknown"))
+        ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($rp_bad), "` for this message; selectable fields: y, unknown"))
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
         #[allow(nonstandard_style)]
         struct RpVis<$($rp_g)*> { $($rp_fl)* }
         #[allow(nonstandard_style)]
-        impl<'rp_a, $($rp_g)*> rp_mod_10rapidproto::ArenaVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
+        impl<'rp_a, $($rp_g)*> rp_mod_10rapidproto5Arena::ArenaVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
         RpVis { $($rp_ct)* }
       }};
       ( $rp_state:expr ; { $( $rp_f:ident => $rp_c:expr ),* $(,)? } ) => {{
         let rp_state = $rp_state;
-        rp_mod_10rapidproto::arena_stream!(@ms [] [] [] [] [] rp_state $( $rp_f => $rp_c , )*)
+        rp_mod_10rapidproto5Arena::arena_stream!(@ms [] [] [] [] [] rp_state $( $rp_f => $rp_c , )*)
       }};
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident y => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_10rapidproto::arena_stream!(@ms
+        rp_mod_10rapidproto5Arena::arena_stream!(@ms
           [$($rp_g)* F_y,]
-          [$($rp_w)* F_y: rp_mod_10rapidproto::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_y: bool = true; #[inline(always)] fn on_y(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_10rapidproto::rp_rt::stream::Flow, rp_mod_10rapidproto::rp_rt::DecodeError> { rp_mod_10rapidproto::rp_rt::stream::Handler2::call(&mut self.f_y, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_y: rp_mod_10rapidproto5Arena::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_y: bool = true; #[inline(always)] fn on_y(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_10rapidproto5Arena::rp_rt::stream::Flow, rp_mod_10rapidproto5Arena::rp_rt::DecodeError> { rp_mod_10rapidproto5Arena::rp_rt::stream::Handler2::call(&mut self.f_y, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_y: F_y,]
-          [$($rp_ct)* f_y: rp_mod_10rapidproto::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_y: rp_mod_10rapidproto5Arena::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident unknown => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_10rapidproto::arena_stream!(@ms
+        rp_mod_10rapidproto5Arena::arena_stream!(@ms
           [$($rp_g)* F_unknown,]
-          [$($rp_w)* F_unknown: rp_mod_10rapidproto::rp_rt::stream::Handler2<RpS, rp_mod_10rapidproto::rp_rt::stream::UnknownField<'rp_a>>,]
-          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_10rapidproto::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_10rapidproto::rp_rt::stream::Flow, rp_mod_10rapidproto::rp_rt::DecodeError> { rp_mod_10rapidproto::rp_rt::stream::Handler2::call(&mut self.f_unknown, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_unknown: rp_mod_10rapidproto5Arena::rp_rt::stream::Handler2<RpS, rp_mod_10rapidproto5Arena::rp_rt::stream::UnknownField<'rp_a>>,]
+          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_10rapidproto5Arena::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_10rapidproto5Arena::rp_rt::stream::Flow, rp_mod_10rapidproto5Arena::rp_rt::DecodeError> { rp_mod_10rapidproto5Arena::rp_rt::stream::Handler2::call(&mut self.f_unknown, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_unknown: F_unknown,]
-          [$($rp_ct)* f_unknown: rp_mod_10rapidproto::rp_rt::stream::typed2::<_, rp_mod_10rapidproto::rp_rt::stream::UnknownField<'_>, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_unknown: rp_mod_10rapidproto5Arena::rp_rt::stream::typed2::<_, rp_mod_10rapidproto5Arena::rp_rt::stream::UnknownField<'_>, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
-        compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: y, unknown"))
+        ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($rp_bad), "` for this message; selectable fields: y, unknown"))
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident ) => {{
         #[allow(nonstandard_style, dead_code)]
-        struct RpVis<'rp_s, RpS: ?Sized, $($rp_g)*> { $($rp_fl)* rp_state: &'rp_s mut RpS }
+        struct RpVis<'rp_s, RpS: ?::core::marker::Sized, $($rp_g)*> { $($rp_fl)* rp_state: &'rp_s mut RpS }
         #[allow(nonstandard_style)]
-        impl<'rp_a, 'rp_s, RpS: ?Sized, $($rp_g)*> rp_mod_10rapidproto::ArenaVisitor<'rp_a> for RpVis<'rp_s, RpS, $($rp_g)*> where $($rp_w)* { $($rp_i)* }
+        impl<'rp_a, 'rp_s, RpS: ?::core::marker::Sized, $($rp_g)*> rp_mod_10rapidproto5Arena::ArenaVisitor<'rp_a> for RpVis<'rp_s, RpS, $($rp_g)*> where $($rp_w)* { $($rp_i)* }
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use arena_stream;
+    pub(crate) use rp_mac_10rapidproto5Arena as arena_stream;
 
     /// Streaming visitor for `Tag`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `tag_stream` macro does both); a field left at the default
@@ -873,72 +879,72 @@ pub mod stream {
       }
     }
 
-    macro_rules! tag_stream {
+    macro_rules! rp_mac_10rapidproto3Tag {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
-        rp_mod_10rapidproto::tag_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
+        rp_mod_10rapidproto3Tag::tag_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] s => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_10rapidproto::tag_stream!(@m
+        rp_mod_10rapidproto3Tag::tag_stream!(@m
           [$($rp_g)* F_s,]
-          [$($rp_w)* F_s: rp_mod_10rapidproto::rp_rt::stream::Handler<rp_mod_10rapidproto::rp_rt::ProtoStr<'rp_a>>,]
-          [$($rp_i)* const WANT_s: bool = true; #[inline(always)] fn on_s(&mut self, rp_x: rp_mod_10rapidproto::rp_rt::ProtoStr<'rp_a>) -> ::core::result::Result<rp_mod_10rapidproto::rp_rt::stream::Flow, rp_mod_10rapidproto::rp_rt::DecodeError> { rp_mod_10rapidproto::rp_rt::stream::Handler::call(&mut self.f_s, rp_x) }]
+          [$($rp_w)* F_s: rp_mod_10rapidproto3Tag::rp_rt::stream::Handler<rp_mod_10rapidproto3Tag::rp_rt::ProtoStr<'rp_a>>,]
+          [$($rp_i)* const WANT_s: bool = true; #[inline(always)] fn on_s(&mut self, rp_x: rp_mod_10rapidproto3Tag::rp_rt::ProtoStr<'rp_a>) -> ::core::result::Result<rp_mod_10rapidproto3Tag::rp_rt::stream::Flow, rp_mod_10rapidproto3Tag::rp_rt::DecodeError> { rp_mod_10rapidproto3Tag::rp_rt::stream::Handler::call(&mut self.f_s, rp_x) }]
           [$($rp_fl)* f_s: F_s,]
-          [$($rp_ct)* f_s: rp_mod_10rapidproto::rp_rt::stream::typed::<rp_mod_10rapidproto::rp_rt::ProtoStr<'_>, _, _>($rp_c),]
+          [$($rp_ct)* f_s: rp_mod_10rapidproto3Tag::rp_rt::stream::typed::<rp_mod_10rapidproto3Tag::rp_rt::ProtoStr<'_>, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] unknown => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_10rapidproto::tag_stream!(@m
+        rp_mod_10rapidproto3Tag::tag_stream!(@m
           [$($rp_g)* F_unknown,]
-          [$($rp_w)* F_unknown: rp_mod_10rapidproto::rp_rt::stream::Handler<rp_mod_10rapidproto::rp_rt::stream::UnknownField<'rp_a>>,]
-          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_10rapidproto::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_10rapidproto::rp_rt::stream::Flow, rp_mod_10rapidproto::rp_rt::DecodeError> { rp_mod_10rapidproto::rp_rt::stream::Handler::call(&mut self.f_unknown, rp_x) }]
+          [$($rp_w)* F_unknown: rp_mod_10rapidproto3Tag::rp_rt::stream::Handler<rp_mod_10rapidproto3Tag::rp_rt::stream::UnknownField<'rp_a>>,]
+          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_10rapidproto3Tag::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_10rapidproto3Tag::rp_rt::stream::Flow, rp_mod_10rapidproto3Tag::rp_rt::DecodeError> { rp_mod_10rapidproto3Tag::rp_rt::stream::Handler::call(&mut self.f_unknown, rp_x) }]
           [$($rp_fl)* f_unknown: F_unknown,]
-          [$($rp_ct)* f_unknown: rp_mod_10rapidproto::rp_rt::stream::typed::<rp_mod_10rapidproto::rp_rt::stream::UnknownField<'_>, _, _>($rp_c),]
+          [$($rp_ct)* f_unknown: rp_mod_10rapidproto3Tag::rp_rt::stream::typed::<rp_mod_10rapidproto3Tag::rp_rt::stream::UnknownField<'_>, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
-        compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: s, unknown"))
+        ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($rp_bad), "` for this message; selectable fields: s, unknown"))
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
         #[allow(nonstandard_style)]
         struct RpVis<$($rp_g)*> { $($rp_fl)* }
         #[allow(nonstandard_style)]
-        impl<'rp_a, $($rp_g)*> rp_mod_10rapidproto::TagVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
+        impl<'rp_a, $($rp_g)*> rp_mod_10rapidproto3Tag::TagVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
         RpVis { $($rp_ct)* }
       }};
       ( $rp_state:expr ; { $( $rp_f:ident => $rp_c:expr ),* $(,)? } ) => {{
         let rp_state = $rp_state;
-        rp_mod_10rapidproto::tag_stream!(@ms [] [] [] [] [] rp_state $( $rp_f => $rp_c , )*)
+        rp_mod_10rapidproto3Tag::tag_stream!(@ms [] [] [] [] [] rp_state $( $rp_f => $rp_c , )*)
       }};
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident s => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_10rapidproto::tag_stream!(@ms
+        rp_mod_10rapidproto3Tag::tag_stream!(@ms
           [$($rp_g)* F_s,]
-          [$($rp_w)* F_s: rp_mod_10rapidproto::rp_rt::stream::Handler2<RpS, rp_mod_10rapidproto::rp_rt::ProtoStr<'rp_a>>,]
-          [$($rp_i)* const WANT_s: bool = true; #[inline(always)] fn on_s(&mut self, rp_x: rp_mod_10rapidproto::rp_rt::ProtoStr<'rp_a>) -> ::core::result::Result<rp_mod_10rapidproto::rp_rt::stream::Flow, rp_mod_10rapidproto::rp_rt::DecodeError> { rp_mod_10rapidproto::rp_rt::stream::Handler2::call(&mut self.f_s, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_s: rp_mod_10rapidproto3Tag::rp_rt::stream::Handler2<RpS, rp_mod_10rapidproto3Tag::rp_rt::ProtoStr<'rp_a>>,]
+          [$($rp_i)* const WANT_s: bool = true; #[inline(always)] fn on_s(&mut self, rp_x: rp_mod_10rapidproto3Tag::rp_rt::ProtoStr<'rp_a>) -> ::core::result::Result<rp_mod_10rapidproto3Tag::rp_rt::stream::Flow, rp_mod_10rapidproto3Tag::rp_rt::DecodeError> { rp_mod_10rapidproto3Tag::rp_rt::stream::Handler2::call(&mut self.f_s, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_s: F_s,]
-          [$($rp_ct)* f_s: rp_mod_10rapidproto::rp_rt::stream::typed2::<_, rp_mod_10rapidproto::rp_rt::ProtoStr<'_>, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_s: rp_mod_10rapidproto3Tag::rp_rt::stream::typed2::<_, rp_mod_10rapidproto3Tag::rp_rt::ProtoStr<'_>, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident unknown => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_10rapidproto::tag_stream!(@ms
+        rp_mod_10rapidproto3Tag::tag_stream!(@ms
           [$($rp_g)* F_unknown,]
-          [$($rp_w)* F_unknown: rp_mod_10rapidproto::rp_rt::stream::Handler2<RpS, rp_mod_10rapidproto::rp_rt::stream::UnknownField<'rp_a>>,]
-          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_10rapidproto::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_10rapidproto::rp_rt::stream::Flow, rp_mod_10rapidproto::rp_rt::DecodeError> { rp_mod_10rapidproto::rp_rt::stream::Handler2::call(&mut self.f_unknown, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_unknown: rp_mod_10rapidproto3Tag::rp_rt::stream::Handler2<RpS, rp_mod_10rapidproto3Tag::rp_rt::stream::UnknownField<'rp_a>>,]
+          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_10rapidproto3Tag::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_10rapidproto3Tag::rp_rt::stream::Flow, rp_mod_10rapidproto3Tag::rp_rt::DecodeError> { rp_mod_10rapidproto3Tag::rp_rt::stream::Handler2::call(&mut self.f_unknown, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_unknown: F_unknown,]
-          [$($rp_ct)* f_unknown: rp_mod_10rapidproto::rp_rt::stream::typed2::<_, rp_mod_10rapidproto::rp_rt::stream::UnknownField<'_>, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_unknown: rp_mod_10rapidproto3Tag::rp_rt::stream::typed2::<_, rp_mod_10rapidproto3Tag::rp_rt::stream::UnknownField<'_>, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
-        compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: s, unknown"))
+        ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($rp_bad), "` for this message; selectable fields: s, unknown"))
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident ) => {{
         #[allow(nonstandard_style, dead_code)]
-        struct RpVis<'rp_s, RpS: ?Sized, $($rp_g)*> { $($rp_fl)* rp_state: &'rp_s mut RpS }
+        struct RpVis<'rp_s, RpS: ?::core::marker::Sized, $($rp_g)*> { $($rp_fl)* rp_state: &'rp_s mut RpS }
         #[allow(nonstandard_style)]
-        impl<'rp_a, 'rp_s, RpS: ?Sized, $($rp_g)*> rp_mod_10rapidproto::TagVisitor<'rp_a> for RpVis<'rp_s, RpS, $($rp_g)*> where $($rp_w)* { $($rp_i)* }
+        impl<'rp_a, 'rp_s, RpS: ?::core::marker::Sized, $($rp_g)*> rp_mod_10rapidproto3Tag::TagVisitor<'rp_a> for RpVis<'rp_s, RpS, $($rp_g)*> where $($rp_w)* { $($rp_i)* }
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use tag_stream;
+    pub(crate) use rp_mac_10rapidproto3Tag as tag_stream;
 
     /// Streaming visitor for `ByteView`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `byte_view_stream` macro does both); a field left at the default
@@ -1030,71 +1036,71 @@ pub mod stream {
       }
     }
 
-    macro_rules! byte_view_stream {
+    macro_rules! rp_mac_10rapidproto8ByteView {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
-        rp_mod_10rapidproto::byte_view_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
+        rp_mod_10rapidproto8ByteView::byte_view_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] b => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_10rapidproto::byte_view_stream!(@m
+        rp_mod_10rapidproto8ByteView::byte_view_stream!(@m
           [$($rp_g)* F_b,]
-          [$($rp_w)* F_b: rp_mod_10rapidproto::rp_rt::stream::Handler<&'rp_a [u8]>,]
-          [$($rp_i)* const WANT_b: bool = true; #[inline(always)] fn on_b(&mut self, rp_x: &'rp_a [u8]) -> ::core::result::Result<rp_mod_10rapidproto::rp_rt::stream::Flow, rp_mod_10rapidproto::rp_rt::DecodeError> { rp_mod_10rapidproto::rp_rt::stream::Handler::call(&mut self.f_b, rp_x) }]
+          [$($rp_w)* F_b: rp_mod_10rapidproto8ByteView::rp_rt::stream::Handler<&'rp_a [u8]>,]
+          [$($rp_i)* const WANT_b: bool = true; #[inline(always)] fn on_b(&mut self, rp_x: &'rp_a [u8]) -> ::core::result::Result<rp_mod_10rapidproto8ByteView::rp_rt::stream::Flow, rp_mod_10rapidproto8ByteView::rp_rt::DecodeError> { rp_mod_10rapidproto8ByteView::rp_rt::stream::Handler::call(&mut self.f_b, rp_x) }]
           [$($rp_fl)* f_b: F_b,]
-          [$($rp_ct)* f_b: rp_mod_10rapidproto::rp_rt::stream::typed::<&'_ [u8], _, _>($rp_c),]
+          [$($rp_ct)* f_b: rp_mod_10rapidproto8ByteView::rp_rt::stream::typed::<&'_ [u8], _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] unknown => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_10rapidproto::byte_view_stream!(@m
+        rp_mod_10rapidproto8ByteView::byte_view_stream!(@m
           [$($rp_g)* F_unknown,]
-          [$($rp_w)* F_unknown: rp_mod_10rapidproto::rp_rt::stream::Handler<rp_mod_10rapidproto::rp_rt::stream::UnknownField<'rp_a>>,]
-          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_10rapidproto::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_10rapidproto::rp_rt::stream::Flow, rp_mod_10rapidproto::rp_rt::DecodeError> { rp_mod_10rapidproto::rp_rt::stream::Handler::call(&mut self.f_unknown, rp_x) }]
+          [$($rp_w)* F_unknown: rp_mod_10rapidproto8ByteView::rp_rt::stream::Handler<rp_mod_10rapidproto8ByteView::rp_rt::stream::UnknownField<'rp_a>>,]
+          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_10rapidproto8ByteView::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_10rapidproto8ByteView::rp_rt::stream::Flow, rp_mod_10rapidproto8ByteView::rp_rt::DecodeError> { rp_mod_10rapidproto8ByteView::rp_rt::stream::Handler::call(&mut self.f_unknown, rp_x) }]
           [$($rp_fl)* f_unknown: F_unknown,]
-          [$($rp_ct)* f_unknown: rp_mod_10rapidproto::rp_rt::stream::typed::<rp_mod_10rapidproto::rp_rt::stream::UnknownField<'_>, _, _>($rp_c),]
+          [$($rp_ct)* f_unknown: rp_mod_10rapidproto8ByteView::rp_rt::stream::typed::<rp_mod_10rapidproto8ByteView::rp_rt::stream::UnknownField<'_>, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
-        compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: b, unknown"))
+        ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($rp_bad), "` for this message; selectable fields: b, unknown"))
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
         #[allow(nonstandard_style)]
         struct RpVis<$($rp_g)*> { $($rp_fl)* }
         #[allow(nonstandard_style)]
-        impl<'rp_a, $($rp_g)*> rp_mod_10rapidproto::ByteViewVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
+        impl<'rp_a, $($rp_g)*> rp_mod_10rapidproto8ByteView::ByteViewVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
         RpVis { $($rp_ct)* }
       }};
       ( $rp_state:expr ; { $( $rp_f:ident => $rp_c:expr ),* $(,)? } ) => {{
         let rp_state = $rp_state;
-        rp_mod_10rapidproto::byte_view_stream!(@ms [] [] [] [] [] rp_state $( $rp_f => $rp_c , )*)
+        rp_mod_10rapidproto8ByteView::byte_view_stream!(@ms [] [] [] [] [] rp_state $( $rp_f => $rp_c , )*)
       }};
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident b => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_10rapidproto::byte_view_stream!(@ms
+        rp_mod_10rapidproto8ByteView::byte_view_stream!(@ms
           [$($rp_g)* F_b,]
-          [$($rp_w)* F_b: rp_mod_10rapidproto::rp_rt::stream::Handler2<RpS, &'rp_a [u8]>,]
-          [$($rp_i)* const WANT_b: bool = true; #[inline(always)] fn on_b(&mut self, rp_x: &'rp_a [u8]) -> ::core::result::Result<rp_mod_10rapidproto::rp_rt::stream::Flow, rp_mod_10rapidproto::rp_rt::DecodeError> { rp_mod_10rapidproto::rp_rt::stream::Handler2::call(&mut self.f_b, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_b: rp_mod_10rapidproto8ByteView::rp_rt::stream::Handler2<RpS, &'rp_a [u8]>,]
+          [$($rp_i)* const WANT_b: bool = true; #[inline(always)] fn on_b(&mut self, rp_x: &'rp_a [u8]) -> ::core::result::Result<rp_mod_10rapidproto8ByteView::rp_rt::stream::Flow, rp_mod_10rapidproto8ByteView::rp_rt::DecodeError> { rp_mod_10rapidproto8ByteView::rp_rt::stream::Handler2::call(&mut self.f_b, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_b: F_b,]
-          [$($rp_ct)* f_b: rp_mod_10rapidproto::rp_rt::stream::typed2::<_, &'_ [u8], _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_b: rp_mod_10rapidproto8ByteView::rp_rt::stream::typed2::<_, &'_ [u8], _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident unknown => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_10rapidproto::byte_view_stream!(@ms
+        rp_mod_10rapidproto8ByteView::byte_view_stream!(@ms
           [$($rp_g)* F_unknown,]
-          [$($rp_w)* F_unknown: rp_mod_10rapidproto::rp_rt::stream::Handler2<RpS, rp_mod_10rapidproto::rp_rt::stream::UnknownField<'rp_a>>,]
-          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_10rapidproto::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_10rapidproto::rp_rt::stream::Flow, rp_mod_10rapidproto::rp_rt::DecodeError> { rp_mod_10rapidproto::rp_rt::stream::Handler2::call(&mut self.f_unknown, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_unknown: rp_mod_10rapidproto8ByteView::rp_rt::stream::Handler2<RpS, rp_mod_10rapidproto8ByteView::rp_rt::stream::UnknownField<'rp_a>>,]
+          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_10rapidproto8ByteView::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_10rapidproto8ByteView::rp_rt::stream::Flow, rp_mod_10rapidproto8ByteView::rp_rt::DecodeError> { rp_mod_10rapidproto8ByteView::rp_rt::stream::Handler2::call(&mut self.f_unknown, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_unknown: F_unknown,]
-          [$($rp_ct)* f_unknown: rp_mod_10rapidproto::rp_rt::stream::typed2::<_, rp_mod_10rapidproto::rp_rt::stream::UnknownField<'_>, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_unknown: rp_mod_10rapidproto8ByteView::rp_rt::stream::typed2::<_, rp_mod_10rapidproto8ByteView::rp_rt::stream::UnknownField<'_>, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
-        compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: b, unknown"))
+        ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($rp_bad), "` for this message; selectable fields: b, unknown"))
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident ) => {{
         #[allow(nonstandard_style, dead_code)]
-        struct RpVis<'rp_s, RpS: ?Sized, $($rp_g)*> { $($rp_fl)* rp_state: &'rp_s mut RpS }
+        struct RpVis<'rp_s, RpS: ?::core::marker::Sized, $($rp_g)*> { $($rp_fl)* rp_state: &'rp_s mut RpS }
         #[allow(nonstandard_style)]
-        impl<'rp_a, 'rp_s, RpS: ?Sized, $($rp_g)*> rp_mod_10rapidproto::ByteViewVisitor<'rp_a> for RpVis<'rp_s, RpS, $($rp_g)*> where $($rp_w)* { $($rp_i)* }
+        impl<'rp_a, 'rp_s, RpS: ?::core::marker::Sized, $($rp_g)*> rp_mod_10rapidproto8ByteView::ByteViewVisitor<'rp_a> for RpVis<'rp_s, RpS, $($rp_g)*> where $($rp_w)* { $($rp_i)* }
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use byte_view_stream;
+    pub(crate) use rp_mac_10rapidproto8ByteView as byte_view_stream;
   }
 }

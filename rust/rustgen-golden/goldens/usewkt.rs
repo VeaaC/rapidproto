@@ -418,7 +418,9 @@ pub mod stream {
 
     pub mod protobuf {
       #[doc(hidden)]
-      pub use super::protobuf as rp_mod_6google8protobuf;
+      pub use super::protobuf as rp_mod_6google8protobuf9Timestamp;
+      #[doc(hidden)]
+      pub use super::protobuf as rp_mod_6google8protobuf8Duration;
       #[doc(hidden)]
       pub use ::rapidproto as rp_rt;
 
@@ -533,90 +535,90 @@ pub mod stream {
         }
       }
 
-      macro_rules! timestamp_stream {
+      macro_rules! rp_mac_6google8protobuf9Timestamp {
         ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
-          rp_mod_6google8protobuf::timestamp_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
+          rp_mod_6google8protobuf9Timestamp::timestamp_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
         };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] seconds => $rp_c:expr , $($rp_rest:tt)*) => {
-          rp_mod_6google8protobuf::timestamp_stream!(@m
+          rp_mod_6google8protobuf9Timestamp::timestamp_stream!(@m
             [$($rp_g)* F_seconds,]
-            [$($rp_w)* F_seconds: rp_mod_6google8protobuf::rp_rt::stream::Handler<i64>,]
-            [$($rp_i)* const WANT_seconds: bool = true; #[inline(always)] fn on_seconds(&mut self, rp_x: i64) -> ::core::result::Result<rp_mod_6google8protobuf::rp_rt::stream::Flow, rp_mod_6google8protobuf::rp_rt::DecodeError> { rp_mod_6google8protobuf::rp_rt::stream::Handler::call(&mut self.f_seconds, rp_x) }]
+            [$($rp_w)* F_seconds: rp_mod_6google8protobuf9Timestamp::rp_rt::stream::Handler<i64>,]
+            [$($rp_i)* const WANT_seconds: bool = true; #[inline(always)] fn on_seconds(&mut self, rp_x: i64) -> ::core::result::Result<rp_mod_6google8protobuf9Timestamp::rp_rt::stream::Flow, rp_mod_6google8protobuf9Timestamp::rp_rt::DecodeError> { rp_mod_6google8protobuf9Timestamp::rp_rt::stream::Handler::call(&mut self.f_seconds, rp_x) }]
             [$($rp_fl)* f_seconds: F_seconds,]
-            [$($rp_ct)* f_seconds: rp_mod_6google8protobuf::rp_rt::stream::typed::<i64, _, _>($rp_c),]
+            [$($rp_ct)* f_seconds: rp_mod_6google8protobuf9Timestamp::rp_rt::stream::typed::<i64, _, _>($rp_c),]
           $($rp_rest)*)
         };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] nanos => $rp_c:expr , $($rp_rest:tt)*) => {
-          rp_mod_6google8protobuf::timestamp_stream!(@m
+          rp_mod_6google8protobuf9Timestamp::timestamp_stream!(@m
             [$($rp_g)* F_nanos,]
-            [$($rp_w)* F_nanos: rp_mod_6google8protobuf::rp_rt::stream::Handler<i32>,]
-            [$($rp_i)* const WANT_nanos: bool = true; #[inline(always)] fn on_nanos(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_6google8protobuf::rp_rt::stream::Flow, rp_mod_6google8protobuf::rp_rt::DecodeError> { rp_mod_6google8protobuf::rp_rt::stream::Handler::call(&mut self.f_nanos, rp_x) }]
+            [$($rp_w)* F_nanos: rp_mod_6google8protobuf9Timestamp::rp_rt::stream::Handler<i32>,]
+            [$($rp_i)* const WANT_nanos: bool = true; #[inline(always)] fn on_nanos(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_6google8protobuf9Timestamp::rp_rt::stream::Flow, rp_mod_6google8protobuf9Timestamp::rp_rt::DecodeError> { rp_mod_6google8protobuf9Timestamp::rp_rt::stream::Handler::call(&mut self.f_nanos, rp_x) }]
             [$($rp_fl)* f_nanos: F_nanos,]
-            [$($rp_ct)* f_nanos: rp_mod_6google8protobuf::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+            [$($rp_ct)* f_nanos: rp_mod_6google8protobuf9Timestamp::rp_rt::stream::typed::<i32, _, _>($rp_c),]
           $($rp_rest)*)
         };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] unknown => $rp_c:expr , $($rp_rest:tt)*) => {
-          rp_mod_6google8protobuf::timestamp_stream!(@m
+          rp_mod_6google8protobuf9Timestamp::timestamp_stream!(@m
             [$($rp_g)* F_unknown,]
-            [$($rp_w)* F_unknown: rp_mod_6google8protobuf::rp_rt::stream::Handler<rp_mod_6google8protobuf::rp_rt::stream::UnknownField<'rp_a>>,]
-            [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_6google8protobuf::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_6google8protobuf::rp_rt::stream::Flow, rp_mod_6google8protobuf::rp_rt::DecodeError> { rp_mod_6google8protobuf::rp_rt::stream::Handler::call(&mut self.f_unknown, rp_x) }]
+            [$($rp_w)* F_unknown: rp_mod_6google8protobuf9Timestamp::rp_rt::stream::Handler<rp_mod_6google8protobuf9Timestamp::rp_rt::stream::UnknownField<'rp_a>>,]
+            [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_6google8protobuf9Timestamp::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_6google8protobuf9Timestamp::rp_rt::stream::Flow, rp_mod_6google8protobuf9Timestamp::rp_rt::DecodeError> { rp_mod_6google8protobuf9Timestamp::rp_rt::stream::Handler::call(&mut self.f_unknown, rp_x) }]
             [$($rp_fl)* f_unknown: F_unknown,]
-            [$($rp_ct)* f_unknown: rp_mod_6google8protobuf::rp_rt::stream::typed::<rp_mod_6google8protobuf::rp_rt::stream::UnknownField<'_>, _, _>($rp_c),]
+            [$($rp_ct)* f_unknown: rp_mod_6google8protobuf9Timestamp::rp_rt::stream::typed::<rp_mod_6google8protobuf9Timestamp::rp_rt::stream::UnknownField<'_>, _, _>($rp_c),]
           $($rp_rest)*)
         };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
-          compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: seconds, nanos, unknown"))
+          ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($rp_bad), "` for this message; selectable fields: seconds, nanos, unknown"))
         };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
           #[allow(nonstandard_style)]
           struct RpVis<$($rp_g)*> { $($rp_fl)* }
           #[allow(nonstandard_style)]
-          impl<'rp_a, $($rp_g)*> rp_mod_6google8protobuf::TimestampVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
+          impl<'rp_a, $($rp_g)*> rp_mod_6google8protobuf9Timestamp::TimestampVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
           RpVis { $($rp_ct)* }
         }};
         ( $rp_state:expr ; { $( $rp_f:ident => $rp_c:expr ),* $(,)? } ) => {{
           let rp_state = $rp_state;
-          rp_mod_6google8protobuf::timestamp_stream!(@ms [] [] [] [] [] rp_state $( $rp_f => $rp_c , )*)
+          rp_mod_6google8protobuf9Timestamp::timestamp_stream!(@ms [] [] [] [] [] rp_state $( $rp_f => $rp_c , )*)
         }};
         (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident seconds => $rp_c:expr , $($rp_rest:tt)*) => {
-          rp_mod_6google8protobuf::timestamp_stream!(@ms
+          rp_mod_6google8protobuf9Timestamp::timestamp_stream!(@ms
             [$($rp_g)* F_seconds,]
-            [$($rp_w)* F_seconds: rp_mod_6google8protobuf::rp_rt::stream::Handler2<RpS, i64>,]
-            [$($rp_i)* const WANT_seconds: bool = true; #[inline(always)] fn on_seconds(&mut self, rp_x: i64) -> ::core::result::Result<rp_mod_6google8protobuf::rp_rt::stream::Flow, rp_mod_6google8protobuf::rp_rt::DecodeError> { rp_mod_6google8protobuf::rp_rt::stream::Handler2::call(&mut self.f_seconds, &mut *self.rp_state, rp_x) }]
+            [$($rp_w)* F_seconds: rp_mod_6google8protobuf9Timestamp::rp_rt::stream::Handler2<RpS, i64>,]
+            [$($rp_i)* const WANT_seconds: bool = true; #[inline(always)] fn on_seconds(&mut self, rp_x: i64) -> ::core::result::Result<rp_mod_6google8protobuf9Timestamp::rp_rt::stream::Flow, rp_mod_6google8protobuf9Timestamp::rp_rt::DecodeError> { rp_mod_6google8protobuf9Timestamp::rp_rt::stream::Handler2::call(&mut self.f_seconds, &mut *self.rp_state, rp_x) }]
             [$($rp_fl)* f_seconds: F_seconds,]
-            [$($rp_ct)* f_seconds: rp_mod_6google8protobuf::rp_rt::stream::typed2::<_, i64, _, _>(&*$rp_s, $rp_c),]
+            [$($rp_ct)* f_seconds: rp_mod_6google8protobuf9Timestamp::rp_rt::stream::typed2::<_, i64, _, _>(&*$rp_s, $rp_c),]
           $rp_s $($rp_rest)*)
         };
         (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident nanos => $rp_c:expr , $($rp_rest:tt)*) => {
-          rp_mod_6google8protobuf::timestamp_stream!(@ms
+          rp_mod_6google8protobuf9Timestamp::timestamp_stream!(@ms
             [$($rp_g)* F_nanos,]
-            [$($rp_w)* F_nanos: rp_mod_6google8protobuf::rp_rt::stream::Handler2<RpS, i32>,]
-            [$($rp_i)* const WANT_nanos: bool = true; #[inline(always)] fn on_nanos(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_6google8protobuf::rp_rt::stream::Flow, rp_mod_6google8protobuf::rp_rt::DecodeError> { rp_mod_6google8protobuf::rp_rt::stream::Handler2::call(&mut self.f_nanos, &mut *self.rp_state, rp_x) }]
+            [$($rp_w)* F_nanos: rp_mod_6google8protobuf9Timestamp::rp_rt::stream::Handler2<RpS, i32>,]
+            [$($rp_i)* const WANT_nanos: bool = true; #[inline(always)] fn on_nanos(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_6google8protobuf9Timestamp::rp_rt::stream::Flow, rp_mod_6google8protobuf9Timestamp::rp_rt::DecodeError> { rp_mod_6google8protobuf9Timestamp::rp_rt::stream::Handler2::call(&mut self.f_nanos, &mut *self.rp_state, rp_x) }]
             [$($rp_fl)* f_nanos: F_nanos,]
-            [$($rp_ct)* f_nanos: rp_mod_6google8protobuf::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+            [$($rp_ct)* f_nanos: rp_mod_6google8protobuf9Timestamp::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
           $rp_s $($rp_rest)*)
         };
         (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident unknown => $rp_c:expr , $($rp_rest:tt)*) => {
-          rp_mod_6google8protobuf::timestamp_stream!(@ms
+          rp_mod_6google8protobuf9Timestamp::timestamp_stream!(@ms
             [$($rp_g)* F_unknown,]
-            [$($rp_w)* F_unknown: rp_mod_6google8protobuf::rp_rt::stream::Handler2<RpS, rp_mod_6google8protobuf::rp_rt::stream::UnknownField<'rp_a>>,]
-            [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_6google8protobuf::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_6google8protobuf::rp_rt::stream::Flow, rp_mod_6google8protobuf::rp_rt::DecodeError> { rp_mod_6google8protobuf::rp_rt::stream::Handler2::call(&mut self.f_unknown, &mut *self.rp_state, rp_x) }]
+            [$($rp_w)* F_unknown: rp_mod_6google8protobuf9Timestamp::rp_rt::stream::Handler2<RpS, rp_mod_6google8protobuf9Timestamp::rp_rt::stream::UnknownField<'rp_a>>,]
+            [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_6google8protobuf9Timestamp::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_6google8protobuf9Timestamp::rp_rt::stream::Flow, rp_mod_6google8protobuf9Timestamp::rp_rt::DecodeError> { rp_mod_6google8protobuf9Timestamp::rp_rt::stream::Handler2::call(&mut self.f_unknown, &mut *self.rp_state, rp_x) }]
             [$($rp_fl)* f_unknown: F_unknown,]
-            [$($rp_ct)* f_unknown: rp_mod_6google8protobuf::rp_rt::stream::typed2::<_, rp_mod_6google8protobuf::rp_rt::stream::UnknownField<'_>, _, _>(&*$rp_s, $rp_c),]
+            [$($rp_ct)* f_unknown: rp_mod_6google8protobuf9Timestamp::rp_rt::stream::typed2::<_, rp_mod_6google8protobuf9Timestamp::rp_rt::stream::UnknownField<'_>, _, _>(&*$rp_s, $rp_c),]
           $rp_s $($rp_rest)*)
         };
         (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
-          compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: seconds, nanos, unknown"))
+          ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($rp_bad), "` for this message; selectable fields: seconds, nanos, unknown"))
         };
         (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident ) => {{
           #[allow(nonstandard_style, dead_code)]
-          struct RpVis<'rp_s, RpS: ?Sized, $($rp_g)*> { $($rp_fl)* rp_state: &'rp_s mut RpS }
+          struct RpVis<'rp_s, RpS: ?::core::marker::Sized, $($rp_g)*> { $($rp_fl)* rp_state: &'rp_s mut RpS }
           #[allow(nonstandard_style)]
-          impl<'rp_a, 'rp_s, RpS: ?Sized, $($rp_g)*> rp_mod_6google8protobuf::TimestampVisitor<'rp_a> for RpVis<'rp_s, RpS, $($rp_g)*> where $($rp_w)* { $($rp_i)* }
+          impl<'rp_a, 'rp_s, RpS: ?::core::marker::Sized, $($rp_g)*> rp_mod_6google8protobuf9Timestamp::TimestampVisitor<'rp_a> for RpVis<'rp_s, RpS, $($rp_g)*> where $($rp_w)* { $($rp_i)* }
           RpVis { $($rp_ct)* rp_state: $rp_s }
         }};
       }
-      pub(crate) use timestamp_stream;
+      pub(crate) use rp_mac_6google8protobuf9Timestamp as timestamp_stream;
 
       /// Streaming visitor for `Duration`. Select a field by overriding its `WANT_<field>` const AND
       /// its `on_<field>` method (the `duration_stream` macro does both); a field left at the default
@@ -729,96 +731,96 @@ pub mod stream {
         }
       }
 
-      macro_rules! duration_stream {
+      macro_rules! rp_mac_6google8protobuf8Duration {
         ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
-          rp_mod_6google8protobuf::duration_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
+          rp_mod_6google8protobuf8Duration::duration_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
         };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] seconds => $rp_c:expr , $($rp_rest:tt)*) => {
-          rp_mod_6google8protobuf::duration_stream!(@m
+          rp_mod_6google8protobuf8Duration::duration_stream!(@m
             [$($rp_g)* F_seconds,]
-            [$($rp_w)* F_seconds: rp_mod_6google8protobuf::rp_rt::stream::Handler<i64>,]
-            [$($rp_i)* const WANT_seconds: bool = true; #[inline(always)] fn on_seconds(&mut self, rp_x: i64) -> ::core::result::Result<rp_mod_6google8protobuf::rp_rt::stream::Flow, rp_mod_6google8protobuf::rp_rt::DecodeError> { rp_mod_6google8protobuf::rp_rt::stream::Handler::call(&mut self.f_seconds, rp_x) }]
+            [$($rp_w)* F_seconds: rp_mod_6google8protobuf8Duration::rp_rt::stream::Handler<i64>,]
+            [$($rp_i)* const WANT_seconds: bool = true; #[inline(always)] fn on_seconds(&mut self, rp_x: i64) -> ::core::result::Result<rp_mod_6google8protobuf8Duration::rp_rt::stream::Flow, rp_mod_6google8protobuf8Duration::rp_rt::DecodeError> { rp_mod_6google8protobuf8Duration::rp_rt::stream::Handler::call(&mut self.f_seconds, rp_x) }]
             [$($rp_fl)* f_seconds: F_seconds,]
-            [$($rp_ct)* f_seconds: rp_mod_6google8protobuf::rp_rt::stream::typed::<i64, _, _>($rp_c),]
+            [$($rp_ct)* f_seconds: rp_mod_6google8protobuf8Duration::rp_rt::stream::typed::<i64, _, _>($rp_c),]
           $($rp_rest)*)
         };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] nanos => $rp_c:expr , $($rp_rest:tt)*) => {
-          rp_mod_6google8protobuf::duration_stream!(@m
+          rp_mod_6google8protobuf8Duration::duration_stream!(@m
             [$($rp_g)* F_nanos,]
-            [$($rp_w)* F_nanos: rp_mod_6google8protobuf::rp_rt::stream::Handler<i32>,]
-            [$($rp_i)* const WANT_nanos: bool = true; #[inline(always)] fn on_nanos(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_6google8protobuf::rp_rt::stream::Flow, rp_mod_6google8protobuf::rp_rt::DecodeError> { rp_mod_6google8protobuf::rp_rt::stream::Handler::call(&mut self.f_nanos, rp_x) }]
+            [$($rp_w)* F_nanos: rp_mod_6google8protobuf8Duration::rp_rt::stream::Handler<i32>,]
+            [$($rp_i)* const WANT_nanos: bool = true; #[inline(always)] fn on_nanos(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_6google8protobuf8Duration::rp_rt::stream::Flow, rp_mod_6google8protobuf8Duration::rp_rt::DecodeError> { rp_mod_6google8protobuf8Duration::rp_rt::stream::Handler::call(&mut self.f_nanos, rp_x) }]
             [$($rp_fl)* f_nanos: F_nanos,]
-            [$($rp_ct)* f_nanos: rp_mod_6google8protobuf::rp_rt::stream::typed::<i32, _, _>($rp_c),]
+            [$($rp_ct)* f_nanos: rp_mod_6google8protobuf8Duration::rp_rt::stream::typed::<i32, _, _>($rp_c),]
           $($rp_rest)*)
         };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] unknown => $rp_c:expr , $($rp_rest:tt)*) => {
-          rp_mod_6google8protobuf::duration_stream!(@m
+          rp_mod_6google8protobuf8Duration::duration_stream!(@m
             [$($rp_g)* F_unknown,]
-            [$($rp_w)* F_unknown: rp_mod_6google8protobuf::rp_rt::stream::Handler<rp_mod_6google8protobuf::rp_rt::stream::UnknownField<'rp_a>>,]
-            [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_6google8protobuf::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_6google8protobuf::rp_rt::stream::Flow, rp_mod_6google8protobuf::rp_rt::DecodeError> { rp_mod_6google8protobuf::rp_rt::stream::Handler::call(&mut self.f_unknown, rp_x) }]
+            [$($rp_w)* F_unknown: rp_mod_6google8protobuf8Duration::rp_rt::stream::Handler<rp_mod_6google8protobuf8Duration::rp_rt::stream::UnknownField<'rp_a>>,]
+            [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_6google8protobuf8Duration::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_6google8protobuf8Duration::rp_rt::stream::Flow, rp_mod_6google8protobuf8Duration::rp_rt::DecodeError> { rp_mod_6google8protobuf8Duration::rp_rt::stream::Handler::call(&mut self.f_unknown, rp_x) }]
             [$($rp_fl)* f_unknown: F_unknown,]
-            [$($rp_ct)* f_unknown: rp_mod_6google8protobuf::rp_rt::stream::typed::<rp_mod_6google8protobuf::rp_rt::stream::UnknownField<'_>, _, _>($rp_c),]
+            [$($rp_ct)* f_unknown: rp_mod_6google8protobuf8Duration::rp_rt::stream::typed::<rp_mod_6google8protobuf8Duration::rp_rt::stream::UnknownField<'_>, _, _>($rp_c),]
           $($rp_rest)*)
         };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
-          compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: seconds, nanos, unknown"))
+          ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($rp_bad), "` for this message; selectable fields: seconds, nanos, unknown"))
         };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
           #[allow(nonstandard_style)]
           struct RpVis<$($rp_g)*> { $($rp_fl)* }
           #[allow(nonstandard_style)]
-          impl<'rp_a, $($rp_g)*> rp_mod_6google8protobuf::DurationVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
+          impl<'rp_a, $($rp_g)*> rp_mod_6google8protobuf8Duration::DurationVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
           RpVis { $($rp_ct)* }
         }};
         ( $rp_state:expr ; { $( $rp_f:ident => $rp_c:expr ),* $(,)? } ) => {{
           let rp_state = $rp_state;
-          rp_mod_6google8protobuf::duration_stream!(@ms [] [] [] [] [] rp_state $( $rp_f => $rp_c , )*)
+          rp_mod_6google8protobuf8Duration::duration_stream!(@ms [] [] [] [] [] rp_state $( $rp_f => $rp_c , )*)
         }};
         (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident seconds => $rp_c:expr , $($rp_rest:tt)*) => {
-          rp_mod_6google8protobuf::duration_stream!(@ms
+          rp_mod_6google8protobuf8Duration::duration_stream!(@ms
             [$($rp_g)* F_seconds,]
-            [$($rp_w)* F_seconds: rp_mod_6google8protobuf::rp_rt::stream::Handler2<RpS, i64>,]
-            [$($rp_i)* const WANT_seconds: bool = true; #[inline(always)] fn on_seconds(&mut self, rp_x: i64) -> ::core::result::Result<rp_mod_6google8protobuf::rp_rt::stream::Flow, rp_mod_6google8protobuf::rp_rt::DecodeError> { rp_mod_6google8protobuf::rp_rt::stream::Handler2::call(&mut self.f_seconds, &mut *self.rp_state, rp_x) }]
+            [$($rp_w)* F_seconds: rp_mod_6google8protobuf8Duration::rp_rt::stream::Handler2<RpS, i64>,]
+            [$($rp_i)* const WANT_seconds: bool = true; #[inline(always)] fn on_seconds(&mut self, rp_x: i64) -> ::core::result::Result<rp_mod_6google8protobuf8Duration::rp_rt::stream::Flow, rp_mod_6google8protobuf8Duration::rp_rt::DecodeError> { rp_mod_6google8protobuf8Duration::rp_rt::stream::Handler2::call(&mut self.f_seconds, &mut *self.rp_state, rp_x) }]
             [$($rp_fl)* f_seconds: F_seconds,]
-            [$($rp_ct)* f_seconds: rp_mod_6google8protobuf::rp_rt::stream::typed2::<_, i64, _, _>(&*$rp_s, $rp_c),]
+            [$($rp_ct)* f_seconds: rp_mod_6google8protobuf8Duration::rp_rt::stream::typed2::<_, i64, _, _>(&*$rp_s, $rp_c),]
           $rp_s $($rp_rest)*)
         };
         (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident nanos => $rp_c:expr , $($rp_rest:tt)*) => {
-          rp_mod_6google8protobuf::duration_stream!(@ms
+          rp_mod_6google8protobuf8Duration::duration_stream!(@ms
             [$($rp_g)* F_nanos,]
-            [$($rp_w)* F_nanos: rp_mod_6google8protobuf::rp_rt::stream::Handler2<RpS, i32>,]
-            [$($rp_i)* const WANT_nanos: bool = true; #[inline(always)] fn on_nanos(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_6google8protobuf::rp_rt::stream::Flow, rp_mod_6google8protobuf::rp_rt::DecodeError> { rp_mod_6google8protobuf::rp_rt::stream::Handler2::call(&mut self.f_nanos, &mut *self.rp_state, rp_x) }]
+            [$($rp_w)* F_nanos: rp_mod_6google8protobuf8Duration::rp_rt::stream::Handler2<RpS, i32>,]
+            [$($rp_i)* const WANT_nanos: bool = true; #[inline(always)] fn on_nanos(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_6google8protobuf8Duration::rp_rt::stream::Flow, rp_mod_6google8protobuf8Duration::rp_rt::DecodeError> { rp_mod_6google8protobuf8Duration::rp_rt::stream::Handler2::call(&mut self.f_nanos, &mut *self.rp_state, rp_x) }]
             [$($rp_fl)* f_nanos: F_nanos,]
-            [$($rp_ct)* f_nanos: rp_mod_6google8protobuf::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+            [$($rp_ct)* f_nanos: rp_mod_6google8protobuf8Duration::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
           $rp_s $($rp_rest)*)
         };
         (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident unknown => $rp_c:expr , $($rp_rest:tt)*) => {
-          rp_mod_6google8protobuf::duration_stream!(@ms
+          rp_mod_6google8protobuf8Duration::duration_stream!(@ms
             [$($rp_g)* F_unknown,]
-            [$($rp_w)* F_unknown: rp_mod_6google8protobuf::rp_rt::stream::Handler2<RpS, rp_mod_6google8protobuf::rp_rt::stream::UnknownField<'rp_a>>,]
-            [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_6google8protobuf::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_6google8protobuf::rp_rt::stream::Flow, rp_mod_6google8protobuf::rp_rt::DecodeError> { rp_mod_6google8protobuf::rp_rt::stream::Handler2::call(&mut self.f_unknown, &mut *self.rp_state, rp_x) }]
+            [$($rp_w)* F_unknown: rp_mod_6google8protobuf8Duration::rp_rt::stream::Handler2<RpS, rp_mod_6google8protobuf8Duration::rp_rt::stream::UnknownField<'rp_a>>,]
+            [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_6google8protobuf8Duration::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_6google8protobuf8Duration::rp_rt::stream::Flow, rp_mod_6google8protobuf8Duration::rp_rt::DecodeError> { rp_mod_6google8protobuf8Duration::rp_rt::stream::Handler2::call(&mut self.f_unknown, &mut *self.rp_state, rp_x) }]
             [$($rp_fl)* f_unknown: F_unknown,]
-            [$($rp_ct)* f_unknown: rp_mod_6google8protobuf::rp_rt::stream::typed2::<_, rp_mod_6google8protobuf::rp_rt::stream::UnknownField<'_>, _, _>(&*$rp_s, $rp_c),]
+            [$($rp_ct)* f_unknown: rp_mod_6google8protobuf8Duration::rp_rt::stream::typed2::<_, rp_mod_6google8protobuf8Duration::rp_rt::stream::UnknownField<'_>, _, _>(&*$rp_s, $rp_c),]
           $rp_s $($rp_rest)*)
         };
         (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
-          compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: seconds, nanos, unknown"))
+          ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($rp_bad), "` for this message; selectable fields: seconds, nanos, unknown"))
         };
         (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident ) => {{
           #[allow(nonstandard_style, dead_code)]
-          struct RpVis<'rp_s, RpS: ?Sized, $($rp_g)*> { $($rp_fl)* rp_state: &'rp_s mut RpS }
+          struct RpVis<'rp_s, RpS: ?::core::marker::Sized, $($rp_g)*> { $($rp_fl)* rp_state: &'rp_s mut RpS }
           #[allow(nonstandard_style)]
-          impl<'rp_a, 'rp_s, RpS: ?Sized, $($rp_g)*> rp_mod_6google8protobuf::DurationVisitor<'rp_a> for RpVis<'rp_s, RpS, $($rp_g)*> where $($rp_w)* { $($rp_i)* }
+          impl<'rp_a, 'rp_s, RpS: ?::core::marker::Sized, $($rp_g)*> rp_mod_6google8protobuf8Duration::DurationVisitor<'rp_a> for RpVis<'rp_s, RpS, $($rp_g)*> where $($rp_w)* { $($rp_i)* }
           RpVis { $($rp_ct)* rp_state: $rp_s }
         }};
       }
-      pub(crate) use duration_stream;
+      pub(crate) use rp_mac_6google8protobuf8Duration as duration_stream;
     }
   }
 
   pub mod uw {
     #[doc(hidden)]
-    pub use super::uw as rp_mod_2uw;
+    pub use super::uw as rp_mod_2uw5Event;
     #[doc(hidden)]
     pub use ::rapidproto as rp_rt;
     #[doc(hidden)]
@@ -937,89 +939,89 @@ pub mod stream {
       }
     }
 
-    macro_rules! event_stream {
+    macro_rules! rp_mac_2uw5Event {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
-        rp_mod_2uw::event_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
+        rp_mod_2uw5Event::event_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] at => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2uw::event_stream!(@m
+        rp_mod_2uw5Event::event_stream!(@m
           [$($rp_g)* F_at,]
-          [$($rp_w)* F_at: rp_mod_2uw::rp_rt::stream::Handler<rp_mod_2uw::rp_stream_ty_0<'rp_a>>,]
-          [$($rp_i)* const WANT_at: bool = true; #[inline(always)] fn on_at(&mut self, rp_x: rp_mod_2uw::rp_stream_ty_0<'rp_a>) -> ::core::result::Result<rp_mod_2uw::rp_rt::stream::Flow, rp_mod_2uw::rp_rt::DecodeError> { rp_mod_2uw::rp_rt::stream::Handler::call(&mut self.f_at, rp_x) }]
+          [$($rp_w)* F_at: rp_mod_2uw5Event::rp_rt::stream::Handler<rp_mod_2uw5Event::rp_stream_ty_0<'rp_a>>,]
+          [$($rp_i)* const WANT_at: bool = true; #[inline(always)] fn on_at(&mut self, rp_x: rp_mod_2uw5Event::rp_stream_ty_0<'rp_a>) -> ::core::result::Result<rp_mod_2uw5Event::rp_rt::stream::Flow, rp_mod_2uw5Event::rp_rt::DecodeError> { rp_mod_2uw5Event::rp_rt::stream::Handler::call(&mut self.f_at, rp_x) }]
           [$($rp_fl)* f_at: F_at,]
-          [$($rp_ct)* f_at: rp_mod_2uw::rp_rt::stream::typed::<rp_mod_2uw::rp_stream_ty_0<'_>, _, _>($rp_c),]
+          [$($rp_ct)* f_at: rp_mod_2uw5Event::rp_rt::stream::typed::<rp_mod_2uw5Event::rp_stream_ty_0<'_>, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] took => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2uw::event_stream!(@m
+        rp_mod_2uw5Event::event_stream!(@m
           [$($rp_g)* F_took,]
-          [$($rp_w)* F_took: rp_mod_2uw::rp_rt::stream::Handler<rp_mod_2uw::rp_stream_ty_1<'rp_a>>,]
-          [$($rp_i)* const WANT_took: bool = true; #[inline(always)] fn on_took(&mut self, rp_x: rp_mod_2uw::rp_stream_ty_1<'rp_a>) -> ::core::result::Result<rp_mod_2uw::rp_rt::stream::Flow, rp_mod_2uw::rp_rt::DecodeError> { rp_mod_2uw::rp_rt::stream::Handler::call(&mut self.f_took, rp_x) }]
+          [$($rp_w)* F_took: rp_mod_2uw5Event::rp_rt::stream::Handler<rp_mod_2uw5Event::rp_stream_ty_1<'rp_a>>,]
+          [$($rp_i)* const WANT_took: bool = true; #[inline(always)] fn on_took(&mut self, rp_x: rp_mod_2uw5Event::rp_stream_ty_1<'rp_a>) -> ::core::result::Result<rp_mod_2uw5Event::rp_rt::stream::Flow, rp_mod_2uw5Event::rp_rt::DecodeError> { rp_mod_2uw5Event::rp_rt::stream::Handler::call(&mut self.f_took, rp_x) }]
           [$($rp_fl)* f_took: F_took,]
-          [$($rp_ct)* f_took: rp_mod_2uw::rp_rt::stream::typed::<rp_mod_2uw::rp_stream_ty_1<'_>, _, _>($rp_c),]
+          [$($rp_ct)* f_took: rp_mod_2uw5Event::rp_rt::stream::typed::<rp_mod_2uw5Event::rp_stream_ty_1<'_>, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] unknown => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2uw::event_stream!(@m
+        rp_mod_2uw5Event::event_stream!(@m
           [$($rp_g)* F_unknown,]
-          [$($rp_w)* F_unknown: rp_mod_2uw::rp_rt::stream::Handler<rp_mod_2uw::rp_rt::stream::UnknownField<'rp_a>>,]
-          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_2uw::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_2uw::rp_rt::stream::Flow, rp_mod_2uw::rp_rt::DecodeError> { rp_mod_2uw::rp_rt::stream::Handler::call(&mut self.f_unknown, rp_x) }]
+          [$($rp_w)* F_unknown: rp_mod_2uw5Event::rp_rt::stream::Handler<rp_mod_2uw5Event::rp_rt::stream::UnknownField<'rp_a>>,]
+          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_2uw5Event::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_2uw5Event::rp_rt::stream::Flow, rp_mod_2uw5Event::rp_rt::DecodeError> { rp_mod_2uw5Event::rp_rt::stream::Handler::call(&mut self.f_unknown, rp_x) }]
           [$($rp_fl)* f_unknown: F_unknown,]
-          [$($rp_ct)* f_unknown: rp_mod_2uw::rp_rt::stream::typed::<rp_mod_2uw::rp_rt::stream::UnknownField<'_>, _, _>($rp_c),]
+          [$($rp_ct)* f_unknown: rp_mod_2uw5Event::rp_rt::stream::typed::<rp_mod_2uw5Event::rp_rt::stream::UnknownField<'_>, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
-        compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: at, took, unknown"))
+        ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($rp_bad), "` for this message; selectable fields: at, took, unknown"))
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
         #[allow(nonstandard_style)]
         struct RpVis<$($rp_g)*> { $($rp_fl)* }
         #[allow(nonstandard_style)]
-        impl<'rp_a, $($rp_g)*> rp_mod_2uw::EventVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
+        impl<'rp_a, $($rp_g)*> rp_mod_2uw5Event::EventVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
         RpVis { $($rp_ct)* }
       }};
       ( $rp_state:expr ; { $( $rp_f:ident => $rp_c:expr ),* $(,)? } ) => {{
         let rp_state = $rp_state;
-        rp_mod_2uw::event_stream!(@ms [] [] [] [] [] rp_state $( $rp_f => $rp_c , )*)
+        rp_mod_2uw5Event::event_stream!(@ms [] [] [] [] [] rp_state $( $rp_f => $rp_c , )*)
       }};
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident at => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2uw::event_stream!(@ms
+        rp_mod_2uw5Event::event_stream!(@ms
           [$($rp_g)* F_at,]
-          [$($rp_w)* F_at: rp_mod_2uw::rp_rt::stream::Handler2<RpS, rp_mod_2uw::rp_stream_ty_0<'rp_a>>,]
-          [$($rp_i)* const WANT_at: bool = true; #[inline(always)] fn on_at(&mut self, rp_x: rp_mod_2uw::rp_stream_ty_0<'rp_a>) -> ::core::result::Result<rp_mod_2uw::rp_rt::stream::Flow, rp_mod_2uw::rp_rt::DecodeError> { rp_mod_2uw::rp_rt::stream::Handler2::call(&mut self.f_at, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_at: rp_mod_2uw5Event::rp_rt::stream::Handler2<RpS, rp_mod_2uw5Event::rp_stream_ty_0<'rp_a>>,]
+          [$($rp_i)* const WANT_at: bool = true; #[inline(always)] fn on_at(&mut self, rp_x: rp_mod_2uw5Event::rp_stream_ty_0<'rp_a>) -> ::core::result::Result<rp_mod_2uw5Event::rp_rt::stream::Flow, rp_mod_2uw5Event::rp_rt::DecodeError> { rp_mod_2uw5Event::rp_rt::stream::Handler2::call(&mut self.f_at, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_at: F_at,]
-          [$($rp_ct)* f_at: rp_mod_2uw::rp_rt::stream::typed2::<_, rp_mod_2uw::rp_stream_ty_0<'_>, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_at: rp_mod_2uw5Event::rp_rt::stream::typed2::<_, rp_mod_2uw5Event::rp_stream_ty_0<'_>, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident took => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2uw::event_stream!(@ms
+        rp_mod_2uw5Event::event_stream!(@ms
           [$($rp_g)* F_took,]
-          [$($rp_w)* F_took: rp_mod_2uw::rp_rt::stream::Handler2<RpS, rp_mod_2uw::rp_stream_ty_1<'rp_a>>,]
-          [$($rp_i)* const WANT_took: bool = true; #[inline(always)] fn on_took(&mut self, rp_x: rp_mod_2uw::rp_stream_ty_1<'rp_a>) -> ::core::result::Result<rp_mod_2uw::rp_rt::stream::Flow, rp_mod_2uw::rp_rt::DecodeError> { rp_mod_2uw::rp_rt::stream::Handler2::call(&mut self.f_took, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_took: rp_mod_2uw5Event::rp_rt::stream::Handler2<RpS, rp_mod_2uw5Event::rp_stream_ty_1<'rp_a>>,]
+          [$($rp_i)* const WANT_took: bool = true; #[inline(always)] fn on_took(&mut self, rp_x: rp_mod_2uw5Event::rp_stream_ty_1<'rp_a>) -> ::core::result::Result<rp_mod_2uw5Event::rp_rt::stream::Flow, rp_mod_2uw5Event::rp_rt::DecodeError> { rp_mod_2uw5Event::rp_rt::stream::Handler2::call(&mut self.f_took, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_took: F_took,]
-          [$($rp_ct)* f_took: rp_mod_2uw::rp_rt::stream::typed2::<_, rp_mod_2uw::rp_stream_ty_1<'_>, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_took: rp_mod_2uw5Event::rp_rt::stream::typed2::<_, rp_mod_2uw5Event::rp_stream_ty_1<'_>, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident unknown => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_2uw::event_stream!(@ms
+        rp_mod_2uw5Event::event_stream!(@ms
           [$($rp_g)* F_unknown,]
-          [$($rp_w)* F_unknown: rp_mod_2uw::rp_rt::stream::Handler2<RpS, rp_mod_2uw::rp_rt::stream::UnknownField<'rp_a>>,]
-          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_2uw::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_2uw::rp_rt::stream::Flow, rp_mod_2uw::rp_rt::DecodeError> { rp_mod_2uw::rp_rt::stream::Handler2::call(&mut self.f_unknown, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_unknown: rp_mod_2uw5Event::rp_rt::stream::Handler2<RpS, rp_mod_2uw5Event::rp_rt::stream::UnknownField<'rp_a>>,]
+          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_2uw5Event::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_2uw5Event::rp_rt::stream::Flow, rp_mod_2uw5Event::rp_rt::DecodeError> { rp_mod_2uw5Event::rp_rt::stream::Handler2::call(&mut self.f_unknown, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_unknown: F_unknown,]
-          [$($rp_ct)* f_unknown: rp_mod_2uw::rp_rt::stream::typed2::<_, rp_mod_2uw::rp_rt::stream::UnknownField<'_>, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_unknown: rp_mod_2uw5Event::rp_rt::stream::typed2::<_, rp_mod_2uw5Event::rp_rt::stream::UnknownField<'_>, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
-        compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: at, took, unknown"))
+        ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($rp_bad), "` for this message; selectable fields: at, took, unknown"))
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident ) => {{
         #[allow(nonstandard_style, dead_code)]
-        struct RpVis<'rp_s, RpS: ?Sized, $($rp_g)*> { $($rp_fl)* rp_state: &'rp_s mut RpS }
+        struct RpVis<'rp_s, RpS: ?::core::marker::Sized, $($rp_g)*> { $($rp_fl)* rp_state: &'rp_s mut RpS }
         #[allow(nonstandard_style)]
-        impl<'rp_a, 'rp_s, RpS: ?Sized, $($rp_g)*> rp_mod_2uw::EventVisitor<'rp_a> for RpVis<'rp_s, RpS, $($rp_g)*> where $($rp_w)* { $($rp_i)* }
+        impl<'rp_a, 'rp_s, RpS: ?::core::marker::Sized, $($rp_g)*> rp_mod_2uw5Event::EventVisitor<'rp_a> for RpVis<'rp_s, RpS, $($rp_g)*> where $($rp_w)* { $($rp_i)* }
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use event_stream;
+    pub(crate) use rp_mac_2uw5Event as event_stream;
   }
 }
