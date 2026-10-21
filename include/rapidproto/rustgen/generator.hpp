@@ -59,10 +59,12 @@ std::string generate_arena(const std::vector<const FileNode*>& files, const Layo
 // it is a message); `Flow::Stop` and an `Err` propagate out of `decode`. The trait and driver name a
 // foreign enum newtype / child handle by its real tree-relative path; the `*_stream!` macro expands at
 // the consumer's call site where that path is invalid, so each such type is also re-exported into the
-// message's stream module as a `#[doc(hidden)] pub type rp_stream_ty_<n>` alias (reserved `rp_` prefix ->
-// never clashes) that only the macro names. A consumer glob-imports the stream module. Field modes
-// (drop/raw/unknown) are arena-storage options that do not apply to a streaming visitor (which
-// materializes nothing), so streaming ignores them.
+// message's stream module as a `#[doc(hidden)] pub type rp_stream_ty_<n>` alias, and the module
+// re-exports itself (`rp_mod_<path>`) and the runtime (`rp_rt`) under hidden `rp_`-prefixed names.
+// The expansion names everything -- trait, types, its own recursion, the runtime -- through that one
+// per-module scope name, which a consumer's glob of the stream module brings in, so two globbed
+// modules never make it ambiguous. Field modes (drop/raw/unknown) are arena-storage options that do not
+// apply to a streaming visitor (which materializes nothing), so streaming ignores them.
 std::string generate_stream(const std::vector<const FileNode*>& files);
 
 // Which decoder model(s) `generate_file` emits. `common` is always emitted (both models reference it).

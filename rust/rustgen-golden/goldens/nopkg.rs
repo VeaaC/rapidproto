@@ -244,6 +244,10 @@ pub mod arena {
 
 pub mod stream {
   #[doc(hidden)]
+  pub use super::stream as rp_mod_;
+  #[doc(hidden)]
+  pub use ::rapidproto as rp_rt;
+  #[doc(hidden)]
   pub type rp_stream_ty_0<'a> = root::Sub<'a>;
 
   /// Streaming visitor for `Root`. Select a field by overriding its `WANT_<field>` const AND
@@ -359,33 +363,33 @@ pub mod stream {
 
   macro_rules! root_stream {
     ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
-      root_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
+      rp_mod_::root_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
     };
     (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] sub => $rp_c:expr , $($rp_rest:tt)*) => {
-      root_stream!(@m
+      rp_mod_::root_stream!(@m
         [$($rp_g)* F_sub,]
-        [$($rp_w)* F_sub: ::rapidproto::stream::Handler<rp_stream_ty_0<'rp_a>>,]
-        [$($rp_i)* const WANT_sub: bool = true; #[inline(always)] fn on_sub(&mut self, rp_x: rp_stream_ty_0<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_sub, rp_x) }]
+        [$($rp_w)* F_sub: rp_mod_::rp_rt::stream::Handler<rp_mod_::rp_stream_ty_0<'rp_a>>,]
+        [$($rp_i)* const WANT_sub: bool = true; #[inline(always)] fn on_sub(&mut self, rp_x: rp_mod_::rp_stream_ty_0<'rp_a>) -> ::core::result::Result<rp_mod_::rp_rt::stream::Flow, rp_mod_::rp_rt::DecodeError> { rp_mod_::rp_rt::stream::Handler::call(&mut self.f_sub, rp_x) }]
         [$($rp_fl)* f_sub: F_sub,]
-        [$($rp_ct)* f_sub: ::rapidproto::stream::typed::<rp_stream_ty_0<'_>, _, _>($rp_c),]
+        [$($rp_ct)* f_sub: rp_mod_::rp_rt::stream::typed::<rp_mod_::rp_stream_ty_0<'_>, _, _>($rp_c),]
       $($rp_rest)*)
     };
     (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] self_ => $rp_c:expr , $($rp_rest:tt)*) => {
-      root_stream!(@m
+      rp_mod_::root_stream!(@m
         [$($rp_g)* F_self_,]
-        [$($rp_w)* F_self_: ::rapidproto::stream::Handler<Root<'rp_a>>,]
-        [$($rp_i)* const WANT_self_: bool = true; #[inline(always)] fn on_self_(&mut self, rp_x: Root<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_self_, rp_x) }]
+        [$($rp_w)* F_self_: rp_mod_::rp_rt::stream::Handler<rp_mod_::Root<'rp_a>>,]
+        [$($rp_i)* const WANT_self_: bool = true; #[inline(always)] fn on_self_(&mut self, rp_x: rp_mod_::Root<'rp_a>) -> ::core::result::Result<rp_mod_::rp_rt::stream::Flow, rp_mod_::rp_rt::DecodeError> { rp_mod_::rp_rt::stream::Handler::call(&mut self.f_self_, rp_x) }]
         [$($rp_fl)* f_self_: F_self_,]
-        [$($rp_ct)* f_self_: ::rapidproto::stream::typed::<Root<'_>, _, _>($rp_c),]
+        [$($rp_ct)* f_self_: rp_mod_::rp_rt::stream::typed::<rp_mod_::Root<'_>, _, _>($rp_c),]
       $($rp_rest)*)
     };
     (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] unknown => $rp_c:expr , $($rp_rest:tt)*) => {
-      root_stream!(@m
+      rp_mod_::root_stream!(@m
         [$($rp_g)* F_unknown,]
-        [$($rp_w)* F_unknown: ::rapidproto::stream::Handler<::rapidproto::stream::UnknownField<'rp_a>>,]
-        [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: ::rapidproto::stream::UnknownField<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_unknown, rp_x) }]
+        [$($rp_w)* F_unknown: rp_mod_::rp_rt::stream::Handler<rp_mod_::rp_rt::stream::UnknownField<'rp_a>>,]
+        [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_::rp_rt::stream::Flow, rp_mod_::rp_rt::DecodeError> { rp_mod_::rp_rt::stream::Handler::call(&mut self.f_unknown, rp_x) }]
         [$($rp_fl)* f_unknown: F_unknown,]
-        [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
+        [$($rp_ct)* f_unknown: rp_mod_::rp_rt::stream::typed::<rp_mod_::rp_rt::stream::UnknownField<'_>, _, _>($rp_c),]
       $($rp_rest)*)
     };
     (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
@@ -395,38 +399,38 @@ pub mod stream {
       #[allow(nonstandard_style)]
       struct RpVis<$($rp_g)*> { $($rp_fl)* }
       #[allow(nonstandard_style)]
-      impl<'rp_a, $($rp_g)*> RootVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
+      impl<'rp_a, $($rp_g)*> rp_mod_::RootVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
       RpVis { $($rp_ct)* }
     }};
     ( $rp_state:expr ; { $( $rp_f:ident => $rp_c:expr ),* $(,)? } ) => {{
       let rp_state = $rp_state;
-      root_stream!(@ms [] [] [] [] [] rp_state $( $rp_f => $rp_c , )*)
+      rp_mod_::root_stream!(@ms [] [] [] [] [] rp_state $( $rp_f => $rp_c , )*)
     }};
     (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident sub => $rp_c:expr , $($rp_rest:tt)*) => {
-      root_stream!(@ms
+      rp_mod_::root_stream!(@ms
         [$($rp_g)* F_sub,]
-        [$($rp_w)* F_sub: ::rapidproto::stream::Handler2<RpS, rp_stream_ty_0<'rp_a>>,]
-        [$($rp_i)* const WANT_sub: bool = true; #[inline(always)] fn on_sub(&mut self, rp_x: rp_stream_ty_0<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler2::call(&mut self.f_sub, &mut *self.rp_state, rp_x) }]
+        [$($rp_w)* F_sub: rp_mod_::rp_rt::stream::Handler2<RpS, rp_mod_::rp_stream_ty_0<'rp_a>>,]
+        [$($rp_i)* const WANT_sub: bool = true; #[inline(always)] fn on_sub(&mut self, rp_x: rp_mod_::rp_stream_ty_0<'rp_a>) -> ::core::result::Result<rp_mod_::rp_rt::stream::Flow, rp_mod_::rp_rt::DecodeError> { rp_mod_::rp_rt::stream::Handler2::call(&mut self.f_sub, &mut *self.rp_state, rp_x) }]
         [$($rp_fl)* f_sub: F_sub,]
-        [$($rp_ct)* f_sub: ::rapidproto::stream::typed2::<_, rp_stream_ty_0<'_>, _, _>(&*$rp_s, $rp_c),]
+        [$($rp_ct)* f_sub: rp_mod_::rp_rt::stream::typed2::<_, rp_mod_::rp_stream_ty_0<'_>, _, _>(&*$rp_s, $rp_c),]
       $rp_s $($rp_rest)*)
     };
     (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident self_ => $rp_c:expr , $($rp_rest:tt)*) => {
-      root_stream!(@ms
+      rp_mod_::root_stream!(@ms
         [$($rp_g)* F_self_,]
-        [$($rp_w)* F_self_: ::rapidproto::stream::Handler2<RpS, Root<'rp_a>>,]
-        [$($rp_i)* const WANT_self_: bool = true; #[inline(always)] fn on_self_(&mut self, rp_x: Root<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler2::call(&mut self.f_self_, &mut *self.rp_state, rp_x) }]
+        [$($rp_w)* F_self_: rp_mod_::rp_rt::stream::Handler2<RpS, rp_mod_::Root<'rp_a>>,]
+        [$($rp_i)* const WANT_self_: bool = true; #[inline(always)] fn on_self_(&mut self, rp_x: rp_mod_::Root<'rp_a>) -> ::core::result::Result<rp_mod_::rp_rt::stream::Flow, rp_mod_::rp_rt::DecodeError> { rp_mod_::rp_rt::stream::Handler2::call(&mut self.f_self_, &mut *self.rp_state, rp_x) }]
         [$($rp_fl)* f_self_: F_self_,]
-        [$($rp_ct)* f_self_: ::rapidproto::stream::typed2::<_, Root<'_>, _, _>(&*$rp_s, $rp_c),]
+        [$($rp_ct)* f_self_: rp_mod_::rp_rt::stream::typed2::<_, rp_mod_::Root<'_>, _, _>(&*$rp_s, $rp_c),]
       $rp_s $($rp_rest)*)
     };
     (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident unknown => $rp_c:expr , $($rp_rest:tt)*) => {
-      root_stream!(@ms
+      rp_mod_::root_stream!(@ms
         [$($rp_g)* F_unknown,]
-        [$($rp_w)* F_unknown: ::rapidproto::stream::Handler2<RpS, ::rapidproto::stream::UnknownField<'rp_a>>,]
-        [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: ::rapidproto::stream::UnknownField<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler2::call(&mut self.f_unknown, &mut *self.rp_state, rp_x) }]
+        [$($rp_w)* F_unknown: rp_mod_::rp_rt::stream::Handler2<RpS, rp_mod_::rp_rt::stream::UnknownField<'rp_a>>,]
+        [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_::rp_rt::stream::Flow, rp_mod_::rp_rt::DecodeError> { rp_mod_::rp_rt::stream::Handler2::call(&mut self.f_unknown, &mut *self.rp_state, rp_x) }]
         [$($rp_fl)* f_unknown: F_unknown,]
-        [$($rp_ct)* f_unknown: ::rapidproto::stream::typed2::<_, ::rapidproto::stream::UnknownField<'_>, _, _>(&*$rp_s, $rp_c),]
+        [$($rp_ct)* f_unknown: rp_mod_::rp_rt::stream::typed2::<_, rp_mod_::rp_rt::stream::UnknownField<'_>, _, _>(&*$rp_s, $rp_c),]
       $rp_s $($rp_rest)*)
     };
     (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
@@ -436,13 +440,18 @@ pub mod stream {
       #[allow(nonstandard_style, dead_code)]
       struct RpVis<'rp_s, RpS: ?Sized, $($rp_g)*> { $($rp_fl)* rp_state: &'rp_s mut RpS }
       #[allow(nonstandard_style)]
-      impl<'rp_a, 'rp_s, RpS: ?Sized, $($rp_g)*> RootVisitor<'rp_a> for RpVis<'rp_s, RpS, $($rp_g)*> where $($rp_w)* { $($rp_i)* }
+      impl<'rp_a, 'rp_s, RpS: ?Sized, $($rp_g)*> rp_mod_::RootVisitor<'rp_a> for RpVis<'rp_s, RpS, $($rp_g)*> where $($rp_w)* { $($rp_i)* }
       RpVis { $($rp_ct)* rp_state: $rp_s }
     }};
   }
   pub(crate) use root_stream;
 
   pub mod root {
+    #[doc(hidden)]
+    pub use super::root as rp_mod_4root;
+    #[doc(hidden)]
+    pub use ::rapidproto as rp_rt;
+
     /// Streaming visitor for `Sub`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `sub_stream` macro does both); a field left at the default
     /// `WANT_<field> = false` is skipped on the wire with no dispatch.
@@ -535,24 +544,24 @@ pub mod stream {
 
     macro_rules! sub_stream {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
-        sub_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
+        rp_mod_4root::sub_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] y => $rp_c:expr , $($rp_rest:tt)*) => {
-        sub_stream!(@m
+        rp_mod_4root::sub_stream!(@m
           [$($rp_g)* F_y,]
-          [$($rp_w)* F_y: ::rapidproto::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_y: bool = true; #[inline(always)] fn on_y(&mut self, rp_x: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_y, rp_x) }]
+          [$($rp_w)* F_y: rp_mod_4root::rp_rt::stream::Handler<i32>,]
+          [$($rp_i)* const WANT_y: bool = true; #[inline(always)] fn on_y(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_4root::rp_rt::stream::Flow, rp_mod_4root::rp_rt::DecodeError> { rp_mod_4root::rp_rt::stream::Handler::call(&mut self.f_y, rp_x) }]
           [$($rp_fl)* f_y: F_y,]
-          [$($rp_ct)* f_y: ::rapidproto::stream::typed::<i32, _, _>($rp_c),]
+          [$($rp_ct)* f_y: rp_mod_4root::rp_rt::stream::typed::<i32, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] unknown => $rp_c:expr , $($rp_rest:tt)*) => {
-        sub_stream!(@m
+        rp_mod_4root::sub_stream!(@m
           [$($rp_g)* F_unknown,]
-          [$($rp_w)* F_unknown: ::rapidproto::stream::Handler<::rapidproto::stream::UnknownField<'rp_a>>,]
-          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: ::rapidproto::stream::UnknownField<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_unknown, rp_x) }]
+          [$($rp_w)* F_unknown: rp_mod_4root::rp_rt::stream::Handler<rp_mod_4root::rp_rt::stream::UnknownField<'rp_a>>,]
+          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_4root::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_4root::rp_rt::stream::Flow, rp_mod_4root::rp_rt::DecodeError> { rp_mod_4root::rp_rt::stream::Handler::call(&mut self.f_unknown, rp_x) }]
           [$($rp_fl)* f_unknown: F_unknown,]
-          [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
+          [$($rp_ct)* f_unknown: rp_mod_4root::rp_rt::stream::typed::<rp_mod_4root::rp_rt::stream::UnknownField<'_>, _, _>($rp_c),]
         $($rp_rest)*)
       };
       (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
@@ -562,29 +571,29 @@ pub mod stream {
         #[allow(nonstandard_style)]
         struct RpVis<$($rp_g)*> { $($rp_fl)* }
         #[allow(nonstandard_style)]
-        impl<'rp_a, $($rp_g)*> SubVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
+        impl<'rp_a, $($rp_g)*> rp_mod_4root::SubVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
         RpVis { $($rp_ct)* }
       }};
       ( $rp_state:expr ; { $( $rp_f:ident => $rp_c:expr ),* $(,)? } ) => {{
         let rp_state = $rp_state;
-        sub_stream!(@ms [] [] [] [] [] rp_state $( $rp_f => $rp_c , )*)
+        rp_mod_4root::sub_stream!(@ms [] [] [] [] [] rp_state $( $rp_f => $rp_c , )*)
       }};
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident y => $rp_c:expr , $($rp_rest:tt)*) => {
-        sub_stream!(@ms
+        rp_mod_4root::sub_stream!(@ms
           [$($rp_g)* F_y,]
-          [$($rp_w)* F_y: ::rapidproto::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_y: bool = true; #[inline(always)] fn on_y(&mut self, rp_x: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler2::call(&mut self.f_y, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_y: rp_mod_4root::rp_rt::stream::Handler2<RpS, i32>,]
+          [$($rp_i)* const WANT_y: bool = true; #[inline(always)] fn on_y(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_4root::rp_rt::stream::Flow, rp_mod_4root::rp_rt::DecodeError> { rp_mod_4root::rp_rt::stream::Handler2::call(&mut self.f_y, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_y: F_y,]
-          [$($rp_ct)* f_y: ::rapidproto::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_y: rp_mod_4root::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident unknown => $rp_c:expr , $($rp_rest:tt)*) => {
-        sub_stream!(@ms
+        rp_mod_4root::sub_stream!(@ms
           [$($rp_g)* F_unknown,]
-          [$($rp_w)* F_unknown: ::rapidproto::stream::Handler2<RpS, ::rapidproto::stream::UnknownField<'rp_a>>,]
-          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: ::rapidproto::stream::UnknownField<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler2::call(&mut self.f_unknown, &mut *self.rp_state, rp_x) }]
+          [$($rp_w)* F_unknown: rp_mod_4root::rp_rt::stream::Handler2<RpS, rp_mod_4root::rp_rt::stream::UnknownField<'rp_a>>,]
+          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_4root::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_4root::rp_rt::stream::Flow, rp_mod_4root::rp_rt::DecodeError> { rp_mod_4root::rp_rt::stream::Handler2::call(&mut self.f_unknown, &mut *self.rp_state, rp_x) }]
           [$($rp_fl)* f_unknown: F_unknown,]
-          [$($rp_ct)* f_unknown: ::rapidproto::stream::typed2::<_, ::rapidproto::stream::UnknownField<'_>, _, _>(&*$rp_s, $rp_c),]
+          [$($rp_ct)* f_unknown: rp_mod_4root::rp_rt::stream::typed2::<_, rp_mod_4root::rp_rt::stream::UnknownField<'_>, _, _>(&*$rp_s, $rp_c),]
         $rp_s $($rp_rest)*)
       };
       (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
@@ -594,7 +603,7 @@ pub mod stream {
         #[allow(nonstandard_style, dead_code)]
         struct RpVis<'rp_s, RpS: ?Sized, $($rp_g)*> { $($rp_fl)* rp_state: &'rp_s mut RpS }
         #[allow(nonstandard_style)]
-        impl<'rp_a, 'rp_s, RpS: ?Sized, $($rp_g)*> SubVisitor<'rp_a> for RpVis<'rp_s, RpS, $($rp_g)*> where $($rp_w)* { $($rp_i)* }
+        impl<'rp_a, 'rp_s, RpS: ?Sized, $($rp_g)*> rp_mod_4root::SubVisitor<'rp_a> for RpVis<'rp_s, RpS, $($rp_g)*> where $($rp_w)* { $($rp_i)* }
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }

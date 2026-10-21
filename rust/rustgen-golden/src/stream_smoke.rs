@@ -13,8 +13,10 @@
 //! shared-state form `msg_stream!(&mut state; { field => |state, value| .. })` is covered too: many
 //! fields aggregating into one `&mut` accumulator, re-threaded across a nested `sub.decode(..)`.
 //!
-//! A `use crate::proto3::stream::p3::*;` glob brings the handle, visitor trait, macro, and the enum
-//! newtypes the macro names (re-exported into the stream module) into scope together.
+//! A `use crate::proto3::stream::p3::*;` glob brings the handle, visitor trait and macro into scope,
+//! plus the module's hidden self re-export that the macro expansion names everything through -- so two
+//! stream modules globbed into one scope never make an expansion ambiguous, even when they share a
+//! message name (pinned by the two `globbing_*` tests).
 #![cfg(feature = "std")]
 
 use crate::proto3::stream::p3::*;
@@ -242,4 +244,43 @@ fn a_visitor_type_can_be_hand_implemented() {
     let mut c = Count(0);
     Msg::new(MSG).decode(&mut c).unwrap();
     assert_eq!(c.0, 3);
+}
+
+#[test]
+fn globbing_two_packages_keeps_cross_package_types_unambiguous() {
+    // `stream::main` and `stream::dep` each define an `rp_stream_ty_0` (a `Dep` handle in one, the
+    // `DepEnum` newtype in the other). Globbed together they used to make every expansion that names a
+    // foreign type ambiguous (E0659); the expansion now names it through its own module's scope.
+    use crate::main::stream::dep::*;
+    use crate::main::stream::main::*;
+    // main.Main { d: dep.Dep { v: 9, de: DEP_ONE }, e: DEP_ONE }
+    const MAIN: &[u8] = &[0x0a, 0x04, 0x08, 0x09, 0x10, 0x01, 0x20, 0x01];
+    let (mut v, mut de, mut e) = (0i32, 0i32, 0i32);
+    Main::new(MAIN)
+        .decode(main_stream! {
+            d => |dep| dep.decode(dep_stream! { v => |x| v = x, de => |k| de = k.0 }),
+            e => |k| e = k.0,
+        })
+        .unwrap();
+    assert_eq!((v, de, e), (9, 1, 1));
+}
+
+#[test]
+fn globbing_two_modules_with_the_same_message_name_keeps_each_macro_usable() {
+    // `anv.Outer` and its nested `anv.Outer.Outer` both generate an `Outer`, an `OuterVisitor` and an
+    // `outer_stream!`. With both modules globbed, each macro is still callable through its path: the
+    // expansion's own recursion and trait impl go through its module's scope, not the bare names.
+    use crate::arena_naming_valid::stream::anv as parent;
+    use crate::arena_naming_valid::stream::anv::outer::*;
+    use crate::arena_naming_valid::stream::anv::*;
+    use parent::outer as child;
+    // anv.Outer { inner: anv.Outer.Outer { v: 5 } }
+    const OUTER: &[u8] = &[0x0a, 0x02, 0x08, 0x05];
+    let mut v = 0i32;
+    parent::Outer::new(OUTER)
+        .decode(parent::outer_stream! {
+            inner => |c| c.decode(child::outer_stream! { v => |x| v = x }),
+        })
+        .unwrap();
+    assert_eq!(v, 5);
 }

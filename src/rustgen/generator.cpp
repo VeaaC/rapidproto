@@ -2704,19 +2704,51 @@ std::string stream_foreign_path(const NameTable& table, const std::vector<std::s
 using StreamAliases =
     std::map<std::string, std::string>;  // foreign relative path -> local alias name
 
-// Re-export every FOREIGN type `msgs` reference (enum newtype / cross-module child handle) as a
-// `pub type` alias with an `rp_`-prefixed name. Two subtleties the adversarial naming corpus forces:
-//   * A `pub type` RHS resolves as a TYPE path (local items first) -- unlike a `use` path, which is
-//     crate-relative, so a leading module segment like `std` would be read as the extern crate. The
-//     same relative paths the arena tree uses (which already compile in type position) thus resolve.
-//   * The alias name is `rp_stream_ty_<n>`: the generator reserves the `rp_` prefix (no proto-derived
-//     name, sibling submodule, or extern crate is ever `rp_`-prefixed), so the alias cannot clash --
-//     no dedup against the module's names needed.
-// A consumer glob-imports the stream module to bring these aliases (and the trait/macro) into scope so
-// the `*_stream!` macro, which expands at the call site, can name them. Returns path -> alias.
+// The name a stream module re-exports ITSELF under, `rp_mod_<path>`: the module's segments below
+// `stream`, each written as its length then its (raw-prefix-stripped) name, e.g. `p3` -> `rp_mod_2p3`,
+// `anv::outer` -> `rp_mod_3anv5outer`, and `rp_mod_` for a package-less schema's `stream` itself. The
+// encoding is injective (a Rust identifier never starts with a digit), so no two modules of one
+// generated file share the name, and the reserved `rp_` prefix keeps it clear of every proto-derived
+// name. See emit_stream_reexports for why the macros need it.
+std::string stream_scope_name(const std::vector<std::string>& current_mod) {
+    std::string name = "rp_mod_";
+    for (const std::string& seg : current_mod) {
+        const std::string_view bare =
+            seg.rfind("r#", 0) == 0 ? std::string_view(seg).substr(2) : std::string_view(seg);
+        name += std::to_string(bare.size());
+        name += bare;
+    }
+    return name;
+}
+
+// Emit the module's macro glue, then return the foreign-type alias map. Every name a `*_stream!` macro
+// expansion uses resolves at the CALLER's call site, outside this module -- and the generator cannot
+// know where the consumer `include!`d the tree, so there is no absolute path to write. A consumer
+// therefore glob-imports the stream module, and the expansion reaches everything through ONE name that
+// glob brings in: the module's own re-export `rp_mod_<path>` (stream_scope_name). So the trait, the
+// child handles, the aliases below, the macro's own recursion and the runtime (`rp_rt`) are all
+// `rp_mod_<path>::`-qualified, and two globbed modules that both define a `MsgVisitor`, a `msg_stream`
+// or an `rp_stream_ty_0` cannot make an expansion ambiguous (E0659) -- only the per-module scope name
+// must be unique. `rp_rt` also lets the expansion name the runtime from a crate with no direct
+// `rapidproto` dependency. A package-less schema's `stream` module re-exports itself as
+// `super::stream` (its parent is the `include!` site).
+//
+// Each FOREIGN type `msgs` reference (enum newtype / cross-module child handle) is re-exported as a
+// `pub type` alias with an `rp_`-prefixed name, because a `pub type` RHS resolves as a TYPE path (local
+// items first) -- unlike a `use` path, where a leading module segment like `std` would be read as the
+// extern crate (the adversarial naming corpus has such packages). The same relative paths the arena
+// tree uses thus resolve. The alias name `rp_stream_ty_<n>` only needs to be unique within the module:
+// the expansion always names it through the module's scope. Returns path -> alias.
 StreamAliases emit_stream_reexports(Printer& printer, const NameTable& table,
                                     const std::vector<const MessageNode*>& msgs,
                                     const std::vector<std::string>& current_mod) {
+    if (msgs.empty()) {
+        return {};  // no messages, so no macros and nothing to glue
+    }
+    printer.print("#[doc(hidden)]\npub use super::$m$ as $s$;\n",
+                  {{"m", current_mod.empty() ? std::string("stream") : current_mod.back()},
+                   {"s", stream_scope_name(current_mod)}});
+    printer.print("#[doc(hidden)]\npub use ::rapidproto as rp_rt;\n");
     std::vector<std::pair<std::string, bool>>
         order;  // (path, is_message), first-seen, deterministic
     StreamAliases aliases;
@@ -2755,35 +2787,38 @@ StreamAliases emit_stream_reexports(Printer& printer, const NameTable& table,
             printer.print("pub type $a$ = $p$;\n", {{"a", aliases.at(path)}, {"p", path}});
         }
     }
-    if (!order.empty()) {
-        printer.print("\n");
-    }
+    printer.print("\n");
     return aliases;
 }
 
 // The handler value type for a field, with its borrow written as lifetime `lt`: message/group -> the
 // child reader handle `Child<lt>`; enum -> the newtype (no lifetime); string -> `ProtoStr<lt>`;
-// bytes -> `&<lt> [u8]`; scalar -> a primitive. A FOREIGN type (enum newtype / cross-module child
-// handle) resolves to its re-export alias when `use_alias` is set (the macro, which expands at the
-// caller's call site where a tree-relative path is invalid) and to its real tree-relative path when not
-// (the trait and driver, which live in the stream module where the path resolves) -- so the
-// hand-implementable surface shows the real type name, not the opaque alias.
+// bytes -> `&<lt> [u8]`; scalar -> a primitive. With an empty `scope` (the trait and driver, which live
+// in the stream module) a type is written by its real tree-relative path, so the hand-implementable
+// surface shows the real type name. With the module's `scope` name set (the macro, which expands at
+// the caller's call site, where a tree-relative path is invalid) every named type goes through that
+// scope: a foreign type via its re-export alias, a same-module child handle by its bare name, and
+// `ProtoStr` via the `rp_rt` runtime re-export (see emit_stream_reexports).
 std::string stream_value_type(const NameTable& table, const std::vector<std::string>& current_mod,
                               const FieldNode& field, const std::string& lt,
-                              const StreamAliases& aliases, bool use_alias) {
+                              const StreamAliases& aliases, const std::string& scope) {
+    const bool in_macro = !scope.empty();
     if (field.is_message_type) {
         const std::string path = arena_message_path(table, current_mod, field.resolved_type_fqn);
         const bool foreign = path.find("::") != std::string::npos;
-        const std::string local = (foreign && use_alias) ? aliases.at(path) : path;
-        return local + "<" + lt + ">";
+        if (!in_macro) {
+            return path + "<" + lt + ">";
+        }
+        return scope + "::" + (foreign ? aliases.at(path) : path) + "<" + lt + ">";
     }
     if (field.is_enum_type) {
         const std::string path = common_type_path(table, current_mod, field.resolved_type_fqn);
-        return use_alias ? aliases.at(path) : path;
+        return in_macro ? scope + "::" + aliases.at(path) : path;
     }
     const std::string& t = field.type_name;
     if (t == "string") {
-        return "::rapidproto::ProtoStr<" + lt + ">";
+        return (in_macro ? scope + "::rp_rt" : std::string("::rapidproto")) + "::ProtoStr<" + lt +
+               ">";
     }
     if (t == "bytes") {
         return "&" + lt + " [u8]";
@@ -2796,14 +2831,14 @@ std::string stream_value_type(const NameTable& table, const std::vector<std::str
 std::string stream_slot_value_type(const NameTable& table,
                                    const std::vector<std::string>& current_mod,
                                    const StreamSlot& slot, const std::string& lt,
-                                   const StreamAliases& aliases, bool use_alias) {
+                                   const StreamAliases& aliases, const std::string& scope) {
     if (slot.map != nullptr) {
         const FieldNode key = map_key_field(*slot.map);
         const FieldNode val = map_value_field(*slot.map);
-        return "(" + stream_value_type(table, current_mod, key, lt, aliases, use_alias) + ", " +
-               stream_value_type(table, current_mod, val, lt, aliases, use_alias) + ")";
+        return "(" + stream_value_type(table, current_mod, key, lt, aliases, scope) + ", " +
+               stream_value_type(table, current_mod, val, lt, aliases, scope) + ")";
     }
-    return stream_value_type(table, current_mod, *slot.field, lt, aliases, use_alias);
+    return stream_value_type(table, current_mod, *slot.field, lt, aliases, scope);
 }
 
 // `pub trait <Msg>Visitor<'a> { const WANT_<f>: bool = false; fn on_<f>(&mut self, V) -> Result<Flow>
@@ -2834,7 +2869,7 @@ void emit_stream_visitor_trait(Printer& printer, const NameTable& table,
             "::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::"
             "Continue) }\n",
             {{"n", slot.name},
-             {"t", stream_slot_value_type(table, current_mod, slot, "'a", aliases, false)}});
+             {"t", stream_slot_value_type(table, current_mod, slot, "'a", aliases, "")}});
     }
     // The unknown-field handler: fires for a field number the schema does not declare (a declared
     // number with a wrong wire type is skipped, not delivered), when selected.
@@ -2921,7 +2956,7 @@ void emit_stream_map_arm(Printer& printer, const NameTable& table,
     emit_len_read(printer, loop_read());  // the entry payload -> rp_p
     printer.print("let rp_ent_body: &'a [u8] = rp_p;\n");
     printer.print("let mut rp_key: $t$ = $d$;\n",
-                  {{"t", stream_value_type(table, current_mod, key, "'a", {}, false)},
+                  {{"t", stream_value_type(table, current_mod, key, "'a", {}, "")},
                    {"d", stream_scalar_default(key)}});
     if (val.is_message_type) {
         // A message value is handed over as a child reader handle; capture its payload bytes (empty
@@ -2929,7 +2964,7 @@ void emit_stream_map_arm(Printer& printer, const NameTable& table,
         printer.print("let mut rp_val: &'a [u8] = &[];\n");
     } else {
         printer.print("let mut rp_val: $t$ = $d$;\n",
-                      {{"t", stream_value_type(table, current_mod, val, "'a", {}, false)},
+                      {{"t", stream_value_type(table, current_mod, val, "'a", {}, "")},
                        {"d", stream_scalar_default(val)}});
     }
     printer.print("let mut rp_ent: &'a [u8] = rp_ent_body;\n");
@@ -3172,15 +3207,18 @@ void emit_stream_decode(Printer& printer, const NameTable& table,
 
 // The per-message `<name>_stream!` macro: a token muncher with one arm per field (plus `unknown`), the
 // field's literal names/type baked in, that builds an anonymous visitor from `field => closure` pairs.
-// Path-addressable via `pub(crate) use` (no `#[macro_export]` clash). The impl names the trait and any
-// foreign value type by its (re-exported) local name, so a caller brings the message's stream module
-// into scope (glob); runtime types are absolute. Expands to O(k) for k selected fields; the definition
-// is O(N).
+// Path-addressable via `pub(crate) use` (no `#[macro_export]` clash). The expansion runs at the
+// caller's call site, so every name it uses -- the trait, the value types, its own recursive arms, the
+// runtime -- goes through the module's self re-export `$scope$` (emit_stream_reexports), which the
+// caller's glob of the stream module brings into scope. Expands to O(k) for k selected fields; the
+// definition is O(N).
 void emit_stream_macro(Printer& printer, const NameTable& table,
                        const std::vector<std::string>& current_mod,
                        const std::vector<StreamSlot>& slots, const StreamAliases& aliases,
                        const std::string& macro_name) {
+    const std::string scope = stream_scope_name(current_mod);
     printer.set("mac", macro_name);
+    printer.set("scope", scope);
     // One (name, value-type-at-'rp_a, method, const, slot, param) per selectable field plus the
     // reserved `unknown` handler, so the muncher arms are emitted uniformly.
     struct MacroField {
@@ -3196,22 +3234,22 @@ void emit_stream_macro(Printer& printer, const NameTable& table,
     std::string valid_keys;  // for the unknown-key compile_error
     for (const StreamSlot& slot : slots) {
         fields.push_back({slot.name,
-                          stream_slot_value_type(table, current_mod, slot, "'rp_a", aliases, true),
-                          stream_slot_value_type(table, current_mod, slot, "'_", aliases, true)});
+                          stream_slot_value_type(table, current_mod, slot, "'rp_a", aliases, scope),
+                          stream_slot_value_type(table, current_mod, slot, "'_", aliases, scope)});
         if (!valid_keys.empty()) {
             valid_keys += ", ";
         }
         valid_keys += slot.name;
     }
-    fields.push_back({"unknown", "::rapidproto::stream::UnknownField<'rp_a>",
-                      "::rapidproto::stream::UnknownField<'_>"});
+    fields.push_back({"unknown", scope + "::rp_rt::stream::UnknownField<'rp_a>",
+                      scope + "::rp_rt::stream::UnknownField<'_>"});
     valid_keys += valid_keys.empty() ? "unknown" : ", unknown";
 
     printer.print("macro_rules! $mac$ {\n");
     printer.indent();
     printer.print("( $$( $$rp_f:ident => $$rp_c:expr ),* $$(,)? ) => {\n");
     printer.indent();
-    printer.print("$mac$!(@m [] [] [] [] [] $$( $$rp_f => $$rp_c , )*)\n");
+    printer.print("$scope$::$mac$!(@m [] [] [] [] [] $$( $$rp_f => $$rp_c , )*)\n");
     printer.outdent();
     printer.print("};\n");
     for (const MacroField& mf : fields) {
@@ -3220,22 +3258,22 @@ void emit_stream_macro(Printer& printer, const NameTable& table,
             "[$$($$rp_ct:tt)*] $n$ => $$rp_c:expr , $$($$rp_rest:tt)*) => {\n",
             {{"n", mf.key}});
         printer.indent();
-        printer.print("$mac$!(@m\n");
+        printer.print("$scope$::$mac$!(@m\n");
         printer.indent();
         printer.print("[$$($$rp_g)* F_$n$,]\n", {{"n", mf.key}});
-        printer.print("[$$($$rp_w)* F_$n$: ::rapidproto::stream::Handler<$t$>,]\n",
+        printer.print("[$$($$rp_w)* F_$n$: $scope$::rp_rt::stream::Handler<$t$>,]\n",
                       {{"n", mf.key}, {"t", mf.value}});
         printer.print(
             "[$$($$rp_i)* const WANT_$N$: bool = true; #[inline(always)] fn on_$n$(&mut self, "
-            "rp_x: $t$) -> ::core::result::Result<::rapidproto::stream::Flow, "
-            "::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_$n$, "
-            "rp_x) }]\n",
+            "rp_x: $t$) -> ::core::result::Result<$scope$::rp_rt::stream::Flow, "
+            "$scope$::rp_rt::DecodeError> { $scope$::rp_rt::stream::Handler::call(&mut "
+            "self.f_$n$, rp_x) }]\n",
             {{"n", mf.key}, {"N", mf.key == "unknown" ? "UNKNOWN" : mf.key}, {"t", mf.value}});
         printer.print("[$$($$rp_fl)* f_$n$: F_$n$,]\n", {{"n", mf.key}});
         // Wrap the closure so its parameter type is fixed to the field's value type, so the consumer
         // never has to annotate it (even for `|s| s.0` or `|sub| sub.decode(..)`). The turbofish uses
         // the anonymous lifetime `'_` because the constructor is outside the impl's `'rp_a` scope.
-        printer.print("[$$($$rp_ct)* f_$n$: ::rapidproto::stream::typed::<$t$, _, _>($$rp_c),]\n",
+        printer.print("[$$($$rp_ct)* f_$n$: $scope$::rp_rt::stream::typed::<$t$, _, _>($$rp_c),]\n",
                       {{"n", mf.key}, {"t", mf.anon}});
         printer.outdent();
         printer.print("$$($$rp_rest)*)\n");
@@ -3266,8 +3304,8 @@ void emit_stream_macro(Printer& printer, const NameTable& table,
     printer.print("struct RpVis<$$($$rp_g)*> { $$($$rp_fl)* }\n");
     printer.print("#[allow(nonstandard_style)]\n");
     printer.print(
-        "impl<'rp_a, $$($$rp_g)*> $M$Visitor<'rp_a> for RpVis<$$($$rp_g)*> where $$($$rp_w)* "
-        "{ $$($$rp_i)* }\n");
+        "impl<'rp_a, $$($$rp_g)*> $scope$::$M$Visitor<'rp_a> for RpVis<$$($$rp_g)*> where "
+        "$$($$rp_w)* { $$($$rp_i)* }\n");
     printer.print("RpVis { $$($$rp_ct)* }\n");
     printer.outdent();
     printer.print("}};\n");
@@ -3283,7 +3321,7 @@ void emit_stream_macro(Printer& printer, const NameTable& table,
     printer.print("( $$rp_state:expr ; { $$( $$rp_f:ident => $$rp_c:expr ),* $$(,)? } ) => {{\n");
     printer.indent();
     printer.print("let rp_state = $$rp_state;\n");
-    printer.print("$mac$!(@ms [] [] [] [] [] rp_state $$( $$rp_f => $$rp_c , )*)\n");
+    printer.print("$scope$::$mac$!(@ms [] [] [] [] [] rp_state $$( $$rp_f => $$rp_c , )*)\n");
     printer.outdent();
     printer.print("}};\n");
     for (const MacroField& mf : fields) {
@@ -3292,23 +3330,23 @@ void emit_stream_macro(Printer& printer, const NameTable& table,
             "[$$($$rp_ct:tt)*] $$rp_s:ident $n$ => $$rp_c:expr , $$($$rp_rest:tt)*) => {\n",
             {{"n", mf.key}});
         printer.indent();
-        printer.print("$mac$!(@ms\n");
+        printer.print("$scope$::$mac$!(@ms\n");
         printer.indent();
         printer.print("[$$($$rp_g)* F_$n$,]\n", {{"n", mf.key}});
-        printer.print("[$$($$rp_w)* F_$n$: ::rapidproto::stream::Handler2<RpS, $t$>,]\n",
+        printer.print("[$$($$rp_w)* F_$n$: $scope$::rp_rt::stream::Handler2<RpS, $t$>,]\n",
                       {{"n", mf.key}, {"t", mf.value}});
         printer.print(
             "[$$($$rp_i)* const WANT_$N$: bool = true; #[inline(always)] fn on_$n$(&mut self, "
-            "rp_x: $t$) -> ::core::result::Result<::rapidproto::stream::Flow, "
-            "::rapidproto::DecodeError> { ::rapidproto::stream::Handler2::call(&mut self.f_$n$, "
-            "&mut *self.rp_state, rp_x) }]\n",
+            "rp_x: $t$) -> ::core::result::Result<$scope$::rp_rt::stream::Flow, "
+            "$scope$::rp_rt::DecodeError> { $scope$::rp_rt::stream::Handler2::call(&mut "
+            "self.f_$n$, &mut *self.rp_state, rp_x) }]\n",
             {{"n", mf.key}, {"N", mf.key == "unknown" ? "UNKNOWN" : mf.key}, {"t", mf.value}});
         printer.print("[$$($$rp_fl)* f_$n$: F_$n$,]\n", {{"n", mf.key}});
         // Pin both handler parameter types without a consumer annotation: the `&*rp_state` hint fixes
         // the state type `S` and the `'_` turbofish the value type `V`. The hint is a transient shared
         // reborrow (dropped before `rp_state`'s `&mut` is moved into the struct below).
         printer.print(
-            "[$$($$rp_ct)* f_$n$: ::rapidproto::stream::typed2::<_, $t$, _, _>(&*$$rp_s, "
+            "[$$($$rp_ct)* f_$n$: $scope$::rp_rt::stream::typed2::<_, $t$, _, _>(&*$$rp_s, "
             "$$rp_c),]\n",
             {{"n", mf.key}, {"t", mf.anon}});
         printer.outdent();
@@ -3337,7 +3375,7 @@ void emit_stream_macro(Printer& printer, const NameTable& table,
         "}\n");
     printer.print("#[allow(nonstandard_style)]\n");
     printer.print(
-        "impl<'rp_a, 'rp_s, RpS: ?Sized, $$($$rp_g)*> $M$Visitor<'rp_a> for "
+        "impl<'rp_a, 'rp_s, RpS: ?Sized, $$($$rp_g)*> $scope$::$M$Visitor<'rp_a> for "
         "RpVis<'rp_s, RpS, $$($$rp_g)*> where $$($$rp_w)* { $$($$rp_i)* }\n");
     printer.print("RpVis { $$($$rp_ct)* rp_state: $$rp_s }\n");
     printer.outdent();
