@@ -181,6 +181,7 @@ pub fn typed2<S: ?Sized, V, R, F: FnMut(&mut S, V) -> R>(_state_hint: &S, f: F) 
 /// block-local alias named by its const (`type WANT_<f><'rp_a> = V`) so the constructor can name it at
 /// `'_` to pin the closure's parameter types. A leading `[]` selects the plain form, `[state]` the
 /// shared-state form that lends one `&mut state` to every handler. Internal to the generated glue.
+/// It expands at the caller's call site, so it names every outside item by an absolute path.
 #[macro_export]
 #[doc(hidden)]
 macro_rules! stream_visitor {
@@ -193,7 +194,7 @@ macro_rules! stream_visitor {
             for RpVis<$($on),*>
         {
             $(
-                const $W: bool = true;
+                const $W: ::core::primitive::bool = true;
                 #[inline(always)]
                 fn $on(&mut self, rp_x: $W<'rp_a>)
                     -> ::core::result::Result<$crate::stream::Flow, $crate::DecodeError> {
@@ -216,7 +217,7 @@ macro_rules! stream_visitor {
             $scope::$Tr<'rp_a> for RpVis<'rp_s, RpS, $($on),*>
         {
             $(
-                const $W: bool = true;
+                const $W: ::core::primitive::bool = true;
                 #[inline(always)]
                 fn $on(&mut self, rp_x: $W<'rp_a>)
                     -> ::core::result::Result<$crate::stream::Flow, $crate::DecodeError> {

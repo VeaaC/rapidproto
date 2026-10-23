@@ -591,7 +591,7 @@ pub mod stream {
           macro_rules! __rp_4deep_3com7example4deep5Outer5Inner {
             ($($f:ident => $c:expr),* $(,)?) => { rp_mod_3com7example4deep5Outer5Inner::inner_stream!(@f [[]] $($f => $c,)*) };
             ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_3com7example4deep5Outer5Inner::inner_stream!(@f [[$s]] $($f => $c,)*) };
-            (@f [$($a:tt)*] x => $c:expr, $($r:tt)*) => { rp_mod_3com7example4deep5Outer5Inner::inner_stream!(@f [$($a)* WANT_x on_x: i32 = $c;] $($r)*) };
+            (@f [$($a:tt)*] x => $c:expr, $($r:tt)*) => { rp_mod_3com7example4deep5Outer5Inner::inner_stream!(@f [$($a)* WANT_x on_x: ::core::primitive::i32 = $c;] $($r)*) };
             (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_3com7example4deep5Outer5Inner::inner_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_3com7example4deep5Outer5Inner::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
             (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: x, unknown")) };
             (@f $a:tt) => { rp_mod_3com7example4deep5Outer5Inner::rp_rt::stream_visitor!(rp_mod_3com7example4deep5Outer5Inner InnerVisitor $a) };

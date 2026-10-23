@@ -1674,8 +1674,8 @@ pub mod stream {
     macro_rules! __rp_12arena_layout_2al5Point {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2al5Point::point_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2al5Point::point_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] x => $c:expr, $($r:tt)*) => { rp_mod_2al5Point::point_stream!(@f [$($a)* WANT_x on_x: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] y => $c:expr, $($r:tt)*) => { rp_mod_2al5Point::point_stream!(@f [$($a)* WANT_y on_y: i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] x => $c:expr, $($r:tt)*) => { rp_mod_2al5Point::point_stream!(@f [$($a)* WANT_x on_x: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] y => $c:expr, $($r:tt)*) => { rp_mod_2al5Point::point_stream!(@f [$($a)* WANT_y on_y: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2al5Point::point_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2al5Point::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: x, y, unknown")) };
       (@f $a:tt) => { rp_mod_2al5Point::rp_rt::stream_visitor!(rp_mod_2al5Point PointVisitor $a) };
@@ -1824,9 +1824,9 @@ pub mod stream {
     macro_rules! __rp_12arena_layout_2al3Big {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2al3Big::big_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2al3Big::big_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] a => $c:expr, $($r:tt)*) => { rp_mod_2al3Big::big_stream!(@f [$($a)* WANT_a on_a: u64 = $c;] $($r)*) };
-      (@f [$($a:tt)*] b => $c:expr, $($r:tt)*) => { rp_mod_2al3Big::big_stream!(@f [$($a)* WANT_b on_b: u64 = $c;] $($r)*) };
-      (@f [$($a:tt)*] c => $c:expr, $($r:tt)*) => { rp_mod_2al3Big::big_stream!(@f [$($a)* WANT_c on_c: u64 = $c;] $($r)*) };
+      (@f [$($a:tt)*] a => $c:expr, $($r:tt)*) => { rp_mod_2al3Big::big_stream!(@f [$($a)* WANT_a on_a: ::core::primitive::u64 = $c;] $($r)*) };
+      (@f [$($a:tt)*] b => $c:expr, $($r:tt)*) => { rp_mod_2al3Big::big_stream!(@f [$($a)* WANT_b on_b: ::core::primitive::u64 = $c;] $($r)*) };
+      (@f [$($a:tt)*] c => $c:expr, $($r:tt)*) => { rp_mod_2al3Big::big_stream!(@f [$($a)* WANT_c on_c: ::core::primitive::u64 = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2al3Big::big_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2al3Big::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: a, b, c, unknown")) };
       (@f $a:tt) => { rp_mod_2al3Big::rp_rt::stream_visitor!(rp_mod_2al3Big BigVisitor $a) };
@@ -2040,7 +2040,7 @@ pub mod stream {
     macro_rules! __rp_12arena_layout_2al8BoolWrap {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2al8BoolWrap::bool_wrap_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2al8BoolWrap::bool_wrap_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] value => $c:expr, $($r:tt)*) => { rp_mod_2al8BoolWrap::bool_wrap_stream!(@f [$($a)* WANT_value on_value: bool = $c;] $($r)*) };
+      (@f [$($a:tt)*] value => $c:expr, $($r:tt)*) => { rp_mod_2al8BoolWrap::bool_wrap_stream!(@f [$($a)* WANT_value on_value: ::core::primitive::bool = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2al8BoolWrap::bool_wrap_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2al8BoolWrap::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: value, unknown")) };
       (@f $a:tt) => { rp_mod_2al8BoolWrap::rp_rt::stream_visitor!(rp_mod_2al8BoolWrap BoolWrapVisitor $a) };
@@ -2169,7 +2169,7 @@ pub mod stream {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2al7SelfRef::self_ref_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2al7SelfRef::self_ref_stream!(@f [[$s]] $($f => $c,)*) };
       (@f [$($a:tt)*] next => $c:expr, $($r:tt)*) => { rp_mod_2al7SelfRef::self_ref_stream!(@f [$($a)* WANT_next on_next: rp_mod_2al7SelfRef::SelfRef<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] v => $c:expr, $($r:tt)*) => { rp_mod_2al7SelfRef::self_ref_stream!(@f [$($a)* WANT_v on_v: i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] v => $c:expr, $($r:tt)*) => { rp_mod_2al7SelfRef::self_ref_stream!(@f [$($a)* WANT_v on_v: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2al7SelfRef::self_ref_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2al7SelfRef::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: next, v, unknown")) };
       (@f $a:tt) => { rp_mod_2al7SelfRef::rp_rt::stream_visitor!(rp_mod_2al7SelfRef SelfRefVisitor $a) };
@@ -2790,11 +2790,11 @@ pub mod stream {
     macro_rules! __rp_12arena_layout_2al6Layout {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2al6Layout::layout_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2al6Layout::layout_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] b1 => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_b1 on_b1: bool = $c;] $($r)*) };
-      (@f [$($a:tt)*] big => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_big on_big: i64 = $c;] $($r)*) };
-      (@f [$($a:tt)*] b2 => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_b2 on_b2: bool = $c;] $($r)*) };
-      (@f [$($a:tt)*] small => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_small on_small: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] opt => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_opt on_opt: i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] b1 => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_b1 on_b1: ::core::primitive::bool = $c;] $($r)*) };
+      (@f [$($a:tt)*] big => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_big on_big: ::core::primitive::i64 = $c;] $($r)*) };
+      (@f [$($a:tt)*] b2 => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_b2 on_b2: ::core::primitive::bool = $c;] $($r)*) };
+      (@f [$($a:tt)*] small => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_small on_small: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] opt => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_opt on_opt: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_name on_name: rp_mod_2al6Layout::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] oname => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_oname on_oname: rp_mod_2al6Layout::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] color => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_color on_color: rp_mod_2al6Layout::rp_stream_ty_0 = $c;] $($r)*) };
@@ -2802,12 +2802,12 @@ pub mod stream {
       (@f [$($a:tt)*] bg => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_bg on_bg: rp_mod_2al6Layout::Big<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] hs => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_hs on_hs: rp_mod_2al6Layout::HasString<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] flag => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_flag on_flag: rp_mod_2al6Layout::BoolWrap<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] nums => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_nums on_nums: i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] nums => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_nums on_nums: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] points => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_points on_points: rp_mod_2al6Layout::Point<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] labels => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_labels on_labels: rp_mod_2al6Layout::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] counts => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_counts on_counts: (rp_mod_2al6Layout::rp_rt::ProtoStr<'rp_a>, i32) = $c;] $($r)*) };
-      (@f [$($a:tt)*] grid => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_grid on_grid: (i32, rp_mod_2al6Layout::Point<'rp_a>) = $c;] $($r)*) };
-      (@f [$($a:tt)*] ci => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_ci on_ci: i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] counts => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_counts on_counts: (rp_mod_2al6Layout::rp_rt::ProtoStr<'rp_a>, ::core::primitive::i32) = $c;] $($r)*) };
+      (@f [$($a:tt)*] grid => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_grid on_grid: (::core::primitive::i32, rp_mod_2al6Layout::Point<'rp_a>) = $c;] $($r)*) };
+      (@f [$($a:tt)*] ci => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_ci on_ci: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] cs => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_cs on_cs: rp_mod_2al6Layout::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] cp => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_cp on_cp: rp_mod_2al6Layout::Point<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2al6Layout::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };

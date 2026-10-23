@@ -439,7 +439,7 @@ pub mod stream {
     macro_rules! __rp_10messageset_2ms5Outer {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2ms5Outer::outer_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2ms5Outer::outer_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] ordinary => $c:expr, $($r:tt)*) => { rp_mod_2ms5Outer::outer_stream!(@f [$($a)* WANT_ordinary on_ordinary: i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] ordinary => $c:expr, $($r:tt)*) => { rp_mod_2ms5Outer::outer_stream!(@f [$($a)* WANT_ordinary on_ordinary: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] container => $c:expr, $($r:tt)*) => { rp_mod_2ms5Outer::outer_stream!(@f [$($a)* WANT_container on_container: rp_mod_2ms5Outer::rp_stream_ty_0<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2ms5Outer::outer_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2ms5Outer::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: ordinary, container, unknown")) };

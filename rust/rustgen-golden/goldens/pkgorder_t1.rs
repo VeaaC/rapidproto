@@ -212,7 +212,7 @@ pub mod stream {
     macro_rules! __rp_11pkgorder_t1_2po6linux_ {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2po6linux_::linux__stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2po6linux_::linux__stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] v => $c:expr, $($r:tt)*) => { rp_mod_2po6linux_::linux__stream!(@f [$($a)* WANT_v on_v: i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] v => $c:expr, $($r:tt)*) => { rp_mod_2po6linux_::linux__stream!(@f [$($a)* WANT_v on_v: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2po6linux_::linux__stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2po6linux_::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: v, unknown")) };
       (@f $a:tt) => { rp_mod_2po6linux_::rp_rt::stream_visitor!(rp_mod_2po6linux_ linux_Visitor $a) };

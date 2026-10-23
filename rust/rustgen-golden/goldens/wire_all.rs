@@ -806,15 +806,15 @@ pub mod stream {
     macro_rules! __rp_8wire_all_4wire7AllWire {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_4wire7AllWire::all_wire_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_4wire7AllWire::all_wire_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] zz => $c:expr, $($r:tt)*) => { rp_mod_4wire7AllWire::all_wire_stream!(@f [$($a)* WANT_zz on_zz: i64 = $c;] $($r)*) };
-      (@f [$($a:tt)*] db => $c:expr, $($r:tt)*) => { rp_mod_4wire7AllWire::all_wire_stream!(@f [$($a)* WANT_db on_db: f64 = $c;] $($r)*) };
-      (@f [$($a:tt)*] fx => $c:expr, $($r:tt)*) => { rp_mod_4wire7AllWire::all_wire_stream!(@f [$($a)* WANT_fx on_fx: u32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] zz => $c:expr, $($r:tt)*) => { rp_mod_4wire7AllWire::all_wire_stream!(@f [$($a)* WANT_zz on_zz: ::core::primitive::i64 = $c;] $($r)*) };
+      (@f [$($a:tt)*] db => $c:expr, $($r:tt)*) => { rp_mod_4wire7AllWire::all_wire_stream!(@f [$($a)* WANT_db on_db: ::core::primitive::f64 = $c;] $($r)*) };
+      (@f [$($a:tt)*] fx => $c:expr, $($r:tt)*) => { rp_mod_4wire7AllWire::all_wire_stream!(@f [$($a)* WANT_fx on_fx: ::core::primitive::u32 = $c;] $($r)*) };
       (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { rp_mod_4wire7AllWire::all_wire_stream!(@f [$($a)* WANT_s on_s: rp_mod_4wire7AllWire::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] by => $c:expr, $($r:tt)*) => { rp_mod_4wire7AllWire::all_wire_stream!(@f [$($a)* WANT_by on_by: &'rp_a [u8] = $c;] $($r)*) };
+      (@f [$($a:tt)*] by => $c:expr, $($r:tt)*) => { rp_mod_4wire7AllWire::all_wire_stream!(@f [$($a)* WANT_by on_by: &'rp_a [::core::primitive::u8] = $c;] $($r)*) };
       (@f [$($a:tt)*] nested => $c:expr, $($r:tt)*) => { rp_mod_4wire7AllWire::all_wire_stream!(@f [$($a)* WANT_nested on_nested: rp_mod_4wire7AllWire::AllWire<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] packed => $c:expr, $($r:tt)*) => { rp_mod_4wire7AllWire::all_wire_stream!(@f [$($a)* WANT_packed on_packed: i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] packed => $c:expr, $($r:tt)*) => { rp_mod_4wire7AllWire::all_wire_stream!(@f [$($a)* WANT_packed on_packed: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] g => $c:expr, $($r:tt)*) => { rp_mod_4wire7AllWire::all_wire_stream!(@f [$($a)* WANT_g on_g: rp_mod_4wire7AllWire::rp_stream_ty_0<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] oi => $c:expr, $($r:tt)*) => { rp_mod_4wire7AllWire::all_wire_stream!(@f [$($a)* WANT_oi on_oi: i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] oi => $c:expr, $($r:tt)*) => { rp_mod_4wire7AllWire::all_wire_stream!(@f [$($a)* WANT_oi on_oi: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] os => $c:expr, $($r:tt)*) => { rp_mod_4wire7AllWire::all_wire_stream!(@f [$($a)* WANT_os on_os: rp_mod_4wire7AllWire::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_4wire7AllWire::all_wire_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_4wire7AllWire::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: zz, db, fx, s, by, nested, packed, g, oi, os, unknown")) };
@@ -926,7 +926,7 @@ pub mod stream {
       macro_rules! __rp_8wire_all_4wire7AllWire1G {
         ($($f:ident => $c:expr),* $(,)?) => { rp_mod_4wire7AllWire1G::g_stream!(@f [[]] $($f => $c,)*) };
         ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_4wire7AllWire1G::g_stream!(@f [[$s]] $($f => $c,)*) };
-        (@f [$($a:tt)*] a => $c:expr, $($r:tt)*) => { rp_mod_4wire7AllWire1G::g_stream!(@f [$($a)* WANT_a on_a: i32 = $c;] $($r)*) };
+        (@f [$($a:tt)*] a => $c:expr, $($r:tt)*) => { rp_mod_4wire7AllWire1G::g_stream!(@f [$($a)* WANT_a on_a: ::core::primitive::i32 = $c;] $($r)*) };
         (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_4wire7AllWire1G::g_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_4wire7AllWire1G::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: a, unknown")) };
         (@f $a:tt) => { rp_mod_4wire7AllWire1G::rp_rt::stream_visitor!(rp_mod_4wire7AllWire1G GVisitor $a) };

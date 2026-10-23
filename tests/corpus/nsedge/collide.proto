@@ -1,9 +1,10 @@
 // Names that collide with what the Rust generator emits or refers to: the prelude names generated
 // code uses (`Option`, `Result`, `Some`, `Default`, ...), primitive type names, a derived name a sibling
 // already holds (`<T>Visitor`, `<snake>_stream`), keyword escapes that land on a real name (`r#type` is
-// the identifier `type`), and decode-body bindings. Each name below is protoc-valid; the Rust golden
-// compiling (under the golden crate's `#![no_implicit_prelude]`) and the golden crate's tests decoding
-// `Holder` are the check.
+// the identifier `type`), and decode-body bindings. Each name below is protoc-valid. The Rust golden
+// compiles twice: without the prelude in the golden crate (so an unqualified prelude name fails), and
+// with it in the decode tests (where a binding named like a prelude variant would be a pattern); the
+// golden crate's tests decode `Holder` and drive its macros.
 syntax = "proto3";
 
 package collide;
@@ -66,6 +67,27 @@ enum i32 {
   I32_ZERO = 0;
   I32_ONE = 1;
 }
+// Nested types put a submodule named like a primitive (`u8`, `u32`, `bool`) beside the code naming the
+// primitive; the imported `collide.Option` holds the same three, so a caller globbing both modules gets
+// each such name twice.
+message U8 {
+  message In {
+    int32 v = 1;
+  }
+  In nested = 1;
+}
+message U32 {
+  message In {
+    int32 v = 1;
+  }
+  In nested = 1;
+}
+message Bool {
+  message In {
+    int32 v = 1;
+  }
+  In nested = 1;
+}
 message Prims {
   u8 a = 1;
   u32 b = 2;
@@ -77,6 +99,7 @@ message Prims {
   bytes h = 8;
   optional float i = 9;
   repeated uint32 j = 10;
+  repeated fixed32 k = 11;  // packed fixed-width: its decode tests the target's endianness
 }
 
 // `Node`'s visitor trait and, imported, a sub-package named `NodeVisitor`; nested, a message already

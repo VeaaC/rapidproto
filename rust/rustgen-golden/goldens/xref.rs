@@ -3069,7 +3069,7 @@ pub mod stream {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2xr1A::a_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2xr1A::a_stream!(@f [[$s]] $($f => $c,)*) };
       (@f [$($a:tt)*] b => $c:expr, $($r:tt)*) => { rp_mod_2xr1A::a_stream!(@f [$($a)* WANT_b on_b: rp_mod_2xr1A::B<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] id => $c:expr, $($r:tt)*) => { rp_mod_2xr1A::a_stream!(@f [$($a)* WANT_id on_id: i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] id => $c:expr, $($r:tt)*) => { rp_mod_2xr1A::a_stream!(@f [$($a)* WANT_id on_id: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2xr1A::a_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2xr1A::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: b, id, unknown")) };
       (@f $a:tt) => { rp_mod_2xr1A::rp_rt::stream_visitor!(rp_mod_2xr1A AVisitor $a) };
@@ -3687,7 +3687,7 @@ pub mod stream {
         (@f [$($a:tt)*] inner => $c:expr, $($r:tt)*) => { rp_mod_2xr6Nested4User::user_stream!(@f [$($a)* WANT_inner on_inner: rp_mod_2xr6Nested4User::rp_stream_ty_1<'rp_a> = $c;] $($r)*) };
         (@f [$($a:tt)*] inners => $c:expr, $($r:tt)*) => { rp_mod_2xr6Nested4User::user_stream!(@f [$($a)* WANT_inners on_inners: rp_mod_2xr6Nested4User::rp_stream_ty_1<'rp_a> = $c;] $($r)*) };
         (@f [$($a:tt)*] by_name => $c:expr, $($r:tt)*) => { rp_mod_2xr6Nested4User::user_stream!(@f [$($a)* WANT_by_name on_by_name: (rp_mod_2xr6Nested4User::rp_rt::ProtoStr<'rp_a>, rp_mod_2xr6Nested4User::Def<'rp_a>) = $c;] $($r)*) };
-        (@f [$($a:tt)*] ranked => $c:expr, $($r:tt)*) => { rp_mod_2xr6Nested4User::user_stream!(@f [$($a)* WANT_ranked on_ranked: (i32, rp_mod_2xr6Nested4User::rp_stream_ty_0) = $c;] $($r)*) };
+        (@f [$($a:tt)*] ranked => $c:expr, $($r:tt)*) => { rp_mod_2xr6Nested4User::user_stream!(@f [$($a)* WANT_ranked on_ranked: (::core::primitive::i32, rp_mod_2xr6Nested4User::rp_stream_ty_0) = $c;] $($r)*) };
         (@f [$($a:tt)*] chosen => $c:expr, $($r:tt)*) => { rp_mod_2xr6Nested4User::user_stream!(@f [$($a)* WANT_chosen on_chosen: rp_mod_2xr6Nested4User::Def<'rp_a> = $c;] $($r)*) };
         (@f [$($a:tt)*] tagged => $c:expr, $($r:tt)*) => { rp_mod_2xr6Nested4User::user_stream!(@f [$($a)* WANT_tagged on_tagged: rp_mod_2xr6Nested4User::rp_stream_ty_0 = $c;] $($r)*) };
         (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2xr6Nested4User::user_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2xr6Nested4User::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
@@ -3818,7 +3818,7 @@ pub mod stream {
         ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2xr6Nested3Def::def_stream!(@f [[]] $($f => $c,)*) };
         ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2xr6Nested3Def::def_stream!(@f [[$s]] $($f => $c,)*) };
         (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { rp_mod_2xr6Nested3Def::def_stream!(@f [$($a)* WANT_s on_s: rp_mod_2xr6Nested3Def::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
-        (@f [$($a:tt)*] n => $c:expr, $($r:tt)*) => { rp_mod_2xr6Nested3Def::def_stream!(@f [$($a)* WANT_n on_n: i32 = $c;] $($r)*) };
+        (@f [$($a:tt)*] n => $c:expr, $($r:tt)*) => { rp_mod_2xr6Nested3Def::def_stream!(@f [$($a)* WANT_n on_n: ::core::primitive::i32 = $c;] $($r)*) };
         (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2xr6Nested3Def::def_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2xr6Nested3Def::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: s, n, unknown")) };
         (@f $a:tt) => { rp_mod_2xr6Nested3Def::rp_rt::stream_visitor!(rp_mod_2xr6Nested3Def DefVisitor $a) };
@@ -4451,7 +4451,7 @@ pub mod stream {
         ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2xr6FwdMsg3Ref::ref_stream!(@f [[$s]] $($f => $c,)*) };
         (@f [$($a:tt)*] one => $c:expr, $($r:tt)*) => { rp_mod_2xr6FwdMsg3Ref::ref_stream!(@f [$($a)* WANT_one on_one: rp_mod_2xr6FwdMsg3Ref::Target<'rp_a> = $c;] $($r)*) };
         (@f [$($a:tt)*] many => $c:expr, $($r:tt)*) => { rp_mod_2xr6FwdMsg3Ref::ref_stream!(@f [$($a)* WANT_many on_many: rp_mod_2xr6FwdMsg3Ref::Target<'rp_a> = $c;] $($r)*) };
-        (@f [$($a:tt)*] by_id => $c:expr, $($r:tt)*) => { rp_mod_2xr6FwdMsg3Ref::ref_stream!(@f [$($a)* WANT_by_id on_by_id: (i32, rp_mod_2xr6FwdMsg3Ref::Target<'rp_a>) = $c;] $($r)*) };
+        (@f [$($a:tt)*] by_id => $c:expr, $($r:tt)*) => { rp_mod_2xr6FwdMsg3Ref::ref_stream!(@f [$($a)* WANT_by_id on_by_id: (::core::primitive::i32, rp_mod_2xr6FwdMsg3Ref::Target<'rp_a>) = $c;] $($r)*) };
         (@f [$($a:tt)*] chosen => $c:expr, $($r:tt)*) => { rp_mod_2xr6FwdMsg3Ref::ref_stream!(@f [$($a)* WANT_chosen on_chosen: rp_mod_2xr6FwdMsg3Ref::Target<'rp_a> = $c;] $($r)*) };
         (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2xr6FwdMsg3Ref::ref_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2xr6FwdMsg3Ref::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: one, many, by_id, chosen, unknown")) };
@@ -4581,7 +4581,7 @@ pub mod stream {
         ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2xr6FwdMsg6Target::target_stream!(@f [[]] $($f => $c,)*) };
         ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2xr6FwdMsg6Target::target_stream!(@f [[$s]] $($f => $c,)*) };
         (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { rp_mod_2xr6FwdMsg6Target::target_stream!(@f [$($a)* WANT_s on_s: rp_mod_2xr6FwdMsg6Target::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
-        (@f [$($a:tt)*] n => $c:expr, $($r:tt)*) => { rp_mod_2xr6FwdMsg6Target::target_stream!(@f [$($a)* WANT_n on_n: i32 = $c;] $($r)*) };
+        (@f [$($a:tt)*] n => $c:expr, $($r:tt)*) => { rp_mod_2xr6FwdMsg6Target::target_stream!(@f [$($a)* WANT_n on_n: ::core::primitive::i32 = $c;] $($r)*) };
         (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2xr6FwdMsg6Target::target_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2xr6FwdMsg6Target::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: s, n, unknown")) };
         (@f $a:tt) => { rp_mod_2xr6FwdMsg6Target::rp_rt::stream_visitor!(rp_mod_2xr6FwdMsg6Target TargetVisitor $a) };
@@ -5257,13 +5257,13 @@ pub mod stream {
     macro_rules! __rp_4xref_2xr13ReservedNames {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2xr13ReservedNames::reserved_names_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2xr13ReservedNames::reserved_names_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] value => $c:expr, $($r:tt)*) => { rp_mod_2xr13ReservedNames::reserved_names_stream!(@f [$($a)* WANT_value on_value: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] tag => $c:expr, $($r:tt)*) => { rp_mod_2xr13ReservedNames::reserved_names_stream!(@f [$($a)* WANT_tag on_tag: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] status => $c:expr, $($r:tt)*) => { rp_mod_2xr13ReservedNames::reserved_names_stream!(@f [$($a)* WANT_status on_status: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] reader => $c:expr, $($r:tt)*) => { rp_mod_2xr13ReservedNames::reserved_names_stream!(@f [$($a)* WANT_reader on_reader: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] dispatch => $c:expr, $($r:tt)*) => { rp_mod_2xr13ReservedNames::reserved_names_stream!(@f [$($a)* WANT_dispatch on_dispatch: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] callbacks => $c:expr, $($r:tt)*) => { rp_mod_2xr13ReservedNames::reserved_names_stream!(@f [$($a)* WANT_callbacks on_callbacks: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] read => $c:expr, $($r:tt)*) => { rp_mod_2xr13ReservedNames::reserved_names_stream!(@f [$($a)* WANT_read on_read: i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] value => $c:expr, $($r:tt)*) => { rp_mod_2xr13ReservedNames::reserved_names_stream!(@f [$($a)* WANT_value on_value: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] tag => $c:expr, $($r:tt)*) => { rp_mod_2xr13ReservedNames::reserved_names_stream!(@f [$($a)* WANT_tag on_tag: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] status => $c:expr, $($r:tt)*) => { rp_mod_2xr13ReservedNames::reserved_names_stream!(@f [$($a)* WANT_status on_status: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] reader => $c:expr, $($r:tt)*) => { rp_mod_2xr13ReservedNames::reserved_names_stream!(@f [$($a)* WANT_reader on_reader: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] dispatch => $c:expr, $($r:tt)*) => { rp_mod_2xr13ReservedNames::reserved_names_stream!(@f [$($a)* WANT_dispatch on_dispatch: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] callbacks => $c:expr, $($r:tt)*) => { rp_mod_2xr13ReservedNames::reserved_names_stream!(@f [$($a)* WANT_callbacks on_callbacks: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] read => $c:expr, $($r:tt)*) => { rp_mod_2xr13ReservedNames::reserved_names_stream!(@f [$($a)* WANT_read on_read: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2xr13ReservedNames::reserved_names_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2xr13ReservedNames::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: value, tag, status, reader, dispatch, callbacks, read, unknown")) };
       (@f $a:tt) => { rp_mod_2xr13ReservedNames::rp_rt::stream_visitor!(rp_mod_2xr13ReservedNames ReservedNamesVisitor $a) };
@@ -5370,7 +5370,7 @@ pub mod stream {
     macro_rules! __rp_4xref_2xr7IntWrap {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2xr7IntWrap::int_wrap_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2xr7IntWrap::int_wrap_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] value => $c:expr, $($r:tt)*) => { rp_mod_2xr7IntWrap::int_wrap_stream!(@f [$($a)* WANT_value on_value: i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] value => $c:expr, $($r:tt)*) => { rp_mod_2xr7IntWrap::int_wrap_stream!(@f [$($a)* WANT_value on_value: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2xr7IntWrap::int_wrap_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2xr7IntWrap::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: value, unknown")) };
       (@f $a:tt) => { rp_mod_2xr7IntWrap::rp_rt::stream_visitor!(rp_mod_2xr7IntWrap IntWrapVisitor $a) };
@@ -5477,7 +5477,7 @@ pub mod stream {
     macro_rules! __rp_4xref_2xr8BoolWrap {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2xr8BoolWrap::bool_wrap_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2xr8BoolWrap::bool_wrap_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] value => $c:expr, $($r:tt)*) => { rp_mod_2xr8BoolWrap::bool_wrap_stream!(@f [$($a)* WANT_value on_value: bool = $c;] $($r)*) };
+      (@f [$($a:tt)*] value => $c:expr, $($r:tt)*) => { rp_mod_2xr8BoolWrap::bool_wrap_stream!(@f [$($a)* WANT_value on_value: ::core::primitive::bool = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2xr8BoolWrap::bool_wrap_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2xr8BoolWrap::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: value, unknown")) };
       (@f $a:tt) => { rp_mod_2xr8BoolWrap::rp_rt::stream_visitor!(rp_mod_2xr8BoolWrap BoolWrapVisitor $a) };
@@ -5584,7 +5584,7 @@ pub mod stream {
     macro_rules! __rp_4xref_2xr9BytesWrap {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2xr9BytesWrap::bytes_wrap_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2xr9BytesWrap::bytes_wrap_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] value => $c:expr, $($r:tt)*) => { rp_mod_2xr9BytesWrap::bytes_wrap_stream!(@f [$($a)* WANT_value on_value: &'rp_a [u8] = $c;] $($r)*) };
+      (@f [$($a:tt)*] value => $c:expr, $($r:tt)*) => { rp_mod_2xr9BytesWrap::bytes_wrap_stream!(@f [$($a)* WANT_value on_value: &'rp_a [::core::primitive::u8] = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2xr9BytesWrap::bytes_wrap_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2xr9BytesWrap::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: value, unknown")) };
       (@f $a:tt) => { rp_mod_2xr9BytesWrap::rp_rt::stream_visitor!(rp_mod_2xr9BytesWrap BytesWrapVisitor $a) };

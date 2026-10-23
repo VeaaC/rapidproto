@@ -351,9 +351,9 @@ pub mod stream {
     macro_rules! __rp_6stdpkg_3std5Types {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_3std5Types::types_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_3std5Types::types_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] n => $c:expr, $($r:tt)*) => { rp_mod_3std5Types::types_stream!(@f [$($a)* WANT_n on_n: i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] n => $c:expr, $($r:tt)*) => { rp_mod_3std5Types::types_stream!(@f [$($a)* WANT_n on_n: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { rp_mod_3std5Types::types_stream!(@f [$($a)* WANT_s on_s: rp_mod_3std5Types::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] many => $c:expr, $($r:tt)*) => { rp_mod_3std5Types::types_stream!(@f [$($a)* WANT_many on_many: i64 = $c;] $($r)*) };
+      (@f [$($a:tt)*] many => $c:expr, $($r:tt)*) => { rp_mod_3std5Types::types_stream!(@f [$($a)* WANT_many on_many: ::core::primitive::i64 = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_3std5Types::types_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_3std5Types::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: n, s, many, unknown")) };
       (@f $a:tt) => { rp_mod_3std5Types::rp_rt::stream_visitor!(rp_mod_3std5Types TypesVisitor $a) };

@@ -491,7 +491,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          if cfg!(target_endian = "little") && rp_p.len() % 8 == 0 {
+          if ::core::cfg!(target_endian = "little") && rp_p.len() % 8 == 0 {
             rp_acc_12.extend_from_le_bytes(rp_p).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
           } else {
             rp_acc_12.reserve(rp_p.len() / 8).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
@@ -521,7 +521,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          if cfg!(target_endian = "little") && rp_p.len() % 4 == 0 {
+          if ::core::cfg!(target_endian = "little") && rp_p.len() % 4 == 0 {
             rp_acc_13.extend_from_le_bytes(rp_p).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
           } else {
             rp_acc_13.reserve(rp_p.len() / 4).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
@@ -928,7 +928,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              if cfg!(target_endian = "little") && rp_p.len() % 8 == 0 {
+              if ::core::cfg!(target_endian = "little") && rp_p.len() % 8 == 0 {
                 rp_acc_12.extend_from_le_bytes(rp_p).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
               } else {
                 rp_acc_12.reserve(rp_p.len() / 8).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
@@ -956,7 +956,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              if cfg!(target_endian = "little") && rp_p.len() % 4 == 0 {
+              if ::core::cfg!(target_endian = "little") && rp_p.len() % 4 == 0 {
                 rp_acc_13.extend_from_le_bytes(rp_p).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
               } else {
                 rp_acc_13.reserve(rp_p.len() / 4).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
@@ -2257,28 +2257,28 @@ pub mod stream {
     macro_rules! __rp_6proto3_2p33Msg {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2p33Msg::msg_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2p33Msg::msg_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] implicit_i => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_implicit_i on_implicit_i: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] explicit_i => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_explicit_i on_explicit_i: i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] implicit_i => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_implicit_i on_implicit_i: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] explicit_i => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_explicit_i on_explicit_i: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_name on_name: rp_mod_2p33Msg::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] state => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_state on_state: rp_mod_2p33Msg::rp_stream_ty_0 = $c;] $($r)*) };
       (@f [$($a:tt)*] self_ => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_self_ on_self_: rp_mod_2p33Msg::Msg<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] nums => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_nums on_nums: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] unpacked => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_unpacked on_unpacked: i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] nums => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_nums on_nums: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] unpacked => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_unpacked on_unpacked: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] states => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_states on_states: rp_mod_2p33Msg::rp_stream_ty_0 = $c;] $($r)*) };
-      (@f [$($a:tt)*] reals => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_reals on_reals: f64 = $c;] $($r)*) };
-      (@f [$($a:tt)*] codes => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_codes on_codes: u32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] bools => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_bools on_bools: bool = $c;] $($r)*) };
-      (@f [$($a:tt)*] ratio => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_ratio on_ratio: f64 = $c;] $($r)*) };
-      (@f [$($a:tt)*] scale => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_scale on_scale: f32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] counts => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_counts on_counts: (rp_mod_2p33Msg::rp_rt::ProtoStr<'rp_a>, i32) = $c;] $($r)*) };
-      (@f [$($a:tt)*] flags => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_flags on_flags: (bool, rp_mod_2p33Msg::rp_rt::ProtoStr<'rp_a>) = $c;] $($r)*) };
-      (@f [$($a:tt)*] toggles => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_toggles on_toggles: (rp_mod_2p33Msg::rp_rt::ProtoStr<'rp_a>, bool) = $c;] $($r)*) };
-      (@f [$($a:tt)*] ratios => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_ratios on_ratios: (rp_mod_2p33Msg::rp_rt::ProtoStr<'rp_a>, f64) = $c;] $($r)*) };
-      (@f [$($a:tt)*] blobs => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_blobs on_blobs: (rp_mod_2p33Msg::rp_rt::ProtoStr<'rp_a>, &'rp_a [u8]) = $c;] $($r)*) };
-      (@f [$($a:tt)*] a => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_a on_a: i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] reals => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_reals on_reals: ::core::primitive::f64 = $c;] $($r)*) };
+      (@f [$($a:tt)*] codes => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_codes on_codes: ::core::primitive::u32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] bools => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_bools on_bools: ::core::primitive::bool = $c;] $($r)*) };
+      (@f [$($a:tt)*] ratio => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_ratio on_ratio: ::core::primitive::f64 = $c;] $($r)*) };
+      (@f [$($a:tt)*] scale => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_scale on_scale: ::core::primitive::f32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] counts => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_counts on_counts: (rp_mod_2p33Msg::rp_rt::ProtoStr<'rp_a>, ::core::primitive::i32) = $c;] $($r)*) };
+      (@f [$($a:tt)*] flags => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_flags on_flags: (::core::primitive::bool, rp_mod_2p33Msg::rp_rt::ProtoStr<'rp_a>) = $c;] $($r)*) };
+      (@f [$($a:tt)*] toggles => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_toggles on_toggles: (rp_mod_2p33Msg::rp_rt::ProtoStr<'rp_a>, ::core::primitive::bool) = $c;] $($r)*) };
+      (@f [$($a:tt)*] ratios => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_ratios on_ratios: (rp_mod_2p33Msg::rp_rt::ProtoStr<'rp_a>, ::core::primitive::f64) = $c;] $($r)*) };
+      (@f [$($a:tt)*] blobs => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_blobs on_blobs: (rp_mod_2p33Msg::rp_rt::ProtoStr<'rp_a>, &'rp_a [::core::primitive::u8]) = $c;] $($r)*) };
+      (@f [$($a:tt)*] a => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_a on_a: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] b => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_b on_b: rp_mod_2p33Msg::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] c => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_c on_c: bool = $c;] $($r)*) };
-      (@f [$($a:tt)*] d => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_d on_d: f64 = $c;] $($r)*) };
+      (@f [$($a:tt)*] c => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_c on_c: ::core::primitive::bool = $c;] $($r)*) };
+      (@f [$($a:tt)*] d => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_d on_d: ::core::primitive::f64 = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2p33Msg::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: implicit_i, explicit_i, name, state, self_, nums, unpacked, states, reals, codes, bools, ratio, scale, counts, flags, toggles, ratios, blobs, a, b, c, d, unknown")) };
       (@f $a:tt) => { rp_mod_2p33Msg::rp_rt::stream_visitor!(rp_mod_2p33Msg MsgVisitor $a) };

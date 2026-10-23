@@ -92,7 +92,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          if cfg!(target_endian = "little") && rp_p.len() % 8 == 0 {
+          if ::core::cfg!(target_endian = "little") && rp_p.len() % 8 == 0 {
             rp_acc_1.extend_from_le_bytes(rp_p).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
           } else {
             rp_acc_1.reserve(rp_p.len() / 8).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
@@ -122,7 +122,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          if cfg!(target_endian = "little") && rp_p.len() % 4 == 0 {
+          if ::core::cfg!(target_endian = "little") && rp_p.len() % 4 == 0 {
             rp_acc_2.extend_from_le_bytes(rp_p).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
           } else {
             rp_acc_2.reserve(rp_p.len() / 4).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
@@ -152,7 +152,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          if cfg!(target_endian = "little") && rp_p.len() % 4 == 0 {
+          if ::core::cfg!(target_endian = "little") && rp_p.len() % 4 == 0 {
             rp_acc_3.extend_from_le_bytes(rp_p).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
           } else {
             rp_acc_3.reserve(rp_p.len() / 4).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
@@ -197,7 +197,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              if cfg!(target_endian = "little") && rp_p.len() % 8 == 0 {
+              if ::core::cfg!(target_endian = "little") && rp_p.len() % 8 == 0 {
                 rp_acc_1.extend_from_le_bytes(rp_p).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
               } else {
                 rp_acc_1.reserve(rp_p.len() / 8).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
@@ -225,7 +225,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              if cfg!(target_endian = "little") && rp_p.len() % 4 == 0 {
+              if ::core::cfg!(target_endian = "little") && rp_p.len() % 4 == 0 {
                 rp_acc_2.extend_from_le_bytes(rp_p).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
               } else {
                 rp_acc_2.reserve(rp_p.len() / 4).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
@@ -253,7 +253,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              if cfg!(target_endian = "little") && rp_p.len() % 4 == 0 {
+              if ::core::cfg!(target_endian = "little") && rp_p.len() % 4 == 0 {
                 rp_acc_3.extend_from_le_bytes(rp_p).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
               } else {
                 rp_acc_3.reserve(rp_p.len() / 4).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
@@ -507,9 +507,9 @@ pub mod stream {
     macro_rules! __rp_6packed_2pk6Packed {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2pk6Packed::packed_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2pk6Packed::packed_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] pd => $c:expr, $($r:tt)*) => { rp_mod_2pk6Packed::packed_stream!(@f [$($a)* WANT_pd on_pd: f64 = $c;] $($r)*) };
-      (@f [$($a:tt)*] psf => $c:expr, $($r:tt)*) => { rp_mod_2pk6Packed::packed_stream!(@f [$($a)* WANT_psf on_psf: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] pf => $c:expr, $($r:tt)*) => { rp_mod_2pk6Packed::packed_stream!(@f [$($a)* WANT_pf on_pf: f32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] pd => $c:expr, $($r:tt)*) => { rp_mod_2pk6Packed::packed_stream!(@f [$($a)* WANT_pd on_pd: ::core::primitive::f64 = $c;] $($r)*) };
+      (@f [$($a:tt)*] psf => $c:expr, $($r:tt)*) => { rp_mod_2pk6Packed::packed_stream!(@f [$($a)* WANT_psf on_psf: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] pf => $c:expr, $($r:tt)*) => { rp_mod_2pk6Packed::packed_stream!(@f [$($a)* WANT_pf on_pf: ::core::primitive::f32 = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2pk6Packed::packed_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2pk6Packed::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: pd, psf, pf, unknown")) };
       (@f $a:tt) => { rp_mod_2pk6Packed::rp_rt::stream_visitor!(rp_mod_2pk6Packed PackedVisitor $a) };

@@ -520,20 +520,11 @@ fn schema_names_shaped_like_the_stream_glue_do_not_collide_with_it() {
     assert_eq!((seen.x, seen.inner, seen.sized, seen.foo), (1, 2, 4, 3));
 }
 
-#[test]
-fn schema_names_shaped_like_generated_references_do_not_collide_with_them() {
-    // nsedge/collide.proto names types after what generated code refers to or derives -- the prelude's
-    // `Option`/`Default`, primitive `u8`/`i32`, the decode driver's type parameter `V`, `Node` beside a
-    // `NodeVisitor` sub-package, `Type` beside `type` -- and fields after decode-body names (`Some`,
-    // `rp_out`, `decode_into`). Most of the check is the golden compiling; this drives the macros with
-    // the modules globbed, so `Default` here is the schema's, not the prelude's. Another schema's macro
-    // is driven beside them: its rows name `i32` at this call site, where a schema type of that name
-    // would take over.
-    use rustgen_golden::collide::stream::collide::r#type::*; // `Type`'s nested `X`
-    use rustgen_golden::collide::stream::collide::NodeVisitor::*; // the sub-package
-    use rustgen_golden::collide::stream::collide::Option::*; // the sub-package
-    use rustgen_golden::collide::stream::collide::*;
-    // Holder { Some: 1, rp_out: 5, decode_into: 7, prims: Prims { a: u8 { v: 13 }, f: I32_ONE },
+// The collide.Holder input of the test below, built outside its scope: there the globbed modules
+// take the names `u8`, `u32` and `bool`.
+fn collide_holder() -> Vec<u8> {
+    // Holder { Some: 1, rp_out: 5, decode_into: 7,
+    //          prims: Prims { a: u8 { v: 13 }, c: true, f: I32_ONE, h: "xyz", j: [4, 5] },
     //          v: V { child: V { v: 12 }, v: 11 }, type: Type { x: X { v: 14 } }, under: type_ { v: 22 },
     //          node: Node { v: 15 }, opt: collide.Option.Opt { v: 16 }, sub: collide.NodeVisitor.X { v: 17 } }
     let field = |f: u32, v: u64| {
@@ -547,11 +538,14 @@ fn schema_names_shaped_like_generated_references_do_not_collide_with_them() {
         b
     };
     let mut buf = [field(1, 1), field(5, 5), field(7, 7)].concat();
-    put_len(
-        &mut buf,
-        15,
-        &[nested(1, &field(1, 13)), field(6, 1)].concat(),
-    );
+    let prims = [
+        nested(1, &field(1, 13)),
+        field(3, 1),
+        field(6, 1),
+        nested(8, b"xyz"),
+        nested(10, &[4, 5]), // packed
+    ];
+    put_len(&mut buf, 15, &prims.concat());
     put_len(
         &mut buf,
         16,
@@ -562,13 +556,35 @@ fn schema_names_shaped_like_generated_references_do_not_collide_with_them() {
     put_len(&mut buf, 19, &field(1, 15));
     put_len(&mut buf, 21, &field(1, 16));
     put_len(&mut buf, 22, &field(1, 17));
+    buf
+}
+
+#[test]
+fn schema_names_shaped_like_generated_references_do_not_collide_with_them() {
+    // nsedge/collide.proto names types after what generated code refers to or derives -- primitive
+    // `u8`/`bool`, the decode driver's type parameter `V`, `Node` beside a `NodeVisitor` sub-package,
+    // `Type` beside `type` -- and fields after decode-body names (`Some`, `rp_out`, `decode_into`).
+    // Most of the check is the golden compiling; this drives the macros from a scope that globs the
+    // package and its `collide.Option` sub-package. Both hold submodules named `u8`, `u32` and `bool`,
+    // so those bare names are ambiguous here, and the rows delivering `&[u8]`, `u32` and `bool` values
+    // (`prims.h`, `prims.j`, `prims.c`) must not name them so.
+    use rustgen_golden::collide::stream::collide::r#type::*; // `Type`'s nested `X`
+    use rustgen_golden::collide::stream::collide::NodeVisitor::*; // the sub-package
+    use rustgen_golden::collide::stream::collide::Option::*; // the sub-package
+    use rustgen_golden::collide::stream::collide::*;
+    let buf = collide_holder();
+    // No field typed `u8`/`u32`/`bool` (nor `Option`, the sub-package here): this scope sees those names
+    // as the globbed modules.
     #[derive(Default)]
     struct Seen {
         some: i32,
         rp_out: i32,
         decode_into: i32,
         u8_v: i32,
+        flag: i32,
         i32_value: i32,
+        h_len: usize,
+        j_sum: u64,
         v: (i32, i32),
         x: i32,
         under: i32,
@@ -584,7 +600,10 @@ fn schema_names_shaped_like_generated_references_do_not_collide_with_them() {
             decode_into => |s, v| s.decode_into = v,
             prims => |s, p| p.decode(prims_stream!(&mut *s; {
                 a => |s, a| a.decode(u8__stream!(&mut *s; { v => |s, v| s.u8_v = v })),
+                c => |s, c| s.flag = i32::from(c),
                 f => |s, f| s.i32_value = f.0,
+                h => |s, h| s.h_len = h.len(),
+                j => |s, j| s.j_sum += u64::from(j),
             })),
             v => |s, v| v.decode(v_stream!(&mut *s; {
                 v => |s, x| s.v.0 = x,
@@ -599,23 +618,13 @@ fn schema_names_shaped_like_generated_references_do_not_collide_with_them() {
             sub => |s, x| x.decode(NodeVisitor::x_stream!(&mut *s; { v => |s, v| s.sub = v })),
         }))
         .unwrap();
+    assert_eq!((seen.some, seen.rp_out, seen.decode_into), (1, 5, 7));
     assert_eq!(
-        (
-            seen.some,
-            seen.rp_out,
-            seen.decode_into,
-            seen.u8_v,
-            seen.i32_value
-        ),
-        (1, 5, 7, 13, 1)
+        (seen.u8_v, seen.flag, seen.i32_value, seen.h_len, seen.j_sum),
+        (13, 1, 1, 3, 9)
     );
     assert_eq!((seen.v, seen.x, seen.under), ((11, 12), 14, 22));
     assert_eq!((seen.node, seen.opt, seen.sub), (15, 16, 17));
-    let mut implicit_i = 0;
-    Msg::new(MSG)
-        .decode(msg_stream! { implicit_i => |v| implicit_i = v })
-        .unwrap();
-    assert_eq!(implicit_i, 42);
 }
 
 #[test]

@@ -306,7 +306,7 @@ pub mod stream {
     macro_rules! __rp_3dep_3dep3Dep {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_3dep3Dep::dep_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_3dep3Dep::dep_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] v => $c:expr, $($r:tt)*) => { rp_mod_3dep3Dep::dep_stream!(@f [$($a)* WANT_v on_v: i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] v => $c:expr, $($r:tt)*) => { rp_mod_3dep3Dep::dep_stream!(@f [$($a)* WANT_v on_v: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] de => $c:expr, $($r:tt)*) => { rp_mod_3dep3Dep::dep_stream!(@f [$($a)* WANT_de on_de: rp_mod_3dep3Dep::rp_stream_ty_0 = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_3dep3Dep::dep_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_3dep3Dep::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: v, de, unknown")) };

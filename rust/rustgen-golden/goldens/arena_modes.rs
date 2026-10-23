@@ -1101,7 +1101,7 @@ pub mod stream {
     macro_rules! __rp_11arena_modes_2fm4Blob {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2fm4Blob::blob_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2fm4Blob::blob_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] payload => $c:expr, $($r:tt)*) => { rp_mod_2fm4Blob::blob_stream!(@f [$($a)* WANT_payload on_payload: &'rp_a [u8] = $c;] $($r)*) };
+      (@f [$($a:tt)*] payload => $c:expr, $($r:tt)*) => { rp_mod_2fm4Blob::blob_stream!(@f [$($a)* WANT_payload on_payload: &'rp_a [::core::primitive::u8] = $c;] $($r)*) };
       (@f [$($a:tt)*] kind => $c:expr, $($r:tt)*) => { rp_mod_2fm4Blob::blob_stream!(@f [$($a)* WANT_kind on_kind: rp_mod_2fm4Blob::rp_stream_ty_0 = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2fm4Blob::blob_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2fm4Blob::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: payload, kind, unknown")) };
@@ -1602,16 +1602,16 @@ pub mod stream {
     macro_rules! __rp_11arena_modes_2fm6Holder {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2fm6Holder::holder_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2fm6Holder::holder_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] keep => $c:expr, $($r:tt)*) => { rp_mod_2fm6Holder::holder_stream!(@f [$($a)* WANT_keep on_keep: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] debug => $c:expr, $($r:tt)*) => { rp_mod_2fm6Holder::holder_stream!(@f [$($a)* WANT_debug on_debug: i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] keep => $c:expr, $($r:tt)*) => { rp_mod_2fm6Holder::holder_stream!(@f [$($a)* WANT_keep on_keep: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] debug => $c:expr, $($r:tt)*) => { rp_mod_2fm6Holder::holder_stream!(@f [$($a)* WANT_debug on_debug: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] extra => $c:expr, $($r:tt)*) => { rp_mod_2fm6Holder::holder_stream!(@f [$($a)* WANT_extra on_extra: rp_mod_2fm6Holder::Blob<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] old_ids => $c:expr, $($r:tt)*) => { rp_mod_2fm6Holder::holder_stream!(@f [$($a)* WANT_old_ids on_old_ids: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] must => $c:expr, $($r:tt)*) => { rp_mod_2fm6Holder::holder_stream!(@f [$($a)* WANT_must on_must: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] big_num => $c:expr, $($r:tt)*) => { rp_mod_2fm6Holder::holder_stream!(@f [$($a)* WANT_big_num on_big_num: i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] old_ids => $c:expr, $($r:tt)*) => { rp_mod_2fm6Holder::holder_stream!(@f [$($a)* WANT_old_ids on_old_ids: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] must => $c:expr, $($r:tt)*) => { rp_mod_2fm6Holder::holder_stream!(@f [$($a)* WANT_must on_must: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] big_num => $c:expr, $($r:tt)*) => { rp_mod_2fm6Holder::holder_stream!(@f [$($a)* WANT_big_num on_big_num: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] blob => $c:expr, $($r:tt)*) => { rp_mod_2fm6Holder::holder_stream!(@f [$($a)* WANT_blob on_blob: rp_mod_2fm6Holder::Blob<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] blobs => $c:expr, $($r:tt)*) => { rp_mod_2fm6Holder::holder_stream!(@f [$($a)* WANT_blobs on_blobs: rp_mod_2fm6Holder::Blob<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] samples => $c:expr, $($r:tt)*) => { rp_mod_2fm6Holder::holder_stream!(@f [$($a)* WANT_samples on_samples: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] spread => $c:expr, $($r:tt)*) => { rp_mod_2fm6Holder::holder_stream!(@f [$($a)* WANT_spread on_spread: i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] samples => $c:expr, $($r:tt)*) => { rp_mod_2fm6Holder::holder_stream!(@f [$($a)* WANT_samples on_samples: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] spread => $c:expr, $($r:tt)*) => { rp_mod_2fm6Holder::holder_stream!(@f [$($a)* WANT_spread on_spread: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] level => $c:expr, $($r:tt)*) => { rp_mod_2fm6Holder::holder_stream!(@f [$($a)* WANT_level on_level: rp_mod_2fm6Holder::rp_stream_ty_1 = $c;] $($r)*) };
       (@f [$($a:tt)*] req_blob => $c:expr, $($r:tt)*) => { rp_mod_2fm6Holder::holder_stream!(@f [$($a)* WANT_req_blob on_req_blob: rp_mod_2fm6Holder::Blob<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] grp => $c:expr, $($r:tt)*) => { rp_mod_2fm6Holder::holder_stream!(@f [$($a)* WANT_grp on_grp: rp_mod_2fm6Holder::rp_stream_ty_2<'rp_a> = $c;] $($r)*) };
@@ -1726,7 +1726,7 @@ pub mod stream {
       macro_rules! __rp_11arena_modes_2fm6Holder3Grp {
         ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2fm6Holder3Grp::grp_stream!(@f [[]] $($f => $c,)*) };
         ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2fm6Holder3Grp::grp_stream!(@f [[$s]] $($f => $c,)*) };
-        (@f [$($a:tt)*] g => $c:expr, $($r:tt)*) => { rp_mod_2fm6Holder3Grp::grp_stream!(@f [$($a)* WANT_g on_g: i32 = $c;] $($r)*) };
+        (@f [$($a:tt)*] g => $c:expr, $($r:tt)*) => { rp_mod_2fm6Holder3Grp::grp_stream!(@f [$($a)* WANT_g on_g: ::core::primitive::i32 = $c;] $($r)*) };
         (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2fm6Holder3Grp::grp_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2fm6Holder3Grp::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: g, unknown")) };
         (@f $a:tt) => { rp_mod_2fm6Holder3Grp::rp_rt::stream_visitor!(rp_mod_2fm6Holder3Grp GrpVisitor $a) };

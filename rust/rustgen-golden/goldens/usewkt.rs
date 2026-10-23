@@ -2069,8 +2069,8 @@ pub mod stream {
       macro_rules! __rp_6usewkt_6google8protobuf9Timestamp {
         ($($f:ident => $c:expr),* $(,)?) => { rp_mod_6google8protobuf9Timestamp::timestamp_stream!(@f [[]] $($f => $c,)*) };
         ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_6google8protobuf9Timestamp::timestamp_stream!(@f [[$s]] $($f => $c,)*) };
-        (@f [$($a:tt)*] seconds => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf9Timestamp::timestamp_stream!(@f [$($a)* WANT_seconds on_seconds: i64 = $c;] $($r)*) };
-        (@f [$($a:tt)*] nanos => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf9Timestamp::timestamp_stream!(@f [$($a)* WANT_nanos on_nanos: i32 = $c;] $($r)*) };
+        (@f [$($a:tt)*] seconds => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf9Timestamp::timestamp_stream!(@f [$($a)* WANT_seconds on_seconds: ::core::primitive::i64 = $c;] $($r)*) };
+        (@f [$($a:tt)*] nanos => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf9Timestamp::timestamp_stream!(@f [$($a)* WANT_nanos on_nanos: ::core::primitive::i32 = $c;] $($r)*) };
         (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf9Timestamp::timestamp_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_6google8protobuf9Timestamp::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: seconds, nanos, unknown")) };
         (@f $a:tt) => { rp_mod_6google8protobuf9Timestamp::rp_rt::stream_visitor!(rp_mod_6google8protobuf9Timestamp TimestampVisitor $a) };
@@ -2198,8 +2198,8 @@ pub mod stream {
       macro_rules! __rp_6usewkt_6google8protobuf8Duration {
         ($($f:ident => $c:expr),* $(,)?) => { rp_mod_6google8protobuf8Duration::duration_stream!(@f [[]] $($f => $c,)*) };
         ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_6google8protobuf8Duration::duration_stream!(@f [[$s]] $($f => $c,)*) };
-        (@f [$($a:tt)*] seconds => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf8Duration::duration_stream!(@f [$($a)* WANT_seconds on_seconds: i64 = $c;] $($r)*) };
-        (@f [$($a:tt)*] nanos => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf8Duration::duration_stream!(@f [$($a)* WANT_nanos on_nanos: i32 = $c;] $($r)*) };
+        (@f [$($a:tt)*] seconds => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf8Duration::duration_stream!(@f [$($a)* WANT_seconds on_seconds: ::core::primitive::i64 = $c;] $($r)*) };
+        (@f [$($a:tt)*] nanos => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf8Duration::duration_stream!(@f [$($a)* WANT_nanos on_nanos: ::core::primitive::i32 = $c;] $($r)*) };
         (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf8Duration::duration_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_6google8protobuf8Duration::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: seconds, nanos, unknown")) };
         (@f $a:tt) => { rp_mod_6google8protobuf8Duration::rp_rt::stream_visitor!(rp_mod_6google8protobuf8Duration DurationVisitor $a) };
@@ -2328,7 +2328,7 @@ pub mod stream {
         ($($f:ident => $c:expr),* $(,)?) => { rp_mod_6google8protobuf3Any::any_stream!(@f [[]] $($f => $c,)*) };
         ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_6google8protobuf3Any::any_stream!(@f [[$s]] $($f => $c,)*) };
         (@f [$($a:tt)*] type_url => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf3Any::any_stream!(@f [$($a)* WANT_type_url on_type_url: rp_mod_6google8protobuf3Any::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
-        (@f [$($a:tt)*] value => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf3Any::any_stream!(@f [$($a)* WANT_value on_value: &'rp_a [u8] = $c;] $($r)*) };
+        (@f [$($a:tt)*] value => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf3Any::any_stream!(@f [$($a)* WANT_value on_value: &'rp_a [::core::primitive::u8] = $c;] $($r)*) };
         (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf3Any::any_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_6google8protobuf3Any::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: type_url, value, unknown")) };
         (@f $a:tt) => { rp_mod_6google8protobuf3Any::rp_rt::stream_visitor!(rp_mod_6google8protobuf3Any AnyVisitor $a) };
@@ -2950,11 +2950,11 @@ pub mod stream {
         ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_6google8protobuf5Field::field_stream!(@f [[$s]] $($f => $c,)*) };
         (@f [$($a:tt)*] kind => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf5Field::field_stream!(@f [$($a)* WANT_kind on_kind: rp_mod_6google8protobuf5Field::rp_stream_ty_1 = $c;] $($r)*) };
         (@f [$($a:tt)*] cardinality => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf5Field::field_stream!(@f [$($a)* WANT_cardinality on_cardinality: rp_mod_6google8protobuf5Field::rp_stream_ty_2 = $c;] $($r)*) };
-        (@f [$($a:tt)*] number => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf5Field::field_stream!(@f [$($a)* WANT_number on_number: i32 = $c;] $($r)*) };
+        (@f [$($a:tt)*] number => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf5Field::field_stream!(@f [$($a)* WANT_number on_number: ::core::primitive::i32 = $c;] $($r)*) };
         (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf5Field::field_stream!(@f [$($a)* WANT_name on_name: rp_mod_6google8protobuf5Field::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
         (@f [$($a:tt)*] type_url => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf5Field::field_stream!(@f [$($a)* WANT_type_url on_type_url: rp_mod_6google8protobuf5Field::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
-        (@f [$($a:tt)*] oneof_index => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf5Field::field_stream!(@f [$($a)* WANT_oneof_index on_oneof_index: i32 = $c;] $($r)*) };
-        (@f [$($a:tt)*] packed => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf5Field::field_stream!(@f [$($a)* WANT_packed on_packed: bool = $c;] $($r)*) };
+        (@f [$($a:tt)*] oneof_index => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf5Field::field_stream!(@f [$($a)* WANT_oneof_index on_oneof_index: ::core::primitive::i32 = $c;] $($r)*) };
+        (@f [$($a:tt)*] packed => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf5Field::field_stream!(@f [$($a)* WANT_packed on_packed: ::core::primitive::bool = $c;] $($r)*) };
         (@f [$($a:tt)*] options => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf5Field::field_stream!(@f [$($a)* WANT_options on_options: rp_mod_6google8protobuf5Field::Option<'rp_a> = $c;] $($r)*) };
         (@f [$($a:tt)*] json_name => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf5Field::field_stream!(@f [$($a)* WANT_json_name on_json_name: rp_mod_6google8protobuf5Field::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
         (@f [$($a:tt)*] default_value => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf5Field::field_stream!(@f [$($a)* WANT_default_value on_default_value: rp_mod_6google8protobuf5Field::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
@@ -3302,7 +3302,7 @@ pub mod stream {
         ($($f:ident => $c:expr),* $(,)?) => { rp_mod_6google8protobuf9EnumValue::enum_value_stream!(@f [[]] $($f => $c,)*) };
         ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_6google8protobuf9EnumValue::enum_value_stream!(@f [[$s]] $($f => $c,)*) };
         (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf9EnumValue::enum_value_stream!(@f [$($a)* WANT_name on_name: rp_mod_6google8protobuf9EnumValue::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
-        (@f [$($a:tt)*] number => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf9EnumValue::enum_value_stream!(@f [$($a)* WANT_number on_number: i32 = $c;] $($r)*) };
+        (@f [$($a:tt)*] number => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf9EnumValue::enum_value_stream!(@f [$($a)* WANT_number on_number: ::core::primitive::i32 = $c;] $($r)*) };
         (@f [$($a:tt)*] options => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf9EnumValue::enum_value_stream!(@f [$($a)* WANT_options on_options: rp_mod_6google8protobuf9EnumValue::Option<'rp_a> = $c;] $($r)*) };
         (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf9EnumValue::enum_value_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_6google8protobuf9EnumValue::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: name, number, options, unknown")) };

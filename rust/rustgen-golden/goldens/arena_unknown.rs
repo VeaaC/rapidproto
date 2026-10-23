@@ -354,7 +354,7 @@ pub mod stream {
     macro_rules! __rp_13arena_unknown_2au4Flag {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2au4Flag::flag_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2au4Flag::flag_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] value => $c:expr, $($r:tt)*) => { rp_mod_2au4Flag::flag_stream!(@f [$($a)* WANT_value on_value: bool = $c;] $($r)*) };
+      (@f [$($a:tt)*] value => $c:expr, $($r:tt)*) => { rp_mod_2au4Flag::flag_stream!(@f [$($a)* WANT_value on_value: ::core::primitive::bool = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2au4Flag::flag_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2au4Flag::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: value, unknown")) };
       (@f $a:tt) => { rp_mod_2au4Flag::rp_rt::stream_visitor!(rp_mod_2au4Flag FlagVisitor $a) };
@@ -483,7 +483,7 @@ pub mod stream {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2au6Holder::holder_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2au6Holder::holder_stream!(@f [[$s]] $($f => $c,)*) };
       (@f [$($a:tt)*] flag => $c:expr, $($r:tt)*) => { rp_mod_2au6Holder::holder_stream!(@f [$($a)* WANT_flag on_flag: rp_mod_2au6Holder::Flag<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] n => $c:expr, $($r:tt)*) => { rp_mod_2au6Holder::holder_stream!(@f [$($a)* WANT_n on_n: i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] n => $c:expr, $($r:tt)*) => { rp_mod_2au6Holder::holder_stream!(@f [$($a)* WANT_n on_n: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2au6Holder::holder_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2au6Holder::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: flag, n, unknown")) };
       (@f $a:tt) => { rp_mod_2au6Holder::rp_rt::stream_visitor!(rp_mod_2au6Holder HolderVisitor $a) };

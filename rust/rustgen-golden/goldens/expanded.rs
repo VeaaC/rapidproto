@@ -210,7 +210,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          if cfg!(target_endian = "little") && rp_p.len() % 8 == 0 {
+          if ::core::cfg!(target_endian = "little") && rp_p.len() % 8 == 0 {
             rp_acc_4.extend_from_le_bytes(rp_p).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
           } else {
             rp_acc_4.reserve(rp_p.len() / 8).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
@@ -240,7 +240,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          if cfg!(target_endian = "little") && rp_p.len() % 4 == 0 {
+          if ::core::cfg!(target_endian = "little") && rp_p.len() % 4 == 0 {
             rp_acc_5.extend_from_le_bytes(rp_p).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
           } else {
             rp_acc_5.reserve(rp_p.len() / 4).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
@@ -333,7 +333,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              if cfg!(target_endian = "little") && rp_p.len() % 8 == 0 {
+              if ::core::cfg!(target_endian = "little") && rp_p.len() % 8 == 0 {
                 rp_acc_4.extend_from_le_bytes(rp_p).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
               } else {
                 rp_acc_4.reserve(rp_p.len() / 8).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
@@ -361,7 +361,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              if cfg!(target_endian = "little") && rp_p.len() % 4 == 0 {
+              if ::core::cfg!(target_endian = "little") && rp_p.len() % 4 == 0 {
                 rp_acc_5.extend_from_le_bytes(rp_p).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
               } else {
                 rp_acc_5.reserve(rp_p.len() / 4).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
@@ -711,11 +711,11 @@ pub mod stream {
     macro_rules! __rp_8expanded_2xp8Expanded {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2xp8Expanded::expanded_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2xp8Expanded::expanded_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] uzz => $c:expr, $($r:tt)*) => { rp_mod_2xp8Expanded::expanded_stream!(@f [$($a)* WANT_uzz on_uzz: i64 = $c;] $($r)*) };
-      (@f [$($a:tt)*] ub => $c:expr, $($r:tt)*) => { rp_mod_2xp8Expanded::expanded_stream!(@f [$($a)* WANT_ub on_ub: bool = $c;] $($r)*) };
+      (@f [$($a:tt)*] uzz => $c:expr, $($r:tt)*) => { rp_mod_2xp8Expanded::expanded_stream!(@f [$($a)* WANT_uzz on_uzz: ::core::primitive::i64 = $c;] $($r)*) };
+      (@f [$($a:tt)*] ub => $c:expr, $($r:tt)*) => { rp_mod_2xp8Expanded::expanded_stream!(@f [$($a)* WANT_ub on_ub: ::core::primitive::bool = $c;] $($r)*) };
       (@f [$($a:tt)*] uk => $c:expr, $($r:tt)*) => { rp_mod_2xp8Expanded::expanded_stream!(@f [$($a)* WANT_uk on_uk: rp_mod_2xp8Expanded::rp_stream_ty_0 = $c;] $($r)*) };
-      (@f [$($a:tt)*] ufx => $c:expr, $($r:tt)*) => { rp_mod_2xp8Expanded::expanded_stream!(@f [$($a)* WANT_ufx on_ufx: u64 = $c;] $($r)*) };
-      (@f [$($a:tt)*] usf => $c:expr, $($r:tt)*) => { rp_mod_2xp8Expanded::expanded_stream!(@f [$($a)* WANT_usf on_usf: i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] ufx => $c:expr, $($r:tt)*) => { rp_mod_2xp8Expanded::expanded_stream!(@f [$($a)* WANT_ufx on_ufx: ::core::primitive::u64 = $c;] $($r)*) };
+      (@f [$($a:tt)*] usf => $c:expr, $($r:tt)*) => { rp_mod_2xp8Expanded::expanded_stream!(@f [$($a)* WANT_usf on_usf: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2xp8Expanded::expanded_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2xp8Expanded::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: uzz, ub, uk, ufx, usf, unknown")) };
       (@f $a:tt) => { rp_mod_2xp8Expanded::rp_rt::stream_visitor!(rp_mod_2xp8Expanded ExpandedVisitor $a) };

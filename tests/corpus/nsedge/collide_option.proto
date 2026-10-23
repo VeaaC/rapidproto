@@ -1,9 +1,29 @@
 // A sub-package named like the prelude's `Option`: its module sits in `collide`'s scope, whose code
-// uses `Option`. Imported by collide.proto.
+// uses `Option`. Its messages with nested types repeat collide.proto's primitive-named submodules
+// (`u8`, `u32`, `bool`), so globbing both packages' stream modules gets each such name twice. Imported
+// by collide.proto.
 syntax = "proto3";
 
 package collide.Option;
 
 message Opt {
   optional int32 v = 1;
+}
+message U8 {
+  message In {
+    int32 v = 1;
+  }
+  In nested = 1;
+}
+message U32 {
+  message In {
+    int32 v = 1;
+  }
+  In nested = 1;
+}
+message Bool {
+  message In {
+    int32 v = 1;
+  }
+  In nested = 1;
 }

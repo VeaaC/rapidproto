@@ -233,7 +233,7 @@ pub mod stream {
           macro_rules! __rp_6sibpkg_3sib6stream7logging2v15Entry {
             ($($f:ident => $c:expr),* $(,)?) => { rp_mod_3sib6stream7logging2v15Entry::entry_stream!(@f [[]] $($f => $c,)*) };
             ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_3sib6stream7logging2v15Entry::entry_stream!(@f [[$s]] $($f => $c,)*) };
-            (@f [$($a:tt)*] y => $c:expr, $($r:tt)*) => { rp_mod_3sib6stream7logging2v15Entry::entry_stream!(@f [$($a)* WANT_y on_y: i32 = $c;] $($r)*) };
+            (@f [$($a:tt)*] y => $c:expr, $($r:tt)*) => { rp_mod_3sib6stream7logging2v15Entry::entry_stream!(@f [$($a)* WANT_y on_y: ::core::primitive::i32 = $c;] $($r)*) };
             (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_3sib6stream7logging2v15Entry::entry_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_3sib6stream7logging2v15Entry::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
             (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: y, unknown")) };
             (@f $a:tt) => { rp_mod_3sib6stream7logging2v15Entry::rp_rt::stream_visitor!(rp_mod_3sib6stream7logging2v15Entry EntryVisitor $a) };

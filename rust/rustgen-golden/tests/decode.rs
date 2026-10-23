@@ -1304,6 +1304,31 @@ fn a_stray_end_group_tag_is_rejected_by_the_decode_loop() {
     assert!(Msg::decode(&buf, &arena).is_err());
 }
 
+// The collide golden once more, compiled here WITH the prelude (the golden crate compiles every golden
+// without it), and after caller macros named like the builtins generated code uses: generated code
+// naming one bare would expand the caller's. Its exported macros land at this test crate's root,
+// apart from the golden crate's.
+#[allow(
+    clippy::all,
+    unused,
+    non_camel_case_types,
+    non_snake_case,
+    non_upper_case_globals
+)]
+mod collide_with_prelude {
+    macro_rules! cfg {
+        ($($t:tt)*) => {
+            compile_error!("generated code names `cfg!` unqualified")
+        };
+    }
+    macro_rules! matches {
+        ($($t:tt)*) => {
+            compile_error!("generated code names `matches!` unqualified")
+        };
+    }
+    include!("../goldens/collide.rs");
+}
+
 // collide.Holder (nsedge/collide.proto): a field of every name the schema collides on, each carrying a
 // distinct value so a mixed-up name shows as a wrong value.
 fn collide_holder() -> Vec<u8> {
@@ -1333,9 +1358,14 @@ fn collide_holder() -> Vec<u8> {
     let mut response = len_field(2, b"hi");
     put_var(&mut response, 3, 18);
     put_len(&mut b, 14, &response);
-    // prims: Prims { a: u8 { v: 13 }, f: I32_ONE }
+    // prims: Prims { a: u8 { v: 13 }, f: I32_ONE, k: [7, 8] (packed fixed32) }
     let mut prims = len_field(1, &msg(&[(1, 13)]));
     put_var(&mut prims, 6, 1);
+    put_len(
+        &mut prims,
+        11,
+        &[7u32.to_le_bytes(), 8u32.to_le_bytes()].concat(),
+    );
     put_len(&mut b, 15, &prims);
     // v: V { child: V { v: 12 }, v: 11 }
     let mut v = len_field(1, &msg(&[(2, 12)]));
@@ -1359,11 +1389,13 @@ fn collide_holder() -> Vec<u8> {
 fn names_shaped_like_generated_references_decode_into_their_own_fields() {
     // nsedge/collide.proto names types after what generated code refers to or derives (the prelude's
     // `Option`/`Result`/`Default`, primitive `u8`/`i32`, the stream driver's `V`, `type` beside `Type`)
-    // and fields after decode-body names (`Some`, `rp_out`, `decode_into`). Compiling the golden --
-    // under the golden crate's `#![no_implicit_prelude]` -- is most of the check; this pins that every
+    // and fields after decode-body names (`Some`, `rp_out`, `decode_into`). Compiling the golden is
+    // most of the check: the golden crate compiles it without the prelude, which catches an
+    // unqualified prelude name, and `collide_with_prelude` with it, which catches a decode binding
+    // named like a prelude variant (a pattern only while the prelude is in scope). This pins that every
     // name still reads back its own field.
-    use rustgen_golden::collide::arena::collide::{response, Holder};
-    use rustgen_golden::collide::common::collide::{i32_, otherClass, Kind, KindClass};
+    use collide_with_prelude::arena::collide::{response, Holder};
+    use collide_with_prelude::common::collide::{i32_, otherClass, Kind, KindClass};
     let buf = collide_holder();
     let arena = Arena::new();
     let h = Holder::decode(&buf, &arena).unwrap();
@@ -1391,6 +1423,7 @@ fn names_shaped_like_generated_references_decode_into_their_own_fields() {
     assert!(matches!(resp.option(), Some(response::Option::On(18))));
     let prims = h.prims().unwrap();
     assert_eq!((prims.a().unwrap().v(), prims.f()), (13, i32_::ONE));
+    assert_eq!(prims.k(), [7, 8]);
     let v = h.v().unwrap();
     assert_eq!((v.v(), v.child().unwrap().v()), (11, 12));
     assert_eq!(h.r#type().unwrap().x().unwrap().v(), 14);

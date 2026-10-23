@@ -305,8 +305,8 @@ pub mod stream {
     macro_rules! __rp_12editions2024_4ed241M {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_4ed241M::m_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_4ed241M::m_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] a => $c:expr, $($r:tt)*) => { rp_mod_4ed241M::m_stream!(@f [$($a)* WANT_a on_a: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] b => $c:expr, $($r:tt)*) => { rp_mod_4ed241M::m_stream!(@f [$($a)* WANT_b on_b: i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] a => $c:expr, $($r:tt)*) => { rp_mod_4ed241M::m_stream!(@f [$($a)* WANT_a on_a: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] b => $c:expr, $($r:tt)*) => { rp_mod_4ed241M::m_stream!(@f [$($a)* WANT_b on_b: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_4ed241M::m_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_4ed241M::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: a, b, unknown")) };
       (@f $a:tt) => { rp_mod_4ed241M::rp_rt::stream_visitor!(rp_mod_4ed241M MVisitor $a) };

@@ -1983,7 +1983,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          if cfg!(target_endian = "little") && rp_p.len() % 8 == 0 {
+          if ::core::cfg!(target_endian = "little") && rp_p.len() % 8 == 0 {
             rp_acc_2.extend_from_le_bytes(rp_p).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
           } else {
             rp_acc_2.reserve(rp_p.len() / 8).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
@@ -2080,7 +2080,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              if cfg!(target_endian = "little") && rp_p.len() % 8 == 0 {
+              if ::core::cfg!(target_endian = "little") && rp_p.len() % 8 == 0 {
                 rp_acc_2.extend_from_le_bytes(rp_p).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
               } else {
                 rp_acc_2.reserve(rp_p.len() / 8).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
@@ -3344,7 +3344,7 @@ pub mod stream {
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_5bench7Address::address_stream!(@f [[$s]] $($f => $c,)*) };
       (@f [$($a:tt)*] street => $c:expr, $($r:tt)*) => { rp_mod_5bench7Address::address_stream!(@f [$($a)* WANT_street on_street: rp_mod_5bench7Address::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] city => $c:expr, $($r:tt)*) => { rp_mod_5bench7Address::address_stream!(@f [$($a)* WANT_city on_city: rp_mod_5bench7Address::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] zip => $c:expr, $($r:tt)*) => { rp_mod_5bench7Address::address_stream!(@f [$($a)* WANT_zip on_zip: u32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] zip => $c:expr, $($r:tt)*) => { rp_mod_5bench7Address::address_stream!(@f [$($a)* WANT_zip on_zip: ::core::primitive::u32 = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_5bench7Address::address_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_5bench7Address::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: street, city, zip, unknown")) };
       (@f $a:tt) => { rp_mod_5bench7Address::rp_rt::stream_visitor!(rp_mod_5bench7Address AddressVisitor $a) };
@@ -3860,17 +3860,17 @@ pub mod stream {
     macro_rules! __rp_5bench_5bench6Person {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_5bench6Person::person_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_5bench6Person::person_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] id => $c:expr, $($r:tt)*) => { rp_mod_5bench6Person::person_stream!(@f [$($a)* WANT_id on_id: i64 = $c;] $($r)*) };
+      (@f [$($a:tt)*] id => $c:expr, $($r:tt)*) => { rp_mod_5bench6Person::person_stream!(@f [$($a)* WANT_id on_id: ::core::primitive::i64 = $c;] $($r)*) };
       (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { rp_mod_5bench6Person::person_stream!(@f [$($a)* WANT_name on_name: rp_mod_5bench6Person::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] email => $c:expr, $($r:tt)*) => { rp_mod_5bench6Person::person_stream!(@f [$($a)* WANT_email on_email: rp_mod_5bench6Person::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] active => $c:expr, $($r:tt)*) => { rp_mod_5bench6Person::person_stream!(@f [$($a)* WANT_active on_active: bool = $c;] $($r)*) };
-      (@f [$($a:tt)*] score => $c:expr, $($r:tt)*) => { rp_mod_5bench6Person::person_stream!(@f [$($a)* WANT_score on_score: f64 = $c;] $($r)*) };
-      (@f [$($a:tt)*] created => $c:expr, $($r:tt)*) => { rp_mod_5bench6Person::person_stream!(@f [$($a)* WANT_created on_created: u64 = $c;] $($r)*) };
+      (@f [$($a:tt)*] active => $c:expr, $($r:tt)*) => { rp_mod_5bench6Person::person_stream!(@f [$($a)* WANT_active on_active: ::core::primitive::bool = $c;] $($r)*) };
+      (@f [$($a:tt)*] score => $c:expr, $($r:tt)*) => { rp_mod_5bench6Person::person_stream!(@f [$($a)* WANT_score on_score: ::core::primitive::f64 = $c;] $($r)*) };
+      (@f [$($a:tt)*] created => $c:expr, $($r:tt)*) => { rp_mod_5bench6Person::person_stream!(@f [$($a)* WANT_created on_created: ::core::primitive::u64 = $c;] $($r)*) };
       (@f [$($a:tt)*] address => $c:expr, $($r:tt)*) => { rp_mod_5bench6Person::person_stream!(@f [$($a)* WANT_address on_address: rp_mod_5bench6Person::Address<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] tags => $c:expr, $($r:tt)*) => { rp_mod_5bench6Person::person_stream!(@f [$($a)* WANT_tags on_tags: rp_mod_5bench6Person::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] history => $c:expr, $($r:tt)*) => { rp_mod_5bench6Person::person_stream!(@f [$($a)* WANT_history on_history: i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] history => $c:expr, $($r:tt)*) => { rp_mod_5bench6Person::person_stream!(@f [$($a)* WANT_history on_history: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] attributes => $c:expr, $($r:tt)*) => { rp_mod_5bench6Person::person_stream!(@f [$($a)* WANT_attributes on_attributes: rp_mod_5bench6Person::Attribute<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] counters => $c:expr, $($r:tt)*) => { rp_mod_5bench6Person::person_stream!(@f [$($a)* WANT_counters on_counters: (rp_mod_5bench6Person::rp_rt::ProtoStr<'rp_a>, i32) = $c;] $($r)*) };
+      (@f [$($a:tt)*] counters => $c:expr, $($r:tt)*) => { rp_mod_5bench6Person::person_stream!(@f [$($a)* WANT_counters on_counters: (rp_mod_5bench6Person::rp_rt::ProtoStr<'rp_a>, ::core::primitive::i32) = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_5bench6Person::person_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_5bench6Person::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: id, name, email, active, score, created, address, tags, history, attributes, counters, unknown")) };
       (@f $a:tt) => { rp_mod_5bench6Person::rp_rt::stream_visitor!(rp_mod_5bench6Person PersonVisitor $a) };
@@ -4020,7 +4020,7 @@ pub mod stream {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_5bench7Dataset::dataset_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_5bench7Dataset::dataset_stream!(@f [[$s]] $($f => $c,)*) };
       (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { rp_mod_5bench7Dataset::dataset_stream!(@f [$($a)* WANT_name on_name: rp_mod_5bench7Dataset::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] version => $c:expr, $($r:tt)*) => { rp_mod_5bench7Dataset::dataset_stream!(@f [$($a)* WANT_version on_version: i64 = $c;] $($r)*) };
+      (@f [$($a:tt)*] version => $c:expr, $($r:tt)*) => { rp_mod_5bench7Dataset::dataset_stream!(@f [$($a)* WANT_version on_version: ::core::primitive::i64 = $c;] $($r)*) };
       (@f [$($a:tt)*] people => $c:expr, $($r:tt)*) => { rp_mod_5bench7Dataset::dataset_stream!(@f [$($a)* WANT_people on_people: rp_mod_5bench7Dataset::Person<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_5bench7Dataset::dataset_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_5bench7Dataset::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: name, version, people, unknown")) };
@@ -4333,10 +4333,10 @@ pub mod stream {
     macro_rules! __rp_5bench_5bench4Wide {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_5bench4Wide::wide_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_5bench4Wide::wide_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] a => $c:expr, $($r:tt)*) => { rp_mod_5bench4Wide::wide_stream!(@f [$($a)* WANT_a on_a: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] b => $c:expr, $($r:tt)*) => { rp_mod_5bench4Wide::wide_stream!(@f [$($a)* WANT_b on_b: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] c => $c:expr, $($r:tt)*) => { rp_mod_5bench4Wide::wide_stream!(@f [$($a)* WANT_c on_c: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] d => $c:expr, $($r:tt)*) => { rp_mod_5bench4Wide::wide_stream!(@f [$($a)* WANT_d on_d: i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] a => $c:expr, $($r:tt)*) => { rp_mod_5bench4Wide::wide_stream!(@f [$($a)* WANT_a on_a: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] b => $c:expr, $($r:tt)*) => { rp_mod_5bench4Wide::wide_stream!(@f [$($a)* WANT_b on_b: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] c => $c:expr, $($r:tt)*) => { rp_mod_5bench4Wide::wide_stream!(@f [$($a)* WANT_c on_c: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] d => $c:expr, $($r:tt)*) => { rp_mod_5bench4Wide::wide_stream!(@f [$($a)* WANT_d on_d: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { rp_mod_5bench4Wide::wide_stream!(@f [$($a)* WANT_s on_s: rp_mod_5bench4Wide::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] t => $c:expr, $($r:tt)*) => { rp_mod_5bench4Wide::wide_stream!(@f [$($a)* WANT_t on_t: rp_mod_5bench4Wide::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_5bench4Wide::wide_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_5bench4Wide::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
@@ -4715,9 +4715,9 @@ pub mod stream {
     macro_rules! __rp_5bench_5bench3Big {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_5bench3Big::big_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_5bench3Big::big_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] numbers => $c:expr, $($r:tt)*) => { rp_mod_5bench3Big::big_stream!(@f [$($a)* WANT_numbers on_numbers: i64 = $c;] $($r)*) };
-      (@f [$($a:tt)*] reals => $c:expr, $($r:tt)*) => { rp_mod_5bench3Big::big_stream!(@f [$($a)* WANT_reals on_reals: f64 = $c;] $($r)*) };
-      (@f [$($a:tt)*] zz => $c:expr, $($r:tt)*) => { rp_mod_5bench3Big::big_stream!(@f [$($a)* WANT_zz on_zz: i64 = $c;] $($r)*) };
+      (@f [$($a:tt)*] numbers => $c:expr, $($r:tt)*) => { rp_mod_5bench3Big::big_stream!(@f [$($a)* WANT_numbers on_numbers: ::core::primitive::i64 = $c;] $($r)*) };
+      (@f [$($a:tt)*] reals => $c:expr, $($r:tt)*) => { rp_mod_5bench3Big::big_stream!(@f [$($a)* WANT_reals on_reals: ::core::primitive::f64 = $c;] $($r)*) };
+      (@f [$($a:tt)*] zz => $c:expr, $($r:tt)*) => { rp_mod_5bench3Big::big_stream!(@f [$($a)* WANT_zz on_zz: ::core::primitive::i64 = $c;] $($r)*) };
       (@f [$($a:tt)*] kinds => $c:expr, $($r:tt)*) => { rp_mod_5bench3Big::big_stream!(@f [$($a)* WANT_kinds on_kinds: rp_mod_5bench3Big::rp_stream_ty_0 = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_5bench3Big::big_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_5bench3Big::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: numbers, reals, zz, kinds, unknown")) };
@@ -4974,9 +4974,9 @@ pub mod stream {
     macro_rules! __rp_5bench_5bench4Vec3 {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_5bench4Vec3::vec3_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_5bench4Vec3::vec3_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] x => $c:expr, $($r:tt)*) => { rp_mod_5bench4Vec3::vec3_stream!(@f [$($a)* WANT_x on_x: f64 = $c;] $($r)*) };
-      (@f [$($a:tt)*] y => $c:expr, $($r:tt)*) => { rp_mod_5bench4Vec3::vec3_stream!(@f [$($a)* WANT_y on_y: f64 = $c;] $($r)*) };
-      (@f [$($a:tt)*] z => $c:expr, $($r:tt)*) => { rp_mod_5bench4Vec3::vec3_stream!(@f [$($a)* WANT_z on_z: f64 = $c;] $($r)*) };
+      (@f [$($a:tt)*] x => $c:expr, $($r:tt)*) => { rp_mod_5bench4Vec3::vec3_stream!(@f [$($a)* WANT_x on_x: ::core::primitive::f64 = $c;] $($r)*) };
+      (@f [$($a:tt)*] y => $c:expr, $($r:tt)*) => { rp_mod_5bench4Vec3::vec3_stream!(@f [$($a)* WANT_y on_y: ::core::primitive::f64 = $c;] $($r)*) };
+      (@f [$($a:tt)*] z => $c:expr, $($r:tt)*) => { rp_mod_5bench4Vec3::vec3_stream!(@f [$($a)* WANT_z on_z: ::core::primitive::f64 = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_5bench4Vec3::vec3_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_5bench4Vec3::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: x, y, z, unknown")) };
       (@f $a:tt) => { rp_mod_5bench4Vec3::rp_rt::stream_visitor!(rp_mod_5bench4Vec3 Vec3Visitor $a) };
@@ -5146,10 +5146,10 @@ pub mod stream {
     macro_rules! __rp_5bench_5bench8Particle {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_5bench8Particle::particle_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_5bench8Particle::particle_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] id => $c:expr, $($r:tt)*) => { rp_mod_5bench8Particle::particle_stream!(@f [$($a)* WANT_id on_id: i64 = $c;] $($r)*) };
+      (@f [$($a:tt)*] id => $c:expr, $($r:tt)*) => { rp_mod_5bench8Particle::particle_stream!(@f [$($a)* WANT_id on_id: ::core::primitive::i64 = $c;] $($r)*) };
       (@f [$($a:tt)*] position => $c:expr, $($r:tt)*) => { rp_mod_5bench8Particle::particle_stream!(@f [$($a)* WANT_position on_position: rp_mod_5bench8Particle::Vec3<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] velocity => $c:expr, $($r:tt)*) => { rp_mod_5bench8Particle::particle_stream!(@f [$($a)* WANT_velocity on_velocity: rp_mod_5bench8Particle::Vec3<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] color => $c:expr, $($r:tt)*) => { rp_mod_5bench8Particle::particle_stream!(@f [$($a)* WANT_color on_color: u32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] color => $c:expr, $($r:tt)*) => { rp_mod_5bench8Particle::particle_stream!(@f [$($a)* WANT_color on_color: ::core::primitive::u32 = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_5bench8Particle::particle_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_5bench8Particle::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: id, position, velocity, color, unknown")) };
       (@f $a:tt) => { rp_mod_5bench8Particle::rp_rt::stream_visitor!(rp_mod_5bench8Particle ParticleVisitor $a) };
@@ -5468,12 +5468,12 @@ pub mod stream {
     macro_rules! __rp_5bench_5bench6Sample {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_5bench6Sample::sample_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_5bench6Sample::sample_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] a => $c:expr, $($r:tt)*) => { rp_mod_5bench6Sample::sample_stream!(@f [$($a)* WANT_a on_a: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] b => $c:expr, $($r:tt)*) => { rp_mod_5bench6Sample::sample_stream!(@f [$($a)* WANT_b on_b: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] c => $c:expr, $($r:tt)*) => { rp_mod_5bench6Sample::sample_stream!(@f [$($a)* WANT_c on_c: i64 = $c;] $($r)*) };
-      (@f [$($a:tt)*] d => $c:expr, $($r:tt)*) => { rp_mod_5bench6Sample::sample_stream!(@f [$($a)* WANT_d on_d: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] e => $c:expr, $($r:tt)*) => { rp_mod_5bench6Sample::sample_stream!(@f [$($a)* WANT_e on_e: bool = $c;] $($r)*) };
-      (@f [$($a:tt)*] f => $c:expr, $($r:tt)*) => { rp_mod_5bench6Sample::sample_stream!(@f [$($a)* WANT_f on_f: u32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] a => $c:expr, $($r:tt)*) => { rp_mod_5bench6Sample::sample_stream!(@f [$($a)* WANT_a on_a: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] b => $c:expr, $($r:tt)*) => { rp_mod_5bench6Sample::sample_stream!(@f [$($a)* WANT_b on_b: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] c => $c:expr, $($r:tt)*) => { rp_mod_5bench6Sample::sample_stream!(@f [$($a)* WANT_c on_c: ::core::primitive::i64 = $c;] $($r)*) };
+      (@f [$($a:tt)*] d => $c:expr, $($r:tt)*) => { rp_mod_5bench6Sample::sample_stream!(@f [$($a)* WANT_d on_d: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] e => $c:expr, $($r:tt)*) => { rp_mod_5bench6Sample::sample_stream!(@f [$($a)* WANT_e on_e: ::core::primitive::bool = $c;] $($r)*) };
+      (@f [$($a:tt)*] f => $c:expr, $($r:tt)*) => { rp_mod_5bench6Sample::sample_stream!(@f [$($a)* WANT_f on_f: ::core::primitive::u32 = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_5bench6Sample::sample_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_5bench6Sample::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: a, b, c, d, e, f, unknown")) };
       (@f $a:tt) => { rp_mod_5bench6Sample::rp_rt::stream_visitor!(rp_mod_5bench6Sample SampleVisitor $a) };
@@ -5979,26 +5979,26 @@ pub mod stream {
     macro_rules! __rp_5bench_5bench6Record {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_5bench6Record::record_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_5bench6Record::record_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] f1 => $c:expr, $($r:tt)*) => { rp_mod_5bench6Record::record_stream!(@f [$($a)* WANT_f1 on_f1: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] f2 => $c:expr, $($r:tt)*) => { rp_mod_5bench6Record::record_stream!(@f [$($a)* WANT_f2 on_f2: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] f3 => $c:expr, $($r:tt)*) => { rp_mod_5bench6Record::record_stream!(@f [$($a)* WANT_f3 on_f3: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] f4 => $c:expr, $($r:tt)*) => { rp_mod_5bench6Record::record_stream!(@f [$($a)* WANT_f4 on_f4: i64 = $c;] $($r)*) };
-      (@f [$($a:tt)*] f5 => $c:expr, $($r:tt)*) => { rp_mod_5bench6Record::record_stream!(@f [$($a)* WANT_f5 on_f5: u32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] f6 => $c:expr, $($r:tt)*) => { rp_mod_5bench6Record::record_stream!(@f [$($a)* WANT_f6 on_f6: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] f7 => $c:expr, $($r:tt)*) => { rp_mod_5bench6Record::record_stream!(@f [$($a)* WANT_f7 on_f7: bool = $c;] $($r)*) };
-      (@f [$($a:tt)*] f8 => $c:expr, $($r:tt)*) => { rp_mod_5bench6Record::record_stream!(@f [$($a)* WANT_f8 on_f8: u64 = $c;] $($r)*) };
-      (@f [$($a:tt)*] f9 => $c:expr, $($r:tt)*) => { rp_mod_5bench6Record::record_stream!(@f [$($a)* WANT_f9 on_f9: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] f10 => $c:expr, $($r:tt)*) => { rp_mod_5bench6Record::record_stream!(@f [$($a)* WANT_f10 on_f10: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] f11 => $c:expr, $($r:tt)*) => { rp_mod_5bench6Record::record_stream!(@f [$($a)* WANT_f11 on_f11: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] f12 => $c:expr, $($r:tt)*) => { rp_mod_5bench6Record::record_stream!(@f [$($a)* WANT_f12 on_f12: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] f13 => $c:expr, $($r:tt)*) => { rp_mod_5bench6Record::record_stream!(@f [$($a)* WANT_f13 on_f13: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] f14 => $c:expr, $($r:tt)*) => { rp_mod_5bench6Record::record_stream!(@f [$($a)* WANT_f14 on_f14: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] f15 => $c:expr, $($r:tt)*) => { rp_mod_5bench6Record::record_stream!(@f [$($a)* WANT_f15 on_f15: i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] f1 => $c:expr, $($r:tt)*) => { rp_mod_5bench6Record::record_stream!(@f [$($a)* WANT_f1 on_f1: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] f2 => $c:expr, $($r:tt)*) => { rp_mod_5bench6Record::record_stream!(@f [$($a)* WANT_f2 on_f2: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] f3 => $c:expr, $($r:tt)*) => { rp_mod_5bench6Record::record_stream!(@f [$($a)* WANT_f3 on_f3: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] f4 => $c:expr, $($r:tt)*) => { rp_mod_5bench6Record::record_stream!(@f [$($a)* WANT_f4 on_f4: ::core::primitive::i64 = $c;] $($r)*) };
+      (@f [$($a:tt)*] f5 => $c:expr, $($r:tt)*) => { rp_mod_5bench6Record::record_stream!(@f [$($a)* WANT_f5 on_f5: ::core::primitive::u32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] f6 => $c:expr, $($r:tt)*) => { rp_mod_5bench6Record::record_stream!(@f [$($a)* WANT_f6 on_f6: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] f7 => $c:expr, $($r:tt)*) => { rp_mod_5bench6Record::record_stream!(@f [$($a)* WANT_f7 on_f7: ::core::primitive::bool = $c;] $($r)*) };
+      (@f [$($a:tt)*] f8 => $c:expr, $($r:tt)*) => { rp_mod_5bench6Record::record_stream!(@f [$($a)* WANT_f8 on_f8: ::core::primitive::u64 = $c;] $($r)*) };
+      (@f [$($a:tt)*] f9 => $c:expr, $($r:tt)*) => { rp_mod_5bench6Record::record_stream!(@f [$($a)* WANT_f9 on_f9: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] f10 => $c:expr, $($r:tt)*) => { rp_mod_5bench6Record::record_stream!(@f [$($a)* WANT_f10 on_f10: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] f11 => $c:expr, $($r:tt)*) => { rp_mod_5bench6Record::record_stream!(@f [$($a)* WANT_f11 on_f11: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] f12 => $c:expr, $($r:tt)*) => { rp_mod_5bench6Record::record_stream!(@f [$($a)* WANT_f12 on_f12: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] f13 => $c:expr, $($r:tt)*) => { rp_mod_5bench6Record::record_stream!(@f [$($a)* WANT_f13 on_f13: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] f14 => $c:expr, $($r:tt)*) => { rp_mod_5bench6Record::record_stream!(@f [$($a)* WANT_f14 on_f14: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] f15 => $c:expr, $($r:tt)*) => { rp_mod_5bench6Record::record_stream!(@f [$($a)* WANT_f15 on_f15: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] s1 => $c:expr, $($r:tt)*) => { rp_mod_5bench6Record::record_stream!(@f [$($a)* WANT_s1 on_s1: rp_mod_5bench6Record::Sample<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] s2 => $c:expr, $($r:tt)*) => { rp_mod_5bench6Record::record_stream!(@f [$($a)* WANT_s2 on_s2: rp_mod_5bench6Record::Sample<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] f18 => $c:expr, $($r:tt)*) => { rp_mod_5bench6Record::record_stream!(@f [$($a)* WANT_f18 on_f18: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] f19 => $c:expr, $($r:tt)*) => { rp_mod_5bench6Record::record_stream!(@f [$($a)* WANT_f19 on_f19: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] f20 => $c:expr, $($r:tt)*) => { rp_mod_5bench6Record::record_stream!(@f [$($a)* WANT_f20 on_f20: i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] f18 => $c:expr, $($r:tt)*) => { rp_mod_5bench6Record::record_stream!(@f [$($a)* WANT_f18 on_f18: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] f19 => $c:expr, $($r:tt)*) => { rp_mod_5bench6Record::record_stream!(@f [$($a)* WANT_f19 on_f19: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] f20 => $c:expr, $($r:tt)*) => { rp_mod_5bench6Record::record_stream!(@f [$($a)* WANT_f20 on_f20: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_5bench6Record::record_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_5bench6Record::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, s1, s2, f18, f19, f20, unknown")) };
       (@f $a:tt) => { rp_mod_5bench6Record::rp_rt::stream_visitor!(rp_mod_5bench6Record RecordVisitor $a) };

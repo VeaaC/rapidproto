@@ -618,11 +618,11 @@ pub mod stream {
     macro_rules! __rp_12editions2023_4ed231M {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_4ed231M::m_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_4ed231M::m_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] implicit_scalar => $c:expr, $($r:tt)*) => { rp_mod_4ed231M::m_stream!(@f [$($a)* WANT_implicit_scalar on_implicit_scalar: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] explicit_scalar => $c:expr, $($r:tt)*) => { rp_mod_4ed231M::m_stream!(@f [$($a)* WANT_explicit_scalar on_explicit_scalar: i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] implicit_scalar => $c:expr, $($r:tt)*) => { rp_mod_4ed231M::m_stream!(@f [$($a)* WANT_implicit_scalar on_implicit_scalar: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] explicit_scalar => $c:expr, $($r:tt)*) => { rp_mod_4ed231M::m_stream!(@f [$($a)* WANT_explicit_scalar on_explicit_scalar: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] child => $c:expr, $($r:tt)*) => { rp_mod_4ed231M::m_stream!(@f [$($a)* WANT_child on_child: rp_mod_4ed231M::M<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] packed_nums => $c:expr, $($r:tt)*) => { rp_mod_4ed231M::m_stream!(@f [$($a)* WANT_packed_nums on_packed_nums: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] expanded_nums => $c:expr, $($r:tt)*) => { rp_mod_4ed231M::m_stream!(@f [$($a)* WANT_expanded_nums on_expanded_nums: i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] packed_nums => $c:expr, $($r:tt)*) => { rp_mod_4ed231M::m_stream!(@f [$($a)* WANT_packed_nums on_packed_nums: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] expanded_nums => $c:expr, $($r:tt)*) => { rp_mod_4ed231M::m_stream!(@f [$($a)* WANT_expanded_nums on_expanded_nums: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] delim => $c:expr, $($r:tt)*) => { rp_mod_4ed231M::m_stream!(@f [$($a)* WANT_delim on_delim: rp_mod_4ed231M::M<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_4ed231M::m_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_4ed231M::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: implicit_scalar, explicit_scalar, child, packed_nums, expanded_nums, delim, unknown")) };

@@ -1774,7 +1774,7 @@ pub mod stream {
       macro_rules! __rp_9gluenames_9gluenames4RpRt1X {
         ($($f:ident => $c:expr),* $(,)?) => { rp_mod_9gluenames4RpRt1X::x_stream!(@f [[]] $($f => $c,)*) };
         ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_9gluenames4RpRt1X::x_stream!(@f [[$s]] $($f => $c,)*) };
-        (@f [$($a:tt)*] v => $c:expr, $($r:tt)*) => { rp_mod_9gluenames4RpRt1X::x_stream!(@f [$($a)* WANT_v on_v: i32 = $c;] $($r)*) };
+        (@f [$($a:tt)*] v => $c:expr, $($r:tt)*) => { rp_mod_9gluenames4RpRt1X::x_stream!(@f [$($a)* WANT_v on_v: ::core::primitive::i32 = $c;] $($r)*) };
         (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_9gluenames4RpRt1X::x_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_9gluenames4RpRt1X::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: v, unknown")) };
         (@f $a:tt) => { rp_mod_9gluenames4RpRt1X::rp_rt::stream_visitor!(rp_mod_9gluenames4RpRt1X XVisitor $a) };
@@ -1882,7 +1882,7 @@ pub mod stream {
     macro_rules! __rp_9gluenames_9gluenames24rp_mod_9gluenames6Holder {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_9gluenames24rp_mod_9gluenames6Holder::rp__mod_9gluenames6_holder_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_9gluenames24rp_mod_9gluenames6Holder::rp__mod_9gluenames6_holder_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] v => $c:expr, $($r:tt)*) => { rp_mod_9gluenames24rp_mod_9gluenames6Holder::rp__mod_9gluenames6_holder_stream!(@f [$($a)* WANT_v on_v: i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] v => $c:expr, $($r:tt)*) => { rp_mod_9gluenames24rp_mod_9gluenames6Holder::rp__mod_9gluenames6_holder_stream!(@f [$($a)* WANT_v on_v: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_9gluenames24rp_mod_9gluenames6Holder::rp__mod_9gluenames6_holder_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_9gluenames24rp_mod_9gluenames6Holder::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: v, unknown")) };
       (@f $a:tt) => { rp_mod_9gluenames24rp_mod_9gluenames6Holder::rp_rt::stream_visitor!(rp_mod_9gluenames24rp_mod_9gluenames6Holder rp__mod_9gluenames6HolderVisitor $a) };
@@ -1989,7 +1989,7 @@ pub mod stream {
     macro_rules! __rp_9gluenames_9gluenames24rp_mac_9gluenames6Holder {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_9gluenames24rp_mac_9gluenames6Holder::rp__mac_9gluenames6_holder_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_9gluenames24rp_mac_9gluenames6Holder::rp__mac_9gluenames6_holder_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] v => $c:expr, $($r:tt)*) => { rp_mod_9gluenames24rp_mac_9gluenames6Holder::rp__mac_9gluenames6_holder_stream!(@f [$($a)* WANT_v on_v: i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] v => $c:expr, $($r:tt)*) => { rp_mod_9gluenames24rp_mac_9gluenames6Holder::rp__mac_9gluenames6_holder_stream!(@f [$($a)* WANT_v on_v: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_9gluenames24rp_mac_9gluenames6Holder::rp__mac_9gluenames6_holder_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_9gluenames24rp_mac_9gluenames6Holder::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: v, unknown")) };
       (@f $a:tt) => { rp_mod_9gluenames24rp_mac_9gluenames6Holder::rp_rt::stream_visitor!(rp_mod_9gluenames24rp_mac_9gluenames6Holder rp__mac_9gluenames6HolderVisitor $a) };
@@ -2096,7 +2096,7 @@ pub mod stream {
     macro_rules! __rp_9gluenames_9gluenames14rp_stream_ty_0 {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_9gluenames14rp_stream_ty_0::rp__stream_ty_0_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_9gluenames14rp_stream_ty_0::rp__stream_ty_0_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] v => $c:expr, $($r:tt)*) => { rp_mod_9gluenames14rp_stream_ty_0::rp__stream_ty_0_stream!(@f [$($a)* WANT_v on_v: i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] v => $c:expr, $($r:tt)*) => { rp_mod_9gluenames14rp_stream_ty_0::rp__stream_ty_0_stream!(@f [$($a)* WANT_v on_v: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_9gluenames14rp_stream_ty_0::rp__stream_ty_0_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_9gluenames14rp_stream_ty_0::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: v, unknown")) };
       (@f $a:tt) => { rp_mod_9gluenames14rp_stream_ty_0::rp_rt::stream_visitor!(rp_mod_9gluenames14rp_stream_ty_0 rp__stream_ty_0Visitor $a) };
@@ -2203,7 +2203,7 @@ pub mod stream {
     macro_rules! __rp_9gluenames_9gluenames5Tail_ {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_9gluenames5Tail_::tail__stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_9gluenames5Tail_::tail__stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] v => $c:expr, $($r:tt)*) => { rp_mod_9gluenames5Tail_::tail__stream!(@f [$($a)* WANT_v on_v: i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] v => $c:expr, $($r:tt)*) => { rp_mod_9gluenames5Tail_::tail__stream!(@f [$($a)* WANT_v on_v: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_9gluenames5Tail_::tail__stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_9gluenames5Tail_::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: v, unknown")) };
       (@f $a:tt) => { rp_mod_9gluenames5Tail_::rp_rt::stream_visitor!(rp_mod_9gluenames5Tail_ Tail_Visitor $a) };
@@ -2310,7 +2310,7 @@ pub mod stream {
     macro_rules! __rp_9gluenames_9gluenames22rp_mod_9gluenames5Tail {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_9gluenames22rp_mod_9gluenames5Tail::rp__mod_9gluenames5_tail_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_9gluenames22rp_mod_9gluenames5Tail::rp__mod_9gluenames5_tail_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] v => $c:expr, $($r:tt)*) => { rp_mod_9gluenames22rp_mod_9gluenames5Tail::rp__mod_9gluenames5_tail_stream!(@f [$($a)* WANT_v on_v: i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] v => $c:expr, $($r:tt)*) => { rp_mod_9gluenames22rp_mod_9gluenames5Tail::rp__mod_9gluenames5_tail_stream!(@f [$($a)* WANT_v on_v: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_9gluenames22rp_mod_9gluenames5Tail::rp__mod_9gluenames5_tail_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_9gluenames22rp_mod_9gluenames5Tail::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: v, unknown")) };
       (@f $a:tt) => { rp_mod_9gluenames22rp_mod_9gluenames5Tail::rp_rt::stream_visitor!(rp_mod_9gluenames22rp_mod_9gluenames5Tail rp__mod_9gluenames5TailVisitor $a) };
@@ -2417,7 +2417,7 @@ pub mod stream {
     macro_rules! __rp_9gluenames_9gluenames5Sized {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_9gluenames5Sized::sized_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_9gluenames5Sized::sized_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] v => $c:expr, $($r:tt)*) => { rp_mod_9gluenames5Sized::sized_stream!(@f [$($a)* WANT_v on_v: i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] v => $c:expr, $($r:tt)*) => { rp_mod_9gluenames5Sized::sized_stream!(@f [$($a)* WANT_v on_v: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_9gluenames5Sized::sized_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_9gluenames5Sized::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: v, unknown")) };
       (@f $a:tt) => { rp_mod_9gluenames5Sized::rp_rt::stream_visitor!(rp_mod_9gluenames5Sized SizedVisitor $a) };
@@ -2524,7 +2524,7 @@ pub mod stream {
     macro_rules! __rp_9gluenames_9gluenames3Foo {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_9gluenames3Foo::foo_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_9gluenames3Foo::foo_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] v => $c:expr, $($r:tt)*) => { rp_mod_9gluenames3Foo::foo_stream!(@f [$($a)* WANT_v on_v: i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] v => $c:expr, $($r:tt)*) => { rp_mod_9gluenames3Foo::foo_stream!(@f [$($a)* WANT_v on_v: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_9gluenames3Foo::foo_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_9gluenames3Foo::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: v, unknown")) };
       (@f $a:tt) => { rp_mod_9gluenames3Foo::rp_rt::stream_visitor!(rp_mod_9gluenames3Foo FooVisitor $a) };
@@ -2742,7 +2742,7 @@ pub mod stream {
       macro_rules! __rp_9gluenames_9gluenames9FooStream2In {
         ($($f:ident => $c:expr),* $(,)?) => { rp_mod_9gluenames9FooStream2In::in_stream!(@f [[]] $($f => $c,)*) };
         ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_9gluenames9FooStream2In::in_stream!(@f [[$s]] $($f => $c,)*) };
-        (@f [$($a:tt)*] v => $c:expr, $($r:tt)*) => { rp_mod_9gluenames9FooStream2In::in_stream!(@f [$($a)* WANT_v on_v: i32 = $c;] $($r)*) };
+        (@f [$($a:tt)*] v => $c:expr, $($r:tt)*) => { rp_mod_9gluenames9FooStream2In::in_stream!(@f [$($a)* WANT_v on_v: ::core::primitive::i32 = $c;] $($r)*) };
         (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_9gluenames9FooStream2In::in_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_9gluenames9FooStream2In::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: v, unknown")) };
         (@f $a:tt) => { rp_mod_9gluenames9FooStream2In::rp_rt::stream_visitor!(rp_mod_9gluenames9FooStream2In InVisitor $a) };
@@ -3049,7 +3049,7 @@ pub mod stream {
       macro_rules! __rp_9gluenames_9gluenames5rp_rt5rp_rt {
         ($($f:ident => $c:expr),* $(,)?) => { rp_mod_9gluenames5rp_rt5rp_rt::rp__rt_stream!(@f [[]] $($f => $c,)*) };
         ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_9gluenames5rp_rt5rp_rt::rp__rt_stream!(@f [[$s]] $($f => $c,)*) };
-        (@f [$($a:tt)*] v => $c:expr, $($r:tt)*) => { rp_mod_9gluenames5rp_rt5rp_rt::rp__rt_stream!(@f [$($a)* WANT_v on_v: i32 = $c;] $($r)*) };
+        (@f [$($a:tt)*] v => $c:expr, $($r:tt)*) => { rp_mod_9gluenames5rp_rt5rp_rt::rp__rt_stream!(@f [$($a)* WANT_v on_v: ::core::primitive::i32 = $c;] $($r)*) };
         (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_9gluenames5rp_rt5rp_rt::rp__rt_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_9gluenames5rp_rt5rp_rt::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: v, unknown")) };
         (@f $a:tt) => { rp_mod_9gluenames5rp_rt5rp_rt::rp_rt::stream_visitor!(rp_mod_9gluenames5rp_rt5rp_rt rp__rtVisitor $a) };

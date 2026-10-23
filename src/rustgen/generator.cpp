@@ -111,14 +111,14 @@ std::unordered_set<std::string> child_module_names(const PkgTrie& node) {
 // Dedup is per scope (one proto package level or message = one Rust module). Within a scope these
 // share the Rust TYPE namespace and so must be mutually unique:
 //   - arena tree: each message's struct, and the `pub mod <snake>` holding its nested types;
-//   - common tree: each enum's newtype and its `<Name>Kind`, and the `pub mod <snake>` holding a
+//   - common tree: each enum's newtype and its `<Name>Class`, and the `pub mod <snake>` holding a
 //     nested message's enums.
 //   - stream tree: each message's handle (the arena struct's name) and its `<Name>Visitor` trait,
 //     and the same `pub mod <snake>`s.
 // A message's submodule name (snake of the message) is deduped among sibling messages ALONE, so it
 // is the SAME string in both trees: the module PATH is shared (an enclosing message nests both its
 // messages in arena and its enums in common), so renaming a module in one tree would desync the other
-// and the stored paths. A leaf type (struct / newtype / Kind / visitor) that collides with a module
+// and the stored paths. A leaf type (struct / newtype / Class / visitor) that collides with a module
 // name is bumped instead -- a leaf name is never used as a path component, so bumping it stays local.
 // Every set holds identities and every derived name is built from one (see dedup_ident).
 struct MsgNames {
@@ -1163,7 +1163,7 @@ void emit_packed_body(Printer& printer, const NameTable& table,
                       {{"acc", acc}, {"off", packed_read().off}, {"conv", conv}});
     } else {
         const std::string width = wire == "I32" ? "4" : "8";
-        printer.print("if cfg!(target_endian = \"little\") && rp_p.len() % $w$ == 0 {\n",
+        printer.print("if ::core::cfg!(target_endian = \"little\") && rp_p.len() % $w$ == 0 {\n",
                       {{"w", width}});
         printer.indent();
         printer.print(
@@ -2631,9 +2631,10 @@ struct StreamSlot {
 // to capture as a macro `:ident`: a keyword (or a raw-ineligible `self`/`crate`/..) gets a
 // trailing `_`, NEVER an `r#` raw-escape (which cannot be prefixed, and which a macro key/`:ident`
 // cannot always carry). The consumer types this escaped name as the macro key. For a keyword this is
-// the same as the arena accessor (`self` -> `self_`); a non-keyword the arena accessor suffixes only to
-// dodge the message's own `decode` method (a field `decode` -> arena `decode_`) stays bare here, since
-// the stream method is `on_decode` and cannot collide.
+// the same as the arena accessor (`self` -> `self_`). A name the arena accessor changes only to keep
+// clear of the message type's own items -- `decode` (-> `decode_`) and the other reserved methods, or
+// an `rp_` name (-> `rp__x`) -- stays bare here: the stream's own names are `on_`/`WANT_`-prefixed or
+// `unknown`, so it cannot collide.
 std::string stream_ident(const std::string& name) {
     if (name == "_") {
         return "_x";
@@ -2806,7 +2807,10 @@ StreamAliases emit_stream_reexports(Printer& printer, const NameTable& table,
 // surface shows the real type name. With the module's `scope` name set (the macro, which expands at
 // the caller's call site, where a tree-relative path is invalid) every named type goes through that
 // scope: a foreign type via its re-export alias, a same-module child handle by its bare name, and
-// `ProtoStr` via the `rp_rt` runtime re-export (see emit_stream_reexports).
+// `ProtoStr` via the `rp_rt` runtime re-export (see emit_stream_reexports). A primitive there is
+// `::core::primitive::*`: a module named like one (a sub-package `u32`, a `message U32`'s nested-type
+// submodule) yields to the primitive in the generated module, but two stream modules globbed at the
+// call site that each hold one make the bare name ambiguous.
 std::string stream_value_type(const NameTable& table, const std::vector<std::string>& current_mod,
                               const FieldNode& field, const std::string& lt,
                               const StreamAliases& aliases, const std::string& scope) {
@@ -2828,10 +2832,11 @@ std::string stream_value_type(const NameTable& table, const std::vector<std::str
         return (in_macro ? scope + "::rp_rt" : std::string("::rapidproto")) + "::ProtoStr<" + lt +
                ">";
     }
+    const std::string prim = in_macro ? "::core::primitive::" : "";
     if (t == "bytes") {
-        return "&" + lt + " [u8]";
+        return "&" + lt + " [" + prim + "u8]";
     }
-    return rust_scalar_type(t);  // numeric: no lifetime
+    return prim + rust_scalar_type(t);  // numeric: no lifetime
 }
 
 // The handler value type for a whole slot: a regular/oneof field's value type, or -- for a map slot --

@@ -369,10 +369,10 @@ pub mod stream {
     macro_rules! __rp_7options_3opt1M {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_3opt1M::m_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_3opt1M::m_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] f => $c:expr, $($r:tt)*) => { rp_mod_3opt1M::m_stream!(@f [$($a)* WANT_f on_f: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] special => $c:expr, $($r:tt)*) => { rp_mod_3opt1M::m_stream!(@f [$($a)* WANT_special on_special: f64 = $c;] $($r)*) };
-      (@f [$($a:tt)*] special2 => $c:expr, $($r:tt)*) => { rp_mod_3opt1M::m_stream!(@f [$($a)* WANT_special2 on_special2: f64 = $c;] $($r)*) };
-      (@f [$($a:tt)*] special3 => $c:expr, $($r:tt)*) => { rp_mod_3opt1M::m_stream!(@f [$($a)* WANT_special3 on_special3: f64 = $c;] $($r)*) };
+      (@f [$($a:tt)*] f => $c:expr, $($r:tt)*) => { rp_mod_3opt1M::m_stream!(@f [$($a)* WANT_f on_f: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] special => $c:expr, $($r:tt)*) => { rp_mod_3opt1M::m_stream!(@f [$($a)* WANT_special on_special: ::core::primitive::f64 = $c;] $($r)*) };
+      (@f [$($a:tt)*] special2 => $c:expr, $($r:tt)*) => { rp_mod_3opt1M::m_stream!(@f [$($a)* WANT_special2 on_special2: ::core::primitive::f64 = $c;] $($r)*) };
+      (@f [$($a:tt)*] special3 => $c:expr, $($r:tt)*) => { rp_mod_3opt1M::m_stream!(@f [$($a)* WANT_special3 on_special3: ::core::primitive::f64 = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_3opt1M::m_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_3opt1M::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: f, special, special2, special3, unknown")) };
       (@f $a:tt) => { rp_mod_3opt1M::rp_rt::stream_visitor!(rp_mod_3opt1M MVisitor $a) };

@@ -2412,15 +2412,15 @@ pub mod stream {
     macro_rules! __rp_12arena_naming_2an7Collide {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2an7Collide::collide_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2an7Collide::collide_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] x => $c:expr, $($r:tt)*) => { rp_mod_2an7Collide::collide_stream!(@f [$($a)* WANT_x on_x: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] has_x => $c:expr, $($r:tt)*) => { rp_mod_2an7Collide::collide_stream!(@f [$($a)* WANT_has_x on_has_x: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] pick_case => $c:expr, $($r:tt)*) => { rp_mod_2an7Collide::collide_stream!(@f [$($a)* WANT_pick_case on_pick_case: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] decode => $c:expr, $($r:tt)*) => { rp_mod_2an7Collide::collide_stream!(@f [$($a)* WANT_decode on_decode: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] foo => $c:expr, $($r:tt)*) => { rp_mod_2an7Collide::collide_stream!(@f [$($a)* WANT_foo on_foo: (rp_mod_2an7Collide::rp_rt::ProtoStr<'rp_a>, i32) = $c;] $($r)*) };
-      (@f [$($a:tt)*] p1 => $c:expr, $($r:tt)*) => { rp_mod_2an7Collide::collide_stream!(@f [$($a)* WANT_p1 on_p1: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] p2 => $c:expr, $($r:tt)*) => { rp_mod_2an7Collide::collide_stream!(@f [$($a)* WANT_p2 on_p2: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] a => $c:expr, $($r:tt)*) => { rp_mod_2an7Collide::collide_stream!(@f [$($a)* WANT_a on_a: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] A => $c:expr, $($r:tt)*) => { rp_mod_2an7Collide::collide_stream!(@f [$($a)* WANT_A on_A: i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] x => $c:expr, $($r:tt)*) => { rp_mod_2an7Collide::collide_stream!(@f [$($a)* WANT_x on_x: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] has_x => $c:expr, $($r:tt)*) => { rp_mod_2an7Collide::collide_stream!(@f [$($a)* WANT_has_x on_has_x: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] pick_case => $c:expr, $($r:tt)*) => { rp_mod_2an7Collide::collide_stream!(@f [$($a)* WANT_pick_case on_pick_case: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] decode => $c:expr, $($r:tt)*) => { rp_mod_2an7Collide::collide_stream!(@f [$($a)* WANT_decode on_decode: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] foo => $c:expr, $($r:tt)*) => { rp_mod_2an7Collide::collide_stream!(@f [$($a)* WANT_foo on_foo: (rp_mod_2an7Collide::rp_rt::ProtoStr<'rp_a>, ::core::primitive::i32) = $c;] $($r)*) };
+      (@f [$($a:tt)*] p1 => $c:expr, $($r:tt)*) => { rp_mod_2an7Collide::collide_stream!(@f [$($a)* WANT_p1 on_p1: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] p2 => $c:expr, $($r:tt)*) => { rp_mod_2an7Collide::collide_stream!(@f [$($a)* WANT_p2 on_p2: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] a => $c:expr, $($r:tt)*) => { rp_mod_2an7Collide::collide_stream!(@f [$($a)* WANT_a on_a: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] A => $c:expr, $($r:tt)*) => { rp_mod_2an7Collide::collide_stream!(@f [$($a)* WANT_A on_A: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2an7Collide::collide_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2an7Collide::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: x, has_x, pick_case, decode, foo, p1, p2, a, A, unknown")) };
       (@f $a:tt) => { rp_mod_2an7Collide::rp_rt::stream_visitor!(rp_mod_2an7Collide CollideVisitor $a) };
@@ -2531,7 +2531,7 @@ pub mod stream {
       macro_rules! __rp_12arena_naming_2an7Collide8FooEntry {
         ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2an7Collide8FooEntry::foo_entry_stream!(@f [[]] $($f => $c,)*) };
         ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2an7Collide8FooEntry::foo_entry_stream!(@f [[$s]] $($f => $c,)*) };
-        (@f [$($a:tt)*] a => $c:expr, $($r:tt)*) => { rp_mod_2an7Collide8FooEntry::foo_entry_stream!(@f [$($a)* WANT_a on_a: i32 = $c;] $($r)*) };
+        (@f [$($a:tt)*] a => $c:expr, $($r:tt)*) => { rp_mod_2an7Collide8FooEntry::foo_entry_stream!(@f [$($a)* WANT_a on_a: ::core::primitive::i32 = $c;] $($r)*) };
         (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2an7Collide8FooEntry::foo_entry_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2an7Collide8FooEntry::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: a, unknown")) };
         (@f $a:tt) => { rp_mod_2an7Collide8FooEntry::rp_rt::stream_visitor!(rp_mod_2an7Collide8FooEntry FooEntryVisitor $a) };
@@ -2660,7 +2660,7 @@ pub mod stream {
     macro_rules! __rp_12arena_naming_2an8Callback {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2an8Callback::callback_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2an8Callback::callback_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] disabled => $c:expr, $($r:tt)*) => { rp_mod_2an8Callback::callback_stream!(@f [$($a)* WANT_disabled on_disabled: bool = $c;] $($r)*) };
+      (@f [$($a:tt)*] disabled => $c:expr, $($r:tt)*) => { rp_mod_2an8Callback::callback_stream!(@f [$($a)* WANT_disabled on_disabled: ::core::primitive::bool = $c;] $($r)*) };
       (@f [$($a:tt)*] python_code => $c:expr, $($r:tt)*) => { rp_mod_2an8Callback::callback_stream!(@f [$($a)* WANT_python_code on_python_code: rp_mod_2an8Callback::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2an8Callback::callback_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2an8Callback::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: disabled, python_code, unknown")) };
@@ -2813,7 +2813,7 @@ pub mod stream {
     macro_rules! __rp_12arena_naming_2an8FooEntry {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2an8FooEntry::foo_entry_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2an8FooEntry::foo_entry_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] foo => $c:expr, $($r:tt)*) => { rp_mod_2an8FooEntry::foo_entry_stream!(@f [$($a)* WANT_foo on_foo: (rp_mod_2an8FooEntry::rp_rt::ProtoStr<'rp_a>, i32) = $c;] $($r)*) };
+      (@f [$($a:tt)*] foo => $c:expr, $($r:tt)*) => { rp_mod_2an8FooEntry::foo_entry_stream!(@f [$($a)* WANT_foo on_foo: (rp_mod_2an8FooEntry::rp_rt::ProtoStr<'rp_a>, ::core::primitive::i32) = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2an8FooEntry::foo_entry_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2an8FooEntry::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: foo, unknown")) };
       (@f $a:tt) => { rp_mod_2an8FooEntry::rp_rt::stream_visitor!(rp_mod_2an8FooEntry FooEntryVisitor $a) };
@@ -3031,7 +3031,7 @@ pub mod stream {
       macro_rules! __rp_12arena_naming_2an5Outer5Outer {
         ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2an5Outer5Outer::outer_stream!(@f [[]] $($f => $c,)*) };
         ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2an5Outer5Outer::outer_stream!(@f [[$s]] $($f => $c,)*) };
-        (@f [$($a:tt)*] v => $c:expr, $($r:tt)*) => { rp_mod_2an5Outer5Outer::outer_stream!(@f [$($a)* WANT_v on_v: i32 = $c;] $($r)*) };
+        (@f [$($a:tt)*] v => $c:expr, $($r:tt)*) => { rp_mod_2an5Outer5Outer::outer_stream!(@f [$($a)* WANT_v on_v: ::core::primitive::i32 = $c;] $($r)*) };
         (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2an5Outer5Outer::outer_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2an5Outer5Outer::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: v, unknown")) };
         (@f $a:tt) => { rp_mod_2an5Outer5Outer::rp_rt::stream_visitor!(rp_mod_2an5Outer5Outer OuterVisitor $a) };
@@ -3139,7 +3139,7 @@ pub mod stream {
     macro_rules! __rp_12arena_naming_2an3m_x {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2an3m_x::m_x_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2an3m_x::m_x_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] x => $c:expr, $($r:tt)*) => { rp_mod_2an3m_x::m_x_stream!(@f [$($a)* WANT_x on_x: i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] x => $c:expr, $($r:tt)*) => { rp_mod_2an3m_x::m_x_stream!(@f [$($a)* WANT_x on_x: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2an3m_x::m_x_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2an3m_x::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: x, unknown")) };
       (@f $a:tt) => { rp_mod_2an3m_x::rp_rt::stream_visitor!(rp_mod_2an3m_x m_xVisitor $a) };
@@ -3267,8 +3267,8 @@ pub mod stream {
     macro_rules! __rp_12arena_naming_2an7Sibling {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2an7Sibling::sibling_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2an7Sibling::sibling_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] foo => $c:expr, $($r:tt)*) => { rp_mod_2an7Sibling::sibling_stream!(@f [$($a)* WANT_foo on_foo: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] m_foo => $c:expr, $($r:tt)*) => { rp_mod_2an7Sibling::sibling_stream!(@f [$($a)* WANT_m_foo on_m_foo: i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] foo => $c:expr, $($r:tt)*) => { rp_mod_2an7Sibling::sibling_stream!(@f [$($a)* WANT_foo on_foo: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] m_foo => $c:expr, $($r:tt)*) => { rp_mod_2an7Sibling::sibling_stream!(@f [$($a)* WANT_m_foo on_m_foo: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2an7Sibling::sibling_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2an7Sibling::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: foo, m_foo, unknown")) };
       (@f $a:tt) => { rp_mod_2an7Sibling::rp_rt::stream_visitor!(rp_mod_2an7Sibling SiblingVisitor $a) };
@@ -3503,8 +3503,8 @@ pub mod stream {
     macro_rules! __rp_12arena_naming_2an9MaskOneof {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2an9MaskOneof::mask_oneof_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2an9MaskOneof::mask_oneof_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] present => $c:expr, $($r:tt)*) => { rp_mod_2an9MaskOneof::mask_oneof_stream!(@f [$($a)* WANT_present on_present: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] a => $c:expr, $($r:tt)*) => { rp_mod_2an9MaskOneof::mask_oneof_stream!(@f [$($a)* WANT_a on_a: i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] present => $c:expr, $($r:tt)*) => { rp_mod_2an9MaskOneof::mask_oneof_stream!(@f [$($a)* WANT_present on_present: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] a => $c:expr, $($r:tt)*) => { rp_mod_2an9MaskOneof::mask_oneof_stream!(@f [$($a)* WANT_a on_a: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2an9MaskOneof::mask_oneof_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2an9MaskOneof::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: present, a, unknown")) };
       (@f $a:tt) => { rp_mod_2an9MaskOneof::rp_rt::stream_visitor!(rp_mod_2an9MaskOneof MaskOneofVisitor $a) };
@@ -3632,8 +3632,8 @@ pub mod stream {
     macro_rules! __rp_12arena_naming_2an5Bytes {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2an5Bytes::bytes_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2an5Bytes::bytes_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] bytes => $c:expr, $($r:tt)*) => { rp_mod_2an5Bytes::bytes_stream!(@f [$($a)* WANT_bytes on_bytes: &'rp_a [u8] = $c;] $($r)*) };
-      (@f [$($a:tt)*] m_bytes => $c:expr, $($r:tt)*) => { rp_mod_2an5Bytes::bytes_stream!(@f [$($a)* WANT_m_bytes on_m_bytes: i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] bytes => $c:expr, $($r:tt)*) => { rp_mod_2an5Bytes::bytes_stream!(@f [$($a)* WANT_bytes on_bytes: &'rp_a [::core::primitive::u8] = $c;] $($r)*) };
+      (@f [$($a:tt)*] m_bytes => $c:expr, $($r:tt)*) => { rp_mod_2an5Bytes::bytes_stream!(@f [$($a)* WANT_m_bytes on_m_bytes: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2an5Bytes::bytes_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2an5Bytes::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: bytes, m_bytes, unknown")) };
       (@f $a:tt) => { rp_mod_2an5Bytes::rp_rt::stream_visitor!(rp_mod_2an5Bytes BytesVisitor $a) };
@@ -4013,20 +4013,20 @@ pub mod stream {
     macro_rules! __rp_12arena_naming_2an8Keywords {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2an8Keywords::keywords_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2an8Keywords::keywords_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] static_cast => $c:expr, $($r:tt)*) => { rp_mod_2an8Keywords::keywords_stream!(@f [$($a)* WANT_static_cast on_static_cast: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] const_cast => $c:expr, $($r:tt)*) => { rp_mod_2an8Keywords::keywords_stream!(@f [$($a)* WANT_const_cast on_const_cast: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] dynamic_cast => $c:expr, $($r:tt)*) => { rp_mod_2an8Keywords::keywords_stream!(@f [$($a)* WANT_dynamic_cast on_dynamic_cast: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] reinterpret_cast => $c:expr, $($r:tt)*) => { rp_mod_2an8Keywords::keywords_stream!(@f [$($a)* WANT_reinterpret_cast on_reinterpret_cast: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] static_assert => $c:expr, $($r:tt)*) => { rp_mod_2an8Keywords::keywords_stream!(@f [$($a)* WANT_static_assert on_static_assert: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] concept => $c:expr, $($r:tt)*) => { rp_mod_2an8Keywords::keywords_stream!(@f [$($a)* WANT_concept on_concept: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] requires => $c:expr, $($r:tt)*) => { rp_mod_2an8Keywords::keywords_stream!(@f [$($a)* WANT_requires on_requires: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] consteval => $c:expr, $($r:tt)*) => { rp_mod_2an8Keywords::keywords_stream!(@f [$($a)* WANT_consteval on_consteval: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] constinit => $c:expr, $($r:tt)*) => { rp_mod_2an8Keywords::keywords_stream!(@f [$($a)* WANT_constinit on_constinit: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] co_await => $c:expr, $($r:tt)*) => { rp_mod_2an8Keywords::keywords_stream!(@f [$($a)* WANT_co_await on_co_await: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] co_return => $c:expr, $($r:tt)*) => { rp_mod_2an8Keywords::keywords_stream!(@f [$($a)* WANT_co_return on_co_return: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] co_yield => $c:expr, $($r:tt)*) => { rp_mod_2an8Keywords::keywords_stream!(@f [$($a)* WANT_co_yield on_co_yield: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] char8_t => $c:expr, $($r:tt)*) => { rp_mod_2an8Keywords::keywords_stream!(@f [$($a)* WANT_char8_t on_char8_t: i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] concept_ => $c:expr, $($r:tt)*) => { rp_mod_2an8Keywords::keywords_stream!(@f [$($a)* WANT_concept_ on_concept_: i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] static_cast => $c:expr, $($r:tt)*) => { rp_mod_2an8Keywords::keywords_stream!(@f [$($a)* WANT_static_cast on_static_cast: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] const_cast => $c:expr, $($r:tt)*) => { rp_mod_2an8Keywords::keywords_stream!(@f [$($a)* WANT_const_cast on_const_cast: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] dynamic_cast => $c:expr, $($r:tt)*) => { rp_mod_2an8Keywords::keywords_stream!(@f [$($a)* WANT_dynamic_cast on_dynamic_cast: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] reinterpret_cast => $c:expr, $($r:tt)*) => { rp_mod_2an8Keywords::keywords_stream!(@f [$($a)* WANT_reinterpret_cast on_reinterpret_cast: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] static_assert => $c:expr, $($r:tt)*) => { rp_mod_2an8Keywords::keywords_stream!(@f [$($a)* WANT_static_assert on_static_assert: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] concept => $c:expr, $($r:tt)*) => { rp_mod_2an8Keywords::keywords_stream!(@f [$($a)* WANT_concept on_concept: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] requires => $c:expr, $($r:tt)*) => { rp_mod_2an8Keywords::keywords_stream!(@f [$($a)* WANT_requires on_requires: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] consteval => $c:expr, $($r:tt)*) => { rp_mod_2an8Keywords::keywords_stream!(@f [$($a)* WANT_consteval on_consteval: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] constinit => $c:expr, $($r:tt)*) => { rp_mod_2an8Keywords::keywords_stream!(@f [$($a)* WANT_constinit on_constinit: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] co_await => $c:expr, $($r:tt)*) => { rp_mod_2an8Keywords::keywords_stream!(@f [$($a)* WANT_co_await on_co_await: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] co_return => $c:expr, $($r:tt)*) => { rp_mod_2an8Keywords::keywords_stream!(@f [$($a)* WANT_co_return on_co_return: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] co_yield => $c:expr, $($r:tt)*) => { rp_mod_2an8Keywords::keywords_stream!(@f [$($a)* WANT_co_yield on_co_yield: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] char8_t => $c:expr, $($r:tt)*) => { rp_mod_2an8Keywords::keywords_stream!(@f [$($a)* WANT_char8_t on_char8_t: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] concept_ => $c:expr, $($r:tt)*) => { rp_mod_2an8Keywords::keywords_stream!(@f [$($a)* WANT_concept_ on_concept_: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2an8Keywords::keywords_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2an8Keywords::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: static_cast, const_cast, dynamic_cast, reinterpret_cast, static_assert, concept, requires, consteval, constinit, co_await, co_return, co_yield, char8_t, concept_, unknown")) };
       (@f $a:tt) => { rp_mod_2an8Keywords::rp_rt::stream_visitor!(rp_mod_2an8Keywords KeywordsVisitor $a) };
