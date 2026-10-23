@@ -2756,35 +2756,21 @@ std::string stream_export_name(std::string_view prefix, const MessageNode& msg) 
     return name;
 }
 
-// Emit the module's macro glue, then return the foreign-type alias map. Every name a `*_stream!` macro
-// expansion uses resolves at the CALLER's call site, outside this module -- and the generator cannot
-// know where the consumer `include!`d the tree, so there is no absolute path to write. A consumer
-// therefore glob-imports the stream module, and each message's expansion reaches everything through
-// ONE name that glob brings in: the module re-exported under the message's own scope name
-// `rp_mod_<fqn>` (stream_scope_name). So the trait, the child handles, the aliases below, the macro's
-// own recursion and the runtime (`rp_rt`) are all `rp_mod_<fqn>::`-qualified, and globbing several
-// stream modules -- from one generated file or from several sharing a package -- cannot make an
-// expansion ambiguous (E0659): the only name it needs is unique to its message. `rp_rt` also lets the
-// expansion name the runtime from a crate with no direct `rapidproto` dependency (two globs of it are
-// the same item, so it never clashes itself). A package-less schema's `stream` module re-exports
-// itself as `super::stream` (its parent is the `include!` site).
-//
-// Each FOREIGN type `msgs` reference (enum newtype / cross-module child handle) is re-exported as a
-// `pub type` alias with an `rp_`-prefixed name, because a `pub type` RHS resolves as a TYPE path (local
-// items first) -- unlike a `use` path, where a leading module segment like `std` would be read as the
-// extern crate (the adversarial naming corpus has such packages). The same relative paths the arena
-// tree uses thus resolve. The alias name `rp_stream_ty_<n>` only needs to be unique within the module:
-// the expansion always names it through a scope. Returns path -> alias.
+// Emit the module-level glue the `*_stream!` macros share, then return the foreign-type alias map.
+// A macro expansion names everything through its message's scope re-export (emit_stream_macro), so
+// what it reaches must live in this module: `rp_rt`, the runtime re-exported so the expansion can
+// name it from a crate with no direct `rapidproto` dependency (two globs of it are the same item, so it
+// never clashes itself), and one alias per FOREIGN type `msgs` reference (enum newtype / cross-module
+// child handle). An alias is a `pub type` with an `rp_`-prefixed name because a `pub type` RHS
+// resolves as a TYPE path (local items first) -- unlike a `use` path, where a leading module segment
+// like `std` would be read as the extern crate (the adversarial naming corpus has such packages). The
+// same relative paths the arena tree uses thus resolve. The alias name `rp_stream_ty_<n>` only needs to
+// be unique within the module: the expansion always names it through a scope. Returns path -> alias.
 StreamAliases emit_stream_reexports(Printer& printer, const NameTable& table,
                                     const std::vector<const MessageNode*>& msgs,
                                     const std::vector<std::string>& current_mod) {
     if (msgs.empty()) {
         return {};  // no messages, so no macros and nothing to glue
-    }
-    const std::string self = current_mod.empty() ? std::string("stream") : current_mod.back();
-    for (const MessageNode* msg : msgs) {
-        printer.print("#[doc(hidden)]\npub use super::$m$ as $s$;\n",
-                      {{"m", self}, {"s", stream_scope_name(*msg)}});
     }
     printer.print("#[doc(hidden)]\npub use ::rapidproto as rp_rt;\n");
     std::vector<std::pair<std::string, bool>>
@@ -3243,12 +3229,23 @@ void emit_stream_decode(Printer& printer, const NameTable& table,
     printer.print("}\n");  // impl
 }
 
-// The per-message `<name>_stream!` macro: a token muncher with one arm per field (plus `unknown`), the
-// field's literal names/type baked in, that builds an anonymous visitor from `field => closure` pairs.
-// The expansion runs at the caller's call site, so every name it uses -- the trait, the value types,
-// its own recursive arms, the runtime -- goes through the message's scope re-export `$scope$`
-// (emit_stream_reexports), which the caller's glob of the stream module brings into scope. Expands to
-// O(k) for k selected fields; the definition is O(N).
+// The per-message `<name>_stream!` macro, preceded by the message's scope re-export: its stream module
+// re-exported under the message's own name `rp_mod_<fqn>` (stream_scope_name). The expansion runs at
+// the caller's call site -- and the generator cannot know where the consumer `include!`d the tree, so
+// it has no absolute path to write -- so everything it names (the trait, the value types, its own
+// recursion, the runtime) goes through that one name, which the caller's glob of the stream module
+// brings in. Being unique to its message, it keeps globbing several stream modules -- from one
+// generated file or several sharing a package -- from making an expansion ambiguous (E0659). A
+// package-less schema's `stream` module re-exports itself as `super::stream` (its parent is the
+// `include!` site).
+//
+// The macro is a token muncher. Its two public arms (`{ field => |value| .. }` and `(&mut state;
+// { field => |state, value| .. })`) start one `@f` accumulator whose head records the form (`[]` /
+// `[state]`); one arm per field (plus `unknown`) appends a row `WANT_<f> on_<f>: V = closure;`; a
+// fallback turns a mistyped field into a `compile_error!` listing the selectable ones; and the
+// terminal arm hands the rows to the runtime's `stream_visitor!`, which builds the visitor -- so the
+// per-field boilerplate lives once, in the runtime. Expands to O(k) for k selected fields; the
+// definition is O(N).
 //
 // The `macro_rules!` is defined under a hidden name and re-exported at the module path under its
 // friendly name, so the friendly name binds ONLY the macro namespace: a plain `use <friendly>;` would
@@ -3272,172 +3269,51 @@ void emit_stream_macro(Printer& printer, const NameTable& table,
     printer.set("scope", scope);
     printer.set("def",
                 exported ? stream_export_name(export_prefix, msg) : stream_macro_def_name(msg));
-    // One (name, value-type-at-'rp_a, method, const, slot, param) per selectable field plus the
-    // reserved `unknown` handler, so the muncher arms are emitted uniformly.
-    struct MacroField {
-        std::string key;  // macro key (the escaped field name, or `unknown`)
-        std::string
-            value;  // handler value type at lifetime 'rp_a (the impl's bound + method param)
-        std::string
-            anon;  // same type at the anonymous lifetime '_ (for the `typed::<..>` turbofish
-                   // in the constructor, which is outside the impl's 'rp_a scope)
-    };
-    std::vector<MacroField> fields;
-    fields.reserve(slots.size() + 1);
-    std::string valid_keys;  // for the unknown-key compile_error
+    std::string valid_keys;  // for the unknown-field compile_error
     for (const StreamSlot& slot : slots) {
-        fields.push_back({slot.name,
-                          stream_slot_value_type(table, current_mod, slot, "'rp_a", aliases, scope),
-                          stream_slot_value_type(table, current_mod, slot, "'_", aliases, scope)});
-        if (!valid_keys.empty()) {
-            valid_keys += ", ";
-        }
-        valid_keys += slot.name;
+        valid_keys += slot.name + ", ";
     }
-    fields.push_back({"unknown", scope + "::rp_rt::stream::UnknownField<'rp_a>",
-                      scope + "::rp_rt::stream::UnknownField<'_>"});
-    valid_keys += valid_keys.empty() ? "unknown" : ", unknown";
+    valid_keys += "unknown";
+    printer.set("valid", valid_keys);
+
+    printer.print("#[doc(hidden)]\npub use super::$self$ as $scope$;\n",
+                  {{"self", current_mod.empty() ? std::string("stream") : current_mod.back()}});
+    printer.print(
+        "/// Builds a `$M$Visitor` from per-field closures: `$mac$! { field => |value| .. }`, or\n"
+        "/// `$mac$!(&mut state; { field => |state, value| .. })` to lend every handler one "
+        "state.\n");
 
     if (exported) {
         printer.print("#[doc(hidden)]\n#[macro_export]\n");
     }
     printer.print("macro_rules! $def$ {\n");
     printer.indent();
-    printer.print("( $$( $$rp_f:ident => $$rp_c:expr ),* $$(,)? ) => {\n");
-    printer.indent();
-    printer.print("$scope$::$mac$!(@m [] [] [] [] [] $$( $$rp_f => $$rp_c , )*)\n");
-    printer.outdent();
-    printer.print("};\n");
-    for (const MacroField& mf : fields) {
+    printer.print(
+        "($$($$f:ident => $$c:expr),* $$(,)?) => { $scope$::$mac$!(@f [[]] $$($$f => $$c,)*) };\n");
+    printer.print(
+        "($$s:expr; {$$($$f:ident => $$c:expr),* $$(,)?}) => { $scope$::$mac$!(@f [[$$s]] "
+        "$$($$f => $$c,)*) };\n");
+    // One row per selectable field: its key, the trait const and method it overrides, and its value
+    // type at the visitor impl's lifetime `'rp_a`.
+    const auto row = [&](const std::string& key, const std::string& want, const std::string& type) {
         printer.print(
-            "(@m [$$($$rp_g:tt)*] [$$($$rp_w:tt)*] [$$($$rp_i:tt)*] [$$($$rp_fl:tt)*] "
-            "[$$($$rp_ct:tt)*] $n$ => $$rp_c:expr , $$($$rp_rest:tt)*) => {\n",
-            {{"n", mf.key}});
-        printer.indent();
-        printer.print("$scope$::$mac$!(@m\n");
-        printer.indent();
-        printer.print("[$$($$rp_g)* F_$n$,]\n", {{"n", mf.key}});
-        printer.print("[$$($$rp_w)* F_$n$: $scope$::rp_rt::stream::Handler<$t$>,]\n",
-                      {{"n", mf.key}, {"t", mf.value}});
-        printer.print(
-            "[$$($$rp_i)* const WANT_$N$: bool = true; #[inline(always)] fn on_$n$(&mut self, "
-            "rp_x: $t$) -> ::core::result::Result<$scope$::rp_rt::stream::Flow, "
-            "$scope$::rp_rt::DecodeError> { $scope$::rp_rt::stream::Handler::call(&mut "
-            "self.f_$n$, rp_x) }]\n",
-            {{"n", mf.key}, {"N", mf.key == "unknown" ? "UNKNOWN" : mf.key}, {"t", mf.value}});
-        printer.print("[$$($$rp_fl)* f_$n$: F_$n$,]\n", {{"n", mf.key}});
-        // Wrap the closure so its parameter type is fixed to the field's value type, so the consumer
-        // never has to annotate it (even for `|s| s.0` or `|sub| sub.decode(..)`). The turbofish uses
-        // the anonymous lifetime `'_` because the constructor is outside the impl's `'rp_a` scope.
-        printer.print("[$$($$rp_ct)* f_$n$: $scope$::rp_rt::stream::typed::<$t$, _, _>($$rp_c),]\n",
-                      {{"n", mf.key}, {"t", mf.anon}});
-        printer.outdent();
-        printer.print("$$($$rp_rest)*)\n");
-        printer.outdent();
-        printer.print("};\n");
+            "(@f [$$($$a:tt)*] $k$ => $$c:expr, $$($$r:tt)*) => { $scope$::$mac$!(@f [$$($$a)* $w$ "
+            "on_$k$: $t$ = $$c;] $$($$r)*) };\n",
+            {{"k", key}, {"w", want}, {"t", type}});
+    };
+    for (const StreamSlot& slot : slots) {
+        row(slot.name, "WANT_" + slot.name,
+            stream_slot_value_type(table, current_mod, slot, "'rp_a", aliases, scope));
     }
+    row("unknown", "WANT_UNKNOWN", scope + "::rp_rt::stream::UnknownField<'rp_a>");
     // Fallback: an `ident =>` that matched none of the field arms above is a mistyped or unsupported
-    // field. Emit a `compile_error!` naming it and listing the selectable fields, instead of the bare
-    // "no rules expected this token" a muncher would otherwise give. Must come after every field arm.
-    printer.set("valid", valid_keys);
+    // field. Name it and list the selectable fields, instead of the bare "no rules expected this
+    // token" a muncher would otherwise give. Must come after every field arm.
     printer.print(
-        "(@m [$$($$rp_g:tt)*] [$$($$rp_w:tt)*] [$$($$rp_i:tt)*] [$$($$rp_fl:tt)*] "
-        "[$$($$rp_ct:tt)*] $$rp_bad:ident => $$rp_c:expr , $$($$rp_rest:tt)*) => {\n");
-    printer.indent();
-    printer.print(
-        "::core::compile_error!(::core::concat!(\"unknown field `\", "
-        "::core::stringify!($$rp_bad), \"` for this message; selectable fields: $valid$\"))\n");
-    printer.outdent();
-    printer.print("};\n");
-    printer.print(
-        "(@m [$$($$rp_g:tt)*] [$$($$rp_w:tt)*] [$$($$rp_i:tt)*] [$$($$rp_fl:tt)*] "
-        "[$$($$rp_ct:tt)*] ) => {{\n");
-    printer.indent();
-    // `RpVis` and its impl expand at the CALLER's call site, outside this generated module -- so,
-    // unlike the trait, they cannot lean on the `include!`-site crate-level style allows and must carry
-    // their own `nonstandard_style` allow for the proto-derived `f_<name>` fields and `on_<name>` etc.
-    printer.print("#[allow(nonstandard_style)]\n");
-    printer.print("struct RpVis<$$($$rp_g)*> { $$($$rp_fl)* }\n");
-    printer.print("#[allow(nonstandard_style)]\n");
-    printer.print(
-        "impl<'rp_a, $$($$rp_g)*> $scope$::$M$Visitor<'rp_a> for RpVis<$$($$rp_g)*> where "
-        "$$($$rp_w)* { $$($$rp_i)* }\n");
-    printer.print("RpVis { $$($$rp_ct)* }\n");
-    printer.outdent();
-    printer.print("}};\n");
-
-    // ---- shared-state form: `$mac$!(&mut state; { field => |state, value| .. })` ----
-    // The driver owns one `&mut state` and lends it to every handler (`&mut *self.rp_state`), so the
-    // handlers can aggregate into shared state (or parse into one struct) that exclusive-`&mut` captures
-    // could not express. A parallel muncher (`@ms`) threads the state binding's ident through the arms;
-    // each handler is bound `Handler2<RpS, V>` and both its parameter types are pinned by `typed2` -- the
-    // `&*state` hint fixes the state type, the turbofish the value type -- so `|state, value|` needs no
-    // annotations. `rp_state` is stored as the last struct field so the handler closures (built from
-    // `&*state` borrows) are evaluated before the `&mut state` is moved in.
-    printer.print("( $$rp_state:expr ; { $$( $$rp_f:ident => $$rp_c:expr ),* $$(,)? } ) => {{\n");
-    printer.indent();
-    printer.print("let rp_state = $$rp_state;\n");
-    printer.print("$scope$::$mac$!(@ms [] [] [] [] [] rp_state $$( $$rp_f => $$rp_c , )*)\n");
-    printer.outdent();
-    printer.print("}};\n");
-    for (const MacroField& mf : fields) {
-        printer.print(
-            "(@ms [$$($$rp_g:tt)*] [$$($$rp_w:tt)*] [$$($$rp_i:tt)*] [$$($$rp_fl:tt)*] "
-            "[$$($$rp_ct:tt)*] $$rp_s:ident $n$ => $$rp_c:expr , $$($$rp_rest:tt)*) => {\n",
-            {{"n", mf.key}});
-        printer.indent();
-        printer.print("$scope$::$mac$!(@ms\n");
-        printer.indent();
-        printer.print("[$$($$rp_g)* F_$n$,]\n", {{"n", mf.key}});
-        printer.print("[$$($$rp_w)* F_$n$: $scope$::rp_rt::stream::Handler2<RpS, $t$>,]\n",
-                      {{"n", mf.key}, {"t", mf.value}});
-        printer.print(
-            "[$$($$rp_i)* const WANT_$N$: bool = true; #[inline(always)] fn on_$n$(&mut self, "
-            "rp_x: $t$) -> ::core::result::Result<$scope$::rp_rt::stream::Flow, "
-            "$scope$::rp_rt::DecodeError> { $scope$::rp_rt::stream::Handler2::call(&mut "
-            "self.f_$n$, &mut *self.rp_state, rp_x) }]\n",
-            {{"n", mf.key}, {"N", mf.key == "unknown" ? "UNKNOWN" : mf.key}, {"t", mf.value}});
-        printer.print("[$$($$rp_fl)* f_$n$: F_$n$,]\n", {{"n", mf.key}});
-        // Pin both handler parameter types without a consumer annotation: the `&*rp_state` hint fixes
-        // the state type `S` and the `'_` turbofish the value type `V`. The hint is a transient shared
-        // reborrow (dropped before `rp_state`'s `&mut` is moved into the struct below).
-        printer.print(
-            "[$$($$rp_ct)* f_$n$: $scope$::rp_rt::stream::typed2::<_, $t$, _, _>(&*$$rp_s, "
-            "$$rp_c),]\n",
-            {{"n", mf.key}, {"t", mf.anon}});
-        printer.outdent();
-        printer.print("$$rp_s $$($$rp_rest)*)\n");
-        printer.outdent();
-        printer.print("};\n");
-    }
-    printer.print(
-        "(@ms [$$($$rp_g:tt)*] [$$($$rp_w:tt)*] [$$($$rp_i:tt)*] [$$($$rp_fl:tt)*] "
-        "[$$($$rp_ct:tt)*] $$rp_s:ident $$rp_bad:ident => $$rp_c:expr , $$($$rp_rest:tt)*) => {\n");
-    printer.indent();
-    printer.print(
-        "::core::compile_error!(::core::concat!(\"unknown field `\", "
-        "::core::stringify!($$rp_bad), \"` for this message; selectable fields: $valid$\"))\n");
-    printer.outdent();
-    printer.print("};\n");
-    printer.print(
-        "(@ms [$$($$rp_g:tt)*] [$$($$rp_w:tt)*] [$$($$rp_i:tt)*] [$$($$rp_fl:tt)*] "
-        "[$$($$rp_ct:tt)*] $$rp_s:ident ) => {{\n");
-    printer.indent();
-    // `dead_code` too (unlike the non-state struct): a zero-field selection `$mac$!(&mut s; {})` leaves
-    // `rp_state` read by no handler, which would warn under a consumer's `deny(warnings)`.
-    printer.print("#[allow(nonstandard_style, dead_code)]\n");
-    printer.print(
-        "struct RpVis<'rp_s, RpS: ?::core::marker::Sized, $$($$rp_g)*> { $$($$rp_fl)* rp_state: "
-        "&'rp_s mut RpS }\n");
-    printer.print("#[allow(nonstandard_style)]\n");
-    printer.print(
-        "impl<'rp_a, 'rp_s, RpS: ?::core::marker::Sized, $$($$rp_g)*> $scope$::$M$Visitor<'rp_a> "
-        "for "
-        "RpVis<'rp_s, RpS, $$($$rp_g)*> where $$($$rp_w)* { $$($$rp_i)* }\n");
-    printer.print("RpVis { $$($$rp_ct)* rp_state: $$rp_s }\n");
-    printer.outdent();
-    printer.print("}};\n");
-
+        "(@f $$a:tt $$bad:ident => $$c:expr, $$($$r:tt)*) => { "
+        "::core::compile_error!(::core::concat!(\"unknown field `\", ::core::stringify!($$bad), "
+        "\"` for this message; selectable fields: $valid$\")) };\n");
+    printer.print("(@f $$a:tt) => { $scope$::rp_rt::stream_visitor!($scope$ $M$Visitor $$a) };\n");
     printer.outdent();
     printer.print("}\n");
     if (exported) {

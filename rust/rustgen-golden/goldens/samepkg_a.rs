@@ -220,10 +220,6 @@ pub mod stream {
 
   pub mod samepkg {
     #[doc(hidden)]
-    pub use super::samepkg as rp_mod_7samepkg7SecondB;
-    #[doc(hidden)]
-    pub use super::samepkg as rp_mod_7samepkg6FirstA;
-    #[doc(hidden)]
     pub use ::rapidproto as rp_rt;
 
     /// Streaming visitor for `SecondB`. Select a field by overriding its `WANT_<field>` const AND
@@ -317,71 +313,18 @@ pub mod stream {
     }
 
     #[doc(hidden)]
+    pub use super::samepkg as rp_mod_7samepkg7SecondB;
+    /// Builds a `SecondBVisitor` from per-field closures: `second_b_stream! { field => |value| .. }`, or
+    /// `second_b_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
+    #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_9samepkg_a_7samepkg7SecondB {
-      ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
-        rp_mod_7samepkg7SecondB::second_b_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
-      };
-      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] v => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_7samepkg7SecondB::second_b_stream!(@m
-          [$($rp_g)* F_v,]
-          [$($rp_w)* F_v: rp_mod_7samepkg7SecondB::rp_rt::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_v: bool = true; #[inline(always)] fn on_v(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_7samepkg7SecondB::rp_rt::stream::Flow, rp_mod_7samepkg7SecondB::rp_rt::DecodeError> { rp_mod_7samepkg7SecondB::rp_rt::stream::Handler::call(&mut self.f_v, rp_x) }]
-          [$($rp_fl)* f_v: F_v,]
-          [$($rp_ct)* f_v: rp_mod_7samepkg7SecondB::rp_rt::stream::typed::<i32, _, _>($rp_c),]
-        $($rp_rest)*)
-      };
-      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] unknown => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_7samepkg7SecondB::second_b_stream!(@m
-          [$($rp_g)* F_unknown,]
-          [$($rp_w)* F_unknown: rp_mod_7samepkg7SecondB::rp_rt::stream::Handler<rp_mod_7samepkg7SecondB::rp_rt::stream::UnknownField<'rp_a>>,]
-          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_7samepkg7SecondB::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_7samepkg7SecondB::rp_rt::stream::Flow, rp_mod_7samepkg7SecondB::rp_rt::DecodeError> { rp_mod_7samepkg7SecondB::rp_rt::stream::Handler::call(&mut self.f_unknown, rp_x) }]
-          [$($rp_fl)* f_unknown: F_unknown,]
-          [$($rp_ct)* f_unknown: rp_mod_7samepkg7SecondB::rp_rt::stream::typed::<rp_mod_7samepkg7SecondB::rp_rt::stream::UnknownField<'_>, _, _>($rp_c),]
-        $($rp_rest)*)
-      };
-      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
-        ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($rp_bad), "` for this message; selectable fields: v, unknown"))
-      };
-      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
-        #[allow(nonstandard_style)]
-        struct RpVis<$($rp_g)*> { $($rp_fl)* }
-        #[allow(nonstandard_style)]
-        impl<'rp_a, $($rp_g)*> rp_mod_7samepkg7SecondB::SecondBVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
-        RpVis { $($rp_ct)* }
-      }};
-      ( $rp_state:expr ; { $( $rp_f:ident => $rp_c:expr ),* $(,)? } ) => {{
-        let rp_state = $rp_state;
-        rp_mod_7samepkg7SecondB::second_b_stream!(@ms [] [] [] [] [] rp_state $( $rp_f => $rp_c , )*)
-      }};
-      (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident v => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_7samepkg7SecondB::second_b_stream!(@ms
-          [$($rp_g)* F_v,]
-          [$($rp_w)* F_v: rp_mod_7samepkg7SecondB::rp_rt::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_v: bool = true; #[inline(always)] fn on_v(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_7samepkg7SecondB::rp_rt::stream::Flow, rp_mod_7samepkg7SecondB::rp_rt::DecodeError> { rp_mod_7samepkg7SecondB::rp_rt::stream::Handler2::call(&mut self.f_v, &mut *self.rp_state, rp_x) }]
-          [$($rp_fl)* f_v: F_v,]
-          [$($rp_ct)* f_v: rp_mod_7samepkg7SecondB::rp_rt::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
-        $rp_s $($rp_rest)*)
-      };
-      (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident unknown => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_7samepkg7SecondB::second_b_stream!(@ms
-          [$($rp_g)* F_unknown,]
-          [$($rp_w)* F_unknown: rp_mod_7samepkg7SecondB::rp_rt::stream::Handler2<RpS, rp_mod_7samepkg7SecondB::rp_rt::stream::UnknownField<'rp_a>>,]
-          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_7samepkg7SecondB::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_7samepkg7SecondB::rp_rt::stream::Flow, rp_mod_7samepkg7SecondB::rp_rt::DecodeError> { rp_mod_7samepkg7SecondB::rp_rt::stream::Handler2::call(&mut self.f_unknown, &mut *self.rp_state, rp_x) }]
-          [$($rp_fl)* f_unknown: F_unknown,]
-          [$($rp_ct)* f_unknown: rp_mod_7samepkg7SecondB::rp_rt::stream::typed2::<_, rp_mod_7samepkg7SecondB::rp_rt::stream::UnknownField<'_>, _, _>(&*$rp_s, $rp_c),]
-        $rp_s $($rp_rest)*)
-      };
-      (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
-        ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($rp_bad), "` for this message; selectable fields: v, unknown"))
-      };
-      (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident ) => {{
-        #[allow(nonstandard_style, dead_code)]
-        struct RpVis<'rp_s, RpS: ?::core::marker::Sized, $($rp_g)*> { $($rp_fl)* rp_state: &'rp_s mut RpS }
-        #[allow(nonstandard_style)]
-        impl<'rp_a, 'rp_s, RpS: ?::core::marker::Sized, $($rp_g)*> rp_mod_7samepkg7SecondB::SecondBVisitor<'rp_a> for RpVis<'rp_s, RpS, $($rp_g)*> where $($rp_w)* { $($rp_i)* }
-        RpVis { $($rp_ct)* rp_state: $rp_s }
-      }};
+      ($($f:ident => $c:expr),* $(,)?) => { rp_mod_7samepkg7SecondB::second_b_stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_7samepkg7SecondB::second_b_stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] v => $c:expr, $($r:tt)*) => { rp_mod_7samepkg7SecondB::second_b_stream!(@f [$($a)* WANT_v on_v: i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_7samepkg7SecondB::second_b_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_7samepkg7SecondB::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: v, unknown")) };
+      (@f $a:tt) => { rp_mod_7samepkg7SecondB::rp_rt::stream_visitor!(rp_mod_7samepkg7SecondB SecondBVisitor $a) };
     }
     #[doc(inline)]
     pub use __rp_9samepkg_a_7samepkg7SecondB as second_b_stream;
@@ -477,71 +420,18 @@ pub mod stream {
     }
 
     #[doc(hidden)]
+    pub use super::samepkg as rp_mod_7samepkg6FirstA;
+    /// Builds a `FirstAVisitor` from per-field closures: `first_a_stream! { field => |value| .. }`, or
+    /// `first_a_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
+    #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_9samepkg_a_7samepkg6FirstA {
-      ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
-        rp_mod_7samepkg6FirstA::first_a_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
-      };
-      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] b => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_7samepkg6FirstA::first_a_stream!(@m
-          [$($rp_g)* F_b,]
-          [$($rp_w)* F_b: rp_mod_7samepkg6FirstA::rp_rt::stream::Handler<rp_mod_7samepkg6FirstA::SecondB<'rp_a>>,]
-          [$($rp_i)* const WANT_b: bool = true; #[inline(always)] fn on_b(&mut self, rp_x: rp_mod_7samepkg6FirstA::SecondB<'rp_a>) -> ::core::result::Result<rp_mod_7samepkg6FirstA::rp_rt::stream::Flow, rp_mod_7samepkg6FirstA::rp_rt::DecodeError> { rp_mod_7samepkg6FirstA::rp_rt::stream::Handler::call(&mut self.f_b, rp_x) }]
-          [$($rp_fl)* f_b: F_b,]
-          [$($rp_ct)* f_b: rp_mod_7samepkg6FirstA::rp_rt::stream::typed::<rp_mod_7samepkg6FirstA::SecondB<'_>, _, _>($rp_c),]
-        $($rp_rest)*)
-      };
-      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] unknown => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_7samepkg6FirstA::first_a_stream!(@m
-          [$($rp_g)* F_unknown,]
-          [$($rp_w)* F_unknown: rp_mod_7samepkg6FirstA::rp_rt::stream::Handler<rp_mod_7samepkg6FirstA::rp_rt::stream::UnknownField<'rp_a>>,]
-          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_7samepkg6FirstA::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_7samepkg6FirstA::rp_rt::stream::Flow, rp_mod_7samepkg6FirstA::rp_rt::DecodeError> { rp_mod_7samepkg6FirstA::rp_rt::stream::Handler::call(&mut self.f_unknown, rp_x) }]
-          [$($rp_fl)* f_unknown: F_unknown,]
-          [$($rp_ct)* f_unknown: rp_mod_7samepkg6FirstA::rp_rt::stream::typed::<rp_mod_7samepkg6FirstA::rp_rt::stream::UnknownField<'_>, _, _>($rp_c),]
-        $($rp_rest)*)
-      };
-      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
-        ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($rp_bad), "` for this message; selectable fields: b, unknown"))
-      };
-      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
-        #[allow(nonstandard_style)]
-        struct RpVis<$($rp_g)*> { $($rp_fl)* }
-        #[allow(nonstandard_style)]
-        impl<'rp_a, $($rp_g)*> rp_mod_7samepkg6FirstA::FirstAVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
-        RpVis { $($rp_ct)* }
-      }};
-      ( $rp_state:expr ; { $( $rp_f:ident => $rp_c:expr ),* $(,)? } ) => {{
-        let rp_state = $rp_state;
-        rp_mod_7samepkg6FirstA::first_a_stream!(@ms [] [] [] [] [] rp_state $( $rp_f => $rp_c , )*)
-      }};
-      (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident b => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_7samepkg6FirstA::first_a_stream!(@ms
-          [$($rp_g)* F_b,]
-          [$($rp_w)* F_b: rp_mod_7samepkg6FirstA::rp_rt::stream::Handler2<RpS, rp_mod_7samepkg6FirstA::SecondB<'rp_a>>,]
-          [$($rp_i)* const WANT_b: bool = true; #[inline(always)] fn on_b(&mut self, rp_x: rp_mod_7samepkg6FirstA::SecondB<'rp_a>) -> ::core::result::Result<rp_mod_7samepkg6FirstA::rp_rt::stream::Flow, rp_mod_7samepkg6FirstA::rp_rt::DecodeError> { rp_mod_7samepkg6FirstA::rp_rt::stream::Handler2::call(&mut self.f_b, &mut *self.rp_state, rp_x) }]
-          [$($rp_fl)* f_b: F_b,]
-          [$($rp_ct)* f_b: rp_mod_7samepkg6FirstA::rp_rt::stream::typed2::<_, rp_mod_7samepkg6FirstA::SecondB<'_>, _, _>(&*$rp_s, $rp_c),]
-        $rp_s $($rp_rest)*)
-      };
-      (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident unknown => $rp_c:expr , $($rp_rest:tt)*) => {
-        rp_mod_7samepkg6FirstA::first_a_stream!(@ms
-          [$($rp_g)* F_unknown,]
-          [$($rp_w)* F_unknown: rp_mod_7samepkg6FirstA::rp_rt::stream::Handler2<RpS, rp_mod_7samepkg6FirstA::rp_rt::stream::UnknownField<'rp_a>>,]
-          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_7samepkg6FirstA::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_7samepkg6FirstA::rp_rt::stream::Flow, rp_mod_7samepkg6FirstA::rp_rt::DecodeError> { rp_mod_7samepkg6FirstA::rp_rt::stream::Handler2::call(&mut self.f_unknown, &mut *self.rp_state, rp_x) }]
-          [$($rp_fl)* f_unknown: F_unknown,]
-          [$($rp_ct)* f_unknown: rp_mod_7samepkg6FirstA::rp_rt::stream::typed2::<_, rp_mod_7samepkg6FirstA::rp_rt::stream::UnknownField<'_>, _, _>(&*$rp_s, $rp_c),]
-        $rp_s $($rp_rest)*)
-      };
-      (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
-        ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($rp_bad), "` for this message; selectable fields: b, unknown"))
-      };
-      (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident ) => {{
-        #[allow(nonstandard_style, dead_code)]
-        struct RpVis<'rp_s, RpS: ?::core::marker::Sized, $($rp_g)*> { $($rp_fl)* rp_state: &'rp_s mut RpS }
-        #[allow(nonstandard_style)]
-        impl<'rp_a, 'rp_s, RpS: ?::core::marker::Sized, $($rp_g)*> rp_mod_7samepkg6FirstA::FirstAVisitor<'rp_a> for RpVis<'rp_s, RpS, $($rp_g)*> where $($rp_w)* { $($rp_i)* }
-        RpVis { $($rp_ct)* rp_state: $rp_s }
-      }};
+      ($($f:ident => $c:expr),* $(,)?) => { rp_mod_7samepkg6FirstA::first_a_stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_7samepkg6FirstA::first_a_stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] b => $c:expr, $($r:tt)*) => { rp_mod_7samepkg6FirstA::first_a_stream!(@f [$($a)* WANT_b on_b: rp_mod_7samepkg6FirstA::SecondB<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_7samepkg6FirstA::first_a_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_7samepkg6FirstA::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: b, unknown")) };
+      (@f $a:tt) => { rp_mod_7samepkg6FirstA::rp_rt::stream_visitor!(rp_mod_7samepkg6FirstA FirstAVisitor $a) };
     }
     #[doc(inline)]
     pub use __rp_9samepkg_a_7samepkg6FirstA as first_a_stream;
