@@ -59,18 +59,32 @@ std::string generate_arena(const std::vector<const FileNode*>& files, const Layo
 // it is a message); `Flow::Stop` and an `Err` propagate out of `decode`. The trait and driver name a
 // foreign enum newtype / child handle by its real tree-relative path; the `*_stream!` macro expands at
 // the consumer's call site where that path is invalid, so each such type is also re-exported into the
-// message's stream module as a `#[doc(hidden)] pub type rp_stream_ty_<n>` alias (reserved `rp_` prefix ->
-// never clashes) that only the macro names. A consumer glob-imports the stream module. Field modes
+// message's stream module as a `#[doc(hidden)] pub type rp_stream_ty_<n>` alias, and the module is
+// re-exported under a hidden per-message name (`rp_mod_<fqn>`) next to the runtime (`rp_rt`). Each
+// expansion names everything -- trait, types, its own recursion, the runtime -- through its message's
+// scope name, which a consumer's glob of the stream module brings in, so globbing several stream
+// modules cannot make it ambiguous. The generator reserves the `rp_` prefix for this glue (a
+// schema-derived module-scope name starting with `rp_` becomes `rp__...`; see reserve_rp_prefix). Field modes
 // (drop/raw/unknown) are arena-storage options that do not apply to a streaming visitor (which
 // materializes nothing), so streaming ignores them.
-std::string generate_stream(const std::vector<const FileNode*>& files);
+//
+// Each macro is a hidden `macro_rules!` re-exported under its friendly name. It is `pub(crate)`
+// (usable within the crate that `include!`s the file) unless `export_prefix` is non-empty: then it is
+// a `#[macro_export] __rp_<prefix>_<fqn>` re-exported with `pub use`, so the including crate's
+// `tests/` or another crate can call it too. The prefix must be an identifier ([A-Za-z_][A-Za-z0-9_]*,
+// validated by the caller); distinct prefixes keep two exported files' crate-root names apart.
+std::string generate_stream(const std::vector<const FileNode*>& files,
+                            const std::string& export_prefix = {});
 
 // Which decoder model(s) `generate_file` emits. `common` is always emitted (both models reference it).
-// Default is arena only -- byte-for-byte what every existing arena consumer gets. At least one must be
-// set; the caller enforces that.
+// Default is arena only -- byte-for-byte what every existing arena consumer gets. At least one model
+// must be set; the caller enforces that, and that `stream_export_prefix` comes with `stream`.
 struct RustModels {
     bool arena = true;
     bool stream = false;
+    // Non-empty: make every `*_stream!` macro callable from another crate, defined at the including
+    // crate's root under this prefix (see generate_stream). Empty (default): `pub(crate)` macros.
+    std::string stream_export_prefix;
 };
 
 // The full generated Rust source for `files`: the `common` tree, then the selected decoder tree(s)

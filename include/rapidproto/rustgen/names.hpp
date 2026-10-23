@@ -56,6 +56,22 @@ inline std::string escape_rust_ident(std::string name) {
     return name;
 }
 
+// A MODULE-SCOPE name derived from the schema (a package module, a message struct or submodule, an
+// enum newtype, a stream macro) never starts with `rp_` followed by anything but `_`: such a name
+// gains a `_` after the prefix (`rp_rt` -> `rp__rt`). That shape belongs to the generator's own
+// module-level glue -- the stream modules' `rp_rt` / `rp_mod_*` / `rp_stream_ty_*` re-exports and
+// `rp_mac_*` macros -- so no schema name, nor anything derived from one (`<T>Visitor`, a dedup `_`,
+// `<snake>_stream`), can equal glue. (A trailing `_` would not do: glue names end in schema names.)
+// A name already starting `rp__` keeps its spelling; if it meets a reserved `rp_x` -> `rp__x` in
+// one scope, the scope's dedup separates them like any other collision. Member names (fields,
+// accessors, consts) share no namespace with module items and keep their spelling.
+inline std::string reserve_rp_prefix(std::string name) {
+    if (name.rfind("rp_", 0) == 0 && name.rfind("rp__", 0) != 0) {
+        name.insert(3, 1, '_');
+    }
+    return name;
+}
+
 // `SCREAMING_SNAKE` or `snake` or anything_ -> `PascalCase`, splitting on `_` and digits-as-words
 // boundaries kept simple: each `_`-separated run is lower-cased then title-cased. Used for enum
 // classify-variant names (Rust enum variants are UpperCamelCase; a non-camel name warns).

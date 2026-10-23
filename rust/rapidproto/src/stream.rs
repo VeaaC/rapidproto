@@ -16,6 +16,10 @@
 //! decode early as a clean `Ok(())`, and an `Err(DecodeError)` propagates out of `decode` — so a handler
 //! that decodes a sub-message with `child.decode(..)?` surfaces a malformed-child error naturally.
 //!
+//! The macro expands one recursion step per selected field, and calls nested inside handlers share
+//! rustc's macro recursion budget: selecting more than about 120 fields in one call (fewer across nested
+//! calls) needs a raised `#![recursion_limit = "256"]` in the calling crate.
+//!
 //! Streaming is a raw field visit, not a materialized message, so the consumer owns anything the arena
 //! model would resolve: a handler fires once per wire occurrence of its field (a repeated field, or a
 //! singular one duplicated by a non-canonical encoder, calls the handler more than once), and the
@@ -167,6 +171,64 @@ impl<S: ?Sized, V, R: HandlerRet, F: FnMut(&mut S, V) -> R> Handler2<S, V> for F
 #[inline(always)]
 pub fn typed2<S: ?Sized, V, R, F: FnMut(&mut S, V) -> R>(_state_hint: &S, f: F) -> F {
     f
+}
+
+/// Builds the anonymous visitor a generated `<msg>_stream!` macro expands to, from the per-field rows
+/// that macro collected: `$scope` is the message's stream module (re-exported under a per-message
+/// name) and `$Tr` its visitor trait. A row is `WANT_<f> on_<f>: V = closure;` -- the trait's const and
+/// method names and the field's value type at the impl lifetime `'rp_a`. `on_<f>` doubles as the
+/// struct field and its closure's type parameter (separate namespaces), and each `V` gets a
+/// block-local alias named by its const (`type WANT_<f><'rp_a> = V`) so the constructor can name it at
+/// `'_` to pin the closure's parameter types. A leading `[]` selects the plain form, `[state]` the
+/// shared-state form that lends one `&mut state` to every handler. Internal to the generated glue.
+#[macro_export]
+#[doc(hidden)]
+macro_rules! stream_visitor {
+    ($scope:ident $Tr:ident [[] $($W:ident $on:ident: $V:ty = $c:expr;)*]) => {{
+        $(#[allow(nonstandard_style)] type $W<'rp_a> = $V;)*
+        #[allow(nonstandard_style)]
+        struct RpVis<$($on),*> { $($on: $on),* }
+        #[allow(nonstandard_style)]
+        impl<'rp_a, $($on: $crate::stream::Handler<$W<'rp_a>>),*> $scope::$Tr<'rp_a>
+            for RpVis<$($on),*>
+        {
+            $(
+                const $W: bool = true;
+                #[inline(always)]
+                fn $on(&mut self, rp_x: $W<'rp_a>)
+                    -> ::core::result::Result<$crate::stream::Flow, $crate::DecodeError> {
+                    $crate::stream::Handler::call(&mut self.$on, rp_x)
+                }
+            )*
+        }
+        RpVis { $($on: $crate::stream::typed::<$W<'_>, _, _>($c)),* }
+    }};
+    ($scope:ident $Tr:ident [[$state:expr] $($W:ident $on:ident: $V:ty = $c:expr;)*]) => {{
+        $(#[allow(nonstandard_style)] type $W<'rp_a> = $V;)*
+        // `dead_code`: a zero-field selection leaves `rp_state` read by no handler.
+        #[allow(nonstandard_style, dead_code)]
+        struct RpVis<'rp_s, RpS: ?::core::marker::Sized, $($on),*> {
+            $($on: $on,)*
+            rp_state: &'rp_s mut RpS,
+        }
+        #[allow(nonstandard_style)]
+        impl<'rp_a, 'rp_s, RpS: ?::core::marker::Sized, $($on: $crate::stream::Handler2<RpS, $W<'rp_a>>),*>
+            $scope::$Tr<'rp_a> for RpVis<'rp_s, RpS, $($on),*>
+        {
+            $(
+                const $W: bool = true;
+                #[inline(always)]
+                fn $on(&mut self, rp_x: $W<'rp_a>)
+                    -> ::core::result::Result<$crate::stream::Flow, $crate::DecodeError> {
+                    $crate::stream::Handler2::call(&mut self.$on, &mut *self.rp_state, rp_x)
+                }
+            )*
+        }
+        // Evaluated once, before the handlers: their `&*rp_state` hints pin the state type, and the
+        // `&mut` moves into the struct last.
+        let rp_state = $state;
+        RpVis { $($on: $crate::stream::typed2::<_, $W<'_>, _, _>(&*rp_state, $c),)* rp_state }
+    }};
 }
 
 /// A field on the wire that the message's schema does not declare, delivered to a message's `unknown`

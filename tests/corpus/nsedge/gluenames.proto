@@ -1,0 +1,64 @@
+// Names that collide with the Rust stream glue unless the generator keeps them apart. The glue is
+// the module-level `rp_` names the generator reserves -- the runtime re-export `rp_rt`, a message's
+// scope re-export `rp_mod_<fqn>` and macro definition `rp_mac_<fqn>`, the foreign-type aliases
+// `rp_stream_ty_<n>` -- plus the bare names a macro expansion would otherwise rely on. Each name
+// below is protoc-valid; the Rust golden compiling (and the golden crate's tests driving `Holder`'s
+// macros) is the check.
+syntax = "proto3";
+
+package gluenames;
+
+import "gluenames_sub.proto";
+
+// Nested types -> a message submodule `rp_rt`, which a sub-package of the same name (`gluenames.rp_rt`,
+// imported) competes for too.
+message RpRt {
+  message X {
+    int32 v = 1;
+  }
+  X x = 1;
+}
+
+// Named exactly like `Holder`'s glue (`.gluenames.Holder` length-prefixed) and the first alias.
+message rp_mod_9gluenames6Holder {
+  int32 v = 1;
+}
+message rp_mac_9gluenames6Holder {
+  int32 v = 1;
+}
+message rp_stream_ty_0 {
+  int32 v = 1;
+}
+
+// `Tail_`'s scope is `rp_mod_9gluenames5Tail_` (its FQN ends in `_`), which a reservation that merely
+// appended `_` would also make of the name below.
+message Tail_ {
+  int32 v = 1;
+}
+message rp_mod_9gluenames5Tail {
+  int32 v = 1;
+}
+
+// The shared-state expansion's `?Sized` bound must not resolve to this.
+message Sized {
+  int32 v = 1;
+}
+
+// `Foo`'s macro `foo_stream` and `FooStream`'s nested-type submodule `foo_stream` share a name.
+message Foo {
+  int32 v = 1;
+}
+message FooStream {
+  message In {
+    int32 v = 1;
+  }
+  In inner = 1;
+}
+
+message Holder {
+  RpRt nested = 1;
+  gluenames.rp_rt.Sub sub = 2;  // a child in the `rp_rt` sub-package
+  Sized sized = 3;
+  Foo foo = 4;
+  rp_stream_ty_0 alias_named = 5;
+}

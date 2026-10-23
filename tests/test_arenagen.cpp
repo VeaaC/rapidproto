@@ -38,6 +38,7 @@
 #include "arenagen_golden/editions2023.rp.hpp"
 #include "arenagen_golden/editions2024.rp.hpp"  // 2024: decode-relevant defaults match 2023
 #include "arenagen_golden/escdedup_a.rp.hpp"    // same-package escape collision (pulls escdedup_b)
+#include "arenagen_golden/gluenames.rp.hpp"     // `rp_`-glue-shaped names (pulls gluenames_sub)
 #include "arenagen_golden/main.rp.hpp"  // cross-file imports: transitively pulls dep/forward/pub
 #include "arenagen_golden/messageset.rp.hpp"  // MessageSet: accepted, decodes as unknown
 #include "arenagen_golden/nopkg.rp.hpp"       // NO package: types land directly under rp::arena
@@ -223,6 +224,10 @@ TEST_CASE("arenagen: generated headers match the goldens", "[arenagen]") {
     // A package named `rapidproto` keeps its spelling: under the roots it sits three levels
     // below the runtime's own namespace, and the compile smoke proves the two stay apart.
     check_golden("rppkg", generate(nsedge, "rppkg.proto"));
+    // Names shaped like the Rust stream glue (`rp_rt`, `rp_mod_*`, `Sized`, ...): a Rust concern, but
+    // the corpus is shared, so every generator compiles them too.
+    check_golden("gluenames", generate(nsedge, "gluenames.proto"));
+    check_golden("gluenames_sub", generate(nsedge, "gluenames_sub.proto"));
 }
 
 // Every `<stem>.rp.common.hpp` beside the model goldens, directory-driven (see

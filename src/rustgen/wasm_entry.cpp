@@ -15,7 +15,7 @@
 //
 // Stdin frame (all lengths little-endian u32; bodies are raw bytes, so a proto's newlines/quotes
 // need no escaping):
-//   "RPWF2\n"                                     magic
+//   "RPWF3\n"                                     magic
 //   u32 n_entries   { u32 len, bytes }*n_entries  entry names (the import-closure roots)
 //   u32 n_files     { u32 len, name,              every source the host could offer (a superset);
 //                     u32 len, body }*n_files      the resolver pulls exactly the closure it needs
@@ -23,8 +23,11 @@
 //   u8  unknown_all                               1 => reserve the unknown-fields bit on every message
 //   u8  arena                                     1 => emit the random-access `arena` decoder model
 //   u8  stream                                    1 => emit the `stream` visitor decoder model
-// At least one of arena/stream must be set. Stdout: the generated Rust. On any error: a message on
-// stderr and a nonzero exit; stdout stays empty.
+//   u8  export_stream_macros                      1 => export the `*_stream!` macros, under:
+//   u32 len, export_prefix                        the export prefix ("" when not exporting)
+// At least one of arena/stream must be set; exporting needs stream and a prefix that is an identifier
+// ([A-Za-z_][A-Za-z0-9_]*). This is the one place those options are validated. Stdout: the generated
+// Rust. On any error: a message on stderr and a nonzero exit; stdout stays empty.
 
 #include <algorithm>
 #include <array>
@@ -55,7 +58,7 @@ using namespace rapidproto;
 // schema without parsing stderr.
 enum ExitCode : std::uint8_t {
     kOk = 0,
-    kBadFrame = 2,      // stdin was not a well-formed RPWF1 frame
+    kBadFrame = 2,      // stdin was not a well-formed RPWF3 frame
     kResolveError = 3,  // an entry/import was missing or the schema failed to parse/analyze
     kModesError = 4,    // the `.modes` profile was malformed or named something that does not exist
 };
@@ -77,10 +80,10 @@ public:
     explicit FrameReader(std::string_view data) : m_data(data) {}
 
     void expect_magic() {
-        static constexpr std::string_view kMagic = "RPWF2\n";
+        static constexpr std::string_view kMagic = "RPWF3\n";
         // substr clamps to what is present, so a short input simply compares unequal -- no throw.
         if (m_data.substr(m_pos, kMagic.size()) != kMagic) {
-            fail(kBadFrame, "input is not a RPWF2 frame");
+            fail(kBadFrame, "input is not a RPWF3 frame");
         }
         m_pos += kMagic.size();
     }
@@ -131,6 +134,16 @@ private:
     std::size_t m_pos = 0;
 };
 
+// The exported macros' crate-root names embed the prefix, so it must be an identifier.
+bool is_export_prefix(std::string_view prefix) {
+    const auto alpha = [](char c) {
+        return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
+    };
+    const auto digit = [](char c) { return c >= '0' && c <= '9'; };
+    return !prefix.empty() && alpha(prefix.front()) &&
+           std::all_of(prefix.begin(), prefix.end(), [&](char c) { return alpha(c) || digit(c); });
+}
+
 std::string read_all_stdin() {
     std::string data;
     // Modest stack buffer: the wasm stack is small (see the linker's stack-size), so a large
@@ -175,6 +188,8 @@ int main() {
     const bool unknown_all = frame.u8() != 0;
     const bool emit_arena = frame.u8() != 0;
     const bool emit_stream = frame.u8() != 0;
+    const bool export_macros = frame.u8() != 0;
+    const std::string export_prefix = frame.bytes();
     frame.expect_end();
 
     if (entries.empty()) {
@@ -182,6 +197,17 @@ int main() {
     }
     if (!emit_arena && !emit_stream) {
         fail(kBadFrame, "no decoder model selected: enable arena and/or stream");
+    }
+    if (export_macros) {
+        if (!emit_stream) {
+            fail(kBadFrame, "exporting the stream macros needs the stream model: enable stream");
+        }
+        if (!is_export_prefix(export_prefix)) {
+            fail(kBadFrame, "stream-macro export prefix '" + export_prefix +
+                                "' is not an identifier ([A-Za-z_][A-Za-z0-9_]*)");
+        }
+    } else if (!export_prefix.empty()) {
+        fail(kBadFrame, "a stream-macro export prefix without exporting");
     }
 
     // The resolver reads every source through this map; the embedded well-known types are still
@@ -231,8 +257,8 @@ int main() {
     // Plan layouts and emit the merged module tree through the shared post-analysis pipeline, the
     // exact tail native rustgen runs (see rustgen/pipeline.hpp) -- so the two cannot
     // drift.
-    const std::string out =
-        rustgen::generate_rust(set, symbols, modes, rustgen::RustModels{emit_arena, emit_stream});
+    const std::string out = rustgen::generate_rust(
+        set, symbols, modes, rustgen::RustModels{emit_arena, emit_stream, export_prefix});
     std::fwrite(out.data(), 1, out.size(), stdout);
     return kOk;
 }

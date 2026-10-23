@@ -244,6 +244,8 @@ pub mod arena {
 
 pub mod stream {
   #[doc(hidden)]
+  pub use ::rapidproto as rp_rt;
+  #[doc(hidden)]
   pub type rp_stream_ty_0<'a> = root::Sub<'a>;
 
   /// Streaming visitor for `Root`. Select a field by overriding its `WANT_<field>` const AND
@@ -357,92 +359,28 @@ pub mod stream {
     }
   }
 
-  macro_rules! root_stream {
-    ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
-      root_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
-    };
-    (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] sub => $rp_c:expr , $($rp_rest:tt)*) => {
-      root_stream!(@m
-        [$($rp_g)* F_sub,]
-        [$($rp_w)* F_sub: ::rapidproto::stream::Handler<rp_stream_ty_0<'rp_a>>,]
-        [$($rp_i)* const WANT_sub: bool = true; #[inline(always)] fn on_sub(&mut self, rp_x: rp_stream_ty_0<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_sub, rp_x) }]
-        [$($rp_fl)* f_sub: F_sub,]
-        [$($rp_ct)* f_sub: ::rapidproto::stream::typed::<rp_stream_ty_0<'_>, _, _>($rp_c),]
-      $($rp_rest)*)
-    };
-    (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] self_ => $rp_c:expr , $($rp_rest:tt)*) => {
-      root_stream!(@m
-        [$($rp_g)* F_self_,]
-        [$($rp_w)* F_self_: ::rapidproto::stream::Handler<Root<'rp_a>>,]
-        [$($rp_i)* const WANT_self_: bool = true; #[inline(always)] fn on_self_(&mut self, rp_x: Root<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_self_, rp_x) }]
-        [$($rp_fl)* f_self_: F_self_,]
-        [$($rp_ct)* f_self_: ::rapidproto::stream::typed::<Root<'_>, _, _>($rp_c),]
-      $($rp_rest)*)
-    };
-    (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] unknown => $rp_c:expr , $($rp_rest:tt)*) => {
-      root_stream!(@m
-        [$($rp_g)* F_unknown,]
-        [$($rp_w)* F_unknown: ::rapidproto::stream::Handler<::rapidproto::stream::UnknownField<'rp_a>>,]
-        [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: ::rapidproto::stream::UnknownField<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_unknown, rp_x) }]
-        [$($rp_fl)* f_unknown: F_unknown,]
-        [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
-      $($rp_rest)*)
-    };
-    (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
-      compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: sub, self_, unknown"))
-    };
-    (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
-      #[allow(nonstandard_style)]
-      struct RpVis<$($rp_g)*> { $($rp_fl)* }
-      #[allow(nonstandard_style)]
-      impl<'rp_a, $($rp_g)*> RootVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
-      RpVis { $($rp_ct)* }
-    }};
-    ( $rp_state:expr ; { $( $rp_f:ident => $rp_c:expr ),* $(,)? } ) => {{
-      let rp_state = $rp_state;
-      root_stream!(@ms [] [] [] [] [] rp_state $( $rp_f => $rp_c , )*)
-    }};
-    (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident sub => $rp_c:expr , $($rp_rest:tt)*) => {
-      root_stream!(@ms
-        [$($rp_g)* F_sub,]
-        [$($rp_w)* F_sub: ::rapidproto::stream::Handler2<RpS, rp_stream_ty_0<'rp_a>>,]
-        [$($rp_i)* const WANT_sub: bool = true; #[inline(always)] fn on_sub(&mut self, rp_x: rp_stream_ty_0<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler2::call(&mut self.f_sub, &mut *self.rp_state, rp_x) }]
-        [$($rp_fl)* f_sub: F_sub,]
-        [$($rp_ct)* f_sub: ::rapidproto::stream::typed2::<_, rp_stream_ty_0<'_>, _, _>(&*$rp_s, $rp_c),]
-      $rp_s $($rp_rest)*)
-    };
-    (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident self_ => $rp_c:expr , $($rp_rest:tt)*) => {
-      root_stream!(@ms
-        [$($rp_g)* F_self_,]
-        [$($rp_w)* F_self_: ::rapidproto::stream::Handler2<RpS, Root<'rp_a>>,]
-        [$($rp_i)* const WANT_self_: bool = true; #[inline(always)] fn on_self_(&mut self, rp_x: Root<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler2::call(&mut self.f_self_, &mut *self.rp_state, rp_x) }]
-        [$($rp_fl)* f_self_: F_self_,]
-        [$($rp_ct)* f_self_: ::rapidproto::stream::typed2::<_, Root<'_>, _, _>(&*$rp_s, $rp_c),]
-      $rp_s $($rp_rest)*)
-    };
-    (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident unknown => $rp_c:expr , $($rp_rest:tt)*) => {
-      root_stream!(@ms
-        [$($rp_g)* F_unknown,]
-        [$($rp_w)* F_unknown: ::rapidproto::stream::Handler2<RpS, ::rapidproto::stream::UnknownField<'rp_a>>,]
-        [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: ::rapidproto::stream::UnknownField<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler2::call(&mut self.f_unknown, &mut *self.rp_state, rp_x) }]
-        [$($rp_fl)* f_unknown: F_unknown,]
-        [$($rp_ct)* f_unknown: ::rapidproto::stream::typed2::<_, ::rapidproto::stream::UnknownField<'_>, _, _>(&*$rp_s, $rp_c),]
-      $rp_s $($rp_rest)*)
-    };
-    (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
-      compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: sub, self_, unknown"))
-    };
-    (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident ) => {{
-      #[allow(nonstandard_style, dead_code)]
-      struct RpVis<'rp_s, RpS: ?Sized, $($rp_g)*> { $($rp_fl)* rp_state: &'rp_s mut RpS }
-      #[allow(nonstandard_style)]
-      impl<'rp_a, 'rp_s, RpS: ?Sized, $($rp_g)*> RootVisitor<'rp_a> for RpVis<'rp_s, RpS, $($rp_g)*> where $($rp_w)* { $($rp_i)* }
-      RpVis { $($rp_ct)* rp_state: $rp_s }
-    }};
+  #[doc(hidden)]
+  pub use super::stream as rp_mod_4Root;
+  /// Builds a `RootVisitor` from per-field closures: `root_stream! { field => |value| .. }`, or
+  /// `root_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
+  #[doc(hidden)]
+  #[macro_export]
+  macro_rules! __rp_5nopkg_4Root {
+    ($($f:ident => $c:expr),* $(,)?) => { rp_mod_4Root::root_stream!(@f [[]] $($f => $c,)*) };
+    ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_4Root::root_stream!(@f [[$s]] $($f => $c,)*) };
+    (@f [$($a:tt)*] sub => $c:expr, $($r:tt)*) => { rp_mod_4Root::root_stream!(@f [$($a)* WANT_sub on_sub: rp_mod_4Root::rp_stream_ty_0<'rp_a> = $c;] $($r)*) };
+    (@f [$($a:tt)*] self_ => $c:expr, $($r:tt)*) => { rp_mod_4Root::root_stream!(@f [$($a)* WANT_self_ on_self_: rp_mod_4Root::Root<'rp_a> = $c;] $($r)*) };
+    (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_4Root::root_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_4Root::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+    (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: sub, self_, unknown")) };
+    (@f $a:tt) => { rp_mod_4Root::rp_rt::stream_visitor!(rp_mod_4Root RootVisitor $a) };
   }
-  pub(crate) use root_stream;
+  #[doc(inline)]
+  pub use __rp_5nopkg_4Root as root_stream;
 
   pub mod root {
+    #[doc(hidden)]
+    pub use ::rapidproto as rp_rt;
+
     /// Streaming visitor for `Sub`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `sub_stream` macro does both); a field left at the default
     /// `WANT_<field> = false` is skipped on the wire with no dispatch.
@@ -533,71 +471,21 @@ pub mod stream {
       }
     }
 
-    macro_rules! sub_stream {
-      ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
-        sub_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
-      };
-      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] y => $rp_c:expr , $($rp_rest:tt)*) => {
-        sub_stream!(@m
-          [$($rp_g)* F_y,]
-          [$($rp_w)* F_y: ::rapidproto::stream::Handler<i32>,]
-          [$($rp_i)* const WANT_y: bool = true; #[inline(always)] fn on_y(&mut self, rp_x: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_y, rp_x) }]
-          [$($rp_fl)* f_y: F_y,]
-          [$($rp_ct)* f_y: ::rapidproto::stream::typed::<i32, _, _>($rp_c),]
-        $($rp_rest)*)
-      };
-      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] unknown => $rp_c:expr , $($rp_rest:tt)*) => {
-        sub_stream!(@m
-          [$($rp_g)* F_unknown,]
-          [$($rp_w)* F_unknown: ::rapidproto::stream::Handler<::rapidproto::stream::UnknownField<'rp_a>>,]
-          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: ::rapidproto::stream::UnknownField<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler::call(&mut self.f_unknown, rp_x) }]
-          [$($rp_fl)* f_unknown: F_unknown,]
-          [$($rp_ct)* f_unknown: ::rapidproto::stream::typed::<::rapidproto::stream::UnknownField<'_>, _, _>($rp_c),]
-        $($rp_rest)*)
-      };
-      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
-        compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: y, unknown"))
-      };
-      (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] ) => {{
-        #[allow(nonstandard_style)]
-        struct RpVis<$($rp_g)*> { $($rp_fl)* }
-        #[allow(nonstandard_style)]
-        impl<'rp_a, $($rp_g)*> SubVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
-        RpVis { $($rp_ct)* }
-      }};
-      ( $rp_state:expr ; { $( $rp_f:ident => $rp_c:expr ),* $(,)? } ) => {{
-        let rp_state = $rp_state;
-        sub_stream!(@ms [] [] [] [] [] rp_state $( $rp_f => $rp_c , )*)
-      }};
-      (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident y => $rp_c:expr , $($rp_rest:tt)*) => {
-        sub_stream!(@ms
-          [$($rp_g)* F_y,]
-          [$($rp_w)* F_y: ::rapidproto::stream::Handler2<RpS, i32>,]
-          [$($rp_i)* const WANT_y: bool = true; #[inline(always)] fn on_y(&mut self, rp_x: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler2::call(&mut self.f_y, &mut *self.rp_state, rp_x) }]
-          [$($rp_fl)* f_y: F_y,]
-          [$($rp_ct)* f_y: ::rapidproto::stream::typed2::<_, i32, _, _>(&*$rp_s, $rp_c),]
-        $rp_s $($rp_rest)*)
-      };
-      (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident unknown => $rp_c:expr , $($rp_rest:tt)*) => {
-        sub_stream!(@ms
-          [$($rp_g)* F_unknown,]
-          [$($rp_w)* F_unknown: ::rapidproto::stream::Handler2<RpS, ::rapidproto::stream::UnknownField<'rp_a>>,]
-          [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: ::rapidproto::stream::UnknownField<'rp_a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::rapidproto::stream::Handler2::call(&mut self.f_unknown, &mut *self.rp_state, rp_x) }]
-          [$($rp_fl)* f_unknown: F_unknown,]
-          [$($rp_ct)* f_unknown: ::rapidproto::stream::typed2::<_, ::rapidproto::stream::UnknownField<'_>, _, _>(&*$rp_s, $rp_c),]
-        $rp_s $($rp_rest)*)
-      };
-      (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident $rp_bad:ident => $rp_c:expr , $($rp_rest:tt)*) => {
-        compile_error!(concat!("unknown field `", stringify!($rp_bad), "` for this message; selectable fields: y, unknown"))
-      };
-      (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident ) => {{
-        #[allow(nonstandard_style, dead_code)]
-        struct RpVis<'rp_s, RpS: ?Sized, $($rp_g)*> { $($rp_fl)* rp_state: &'rp_s mut RpS }
-        #[allow(nonstandard_style)]
-        impl<'rp_a, 'rp_s, RpS: ?Sized, $($rp_g)*> SubVisitor<'rp_a> for RpVis<'rp_s, RpS, $($rp_g)*> where $($rp_w)* { $($rp_i)* }
-        RpVis { $($rp_ct)* rp_state: $rp_s }
-      }};
+    #[doc(hidden)]
+    pub use super::root as rp_mod_4Root3Sub;
+    /// Builds a `SubVisitor` from per-field closures: `sub_stream! { field => |value| .. }`, or
+    /// `sub_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_5nopkg_4Root3Sub {
+      ($($f:ident => $c:expr),* $(,)?) => { rp_mod_4Root3Sub::sub_stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_4Root3Sub::sub_stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] y => $c:expr, $($r:tt)*) => { rp_mod_4Root3Sub::sub_stream!(@f [$($a)* WANT_y on_y: i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_4Root3Sub::sub_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_4Root3Sub::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: y, unknown")) };
+      (@f $a:tt) => { rp_mod_4Root3Sub::rp_rt::stream_visitor!(rp_mod_4Root3Sub SubVisitor $a) };
     }
-    pub(crate) use sub_stream;
+    #[doc(inline)]
+    pub use __rp_5nopkg_4Root3Sub as sub_stream;
   }
 }

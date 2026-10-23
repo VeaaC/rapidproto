@@ -121,6 +121,14 @@ pub mod deep {
     include!("../goldens/deep.rs");
 }
 
+pub mod gluenames {
+    include!("../goldens/gluenames.rs");
+}
+
+pub mod gluenames_sub {
+    include!("../goldens/gluenames_sub.rs");
+}
+
 pub mod nestenum {
     include!("../goldens/nestenum.rs");
 }
@@ -212,6 +220,3 @@ pub mod bench {
 pub mod streamonly {
     include!("../goldens/streamonly.rs");
 }
-
-#[cfg(all(test, feature = "std"))]
-mod stream_smoke;

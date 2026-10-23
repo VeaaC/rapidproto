@@ -19,8 +19,9 @@
 //! }
 //! ```
 //!
-//! The generated decoders use the `rapidproto` runtime crate. To generate from sources already in
-//! memory, use [`generate`]; [`generate_from_disk`] is the file-based entry point `Config` builds on.
+//! The generated decoders use the `rapidproto` runtime crate. To get the generated code as a string
+//! instead of a file, use [`Config::generate`]; to generate from sources already in memory, use
+//! [`generate`].
 //!
 //! The same generator is also available as a command-line tool, `rapidproto-rust` (install this crate
 //! with `cargo install` and run `rapidproto-rust --help`), for generating decoders outside a build
@@ -53,7 +54,7 @@ pub struct SourceFile {
 
 /// The inputs for one generation: the entry files (the roots of the import closure, each named the
 /// way an `import` would spell it), the sources those entries and their imports may pull in (a
-/// superset is fine — only what the closure reaches is used), and the decode profile.
+/// superset is fine — only what the closure reaches is used), and the generation options.
 pub struct Request {
     /// The entry `.proto`s, named as an `import` would spell them.
     pub entries: Vec<String>,
@@ -68,6 +69,25 @@ pub struct Request {
     pub arena: bool,
     /// Emit the `stream` visitor model (default off; see [`Config::stream`]).
     pub stream: bool,
+    /// Make the `<msg>_stream!` macros callable from other crates, under this prefix (default
+    /// `None`; needs `stream`; see [`Config::export_stream_macros`]).
+    pub export_stream_macros: Option<String>,
+}
+
+impl Default for Request {
+    /// No entries or sources, no decode profile, the `arena` model only — the same options as
+    /// [`Config::new`].
+    fn default() -> Self {
+        Request {
+            entries: Vec::new(),
+            sources: Vec::new(),
+            modes: String::new(),
+            unknown_all: false,
+            arena: true,
+            stream: false,
+            export_stream_macros: None,
+        }
+    }
 }
 
 /// An error from the generator.
@@ -87,11 +107,12 @@ impl std::fmt::Display for GenError {
 
 impl std::error::Error for GenError {}
 
-/// Encodes a [`Request`] into the byte frame the generator reads on stdin: a `RPWF2` magic, then
+/// Encodes a [`Request`] into the byte frame the generator reads on stdin: a `RPWF3` magic, then
 /// little-endian-u32-counted entry names, u32-counted `{name, body}` sources, the `.modes` text, a
-/// one-byte unknown-all flag, and two one-byte model flags (arena, stream). Bodies are
-/// length-prefixed, so a proto's newlines/quotes need no escaping. (Internal: the decode side lives in
-/// the generator; the frame and the blob move together, byte-checked in CI.)
+/// one-byte unknown-all flag, two one-byte model flags (arena, stream), and the stream-macro export:
+/// a one-byte present flag then the prefix (empty when absent). Bodies are length-prefixed, so a
+/// proto's newlines/quotes need no escaping. The generator validates the options. (Internal: the
+/// decode side lives in the generator; the frame and the blob move together, byte-checked in CI.)
 mod frame {
     use super::{GenError, Request};
 
@@ -114,7 +135,7 @@ mod frame {
 
     pub(super) fn encode(request: &Request) -> Result<Vec<u8>, GenError> {
         let mut buf = Vec::new();
-        buf.extend_from_slice(b"RPWF2\n");
+        buf.extend_from_slice(b"RPWF3\n");
         put_len(&mut buf, request.entries.len())?;
         for entry in &request.entries {
             put_bytes(&mut buf, entry.as_bytes())?;
@@ -128,14 +149,17 @@ mod frame {
         buf.push(u8::from(request.unknown_all));
         buf.push(u8::from(request.arena));
         buf.push(u8::from(request.stream));
+        let export = request.export_stream_macros.as_deref();
+        buf.push(u8::from(export.is_some()));
+        put_bytes(&mut buf, export.unwrap_or("").as_bytes())?;
         Ok(buf)
     }
 }
 
 /// Generate decoders from sources already in memory (no filesystem access), returning the generated
 /// Rust — one module tree covering the whole import closure — or a [`GenError`]. Generation is a
-/// pure function of the request: the same inputs always produce the same output. See
-/// [`generate_from_disk`] or [`Config`] to generate from `.proto` files on disk instead.
+/// pure function of the request: the same inputs always produce the same output. See [`Config`] to
+/// generate from `.proto` files on disk instead.
 pub fn generate(request: &Request) -> Result<String, GenError> {
     let frame = frame::encode(request)?;
 
@@ -216,67 +240,6 @@ fn internal(error: impl std::fmt::Display) -> GenError {
     }
 }
 
-/// Generate decoders from `.proto` files on disk. Every `.proto` under the `include` directories is
-/// made available to the generator (over-inclusion is harmless — only the closure the `entries`
-/// reach is used), and each entry is named by its path relative to the include directory that holds
-/// it. `modes` is a decode profile (see [`Config::field_modes`]); `unknown_all` matches
-/// [`Config::unknown_present`]. `arena`/`stream` select the decoder model(s) to emit (see
-/// [`Config::arena`] / [`Config::stream`]); at least one must be set. Returns the generated Rust (one
-/// module tree for the closure) or a [`GenError`]. For a `build.rs`, prefer [`Config`], which also
-/// writes the output and tracks inputs.
-pub fn generate_from_disk(
-    entries: &[PathBuf],
-    includes: &[PathBuf],
-    modes: &str,
-    unknown_all: bool,
-    arena: bool,
-    stream: bool,
-) -> Result<String, GenError> {
-    if !arena && !stream {
-        return Err(GenError {
-            code: -1,
-            message: "no decoder model selected: enable arena and/or stream".to_owned(),
-        });
-    }
-    // Canonicalize the include dirs once, so the source walk and the entry-key derivation compare
-    // paths in the same absolute/normalized/symlink-resolved terms. Without this a `./`-prefixed or
-    // relative-vs-absolute entry path would key differently from how an import names the same file,
-    // splitting the closure into two entries.
-    let includes: Vec<PathBuf> = includes
-        .iter()
-        .map(|dir| {
-            dir.canonicalize()
-                .map_err(|e| internal(format!("include dir {}: {e}", dir.display())))
-        })
-        .collect::<Result<_, _>>()?;
-
-    let mut sources: BTreeMap<String, String> = BTreeMap::new();
-    for include in &includes {
-        collect_protos(include, include, &mut sources).map_err(internal)?;
-    }
-    let mut entry_names = Vec::with_capacity(entries.len());
-    for entry in entries {
-        let canonical = entry
-            .canonicalize()
-            .map_err(|e| internal(format!("entry {}: {e}", entry.display())))?;
-        let name = import_relative_name(&canonical, &includes);
-        let body = read(&canonical).map_err(internal)?;
-        sources.insert(name.clone(), body);
-        entry_names.push(name);
-    }
-    generate(&Request {
-        entries: entry_names,
-        sources: sources
-            .into_iter()
-            .map(|(name, body)| SourceFile { name, body })
-            .collect(),
-        modes: modes.to_owned(),
-        unknown_all,
-        arena,
-        stream,
-    })
-}
-
 /// Generate decoders from a `build.rs`: run the generator over a schema's import closure, write the
 /// result into `OUT_DIR`, and register the inputs so cargo re-runs when a `.proto` changes.
 ///
@@ -299,6 +262,7 @@ pub struct Config {
     unknown_all: bool,
     arena: bool,
     stream: bool,
+    export_stream_macros: Option<String>,
 }
 
 impl Default for Config {
@@ -311,6 +275,7 @@ impl Default for Config {
             unknown_all: false,
             arena: true,
             stream: false,
+            export_stream_macros: None,
         }
     }
 }
@@ -349,10 +314,74 @@ impl Config {
 
     /// Emit the `stream` visitor model (the generated `stream::` module: a `<Msg>Visitor` trait, a
     /// `<Msg>::decode` driver, and a `<msg>_stream!` builder macro) for decoding a few fields without
-    /// materializing the message. Off by default.
+    /// materializing the message. Off by default. The macros are usable within the crate that
+    /// `include!`s the file (glob-import the message's stream module); to call them from its `tests/`
+    /// or from another crate, see [`Config::export_stream_macros`].
     pub fn stream(mut self, yes: bool) -> Self {
         self.stream = yes;
         self
+    }
+
+    /// Make each `<msg>_stream!` macro callable from outside the crate that `include!`s the generated
+    /// file: from that crate's `tests/`, or from crates that depend on it. Needs [`Config::stream`].
+    /// Off by default. (The generated types and `<Msg>Visitor` traits are public either way, so a
+    /// hand-written visitor works from any crate.)
+    ///
+    /// Each macro is then also defined at the including crate's root, under a hidden name built from
+    /// `prefix` (an identifier: ASCII letters, digits and `_`, not starting with a digit). So within
+    /// one crate, every exported generated file needs its own prefix and is included once.
+    pub fn export_stream_macros(mut self, prefix: impl Into<String>) -> Self {
+        self.export_stream_macros = Some(prefix.into());
+        self
+    }
+
+    /// Generate decoders for `entries` (one import closure) and return the generated Rust (one module
+    /// tree for the whole closure), writing nothing. Every `.proto` under the include directories (the
+    /// current directory when none was added) is made available to the generator, and each entry is
+    /// named by its path relative to the first include directory that holds it (its file name when
+    /// none does). [`Config::compile`] is this plus writing the file into `OUT_DIR` and registering
+    /// the inputs with cargo.
+    pub fn generate(&self, entries: &[impl AsRef<Path>]) -> Result<String, GenError> {
+        // Canonicalize the include dirs once, so the source walk and the entry-key derivation compare
+        // paths in the same absolute/normalized/symlink-resolved terms. Without this a `./`-prefixed
+        // or relative-vs-absolute entry path would key differently from how an import names the same
+        // file, splitting the closure into two entries.
+        let includes: Vec<PathBuf> = self
+            .include_dirs()
+            .iter()
+            .map(|dir| {
+                dir.canonicalize()
+                    .map_err(|e| internal(format!("include dir {}: {e}", dir.display())))
+            })
+            .collect::<Result<_, _>>()?;
+
+        let mut sources: BTreeMap<String, String> = BTreeMap::new();
+        for include in &includes {
+            collect_protos(include, include, &mut sources).map_err(internal)?;
+        }
+        let mut entry_names = Vec::with_capacity(entries.len());
+        for entry in entries {
+            let entry = entry.as_ref();
+            let canonical = entry
+                .canonicalize()
+                .map_err(|e| internal(format!("entry {}: {e}", entry.display())))?;
+            let name = import_relative_name(&canonical, &includes);
+            let body = read(&canonical).map_err(internal)?;
+            sources.insert(name.clone(), body);
+            entry_names.push(name);
+        }
+        generate(&Request {
+            entries: entry_names,
+            sources: sources
+                .into_iter()
+                .map(|(name, body)| SourceFile { name, body })
+                .collect(),
+            modes: self.modes.clone(),
+            unknown_all: self.unknown_all,
+            arena: self.arena,
+            stream: self.stream,
+            export_stream_macros: self.export_stream_macros.clone(),
+        })
     }
 
     /// Generate decoders for `entries` (one import closure) into `OUT_DIR` and return the path to the
@@ -360,27 +389,7 @@ impl Config {
     /// with cargo, so editing a schema re-runs the build. Call this from a `build.rs` (it reads the
     /// `OUT_DIR` cargo sets).
     pub fn compile(&self, entries: &[impl AsRef<Path>]) -> Result<PathBuf, GenError> {
-        let entry_paths: Vec<PathBuf> = entries.iter().map(|e| e.as_ref().to_path_buf()).collect();
-        if entry_paths.is_empty() {
-            return Err(GenError {
-                code: -1,
-                message: "compile(): no entry .proto given".to_owned(),
-            });
-        }
-        // Default the include path to the cwd (the crate root in a build script) when none is given.
-        let includes = if self.includes.is_empty() {
-            vec![PathBuf::from(".")]
-        } else {
-            self.includes.clone()
-        };
-        let code = generate_from_disk(
-            &entry_paths,
-            &includes,
-            &self.modes,
-            self.unknown_all,
-            self.arena,
-            self.stream,
-        )?;
+        let code = self.generate(entries)?;
 
         let out_dir = env::var_os("OUT_DIR").ok_or_else(|| GenError {
             code: -1,
@@ -388,8 +397,9 @@ impl Config {
         })?;
         // One file covers the whole closure; name it after the first entry's stem, so several
         // compile() calls in one build script land in distinct files.
-        let stem = entry_paths[0]
-            .file_stem()
+        let stem = entries
+            .first()
+            .and_then(|e| e.as_ref().file_stem())
             .map_or_else(|| "schema".to_owned(), |s| s.to_string_lossy().into_owned());
         let out_path = PathBuf::from(out_dir).join(format!("{stem}.rs"));
         std::fs::write(&out_path, code).map_err(|e| GenError {
@@ -401,13 +411,23 @@ impl Config {
         // whole include path (not just the resolved closure, which the generator does not report) is
         // deliberately broad: a build never goes stale, at the cost of an occasional rebuild when an
         // unrelated proto on the path changes.
-        for entry in &entry_paths {
-            println!("cargo:rerun-if-changed={}", entry.display());
+        for entry in entries {
+            println!("cargo:rerun-if-changed={}", entry.as_ref().display());
         }
-        for dir in &includes {
+        for dir in &self.include_dirs() {
             track_protos(dir);
         }
         Ok(out_path)
+    }
+
+    /// The include path: the added directories, or the cwd (the crate root in a build script) when
+    /// none was added.
+    fn include_dirs(&self) -> Vec<PathBuf> {
+        if self.includes.is_empty() {
+            vec![PathBuf::from(".")]
+        } else {
+            self.includes.clone()
+        }
     }
 }
 
@@ -430,7 +450,7 @@ fn track_protos(dir: &Path) {
 
 /// The name an `import` would use for `entry`: its path relative to the first `includes` directory
 /// that contains it, otherwise its file name. `entry` and `includes` must already be canonicalized
-/// (see [`generate_from_disk`]) so the prefix comparison is done in matching terms.
+/// (see [`Config::generate`]) so the prefix comparison is done in matching terms.
 fn import_relative_name(entry: &Path, includes: &[PathBuf]) -> String {
     for include in includes {
         if let Ok(rel) = entry.strip_prefix(include) {
@@ -444,7 +464,11 @@ fn import_relative_name(entry: &Path, includes: &[PathBuf]) -> String {
 }
 
 /// Recursively add every `.proto` under `dir`, keyed by its path relative to `root` (the include
-/// dir), in forward-slash form so the key matches an `import` string on any platform.
+/// dir), in forward-slash form so the key matches an `import` string on any platform. Only `dir`
+/// itself must be readable: below it, a directory or file that cannot be read (or is not UTF-8) is
+/// skipped -- over-inclusion is harmless, and an import that needed it still fails as a missing
+/// import. So pointing the include path at a large tree (the CLI's cwd default) cannot fail on an
+/// unrelated file.
 fn collect_protos(
     root: &Path,
     dir: &Path,
@@ -452,18 +476,21 @@ fn collect_protos(
 ) -> Result<(), String> {
     let entries = std::fs::read_dir(dir)
         .map_err(|e| format!("cannot read include dir {}: {e}", dir.display()))?;
-    for entry in entries {
-        let entry = entry.map_err(|e| e.to_string())?;
+    for entry in entries.flatten() {
         let path = entry.path();
-        let file_type = entry.file_type().map_err(|e| e.to_string())?;
+        let Ok(file_type) = entry.file_type() else {
+            continue;
+        };
         if file_type.is_dir() {
-            collect_protos(root, &path, out)?;
+            let _ = collect_protos(root, &path, out); // an unreadable subdirectory is skipped
         } else if path.extension().is_some_and(|e| e == "proto") {
             let rel = path.strip_prefix(root).unwrap_or(&path);
             // First include dir wins (like protoc): read and keep this file only if an earlier
             // include dir has not already provided the same key.
             if let Entry::Vacant(slot) = out.entry(to_slash(rel)) {
-                slot.insert(read(&path)?);
+                if let Ok(body) = std::fs::read_to_string(&path) {
+                    slot.insert(body);
+                }
             }
         }
     }

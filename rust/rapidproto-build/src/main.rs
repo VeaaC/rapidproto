@@ -3,26 +3,22 @@
 //! The same code generation as [`rapidproto_build::Config`] (used from a `build.rs`), exposed as a
 //! standalone tool: pass entry `.proto`s, `-I` include dirs, and decode-profile options, and it
 //! writes the generated Rust to a file or stdout. Needs only cargo — no `protoc`. Argument parsing
-//! and output live here; the generation itself is [`rapidproto_build::generate_from_disk`].
+//! and output live here; the generation itself is [`rapidproto_build::Config::generate`].
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use rapidproto_build::generate_from_disk;
+use rapidproto_build::Config;
 
 struct Args {
     entries: Vec<PathBuf>,
-    includes: Vec<PathBuf>,
-    modes: String,
-    unknown_all: bool,
-    arena: bool,
-    stream: bool,
+    config: Config,
     out: Option<PathBuf>,
 }
 
 const USAGE: &str = "\
 usage: rapidproto-rust [options] <entry.proto>...
-  -I <dir>              add an import search path (repeatable)
+  -I <dir>              add an import search path (repeatable; default: the current directory)
   -o, --out <file>      write the generated Rust here (default: stdout)
   --field-modes <file>  a decode profile (drop/raw/unknown-fields lines; repeatable)
   --drop <name>         drop a field or type (no storage, no accessor)
@@ -30,6 +26,8 @@ usage: rapidproto-rust [options] <entry.proto>...
   --unknown <name>      reserve the unknown-fields bit on one message (repeatable)
   --unknown-present     reserve the unknown-fields bit on every message
   --stream              also emit the stream visitor model (<Msg>Visitor + <msg>_stream!)
+  --export-stream-macros <prefix>
+                        make the <msg>_stream! macros callable from other crates (needs --stream)
   --no-arena            omit the arena model (combine with --stream for stream-only output)
   -h, --help            show this help";
 
@@ -55,15 +53,10 @@ fn run(args: &Args) -> Result<(), String> {
     if args.entries.is_empty() {
         return Err("no entry .proto given".to_owned());
     }
-    let rust = generate_from_disk(
-        &args.entries,
-        &args.includes,
-        &args.modes,
-        args.unknown_all,
-        args.arena,
-        args.stream,
-    )
-    .map_err(|e| e.to_string())?;
+    let rust = args
+        .config
+        .generate(&args.entries)
+        .map_err(|e| e.to_string())?;
     match &args.out {
         Some(path) => {
             std::fs::write(path, rust).map_err(|e| format!("cannot write {}: {e}", path.display()))
@@ -78,15 +71,10 @@ fn run(args: &Args) -> Result<(), String> {
 }
 
 fn parse_args() -> Result<Option<Args>, String> {
-    let mut args = Args {
-        entries: Vec::new(),
-        includes: Vec::new(),
-        modes: String::new(),
-        unknown_all: false,
-        arena: true,
-        stream: false,
-        out: None,
-    };
+    let mut entries = Vec::new();
+    let mut config = Config::new();
+    let mut modes = String::new();
+    let mut out = None;
     let mut argv = std::env::args().skip(1);
     while let Some(arg) = argv.next() {
         let mut take = |inline: Option<&str>, flag: &str| -> Result<String, String> {
@@ -104,34 +92,40 @@ fn parse_args() -> Result<Option<Args>, String> {
                 println!("{USAGE}");
                 return Ok(None);
             }
-            "-I" => args
-                .includes
-                .push(PathBuf::from(take(inline.as_deref(), "-I")?)),
-            "-o" | "--out" => args.out = Some(PathBuf::from(take(inline.as_deref(), "--out")?)),
+            "-I" => config = config.include(take(inline.as_deref(), "-I")?),
+            "-o" | "--out" => out = Some(PathBuf::from(take(inline.as_deref(), "--out")?)),
             "--field-modes" => {
                 let path = take(inline.as_deref(), "--field-modes")?;
-                args.modes.push_str(&read_text(Path::new(&path))?);
-                if !args.modes.ends_with('\n') {
-                    args.modes.push('\n');
+                modes.push_str(&read_text(Path::new(&path))?);
+                if !modes.ends_with('\n') {
+                    modes.push('\n');
                 }
             }
-            "--drop" => push_mode(&mut args.modes, "drop", &take(inline.as_deref(), "--drop")?),
-            "--raw" => push_mode(&mut args.modes, "raw", &take(inline.as_deref(), "--raw")?),
+            "--drop" => push_mode(&mut modes, "drop", &take(inline.as_deref(), "--drop")?),
+            "--raw" => push_mode(&mut modes, "raw", &take(inline.as_deref(), "--raw")?),
             "--unknown" => push_mode(
-                &mut args.modes,
+                &mut modes,
                 "unknown-fields",
                 &take(inline.as_deref(), "--unknown")?,
             ),
-            "--unknown-present" => args.unknown_all = true,
-            "--stream" => args.stream = true,
-            "--no-arena" => args.arena = false,
+            "--unknown-present" => config = config.unknown_present(true),
+            "--stream" => config = config.stream(true),
+            "--export-stream-macros" => {
+                config =
+                    config.export_stream_macros(take(inline.as_deref(), "--export-stream-macros")?)
+            }
+            "--no-arena" => config = config.arena(false),
             other if other.starts_with('-') && other != "-" => {
                 return Err(format!("unknown option '{other}'"));
             }
-            _ => args.entries.push(PathBuf::from(arg)),
+            _ => entries.push(PathBuf::from(arg)),
         }
     }
-    Ok(Some(args))
+    Ok(Some(Args {
+        entries,
+        config: config.field_modes(modes),
+        out,
+    }))
 }
 
 fn read_text(path: &Path) -> Result<String, String> {
