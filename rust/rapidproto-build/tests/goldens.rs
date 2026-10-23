@@ -7,11 +7,10 @@
 //! proof-of-function for the blob, through the actual shipping runtime (wasmi).
 //!
 //! The golden set mirrors that C++ case: one plain golden per `tests/corpus/**.proto` (stem =
-//! basename), the `tests/bench/bench.proto` and `tests/wire_fixtures/wire_all.proto` goldens, each
-//! with exported stream macros under its
-//! stem; the stream-only golden; and four field-modes goldens. The field-modes profiles are mirrored
-//! from `test_rustgen.cpp` (the `*_spec()` helpers); if either side changes, this test fails loudly
-//! with a diff — which is the point.
+//! basename) plus the `tests/bench/bench.proto` and `tests/wire_fixtures/wire_all.proto` goldens,
+//! each with exported stream macros under its stem; the stream-only golden; and four field-modes
+//! goldens. The field-modes profiles are mirrored from `test_rustgen.cpp` (the `*_spec()` helpers);
+//! if either side changes, this test fails loudly with a diff — which is the point.
 
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};

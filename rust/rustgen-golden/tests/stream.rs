@@ -1,5 +1,6 @@
-//! Decode round-trips for the streaming decoder over the corpus goldens -- the streaming counterpart
-//! of tests/decode.rs, over the same global corpus schemas (there are no Rust-local fixture protos).
+//! Decode round-trips for the streaming decoder over the goldens -- the streaming counterpart of
+//! tests/decode.rs, over the schemas the C++ tests use (the global corpus, plus the wire-fixture schema
+//! tests/wire_fixtures/wire_all.proto); there are no Rust-local fixture protos.
 //! Every corpus golden carries both an `arena` and a `stream` tree and exports its `*_stream!` macros
 //! (`Config::export_stream_macros`, prefix = its stem; see tests/test_rustgen.cpp), so this separate
 //! test crate drives them the way a consumer's `tests/` does: `use rustgen_golden::<schema>::stream::..::*`.
@@ -16,14 +17,14 @@
 //! tests), and names shaped like that glue cannot collide with it (the gluenames test).
 //!
 //! Parity with the C++ streaming decoder's tests (tests/test_streamgen.cpp): every behavioral case
-//! there has a pendant here, named after it, decoding the same corpus schemas -- and, where the C++
-//! case decodes a checked-in protoc-encoded fixture (tests/wire_fixtures/*.bin), the very same bytes.
-//! The C++ cases with no Rust pendant test what Rust has no counterpart of: the generated headers
-//! matching their goldens, colliding identifiers, cross-file includes, the WKT closure and emission
-//! order (all pinned here by the Rust goldens compiling and byte-comparing, and Rust items need no
-//! order); the namespace-prefix option (C++ only); the field catch-all handler and the exact-match
-//! dispatch-gate traits (Rust has no catch-all -- the per-field visitor is the selection mechanism --
-//! and the type checker enforces each handler's value type).
+//! there has a pendant here (marked `Mirrors C++ "<case>"`) decoding the same schemas -- and, where the
+//! C++ case decodes a checked-in protoc-encoded fixture (tests/wire_fixtures/*.bin), the very same
+//! bytes. The C++ cases with no Rust pendant test what Rust has no counterpart of: the generated
+//! headers matching their goldens, colliding identifiers, cross-file includes and the WKT closure (for
+//! Rust, pinned by the goldens, which this crate compiles and tests/test_rustgen.cpp byte-compares),
+//! emission order (Rust items need none); the namespace-prefix option (C++ only); the field catch-all
+//! handler and the exact-match dispatch-gate traits (Rust has no catch-all -- the per-field visitor is
+//! the selection mechanism -- and the type checker enforces each handler's value type).
 
 use rapidproto::stream::Flow;
 use rapidproto::wire::WireType;
@@ -37,7 +38,7 @@ const MSG_BIN: &[u8] = include_bytes!("../../../tests/wire_fixtures/msg.bin");
 const CONTAINER_BIN: &[u8] = include_bytes!("../../../tests/wire_fixtures/container.bin");
 const ALL_WIRE_BIN: &[u8] = include_bytes!("../../../tests/wire_fixtures/all_wire.bin");
 
-// Wire-encoding scaffolding for hand-built inputs (test scaffolding, not the system under test).
+// Wire encoders for hand-built inputs (scaffolding, not the system under test).
 fn put_varint(b: &mut Vec<u8>, mut v: u64) {
     while v >= 0x80 {
         b.push(0x80 | (v & 0x7f) as u8);
@@ -139,6 +140,7 @@ fn oneof_member_is_individually_selectable() {
 
 #[test]
 fn an_unknown_handler_receives_only_non_schema_fields() {
+    // Mirrors C++ "an unknown-field handler receives only non-schema fields".
     let mut buf = Vec::new();
     put_var(&mut buf, 1, 7); // implicit_i: known, selected
     put_var(&mut buf, 2, 20); // explicit_i: known, NOT selected
@@ -148,6 +150,7 @@ fn an_unknown_handler_receives_only_non_schema_fields() {
     struct Seen {
         known: i32,
         numbers: Vec<u32>,
+        varint_bytes: Vec<u8>,
         len_bytes: Vec<u8>,
     }
     let mut seen = Seen::default();
@@ -156,16 +159,22 @@ fn an_unknown_handler_receives_only_non_schema_fields() {
             implicit_i => |s, v| s.known = v,
             unknown => |s, u| {
                 s.numbers.push(u.field_number());
-                if u.field_number() == 100 {
-                    assert_eq!(u.wire_type(), Some(WireType::Len));
-                    s.len_bytes = u.bytes().to_vec();
+                match u.field_number() {
+                    99 => s.varint_bytes = u.bytes().to_vec(),
+                    100 => {
+                        assert_eq!(u.wire_type(), Some(WireType::Len));
+                        s.len_bytes = u.bytes().to_vec();
+                    }
+                    _ => {}
                 }
             },
         }))
         .unwrap();
     assert_eq!(seen.known, 7);
     assert_eq!(seen.numbers, vec![99, 100]); // not field 2: known, merely unselected
-    assert_eq!(seen.len_bytes, b"\x02hi"); // the raw value bytes, length prefix included
+                                             // The raw value bytes after the tag: the varint itself, or a LEN field with its length prefix.
+    assert_eq!(seen.varint_bytes, [0x2a]);
+    assert_eq!(seen.len_bytes, b"\x02hi");
 
     // An unknown handler can end the walk early, like any handler.
     let mut first = Vec::new();
@@ -513,8 +522,8 @@ fn schema_names_shaped_like_the_stream_glue_do_not_collide_with_it() {
 
 #[test]
 fn packed_fixed_width_repeated_fields_decode_per_element() {
-    // The packed I64/I32 element paths (double, sfixed32, float), which varint-only packed fields
-    // never reach.
+    // Mirrors C++ "packed fixed-width repeated fields decode per element": the packed I64/I32 element
+    // paths (double, sfixed32, float), which varint-only packed fields never reach.
     use rustgen_golden::packed::stream::pk::*;
     let mut buf = Vec::new();
     put_len(
@@ -549,8 +558,9 @@ fn packed_fixed_width_repeated_fields_decode_per_element() {
 
 #[test]
 fn an_editions_delimited_field_decodes_via_group_wire_format() {
-    // `delim` is message_encoding = DELIMITED: SGROUP..EGROUP framing, not a length prefix. Decoded
-    // as length-prefixed it would be skipped and its inner value stay 0.
+    // Mirrors C++ "editions DELIMITED field decodes via group wire format". `delim` is
+    // message_encoding = DELIMITED: SGROUP..EGROUP framing, not a length prefix. Decoded as
+    // length-prefixed it would be skipped and its inner value stay 0.
     use rustgen_golden::editions2023::stream::ed23::*;
     let mut buf = Vec::new();
     put_len(&mut buf, 3, &[0x08, 0x2a]); // child: { implicit_scalar: 42 }
@@ -569,7 +579,8 @@ fn an_editions_delimited_field_decodes_via_group_wire_format() {
 
 #[test]
 fn oneof_members_fire_per_occurrence_in_wire_order() {
-    // Last-wins is the consumer's call: two members of one oneof both fire, in wire order.
+    // Mirrors C++ "oneof members fire per occurrence in wire order". Last-wins is the consumer's
+    // call: two members of one oneof both fire, in wire order.
     let mut buf = Vec::new();
     put_var(&mut buf, 10, 1); // pick.a = 1
     put_len(&mut buf, 11, b"hi"); // pick.b = "hi"
@@ -586,7 +597,9 @@ fn oneof_members_fire_per_occurrence_in_wire_order() {
 
 #[test]
 fn a_field_past_a_straddling_oneof_is_reached() {
-    // `mid` (4) precedes the oneof's int member `tail` (5), whose oneof also holds a group member.
+    // Mirrors C++ "a probe past a straddling oneof reaches the member". `mid` (4) precedes the oneof's
+    // int member `tail` (5), whose oneof also holds a group member. (The C++ decoder's probe chain has
+    // no Rust stream counterpart; this pins the outcome.)
     use rustgen_golden::proto2::stream::p2::*;
     let mut buf = Vec::new();
     put_var(&mut buf, 4, 7);
@@ -600,6 +613,7 @@ fn a_field_past_a_straddling_oneof_is_reached() {
 
 #[test]
 fn a_repeated_message_field_fires_per_element() {
+    // Mirrors C++ "a repeated message field fires per element".
     use rustgen_golden::proto2::stream::p2::container::*;
     use rustgen_golden::proto2::stream::p2::*;
     let mut buf = Vec::new();
@@ -616,6 +630,7 @@ fn a_repeated_message_field_fires_per_element() {
 
 #[test]
 fn a_duplicated_singular_field_fires_per_occurrence() {
+    // Mirrors C++ "a singular sub-message occurring twice fires per occurrence".
     // Streaming stores nothing, so it applies no last-wins: every occurrence of a singular field --
     // sub-message, scalar or string -- reaches the handler (the arena model instead rejects a duplicated
     // singular sub-message; docs/semantics.md documents the asymmetry).
@@ -665,6 +680,8 @@ fn a_duplicated_singular_field_fires_per_occurrence() {
 
 #[test]
 fn map_and_group_decoders_report_malformed_input() {
+    // Mirrors C++ "map and group decoders report malformed input". Rust's `ErrorKind::Truncated`
+    // covers both C++ wire errors (`TruncatedVarint`, `UnterminatedGroup`).
     use rustgen_golden::proto2::stream::p2::*;
     // by_id (field 2, map<int32, Color>): a valid two-byte entry envelope whose value varint is
     // truncated inside it -- the entry reader's error, not the outer field's.
@@ -688,8 +705,9 @@ fn map_and_group_decoders_report_malformed_input() {
 
 #[test]
 fn an_extension_field_surfaces_as_an_unknown_field() {
-    // `extend WithGroup { optional int32 ext_a = 100; }` adds no generated field: field 100 is
-    // unknown to the message, so it reaches the unknown handler.
+    // Mirrors C++ "an extension field surfaces as an unknown field". `extend WithGroup { optional
+    // int32 ext_a = 100; }` adds no generated field: field 100 is unknown to the message, so it
+    // reaches the unknown handler.
     use rustgen_golden::proto2::stream::p2::*;
     let mut buf = Vec::new();
     put_var(&mut buf, 100, 9);
@@ -702,6 +720,7 @@ fn an_extension_field_surfaces_as_an_unknown_field() {
 
 #[test]
 fn well_known_type_and_cross_file_decoders_run() {
+    // Mirrors C++ "well-known-type and cross-file decoders run".
     {
         use rustgen_golden::usewkt::stream::google::protobuf::*;
         let (mut seconds, mut nanos) = (0i64, 0i32);
@@ -745,8 +764,9 @@ fn well_known_type_and_cross_file_decoders_run() {
 
 #[test]
 fn a_failed_read_never_fires_and_a_handler_error_ends_the_decode() {
-    // Field 1, then a varint whose only byte has the continuation bit set: the value read fails, and
-    // the handler never sees a value.
+    // Mirrors C++ "a generated decoder reports malformed input and callback aborts". Field 1, then a
+    // varint whose only byte has the continuation bit set: the value read fails, and the handler never
+    // sees a value.
     let mut fired = false;
     let err = Msg::new(&[0x08, 0x80])
         .decode(msg_stream! { implicit_i => |_v| fired = true })
@@ -766,7 +786,8 @@ fn a_failed_read_never_fires_and_a_handler_error_ends_the_decode() {
 
 #[test]
 fn every_scalar_kind_from_the_protoc_fixture() {
-    // scalars.bin also carries an enum and two repeated fields, which -- unselected -- are skipped.
+    // Mirrors C++ "a generated decoder decodes a wire fixture". scalars.bin also carries an enum and
+    // two repeated fields, which -- unselected -- are skipped.
     use rustgen_golden::proto2::stream::p2::*;
     #[derive(Default)]
     struct Seen {
@@ -821,6 +842,7 @@ fn every_scalar_kind_from_the_protoc_fixture() {
 
 #[test]
 fn the_one_byte_tag_fast_path_matches_the_general_path() {
+    // Mirrors C++ "raw-byte fast path matches the general path across the 15/16 boundary".
     // Scalars spans the 15/16 boundary: `i32` (field 1) has a one-byte tag, `color` (field 16) a
     // two-byte one.
     use rustgen_golden::proto2::stream::p2::*;
@@ -872,6 +894,7 @@ fn the_one_byte_tag_fast_path_matches_the_general_path() {
 
 #[test]
 fn non_minimal_tags_decode_like_canonical_ones_across_field_kinds() {
+    // Mirrors C++ "non-minimal tags decode identically across fast field kinds".
     use rustgen_golden::proto2::stream::p2::container::*;
     use rustgen_golden::proto2::stream::p2::*;
     // A string (Scalars.s, field 12).
@@ -913,6 +936,7 @@ fn non_minimal_tags_decode_like_canonical_ones_across_field_kinds() {
 
 #[test]
 fn the_protoc_msg_fixture_decodes_enums_sub_messages_oneofs_and_maps() {
+    // Mirrors C++ "a generated decoder decodes enum, sub-message, and oneof fields".
     use rustgen_golden::proto3::common::p3::State;
     #[derive(Default)]
     struct Seen {
@@ -952,6 +976,7 @@ fn the_protoc_msg_fixture_decodes_enums_sub_messages_oneofs_and_maps() {
 
 #[test]
 fn the_protoc_container_fixture_decodes_message_and_enum_valued_maps() {
+    // Mirrors C++ "a generated decoder decodes message-value and enum-value maps".
     use rustgen_golden::proto2::common::p2::Color;
     use rustgen_golden::proto2::stream::p2::container::*;
     use rustgen_golden::proto2::stream::p2::*;
@@ -983,7 +1008,8 @@ fn the_protoc_container_fixture_decodes_message_and_enum_valued_maps() {
 
 #[test]
 fn the_protoc_all_wire_fixture_decodes_every_wire_type() {
-    // wire.AllWire covers each wire type, a nested message, packed varints, a group and a oneof.
+    // Mirrors C++ "a generated decoder decodes packed-repeated and group fields". wire.AllWire covers
+    // each wire type, a nested message, packed varints, a group and a oneof.
     use rustgen_golden::wire_all::stream::wire::all_wire::*;
     use rustgen_golden::wire_all::stream::wire::*;
     #[derive(Default)]
@@ -1027,7 +1053,7 @@ fn the_protoc_all_wire_fixture_decodes_every_wire_type() {
 
 #[test]
 fn bytes_is_the_exact_undecoded_span() {
-    // The stream -> arena hybrid hands a child's `bytes()` to the arena model's `decode`, which reads a
+    // Mirrors C++ "rp_bytes() exposes the exact undecoded span". The stream -> arena hybrid hands a child's `bytes()` to the arena model's `decode`, which reads a
     // plain field sequence: so a LEN child's span excludes its length prefix and a group/DELIMITED
     // child's span excludes its SGROUP/EGROUP framing -- and either aliases the input (zero-copy).
     use rustgen_golden::editions2023::stream::ed23::*;
@@ -1049,9 +1075,11 @@ fn bytes_is_the_exact_undecoded_span() {
         .unwrap();
     assert_eq!(len_span, body);
     assert_eq!(group_span, body);
-    assert_eq!(len_span.as_ptr(), len_buf[2..].as_ptr()); // after the tag and length bytes
-    assert_eq!(group_span.as_ptr(), group_buf[1..].as_ptr()); // after the SGROUP tag
-                                                              // The root handle's span is the whole input.
+    // Zero-copy: each span starts right after its framing (tag + length byte; SGROUP tag).
+    assert_eq!(len_span.as_ptr(), len_buf[2..].as_ptr());
+    assert_eq!(group_span.as_ptr(), group_buf[1..].as_ptr());
+
+    // The root handle's span is the whole input.
     assert_eq!(M::new(&len_buf).bytes().as_ptr(), len_buf.as_ptr());
     assert_eq!(M::new(&len_buf).bytes(), &len_buf[..]);
 }
