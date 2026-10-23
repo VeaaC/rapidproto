@@ -16,6 +16,10 @@
 //! decode early as a clean `Ok(())`, and an `Err(DecodeError)` propagates out of `decode` — so a handler
 //! that decodes a sub-message with `child.decode(..)?` surfaces a malformed-child error naturally.
 //!
+//! The macro expands one recursion step per selected field, and calls nested inside handlers share
+//! rustc's macro recursion budget: selecting more than about 120 fields in one call (fewer across nested
+//! calls) needs a raised `#![recursion_limit = "256"]` in the calling crate.
+//!
 //! Streaming is a raw field visit, not a materialized message, so the consumer owns anything the arena
 //! model would resolve: a handler fires once per wire occurrence of its field (a repeated field, or a
 //! singular one duplicated by a non-canonical encoder, calls the handler more than once), and the

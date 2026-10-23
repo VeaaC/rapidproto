@@ -2628,13 +2628,13 @@ void emit_arena_node(Printer& printer, const NameTable& table, const PkgTrie& no
 // Enum- and message-typed fields deliver their generated type (the enum newtype, the child's reader
 // handle). Those types live elsewhere in the tree, and the `*_stream!` macro expands at the CONSUMER'S
 // call site where a tree-relative path is invalid, so each such foreign type is RE-EXPORTED into the
-// message's stream module under a deduped local alias (`emit_stream_reexports`); the trait and macro
-// name the alias, and a consumer glob-imports the stream module to bring trait + macro + those types
-// into scope together.
+// message's stream module under a local alias (`emit_stream_reexports`), which the macro names through
+// the message's scope re-export (`emit_stream_macro`); a consumer glob-imports the stream module to
+// bring the handle, trait, macro and that scope into scope together.
 
 // One selectable field on a message's stream visitor: the escaped proto field name (names `WANT_<name>`,
-// `on_<name>`, the macro's `f_<name>` slot and `F_<name>` type param, and the macro key) plus the
-// field. Exactly one of `field` / `map` is set: `field` for a regular or oneof-member field, `map` for
+// `on_<name>` -- which the built visitor also uses as its field and type parameter -- and the macro
+// key) plus the field. Exactly one of `field` / `map` is set: `field` for a regular or oneof-member field, `map` for
 // a map field (delivered as a `(key, value)` entry).
 struct StreamSlot {
     std::string name;
@@ -2642,8 +2642,8 @@ struct StreamSlot {
     const MapFieldNode* map = nullptr;
 };
 
-// A proto field name as a PLAIN, non-keyword Rust identifier safe both to prefix (`on_`/`WANT_`/`f_`/
-// `F_`) and to capture as a macro `:ident`: a keyword (or a raw-ineligible `self`/`crate`/..) gets a
+// A proto field name as a PLAIN, non-keyword Rust identifier safe both to prefix (`on_`/`WANT_`) and
+// to capture as a macro `:ident`: a keyword (or a raw-ineligible `self`/`crate`/..) gets a
 // trailing `_`, NEVER an `r#` raw-escape (which cannot be prefixed, and which a macro key/`:ident`
 // cannot always carry). The consumer types this escaped name as the macro key. For a keyword this is
 // the same as the arena accessor (`self` -> `self_`); a non-keyword the arena accessor suffixes only to
@@ -2735,7 +2735,7 @@ std::string encoded_fqn(const MessageNode& msg) {
 // letter, a shape no schema-derived module-scope name has (reserve_rp_prefix turns `rp_x` into
 // `rp__x`), so they never clash with one -- not even when the encoded FQN ends in a schema name:
 //   `rp_mod_<fqn>` -- the message's stream module, re-exported under a per-message name, which the
-//                     expansion names everything through (emit_stream_reexports);
+//                     expansion names everything through (emit_stream_macro);
 //   `rp_mac_<fqn>` -- the `macro_rules!` definition, re-exported under its friendly name
 //                     (emit_stream_macro).
 std::string stream_scope_name(const MessageNode& msg) {
