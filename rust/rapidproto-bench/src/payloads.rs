@@ -108,6 +108,11 @@ pub fn cpp_checksum(dir: &Path, source: &Source) -> Option<u64> {
         return None;
     };
     let path = dir.join("external").join(format!("{stem}.sum"));
+    assert!(
+        path.is_file(),
+        "{path:?} is missing: the payload directory predates the recorded C++ checksums -- re-dump \
+         it with the C++ arena bench"
+    );
     let text = String::from_utf8(read(&path)).unwrap_or_default();
     Some(
         text.trim()
@@ -156,7 +161,7 @@ pub fn batch(buffers: &[Vec<u8>]) -> Vec<u8> {
     out
 }
 
-/// The buffers of a [`Source::Batch`] input, in order. Panics on bytes [`batch`] did not build.
+/// The buffers of a [`Source::Batch`] input, in order. Panics on a malformed batch.
 pub fn frames(mut batch: &[u8]) -> impl Iterator<Item = &[u8]> {
     std::iter::from_fn(move || {
         if batch.is_empty() {
