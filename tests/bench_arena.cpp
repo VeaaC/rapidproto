@@ -53,8 +53,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <fstream>
-#include <sstream>
+#include <filesystem>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -66,9 +65,10 @@
 #include "bench_arm_osm.hpp"       // OSM PBF scenarios (declaration only; own TU)
 #include "bench_baselines.hpp"     // third-party baselines, in their own TUs (see that header)
 #include "bench_harness.hpp"  // rpbench: the shared measurement harness (also used by rapidproto_bench)
-#include "bench_records.hpp"  // the hand-built RecordSet wire, asserted against protoc below
-#include "bench_upb.hpp"      // upb baseline arm (whole header no-ops without RAPIDPROTO_HAVE_UPB)
-#include "bench_varint.hpp"   // repeated-varint sweep builders (shared with the streaming bench)
+#include "bench_payloads.hpp"  // the shared payload directory (RAPIDPROTO_BENCH_DIR / _DUMP_DIR)
+#include "bench_records.hpp"   // the hand-built RecordSet wire, asserted against protoc below
+#include "bench_upb.hpp"       // upb baseline arm (whole header no-ops without RAPIDPROTO_HAVE_UPB)
+#include "bench_varint.hpp"    // repeated-varint sweep builders (shared with the streaming bench)
 #include "rapidproto/arena_runtime.hpp"
 #include "rapidproto/runtime.hpp"
 
@@ -123,25 +123,6 @@ std::string make_dataset(int people) {
     std::string out;
     ds.SerializeToString(&out);
     return out;
-}
-
-// Read a whole file into a string, fatal on a missing OR empty file (a 0-byte file would otherwise
-// decode as an empty message and silently "measure" nothing rather than erroring). Used to load the
-// shared scenario payloads -- see make_scenario / load_scenario below the builders.
-std::string read_file(const std::string& path) {
-    const std::ifstream in(path, std::ios::binary);
-    if (!in) {
-        std::fprintf(stderr, "bench: cannot read '%s'\n", path.c_str());
-        std::exit(1);
-    }
-    std::ostringstream ss;
-    ss << in.rdbuf();
-    std::string bytes = ss.str();
-    if (bytes.empty()) {
-        std::fprintf(stderr, "bench: '%s' is empty\n", path.c_str());
-        std::exit(1);
-    }
-    return bytes;
 }
 
 // Many small arrays: each record carries six short repeated fields -> a flood of tiny allocations.
@@ -345,8 +326,8 @@ std::string make_scenario(std::string_view name) {
 // The payload for `name`: the shared file under RAPIDPROTO_BENCH_DIR when set (both benches then decode
 // the SAME bytes), else built in-process for a standalone C++ run.
 std::string load_scenario(std::string_view name) {
-    if (const char* const dir = std::getenv("RAPIDPROTO_BENCH_DIR")) {
-        return read_file(std::string(dir) + "/" + std::string(name) + ".bin");
+    if (const char* const dir = rpbench::payload_dir()) {
+        return rpbench::read_payload(std::string(dir) + "/" + std::string(name) + ".bin");
     }
     return make_scenario(name);
 }
@@ -609,7 +590,8 @@ int sweep_repeated_varint() {
             }
             // Distinct-seed pool, rotated so no arm replays one memorized width sequence
             // (arithmetic + rationale: bench_varint.hpp).
-            const rpbench::VarintPool built = rpbench::build_varint_pool(dist, count);
+            const rpbench::VarintPool built =
+                rpbench::load_varint_pool(rpbench::payload_stem(name), dist, count);
             const std::vector<std::string>& pool = built.buffers;
             const double avg_bytes = built.avg_bytes;
             std::vector<rapidproto::ByteView> views;
@@ -647,6 +629,9 @@ int sweep_repeated_varint() {
     return bad;
 }
 
+// The element count of the per-type sweep below (and of its pools in the dump).
+constexpr int kTypeCount = 1'000'000;
+
 // Packed sint64 (`zz`, field 3) and packed enum (`kinds`, field 4) carry the SAME packed-varint wire as
 // `numbers`, so they run the SAME classifier + kernels; only the per-element conversion differs (zigzag
 // for sint64, an int32 cast for enum, vs ~identity for int64). This focused sweep decodes those two at
@@ -655,16 +640,16 @@ int sweep_repeated_varint() {
 // vs our decoders could then disagree -- and real enums are small anyway). Returns the count of
 // arms whose checksum disagreed.
 int sweep_repeated_varint_types() {
-    constexpr int kCount = 1'000'000;
     const auto run_type = [&](const rpbench::VarintDist& dist, int field_number, const char* tag,
                               auto arena_sum, auto protoc_sum, auto protozero_sum) {
         // Name first, so a scenario filter skips the ~80 MB pool build below, not just the
         // measurement (same reason as sweep_repeated_varint).
-        const std::string name = std::string("rv-") + tag + " " + dist.label + " 1M";
+        const std::string name = rpbench::rv_type_scenario_name(tag, dist, kTypeCount);
         if (!rpbench::scenario_selected(name.c_str())) {
             return 0;
         }
-        const rpbench::VarintPool built = rpbench::build_varint_pool(dist, kCount, field_number);
+        const rpbench::VarintPool built =
+            rpbench::load_varint_pool(rpbench::payload_stem(name), dist, kTypeCount, field_number);
         const std::vector<std::string>& pool = built.buffers;
         const double avg_bytes = built.avg_bytes;
         std::vector<rapidproto::ByteView> views;
@@ -722,11 +707,31 @@ int main() {
     // tool: reuses the make_* builders and this bench's libprotobuf link.)
     if (const char* const dir = std::getenv("RAPIDPROTO_BENCH_DUMP_DIR")) {
         for (const std::string_view name : kScenarios) {
-            const std::string out = make_scenario(name);
-            const std::string path = std::string(dir) + "/" + std::string(name) + ".bin";
-            std::ofstream file(path, std::ios::binary);
-            if (!file || !file.write(out.data(), static_cast<std::streamsize>(out.size()))) {
-                std::fprintf(stderr, "bench: cannot write '%s'\n", path.c_str());
+            if (!rpbench::write_payload(std::filesystem::path(dir) / (std::string(name) + ".bin"),
+                                        make_scenario(name))) {
+                return 1;
+            }
+        }
+        // The repeated-varint sweeps' pools (rv/<stem>/<i>.bin), the same set the sweeps measure.
+        for (const auto& dist : rpbench::varint_dists()) {
+            for (const int count : rpbench::varint_lengths()) {
+                if (!rpbench::dump_varint_pool(
+                        dir, rpbench::payload_stem(rpbench::rv_scenario_name(dist, count)), dist,
+                        count)) {
+                    return 1;
+                }
+            }
+            if (!rpbench::dump_varint_pool(
+                    dir,
+                    rpbench::payload_stem(rpbench::rv_type_scenario_name("zz", dist, kTypeCount)),
+                    dist, kTypeCount, 3)) {
+                return 1;
+            }
+            if (dist.enum_narrow &&
+                !rpbench::dump_varint_pool(
+                    dir,
+                    rpbench::payload_stem(rpbench::rv_type_scenario_name("enum", dist, kTypeCount)),
+                    dist, kTypeCount, 4)) {
                 return 1;
             }
         }

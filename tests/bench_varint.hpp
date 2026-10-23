@@ -126,6 +126,19 @@ inline std::string rv_scenario_name(const VarintDist& dist, int count) {
     return "rv " + dist.label + " " + length_tag(count);
 }
 
+// The arena bench's per-type sweep (`rv-zz <dist> 1M`, `rv-enum <dist> 1M`): the same packed varints
+// carried by the sint64 / enum field, so only the per-element conversion differs.
+inline std::string rv_type_scenario_name(const char* tag, const VarintDist& dist, int count) {
+    return std::string("rv-") + tag + " " + dist.label + " " + length_tag(count);
+}
+
+// A scenario name as a file-name stem: spaces become `-` ("rv fx1 10" -> "rv-fx1-10"). Names the
+// pool's directory in the shared payload layout (bench_payloads.hpp), which the Rust bench mirrors.
+inline std::string payload_stem(std::string name) {
+    std::replace(name.begin(), name.end(), ' ', '-');
+    return name;
+}
+
 // The wire bytes of a message carrying one packed varint field (`field_number`, wire type 2) with these
 // values as raw varints -- field 1 is bench.Big.numbers (int64); passing field 3 (sint64 `zz`) or 4
 // (enum `kinds`) reuses the IDENTICAL payload bytes to measure the zigzag / enum-cast conversion cost

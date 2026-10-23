@@ -1,9 +1,10 @@
-# Rust decode benchmarking, all in one bench-only crate (`publish = false`): the generated arena
-# decoder (baseline) measured both against itself (the criterion A/B bench) and against other Rust
-# protobuf crates (the ecosystem comparison), over the shared bench.proto payloads and one shared
-# per-field checksum walk. Competitor crates and their codegen are deps HERE only, so they never
-# reach the `rapidproto` runtime, the generated code, or the no_std tiers. Competitors are added one
-# at a time and selected at runtime (the `bench` binary's ARMS filter): prost, then rust-protobuf.
+# Rust decode benchmarking, all in one bench-only crate (`publish = false`), scenario for scenario
+# with the C++ benches over their shared payloads: the generated arena decoder (baseline) measured both
+# against itself (the criterion A/B bench) and against other Rust protobuf crates (the ecosystem
+# comparison) with one shared per-field checksum walk, and the generated streaming decoder against
+# itself and a hand-written wire loop. Competitor crates and their codegen are deps HERE only, so
+# they never reach the `rapidproto` runtime, the generated code, or the no_std tiers. Competitors are
+# added one at a time and selected at runtime (the `bench` binary's ARMS filter).
 [package]
 name = "rapidproto-bench"
 version = "0.0.0"
@@ -67,9 +68,21 @@ criterion = { version = "0.3", default-features = false }
 name = "bench"
 path = "src/main.rs"
 
-# The Rust-vs-Rust A/B bench for the generated `bench` decoder across the 8 arena scenarios, over the
-# shared protoc-canonical payloads. Run it PINNED and ALIGNED (see the bench header for the directory):
+# The streaming runner: the streaming decoder vs a hand-written wire loop, over the C++ streaming
+# bench's shared payloads.
+[[bin]]
+name = "stream"
+path = "src/stream_main.rs"
+
+# The Rust-vs-Rust A/B bench for the generated `bench` decoder across the C++ arena bench's scenarios
+# (the 8 shapes, cold and warm, and the repeated-varint sweeps), over the shared payloads. Run it PINNED and ALIGNED (see the bench header for the directory):
 #   RUSTFLAGS="-Cllvm-args=-align-all-functions=6" taskset -c 0 cargo bench -p rapidproto-bench --bench decode
 [[bench]]
 name = "decode"
+harness = false
+
+# The Rust-vs-Rust A/B bench for the generated streaming decoder across the C++ streaming bench's
+# scenarios, over the shared payloads (see the bench header).
+[[bench]]
+name = "stream"
 harness = false

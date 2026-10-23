@@ -4,7 +4,7 @@
 //! dead-code elimination and, in the ecosystem bench, is mirrored field-for-field by each competitor
 //! arm so all arms must agree. See the crate docs for the per-type contribution convention.
 
-use rustgen_golden::bench::arena::bench::{BigSet, Dataset, ParticleSet, RecordSet, WideSet};
+use rustgen_golden::bench::arena::bench::{Big, BigSet, Dataset, ParticleSet, RecordSet, WideSet};
 
 pub fn checksum_dataset(ds: &Dataset) -> u64 {
     let mut sum = ds.name().as_bytes().len() as u64 ^ (ds.version() as u64);
@@ -30,20 +30,25 @@ pub fn checksum_dataset(ds: &Dataset) -> u64 {
 }
 
 pub fn checksum_bigset(bs: &BigSet) -> u64 {
+    bs.items()
+        .iter()
+        .fold(0u64, |sum, it| sum.wrapping_add(checksum_big(it)))
+}
+
+/// One `Big` -- a `BigSet` item, or a varint-sweep payload on its own.
+pub fn checksum_big(it: &Big) -> u64 {
     let mut sum = 0u64;
-    for it in bs.items() {
-        for &n in it.numbers() {
-            sum = sum.wrapping_add(n as u64);
-        }
-        for &r in it.reals() {
-            sum = sum.wrapping_add(r.to_bits());
-        }
-        for &z in it.zz() {
-            sum = sum.wrapping_add(z as u64);
-        }
-        for &k in it.kinds() {
-            sum = sum.wrapping_add(k.0 as u64);
-        }
+    for &n in it.numbers() {
+        sum = sum.wrapping_add(n as u64);
+    }
+    for &r in it.reals() {
+        sum = sum.wrapping_add(r.to_bits());
+    }
+    for &z in it.zz() {
+        sum = sum.wrapping_add(z as u64);
+    }
+    for &k in it.kinds() {
+        sum = sum.wrapping_add(k.0 as u64);
     }
     sum
 }
