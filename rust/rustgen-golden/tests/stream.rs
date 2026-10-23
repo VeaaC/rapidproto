@@ -14,10 +14,56 @@
 //! handle, trait and macro plus the hidden per-message scope the expansion names everything through, so
 //! globbing several stream modules into one scope leaves every expansion unambiguous (the `globbing_*`
 //! tests), and names shaped like that glue cannot collide with it (the gluenames test).
+//!
+//! Parity with the C++ streaming decoder's tests (tests/test_streamgen.cpp): every behavioral case
+//! there has a pendant here, named after it, decoding the same corpus schemas -- and, where the C++
+//! case decodes a checked-in protoc-encoded fixture (tests/wire_fixtures/*.bin), the very same bytes.
+//! The C++ cases with no Rust pendant test what Rust has no counterpart of: the generated headers
+//! matching their goldens, colliding identifiers, cross-file includes, the WKT closure and emission
+//! order (all pinned here by the Rust goldens compiling and byte-comparing, and Rust items need no
+//! order); the namespace-prefix option (C++ only); the field catch-all handler and the exact-match
+//! dispatch-gate traits (Rust has no catch-all -- the per-field visitor is the selection mechanism --
+//! and the type checker enforces each handler's value type).
 
 use rapidproto::stream::Flow;
-use rapidproto::DecodeError;
+use rapidproto::wire::WireType;
+use rapidproto::{DecodeError, ErrorKind};
 use rustgen_golden::proto3::stream::p3::*;
+
+// The protoc-encoded fixtures the C++ tests decode too (tests/wire_fixtures/generate.py; the
+// `.txtpb` beside each is its source).
+const SCALARS_BIN: &[u8] = include_bytes!("../../../tests/wire_fixtures/scalars.bin");
+const MSG_BIN: &[u8] = include_bytes!("../../../tests/wire_fixtures/msg.bin");
+const CONTAINER_BIN: &[u8] = include_bytes!("../../../tests/wire_fixtures/container.bin");
+const ALL_WIRE_BIN: &[u8] = include_bytes!("../../../tests/wire_fixtures/all_wire.bin");
+
+// Wire-encoding scaffolding for hand-built inputs (test scaffolding, not the system under test).
+fn put_varint(b: &mut Vec<u8>, mut v: u64) {
+    while v >= 0x80 {
+        b.push(0x80 | (v & 0x7f) as u8);
+        v >>= 7;
+    }
+    b.push(v as u8);
+}
+fn put_tag(b: &mut Vec<u8>, field: u32, wire: u32) {
+    put_varint(b, (u64::from(field) << 3) | u64::from(wire));
+}
+fn put_var(b: &mut Vec<u8>, field: u32, v: u64) {
+    put_tag(b, field, 0);
+    put_varint(b, v);
+}
+fn put_len(b: &mut Vec<u8>, field: u32, payload: &[u8]) {
+    put_tag(b, field, 2);
+    put_varint(b, payload.len() as u64);
+    b.extend_from_slice(payload);
+}
+/// A field-1..15 tag as a two-byte, non-minimal varint (valid protobuf; the reference parsers accept
+/// it) instead of its canonical single byte.
+fn put_overlong_tag(b: &mut Vec<u8>, field: u32, wire: u32) {
+    let tag = (field << 3) | wire; // < 128 for field <= 15
+    b.push(0x80 | tag as u8);
+    b.push(0x00);
+}
 
 // Msg { implicit_i = 42, name = "hello", state = 1, nums = [1, 2, 3] (packed),
 //       self = Msg { implicit_i = 7 }, a = 99 (oneof pick) }
@@ -92,16 +138,43 @@ fn oneof_member_is_individually_selectable() {
 }
 
 #[test]
-fn unknown_fields_reach_the_unknown_handler() {
-    // implicit_i = 7 (field 1, known), then field 99 (undeclared) = varint 42.
-    const WITH_UNKNOWN: &[u8] = &[0x08, 0x07, 0x98, 0x06, 0x2a];
-    let mut seen = None;
-    Msg::new(WITH_UNKNOWN)
+fn an_unknown_handler_receives_only_non_schema_fields() {
+    let mut buf = Vec::new();
+    put_var(&mut buf, 1, 7); // implicit_i: known, selected
+    put_var(&mut buf, 2, 20); // explicit_i: known, NOT selected
+    put_var(&mut buf, 99, 42); // undeclared
+    put_len(&mut buf, 100, b"hi"); // undeclared, length-delimited
+    #[derive(Default)]
+    struct Seen {
+        known: i32,
+        numbers: Vec<u32>,
+        len_bytes: Vec<u8>,
+    }
+    let mut seen = Seen::default();
+    Msg::new(&buf)
+        .decode(msg_stream!(&mut seen; {
+            implicit_i => |s, v| s.known = v,
+            unknown => |s, u| {
+                s.numbers.push(u.field_number());
+                if u.field_number() == 100 {
+                    assert_eq!(u.wire_type(), Some(WireType::Len));
+                    s.len_bytes = u.bytes().to_vec();
+                }
+            },
+        }))
+        .unwrap();
+    assert_eq!(seen.known, 7);
+    assert_eq!(seen.numbers, vec![99, 100]); // not field 2: known, merely unselected
+    assert_eq!(seen.len_bytes, b"\x02hi"); // the raw value bytes, length prefix included
+
+    // An unknown handler can end the walk early, like any handler.
+    let mut first = Vec::new();
+    Msg::new(&buf)
         .decode(msg_stream! {
-            unknown => |u| seen = Some((u.field_number(), u.bytes().to_vec())),
+            unknown => |u| { first.push(u.field_number()); Flow::Stop },
         })
         .unwrap();
-    assert_eq!(seen, Some((99, vec![0x2au8]))); // the known field 1 was skipped, not delivered
+    assert_eq!(first, vec![99]);
 }
 
 #[test]
@@ -436,4 +509,549 @@ fn schema_names_shaped_like_the_stream_glue_do_not_collide_with_it() {
         }))
         .unwrap();
     assert_eq!((seen.x, seen.inner, seen.sized, seen.foo), (1, 2, 4, 3));
+}
+
+#[test]
+fn packed_fixed_width_repeated_fields_decode_per_element() {
+    // The packed I64/I32 element paths (double, sfixed32, float), which varint-only packed fields
+    // never reach.
+    use rustgen_golden::packed::stream::pk::*;
+    let mut buf = Vec::new();
+    put_len(
+        &mut buf,
+        1,
+        &[1.5f64.to_le_bytes(), (-2.25f64).to_le_bytes()].concat(),
+    );
+    put_len(
+        &mut buf,
+        2,
+        &[7i32.to_le_bytes(), (-3i32).to_le_bytes()].concat(),
+    );
+    put_len(&mut buf, 3, &0.5f32.to_le_bytes());
+    #[derive(Default)]
+    struct Seen {
+        pd: Vec<f64>,
+        psf: Vec<i32>,
+        pf: Vec<f32>,
+    }
+    let mut seen = Seen::default();
+    Packed::new(&buf)
+        .decode(packed_stream!(&mut seen; {
+            pd => |s, v| s.pd.push(v),
+            psf => |s, v| s.psf.push(v),
+            pf => |s, v| s.pf.push(v),
+        }))
+        .unwrap();
+    assert_eq!(seen.pd, vec![1.5, -2.25]);
+    assert_eq!(seen.psf, vec![7, -3]);
+    assert_eq!(seen.pf, vec![0.5]);
+}
+
+#[test]
+fn an_editions_delimited_field_decodes_via_group_wire_format() {
+    // `delim` is message_encoding = DELIMITED: SGROUP..EGROUP framing, not a length prefix. Decoded
+    // as length-prefixed it would be skipped and its inner value stay 0.
+    use rustgen_golden::editions2023::stream::ed23::*;
+    let mut buf = Vec::new();
+    put_len(&mut buf, 3, &[0x08, 0x2a]); // child: { implicit_scalar: 42 }
+    put_tag(&mut buf, 6, 3); // delim: SGROUP
+    buf.extend([0x08, 0x07]); //   { implicit_scalar: 7 }
+    put_tag(&mut buf, 6, 4); // EGROUP
+    let (mut child, mut delim) = (0i32, 0i32);
+    M::new(&buf)
+        .decode(m_stream! {
+            child => |c| c.decode(m_stream! { implicit_scalar => |v| child = v }),
+            delim => |d| d.decode(m_stream! { implicit_scalar => |v| delim = v }),
+        })
+        .unwrap();
+    assert_eq!((child, delim), (42, 7));
+}
+
+#[test]
+fn oneof_members_fire_per_occurrence_in_wire_order() {
+    // Last-wins is the consumer's call: two members of one oneof both fire, in wire order.
+    let mut buf = Vec::new();
+    put_var(&mut buf, 10, 1); // pick.a = 1
+    put_len(&mut buf, 11, b"hi"); // pick.b = "hi"
+    put_var(&mut buf, 10, 2); // pick.a = 2
+    let mut events: Vec<String> = Vec::new();
+    Msg::new(&buf)
+        .decode(msg_stream!(&mut events; {
+            a => |e, v| e.push(format!("a={v}")),
+            b => |e, v| e.push(format!("b={}", v.to_str().unwrap())),
+        }))
+        .unwrap();
+    assert_eq!(events, ["a=1", "b=hi", "a=2"]);
+}
+
+#[test]
+fn a_field_past_a_straddling_oneof_is_reached() {
+    // `mid` (4) precedes the oneof's int member `tail` (5), whose oneof also holds a group member.
+    use rustgen_golden::proto2::stream::p2::*;
+    let mut buf = Vec::new();
+    put_var(&mut buf, 4, 7);
+    put_var(&mut buf, 5, 9);
+    let (mut mid, mut tail) = (0i32, 0i32);
+    OneofGroupStraddle::new(&buf)
+        .decode(oneof_group_straddle_stream! { mid => |v| mid = v, tail => |v| tail = v })
+        .unwrap();
+    assert_eq!((mid, tail), (7, 9));
+}
+
+#[test]
+fn a_repeated_message_field_fires_per_element() {
+    use rustgen_golden::proto2::stream::p2::container::*;
+    use rustgen_golden::proto2::stream::p2::*;
+    let mut buf = Vec::new();
+    put_len(&mut buf, 5, &[0x08, 0x0b]); // items: Nested { x: 11 }
+    put_len(&mut buf, 5, &[0x08, 0x16]); // items: Nested { x: 22 }
+    let mut xs = Vec::new();
+    Container::new(&buf)
+        .decode(container_stream! {
+            items => |n| n.decode(nested_stream! { x => |v| xs.push(v) }),
+        })
+        .unwrap();
+    assert_eq!(xs, vec![11, 22]);
+}
+
+#[test]
+fn a_duplicated_singular_field_fires_per_occurrence() {
+    // Streaming stores nothing, so it applies no last-wins: every occurrence of a singular field --
+    // sub-message, scalar or string -- reaches the handler (the arena model instead rejects a duplicated
+    // singular sub-message; docs/semantics.md documents the asymmetry).
+    let mut subs = Vec::new();
+    put_len(&mut subs, 5, &[0x08, 0x01]); // self: { implicit_i: 1 }
+    put_len(&mut subs, 5, &[0x08, 0x02]); // self again: { implicit_i: 2 }
+    let mut seen = Vec::new();
+    Msg::new(&subs)
+        .decode(msg_stream! {
+            self_ => |sub| sub.decode(msg_stream! { implicit_i => |v| seen.push(v) }),
+        })
+        .unwrap();
+    assert_eq!(seen, vec![1, 2]);
+
+    let mut flat = Vec::new();
+    put_var(&mut flat, 1, 1);
+    put_len(&mut flat, 3, b"AAA");
+    put_var(&mut flat, 1, 2);
+    put_len(&mut flat, 3, b"BBB");
+    let (mut ints, mut names) = (Vec::new(), Vec::new());
+    Msg::new(&flat)
+        .decode(msg_stream! {
+            implicit_i => |v| ints.push(v),
+            name => |n| names.push(n.to_str().unwrap().to_owned()),
+        })
+        .unwrap();
+    assert_eq!(ints, vec![1, 2]);
+    assert_eq!(names, ["AAA", "BBB"]); // handed over separately, not joined
+
+    // The one exception: a map ENTRY hands over one (key, value) pair, so a duplicate INSIDE an entry
+    // never reaches the handler -- only the entry's last key and last value do.
+    let mut entry = Vec::new();
+    put_len(&mut entry, 1, b"a");
+    put_len(&mut entry, 1, b"b");
+    put_var(&mut entry, 2, 7);
+    put_var(&mut entry, 2, 9);
+    let mut map = Vec::new();
+    put_len(&mut map, 9, &entry); // counts
+    let mut pairs = Vec::new();
+    Msg::new(&map)
+        .decode(msg_stream! {
+            counts => |(k, v)| pairs.push((k.to_str().unwrap().to_owned(), v)),
+        })
+        .unwrap();
+    assert_eq!(pairs, [("b".to_owned(), 9)]);
+}
+
+#[test]
+fn map_and_group_decoders_report_malformed_input() {
+    use rustgen_golden::proto2::stream::p2::*;
+    // by_id (field 2, map<int32, Color>): a valid two-byte entry envelope whose value varint is
+    // truncated inside it -- the entry reader's error, not the outer field's.
+    let truncated_entry = [0x12, 0x02, 0x10, 0x80];
+    let err = Container::new(&truncated_entry)
+        .decode(container_stream! { by_id => |_entry| () })
+        .unwrap_err();
+    assert_eq!(err.kind(), ErrorKind::Truncated);
+
+    // MyGroup (field 1, a group): an SGROUP with no matching EGROUP, selected or skipped.
+    let unterminated = [0x0b];
+    let err = WithGroup::new(&unterminated)
+        .decode(with_group_stream! { mygroup => |_group| () })
+        .unwrap_err();
+    assert_eq!(err.kind(), ErrorKind::Truncated);
+    let err = WithGroup::new(&unterminated)
+        .decode(with_group_stream! {})
+        .unwrap_err();
+    assert_eq!(err.kind(), ErrorKind::Truncated);
+}
+
+#[test]
+fn an_extension_field_surfaces_as_an_unknown_field() {
+    // `extend WithGroup { optional int32 ext_a = 100; }` adds no generated field: field 100 is
+    // unknown to the message, so it reaches the unknown handler.
+    use rustgen_golden::proto2::stream::p2::*;
+    let mut buf = Vec::new();
+    put_var(&mut buf, 100, 9);
+    let mut unknown = Vec::new();
+    WithGroup::new(&buf)
+        .decode(with_group_stream! { unknown => |u| unknown.push(u.field_number()) })
+        .unwrap();
+    assert_eq!(unknown, vec![100]);
+}
+
+#[test]
+fn well_known_type_and_cross_file_decoders_run() {
+    {
+        use rustgen_golden::usewkt::stream::google::protobuf::*;
+        let (mut seconds, mut nanos) = (0i64, 0i32);
+        Timestamp::new(&[0x08, 0x05, 0x10, 0x07])
+            .decode(timestamp_stream! { seconds => |v| seconds = v, nanos => |v| nanos = v })
+            .unwrap();
+        assert_eq!((seconds, nanos), (5, 7));
+        let mut seconds = 0i64;
+        Duration::new(&[0x08, 0x03])
+            .decode(duration_stream! { seconds => |v| seconds = v })
+            .unwrap();
+        assert_eq!(seconds, 3);
+    }
+    {
+        // main.Main -> dep.Dep / pub.Pub (re-exported through forward.proto) / fwd.Fwd.
+        use rustgen_golden::main::stream::{dep::*, fwd::*, main::*, r#pub::*};
+        let mut buf = Vec::new();
+        put_len(&mut buf, 1, &[0x08, 0x09]); // d: { v: 9 }
+        put_len(&mut buf, 2, &[0x08, 0x08]); // p: { w: 8 }
+        put_len(&mut buf, 3, &[0x08, 0x07]); // f: { z: 7 }
+        let (mut v, mut w, mut z) = (0i32, 0i32, 0i32);
+        Main::new(&buf)
+            .decode(main_stream! {
+                d => |d| d.decode(dep_stream! { v => |x| v = x }),
+                p => |p| p.decode(pub_stream! { w => |x| w = x }),
+                f => |f| f.decode(fwd_stream! { z => |x| z = x }),
+            })
+            .unwrap();
+        assert_eq!((v, w, z), (9, 8, 7));
+    }
+    {
+        // A weak import: its types are still generated and usable.
+        use rustgen_golden::weakmain::stream::{wd::*, wm::*};
+        let mut v = 0i32;
+        WMain::new(&[0x0a, 0x02, 0x08, 0x05])
+            .decode(w_main_stream! { d => |d| d.decode(w_dep_stream! { v => |x| v = x }) })
+            .unwrap();
+        assert_eq!(v, 5);
+    }
+}
+
+#[test]
+fn a_failed_read_never_fires_and_a_handler_error_ends_the_decode() {
+    // Field 1, then a varint whose only byte has the continuation bit set: the value read fails, and
+    // the handler never sees a value.
+    let mut fired = false;
+    let err = Msg::new(&[0x08, 0x80])
+        .decode(msg_stream! { implicit_i => |_v| fired = true })
+        .unwrap_err();
+    assert_eq!(err.kind(), ErrorKind::Truncated);
+    assert!(!fired);
+
+    // A handler that returns an error ends the decode with that error, unchanged. (`Flow::Stop` is the
+    // way to end early WITHOUT an error.)
+    let err = Msg::new(&[0x08, 0x0a])
+        .decode(msg_stream! {
+            implicit_i => |_v| Err::<(), _>(DecodeError::new(ErrorKind::InvalidTag, 1234)),
+        })
+        .unwrap_err();
+    assert_eq!((err.kind(), err.offset()), (ErrorKind::InvalidTag, 1234));
+}
+
+#[test]
+fn every_scalar_kind_from_the_protoc_fixture() {
+    // scalars.bin also carries an enum and two repeated fields, which -- unselected -- are skipped.
+    use rustgen_golden::proto2::stream::p2::*;
+    #[derive(Default)]
+    struct Seen {
+        i32: i32,
+        i64: i64,
+        u32: u32,
+        u64: u64,
+        s32: i32,
+        s64: i64,
+        f32: u32,
+        f64: u64,
+        sf32: i32,
+        sf64: i64,
+        b: bool,
+        s: String,
+        by: Vec<u8>,
+        fl: f32,
+        db: f64,
+    }
+    let mut seen = Seen::default();
+    Scalars::new(SCALARS_BIN)
+        .decode(scalars_stream!(&mut seen; {
+            i32 => |s, v| s.i32 = v,
+            i64 => |s, v| s.i64 = v,
+            u32 => |s, v| s.u32 = v,
+            u64 => |s, v| s.u64 = v,
+            s32 => |s, v| s.s32 = v,
+            s64 => |s, v| s.s64 = v,
+            f32 => |s, v| s.f32 = v,
+            f64 => |s, v| s.f64 = v,
+            sf32 => |s, v| s.sf32 = v,
+            sf64 => |s, v| s.sf64 = v,
+            b => |s, v| s.b = v,
+            s => |s, v| s.s = v.to_str().unwrap().to_owned(),
+            by => |s, v| s.by = v.to_vec(),
+            fl => |s, v| s.fl = v,
+            db => |s, v| s.db = v,
+        }))
+        .unwrap();
+    assert_eq!(
+        (seen.i32, seen.i64, seen.u32, seen.u64),
+        (-7, 42, 300, 1_000_000)
+    );
+    assert_eq!((seen.s32, seen.s64), (-5, -2));
+    assert_eq!((seen.f32, seen.f64), (0x0102_0304, 0x0102_0304_0506_0708));
+    assert_eq!((seen.sf32, seen.sf64), (-2, -3));
+    assert!(seen.b);
+    assert_eq!(seen.s, "hi");
+    assert_eq!(seen.by, [0x00, 0x01, 0xff]);
+    assert_eq!((seen.fl, seen.db), (1.5, -2.25));
+}
+
+#[test]
+fn the_one_byte_tag_fast_path_matches_the_general_path() {
+    // Scalars spans the 15/16 boundary: `i32` (field 1) has a one-byte tag, `color` (field 16) a
+    // two-byte one.
+    use rustgen_golden::proto2::stream::p2::*;
+    #[derive(Default, Debug, PartialEq)]
+    struct Seen {
+        i32: Option<i32>,
+        color: Option<i32>,
+        unknown: Vec<u32>,
+    }
+    let decode = |buf: &[u8]| -> Result<Seen, DecodeError> {
+        let mut seen = Seen::default();
+        Scalars::new(buf).decode(scalars_stream!(&mut seen; {
+            i32 => |s, v| s.i32 = Some(v),
+            color => |s, c| s.color = Some(c.0),
+            unknown => |s, u| s.unknown.push(u.field_number()),
+        }))?;
+        Ok(seen)
+    };
+
+    // Both sides of the boundary decode in one message.
+    let mut buf = Vec::new();
+    put_var(&mut buf, 1, 123);
+    put_var(&mut buf, 16, 2);
+    let seen = decode(&buf).unwrap();
+    assert_eq!((seen.i32, seen.color), (Some(123), Some(2)));
+
+    // A KNOWN field with the wrong wire type is skipped on both sides -- and is never reported to the
+    // unknown handler, which is for field numbers the schema does not declare.
+    let mut buf = Vec::new();
+    put_len(&mut buf, 1, b"x");
+    put_len(&mut buf, 16, b"y");
+    assert_eq!(decode(&buf).unwrap(), Seen::default());
+
+    // A reserved wire type (6) is rejected whether its tag takes one byte or two.
+    let mut one = Vec::new();
+    put_tag(&mut one, 1, 6);
+    let mut two = Vec::new();
+    put_tag(&mut two, 16, 6);
+    assert_eq!(decode(&one).unwrap_err().kind(), ErrorKind::InvalidTag);
+    assert_eq!(decode(&two).unwrap_err().kind(), ErrorKind::InvalidTag);
+
+    // A non-minimal (two-byte) tag for field 1 misses the one-byte path but decodes the same.
+    let mut buf = Vec::new();
+    put_overlong_tag(&mut buf, 1, 0);
+    put_varint(&mut buf, 55);
+    let seen = decode(&buf).unwrap();
+    assert_eq!((seen.i32, seen.unknown.len()), (Some(55), 0));
+}
+
+#[test]
+fn non_minimal_tags_decode_like_canonical_ones_across_field_kinds() {
+    use rustgen_golden::proto2::stream::p2::container::*;
+    use rustgen_golden::proto2::stream::p2::*;
+    // A string (Scalars.s, field 12).
+    let mut buf = Vec::new();
+    put_overlong_tag(&mut buf, 12, 2);
+    put_varint(&mut buf, 5);
+    buf.extend_from_slice(b"hello");
+    let (mut s, mut unknown) = (String::new(), 0);
+    Scalars::new(&buf)
+        .decode(scalars_stream! {
+            s => |v| s = v.to_str().unwrap().to_owned(),
+            unknown => |_u| unknown += 1,
+        })
+        .unwrap();
+    assert_eq!((s.as_str(), unknown), ("hello", 0));
+
+    // A oneof sub-message (Container.cn, field 4): oneof dispatch plus recursion.
+    let mut buf = Vec::new();
+    put_overlong_tag(&mut buf, 4, 2);
+    buf.extend([0x02, 0x08, 0x2a]); // { x: 42 }
+    let mut x = 0i32;
+    Container::new(&buf)
+        .decode(container_stream! { cn => |n| n.decode(nested_stream! { x => |v| x = v }) })
+        .unwrap();
+    assert_eq!(x, 42);
+
+    // A repeated sub-message (Container.items, field 5): an over-long element tag, then a canonical
+    // one, both fire.
+    let mut buf = Vec::new();
+    put_overlong_tag(&mut buf, 5, 2);
+    buf.extend([0x02, 0x08, 0x07]); // { x: 7 }
+    put_len(&mut buf, 5, &[0x08, 0x08]); // { x: 8 }
+    let mut xs = Vec::new();
+    Container::new(&buf)
+        .decode(container_stream! { items => |n| n.decode(nested_stream! { x => |v| xs.push(v) }) })
+        .unwrap();
+    assert_eq!(xs, vec![7, 8]);
+}
+
+#[test]
+fn the_protoc_msg_fixture_decodes_enums_sub_messages_oneofs_and_maps() {
+    use rustgen_golden::proto3::common::p3::State;
+    #[derive(Default)]
+    struct Seen {
+        implicit_i: i32,
+        state: Option<State>,
+        a: i32,
+        self_implicit_i: i32,
+        nums: Vec<i32>,
+        unpacked: Vec<i32>,
+        states: Vec<State>,
+        counts: Vec<(String, i32)>,
+    }
+    let mut seen = Seen::default();
+    Msg::new(MSG_BIN)
+        .decode(msg_stream!(&mut seen; {
+            implicit_i => |s, v| s.implicit_i = v,
+            state => |s, v| s.state = Some(v),
+            self_ => |s, sub| sub.decode(msg_stream!(&mut *s; {
+                implicit_i => |s, v| s.self_implicit_i = v,
+            })),
+            nums => |s, v| s.nums.push(v), // packed on the wire
+            unpacked => |s, v| s.unpacked.push(v), // expanded on the wire
+            states => |s, v| s.states.push(v), // packed enums
+            counts => |s, (k, v)| s.counts.push((k.to_str().unwrap().to_owned(), v)),
+            a => |s, v| s.a = v, // the oneof member that is set
+        }))
+        .unwrap();
+    assert_eq!(seen.implicit_i, 10);
+    assert_eq!(seen.state, Some(State::ON));
+    assert_eq!(seen.a, 7);
+    assert_eq!(seen.self_implicit_i, 99);
+    assert_eq!(seen.nums, vec![1, 2, 3]);
+    assert_eq!(seen.unpacked, vec![4, 5]);
+    assert_eq!(seen.states, vec![State::ON, State::UNKNOWN]);
+    assert_eq!(seen.counts, [("x".to_owned(), 1), ("y".to_owned(), 2)]);
+}
+
+#[test]
+fn the_protoc_container_fixture_decodes_message_and_enum_valued_maps() {
+    use rustgen_golden::proto2::common::p2::Color;
+    use rustgen_golden::proto2::stream::p2::container::*;
+    use rustgen_golden::proto2::stream::p2::*;
+    #[derive(Default)]
+    struct Seen {
+        by_name: Vec<(String, i32)>,
+        by_id: Vec<(i32, Color)>,
+    }
+    let mut seen = Seen::default();
+    Container::new(CONTAINER_BIN)
+        .decode(container_stream!(&mut seen; {
+            // A message value arrives as the child's reader handle.
+            by_name => |s, (k, n)| {
+                let mut x = 0;
+                n.decode(nested_stream! { x => |v| x = v })?;
+                s.by_name.push((k.to_str().unwrap().to_owned(), x));
+                Ok::<_, DecodeError>(())
+            },
+            // COLOR_NEG is negative: a ten-byte varint on the wire.
+            by_id => |s, (k, v)| s.by_id.push((k, v)),
+        }))
+        .unwrap();
+    assert_eq!(
+        seen.by_name,
+        [("alpha".to_owned(), 11), ("beta".to_owned(), 22)]
+    );
+    assert_eq!(seen.by_id, [(1, Color::RED), (2, Color::NEG)]);
+}
+
+#[test]
+fn the_protoc_all_wire_fixture_decodes_every_wire_type() {
+    // wire.AllWire covers each wire type, a nested message, packed varints, a group and a oneof.
+    use rustgen_golden::wire_all::stream::wire::all_wire::*;
+    use rustgen_golden::wire_all::stream::wire::*;
+    #[derive(Default)]
+    struct Seen {
+        zz: i64,
+        db: f64,
+        fx: u32,
+        s: String,
+        by: Vec<u8>,
+        nested_zz: i64,
+        packed: Vec<i32>,
+        group_a: i32,
+        oi: i32,
+    }
+    let mut seen = Seen::default();
+    AllWire::new(ALL_WIRE_BIN)
+        .decode(all_wire_stream!(&mut seen; {
+            zz => |s, v| s.zz = v, // sint64, zigzag
+            db => |s, v| s.db = v,
+            fx => |s, v| s.fx = v,
+            s => |s, v| s.s = v.to_str().unwrap().to_owned(),
+            by => |s, v| s.by = v.to_vec(),
+            nested => |s, n| n.decode(all_wire_stream!(&mut *s; { zz => |s, v| s.nested_zz = v })),
+            packed => |s, v| s.packed.push(v),
+            g => |s, g| g.decode(g_stream!(&mut *s; { a => |s, v| s.group_a = v })),
+            oi => |s, v| s.oi = v,
+        }))
+        .unwrap();
+    assert_eq!(seen.zz, -1_234_567_890_123);
+    #[allow(clippy::approx_constant)] // all_wire.txtpb's literal, not an approximation of π
+    let db = 3.14159;
+    assert_eq!(seen.db, db);
+    assert_eq!(seen.fx, 305_419_896);
+    assert_eq!(seen.s, "wire");
+    assert_eq!(seen.by, [0xde, 0xad, 0xbe, 0xef]);
+    assert_eq!(seen.nested_zz, 7);
+    assert_eq!(seen.packed, vec![10, 20, 30]);
+    assert_eq!(seen.group_a, 99);
+    assert_eq!(seen.oi, 5);
+}
+
+#[test]
+fn bytes_is_the_exact_undecoded_span() {
+    // The stream -> arena hybrid hands a child's `bytes()` to the arena model's `decode`, which reads a
+    // plain field sequence: so a LEN child's span excludes its length prefix and a group/DELIMITED
+    // child's span excludes its SGROUP/EGROUP framing -- and either aliases the input (zero-copy).
+    use rustgen_golden::editions2023::stream::ed23::*;
+    let body = [0x08, 0x2a]; // { implicit_scalar: 42 }
+    let mut len_buf = Vec::new();
+    put_len(&mut len_buf, 3, &body); // child: LEN framing
+    let mut group_buf = Vec::new();
+    put_tag(&mut group_buf, 6, 3); // delim: SGROUP
+    group_buf.extend_from_slice(&body);
+    put_tag(&mut group_buf, 6, 4); // EGROUP
+
+    let mut len_span: &[u8] = &[];
+    M::new(&len_buf)
+        .decode(m_stream! { child => |c| len_span = c.bytes() })
+        .unwrap();
+    let mut group_span: &[u8] = &[];
+    M::new(&group_buf)
+        .decode(m_stream! { delim => |d| group_span = d.bytes() })
+        .unwrap();
+    assert_eq!(len_span, body);
+    assert_eq!(group_span, body);
+    assert_eq!(len_span.as_ptr(), len_buf[2..].as_ptr()); // after the tag and length bytes
+    assert_eq!(group_span.as_ptr(), group_buf[1..].as_ptr()); // after the SGROUP tag
+                                                              // The root handle's span is the whole input.
+    assert_eq!(M::new(&len_buf).bytes().as_ptr(), len_buf.as_ptr());
+    assert_eq!(M::new(&len_buf).bytes(), &len_buf[..]);
 }

@@ -7,7 +7,8 @@
 //! proof-of-function for the blob, through the actual shipping runtime (wasmi).
 //!
 //! The golden set mirrors that C++ case: one plain golden per `tests/corpus/**.proto` (stem =
-//! basename) and the `tests/bench/bench.proto` golden, each with exported stream macros under its
+//! basename), the `tests/bench/bench.proto` and `tests/wire_fixtures/wire_all.proto` goldens, each
+//! with exported stream macros under its
 //! stem; the stream-only golden; and four field-modes goldens. The field-modes profiles are mirrored
 //! from `test_rustgen.cpp` (the `*_spec()` helpers); if either side changes, this test fails loudly
 //! with a diff — which is the point.
@@ -108,6 +109,9 @@ fn goldens_match_native_through_the_blob() {
     // The bench schema's golden (generated like a corpus proto, from tests/bench/).
     let bench = root.join("tests/bench/bench.proto");
     check("bench", &gen_plain(&bench, "bench"), &mut verified);
+    // The wire-fixture schema's golden (from tests/wire_fixtures/).
+    let wire_all = root.join("tests/wire_fixtures/wire_all.proto");
+    check("wire_all", &gen_plain(&wire_all, "wire_all"), &mut verified);
 
     // The stream-only golden (no arena, macros not exported), mirroring test_rustgen.cpp's
     // `streamonly` case.
