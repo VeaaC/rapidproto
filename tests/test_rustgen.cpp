@@ -881,10 +881,13 @@ TEST_CASE("rustgen goldens match the corpus (compile smoke-test)", "[rustgen-gol
     // Stream-only goldens with exported macros (`Config::export_stream_macros`), each under its stem
     // as the prefix, so the golden crate also holds several exported files at once: proto3 covers
     // enum, recursive child, map, bytes and oneof slots; main a cross-package closure; nopkg a
-    // package-less schema with a nested message. The golden crate drives these macros in-crate
-    // (src/stream_smoke.rs) and from a separate crate (tests/stream_export.rs).
+    // package-less schema with a nested message. proto3 is exported a second time, so two exported
+    // files define the same messages and only their prefixes keep the crate-root names apart. The
+    // golden crate drives these macros in-crate (src/stream_smoke.rs) and from a separate crate
+    // (tests/stream_export.rs).
     for (const auto& [stem, rel] :
          {std::pair<std::string_view, std::string_view>{"streamexport_p3", "proto3.proto"},
+          {"streamexport_p3_twin", "proto3.proto"},
           {"streamexport_main", "imports/main.proto"},
           {"streamexport_nopkg", "nsedge/nopkg.proto"}}) {
         check_golden(

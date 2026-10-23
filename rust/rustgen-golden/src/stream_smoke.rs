@@ -338,9 +338,11 @@ fn schema_names_shaped_like_the_stream_glue_do_not_collide_with_it() {
     // scope and macro definition, a `Sized`, and a `Foo` whose macro shares `FooStream`'s submodule
     // name. Most of the check is the golden compiling; this drives `Holder`'s macros with all of those
     // names in scope, through the shared-state form (whose expansion bounds its state `?Sized`).
-    use crate::gluenames::stream::gluenames::rp_rt_::*; // the `rp_rt` sub-package, escaped
-    use crate::gluenames::stream::gluenames::rp_rt__::*; // `RpRt`'s nested types, deduped against it
+    use crate::gluenames::stream::gluenames as top;
+    use crate::gluenames::stream::gluenames::rp__rt::*; // the `rp_rt` sub-package, reserved
+    use crate::gluenames::stream::gluenames::rp__rt_::*; // `RpRt`'s nested types, deduped against it
     use crate::gluenames::stream::gluenames::*;
+    use top::rp__rt as sub_pkg;
     // Holder { nested: RpRt { x: X { v: 1 } }, sub: Sub { inner: rp_rt { v: 2 } },
     //          sized: Sized { v: 4 }, foo: Foo { v: 3 } }
     const HOLDER: &[u8] = &[
@@ -359,11 +361,13 @@ fn schema_names_shaped_like_the_stream_glue_do_not_collide_with_it() {
     let mut seen = Seen::default();
     Holder::new(HOLDER)
         .decode(holder_stream!(&mut seen; {
-            nested => |s, n| n.decode(rp_rt_stream_!(&mut *s; {
+            // `RpRt` and the sub-package's `rp_rt` both reserve to a `rp__rt_stream!`, so name each
+            // through its module.
+            nested => |s, n| n.decode(top::rp__rt_stream!(&mut *s; {
                 x => |s, x| x.decode(x_stream!(&mut *s; { v => |s, v| s.x = v })),
             })),
             sub => |s, sub| sub.decode(sub_stream!(&mut *s; {
-                inner => |s, i| i.decode(rp_rt__stream_!(&mut *s; { v => |s, v| s.inner = v })),
+                inner => |s, i| i.decode(sub_pkg::rp__rt_stream!(&mut *s; { v => |s, v| s.inner = v })),
             })),
             sized => |s, z| z.decode(sized_stream!(&mut *s; { v => |s, v| s.sized = v })),
             foo => |s, f| f.decode(foo_stream!(&mut *s; { v => |s, v| s.foo = v })),

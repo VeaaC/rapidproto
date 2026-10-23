@@ -23,10 +23,11 @@
 //   u8  unknown_all                               1 => reserve the unknown-fields bit on every message
 //   u8  arena                                     1 => emit the random-access `arena` decoder model
 //   u8  stream                                    1 => emit the `stream` visitor decoder model
-//   u32 len, export_prefix                        non-empty => export the `*_stream!` macros under it
-// At least one of arena/stream must be set; a non-empty export_prefix needs stream and must be an
-// identifier ([A-Za-z_][A-Za-z0-9_]*). This is the one place those options are validated. Stdout: the
-// generated Rust. On any error: a message on stderr and a nonzero exit; stdout stays empty.
+//   u8  export_stream_macros                      1 => export the `*_stream!` macros, under:
+//   u32 len, export_prefix                        the export prefix ("" when not exporting)
+// At least one of arena/stream must be set; exporting needs stream and a prefix that is an identifier
+// ([A-Za-z_][A-Za-z0-9_]*). This is the one place those options are validated. Stdout: the generated
+// Rust. On any error: a message on stderr and a nonzero exit; stdout stays empty.
 
 #include <algorithm>
 #include <array>
@@ -187,6 +188,7 @@ int main() {
     const bool unknown_all = frame.u8() != 0;
     const bool emit_arena = frame.u8() != 0;
     const bool emit_stream = frame.u8() != 0;
+    const bool export_macros = frame.u8() != 0;
     const std::string export_prefix = frame.bytes();
     frame.expect_end();
 
@@ -196,14 +198,16 @@ int main() {
     if (!emit_arena && !emit_stream) {
         fail(kBadFrame, "no decoder model selected: enable arena and/or stream");
     }
-    if (!export_prefix.empty()) {
+    if (export_macros) {
         if (!emit_stream) {
-            fail(kBadFrame, "export_stream_macros needs the stream model: enable stream");
+            fail(kBadFrame, "exporting the stream macros needs the stream model: enable stream");
         }
         if (!is_export_prefix(export_prefix)) {
-            fail(kBadFrame, "export_stream_macros prefix '" + export_prefix +
+            fail(kBadFrame, "stream-macro export prefix '" + export_prefix +
                                 "' is not an identifier ([A-Za-z_][A-Za-z0-9_]*)");
         }
+    } else if (!export_prefix.empty()) {
+        fail(kBadFrame, "a stream-macro export prefix without exporting");
     }
 
     // The resolver reads every source through this map; the embedded well-known types are still

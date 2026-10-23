@@ -76,6 +76,30 @@ mod p3 {
 }
 
 #[test]
+fn two_exports_of_one_schema_coexist_under_their_prefixes() {
+    // `streamexport_p3` and `streamexport_p3_twin` export the same schema, so they define the same
+    // messages; only their prefixes keep the crate-root `#[macro_export]` names apart.
+    const MSG: &[u8] = &[0x08, 0x2a]; // implicit_i = 42
+    let first = {
+        use rustgen_golden::streamexport_p3::stream::p3::*;
+        let mut v = 0;
+        Msg::new(MSG)
+            .decode(msg_stream! { implicit_i => |x| v = x })
+            .unwrap();
+        v
+    };
+    let second = {
+        use rustgen_golden::streamexport_p3_twin::stream::p3::*;
+        let mut v = 0;
+        Msg::new(MSG)
+            .decode(msg_stream! { implicit_i => |x| v = x })
+            .unwrap();
+        v
+    };
+    assert_eq!((first, second), (42, 42));
+}
+
+#[test]
 fn cross_package_closure_with_both_packages_globbed() {
     // `main.Main` holds a `dep.Dep` child and a `dep.DepEnum` -- both foreign types, named through
     // re-export aliases -- and the two packages' modules are globbed into one scope.

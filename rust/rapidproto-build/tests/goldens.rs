@@ -125,6 +125,7 @@ fn goldens_match_native_through_the_blob() {
     );
     for (stem, rel) in [
         ("streamexport_p3", "proto3.proto"),
+        ("streamexport_p3_twin", "proto3.proto"),
         ("streamexport_main", "imports/main.proto"),
         ("streamexport_nopkg", "nsedge/nopkg.proto"),
     ] {

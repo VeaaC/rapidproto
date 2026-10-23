@@ -7571,7 +7571,7 @@ pub mod stream {
       pub use ::rapidproto as rp_rt;
 
       /// Streaming visitor for `RP_FLATTEN`. Select a field by overriding its `WANT_<field>` const AND
-      /// its `on_<field>` method (the `rp_flatten_stream_` macro does both); a field left at the default
+      /// its `on_<field>` method (the `rp__flatten_stream` macro does both); a field left at the default
       /// `WANT_<field> = false` is skipped on the wire with no dispatch.
       pub trait RP_FLATTENVisitor<'a> {
         const WANT_a: bool = false;
@@ -7662,10 +7662,10 @@ pub mod stream {
 
       macro_rules! rp_mac_2nm6Macros10RP_FLATTEN {
         ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
-          rp_mod_2nm6Macros10RP_FLATTEN::rp_flatten_stream_!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
+          rp_mod_2nm6Macros10RP_FLATTEN::rp__flatten_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
         };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] a => $rp_c:expr , $($rp_rest:tt)*) => {
-          rp_mod_2nm6Macros10RP_FLATTEN::rp_flatten_stream_!(@m
+          rp_mod_2nm6Macros10RP_FLATTEN::rp__flatten_stream!(@m
             [$($rp_g)* F_a,]
             [$($rp_w)* F_a: rp_mod_2nm6Macros10RP_FLATTEN::rp_rt::stream::Handler<i32>,]
             [$($rp_i)* const WANT_a: bool = true; #[inline(always)] fn on_a(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2nm6Macros10RP_FLATTEN::rp_rt::stream::Flow, rp_mod_2nm6Macros10RP_FLATTEN::rp_rt::DecodeError> { rp_mod_2nm6Macros10RP_FLATTEN::rp_rt::stream::Handler::call(&mut self.f_a, rp_x) }]
@@ -7674,7 +7674,7 @@ pub mod stream {
           $($rp_rest)*)
         };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] unknown => $rp_c:expr , $($rp_rest:tt)*) => {
-          rp_mod_2nm6Macros10RP_FLATTEN::rp_flatten_stream_!(@m
+          rp_mod_2nm6Macros10RP_FLATTEN::rp__flatten_stream!(@m
             [$($rp_g)* F_unknown,]
             [$($rp_w)* F_unknown: rp_mod_2nm6Macros10RP_FLATTEN::rp_rt::stream::Handler<rp_mod_2nm6Macros10RP_FLATTEN::rp_rt::stream::UnknownField<'rp_a>>,]
             [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_2nm6Macros10RP_FLATTEN::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_2nm6Macros10RP_FLATTEN::rp_rt::stream::Flow, rp_mod_2nm6Macros10RP_FLATTEN::rp_rt::DecodeError> { rp_mod_2nm6Macros10RP_FLATTEN::rp_rt::stream::Handler::call(&mut self.f_unknown, rp_x) }]
@@ -7694,10 +7694,10 @@ pub mod stream {
         }};
         ( $rp_state:expr ; { $( $rp_f:ident => $rp_c:expr ),* $(,)? } ) => {{
           let rp_state = $rp_state;
-          rp_mod_2nm6Macros10RP_FLATTEN::rp_flatten_stream_!(@ms [] [] [] [] [] rp_state $( $rp_f => $rp_c , )*)
+          rp_mod_2nm6Macros10RP_FLATTEN::rp__flatten_stream!(@ms [] [] [] [] [] rp_state $( $rp_f => $rp_c , )*)
         }};
         (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident a => $rp_c:expr , $($rp_rest:tt)*) => {
-          rp_mod_2nm6Macros10RP_FLATTEN::rp_flatten_stream_!(@ms
+          rp_mod_2nm6Macros10RP_FLATTEN::rp__flatten_stream!(@ms
             [$($rp_g)* F_a,]
             [$($rp_w)* F_a: rp_mod_2nm6Macros10RP_FLATTEN::rp_rt::stream::Handler2<RpS, i32>,]
             [$($rp_i)* const WANT_a: bool = true; #[inline(always)] fn on_a(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_2nm6Macros10RP_FLATTEN::rp_rt::stream::Flow, rp_mod_2nm6Macros10RP_FLATTEN::rp_rt::DecodeError> { rp_mod_2nm6Macros10RP_FLATTEN::rp_rt::stream::Handler2::call(&mut self.f_a, &mut *self.rp_state, rp_x) }]
@@ -7706,7 +7706,7 @@ pub mod stream {
           $rp_s $($rp_rest)*)
         };
         (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident unknown => $rp_c:expr , $($rp_rest:tt)*) => {
-          rp_mod_2nm6Macros10RP_FLATTEN::rp_flatten_stream_!(@ms
+          rp_mod_2nm6Macros10RP_FLATTEN::rp__flatten_stream!(@ms
             [$($rp_g)* F_unknown,]
             [$($rp_w)* F_unknown: rp_mod_2nm6Macros10RP_FLATTEN::rp_rt::stream::Handler2<RpS, rp_mod_2nm6Macros10RP_FLATTEN::rp_rt::stream::UnknownField<'rp_a>>,]
             [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_2nm6Macros10RP_FLATTEN::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_2nm6Macros10RP_FLATTEN::rp_rt::stream::Flow, rp_mod_2nm6Macros10RP_FLATTEN::rp_rt::DecodeError> { rp_mod_2nm6Macros10RP_FLATTEN::rp_rt::stream::Handler2::call(&mut self.f_unknown, &mut *self.rp_state, rp_x) }]
@@ -7725,7 +7725,7 @@ pub mod stream {
           RpVis { $($rp_ct)* rp_state: $rp_s }
         }};
       }
-      pub(crate) use rp_mac_2nm6Macros10RP_FLATTEN as rp_flatten_stream_;
+      pub(crate) use rp_mac_2nm6Macros10RP_FLATTEN as rp__flatten_stream;
     }
 
     /// Streaming visitor for `OneofTags`. Select a field by overriding its `WANT_<field>` const AND

@@ -69,6 +69,7 @@ fn invalid_stream_macro_exports_are_rejected() {
     };
     for (stream, prefix, expected) in [
         (false, "demo", "needs the stream model"),
+        (true, "", "is not an identifier"),
         (true, "1demo", "is not an identifier"),
         (true, "de-mo", "is not an identifier"),
     ] {

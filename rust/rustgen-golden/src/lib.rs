@@ -225,6 +225,10 @@ pub mod streamexport_p3 {
     include!("../goldens/streamexport_p3.rs");
 }
 
+pub mod streamexport_p3_twin {
+    include!("../goldens/streamexport_p3_twin.rs");
+}
+
 pub mod streamexport_main {
     include!("../goldens/streamexport_main.rs");
 }

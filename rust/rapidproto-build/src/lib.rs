@@ -54,8 +54,7 @@ pub struct SourceFile {
 
 /// The inputs for one generation: the entry files (the roots of the import closure, each named the
 /// way an `import` would spell it), the sources those entries and their imports may pull in (a
-/// superset is fine — only what the closure reaches is used), and the generation options. Build one
-/// with `..Request::default()` for the options left at their defaults.
+/// superset is fine — only what the closure reaches is used), and the generation options.
 pub struct Request {
     /// The entry `.proto`s, named as an `import` would spell them.
     pub entries: Vec<String>,
@@ -110,10 +109,10 @@ impl std::error::Error for GenError {}
 
 /// Encodes a [`Request`] into the byte frame the generator reads on stdin: a `RPWF3` magic, then
 /// little-endian-u32-counted entry names, u32-counted `{name, body}` sources, the `.modes` text, a
-/// one-byte unknown-all flag, two one-byte model flags (arena, stream), and the stream-macro export
-/// prefix (empty = not exported). Bodies are length-prefixed, so a proto's newlines/quotes need no
-/// escaping. The generator validates the options. (Internal: the decode side lives in the generator;
-/// the frame and the blob move together, byte-checked in CI.)
+/// one-byte unknown-all flag, two one-byte model flags (arena, stream), and the stream-macro export:
+/// a one-byte present flag then the prefix (empty when absent). Bodies are length-prefixed, so a
+/// proto's newlines/quotes need no escaping. The generator validates the options. (Internal: the
+/// decode side lives in the generator; the frame and the blob move together, byte-checked in CI.)
 mod frame {
     use super::{GenError, Request};
 
@@ -150,14 +149,9 @@ mod frame {
         buf.push(u8::from(request.unknown_all));
         buf.push(u8::from(request.arena));
         buf.push(u8::from(request.stream));
-        put_bytes(
-            &mut buf,
-            request
-                .export_stream_macros
-                .as_deref()
-                .unwrap_or("")
-                .as_bytes(),
-        )?;
+        let export = request.export_stream_macros.as_deref();
+        buf.push(u8::from(export.is_some()));
+        put_bytes(&mut buf, export.unwrap_or("").as_bytes())?;
         Ok(buf)
     }
 }
@@ -334,8 +328,8 @@ impl Config {
     /// hand-written visitor works from any crate.)
     ///
     /// Each macro is then also defined at the including crate's root, under a hidden name built from
-    /// `prefix` (an identifier: ASCII letters, digits and `_`, not starting with a digit). Give each
-    /// generated file you export from in one crate its own prefix.
+    /// `prefix` (an identifier: ASCII letters, digits and `_`, not starting with a digit). So within
+    /// one crate, every exported generated file needs its own prefix and is included once.
     pub fn export_stream_macros(mut self, prefix: impl Into<String>) -> Self {
         self.export_stream_macros = Some(prefix.into());
         self
@@ -344,8 +338,9 @@ impl Config {
     /// Generate decoders for `entries` (one import closure) and return the generated Rust (one module
     /// tree for the whole closure), writing nothing. Every `.proto` under the include directories (the
     /// current directory when none was added) is made available to the generator, and each entry is
-    /// named by its path relative to the include directory that holds it. [`Config::compile`] is this
-    /// plus writing the file into `OUT_DIR` and registering the inputs with cargo.
+    /// named by its path relative to the first include directory that holds it (its file name when
+    /// none does). [`Config::compile`] is this plus writing the file into `OUT_DIR` and registering
+    /// the inputs with cargo.
     pub fn generate(&self, entries: &[impl AsRef<Path>]) -> Result<String, GenError> {
         // Canonicalize the include dirs once, so the source walk and the entry-key derivation compare
         // paths in the same absolute/normalized/symlink-resolved terms. Without this a `./`-prefixed
@@ -469,7 +464,11 @@ fn import_relative_name(entry: &Path, includes: &[PathBuf]) -> String {
 }
 
 /// Recursively add every `.proto` under `dir`, keyed by its path relative to `root` (the include
-/// dir), in forward-slash form so the key matches an `import` string on any platform.
+/// dir), in forward-slash form so the key matches an `import` string on any platform. Only `dir`
+/// itself must be readable: below it, a directory or file that cannot be read (or is not UTF-8) is
+/// skipped -- over-inclusion is harmless, and an import that needed it still fails as a missing
+/// import. So pointing the include path at a large tree (the CLI's cwd default) cannot fail on an
+/// unrelated file.
 fn collect_protos(
     root: &Path,
     dir: &Path,
@@ -477,18 +476,21 @@ fn collect_protos(
 ) -> Result<(), String> {
     let entries = std::fs::read_dir(dir)
         .map_err(|e| format!("cannot read include dir {}: {e}", dir.display()))?;
-    for entry in entries {
-        let entry = entry.map_err(|e| e.to_string())?;
+    for entry in entries.flatten() {
         let path = entry.path();
-        let file_type = entry.file_type().map_err(|e| e.to_string())?;
+        let Ok(file_type) = entry.file_type() else {
+            continue;
+        };
         if file_type.is_dir() {
-            collect_protos(root, &path, out)?;
+            let _ = collect_protos(root, &path, out); // an unreadable subdirectory is skipped
         } else if path.extension().is_some_and(|e| e == "proto") {
             let rel = path.strip_prefix(root).unwrap_or(&path);
             // First include dir wins (like protoc): read and keep this file only if an earlier
             // include dir has not already provided the same key.
             if let Entry::Vacant(slot) = out.entry(to_slash(rel)) {
-                slot.insert(read(&path)?);
+                if let Ok(body) = std::fs::read_to_string(&path) {
+                    slot.insert(body);
+                }
             }
         }
     }

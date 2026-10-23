@@ -64,7 +64,7 @@ std::string generate_arena(const std::vector<const FileNode*>& files, const Layo
 // expansion names everything -- trait, types, its own recursion, the runtime -- through its message's
 // scope name, which a consumer's glob of the stream module brings in, so globbing several stream
 // modules cannot make it ambiguous. The generator reserves the `rp_` prefix for this glue (a
-// schema-derived module-scope name starting with `rp_` gains a trailing `_`). Field modes
+// schema-derived module-scope name starting with `rp_` becomes `rp__...`; see reserve_rp_prefix). Field modes
 // (drop/raw/unknown) are arena-storage options that do not apply to a streaming visitor (which
 // materializes nothing), so streaming ignores them.
 //

@@ -30,6 +30,15 @@ message rp_stream_ty_0 {
   int32 v = 1;
 }
 
+// `Tail_`'s scope is `rp_mod_9gluenames5Tail_` (its FQN ends in `_`), which a reservation that merely
+// appended `_` would also make of the name below.
+message Tail_ {
+  int32 v = 1;
+}
+message rp_mod_9gluenames5Tail {
+  int32 v = 1;
+}
+
 // The shared-state expansion's `?Sized` bound must not resolve to this.
 message Sized {
   int32 v = 1;

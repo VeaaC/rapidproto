@@ -2731,8 +2731,9 @@ std::string encoded_fqn(const MessageNode& msg) {
 }
 
 // The glue names of `msg`'s `*_stream!` macro, keyed by the message (not its module) so they differ
-// between two generated files that share a package; `rp_`-prefixed, a prefix reserve_rp_prefix keeps
-// away from every schema-derived module-scope name:
+// between two generated files that share a package. Like all glue they start `rp_` followed by a
+// letter, a shape no schema-derived module-scope name has (reserve_rp_prefix turns `rp_x` into
+// `rp__x`), so they never clash with one -- not even when the encoded FQN ends in a schema name:
 //   `rp_mod_<fqn>` -- the message's stream module, re-exported under a per-message name, which the
 //                     expansion names everything through (emit_stream_reexports);
 //   `rp_mac_<fqn>` -- the `macro_rules!` definition, re-exported under its friendly name

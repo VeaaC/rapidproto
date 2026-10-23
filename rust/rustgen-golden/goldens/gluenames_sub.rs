@@ -2,7 +2,7 @@
 
 pub mod common {
   pub mod gluenames {
-    pub mod rp_rt_ {
+    pub mod rp__rt {
     }
   }
 }
@@ -11,20 +11,20 @@ pub mod arena {
 
   pub mod gluenames {
 
-    pub mod rp_rt_ {
+    pub mod rp__rt {
       #[derive(Default)]
-      pub struct rp_rt_<'a> {
+      pub struct rp__rt<'a> {
         v: i32,
         _marker: ::core::marker::PhantomData<&'a ()>,
       }
 
-      impl<'a> rp_rt_<'a> {
+      impl<'a> rp__rt<'a> {
         pub fn v(&self) -> i32 {
           self.v
         }
       }
       #[cfg(feature = "serde")]
-      impl<'a> ::rapidproto::serde::Serialize for rp_rt_<'a> {
+      impl<'a> ::rapidproto::serde::Serialize for rp__rt<'a> {
         fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
         where
           RpS: ::rapidproto::serde::Serializer,
@@ -41,16 +41,16 @@ pub mod arena {
         }
       }
 
-      ::rapidproto::impl_decode_owned!(rp_rt_);
+      ::rapidproto::impl_decode_owned!(rp__rt);
 
       #[derive(Default)]
       pub struct Sub<'a> {
-        inner: rp_rt_<'a>,
+        inner: rp__rt<'a>,
         rp_presence: u8,
       }
 
       impl<'a> Sub<'a> {
-        pub fn inner(&self) -> Option<&rp_rt_<'a>> {
+        pub fn inner(&self) -> Option<&rp__rt<'a>> {
           if (self.rp_presence & (1 << 0)) != 0 { Some(&self.inner) } else { None }
         }
       }
@@ -73,8 +73,8 @@ pub mod arena {
 
       ::rapidproto::impl_decode_owned!(Sub);
 
-      impl<'a> rp_rt_<'a> {
-        pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a rp_rt_<'a>, ::rapidproto::DecodeError> {
+      impl<'a> rp__rt<'a> {
+        pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> Result<&'a rp__rt<'a>, ::rapidproto::DecodeError> {
           if input.len() > u32::MAX as usize {
             return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
           }
@@ -84,7 +84,7 @@ pub mod arena {
 
         #[inline(always)]
         #[doc(hidden)]
-        pub(crate) fn decode_into<'id>(rp_out: ::rapidproto::Slot<'id, rp_rt_<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+        pub(crate) fn decode_into<'id>(rp_out: ::rapidproto::Slot<'id, rp__rt<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
           if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
             return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
           }
@@ -132,7 +132,7 @@ pub mod arena {
               }
             }
           }
-          Ok(rp_out.write(rp_rt_ {
+          Ok(rp_out.write(rp__rt {
             v,
             _marker: ::core::marker::PhantomData,
           }))
@@ -155,7 +155,7 @@ pub mod arena {
             return Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
           }
           let mut rp_presence: u8 = 0;
-          let mut inner: rp_rt_<'a> = Default::default();
+          let mut inner: rp__rt<'a> = Default::default();
           let mut rp_rest: &'a [u8] = rp_body;
           if rp_rest.first() == Some(&10u8) {
             rp_rest = &rp_rest[1..];
@@ -167,7 +167,7 @@ pub mod arena {
               Ok(r) => r,
               Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            inner = ::rapidproto::decode_value(|rp_out| rp_rt_::decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+            inner = ::rapidproto::decode_value(|rp_out| rp__rt::decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
             rp_presence |= 1 << 0;
           }
           loop {
@@ -196,7 +196,7 @@ pub mod arena {
                   Ok(r) => r,
                   Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                inner = ::rapidproto::decode_value(|rp_out| rp_rt_::decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+                inner = ::rapidproto::decode_value(|rp_out| rp__rt::decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
                 rp_presence |= 1 << 0;
               }
               _ => {
@@ -221,18 +221,18 @@ pub mod stream {
 
   pub mod gluenames {
 
-    pub mod rp_rt_ {
+    pub mod rp__rt {
       #[doc(hidden)]
-      pub use super::rp_rt_ as rp_mod_9gluenames5rp_rt5rp_rt;
+      pub use super::rp__rt as rp_mod_9gluenames5rp_rt5rp_rt;
       #[doc(hidden)]
-      pub use super::rp_rt_ as rp_mod_9gluenames5rp_rt3Sub;
+      pub use super::rp__rt as rp_mod_9gluenames5rp_rt3Sub;
       #[doc(hidden)]
       pub use ::rapidproto as rp_rt;
 
-      /// Streaming visitor for `rp_rt_`. Select a field by overriding its `WANT_<field>` const AND
-      /// its `on_<field>` method (the `rp_rt__stream_` macro does both); a field left at the default
+      /// Streaming visitor for `rp__rt`. Select a field by overriding its `WANT_<field>` const AND
+      /// its `on_<field>` method (the `rp__rt_stream` macro does both); a field left at the default
       /// `WANT_<field> = false` is skipped on the wire with no dispatch.
-      pub trait rp_rt_Visitor<'a> {
+      pub trait rp__rtVisitor<'a> {
         const WANT_v: bool = false;
         #[inline(always)]
         fn on_v(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -242,13 +242,13 @@ pub mod stream {
       }
 
       #[derive(Clone, Copy)]
-      pub struct rp_rt_<'a> {
+      pub struct rp__rt<'a> {
         rp_input: &'a [u8],
       }
 
-      impl<'a> rp_rt_<'a> {
+      impl<'a> rp__rt<'a> {
         #[inline(always)]
-        pub fn new(rp_input: &'a [u8]) -> rp_rt_<'a> { rp_rt_ { rp_input } }
+        pub fn new(rp_input: &'a [u8]) -> rp__rt<'a> { rp__rt { rp_input } }
 
         /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
         /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -256,7 +256,7 @@ pub mod stream {
         #[inline(always)]
         pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
-        pub fn decode<V: rp_rt_Visitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<(), ::rapidproto::DecodeError> {
+        pub fn decode<V: rp__rtVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<(), ::rapidproto::DecodeError> {
           let rp_body: &'a [u8] = self.rp_input;
           let mut rp_rest: &'a [u8] = rp_body;
           loop {
@@ -321,10 +321,10 @@ pub mod stream {
 
       macro_rules! rp_mac_9gluenames5rp_rt5rp_rt {
         ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
-          rp_mod_9gluenames5rp_rt5rp_rt::rp_rt__stream_!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
+          rp_mod_9gluenames5rp_rt5rp_rt::rp__rt_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
         };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] v => $rp_c:expr , $($rp_rest:tt)*) => {
-          rp_mod_9gluenames5rp_rt5rp_rt::rp_rt__stream_!(@m
+          rp_mod_9gluenames5rp_rt5rp_rt::rp__rt_stream!(@m
             [$($rp_g)* F_v,]
             [$($rp_w)* F_v: rp_mod_9gluenames5rp_rt5rp_rt::rp_rt::stream::Handler<i32>,]
             [$($rp_i)* const WANT_v: bool = true; #[inline(always)] fn on_v(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_9gluenames5rp_rt5rp_rt::rp_rt::stream::Flow, rp_mod_9gluenames5rp_rt5rp_rt::rp_rt::DecodeError> { rp_mod_9gluenames5rp_rt5rp_rt::rp_rt::stream::Handler::call(&mut self.f_v, rp_x) }]
@@ -333,7 +333,7 @@ pub mod stream {
           $($rp_rest)*)
         };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] unknown => $rp_c:expr , $($rp_rest:tt)*) => {
-          rp_mod_9gluenames5rp_rt5rp_rt::rp_rt__stream_!(@m
+          rp_mod_9gluenames5rp_rt5rp_rt::rp__rt_stream!(@m
             [$($rp_g)* F_unknown,]
             [$($rp_w)* F_unknown: rp_mod_9gluenames5rp_rt5rp_rt::rp_rt::stream::Handler<rp_mod_9gluenames5rp_rt5rp_rt::rp_rt::stream::UnknownField<'rp_a>>,]
             [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_9gluenames5rp_rt5rp_rt::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_9gluenames5rp_rt5rp_rt::rp_rt::stream::Flow, rp_mod_9gluenames5rp_rt5rp_rt::rp_rt::DecodeError> { rp_mod_9gluenames5rp_rt5rp_rt::rp_rt::stream::Handler::call(&mut self.f_unknown, rp_x) }]
@@ -348,15 +348,15 @@ pub mod stream {
           #[allow(nonstandard_style)]
           struct RpVis<$($rp_g)*> { $($rp_fl)* }
           #[allow(nonstandard_style)]
-          impl<'rp_a, $($rp_g)*> rp_mod_9gluenames5rp_rt5rp_rt::rp_rt_Visitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
+          impl<'rp_a, $($rp_g)*> rp_mod_9gluenames5rp_rt5rp_rt::rp__rtVisitor<'rp_a> for RpVis<$($rp_g)*> where $($rp_w)* { $($rp_i)* }
           RpVis { $($rp_ct)* }
         }};
         ( $rp_state:expr ; { $( $rp_f:ident => $rp_c:expr ),* $(,)? } ) => {{
           let rp_state = $rp_state;
-          rp_mod_9gluenames5rp_rt5rp_rt::rp_rt__stream_!(@ms [] [] [] [] [] rp_state $( $rp_f => $rp_c , )*)
+          rp_mod_9gluenames5rp_rt5rp_rt::rp__rt_stream!(@ms [] [] [] [] [] rp_state $( $rp_f => $rp_c , )*)
         }};
         (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident v => $rp_c:expr , $($rp_rest:tt)*) => {
-          rp_mod_9gluenames5rp_rt5rp_rt::rp_rt__stream_!(@ms
+          rp_mod_9gluenames5rp_rt5rp_rt::rp__rt_stream!(@ms
             [$($rp_g)* F_v,]
             [$($rp_w)* F_v: rp_mod_9gluenames5rp_rt5rp_rt::rp_rt::stream::Handler2<RpS, i32>,]
             [$($rp_i)* const WANT_v: bool = true; #[inline(always)] fn on_v(&mut self, rp_x: i32) -> ::core::result::Result<rp_mod_9gluenames5rp_rt5rp_rt::rp_rt::stream::Flow, rp_mod_9gluenames5rp_rt5rp_rt::rp_rt::DecodeError> { rp_mod_9gluenames5rp_rt5rp_rt::rp_rt::stream::Handler2::call(&mut self.f_v, &mut *self.rp_state, rp_x) }]
@@ -365,7 +365,7 @@ pub mod stream {
           $rp_s $($rp_rest)*)
         };
         (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident unknown => $rp_c:expr , $($rp_rest:tt)*) => {
-          rp_mod_9gluenames5rp_rt5rp_rt::rp_rt__stream_!(@ms
+          rp_mod_9gluenames5rp_rt5rp_rt::rp__rt_stream!(@ms
             [$($rp_g)* F_unknown,]
             [$($rp_w)* F_unknown: rp_mod_9gluenames5rp_rt5rp_rt::rp_rt::stream::Handler2<RpS, rp_mod_9gluenames5rp_rt5rp_rt::rp_rt::stream::UnknownField<'rp_a>>,]
             [$($rp_i)* const WANT_UNKNOWN: bool = true; #[inline(always)] fn on_unknown(&mut self, rp_x: rp_mod_9gluenames5rp_rt5rp_rt::rp_rt::stream::UnknownField<'rp_a>) -> ::core::result::Result<rp_mod_9gluenames5rp_rt5rp_rt::rp_rt::stream::Flow, rp_mod_9gluenames5rp_rt5rp_rt::rp_rt::DecodeError> { rp_mod_9gluenames5rp_rt5rp_rt::rp_rt::stream::Handler2::call(&mut self.f_unknown, &mut *self.rp_state, rp_x) }]
@@ -380,11 +380,11 @@ pub mod stream {
           #[allow(nonstandard_style, dead_code)]
           struct RpVis<'rp_s, RpS: ?::core::marker::Sized, $($rp_g)*> { $($rp_fl)* rp_state: &'rp_s mut RpS }
           #[allow(nonstandard_style)]
-          impl<'rp_a, 'rp_s, RpS: ?::core::marker::Sized, $($rp_g)*> rp_mod_9gluenames5rp_rt5rp_rt::rp_rt_Visitor<'rp_a> for RpVis<'rp_s, RpS, $($rp_g)*> where $($rp_w)* { $($rp_i)* }
+          impl<'rp_a, 'rp_s, RpS: ?::core::marker::Sized, $($rp_g)*> rp_mod_9gluenames5rp_rt5rp_rt::rp__rtVisitor<'rp_a> for RpVis<'rp_s, RpS, $($rp_g)*> where $($rp_w)* { $($rp_i)* }
           RpVis { $($rp_ct)* rp_state: $rp_s }
         }};
       }
-      pub(crate) use rp_mac_9gluenames5rp_rt5rp_rt as rp_rt__stream_;
+      pub(crate) use rp_mac_9gluenames5rp_rt5rp_rt as rp__rt_stream;
 
       /// Streaming visitor for `Sub`. Select a field by overriding its `WANT_<field>` const AND
       /// its `on_<field>` method (the `sub_stream` macro does both); a field left at the default
@@ -392,7 +392,7 @@ pub mod stream {
       pub trait SubVisitor<'a> {
         const WANT_inner: bool = false;
         #[inline(always)]
-        fn on_inner(&mut self, _rp_v: rp_rt_<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        fn on_inner(&mut self, _rp_v: rp__rt<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_UNKNOWN: bool = false;
         #[inline(always)]
         fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -440,7 +440,7 @@ pub mod stream {
                     Ok(r) => r,
                     Err(k) => return Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                   };
-                  match rp_vis.on_inner(rp_rt_::new(rp_p))? {
+                  match rp_vis.on_inner(rp__rt::new(rp_p))? {
                     ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                     ::rapidproto::stream::Flow::Continue => {}
                   }
@@ -483,10 +483,10 @@ pub mod stream {
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] inner => $rp_c:expr , $($rp_rest:tt)*) => {
           rp_mod_9gluenames5rp_rt3Sub::sub_stream!(@m
             [$($rp_g)* F_inner,]
-            [$($rp_w)* F_inner: rp_mod_9gluenames5rp_rt3Sub::rp_rt::stream::Handler<rp_mod_9gluenames5rp_rt3Sub::rp_rt_<'rp_a>>,]
-            [$($rp_i)* const WANT_inner: bool = true; #[inline(always)] fn on_inner(&mut self, rp_x: rp_mod_9gluenames5rp_rt3Sub::rp_rt_<'rp_a>) -> ::core::result::Result<rp_mod_9gluenames5rp_rt3Sub::rp_rt::stream::Flow, rp_mod_9gluenames5rp_rt3Sub::rp_rt::DecodeError> { rp_mod_9gluenames5rp_rt3Sub::rp_rt::stream::Handler::call(&mut self.f_inner, rp_x) }]
+            [$($rp_w)* F_inner: rp_mod_9gluenames5rp_rt3Sub::rp_rt::stream::Handler<rp_mod_9gluenames5rp_rt3Sub::rp__rt<'rp_a>>,]
+            [$($rp_i)* const WANT_inner: bool = true; #[inline(always)] fn on_inner(&mut self, rp_x: rp_mod_9gluenames5rp_rt3Sub::rp__rt<'rp_a>) -> ::core::result::Result<rp_mod_9gluenames5rp_rt3Sub::rp_rt::stream::Flow, rp_mod_9gluenames5rp_rt3Sub::rp_rt::DecodeError> { rp_mod_9gluenames5rp_rt3Sub::rp_rt::stream::Handler::call(&mut self.f_inner, rp_x) }]
             [$($rp_fl)* f_inner: F_inner,]
-            [$($rp_ct)* f_inner: rp_mod_9gluenames5rp_rt3Sub::rp_rt::stream::typed::<rp_mod_9gluenames5rp_rt3Sub::rp_rt_<'_>, _, _>($rp_c),]
+            [$($rp_ct)* f_inner: rp_mod_9gluenames5rp_rt3Sub::rp_rt::stream::typed::<rp_mod_9gluenames5rp_rt3Sub::rp__rt<'_>, _, _>($rp_c),]
           $($rp_rest)*)
         };
         (@m [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] unknown => $rp_c:expr , $($rp_rest:tt)*) => {
@@ -515,10 +515,10 @@ pub mod stream {
         (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident inner => $rp_c:expr , $($rp_rest:tt)*) => {
           rp_mod_9gluenames5rp_rt3Sub::sub_stream!(@ms
             [$($rp_g)* F_inner,]
-            [$($rp_w)* F_inner: rp_mod_9gluenames5rp_rt3Sub::rp_rt::stream::Handler2<RpS, rp_mod_9gluenames5rp_rt3Sub::rp_rt_<'rp_a>>,]
-            [$($rp_i)* const WANT_inner: bool = true; #[inline(always)] fn on_inner(&mut self, rp_x: rp_mod_9gluenames5rp_rt3Sub::rp_rt_<'rp_a>) -> ::core::result::Result<rp_mod_9gluenames5rp_rt3Sub::rp_rt::stream::Flow, rp_mod_9gluenames5rp_rt3Sub::rp_rt::DecodeError> { rp_mod_9gluenames5rp_rt3Sub::rp_rt::stream::Handler2::call(&mut self.f_inner, &mut *self.rp_state, rp_x) }]
+            [$($rp_w)* F_inner: rp_mod_9gluenames5rp_rt3Sub::rp_rt::stream::Handler2<RpS, rp_mod_9gluenames5rp_rt3Sub::rp__rt<'rp_a>>,]
+            [$($rp_i)* const WANT_inner: bool = true; #[inline(always)] fn on_inner(&mut self, rp_x: rp_mod_9gluenames5rp_rt3Sub::rp__rt<'rp_a>) -> ::core::result::Result<rp_mod_9gluenames5rp_rt3Sub::rp_rt::stream::Flow, rp_mod_9gluenames5rp_rt3Sub::rp_rt::DecodeError> { rp_mod_9gluenames5rp_rt3Sub::rp_rt::stream::Handler2::call(&mut self.f_inner, &mut *self.rp_state, rp_x) }]
             [$($rp_fl)* f_inner: F_inner,]
-            [$($rp_ct)* f_inner: rp_mod_9gluenames5rp_rt3Sub::rp_rt::stream::typed2::<_, rp_mod_9gluenames5rp_rt3Sub::rp_rt_<'_>, _, _>(&*$rp_s, $rp_c),]
+            [$($rp_ct)* f_inner: rp_mod_9gluenames5rp_rt3Sub::rp_rt::stream::typed2::<_, rp_mod_9gluenames5rp_rt3Sub::rp__rt<'_>, _, _>(&*$rp_s, $rp_c),]
           $rp_s $($rp_rest)*)
         };
         (@ms [$($rp_g:tt)*] [$($rp_w:tt)*] [$($rp_i:tt)*] [$($rp_fl:tt)*] [$($rp_ct:tt)*] $rp_s:ident unknown => $rp_c:expr , $($rp_rest:tt)*) => {
