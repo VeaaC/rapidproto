@@ -352,6 +352,12 @@ if(RAPIDPROTO_BUILD_TESTS)
                                                  rapidproto_arenagen_lib rapidproto_dumpgen_lib
                                                  rapidproto_rustgen_lib
                                                  rapidproto_strict catch2_vendored)
+  # A generated header includes its imports by out-dir-relative path, so -- like a consumer's out-dir
+  # -- the streamgen golden dir is on the include path: usewkt's closure has an import that lives in
+  # a subdirectory itself (google/protobuf/type -> google/protobuf/any). Not SYSTEM: the goldens are
+  # compiled with the full warning set, and headers reached only through this path must be too.
+  target_include_directories(rapidproto_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/streamgen_golden)
   # Absolute paths to the golden-test corpus and expected dumps, so the test finds them
   # regardless of the working directory it is launched from.
   target_compile_definitions(rapidproto_tests PRIVATE

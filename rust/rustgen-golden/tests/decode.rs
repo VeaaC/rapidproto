@@ -18,6 +18,8 @@
 //!                       repeated inlined-message array.
 //!   mr::ReqInline    -- a `required` small fixed-size message: inlined by value with NO resting
 //!                       presence bit (always-present), present-ok + missing -> MissingRequired.
+//!   collide::Holder  -- names shaped like what generated code refers to (prelude and primitive type
+//!                       names, `V`, `type`, `Some`/`rp_out` fields), each reading back its own field.
 
 use rapidproto::{Arena, ErrorKind};
 
@@ -288,7 +290,7 @@ fn singular_message_and_recursion_cap() {
     assert_eq!(m.self_().expect("self present").implicit_i(), 9);
     assert!(Msg::decode(&[], &arena).unwrap().self_().is_none());
 
-    // Wrap `levels` self (field 5) layers; the deepest decode_into runs at depth == levels, and the
+    // Wrap `levels` self (field 5) layers; the deepest rp_decode_into runs at depth == levels, and the
     // cap rejects at depth > MAX_DECODE_DEPTH (100).
     fn nest(levels: u32) -> Vec<u8> {
         let mut buf = Vec::new();
@@ -301,7 +303,7 @@ fn singular_message_and_recursion_cap() {
     // Decoding to MAX_DECODE_DEPTH recurses that deep. In a RELEASE build the cap holds within a
     // default stack -- 100-deep fits even a 1 MiB thread stack (measured) -- so a real consumer on
     // any default thread stack gets DepthLimitExceeded, never a stack overflow: the cap does its job.
-    // A DEBUG build's unoptimized `decode_into` frames are several times larger, so ~100 levels
+    // A DEBUG build's unoptimized `rp_decode_into` frames are several times larger, so ~100 levels
     // exceed the default 2 MiB TEST-thread stack. Give the (debug) test thread headroom; it asserts
     // the depth CAP, not the stack (the guard stops at 100 either way -- verified with a large stack).
     std::thread::Builder::new()
@@ -1095,7 +1097,7 @@ fn dropped_field_record_is_still_wire_validated() {
 #[test]
 fn cross_file_imported_submessages_decode_through_the_forwarder() {
     // Main's fields are imported dep.Dep types -- singular (d), repeated (ds), map value (dm), oneof
-    // member (od). They decode through the cross-file decode_into forwarder. Mirrors C++ "imported
+    // member (od). They decode through the cross-file rp_decode_into forwarder. Mirrors C++ "imported
     // (cross-file) sub-messages decode through the forwarder".
     let dep = |v: u64| {
         let mut d = Vec::new();
@@ -1300,6 +1302,140 @@ fn a_stray_end_group_tag_is_rejected_by_the_decode_loop() {
     put_tag(&mut buf, 1, 4); // stray EGROUP for field 1
     let arena = Arena::new();
     assert!(Msg::decode(&buf, &arena).is_err());
+}
+
+// The collide golden once more, compiled here WITH the prelude (the golden crate compiles every golden
+// without it), and after caller macros named like the builtins generated code uses: generated code
+// naming one bare would expand the caller's. Its exported macros land at this test crate's root,
+// apart from the golden crate's.
+#[allow(
+    clippy::all,
+    unused,
+    non_camel_case_types,
+    non_snake_case,
+    non_upper_case_globals
+)]
+mod collide_with_prelude {
+    macro_rules! cfg {
+        ($($t:tt)*) => {
+            compile_error!("generated code names `cfg!` unqualified")
+        };
+    }
+    macro_rules! matches {
+        ($($t:tt)*) => {
+            compile_error!("generated code names `matches!` unqualified")
+        };
+    }
+    include!("../goldens/collide.rs");
+}
+
+// collide.Holder (nsedge/collide.proto): a field of every name the schema collides on, each carrying a
+// distinct value so a mixed-up name shows as a wrong value.
+fn collide_holder() -> Vec<u8> {
+    let msg = |fields: &[(u32, u64)]| {
+        let mut b = Vec::new();
+        for &(field, v) in fields {
+            put_var(&mut b, field, v);
+        }
+        b
+    };
+    // Some..Err, rp_out, rp_presence, decode_into, maybe: field n carries n.
+    let mut b = Vec::new();
+    for field in 1..=8 {
+        put_var(&mut b, field, u64::from(field));
+    }
+    // o: 5 (not a value of `enum other`); k: KIND_ONE
+    put_var(&mut b, 9, 5);
+    put_var(&mut b, 10, 1);
+    // search: SearchResponse { results: [Result { url: "a" }, Result { url: "b" }] }
+    let mut search = len_field(1, &len_field(1, b"a"));
+    put_len(&mut search, 1, &len_field(1, b"b"));
+    put_len(&mut b, 11, &search);
+    // uses_fixed: UsesFixed {} (its inlined `fixed` absent); default: Default { v: 19 }
+    put_len(&mut b, 12, &[]);
+    put_len(&mut b, 13, &msg(&[(1, 19)]));
+    // response: Response { value: "hi", on: 18 } -- a member each of `oneof result`/`oneof option`
+    let mut response = len_field(2, b"hi");
+    put_var(&mut response, 3, 18);
+    put_len(&mut b, 14, &response);
+    // prims: Prims { a: u8 { v: 13 }, f: I32_ONE, k: [7, 8] (packed fixed32) }
+    let mut prims = len_field(1, &msg(&[(1, 13)]));
+    put_var(&mut prims, 6, 1);
+    put_len(
+        &mut prims,
+        11,
+        &[7u32.to_le_bytes(), 8u32.to_le_bytes()].concat(),
+    );
+    put_len(&mut b, 15, &prims);
+    // v: V { child: V { v: 12 }, v: 11 }
+    let mut v = len_field(1, &msg(&[(2, 12)]));
+    put_var(&mut v, 2, 11);
+    put_len(&mut b, 16, &v);
+    // type: Type { x: X { v: 14 } }; under: type_ { v: 22 }; node: Node { v: 15 }
+    put_len(&mut b, 17, &len_field(1, &msg(&[(1, 14)])));
+    put_len(&mut b, 18, &msg(&[(1, 22)]));
+    put_len(&mut b, 19, &msg(&[(1, 15)]));
+    // tree: Tree { node: Node { v: 20 }, node_visitor: NodeVisitor { v: 21 } }
+    let mut tree = len_field(1, &msg(&[(1, 20)]));
+    put_len(&mut tree, 2, &msg(&[(1, 21)]));
+    put_len(&mut b, 20, &tree);
+    // opt: collide.Option.Opt { v: 16 }; sub: collide.NodeVisitor.X { v: 17 }
+    put_len(&mut b, 21, &msg(&[(1, 16)]));
+    put_len(&mut b, 22, &msg(&[(1, 17)]));
+    b
+}
+
+#[test]
+fn names_shaped_like_generated_references_decode_into_their_own_fields() {
+    // nsedge/collide.proto names types after what generated code refers to or derives (the prelude's
+    // `Option`/`Result`/`Default`, primitive `u8`/`i32`, the stream driver's `V`, `type` beside `Type`)
+    // and fields after decode-body names (`Some`, `rp_out`, `decode_into`). Compiling the golden is
+    // most of the check: the golden crate compiles it without the prelude, which catches an
+    // unqualified prelude name, and `collide_with_prelude` with it, which catches a decode binding
+    // named like a prelude variant (a pattern only while the prelude is in scope). This pins that every
+    // name still reads back its own field.
+    use collide_with_prelude::arena::collide::{response, Holder};
+    use collide_with_prelude::common::collide::{i32_, otherClass, Kind, KindClass};
+    let buf = collide_holder();
+    let arena = Arena::new();
+    let h = Holder::decode(&buf, &arena).unwrap();
+    assert_eq!((h.Some(), h.None(), h.Ok(), h.Err()), (1, 2, 3, 4));
+    // A field name starting `rp_` gains a `_` (the prefix is the generator's own).
+    assert_eq!((h.rp__out(), h.rp__presence(), h.decode_into()), (5, 6, 7));
+    assert_eq!(h.maybe(), Some(8));
+    // `classify`'s catch-all binding is no pattern naming `enum other`; the value `classify` is bumped
+    // off the method of that name.
+    assert_eq!(h.o().classify(), otherClass::Unknown(5));
+    assert_eq!(h.k(), Kind::KIND_ONE);
+    assert_eq!(Kind::classify_.classify(), KindClass::Classify);
+    let urls: Vec<&[u8]> = h
+        .search()
+        .unwrap()
+        .results()
+        .iter()
+        .map(|r| r.url().as_bytes())
+        .collect();
+    assert_eq!(urls, [b"a", b"b"]);
+    assert_eq!(h.uses_fixed().unwrap().fixed().map(|f| f.v()), None);
+    assert_eq!(h.default().unwrap().v(), 19);
+    let resp = h.response().unwrap();
+    assert!(matches!(resp.result(), Some(response::Result::Value(s)) if s.as_bytes() == b"hi"));
+    assert!(matches!(resp.option(), Some(response::Option::On(18))));
+    let prims = h.prims().unwrap();
+    assert_eq!((prims.a().unwrap().v(), prims.f()), (13, i32_::ONE));
+    assert_eq!(prims.k(), [7, 8]);
+    let v = h.v().unwrap();
+    assert_eq!((v.v(), v.child().unwrap().v()), (11, 12));
+    assert_eq!(h.r#type().unwrap().x().unwrap().v(), 14);
+    assert_eq!(h.under().unwrap().v(), 22);
+    assert_eq!(h.node().unwrap().v(), 15);
+    let tree = h.tree().unwrap();
+    assert_eq!(
+        (tree.node().unwrap().v(), tree.node_visitor().unwrap().v()),
+        (20, 21)
+    );
+    assert_eq!(h.opt().unwrap().v(), Some(16));
+    assert_eq!(h.sub().unwrap().v(), 17);
 }
 
 // The owning handle (§4 decode_owned): the deferred parity N/A, now covered. `alloc`-gated.
