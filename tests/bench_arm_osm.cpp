@@ -791,9 +791,24 @@ bool dump(const char* dir) {
         std::fprintf(stderr, "bench: cannot load the osm dataset '%s'\n", RAPIDPROTO_OSM_DATASET);
         return false;
     }
+    // Both scenarios' checksum: run_arm()'s validation pins the file-level arms to the block sum.
+    std::uint64_t sum = 0;
+    rapidproto::Arena arena;
+    for (const std::string& p : data.payloads) {
+        arena.reset();
+        const osm_a::PrimitiveBlock* block =
+            osm_a::PrimitiveBlock::decode(rapidproto::ByteView(p), arena);
+        if (block == nullptr) {
+            std::fprintf(stderr, "bench: an osm block does not decode\n");
+            return false;
+        }
+        sum += arena_block_sum(block);
+    }
     const std::filesystem::path out = std::filesystem::path(dir) / "external";
     return rpbench::write_payload(out / "osm_file.bin", data.file) &&
-           rpbench::write_pool(out / "osm_blocks", data.payloads);
+           rpbench::write_sum(out / "osm_file.sum", sum) &&
+           rpbench::write_pool(out / "osm_blocks", data.payloads) &&
+           rpbench::write_sum(out / "osm_blocks.sum", sum);
 }
 
 }  // namespace rposm

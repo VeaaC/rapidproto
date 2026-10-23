@@ -7,16 +7,20 @@
 //! <dir>/stream/<stem>.bin    a streaming scenario                   (rapidproto_bench)
 //! <dir>/rv/<stem>/<i>.bin    buffer i of a varint-sweep pool        (both)
 //! <dir>/rv/<stem>/pool.txt   the pool's buffer count, written last  (both)
-//! <dir>/external/<stem>.bin  a real-world dataset's input           (rapidproto_arena_bench, corpus)
-//! <dir>/external/<stem>/     a real-world dataset's pool            (rapidproto_arena_bench, corpus)
+//! <dir>/external/<stem>.bin  a real-world dataset's input           (rapidproto_arena_bench)
+//! <dir>/external/<stem>/     a real-world dataset's pool            (rapidproto_arena_bench)
+//! <dir>/external/<stem>.sum  the C++ arms' checksum over that input (rapidproto_arena_bench)
 //! ```
 //!
 //! The varint sweeps decode a POOL of distinct-seed buffers per scenario, rotated one decode per call,
 //! so no arm replays one memorized width sequence (the C++ rationale, `tests/bench_varint.hpp`). Their
 //! scenario names and axes are mirrored here from that header: the names must match the C++ tables.
 //!
-//! The real-world datasets' inputs exist only when the C++ bench was built with the fetched corpus, so
-//! their scenarios are skipped without them ([`available`]); every other payload is required.
+//! A real-world dataset's input exists only when the C++ bench was built with that dataset fetched
+//! (`tests/fetch_corpus.py`; OSM's extract also `tests/fetch_osm_dataset.py`), so its scenarios are
+//! skipped without it ([`available`]); every other payload is required. The Rust walks over those
+//! inputs are ported from the C++ ones field for field, so the runner holds them to the dumped C++
+//! checksum ([`cpp_checksum`]).
 
 use std::path::{Path, PathBuf};
 
@@ -86,14 +90,30 @@ pub fn read(path: &Path) -> Vec<u8> {
 }
 
 /// Whether `source`'s input is in the payload directory `dir`. Only a real-world dataset's may be
-/// missing (a dump from a C++ build without the corpus writes none), so this is `true` for every other
-/// source -- loading one that is missing fails loudly instead.
+/// missing (a dump from a C++ build without that dataset writes none), so this is `true` for every
+/// other source -- loading one that is missing fails loudly instead.
 pub fn available(dir: &Path, source: &Source) -> bool {
     match source {
         Source::External(_) => source.path(dir).is_file(),
         Source::Batch(_) => source.path(dir).join("pool.txt").is_file(),
         Source::Arena(_) | Source::Stream(_) | Source::Pool(_) => true,
     }
+}
+
+/// The C++ arms' checksum over a real-world dataset's input (`<dir>/external/<stem>.sum`, which the dump
+/// writes beside every such input); `None` for every other source, whose checksums follow this crate's
+/// own convention.
+pub fn cpp_checksum(dir: &Path, source: &Source) -> Option<u64> {
+    let (Source::External(stem) | Source::Batch(stem)) = source else {
+        return None;
+    };
+    let path = dir.join("external").join(format!("{stem}.sum"));
+    let text = String::from_utf8(read(&path)).unwrap_or_default();
+    Some(
+        text.trim()
+            .parse()
+            .unwrap_or_else(|_| panic!("bad checksum in {path:?}")),
+    )
 }
 
 /// Load a scenario's input from the payload directory `dir`.
@@ -136,11 +156,18 @@ pub fn batch(buffers: &[Vec<u8>]) -> Vec<u8> {
     out
 }
 
-/// The buffers of a [`Source::Batch`] input, in order.
+/// The buffers of a [`Source::Batch`] input, in order. Panics on bytes [`batch`] did not build.
 pub fn frames(mut batch: &[u8]) -> impl Iterator<Item = &[u8]> {
     std::iter::from_fn(move || {
-        let (len, rest) = batch.split_first_chunk::<4>()?;
-        let (frame, rest) = rest.split_at(u32::from_le_bytes(*len) as usize);
+        if batch.is_empty() {
+            return None;
+        }
+        let (len, rest) = batch
+            .split_first_chunk::<4>()
+            .expect("not a batch: a truncated frame length");
+        let (frame, rest) = rest
+            .split_at_checked(u32::from_le_bytes(*len) as usize)
+            .expect("not a batch: a frame past the end");
         batch = rest;
         Some(frame)
     })

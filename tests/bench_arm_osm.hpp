@@ -62,8 +62,8 @@ int run_arm();
 
 // The bench's dump mode: write the two scenarios' inputs under <dir>/external/ -- the raw
 // file as osm_file.bin, and the inflated PrimitiveBlock payloads as the pool osm_blocks/ (the
-// bench_payloads.hpp pool layout; osm_blocks decodes the whole pool per call). False (after
-// a message) on failure.
+// bench_payloads.hpp pool layout; osm_blocks decodes the whole pool per call) -- each with
+// its checksum as <stem>.sum. False (after a message) on failure.
 bool dump(const char* dir);
 
 }  // namespace rposm

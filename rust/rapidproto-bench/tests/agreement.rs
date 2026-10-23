@@ -467,12 +467,9 @@ fn every_stream_scenario_sums_what_cpp_sums() {
 #[test]
 fn every_arena_scenario_is_listed_once() {
     let specs = rapidproto_bench::scenario_specs();
-    // The real-world datasets this build has: OSM's two, plus google_message1/2 with the corpus and
-    // compute under its feature.
-    let external =
-        2 + if cfg!(rp_bench_gm) { 2 } else { 0 } + usize::from(cfg!(feature = "compute"));
-    // The 8 shapes, the 90-scenario `rv` sweep, and the 1M per-type sweep (15 `rv-zz`, 5 `rv-enum`).
-    assert_eq!(specs.len(), 8 + external + 90 + 15 + 5);
+    // The 8 shapes, the 5 real-world datasets (listed whether or not this build decodes them), the
+    // 90-scenario `rv` sweep, and the 1M per-type sweep (15 `rv-zz`, 5 `rv-enum`).
+    assert_eq!(specs.len(), 8 + 5 + 90 + 15 + 5);
     let mut names: Vec<&str> = specs.iter().map(|s| s.name.as_str()).collect();
     names.sort_unstable();
     names.dedup();

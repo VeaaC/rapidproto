@@ -501,7 +501,7 @@ fn sweep_bench(c: &mut Criterion) {
 }
 
 // The real-world datasets (`rapidproto_bench::external`), every arm the `bench` runner times. Their
-// inputs exist only in a shared directory dumped from a C++ build with the corpus, so the group skips
+// inputs exist only in a shared directory dumped from a C++ build with the datasets, so the group skips
 // what the directory lacks. One call decodes a whole input (osm_blocks: every block), so samples are
 // few and long, like the sweeps'.
 fn external_bench(c: &mut Criterion) {
@@ -527,7 +527,15 @@ fn external_bench(c: &mut Criterion) {
             payloads::bytes_per_call(&dir, &sc.source) as u64,
         ));
         for arm in (sc.arms)() {
-            let f = arm.decoder().expect("every external arm is supported");
+            // An unsupported arm stands for a scenario this build has no decoder for.
+            let Some(f) = arm.decoder() else {
+                eprintln!(
+                    "decode_external: {} skipped ({})",
+                    sc.name,
+                    arm.unsupported_reason().unwrap_or("")
+                );
+                continue;
+            };
             group.bench_function(format!("{}/{}", sc.name, arm.name), |b| {
                 let inputs = inputs.get_or_init(|| payloads::load(&dir, &sc.source));
                 b.iter(|| black_box(f(black_box(&inputs.buffers[0]))));

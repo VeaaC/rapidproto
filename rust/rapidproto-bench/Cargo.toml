@@ -2,9 +2,10 @@
 # with the C++ benches over their shared payloads: the generated arena decoder (baseline) measured both
 # against itself (the criterion A/B bench) and against other Rust protobuf crates (the ecosystem
 # comparison) with one shared per-field checksum walk, the generated streaming decoder against
-# itself and a hand-written wire loop, and both models on the C++ bench's real-world datasets. Competitor crates and their codegen are deps HERE only, so
-# they never reach the `rapidproto` runtime, the generated code, or the no_std tiers. Competitors are
-# added one at a time and selected at runtime (the `bench` binary's ARMS filter).
+# itself and a hand-written wire loop, and both models on the C++ bench's real-world datasets.
+# Competitor crates and their codegen are deps HERE only, so they never reach the `rapidproto`
+# runtime, the generated code, or the no_std tiers. Competitors are added one at a time and selected
+# at runtime (the `bench` binary's ARMS filter).
 [package]
 name = "rapidproto-bench"
 version = "0.0.0"
@@ -36,6 +37,10 @@ femtopb = "0.9"
 # OFF BY DEFAULT (the `google-upb` feature): building it needs an exact-version protoc + a C toolchain,
 # so the normal cargo-only build/CI never pulls it. Excluded from the workspace (see ../Cargo.toml).
 rapidproto-bench-upb = { path = "../rapidproto-bench-upb", optional = true }
+# zlib for the `osm_file` scenario, whose arms inflate the PBF blobs with `uncompress` as the C++ arms
+# do: the system zlib where installed (the C++ arms' library, so both inflate with the same code), a
+# bundled build elsewhere.
+libz-sys = "1"
 
 [features]
 # Add the google-upb capstone arm. Off by default; enabling it requires `protoc` 36.2 at build time
@@ -44,8 +49,8 @@ rapidproto-bench-upb = { path = "../rapidproto-bench-upb", optional = true }
 #       cargo run -p rapidproto-bench --release --bin bench --features google-upb
 google-upb = ["dep:rapidproto-bench-upb"]
 # Add the `compute Instance` scenario (googleapis compute.proto, from the fetched corpus). Off by
-# default: its generated decoder takes minutes to compile, as its C++ counterpart does (and minutes
-# more to generate unless build scripts are optimized -- see src/main.rs).
+# default: its generated decoder is slow to compile, as its C++ counterpart is, and slower still to
+# generate unless build scripts are optimized (see src/main.rs).
 compute = []
 
 [build-dependencies]

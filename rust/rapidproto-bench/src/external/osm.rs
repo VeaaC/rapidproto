@@ -4,11 +4,12 @@
 //!
 //! - `osm_blocks`: every PrimitiveBlock, pre-inflated by the dump, decoded and walked per call -- the
 //!   protobuf layer alone. Arms: the arena decoder cold (baseline) and warm, and the streaming decoder
-//!   (the C++ `arena-cold`, `arena-warm` and `streamgen`).
+//!   (the C++ `arena-cold`, `arena-warm` and `streamgen`). The blocks sit back to back in one batch
+//!   buffer, where C++ holds each in its own; the decoders read bytes, so alignment does not enter.
 //! - `osm_file`: the raw file per call -- framing, the BlobHeader/Blob envelopes (through the arena
 //!   model, as in C++), zlib inflate, decode, walk. Arms: the arena decoder warm (baseline) and the
-//!   streaming decoder (the C++ `arena-warm` and `streamgen`). Inflate is the system zlib's
-//!   `uncompress`, the call the C++ arms make, so the two languages inflate with the same code.
+//!   streaming decoder (the C++ `arena-warm` and `streamgen`). Inflate is zlib's `uncompress`, the call
+//!   the C++ arms make -- through libz-sys, from the same system zlib where one is installed.
 //!
 //! Like the C++ arms, the streaming walk reads each block twice (stringtable first: wire order
 //! guarantees nothing) and consumes every column the arena walk reads, and both streaming arms reuse
@@ -497,31 +498,19 @@ fn take_blob<'a>(file: &'a [u8], offset: &mut usize, datasize: i32) -> Option<&'
     Some(blob)
 }
 
-#[link(name = "z")]
-extern "C" {
-    fn uncompress(
-        dest: *mut u8,
-        dest_len: *mut std::ffi::c_ulong,
-        source: *const u8,
-        source_len: std::ffi::c_ulong,
-    ) -> std::ffi::c_int;
-}
-
-/// Inflate `deflated` into `out`, resized to `raw_size`, with the system zlib's one-shot `uncompress`
-/// -- what the C++ arms call (examples/osm-pbf/pbf_input.hpp). False unless it yields exactly
-/// `raw_size` bytes.
+/// Inflate `deflated` into `out`, resized to `raw_size`, with zlib's one-shot `uncompress` -- what the
+/// C++ arms call (examples/osm-pbf/pbf_input.hpp). False unless it yields exactly `raw_size` bytes.
 fn inflate(deflated: &[u8], raw_size: usize, out: &mut Vec<u8>) -> bool {
+    let (Ok(mut len), Ok(src_len)) = (
+        libz_sys::uLongf::try_from(raw_size),
+        libz_sys::uLong::try_from(deflated.len()),
+    ) else {
+        return false;
+    };
     out.resize(raw_size, 0);
-    let mut len = raw_size as std::ffi::c_ulong;
     // SAFETY: `out` holds `raw_size` initialized bytes and `len` says so (zlib writes at most `len` and
     // reports how many it wrote); `deflated` is a live slice of the length passed.
-    let rc = unsafe {
-        uncompress(
-            out.as_mut_ptr(),
-            &mut len,
-            deflated.as_ptr(),
-            deflated.len() as std::ffi::c_ulong,
-        )
-    };
-    rc == 0 && len as usize == raw_size
+    let rc =
+        unsafe { libz_sys::uncompress(out.as_mut_ptr(), &mut len, deflated.as_ptr(), src_len) };
+    rc == libz_sys::Z_OK && usize::try_from(len) == Ok(raw_size)
 }

@@ -25,8 +25,9 @@ namespace rpcompute {
 // tree, since the corpus gate sweeps the front end but never runs a decode.
 bool run_arm();
 
-// The bench's dump mode: write the payload to <dir>/external/compute_instance.bin. False (after
-// a message) on failure.
+// The bench's dump mode: write the payload and its checksum to
+// <dir>/external/compute_instance.{bin,sum}. False (after a message) on a write failure; a
+// missing payload aborts, as in run_arm().
 bool dump(const char* dir);
 
 }  // namespace rpcompute

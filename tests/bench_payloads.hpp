@@ -10,11 +10,14 @@
 //   <dir>/stream/<stem>.bin    a streaming scenario (bench_streamgen.cpp)
 //   <dir>/rv/<stem>/<i>.bin    buffer i of a varint-sweep pool (both benches; bench_varint.hpp)
 //   <dir>/rv/<stem>/pool.txt   the pool's buffer count, written last: a pool without it is incomplete
-//   <dir>/external/...         the real-world datasets' inputs, when the arena bench was built with
-//                              the corpus (bench_arm_messages / _osm / _compute dump()); written for
-//                              the Rust runners -- the C++ arms read the same bytes from the corpus
+//   <dir>/external/<stem>...   a real-world dataset's input (a .bin, or a pool directory) and, as
+//                              <stem>.sum, the checksum the C++ arms agree on over it -- written
+//                              when the arena bench was built with that dataset (bench_arm_messages
+//                              / _osm / _compute dump()), for the Rust runners: the C++ arms read the
+//                              same bytes from their own sources
 // The Rust runners build none of these, so the files are their whole contract.
 
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
@@ -65,6 +68,12 @@ inline bool write_payload(const std::filesystem::path& path, const std::string& 
         return false;
     }
     return true;
+}
+
+// Write `sum` to `path` in decimal: the checksum the C++ arms agree on over a real-world dataset's
+// input, which the Rust runner holds its own (field-for-field ported) walks to.
+inline bool write_sum(const std::filesystem::path& path, std::uint64_t sum) {
+    return write_payload(path, std::to_string(sum) + "\n");
 }
 
 // A varint-sweep pool's directory under the payload root.

@@ -1,10 +1,11 @@
 //! The measurement loop and report shared by the Rust runners -- `bench` (the arena decoder against
 //! the Rust ecosystem) and `stream` (the streaming decoder against a hand-written wire loop). Per
-//! scenario: load its input from the shared payload directory (skipping a real-world dataset the
-//! directory lacks), gate on every supported arm agreeing on the checksum, time the arms, print a row
-//! per arm (and an NDJSON record with `RAPIDPROTO_BENCH_JSON`) plus the scenario's memory report if it
-//! makes one, then drop the input -- the varint sweeps' pools reach ~80 MB each, so inputs are never
-//! all resident at once.
+//! scenario: load its input from the shared payload directory (skipping, with a note, a scenario this
+//! build has no decoder for or whose input the directory lacks), gate on every supported arm agreeing
+//! on the checksum -- and for a real-world dataset, on the C++ arms' checksum the dump recorded -- time
+//! the arms, print a row per arm (and an NDJSON record with `RAPIDPROTO_BENCH_JSON`) plus the
+//! scenario's memory report if it makes one, then drop the input -- the varint sweeps' pools reach
+//! ~80 MB each, so inputs are never all resident at once.
 //!
 //! Timing: `ROUNDS` samples per arm; within a round every supported arm runs back to back, their order
 //! rotated per round to cancel slot bias (the C++ harness does the same), and the median sample is the
@@ -266,15 +267,25 @@ pub fn run(scenarios: Vec<Scenario>, report: &Report) -> i32 {
             continue;
         }
         let name = sc.name.as_str();
+        let arms = (sc.arms)();
+        // A scenario this build cannot decode at all (its decoders were not generated) is listed with
+        // the reason, not dropped.
+        if let [first, ..] = arms.as_slice() {
+            if arms.iter().all(|a| a.decoder().is_none()) {
+                let reason = first.unsupported_reason().unwrap_or("");
+                eprintln!("note: scenario {name} SKIPPED -- {reason}");
+                continue;
+            }
+        }
         if !payloads::available(&opts.dir, &sc.source) {
             eprintln!(
                 "note: scenario {name} SKIPPED -- its input is not in the payload directory (dump it \
-                 from a C++ arena bench built with the corpus)"
+                 from a C++ arena bench built with the dataset fetched; see payloads.rs)"
             );
             continue;
         }
         let inputs = payloads::load(&opts.dir, &sc.source);
-        let mut arms = select_arms((sc.arms)(), opts.arm_filter.as_deref());
+        let mut arms = select_arms(arms, opts.arm_filter.as_deref());
         // An arm that relies on UB for this scenario (quick-protobuf's unaligned packed-double slice)
         // only behaves in a release build; in a debug build the alignment UB-check aborts the process.
         // Drop it there so debug runs still work -- it is measured in release only, and flagged there.
@@ -308,6 +319,16 @@ pub fn run(scenarios: Vec<Scenario>, report: &Report) -> i32 {
             }
             return 1;
         }
+        let cpp_sum = payloads::cpp_checksum(&opts.dir, &sc.source);
+        if cpp_sum.is_some_and(|c| c != agreed[0]) {
+            eprintln!(
+                "CHECKSUM MISMATCH in scenario {name}: the arms agree on {:#018x}, the C++ arms on \
+                 {:#018x}",
+                agreed[0],
+                cpp_sum.unwrap()
+            );
+            return 1;
+        }
         let bytes = inputs.bytes;
         let cpp = sc
             .cpp_name
@@ -316,8 +337,9 @@ pub fn run(scenarios: Vec<Scenario>, report: &Report) -> i32 {
         if opts.check_only {
             let n_unsupported = sums.iter().filter(|s| s.is_none()).count();
             println!(
-                "checksum ok  {name:<26} {:#018x}  ({} arms{}, {} buffer(s), {:.0} bytes/call)",
+                "checksum ok  {name:<26} {:#018x}{}  ({} arms{}, {} buffer(s), {:.0} bytes/call)",
                 agreed[0],
+                if cpp_sum.is_some() { " = C++" } else { "" },
                 agreed.len(),
                 if n_unsupported > 0 {
                     format!(", {n_unsupported} unsupported")

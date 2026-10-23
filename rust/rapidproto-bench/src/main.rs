@@ -6,10 +6,11 @@
 //! (`runner.rs`, env vars documented there). `dataset` also reports the arena's memory after one
 //! decode, the C++ bench's `mem` record.
 //!
-//! The C++ bench's real-world datasets run too (`external.rs`; RapidProto's arms only) when their
-//! inputs are in the payload directory -- the C++ dump writes them when built with the fetched corpus.
-//! `google_message1`/`2` additionally need the corpus when THIS crate is built (build.rs), and
-//! `compute Instance` the off-by-default `compute` feature. Its decoder is generated in the build
+//! The C++ bench's real-world datasets run too (`src/external/`; RapidProto's arms only, held to the
+//! C++ checksums) when their inputs are in the payload directory -- the C++ dump writes each when it
+//! was built with that dataset fetched (see `payloads.rs`). `google_message1`/`2` also need the corpus
+//! when THIS crate is built (build.rs), and `compute Instance` the off-by-default `compute` feature;
+//! a run lists one this build lacks with the reason. The compute decoder is generated in the build
 //! script by an interpreter that cargo leaves unoptimized there (over ten minutes for compute.proto),
 //! so build it with optimized build scripts:
 //! `--features compute --config 'profile.release.build-override.opt-level=1'` (1 is enough, and safe:

@@ -143,8 +143,13 @@ bool run_arm() {
 }
 
 bool dump(const char* dir) {
-    return rpbench::write_payload(std::filesystem::path(dir) / "external" / "compute_instance.bin",
-                                  read_compute_payload());
+    const std::string payload = read_compute_payload();
+    rapidproto::Arena arena;
+    const std::uint64_t sum = checksum_compute(
+        google::cloud::compute::v1beta::Instance::decode(rapidproto::ByteView(payload), arena));
+    const std::filesystem::path out = std::filesystem::path(dir) / "external";
+    return rpbench::write_payload(out / "compute_instance.bin", payload) &&
+           rpbench::write_sum(out / "compute_instance.sum", sum);
 }
 
 }  // namespace rpcompute

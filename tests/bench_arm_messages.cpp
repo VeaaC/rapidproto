@@ -15,7 +15,6 @@
 #include <fstream>
 #include <sstream>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include "benchmark_message1_proto2.pb.h"
@@ -1804,20 +1803,32 @@ int run_arm() {
     return bad;
 }
 
+namespace {
+
+// One scenario's dump: its wire bytes as <name>.bin and the arena walk's checksum as <name>.sum
+// (startup validation pins every arm to that one value).
+template <class ArenaMsg, class ArenaWalk>
+bool dump_scenario(const std::filesystem::path& out, const std::string& name, const char* dataset,
+                   ArenaWalk arena_walk) {
+    const std::string payload = load_payload(dataset);
+    if (payload.empty()) {
+        std::fprintf(stderr, "bench: cannot unwrap a payload from '%s'\n", dataset);
+        return false;
+    }
+    rapidproto::Arena arena;
+    const std::uint64_t sum = arena_walk(ArenaMsg::decode(rapidproto::ByteView(payload), arena));
+    return rpbench::write_payload(out / (name + ".bin"), payload) &&
+           rpbench::write_sum(out / (name + ".sum"), sum);
+}
+
+}  // namespace
+
 bool dump(const char* dir) {
     const std::filesystem::path out = std::filesystem::path(dir) / "external";
-    for (const auto& [name, dataset] : {std::pair{"google_message1", RAPIDPROTO_GM1_DATASET},
-                                        std::pair{"google_message2", RAPIDPROTO_GM2_DATASET}}) {
-        const std::string payload = load_payload(dataset);
-        if (payload.empty()) {
-            std::fprintf(stderr, "bench: cannot unwrap a payload from '%s'\n", dataset);
-            return false;
-        }
-        if (!rpbench::write_payload(out / (std::string(name) + ".bin"), payload)) {
-            return false;
-        }
-    }
-    return true;
+    return dump_scenario<am::GoogleMessage1>(out, "google_message1", RAPIDPROTO_GM1_DATASET,
+                                             gm1_arena_walk<am::GoogleMessage1>) &&
+           dump_scenario<am::GoogleMessage2>(out, "google_message2", RAPIDPROTO_GM2_DATASET,
+                                             gm2_arena_walk<am::GoogleMessage2>);
 }
 
 }  // namespace rpmessages

@@ -14,12 +14,14 @@
 //! rust-protobuf, quick-protobuf, femtopb (and google-upb behind its feature). The real-world datasets
 //! run RapidProto's arms only, the ones the C++ bench runs for them ([`external`]).
 //!
-//! The checksum is a wrapping `u64` sum, mirrored field-for-field across arms so every arm in a
-//! scenario produces the identical value or the run aborts. For scalars it follows the C++ ecosystem
-//! bench convention (string/bytes -> byte length, bool -> 0/1, double -> IEEE bit pattern,
-//! int32/enum/uint32 -> value, int64/uint64/fixed -> value); for repeated strings, repeated
-//! sub-messages and maps it contributes the element COUNT (`.len()`), where the C++ bench sums each
-//! element's length -- so the sum is a per-LANGUAGE agreement gate, NOT a cross-language checksum.
+//! On the shared shapes (`tests/bench/bench.proto`) the checksum is a wrapping `u64` sum, mirrored
+//! field-for-field across arms so every arm in a scenario produces the identical value or the run
+//! aborts (the real-world datasets use the C++ walks instead, see [`external`]). For scalars it
+//! follows the C++ ecosystem bench convention (string/bytes -> byte length, bool -> 0/1, double -> IEEE
+//! bit pattern, int32/enum/uint32 -> value, int64/uint64/fixed -> value); for repeated strings,
+//! repeated sub-messages and maps it contributes the element COUNT (`.len()`), where the C++ bench
+//! sums each element's length -- so on these shapes the sum is a per-LANGUAGE agreement gate, NOT a
+//! cross-language checksum.
 //! Because these are proto3 messages (zero/empty defaults contribute 0), a straight walk of every
 //! accessor equals present-fields-only.
 

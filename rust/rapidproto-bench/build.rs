@@ -74,9 +74,10 @@ fn main() {
 // RapidProto's decoders for the real-world datasets (`src/external/`), through rapidproto-build like
 // any consumer's build script: OSM PBF always (its schema is in-repo); the google_message pair when the
 // fetched corpus has it (cfg `rp_bench_gm`); compute.proto under the off-by-default `compute` feature
-// (its decoder alone takes minutes to compile). The corpus is `RAPIDPROTO_CORPUS_DIR`, else the C++
-// build's `build/corpus` (`python3 tests/fetch_corpus.py`); a corpus fetched after this crate was
-// built is picked up once the build script re-runs (`cargo clean -p rapidproto-bench`).
+// (its decoder is slow to compile). The corpus is `RAPIDPROTO_FETCHED_CORPUS` (a relative path is
+// taken from the repo root), else the C++ build's `build/corpus` (`python3 tests/fetch_corpus.py`);
+// a corpus fetched after this crate was built is picked up once the build script re-runs
+// (`cargo clean -p rapidproto-bench`).
 fn external() {
     println!("cargo::rustc-check-cfg=cfg(rp_bench_gm)");
     // The generated code gates its serde and owning-handle surfaces on the INCLUDING crate's features;
@@ -99,9 +100,10 @@ fn external() {
         true,
     );
 
-    println!("cargo:rerun-if-env-changed=RAPIDPROTO_CORPUS_DIR");
-    let corpus = std::env::var_os("RAPIDPROTO_CORPUS_DIR")
-        .map_or_else(|| repo.join("build/corpus"), PathBuf::from);
+    println!("cargo:rerun-if-env-changed=RAPIDPROTO_FETCHED_CORPUS");
+    let corpus = repo.join(
+        std::env::var_os("RAPIDPROTO_FETCHED_CORPUS").unwrap_or_else(|| "build/corpus".into()),
+    );
     let datasets = corpus.join("protobuf-benchmarks/benchmarks/datasets");
     let gm = [
         datasets.join("google_message1/proto2/benchmark_message1_proto2.proto"),
