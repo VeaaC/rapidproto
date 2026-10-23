@@ -240,7 +240,7 @@ pub fn read_varint<'a>(rest: &'a [u8], out: &mut u64) -> Result<&'a [u8], ErrorK
     // loop and keeps the value-threaded slice in registers (ptr+len), with no spill. This is the
     // overwhelmingly common case (small scalar values and 1-byte length prefixes). It MUST stay small:
     // a plain `#[inline]` on the full loop below does NOT inline at a message decoder's many call sites
-    // (LLVM's cost model declines the 10-iteration body in a large `decode_into`), so every field would
+    // (LLVM's cost model declines the 10-iteration body in a large `rp_decode_into`), so every field would
     // otherwise pay an out-of-line call + a stack round-trip of ptr/len/value -- defeating the
     // value-threaded design. Multibyte and all error cases go out-of-line to `read_varint_cold`, which
     // the `#[cold]` keeps off this hot path, so the fast path remains inline-sized. Like the C++

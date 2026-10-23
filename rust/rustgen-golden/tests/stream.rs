@@ -521,6 +521,104 @@ fn schema_names_shaped_like_the_stream_glue_do_not_collide_with_it() {
 }
 
 #[test]
+fn schema_names_shaped_like_generated_references_do_not_collide_with_them() {
+    // nsedge/collide.proto names types after what generated code refers to or derives -- the prelude's
+    // `Option`/`Default`, primitive `u8`/`i32`, the decode driver's type parameter `V`, `Node` beside a
+    // `NodeVisitor` sub-package, `Type` beside `type` -- and fields after decode-body names (`Some`,
+    // `rp_out`, `decode_into`). Most of the check is the golden compiling; this drives the macros with
+    // the modules globbed, so `Default` here is the schema's, not the prelude's. Another schema's macro
+    // is driven beside them: its rows name `i32` at this call site, where a schema type of that name
+    // would take over.
+    use rustgen_golden::collide::stream::collide::r#type::*; // `Type`'s nested `X`
+    use rustgen_golden::collide::stream::collide::NodeVisitor::*; // the sub-package
+    use rustgen_golden::collide::stream::collide::Option::*; // the sub-package
+    use rustgen_golden::collide::stream::collide::*;
+    // Holder { Some: 1, rp_out: 5, decode_into: 7, prims: Prims { a: u8 { v: 13 }, f: I32_ONE },
+    //          v: V { child: V { v: 12 }, v: 11 }, type: Type { x: X { v: 14 } }, under: type_ { v: 22 },
+    //          node: Node { v: 15 }, opt: collide.Option.Opt { v: 16 }, sub: collide.NodeVisitor.X { v: 17 } }
+    let field = |f: u32, v: u64| {
+        let mut b = Vec::new();
+        put_var(&mut b, f, v);
+        b
+    };
+    let nested = |f: u32, payload: &[u8]| {
+        let mut b = Vec::new();
+        put_len(&mut b, f, payload);
+        b
+    };
+    let mut buf = [field(1, 1), field(5, 5), field(7, 7)].concat();
+    put_len(
+        &mut buf,
+        15,
+        &[nested(1, &field(1, 13)), field(6, 1)].concat(),
+    );
+    put_len(
+        &mut buf,
+        16,
+        &[nested(1, &field(2, 12)), field(2, 11)].concat(),
+    );
+    put_len(&mut buf, 17, &nested(1, &field(1, 14)));
+    put_len(&mut buf, 18, &field(1, 22));
+    put_len(&mut buf, 19, &field(1, 15));
+    put_len(&mut buf, 21, &field(1, 16));
+    put_len(&mut buf, 22, &field(1, 17));
+    #[derive(Default)]
+    struct Seen {
+        some: i32,
+        rp_out: i32,
+        decode_into: i32,
+        u8_v: i32,
+        i32_value: i32,
+        v: (i32, i32),
+        x: i32,
+        under: i32,
+        node: i32,
+        opt: i32,
+        sub: i32,
+    }
+    let mut seen = Seen::default();
+    Holder::new(&buf)
+        .decode(holder_stream!(&mut seen; {
+            Some => |s, v| s.some = v,
+            rp_out => |s, v| s.rp_out = v,
+            decode_into => |s, v| s.decode_into = v,
+            prims => |s, p| p.decode(prims_stream!(&mut *s; {
+                a => |s, a| a.decode(u8__stream!(&mut *s; { v => |s, v| s.u8_v = v })),
+                f => |s, f| s.i32_value = f.0,
+            })),
+            v => |s, v| v.decode(v_stream!(&mut *s; {
+                v => |s, x| s.v.0 = x,
+                child => |s, c| c.decode(v_stream!(&mut *s; { v => |s, x| s.v.1 = x })),
+            })),
+            type_ => |s, t| t.decode(type_stream!(&mut *s; {
+                x => |s, x| x.decode(r#type::x_stream!(&mut *s; { v => |s, v| s.x = v })),
+            })),
+            under => |s, u| u.decode(type___stream!(&mut *s; { v => |s, v| s.under = v })),
+            node => |s, n| n.decode(node_stream!(&mut *s; { v => |s, v| s.node = v })),
+            opt => |s, o| o.decode(opt_stream!(&mut *s; { v => |s, v| s.opt = v })),
+            sub => |s, x| x.decode(NodeVisitor::x_stream!(&mut *s; { v => |s, v| s.sub = v })),
+        }))
+        .unwrap();
+    assert_eq!(
+        (
+            seen.some,
+            seen.rp_out,
+            seen.decode_into,
+            seen.u8_v,
+            seen.i32_value
+        ),
+        (1, 5, 7, 13, 1)
+    );
+    assert_eq!((seen.v, seen.x, seen.under), ((11, 12), 14, 22));
+    assert_eq!((seen.node, seen.opt, seen.sub), (15, 16, 17));
+    let mut implicit_i = 0;
+    Msg::new(MSG)
+        .decode(msg_stream! { implicit_i => |v| implicit_i = v })
+        .unwrap();
+    assert_eq!(implicit_i, 42);
+}
+
+#[test]
 fn packed_fixed_width_repeated_fields_decode_per_element() {
     // Mirrors C++ "packed fixed-width repeated fields decode per element": the packed I64/I32 element
     // paths (double, sfixed32, float), which varint-only packed fields never reach.

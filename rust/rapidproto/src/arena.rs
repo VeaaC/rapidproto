@@ -168,7 +168,7 @@ impl<'buf> Arena<'buf> {
     }
 
     /// Allocate a `T` slot and decode into it **in place** -- no by-value construct-then-copy. `f`
-    /// initializes the slot (a generated `decode_into` writing each field straight into it); the
+    /// initializes the slot (a generated `rp_decode_into` writing each field straight into it); the
     /// `&mut T` is returned only if `f` succeeds. On `Err` the slot is abandoned, never read (the
     /// arena never frees, so the reserved bytes are simply unused). This is the Rust equivalent of the
     /// C++ decoder allocating the slot then `rp_decode_into(*slot, ...)`.

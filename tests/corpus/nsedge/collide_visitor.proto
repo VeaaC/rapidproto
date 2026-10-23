@@ -1,0 +1,9 @@
+// A sub-package named like `collide.Node`'s visitor trait: its module sits in the same scope as the
+// trait. Imported by collide.proto.
+syntax = "proto3";
+
+package collide.NodeVisitor;
+
+message X {
+  int32 v = 1;
+}

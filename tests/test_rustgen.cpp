@@ -49,6 +49,12 @@ std::string gen(std::string src) {
     return rustgen::generate_common({&file});
 }
 
+// Generate the stream tree (no layouts: a streaming visitor materializes nothing).
+std::string gen_stream(std::string src) {
+    const FileNode file = analyzed(std::move(src));
+    return rustgen::generate_stream({&file});
+}
+
 // Generate the arena tree. Keeps the ResolvedFileSet + SymbolTable alive so the shared storage-layout
 // planner (plan_layouts) sees the same FieldNode pointers the emitter walks.
 std::string gen_arena(std::string src) {
@@ -266,7 +272,7 @@ TEST_CASE("rustgen common: strippable enum strips the prefix and builds the clas
     CHECK(has(out, "pub fn classify(self) -> ColorClass {"));
     CHECK(has(out, "1 => ColorClass::Red,"));
     CHECK(has(out, "2 => ColorClass::Green,"));
-    CHECK(has(out, "other => ColorClass::Unknown(other),"));
+    CHECK(has(out, "rp_other => ColorClass::Unknown(rp_other),"));
 
     CHECK(has(out, "#[non_exhaustive]"));
     CHECK(has(out, "pub enum ColorClass {"));
@@ -300,6 +306,20 @@ TEST_CASE("rustgen common: Rust keywords in value names are raw-escaped") {
     CHECK(has(out, "pub const r#type: E = E(1);"));  // keyword const escaped with r#
     CHECK(has(out, "Type,"));                        // PascalCase variant is not a keyword
     CHECK(has(out, "None,"));
+}
+
+TEST_CASE("rustgen common: a value named `classify` yields to the method") {
+    // Associated consts and methods share the `impl`'s value namespace.
+    const std::string out = gen(R"(syntax = "proto3"; enum E { classify = 0; })");
+    CHECK(has(out, "pub const classify_: E = E(0);"));
+    CHECK(has(out, "pub fn classify(self) -> EClass {"));
+}
+
+TEST_CASE("rustgen common: a schema type named like a primitive gains a `_`") {
+    // The newtype of an `enum i32` would otherwise wrap itself (`struct i32(pub i32)`).
+    const std::string out = gen(R"(syntax = "proto3"; enum i32 { I32_ZERO = 0; })");
+    CHECK(has(out, "pub struct i32_(pub i32);"));
+    CHECK(has(out, "pub enum i32_Class {"));
 }
 
 TEST_CASE("rustgen common: alias values collapse to one match arm") {
@@ -362,7 +382,8 @@ TEST_CASE("rustgen arena: message struct with scalar/string/bytes/enum accessors
     CHECK(has(out, "pub fn name(&self) -> ::rapidproto::ProtoStr<'a> {"));
     CHECK(has(out, "pub fn blob(&self) -> &'a [u8] {"));
     CHECK(has(out, "pub fn active(&self) -> bool {"));
-    CHECK(has(out, "pub fn maybe(&self) -> Option<i32> {"));  // `optional` -> explicit
+    CHECK(has(out,
+              "pub fn maybe(&self) -> ::core::option::Option<i32> {"));  // `optional` -> explicit
     // enum-typed field references the common tree (super x (1 arena + 2 package) = 3).
     CHECK(has(out, "pub fn color(&self) -> super::super::super::common::m::n::Color {"));
     // repeated is a later slice -> noted, not emitted as an accessor.
@@ -370,7 +391,7 @@ TEST_CASE("rustgen arena: message struct with scalar/string/bytes/enum accessors
 
     CHECK(has(out,
               "pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> "
-              "Result<&'a Rec<'a>, ::rapidproto::DecodeError> {"));
+              "::core::result::Result<&'a Rec<'a>, ::rapidproto::DecodeError> {"));
 }
 
 TEST_CASE("rustgen arena: proto2 required/optional presence") {
@@ -379,8 +400,10 @@ TEST_CASE("rustgen arena: proto2 required/optional presence") {
           required int32 req = 1;
           optional int32 opt = 2;
         })");
-    CHECK(has(out, "pub fn req(&self) -> i32 {"));          // required -> bare (always present)
-    CHECK(has(out, "pub fn opt(&self) -> Option<i32> {"));  // optional -> explicit presence
+    CHECK(has(out, "pub fn req(&self) -> i32 {"));  // required -> bare (always present)
+    CHECK(has(
+        out,
+        "pub fn opt(&self) -> ::core::option::Option<i32> {"));  // optional -> explicit presence
 }
 
 TEST_CASE("rustgen arena: a group field decodes via read_group on the SGROUP key") {
@@ -407,6 +430,64 @@ TEST_CASE("rustgen arena: accessor names dedup against decode and each other") {
     CHECK(has(out, "pub fn self_(&self) -> i32 {"));    // `self` is raw-ineligible -> self_
     CHECK(has(out, "pub fn self__(&self) -> i32 {"));   // field `self_` collides -> self__
     CHECK(has(out, "pub fn decode(input: &'a [u8],"));  // the real decode method still present
+}
+
+TEST_CASE("rustgen arena: decode-body names stay apart from field names") {
+    // A field's decode local is `rp_field_<n>`, so neither a field named like a prelude variant (as a
+    // `let` binding, `Some` is a pattern) nor one named like a decode parameter (`rp_out`) clashes; a
+    // field name starting `rp_` gains a `_`, keeping the prefix the generator's own.
+    const std::string out = gen_arena(R"(syntax = "proto3";
+        message M { int32 Some = 1; int32 rp_out = 2; int32 decode_into = 3; })");
+    CHECK(has(out, "let mut rp_field_1: i32 = 0;"));
+    CHECK(has(out, "Some: rp_field_1,"));
+    CHECK(has(out, "pub fn rp__out(&self) -> i32 {"));
+    CHECK(has(out, "rp__out: rp_field_2,"));
+    CHECK(has(out, "pub fn decode_into(&self) -> i32 {"));  // the worker is `rp_decode_into`
+    CHECK(has(out, "pub(crate) fn rp_decode_into<'id>("));
+}
+
+TEST_CASE("rustgen: a message named like a primitive gains a `_`") {
+    // A struct `u8` would shadow the primitive for every `&'a [u8]` in its module.
+    const std::string out = gen_arena(R"(syntax = "proto3"; package p;
+        message u8 { bytes b = 1; }
+        message M { u8 m = 1; })");
+    CHECK(has(out, "pub struct u8_<'a> {"));
+    CHECK(has(out, "b: &'a [u8],"));
+    CHECK_FALSE(has(out, "pub struct u8<"));
+}
+
+TEST_CASE("rustgen: dedup compares identifiers, not spellings (`r#type` is `type`)") {
+    // `Type`'s submodule and `type`'s struct both escape to `r#type`, the identifier `type`, beside a
+    // real `type_`. Comparing spellings bumped the struct to `r#type_` -- the identifier `type_`, then
+    // defined twice.
+    const std::string out = gen_arena(R"(syntax = "proto3"; package p;
+        message Type { message X { int32 v = 1; } }
+        message type { int32 v = 1; }
+        message type_ { int32 v = 1; })");
+    CHECK(has(out, "pub mod r#type {"));         // the submodule keeps its name (a path segment)
+    CHECK(has(out, "pub struct type_<'a> {"));   // `type`'s struct, bumped off the submodule
+    CHECK(has(out, "pub struct type__<'a> {"));  // the real `type_`, bumped off that
+    CHECK_FALSE(has(out, "r#type_"));
+}
+
+TEST_CASE("rustgen stream: a visitor trait yields to a sibling item of its name") {
+    // `Node`'s trait meets a message `NodeVisitor`: the trait is bumped, never the struct, which
+    // arena-only users see too. Every use of the trait takes the bumped name.
+    const std::string out = gen_stream(R"(syntax = "proto3"; package p;
+        message Node { int32 v = 1; }
+        message NodeVisitor { int32 v = 1; })");
+    CHECK(has(out, "pub struct NodeVisitor<'a> {"));
+    CHECK(has(out, "pub trait NodeVisitor_<'a> {"));
+    CHECK(has(out, "pub fn decode<V: NodeVisitor_<'a>>("));
+    CHECK(has(out, "stream_visitor!(rp_mod_1p4Node NodeVisitor_ $a)"));
+    CHECK(has(out, "pub trait NodeVisitorVisitor<'a> {"));
+}
+
+TEST_CASE("rustgen stream: a child handle path in the decode driver is anchored at `self::`") {
+    // The driver's type parameter `V` would take over a relative path starting at a message `V`.
+    const std::string out = gen_stream(R"(syntax = "proto3"; package p;
+        message V { V child = 1; })");
+    CHECK(has(out, "rp_vis.on_child(self::V::new(rp_p))"));
 }
 
 TEST_CASE("rustgen arena: repeated fields become borrowed slices") {
@@ -446,7 +527,9 @@ TEST_CASE("rustgen arena: maps become MapView accessors") {
     CHECK(has(out,
               "pub fn nested(&self) -> ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, "
               "Inner<'a>> {"));  // message-valued map -> inline value
-    CHECK(has(out, "pub fn pick(&self) -> Option<&m::Pick<'a>> {"));  // oneof accessor (borrowed)
+    CHECK(has(
+        out,
+        "pub fn pick(&self) -> ::core::option::Option<&m::Pick<'a>> {"));  // oneof accessor (borrowed)
     CHECK(has(out, "pub mod m {"));          // M's submodule holds the enum
     CHECK(has(out, "pub enum Pick<'a> {"));  // borrows (string) -> <'a>
     CHECK(has(out, "A(i32),"));
@@ -469,15 +552,15 @@ TEST_CASE("rustgen arena: nested messages/enums and message-typed fields") {
 
     // Outer's accessors: nested message inner (singular -> Option<&>), repeated -> slice, nested enum.
     CHECK(has(out, "pub struct Outer<'a> {"));
-    CHECK(has(out, "pub fn inner(&self) -> Option<&'a outer::Inner<'a>> {"));
+    CHECK(has(out, "pub fn inner(&self) -> ::core::option::Option<&'a outer::Inner<'a>> {"));
     CHECK(has(out, "pub fn many(&self) -> &'a [outer::Inner<'a>] {"));
     CHECK(has(out, "pub fn kind(&self) -> super::super::common::p::outer::Kind {"));
     // Inner lives in a snake-case submodule; its back-reference to Outer climbs `super`.
     CHECK(has(out, "pub mod outer {"));
     CHECK(has(out, "pub struct Inner<'a> {"));
-    CHECK(has(out, "pub fn parent(&self) -> Option<&'a super::Outer<'a>> {"));
+    CHECK(has(out, "pub fn parent(&self) -> ::core::option::Option<&'a super::Outer<'a>> {"));
     // A top-level sibling reference is bare.
-    CHECK(has(out, "pub fn outer(&self) -> Option<&'a Outer<'a>> {"));
+    CHECK(has(out, "pub fn outer(&self) -> ::core::option::Option<&'a Outer<'a>> {"));
 }
 
 TEST_CASE("rustgen common: nested enums live in a per-message submodule") {
@@ -586,7 +669,7 @@ TEST_CASE("rustgen oneof: native enum in the message submodule, variants over al
           }
         })");
     // Accessor on M returns a borrow into M's own submodule; enum borrows -> carries <'a>.
-    CHECK(has(out, "pub fn choice(&self) -> Option<&m::Choice<'a>> {"));
+    CHECK(has(out, "pub fn choice(&self) -> ::core::option::Option<&m::Choice<'a>> {"));
     CHECK(has(out, "pub mod m {"));
     CHECK(has(out, "pub enum Choice<'a> {"));
     CHECK(has(out, "Num(i32),"));
@@ -603,7 +686,7 @@ TEST_CASE("rustgen oneof: a oneof that borrows nothing carries no lifetime") {
         message M { oneof pick { int32 n = 1; E e = 2; } })");
     CHECK(has(out, "pub enum Pick {"));  // only scalar + enum (Copy) variants -> no <'a>
     CHECK(!has(out, "pub enum Pick<'a>"));
-    CHECK(has(out, "pub fn pick(&self) -> Option<&m::Pick> {"));
+    CHECK(has(out, "pub fn pick(&self) -> ::core::option::Option<&m::Pick> {"));
     CHECK(has(out, "N(i32),"));
     CHECK(has(out, "E(super::super::super::common::p::E),"));
 }
@@ -625,8 +708,8 @@ TEST_CASE("rustgen oneof: multiple oneofs become separate enums") {
         })");
     CHECK(has(out, "pub enum A {"));      // borrows nothing
     CHECK(has(out, "pub enum B<'a> {"));  // borrows (string)
-    CHECK(has(out, "pub fn a(&self) -> Option<&m::A> {"));
-    CHECK(has(out, "pub fn b(&self) -> Option<&m::B<'a>> {"));
+    CHECK(has(out, "pub fn a(&self) -> ::core::option::Option<&m::A> {"));
+    CHECK(has(out, "pub fn b(&self) -> ::core::option::Option<&m::B<'a>> {"));
 }
 
 TEST_CASE(
@@ -636,7 +719,9 @@ TEST_CASE(
           oneof decode { int32 a = 1; }
           oneof c { int32 foo = 2; int32 foo_ = 3; }
         })");
-    CHECK(has(out, "pub fn decode_(&self) -> Option<&m::Decode> {"));  // vs the decode() method
+    CHECK(has(
+        out,
+        "pub fn decode_(&self) -> ::core::option::Option<&m::Decode> {"));  // vs the decode() method
     CHECK(has(out, "pub fn decode(input: &'a [u8],"));  // the real decode still present
     CHECK(has(out, "Foo(i32),"));                       // foo
     CHECK(has(out, "Foo_(i32),"));                      // foo_ -> same PascalCase -> bumped
@@ -651,7 +736,7 @@ TEST_CASE("rustgen decode: a message with map / oneof / required gets a real dec
           oneof pick { int32 n = 3; Sub s = 4; }
         })");
     CHECK(has(out, "by_name: ::rapidproto::MapView<"));  // real struct storage
-    CHECK(has(out, "pick: Option<"));
+    CHECK(has(out, "pick: ::core::option::Option<"));
     // proto2 required: a MissingRequired check keyed to the field, emitted after the loop.
     CHECK(has(out, "::rapidproto::ErrorKind::MissingRequired, 0).with_field(1)"));
     // map: accumulate entries into a DecodeVec, finalize to a MapView.
@@ -659,7 +744,7 @@ TEST_CASE("rustgen decode: a message with map / oneof / required gets a real dec
     CHECK(has(out, "::rapidproto::MapView::new(rp_map_2.into_slice())"));
     // oneof: the slot is set per member; a message variant decodes in place into its arena slot
     // (`emplace`, no by-value copy) then stores the borrow.
-    CHECK(has(out, "rp_oneof_0 = Some("));
+    CHECK(has(out, "rp_oneof_0 = ::core::option::Option::Some("));
     CHECK(has(out, "let rp_ptr = rp_arena.emplace(|rp_out|"));
 }
 
@@ -680,8 +765,8 @@ TEST_CASE("rustgen decode: a required small fixed-size message inlines with no p
     CHECK(has(out, "#[derive(Default)]"));
     // Required inlined message: always present on a successful decode -> getter returns `Some(&..)`
     // unconditionally (no bit test), matching how a required scalar reads its bare value.
-    CHECK(has(out, "pub fn s(&self) -> Option<&Small<'a>> {"));
-    CHECK(has(out, "Some(&self.s)"));
+    CHECK(has(out, "pub fn s(&self) -> ::core::option::Option<&Small<'a>> {"));
+    CHECK(has(out, "::core::option::Option::Some(&self.s)"));
     // Decoded in place; duplicate rejected via the required seen-flag (not a mask bit); then validated.
     CHECK(has(out, "::rapidproto::decode_value(|rp_out|"));
     CHECK(has(out, "if rp_req_1 {"));
@@ -704,21 +789,23 @@ TEST_CASE(
         })");
     // Defaulted optional reads exactly like a no-default optional: the getter still returns `Option`,
     // but presence is packed into `rp_presence` and the value stored bare (default 0, never 42).
-    CHECK(has(out, "pub fn n(&self) -> Option<i32> {"));
-    CHECK(has(out, "pub fn plain(&self) -> Option<i32> {"));
+    CHECK(has(out, "pub fn n(&self) -> ::core::option::Option<i32> {"));
+    CHECK(has(out, "pub fn plain(&self) -> ::core::option::Option<i32> {"));
     CHECK(
         has(out, "let mut rp_presence: u8 = 0;"));  // packed presence mask for the explicit fields
-    CHECK(has(out, "let mut n: i32 = 0;"));         // bare storage; default 42 NOT materialized
-    CHECK(has(out, "let mut s: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);"));
-    CHECK(
-        has(out, "let mut c: super::super::common::p::Color = super::super::common::p::Color(0);"));
+    CHECK(has(out, "let mut rp_field_2: i32 = 0;"));  // bare storage; default 42 NOT materialized
+    CHECK(has(
+        out, "let mut rp_field_3: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);"));
+    CHECK(has(
+        out,
+        "let mut rp_field_4: super::super::common::p::Color = super::super::common::p::Color(0);"));
     // The default-literal machinery is gone: no default values appear anywhere.
     CHECK_FALSE(has(out, "= 42"));
     CHECK_FALSE(has(out, "Color::RED"));
     CHECK_FALSE(has(out, "ProtoStr::new(b\"hi\")"));
     // A defaulted required field is bare + required-checked (its default is irrelevant).
     CHECK(has(out, "pub fn r(&self) -> i32 {"));
-    CHECK(has(out, "let mut r: i32 = 0;"));
+    CHECK(has(out, "let mut rp_field_1: i32 = 0;"));
 }
 
 TEST_CASE("rustgen modes: drop / raw / unknown-fields on a decodable message") {
@@ -743,19 +830,19 @@ TEST_CASE("rustgen modes: drop / raw / unknown-fields on a decodable message") {
     CHECK(!has(out, "gone:"));
     CHECK(has(out, "keep: i32,"));  // the untouched field is unaffected
     // raw: the payload bytes, not a decoded Sub -- borrowed-slice storage + getter, no decode_into.
-    CHECK(has(out, "sub: Option<&'a [u8]>,"));
+    CHECK(has(out, "sub: ::core::option::Option<&'a [u8]>,"));
     CHECK(has(out, "subs: &'a [&'a [u8]],"));
-    CHECK(has(out, "pub fn sub(&self) -> Option<&'a [u8]> {"));
+    CHECK(has(out, "pub fn sub(&self) -> ::core::option::Option<&'a [u8]> {"));
     CHECK(has(out, "pub fn subs(&self) -> &'a [&'a [u8]] {"));
-    CHECK(has(out, "sub = Some(rp_p);"));  // singular raw stores the payload directly
-    CHECK(!has(out, "Sub::decode_into"));  // a raw field is NOT recursed into
+    CHECK(has(out, "rp_field_3 = ::core::option::Option::Some(rp_p);"));  // payload stored directly
+    CHECK(!has(out, "Sub::rp_decode_into"));  // a raw field is NOT recursed into
     // unknown-fields: the accessor, its storage bit, and the catch-all that sets it only for a field
     // number NOT declared in the message. The known-number set covers every declared field (kept 1/3/4
     // AND dropped 2), so a wrong-wire known field -- or the dropped field -- is skipped as known, never
     // counted unknown. One `matches!` over `rp_tagkey >> 3` replaces the old per-field `(n, _)` arms.
     CHECK(has(out, "pub fn has_unknown_fields(&self) -> bool {"));
     CHECK(has(out, "rp_unknown: bool,"));
-    CHECK(has(out, "if !matches!(rp_tagkey >> 3, 1u32 | 2u32 | 3u32 | 4u32) {"));
+    CHECK(has(out, "if !::core::matches!(rp_tagkey >> 3, 1u32 | 2u32 | 3u32 | 4u32) {"));
     CHECK(has(out, "rp_unknown = true;"));
     // The banner is added by generate_file (not generate_arena); the arena body carries no profile id.
 }
@@ -770,8 +857,8 @@ TEST_CASE("rustgen modes: an empty unknown-tracked message sets the bit uncondit
     const std::string out =
         gen_arena_modes(R"(syntax = "proto3"; package p; message Empty {})", spec);
     CHECK(has(out, "rp_unknown = true;"));
-    CHECK(!has(out, "matches!(rp_tagkey >> 3, )"));   // the broken empty-pattern form
-    CHECK(!has(out, "if !matches!(rp_tagkey >> 3"));  // fieldless -> no routing guard at all
+    CHECK(!has(out, "matches!(rp_tagkey >> 3, )"));           // the broken empty-pattern form
+    CHECK(!has(out, "if !::core::matches!(rp_tagkey >> 3"));  // fieldless -> no routing guard
 }
 
 TEST_CASE("rustgen modes: a raw group field stores its scanned body undecoded") {
@@ -783,10 +870,12 @@ TEST_CASE("rustgen modes: a raw group field stores its scanned body undecoded") 
     arenagen::FieldModesSpec spec;
     spec.entries.push_back({arenagen::FieldMode::Raw, "p.HasGroup.G", "test"});
     const std::string out = gen_arena_modes(schema, spec);
-    CHECK(has(out, "pub fn g(&self) -> Option<&'a [u8]> {"));  // raw -> stored as borrowed bytes
-    CHECK(has(out, "::rapidproto::wire::read_group("));        // body read via the group reader
-    CHECK(has(out, "11u32 => {"));       // dispatched on the SGroup key (field 1)
-    CHECK(has(out, "g = Some(rp_p);"));  // the scanned body stored undecoded
+    CHECK(has(
+        out,
+        "pub fn g(&self) -> ::core::option::Option<&'a [u8]> {"));  // raw -> stored as borrowed bytes
+    CHECK(has(out, "::rapidproto::wire::read_group("));  // body read via the group reader
+    CHECK(has(out, "11u32 => {"));                       // dispatched on the SGroup key (field 1)
+    CHECK(has(out, "rp_field_1 = ::core::option::Option::Some(rp_p);"));  // stored undecoded
 }
 
 TEST_CASE("rustgen imports: a cross-file closure merges into one tree with resolving refs") {
@@ -797,16 +886,19 @@ TEST_CASE("rustgen imports: a cross-file closure merges into one tree with resol
     CHECK(has(out, "pub mod main {"));  // both packages are sibling sub-modules of one tree
     CHECK(has(out, "pub mod dep {"));
     // cross-package message; Dep is fixed-size so it inlines by value (getter borrows `&self`, not 'a)
-    CHECK(has(out, "pub fn d(&self) -> Option<&super::dep::Dep<'a>> {"));
-    CHECK(has(
-        out, "pub fn e(&self) -> Option<super::super::common::dep::DepEnum> {"));  // cross-pkg enum
+    CHECK(has(out, "pub fn d(&self) -> ::core::option::Option<&super::dep::Dep<'a>> {"));
+    CHECK(has(out,
+              "pub fn e(&self) -> ::core::option::Option<super::super::common::dep::DepEnum> "
+              "{"));  // cross-pkg enum
 }
 
 TEST_CASE("rustgen imports: a package whose Rust name is a keyword is raw-escaped") {
     // imports/main.proto's closure includes package `pub` -> `pub mod r#pub` (a bare `pub` is illegal).
     const std::string out = gen_corpus("imports/main.proto");
     CHECK(has(out, "pub mod r#pub {"));
-    CHECK(has(out, "pub fn p(&self) -> Option<&super::r#pub::Pub<'a>> {"));  // Pub inlines by value
+    CHECK(has(
+        out,
+        "pub fn p(&self) -> ::core::option::Option<&super::r#pub::Pub<'a>> {"));  // Pub inlines by value
 }
 
 TEST_CASE("rustgen imports: a message submodule yields to a colliding sibling sub-package") {
@@ -909,6 +1001,11 @@ TEST_CASE("rustgen goldens match the corpus (compile smoke-test)", "[rustgen-gol
             "`[rustgen-golden]`\n"
             "//! test from the no-import corpus; regenerate with tests/regen_goldens.sh.\n"
             "#![cfg_attr(not(feature = \"std\"), no_std)]\n"
+            "// Generated code names every prelude item by its full path, since a schema type\n"
+            "// (`Option`, `Result`) or a caller's macro (`matches!`) can shadow the bare name: "
+            "without\n"
+            "// the prelude, an unqualified use fails to compile here.\n"
+            "#![no_implicit_prelude]\n"
             "#![allow(clippy::all)]\n"
             "// Generated code: `unused` covers dead_code and the stubbed `decode`'s unused "
             "params;\n"

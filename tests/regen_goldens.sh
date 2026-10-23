@@ -56,6 +56,9 @@ trap 'rm -rf "$T"' EXIT
 # Names shaped like the Rust stream glue (`rp_rt`, `rp_mod_*`, `Sized`, `Foo` beside `FooStream`);
 # pulls gluenames_sub (package `gluenames.rp_rt`).
 "$BIN" --stream -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/gluenames.proto >/dev/null
+# Names the Rust output refers to or derives from (`Option`, `u8`, `NodeVisitor`, `type`, ...); pulls
+# collide_option / collide_visitor (packages `collide.Option`, `collide.NodeVisitor`).
+"$BIN" --stream -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/collide.proto >/dev/null
 "$BIN" --stream -Itests/wire_fixtures --out-dir="$T" tests/wire_fixtures/wire_all.proto >/dev/null
 # xref under a namespace prefix -> its own subdir golden, isolating its prefixed common header (rp::xr
 # enums) from the un-prefixed xref's common of the same stem (see regen_arenagen_goldens.sh).

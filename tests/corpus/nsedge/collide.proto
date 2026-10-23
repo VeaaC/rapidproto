@@ -1,0 +1,153 @@
+// Names that collide with what the Rust generator emits or refers to: the prelude names generated
+// code uses (`Option`, `Result`, `Some`, `Default`, ...), primitive type names, a derived name a sibling
+// already holds (`<T>Visitor`, `<snake>_stream`), keyword escapes that land on a real name (`r#type` is
+// the identifier `type`), and decode-body bindings. Each name below is protoc-valid; the Rust golden
+// compiling (under the golden crate's `#![no_implicit_prelude]`) and the golden crate's tests decoding
+// `Holder` are the check.
+syntax = "proto3";
+
+package collide;
+
+import "collide_option.proto";
+import "collide_visitor.proto";
+
+// The protobuf docs' own nested `Result`, a top-level `Default`, and a fixed-size message inlined by
+// value (its absent value is `Default::default()`), all in the scope whose code uses the prelude names.
+message SearchResponse {
+  message Result {
+    string url = 1;
+  }
+  repeated Result results = 1;
+}
+message Default {
+  int32 v = 1;
+}
+message Fixed {
+  int32 v = 1;
+}
+message UsesFixed {
+  Fixed fixed = 1;
+}
+
+// A `oneof result` / `oneof option` becomes the enum `Result` / `Option`, beside a nested message whose
+// code would otherwise name the prelude type.
+message Response {
+  message Error {
+    optional int32 code = 1;
+  }
+  oneof result {
+    Error error = 1;
+    string value = 2;
+  }
+  oneof option {
+    int32 on = 3;
+    int32 off = 4;
+  }
+}
+
+// Primitive type names: a message's struct, an enum's newtype (`enum i32` would wrap itself), and a
+// message holding fields of every kind next to them.
+message u8 {
+  int32 v = 1;
+}
+message u32 {
+  int32 v = 1;
+}
+message bool {
+  bool v = 1;
+}
+message f64 {
+  double v = 1;
+}
+message usize {
+  repeated bool flags = 1;
+}
+enum i32 {
+  I32_ZERO = 0;
+  I32_ONE = 1;
+}
+message Prims {
+  u8 a = 1;
+  u32 b = 2;
+  bool c = 3;
+  f64 d = 4;
+  usize e = 5;
+  i32 f = 6;
+  int32 g = 7;
+  bytes h = 8;
+  optional float i = 9;
+  repeated uint32 j = 10;
+}
+
+// `Node`'s visitor trait and, imported, a sub-package named `NodeVisitor`; nested, a message already
+// named `NodeVisitor` (protobuf allows only one of the two per scope).
+message Node {
+  int32 v = 1;
+}
+message Tree {
+  message Node {
+    int32 v = 1;
+  }
+  message NodeVisitor {
+    int32 v = 1;
+  }
+  Node node = 1;
+  NodeVisitor node_visitor = 2;
+}
+
+// A message named like the stream driver's visitor generic, referencing itself.
+message V {
+  V child = 1;
+  int32 v = 2;
+}
+
+// Keyword escapes that land on a real name: `Type`'s submodule and `type`'s struct both want
+// `r#type` (the identifier `type`), beside a real `type_`; `Type` and `type` also both want the macro
+// `type_stream`.
+message Type {
+  message X {
+    int32 v = 1;
+  }
+  X x = 1;
+}
+message type {
+  int32 v = 1;
+}
+message type_ {
+  int32 v = 1;
+}
+
+// An enum named like `classify`'s catch-all binding, and an enum value named like `classify` itself.
+enum other {
+  OTHER_ZERO = 0;
+}
+enum Kind {
+  classify = 0;
+  KIND_ONE = 1;
+}
+
+// Fields named like the prelude's variants and like decode-body internals.
+message Holder {
+  int32 Some = 1;
+  int32 None = 2;
+  int32 Ok = 3;
+  int32 Err = 4;
+  int32 rp_out = 5;
+  int32 rp_presence = 6;
+  int32 decode_into = 7;
+  optional int32 maybe = 8;
+  other o = 9;
+  Kind k = 10;
+  SearchResponse search = 11;
+  UsesFixed uses_fixed = 12;
+  Default default = 13;
+  Response response = 14;
+  Prims prims = 15;
+  V v = 16;
+  Type type = 17;
+  type_ under = 18;
+  Node node = 19;
+  Tree tree = 20;
+  collide.Option.Opt opt = 21;
+  collide.NodeVisitor.X sub = 22;
+}
