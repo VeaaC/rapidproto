@@ -205,7 +205,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2po6linux_ {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_11pkgorder_t1_2po6linux_ {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2po6linux_::linux__stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -270,6 +272,7 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2po6linux_ as linux__stream;
+    #[doc(inline)]
+    pub use __rp_11pkgorder_t1_2po6linux_ as linux__stream;
   }
 }

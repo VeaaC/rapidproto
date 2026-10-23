@@ -380,7 +380,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_8escdedup7decode_ {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_10escdedup_a_8escdedup7decode_ {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_8escdedup7decode_::decode__stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -445,7 +447,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_8escdedup7decode_ as decode__stream;
+    #[doc(inline)]
+    pub use __rp_10escdedup_a_8escdedup7decode_ as decode__stream;
 
     /// Streaming visitor for `Holder`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `holder_stream` macro does both); a field left at the default
@@ -558,7 +561,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_8escdedup6Holder {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_10escdedup_a_8escdedup6Holder {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_8escdedup6Holder::holder_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -641,6 +646,7 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_8escdedup6Holder as holder_stream;
+    #[doc(inline)]
+    pub use __rp_10escdedup_a_8escdedup6Holder as holder_stream;
   }
 }

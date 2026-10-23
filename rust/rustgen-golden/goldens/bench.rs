@@ -3361,7 +3361,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_5bench7Address {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_5bench_5bench7Address {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_5bench7Address::address_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -3462,7 +3464,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_5bench7Address as address_stream;
+    #[doc(inline)]
+    pub use __rp_5bench_5bench7Address as address_stream;
 
     /// Streaming visitor for `Attribute`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `attribute_stream` macro does both); a field left at the default
@@ -3575,7 +3578,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_5bench9Attribute {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_5bench_5bench9Attribute {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_5bench9Attribute::attribute_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -3658,7 +3663,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_5bench9Attribute as attribute_stream;
+    #[doc(inline)]
+    pub use __rp_5bench_5bench9Attribute as attribute_stream;
 
     /// Streaming visitor for `Person`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `person_stream` macro does both); a field left at the default
@@ -4030,7 +4036,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_5bench6Person {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_5bench_5bench6Person {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_5bench6Person::person_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -4275,7 +4283,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_5bench6Person as person_stream;
+    #[doc(inline)]
+    pub use __rp_5bench_5bench6Person as person_stream;
 
     /// Streaming visitor for `Dataset`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `dataset_stream` macro does both); a field left at the default
@@ -4409,7 +4418,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_5bench7Dataset {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_5bench_5bench7Dataset {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_5bench7Dataset::dataset_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -4510,7 +4521,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_5bench7Dataset as dataset_stream;
+    #[doc(inline)]
+    pub use __rp_5bench_5bench7Dataset as dataset_stream;
 
     /// Streaming visitor for `Wide`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `wide_stream` macro does both); a field left at the default
@@ -4807,7 +4819,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_5bench4Wide {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_5bench_5bench4Wide {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_5bench4Wide::wide_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -4962,7 +4976,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_5bench4Wide as wide_stream;
+    #[doc(inline)]
+    pub use __rp_5bench_5bench4Wide as wide_stream;
 
     /// Streaming visitor for `WideSet`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `wide_set_stream` macro does both); a field left at the default
@@ -5054,7 +5069,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_5bench7WideSet {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_5bench_5bench7WideSet {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_5bench7WideSet::wide_set_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -5119,7 +5136,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_5bench7WideSet as wide_set_stream;
+    #[doc(inline)]
+    pub use __rp_5bench_5bench7WideSet as wide_set_stream;
 
     /// Streaming visitor for `Big`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `big_stream` macro does both); a field left at the default
@@ -5374,7 +5392,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_5bench3Big {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_5bench_5bench3Big {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_5bench3Big::big_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -5493,7 +5513,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_5bench3Big as big_stream;
+    #[doc(inline)]
+    pub use __rp_5bench_5bench3Big as big_stream;
 
     /// Streaming visitor for `BigSet`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `big_set_stream` macro does both); a field left at the default
@@ -5585,7 +5606,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_5bench6BigSet {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_5bench_5bench6BigSet {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_5bench6BigSet::big_set_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -5650,7 +5673,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_5bench6BigSet as big_set_stream;
+    #[doc(inline)]
+    pub use __rp_5bench_5bench6BigSet as big_set_stream;
 
     /// Streaming visitor for `Vec3`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `vec3_stream` macro does both); a field left at the default
@@ -5784,7 +5808,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_5bench4Vec3 {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_5bench_5bench4Vec3 {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_5bench4Vec3::vec3_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -5885,7 +5911,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_5bench4Vec3 as vec3_stream;
+    #[doc(inline)]
+    pub use __rp_5bench_5bench4Vec3 as vec3_stream;
 
     /// Streaming visitor for `Particle`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `particle_stream` macro does both); a field left at the default
@@ -6040,7 +6067,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_5bench8Particle {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_5bench_5bench8Particle {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_5bench8Particle::particle_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -6159,7 +6188,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_5bench8Particle as particle_stream;
+    #[doc(inline)]
+    pub use __rp_5bench_5bench8Particle as particle_stream;
 
     /// Streaming visitor for `ParticleSet`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `particle_set_stream` macro does both); a field left at the default
@@ -6251,7 +6281,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_5bench11ParticleSet {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_5bench_5bench11ParticleSet {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_5bench11ParticleSet::particle_set_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -6316,7 +6348,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_5bench11ParticleSet as particle_set_stream;
+    #[doc(inline)]
+    pub use __rp_5bench_5bench11ParticleSet as particle_set_stream;
 
     /// Streaming visitor for `Sample`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `sample_stream` macro does both); a field left at the default
@@ -6513,7 +6546,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_5bench6Sample {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_5bench_5bench6Sample {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_5bench6Sample::sample_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -6668,7 +6703,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_5bench6Sample as sample_stream;
+    #[doc(inline)]
+    pub use __rp_5bench_5bench6Sample as sample_stream;
 
     /// Streaming visitor for `Record`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `record_stream` macro does both); a field left at the default
@@ -7159,7 +7195,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_5bench6Record {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_5bench_5bench6Record {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_5bench6Record::record_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -7566,7 +7604,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_5bench6Record as record_stream;
+    #[doc(inline)]
+    pub use __rp_5bench_5bench6Record as record_stream;
 
     /// Streaming visitor for `RecordSet`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `record_set_stream` macro does both); a field left at the default
@@ -7658,7 +7697,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_5bench9RecordSet {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_5bench_5bench9RecordSet {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_5bench9RecordSet::record_set_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -7723,6 +7764,7 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_5bench9RecordSet as record_set_stream;
+    #[doc(inline)]
+    pub use __rp_5bench_5bench9RecordSet as record_set_stream;
   }
 }

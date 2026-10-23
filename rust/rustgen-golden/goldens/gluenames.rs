@@ -1674,7 +1674,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_9gluenames4RpRt {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_9gluenames_9gluenames4RpRt {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_9gluenames4RpRt::rp__rt_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -1739,7 +1741,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_9gluenames4RpRt as rp__rt_stream;
+    #[doc(inline)]
+    pub use __rp_9gluenames_9gluenames4RpRt as rp__rt_stream;
 
     pub mod rp__rt_ {
       #[doc(hidden)]
@@ -1837,7 +1840,9 @@ pub mod stream {
         }
       }
 
-      macro_rules! rp_mac_9gluenames4RpRt1X {
+      #[doc(hidden)]
+      #[macro_export]
+      macro_rules! __rp_9gluenames_9gluenames4RpRt1X {
         ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
           rp_mod_9gluenames4RpRt1X::x_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
         };
@@ -1902,7 +1907,8 @@ pub mod stream {
           RpVis { $($rp_ct)* rp_state: $rp_s }
         }};
       }
-      pub(crate) use rp_mac_9gluenames4RpRt1X as x_stream;
+      #[doc(inline)]
+      pub use __rp_9gluenames_9gluenames4RpRt1X as x_stream;
     }
 
     /// Streaming visitor for `rp__mod_9gluenames6Holder`. Select a field by overriding its `WANT_<field>` const AND
@@ -1995,7 +2001,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_9gluenames24rp_mod_9gluenames6Holder {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_9gluenames_9gluenames24rp_mod_9gluenames6Holder {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_9gluenames24rp_mod_9gluenames6Holder::rp__mod_9gluenames6_holder_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -2060,7 +2068,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_9gluenames24rp_mod_9gluenames6Holder as rp__mod_9gluenames6_holder_stream;
+    #[doc(inline)]
+    pub use __rp_9gluenames_9gluenames24rp_mod_9gluenames6Holder as rp__mod_9gluenames6_holder_stream;
 
     /// Streaming visitor for `rp__mac_9gluenames6Holder`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `rp__mac_9gluenames6_holder_stream` macro does both); a field left at the default
@@ -2152,7 +2161,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_9gluenames24rp_mac_9gluenames6Holder {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_9gluenames_9gluenames24rp_mac_9gluenames6Holder {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_9gluenames24rp_mac_9gluenames6Holder::rp__mac_9gluenames6_holder_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -2217,7 +2228,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_9gluenames24rp_mac_9gluenames6Holder as rp__mac_9gluenames6_holder_stream;
+    #[doc(inline)]
+    pub use __rp_9gluenames_9gluenames24rp_mac_9gluenames6Holder as rp__mac_9gluenames6_holder_stream;
 
     /// Streaming visitor for `rp__stream_ty_0`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `rp__stream_ty_0_stream` macro does both); a field left at the default
@@ -2309,7 +2321,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_9gluenames14rp_stream_ty_0 {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_9gluenames_9gluenames14rp_stream_ty_0 {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_9gluenames14rp_stream_ty_0::rp__stream_ty_0_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -2374,7 +2388,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_9gluenames14rp_stream_ty_0 as rp__stream_ty_0_stream;
+    #[doc(inline)]
+    pub use __rp_9gluenames_9gluenames14rp_stream_ty_0 as rp__stream_ty_0_stream;
 
     /// Streaming visitor for `Tail_`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `tail__stream` macro does both); a field left at the default
@@ -2466,7 +2481,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_9gluenames5Tail_ {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_9gluenames_9gluenames5Tail_ {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_9gluenames5Tail_::tail__stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -2531,7 +2548,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_9gluenames5Tail_ as tail__stream;
+    #[doc(inline)]
+    pub use __rp_9gluenames_9gluenames5Tail_ as tail__stream;
 
     /// Streaming visitor for `rp__mod_9gluenames5Tail`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `rp__mod_9gluenames5_tail_stream` macro does both); a field left at the default
@@ -2623,7 +2641,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_9gluenames22rp_mod_9gluenames5Tail {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_9gluenames_9gluenames22rp_mod_9gluenames5Tail {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_9gluenames22rp_mod_9gluenames5Tail::rp__mod_9gluenames5_tail_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -2688,7 +2708,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_9gluenames22rp_mod_9gluenames5Tail as rp__mod_9gluenames5_tail_stream;
+    #[doc(inline)]
+    pub use __rp_9gluenames_9gluenames22rp_mod_9gluenames5Tail as rp__mod_9gluenames5_tail_stream;
 
     /// Streaming visitor for `Sized`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `sized_stream` macro does both); a field left at the default
@@ -2780,7 +2801,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_9gluenames5Sized {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_9gluenames_9gluenames5Sized {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_9gluenames5Sized::sized_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -2845,7 +2868,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_9gluenames5Sized as sized_stream;
+    #[doc(inline)]
+    pub use __rp_9gluenames_9gluenames5Sized as sized_stream;
 
     /// Streaming visitor for `Foo`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `foo_stream` macro does both); a field left at the default
@@ -2937,7 +2961,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_9gluenames3Foo {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_9gluenames_9gluenames3Foo {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_9gluenames3Foo::foo_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -3002,7 +3028,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_9gluenames3Foo as foo_stream;
+    #[doc(inline)]
+    pub use __rp_9gluenames_9gluenames3Foo as foo_stream;
 
     /// Streaming visitor for `FooStream`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `foo_stream_stream` macro does both); a field left at the default
@@ -3094,7 +3121,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_9gluenames9FooStream {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_9gluenames_9gluenames9FooStream {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_9gluenames9FooStream::foo_stream_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -3159,7 +3188,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_9gluenames9FooStream as foo_stream_stream;
+    #[doc(inline)]
+    pub use __rp_9gluenames_9gluenames9FooStream as foo_stream_stream;
 
     pub mod foo_stream {
       #[doc(hidden)]
@@ -3257,7 +3287,9 @@ pub mod stream {
         }
       }
 
-      macro_rules! rp_mac_9gluenames9FooStream2In {
+      #[doc(hidden)]
+      #[macro_export]
+      macro_rules! __rp_9gluenames_9gluenames9FooStream2In {
         ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
           rp_mod_9gluenames9FooStream2In::in_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
         };
@@ -3322,7 +3354,8 @@ pub mod stream {
           RpVis { $($rp_ct)* rp_state: $rp_s }
         }};
       }
-      pub(crate) use rp_mac_9gluenames9FooStream2In as in_stream;
+      #[doc(inline)]
+      pub use __rp_9gluenames_9gluenames9FooStream2In as in_stream;
     }
 
     /// Streaming visitor for `Holder`. Select a field by overriding its `WANT_<field>` const AND
@@ -3499,7 +3532,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_9gluenames6Holder {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_9gluenames_9gluenames6Holder {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_9gluenames6Holder::holder_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -3636,7 +3671,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_9gluenames6Holder as holder_stream;
+    #[doc(inline)]
+    pub use __rp_9gluenames_9gluenames6Holder as holder_stream;
 
     pub mod rp__rt {
       #[doc(hidden)]
@@ -3736,7 +3772,9 @@ pub mod stream {
         }
       }
 
-      macro_rules! rp_mac_9gluenames5rp_rt5rp_rt {
+      #[doc(hidden)]
+      #[macro_export]
+      macro_rules! __rp_9gluenames_9gluenames5rp_rt5rp_rt {
         ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
           rp_mod_9gluenames5rp_rt5rp_rt::rp__rt_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
         };
@@ -3801,7 +3839,8 @@ pub mod stream {
           RpVis { $($rp_ct)* rp_state: $rp_s }
         }};
       }
-      pub(crate) use rp_mac_9gluenames5rp_rt5rp_rt as rp__rt_stream;
+      #[doc(inline)]
+      pub use __rp_9gluenames_9gluenames5rp_rt5rp_rt as rp__rt_stream;
 
       /// Streaming visitor for `Sub`. Select a field by overriding its `WANT_<field>` const AND
       /// its `on_<field>` method (the `sub_stream` macro does both); a field left at the default
@@ -3893,7 +3932,9 @@ pub mod stream {
         }
       }
 
-      macro_rules! rp_mac_9gluenames5rp_rt3Sub {
+      #[doc(hidden)]
+      #[macro_export]
+      macro_rules! __rp_9gluenames_9gluenames5rp_rt3Sub {
         ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
           rp_mod_9gluenames5rp_rt3Sub::sub_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
         };
@@ -3958,7 +3999,8 @@ pub mod stream {
           RpVis { $($rp_ct)* rp_state: $rp_s }
         }};
       }
-      pub(crate) use rp_mac_9gluenames5rp_rt3Sub as sub_stream;
+      #[doc(inline)]
+      pub use __rp_9gluenames_9gluenames5rp_rt3Sub as sub_stream;
     }
   }
 }

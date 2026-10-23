@@ -441,7 +441,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2ne5Outer {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_8nestenum_2ne5Outer {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2ne5Outer::outer_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -524,7 +526,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2ne5Outer as outer_stream;
+    #[doc(inline)]
+    pub use __rp_8nestenum_2ne5Outer as outer_stream;
 
     pub mod outer {
       #[doc(hidden)]
@@ -624,7 +627,9 @@ pub mod stream {
         }
       }
 
-      macro_rules! rp_mac_2ne5Outer5Inner {
+      #[doc(hidden)]
+      #[macro_export]
+      macro_rules! __rp_8nestenum_2ne5Outer5Inner {
         ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
           rp_mod_2ne5Outer5Inner::inner_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
         };
@@ -689,7 +694,8 @@ pub mod stream {
           RpVis { $($rp_ct)* rp_state: $rp_s }
         }};
       }
-      pub(crate) use rp_mac_2ne5Outer5Inner as inner_stream;
+      #[doc(inline)]
+      pub use __rp_8nestenum_2ne5Outer5Inner as inner_stream;
     }
   }
 }

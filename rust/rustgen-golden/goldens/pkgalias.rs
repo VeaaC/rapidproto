@@ -490,7 +490,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2pa6linux_ {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_8pkgalias_2pa6linux_ {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2pa6linux_::linux___stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -591,7 +593,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2pa6linux_ as linux___stream;
+    #[doc(inline)]
+    pub use __rp_8pkgalias_2pa6linux_ as linux___stream;
 
     pub mod linux {
       #[doc(hidden)]
@@ -691,7 +694,9 @@ pub mod stream {
         }
       }
 
-      macro_rules! rp_mac_2pa5linux3Sub {
+      #[doc(hidden)]
+      #[macro_export]
+      macro_rules! __rp_8pkgalias_2pa5linux3Sub {
         ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
           rp_mod_2pa5linux3Sub::sub_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
         };
@@ -756,7 +761,8 @@ pub mod stream {
           RpVis { $($rp_ct)* rp_state: $rp_s }
         }};
       }
-      pub(crate) use rp_mac_2pa5linux3Sub as sub_stream;
+      #[doc(inline)]
+      pub use __rp_8pkgalias_2pa5linux3Sub as sub_stream;
     }
   }
 }

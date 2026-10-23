@@ -611,7 +611,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_4ed231M {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_12editions2023_4ed231M {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_4ed231M::m_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -766,6 +768,7 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_4ed231M as m_stream;
+    #[doc(inline)]
+    pub use __rp_12editions2023_4ed231M as m_stream;
   }
 }

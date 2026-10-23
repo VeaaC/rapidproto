@@ -318,7 +318,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2wd4WDep {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_8weakmain_2wd4WDep {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2wd4WDep::w_dep_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -383,7 +385,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2wd4WDep as w_dep_stream;
+    #[doc(inline)]
+    pub use __rp_8weakmain_2wd4WDep as w_dep_stream;
   }
 
   pub mod wm {
@@ -484,7 +487,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2wm5WMain {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_8weakmain_2wm5WMain {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2wm5WMain::w_main_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -549,6 +554,7 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2wm5WMain as w_main_stream;
+    #[doc(inline)]
+    pub use __rp_8weakmain_2wm5WMain as w_main_stream;
   }
 }

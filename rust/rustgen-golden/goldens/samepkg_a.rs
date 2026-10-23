@@ -316,7 +316,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_7samepkg7SecondB {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_9samepkg_a_7samepkg7SecondB {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_7samepkg7SecondB::second_b_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -381,7 +383,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_7samepkg7SecondB as second_b_stream;
+    #[doc(inline)]
+    pub use __rp_9samepkg_a_7samepkg7SecondB as second_b_stream;
 
     /// Streaming visitor for `FirstA`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `first_a_stream` macro does both); a field left at the default
@@ -473,7 +476,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_7samepkg6FirstA {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_9samepkg_a_7samepkg6FirstA {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_7samepkg6FirstA::first_a_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -538,6 +543,7 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_7samepkg6FirstA as first_a_stream;
+    #[doc(inline)]
+    pub use __rp_9samepkg_a_7samepkg6FirstA as first_a_stream;
   }
 }

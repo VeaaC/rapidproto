@@ -410,7 +410,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2po5linux {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_10pkgorder_b_2po5linux {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2po5linux::linux__stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -475,7 +477,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2po5linux as linux__stream;
+    #[doc(inline)]
+    pub use __rp_10pkgorder_b_2po5linux as linux__stream;
 
     /// Streaming visitor for `linux__`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `linux___stream` macro does both); a field left at the default
@@ -567,7 +570,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2po6linux_ {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_10pkgorder_b_2po6linux_ {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2po6linux_::linux___stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -632,7 +637,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2po6linux_ as linux___stream;
+    #[doc(inline)]
+    pub use __rp_10pkgorder_b_2po6linux_ as linux___stream;
 
     pub mod linux {
       #[doc(hidden)]
@@ -730,7 +736,9 @@ pub mod stream {
         }
       }
 
-      macro_rules! rp_mac_2po5linux3Sub {
+      #[doc(hidden)]
+      #[macro_export]
+      macro_rules! __rp_10pkgorder_b_2po5linux3Sub {
         ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
           rp_mod_2po5linux3Sub::sub_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
         };
@@ -795,7 +803,8 @@ pub mod stream {
           RpVis { $($rp_ct)* rp_state: $rp_s }
         }};
       }
-      pub(crate) use rp_mac_2po5linux3Sub as sub_stream;
+      #[doc(inline)]
+      pub use __rp_10pkgorder_b_2po5linux3Sub as sub_stream;
     }
 
     pub mod wrap_b {

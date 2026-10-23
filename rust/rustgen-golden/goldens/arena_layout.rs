@@ -1677,7 +1677,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2al5Point {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_12arena_layout_2al5Point {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2al5Point::point_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -1760,7 +1762,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2al5Point as point_stream;
+    #[doc(inline)]
+    pub use __rp_12arena_layout_2al5Point as point_stream;
 
     /// Streaming visitor for `Big`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `big_stream` macro does both); a field left at the default
@@ -1894,7 +1897,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2al3Big {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_12arena_layout_2al3Big {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2al3Big::big_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -1995,7 +2000,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2al3Big as big_stream;
+    #[doc(inline)]
+    pub use __rp_12arena_layout_2al3Big as big_stream;
 
     /// Streaming visitor for `HasString`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `has_string_stream` macro does both); a field left at the default
@@ -2087,7 +2093,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2al9HasString {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_12arena_layout_2al9HasString {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2al9HasString::has_string_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -2152,7 +2160,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2al9HasString as has_string_stream;
+    #[doc(inline)]
+    pub use __rp_12arena_layout_2al9HasString as has_string_stream;
 
     /// Streaming visitor for `BoolWrap`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `bool_wrap_stream` macro does both); a field left at the default
@@ -2244,7 +2253,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2al8BoolWrap {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_12arena_layout_2al8BoolWrap {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2al8BoolWrap::bool_wrap_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -2309,7 +2320,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2al8BoolWrap as bool_wrap_stream;
+    #[doc(inline)]
+    pub use __rp_12arena_layout_2al8BoolWrap as bool_wrap_stream;
 
     /// Streaming visitor for `SelfRef`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `self_ref_stream` macro does both); a field left at the default
@@ -2422,7 +2434,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2al7SelfRef {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_12arena_layout_2al7SelfRef {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2al7SelfRef::self_ref_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -2505,7 +2519,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2al7SelfRef as self_ref_stream;
+    #[doc(inline)]
+    pub use __rp_12arena_layout_2al7SelfRef as self_ref_stream;
 
     /// Streaming visitor for `Layout`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `layout_stream` macro does both); a field left at the default
@@ -3111,7 +3126,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2al6Layout {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_12arena_layout_2al6Layout {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2al6Layout::layout_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -3518,6 +3535,7 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2al6Layout as layout_stream;
+    #[doc(inline)]
+    pub use __rp_12arena_layout_2al6Layout as layout_stream;
   }
 }

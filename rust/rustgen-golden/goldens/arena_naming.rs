@@ -2423,7 +2423,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2an7Collide {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_12arena_naming_2an7Collide {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2an7Collide::collide_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -2632,7 +2634,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2an7Collide as collide_stream;
+    #[doc(inline)]
+    pub use __rp_12arena_naming_2an7Collide as collide_stream;
 
     pub mod collide {
       #[doc(hidden)]
@@ -2730,7 +2733,9 @@ pub mod stream {
         }
       }
 
-      macro_rules! rp_mac_2an7Collide8FooEntry {
+      #[doc(hidden)]
+      #[macro_export]
+      macro_rules! __rp_12arena_naming_2an7Collide8FooEntry {
         ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
           rp_mod_2an7Collide8FooEntry::foo_entry_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
         };
@@ -2795,7 +2800,8 @@ pub mod stream {
           RpVis { $($rp_ct)* rp_state: $rp_s }
         }};
       }
-      pub(crate) use rp_mac_2an7Collide8FooEntry as foo_entry_stream;
+      #[doc(inline)]
+      pub use __rp_12arena_naming_2an7Collide8FooEntry as foo_entry_stream;
     }
 
     /// Streaming visitor for `Callback`. Select a field by overriding its `WANT_<field>` const AND
@@ -2909,7 +2915,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2an8Callback {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_12arena_naming_2an8Callback {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2an8Callback::callback_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -2992,7 +3000,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2an8Callback as callback_stream;
+    #[doc(inline)]
+    pub use __rp_12arena_naming_2an8Callback as callback_stream;
 
     /// Streaming visitor for `FooEntry`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `foo_entry_stream` macro does both); a field left at the default
@@ -3129,7 +3138,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2an8FooEntry {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_12arena_naming_2an8FooEntry {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2an8FooEntry::foo_entry_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -3194,7 +3205,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2an8FooEntry as foo_entry_stream;
+    #[doc(inline)]
+    pub use __rp_12arena_naming_2an8FooEntry as foo_entry_stream;
 
     /// Streaming visitor for `Outer`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `outer_stream` macro does both); a field left at the default
@@ -3286,7 +3298,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2an5Outer {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_12arena_naming_2an5Outer {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2an5Outer::outer_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -3351,7 +3365,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2an5Outer as outer_stream;
+    #[doc(inline)]
+    pub use __rp_12arena_naming_2an5Outer as outer_stream;
 
     pub mod outer {
       #[doc(hidden)]
@@ -3449,7 +3464,9 @@ pub mod stream {
         }
       }
 
-      macro_rules! rp_mac_2an5Outer5Outer {
+      #[doc(hidden)]
+      #[macro_export]
+      macro_rules! __rp_12arena_naming_2an5Outer5Outer {
         ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
           rp_mod_2an5Outer5Outer::outer_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
         };
@@ -3514,7 +3531,8 @@ pub mod stream {
           RpVis { $($rp_ct)* rp_state: $rp_s }
         }};
       }
-      pub(crate) use rp_mac_2an5Outer5Outer as outer_stream;
+      #[doc(inline)]
+      pub use __rp_12arena_naming_2an5Outer5Outer as outer_stream;
     }
 
     /// Streaming visitor for `m_x`. Select a field by overriding its `WANT_<field>` const AND
@@ -3607,7 +3625,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2an3m_x {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_12arena_naming_2an3m_x {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2an3m_x::m_x_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -3672,7 +3692,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2an3m_x as m_x_stream;
+    #[doc(inline)]
+    pub use __rp_12arena_naming_2an3m_x as m_x_stream;
 
     /// Streaming visitor for `Sibling`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `sibling_stream` macro does both); a field left at the default
@@ -3785,7 +3806,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2an7Sibling {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_12arena_naming_2an7Sibling {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2an7Sibling::sibling_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -3868,7 +3891,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2an7Sibling as sibling_stream;
+    #[doc(inline)]
+    pub use __rp_12arena_naming_2an7Sibling as sibling_stream;
 
     /// Streaming visitor for `config_`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `config__stream` macro does both); a field left at the default
@@ -3960,7 +3984,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2an6config {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_12arena_naming_2an6config {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2an6config::config__stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -4025,7 +4051,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2an6config as config__stream;
+    #[doc(inline)]
+    pub use __rp_12arena_naming_2an6config as config__stream;
 
     /// Streaming visitor for `MaskOneof`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `mask_oneof_stream` macro does both); a field left at the default
@@ -4138,7 +4165,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2an9MaskOneof {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_12arena_naming_2an9MaskOneof {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2an9MaskOneof::mask_oneof_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -4221,7 +4250,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2an9MaskOneof as mask_oneof_stream;
+    #[doc(inline)]
+    pub use __rp_12arena_naming_2an9MaskOneof as mask_oneof_stream;
 
     /// Streaming visitor for `Bytes`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `bytes_stream` macro does both); a field left at the default
@@ -4334,7 +4364,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2an5Bytes {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_12arena_naming_2an5Bytes {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2an5Bytes::bytes_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -4417,7 +4449,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2an5Bytes as bytes_stream;
+    #[doc(inline)]
+    pub use __rp_12arena_naming_2an5Bytes as bytes_stream;
 
     /// Streaming visitor for `Keywords`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `keywords_stream` macro does both); a field left at the default
@@ -4782,7 +4815,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2an8Keywords {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_12arena_naming_2an8Keywords {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2an8Keywords::keywords_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -5081,6 +5116,7 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2an8Keywords as keywords_stream;
+    #[doc(inline)]
+    pub use __rp_12arena_naming_2an8Keywords as keywords_stream;
   }
 }

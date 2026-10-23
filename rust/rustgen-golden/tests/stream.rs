@@ -1,28 +1,23 @@
-//! Decode round-trip for the streaming decoder, over the SAME corpus schema the arena decode test
-//! uses (`proto3`'s `p3.Msg`) -- there are no Rust-local fixture protos. Every corpus golden carries
-//! both an `arena` and a `stream` tree (see tests/test_rustgen.cpp). This is an IN-CRATE test module
-//! (wired into the generated lib.rs), not a `tests/` integration test, because by default the
-//! generated `*_stream!` macros are `pub(crate)` -- reachable within the including crate (the normal
-//! consumer case: generated code is `include!`d into the consumer's own crate) but not cross-crate.
-//! (The exported form, `export_stream_macros`, is driven cross-crate by tests/stream_export.rs.)
+//! Decode round-trips for the streaming decoder over the corpus goldens -- the streaming counterpart
+//! of tests/decode.rs, over the same global corpus schemas (there are no Rust-local fixture protos).
+//! Every corpus golden carries both an `arena` and a `stream` tree and exports its `*_stream!` macros
+//! (`Config::export_stream_macros`, prefix = its stem; see tests/test_rustgen.cpp), so this separate
+//! test crate drives them the way a consumer's `tests/` does: `use rustgen_golden::<schema>::stream::..::*`.
 //!
-//! It drives the generated visitor via the per-message `msg_stream!` macro (closures capturing locals):
-//! subset selection with the rest skipped, a packed repeated field fired per element, an enum delivered
-//! as its typed newtype, a oneof member selected individually, a recursive sub-message handed its typed
-//! reader handle (`sub.decode(..)`), error propagation from a malformed sub-message out through the
-//! outer decode, the `unknown`-field handler, `Flow::Stop`, and a hand-implemented visitor. The
-//! shared-state form `msg_stream!(&mut state; { field => |state, value| .. })` is covered too: many
-//! fields aggregating into one `&mut` accumulator, re-threaded across a nested `sub.decode(..)`.
-//!
-//! A `use crate::proto3::stream::p3::*;` glob brings the handle, visitor trait and macro into scope,
-//! plus the hidden per-message scope re-export the macro expansion names everything through -- so
-//! globbing several stream modules into one scope leaves every expansion unambiguous, whether they
-//! share a message name or a package across generated files (the `globbing_*` tests).
-#![cfg(feature = "std")]
+//! Covered through the per-message macros: subset selection with the rest skipped, a packed repeated
+//! field fired per element, an enum delivered as its typed newtype, a oneof member selected
+//! individually, a recursive sub-message handed its typed reader handle (`sub.decode(..)`), error
+//! propagation from a malformed sub-message, the `unknown`-field handler, `Flow::Stop`, map entries
+//! (scalar, bytes and message values), and a hand-implemented visitor; the shared-state form
+//! `msg_stream!(&mut state; { field => |state, value| .. })` aggregating many fields into one
+//! accumulator re-threaded across nested decodes. The glob of a message's stream module brings in its
+//! handle, trait and macro plus the hidden per-message scope the expansion names everything through, so
+//! globbing several stream modules into one scope leaves every expansion unambiguous (the `globbing_*`
+//! tests), and names shaped like that glue cannot collide with it (the gluenames test).
 
-use crate::proto3::stream::p3::*;
 use rapidproto::stream::Flow;
 use rapidproto::DecodeError;
+use rustgen_golden::proto3::stream::p3::*;
 
 // Msg { implicit_i = 42, name = "hello", state = 1, nums = [1, 2, 3] (packed),
 //       self = Msg { implicit_i = 7 }, a = 99 (oneof pick) }
@@ -146,10 +141,23 @@ fn map_delivers_key_value_per_entry() {
 }
 
 #[test]
+fn map_with_bytes_value_delivers_a_slice() {
+    // `blobs` is field 22 (a two-byte tag), map<string, bytes>: one entry "k" -> [0xff, 0x00].
+    const BLOBS: &[u8] = &[0xb2, 0x01, 0x07, 0x0a, 0x01, b'k', 0x12, 0x02, 0xff, 0x00];
+    let mut blobs = Vec::new();
+    Msg::new(BLOBS)
+        .decode(msg_stream! {
+            blobs => |(k, v)| blobs.push((k.to_str().unwrap().to_owned(), v.to_vec())),
+        })
+        .unwrap();
+    assert_eq!(blobs, vec![("k".to_owned(), vec![0xff, 0x00])]);
+}
+
+#[test]
 fn map_with_message_value_delivers_a_child_handle() {
     // `al.Layout.grid` is field 16, map<int32, Point> -- a message value delivered as the child's
     // reader handle, which the consumer recurses into with `point_stream!`. One entry: 7 -> {x=3, y=4}.
-    use crate::arena_layout::stream::al::*;
+    use rustgen_golden::arena_layout::stream::al::*;
     const LAYOUT: &[u8] = &[
         0x82, 0x01, // field 16, wire LEN (two-byte tag)
         0x08, // entry length = 8
@@ -235,6 +243,7 @@ fn shared_state_form_with_no_fields_is_valid() {
 fn a_visitor_type_can_be_hand_implemented() {
     // The macro is sugar over the generated trait; a consumer may implement it directly.
     struct Count(u32);
+    #[allow(non_upper_case_globals)] // the generated `WANT_<field>` consts
     impl<'a> MsgVisitor<'a> for &mut Count {
         const WANT_nums: bool = true;
         fn on_nums(&mut self, _v: i32) -> Result<Flow, DecodeError> {
@@ -247,19 +256,72 @@ fn a_visitor_type_can_be_hand_implemented() {
     assert_eq!(c.0, 3);
 }
 
-// Its own module: `streamexport_p3` is a second copy of package `p3`, so globbing it in a scope that
-// already sees the file-level `proto3::stream::p3` glob would make the two copies' names ambiguous.
-mod exported {
+#[test]
+fn package_less_schema_with_a_nested_message() {
+    // A package-less schema's messages live directly in `stream`; `Root.Sub`'s macro sits in the
+    // nested `root` module.
+    use rustgen_golden::nopkg::stream::root::*;
+    use rustgen_golden::nopkg::stream::*;
+    // Root { sub: Sub { y: 5 }, self: Root { sub: Sub { y: 6 } } }
+    const ROOT: &[u8] = &[0x0a, 0x02, 0x08, 0x05, 0x12, 0x04, 0x0a, 0x02, 0x08, 0x06];
+    let mut ys = Vec::new();
+    Root::new(ROOT)
+        .decode(root_stream!(&mut ys; {
+            sub => |ys, s| s.decode(sub_stream!(&mut *ys; { y => |ys, v| ys.push(v) })),
+            self_ => |ys, r| r.decode(root_stream!(&mut *ys; {
+                sub => |ys, s| s.decode(sub_stream!(&mut *ys; { y => |ys, v| ys.push(v) })),
+            })),
+        }))
+        .unwrap();
+    assert_eq!(ys, vec![5, 6]);
+}
+
+#[test]
+fn the_same_message_from_two_generated_files_keeps_both_macros() {
+    // `dep.Dep` is generated by both the `dep` golden (its own file) and `main` (which imports it),
+    // each exporting its macros under its own prefix: only those prefixes keep the two crate-root
+    // `#[macro_export]` names apart.
+    const DEP: &[u8] = &[0x08, 0x09]; // dep.Dep { v: 9 }
+    let from_dep = {
+        use rustgen_golden::dep::stream::dep::*;
+        let mut v = 0;
+        Dep::new(DEP)
+            .decode(dep_stream! { v => |x| v = x })
+            .unwrap();
+        v
+    };
+    let from_main = {
+        use rustgen_golden::main::stream::dep::*;
+        let mut v = 0;
+        Dep::new(DEP)
+            .decode(dep_stream! { v => |x| v = x })
+            .unwrap();
+        v
+    };
+    assert_eq!((from_dep, from_main), (9, 9));
+}
+
+// An exported golden `include!`d into THIS crate: the expansion's recursion runs through the friendly
+// module path inside the defining crate too, where a `$crate::`-absolute call to the hidden
+// `#[macro_export]` name would be rejected (`macro_expanded_macro_exports_accessed_by_absolute_paths`,
+// since the code is `include!`d). Its own module, since a second copy of package `p3` globbed beside
+// the file-level one would make the two copies' names ambiguous.
+mod included_here {
+    #[allow(
+        clippy::all,
+        unused,
+        non_camel_case_types,
+        non_snake_case,
+        non_upper_case_globals
+    )]
+    mod proto3 {
+        include!("../goldens/proto3.rs");
+    }
     use super::MSG;
-    use crate::streamexport_p3::stream::p3::*;
+    use proto3::stream::p3::*;
 
     #[test]
     fn exported_macros_also_work_in_the_crate_that_includes_them() {
-        // `streamexport_p3` is proto3 generated with `export_stream_macros` (its cross-crate use is
-        // in tests/stream_export.rs). Inside the defining crate the expansion's recursion runs
-        // through the friendly module path too; a `$crate::`-absolute call to the hidden
-        // `#[macro_export]` name would be rejected here
-        // (`macro_expanded_macro_exports_accessed_by_absolute_paths`, since the golden is `include!`d).
         let (mut outer, mut inner, mut sum) = (0i32, 0i32, 0i32);
         Msg::new(MSG)
             .decode(msg_stream! {
@@ -279,8 +341,8 @@ fn globbing_two_packages_keeps_cross_package_types_unambiguous() {
     // `stream::main` and `stream::dep` each define an `rp_stream_ty_0` (a `Dep` handle in one, the
     // `DepEnum` newtype in the other). Globbed together, a bare alias would be ambiguous (E0659); the
     // expansion names it through its own message's scope.
-    use crate::main::stream::dep::*;
-    use crate::main::stream::main::*;
+    use rustgen_golden::main::stream::dep::*;
+    use rustgen_golden::main::stream::main::*;
     // main.Main { d: dep.Dep { v: 9, de: DEP_ONE }, e: DEP_ONE }
     const MAIN: &[u8] = &[0x0a, 0x04, 0x08, 0x09, 0x10, 0x01, 0x20, 0x01];
     let (mut v, mut de, mut e) = (0i32, 0i32, 0i32);
@@ -298,10 +360,10 @@ fn globbing_two_modules_with_the_same_message_name_keeps_each_macro_usable() {
     // `anv.Outer` and its nested `anv.Outer.Outer` both generate an `Outer`, an `OuterVisitor` and an
     // `outer_stream!`. With both modules globbed, each macro is still callable through its path: the
     // expansion's own recursion and trait impl go through its message's scope, not the bare names.
-    use crate::arena_naming_valid::stream::anv as parent;
-    use crate::arena_naming_valid::stream::anv::outer::*;
-    use crate::arena_naming_valid::stream::anv::*;
     use parent::outer as child;
+    use rustgen_golden::arena_naming_valid::stream::anv as parent;
+    use rustgen_golden::arena_naming_valid::stream::anv::outer::*;
+    use rustgen_golden::arena_naming_valid::stream::anv::*;
     // anv.Outer { inner: anv.Outer.Outer { v: 5 } }
     const OUTER: &[u8] = &[0x0a, 0x02, 0x08, 0x05];
     let mut v = 0i32;
@@ -318,8 +380,8 @@ fn globbing_one_package_from_two_generated_files_keeps_both_macros_usable() {
     // pkgorder_t1 and pkgorder_t2 are separate generated files that both declare package `po` (with
     // different messages), as two `compile()` calls sharing a package produce. Each expansion names
     // its own message's scope, so globbing both `po` modules leaves both macros usable.
-    use crate::pkgorder_t1::stream::po::*;
-    use crate::pkgorder_t2::stream::po::*;
+    use rustgen_golden::pkgorder_t1::stream::po::*;
+    use rustgen_golden::pkgorder_t2::stream::po::*;
     const V7: &[u8] = &[0x08, 0x07];
     let (mut a, mut b) = (0i32, 0i32);
     linux_::new(V7)
@@ -338,10 +400,10 @@ fn schema_names_shaped_like_the_stream_glue_do_not_collide_with_it() {
     // scope and macro definition, a `Sized`, and a `Foo` whose macro shares `FooStream`'s submodule
     // name. Most of the check is the golden compiling; this drives `Holder`'s macros with all of those
     // names in scope, through the shared-state form (whose expansion bounds its state `?Sized`).
-    use crate::gluenames::stream::gluenames as top;
-    use crate::gluenames::stream::gluenames::rp__rt::*; // the `rp_rt` sub-package, reserved
-    use crate::gluenames::stream::gluenames::rp__rt_::*; // `RpRt`'s nested types, deduped against it
-    use crate::gluenames::stream::gluenames::*;
+    use rustgen_golden::gluenames::stream::gluenames as top;
+    use rustgen_golden::gluenames::stream::gluenames::rp__rt::*; // the `rp_rt` sub-package, reserved
+    use rustgen_golden::gluenames::stream::gluenames::rp__rt_::*; // `RpRt`'s nested types
+    use rustgen_golden::gluenames::stream::gluenames::*;
     use top::rp__rt as sub_pkg;
     // Holder { nested: RpRt { x: X { v: 1 } }, sub: Sub { inner: rp_rt { v: 2 } },
     //          sized: Sized { v: 4 }, foo: Foo { v: 3 } }

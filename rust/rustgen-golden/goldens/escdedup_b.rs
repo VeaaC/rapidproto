@@ -205,7 +205,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_8escdedup7decode_ {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_10escdedup_b_8escdedup7decode_ {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_8escdedup7decode_::decode__stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -270,6 +272,7 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_8escdedup7decode_ as decode__stream;
+    #[doc(inline)]
+    pub use __rp_10escdedup_b_8escdedup7decode_ as decode__stream;
   }
 }

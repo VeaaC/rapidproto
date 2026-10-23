@@ -1096,7 +1096,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2fm4Blob {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_11arena_modes_2fm4Blob {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2fm4Blob::blob_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -1179,7 +1181,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2fm4Blob as blob_stream;
+    #[doc(inline)]
+    pub use __rp_11arena_modes_2fm4Blob as blob_stream;
 
     /// Streaming visitor for `Holder`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `holder_stream` macro does both); a field left at the default
@@ -1664,7 +1667,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2fm6Holder {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_11arena_modes_2fm6Holder {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2fm6Holder::holder_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -1963,7 +1968,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2fm6Holder as holder_stream;
+    #[doc(inline)]
+    pub use __rp_11arena_modes_2fm6Holder as holder_stream;
 
     pub mod holder {
       #[doc(hidden)]
@@ -2061,7 +2067,9 @@ pub mod stream {
         }
       }
 
-      macro_rules! rp_mac_2fm6Holder3Grp {
+      #[doc(hidden)]
+      #[macro_export]
+      macro_rules! __rp_11arena_modes_2fm6Holder3Grp {
         ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
           rp_mod_2fm6Holder3Grp::grp_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
         };
@@ -2126,7 +2134,8 @@ pub mod stream {
           RpVis { $($rp_ct)* rp_state: $rp_s }
         }};
       }
-      pub(crate) use rp_mac_2fm6Holder3Grp as grp_stream;
+      #[doc(inline)]
+      pub use __rp_11arena_modes_2fm6Holder3Grp as grp_stream;
     }
   }
 }

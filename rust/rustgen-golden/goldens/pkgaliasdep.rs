@@ -248,7 +248,9 @@ pub mod stream {
         }
       }
 
-      macro_rules! rp_mac_2pa5linux3Sub {
+      #[doc(hidden)]
+      #[macro_export]
+      macro_rules! __rp_11pkgaliasdep_2pa5linux3Sub {
         ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
           rp_mod_2pa5linux3Sub::sub_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
         };
@@ -313,7 +315,8 @@ pub mod stream {
           RpVis { $($rp_ct)* rp_state: $rp_s }
         }};
       }
-      pub(crate) use rp_mac_2pa5linux3Sub as sub_stream;
+      #[doc(inline)]
+      pub use __rp_11pkgaliasdep_2pa5linux3Sub as sub_stream;
     }
   }
 }

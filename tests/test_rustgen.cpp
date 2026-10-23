@@ -842,12 +842,18 @@ TEST_CASE("rustgen goldens match the corpus (compile smoke-test)", "[rustgen-gol
     // Every corpus golden carries BOTH decoder models (arena + stream) in one file, so streaming
     // coverage tracks arena coverage over the whole corpus automatically (no bespoke stream schema)
     // and the two trees are proven to coexist. Streaming is still opt-in for a consumer (the default
-    // `generate_rust` emits arena only); the golden just always exercises both.
-    const rustgen::RustModels kBoth{/*arena=*/true, /*stream=*/true, /*stream_export_prefix=*/{}};
+    // `generate_rust` emits arena only); the golden just always exercises both. Each also exports its
+    // stream macros under its stem (`Config::export_stream_macros`), so the golden crate's
+    // integration tests drive them cross-crate as they do the arena types -- and since many goldens
+    // carry the same imported messages (`dep.Dep` in both `dep` and `main`), only those prefixes keep
+    // the crate-root names apart.
+    const auto both = [](const std::string& stem) {
+        return rustgen::RustModels{/*arena=*/true, /*stream=*/true, /*stream_export_prefix=*/stem};
+    };
     std::vector<std::string> stems;
     for (const std::string& rel : corpus_schemas()) {
         const std::string stem = golden_stem(rel);
-        check_golden(stem, gen_corpus(rel, kBoth));
+        check_golden(stem, gen_corpus(rel, both(stem)));
         stems.push_back(stem);
     }
     // A field-modes variant golden alongside the plain corpus goldens (see kModesGoldenStem).
@@ -869,33 +875,17 @@ TEST_CASE("rustgen goldens match the corpus (compile smoke-test)", "[rustgen-gol
     // The shared benchmark schema (tests/bench/bench.proto, package `bench`) -- generated so the Rust
     // decode benchmark (rust/rustgen-golden/benches/decode.rs) measures a realistic record decoder over
     // the SAME schema the C++ arena bench uses.
-    check_golden("bench", gen_corpus("../bench/bench.proto", kBoth));
+    check_golden("bench", gen_corpus("../bench/bench.proto", both("bench")));
     stems.emplace_back("bench");
     // A stream-ONLY golden (no arena): guards that `common` + the stream tree compile on their own --
     // the public `Config::arena(false).stream(true)` path, which the both-model goldens never exercise.
-    // nestenum is compact yet has enums (common) + nested messages.
+    // nestenum is compact yet has enums (common) + nested messages. It is also the one golden whose
+    // macros are NOT exported, pinning that default (`pub(crate)`) form; the consumer and OSM examples
+    // drive it at runtime.
     check_golden("streamonly", gen_corpus("nsedge/nestenum.proto",
                                           rustgen::RustModels{/*arena=*/false, /*stream=*/true,
                                                               /*stream_export_prefix=*/{}}));
     stems.emplace_back("streamonly");
-    // Stream-only goldens with exported macros (`Config::export_stream_macros`), each under its stem
-    // as the prefix, so the golden crate also holds several exported files at once: proto3 covers
-    // enum, recursive child, map, bytes and oneof slots; main a cross-package closure; nopkg a
-    // package-less schema with a nested message. proto3 is exported a second time, so two exported
-    // files define the same messages and only their prefixes keep the crate-root names apart. The
-    // golden crate drives these macros in-crate (src/stream_smoke.rs) and from a separate crate
-    // (tests/stream_export.rs).
-    for (const auto& [stem, rel] :
-         {std::pair<std::string_view, std::string_view>{"streamexport_p3", "proto3.proto"},
-          {"streamexport_p3_twin", "proto3.proto"},
-          {"streamexport_main", "imports/main.proto"},
-          {"streamexport_nopkg", "nsedge/nopkg.proto"}}) {
-        check_golden(
-            std::string(stem),
-            gen_corpus(rel, rustgen::RustModels{/*arena=*/false, /*stream=*/true,
-                                                /*stream_export_prefix=*/std::string(stem)}));
-        stems.emplace_back(stem);
-    }
     // Golden file names (and lib.rs module names) are the bare stems, so they must be distinct across
     // subdirs -- otherwise two schemas (e.g. nsedge/foo + imports/foo) would silently share one
     // golden and one module. Pin that invariant rather than trust the hand-kept list.
@@ -928,11 +918,6 @@ TEST_CASE("rustgen goldens match the corpus (compile smoke-test)", "[rustgen-gol
             lib += "pub mod " + rustgen::escape_rust_ident(stem) +
                    " {\n    include!(\"../goldens/" + stem + ".rs\");\n}\n\n";
         }
-        // An in-crate test module exercising the streaming decoders' `*_stream!` macros, which are
-        // `pub(crate) use`-exported (reachable only within the including crate, not cross-crate, so a
-        // `tests/` integration test cannot drive them). Hand-written (not generated); kept out of a
-        // no_std build and compiled only under test.
-        lib += "#[cfg(all(test, feature = \"std\"))]\nmod stream_smoke;\n\n";
         if (lib.size() >= 2 && lib[lib.size() - 1] == '\n' && lib[lib.size() - 2] == '\n') {
             lib.pop_back();  // rustfmt: one trailing newline, no blank line before EOF
         }

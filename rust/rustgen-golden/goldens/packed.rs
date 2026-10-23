@@ -500,7 +500,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2pk6Packed {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_6packed_2pk6Packed {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2pk6Packed::packed_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -601,6 +603,7 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2pk6Packed as packed_stream;
+    #[doc(inline)]
+    pub use __rp_6packed_2pk6Packed as packed_stream;
   }
 }

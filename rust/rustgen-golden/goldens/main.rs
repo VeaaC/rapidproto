@@ -942,7 +942,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_3dep3Dep {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_4main_3dep3Dep {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_3dep3Dep::dep_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -1025,7 +1027,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_3dep3Dep as dep_stream;
+    #[doc(inline)]
+    pub use __rp_4main_3dep3Dep as dep_stream;
   }
 
   pub mod fwd {
@@ -1124,7 +1127,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_3fwd3Fwd {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_4main_3fwd3Fwd {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_3fwd3Fwd::fwd_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -1189,7 +1194,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_3fwd3Fwd as fwd_stream;
+    #[doc(inline)]
+    pub use __rp_4main_3fwd3Fwd as fwd_stream;
   }
 
   pub mod main {
@@ -1488,7 +1494,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_4main4Main {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_4main_4main4Main {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_4main4Main::main_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -1679,7 +1687,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_4main4Main as main_stream;
+    #[doc(inline)]
+    pub use __rp_4main_4main4Main as main_stream;
   }
 
   pub mod r#pub {
@@ -1778,7 +1787,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_3pub3Pub {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_4main_3pub3Pub {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_3pub3Pub::pub_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -1843,6 +1854,7 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_3pub3Pub as pub_stream;
+    #[doc(inline)]
+    pub use __rp_4main_3pub3Pub as pub_stream;
   }
 }

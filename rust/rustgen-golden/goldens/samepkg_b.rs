@@ -209,7 +209,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_7samepkg7SecondB {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_9samepkg_b_7samepkg7SecondB {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_7samepkg7SecondB::second_b_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -274,6 +276,7 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_7samepkg7SecondB as second_b_stream;
+    #[doc(inline)]
+    pub use __rp_9samepkg_b_7samepkg7SecondB as second_b_stream;
   }
 }

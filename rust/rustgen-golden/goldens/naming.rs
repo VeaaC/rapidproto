@@ -3888,7 +3888,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2nm1M {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_6naming_2nm1M {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2nm1M::m_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -4043,7 +4045,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2nm1M as m_stream;
+    #[doc(inline)]
+    pub use __rp_6naming_2nm1M as m_stream;
 
     pub mod m {
       #[doc(hidden)]
@@ -4141,7 +4144,9 @@ pub mod stream {
         }
       }
 
-      macro_rules! rp_mac_2nm1M3int {
+      #[doc(hidden)]
+      #[macro_export]
+      macro_rules! __rp_6naming_2nm1M3int {
         ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
           rp_mod_2nm1M3int::int_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
         };
@@ -4206,7 +4211,8 @@ pub mod stream {
           RpVis { $($rp_ct)* rp_state: $rp_s }
         }};
       }
-      pub(crate) use rp_mac_2nm1M3int as int_stream;
+      #[doc(inline)]
+      pub use __rp_6naming_2nm1M3int as int_stream;
     }
 
     /// Streaming visitor for `Outer`. Select a field by overriding its `WANT_<field>` const AND
@@ -4299,7 +4305,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2nm5Outer {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_6naming_2nm5Outer {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2nm5Outer::outer_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -4364,7 +4372,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2nm5Outer as outer_stream;
+    #[doc(inline)]
+    pub use __rp_6naming_2nm5Outer as outer_stream;
 
     pub mod outer {
       #[doc(hidden)]
@@ -4485,7 +4494,9 @@ pub mod stream {
         }
       }
 
-      macro_rules! rp_mac_2nm5Outer5Outer {
+      #[doc(hidden)]
+      #[macro_export]
+      macro_rules! __rp_6naming_2nm5Outer5Outer {
         ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
           rp_mod_2nm5Outer5Outer::outer_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
         };
@@ -4568,7 +4579,8 @@ pub mod stream {
           RpVis { $($rp_ct)* rp_state: $rp_s }
         }};
       }
-      pub(crate) use rp_mac_2nm5Outer5Outer as outer_stream;
+      #[doc(inline)]
+      pub use __rp_6naming_2nm5Outer5Outer as outer_stream;
     }
 
     /// Streaming visitor for `Gnu`. Select a field by overriding its `WANT_<field>` const AND
@@ -4682,7 +4694,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2nm3Gnu {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_6naming_2nm3Gnu {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2nm3Gnu::gnu_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -4765,7 +4779,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2nm3Gnu as gnu_stream;
+    #[doc(inline)]
+    pub use __rp_6naming_2nm3Gnu as gnu_stream;
 
     pub mod gnu {
       #[doc(hidden)]
@@ -4863,7 +4878,9 @@ pub mod stream {
         }
       }
 
-      macro_rules! rp_mac_2nm3Gnu5linux {
+      #[doc(hidden)]
+      #[macro_export]
+      macro_rules! __rp_6naming_2nm3Gnu5linux {
         ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
           rp_mod_2nm3Gnu5linux::linux_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
         };
@@ -4928,7 +4945,8 @@ pub mod stream {
           RpVis { $($rp_ct)* rp_state: $rp_s }
         }};
       }
-      pub(crate) use rp_mac_2nm3Gnu5linux as linux_stream;
+      #[doc(inline)]
+      pub use __rp_6naming_2nm3Gnu5linux as linux_stream;
     }
 
     /// Streaming visitor for `Stdint`. Select a field by overriding its `WANT_<field>` const AND
@@ -5042,7 +5060,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2nm6Stdint {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_6naming_2nm6Stdint {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2nm6Stdint::stdint_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -5125,7 +5145,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2nm6Stdint as stdint_stream;
+    #[doc(inline)]
+    pub use __rp_6naming_2nm6Stdint as stdint_stream;
 
     /// Streaming visitor for `unix`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `unix_stream` macro does both); a field left at the default
@@ -5217,7 +5238,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2nm4unix {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_6naming_2nm4unix {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2nm4unix::unix_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -5282,7 +5305,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2nm4unix as unix_stream;
+    #[doc(inline)]
+    pub use __rp_6naming_2nm4unix as unix_stream;
 
     /// Streaming visitor for `m_bytes`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `m_bytes_stream` macro does both); a field left at the default
@@ -5374,7 +5398,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2nm7m_bytes {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_6naming_2nm7m_bytes {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2nm7m_bytes::m_bytes_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -5439,7 +5465,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2nm7m_bytes as m_bytes_stream;
+    #[doc(inline)]
+    pub use __rp_6naming_2nm7m_bytes as m_bytes_stream;
 
     /// Streaming visitor for `UsesMBytes`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `uses_m_bytes_stream` macro does both); a field left at the default
@@ -5552,7 +5579,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2nm10UsesMBytes {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_6naming_2nm10UsesMBytes {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2nm10UsesMBytes::uses_m_bytes_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -5635,7 +5664,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2nm10UsesMBytes as uses_m_bytes_stream;
+    #[doc(inline)]
+    pub use __rp_6naming_2nm10UsesMBytes as uses_m_bytes_stream;
 
     /// Streaming visitor for `Shadow`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `shadow_stream` macro does both); a field left at the default
@@ -5727,7 +5757,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2nm6Shadow {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_6naming_2nm6Shadow {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2nm6Shadow::shadow_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -5792,7 +5824,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2nm6Shadow as shadow_stream;
+    #[doc(inline)]
+    pub use __rp_6naming_2nm6Shadow as shadow_stream;
 
     pub mod shadow {
       #[doc(hidden)]
@@ -5892,7 +5925,9 @@ pub mod stream {
         }
       }
 
-      macro_rules! rp_mac_2nm6Shadow5Inner {
+      #[doc(hidden)]
+      #[macro_export]
+      macro_rules! __rp_6naming_2nm6Shadow5Inner {
         ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
           rp_mod_2nm6Shadow5Inner::inner_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
         };
@@ -5957,7 +5992,8 @@ pub mod stream {
           RpVis { $($rp_ct)* rp_state: $rp_s }
         }};
       }
-      pub(crate) use rp_mac_2nm6Shadow5Inner as inner_stream;
+      #[doc(inline)]
+      pub use __rp_6naming_2nm6Shadow5Inner as inner_stream;
     }
 
     /// Streaming visitor for `Deep`. Select a field by overriding its `WANT_<field>` const AND
@@ -6050,7 +6086,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2nm4Deep {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_6naming_2nm4Deep {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2nm4Deep::deep_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -6115,7 +6153,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2nm4Deep as deep_stream;
+    #[doc(inline)]
+    pub use __rp_6naming_2nm4Deep as deep_stream;
 
     pub mod deep {
       #[doc(hidden)]
@@ -6215,7 +6254,9 @@ pub mod stream {
         }
       }
 
-      macro_rules! rp_mac_2nm4Deep4Deep {
+      #[doc(hidden)]
+      #[macro_export]
+      macro_rules! __rp_6naming_2nm4Deep4Deep {
         ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
           rp_mod_2nm4Deep4Deep::deep_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
         };
@@ -6280,7 +6321,8 @@ pub mod stream {
           RpVis { $($rp_ct)* rp_state: $rp_s }
         }};
       }
-      pub(crate) use rp_mac_2nm4Deep4Deep as deep_stream;
+      #[doc(inline)]
+      pub use __rp_6naming_2nm4Deep4Deep as deep_stream;
 
       pub mod deep {
         #[doc(hidden)]
@@ -6378,7 +6420,9 @@ pub mod stream {
           }
         }
 
-        macro_rules! rp_mac_2nm4Deep4Deep4Deep {
+        #[doc(hidden)]
+        #[macro_export]
+        macro_rules! __rp_6naming_2nm4Deep4Deep4Deep {
           ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
             rp_mod_2nm4Deep4Deep4Deep::deep_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
           };
@@ -6443,7 +6487,8 @@ pub mod stream {
             RpVis { $($rp_ct)* rp_state: $rp_s }
           }};
         }
-        pub(crate) use rp_mac_2nm4Deep4Deep4Deep as deep_stream;
+        #[doc(inline)]
+        pub use __rp_6naming_2nm4Deep4Deep4Deep as deep_stream;
       }
     }
 
@@ -6537,7 +6582,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2nm3Std {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_6naming_2nm3Std {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2nm3Std::std_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -6602,7 +6649,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2nm3Std as std_stream;
+    #[doc(inline)]
+    pub use __rp_6naming_2nm3Std as std_stream;
 
     pub mod std {
       #[doc(hidden)]
@@ -6700,7 +6748,9 @@ pub mod stream {
         }
       }
 
-      macro_rules! rp_mac_2nm3Std3std {
+      #[doc(hidden)]
+      #[macro_export]
+      macro_rules! __rp_6naming_2nm3Std3std {
         ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
           rp_mod_2nm3Std3std::std_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
         };
@@ -6765,7 +6815,8 @@ pub mod stream {
           RpVis { $($rp_ct)* rp_state: $rp_s }
         }};
       }
-      pub(crate) use rp_mac_2nm3Std3std as std_stream;
+      #[doc(inline)]
+      pub use __rp_6naming_2nm3Std3std as std_stream;
     }
 
     /// Streaming visitor for `StdEnum`. Select a field by overriding its `WANT_<field>` const AND
@@ -6858,7 +6909,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2nm7StdEnum {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_6naming_2nm7StdEnum {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2nm7StdEnum::std_enum_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -6923,7 +6976,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2nm7StdEnum as std_enum_stream;
+    #[doc(inline)]
+    pub use __rp_6naming_2nm7StdEnum as std_enum_stream;
 
     /// Streaming visitor for `StdField`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `std_field_stream` macro does both); a field left at the default
@@ -7015,7 +7069,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2nm8StdField {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_6naming_2nm8StdField {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2nm8StdField::std_field_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -7080,7 +7136,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2nm8StdField as std_field_stream;
+    #[doc(inline)]
+    pub use __rp_6naming_2nm8StdField as std_field_stream;
 
     /// Streaming visitor for `StdMap`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `std_map_stream` macro does both); a field left at the default
@@ -7217,7 +7274,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2nm6StdMap {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_6naming_2nm6StdMap {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2nm6StdMap::std_map_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -7282,7 +7341,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2nm6StdMap as std_map_stream;
+    #[doc(inline)]
+    pub use __rp_6naming_2nm6StdMap as std_map_stream;
 
     /// Streaming visitor for `Macros`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `macros_stream` macro does both); a field left at the default
@@ -7461,7 +7521,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2nm6Macros {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_6naming_2nm6Macros {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2nm6Macros::macros_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -7562,7 +7624,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2nm6Macros as macros_stream;
+    #[doc(inline)]
+    pub use __rp_6naming_2nm6Macros as macros_stream;
 
     pub mod macros {
       #[doc(hidden)]
@@ -7660,7 +7723,9 @@ pub mod stream {
         }
       }
 
-      macro_rules! rp_mac_2nm6Macros10RP_FLATTEN {
+      #[doc(hidden)]
+      #[macro_export]
+      macro_rules! __rp_6naming_2nm6Macros10RP_FLATTEN {
         ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
           rp_mod_2nm6Macros10RP_FLATTEN::rp__flatten_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
         };
@@ -7725,7 +7790,8 @@ pub mod stream {
           RpVis { $($rp_ct)* rp_state: $rp_s }
         }};
       }
-      pub(crate) use rp_mac_2nm6Macros10RP_FLATTEN as rp__flatten_stream;
+      #[doc(inline)]
+      pub use __rp_6naming_2nm6Macros10RP_FLATTEN as rp__flatten_stream;
     }
 
     /// Streaming visitor for `OneofTags`. Select a field by overriding its `WANT_<field>` const AND
@@ -7860,7 +7926,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2nm9OneofTags {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_6naming_2nm9OneofTags {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2nm9OneofTags::oneof_tags_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -7961,7 +8029,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2nm9OneofTags as oneof_tags_stream;
+    #[doc(inline)]
+    pub use __rp_6naming_2nm9OneofTags as oneof_tags_stream;
 
     /// Streaming visitor for `UsesStream`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `uses_stream_stream` macro does both); a field left at the default
@@ -8053,7 +8122,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2nm10UsesStream {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_6naming_2nm10UsesStream {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2nm10UsesStream::uses_stream_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -8118,7 +8189,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2nm10UsesStream as uses_stream_stream;
+    #[doc(inline)]
+    pub use __rp_6naming_2nm10UsesStream as uses_stream_stream;
 
     /// Streaming visitor for `Freed`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `freed_stream` macro does both); a field left at the default
@@ -8294,7 +8366,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2nm5Freed {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_6naming_2nm5Freed {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2nm5Freed::freed_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -8431,7 +8505,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2nm5Freed as freed_stream;
+    #[doc(inline)]
+    pub use __rp_6naming_2nm5Freed as freed_stream;
 
     /// Streaming visitor for `FreedOneof`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `freed_oneof_stream` macro does both); a field left at the default
@@ -8523,7 +8598,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2nm10FreedOneof {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_6naming_2nm10FreedOneof {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2nm10FreedOneof::freed_oneof_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -8588,6 +8665,7 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2nm10FreedOneof as freed_oneof_stream;
+    #[doc(inline)]
+    pub use __rp_6naming_2nm10FreedOneof as freed_oneof_stream;
   }
 }

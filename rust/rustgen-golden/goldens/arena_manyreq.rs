@@ -2616,7 +2616,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2mr5Small {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_13arena_manyreq_2mr5Small {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2mr5Small::small_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -2699,7 +2701,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2mr5Small as small_stream;
+    #[doc(inline)]
+    pub use __rp_13arena_manyreq_2mr5Small as small_stream;
 
     /// Streaming visitor for `ReqInline`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `req_inline_stream` macro does both); a field left at the default
@@ -2812,7 +2815,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2mr9ReqInline {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_13arena_manyreq_2mr9ReqInline {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2mr9ReqInline::req_inline_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -2895,7 +2900,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2mr9ReqInline as req_inline_stream;
+    #[doc(inline)]
+    pub use __rp_13arena_manyreq_2mr9ReqInline as req_inline_stream;
 
     /// Streaming visitor for `ManyRequired`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `many_required_stream` macro does both); a field left at the default
@@ -4331,7 +4337,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2mr12ManyRequired {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_13arena_manyreq_2mr12ManyRequired {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2mr12ManyRequired::many_required_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -5548,6 +5556,7 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2mr12ManyRequired as many_required_stream;
+    #[doc(inline)]
+    pub use __rp_13arena_manyreq_2mr12ManyRequired as many_required_stream;
   }
 }

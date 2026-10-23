@@ -3000,7 +3000,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2p27Scalars {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_6proto2_2p27Scalars {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2p27Scalars::scalars_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -3371,7 +3373,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2p27Scalars as scalars_stream;
+    #[doc(inline)]
+    pub use __rp_6proto2_2p27Scalars as scalars_stream;
 
     /// Streaming visitor for `WithGroup`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `with_group_stream` macro does both); a field left at the default
@@ -3463,7 +3466,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2p29WithGroup {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_6proto2_2p29WithGroup {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2p29WithGroup::with_group_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -3528,7 +3533,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2p29WithGroup as with_group_stream;
+    #[doc(inline)]
+    pub use __rp_6proto2_2p29WithGroup as with_group_stream;
 
     pub mod with_group {
       #[doc(hidden)]
@@ -3649,7 +3655,9 @@ pub mod stream {
         }
       }
 
-      macro_rules! rp_mac_2p29WithGroup7MyGroup {
+      #[doc(hidden)]
+      #[macro_export]
+      macro_rules! __rp_6proto2_2p29WithGroup7MyGroup {
         ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
           rp_mod_2p29WithGroup7MyGroup::my_group_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
         };
@@ -3732,7 +3740,8 @@ pub mod stream {
           RpVis { $($rp_ct)* rp_state: $rp_s }
         }};
       }
-      pub(crate) use rp_mac_2p29WithGroup7MyGroup as my_group_stream;
+      #[doc(inline)]
+      pub use __rp_6proto2_2p29WithGroup7MyGroup as my_group_stream;
 
       pub mod my_group {
         #[doc(hidden)]
@@ -3830,7 +3839,9 @@ pub mod stream {
           }
         }
 
-        macro_rules! rp_mac_2p29WithGroup7MyGroup5Inner {
+        #[doc(hidden)]
+        #[macro_export]
+        macro_rules! __rp_6proto2_2p29WithGroup7MyGroup5Inner {
           ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
             rp_mod_2p29WithGroup7MyGroup5Inner::inner_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
           };
@@ -3895,7 +3906,8 @@ pub mod stream {
             RpVis { $($rp_ct)* rp_state: $rp_s }
           }};
         }
-        pub(crate) use rp_mac_2p29WithGroup7MyGroup5Inner as inner_stream;
+        #[doc(inline)]
+        pub use __rp_6proto2_2p29WithGroup7MyGroup5Inner as inner_stream;
       }
     }
 
@@ -4031,7 +4043,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2p210OneofGroup {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_6proto2_2p210OneofGroup {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2p210OneofGroup::oneof_group_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -4132,7 +4146,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2p210OneofGroup as oneof_group_stream;
+    #[doc(inline)]
+    pub use __rp_6proto2_2p210OneofGroup as oneof_group_stream;
 
     pub mod oneof_group {
       #[doc(hidden)]
@@ -4251,7 +4266,9 @@ pub mod stream {
         }
       }
 
-      macro_rules! rp_mac_2p210OneofGroup1G {
+      #[doc(hidden)]
+      #[macro_export]
+      macro_rules! __rp_6proto2_2p210OneofGroup1G {
         ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
           rp_mod_2p210OneofGroup1G::g_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
         };
@@ -4334,7 +4351,8 @@ pub mod stream {
           RpVis { $($rp_ct)* rp_state: $rp_s }
         }};
       }
-      pub(crate) use rp_mac_2p210OneofGroup1G as g_stream;
+      #[doc(inline)]
+      pub use __rp_6proto2_2p210OneofGroup1G as g_stream;
     }
 
     /// Streaming visitor for `GroupNumberReuse`. Select a field by overriding its `WANT_<field>` const AND
@@ -4427,7 +4445,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2p216GroupNumberReuse {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_6proto2_2p216GroupNumberReuse {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2p216GroupNumberReuse::group_number_reuse_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -4492,7 +4512,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2p216GroupNumberReuse as group_number_reuse_stream;
+    #[doc(inline)]
+    pub use __rp_6proto2_2p216GroupNumberReuse as group_number_reuse_stream;
 
     pub mod group_number_reuse {
       #[doc(hidden)]
@@ -4590,7 +4611,9 @@ pub mod stream {
         }
       }
 
-      macro_rules! rp_mac_2p216GroupNumberReuse1G {
+      #[doc(hidden)]
+      #[macro_export]
+      macro_rules! __rp_6proto2_2p216GroupNumberReuse1G {
         ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
           rp_mod_2p216GroupNumberReuse1G::g_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
         };
@@ -4655,7 +4678,8 @@ pub mod stream {
           RpVis { $($rp_ct)* rp_state: $rp_s }
         }};
       }
-      pub(crate) use rp_mac_2p216GroupNumberReuse1G as g_stream;
+      #[doc(inline)]
+      pub use __rp_6proto2_2p216GroupNumberReuse1G as g_stream;
     }
 
     /// Streaming visitor for `RepeatedGroup`. Select a field by overriding its `WANT_<field>` const AND
@@ -4769,7 +4793,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2p213RepeatedGroup {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_6proto2_2p213RepeatedGroup {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2p213RepeatedGroup::repeated_group_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -4852,7 +4878,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2p213RepeatedGroup as repeated_group_stream;
+    #[doc(inline)]
+    pub use __rp_6proto2_2p213RepeatedGroup as repeated_group_stream;
 
     pub mod repeated_group {
       #[doc(hidden)]
@@ -4950,7 +4977,9 @@ pub mod stream {
         }
       }
 
-      macro_rules! rp_mac_2p213RepeatedGroup4Item {
+      #[doc(hidden)]
+      #[macro_export]
+      macro_rules! __rp_6proto2_2p213RepeatedGroup4Item {
         ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
           rp_mod_2p213RepeatedGroup4Item::item_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
         };
@@ -5015,7 +5044,8 @@ pub mod stream {
           RpVis { $($rp_ct)* rp_state: $rp_s }
         }};
       }
-      pub(crate) use rp_mac_2p213RepeatedGroup4Item as item_stream;
+      #[doc(inline)]
+      pub use __rp_6proto2_2p213RepeatedGroup4Item as item_stream;
     }
 
     /// Streaming visitor for `OneofGroupStraddle`. Select a field by overriding its `WANT_<field>` const AND
@@ -5150,7 +5180,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2p218OneofGroupStraddle {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_6proto2_2p218OneofGroupStraddle {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2p218OneofGroupStraddle::oneof_group_straddle_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -5251,7 +5283,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2p218OneofGroupStraddle as oneof_group_straddle_stream;
+    #[doc(inline)]
+    pub use __rp_6proto2_2p218OneofGroupStraddle as oneof_group_straddle_stream;
 
     pub mod oneof_group_straddle {
       #[doc(hidden)]
@@ -5349,7 +5382,9 @@ pub mod stream {
         }
       }
 
-      macro_rules! rp_mac_2p218OneofGroupStraddle4Head {
+      #[doc(hidden)]
+      #[macro_export]
+      macro_rules! __rp_6proto2_2p218OneofGroupStraddle4Head {
         ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
           rp_mod_2p218OneofGroupStraddle4Head::head_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
         };
@@ -5414,7 +5449,8 @@ pub mod stream {
           RpVis { $($rp_ct)* rp_state: $rp_s }
         }};
       }
-      pub(crate) use rp_mac_2p218OneofGroupStraddle4Head as head_stream;
+      #[doc(inline)]
+      pub use __rp_6proto2_2p218OneofGroupStraddle4Head as head_stream;
     }
 
     /// Streaming visitor for `Container`. Select a field by overriding its `WANT_<field>` const AND
@@ -5681,7 +5717,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2p29Container {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_6proto2_2p29Container {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2p29Container::container_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -5818,7 +5856,8 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2p29Container as container_stream;
+    #[doc(inline)]
+    pub use __rp_6proto2_2p29Container as container_stream;
 
     pub mod container {
       #[doc(hidden)]
@@ -5916,7 +5955,9 @@ pub mod stream {
         }
       }
 
-      macro_rules! rp_mac_2p29Container6Nested {
+      #[doc(hidden)]
+      #[macro_export]
+      macro_rules! __rp_6proto2_2p29Container6Nested {
         ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
           rp_mod_2p29Container6Nested::nested_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
         };
@@ -5981,7 +6022,8 @@ pub mod stream {
           RpVis { $($rp_ct)* rp_state: $rp_s }
         }};
       }
-      pub(crate) use rp_mac_2p29Container6Nested as nested_stream;
+      #[doc(inline)]
+      pub use __rp_6proto2_2p29Container6Nested as nested_stream;
     }
   }
 }

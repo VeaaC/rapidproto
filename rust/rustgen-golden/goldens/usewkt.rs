@@ -535,7 +535,9 @@ pub mod stream {
         }
       }
 
-      macro_rules! rp_mac_6google8protobuf9Timestamp {
+      #[doc(hidden)]
+      #[macro_export]
+      macro_rules! __rp_6usewkt_6google8protobuf9Timestamp {
         ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
           rp_mod_6google8protobuf9Timestamp::timestamp_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
         };
@@ -618,7 +620,8 @@ pub mod stream {
           RpVis { $($rp_ct)* rp_state: $rp_s }
         }};
       }
-      pub(crate) use rp_mac_6google8protobuf9Timestamp as timestamp_stream;
+      #[doc(inline)]
+      pub use __rp_6usewkt_6google8protobuf9Timestamp as timestamp_stream;
 
       /// Streaming visitor for `Duration`. Select a field by overriding its `WANT_<field>` const AND
       /// its `on_<field>` method (the `duration_stream` macro does both); a field left at the default
@@ -731,7 +734,9 @@ pub mod stream {
         }
       }
 
-      macro_rules! rp_mac_6google8protobuf8Duration {
+      #[doc(hidden)]
+      #[macro_export]
+      macro_rules! __rp_6usewkt_6google8protobuf8Duration {
         ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
           rp_mod_6google8protobuf8Duration::duration_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
         };
@@ -814,7 +819,8 @@ pub mod stream {
           RpVis { $($rp_ct)* rp_state: $rp_s }
         }};
       }
-      pub(crate) use rp_mac_6google8protobuf8Duration as duration_stream;
+      #[doc(inline)]
+      pub use __rp_6usewkt_6google8protobuf8Duration as duration_stream;
     }
   }
 
@@ -939,7 +945,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_2uw5Event {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_6usewkt_2uw5Event {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_2uw5Event::event_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -1022,6 +1030,7 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_2uw5Event as event_stream;
+    #[doc(inline)]
+    pub use __rp_6usewkt_2uw5Event as event_stream;
   }
 }

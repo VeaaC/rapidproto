@@ -362,7 +362,9 @@ pub mod stream {
       }
     }
 
-    macro_rules! rp_mac_3opt1M {
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_7options_3opt1M {
       ( $( $rp_f:ident => $rp_c:expr ),* $(,)? ) => {
         rp_mod_3opt1M::m_stream!(@m [] [] [] [] [] $( $rp_f => $rp_c , )*)
       };
@@ -481,6 +483,7 @@ pub mod stream {
         RpVis { $($rp_ct)* rp_state: $rp_s }
       }};
     }
-    pub(crate) use rp_mac_3opt1M as m_stream;
+    #[doc(inline)]
+    pub use __rp_7options_3opt1M as m_stream;
   }
 }

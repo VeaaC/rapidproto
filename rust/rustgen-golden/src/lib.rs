@@ -220,22 +220,3 @@ pub mod bench {
 pub mod streamonly {
     include!("../goldens/streamonly.rs");
 }
-
-pub mod streamexport_p3 {
-    include!("../goldens/streamexport_p3.rs");
-}
-
-pub mod streamexport_p3_twin {
-    include!("../goldens/streamexport_p3_twin.rs");
-}
-
-pub mod streamexport_main {
-    include!("../goldens/streamexport_main.rs");
-}
-
-pub mod streamexport_nopkg {
-    include!("../goldens/streamexport_nopkg.rs");
-}
-
-#[cfg(all(test, feature = "std"))]
-mod stream_smoke;
