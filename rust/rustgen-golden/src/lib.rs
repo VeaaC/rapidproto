@@ -217,6 +217,10 @@ pub mod bench {
     include!("../goldens/bench.rs");
 }
 
+pub mod wire_all {
+    include!("../goldens/wire_all.rs");
+}
+
 pub mod streamonly {
     include!("../goldens/streamonly.rs");
 }

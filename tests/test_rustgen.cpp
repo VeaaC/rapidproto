@@ -877,6 +877,11 @@ TEST_CASE("rustgen goldens match the corpus (compile smoke-test)", "[rustgen-gol
     // the SAME schema the C++ arena bench uses.
     check_golden("bench", gen_corpus("../bench/bench.proto", both("bench")));
     stems.emplace_back("bench");
+    // The wire-fixture schema (tests/wire_fixtures/wire_all.proto, package `wire`): every wire type
+    // incl. a group, the schema of the protoc-encoded all_wire.bin the streaming tests decode -- as
+    // the C++ generators' goldens have it too.
+    check_golden("wire_all", gen_corpus("../wire_fixtures/wire_all.proto", both("wire_all")));
+    stems.emplace_back("wire_all");
     // A stream-ONLY golden (no arena): guards that `common` + the stream tree compile on their own --
     // the public `Config::arena(false).stream(true)` path, which the both-model goldens never exercise.
     // nestenum is compact yet has enums (common) + nested messages. It is also the one golden whose
