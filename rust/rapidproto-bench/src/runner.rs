@@ -14,6 +14,11 @@
 //! print). Rust measures no in-process counters: read instructions/byte with an external
 //! `perf stat -e instructions:u` over the `perf_*` examples.
 //!
+//! Run discipline, or the numbers lie: pinned (`taskset -c N`), aligned (`RUSTFLAGS=
+//! "-Cllvm-args=-align-all-functions=6"`, so an unrelated edit relaying the binary does not move
+//! throughput by code placement alone), `performance` governor, turbo/SMT off, one run at a time on a
+//! quiesced box.
+//!
 //! Env: `RAPIDPROTO_BENCH_DIR` (required) the payload directory; `RAPIDPROTO_BENCH_CHECK_ONLY` run only
 //! the agreement gate (no timing -- valid on any box); `RAPIDPROTO_BENCH_JSON` also emit one `rec:"arm"`
 //! NDJSON line per measurement (`cyc_b`/`ins_b` are null); `RAPIDPROTO_BENCH_ONLY=<substring>` run only
@@ -28,10 +33,11 @@ use std::time::Instant;
 use crate::payloads::{self, Inputs, Source};
 use crate::{Arm, ArmsFn, Decode};
 
-/// One measured scenario: its name (as in the C++ bench it mirrors), where its input lives, and the
-/// arms that decode it (arm 0 = the baseline).
+/// One measured scenario: its name, the name of the C++ bench row it mirrors (`None` when C++ has no
+/// such row), where its input lives, and the arms that decode it (arm 0 = the baseline).
 pub struct Scenario {
     pub name: String,
+    pub cpp_name: Option<String>,
     pub source: Source,
     pub arms: ArmsFn,
 }
@@ -247,6 +253,12 @@ pub fn run(scenarios: Vec<Scenario>, report: &Report) -> i32 {
             .map(|a| a.decoder().map(|d| pool_checksum(d, &inputs)))
             .collect();
         let agreed: Vec<u64> = sums.iter().filter_map(|&s| s).collect();
+        // Every arm agreeing on 0 means the input decodes to nothing: an empty or mislabelled payload
+        // (a sweep pool of the wrong field), which would otherwise be timed as a skip.
+        if agreed[0] == 0 {
+            eprintln!("scenario {name}: every arm's checksum is 0 -- the input decodes to nothing");
+            return 1;
+        }
         if !agreed.iter().all(|&s| s == agreed[0]) {
             eprintln!("CHECKSUM MISMATCH in scenario {name}:");
             for (a, s) in arms.iter().zip(&sums) {
@@ -262,6 +274,10 @@ pub fn run(scenarios: Vec<Scenario>, report: &Report) -> i32 {
             return 1;
         }
         let bytes = inputs.avg_bytes();
+        let cpp = sc
+            .cpp_name
+            .as_ref()
+            .map_or_else(|| "null".to_string(), |n| format!("\"{n}\""));
         if opts.check_only {
             let n_unsupported = sums.iter().filter(|s| s.is_none()).count();
             println!(
@@ -298,9 +314,10 @@ pub fn run(scenarios: Vec<Scenario>, report: &Report) -> i32 {
                     if opts.json {
                         println!(
                             "{{\"rec\":\"arm\",\"decoder\":\"{}\",\"scenario\":\"{name}\",\
-                             \"arm\":\"{}\",\"bytes\":{bytes:.0},\"baseline\":{baseline},\
-                             \"gb_s\":{gbs:.6},\"cyc_b\":null,\"ins_b\":null,\"vs_base_pct\":{vs:.3},\
-                             \"ub_unaligned_fixed_slice\":{ub},\"supported\":true,\"ok\":true}}",
+                             \"cpp_scenario\":{cpp},\"arm\":\"{}\",\"bytes\":{bytes:.0},\
+                             \"baseline\":{baseline},\"gb_s\":{gbs:.6},\"cyc_b\":null,\"ins_b\":null,\
+                             \"vs_base_pct\":{vs:.3},\"ub_unaligned_fixed_slice\":{ub},\
+                             \"supported\":true,\"ok\":true}}",
                             report.decoder, a.name
                         );
                     }
@@ -312,7 +329,8 @@ pub fn run(scenarios: Vec<Scenario>, report: &Report) -> i32 {
                     if opts.json {
                         println!(
                             "{{\"rec\":\"arm\",\"decoder\":\"{}\",\"scenario\":\"{name}\",\
-                             \"arm\":\"{}\",\"bytes\":{bytes:.0},\"baseline\":false,\"gb_s\":null,\
+                             \"cpp_scenario\":{cpp},\"arm\":\"{}\",\"bytes\":{bytes:.0},\
+                             \"baseline\":false,\"gb_s\":null,\
                              \"cyc_b\":null,\"ins_b\":null,\"vs_base_pct\":null,\
                              \"supported\":false,\"unsupported_reason\":\"{reason}\",\"ok\":false}}",
                             report.decoder, a.name

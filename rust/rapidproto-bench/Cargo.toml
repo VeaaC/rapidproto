@@ -41,7 +41,7 @@ rapidproto-bench-upb = { path = "../rapidproto-bench-upb", optional = true }
 # Add the google-upb capstone arm. Off by default; enabling it requires `protoc` 36.2 at build time
 # (point `RAPIDPROTO_UPB_PROTOC` at one -- see this crate's src/main.rs header). Run with:
 #   RAPIDPROTO_UPB_PROTOC=/path/to/protoc RAPIDPROTO_BENCH_DIR=<payloads> \
-#       cargo run -p rapidproto-bench --release --features google-upb
+#       cargo run -p rapidproto-bench --release --bin bench --features google-upb
 google-upb = ["dep:rapidproto-bench-upb"]
 
 [build-dependencies]
@@ -59,8 +59,8 @@ pb-rs = "0.10"
 femtopb-build = "0.9"
 
 [dev-dependencies]
-# Drives the Rust-vs-Rust A/B bench (benches/decode.rs); default features off -- it wants timings, not
-# the HTML/plotting stack. Matches the rapidproto wire bench.
+# Drives the Rust-vs-Rust A/B benches (benches/decode.rs, benches/stream.rs); default features off --
+# they want timings, not the HTML/plotting stack. Matches the rapidproto wire bench.
 criterion = { version = "0.3", default-features = false }
 
 # The ecosystem runner: decode each scenario with every (runtime-selected) arm over shared payloads.
@@ -75,7 +75,8 @@ name = "stream"
 path = "src/stream_main.rs"
 
 # The Rust-vs-Rust A/B bench for the generated `bench` decoder across the C++ arena bench's scenarios
-# (the 8 shapes, cold and warm, and the repeated-varint sweeps), over the shared payloads. Run it PINNED and ALIGNED (see the bench header for the directory):
+# (the 8 shapes, cold and warm, and the repeated-varint sweeps), over the shared payloads. Run it
+# PINNED and ALIGNED (see the bench header for the directory):
 #   RUSTFLAGS="-Cllvm-args=-align-all-functions=6" taskset -c 0 cargo bench -p rapidproto-bench --bench decode
 [[bench]]
 name = "decode"

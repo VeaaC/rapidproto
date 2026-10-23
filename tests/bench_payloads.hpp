@@ -9,7 +9,8 @@
 //   <dir>/<name>.bin           an arena scenario, protoc-serialized (bench_arena.cpp)
 //   <dir>/stream/<stem>.bin    a streaming scenario (bench_streamgen.cpp)
 //   <dir>/rv/<stem>/<i>.bin    buffer i of a varint-sweep pool (both benches; bench_varint.hpp)
-// The Rust side is decode-only: it builds none of these, so the files are its whole contract.
+//   <dir>/rv/<stem>/pool.txt   the pool's buffer count, written last: a pool without it is incomplete
+// The Rust runners build none of these, so the files are their whole contract.
 
 #include <cstdio>
 #include <cstdlib>
@@ -51,7 +52,11 @@ inline bool write_payload(const std::filesystem::path& path, const std::string& 
     std::error_code ec;
     std::filesystem::create_directories(path.parent_path(), ec);
     std::ofstream file(path, std::ios::binary);
-    if (ec || !file || !file.write(bytes.data(), static_cast<std::streamsize>(bytes.size()))) {
+    if (!ec && file) {
+        file.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
+        file.close();
+    }
+    if (ec || !file) {
         std::fprintf(stderr, "bench: cannot write '%s'\n", path.string().c_str());
         return false;
     }
@@ -64,34 +69,33 @@ inline std::filesystem::path rv_pool_path(const char* dir, const std::string& st
 }
 
 // The varint-sweep pool `stem` -- (dist, count, field_number) -- loaded from <dir>/rv/<stem>/ when
-// RAPIDPROTO_BENCH_DIR is set, else built.
+// RAPIDPROTO_BENCH_DIR is set (exactly the buffers its pool.txt counts), else built.
 inline VarintPool load_varint_pool(const std::string& stem, const VarintDist& dist, int count,
                                    int field_number = 1) {
     const char* const dir = payload_dir();
     if (dir == nullptr) {
         return build_varint_pool(dist, count, field_number);
     }
-    VarintPool pool;
-    double total_bytes = 0;
-    for (int i = 0;; ++i) {
-        const std::filesystem::path path = rv_pool_path(dir, stem) / (std::to_string(i) + ".bin");
-        if (!std::filesystem::exists(path)) {
-            break;
-        }
-        pool.buffers.push_back(read_payload(path.string()));
-        total_bytes += static_cast<double>(pool.buffers.back().size());
-    }
-    if (pool.buffers.empty()) {
-        std::fprintf(stderr, "bench: no pool buffers under '%s'\n",
-                     rv_pool_path(dir, stem).string().c_str());
+    const std::filesystem::path pool_dir = rv_pool_path(dir, stem);
+    const std::string manifest = read_payload((pool_dir / "pool.txt").string());
+    const long n = std::strtol(manifest.c_str(), nullptr, 10);
+    if (n <= 0) {
+        std::fprintf(stderr, "bench: bad pool count in '%s'\n",
+                     (pool_dir / "pool.txt").string().c_str());
         std::exit(1);
     }
-    pool.avg_bytes = total_bytes / static_cast<double>(pool.buffers.size());
+    VarintPool pool;
+    double total_bytes = 0;
+    for (long i = 0; i < n; ++i) {
+        pool.buffers.push_back(read_payload((pool_dir / (std::to_string(i) + ".bin")).string()));
+        total_bytes += static_cast<double>(pool.buffers.back().size());
+    }
+    pool.avg_bytes = total_bytes / static_cast<double>(n);
     return pool;
 }
 
 // Write the pool `stem` -- (dist, count, field_number) -- to <dir>/rv/<stem>/<i>.bin, replacing what
-// a previous dump left there (a smaller pool must not keep stale higher-index buffers).
+// a previous dump left there, and its pool.txt last, so an interrupted dump leaves no loadable pool.
 inline bool dump_varint_pool(const char* dir, const std::string& stem, const VarintDist& dist,
                              int count, int field_number = 1) {
     const std::filesystem::path pool_dir = rv_pool_path(dir, stem);
@@ -103,7 +107,7 @@ inline bool dump_varint_pool(const char* dir, const std::string& stem, const Var
             return false;
         }
     }
-    return true;
+    return write_payload(pool_dir / "pool.txt", std::to_string(pool.buffers.size()) + "\n");
 }
 
 }  // namespace rpbench

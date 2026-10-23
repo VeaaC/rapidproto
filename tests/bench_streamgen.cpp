@@ -278,62 +278,36 @@ std::string make_sparse() {
     return buf;
 }
 
-constexpr std::string_view kPayloads[] = {
-    "varint-1byte",   "varint-multibyte", "zigzag-sint64", "fixed32-float",
-    "fixed64-double", "len-string",       "packed-int32",  "skip-heavy",
-    "mixed",          "multibyte-tag",    "nested-msg",    "groups",
-    "sparse-skip",    "records",          "two-tier",      "two-tier-mbtag"};
+// Every payload: its stem and its builder (the records builder is shared with the arena bench,
+// bench_records.hpp, which asserts it value-equal to protoc's serialization at startup).
+struct Payload {
+    std::string_view stem;
+    std::string (*make)();
+};
+constexpr Payload kPayloads[] = {
+    {"varint-1byte", make_varint_1byte},
+    {"varint-multibyte", make_varint_multibyte},
+    {"zigzag-sint64", make_zigzag},
+    {"fixed32-float", make_fixed32},
+    {"fixed64-double", make_fixed64},
+    {"len-string", make_string},
+    {"packed-int32", make_packed},
+    {"skip-heavy", make_skip_heavy},
+    {"mixed", make_mixed},
+    {"multibyte-tag", make_multibyte_tag},
+    {"nested-msg", make_nested},
+    {"groups", make_groups},
+    {"sparse-skip", make_sparse},
+    {"records", [] { return rpbench::make_records_wire(20000); }},
+    {"two-tier", [] { return rp_bench_scalars_buffer(kN); }},
+    {"two-tier-mbtag", [] { return rp_bench_mbtag_buffer(kN); }},
+};
 
 std::string make_payload(std::string_view stem) {
-    if (stem == "varint-1byte") {
-        return make_varint_1byte();
-    }
-    if (stem == "varint-multibyte") {
-        return make_varint_multibyte();
-    }
-    if (stem == "zigzag-sint64") {
-        return make_zigzag();
-    }
-    if (stem == "fixed32-float") {
-        return make_fixed32();
-    }
-    if (stem == "fixed64-double") {
-        return make_fixed64();
-    }
-    if (stem == "len-string") {
-        return make_string();
-    }
-    if (stem == "packed-int32") {
-        return make_packed();
-    }
-    if (stem == "skip-heavy") {
-        return make_skip_heavy();
-    }
-    if (stem == "mixed") {
-        return make_mixed();
-    }
-    if (stem == "multibyte-tag") {
-        return make_multibyte_tag();
-    }
-    if (stem == "nested-msg") {
-        return make_nested();
-    }
-    if (stem == "groups") {
-        return make_groups();
-    }
-    if (stem == "sparse-skip") {
-        return make_sparse();
-    }
-    if (stem == "records") {
-        // Hand-built, shared with the arena bench (bench_records.hpp), which asserts it value-equal to
-        // protoc's serialization at startup.
-        return rpbench::make_records_wire(20000);
-    }
-    if (stem == "two-tier") {
-        return rp_bench_scalars_buffer(kN);
-    }
-    if (stem == "two-tier-mbtag") {
-        return rp_bench_mbtag_buffer(kN);
+    for (const Payload& payload : kPayloads) {
+        if (payload.stem == stem) {
+            return payload.make();
+        }
     }
     std::fprintf(stderr, "bench: unknown payload '%.*s'\n", static_cast<int>(stem.size()),
                  stem.data());
@@ -1651,10 +1625,10 @@ int main() {
     // then point this bench and the Rust streaming bench at the directory via RAPIDPROTO_BENCH_DIR so
     // they decode byte-identical input.
     if (const char* const dir = std::getenv("RAPIDPROTO_BENCH_DUMP_DIR")) {
-        for (const std::string_view stem : kPayloads) {
+        for (const Payload& payload : kPayloads) {
             const std::filesystem::path path =
-                std::filesystem::path(dir) / "stream" / (std::string(stem) + ".bin");
-            if (!rpbench::write_payload(path, make_payload(stem))) {
+                std::filesystem::path(dir) / "stream" / (std::string(payload.stem) + ".bin");
+            if (!rpbench::write_payload(path, payload.make())) {
                 return 1;
             }
         }

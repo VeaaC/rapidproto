@@ -7,7 +7,7 @@
 use prost::Message;
 use rapidproto_bench::competitors::prost::pb;
 use rapidproto_bench::payloads::Source;
-use rapidproto_bench::{Arm, ArmRun};
+use rapidproto_bench::Arm;
 
 // Every supported arm's checksum on `bytes`, all equal (and returned), the unsupported ones skipped.
 fn all_agree(arms: Vec<Arm>, bytes: &[u8]) -> u64 {
@@ -155,7 +155,7 @@ fn big_enum_arms_agree_with_quick_protobuf_unsupported() {
     let arms = rapidproto_bench::big_enum_arms();
     assert!(arms
         .iter()
-        .any(|a| a.name == "quick-protobuf" && matches!(a.run, ArmRun::Unsupported(_))));
+        .any(|a| a.name == "quick-protobuf" && a.unsupported_reason().is_some()));
     // An enum value no `Kind` names, like the sweep's varints.
     let b = pb::Big {
         kinds: vec![1, 300, 2_000_000],
@@ -166,7 +166,9 @@ fn big_enum_arms_agree_with_quick_protobuf_unsupported() {
 
 // --- streaming -----------------------------------------------------------------------------------
 // A small input of each streaming scenario's wire shape -- the C++ builders (tests/bench_streamgen.cpp)
-// at a few records -- keyed by payload stem; a sweep pool gets one packed int64 buffer of every width.
+// at a few records, with negative values wherever a widening is a choice -- together with the sum the
+// C++ bench's `generated` lambda computes over it, derived from the ENCODED VALUES (never by parsing),
+// so a cast both Rust arms get wrong the same way still fails against the C++ rule.
 
 fn put_varint(b: &mut Vec<u8>, mut v: u64) {
     while v >= 0x80 {
@@ -178,6 +180,11 @@ fn put_varint(b: &mut Vec<u8>, mut v: u64) {
 fn put_tag(b: &mut Vec<u8>, field: u32, wire: u32) {
     put_varint(b, (u64::from(field) << 3) | u64::from(wire));
 }
+// A varint field; a negative int32/int64 encodes sign-extended to 64 bits, as protobuf does.
+fn put_var(b: &mut Vec<u8>, field: u32, v: u64) {
+    put_tag(b, field, 0);
+    put_varint(b, v);
+}
 fn put_len(b: &mut Vec<u8>, field: u32, payload: &[u8]) {
     put_tag(b, field, 2);
     put_varint(b, payload.len() as u64);
@@ -187,156 +194,231 @@ fn zigzag(v: i64) -> u64 {
     ((v << 1) ^ (v >> 63)) as u64
 }
 
-const N: u64 = 40;
+const N: i64 = 40;
 
-fn sample(base: u64) -> Vec<u8> {
-    let mut s = Vec::new();
-    for (field, v) in [
-        (1, base & 63),
-        (2, (base + 1) & 63),
-        (3, (base + 2) & 63),
-        (4, zigzag(((base + 3) & 63) as i64 - 32)),
-        (5, base & 1),
-        (6, (base + 4) & 63),
-    ] {
-        put_tag(&mut s, field, 0);
-        put_varint(&mut s, v);
-    }
-    s
+// The C++ widenings: `static_cast<std::uint32_t>(int32)` zero-extends, `static_cast<std::uint64_t>`
+// of a signed value sign-extends.
+fn u32_of(v: i32) -> u64 {
+    u64::from(v as u32)
+}
+fn u64_of(v: i64) -> u64 {
+    v as u64
 }
 
-fn record_set() -> Vec<u8> {
-    let mut out = Vec::new();
+// A Sample with a negative sint32 `d`; returns its bytes and the C++ dense sum over it.
+fn sample(base: i64) -> (Vec<u8>, u64) {
+    let (a, b, c, d) = (base & 63, (base + 1) & 63, (base + 2) & 63, (base & 7) - 4);
+    let (e, f) = (base & 1 == 1, (base + 4) & 63);
+    let mut s = Vec::new();
+    put_var(&mut s, 1, a as u64);
+    put_var(&mut s, 2, b as u64);
+    put_var(&mut s, 3, c as u64);
+    put_var(&mut s, 4, zigzag(d));
+    put_var(&mut s, 5, u64::from(e));
+    put_var(&mut s, 6, f as u64);
+    let sum = [
+        u64_of(a),
+        u64_of(b),
+        u64_of(c),
+        u64_of(d),
+        u64::from(e),
+        f as u64,
+    ]
+    .into_iter()
+    .fold(0u64, u64::wrapping_add);
+    (s, sum)
+}
+
+// A RecordSet with negative int32 / sint32 fields; returns its bytes and the C++ dense and sparse sums.
+fn record_set() -> (Vec<u8>, u64, u64) {
+    let (mut out, mut dense, mut sparse) = (Vec::new(), 0u64, 0u64);
     for i in 0..N {
         let mut r = Vec::new();
         for field in 1..=15u32 {
-            put_tag(&mut r, field, 0);
-            put_varint(
-                &mut r,
-                match field {
-                    6 => zigzag(i as i64 - 20),  // f6 sint32, negative too
-                    7 => i & 1,                  // f7 bool
-                    1 => (i as i64 - 20) as u64, // f1 int32, negative too
-                    _ => (i + u64::from(field)) & 63,
-                },
-            );
+            let v = i - 20 + i64::from(field); // negative for the early records
+            match field {
+                4 => put_var(&mut r, 4, v as u64),            // f4 int64
+                5 => put_var(&mut r, 5, (v & 0xffff) as u64), // f5 uint32
+                6 => put_var(&mut r, 6, zigzag(v)),           // f6 sint32
+                7 => put_var(&mut r, 7, (v & 1) as u64),      // f7 bool
+                8 => put_var(&mut r, 8, (v & 0xffff) as u64), // f8 uint64
+                _ => put_var(&mut r, field, v as u64),        // int32, sign-extended
+            }
+            dense = dense.wrapping_add(match field {
+                5 | 8 => (v & 0xffff) as u64,
+                7 => (v & 1) as u64,
+                _ => u64_of(v),
+            });
+            if matches!(field, 1 | 10) {
+                sparse = sparse.wrapping_add(u64_of(v));
+            }
         }
-        put_len(&mut r, 16, &sample(i + 20));
-        put_len(&mut r, 17, &sample(i + 30));
+        for (field, base) in [(16, i + 20), (17, i + 30)] {
+            let (bytes, sum) = sample(base);
+            put_len(&mut r, field, &bytes);
+            dense = dense.wrapping_add(sum);
+        }
         for field in 18..=20u32 {
-            put_tag(&mut r, field, 0);
-            put_varint(&mut r, (i + u64::from(field)) & 63);
+            let v = i - 30 + i64::from(field);
+            put_var(&mut r, field, v as u64);
+            dense = dense.wrapping_add(u64_of(v));
+            if field == 20 {
+                sparse = sparse.wrapping_add(u64_of(v));
+            }
         }
         put_len(&mut out, 1, &r);
     }
-    out
-}
-
-fn stream_input(stem: &str) -> Vec<u8> {
-    let mut b = Vec::new();
-    for i in 0..N {
-        match stem {
-            "varint-1byte" => {
-                put_tag(&mut b, 1, 0);
-                put_varint(&mut b, i & 0x7f);
-            }
-            "varint-multibyte" => {
-                put_tag(&mut b, 1, 0);
-                put_varint(&mut b, 0xF000_0000 + i);
-            }
-            "zigzag-sint64" => {
-                put_tag(&mut b, 6, 0);
-                put_varint(
-                    &mut b,
-                    zigzag(i as i64 * if i & 1 == 1 { -1003 } else { 1003 }),
-                );
-            }
-            "fixed32-float" => {
-                put_tag(&mut b, 14, 5);
-                b.extend_from_slice(&(i as f32 * 1.5).to_bits().to_le_bytes());
-            }
-            "fixed64-double" => {
-                put_tag(&mut b, 15, 1);
-                b.extend_from_slice(&(i as f64 * -2.25).to_bits().to_le_bytes());
-            }
-            "len-string" => put_len(&mut b, 12, b"abcdefgh"),
-            "skip-heavy" => {
-                put_tag(&mut b, 1, 0);
-                put_varint(&mut b, i);
-                put_tag(&mut b, 11, 0);
-                put_varint(&mut b, i & 1);
-            }
-            "mixed" | "sparse-skip" => {
-                put_tag(&mut b, 1, 0);
-                put_varint(&mut b, i);
-                put_tag(&mut b, if stem == "mixed" { 6 } else { 2 }, 0);
-                put_varint(&mut b, zigzag(i as i64 * -7));
-                put_tag(&mut b, if stem == "mixed" { 15 } else { 8 }, 1);
-                b.extend_from_slice(&(i as f64 * 0.5).to_bits().to_le_bytes());
-                put_len(&mut b, 12, b"wxyz");
-            }
-            "multibyte-tag" | "two-tier-mbtag" => {
-                put_tag(&mut b, 18, 0);
-                put_varint(&mut b, i & 0x7f);
-            }
-            "nested-msg" => {
-                let mut nested = Vec::new();
-                put_tag(&mut nested, 1, 0);
-                put_varint(&mut nested, i);
-                put_len(&mut b, 5, &nested);
-            }
-            "groups" => {
-                put_tag(&mut b, 1, 3);
-                put_tag(&mut b, 2, 0);
-                put_varint(&mut b, i);
-                put_tag(&mut b, 1, 4);
-            }
-            "packed-int32" | "two-tier" | "records" => break,
-            other => panic!("no input for stream payload {other:?}"),
-        }
-    }
-    match stem {
-        "packed-int32" => {
-            let mut run = Vec::new();
-            for i in 0..N {
-                put_varint(&mut run, (i * 9000) & 0x3_FFFF);
-            }
-            put_len(&mut b, 17, &run);
-        }
-        "two-tier" => {
-            put_tag(&mut b, 1, 0);
-            put_varint(&mut b, 1_234_567);
-            put_tag(&mut b, 4, 0);
-            put_varint(&mut b, 0xDEAD_BEEF);
-            put_tag(&mut b, 5, 0);
-            put_varint(&mut b, zigzag(-42));
-            let mut run = Vec::new();
-            for i in 0..N {
-                put_varint(&mut run, (i * 9000) & 0x3_FFFF);
-            }
-            put_len(&mut b, 17, &run);
-            put_len(&mut b, 12, b"the quick brown fox");
-        }
-        "records" => b = record_set(),
-        _ => {}
-    }
-    b
+    (out, dense, sparse)
 }
 
 // One packed int64 field 1 carrying a value of every varint width, 1..10 bytes (10: a negative int64).
-fn pool_input() -> Vec<u8> {
+fn pool_input() -> (Vec<u8>, u64) {
+    let values: Vec<i64> = (1..=9u32)
+        .map(|w| 1i64 << (7 * (w - 1)))
+        .chain([-5])
+        .collect();
     let mut run = Vec::new();
-    for width in 1..=9u32 {
-        put_varint(&mut run, 1u64 << (7 * (width - 1)));
+    for &v in &values {
+        put_varint(&mut run, v as u64);
     }
-    put_varint(&mut run, (-5i64) as u64);
     let mut b = Vec::new();
     put_len(&mut b, 1, &run);
-    b
+    (
+        b,
+        values.iter().fold(0u64, |s, &v| s.wrapping_add(u64_of(v))),
+    )
+}
+
+// The input of the scenario `name` (payload `stem`) and the C++ generated arm's sum over it.
+fn stream_case(name: &str, stem: &str) -> (Vec<u8>, u64) {
+    let (mut b, mut sum) = (Vec::new(), 0u64);
+    let mut add = |v: u64| sum = sum.wrapping_add(v);
+    match stem {
+        "varint-1byte" | "skip-heavy" | "sparse-skip" | "varint-multibyte" => {
+            for i in 0..N {
+                let v = match stem {
+                    "varint-multibyte" => (0xF000_0000 + i) as i32, // > i32::MAX: wraps negative
+                    _ => (i - 20) as i32,
+                };
+                put_var(&mut b, 1, i64::from(v) as u64);
+                add(u32_of(v));
+                match stem {
+                    "skip-heavy" => put_var(&mut b, 11, (i & 1) as u64),
+                    "sparse-skip" => {
+                        put_var(&mut b, 2, (i * 3) as u64);
+                        put_tag(&mut b, 8, 1);
+                        b.extend_from_slice(&(i as u64).to_le_bytes());
+                        put_len(&mut b, 12, b"abcd");
+                    }
+                    _ => {}
+                }
+            }
+        }
+        "zigzag-sint64" => {
+            for i in 0..N {
+                let v = i * if i & 1 == 1 { -1003 } else { 1003 };
+                put_var(&mut b, 6, zigzag(v));
+                add(u64_of(v));
+            }
+        }
+        "fixed32-float" => {
+            for i in 0..N {
+                let bits = (i as f32 * -1.5).to_bits();
+                put_tag(&mut b, 14, 5);
+                b.extend_from_slice(&bits.to_le_bytes());
+                add(u64::from(bits));
+            }
+        }
+        "fixed64-double" => {
+            for i in 0..N {
+                let bits = (i as f64 * -2.25).to_bits();
+                put_tag(&mut b, 15, 1);
+                b.extend_from_slice(&bits.to_le_bytes());
+                add(bits);
+            }
+        }
+        "len-string" => {
+            for i in 0..N {
+                let s = &b"abcdefgh"[..(i % 9) as usize];
+                put_len(&mut b, 12, s);
+                add(s.len() as u64);
+            }
+        }
+        "mixed" => {
+            for i in 0..N {
+                put_var(&mut b, 1, (i - 20) as u64);
+                add(u32_of((i - 20) as i32));
+                put_var(&mut b, 6, zigzag(i * -7));
+                add(u64_of(i * -7));
+                let bits = (i as f64 * 0.5).to_bits();
+                put_tag(&mut b, 15, 1);
+                b.extend_from_slice(&bits.to_le_bytes());
+                add(bits);
+                put_len(&mut b, 12, b"wxyz");
+                add(4);
+            }
+        }
+        "multibyte-tag" | "two-tier-mbtag" => {
+            for i in 0..N {
+                put_var(&mut b, 18, (i - 20) as u64);
+                add(u32_of((i - 20) as i32));
+            }
+        }
+        "packed-int32" => {
+            let mut run = Vec::new();
+            for i in 0..N {
+                put_varint(&mut run, (i - 20) as u64);
+                add(u32_of((i - 20) as i32));
+            }
+            put_len(&mut b, 17, &run);
+        }
+        "nested-msg" => {
+            for i in 0..N {
+                let mut nested = Vec::new();
+                put_var(&mut nested, 1, (i - 20) as u64);
+                put_len(&mut b, 5, &nested);
+                add(u32_of((i - 20) as i32));
+            }
+        }
+        "groups" => {
+            for i in 0..N {
+                put_tag(&mut b, 1, 3);
+                put_var(&mut b, 2, (i - 20) as u64);
+                put_tag(&mut b, 1, 4);
+                add(u32_of((i - 20) as i32));
+            }
+        }
+        "two-tier" => {
+            put_var(&mut b, 1, (-7i64) as u64);
+            add(u32_of(-7));
+            put_var(&mut b, 4, 0xDEAD_BEEF);
+            add(0xDEAD_BEEF);
+            put_var(&mut b, 5, zigzag(-42));
+            add(u32_of(-42));
+            let mut run = Vec::new();
+            for i in 0..N {
+                put_varint(&mut run, (i - 20) as u64);
+                add(u32_of((i - 20) as i32));
+            }
+            put_len(&mut b, 17, &run);
+            put_len(&mut b, 12, b"the quick brown fox");
+            add(19);
+        }
+        "records" => {
+            let (bytes, dense, sparse) = record_set();
+            return match name {
+                "records dense (stream)" => (bytes, dense),
+                "records sparse (stream)" => (bytes, sparse),
+                other => panic!("no expected sum for {other:?}"),
+            };
+        }
+        other => panic!("no input for stream payload {other:?}"),
+    }
+    (b, sum)
 }
 
 #[test]
-fn every_stream_scenario_has_agreeing_arms() {
+fn every_stream_scenario_sums_what_cpp_sums() {
     let scenarios = rapidproto_bench::stream::scenarios();
     assert_eq!(
         scenarios.len(),
@@ -344,16 +426,16 @@ fn every_stream_scenario_has_agreeing_arms() {
         "the C++ streaming bench's scenario count"
     );
     for sc in scenarios {
-        let input = match &sc.source {
-            Source::Stream(stem) => stream_input(stem),
+        let (input, expected) = match &sc.source {
+            Source::Stream(stem) => stream_case(&sc.name, stem),
             Source::Pool(_) => pool_input(),
             Source::Arena(_) => unreachable!("a streaming scenario reads stream payloads"),
         };
         let arms = (sc.arms)();
         let names: Vec<&str> = arms.iter().map(|a| a.name).collect();
         assert_eq!(names, ["generated", "wire"], "{}", sc.name);
-        // Non-vacuous: every scenario's input has fields the arms sum.
-        assert_ne!(all_agree(arms, &input), 0, "{} summed nothing", sc.name);
+        assert_eq!(all_agree(arms, &input), expected, "{}", sc.name);
+        assert_ne!(expected, 0, "{} sums nothing", sc.name);
     }
 }
 

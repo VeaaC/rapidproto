@@ -17,9 +17,9 @@
 //! `--config 'profile.release.lto="fat"' --config 'profile.release.codegen-units=1'` to see it.
 //!
 //! ```text
-//! # produce the shared payloads once (from the C++ benches; ~1.8 GB, keep it on disk):
+//! # produce the shared payloads once (from the C++ arena bench; ~1.6 GB, keep it on disk):
 //! RAPIDPROTO_BENCH_DUMP_DIR=<dir> ./build/<cfg>/rapidproto_arena_bench
-//! # run pinned + aligned (see the discipline note below), one run at a time, on a quiesced box:
+//! # run pinned + aligned (the discipline note is runner.rs's), one run at a time, on a quiesced box:
 //! RAPIDPROTO_BENCH_DIR=<dir> RUSTFLAGS="-Cllvm-args=-align-all-functions=6" \
 //!     taskset -c 0 cargo run -p rapidproto-bench --release --bin bench
 //! ```

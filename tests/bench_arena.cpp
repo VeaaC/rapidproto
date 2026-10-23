@@ -700,11 +700,12 @@ int sweep_repeated_varint_types() {
 }  // namespace
 
 int main() {
-    // Generator mode: write every scenario's canonical bytes (protoc's SerializeToString of each
-    // make_*) into the given directory as <name>.bin and exit, WITHOUT benching. This is the single
-    // source of the shared payloads -- run it once, then point both this bench and the Rust decode
-    // bench at the directory via RAPIDPROTO_BENCH_DIR so they decode byte-identical input. (No new
-    // tool: reuses the make_* builders and this bench's libprotobuf link.)
+    // Generator mode: write every scenario's input into the given directory and exit, WITHOUT
+    // benching -- each shape's canonical bytes (protoc's SerializeToString of its make_*) as
+    // <name>.bin, and the repeated-varint sweeps' pools (bench_payloads.hpp). The streaming bench's
+    // dump writes its own scenarios into the same layout. Run it once, then point both this bench and
+    // the Rust arena benches at the directory via RAPIDPROTO_BENCH_DIR so they decode byte-identical
+    // input. (No new tool: reuses the builders and this bench's libprotobuf link.)
     if (const char* const dir = std::getenv("RAPIDPROTO_BENCH_DUMP_DIR")) {
         for (const std::string_view name : kScenarios) {
             if (!rpbench::write_payload(std::filesystem::path(dir) / (std::string(name) + ".bin"),

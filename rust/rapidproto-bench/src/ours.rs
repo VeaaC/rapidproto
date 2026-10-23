@@ -56,9 +56,12 @@ pub fn particleset() -> Vec<Arm> {
     arena_arms!(ParticleSet, checksum::checksum_particleset)
 }
 
-// `checksum_dataset` over the streaming decoder: the people's terms accumulate in one sum and the
-// header's `name length ^ version` is combined at the end (wrapping addition commutes, so the order
-// the fields arrive in does not matter). A repeated field or map contributes its element count.
+// `checksum_dataset` over the streaming decoder, visiting every field the C++ arena bench's
+// `streamgen` arm does (each Address and Attribute decoded whole): the people's terms accumulate in
+// one sum and the header's `name length ^ version` is combined at the end (wrapping addition
+// commutes, so the order the fields arrive in does not matter). A repeated field or map contributes
+// its element count; the strings that convention does not count (street, city, an attribute's key
+// and value) are still delivered and summed apart, into `unread`, so the arm does the C++ work.
 fn stream_dataset(b: &[u8]) -> u64 {
     use rustgen_golden::bench::stream::bench::*;
     #[derive(Default)]
@@ -66,28 +69,39 @@ fn stream_dataset(b: &[u8]) -> u64 {
         name_len: u64,
         version: u64,
         people: u64,
+        unread: u64,
     }
+    let add = |s: &mut u64, v: u64| *s = s.wrapping_add(v);
     let mut acc = Acc::default();
     Dataset::new(b)
         .decode(dataset_stream!(&mut acc; {
             name => |a, v| a.name_len = v.len() as u64,
             version => |a, v| a.version = v as u64,
-            people => |a, p| p.decode(person_stream!(&mut a.people; {
-                id => |s, v| *s = s.wrapping_add(v as u64),
-                name => |s, v| *s = s.wrapping_add(v.len() as u64),
-                email => |s, v| *s = s.wrapping_add(v.len() as u64),
-                active => |s, v| *s = s.wrapping_add(u64::from(v)),
-                score => |s, v| *s = s.wrapping_add(v.to_bits()),
-                created => |s, v| *s = s.wrapping_add(v),
-                address => |s, a| a.decode(address_stream!(&mut *s; {
-                    zip => |s, v| *s = s.wrapping_add(u64::from(v)),
+            people => |a, p| p.decode(person_stream!(&mut *a; {
+                id => |a, v| add(&mut a.people, v as u64),
+                name => |a, v| add(&mut a.people, v.len() as u64),
+                email => |a, v| add(&mut a.people, v.len() as u64),
+                active => |a, v| add(&mut a.people, u64::from(v)),
+                score => |a, v| add(&mut a.people, v.to_bits()),
+                created => |a, v| add(&mut a.people, v),
+                address => |a, ad| ad.decode(address_stream!(&mut *a; {
+                    street => |a, v| add(&mut a.unread, v.len() as u64),
+                    city => |a, v| add(&mut a.unread, v.len() as u64),
+                    zip => |a, v| add(&mut a.people, u64::from(v)),
                 })),
-                tags => |s, _v| *s = s.wrapping_add(1),
-                history => |s, v| *s = s.wrapping_add(v as u64),
-                attributes => |s, _a| *s = s.wrapping_add(1),
-                counters => |s, _e| *s = s.wrapping_add(1),
+                tags => |a, _v| add(&mut a.people, 1),
+                history => |a, v| add(&mut a.people, v as u64),
+                attributes => |a, at| {
+                    add(&mut a.people, 1);
+                    at.decode(attribute_stream!(&mut *a; {
+                        key => |a, v| add(&mut a.unread, v.len() as u64),
+                        value => |a, v| add(&mut a.unread, v.len() as u64),
+                    }))
+                },
+                counters => |a, _e| add(&mut a.people, 1),
             })),
         }))
         .expect("rapidproto stream decode");
+    std::hint::black_box(acc.unread);
     (acc.name_len ^ acc.version).wrapping_add(acc.people)
 }

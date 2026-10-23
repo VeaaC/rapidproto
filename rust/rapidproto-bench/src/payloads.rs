@@ -1,12 +1,12 @@
 //! The shared payload directory (`RAPIDPROTO_BENCH_DIR`) -- the bytes the C++ benches write in their
 //! dump mode (`RAPIDPROTO_BENCH_DUMP_DIR`, see `tests/bench_payloads.hpp`), so every Rust number is
-//! measured on byte-identical input to its C++ counterpart. This crate is decode-only and builds none
-//! of them. Layout:
+//! measured on byte-identical input to its C++ counterpart. The runners build none of them. Layout:
 //!
 //! ```text
 //! <dir>/<name>.bin           an arena scenario, protoc-serialized   (rapidproto_arena_bench)
 //! <dir>/stream/<stem>.bin    a streaming scenario                   (rapidproto_bench)
 //! <dir>/rv/<stem>/<i>.bin    buffer i of a varint-sweep pool        (both)
+//! <dir>/rv/<stem>/pool.txt   the pool's buffer count, written last  (both)
 //! ```
 //!
 //! The varint sweeps decode a POOL of distinct-seed buffers per scenario, rotated one decode per call,
@@ -29,7 +29,6 @@ impl Inputs {
 }
 
 /// Where a scenario's input lives under the payload directory.
-#[derive(Clone)]
 pub enum Source {
     /// `<dir>/<stem>.bin` -- an arena scenario.
     Arena(&'static str),
@@ -67,18 +66,47 @@ pub fn load(dir: &Path, source: &Source) -> Inputs {
     let buffers = match source {
         Source::Arena(stem) => vec![read(&dir.join(format!("{stem}.bin")))],
         Source::Stream(stem) => vec![read(&dir.join("stream").join(format!("{stem}.bin")))],
+        // Exactly the buffers the pool's `pool.txt` counts: a dump writes it last, so a pool an
+        // interrupted dump left behind fails here instead of loading short.
         Source::Pool(stem) => {
             let pool_dir = dir.join("rv").join(stem);
-            let pool: Vec<Vec<u8>> = (0..)
-                .map(|i| pool_dir.join(format!("{i}.bin")))
-                .take_while(|p| p.exists())
-                .map(|p| read(&p))
-                .collect();
-            assert!(!pool.is_empty(), "no pool buffers under {pool_dir:?}");
-            pool
+            (0..pool_len(&pool_dir))
+                .map(|i| read(&pool_dir.join(format!("{i}.bin"))))
+                .collect()
         }
     };
     Inputs { buffers }
+}
+
+fn pool_len(pool_dir: &Path) -> usize {
+    let manifest = pool_dir.join("pool.txt");
+    let text = String::from_utf8(read(&manifest)).unwrap_or_default();
+    match text.trim().parse() {
+        Ok(n) if n > 0 => n,
+        _ => panic!("bad pool count in {manifest:?}"),
+    }
+}
+
+/// The mean size of a scenario's buffers, from the file sizes alone -- for a caller that must state a
+/// throughput before it loads the input (criterion).
+pub fn avg_bytes(dir: &Path, source: &Source) -> f64 {
+    let len = |p: PathBuf| {
+        std::fs::metadata(&p)
+            .unwrap_or_else(|e| panic!("cannot stat payload {p:?}: {e}"))
+            .len() as f64
+    };
+    match source {
+        Source::Arena(stem) => len(dir.join(format!("{stem}.bin"))),
+        Source::Stream(stem) => len(dir.join("stream").join(format!("{stem}.bin"))),
+        Source::Pool(stem) => {
+            let pool_dir = dir.join("rv").join(stem);
+            let n = pool_len(&pool_dir);
+            (0..n)
+                .map(|i| len(pool_dir.join(format!("{i}.bin"))))
+                .sum::<f64>()
+                / n as f64
+        }
+    }
 }
 
 /// One element-width distribution of the varint sweeps: its scenario-name label, and whether its

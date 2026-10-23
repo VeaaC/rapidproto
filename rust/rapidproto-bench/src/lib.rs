@@ -163,23 +163,31 @@ pub fn has_unaligned_fixed_slice_ub(scenario: &str, arm: &str) -> bool {
 /// `numbers`, field 1) and, at 1M elements, the same varints as packed sint64 (`rv-zz`, field 3) and
 /// enum (`rv-enum`, narrow widths only, field 4).
 pub fn scenario_specs() -> Vec<Scenario> {
-    let shape = |name: &'static str, arms: ArmsFn| Scenario {
+    // A shape is named by its payload file; its C++ row has a descriptive name (`particles` has no
+    // row: the C++ bench decodes it only in its chunk-cap sweep).
+    let shape = |name: &'static str, cpp: Option<&str>, arms: ArmsFn| Scenario {
         name: name.to_string(),
+        cpp_name: cpp.map(str::to_string),
         source: Source::Arena(name),
         arms,
     };
     let mut out = vec![
-        shape("dataset", dataset_arms),
-        shape("big_varint", bigset_arms),
-        shape("big_fixed", bigset_arms),
-        shape("big_osm", bigset_arms),
-        shape("big", bigset_arms),
-        shape("wide", wideset_arms),
-        shape("records", recordset_arms),
-        shape("particles", particleset_arms),
+        shape("dataset", Some("Dataset"), dataset_arms),
+        shape("big_varint", Some("packed int64(varint)"), bigset_arms),
+        shape("big_fixed", Some("packed double(fixed)"), bigset_arms),
+        shape("big_osm", Some("osm: sint64 deltas + enum"), bigset_arms),
+        shape("big", Some("few msgs, big arrays"), bigset_arms),
+        shape("wide", Some("many msgs, tiny arrays"), wideset_arms),
+        shape(
+            "records",
+            Some("scalar records (dispatch-bound)"),
+            recordset_arms,
+        ),
+        shape("particles", None, particleset_arms),
     ];
     let sweep = |name: String, arms: ArmsFn| Scenario {
         source: payloads::pool(&name),
+        cpp_name: Some(name.clone()),
         name,
         arms,
     };

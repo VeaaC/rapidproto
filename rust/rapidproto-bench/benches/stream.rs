@@ -17,6 +17,8 @@
 //! (`cargo bench .. -- "rv fx3"`).
 #![allow(clippy::all)]
 
+use std::cell::OnceCell;
+
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 use rapidproto_bench::payloads::{self, Source};
 use rapidproto_bench::stream;
@@ -40,11 +42,15 @@ fn stream_bench(c: &mut Criterion) {
             if matches!(sc.source, Source::Pool(_)) != pools {
                 continue;
             }
-            let inputs = payloads::load(&dir, &sc.source);
             let arms = (sc.arms)();
             let generated = arms[0].decoder().expect("the generated arm");
-            group.throughput(Throughput::Bytes(inputs.avg_bytes() as u64));
+            // Loaded on first use: criterion runs only the benches its name filter selects.
+            let inputs = OnceCell::new();
+            group.throughput(Throughput::Bytes(
+                payloads::avg_bytes(&dir, &sc.source) as u64
+            ));
             group.bench_function(sc.name.as_str(), |b| {
+                let inputs = inputs.get_or_init(|| payloads::load(&dir, &sc.source));
                 let mut at = 0usize;
                 b.iter(|| {
                     let buf = &inputs.buffers[at % inputs.buffers.len()];

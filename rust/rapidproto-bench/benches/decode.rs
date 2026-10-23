@@ -42,6 +42,8 @@
 //!   convert before comparing throughputs -- or compare the placement-invariant instructions/byte.
 #![allow(clippy::all)]
 
+use std::cell::OnceCell;
+
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 use rapidproto::Arena;
 use rapidproto_bench::checksum::*;
@@ -475,9 +477,13 @@ fn sweep_bench(c: &mut Criterion) {
         if !matches!(sc.source, Source::Pool(_)) {
             continue;
         }
-        let inputs = payloads::load(&dir, &sc.source);
-        group.throughput(Throughput::Bytes(inputs.avg_bytes() as u64));
+        // Loaded on first use: criterion runs only the benches its name filter selects.
+        let inputs = OnceCell::new();
+        group.throughput(Throughput::Bytes(
+            payloads::avg_bytes(&dir, &sc.source) as u64
+        ));
         group.bench_function(sc.name.as_str(), |b| {
+            let inputs = inputs.get_or_init(|| payloads::load(&dir, &sc.source));
             let mut arena = Arena::new();
             let mut at = 0usize;
             b.iter(|| {

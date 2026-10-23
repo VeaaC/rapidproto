@@ -11,9 +11,15 @@
 //!
 //! The C++ bench's third arm, protozero, has no Rust counterpart. Its two-tier scenarios time one
 //! generated decode compiled in a tiny translation unit against the same decode inside the bench's large
-//! one -- the cost of wire primitives the compiler leaves out of line. Rust's readers are
-//! `#[inline(always)]` and the decode is instantiated in the caller, so there is no such tier to split:
-//! those two payloads run with the two arms above.
+//! one -- the cost of wire primitives GCC's per-unit inline budget leaves out of line in the large one.
+//! The Rust bench has no second, separately compiled copy of a decode to set against it, so those two
+//! payloads run with the two arms above (and `two-tier-mbtag` is byte-identical to `multibyte-tag`).
+//!
+//! Comparing with C++: the C++ harness times every decode call on its own (two clock reads and a
+//! `std::function` call per sample, ~20 ns), where the Rust runner amortizes over ~10 ms samples. On the
+//! varint sweep's tiniest rows (`rv <dist> 10` / `100`: tens to hundreds of bytes) that overhead
+//! dominates the C++ GB/s and its in-process ins/B, so a Rust/C++ ratio there measures the method, not
+//! the decoder -- `tests/bench.py` keeps those rows out of its gate for the same reason.
 
 use rapidproto::wire::{self, Tag, WireType};
 use rapidproto::ErrorKind;
@@ -22,94 +28,64 @@ use crate::payloads::{self, Source};
 use crate::runner::Scenario;
 use crate::Arm;
 
-/// Every streaming scenario, in the C++ bench's order.
+/// Every streaming scenario, in the C++ bench's order and under its names.
 pub fn scenarios() -> Vec<Scenario> {
     let single = |name: &str, stem: &'static str, arms: crate::ArmsFn| Scenario {
         name: name.to_string(),
+        cpp_name: Some(name.to_string()),
         source: Source::Stream(stem),
         arms,
     };
     let mut out = vec![
-        single("varint-1byte", "varint-1byte", arms_i32),
-        single("varint-multibyte", "varint-multibyte", arms_i32),
-        single("zigzag-sint64", "zigzag-sint64", arms_s64),
-        single("fixed32-float", "fixed32-float", arms_fl),
-        single("fixed64-double", "fixed64-double", arms_db),
-        single("len-string", "len-string", arms_s),
-        single("packed-int32", "packed-int32", arms_packed),
+        single("varint-1byte", "varint-1byte", || arms(gen_i32, wire_i32)),
+        single("varint-multibyte", "varint-multibyte", || {
+            arms(gen_i32, wire_i32)
+        }),
+        single("zigzag-sint64", "zigzag-sint64", || arms(gen_s64, wire_s64)),
+        single("fixed32-float", "fixed32-float", || arms(gen_fl, wire_fl)),
+        single("fixed64-double", "fixed64-double", || arms(gen_db, wire_db)),
+        single("len-string", "len-string", || arms(gen_s, wire_s)),
+        single("packed-int32", "packed-int32", || {
+            arms(gen_packed, wire_packed)
+        }),
     ];
     for dist in payloads::varint_dists() {
         for count in payloads::VARINT_LENGTHS {
             let name = payloads::rv_scenario_name(&dist, count);
             out.push(Scenario {
                 source: payloads::pool(&name),
+                cpp_name: Some(name.clone()),
                 name,
-                arms: arms_rv,
+                arms: || arms(gen_rv, wire_rv),
             });
         }
     }
     out.extend([
-        single("skip-heavy", "skip-heavy", arms_i32),
-        single("mixed", "mixed", arms_mixed),
-        single("multibyte-tag", "multibyte-tag", arms_expanded),
-        single("nested-msg", "nested-msg", arms_nested),
-        single("groups", "groups", arms_groups),
-        single("sparse-skip", "sparse-skip", arms_i32),
-        single("records dense (stream)", "records", arms_records_dense),
-        single("records sparse (stream)", "records", arms_records_sparse),
-        single("two-tier", "two-tier", arms_two_tier),
-        single("two-tier-mbtag", "two-tier-mbtag", arms_expanded),
+        single("skip-heavy", "skip-heavy", || arms(gen_i32, wire_i32)),
+        single("mixed", "mixed", || arms(gen_mixed, wire_mixed)),
+        single("multibyte-tag", "multibyte-tag", || {
+            arms(gen_expanded, wire_expanded)
+        }),
+        single("nested-msg", "nested-msg", || arms(gen_nested, wire_nested)),
+        single("groups", "groups", || arms(gen_groups, wire_groups)),
+        single("sparse-skip", "sparse-skip", || arms(gen_i32, wire_i32)),
+        single("records dense (stream)", "records", || {
+            arms(gen_records_dense, wire_records_dense)
+        }),
+        single("records sparse (stream)", "records", || {
+            arms(gen_records_sparse, wire_records_sparse)
+        }),
+        single("two-tier", "two-tier", || arms(gen_two_tier, wire_two_tier)),
+        single("two-tier-mbtag", "two-tier-mbtag", || {
+            arms(gen_expanded, wire_expanded)
+        }),
     ]);
     out
 }
 
-// --- the arms of each scenario -------------------------------------------------------------------
-
+// A scenario's two arms: the generated decoder (the baseline) and the hand-written loop.
 fn arms(generated: fn(&[u8]) -> u64, wire: fn(&[u8]) -> u64) -> Vec<Arm> {
     vec![Arm::new("generated", generated), Arm::new("wire", wire)]
-}
-
-fn arms_i32() -> Vec<Arm> {
-    arms(gen_i32, wire_i32)
-}
-fn arms_s64() -> Vec<Arm> {
-    arms(gen_s64, wire_s64)
-}
-fn arms_fl() -> Vec<Arm> {
-    arms(gen_fl, wire_fl)
-}
-fn arms_db() -> Vec<Arm> {
-    arms(gen_db, wire_db)
-}
-fn arms_s() -> Vec<Arm> {
-    arms(gen_s, wire_s)
-}
-fn arms_packed() -> Vec<Arm> {
-    arms(gen_packed, wire_packed)
-}
-fn arms_rv() -> Vec<Arm> {
-    arms(gen_rv, wire_rv)
-}
-fn arms_mixed() -> Vec<Arm> {
-    arms(gen_mixed, wire_mixed)
-}
-fn arms_expanded() -> Vec<Arm> {
-    arms(gen_expanded, wire_expanded)
-}
-fn arms_nested() -> Vec<Arm> {
-    arms(gen_nested, wire_nested)
-}
-fn arms_groups() -> Vec<Arm> {
-    arms(gen_groups, wire_groups)
-}
-fn arms_records_dense() -> Vec<Arm> {
-    arms(gen_records_dense, wire_records_dense)
-}
-fn arms_records_sparse() -> Vec<Arm> {
-    arms(gen_records_sparse, wire_records_sparse)
-}
-fn arms_two_tier() -> Vec<Arm> {
-    arms(gen_two_tier, wire_two_tier)
 }
 
 // --- generated: the streaming decoder ------------------------------------------------------------

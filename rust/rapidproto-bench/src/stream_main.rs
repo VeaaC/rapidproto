@@ -1,7 +1,7 @@
 //! Streaming-decoder runner: the scenarios of the C++ streaming bench (`rapidproto_bench`) over the same
 //! bytes, the generated streaming decoder (the baseline) against a hand-written wire loop -- see
 //! `stream.rs` for the arms. The loop, options and output are the shared runner's (`runner.rs`, env
-//! vars documented there); build profile and run discipline as the arena runner's (`main.rs`).
+//! vars and run discipline documented there); build profile as the arena runner's (`main.rs`).
 //!
 //! ```text
 //! # produce the shared payloads once (from the C++ bench; ~1.2 GB, keep it on disk):
