@@ -11,9 +11,11 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "benchmark_message1_proto2.pb.h"
@@ -24,6 +26,7 @@
 #include "benchmark_message2.rp.stream.hpp"
 
 #include "bench_harness.hpp"
+#include "bench_payloads.hpp"
 #include "bench_upb.hpp"
 #include "rapidproto/arena_runtime.hpp"
 
@@ -1799,6 +1802,22 @@ int run_arm() {
     }
     bad += r2;
     return bad;
+}
+
+bool dump(const char* dir) {
+    const std::filesystem::path out = std::filesystem::path(dir) / "external";
+    for (const auto& [name, dataset] : {std::pair{"google_message1", RAPIDPROTO_GM1_DATASET},
+                                        std::pair{"google_message2", RAPIDPROTO_GM2_DATASET}}) {
+        const std::string payload = load_payload(dataset);
+        if (payload.empty()) {
+            std::fprintf(stderr, "bench: cannot unwrap a payload from '%s'\n", dataset);
+            return false;
+        }
+        if (!rpbench::write_payload(out / (std::string(name) + ".bin"), payload)) {
+            return false;
+        }
+    }
+    return true;
 }
 
 }  // namespace rpmessages

@@ -13,6 +13,8 @@
 //! - `particles`  -- small records with always-present fixed-size value sub-messages.
 //! - `rv <dist> <count>`, `rv-zz ..`, `rv-enum ..` -- the repeated-varint sweeps: a single `Big`
 //!   carrying one packed varint field, across element byte width x element count (`decode_rv` below).
+//! - `google_message1`/`2`, `osm_blocks`, `osm_file`, `compute Instance` -- the real-world datasets, over
+//!   their own schemas, every arm (`decode_external` below; see `rapidproto_bench::external`).
 //!
 //! Each shape runs cold -- a fresh `Arena` per decode, the realistic path (group `decode`) -- and warm
 //! -- one arena reset per decode, the C++ `arena-warm` arm (group `decode_warm`).
@@ -480,7 +482,7 @@ fn sweep_bench(c: &mut Criterion) {
         // Loaded on first use: criterion runs only the benches its name filter selects.
         let inputs = OnceCell::new();
         group.throughput(Throughput::Bytes(
-            payloads::avg_bytes(&dir, &sc.source) as u64
+            payloads::bytes_per_call(&dir, &sc.source) as u64,
         ));
         group.bench_function(sc.name.as_str(), |b| {
             let inputs = inputs.get_or_init(|| payloads::load(&dir, &sc.source));
@@ -498,5 +500,42 @@ fn sweep_bench(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, decode_bench, sweep_bench);
+// The real-world datasets (`rapidproto_bench::external`), every arm the `bench` runner times. Their
+// inputs exist only in a shared directory dumped from a C++ build with the corpus, so the group skips
+// what the directory lacks. One call decodes a whole input (osm_blocks: every block), so samples are
+// few and long, like the sweeps'.
+fn external_bench(c: &mut Criterion) {
+    let Some(dir) = std::env::var_os("RAPIDPROTO_BENCH_DIR") else {
+        eprintln!("decode_external: skipped (the datasets' inputs need RAPIDPROTO_BENCH_DIR)");
+        return;
+    };
+    let dir = std::path::PathBuf::from(dir);
+    let mut group = c.benchmark_group("decode_external");
+    group.sample_size(10);
+    for sc in rapidproto_bench::external::scenarios() {
+        if !payloads::available(&dir, &sc.source) {
+            eprintln!(
+                "decode_external: {} skipped (not in the payload directory)",
+                sc.name
+            );
+            continue;
+        }
+        // Loaded on first use (criterion runs only the benches its name filter selects), shared by the
+        // scenario's arms.
+        let inputs = OnceCell::new();
+        group.throughput(Throughput::Bytes(
+            payloads::bytes_per_call(&dir, &sc.source) as u64,
+        ));
+        for arm in (sc.arms)() {
+            let f = arm.decoder().expect("every external arm is supported");
+            group.bench_function(format!("{}/{}", sc.name, arm.name), |b| {
+                let inputs = inputs.get_or_init(|| payloads::load(&dir, &sc.source));
+                b.iter(|| black_box(f(black_box(&inputs.buffers[0]))));
+            });
+        }
+    }
+    group.finish();
+}
+
+criterion_group!(benches, decode_bench, sweep_bench, external_bench);
 criterion_main!(benches);

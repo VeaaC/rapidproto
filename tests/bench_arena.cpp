@@ -702,8 +702,9 @@ int sweep_repeated_varint_types() {
 int main() {
     // Generator mode: write every scenario's input into the given directory and exit, WITHOUT
     // benching -- each shape's canonical bytes (protoc's SerializeToString of its make_*) as
-    // <name>.bin, and the repeated-varint sweeps' pools (bench_payloads.hpp). The streaming bench's
-    // dump writes its own scenarios into the same layout. Run it once, then point both this bench and
+    // <name>.bin, the repeated-varint sweeps' pools, and -- when this build has them -- the real-world
+    // datasets' inputs under external/ (bench_payloads.hpp). The streaming bench's dump writes its
+    // own scenarios into the same layout. Run it once, then point both this bench and
     // the Rust arena benches at the directory via RAPIDPROTO_BENCH_DIR so they decode byte-identical
     // input. (No new tool: reuses the builders and this bench's libprotobuf link.)
     if (const char* const dir = std::getenv("RAPIDPROTO_BENCH_DUMP_DIR")) {
@@ -736,6 +737,22 @@ int main() {
                 return 1;
             }
         }
+        // The real-world datasets' inputs (external/), each when this build has its scenarios.
+#ifdef RAPIDPROTO_BENCH_MESSAGES
+        if (!rpmessages::dump(dir)) {
+            return 1;
+        }
+#endif
+#ifdef RAPIDPROTO_BENCH_OSM
+        if (!rposm::dump(dir)) {
+            return 1;
+        }
+#endif
+#ifdef RAPIDPROTO_BENCH_COMPUTE
+        if (!rpcompute::dump(dir)) {
+            return 1;
+        }
+#endif
         return 0;
     }
 

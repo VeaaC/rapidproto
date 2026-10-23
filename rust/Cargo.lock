@@ -1182,6 +1182,7 @@ dependencies = [
  "quick-protobuf",
  "rapidproto",
  "rapidproto-bench-upb",
+ "rapidproto-build",
  "rustgen-golden",
 ]
 

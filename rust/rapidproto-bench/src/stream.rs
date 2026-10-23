@@ -35,6 +35,7 @@ pub fn scenarios() -> Vec<Scenario> {
         cpp_name: Some(name.to_string()),
         source: Source::Stream(stem),
         arms,
+        mem: None,
     };
     let mut out = vec![
         single("varint-1byte", "varint-1byte", || arms(gen_i32, wire_i32)),
@@ -57,6 +58,7 @@ pub fn scenarios() -> Vec<Scenario> {
                 cpp_name: Some(name.clone()),
                 name,
                 arms: || arms(gen_rv, wire_rv),
+                mem: None,
             });
         }
     }

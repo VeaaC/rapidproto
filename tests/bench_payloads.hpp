@@ -10,6 +10,9 @@
 //   <dir>/stream/<stem>.bin    a streaming scenario (bench_streamgen.cpp)
 //   <dir>/rv/<stem>/<i>.bin    buffer i of a varint-sweep pool (both benches; bench_varint.hpp)
 //   <dir>/rv/<stem>/pool.txt   the pool's buffer count, written last: a pool without it is incomplete
+//   <dir>/external/...         the real-world datasets' inputs, when the arena bench was built with
+//                              the corpus (bench_arm_messages / _osm / _compute dump()); written for
+//                              the Rust runners -- the C++ arms read the same bytes from the corpus
 // The Rust runners build none of these, so the files are their whole contract.
 
 #include <cstdio>
@@ -19,6 +22,7 @@
 #include <sstream>
 #include <string>
 #include <system_error>
+#include <vector>
 
 #include "bench_varint.hpp"
 
@@ -94,20 +98,25 @@ inline VarintPool load_varint_pool(const std::string& stem, const VarintDist& di
     return pool;
 }
 
-// Write the pool `stem` -- (dist, count, field_number) -- to <dir>/rv/<stem>/<i>.bin, replacing what
-// a previous dump left there, and its pool.txt last, so an interrupted dump leaves no loadable pool.
-inline bool dump_varint_pool(const char* dir, const std::string& stem, const VarintDist& dist,
-                             int count, int field_number = 1) {
-    const std::filesystem::path pool_dir = rv_pool_path(dir, stem);
+// Write `buffers` as the pool <pool_dir>/<i>.bin, replacing what a previous dump left there, and its
+// pool.txt last, so an interrupted dump leaves no loadable pool.
+inline bool write_pool(const std::filesystem::path& pool_dir,
+                       const std::vector<std::string>& buffers) {
     std::error_code ec;
     std::filesystem::remove_all(pool_dir, ec);
-    const VarintPool pool = build_varint_pool(dist, count, field_number);
-    for (std::size_t i = 0; i < pool.buffers.size(); ++i) {
-        if (!write_payload(pool_dir / (std::to_string(i) + ".bin"), pool.buffers[i])) {
+    for (std::size_t i = 0; i < buffers.size(); ++i) {
+        if (!write_payload(pool_dir / (std::to_string(i) + ".bin"), buffers[i])) {
             return false;
         }
     }
-    return write_payload(pool_dir / "pool.txt", std::to_string(pool.buffers.size()) + "\n");
+    return write_payload(pool_dir / "pool.txt", std::to_string(buffers.size()) + "\n");
+}
+
+// Write the varint-sweep pool `stem` -- (dist, count, field_number) -- to <dir>/rv/<stem>/.
+inline bool dump_varint_pool(const char* dir, const std::string& stem, const VarintDist& dist,
+                             int count, int field_number = 1) {
+    return write_pool(rv_pool_path(dir, stem),
+                      build_varint_pool(dist, count, field_number).buffers);
 }
 
 }  // namespace rpbench

@@ -1,12 +1,12 @@
 //! The runners' cross-arm agreement gate, without the shared payload directory (so it runs in CI):
 //! every supported arm of a scenario must produce the same checksum on the same bytes. Arena arms
-//! decode messages prost encodes (prost being the reference encoder); streaming arms decode small
-//! hand-built inputs of each scenario's wire shape. Generic over each scenario's arm list, so a newly
-//! registered arm is covered with no extra test.
+//! decode messages prost encodes (prost being the reference encoder); the OSM arms decode the in-repo
+//! OSM fixture; streaming arms decode small hand-built inputs of each scenario's wire shape. Generic
+//! over each scenario's arm list, so a newly registered arm is covered with no extra test.
 
 use prost::Message;
 use rapidproto_bench::competitors::prost::pb;
-use rapidproto_bench::payloads::Source;
+use rapidproto_bench::payloads::{self, Source};
 use rapidproto_bench::Arm;
 
 // Every supported arm's checksum on `bytes`, all equal (and returned), the unsupported ones skipped.
@@ -162,6 +162,29 @@ fn big_enum_arms_agree_with_quick_protobuf_unsupported() {
         ..pb::Big::default()
     };
     all_agree(arms, &b.encode_to_vec());
+}
+
+// The OSM arms over the in-repo fixture (a zlib and a raw blob; dense nodes with DenseInfo, a plain
+// node, a way, a relation): the raw-file arms agree, the block arms agree over its blocks, and the two
+// scenarios sum the same -- the C++ arm's block-vs-file cross-check.
+#[test]
+fn osm_arms_agree() {
+    use rapidproto_bench::external::osm;
+    let file = std::fs::read(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../examples/osm-pbf/testdata/mini.osm.pbf"
+    ))
+    .expect("read the OSM fixture");
+    let file_sum = all_agree(osm::file_arms(), &file);
+    let mut blocks = Vec::new();
+    osm::file_sum(&file, &mut Vec::new(), |p| {
+        blocks.push(p.to_vec());
+        0
+    });
+    assert!(blocks.len() > 1, "the fixture has a zlib and a raw block");
+    let blocks_sum = all_agree(osm::blocks_arms(), &payloads::batch(&blocks));
+    assert_eq!(file_sum, blocks_sum);
+    assert_ne!(file_sum, 0);
 }
 
 // --- streaming -----------------------------------------------------------------------------------
@@ -429,7 +452,9 @@ fn every_stream_scenario_sums_what_cpp_sums() {
         let (input, expected) = match &sc.source {
             Source::Stream(stem) => stream_case(&sc.name, stem),
             Source::Pool(_) => pool_input(),
-            Source::Arena(_) => unreachable!("a streaming scenario reads stream payloads"),
+            Source::Arena(_) | Source::External(_) | Source::Batch(_) => {
+                unreachable!("a streaming scenario reads stream payloads")
+            }
         };
         let arms = (sc.arms)();
         let names: Vec<&str> = arms.iter().map(|a| a.name).collect();
@@ -442,8 +467,12 @@ fn every_stream_scenario_sums_what_cpp_sums() {
 #[test]
 fn every_arena_scenario_is_listed_once() {
     let specs = rapidproto_bench::scenario_specs();
+    // The real-world datasets this build has: OSM's two, plus google_message1/2 with the corpus and
+    // compute under its feature.
+    let external =
+        2 + if cfg!(rp_bench_gm) { 2 } else { 0 } + usize::from(cfg!(feature = "compute"));
     // The 8 shapes, the 90-scenario `rv` sweep, and the 1M per-type sweep (15 `rv-zz`, 5 `rv-enum`).
-    assert_eq!(specs.len(), 8 + 90 + 15 + 5);
+    assert_eq!(specs.len(), 8 + external + 90 + 15 + 5);
     let mut names: Vec<&str> = specs.iter().map(|s| s.name.as_str()).collect();
     names.sort_unstable();
     names.dedup();

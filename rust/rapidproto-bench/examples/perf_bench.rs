@@ -6,8 +6,8 @@
 //     perf stat -e instructions:u taskset -c 0 ./target/release/examples/perf_bench
 //
 // ARM picks the arm (default `rapidproto`, the cold arena; WARM=1 is short for `rapidproto-warm`, the
-// C++ arena-warm arm); ITERS the decode count (default: ~2 GB of input). The run prints the bytes
-// decoded to divide the instruction count by.
+// C++ arena-warm arm -- and the only arena arm of `osm_file`); ITERS the decode count (default: ~2 GB
+// of input). The run prints the bytes decoded to divide the instruction count by.
 
 fn main() {
     let default_arm = if std::env::var("WARM").is_ok_and(|v| v == "1") {

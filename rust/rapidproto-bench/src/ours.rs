@@ -4,36 +4,22 @@
 //! shared [`checksum`](crate::checksum); plus, on `dataset`, the streaming decoder (the C++ arena bench's
 //! `streamgen` arm), visiting the same fields into the same sum.
 
-use std::cell::RefCell;
-
 use rapidproto::Arena;
 use rustgen_golden::bench::arena::bench::{Big, BigSet, Dataset, ParticleSet, RecordSet, WideSet};
 
 use crate::{checksum, Arm};
 
-// The cold + warm arms for one message type. The warm arm's arena lives in the closure (a `RefCell`,
-// since an arm is a `Fn`) and is reset before every decode.
-macro_rules! arena_arms {
-    ($ty:ty, $ck:path) => {{
-        let warm = RefCell::new(Arena::new());
-        vec![
-            Arm::new("rapidproto", |b| {
-                let arena = Arena::new();
-                $ck(<$ty>::decode(b, &arena).expect("rapidproto decode"))
-            }),
-            Arm::new("rapidproto-warm", move |b| {
-                let mut arena = warm.borrow_mut();
-                arena.reset();
-                $ck(<$ty>::decode(b, &arena).expect("rapidproto decode"))
-            }),
-        ]
-    }};
-}
-
 pub fn dataset() -> Vec<Arm> {
     let mut arms = arena_arms!(Dataset, checksum::checksum_dataset);
     arms.push(Arm::new("rapidproto-stream", stream_dataset));
     arms
+}
+
+/// `dataset`'s memory report (see [`MemFn`](crate::runner::MemFn)), the C++ arena bench's `mem` record.
+pub fn dataset_memory(b: &[u8]) -> (usize, usize) {
+    let arena = Arena::new();
+    Dataset::decode(b, &arena).expect("rapidproto decode");
+    (arena.bytes_used(), arena.bytes_reserved())
 }
 
 pub fn bigset() -> Vec<Arm> {

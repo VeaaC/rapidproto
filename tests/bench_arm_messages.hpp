@@ -36,4 +36,8 @@ namespace rpmessages {
 // guards the call the same way.
 int run_arm();
 
+// The bench's dump mode: write both scenarios' wire bytes (payload[0], unwrapped) to
+// <dir>/external/google_message{1,2}.bin. False (after a message) on failure.
+bool dump(const char* dir);
+
 }  // namespace rpmessages

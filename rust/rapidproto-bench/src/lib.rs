@@ -11,7 +11,8 @@
 //! bench runs one (`dataset`), then each competitor crate, walking every field with one shared
 //! checksum so a lazy/owned decoder is not flattered by skipping work. Competitors are added one at a
 //! time (one module each under `competitors/`, one line in the `arms!` macro below): prost,
-//! rust-protobuf, quick-protobuf, femtopb (and google-upb behind its feature).
+//! rust-protobuf, quick-protobuf, femtopb (and google-upb behind its feature). The real-world datasets
+//! run RapidProto's arms only, the ones the C++ bench runs for them ([`external`]).
 //!
 //! The checksum is a wrapping `u64` sum, mirrored field-for-field across arms so every arm in a
 //! scenario produces the identical value or the run aborts. For scalars it follows the C++ ecosystem
@@ -22,8 +23,29 @@
 //! Because these are proto3 messages (zero/empty defaults contribute 0), a straight walk of every
 //! accessor equals present-fields-only.
 
+// RapidProto's cold + warm arena arms for one message type, `$ck` walking the decoded tree. The warm
+// arm's arena lives in the closure (a `RefCell`, since an arm is a `Fn`) and is reset before every
+// decode. Defined ahead of the modules so they can use it.
+macro_rules! arena_arms {
+    ($ty:ty, $ck:path) => {{
+        let warm = ::std::cell::RefCell::new(::rapidproto::Arena::new());
+        vec![
+            $crate::Arm::new("rapidproto", |b| {
+                let arena = ::rapidproto::Arena::new();
+                $ck(<$ty>::decode(b, &arena).expect("rapidproto decode"))
+            }),
+            $crate::Arm::new("rapidproto-warm", move |b| {
+                let mut arena = warm.borrow_mut();
+                arena.reset();
+                $ck(<$ty>::decode(b, &arena).expect("rapidproto decode"))
+            }),
+        ]
+    }};
+}
+
 pub mod checksum;
 pub mod competitors;
+pub mod external;
 mod ours;
 pub mod payloads;
 pub mod runner;
@@ -158,10 +180,11 @@ pub fn has_unaligned_fixed_slice_ub(scenario: &str, arm: &str) -> bool {
     arm == "quick-protobuf" && matches!(scenario, "big" | "big_varint" | "big_fixed" | "big_osm")
 }
 
-/// The arena scenarios, in the C++ bench's order: the 8 shared shapes (named by their payload file),
-/// then the repeated-varint sweeps -- `rv <dist> <count>` (a single `Big` carrying packed int64
-/// `numbers`, field 1) and, at 1M elements, the same varints as packed sint64 (`rv-zz`, field 3) and
-/// enum (`rv-enum`, narrow widths only, field 4).
+/// The arena scenarios, in the C++ bench's order: `dataset` (with the arena memory report), the
+/// real-world datasets ([`external`]), the other 7 shared shapes (named by their payload file), then
+/// the repeated-varint sweeps -- `rv <dist> <count>` (a single `Big` carrying packed int64 `numbers`,
+/// field 1) and, at 1M elements, the same varints as packed sint64 (`rv-zz`, field 3) and enum
+/// (`rv-enum`, narrow widths only, field 4).
 pub fn scenario_specs() -> Vec<Scenario> {
     // A shape is named by its payload file; its C++ row has a descriptive name (`particles` has no
     // row: the C++ bench decodes it only in its chunk-cap sweep).
@@ -170,9 +193,14 @@ pub fn scenario_specs() -> Vec<Scenario> {
         cpp_name: cpp.map(str::to_string),
         source: Source::Arena(name),
         arms,
+        mem: None,
     };
-    let mut out = vec![
-        shape("dataset", Some("Dataset"), dataset_arms),
+    let mut out = vec![Scenario {
+        mem: Some(ours::dataset_memory),
+        ..shape("dataset", Some("Dataset"), dataset_arms)
+    }];
+    out.extend(external::scenarios());
+    out.extend([
         shape("big_varint", Some("packed int64(varint)"), bigset_arms),
         shape("big_fixed", Some("packed double(fixed)"), bigset_arms),
         shape("big_osm", Some("osm: sint64 deltas + enum"), bigset_arms),
@@ -184,12 +212,13 @@ pub fn scenario_specs() -> Vec<Scenario> {
             recordset_arms,
         ),
         shape("particles", None, particleset_arms),
-    ];
+    ]);
     let sweep = |name: String, arms: ArmsFn| Scenario {
         source: payloads::pool(&name),
         cpp_name: Some(name.clone()),
         name,
         arms,
+        mem: None,
     };
     for dist in payloads::varint_dists() {
         for count in payloads::VARINT_LENGTHS {

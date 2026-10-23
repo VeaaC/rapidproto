@@ -47,7 +47,7 @@ fn stream_bench(c: &mut Criterion) {
             // Loaded on first use: criterion runs only the benches its name filter selects.
             let inputs = OnceCell::new();
             group.throughput(Throughput::Bytes(
-                payloads::avg_bytes(&dir, &sc.source) as u64
+                payloads::bytes_per_call(&dir, &sc.source) as u64,
             ));
             group.bench_function(sc.name.as_str(), |b| {
                 let inputs = inputs.get_or_init(|| payloads::load(&dir, &sc.source));

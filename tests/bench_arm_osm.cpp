@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstdio>
+#include <filesystem>
 #include <fstream>
 #include <optional>
 #include <string>
@@ -19,6 +20,7 @@
 
 #include "bench_arm_osm.hpp"
 #include "bench_harness.hpp"
+#include "bench_payloads.hpp"
 #include "fileformat.rp.hpp"
 #include "fileformat.rp.stream.hpp"
 #include "osmformat.pb.h"  // protoc arm (::OSMPBF)
@@ -781,6 +783,17 @@ int run_arm() {
         bad += r;
     }
     return bad;
+}
+
+bool dump(const char* dir) {
+    const Loaded data = load_dataset(RAPIDPROTO_OSM_DATASET);
+    if (!data.ok) {
+        std::fprintf(stderr, "bench: cannot load the osm dataset '%s'\n", RAPIDPROTO_OSM_DATASET);
+        return false;
+    }
+    const std::filesystem::path out = std::filesystem::path(dir) / "external";
+    return rpbench::write_payload(out / "osm_file.bin", data.file) &&
+           rpbench::write_pool(out / "osm_blocks", data.payloads);
 }
 
 }  // namespace rposm

@@ -11,10 +11,12 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <filesystem>
 #include <string>
 #include <vector>
 
 #include "bench_harness.hpp"
+#include "bench_payloads.hpp"
 #include "google/cloud/compute/v1beta/compute.rp.hpp"
 #include "rapidproto/arena_runtime.hpp"
 #include "rapidproto/runtime.hpp"
@@ -138,6 +140,11 @@ bool run_arm() {
     }
 
     return true;
+}
+
+bool dump(const char* dir) {
+    return rpbench::write_payload(std::filesystem::path(dir) / "external" / "compute_instance.bin",
+                                  read_compute_payload());
 }
 
 }  // namespace rpcompute

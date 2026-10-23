@@ -3,7 +3,17 @@
 //! RapidProto's arena decoder (cold = the baseline, and warm), its streaming decoder on `dataset`, and
 //! each competitor; enforces that every arm agrees on the per-field checksum, then times them and
 //! reports throughput relative to the baseline. The loop, options and output are the shared runner's
-//! (`runner.rs`, env vars documented there).
+//! (`runner.rs`, env vars documented there). `dataset` also reports the arena's memory after one
+//! decode, the C++ bench's `mem` record.
+//!
+//! The C++ bench's real-world datasets run too (`external.rs`; RapidProto's arms only) when their
+//! inputs are in the payload directory -- the C++ dump writes them when built with the fetched corpus.
+//! `google_message1`/`2` additionally need the corpus when THIS crate is built (build.rs), and
+//! `compute Instance` the off-by-default `compute` feature. Its decoder is generated in the build
+//! script by an interpreter that cargo leaves unoptimized there (over ten minutes for compute.proto),
+//! so build it with optimized build scripts:
+//! `--features compute --config 'profile.release.build-override.opt-level=1'` (1 is enough, and safe:
+//! at 2+ the interpreter switches to tail-call dispatch, which overflowed the stack in a dev build).
 //!
 //! BUILD PROFILE: plain `--release` (no LTO), matching the RapidProto-vs-C++ bench methodology and
 //! what most users actually ship. Under the default profile a decoder's hot path stays inlined across
@@ -17,7 +27,7 @@
 //! `--config 'profile.release.lto="fat"' --config 'profile.release.codegen-units=1'` to see it.
 //!
 //! ```text
-//! # produce the shared payloads once (from the C++ arena bench; ~1.6 GB, keep it on disk):
+//! # produce the shared payloads once (from the C++ arena bench; ~1.7 GB, keep it on disk):
 //! RAPIDPROTO_BENCH_DUMP_DIR=<dir> ./build/<cfg>/rapidproto_arena_bench
 //! # run pinned + aligned (the discipline note is runner.rs's), one run at a time, on a quiesced box:
 //! RAPIDPROTO_BENCH_DIR=<dir> RUSTFLAGS="-Cllvm-args=-align-all-functions=6" \
