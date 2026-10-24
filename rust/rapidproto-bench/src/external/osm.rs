@@ -3,14 +3,13 @@
 //! extract its dump writes.
 //!
 //! - `osm_blocks`: every PrimitiveBlock, pre-inflated by the dump, decoded and walked per call -- the
-//!   protobuf layer alone. Arms: the arena decoder cold (baseline) and warm, and the streaming decoder
-//!   (the C++ `arena-cold`, `arena-warm` and `streamgen`). The blocks sit back to back in one batch
-//!   buffer, where C++ holds each in its own; no decoder assumes input alignment (its wide loads are
-//!   unaligned), and the layout difference is unmeasured.
+//!   protobuf layer alone. Arms: cold (the baseline), warm and stream, as in C++. The blocks sit back
+//!   to back in one batch buffer, where C++ holds each in its own; no decoder assumes input alignment
+//!   (its wide loads are unaligned), and the layout difference is unmeasured.
 //! - `osm_file`: the raw file per call -- framing, the BlobHeader/Blob envelopes (through the arena
-//!   model, as in C++), zlib inflate, decode, walk. Arms: the arena decoder warm (baseline) and the
-//!   streaming decoder (the C++ `arena-warm` and `streamgen`). Inflate is zlib's `uncompress`, the call
-//!   the C++ arms make -- through libz-sys, from the same system zlib where one is installed.
+//!   model, as in C++), zlib inflate, decode, walk. Arms: warm (the baseline) and stream, as in C++.
+//!   Inflate is zlib's `uncompress`, the call the C++ arms make -- through libz-sys, from the same
+//!   system zlib where one is installed.
 //!
 //! Like the C++ arms, the streaming walk reads each block twice (stringtable first: wire order
 //! guarantees nothing) and consumes every column the arena walk reads, and both streaming arms reuse

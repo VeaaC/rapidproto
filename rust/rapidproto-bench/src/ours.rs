@@ -1,8 +1,6 @@
-//! RapidProto's own arms (reused from the golden crate, so the comparison runs the exact code a
-//! consumer compiles): the arena decoder cold -- arm 0, the baseline: a fresh arena per decode -- and
-//! warm -- one arena, reset per decode (the C++ `arena-warm` arm) -- each walking every field with the
-//! shared [`checksum`](crate::checksum); plus, on `dataset`, the streaming decoder (the C++ arena bench's
-//! `streamgen` arm), visiting the same fields into the same sum.
+//! RapidProto's arms on the shared shapes, over the golden crate's generated code (what a consumer
+//! compiles): the cold and warm arena arms, plus the streaming decoder on `dataset`, all summing the
+//! same fields ([`checksum`](crate::checksum)).
 
 use rapidproto::Arena;
 use rustgen_golden::bench::arena::bench::{Big, BigSet, Dataset, ParticleSet, RecordSet, WideSet};

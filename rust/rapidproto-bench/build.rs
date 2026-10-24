@@ -16,7 +16,7 @@ fn main() {
     // tests/bench/ lives at the repo root; this crate is rust/rapidproto-bench/.
     let proto_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/bench");
     let proto = proto_root.join("bench.proto");
-    println!("cargo:rerun-if-changed={}", proto.display());
+    println!("cargo::rerun-if-changed={}", proto.display());
 
     let fds = protox::compile([&proto], [&proto_root]).expect("protox: compile bench.proto");
     prost_build::Config::new()
@@ -100,7 +100,7 @@ fn external() {
         true,
     );
 
-    println!("cargo:rerun-if-env-changed=RAPIDPROTO_FETCHED_CORPUS");
+    println!("cargo::rerun-if-env-changed=RAPIDPROTO_FETCHED_CORPUS");
     let corpus = repo.join(
         std::env::var_os("RAPIDPROTO_FETCHED_CORPUS").unwrap_or_else(|| "build/corpus".into()),
     );
@@ -117,7 +117,7 @@ fn external() {
                 true,
             );
         }
-        println!("cargo:rustc-cfg=rp_bench_gm");
+        println!("cargo::rustc-cfg=rp_bench_gm");
     }
 
     if std::env::var_os("CARGO_FEATURE_COMPUTE").is_some() {

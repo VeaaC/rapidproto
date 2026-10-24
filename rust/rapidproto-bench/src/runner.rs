@@ -1,20 +1,25 @@
-//! The measurement loop and report shared by the Rust runners -- `bench` (the arena decoder against
-//! the Rust ecosystem) and `stream` (the streaming decoder against a hand-written wire loop). Per
-//! scenario: load its input from the shared payload directory (skipping, with a note, a scenario this
-//! build has no decoder for or whose input the directory lacks), gate on every supported arm agreeing
-//! on the checksum -- and for a real-world dataset, on the C++ arms' checksum the dump recorded -- time
-//! the arms, print a row per arm (and an NDJSON record with `RAPIDPROTO_BENCH_JSON`) plus the
-//! scenario's memory report if it makes one, then drop the input -- the varint sweeps' pools reach
-//! ~80 MB each, so inputs are never all resident at once.
+//! The measurement loop shared by the `bench` and `stream` runners. For each selected scenario:
 //!
-//! Timing: `ROUNDS` samples per arm; within a round every supported arm runs back to back, their order
-//! rotated per round to cancel slot bias (the C++ harness does the same), and the median sample is the
-//! arm's cost. A sample is `inner` consecutive decode calls, so the timer is amortized; a pool's calls
-//! rotate over its buffers, every arm stepping through them in lockstep. `inner` is calibrated per
-//! scenario so the baseline's sample takes ~10 ms (payloads span 12 bytes to 46 MB); `ITERS` fixes it.
-//! Throughput is the bytes one call decodes ([`Inputs::bytes`]) over the median time per call (decimal
-//! GB/s, as the C++ benches print). Rust measures no in-process counters: read instructions/byte with
-//! an external `perf stat -e instructions:u` over the `perf_*` examples.
+//! - skip it, with a note, when this build has no decoder for it or its real-world input is missing;
+//! - load the input and require every supported arm to return the same non-zero checksum (for a
+//!   real-world dataset, also the C++ checksum stored beside it);
+//! - time the arms; print one row per arm (and NDJSON with `RAPIDPROTO_BENCH_JSON`) and the memory
+//!   report if there is one;
+//! - drop the input before the next scenario (a sweep pool is up to ~80 MB).
+//!
+//! Timing: `ROUNDS` samples per arm. Within a round every supported arm runs once, in an order rotated
+//! per round to cancel slot bias, and an arm's cost is its median sample. A sample is `inner`
+//! consecutive decode calls (a pool's calls rotate over its buffers, all arms in lockstep), `inner`
+//! calibrated so the baseline's sample takes ~10 ms. Throughput is [`Inputs::bytes`] over the median
+//! time per call, in decimal GB/s as the C++ benches print. There are no in-process counters: read
+//! instructions/byte with `perf stat -e instructions:u` over the `perf_*` examples.
+//!
+//! Comparing with C++: the C++ harness times every call separately (two clock reads and a
+//! `std::function` call, ~20 ns per sample) and adds rounds until its ratios are significant; this
+//! runner times ~10 ms batches over a fixed number of rounds. On the sweeps' `rv <dist> 10` and `100`
+//! rows the C++ per-call overhead dominates its GB/s and ins/B, so a Rust/C++ ratio there compares the
+//! harnesses, not the decoders. The NDJSON `cpp_scenario` and `cpp_arm` name the C++ row a record
+//! corresponds to (null where C++ has none); `vs_base_pct` compares arms within this runner only.
 //!
 //! Run discipline, or the numbers lie: pinned (`taskset -c N`), aligned (`RUSTFLAGS=
 //! "-Cllvm-args=-align-all-functions=6"`, so an unrelated edit relaying the binary does not move
@@ -24,9 +29,9 @@
 //! Env: `RAPIDPROTO_BENCH_DIR` (required) the payload directory; `RAPIDPROTO_BENCH_CHECK_ONLY` run only
 //! the agreement gate (no timing -- valid on any box); `RAPIDPROTO_BENCH_JSON` also emit one `rec:"arm"`
 //! NDJSON line per measurement (`cyc_b`/`ins_b` are null) and one `rec:"mem"` line per memory report;
-//! `RAPIDPROTO_BENCH_ONLY=<substring>` run only the scenarios whose name contains it (as in the C++
-//! benches); `ARMS` a comma-separated arm allowlist (arm 0, the baseline, is always kept); `ITERS`
-//! decode calls per sample (default: calibrated); `ROUNDS` samples per arm (default 20).
+//! `RAPIDPROTO_BENCH_ONLY=<substring>` run only the scenarios whose Rust or C++ name contains it;
+//! `ARMS` a comma-separated arm allowlist (arm 0, the baseline, is always kept); `ITERS` decode calls
+//! per sample (default: calibrated); `ROUNDS` samples per arm (default 20).
 
 use std::hint::black_box;
 use std::path::PathBuf;
@@ -58,6 +63,8 @@ pub struct Report {
     pub ub: fn(&str, &str) -> bool,
     /// Printed once before the table (a legend for the flags above, say).
     pub legend: &'static str,
+    /// The C++ bench's name for an arm (the NDJSON `cpp_arm`), `None` where C++ has no such arm.
+    pub cpp_arm: fn(&str) -> Option<&'static str>,
 }
 
 struct Options {
@@ -184,6 +191,11 @@ fn measure(arms: &[Arm], inputs: &Inputs, rounds: usize, inner: usize) -> Vec<Op
         .collect()
 }
 
+// An optional name as a JSON value (the names need no escaping).
+fn json_str(s: Option<&str>) -> String {
+    s.map_or_else(|| "null".to_string(), |s| format!("\"{s}\""))
+}
+
 /// The scenario's memory report, if it makes one (deterministic, so check-only runs make it too).
 /// `cpp` is the C++ row name as a JSON value -- the C++ record's `shape`.
 fn report_mem(sc: &Scenario, inputs: &Inputs, cpp: &str, json: bool, decoder: &str) {
@@ -258,13 +270,13 @@ pub fn run(scenarios: Vec<Scenario>, report: &Report) -> i32 {
             "scenario", "arm", "GB/s", "vs base"
         );
     }
+    let (mut ran, mut skipped) = (0usize, 0usize);
     for sc in scenarios {
-        if opts
-            .only
-            .as_ref()
-            .is_some_and(|o| !sc.name.contains(o.as_str()))
-        {
-            continue;
+        if let Some(only) = opts.only.as_deref() {
+            let cpp_match = sc.cpp_name.as_deref().is_some_and(|c| c.contains(only));
+            if !sc.name.contains(only) && !cpp_match {
+                continue;
+            }
         }
         let name = sc.name.as_str();
         let arms = (sc.arms)();
@@ -274,16 +286,19 @@ pub fn run(scenarios: Vec<Scenario>, report: &Report) -> i32 {
             if arms.iter().all(|a| a.decoder().is_none()) {
                 let reason = first.unsupported_reason().unwrap_or("");
                 eprintln!("note: scenario {name} SKIPPED -- {reason}");
+                skipped += 1;
                 continue;
             }
         }
-        if !payloads::available(&opts.dir, &sc.source) {
+        if sc.source.is_external() && !payloads::present(&opts.dir, &sc.source) {
             eprintln!(
                 "note: scenario {name} SKIPPED -- its input is not in the payload directory (dump it \
                  from a C++ arena bench built with the dataset fetched; see payloads.rs)"
             );
+            skipped += 1;
             continue;
         }
+        ran += 1;
         let inputs = payloads::load(&opts.dir, &sc.source);
         let mut arms = select_arms(arms, opts.arm_filter.as_deref());
         // An arm that relies on UB for this scenario (quick-protobuf's unaligned packed-double slice)
@@ -330,10 +345,7 @@ pub fn run(scenarios: Vec<Scenario>, report: &Report) -> i32 {
             return 1;
         }
         let bytes = inputs.bytes;
-        let cpp = sc
-            .cpp_name
-            .as_ref()
-            .map_or_else(|| "null".to_string(), |n| format!("\"{n}\""));
+        let cpp = json_str(sc.cpp_name.as_deref());
         if opts.check_only {
             let n_unsupported = sums.iter().filter(|s| s.is_none()).count();
             println!(
@@ -358,6 +370,7 @@ pub fn run(scenarios: Vec<Scenario>, report: &Report) -> i32 {
         let base_gbs = bytes / meds[0].expect("baseline arm must be supported");
         for (i, a) in arms.iter().enumerate() {
             let ub = (report.ub)(name, a.name);
+            let cpp_arm = json_str((report.cpp_arm)(a.name));
             match meds[i] {
                 Some(med) => {
                     let gbs = bytes / med;
@@ -372,7 +385,8 @@ pub fn run(scenarios: Vec<Scenario>, report: &Report) -> i32 {
                     if opts.json {
                         println!(
                             "{{\"rec\":\"arm\",\"decoder\":\"{}\",\"scenario\":\"{name}\",\
-                             \"cpp_scenario\":{cpp},\"arm\":\"{}\",\"bytes\":{bytes:.0},\
+                             \"cpp_scenario\":{cpp},\"arm\":\"{}\",\"cpp_arm\":{cpp_arm},\
+                             \"bytes\":{bytes:.0},\
                              \"baseline\":{baseline},\"gb_s\":{gbs:.6},\"cyc_b\":null,\"ins_b\":null,\
                              \"vs_base_pct\":{vs:.3},\"ub_unaligned_fixed_slice\":{ub},\
                              \"supported\":true,\"ok\":true}}",
@@ -387,8 +401,8 @@ pub fn run(scenarios: Vec<Scenario>, report: &Report) -> i32 {
                     if opts.json {
                         println!(
                             "{{\"rec\":\"arm\",\"decoder\":\"{}\",\"scenario\":\"{name}\",\
-                             \"cpp_scenario\":{cpp},\"arm\":\"{}\",\"bytes\":{bytes:.0},\
-                             \"baseline\":false,\"gb_s\":null,\
+                             \"cpp_scenario\":{cpp},\"arm\":\"{}\",\"cpp_arm\":{cpp_arm},\
+                             \"bytes\":{bytes:.0},\"baseline\":false,\"gb_s\":null,\
                              \"cyc_b\":null,\"ins_b\":null,\"vs_base_pct\":null,\
                              \"supported\":false,\"unsupported_reason\":\"{reason}\",\"ok\":false}}",
                             report.decoder, a.name
@@ -399,8 +413,14 @@ pub fn run(scenarios: Vec<Scenario>, report: &Report) -> i32 {
         }
         report_mem(&sc, &inputs, &cpp, opts.json, report.decoder);
     }
+    if ran == 0 {
+        eprintln!("no scenario ran ({skipped} skipped)");
+        return 1;
+    }
     if opts.check_only {
-        println!("\nall arms agree on every scenario (checksum-only run; no timing).");
+        println!(
+            "\nall arms agree on {ran} scenario(s), {skipped} skipped (checksum-only run; no timing)."
+        );
     }
     0
 }

@@ -1,7 +1,6 @@
 //! `google_message1` / `google_message2`: the C++ arena bench's scenarios of the same names
 //! (`tests/bench_arm_messages.cpp`), over the payload its dump unwraps from each dataset file. Arms:
-//! the arena decoder cold (baseline) and warm, and the streaming decoder -- the C++ `arena-cold`,
-//! `arena-warm` and `streamgen` arms.
+//! cold (the baseline), warm and stream, as in C++.
 //!
 //! The checksum is the C++ one: present fields only, every field of the schema walked (proto2 defaults
 //! are non-zero, and a wire-driven streaming walk cannot see an absent field's default), with the C++

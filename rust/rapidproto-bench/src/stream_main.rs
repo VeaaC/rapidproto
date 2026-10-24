@@ -18,6 +18,12 @@ fn main() {
         decoder: "rust-stream",
         ub: |_, _| false,
         legend: "",
+        // Both arms carry their C++ names.
+        cpp_arm: |arm| match arm {
+            "generated" => Some("generated"),
+            "wire" => Some("wire"),
+            _ => None,
+        },
     };
     std::process::exit(runner::run(stream::scenarios(), &report));
 }

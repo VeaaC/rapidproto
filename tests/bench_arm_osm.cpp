@@ -788,8 +788,10 @@ int run_arm() {
 bool dump(const char* dir) {
     const Loaded data = load_dataset(RAPIDPROTO_OSM_DATASET);
     if (!data.ok) {
-        std::fprintf(stderr, "bench: cannot load the osm dataset '%s'\n", RAPIDPROTO_OSM_DATASET);
-        return false;
+        // Degrade, as run_arm() does: the scenarios are skipped, not the rest of the dump.
+        std::fprintf(stderr, "note: osm scenarios not dumped -- '%s' is not readable\n",
+                     RAPIDPROTO_OSM_DATASET);
+        return true;
     }
     // Both scenarios' checksum: run_arm()'s validation pins the file-level arms to the block sum.
     std::uint64_t sum = 0;

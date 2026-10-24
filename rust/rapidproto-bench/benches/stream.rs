@@ -42,6 +42,13 @@ fn stream_bench(c: &mut Criterion) {
             if matches!(sc.source, Source::Pool(_)) != pools {
                 continue;
             }
+            if !payloads::present(&dir, &sc.source) {
+                eprintln!(
+                    "{group_name}: {} skipped (not in the payload directory)",
+                    sc.name
+                );
+                continue;
+            }
             let arms = (sc.arms)();
             let generated = arms[0].decoder().expect("the generated arm");
             // Loaded on first use: criterion runs only the benches its name filter selects.

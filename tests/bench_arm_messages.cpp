@@ -1812,8 +1812,10 @@ bool dump_scenario(const std::filesystem::path& out, const std::string& name, co
                    ArenaWalk arena_walk) {
     const std::string payload = load_payload(dataset);
     if (payload.empty()) {
-        std::fprintf(stderr, "bench: cannot unwrap a payload from '%s'\n", dataset);
-        return false;
+        // Degrade, as run_arm() does: the scenario is skipped, not the rest of the dump.
+        std::fprintf(stderr, "note: %s not dumped -- '%s' is not readable\n", name.c_str(),
+                     dataset);
+        return true;
     }
     rapidproto::Arena arena;
     const std::uint64_t sum = arena_walk(ArenaMsg::decode(rapidproto::ByteView(payload), arena));

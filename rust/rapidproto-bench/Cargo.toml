@@ -1,11 +1,7 @@
-# Rust decode benchmarking, all in one bench-only crate (`publish = false`), scenario for scenario
-# with the C++ benches over their shared payloads: the generated arena decoder (baseline) measured both
-# against itself (the criterion A/B bench) and against other Rust protobuf crates (the ecosystem
-# comparison) with one shared per-field checksum walk, the generated streaming decoder against
-# itself and a hand-written wire loop, and both models on the C++ bench's real-world datasets.
-# Competitor crates and their codegen are deps HERE only, so they never reach the `rapidproto`
-# runtime, the generated code, or the no_std tiers. Competitors are added one at a time and selected
-# at runtime (the `bench` binary's ARMS filter).
+# Rust decode benchmarks mirroring the C++ benches scenario for scenario, over the payload files the
+# C++ benches dump (see src/lib.rs). Bench-only: the competitor crates and their codegen are
+# dependencies of this crate alone, so they never reach the runtime, the generated code, or the
+# no_std tiers.
 [package]
 name = "rapidproto-bench"
 version = "0.0.0"
@@ -34,12 +30,12 @@ quick-protobuf = "0.8"
 femtopb = "0.9"
 # Capstone: Google's official upb-backed `protobuf` v4 (the true arena-vs-arena peer), isolated in its
 # own crate because its `::protobuf::` is v4 while the rust-protobuf arm above needs v3. OPTIONAL +
-# OFF BY DEFAULT (the `google-upb` feature): building it needs an exact-version protoc + a C toolchain,
-# so the normal cargo-only build/CI never pulls it. Excluded from the workspace (see ../Cargo.toml).
+# OFF BY DEFAULT (the `google-upb` feature): building it needs an exact-version protoc, so the default
+# build and CI never pull it. Excluded from the workspace (see ../Cargo.toml).
 rapidproto-bench-upb = { path = "../rapidproto-bench-upb", optional = true }
 # zlib for the `osm_file` scenario, whose arms inflate the PBF blobs with `uncompress` as the C++ arms
 # do: the system zlib where installed (the C++ arms' library, so both inflate with the same code), a
-# bundled build elsewhere.
+# bundled build elsewhere. Its build script needs a C compiler either way.
 libz-sys = "1"
 
 [features]
@@ -56,12 +52,11 @@ compute = []
 [build-dependencies]
 # RapidProto's own codegen, the consumer path: renders the real-world datasets' schemas (see build.rs).
 rapidproto-build = { path = "../rapidproto-build" }
-# Pure-Rust protobuf compiler (no `protoc` / C toolchain): compiles bench.proto to a descriptor set
-# that prost-build turns into Rust -- keeps this crate cargo-only like the rest of the workspace.
+# Pure-Rust protobuf compiler (no `protoc`): compiles bench.proto to a descriptor set that
+# prost-build turns into Rust.
 protox = "0.7"
 prost-build = "0.13"
-# rust-protobuf's codegen, driven with its pure-Rust parser (`.pure()`, no `protoc`) to match the
-# no-toolchain story above.
+# rust-protobuf's codegen, driven with its pure-Rust parser (`.pure()`, no `protoc`).
 protobuf-codegen = "3"
 # quick-protobuf's codegen (also pure Rust, no `protoc`): renders bench.proto to its borrowed-view
 # decoders.

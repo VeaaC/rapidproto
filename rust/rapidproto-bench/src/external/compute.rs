@@ -1,6 +1,6 @@
 //! `compute Instance`: the C++ arena bench's large-schema scenario (`tests/bench_arm_compute.cpp`) --
-//! one googleapis compute.proto `Instance`, the payload its dump writes. Arms: the arena decoder cold
-//! (baseline) and warm, as in C++ (compute.proto has no streaming decoder there, so none here).
+//! one googleapis compute.proto `Instance`, the payload its dump writes. Arms: cold (the baseline) and
+//! warm, as in C++ (which has no streaming decoder for compute.proto).
 
 #[allow(
     clippy::all,

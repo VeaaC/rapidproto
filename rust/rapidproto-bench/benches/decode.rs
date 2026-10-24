@@ -1,7 +1,5 @@
-//! Decode benchmark for the generated Rust arena decoder, over the SHARED benchmark schema
-//! `tests/bench/bench.proto` (package `bench`) that the C++ arena bench also uses. Each arm decodes a
-//! different message shape into a fresh arena and checksums the tree, so a decode optimization can be
-//! A/B'd against the shape it targets -- the same scenario set the C++ `bench_arena` runs:
+//! Criterion A/B bench for the generated Rust arena decoder over the C++ arena bench's scenarios, so a
+//! decoder change can be measured on the shape it targets. The shared shapes (`tests/bench/bench.proto`):
 //!
 //! - `dataset`    -- realistic mixed records (scalars, strings, nested msg, repeated, map).
 //! - `big_varint` -- packed int64 runs (the packed-varint path).
@@ -11,20 +9,15 @@
 //! - `wide`       -- many messages, each with tiny repeated arrays (repeated-field churn).
 //! - `records`    -- scalar-only records, 20 fields incl. 2-byte-tag nested sub-messages (dispatch-bound).
 //! - `particles`  -- small records with always-present fixed-size value sub-messages.
-//! - `rv <dist> <count>`, `rv-zz ..`, `rv-enum ..` -- the repeated-varint sweeps: a single `Big`
-//!   carrying one packed varint field, across element byte width x element count (`decode_rv` below).
-//! - `google_message1`/`2`, `osm_blocks`, `osm_file`, `compute Instance` -- the real-world datasets, over
-//!   their own schemas, every arm (`decode_external` below; see `rapidproto_bench::external`).
 //!
-//! Each shape runs cold -- a fresh `Arena` per decode, the realistic path (group `decode`) -- and warm
-//! -- one arena reset per decode, the C++ `arena-warm` arm (group `decode_warm`).
+//! Each shape runs cold (group `decode`) and warm (group `decode_warm`). Also: the repeated-varint
+//! sweeps `rv <dist> <count>`, `rv-zz ..`, `rv-enum ..` (group `decode_rv`: a single `Big` carrying one
+//! packed varint field, across element byte width x count) and the real-world datasets with every arm
+//! (group `decode_external`, see `rapidproto_bench::external`).
 //!
-//! Input: set `RAPIDPROTO_BENCH_DIR` to a directory of shared protoc-canonical `.bin` files (produced
-//! by the C++ arena bench's generator mode -- see `load_scenario` below) and BOTH this bench and the
-//! C++ bench decode byte-identical bytes, so their numbers are cross-language comparable. Unset, each
-//! arm falls back to a built-in hand-built payload of the same shape -- fine for Rust-vs-Rust A/B, but
-//! NOT comparable to C++ (the hand-built bytes aren't protoc-canonical: they emit implicit-zero fields
-//! protoc omits). Generate the shared directory once with the C++ bench:
+//! Input: the shared payload directory (`RAPIDPROTO_BENCH_DIR`), so this bench and the C++ one decode
+//! the same bytes. Without it the 8 shapes use built-in payloads (fine for a Rust A/B; not comparable
+//! to C++, since they are not protoc-canonical) and the other groups are skipped.
 //!
 //! ```text
 //! RAPIDPROTO_BENCH_DUMP_DIR=<dir> ./build/<cfg>/rapidproto_arena_bench
@@ -32,16 +25,9 @@
 //!     taskset -c 0 cargo bench -p rapidproto-bench --bench decode
 //! ```
 //!
-//! RUN IT PINNED AND ALIGNED, or the numbers lie (same discipline as the wire bench):
-//!
-//! - `taskset -c 0` pins the thread (unpinned, criterion migrates cores -> run-to-run swings).
-//! - `-align-all-functions=6` pins 64-byte function entries, so an unrelated edit relaying the binary
-//!   does not shift throughput by code placement alone. The placement-invariant signal is
-//!   instructions/byte (`perf stat`), which criterion does not report -- read it alongside the time.
-//! - `performance` governor, turbo off, one run at a time, a quiesced box. See the bench-placement notes.
-//! - UNITS when comparing to the C++ arena bench: criterion prints BINARY MiB/s (1024-based); the C++
-//!   harness prints DECIMAL GB/s (1000-based). The input is byte-identical (that is the point), so
-//!   convert before comparing throughputs -- or compare the placement-invariant instructions/byte.
+//! Run discipline as the runners' (`src/runner.rs`). Criterion does not report instructions/byte, the
+//! placement-invariant signal -- read it with `perf stat` alongside the time. UNITS: criterion prints
+//! binary MiB/s, the C++ harness decimal GB/s.
 #![allow(clippy::all)]
 
 use std::cell::OnceCell;
@@ -363,10 +349,8 @@ fn load_scenario(name: &str, fallback: impl FnOnce() -> Vec<u8>) -> Vec<u8> {
     }
 }
 
-// Read the WHOLE payload into memory once, before the timed loop: `std::fs::read` / the builder return
-// an owned `Vec` with every byte resident, so the measured region is pure decode -- no file I/O, no
-// first-touch page faults -- reused across all iterations. Cold: a fresh arena per decode. Warm: one
-// arena, reset per decode (the C++ `arena-warm` arm).
+// One shape's bench, cold or warm. The payload is read whole before the timed loop, so the measured
+// region is decode only (no file I/O, no first-touch page faults).
 macro_rules! scenario {
     ($group:ident, $warm:expr, $name:literal, $payload:expr, $ty:ty, $ck:path) => {{
         let payload: &[u8] = $payload;
@@ -479,6 +463,13 @@ fn sweep_bench(c: &mut Criterion) {
         if !matches!(sc.source, Source::Pool(_)) {
             continue;
         }
+        if !payloads::present(&dir, &sc.source) {
+            eprintln!(
+                "decode_rv: {} skipped (not in the payload directory)",
+                sc.name
+            );
+            continue;
+        }
         // Loaded on first use: criterion runs only the benches its name filter selects.
         let inputs = OnceCell::new();
         group.throughput(Throughput::Bytes(
@@ -500,10 +491,9 @@ fn sweep_bench(c: &mut Criterion) {
     group.finish();
 }
 
-// The real-world datasets (`rapidproto_bench::external`), every arm the `bench` runner times. Their
-// inputs exist only in a shared directory dumped from a C++ build with the datasets, so the group skips
-// what the directory lacks. One call decodes a whole input (osm_blocks: every block), so samples are
-// few and long, like the sweeps'.
+// The real-world datasets (`rapidproto_bench::external`), every arm the `bench` runner times, skipping
+// what the payload directory or this build lacks. One call decodes a whole input (osm_blocks: every
+// block), so samples are few and long, like the sweeps'.
 fn external_bench(c: &mut Criterion) {
     let Some(dir) = std::env::var_os("RAPIDPROTO_BENCH_DIR") else {
         eprintln!("decode_external: skipped (the datasets' inputs need RAPIDPROTO_BENCH_DIR)");
@@ -513,7 +503,7 @@ fn external_bench(c: &mut Criterion) {
     let mut group = c.benchmark_group("decode_external");
     group.sample_size(10);
     for sc in rapidproto_bench::external::scenarios() {
-        if !payloads::available(&dir, &sc.source) {
+        if !payloads::present(&dir, &sc.source) {
             eprintln!(
                 "decode_external: {} skipped (not in the payload directory)",
                 sc.name

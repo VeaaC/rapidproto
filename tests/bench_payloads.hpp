@@ -4,18 +4,18 @@
 
 // The shared payload directory: the bytes both C++ benches and the Rust benches
 // (rust/rapidproto-bench) decode, so a Rust and a C++ number are measured on byte-identical input.
-// Each C++ bench's dump mode (RAPIDPROTO_BENCH_DUMP_DIR=<dir>) writes every payload it measures and
-// exits; RAPIDPROTO_BENCH_DIR=<dir> makes a run load them instead of building them in-process. Layout:
+// Each C++ bench's dump mode (RAPIDPROTO_BENCH_DUMP_DIR=<dir>) writes the inputs of every scenario
+// it compares and exits; RAPIDPROTO_BENCH_DIR=<dir> makes a run load them instead of building them
+// in-process. Layout:
 //   <dir>/<name>.bin           an arena scenario, protoc-serialized (bench_arena.cpp)
 //   <dir>/stream/<stem>.bin    a streaming scenario (bench_streamgen.cpp)
 //   <dir>/rv/<stem>/<i>.bin    buffer i of a varint-sweep pool (both benches; bench_varint.hpp)
 //   <dir>/rv/<stem>/pool.txt   the pool's buffer count, written last: a pool without it is incomplete
-//   <dir>/external/<stem>...   a real-world dataset's input (a .bin, or a pool directory) and, as
-//                              <stem>.sum, the checksum the C++ arms agree on over it -- written
-//                              when the arena bench was built with that dataset (bench_arm_messages
-//                              / _osm / _compute dump()), for the Rust runners: the C++ arms read the
-//                              same bytes from their own sources
-// The Rust runners build none of these, so the files are their whole contract.
+//   <dir>/external/<stem>.bin  a real-world dataset's input (osm_blocks: the pool <stem>/)
+//   <dir>/external/<stem>.sum  the checksum the C++ arms agree on over that input
+// external/ holds only the datasets this arena-bench build has, and only the Rust runners read it:
+// the C++ arms load the datasets from their own sources. The Rust runners build none of these
+// files, so they are the runners' whole contract.
 
 #include <cstdint>
 #include <cstdio>

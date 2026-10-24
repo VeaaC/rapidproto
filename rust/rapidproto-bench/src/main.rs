@@ -1,20 +1,12 @@
-//! Ecosystem comparison runner. Decodes the scenarios of the C++ arena bench (`rapidproto_arena_bench`)
-//! from the shared payload directory -- the 8 shapes plus the repeated-varint sweeps -- with
-//! RapidProto's arena decoder (cold = the baseline, and warm), its streaming decoder on `dataset`, and
-//! each competitor; enforces that every arm agrees on the per-field checksum, then times them and
-//! reports throughput relative to the baseline. The loop, options and output are the shared runner's
-//! (`runner.rs`, env vars documented there). `dataset` also reports the arena's memory after one
-//! decode, the C++ bench's `mem` record.
+//! The arena runner: the C++ arena bench's (`rapidproto_arena_bench`) scenarios over its dumped
+//! payloads, with RapidProto's arms and each competitor's (see the crate docs). The loop, options and
+//! output are the shared runner's (`runner.rs`).
 //!
-//! The C++ bench's real-world datasets run too (`src/external/`; RapidProto's arms only, held to the
-//! C++ checksums) when their inputs are in the payload directory -- the C++ dump writes each when it
-//! was built with that dataset fetched (see `payloads.rs`). `google_message1`/`2` also need the corpus
-//! when THIS crate is built (build.rs), and `compute Instance` the off-by-default `compute` feature;
-//! a run lists one this build lacks with the reason. The compute decoder is generated in the build
-//! script by an interpreter that cargo leaves unoptimized there (over ten minutes for compute.proto),
-//! so build it with optimized build scripts:
-//! `--features compute --config 'profile.release.build-override.opt-level=1'` (1 is enough, and safe:
-//! at 2+ the interpreter switches to tail-call dispatch, which overflowed the stack in a dev build).
+//! The real-world datasets (`src/external/`) need more than the payload directory: `google_message1`/`2`
+//! need the corpus when this crate is built (build.rs), and `compute Instance` the `compute` feature.
+//! Generating the compute decoder takes over ten minutes in cargo's default, unoptimized build script,
+//! so build it with `--features compute --config 'profile.release.build-override.opt-level=1'`
+//! (level 1: 2 and above currently overflow the generator's stack).
 //!
 //! BUILD PROFILE: plain `--release` (no LTO), matching the RapidProto-vs-C++ bench methodology and
 //! what most users actually ship. Under the default profile a decoder's hot path stays inlined across
@@ -28,7 +20,7 @@
 //! `--config 'profile.release.lto="fat"' --config 'profile.release.codegen-units=1'` to see it.
 //!
 //! ```text
-//! # produce the shared payloads once (from the C++ arena bench; ~1.7 GB, keep it on disk):
+//! # produce the shared payloads once (the C++ arena bench's, ~1.7 GB; keep them on disk):
 //! RAPIDPROTO_BENCH_DUMP_DIR=<dir> ./build/<cfg>/rapidproto_arena_bench
 //! # run pinned + aligned (the discipline note is runner.rs's), one run at a time, on a quiesced box:
 //! RAPIDPROTO_BENCH_DIR=<dir> RUSTFLAGS="-Cllvm-args=-align-all-functions=6" \
@@ -37,8 +29,8 @@
 //!
 //! GOOGLE-UPB CAPSTONE (feature `google-upb`, OFF by default): adds Google's official upb-backed
 //! `protobuf` crate -- the only true arena-vs-arena peer (borrowed `*View<'_>` over a upb C arena). It
-//! is the one arm that is NOT cargo-only: Google's codegen drives an external `protoc` whose version
-//! must EXACTLY match the crate (currently 36.2), and the upb kernel needs a C compiler. So it lives in
+//! is the one arm that needs `protoc`: Google's codegen drives an external one whose version must
+//! EXACTLY match the crate (currently 36.2). So it lives in
 //! the separate `rapidproto-bench-upb` crate (its `::protobuf::` is v4; the rust-protobuf arm's is v3 --
 //! incompatible, hence the split) and is gated behind the feature. Build a matching protoc from source
 //! (portable; the prebuilt release binary also works) and point the bench at it:
@@ -62,6 +54,15 @@ fn main() {
                  fixed-width float field (`Big.reals`, `repeated double`) as an unaligned borrowed \
                  slice. Correct on x86 here, but a misaligned reference -- flag it in any table built \
                  from these numbers. (`ub_unaligned_fixed_slice` in the ndjson.)",
+        // RapidProto's arms are the C++ bench's under Rust names; google-upb runs the upb kernel the
+        // C++ `upb` arm does. The other competitors are Rust-only.
+        cpp_arm: |arm| match arm {
+            "rapidproto" => Some("arena-cold"),
+            "rapidproto-warm" => Some("arena-warm"),
+            "rapidproto-stream" => Some("streamgen"),
+            "google-upb" => Some("upb"),
+            _ => None,
+        },
     };
     std::process::exit(runner::run(scenario_specs(), &report));
 }

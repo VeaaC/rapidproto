@@ -1,33 +1,29 @@
-//! Rust decode benchmarks, each mirroring a C++ bench scenario for scenario over the same bytes (the
-//! shared payload directory, see [`payloads`]):
+//! Rust decode benchmarks mirroring the C++ benches scenario for scenario, over the bytes those
+//! benches dump (see [`payloads`]):
 //!
-//! - the arena decoder vs the Rust ecosystem (the `bench` runner, `benches/decode.rs`,
-//!   `examples/perf_bench.rs`) -- the scenarios of the C++ `rapidproto_arena_bench`;
-//! - the streaming decoder vs a hand-written wire loop (the `stream` runner, `benches/stream.rs`,
-//!   `examples/perf_stream.rs`) -- the scenarios of the C++ `rapidproto_bench`; see [`stream`].
+//! - the arena decoder against the Rust ecosystem: the `bench` runner and `examples/perf_bench.rs`
+//!   (the C++ `rapidproto_arena_bench`'s scenarios), plus the criterion A/B bench `benches/decode.rs`;
+//! - the streaming decoder against a hand-written wire loop: the `stream` runner,
+//!   `examples/perf_stream.rs` and `benches/stream.rs` (the C++ `rapidproto_bench`'s); see [`stream`].
 //!
-//! ARENA ARMS: RapidProto's arena decoder cold (arm 0, the baseline: a fresh `Arena` per decode) and
-//! warm (one arena, reset per decode -- the C++ `arena-warm` arm), its streaming decoder where the C++
-//! bench runs one (`dataset`), then each competitor crate, walking every field with one shared
-//! checksum so a lazy/owned decoder is not flattered by skipping work. Competitors are added one at a
-//! time (one module each under `competitors/`, one line in the `arms!` macro below): prost,
-//! rust-protobuf, quick-protobuf, femtopb (and google-upb behind its feature). The real-world datasets
-//! run RapidProto's arms only, the ones the C++ bench runs for them ([`external`]).
+//! ARENA ARMS. RapidProto's: `rapidproto`, the arena decoder cold (arm 0, the baseline: a fresh
+//! `Arena` per decode); `rapidproto-warm`, one arena reset per decode; and `rapidproto-stream`, the
+//! streaming decoder, where the C++ bench runs one. Then each competitor crate (a module under
+//! `competitors/` and a line in the `arms!` macro below): prost, rust-protobuf, quick-protobuf,
+//! femtopb, and google-upb behind its feature. The real-world datasets run RapidProto's arms only
+//! ([`external`]).
 //!
-//! On the shared shapes (`tests/bench/bench.proto`) the checksum is a wrapping `u64` sum, mirrored
-//! field-for-field across arms so every arm in a scenario produces the identical value or the run
-//! aborts (the real-world datasets use the C++ walks instead, see [`external`]). For scalars it
-//! follows the C++ ecosystem bench convention (string/bytes -> byte length, bool -> 0/1, double -> IEEE
-//! bit pattern, int32/enum/uint32 -> value, int64/uint64/fixed -> value); for repeated strings,
-//! repeated sub-messages and maps it contributes the element COUNT (`.len()`), where the C++ bench
-//! sums each element's length -- so on these shapes the sum is a per-LANGUAGE agreement gate, NOT a
-//! cross-language checksum.
-//! Because these are proto3 messages (zero/empty defaults contribute 0), a straight walk of every
-//! accessor equals present-fields-only.
+//! CHECKSUM. On the shared shapes (`tests/bench/bench.proto`) every arm walks every field into one
+//! wrapping `u64` sum, so a lazy or owning decoder is not flattered by skipping work, and a scenario's
+//! arms must agree or the run aborts. Scalars follow the C++ arena bench (string/bytes -> length,
+//! bool -> 0/1, double -> IEEE bits, integers -> value); a repeated string, repeated message or map
+//! contributes its element COUNT where C++ sums the elements' lengths, so on these shapes the sum is a
+//! per-language gate, not a cross-language one. The messages are proto3 (absent fields read as zero),
+//! so walking every accessor equals walking the present fields. The real-world datasets use the C++
+//! walks, ported, instead.
 
-// RapidProto's cold + warm arena arms for one message type, `$ck` walking the decoded tree. The warm
-// arm's arena lives in the closure (a `RefCell`, since an arm is a `Fn`) and is reset before every
-// decode. Defined ahead of the modules so they can use it.
+// RapidProto's cold and warm arms for message type `$ty`, `$ck` walking the decoded tree; the warm
+// arena lives in the closure (a `RefCell`: an arm is a `Fn`). Defined ahead of the modules using it.
 macro_rules! arena_arms {
     ($ty:ty, $ck:path) => {{
         let warm = ::std::cell::RefCell::new(::rapidproto::Arena::new());

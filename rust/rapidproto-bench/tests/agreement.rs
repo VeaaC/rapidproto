@@ -188,10 +188,11 @@ fn osm_arms_agree() {
 }
 
 // --- streaming -----------------------------------------------------------------------------------
-// A small input of each streaming scenario's wire shape -- the C++ builders (tests/bench_streamgen.cpp)
-// at a few records, with negative values wherever a widening is a choice -- together with the sum the
-// C++ bench's `generated` lambda computes over it, derived from the ENCODED VALUES (never by parsing),
-// so a cast both Rust arms get wrong the same way still fails against the C++ rule.
+// A small input in each streaming scenario's wire shape (the fields of its C++ builder in
+// tests/bench_streamgen.cpp, with values chosen so every signed field goes negative and every uint32
+// one passes 2^31), together with the sum the C++ bench's `generated` lambda computes over it, derived
+// from the ENCODED VALUES (never by parsing), so a cast both Rust arms get wrong the same way still
+// fails against the C++ rule.
 
 fn put_varint(b: &mut Vec<u8>, mut v: u64) {
     while v >= 0x80 {
@@ -228,10 +229,12 @@ fn u64_of(v: i64) -> u64 {
     v as u64
 }
 
-// A Sample with a negative sint32 `d`; returns its bytes and the C++ dense sum over it.
+// A Sample whose int32 `a`/`b` and sint32 `d` go negative for some bases and whose uint32 `f` is past
+// 2^31 (sign-extending it would change the sum); returns its bytes and the C++ dense sum over it.
 fn sample(base: i64) -> (Vec<u8>, u64) {
-    let (a, b, c, d) = (base & 63, (base + 1) & 63, (base + 2) & 63, (base & 7) - 4);
-    let (e, f) = (base & 1 == 1, (base + 4) & 63);
+    let (a, b) = ((base & 63) - 32, ((base + 1) & 63) - 40);
+    let (c, d) = ((base + 2) & 63, (base & 7) - 4);
+    let (e, f) = (base & 1 == 1, 0x8000_0000 + ((base + 4) & 63));
     let mut s = Vec::new();
     put_var(&mut s, 1, a as u64);
     put_var(&mut s, 2, b as u64);
@@ -252,23 +255,28 @@ fn sample(base: i64) -> (Vec<u8>, u64) {
     (s, sum)
 }
 
-// A RecordSet with negative int32 / sint32 fields; returns its bytes and the C++ dense and sparse sums.
+// A RecordSet with negative int32 / sint32 fields and a uint32 `f5` past 2^31; returns its bytes and
+// the C++ dense and sparse sums.
 fn record_set() -> (Vec<u8>, u64, u64) {
     let (mut out, mut dense, mut sparse) = (Vec::new(), 0u64, 0u64);
     for i in 0..N {
         let mut r = Vec::new();
         for field in 1..=15u32 {
             let v = i - 20 + i64::from(field); // negative for the early records
+            let unsigned = match field {
+                5 => 0x8000_0000 | (v & 0xffff) as u64, // f5 uint32
+                8 => (v & 0xffff) as u64,               // f8 uint64
+                _ => 0,
+            };
             match field {
-                4 => put_var(&mut r, 4, v as u64),            // f4 int64
-                5 => put_var(&mut r, 5, (v & 0xffff) as u64), // f5 uint32
-                6 => put_var(&mut r, 6, zigzag(v)),           // f6 sint32
-                7 => put_var(&mut r, 7, (v & 1) as u64),      // f7 bool
-                8 => put_var(&mut r, 8, (v & 0xffff) as u64), // f8 uint64
-                _ => put_var(&mut r, field, v as u64),        // int32, sign-extended
+                4 => put_var(&mut r, 4, v as u64), // f4 int64
+                5 | 8 => put_var(&mut r, field, unsigned),
+                6 => put_var(&mut r, 6, zigzag(v)), // f6 sint32
+                7 => put_var(&mut r, 7, (v & 1) as u64), // f7 bool
+                _ => put_var(&mut r, field, v as u64), // int32, sign-extended
             }
             dense = dense.wrapping_add(match field {
-                5 | 8 => (v & 0xffff) as u64,
+                5 | 8 => unsigned,
                 7 => (v & 1) as u64,
                 _ => u64_of(v),
             });
@@ -381,7 +389,7 @@ fn stream_case(name: &str, stem: &str) -> (Vec<u8>, u64) {
                 add(4);
             }
         }
-        "multibyte-tag" | "two-tier-mbtag" => {
+        "multibyte-tag" => {
             for i in 0..N {
                 put_var(&mut b, 18, (i - 20) as u64);
                 add(u32_of((i - 20) as i32));
@@ -411,22 +419,6 @@ fn stream_case(name: &str, stem: &str) -> (Vec<u8>, u64) {
                 add(u32_of((i - 20) as i32));
             }
         }
-        "two-tier" => {
-            put_var(&mut b, 1, (-7i64) as u64);
-            add(u32_of(-7));
-            put_var(&mut b, 4, 0xDEAD_BEEF);
-            add(0xDEAD_BEEF);
-            put_var(&mut b, 5, zigzag(-42));
-            add(u32_of(-42));
-            let mut run = Vec::new();
-            for i in 0..N {
-                put_varint(&mut run, (i - 20) as u64);
-                add(u32_of((i - 20) as i32));
-            }
-            put_len(&mut b, 17, &run);
-            put_len(&mut b, 12, b"the quick brown fox");
-            add(19);
-        }
         "records" => {
             let (bytes, dense, sparse) = record_set();
             return match name {
@@ -445,8 +437,8 @@ fn every_stream_scenario_sums_what_cpp_sums() {
     let scenarios = rapidproto_bench::stream::scenarios();
     assert_eq!(
         scenarios.len(),
-        107,
-        "the C++ streaming bench's scenario count"
+        105,
+        "the C++ streaming bench's 107 scenarios, less its two two-tier ones"
     );
     for sc in scenarios {
         let (input, expected) = match &sc.source {

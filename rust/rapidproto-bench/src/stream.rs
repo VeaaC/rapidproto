@@ -9,17 +9,9 @@
 //! - `wire`: a hand-written loop over `rapidproto::wire`, feature-equivalent (dispatch on field number
 //!   and wire type, validate, skip the rest; stop at the end or an error).
 //!
-//! The C++ bench's third arm, protozero, has no Rust counterpart. Its two-tier scenarios time one
-//! generated decode compiled in a tiny translation unit against the same decode inside the bench's large
-//! one -- the cost of wire primitives GCC's per-unit inline budget leaves out of line in the large one.
-//! The Rust bench has no second, separately compiled copy of a decode to set against it, so those two
-//! payloads run with the two arms above (and `two-tier-mbtag` is byte-identical to `multibyte-tag`).
-//!
-//! Comparing with C++: the C++ harness times every decode call on its own (two clock reads and a
-//! `std::function` call per sample, ~20 ns), where the Rust runner amortizes over ~10 ms samples. On the
-//! varint sweep's tiniest rows (`rv <dist> 10` / `100`: tens to hundreds of bytes) that overhead
-//! dominates the C++ GB/s and its in-process ins/B, so a Rust/C++ ratio there measures the method, not
-//! the decoder -- `tests/bench.py` keeps those rows out of its gate for the same reason.
+//! Not mirrored, having no Rust counterpart: the C++ third arm, protozero, and the two `two-tier`
+//! scenarios, which time one decode compiled in a tiny translation unit against the same decode in the
+//! bench's large one (a C++ inlining effect).
 
 use rapidproto::wire::{self, Tag, WireType};
 use rapidproto::ErrorKind;
@@ -76,10 +68,6 @@ pub fn scenarios() -> Vec<Scenario> {
         }),
         single("records sparse (stream)", "records", || {
             arms(gen_records_sparse, wire_records_sparse)
-        }),
-        single("two-tier", "two-tier", || arms(gen_two_tier, wire_two_tier)),
-        single("two-tier-mbtag", "two-tier-mbtag", || {
-            arms(gen_expanded, wire_expanded)
         }),
     ]);
     out
@@ -257,20 +245,6 @@ fn gen_records_sparse(b: &[u8]) -> u64 {
                 f20 => |s, v| *s = s.wrapping_add(v as u64),
             }));
         },
-    }));
-    s
-}
-
-// The two-tier decode (`RP_BENCH_DEFINE_SCALARS_DECODE`, tests/bench_two_tier.hpp).
-fn gen_two_tier(b: &[u8]) -> u64 {
-    use rustgen_golden::proto2::stream::p2::*;
-    let mut s = 0u64;
-    let _ = Scalars::new(b).decode(scalars_stream!(&mut s; {
-        i32 => |s, v| *s = s.wrapping_add(u64::from(v as u32)),
-        u64 => |s, v| *s = s.wrapping_add(v),
-        s32 => |s, v| *s = s.wrapping_add(u64::from(v as u32)),
-        packed_nums => |s, v| *s = s.wrapping_add(u64::from(v as u32)),
-        s => |s, v| *s = s.wrapping_add(v.len() as u64),
     }));
     s
 }
@@ -537,25 +511,4 @@ fn wire_records_sparse(b: &[u8]) -> u64 {
         });
         s
     })
-}
-
-fn wire_two_tier(b: &[u8]) -> u64 {
-    let mut s = 0u64;
-    fields(b, |t, rest| {
-        let add = match (t.field, t.wire) {
-            (1, WireType::Varint) => u64::from(varint(rest)? as u32), // i32
-            (4, WireType::Varint) => varint(rest)?,                   // u64
-            (5, WireType::Varint) => u64::from(wire::zigzag32(varint(rest)? as u32) as u32), // s32
-            (17, WireType::Len) => {
-                let mut sum = 0u64;
-                packed(len(rest)?, |v| sum = sum.wrapping_add(u64::from(v as u32)));
-                sum
-            }
-            (12, WireType::Len) => len(rest)?.len() as u64, // s
-            _ => return Ok(false),
-        };
-        s = s.wrapping_add(add);
-        Ok(true)
-    });
-    s
 }

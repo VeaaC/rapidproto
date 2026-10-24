@@ -323,8 +323,8 @@ std::string load_payload(std::string_view stem) {
     return make_payload(stem);
 }
 
-// Shared wire/protozero arms reused by the simple single-handled-field scenarios. Each scenario
-// differs only in which field/type it builds and decodes, so the arm bodies are written per case.
+// The single-handled-field scenarios: each differs only in which field/type it decodes, so their arm
+// bodies are written per case.
 
 int scenario_varint_1byte() {
     const std::string buf = load_payload("varint-1byte");

@@ -18,7 +18,7 @@
 //!
 //! A real-world dataset's input exists only when the C++ bench was built with that dataset fetched
 //! (`tests/fetch_corpus.py`; OSM's extract also `tests/fetch_osm_dataset.py`), so its scenarios are
-//! skipped without it ([`available`]); every other payload is required. The Rust walks over those
+//! skipped without it ([`Source::is_external`]); every other payload is required. The Rust walks over those
 //! inputs are ported from the C++ ones field for field, so the runner holds them to the dumped C++
 //! checksum ([`cpp_checksum`]).
 
@@ -64,6 +64,12 @@ impl Source {
     fn is_pool(&self) -> bool {
         matches!(self, Source::Pool(_) | Source::Batch(_))
     }
+
+    /// A real-world dataset's input: the one kind a payload directory may lack (a dump from a C++
+    /// build without that dataset writes none), so the runner skips it rather than fail.
+    pub fn is_external(&self) -> bool {
+        matches!(self, Source::External(_) | Source::Batch(_))
+    }
 }
 
 /// `RAPIDPROTO_BENCH_DIR`, or exit with how to produce it.
@@ -89,14 +95,13 @@ pub fn read(path: &Path) -> Vec<u8> {
     bytes
 }
 
-/// Whether `source`'s input is in the payload directory `dir`. Only a real-world dataset's may be
-/// missing (a dump from a C++ build without that dataset writes none), so this is `true` for every
-/// other source -- loading one that is missing fails loudly instead.
-pub fn available(dir: &Path, source: &Source) -> bool {
-    match source {
-        Source::External(_) => source.path(dir).is_file(),
-        Source::Batch(_) => source.path(dir).join("pool.txt").is_file(),
-        Source::Arena(_) | Source::Stream(_) | Source::Pool(_) => true,
+/// Whether `source`'s input is in the payload directory `dir` (its file, or its pool's manifest).
+pub fn present(dir: &Path, source: &Source) -> bool {
+    let path = source.path(dir);
+    if source.is_pool() {
+        path.join("pool.txt").is_file()
+    } else {
+        path.is_file()
     }
 }
 
