@@ -1,10 +1,28 @@
-//! End-to-end smoke test: drive the embedded wasm generator through wasmi on the consumer example
-//! and check it produces plausible Rust. Byte-for-byte parity with native rustgen is pinned
-//! separately by the golden tests; this just proves the runtime wiring works.
+//! End-to-end smoke test: drive each generator backend this build has on the consumer example and
+//! check it produces plausible Rust, and reports errors the same way. Byte-for-byte parity with native
+//! rustgen is pinned separately by the golden tests; this just proves the runtime wiring works.
 
 use std::path::PathBuf;
 
-use rapidproto_build::{generate, Request, SourceFile};
+use rapidproto_build::{generate_with, GenError, Request, SourceFile, BACKENDS};
+
+// `request` through every backend, which must agree: the same output, or the same error code and
+// message.
+fn generate_each(request: &Request) -> Vec<Result<String, GenError>> {
+    let results: Vec<_> = BACKENDS
+        .iter()
+        .map(|&b| generate_with(b, request))
+        .collect();
+    let comparable: Vec<_> = results
+        .iter()
+        .map(|r| r.as_ref().map_err(|e| (e.code, e.message.as_str())))
+        .collect();
+    assert!(
+        comparable.windows(2).all(|w| w[0] == w[1]),
+        "the backends {BACKENDS:?} disagree: {comparable:?}"
+    );
+    results
+}
 
 fn proto(name: &str) -> SourceFile {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -21,10 +39,16 @@ fn generates_rust_for_the_consumer_example() {
     let request = Request {
         entries: vec!["message.proto".to_owned()],
         sources: vec![proto("message.proto"), proto("types.proto")],
-        stream: true, // exercise both models through the blob
+        stream: true, // exercise both models
         ..Request::default()
     };
-    let rust = generate(&request).expect("generation succeeds");
+    for result in generate_each(&request) {
+        let rust = result.expect("generation succeeds");
+        check_consumer_output(&rust);
+    }
+}
+
+fn check_consumer_output(rust: &str) {
     assert!(
         rust.contains("mod demo"),
         "expected the demo module:\n{rust}"
@@ -47,13 +71,15 @@ fn a_missing_import_is_reported_not_panicked() {
         sources: vec![proto("message.proto")],
         ..Request::default()
     };
-    let error = generate(&request).expect_err("missing import should fail");
-    assert_eq!(error.code, 3, "resolve-stage exit code");
-    assert!(
-        error.message.contains("types.proto"),
-        "error should name the missing import: {}",
-        error.message
-    );
+    for result in generate_each(&request) {
+        let error = result.expect_err("missing import should fail");
+        assert_eq!(error.code, 3, "resolve-stage exit code");
+        assert!(
+            error.message.contains("types.proto"),
+            "error should name the missing import: {}",
+            error.message
+        );
+    }
 }
 
 /// The generator is the one place the options are validated; an invalid combination is a clean
@@ -73,12 +99,14 @@ fn invalid_stream_macro_exports_are_rejected() {
         (true, "1demo", "is not an identifier"),
         (true, "de-mo", "is not an identifier"),
     ] {
-        let error = generate(&request(stream, prefix)).expect_err("invalid export should fail");
-        assert_eq!(error.code, 2, "bad-frame exit code for {prefix:?}");
-        assert!(
-            error.message.contains(expected),
-            "error for {prefix:?} should say {expected:?}: {}",
-            error.message
-        );
+        for result in generate_each(&request(stream, prefix)) {
+            let error = result.expect_err("invalid export should fail");
+            assert_eq!(error.code, 2, "bad-frame exit code for {prefix:?}");
+            assert!(
+                error.message.contains(expected),
+                "error for {prefix:?} should say {expected:?}: {}",
+                error.message
+            );
+        }
     }
 }

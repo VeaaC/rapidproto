@@ -69,8 +69,7 @@ there. Published numbers go in [docs/benchmarks.md](../docs/benchmarks.md).
 
 - `google_message1`/`2` need the corpus when this crate is built (`build/corpus`, or
   `RAPIDPROTO_FETCHED_CORPUS`).
-- `--features compute` adds compute.proto. Build it with
-  `--config 'profile.release.build-override.opt-level=1'`, or code generation takes over ten minutes.
+- `--features compute` adds compute.proto, whose large decoder takes about a minute to compile.
 - `--features google-upb` adds Google's upb crate. It needs `protoc` 36.2 (`RAPIDPROTO_UPB_PROTOC`).
 
 The remaining options are documented in `rapidproto-bench/src/runner.rs`.

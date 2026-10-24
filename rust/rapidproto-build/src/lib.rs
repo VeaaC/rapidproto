@@ -1,4 +1,4 @@
-//! Generate Rust protobuf **decoders** from `.proto` files, using only cargo — no `protoc` and no
+//! Generate Rust protobuf **decoders** from `.proto` files in a build script — no `protoc` and no
 //! separate code generator to install.
 //!
 //! Most consumers call [`Config`] from a `build.rs` to generate at build time:
@@ -26,22 +26,38 @@
 //! The same generator is also available as a command-line tool, `rapidproto-rust` (install this crate
 //! with `cargo install` and run `rapidproto-rust --help`), for generating decoders outside a build
 //! script.
+//!
+//! # How the generator runs
+//!
+//! The generator is RapidProto's C++ code generator, run one of two ways, chosen by features:
+//!
+//! - `native`: this crate's build script compiles the generator (it needs a C++17 compiler), always
+//!   optimized, and calls it in-process.
+//! - `wasm`: the generator is embedded as a WebAssembly module and run in the `wasmi` interpreter,
+//!   so no C++ compiler is needed.
+//!
+//! Both are on by default: the native generator is used, and the wasm one only if the native one
+//! does not build (with a warning). Both produce the same output.
+//!
+//! The interpreter runs at the speed it was compiled at, and cargo compiles build-time code
+//! unoptimized by default. The wasm generator is then about a thousand times slower than the native
+//! one: seconds for a small schema, minutes for a very large one. If you use it, optimize build-time
+//! code in the consuming workspace:
+//!
+//! ```toml
+//! [profile.dev.build-override]
+//! opt-level = 3
+//! [profile.release.build-override]
+//! opt-level = 3
+//! ```
 
 use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
 use std::env;
-use std::io::Cursor;
 use std::path::{Component, Path, PathBuf};
-use std::sync::OnceLock;
 
-use wasmi::{Engine, Linker, Module, Store};
-use wasmi_wasi::sync::WasiCtxBuilder;
-use wasmi_wasi::wasi_common::pipe::{ReadPipe, WritePipe};
-use wasmi_wasi::WasiCtx;
-
-/// The embedded generator. Rebuilt by `wasm/build-wasm.sh` and byte-checked in CI, so it stays in
-/// sync with the generator source.
-const RUSTGEN_WASM: &[u8] = include_bytes!("../wasm/rustgen.wasm");
+#[cfg(not(any(rp_native, feature = "wasm")))]
+compile_error!("rapidproto-build needs a generator: enable the `native` feature, `wasm`, or both");
 
 /// One in-memory source file: `name` is how an `import` refers to it (e.g. `"types.proto"`), and
 /// `body` is its text.
@@ -161,75 +177,192 @@ mod frame {
 /// pure function of the request: the same inputs always produce the same output. See [`Config`] to
 /// generate from `.proto` files on disk instead.
 pub fn generate(request: &Request) -> Result<String, GenError> {
+    generate_with(BACKENDS[0], request)
+}
+
+/// A way to run the generator (see [How the generator runs](crate#how-the-generator-runs)).
+#[doc(hidden)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Backend {
+    #[cfg(rp_native)]
+    Native,
+    #[cfg(feature = "wasm")]
+    Wasm,
+}
+
+/// The backends this build has, the one [`generate`] uses first.
+#[doc(hidden)]
+pub const BACKENDS: &[Backend] = &[
+    #[cfg(rp_native)]
+    Backend::Native,
+    #[cfg(feature = "wasm")]
+    Backend::Wasm,
+];
+
+/// [`generate`] through a given backend -- for checking that the backends agree.
+#[doc(hidden)]
+pub fn generate_with(backend: Backend, request: &Request) -> Result<String, GenError> {
     let frame = frame::encode(request)?;
-
-    // Validating the embedded generator is the one expensive step, and it never changes, so compile
-    // it once and reuse it: a caller that generates many files pays that cost once, not per file.
-    // Only the lightweight Store/instance is per-call.
-    let (engine, module) = compiled();
-
-    // In-memory stdio: feed the frame as stdin, capture stdout/stderr. The pipes are cloneable
-    // handles over a shared buffer; the WasiCtx holds one clone, we keep one to read afterwards.
-    let stdout = WritePipe::new_in_memory();
-    let stderr = WritePipe::new_in_memory();
-    let wasi = WasiCtxBuilder::new()
-        .stdin(Box::new(ReadPipe::from(frame)))
-        .stdout(Box::new(stdout.clone()))
-        .stderr(Box::new(stderr.clone()))
-        .build();
-
-    let mut store = Store::new(engine, wasi);
-    let mut linker: Linker<WasiCtx> = Linker::new(engine);
-    wasmi_wasi::sync::add_to_linker(&mut linker, |ctx| ctx).map_err(internal)?;
-
-    let instance = linker
-        .instantiate_and_start(&mut store, module)
-        .map_err(internal)?;
-    let start = instance
-        .get_typed_func::<(), ()>(&store, "_start")
-        .map_err(internal)?;
-    let run = start.call(&mut store, ());
-
-    // Drop the store so its clone of the pipe buffers is released; then we are the sole owner and
-    // can take the captured bytes out.
-    drop(store);
-    let exit = match run {
-        Ok(()) => 0,
-        // A WASI `proc_exit(n)` surfaces as this; anything else is a real trap, not a clean exit.
-        Err(error) => match error.i32_exit_status() {
-            Some(code) => code,
-            None => return Err(internal(error)),
-        },
+    let (status, text) = match backend {
+        #[cfg(rp_native)]
+        Backend::Native => native::run(&frame)?,
+        #[cfg(feature = "wasm")]
+        Backend::Wasm => wasm::run(frame)?,
     };
-
-    if exit == 0 {
-        Ok(String::from_utf8_lossy(&take(stdout)).into_owned())
+    if status == 0 {
+        Ok(String::from_utf8_lossy(&text).into_owned())
     } else {
         Err(GenError {
-            code: exit,
-            message: String::from_utf8_lossy(&take(stderr)).trim_end().to_owned(),
+            code: status,
+            message: String::from_utf8_lossy(&text).trim_end().to_owned(),
         })
     }
 }
 
-/// The embedded generator, compiled once and reused across [`generate`] calls. It is a fixed,
-/// build-time asset, so a compile failure here means a broken build, not a runtime condition --
-/// hence the panic.
-fn compiled() -> &'static (Engine, Module) {
-    static CELL: OnceLock<(Engine, Module)> = OnceLock::new();
-    CELL.get_or_init(|| {
-        let engine = Engine::default();
-        let module =
-            Module::new(&engine, RUSTGEN_WASM).expect("the embedded generator is a valid module");
-        (engine, module)
-    })
+/// The generator compiled by the build script, called in-process through its C ABI
+/// (src/rustgen/native_entry.cpp in the repository).
+#[cfg(rp_native)]
+mod native {
+    use std::ffi::{c_char, c_int, c_void};
+
+    use super::{internal, GenError};
+
+    type Sink = extern "C" fn(context: *mut c_void, data: *const c_char, len: usize);
+
+    extern "C" {
+        fn rapidproto_rustgen_run(
+            frame: *const c_char,
+            frame_len: usize,
+            sink: Sink,
+            context: *mut c_void,
+        ) -> c_int;
+    }
+
+    // The stack the generator gets, as much as the wasm module links with: room for the parser's and
+    // resolver's depth-capped recursion on a deep schema, whatever thread the caller is on.
+    const STACK_BYTES: usize = 8 << 20;
+
+    /// The generator's status and its output (the generated Rust, or the error message).
+    pub(super) fn run(frame: &[u8]) -> Result<(i32, Vec<u8>), GenError> {
+        std::thread::scope(|scope| {
+            std::thread::Builder::new()
+                .stack_size(STACK_BYTES)
+                .spawn_scoped(scope, || call(frame))
+                .map_err(internal)?
+                .join()
+                .map_err(|_| internal("the native generator panicked"))
+        })
+    }
+
+    fn call(frame: &[u8]) -> (i32, Vec<u8>) {
+        // Copies the output the generator hands over; `context` is the `Vec` below.
+        extern "C" fn sink(context: *mut c_void, data: *const c_char, len: usize) {
+            // SAFETY: `context` is the `&mut Vec<u8>` passed to the call, alive and unaliased for its
+            // duration; `data` is valid for `len` bytes during this callback.
+            unsafe {
+                let out = &mut *context.cast::<Vec<u8>>();
+                out.extend_from_slice(std::slice::from_raw_parts(data.cast::<u8>(), len));
+            }
+        }
+        let mut text = Vec::new();
+        // SAFETY: `frame` is valid for `frame.len()` bytes, and `sink` and `context` fit each other;
+        // the generator calls `sink` once, before returning, and lets no exception escape.
+        let status = unsafe {
+            rapidproto_rustgen_run(
+                frame.as_ptr().cast(),
+                frame.len(),
+                sink,
+                std::ptr::from_mut(&mut text).cast(),
+            )
+        };
+        if status == -1 {
+            let detail = String::from_utf8_lossy(&text);
+            text = format!("internal error in the native generator: {detail}").into_bytes();
+        }
+        (status, text)
+    }
 }
 
-/// Take the bytes a finished in-memory pipe captured (sole owner by now).
-fn take(pipe: WritePipe<Cursor<Vec<u8>>>) -> Vec<u8> {
-    pipe.try_into_inner()
-        .expect("pipe still shared after the store was dropped")
-        .into_inner()
+/// The embedded wasm generator in the wasmi interpreter: the frame as stdin, the output on stdout or
+/// stderr, the status as the exit code.
+#[cfg(feature = "wasm")]
+mod wasm {
+    use std::io::Cursor;
+    use std::sync::OnceLock;
+
+    use wasmi::{Engine, Linker, Module, Store};
+    use wasmi_wasi::sync::WasiCtxBuilder;
+    use wasmi_wasi::wasi_common::pipe::{ReadPipe, WritePipe};
+    use wasmi_wasi::WasiCtx;
+
+    use super::{internal, GenError};
+
+    /// The embedded generator. Rebuilt by `wasm/build-wasm.sh` and byte-checked in CI, so it stays
+    /// in sync with the generator source.
+    const RUSTGEN_WASM: &[u8] = include_bytes!("../wasm/rustgen.wasm");
+
+    /// The generator's status and its output (the generated Rust, or the error message).
+    pub(super) fn run(frame: Vec<u8>) -> Result<(i32, Vec<u8>), GenError> {
+        // Validating the embedded generator is the one expensive step, and it never changes, so
+        // compile it once and reuse it: a caller that generates many files pays that cost once, not
+        // per file. Only the lightweight Store/instance is per-call.
+        let (engine, module) = compiled();
+
+        // In-memory stdio: feed the frame as stdin, capture stdout/stderr. The pipes are cloneable
+        // handles over a shared buffer; the WasiCtx holds one clone, we keep one to read afterwards.
+        let stdout = WritePipe::new_in_memory();
+        let stderr = WritePipe::new_in_memory();
+        let wasi = WasiCtxBuilder::new()
+            .stdin(Box::new(ReadPipe::from(frame)))
+            .stdout(Box::new(stdout.clone()))
+            .stderr(Box::new(stderr.clone()))
+            .build();
+
+        let mut store = Store::new(engine, wasi);
+        let mut linker: Linker<WasiCtx> = Linker::new(engine);
+        wasmi_wasi::sync::add_to_linker(&mut linker, |ctx| ctx).map_err(internal)?;
+
+        let instance = linker
+            .instantiate_and_start(&mut store, module)
+            .map_err(internal)?;
+        let start = instance
+            .get_typed_func::<(), ()>(&store, "_start")
+            .map_err(internal)?;
+        let run = start.call(&mut store, ());
+
+        // Drop the store so its clone of the pipe buffers is released; then we are the sole owner
+        // and can take the captured bytes out.
+        drop(store);
+        let exit = match run {
+            Ok(()) => 0,
+            // A WASI `proc_exit(n)` surfaces as this; anything else is a real trap, not a clean exit.
+            Err(error) => match error.i32_exit_status() {
+                Some(code) => code,
+                None => return Err(internal(error)),
+            },
+        };
+        Ok((exit, take(if exit == 0 { stdout } else { stderr })))
+    }
+
+    /// The embedded generator, compiled once and reused across calls. It is a fixed, build-time
+    /// asset, so a compile failure here means a broken build, not a runtime condition -- hence the
+    /// panic.
+    fn compiled() -> &'static (Engine, Module) {
+        static CELL: OnceLock<(Engine, Module)> = OnceLock::new();
+        CELL.get_or_init(|| {
+            let engine = Engine::default();
+            let module = Module::new(&engine, RUSTGEN_WASM)
+                .expect("the embedded generator is a valid module");
+            (engine, module)
+        })
+    }
+
+    /// Take the bytes a finished in-memory pipe captured (sole owner by now).
+    fn take(pipe: WritePipe<Cursor<Vec<u8>>>) -> Vec<u8> {
+        pipe.try_into_inner()
+            .expect("pipe still shared after the store was dropped")
+            .into_inner()
+    }
 }
 
 /// A failure inside the runtime (not a clean generator error): no exit code, so report it as -1.
@@ -263,6 +396,7 @@ pub struct Config {
     arena: bool,
     stream: bool,
     export_stream_macros: Option<String>,
+    backend: Backend,
 }
 
 impl Default for Config {
@@ -276,6 +410,7 @@ impl Default for Config {
             arena: true,
             stream: false,
             export_stream_macros: None,
+            backend: BACKENDS[0],
         }
     }
 }
@@ -335,6 +470,13 @@ impl Config {
         self
     }
 
+    /// Generate through `backend` instead of the default one -- for checking that the backends agree.
+    #[doc(hidden)]
+    pub fn backend(mut self, backend: Backend) -> Self {
+        self.backend = backend;
+        self
+    }
+
     /// Generate decoders for `entries` (one import closure) and return the generated Rust (one module
     /// tree for the whole closure), writing nothing. Every `.proto` under the include directories (the
     /// current directory when none was added) is made available to the generator, and each entry is
@@ -370,7 +512,7 @@ impl Config {
             sources.insert(name.clone(), body);
             entry_names.push(name);
         }
-        generate(&Request {
+        let request = Request {
             entries: entry_names,
             sources: sources
                 .into_iter()
@@ -381,7 +523,8 @@ impl Config {
             arena: self.arena,
             stream: self.stream,
             export_stream_macros: self.export_stream_macros.clone(),
-        })
+        };
+        generate_with(self.backend, &request)
     }
 
     /// Generate decoders for `entries` (one import closure) into `OUT_DIR` and return the path to the

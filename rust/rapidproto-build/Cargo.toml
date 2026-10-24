@@ -3,7 +3,7 @@ name = "rapidproto-build"
 version = "0.0.0"
 edition = "2021"
 license = "Apache-2.0"
-description = "Generate Rust protobuf decoders from .proto files with cargo alone (RapidProto; work in progress)."
+description = "Generate Rust protobuf decoders from .proto files in a build script, no protoc needed (RapidProto; work in progress)."
 repository = "https://github.com/VeaaC/rapidproto"
 readme = "README.md"
 keywords = ["protobuf", "protocol-buffers", "codegen", "build-dependencies", "wasm"]
@@ -14,21 +14,35 @@ categories = ["development-tools::build-utils", "encoding"]
 exclude = ["tests"]
 publish = false
 
-# The generator ships as a prebuilt WebAssembly module run through the wasmi interpreter (pure Rust),
-# so consumers build with cargo alone. It uses only the minimal WASI surface (stdin/stdout), so
-# wasmi_wasi's preview-1 shim is all that is needed.
+# Two ways to run the generator (see the crate docs): natively, compiled from its C++ by build.rs, or
+# as the embedded WebAssembly module in the wasmi interpreter. With both (the default), the native
+# one is used when it builds.
+[features]
+default = ["native", "wasm"]
+# Compile the generator natively (needs a C++17 compiler at build time).
+native = ["dep:cc"]
+# The embedded wasm generator in the wasmi interpreter (pure Rust, no C++ compiler).
+wasm = ["dep:wasmi", "dep:wasmi_wasi"]
+
 [dependencies]
 # The blob is loaded as binary and validated; we never parse the WebAssembly text format, so drop
-# wasmi's default `wat` feature (and its text-parser subtree: wat/wast/wasm-encoder/bumpalo/...). The
-# rest of wasmi's defaults are kept as-is.
-wasmi = { version = "2.0.0", default-features = false, features = [
+# wasmi's default `wat` feature (and its text-parser subtree: wat/wast/wasm-encoder/bumpalo/...).
+# `portable-dispatch` instead of wasmi's automatic choice: that picks tail-call dispatch for any
+# optimized build of wasmi, and with debug assertions on (an optimized dev-profile build script) the
+# tail calls are not eliminated, so the stack overflows. The generator uses only the minimal WASI
+# surface (stdin/stdout), so wasmi_wasi's preview-1 shim is all that is needed.
+wasmi = { version = "2.0.0", optional = true, default-features = false, features = [
     "stable",
     "std",
     "validate",
     "memory64",
-    "auto-dispatch",
+    "portable-dispatch",
 ] }
-wasmi_wasi = "2.0.0"
+wasmi_wasi = { version = "2.0.0", optional = true }
+
+[build-dependencies]
+# Compiles the generator's C++ for the `native` feature, its translation units in parallel.
+cc = { version = "1", optional = true, features = ["parallel"] }
 
 [[bin]]
 name = "rapidproto-rust"

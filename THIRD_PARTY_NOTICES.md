@@ -51,7 +51,7 @@ and are not part of what it distributes.
 ### Rust code-generator blob — `rust/rapidproto-build/wasm/rustgen.wasm`
 
 - **File:** the prebuilt `wasm32-wasi` generator the `rapidproto-build` crate ships and runs
-  through `wasmi` (so Rust consumers generate decoders with cargo alone). It is RapidProto's own
+  through `wasmi` (for Rust consumers without a C++ compiler). It is RapidProto's own
   code (Apache-2.0) compiled with a pinned wasi-sdk, statically linking wasi-libc and the LLVM C++
   runtime (libc++/libc++abi/compiler-rt), and embedding the well-known-type definitions listed above.
 - **License:** Apache-2.0 (first-party) plus the bundled components' terms (Apache-2.0 with LLVM

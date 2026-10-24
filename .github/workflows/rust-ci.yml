@@ -31,8 +31,9 @@ jobs:
           components: rustfmt, clippy
       - name: Format
         run: cargo fmt --all --check
-      # std+alloc covers the whole workspace, including rapidproto-build (the wasmi generator driver
-      # and its golden dogfooding gate), consumer-example (whose build.rs runs the blob end to end),
+      # std+alloc covers the whole workspace, including rapidproto-build (both generator backends and
+      # its golden dogfooding gate, run through each), consumer-example (whose build.rs runs the
+      # generator end to end),
       # osm-pbf-example (the OSM showcase + its golden fixture test) and rapidproto-diff (the
       # differential Serializer). rapidproto-bench is linted and tested
       # SEPARATELY (below) at its DEFAULT features, NOT via the blanket `--all-features` runs: its
@@ -51,6 +52,14 @@ jobs:
         run: cargo clippy --workspace --exclude rapidproto-build --exclude consumer-example --exclude osm-pbf-example --exclude rapidproto-diff --exclude rapidproto-bench --all-targets --no-default-features -- -D warnings
       - name: Test (std + alloc)
         run: cargo test --workspace --exclude rapidproto-bench --all-features
+      # rapidproto-build with one generator backend at a time: `wasm` alone is what a consumer without
+      # a C++ compiler builds, `native` alone the build without the interpreter.
+      - name: rapidproto-build with only the wasm generator, then only the native one
+        run: |
+          cargo clippy -p rapidproto-build --all-targets --no-default-features --features wasm -- -D warnings
+          cargo test -p rapidproto-build --no-default-features --features wasm --test smoke
+          cargo clippy -p rapidproto-build --all-targets --no-default-features --features native -- -D warnings
+          cargo test -p rapidproto-build --no-default-features --features native --test smoke
       # rapidproto-bench is excluded above (its off-by-default `google-upb` arm would need protoc under
       # `--all-features`), so test it on its own at DEFAULT features -- debug here (the agreement tests
       # + the debug-only quick-protobuf drop path) and release below.
@@ -63,7 +72,7 @@ jobs:
       # runs it; this release step exercises it (the UB-check is compiled out, correct on this x86 host).
       - name: Test the ecosystem bench in release (exercises the release-only quick-protobuf arm)
         run: cargo test -p rapidproto-bench --release
-      - name: Run the consumer example (build.rs -> blob -> decode, cargo only)
+      - name: Run the consumer example (build.rs -> generator -> decode)
         run: cargo run -p consumer-example
       - name: Test (no_std + alloc)
         run: cargo test --workspace --exclude rapidproto-build --exclude consumer-example --exclude osm-pbf-example --exclude rapidproto-diff --exclude rapidproto-bench --no-default-features --features alloc
@@ -83,10 +92,11 @@ jobs:
           cargo build -p rustgen-golden --no-default-features --features serde
 
   wasm-blob:
-    # The rapidproto-build crate ships a committed wasm blob (the Rust generator front-end) so
-    # consumers need no C++ toolchain. This gate rebuilds it from source with the pinned wasi-sdk and
-    # byte-diffs it against the committed copy: a difference means the C++ generator changed without
-    # the blob being regenerated. The build is byte-reproducible, so the diff is exact.
+    # The rapidproto-build crate ships a committed wasm blob (the Rust generator front-end), its
+    # generator for consumers without a C++ compiler. This gate rebuilds it from source with the
+    # pinned wasi-sdk and byte-diffs it against the committed copy: a difference means the C++
+    # generator changed without the blob being regenerated. The build is byte-reproducible, so the
+    # diff is exact.
     runs-on: ubuntu-latest
     env:
       WASI_SDK_VERSION: "34.0"
@@ -139,9 +149,9 @@ jobs:
   miri:
     # The arena hands out `&mut` from `&self` and does raw-pointer bumping; Miri checks that
     # against strict provenance and Stacked/Tree Borrows. Runs on both the alloc and no-alloc tiers.
-    # rapidproto-build, consumer-example and osm-pbf-example are --exclude'd: all are safe Rust that
-    # drive the wasmi interpreter over the blob and do filesystem I/O (osm-pbf-example also spawns its
-    # binary), which Miri's isolation forbids and has nothing unsafe for Miri to check anyway.
+    # rapidproto-build, consumer-example and osm-pbf-example are --exclude'd: they run the generator
+    # (a native C++ library Miri cannot execute, or the wasmi interpreter) and do filesystem I/O
+    # (osm-pbf-example also spawns its binary), which Miri's isolation forbids.
     runs-on: ubuntu-latest
     env:
       # Actively enforce the arena's strict-provenance claim (it uses no int→ptr casts).

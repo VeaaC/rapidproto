@@ -40,15 +40,10 @@ if [[ "$have_wasi" != "$EXPECTED_WASI_SDK" ]]; then
     exit 1
 fi
 
-# The front-end closure: lex/parse/analyze, the shared naming + arena layout/modes planners the Rust
-# decoder reuses, and the Rust generator -- plus the wasm entry. No cmake-generated headers are
-# needed (nothing here includes the generated version.hpp), so the build needs only -I include.
-tus=(
-    src/lexer.cpp src/interpret.cpp src/parser.cpp src/features.cpp
-    src/resolve.cpp src/resolver.cpp src/source.cpp src/wellknown_generated.cpp
-    src/codegen/naming.cpp src/arenagen/layout.cpp src/arenagen/modes.cpp
-    src/rustgen/generator.cpp src/rustgen/wasm_entry.cpp
-)
+# The generator's translation units (shared with the native build, see generator-sources.txt) plus
+# the wasm entry.
+mapfile -t tus < <(grep -v -e '^#' -e '^$' "$here/../generator-sources.txt")
+tus+=(src/rustgen/wasm_entry.cpp)
 
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT

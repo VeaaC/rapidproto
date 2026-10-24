@@ -30,6 +30,7 @@
 #include "rapidproto/resolver.hpp"                   // IWYU pragma: keep
 #include "rapidproto/result.hpp"                     // IWYU pragma: keep
 #include "rapidproto/runtime.hpp"                    // IWYU pragma: keep
+#include "rapidproto/rustgen/frame.hpp"              // IWYU pragma: keep
 #include "rapidproto/rustgen/generator.hpp"          // IWYU pragma: keep
 #include "rapidproto/rustgen/names.hpp"              // IWYU pragma: keep
 #include "rapidproto/rustgen/pipeline.hpp"           // IWYU pragma: keep
