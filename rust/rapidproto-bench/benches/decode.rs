@@ -1,7 +1,5 @@
-//! Decode benchmark for the generated Rust arena decoder, over the SHARED benchmark schema
-//! `tests/bench/bench.proto` (package `bench`) that the C++ arena bench also uses. Each arm decodes a
-//! different message shape into a fresh arena and checksums the tree, so a decode optimization can be
-//! A/B'd against the shape it targets -- the same scenario set the C++ `bench_arena` runs:
+//! Criterion A/B bench for the generated Rust arena decoder over the C++ arena bench's scenarios, so a
+//! decoder change can be measured on the shape it targets. The shared shapes (`tests/bench/bench.proto`):
 //!
 //! - `dataset`    -- realistic mixed records (scalars, strings, nested msg, repeated, map).
 //! - `big_varint` -- packed int64 runs (the packed-varint path).
@@ -12,38 +10,33 @@
 //! - `records`    -- scalar-only records, 20 fields incl. 2-byte-tag nested sub-messages (dispatch-bound).
 //! - `particles`  -- small records with always-present fixed-size value sub-messages.
 //!
-//! Input: set `RAPIDPROTO_BENCH_DIR` to a directory of shared protoc-canonical `.bin` files (produced
-//! by the C++ arena bench's generator mode -- see `load_scenario` below) and BOTH this bench and the
-//! C++ bench decode byte-identical bytes, so their numbers are cross-language comparable. Unset, each
-//! arm falls back to a built-in hand-built payload of the same shape -- fine for Rust-vs-Rust A/B, but
-//! NOT comparable to C++ (the hand-built bytes aren't protoc-canonical: they emit implicit-zero fields
-//! protoc omits). Generate the shared directory once with the C++ bench:
+//! Each shape runs cold (group `decode`) and warm (group `decode_warm`). Also: the repeated-varint
+//! sweeps `rv <dist> <count>`, `rv-zz ..`, `rv-enum ..` (group `decode_rv`: a single `Big` carrying one
+//! packed varint field, across element byte width x count) and the real-world datasets with every arm
+//! (group `decode_external`, see `rapidproto_bench::external`).
+//!
+//! Input: the shared payload directory (`RAPIDPROTO_BENCH_DIR`), so this bench and the C++ one decode
+//! the same bytes. Without it the 8 shapes use built-in payloads (fine for a Rust A/B; not comparable
+//! to C++, since they are not protoc-canonical) and the other groups are skipped.
 //!
 //! ```text
-//! RAPIDPROTO_BENCH_DUMP_DIR=/tmp/bench ./build/<cfg>/rapidproto_arena_bench
-//! RAPIDPROTO_BENCH_DIR=/tmp/bench RUSTFLAGS="-Cllvm-args=-align-all-functions=6" \
-//!     taskset -c 0 cargo bench -p rustgen-golden --bench decode
+//! RAPIDPROTO_BENCH_DUMP_DIR=<dir> ./build/<cfg>/rapidproto_arena_bench
+//! RAPIDPROTO_BENCH_DIR=<dir> RUSTFLAGS="-Cllvm-args=-align-all-functions=6" \
+//!     taskset -c 0 cargo bench -p rapidproto-bench --bench decode
 //! ```
 //!
-//! RUN IT PINNED AND ALIGNED, or the numbers lie (same discipline as the wire bench):
-//!
-//! - `taskset -c 0` pins the thread (unpinned, criterion migrates cores -> run-to-run swings).
-//! - `-align-all-functions=6` pins 64-byte function entries, so an unrelated edit relaying the binary
-//!   does not shift throughput by code placement alone. The placement-invariant signal is
-//!   instructions/byte (`perf stat`), which criterion does not report -- read it alongside the time.
-//! - `performance` governor, turbo off, one run at a time, a quiesced box. See the bench-placement notes.
-//! - UNITS when comparing to the C++ arena bench: criterion prints BINARY MiB/s (1024-based); the C++
-//!   harness prints DECIMAL GB/s (1000-based). The input is byte-identical (that is the point), so
-//!   convert before comparing throughputs -- or compare the placement-invariant instructions/byte.
-//!
-//! This is the "cold" shape: a fresh `Arena` per decode (the realistic path -- you decode into a new
-//! arena). A warm (reset-and-reuse) arm can be added later.
+//! Run discipline as the runners' (`src/runner.rs`). Criterion does not report instructions/byte, the
+//! placement-invariant signal -- read it with `perf stat` alongside the time. UNITS: criterion prints
+//! binary MiB/s, the C++ harness decimal GB/s.
 #![allow(clippy::all)]
+
+use std::cell::OnceCell;
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 use rapidproto::Arena;
 use rapidproto_bench::checksum::*;
-use rustgen_golden::bench::arena::bench::{BigSet, Dataset, ParticleSet, RecordSet, WideSet};
+use rapidproto_bench::payloads::{self, Source};
+use rustgen_golden::bench::arena::bench::{Big, BigSet, Dataset, ParticleSet, RecordSet, WideSet};
 
 // --- wire encoders (the decoder is the system under test, not these) ---
 fn put_varint(b: &mut Vec<u8>, mut v: u64) {
@@ -351,97 +344,194 @@ fn particleset(items: u64) -> Vec<u8> {
 // C++ bench's generator mode: `RAPIDPROTO_BENCH_DUMP_DIR=<dir> ./build/<cfg>/rapidproto_arena_bench`.
 fn load_scenario(name: &str, fallback: impl FnOnce() -> Vec<u8>) -> Vec<u8> {
     match std::env::var_os("RAPIDPROTO_BENCH_DIR") {
-        Some(dir) => {
-            let path = std::path::Path::new(&dir).join(format!("{name}.bin"));
-            let bytes = std::fs::read(&path)
-                .unwrap_or_else(|e| panic!("cannot read RAPIDPROTO_BENCH_DIR file {path:?}: {e}"));
-            // A 0-byte file would decode as an empty message and silently "measure" nothing; fail loud.
-            assert!(!bytes.is_empty(), "scenario file {path:?} is empty");
-            bytes
-        }
+        Some(dir) => payloads::read(&std::path::Path::new(&dir).join(format!("{name}.bin"))),
         None => fallback(),
     }
 }
 
-// Read the WHOLE payload into memory once, before the timed loop: `std::fs::read` / the builder return
-// an owned `Vec` with every byte resident, so the measured region is pure decode -- no file I/O, no
-// first-touch page faults -- reused across all iterations.
+// One shape's bench, cold or warm. The payload is read whole before the timed loop, so the measured
+// region is decode only (no file I/O, no first-touch page faults).
 macro_rules! scenario {
-    ($group:ident, $name:literal, $payload:expr, $ty:ty, $ck:path) => {{
-        let payload: Vec<u8> = $payload;
+    ($group:ident, $warm:expr, $name:literal, $payload:expr, $ty:ty, $ck:path) => {{
+        let payload: &[u8] = $payload;
         $group.throughput(Throughput::Bytes(payload.len() as u64));
-        $group.bench_function($name, |b| {
-            b.iter(|| {
-                let arena = Arena::new();
-                let m = <$ty>::decode(black_box(payload.as_slice()), &arena).unwrap();
-                black_box($ck(m))
+        if $warm {
+            $group.bench_function($name, |b| {
+                let mut arena = Arena::new();
+                b.iter(|| {
+                    arena.reset();
+                    let m = <$ty>::decode(black_box(payload), &arena).unwrap();
+                    black_box($ck(m))
+                });
             });
-        });
+        } else {
+            $group.bench_function($name, |b| {
+                b.iter(|| {
+                    let arena = Arena::new();
+                    let m = <$ty>::decode(black_box(payload), &arena).unwrap();
+                    black_box($ck(m))
+                });
+            });
+        }
     }};
 }
 
 fn decode_bench(c: &mut Criterion) {
-    let mut group = c.benchmark_group("decode");
     // Record counts match the C++ arena bench's arms, so the shared files (and the fallbacks) are the
     // same shape and size on both sides.
-    scenario!(
-        group,
-        "dataset",
-        load_scenario("dataset", || dataset(2000)),
-        Dataset,
-        checksum_dataset
-    );
-    scenario!(
-        group,
-        "big_varint",
-        load_scenario("big_varint", || bigset(200, |i| big_varint_item(i, 1000))),
-        BigSet,
-        checksum_bigset
-    );
-    scenario!(
-        group,
-        "big_fixed",
-        load_scenario("big_fixed", || bigset(200, |_| big_fixed_item(1000))),
-        BigSet,
-        checksum_bigset
-    );
-    scenario!(
-        group,
-        "big_osm",
-        load_scenario("big_osm", || big_osm(200, 1000)),
-        BigSet,
-        checksum_bigset
-    );
-    scenario!(
-        group,
-        "big",
-        load_scenario("big", || bigset(30, |i| big_both_item(i, 10000))),
-        BigSet,
-        checksum_bigset
-    );
-    scenario!(
-        group,
-        "wide",
-        load_scenario("wide", || wideset(50000)),
-        WideSet,
-        checksum_wideset
-    );
-    scenario!(
-        group,
-        "records",
-        load_scenario("records", || recordset(20000)),
-        RecordSet,
-        checksum_recordset
-    );
-    scenario!(
-        group,
-        "particles",
-        load_scenario("particles", || particleset(50000)),
-        ParticleSet,
-        checksum_particleset
-    );
+    let dataset_bin = load_scenario("dataset", || dataset(2000));
+    let big_varint_bin = load_scenario("big_varint", || bigset(200, |i| big_varint_item(i, 1000)));
+    let big_fixed_bin = load_scenario("big_fixed", || bigset(200, |_| big_fixed_item(1000)));
+    let big_osm_bin = load_scenario("big_osm", || big_osm(200, 1000));
+    let big_bin = load_scenario("big", || bigset(30, |i| big_both_item(i, 10000)));
+    let wide_bin = load_scenario("wide", || wideset(50000));
+    let records_bin = load_scenario("records", || recordset(20000));
+    let particles_bin = load_scenario("particles", || particleset(50000));
+    for (group_name, warm) in [("decode", false), ("decode_warm", true)] {
+        let mut group = c.benchmark_group(group_name);
+        scenario!(
+            group,
+            warm,
+            "dataset",
+            &dataset_bin,
+            Dataset,
+            checksum_dataset
+        );
+        scenario!(
+            group,
+            warm,
+            "big_varint",
+            &big_varint_bin,
+            BigSet,
+            checksum_bigset
+        );
+        scenario!(
+            group,
+            warm,
+            "big_fixed",
+            &big_fixed_bin,
+            BigSet,
+            checksum_bigset
+        );
+        scenario!(
+            group,
+            warm,
+            "big_osm",
+            &big_osm_bin,
+            BigSet,
+            checksum_bigset
+        );
+        scenario!(group, warm, "big", &big_bin, BigSet, checksum_bigset);
+        scenario!(group, warm, "wide", &wide_bin, WideSet, checksum_wideset);
+        scenario!(
+            group,
+            warm,
+            "records",
+            &records_bin,
+            RecordSet,
+            checksum_recordset
+        );
+        scenario!(
+            group,
+            warm,
+            "particles",
+            &particles_bin,
+            ParticleSet,
+            checksum_particleset
+        );
+        group.finish();
+    }
+}
+
+// The repeated-varint sweeps of the C++ arena bench (arena-warm, as C++ measures them): each scenario
+// decodes a pool of distinct-seed single-`Big` buffers, one per iteration in rotation. The pools exist
+// only in the shared directory (there is no Rust builder), so without `RAPIDPROTO_BENCH_DIR` the group
+// is skipped. 110 scenarios: shortened sample settings keep the group to a few minutes; select a
+// subset with criterion's name filter (`cargo bench .. -- "rv fx3"`).
+fn sweep_bench(c: &mut Criterion) {
+    let Some(dir) = std::env::var_os("RAPIDPROTO_BENCH_DIR") else {
+        eprintln!("decode_rv: skipped (the sweep pools need RAPIDPROTO_BENCH_DIR)");
+        return;
+    };
+    let dir = std::path::PathBuf::from(dir);
+    let mut group = c.benchmark_group("decode_rv");
+    group
+        .sample_size(10)
+        .warm_up_time(std::time::Duration::from_millis(500))
+        .measurement_time(std::time::Duration::from_secs(1));
+    for sc in rapidproto_bench::scenario_specs() {
+        if !matches!(sc.source, Source::Pool(_)) {
+            continue;
+        }
+        if !payloads::present(&dir, &sc.source) {
+            eprintln!(
+                "decode_rv: {} skipped (not in the payload directory)",
+                sc.name
+            );
+            continue;
+        }
+        // Loaded on first use: criterion runs only the benches its name filter selects.
+        let inputs = OnceCell::new();
+        group.throughput(Throughput::Bytes(
+            payloads::bytes_per_call(&dir, &sc.source) as u64,
+        ));
+        group.bench_function(sc.name.as_str(), |b| {
+            let inputs = inputs.get_or_init(|| payloads::load(&dir, &sc.source));
+            let mut arena = Arena::new();
+            let mut at = 0usize;
+            b.iter(|| {
+                let buf = &inputs.buffers[at % inputs.buffers.len()];
+                at += 1;
+                arena.reset();
+                let m = Big::decode(black_box(buf.as_slice()), &arena).unwrap();
+                black_box(checksum_big(m))
+            });
+        });
+    }
     group.finish();
 }
 
-criterion_group!(benches, decode_bench);
+// The real-world datasets (`rapidproto_bench::external`), every arm the `bench` runner times, skipping
+// what the payload directory or this build lacks. One call decodes a whole input (osm_blocks: every
+// block), so samples are few and long, like the sweeps'.
+fn external_bench(c: &mut Criterion) {
+    let Some(dir) = std::env::var_os("RAPIDPROTO_BENCH_DIR") else {
+        eprintln!("decode_external: skipped (the datasets' inputs need RAPIDPROTO_BENCH_DIR)");
+        return;
+    };
+    let dir = std::path::PathBuf::from(dir);
+    let mut group = c.benchmark_group("decode_external");
+    group.sample_size(10);
+    for sc in rapidproto_bench::external::scenarios() {
+        if !payloads::present(&dir, &sc.source) {
+            eprintln!(
+                "decode_external: {} skipped (not in the payload directory)",
+                sc.name
+            );
+            continue;
+        }
+        // Loaded on first use (criterion runs only the benches its name filter selects), shared by the
+        // scenario's arms.
+        let inputs = OnceCell::new();
+        group.throughput(Throughput::Bytes(
+            payloads::bytes_per_call(&dir, &sc.source) as u64,
+        ));
+        for mut arm in (sc.arms)() {
+            // An unsupported arm stands for a scenario this build has no decoder for.
+            if let Some(reason) = arm.unsupported_reason() {
+                eprintln!("decode_external: {} skipped ({reason})", sc.name);
+                continue;
+            }
+            let id = format!("{}/{}", sc.name, arm.name);
+            let f = arm.decoder().expect("a supported arm");
+            group.bench_function(id, |b| {
+                let inputs = inputs.get_or_init(|| payloads::load(&dir, &sc.source));
+                b.iter(|| black_box(f(black_box(&inputs.buffers[0]))));
+            });
+        }
+    }
+    group.finish();
+}
+
+criterion_group!(benches, decode_bench, sweep_bench, external_bench);
 criterion_main!(benches);

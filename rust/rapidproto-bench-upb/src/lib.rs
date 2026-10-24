@@ -52,20 +52,30 @@ pub fn dataset(bytes: &[u8]) -> u64 {
 pub fn bigset(bytes: &[u8]) -> u64 {
     let m = BigSet::parse(bytes).expect("google-upb decode");
     let v = m.as_view();
+    v.items()
+        .iter()
+        .fold(0u64, |sum, it| sum.wrapping_add(sum_big(it)))
+}
+
+/// One `Big` alone -- a varint-sweep payload.
+pub fn big(bytes: &[u8]) -> u64 {
+    let m = Big::parse(bytes).expect("google-upb decode");
+    sum_big(m.as_view())
+}
+
+fn sum_big(it: BigView<'_>) -> u64 {
     let mut sum = 0u64;
-    for it in v.items().iter() {
-        for n in it.numbers().iter() {
-            sum = sum.wrapping_add(n as u64);
-        }
-        for r in it.reals().iter() {
-            sum = sum.wrapping_add(r.to_bits());
-        }
-        for z in it.zz().iter() {
-            sum = sum.wrapping_add(z as u64);
-        }
-        for k in it.kinds().iter() {
-            sum = sum.wrapping_add(i32::from(k) as u64);
-        }
+    for n in it.numbers().iter() {
+        sum = sum.wrapping_add(n as u64);
+    }
+    for r in it.reals().iter() {
+        sum = sum.wrapping_add(r.to_bits());
+    }
+    for z in it.zz().iter() {
+        sum = sum.wrapping_add(z as u64);
+    }
+    for k in it.kinds().iter() {
+        sum = sum.wrapping_add(i32::from(k) as u64);
     }
     sum
 }

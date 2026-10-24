@@ -26,6 +26,12 @@ pub fn bigset() -> Arm {
     })
 }
 
+pub fn big() -> Arm {
+    Arm::new("prost", |b| {
+        checksum_big(&pb::Big::decode(b).expect("prost decode"))
+    })
+}
+
 pub fn wideset() -> Arm {
     Arm::new("prost", |b| {
         checksum_wideset(&pb::WideSet::decode(b).expect("prost decode"))
@@ -68,20 +74,24 @@ fn checksum_dataset(ds: &pb::Dataset) -> u64 {
 }
 
 fn checksum_bigset(bs: &pb::BigSet) -> u64 {
+    bs.items
+        .iter()
+        .fold(0u64, |sum, it| sum.wrapping_add(checksum_big(it)))
+}
+
+fn checksum_big(it: &pb::Big) -> u64 {
     let mut sum = 0u64;
-    for it in &bs.items {
-        for &n in &it.numbers {
-            sum = sum.wrapping_add(n as u64);
-        }
-        for &r in &it.reals {
-            sum = sum.wrapping_add(r.to_bits());
-        }
-        for &z in &it.zz {
-            sum = sum.wrapping_add(z as u64);
-        }
-        for &k in &it.kinds {
-            sum = sum.wrapping_add(k as u64);
-        }
+    for &n in &it.numbers {
+        sum = sum.wrapping_add(n as u64);
+    }
+    for &r in &it.reals {
+        sum = sum.wrapping_add(r.to_bits());
+    }
+    for &z in &it.zz {
+        sum = sum.wrapping_add(z as u64);
+    }
+    for &k in &it.kinds {
+        sum = sum.wrapping_add(k as u64);
     }
     sum
 }

@@ -60,4 +60,11 @@ namespace rposm {
 // the call the same way.
 int run_arm();
 
+// The bench's dump mode: write the two scenarios' inputs under <dir>/external/ -- the raw
+// file as osm_file.bin, and the inflated PrimitiveBlock payloads as the pool osm_blocks/ (the
+// bench_payloads.hpp pool layout; osm_blocks decodes the whole pool per call) -- each with
+// its checksum as <stem>.sum. An unreadable dataset is skipped with a note; false (after a
+// message) on a write failure or a block that does not decode.
+bool dump(const char* dir);
+
 }  // namespace rposm

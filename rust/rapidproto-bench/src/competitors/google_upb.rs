@@ -20,6 +20,10 @@ pub fn bigset() -> Arm {
     Arm::new("google-upb", rapidproto_bench_upb::bigset)
 }
 
+pub fn big() -> Arm {
+    Arm::new("google-upb", rapidproto_bench_upb::big)
+}
+
 pub fn wideset() -> Arm {
     Arm::new("google-upb", rapidproto_bench_upb::wideset)
 }

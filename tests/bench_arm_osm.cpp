@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstdio>
+#include <filesystem>
 #include <fstream>
 #include <optional>
 #include <string>
@@ -19,6 +20,7 @@
 
 #include "bench_arm_osm.hpp"
 #include "bench_harness.hpp"
+#include "bench_payloads.hpp"
 #include "fileformat.rp.hpp"
 #include "fileformat.rp.stream.hpp"
 #include "osmformat.pb.h"  // protoc arm (::OSMPBF)
@@ -781,6 +783,34 @@ int run_arm() {
         bad += r;
     }
     return bad;
+}
+
+bool dump(const char* dir) {
+    const Loaded data = load_dataset(RAPIDPROTO_OSM_DATASET);
+    if (!data.ok) {
+        // Degrade, as run_arm() does: the scenarios are skipped, not the rest of the dump.
+        std::fprintf(stderr, "note: osm scenarios not dumped -- '%s' is not readable\n",
+                     RAPIDPROTO_OSM_DATASET);
+        return true;
+    }
+    // Both scenarios' checksum: run_arm()'s validation pins the file-level arms to the block sum.
+    std::uint64_t sum = 0;
+    rapidproto::Arena arena;
+    for (const std::string& p : data.payloads) {
+        arena.reset();
+        const osm_a::PrimitiveBlock* block =
+            osm_a::PrimitiveBlock::decode(rapidproto::ByteView(p), arena);
+        if (block == nullptr) {
+            std::fprintf(stderr, "bench: an osm block does not decode\n");
+            return false;
+        }
+        sum += arena_block_sum(block);
+    }
+    const std::filesystem::path out = std::filesystem::path(dir) / "external";
+    return rpbench::write_payload(out / "osm_file.bin", data.file) &&
+           rpbench::write_sum(out / "osm_file.sum", sum) &&
+           rpbench::write_pool(out / "osm_blocks", data.payloads) &&
+           rpbench::write_sum(out / "osm_blocks.sum", sum);
 }
 
 }  // namespace rposm

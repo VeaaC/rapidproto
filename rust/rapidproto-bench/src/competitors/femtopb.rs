@@ -46,6 +46,10 @@ pub fn bigset() -> Arm {
     Arm::new("femtopb", |b| checksum_bigset(&decode::<pb::BigSet>(b)))
 }
 
+pub fn big() -> Arm {
+    Arm::new("femtopb", |b| checksum_big(&decode::<pb::Big>(b)))
+}
+
 pub fn wideset() -> Arm {
     Arm::new("femtopb", |b| checksum_wideset(&decode::<pb::WideSet>(b)))
 }
@@ -67,21 +71,24 @@ pub fn particleset() -> Arm {
 // well-formed, so `expect` is the agreement-gate contract -- a decode error would be a real mismatch,
 // not silently dropped.
 fn checksum_bigset(bs: &pb::BigSet) -> u64 {
+    bs.items.iter().fold(0u64, |sum, it| {
+        sum.wrapping_add(checksum_big(&it.expect("femtopb big")))
+    })
+}
+
+fn checksum_big(it: &pb::Big) -> u64 {
     let mut sum = 0u64;
-    for it in bs.items.iter() {
-        let it = it.expect("femtopb big");
-        for n in it.numbers.iter() {
-            sum = sum.wrapping_add(n.expect("femtopb number") as u64);
-        }
-        for r in it.reals.iter() {
-            sum = sum.wrapping_add(r.expect("femtopb real").to_bits());
-        }
-        for z in it.zz.iter() {
-            sum = sum.wrapping_add(z.expect("femtopb zz") as u64);
-        }
-        for k in it.kinds.iter() {
-            sum = sum.wrapping_add(k.expect("femtopb kind").to_raw() as u64);
-        }
+    for n in it.numbers.iter() {
+        sum = sum.wrapping_add(n.expect("femtopb number") as u64);
+    }
+    for r in it.reals.iter() {
+        sum = sum.wrapping_add(r.expect("femtopb real").to_bits());
+    }
+    for z in it.zz.iter() {
+        sum = sum.wrapping_add(z.expect("femtopb zz") as u64);
+    }
+    for k in it.kinds.iter() {
+        sum = sum.wrapping_add(k.expect("femtopb kind").to_raw() as u64);
     }
     sum
 }

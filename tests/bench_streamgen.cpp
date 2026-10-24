@@ -24,13 +24,16 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <string>
 #include <string_view>
 #include <vector>
 
 #include "bench.rp.stream.hpp"  // generated bench::Big (int64 numbers); -I<BENCH_GEN>
 #include "bench_harness.hpp"  // rpbench: the shared measurement harness (also used by the arena bench)
+#include "bench_payloads.hpp"  // the shared payload directory (RAPIDPROTO_BENCH_DIR / _DUMP_DIR)
 #include "bench_records.hpp"
 #include "bench_two_tier.hpp"  // micro-vs-large-TU decode (out-of-line-primitive penalty)
 #include "bench_varint.hpp"    // repeated-varint sweep builders (shared with the arena bench)
@@ -125,15 +128,206 @@ template <std::size_t N>
 
 constexpr int kN = 2'000'000;
 
-// Shared wire/protozero arms reused by the simple single-handled-field scenarios. Each scenario
-// differs only in which field/type it builds and decodes, so the arm bodies are written per case.
+// ── payloads ─────────────────────────────────────────────────────────────────────────────────────
+// Every single-buffer scenario's input, keyed by its file stem under <RAPIDPROTO_BENCH_DIR>/stream
+// (bench_payloads.hpp). The builders here are the single source of truth: the dump
+// (RAPIDPROTO_BENCH_DUMP_DIR) writes make_payload() for each stem and load_payload() reads that file
+// back, so this bench and the Rust streaming bench decode byte-identical input.
 
-int scenario_varint_1byte() {
+std::string make_varint_1byte() {
     std::string buf;
     for (int i = 0; i < kN; ++i) {
         put_tag(buf, 1, 0);
         put_varint(buf, static_cast<std::uint64_t>(i) & 0x7FU);
     }
+    return buf;
+}
+
+std::string make_varint_multibyte() {
+    std::string buf;
+    for (int i = 0; i < kN; ++i) {
+        put_tag(buf, 1, 0);
+        put_varint(buf, 0xF000'0000ULL + (static_cast<std::uint64_t>(i) & 0xFFFFU));
+    }
+    return buf;
+}
+
+std::string make_zigzag() {
+    std::string buf;
+    for (int i = 0; i < kN; ++i) {
+        const std::int64_t v = static_cast<std::int64_t>(i) * ((i & 1) != 0 ? -1003 : 1003);
+        put_tag(buf, 6, 0);
+        put_varint(buf, zigzag64(v));
+    }
+    return buf;
+}
+
+std::string make_fixed32() {
+    std::string buf;
+    for (int i = 0; i < kN; ++i) {
+        put_tag(buf, 14, 5);
+        put_fixed32(buf, float_bits(static_cast<float>(i) * 1.5F));
+    }
+    return buf;
+}
+
+std::string make_fixed64() {
+    std::string buf;
+    for (int i = 0; i < kN; ++i) {
+        put_tag(buf, 15, 1);
+        put_fixed64(buf, double_bits(static_cast<double>(i) * -2.25));
+    }
+    return buf;
+}
+
+std::string make_string() {
+    std::string buf;
+    for (int i = 0; i < kN; ++i) {
+        put_tag(buf, 12, 2);
+        put_varint(buf, 8);
+        buf.append("abcdefgh", 8);
+    }
+    return buf;
+}
+
+std::string make_packed() {
+    std::string payload;
+    for (int i = 0; i < kN; ++i) {
+        put_varint(payload, static_cast<std::uint64_t>(i) & 0x3FFFFU);
+    }
+    std::string buf;
+    put_tag(buf, 17, 2);
+    put_varint(buf, payload.size());
+    buf += payload;
+    return buf;
+}
+
+std::string make_skip_heavy() {
+    std::string buf;
+    for (int i = 0; i < kN; ++i) {
+        put_tag(buf, 1, 0);
+        put_varint(buf, static_cast<std::uint64_t>(i));
+        put_tag(buf, 11, 0);  // field 11 (bool), no callback so it gets skipped
+        put_varint(buf, static_cast<std::uint64_t>(i) & 1U);
+    }
+    return buf;
+}
+
+std::string make_mixed() {
+    std::string buf;
+    for (int i = 0; i < kN; ++i) {
+        put_tag(buf, 1, 0);
+        put_varint(buf, static_cast<std::uint64_t>(i));
+        put_tag(buf, 6, 0);
+        put_varint(buf, zigzag64(static_cast<std::int64_t>(i) * ((i & 1) != 0 ? -7 : 7)));
+        put_tag(buf, 15, 1);
+        put_fixed64(buf, double_bits(static_cast<double>(i) * 0.5));
+        put_tag(buf, 12, 2);
+        put_varint(buf, 4);
+        buf.append("wxyz", 4);
+    }
+    return buf;
+}
+
+std::string make_multibyte_tag() {
+    std::string buf;
+    for (int i = 0; i < kN; ++i) {
+        put_tag(buf, 18, 0);  // (18<<3)|0 = 144 -> 0x90 0x01
+        put_varint(buf, static_cast<std::uint64_t>(i) & 0x7FU);
+    }
+    return buf;
+}
+
+std::string make_nested() {
+    std::string buf;
+    for (int i = 0; i < kN; ++i) {
+        std::string nested;
+        put_tag(nested, 1, 0);  // Nested::x
+        put_varint(nested, static_cast<std::uint64_t>(i) & 0xFFFFU);
+        put_tag(buf, 5, 2);  // Container::items (LEN)
+        put_varint(buf, nested.size());
+        buf += nested;
+    }
+    return buf;
+}
+
+std::string make_groups() {
+    std::string buf;
+    for (int i = 0; i < kN; ++i) {
+        put_tag(buf, 1, 3);  // SGROUP, field 1 -> (1<<3)|3 = 0x0b
+        put_tag(buf, 2, 0);  // MyGroup::a
+        put_varint(buf, static_cast<std::uint64_t>(i) & 0xFFFFU);
+        put_tag(buf, 1, 4);  // EGROUP, field 1 -> (1<<3)|4 = 0x0c
+    }
+    return buf;
+}
+
+std::string make_sparse() {
+    std::string buf;
+    for (int i = 0; i < kN; ++i) {
+        put_tag(buf, 1, 0);  // i32 (handled)
+        put_varint(buf, static_cast<std::uint64_t>(i));
+        put_tag(buf, 2, 0);  // i64 (skipped, varint)
+        put_varint(buf, static_cast<std::uint64_t>(i) * 3U);
+        put_tag(buf, 8, 1);  // f64 (skipped, fixed64)
+        put_fixed64(buf, static_cast<std::uint64_t>(i));
+        put_tag(buf, 12, 2);  // s (skipped, len)
+        put_varint(buf, 4);
+        buf.append("abcd", 4);
+    }
+    return buf;
+}
+
+// Every payload: its stem and its builder (the records builder is shared with the arena bench,
+// bench_records.hpp, which asserts it value-equal to protoc's serialization at startup).
+struct Payload {
+    std::string_view stem;
+    std::string (*make)();
+};
+constexpr Payload kPayloads[] = {
+    {"varint-1byte", make_varint_1byte},
+    {"varint-multibyte", make_varint_multibyte},
+    {"zigzag-sint64", make_zigzag},
+    {"fixed32-float", make_fixed32},
+    {"fixed64-double", make_fixed64},
+    {"len-string", make_string},
+    {"packed-int32", make_packed},
+    {"skip-heavy", make_skip_heavy},
+    {"mixed", make_mixed},
+    {"multibyte-tag", make_multibyte_tag},
+    {"nested-msg", make_nested},
+    {"groups", make_groups},
+    {"sparse-skip", make_sparse},
+    {"records", [] { return rpbench::make_records_wire(20000); }},
+    {"two-tier", [] { return rp_bench_scalars_buffer(kN); }},
+    {"two-tier-mbtag", [] { return rp_bench_mbtag_buffer(kN); }},
+};
+
+std::string make_payload(std::string_view stem) {
+    for (const Payload& payload : kPayloads) {
+        if (payload.stem == stem) {
+            return payload.make();
+        }
+    }
+    std::fprintf(stderr, "bench: unknown payload '%.*s'\n", static_cast<int>(stem.size()),
+                 stem.data());
+    std::exit(1);
+}
+
+// The payload for `stem`: the shared file <RAPIDPROTO_BENCH_DIR>/stream/<stem>.bin when set (this
+// bench and the Rust one then decode the SAME bytes), else built in-process.
+std::string load_payload(std::string_view stem) {
+    if (const char* const dir = rpbench::payload_dir()) {
+        return rpbench::read_payload(std::string(dir) + "/stream/" + std::string(stem) + ".bin");
+    }
+    return make_payload(stem);
+}
+
+// The single-handled-field scenarios: each differs only in which field/type it decodes, so their arm
+// bodies are written per case.
+
+int scenario_varint_1byte() {
+    const std::string buf = load_payload("varint-1byte");
     const Arm arms[] = {
         {"generated",
          [](ByteView b) -> std::uint64_t {
@@ -193,11 +387,7 @@ int scenario_varint_1byte() {
 }
 
 int scenario_varint_multibyte() {
-    std::string buf;
-    for (int i = 0; i < kN; ++i) {
-        put_tag(buf, 1, 0);
-        put_varint(buf, 0xF000'0000ULL + (static_cast<std::uint64_t>(i) & 0xFFFFU));
-    }
+    const std::string buf = load_payload("varint-multibyte");
     const Arm arms[] = {
         {"generated",
          [](ByteView b) -> std::uint64_t {
@@ -257,12 +447,7 @@ int scenario_varint_multibyte() {
 }
 
 int scenario_zigzag() {
-    std::string buf;
-    for (int i = 0; i < kN; ++i) {
-        const std::int64_t v = static_cast<std::int64_t>(i) * ((i & 1) != 0 ? -1003 : 1003);
-        put_tag(buf, 6, 0);
-        put_varint(buf, zigzag64(v));
-    }
+    const std::string buf = load_payload("zigzag-sint64");
     const Arm arms[] = {
         {"generated",
          [](ByteView b) -> std::uint64_t {
@@ -322,11 +507,7 @@ int scenario_zigzag() {
 }
 
 int scenario_fixed32() {
-    std::string buf;
-    for (int i = 0; i < kN; ++i) {
-        put_tag(buf, 14, 5);
-        put_fixed32(buf, float_bits(static_cast<float>(i) * 1.5F));
-    }
+    const std::string buf = load_payload("fixed32-float");
     const Arm arms[] = {
         {"generated",
          [](ByteView b) -> std::uint64_t {
@@ -385,11 +566,7 @@ int scenario_fixed32() {
 }
 
 int scenario_fixed64() {
-    std::string buf;
-    for (int i = 0; i < kN; ++i) {
-        put_tag(buf, 15, 1);
-        put_fixed64(buf, double_bits(static_cast<double>(i) * -2.25));
-    }
+    const std::string buf = load_payload("fixed64-double");
     const Arm arms[] = {
         {"generated",
          [](ByteView b) -> std::uint64_t {
@@ -448,12 +625,7 @@ int scenario_fixed64() {
 }
 
 int scenario_string() {
-    std::string buf;
-    for (int i = 0; i < kN; ++i) {
-        put_tag(buf, 12, 2);
-        put_varint(buf, 8);
-        buf.append("abcdefgh", 8);
-    }
+    const std::string buf = load_payload("len-string");
     const Arm arms[] = {
         {"generated",
          [](ByteView b) -> std::uint64_t {
@@ -513,14 +685,7 @@ int scenario_string() {
 }
 
 int scenario_packed() {
-    std::string payload;
-    for (int i = 0; i < kN; ++i) {
-        put_varint(payload, static_cast<std::uint64_t>(i) & 0x3FFFFU);
-    }
-    std::string buf;
-    put_tag(buf, 17, 2);
-    put_varint(buf, payload.size());
-    buf += payload;
+    const std::string buf = load_payload("packed-int32");
     const Arm arms[] = {
         {"generated",
          [](ByteView b) -> std::uint64_t {
@@ -607,7 +772,8 @@ int scenario_repeated_varint() {
             }
             // Distinct-seed pool, rotated so no arm replays one memorized width sequence
             // (arithmetic + rationale: bench_varint.hpp).
-            const rpbench::VarintPool built = rpbench::build_varint_pool(dist, count);
+            const rpbench::VarintPool built =
+                rpbench::load_varint_pool(rpbench::payload_stem(name), dist, count);
             const std::vector<std::string>& pool = built.buffers;
             const double avg_bytes = built.avg_bytes;
             std::vector<ByteView> views;
@@ -690,13 +856,7 @@ int scenario_repeated_varint() {
 }
 
 int scenario_skip_heavy() {
-    std::string buf;
-    for (int i = 0; i < kN; ++i) {
-        put_tag(buf, 1, 0);
-        put_varint(buf, static_cast<std::uint64_t>(i));
-        put_tag(buf, 11, 0);  // field 11 (bool), no callback so it gets skipped
-        put_varint(buf, static_cast<std::uint64_t>(i) & 1U);
-    }
+    const std::string buf = load_payload("skip-heavy");
     const Arm arms[] = {
         {"generated",
          [](ByteView b) -> std::uint64_t {
@@ -756,18 +916,7 @@ int scenario_skip_heavy() {
 }
 
 int scenario_mixed() {
-    std::string buf;
-    for (int i = 0; i < kN; ++i) {
-        put_tag(buf, 1, 0);
-        put_varint(buf, static_cast<std::uint64_t>(i));
-        put_tag(buf, 6, 0);
-        put_varint(buf, zigzag64(static_cast<std::int64_t>(i) * ((i & 1) != 0 ? -7 : 7)));
-        put_tag(buf, 15, 1);
-        put_fixed64(buf, double_bits(static_cast<double>(i) * 0.5));
-        put_tag(buf, 12, 2);
-        put_varint(buf, 4);
-        buf.append("wxyz", 4);
-    }
+    const std::string buf = load_payload("mixed");
     const Arm arms[] = {
         {"generated",
          [](ByteView b) -> std::uint64_t {
@@ -865,11 +1014,7 @@ int scenario_mixed() {
 // --- multi-byte tags: field 18 (expanded_nums) -> tag is 2 bytes (0x90 0x01). Real schemas have
 // field numbers >15 constantly; the 1-byte-tag micro-scenarios are an unrealistic best case. ------
 int scenario_multibyte_tag() {
-    std::string buf;
-    for (int i = 0; i < kN; ++i) {
-        put_tag(buf, 18, 0);  // (18<<3)|0 = 144 -> 0x90 0x01
-        put_varint(buf, static_cast<std::uint64_t>(i) & 0x7FU);
-    }
+    const std::string buf = load_payload("multibyte-tag");
     const Arm arms[] = {
         {"generated",
          [](ByteView b) -> std::uint64_t {
@@ -932,15 +1077,7 @@ int scenario_multibyte_tag() {
 // --- nested sub-messages: Container{ repeated Nested items = 5; Nested{ int32 x = 1; } }. Exercises
 // the real streaming path -- read a LEN payload, construct a sub-decoder, recurse. -----------------
 int scenario_nested() {
-    std::string buf;
-    for (int i = 0; i < kN; ++i) {
-        std::string nested;
-        put_tag(nested, 1, 0);  // Nested::x
-        put_varint(nested, static_cast<std::uint64_t>(i) & 0xFFFFU);
-        put_tag(buf, 5, 2);  // Container::items (LEN)
-        put_varint(buf, nested.size());
-        buf += nested;
-    }
+    const std::string buf = load_payload("nested-msg");
     const Arm arms[] = {
         {"generated",
          [](ByteView b) -> std::uint64_t {
@@ -1037,13 +1174,7 @@ int scenario_nested() {
 // path (SGROUP..EGROUP, scan_group_end). protozero does NOT support groups (it throws on wire type
 // 3/4), so this scenario has no protozero arm -- generated vs wire only. -------------------------
 int scenario_groups() {
-    std::string buf;
-    for (int i = 0; i < kN; ++i) {
-        put_tag(buf, 1, 3);  // SGROUP, field 1 -> (1<<3)|3 = 0x0b
-        put_tag(buf, 2, 0);  // MyGroup::a
-        put_varint(buf, static_cast<std::uint64_t>(i) & 0xFFFFU);
-        put_tag(buf, 1, 4);  // EGROUP, field 1 -> (1<<3)|4 = 0x0c
-    }
+    const std::string buf = load_payload("groups");
     const Arm arms[] = {
         {"generated",
          [](ByteView b) -> std::uint64_t {
@@ -1118,18 +1249,7 @@ int scenario_groups() {
 // --- sparse: each record has one handled field (i32) + three unhandled fields of different wire
 // types (varint, fixed64, len), so the skip dispatch over wire types is genuinely hot. -----------
 int scenario_sparse() {
-    std::string buf;
-    for (int i = 0; i < kN; ++i) {
-        put_tag(buf, 1, 0);  // i32 (handled)
-        put_varint(buf, static_cast<std::uint64_t>(i));
-        put_tag(buf, 2, 0);  // i64 (skipped, varint)
-        put_varint(buf, static_cast<std::uint64_t>(i) * 3U);
-        put_tag(buf, 8, 1);  // f64 (skipped, fixed64)
-        put_fixed64(buf, static_cast<std::uint64_t>(i));
-        put_tag(buf, 12, 2);  // s (skipped, len)
-        put_varint(buf, 4);
-        buf.append("abcd", 4);
-    }
+    const std::string buf = load_payload("sparse-skip");
     const Arm arms[] = {
         {"generated",
          [](ByteView b) -> std::uint64_t {
@@ -1192,12 +1312,6 @@ int scenario_sparse() {
 // `scalar records (dispatch-bound)` scenario, bench_arena.cpp make_records/checksum_*_record). Every
 // field is small so per-field cost is dominated by tag DISPATCH, isolating the streaming decoder's
 // dense-materialize (handle every field) vs sparse-extract (handle three, skip the rest) split. -----
-
-// Hand-built wire for a RecordSet of `count` scalar-heavy Records -- now shared with the arena
-// bench (bench_records.hpp), which asserts it value-equal to protoc's serialization at startup.
-std::string make_records(int count) {
-    return rpbench::make_records_wire(count);
-}
 
 // Sum every Sample field into the checksum, mirroring checksum_arena_record's `sample` lambda.
 std::uint64_t wire_sample_sum(ByteView span) {
@@ -1314,7 +1428,7 @@ std::uint64_t wire_record_sum_dense(ByteView span) {
 
 // dense-materialize: the generated decoder handles EVERY Record field and both nested Samples.
 int scenario_records_dense() {
-    const std::string buf = make_records(20000);
+    const std::string buf = load_payload("records");
     const Arm arms[] = {
         {"generated",
          [](ByteView b) -> std::uint64_t {
@@ -1395,7 +1509,7 @@ int scenario_records_dense() {
 // other ~17 Record fields and never descends into s1/s2 -- the decoder's per-wire skip handles the
 // rest. This is the case where most fields are skipped.
 int scenario_records_sparse() {
-    const std::string buf = make_records(20000);
+    const std::string buf = load_payload("records");
     const Arm arms[] = {
         {"generated",
          [](ByteView b) -> std::uint64_t {
@@ -1487,14 +1601,14 @@ namespace {
 // primitives out-of-line). The ratio is the out-of-line-primitive penalty a real large program pays.
 int scenario_two_tier() {
     int bad = 0;
-    const std::string buf = rp_bench_scalars_buffer(kN);
+    const std::string buf = load_payload("two-tier");
     const Arm arms[] = {
         {"micro (own TU)", [](ByteView b) { return rp_bench_decode_scalars_micro(b); }},
         {"large TU", [](ByteView b) { return rp_bench_decode_scalars_ctx(b); }},
     };
     bad += run("two-tier", ByteView(buf), arms);
     // Same tiers for the multi-byte-tag path: does inlining the primitives help or hurt the tag read?
-    const std::string mbuf = rp_bench_mbtag_buffer(kN);
+    const std::string mbuf = load_payload("two-tier-mbtag");
     const Arm marms[] = {
         {"micro (own TU)", [](ByteView b) { return rp_bench_decode_mbtag_micro(b); }},
         {"large TU", [](ByteView b) { return rp_bench_decode_mbtag_ctx(b); }},
@@ -1506,6 +1620,29 @@ int scenario_two_tier() {
 }  // namespace
 
 int main() {
+    // Generator mode: write every scenario's input into the given directory (stream/<stem>.bin, and
+    // rv/<stem>/<i>.bin per sweep pool -- bench_payloads.hpp) and exit WITHOUT benching. Run it once,
+    // then point this bench and the Rust streaming bench at the directory via RAPIDPROTO_BENCH_DIR so
+    // they decode byte-identical input.
+    if (const char* const dir = std::getenv("RAPIDPROTO_BENCH_DUMP_DIR")) {
+        for (const Payload& payload : kPayloads) {
+            const std::filesystem::path path =
+                std::filesystem::path(dir) / "stream" / (std::string(payload.stem) + ".bin");
+            if (!rpbench::write_payload(path, payload.make())) {
+                return 1;
+            }
+        }
+        for (const auto& dist : rpbench::varint_dists()) {
+            for (const int count : rpbench::varint_lengths()) {
+                const std::string stem =
+                    rpbench::payload_stem(rpbench::rv_scenario_name(dist, count));
+                if (!rpbench::dump_varint_pool(dir, stem, dist, count)) {
+                    return 1;
+                }
+            }
+        }
+        return 0;
+    }
     // pin + steady-state warmup + open the cycle/instruction counters, once
     const bool perf = rpbench::metric_fds().cyc >= 0;
     if (!rpbench::json_mode()) {  // human legend; JSON mode emits only NDJSON (tests/bench.py)

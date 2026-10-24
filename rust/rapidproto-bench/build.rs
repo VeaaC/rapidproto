@@ -8,13 +8,15 @@
 //     (included by `competitors/quick_protobuf.rs`).
 //   * femtopb: femtopb-build (protox + prost-build internally, no protoc) renders
 //     `$OUT_DIR/femtopb_gen/bench.rs` (included by `competitors/femtopb.rs`).
-use std::path::PathBuf;
+// Plus RapidProto's own decoders for the real-world datasets (`external`, below).
+use std::path::{Path, PathBuf};
 
 fn main() {
+    external();
     // tests/bench/ lives at the repo root; this crate is rust/rapidproto-bench/.
     let proto_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/bench");
     let proto = proto_root.join("bench.proto");
-    println!("cargo:rerun-if-changed={}", proto.display());
+    println!("cargo::rerun-if-changed={}", proto.display());
 
     let fds = protox::compile([&proto], [&proto_root]).expect("protox: compile bench.proto");
     prost_build::Config::new()
@@ -67,4 +69,69 @@ fn main() {
         .target(&femto_out)
         .compile()
         .expect("femtopb-build: render bench.proto");
+}
+
+// RapidProto's decoders for the real-world datasets (`src/external/`), through rapidproto-build like
+// any consumer's build script: OSM PBF always (its schema is in-repo); the google_message pair when the
+// fetched corpus has it (cfg `rp_bench_gm`); compute.proto under the off-by-default `compute` feature
+// (its decoder is slow to compile). The corpus is `RAPIDPROTO_FETCHED_CORPUS` (a relative path is
+// taken from the repo root), else the C++ build's `build/corpus` (`python3 tests/fetch_corpus.py`);
+// a corpus fetched after this crate was built is picked up once the build script re-runs
+// (`cargo clean -p rapidproto-bench`).
+fn external() {
+    println!("cargo::rustc-check-cfg=cfg(rp_bench_gm)");
+    // The generated code gates its serde and owning-handle surfaces on the INCLUDING crate's features;
+    // this crate declares neither, so name them for the cfg check.
+    println!("cargo::rustc-check-cfg=cfg(feature, values(\"serde\", \"alloc\"))");
+    let repo = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let generate = |includes: &[&Path], entries: &[PathBuf], stream: bool| {
+        let mut cfg = rapidproto_build::Config::new().stream(stream);
+        for dir in includes {
+            cfg = cfg.include(dir);
+        }
+        cfg.compile(entries)
+            .unwrap_or_else(|e| panic!("rapidproto-build: {entries:?}: {e:?}"));
+    };
+
+    let osm = repo.join("examples/osm-pbf/proto");
+    generate(
+        &[&osm],
+        &[osm.join("fileformat.proto"), osm.join("osmformat.proto")],
+        true,
+    );
+
+    println!("cargo::rerun-if-env-changed=RAPIDPROTO_FETCHED_CORPUS");
+    let corpus = repo.join(
+        std::env::var_os("RAPIDPROTO_FETCHED_CORPUS").unwrap_or_else(|| "build/corpus".into()),
+    );
+    let datasets = corpus.join("protobuf-benchmarks/benchmarks/datasets");
+    let gm = [
+        datasets.join("google_message1/proto2/benchmark_message1_proto2.proto"),
+        datasets.join("google_message2/benchmark_message2.proto"),
+    ];
+    if gm.iter().all(|p| p.is_file()) {
+        for proto in &gm {
+            generate(
+                &[proto.parent().unwrap()],
+                std::slice::from_ref(proto),
+                true,
+            );
+        }
+        println!("cargo::rustc-cfg=rp_bench_gm");
+    }
+
+    if std::env::var_os("CARGO_FEATURE_COMPUTE").is_some() {
+        let googleapis = corpus.join("googleapis");
+        let proto = googleapis.join("google/cloud/compute/v1beta/compute.proto");
+        assert!(
+            proto.is_file(),
+            "feature `compute` needs the corpus at {} (python3 tests/fetch_corpus.py)",
+            corpus.display()
+        );
+        generate(
+            &[&googleapis, &corpus.join("protobuf/src")],
+            &[proto],
+            false,
+        );
+    }
 }

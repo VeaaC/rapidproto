@@ -11,10 +11,12 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <filesystem>
 #include <string>
 #include <vector>
 
 #include "bench_harness.hpp"
+#include "bench_payloads.hpp"
 #include "google/cloud/compute/v1beta/compute.rp.hpp"
 #include "rapidproto/arena_runtime.hpp"
 #include "rapidproto/runtime.hpp"
@@ -138,6 +140,16 @@ bool run_arm() {
     }
 
     return true;
+}
+
+bool dump(const char* dir) {
+    const std::string payload = read_compute_payload();
+    rapidproto::Arena arena;
+    const std::uint64_t sum = checksum_compute(
+        google::cloud::compute::v1beta::Instance::decode(rapidproto::ByteView(payload), arena));
+    const std::filesystem::path out = std::filesystem::path(dir) / "external";
+    return rpbench::write_payload(out / "compute_instance.bin", payload) &&
+           rpbench::write_sum(out / "compute_instance.sum", sum);
 }
 
 }  // namespace rpcompute
