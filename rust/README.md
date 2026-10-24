@@ -13,17 +13,16 @@ The public interface is still taking shape and is not yet stable. The scratch sp
 
 ## Benchmarks
 
-`rapidproto-bench` mirrors the C++ benches scenario for scenario, on the same input bytes:
+`rapidproto-bench` runs the C++ benchmark scenarios in Rust, on the same input files:
 
-| Target | Compares | Mirrors |
-|---|---|---|
-| `bench` binary | the arena decoder (cold, warm) and the streaming decoder against prost, rust-protobuf, quick-protobuf, femtopb | `rapidproto_arena_bench` |
-| `stream` binary | the streaming decoder against a hand-written `rapidproto::wire` loop | `rapidproto_bench` |
-| `benches/decode.rs`, `benches/stream.rs` | one decoder build against another (criterion A/B) | |
-| `examples/perf_bench.rs`, `examples/perf_stream.rs` | instruction counts under `perf stat` | the C++ `ins/B` column |
+- `bench`: the arena and streaming decoders against prost, rust-protobuf, quick-protobuf and femtopb
+  (the C++ `rapidproto_arena_bench`).
+- `stream`: the streaming decoder against a hand-written `rapidproto::wire` loop (the C++
+  `rapidproto_bench`).
+- `benches/` (criterion): one build of a decoder against another.
+- `examples/perf_*`: instruction counts under `perf stat`.
 
-**Inputs.** The Rust side builds no payloads. Both C++ benches dump theirs into one directory
-(~1.9 GB, keep it), and every Rust target reads it:
+The C++ benches write the inputs (~1.9 GB); point the Rust ones at the same directory:
 
 ```sh
 RAPIDPROTO_BENCH_DUMP_DIR=<dir> ./build/<cfg>/rapidproto_arena_bench
@@ -31,57 +30,40 @@ RAPIDPROTO_BENCH_DUMP_DIR=<dir> ./build/<cfg>/rapidproto_bench
 export RAPIDPROTO_BENCH_DIR=<dir>
 ```
 
-The real-world datasets (google_message1/2, OSM, compute.proto) are dumped only when the C++ bench
-was built with them fetched ([Reproducing](../docs/benchmarks.md#reproducing)); without them those
-scenarios are skipped with a note.
+The real-world datasets need the corpus fetched on the C++ side
+([Reproducing](../docs/benchmarks.md#reproducing)); without it they are skipped.
 
-**Check before timing.** `RAPIDPROTO_BENCH_CHECK_ONLY=1` runs only the agreement gate: every arm
-of a scenario must return the same checksum, and on the real-world datasets that checksum must equal
-the one the C++ dump recorded. It is valid on any machine; a timed run gates the same way first.
+`RAPIDPROTO_BENCH_CHECK_ONLY=1` checks correctness without timing: all arms must agree on a
+checksum, and on the real-world datasets it must also match C++. This works on any machine.
 
-**Timing discipline.** A number is only worth reading from a run that is:
-
-- on a quiesced box: `tests/bench_box.sh setup` (SMT and turbo off, `performance` governor;
-  `restore` undoes it), with nothing else running — one background process is enough to move
-  results;
-- pinned: `taskset -c <core>`, a performance core on a hybrid CPU;
-- aligned: `RUSTFLAGS="-Cllvm-args=-align-all-functions=6"`, so an unrelated edit that moves code
-  does not move throughput by placement alone;
-- a plain `--release` build. That is the baseline for every arm; a crate that only does well under LTO
-  is measured as users build it.
+For timing, quiesce the machine (`tests/bench_box.sh setup`; `restore` undoes it) and run nothing
+else. Pin to one core, and align functions so unrelated code changes don't shift the results:
 
 ```sh
 RUSTFLAGS="-Cllvm-args=-align-all-functions=6" \
     taskset -c 2 cargo run -p rapidproto-bench --release --bin bench
 ```
 
-**Reading the results.**
+Use plain `--release`, without LTO: that is how users build.
 
-- Throughput (GB/s) is the objective. Instructions per byte (`perf stat -e instructions:u` over the
-  `perf_*` examples) is immune to code placement, so it is the signal to compare two builds when
-  their GB/s delta is small. It is not the verdict: an inlining change can add instructions and still
-  win.
-- The arena arms read every decoded field into their checksum, and the streaming arms exactly what
-  their C++ counterparts read. This is deliberate: it denies a lazy decoder the work it skips, and
-  keeps the decode from being optimized away.
-- Before trusting a small A/B delta, measure the same build against itself; the difference is the
-  noise floor.
-- Criterion prints binary MiB/s; the runners and the C++ benches print decimal GB/s.
+Throughput is what counts. Instructions per byte don't depend on code layout, which makes them
+useful for small differences between builds, but more instructions can still be faster. Measure a
+build against itself to see the noise before trusting a small difference. Criterion reports MiB/s,
+everything else GB/s.
 
-**Comparing with C++.** `RAPIDPROTO_BENCH_JSON=1` adds NDJSON records whose `cpp_scenario` and
-`cpp_arm` name the C++ row they correspond to. On the varint sweeps' smallest rows (`rv <dist> 10`,
-`100`) the C++ harness's per-call timing overhead dominates, so a ratio there compares the harnesses.
-Published numbers belong in [docs/benchmarks.md](../docs/benchmarks.md), not here.
+Every arm reads what it decodes into a checksum, so a lazy decoder pays for the work and nothing is
+optimized away.
 
-**Optional arms.**
+`RAPIDPROTO_BENCH_JSON=1` adds NDJSON records; `cpp_scenario` and `cpp_arm` identify the matching
+C++ result. Don't compare the `rv <dist> 10` and `100` rows with C++: its per-call timing overhead
+dominates there. Published numbers go in [docs/benchmarks.md](../docs/benchmarks.md).
 
-- `google_message1`/`2` need the fetched corpus when `rapidproto-bench` is built (`build/corpus`, or
+Optional scenarios and arms:
+
+- `google_message1`/`2` need the corpus when this crate is built (`build/corpus`, or
   `RAPIDPROTO_FETCHED_CORPUS`).
-- `--features compute` adds the compute.proto scenario. Build it with
-  `--config 'profile.release.build-override.opt-level=1'`, or generating its decoder takes over ten
-  minutes.
-- `--features google-upb` adds Google's upb-backed crate. It needs `protoc` 36.2 at build time
-  (`RAPIDPROTO_UPB_PROTOC`; see `rapidproto-bench/src/main.rs`).
+- `--features compute` adds compute.proto. Build it with
+  `--config 'profile.release.build-override.opt-level=1'`, or code generation takes over ten minutes.
+- `--features google-upb` adds Google's upb crate. It needs `protoc` 36.2 (`RAPIDPROTO_UPB_PROTOC`).
 
-The runner's options (scenario and arm filters, rounds, NDJSON fields) are documented in
-`rapidproto-bench/src/runner.rs`.
+The remaining options are documented in `rapidproto-bench/src/runner.rs`.
