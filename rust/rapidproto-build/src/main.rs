@@ -53,6 +53,12 @@ fn run(args: &Args) -> Result<(), String> {
     if args.entries.is_empty() {
         return Err("no entry .proto given".to_owned());
     }
+    if let Some(reason) = rapidproto_build::NATIVE_FALLBACK {
+        eprintln!(
+            "note: this rapidproto-rust uses the slower wasm generator: the native one did not build \
+             ({reason})"
+        );
+    }
     let rust = args
         .config
         .generate(&args.entries)

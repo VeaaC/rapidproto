@@ -33,9 +33,8 @@ jobs:
         run: cargo fmt --all --check
       # std+alloc covers the whole workspace, including rapidproto-build (both generator backends and
       # its golden dogfooding gate, run through each), consumer-example (whose build.rs runs the
-      # generator end to end),
-      # osm-pbf-example (the OSM showcase + its golden fixture test) and rapidproto-diff (the
-      # differential Serializer). rapidproto-bench is linted and tested
+      # generator end to end), osm-pbf-example (the OSM showcase + its golden fixture test) and
+      # rapidproto-diff (the differential Serializer). rapidproto-bench is linted and tested
       # SEPARATELY (below) at its DEFAULT features, NOT via the blanket `--all-features` runs: its
       # off-by-default `google-upb` arm pulls Google's upb `protobuf` crate, which needs an exact-version
       # protoc + a C toolchain this runner lacks, so `--all-features` would fail to build it. The
@@ -52,14 +51,15 @@ jobs:
         run: cargo clippy --workspace --exclude rapidproto-build --exclude consumer-example --exclude osm-pbf-example --exclude rapidproto-diff --exclude rapidproto-bench --all-targets --no-default-features -- -D warnings
       - name: Test (std + alloc)
         run: cargo test --workspace --exclude rapidproto-bench --all-features
-      # rapidproto-build with one generator backend at a time: `wasm` alone is what a consumer without
-      # a C++ compiler builds, `native` alone the build without the interpreter.
-      - name: rapidproto-build with only the wasm generator, then only the native one
+      # rapidproto-build with one generator backend at a time (`wasm` alone: no C++ compiler needed;
+      # `native` alone: no interpreter), and the fallback a failing C++ compiler takes.
+      - name: rapidproto-build with only the wasm generator, only the native one, and the fallback
         run: |
           cargo clippy -p rapidproto-build --all-targets --no-default-features --features wasm -- -D warnings
           cargo test -p rapidproto-build --no-default-features --features wasm --test smoke
           cargo clippy -p rapidproto-build --all-targets --no-default-features --features native -- -D warnings
           cargo test -p rapidproto-build --no-default-features --features native --test smoke
+          CXX=false cargo test -p rapidproto-build --test smoke
       # rapidproto-bench is excluded above (its off-by-default `google-upb` arm would need protoc under
       # `--all-features`), so test it on its own at DEFAULT features -- debug here (the agreement tests
       # + the debug-only quick-protobuf drop path) and release below.
@@ -90,6 +90,20 @@ jobs:
         run: |
           cargo build -p rustgen-golden --no-default-features --features alloc,serde
           cargo build -p rustgen-golden --no-default-features --features serde
+
+  native-generator:
+    # rapidproto-build compiles its generator with the platform's C++ compiler. Native only, so a
+    # compile failure fails the job instead of falling back to the wasm generator.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Smoke-test the native generator
+        run: cargo test -p rapidproto-build --no-default-features --features native --test smoke
 
   wasm-blob:
     # The rapidproto-build crate ships a committed wasm blob (the Rust generator front-end), its

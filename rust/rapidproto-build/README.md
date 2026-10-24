@@ -28,14 +28,17 @@ same generation surface for committing generated code instead.
 
 ## How the generator runs
 
-By default the crate's build script compiles the generator natively, which needs a C++17 compiler.
-Without one it falls back to a copy embedded as WebAssembly and run in the `wasmi` interpreter, with
-a build warning. Both produce the same output. Features select either: `native`, `wasm`, or both
-(the default).
+The crate's build script compiles the generator natively from RapidProto's C++ sources, which
+needs a C++17 compiler and a RapidProto checkout (a path or git dependency). If that is not
+possible, the crate uses a copy of the generator embedded as WebAssembly and run in the `wasmi`
+interpreter, and `Config::compile` warns. Both produce the same output.
 
-The interpreter is much slower than the native generator when it runs unoptimized, and cargo builds
-build scripts unoptimized by default: seconds for a small schema, minutes for a very large one. If
-you use the wasm generator, optimize build-time code in your workspace:
+The `native` and `wasm` features choose between them; both are on by default. With a C++ compiler
+at hand, `default-features = false, features = ["native"]` builds the least: no interpreter.
+
+Cargo builds build scripts unoptimized by default, which makes the interpreter slow: seconds for a
+small schema, minutes for a very large one. If you use the wasm generator, optimize build-time code
+in your workspace:
 
 ```toml
 [profile.dev.build-override]

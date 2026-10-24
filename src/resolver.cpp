@@ -83,7 +83,7 @@ Result<FileNode> parse_source(const std::string& filename, std::string source, S
 enum class Color : std::uint8_t { Gray, Black };
 
 // How the resolver obtains source text. Chosen ONCE from the config -- the filesystem (search the
-// include paths) or the in-memory provider (the wasm front-end, no disk) -- so the resolver body has
+// include paths) or the in-memory provider (the request-frame front-end) -- so the resolver body has
 // a single uniform path with no per-call "do we have a provider?" branch.
 struct SourceAccess {
     // Resolve the entry ARGUMENT to {canonical name, text}, or nullopt if it cannot be read. The

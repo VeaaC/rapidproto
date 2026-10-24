@@ -225,8 +225,12 @@ target_link_libraries(rapidproto_dumpgen_lib PUBLIC rapidproto_lib rapidproto_co
 # Native Rust code generator: emits Rust decoders (the counterpart to arenagen/streamgen). Generated
 # Rust depends only on the `rapidproto` runtime crate, never on this generator. Built on the shared
 # front-end + codegen layer; its own Rust naming lives in include/rapidproto/rustgen/names.hpp.
-add_library(rapidproto_rustgen_lib STATIC src/rustgen/generator.cpp)
+add_library(rapidproto_rustgen_lib STATIC src/rustgen/generator.cpp
+  # The request frame the rapidproto-build crate drives the generator with (built here so the C++
+  # tests and strict flags cover it).
+  src/rustgen/frame.cpp)
 target_link_libraries(rapidproto_rustgen_lib PUBLIC rapidproto_lib rapidproto_codegen_lib
+                                                    rapidproto_arenagen_lib
                                              PRIVATE rapidproto_strict)
 
 # The unified code-generator CLI: one tool emitting the arena and/or streaming decoder (+ the shared

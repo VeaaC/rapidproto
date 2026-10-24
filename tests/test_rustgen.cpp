@@ -2,6 +2,7 @@
 // Copyright 2026 Christian Vetter
 
 #include <algorithm>
+#include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -22,6 +23,7 @@
 #include "rapidproto/cli/driver.hpp"  // resolve_and_analyze, to emit a schema's whole import closure
 #include "rapidproto/resolve.hpp"
 #include "rapidproto/resolver.hpp"
+#include "rapidproto/rustgen/frame.hpp"
 #include "rapidproto/rustgen/generator.hpp"
 #include "rapidproto/rustgen/names.hpp"     // escape_rust_ident for the golden crate's module names
 #include "rapidproto/rustgen/pipeline.hpp"  // generate_rust: the shared post-analysis tail
@@ -1028,4 +1030,90 @@ TEST_CASE("rustgen goldens match the corpus (compile smoke-test)", "[rustgen-gol
         REQUIRE(out.good());
         out << lib;
     }
+}
+
+// ---- the request frame (rapidproto/rustgen/frame.hpp) ----------------------------------------------
+
+namespace {
+
+// Builds a frame field by field, as the rapidproto-build crate encodes one.
+struct FrameBuilder {
+    std::string bytes = "RPWF3\n";
+    FrameBuilder& u32(std::uint32_t value) {
+        for (unsigned i = 0; i < 4; ++i) {
+            bytes.push_back(static_cast<char>((value >> (8U * i)) & 0xFFU));
+        }
+        return *this;
+    }
+    FrameBuilder& str(std::string_view text) {
+        u32(static_cast<std::uint32_t>(text.size()));
+        bytes.append(text);
+        return *this;
+    }
+    FrameBuilder& u8(bool flag) {
+        bytes.push_back(flag ? '\1' : '\0');
+        return *this;
+    }
+};
+
+struct FrameOptions {
+    bool arena = true;
+    bool stream = false;
+    std::string_view export_prefix;  // exported when non-empty
+    std::string_view modes;
+};
+
+// A frame generating `body` as its one entry, `a.proto`.
+std::string frame_for(std::string_view body, const FrameOptions& options = {}) {
+    FrameBuilder frame;
+    frame.u32(1).str("a.proto");
+    frame.u32(1).str("a.proto").str(body);
+    frame.str(options.modes).u8(false).u8(options.arena).u8(options.stream);
+    frame.u8(!options.export_prefix.empty()).str(options.export_prefix);
+    return frame.bytes;
+}
+
+constexpr std::string_view kFrameSchema =
+    R"(syntax = "proto3"; package t; message M { int32 x = 1; })";
+
+using rapidproto::rustgen::FrameStatus;
+using rapidproto::rustgen::run_frame;
+
+}  // namespace
+
+TEST_CASE("rustgen frame: a valid frame generates the schema") {
+    const auto result = run_frame(frame_for(kFrameSchema));
+    REQUIRE(result.status == FrameStatus::kOk);
+    CHECK(has(result.text, "pub mod t {"));
+}
+
+TEST_CASE("rustgen frame: a malformed frame fails with its first error") {
+    const std::string valid = frame_for(kFrameSchema);
+    const auto bad_frame = [](const std::string& frame, std::string_view message) {
+        const auto result = run_frame(frame);
+        CHECK(result.status == FrameStatus::kBadFrame);
+        CHECK(has(result.text, message));
+    };
+    bad_frame("", "not a RPWF3 frame");
+    bad_frame("RPWF2\n", "not a RPWF3 frame");
+    bad_frame(valid.substr(0, valid.size() - 1), "truncated");  // the last length prefix cut short
+    bad_frame(valid + "x", "trailing bytes");
+    // A count far past the data stops at the first failed read (and reserves only what fits).
+    bad_frame(FrameBuilder{}.u32(0xFFFFFFFFU).bytes, "truncated");
+}
+
+TEST_CASE("rustgen frame: bad options, an unresolved schema and a bad profile each have a status") {
+    CHECK(run_frame(frame_for(kFrameSchema, {false, false, "", ""})).status ==
+          FrameStatus::kBadFrame);
+    CHECK(has(run_frame(frame_for(kFrameSchema, {true, false, "p", ""})).text,
+              "needs the stream model"));
+    CHECK(has(run_frame(frame_for(kFrameSchema, {true, true, "1p", ""})).text,
+              "is not an identifier"));
+
+    const auto missing = run_frame(frame_for(R"(syntax = "proto3"; import "b.proto";)"));
+    CHECK(missing.status == FrameStatus::kResolveError);
+    CHECK(has(missing.text, "b.proto"));
+
+    const auto profile = run_frame(frame_for(kFrameSchema, {true, false, "", "drop t.Nope\n"}));
+    CHECK(profile.status == FrameStatus::kModesError);
 }

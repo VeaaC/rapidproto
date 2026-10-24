@@ -31,13 +31,15 @@
 //!
 //! The generator is RapidProto's C++ code generator, run one of two ways, chosen by features:
 //!
-//! - `native`: this crate's build script compiles the generator (it needs a C++17 compiler), always
-//!   optimized, and calls it in-process.
+//! - `native`: this crate's build script compiles the generator from RapidProto's C++ sources,
+//!   always optimized, and calls it in-process. It needs a C++17 compiler and a RapidProto checkout
+//!   (a path or git dependency).
 //! - `wasm`: the generator is embedded as a WebAssembly module and run in the `wasmi` interpreter,
 //!   so no C++ compiler is needed.
 //!
 //! Both are on by default: the native generator is used, and the wasm one only if the native one
-//! does not build (with a warning). Both produce the same output.
+//! does not build, which [`Config::compile`] warns about. Both produce the same output. With a C++
+//! compiler at hand, `native` alone builds the least.
 //!
 //! The interpreter runs at the speed it was compiled at, and cargo compiles build-time code
 //! unoptimized by default. The wasm generator is then about a thousand times slower than the native
@@ -56,8 +58,10 @@ use std::collections::BTreeMap;
 use std::env;
 use std::path::{Component, Path, PathBuf};
 
-#[cfg(not(any(rp_native, feature = "wasm")))]
-compile_error!("rapidproto-build needs a generator: enable the `native` feature, `wasm`, or both");
+/// Why this build uses the wasm generator although the `native` feature is on: the reason the
+/// native one did not build. `None` when it built, or was not asked for.
+#[doc(hidden)]
+pub const NATIVE_FALLBACK: Option<&str> = option_env!("RAPIDPROTO_BUILD_FALLBACK");
 
 /// One in-memory source file: `name` is how an `import` refers to it (e.g. `"types.proto"`), and
 /// `body` is its text.
@@ -109,7 +113,8 @@ impl Default for Request {
 /// An error from the generator.
 #[derive(Debug)]
 pub struct GenError {
-    /// The generator's exit status (negative for an I/O or internal failure).
+    /// The generator's status: 2 for a malformed request, 3 for a schema that does not resolve, 4 for
+    /// a bad decode profile; negative for an I/O or internal failure.
     pub code: i32,
     /// A human-readable description of the failure.
     pub message: String,
@@ -117,18 +122,22 @@ pub struct GenError {
 
 impl std::fmt::Display for GenError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "generator failed (exit {}): {}", self.code, self.message)
+        write!(
+            f,
+            "generator failed (status {}): {}",
+            self.code, self.message
+        )
     }
 }
 
 impl std::error::Error for GenError {}
 
-/// Encodes a [`Request`] into the byte frame the generator reads on stdin: a `RPWF3` magic, then
-/// little-endian-u32-counted entry names, u32-counted `{name, body}` sources, the `.modes` text, a
-/// one-byte unknown-all flag, two one-byte model flags (arena, stream), and the stream-macro export:
-/// a one-byte present flag then the prefix (empty when absent). Bodies are length-prefixed, so a
-/// proto's newlines/quotes need no escaping. The generator validates the options. (Internal: the
-/// decode side lives in the generator; the frame and the blob move together, byte-checked in CI.)
+/// Encodes a [`Request`] into the byte frame the generator takes, through either backend: a `RPWF3`
+/// magic, then little-endian-u32-counted entry names, u32-counted `{name, body}` sources, the
+/// `.modes` text, a one-byte unknown-all flag, two one-byte model flags (arena, stream), and the
+/// stream-macro export: a one-byte present flag then the prefix (empty when absent). Bodies are
+/// length-prefixed, so a proto's newlines/quotes need no escaping. The generator validates the
+/// options; the decode side is `rapidproto/rustgen/frame.hpp` in the repository.
 mod frame {
     use super::{GenError, Request};
 
@@ -532,6 +541,18 @@ impl Config {
     /// with cargo, so editing a schema re-runs the build. Call this from a `build.rs` (it reads the
     /// `OUT_DIR` cargo sets).
     pub fn compile(&self, entries: &[impl AsRef<Path>]) -> Result<PathBuf, GenError> {
+        // Warned from here, the consumer's own build script, because cargo hides the warnings of a
+        // dependency's build script.
+        if let Some(reason) = NATIVE_FALLBACK {
+            static WARNED: std::sync::Once = std::sync::Once::new();
+            WARNED.call_once(|| {
+                println!(
+                    "cargo:warning=rapidproto-build: the native generator did not build ({reason}), so \
+                     the slower wasm one is used. To fix it, install a C++17 compiler and run `cargo \
+                     clean -p rapidproto-build`."
+                );
+            });
+        }
         let code = self.generate(entries)?;
 
         let out_dir = env::var_os("OUT_DIR").ok_or_else(|| GenError {

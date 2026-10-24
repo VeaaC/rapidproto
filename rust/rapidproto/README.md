@@ -4,8 +4,8 @@ Decode-only Protocol Buffers runtime for the decoders RapidProto generates. Mess
 bump [`Arena`] and the generated types are lightweight **views that borrow it** — a decode copies
 nothing, and scalar/packed fields are read straight out of the arena.
 
-Decoders are generated at build time by the companion [`rapidproto-build`] crate (cargo only, no
-`protoc`), or from committed generated code.
+Decoders are generated at build time by the companion [`rapidproto-build`] crate (no `protoc`), or
+from committed generated code.
 
 - **Zero-copy, arena-based.** Repeated scalar columns come back as `&[i64]`, strings as `&[u8]`.
 - **`no_std`-ready.** `default = ["std"]`; `alloc` alone is the no_std + allocator tier; neither

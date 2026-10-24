@@ -1,8 +1,9 @@
 // Picks the generator backend. With the `native` feature, compile the generator's C++ (the
-// repository's src/ and include/) into a static library the crate calls in-process -- always
-// optimized, whatever the consumer's profile, since an unoptimized generator is what made large
-// schemas slow. If that fails and the `wasm` feature is on, fall back to the embedded wasm generator
-// with a warning; with `native` alone, fail the build. The chosen backend is the `rp_native` cfg.
+// repository's src/ and include/) into a static library the crate calls in-process, always
+// optimized, whatever the consumer's profile. If that fails and the `wasm` feature is on, use the
+// embedded wasm generator instead, handing the reason to the crate (`RAPIDPROTO_BUILD_FALLBACK`) so
+// it can warn from the consumer's build script, where cargo shows warnings; with `native` alone,
+// fail the build. The chosen backend is the `rp_native` cfg.
 
 fn main() {
     println!("cargo::rustc-check-cfg=cfg(rp_native)");
@@ -14,12 +15,10 @@ fn main() {
     #[cfg(feature = "native")]
     match native::compile() {
         Ok(()) => println!("cargo::rustc-cfg=rp_native"),
-        Err(e) if cfg!(feature = "wasm") => println!(
-            "cargo::warning=rapidproto-build: the native generator did not build ({e}); using the \
-             wasm generator, which is slow on large schemas unless build scripts are optimized (see \
-             the rapidproto-build docs)"
-        ),
-        Err(e) => panic!("rapidproto-build: the native generator did not build: {e}"),
+        Err(reason) if cfg!(feature = "wasm") => {
+            println!("cargo::rustc-env=RAPIDPROTO_BUILD_FALLBACK={reason}");
+        }
+        Err(reason) => panic!("rapidproto-build: the native generator did not build: {reason}"),
     }
 }
 
@@ -41,8 +40,12 @@ mod native {
             .map(|l| repo.join(l))
             .collect();
         files.push(repo.join("src/rustgen/native_entry.cpp"));
-        if let Some(missing) = files.iter().find(|f| !f.is_file()) {
-            return Err(format!("generator source {} not found", missing.display()));
+        // The sources sit in the repository around this crate, so a build outside a checkout (a
+        // packaged crate) has none.
+        if files.iter().any(|f| !f.is_file()) {
+            return Err(
+                "its C++ sources are not here (not built from a RapidProto checkout)".into(),
+            );
         }
 
         let out = PathBuf::from(env::var("OUT_DIR").unwrap());
@@ -65,16 +68,19 @@ mod native {
             .include(repo.join("include"))
             .include(&gen_include)
             .files(&files)
-            // The generator's warnings are the project's to fix, not the consumer's to read.
-            .warnings(false)
-            .cargo_warnings(false);
-        // MSVC needs exception handling switched on (native_entry.cpp catches at the C ABI).
-        if env::var("CARGO_CFG_TARGET_ENV").is_ok_and(|e| e == "msvc") {
-            build.flag("/EHsc");
+            // No warnings for the consumer to read; a failing compile still shows its errors.
+            .warnings(false);
+        let compiler = build
+            .try_get_compiler()
+            .map_err(|_| "no C++ compiler found".to_string())?;
+        // The flags the project's own MSVC build uses: standard conformance, exception handling
+        // (native_entry.cpp catches at the C ABI), UTF-8 sources.
+        if compiler.is_like_msvc() {
+            build.flag("/permissive-").flag("/EHsc").flag("/utf-8");
         }
         build
             .try_compile("rapidproto_rustgen")
-            .map_err(|e| e.to_string())
+            .map_err(|_| "compiling it failed".to_string())
     }
 
     // The one CMake-generated header the generator includes, rapidproto/version.hpp, made the way
