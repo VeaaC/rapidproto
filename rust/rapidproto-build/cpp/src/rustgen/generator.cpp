@@ -2907,6 +2907,29 @@ void emit_stream_dispatch(Printer& printer, const std::string& name, const std::
     printer.print("}\n");
 }
 
+// Deliver each varint of the packed payload `rp_p` to `on_<name>`, as `conv` of the raw value `rp_v`.
+// `PackedVarints` reads the run through a start/end pointer pair, one pointer to advance per element
+// like the C++ decoder's loop (a `&[u8]` would advance a pointer and a length), and inlines the
+// multibyte decode. A malformed varint errors at its own offset (`remaining` starts at it).
+void emit_packed_varints_loop(Printer& printer, const std::string& name, const std::string& conv) {
+    printer.print("let mut rp_pv = ::rapidproto::wire::PackedVarints::new(rp_p);\n");
+    printer.print("loop {\n");
+    printer.indent();
+    printer.print("let rp_v = match rp_pv.read() {\n");
+    printer.indent();
+    printer.print("::core::result::Result::Ok(::core::option::Option::Some(v)) => v,\n");
+    printer.print("::core::result::Result::Ok(::core::option::Option::None) => break,\n");
+    printer.print(
+        "::core::result::Result::Err(k) => return ::core::result::Result::Err("
+        "::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len() - "
+        "rp_pv.remaining().len())),\n");
+    printer.outdent();
+    printer.print("};\n");
+    emit_stream_dispatch(printer, name, conv);
+    printer.outdent();
+    printer.print("}\n");
+}
+
 // The zero value for a map key/value scalar, written to match its streaming handler type (the local is
 // type-annotated, so a bare `0` / `0.0` takes the annotated integer/float type). A map entry that omits
 // field 1 or field 2 delivers this default, mirroring protobuf's absent-key/value rule (and C++).
@@ -3084,12 +3107,16 @@ void emit_stream_arm(Printer& printer, const NameTable& table,
         printer.print("if $g$ {\n", {{"g", gate}});
         printer.indent();
         emit_len_read(printer, loop_read());
-        printer.print("while !rp_p.is_empty() {\n");
-        printer.indent();
-        emit_scalar_value_read(printer, field, packed_read());
-        emit_stream_dispatch(printer, slot.name, conv);
-        printer.outdent();
-        printer.print("}\n");
+        if (wire == "Varint") {
+            emit_packed_varints_loop(printer, slot.name, conv);
+        } else {
+            printer.print("while !rp_p.is_empty() {\n");
+            printer.indent();
+            emit_scalar_value_read(printer, field, packed_read());
+            emit_stream_dispatch(printer, slot.name, conv);
+            printer.outdent();
+            printer.print("}\n");
+        }
         printer.outdent();
         printer.print("} else {\n");
         printer.indent();

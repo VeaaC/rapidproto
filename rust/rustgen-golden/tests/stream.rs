@@ -104,6 +104,36 @@ fn packed_repeated_fires_once_per_element() {
 }
 
 #[test]
+fn a_malformed_packed_element_errors_at_its_own_offset() {
+    // nums (field 6), packed after implicit_i so the payload starts mid-body: 1 and 300 arrive, then
+    // a varint the payload cuts off is Truncated at its own offset, not the payload's or the field's.
+    let mut input = vec![0x08, 0x2a];
+    put_len(&mut input, 6, &[0x01, 0xac, 0x02, 0x80]);
+    let mut nums = Vec::new();
+    let err = Msg::new(&input)
+        .decode(msg_stream! { nums => |v| nums.push(v) })
+        .unwrap_err();
+    assert_eq!(nums, vec![1, 300]);
+    assert_eq!(
+        (err.kind(), err.offset()),
+        (ErrorKind::Truncated, input.len() - 1)
+    );
+
+    // An over-long element (ten continuation bytes) errors at its first byte as well.
+    let mut payload = vec![0x05];
+    payload.extend([0x80; 10]);
+    let mut input = Vec::new();
+    put_len(&mut input, 6, &payload);
+    let err = Msg::new(&input)
+        .decode(msg_stream! { nums => |_| {} })
+        .unwrap_err();
+    assert_eq!(
+        (err.kind(), err.offset()),
+        (ErrorKind::VarintOverflow, input.len() - 10)
+    );
+}
+
+#[test]
 fn recursive_submessage_is_a_typed_handle() {
     // `self` is a keyword, so its slot (and macro key) escapes to `self_`; it delivers a `Msg<'a>`
     // reader handle the consumer recurses into with its own visitor.

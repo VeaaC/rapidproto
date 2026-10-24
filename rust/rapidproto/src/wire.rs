@@ -298,6 +298,71 @@ pub(crate) fn read_varint_full<'a>(rest: &'a [u8], out: &mut u64) -> Result<&'a 
     }
 }
 
+/// The varints of a packed run (a packed repeated varint field's payload), read front to back, as the
+/// generated stream decoders read them. Faster than [`read_varint`] in a loop: it reads through a
+/// `slice::Iter`, a start and an end pointer, so the loop advances one pointer per byte where a `&[u8]`
+/// advances a pointer and a length -- on a run of 1-byte varints the loop is only a handful of
+/// instructions, so that one counts. And the multibyte decode is inline too, where `read_varint` calls
+/// out of line: a packed loop is one call site, so inlining it there is cheap.
+pub struct PackedVarints<'a> {
+    run: &'a [u8],
+    rest: core::slice::Iter<'a, u8>,
+}
+
+impl<'a> PackedVarints<'a> {
+    /// The varints of `run`, a packed field's payload.
+    #[inline(always)]
+    pub fn new(run: &'a [u8]) -> Self {
+        Self {
+            run,
+            rest: run.iter(),
+        }
+    }
+
+    /// The next varint, `Ok(None)` at the end of the run, or the error for a malformed one (as
+    /// [`read_varint`] reports it), after which [`remaining`](Self::remaining) starts at that varint.
+    #[inline(always)]
+    pub fn read(&mut self) -> Result<Option<u64>, ErrorKind> {
+        let Some(&b0) = self.rest.next() else {
+            return Ok(None);
+        };
+        if b0 & 0x80 == 0 {
+            return Ok(Some(u64::from(b0)));
+        }
+        // Byte `i` of a varint of up to 10; `i` bytes are consumed when byte `i` is missing.
+        let mut value = u64::from(b0 & 0x7f);
+        for i in 1..10 {
+            let Some(&byte) = self.rest.next() else {
+                return Err(self.rewind_by(i, ErrorKind::Truncated));
+            };
+            value |= u64::from(byte & 0x7f) << (7 * i);
+            if byte & 0x80 == 0 {
+                if i == 9 && byte > 0x01 {
+                    return Err(self.rewind_by(10, ErrorKind::VarintOverflow));
+                }
+                return Ok(Some(value));
+            }
+        }
+        Err(self.rewind_by(10, ErrorKind::VarintOverflow))
+    }
+
+    /// The bytes not yet read.
+    #[inline(always)]
+    pub fn remaining(&self) -> &'a [u8] {
+        self.rest.as_slice()
+    }
+
+    // Point `rest` back at the malformed varint, of which `consumed` bytes were read, for its error.
+    // Rebuilt from the whole run rather than a copy of `rest` saved before each varint: keeping that
+    // copy live costs the 1-byte path a register move per element.
+    #[cold]
+    fn rewind_by(&mut self, consumed: usize, kind: ErrorKind) -> ErrorKind {
+        let at = self.run.len() - self.rest.len() - consumed;
+        self.rest = self.run[at..].iter();
+        kind
+    }
+}
+
 /// Read the next field tag, or report clean end of input as `Ok(None)` -- THE hot-loop driver a
 /// generated decode body calls each field. A single `split_first` distinguishes end from a tag (no
 /// separate `is_empty` the loop condition would duplicate), then the fused 1-byte / 2-byte decode runs
@@ -615,6 +680,54 @@ mod tests {
             kind(&[0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x02]),
             ErrorKind::VarintOverflow
         );
+    }
+
+    // Every varint of `run` through `PackedVarints`, then the error and its offset in `run`, if any.
+    fn packed_varints(run: &[u8]) -> (Vec<u64>, Option<(ErrorKind, usize)>) {
+        let mut varints = PackedVarints::new(run);
+        let mut values = Vec::new();
+        loop {
+            match varints.read() {
+                Ok(Some(v)) => values.push(v),
+                Ok(None) => return (values, None),
+                Err(k) => return (values, Some((k, run.len() - varints.remaining().len()))),
+            }
+        }
+    }
+
+    #[test]
+    fn packed_varints_values() {
+        assert_eq!(packed_varints(&[]), (vec![], None));
+        // 1 byte, the 1/2-byte boundary, 2 bytes, the 10-byte maximum, 0.
+        let mut run = vec![0x7f, 0x80, 0x01, 0xac, 0x02];
+        run.extend([0xff; 9]);
+        run.extend([0x01, 0x00]);
+        assert_eq!(
+            packed_varints(&run),
+            (vec![127, 128, 300, u64::MAX, 0], None)
+        );
+    }
+
+    #[test]
+    fn packed_varints_reject_as_read_varint_does() {
+        let overlong_tenth = [0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x02];
+        for bad in [
+            &[0x80][..],
+            &[0x80; 5],
+            &[0x80; 9],
+            &[0x80; 10],
+            &[0x80; 11],
+            &overlong_tenth,
+        ] {
+            // After one good varint, so the error must point back at the malformed one, offset 1.
+            let mut run = vec![0x05];
+            run.extend_from_slice(bad);
+            assert_eq!(
+                packed_varints(&run),
+                (vec![5], Some((kind(bad), 1))),
+                "{bad:02x?}"
+            );
+        }
     }
 
     #[test]

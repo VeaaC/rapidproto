@@ -294,12 +294,10 @@ fn len<'a>(rest: &mut &'a [u8]) -> Result<&'a [u8], ErrorKind> {
 
 // Every varint of a packed run, until its end or a malformed one.
 #[inline(always)]
-fn packed(mut run: &[u8], mut each: impl FnMut(u64)) {
-    while !run.is_empty() {
-        match varint(&mut run) {
-            Ok(v) => each(v),
-            Err(_) => return,
-        }
+fn packed(run: &[u8], mut each: impl FnMut(u64)) {
+    let mut varints = wire::PackedVarints::new(run);
+    while let Ok(Some(v)) = varints.read() {
+        each(v);
     }
 }
 
