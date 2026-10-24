@@ -128,7 +128,7 @@ fn median(xs: &[f64]) -> f64 {
 }
 
 /// The checksum of one pass over every input buffer -- what the agreement gate compares.
-fn pool_checksum(f: &Decode, inputs: &Inputs) -> u64 {
+fn pool_checksum(f: &mut Decode, inputs: &Inputs) -> u64 {
     inputs
         .buffers
         .iter()
@@ -139,7 +139,7 @@ fn pool_checksum(f: &Decode, inputs: &Inputs) -> u64 {
 const TARGET_SAMPLE_NS: f64 = 10e6;
 
 /// Decode calls per sample: `ITERS`, else enough for the baseline's sample to take ~10 ms.
-fn calibrate(base: &Decode, inputs: &Inputs, fixed: Option<usize>) -> usize {
+fn calibrate(base: &mut Decode, inputs: &Inputs, fixed: Option<usize>) -> usize {
     if let Some(n) = fixed {
         return n.max(1);
     }
@@ -155,9 +155,9 @@ fn calibrate(base: &Decode, inputs: &Inputs, fixed: Option<usize>) -> usize {
 }
 
 /// Median ns per decode call for each arm (`None` for an arm unsupported for this scenario).
-fn measure(arms: &[Arm], inputs: &Inputs, rounds: usize, inner: usize) -> Vec<Option<f64>> {
+fn measure(arms: &mut [Arm], inputs: &Inputs, rounds: usize, inner: usize) -> Vec<Option<f64>> {
     let sup: Vec<usize> = (0..arms.len())
-        .filter(|&i| arms[i].decoder().is_some())
+        .filter(|&i| arms[i].is_supported())
         .collect();
     let m = sup.len();
     let bufs = &inputs.buffers;
@@ -231,9 +231,9 @@ pub fn perf(scenarios: Vec<Scenario>, default_arm: &str) {
         .find(|s| s.name == name)
         .unwrap_or_else(|| panic!("unknown SCENARIO {name:?}"));
     let inputs = payloads::load(&dir, &sc.source);
-    let arms = (sc.arms)();
+    let mut arms = (sc.arms)();
     let arm = arms
-        .iter()
+        .iter_mut()
         .find(|a| a.name == arm_name)
         .unwrap_or_else(|| panic!("scenario {name:?} has no arm {arm_name:?}"));
     let f = arm
@@ -283,7 +283,7 @@ pub fn run(scenarios: Vec<Scenario>, report: &Report) -> i32 {
         // A scenario this build cannot decode at all (its decoders were not generated) is listed with
         // the reason, not dropped.
         if let [first, ..] = arms.as_slice() {
-            if arms.iter().all(|a| a.decoder().is_none()) {
+            if !arms.iter().any(Arm::is_supported) {
                 let reason = first.unsupported_reason().unwrap_or("");
                 eprintln!("note: scenario {name} SKIPPED -- {reason}");
                 skipped += 1;
@@ -310,7 +310,7 @@ pub fn run(scenarios: Vec<Scenario>, report: &Report) -> i32 {
         // Supported arms must agree on the checksum; unsupported arms carry no decoder and are listed
         // but excluded from the gate.
         let sums: Vec<Option<u64>> = arms
-            .iter()
+            .iter_mut()
             .map(|a| a.decoder().map(|d| pool_checksum(d, &inputs)))
             .collect();
         let agreed: Vec<u64> = sums.iter().filter_map(|&s| s).collect();
@@ -366,7 +366,7 @@ pub fn run(scenarios: Vec<Scenario>, report: &Report) -> i32 {
         }
         let base = arms[0].decoder().expect("baseline arm must be supported");
         let inner = calibrate(base, &inputs, opts.inner);
-        let meds = measure(&arms, &inputs, opts.rounds, inner);
+        let meds = measure(&mut arms, &inputs, opts.rounds, inner);
         let base_gbs = bytes / meds[0].expect("baseline arm must be supported");
         for (i, a) in arms.iter().enumerate() {
             let ub = (report.ub)(name, a.name);

@@ -28,8 +28,6 @@ mod generated {
     include!(concat!(env!("OUT_DIR"), "/fileformat.rs"));
 }
 
-use std::cell::RefCell;
-
 use rapidproto::Arena;
 
 use crate::payloads::frames;
@@ -37,8 +35,7 @@ use crate::Arm;
 use generated::arena::OSMPBF::{blob::Data, Blob, BlobHeader, HeaderBlock, Info, PrimitiveBlock};
 
 pub fn blocks_arms() -> Vec<Arm> {
-    let warm = RefCell::new(Arena::new());
-    let strings = RefCell::new(Vec::new());
+    let mut warm = Arena::new();
     vec![
         Arm::new("rapidproto", |b| {
             frames(b).fold(0u64, |h, p| {
@@ -47,14 +44,14 @@ pub fn blocks_arms() -> Vec<Arm> {
             })
         }),
         Arm::new("rapidproto-warm", move |b| {
-            let mut arena = warm.borrow_mut();
             frames(b).fold(0u64, |h, p| {
-                arena.reset();
-                h.wrapping_add(arena_block_sum(decode_block(p, &arena)))
+                warm.reset();
+                h.wrapping_add(arena_block_sum(decode_block(p, &warm)))
             })
         }),
-        Arm::new("rapidproto-stream", move |b| {
-            let mut strings = strings.borrow_mut();
+        // One string-table vector per call, reused for every block: they all borrow the batch.
+        Arm::new("rapidproto-stream", |b| {
+            let mut strings = Vec::new();
             frames(b).fold(0u64, |h, p| {
                 h.wrapping_add(stream_block_sum(p, &mut strings))
             })
@@ -63,22 +60,23 @@ pub fn blocks_arms() -> Vec<Arm> {
 }
 
 pub fn file_arms() -> Vec<Arm> {
-    let warm = RefCell::new(Arena::new());
-    let warm_inflated = RefCell::new(Vec::new());
-    let strings = RefCell::new(Vec::new());
-    let stream_inflated = RefCell::new(Vec::new());
+    let (mut warm, mut warm_inflated) = (Arena::new(), Vec::new());
+    let (mut spare, mut stream_inflated): (Vec<&'static [u8]>, _) = (Vec::new(), Vec::new());
     vec![
         Arm::new("rapidproto-warm", move |b| {
-            let mut arena = warm.borrow_mut();
-            file_sum(b, &mut warm_inflated.borrow_mut(), |p| {
-                arena.reset();
-                arena_block_sum(decode_block(p, &arena))
+            file_sum(b, &mut warm_inflated, |p| {
+                warm.reset();
+                arena_block_sum(decode_block(p, &warm))
             })
         }),
+        // Every block is inflated into the same buffer, so no vector can borrow from two blocks:
+        // `recycle` carries the string table's allocation from one block to the next instead.
         Arm::new("rapidproto-stream", move |b| {
-            let mut strings = strings.borrow_mut();
-            file_sum(b, &mut stream_inflated.borrow_mut(), |p| {
-                stream_block_sum(p, &mut strings)
+            file_sum(b, &mut stream_inflated, |p| {
+                let mut strings = recycle(std::mem::take(&mut spare));
+                let h = stream_block_sum(p, &mut strings);
+                spare = recycle(strings);
+                h
             })
         }),
     ]
@@ -279,11 +277,11 @@ impl Walk<'_, '_> {
     }
 }
 
-/// `scratch` keeps its allocation across blocks: emptied and re-borrowed per block, as the C++ arms
-/// clear one vector.
-fn stream_block_sum(payload: &[u8], scratch: &mut Vec<&'static [u8]>) -> u64 {
+/// `strings` is the caller's string-table vector, cleared here, so its allocation is reused across
+/// blocks as the C++ arms reuse theirs.
+fn stream_block_sum<'a>(payload: &'a [u8], strings: &mut Vec<&'a [u8]>) -> u64 {
     use generated::stream::OSMPBF::*;
-    let mut strings = recycle(std::mem::take(scratch));
+    strings.clear();
     let (mut gran, mut lat_off, mut lon_off, mut date_gran) = (100i64, 0i64, 0i64, 1000i64);
     PrimitiveBlock::new(payload)
         .decode(primitive_block_stream! {
@@ -296,7 +294,7 @@ fn stream_block_sum(payload: &[u8], scratch: &mut Vec<&'static [u8]>) -> u64 {
         .expect("rapidproto stream decode");
 
     let mut w = Walk {
-        strings: &strings,
+        strings,
         gran,
         lat_off,
         lon_off,
@@ -402,9 +400,7 @@ fn stream_block_sum(payload: &[u8], scratch: &mut Vec<&'static [u8]>) -> u64 {
             },
         }))
         .expect("rapidproto stream decode");
-    let h = w.h;
-    *scratch = recycle(strings);
-    h
+    w.h
 }
 
 fn stream_info(
@@ -421,11 +417,19 @@ fn stream_info(
     }))
 }
 
-/// `v`, emptied and re-borrowed for another lifetime, keeping its allocation (an in-place `collect`:
-/// the element layout is unchanged), so a string-table vector outlives the blocks it borrows from.
+/// `v`, emptied and re-typed to another lifetime with its allocation kept, so one string-table vector
+/// can serve blocks that each borrow a buffer the next one overwrites. The reuse is std's in-place
+/// `collect` (the element layout is unchanged), an optimization rather than a guarantee, so debug
+/// builds check it.
 fn recycle<'b>(mut v: Vec<&[u8]>) -> Vec<&'b [u8]> {
     v.clear();
-    v.into_iter().map(|_| unreachable!()).collect()
+    let (addr, cap) = (v.as_ptr().addr(), v.capacity());
+    let out: Vec<&'b [u8]> = v.into_iter().map(|_| unreachable!()).collect();
+    debug_assert!(
+        out.as_ptr().addr() == addr && out.capacity() == cap,
+        "recycle lost the vector's allocation"
+    );
+    out
 }
 
 // --- the whole-file driver (osm_file) -------------------------------------------------------------

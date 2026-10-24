@@ -23,19 +23,18 @@
 //! walks, ported, instead.
 
 // RapidProto's cold and warm arms for message type `$ty`, `$ck` walking the decoded tree; the warm
-// arena lives in the closure (a `RefCell`: an arm is a `Fn`). Defined ahead of the modules using it.
+// arm owns its arena. Defined ahead of the modules using it.
 macro_rules! arena_arms {
     ($ty:ty, $ck:path) => {{
-        let warm = ::std::cell::RefCell::new(::rapidproto::Arena::new());
+        let mut warm = ::rapidproto::Arena::new();
         vec![
             $crate::Arm::new("rapidproto", |b| {
                 let arena = ::rapidproto::Arena::new();
                 $ck(<$ty>::decode(b, &arena).expect("rapidproto decode"))
             }),
             $crate::Arm::new("rapidproto-warm", move |b| {
-                let mut arena = warm.borrow_mut();
-                arena.reset();
-                $ck(<$ty>::decode(b, &arena).expect("rapidproto decode"))
+                warm.reset();
+                $ck(<$ty>::decode(b, &warm).expect("rapidproto decode"))
             }),
         ]
     }};
@@ -53,8 +52,9 @@ use payloads::Source;
 use runner::Scenario;
 
 /// Decode `input` and return the fairness checksum (one decoder's whole job, boxed so arms of
-/// different decoders share a type).
-pub type Decode = Box<dyn Fn(&[u8]) -> u64>;
+/// different decoders share a type). `FnMut`, so an arm owns its reused state (a warm arena, a
+/// buffer) with no runtime borrow check per call.
+pub type Decode = Box<dyn FnMut(&[u8]) -> u64>;
 
 /// Builds the arms for a scenario (arm 0 = baseline), so several scenarios can share one builder.
 pub type ArmsFn = fn() -> Vec<Arm>;
@@ -78,7 +78,7 @@ pub struct Arm {
 
 impl Arm {
     /// A supported arm: `f` decodes the payload and returns its fairness checksum.
-    pub fn new(name: &'static str, f: impl Fn(&[u8]) -> u64 + 'static) -> Self {
+    pub fn new(name: &'static str, f: impl FnMut(&[u8]) -> u64 + 'static) -> Self {
         Self {
             name,
             run: ArmRun::Supported(Box::new(f)),
@@ -94,11 +94,15 @@ impl Arm {
     }
 
     /// The decoder, or `None` if this arm is unsupported for its scenario.
-    pub fn decoder(&self) -> Option<&Decode> {
-        match &self.run {
+    pub fn decoder(&mut self) -> Option<&mut Decode> {
+        match &mut self.run {
             ArmRun::Supported(d) => Some(d),
             ArmRun::Unsupported(_) => None,
         }
+    }
+
+    pub fn is_supported(&self) -> bool {
+        matches!(self.run, ArmRun::Supported(_))
     }
 
     /// The unsupported reason, or `None` if this arm is supported.

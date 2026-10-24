@@ -10,10 +10,13 @@ use rapidproto_bench::payloads::{self, Source};
 use rapidproto_bench::Arm;
 
 // Every supported arm's checksum on `bytes`, all equal (and returned), the unsupported ones skipped.
-fn all_agree(arms: Vec<Arm>, bytes: &[u8]) -> u64 {
+fn all_agree(mut arms: Vec<Arm>, bytes: &[u8]) -> u64 {
     let sums: Vec<(&str, u64)> = arms
-        .iter()
-        .filter_map(|a| a.decoder().map(|d| (a.name, d(bytes))))
+        .iter_mut()
+        .filter_map(|a| {
+            let name = a.name;
+            a.decoder().map(|d| (name, d(bytes)))
+        })
         .collect();
     assert!(
         sums.iter().all(|&(_, s)| s == sums[0].1),

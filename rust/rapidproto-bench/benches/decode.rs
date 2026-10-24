@@ -516,17 +516,15 @@ fn external_bench(c: &mut Criterion) {
         group.throughput(Throughput::Bytes(
             payloads::bytes_per_call(&dir, &sc.source) as u64,
         ));
-        for arm in (sc.arms)() {
+        for mut arm in (sc.arms)() {
             // An unsupported arm stands for a scenario this build has no decoder for.
-            let Some(f) = arm.decoder() else {
-                eprintln!(
-                    "decode_external: {} skipped ({})",
-                    sc.name,
-                    arm.unsupported_reason().unwrap_or("")
-                );
+            if let Some(reason) = arm.unsupported_reason() {
+                eprintln!("decode_external: {} skipped ({reason})", sc.name);
                 continue;
-            };
-            group.bench_function(format!("{}/{}", sc.name, arm.name), |b| {
+            }
+            let id = format!("{}/{}", sc.name, arm.name);
+            let f = arm.decoder().expect("a supported arm");
+            group.bench_function(id, |b| {
                 let inputs = inputs.get_or_init(|| payloads::load(&dir, &sc.source));
                 b.iter(|| black_box(f(black_box(&inputs.buffers[0]))));
             });

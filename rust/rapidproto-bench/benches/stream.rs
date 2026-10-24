@@ -49,7 +49,7 @@ fn stream_bench(c: &mut Criterion) {
                 );
                 continue;
             }
-            let arms = (sc.arms)();
+            let mut arms = (sc.arms)();
             let generated = arms[0].decoder().expect("the generated arm");
             // Loaded on first use: criterion runs only the benches its name filter selects.
             let inputs = OnceCell::new();
