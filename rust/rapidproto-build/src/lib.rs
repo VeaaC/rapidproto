@@ -31,9 +31,8 @@
 //!
 //! The generator is RapidProto's C++ code generator, run one of two ways, chosen by features:
 //!
-//! - `native`: this crate's build script compiles the generator from RapidProto's C++ sources,
-//!   always optimized, and calls it in-process. It needs a C++17 compiler and a RapidProto checkout
-//!   (a path or git dependency, not vendored).
+//! - `native`: this crate's build script compiles the generator from the C++ sources it ships,
+//!   always optimized, and calls it in-process. It needs a C++17 compiler.
 //! - `wasm`: the generator is embedded as a WebAssembly module and run in the `wasmi` interpreter,
 //!   so no C++ compiler is needed.
 //!

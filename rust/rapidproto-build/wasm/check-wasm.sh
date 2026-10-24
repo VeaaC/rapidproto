@@ -1,30 +1,29 @@
 #!/usr/bin/env bash
-# Staleness gate for the committed rustgen wasm blob: rebuild it from source and byte-diff against
-# the committed rustgen.wasm. A difference means the C++ generator changed but the blob was not
-# regenerated -- so the `rapidproto-build` crate would ship stale Rust codegen. The fix is always to
-# run build-wasm.sh and commit the result.
+# Staleness gate for the generator rapidproto-build ships: rebuild the wasm blob and the C++ copy
+# (build-wasm.sh) into a scratch directory and diff them against the committed ones. A difference
+# means the C++ generator changed without them being regenerated, so the crate would ship stale
+# codegen. The fix is always to run build-wasm.sh and commit the result.
 #
-# The build is byte-reproducible (see build-wasm.sh), so this diff is exact, not fuzzy. Requires
-# wasi-sdk (set WASI_SDK, or install at /opt/wasi-sdk).
+# The blob build is byte-reproducible, so the diff is exact. Requires wasi-sdk (set WASI_SDK, or
+# install at /opt/wasi-sdk).
 set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-committed="$here/rustgen.wasm"
-if [[ ! -f "$committed" ]]; then
-    echo "error: committed blob $committed is missing" >&2
-    exit 1
-fi
+crate="$(dirname "$here")"
 
-fresh="$(mktemp --suffix=.wasm)"
-trap 'rm -f "$fresh"' EXIT
+fresh="$(mktemp -d)"
+trap 'rm -rf "$fresh"' EXIT
 "$here/build-wasm.sh" "$fresh" >/dev/null
 
-if cmp -s "$committed" "$fresh"; then
-    echo "wasm blob is up to date ($(stat -c%s "$committed") bytes)"
+stale=()
+cmp -s "$crate/wasm/rustgen.wasm" "$fresh/wasm/rustgen.wasm" || stale+=(wasm/rustgen.wasm)
+diff -rq "$crate/cpp" "$fresh/cpp" >&2 || stale+=(cpp/)
+if [[ ${#stale[@]} -eq 0 ]]; then
+    echo "wasm blob and C++ copy are up to date"
     exit 0
 fi
 
-echo "error: the committed rustgen.wasm is stale (differs from a fresh build)." >&2
-echo "  the C++ generator changed without regenerating the blob. Regenerate and commit it:" >&2
+echo "error: stale in rust/rapidproto-build: ${stale[*]}" >&2
+echo "  the C++ generator changed without regenerating them. Regenerate and commit:" >&2
 echo "    rust/rapidproto-build/wasm/build-wasm.sh" >&2
 exit 1

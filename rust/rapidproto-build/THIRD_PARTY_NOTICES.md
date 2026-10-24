@@ -2,7 +2,9 @@
 
 `rapidproto-build` is licensed under Apache-2.0 (see `LICENSE` and `NOTICE`). It
 distributes one prebuilt binary that embeds and statically links third-party
-code, whose copyright and license notices are reproduced below.
+code, whose copyright and license notices are reproduced below. The generator's
+C++ sources in `cpp/` contain the Protocol Buffers well-known-type definitions
+listed below, with their notices.
 
 ---
 

@@ -1,5 +1,5 @@
-// Picks the generator backend. With the `native` feature, compile the generator's C++ (the
-// repository's src/ and include/) into a static library the crate calls in-process, always
+// Picks the generator backend. With the `native` feature, compile the generator's C++ (the copy in
+// cpp/, written by wasm/build-wasm.sh) into a static library the crate calls in-process, always
 // optimized, whatever the consumer's profile. If that fails and the `wasm` feature is on, use the
 // embedded wasm generator instead, handing the reason to the crate (`RAPIDPROTO_BUILD_FALLBACK`) so
 // it can warn from the consumer's build script, where cargo shows warnings; with `native` alone,
@@ -45,43 +45,15 @@ mod native {
         pub detail: String,
     }
 
-    // The sources sit in the repository around this crate, so a build outside a checkout (a
-    // packaged or vendored crate) has none.
-    fn not_in_checkout(detail: String) -> Failure {
-        Failure {
-            summary: "its C++ sources are not in this build: depend on rapidproto-build from a \
-                      RapidProto checkout (a path or git dependency, not vendored)"
-                .into(),
-            detail,
-        }
-    }
-
     pub fn compile() -> Result<(), Failure> {
-        let manifest = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
-        let repo = manifest.join("../..");
-        let list = manifest.join("generator-sources.txt");
-        let sources = std::fs::read_to_string(&list)
-            .map_err(|e| not_in_checkout(format!("cannot read {}: {e}", list.display())))?;
-        let mut files: Vec<PathBuf> = sources
-            .lines()
-            .map(str::trim)
-            .filter(|l| !l.is_empty() && !l.starts_with('#'))
-            .map(|l| repo.join(l))
-            .collect();
-        files.push(repo.join("src/rustgen/native_entry.cpp"));
-        if let Some(missing) = files.iter().find(|f| !f.is_file()) {
-            return Err(not_in_checkout(format!("{} not found", missing.display())));
-        }
-
-        let out = PathBuf::from(env::var("OUT_DIR").unwrap());
-        let gen_include = out.join("gen-include");
-        write_version_header(&repo, &gen_include).map_err(not_in_checkout)?;
-
-        println!("cargo::rerun-if-changed={}", list.display());
-        println!("cargo::rerun-if-changed={}", repo.join("include").display());
-        for file in &files {
-            println!("cargo::rerun-if-changed={}", file.display());
-        }
+        let cpp = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap()).join("cpp");
+        println!("cargo::rerun-if-changed={}", cpp.display());
+        let mut files = Vec::new();
+        translation_units(&cpp.join("src"), &mut files).map_err(|e| Failure {
+            summary: "its C++ sources are missing from this copy of rapidproto-build".into(),
+            detail: format!("cannot read {}: {e}", cpp.display()),
+        })?;
+        files.sort();
 
         let mut build = cc::Build::new();
         build
@@ -90,8 +62,7 @@ mod native {
             .opt_level(2)
             .debug(false)
             .define("NDEBUG", None)
-            .include(repo.join("include"))
-            .include(&gen_include)
+            .include(cpp.join("include"))
             .files(&files)
             // No warnings for the consumer to read; a failing compile still shows its errors.
             .warnings(false);
@@ -115,28 +86,15 @@ mod native {
             })
     }
 
-    // The one CMake-generated header the generator includes, rapidproto/version.hpp, made the way
-    // CMake and wasm/build-wasm.sh make it: cmake/version.hpp.in with the VERSION of project() in
-    // CMakeLists.txt.
-    fn write_version_header(repo: &Path, gen_include: &Path) -> Result<(), String> {
-        let read = |p: PathBuf| {
-            println!("cargo::rerun-if-changed={}", p.display());
-            std::fs::read_to_string(&p).map_err(|e| format!("cannot read {}: {e}", p.display()))
-        };
-        let cmake = read(repo.join("CMakeLists.txt"))?;
-        let version = cmake
-            .lines()
-            .filter(|l| l.starts_with("project("))
-            .find_map(|l| l.split("VERSION ").nth(1))
-            .and_then(|rest| {
-                rest.split(|c: char| !(c.is_ascii_digit() || c == '.'))
-                    .next()
-            })
-            .filter(|v| !v.is_empty())
-            .ok_or("no project(... VERSION ...) in CMakeLists.txt")?;
-        let header = read(repo.join("cmake/version.hpp.in"))?.replace("@PROJECT_VERSION@", version);
-        let dir = gen_include.join("rapidproto");
-        std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-        std::fs::write(dir.join("version.hpp"), header).map_err(|e| e.to_string())
+    fn translation_units(dir: &Path, files: &mut Vec<PathBuf>) -> std::io::Result<()> {
+        for entry in std::fs::read_dir(dir)? {
+            let path = entry?.path();
+            if path.is_dir() {
+                translation_units(&path, files)?;
+            } else if path.extension().is_some_and(|e| e == "cpp") {
+                files.push(path);
+            }
+        }
+        Ok(())
     }
 }

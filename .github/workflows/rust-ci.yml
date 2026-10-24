@@ -109,10 +109,10 @@ jobs:
         run: cargo test -p rapidproto-build --no-default-features --features native --test smoke
 
   wasm-blob:
-    # The rapidproto-build crate ships a committed wasm blob (the Rust generator front-end), its
-    # generator for consumers without a C++ compiler. This gate rebuilds it from source with the
-    # pinned wasi-sdk and byte-diffs it against the committed copy: a difference means the C++
-    # generator changed without the blob being regenerated. The build is byte-reproducible, so the
+    # The rapidproto-build crate ships the generator committed in two forms: a wasm blob and a copy
+    # of its C++ sources (cpp/). This gate rebuilds both from the repository's sources with the
+    # pinned wasi-sdk and diffs them against the committed ones: a difference means the C++
+    # generator changed without them being regenerated. The blob build is byte-reproducible, so the
     # diff is exact.
     runs-on: ubuntu-latest
     env:
@@ -128,7 +128,7 @@ jobs:
           curl -fsSL "$url" -o /tmp/wasi-sdk.tar.gz
           sudo mkdir -p /opt/wasi-sdk
           sudo tar xf /tmp/wasi-sdk.tar.gz -C /opt/wasi-sdk --strip-components=1
-      - name: Blob is in sync with the C++ generator
+      - name: Blob and C++ copy are in sync with the C++ generator
         working-directory: ${{ github.workspace }}
         run: rust/rapidproto-build/wasm/check-wasm.sh
 
