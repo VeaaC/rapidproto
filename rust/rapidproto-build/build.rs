@@ -5,13 +5,13 @@
 // it can warn from the consumer's build script, where cargo shows warnings; with `native` alone,
 // fail the build. The chosen backend is the `rp_native` cfg.
 
+#[cfg(not(any(feature = "native", feature = "wasm")))]
+compile_error!(
+    "rapidproto-build needs a generator: enable the `native` feature, `wasm`, or both (the default)"
+);
+
 fn main() {
     println!("cargo::rustc-check-cfg=cfg(rp_native)");
-    #[cfg(not(feature = "native"))]
-    assert!(
-        cfg!(feature = "wasm"),
-        "rapidproto-build needs a generator: enable the `native` feature, `wasm`, or both (the default)"
-    );
     #[cfg(feature = "native")]
     match native::compile() {
         Ok(()) => println!("cargo::rustc-cfg=rp_native"),
