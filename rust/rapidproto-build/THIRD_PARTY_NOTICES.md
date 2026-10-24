@@ -2,16 +2,18 @@
 
 `rapidproto-build` is licensed under Apache-2.0 (see `LICENSE` and `NOTICE`). It
 distributes one prebuilt binary that embeds and statically links third-party
-code, whose copyright and license notices are reproduced below.
+code, whose copyright and license notices are reproduced below. The generator's
+C++ sources in `cpp/` contain the Protocol Buffers well-known-type definitions
+listed below, with their notices.
 
 ---
 
 ## The code generator blob — `wasm/rustgen.wasm`
 
 `wasm/rustgen.wasm` is RapidProto's own Rust code-generator front-end (first-party,
-Apache-2.0) compiled to a `wasm32-wasi` command module. The crate `include_bytes!`s
-it and runs it through the `wasmi` interpreter, so a consumer generates decoders
-with cargo alone — no C++ toolchain.
+Apache-2.0) compiled to a `wasm32-wasi` command module. With the crate's `wasm`
+feature it `include_bytes!`s it and runs it through the `wasmi` interpreter, so a
+consumer without a C++ compiler can generate decoders.
 
 **Provenance.** The blob is built by `wasm/build-wasm.sh` with a pinned
 [wasi-sdk](https://github.com/WebAssembly/wasi-sdk) **34.0** (`wasi-libc`

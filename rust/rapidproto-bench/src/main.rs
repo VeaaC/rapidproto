@@ -4,9 +4,6 @@
 //!
 //! The real-world datasets (`src/external/`) need more than the payload directory: `google_message1`/`2`
 //! need the corpus when this crate is built (build.rs), and `compute Instance` the `compute` feature.
-//! Generating the compute decoder takes over ten minutes in cargo's default, unoptimized build script,
-//! so build it with `--features compute --config 'profile.release.build-override.opt-level=1'`
-//! (level 1: 2 and above currently overflow the generator's stack).
 //!
 //! BUILD PROFILE: plain `--release` (no LTO), matching the RapidProto-vs-C++ bench methodology and
 //! what most users actually ship. Under the default profile a decoder's hot path stays inlined across

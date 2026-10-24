@@ -10,3 +10,6 @@
 *.png -text
 *.ico -text
 *.wasm -text
+
+# rapidproto-build's copy of the generator sources (wasm/build-wasm.sh): collapsed in diffs.
+rust/rapidproto-build/cpp/** linguist-generated

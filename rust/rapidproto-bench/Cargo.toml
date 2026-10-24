@@ -45,8 +45,7 @@ libz-sys = "1"
 #       cargo run -p rapidproto-bench --release --bin bench --features google-upb
 google-upb = ["dep:rapidproto-bench-upb"]
 # Add the `compute Instance` scenario (googleapis compute.proto, from the fetched corpus). Off by
-# default: its generated decoder is slow to compile, as its C++ counterpart is, and slower still to
-# generate unless build scripts are optimized (see src/main.rs).
+# default: its generated decoder is slow to compile, as its C++ counterpart is.
 compute = []
 
 [build-dependencies]

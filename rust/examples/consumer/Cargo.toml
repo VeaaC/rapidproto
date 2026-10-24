@@ -1,5 +1,5 @@
 # A minimal consumer of the generated Rust decoders: build.rs generates them from proto/, main.rs
-# decodes a message. Built with cargo alone.
+# decodes a message.
 [package]
 name = "consumer-example"
 version = "0.0.0"

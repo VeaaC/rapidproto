@@ -4,8 +4,8 @@ This directory is the in-tree Cargo workspace for RapidProto's native Rust decod
 the long-running `rust` branch. It is **not yet released** and not built by the C++ CMake project.
 
 - `rapidproto/` — the decode-only runtime (arena, borrowed views, wire primitives, errors).
-- `rapidproto-build/` — the build-time driver that generates Rust decoders (via the WASM-embedded
-  C++ generator).
+- `rapidproto-build/` — the build-time driver that generates Rust decoders with the C++ generator,
+  compiled natively or embedded as WebAssembly.
 - `rapidproto-bench/` — the decode benchmarks (below).
 
 The public interface is still taking shape and is not yet stable. The scratch spikes at the repo root
@@ -69,8 +69,7 @@ there. Published numbers go in [docs/benchmarks.md](../docs/benchmarks.md).
 
 - `google_message1`/`2` need the corpus when this crate is built (`build/corpus`, or
   `RAPIDPROTO_FETCHED_CORPUS`).
-- `--features compute` adds compute.proto. Build it with
-  `--config 'profile.release.build-override.opt-level=1'`, or code generation takes over ten minutes.
+- `--features compute` adds compute.proto, whose large decoder takes about a minute to compile.
 - `--features google-upb` adds Google's upb crate. It needs `protoc` 36.2 (`RAPIDPROTO_UPB_PROTOC`).
 
 The remaining options are documented in `rapidproto-bench/src/runner.rs`.

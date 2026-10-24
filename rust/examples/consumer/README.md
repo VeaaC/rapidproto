@@ -10,7 +10,7 @@ emits **both** models), and [`src/main.rs`](src/main.rs) decodes the same messag
   macro's shared-state form; the nested `origin` is handled by the **mid-decode hybrid** — the stream
   hands it over as a reader handle, and `bytes()` feeds the arena decoder to materialize just it.
 
-Both agree field-for-field. It builds with cargo alone: no `protoc` and no separate code generator.
+Both agree field-for-field. It needs no `protoc` and no separate code generator.
 
 ## Run
 

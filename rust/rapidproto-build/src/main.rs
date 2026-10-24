@@ -2,7 +2,7 @@
 //!
 //! The same code generation as [`rapidproto_build::Config`] (used from a `build.rs`), exposed as a
 //! standalone tool: pass entry `.proto`s, `-I` include dirs, and decode-profile options, and it
-//! writes the generated Rust to a file or stdout. Needs only cargo — no `protoc`. Argument parsing
+//! writes the generated Rust to a file or stdout. No `protoc` needed. Argument parsing
 //! and output live here; the generation itself is [`rapidproto_build::Config::generate`].
 
 use std::path::{Path, PathBuf};
@@ -52,6 +52,12 @@ fn main() -> ExitCode {
 fn run(args: &Args) -> Result<(), String> {
     if args.entries.is_empty() {
         return Err("no entry .proto given".to_owned());
+    }
+    if let Some(reason) = rapidproto_build::NATIVE_FALLBACK {
+        eprintln!(
+            "note: this rapidproto-rust uses the slower wasm generator: the native one did not build, \
+             {reason}"
+        );
     }
     let rust = args
         .config

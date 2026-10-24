@@ -1,6 +1,6 @@
 // Generate the OSM decoders from the two .proto files in proto/. This is all it takes to use
 // RapidProto: add rapidproto-build as a build-dependency and point `compile` at your schema -- no
-// protoc, no C toolchain. `compile` renders the whole import closure into one generated file named
+// protoc. `compile` renders the whole import closure into one generated file named
 // after the first entry's stem (here `fileformat.rs`, holding every `OSMPBF` type), re-running
 // whenever a .proto changes.
 //

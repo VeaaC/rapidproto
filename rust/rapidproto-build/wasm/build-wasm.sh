@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
-# Build the rustgen wasm blob: rapidproto's Rust code-generator front-end compiled to a standalone
-# wasm32-wasi command module (src/rustgen/wasm_entry.cpp + the resolve/analyze/layout/rustgen TUs).
+# Build the Rust generator the way rapidproto-build ships it, from the C++ sources in this repository:
+#   * wasm/rustgen.wasm, a standalone wasm32-wasi command module (the `wasm` feature), and
+#   * cpp/, the translation units and project headers its build script compiles (the `native`
+#     feature), so the crate builds natively wherever it comes from.
+# Both are committed; check-wasm.sh rebuilds them in CI and diffs them against the committed ones.
 #
-# The build is byte-reproducible -- same inputs, same bytes -- so CI can rebuild it and diff against
-# the committed copy to prove the two never drift (see check-wasm.sh). Reproducibility rests on:
+# The blob is byte-reproducible -- same inputs, same bytes. Reproducibility rests on:
 #   * -ffile-prefix-map, which rewrites the embedded repo and sysroot paths to fixed stand-ins, and
 #   * -Wl,--strip-all, which drops the timestamps/paths a symbol table would carry.
 # wasmi (the build crate's interpreter) has no wasm exception-handling, so the front-end is built
 # -fno-exceptions (it already uses Result, never throws).
 #
-# Usage: build-wasm.sh [OUTPUT.wasm]   (default: ./rustgen.wasm next to this script)
+# Usage: build-wasm.sh [OUT_DIR]   (default: the crate directory)
 # Env:   WASI_SDK   wasi-sdk install prefix (default: /opt/wasi-sdk)
 set -euo pipefail
 
@@ -22,7 +24,7 @@ EXPECTED_WASI_SDK="34.0"
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo="$(git -C "$here" rev-parse --show-toplevel)"
 wasi="${WASI_SDK:-/opt/wasi-sdk}"
-out="${1:-$here/rustgen.wasm}"
+out_dir="${1:-$(dirname "$here")}"
 cxx="$wasi/bin/clang++"
 
 if [[ ! -x "$cxx" ]]; then
@@ -40,14 +42,22 @@ if [[ "$have_wasi" != "$EXPECTED_WASI_SDK" ]]; then
     exit 1
 fi
 
-# The front-end closure: lex/parse/analyze, the shared naming + arena layout/modes planners the Rust
-# decoder reuses, and the Rust generator -- plus the wasm entry. No cmake-generated headers are
-# needed (nothing here includes the generated version.hpp), so the build needs only -I include.
-tus=(
-    src/lexer.cpp src/interpret.cpp src/parser.cpp src/features.cpp
-    src/resolve.cpp src/resolver.cpp src/source.cpp src/wellknown_generated.cpp
-    src/codegen/naming.cpp src/arenagen/layout.cpp src/arenagen/modes.cpp
-    src/rustgen/generator.cpp src/rustgen/wasm_entry.cpp
+# The generator's translation units. The blob adds the wasm entry point, the native build the C ABI
+# one.
+generator=(
+    src/lexer.cpp
+    src/interpret.cpp
+    src/parser.cpp
+    src/features.cpp
+    src/resolve.cpp
+    src/resolver.cpp
+    src/source.cpp
+    src/wellknown_generated.cpp
+    src/codegen/naming.cpp
+    src/arenagen/layout.cpp
+    src/arenagen/modes.cpp
+    src/rustgen/generator.cpp
+    src/rustgen/frame.cpp
 )
 
 work="$(mktemp -d)"
@@ -73,7 +83,7 @@ flags=(
 )
 
 objs=()
-for tu in "${tus[@]}"; do
+for tu in "${generator[@]}" src/rustgen/wasm_entry.cpp; do
     obj="$work/$(echo "$tu" | tr '/' '_').o"
     "$cxx" "${flags[@]}" -c "$repo/$tu" -o "$obj"
     objs+=("$obj")
@@ -81,5 +91,26 @@ done
 # Default wasm stack is 64 KiB -- too small for the parser/resolver recursion on a deep schema. Give
 # it 8 MiB (matches a typical native thread stack); the depth caps (parser, resolver) stay the real
 # safety floor, this just keeps a legal-but-deep schema from tripping the guard page first.
-"$cxx" "${flags[@]}" -Wl,--strip-all -Wl,-z,stack-size=8388608 "${objs[@]}" -o "$out"
-echo "built $out ($(stat -c%s "$out") bytes, version $version)"
+blob="$out_dir/wasm/rustgen.wasm"
+mkdir -p "$(dirname "$blob")"
+"$cxx" "${flags[@]}" -Wl,--strip-all -Wl,-z,stack-size=8388608 "${objs[@]}" -o "$blob"
+echo "built $blob ($(stat -c%s "$blob") bytes, version $version)"
+
+# The native build's sources, at their repository paths: its translation units and every project
+# header they include, as the preprocessor finds them (-MM leaves out system headers).
+native=("${generator[@]/#/$repo/}" "$repo/src/rustgen/native_entry.cpp")
+"$cxx" "${flags[@]}" -MM "${native[@]}" > "$work/deps"
+cpp="$out_dir/cpp"
+rm -rf "$cpp"
+count=0
+while read -r dep; do
+    case "$dep" in
+        "$repo"/*) rel="${dep#"$repo"/}" ;;
+        "$work/gen-include"/*) rel="include/${dep#"$work/gen-include"/}" ;;
+        *) echo "error: unexpected dependency $dep" >&2; exit 1 ;;
+    esac
+    mkdir -p "$(dirname "$cpp/$rel")"
+    cp "$dep" "$cpp/$rel"
+    count=$((count + 1))
+done < <(tr -s ' \\' '\n\n' < "$work/deps" | grep -v -e ':$' -e '^$' | sort -u)
+echo "copied $count files to $cpp"

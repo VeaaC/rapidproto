@@ -25,12 +25,12 @@ struct ResolverConfig {
 
     std::vector<std::string> include_paths;  // searched in order for imports
     bool use_wellknown = true;               // fall back to embedded WKTs after include paths
-    // In-memory source override for a host with no filesystem (the wasm front-end): when set, every
-    // source is read through this -- the entry by the name it was given, each import by its
-    // canonical path -- instead of the disk, and `include_paths` is ignored. The embedded
-    // well-known types are still consulted as a fallback, so a provider need not carry them. Returns
-    // the file's text, or nullopt if it has no such file (resolution then falls back to the WKTs, or
-    // reports the import as not found, exactly as the disk path would).
+    // In-memory source override, for a host that sends the sources (the request-frame front-end,
+    // native or wasm): when set, every source is read through this -- the entry by the name it was
+    // given, each import by its canonical path -- instead of the disk, and `include_paths` is
+    // ignored. The embedded well-known types are still consulted as a fallback, so a provider need
+    // not carry them. Returns the file's text, or nullopt if it has no such file (resolution then
+    // falls back to the WKTs, or reports the import as not found, exactly as the disk path would).
     //
     // Contract: imports are looked up by their canonical path (canonical_import_path), but an ENTRY
     // is looked up verbatim by the name it was given (no filesystem canonicalization runs). So the

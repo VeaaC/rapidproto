@@ -32,7 +32,7 @@ Statistics go to **stdout**; timing goes to **stderr**, so you can redirect one 
 The point of the example is the shape of an efficient decode:
 
 - **Codegen is a build step, no `protoc`.** `build.rs` runs `rapidproto-build` over
-  [`proto/`](proto) — pure Rust, no C++ toolchain. `.stream(true)` asks for both models, so the one
+  [`proto/`](proto). `.stream(true)` asks for both models, so the one
   generated file exposes `arena::OSMPBF` and `stream::OSMPBF` (pulled in by [`src/osm.rs`](src/osm.rs)).
 - **Arena: decode once, read borrowed views.** One `decode()` bump-allocates the message and hands back
   a view that borrows it: no per-field allocation, repeated columns as `&[i64]`, strings as `&[u8]`.

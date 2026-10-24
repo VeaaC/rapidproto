@@ -7,7 +7,7 @@
 //!
 //! Gated behind the off-by-default `google-upb` feature: building it pulls Google's v4 crate (upb C
 //! kernel, compiled by `cc`) and requires an exact-version `protoc` (36.2) at build time, so it never
-//! touches the normal cargo-only build/CI. Supports `map` (so it covers `dataset`, unlike femtopb),
+//! touches the default build/CI. Supports `map` (so it covers `dataset`, unlike femtopb),
 //! open enums (unknowns preserved), and sound packed doubles (copied into the upb arena -- no `‡`).
 
 use crate::Arm;
