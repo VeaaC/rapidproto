@@ -33,7 +33,7 @@
 //!
 //! - `native`: this crate's build script compiles the generator from RapidProto's C++ sources,
 //!   always optimized, and calls it in-process. It needs a C++17 compiler and a RapidProto checkout
-//!   (a path or git dependency).
+//!   (a path or git dependency, not vendored).
 //! - `wasm`: the generator is embedded as a WebAssembly module and run in the `wasmi` interpreter,
 //!   so no C++ compiler is needed.
 //!
@@ -547,9 +547,9 @@ impl Config {
             static WARNED: std::sync::Once = std::sync::Once::new();
             WARNED.call_once(|| {
                 println!(
-                    "cargo:warning=rapidproto-build: the native generator did not build ({reason}), so \
-                     the slower wasm one is used. To fix it, install a C++17 compiler and run `cargo \
-                     clean -p rapidproto-build`."
+                    "cargo:warning=rapidproto-build uses the slower wasm generator: the native one \
+                     did not build, {reason}. To use the wasm one on purpose, depend on \
+                     rapidproto-build with `default-features = false, features = [\"wasm\"]`."
                 );
             });
         }

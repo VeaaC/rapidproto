@@ -4,7 +4,17 @@
 
 use std::path::PathBuf;
 
-use rapidproto_build::{generate_with, GenError, Request, SourceFile, BACKENDS};
+use rapidproto_build::{generate_with, GenError, Request, SourceFile, BACKENDS, NATIVE_FALLBACK};
+
+/// CI builds the crate once with a failing C++ compiler and sets `RAPIDPROTO_EXPECT_FALLBACK`, so the
+/// build must have fallen back to the wasm generator.
+#[test]
+fn fell_back_when_expected() {
+    if std::env::var_os("RAPIDPROTO_EXPECT_FALLBACK").is_some() {
+        assert!(NATIVE_FALLBACK.is_some(), "expected the wasm fallback");
+        assert_eq!(BACKENDS.len(), 1, "only the wasm generator: {BACKENDS:?}");
+    }
+}
 
 // `request` through every backend, which must agree: the same output, or the same error code and
 // message.

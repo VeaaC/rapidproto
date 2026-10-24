@@ -16,9 +16,20 @@ fn main() {
     match native::compile() {
         Ok(()) => println!("cargo::rustc-cfg=rp_native"),
         Err(reason) if cfg!(feature = "wasm") => {
-            println!("cargo::rustc-env=RAPIDPROTO_BUILD_FALLBACK={reason}");
+            println!(
+                "cargo::rustc-env=RAPIDPROTO_BUILD_FALLBACK={}",
+                reason.summary
+            );
+            // Shown only when this crate is built from a path (in this repository, say).
+            println!(
+                "cargo::warning=the native generator did not build, using the wasm one: {}",
+                reason.detail
+            );
         }
-        Err(reason) => panic!("rapidproto-build: the native generator did not build: {reason}"),
+        Err(reason) => panic!(
+            "rapidproto-build: the native generator did not build: {}",
+            reason.detail
+        ),
     }
 }
 
@@ -27,12 +38,30 @@ mod native {
     use std::env;
     use std::path::{Path, PathBuf};
 
-    pub fn compile() -> Result<(), String> {
+    /// Why the native generator did not build: `summary` for the consumer's warning, with what
+    /// would fix it; `detail` for this crate's own build output.
+    pub struct Failure {
+        pub summary: String,
+        pub detail: String,
+    }
+
+    // The sources sit in the repository around this crate, so a build outside a checkout (a
+    // packaged or vendored crate) has none.
+    fn not_in_checkout(detail: String) -> Failure {
+        Failure {
+            summary: "its C++ sources are not in this build: depend on rapidproto-build from a \
+                      RapidProto checkout (a path or git dependency, not vendored)"
+                .into(),
+            detail,
+        }
+    }
+
+    pub fn compile() -> Result<(), Failure> {
         let manifest = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
         let repo = manifest.join("../..");
         let list = manifest.join("generator-sources.txt");
         let sources = std::fs::read_to_string(&list)
-            .map_err(|e| format!("cannot read {}: {e}", list.display()))?;
+            .map_err(|e| not_in_checkout(format!("cannot read {}: {e}", list.display())))?;
         let mut files: Vec<PathBuf> = sources
             .lines()
             .map(str::trim)
@@ -40,17 +69,13 @@ mod native {
             .map(|l| repo.join(l))
             .collect();
         files.push(repo.join("src/rustgen/native_entry.cpp"));
-        // The sources sit in the repository around this crate, so a build outside a checkout (a
-        // packaged crate) has none.
-        if files.iter().any(|f| !f.is_file()) {
-            return Err(
-                "its C++ sources are not here (not built from a RapidProto checkout)".into(),
-            );
+        if let Some(missing) = files.iter().find(|f| !f.is_file()) {
+            return Err(not_in_checkout(format!("{} not found", missing.display())));
         }
 
         let out = PathBuf::from(env::var("OUT_DIR").unwrap());
         let gen_include = out.join("gen-include");
-        write_version_header(&repo, &gen_include)?;
+        write_version_header(&repo, &gen_include).map_err(not_in_checkout)?;
 
         println!("cargo::rerun-if-changed={}", list.display());
         println!("cargo::rerun-if-changed={}", repo.join("include").display());
@@ -70,17 +95,24 @@ mod native {
             .files(&files)
             // No warnings for the consumer to read; a failing compile still shows its errors.
             .warnings(false);
-        let compiler = build
-            .try_get_compiler()
-            .map_err(|_| "no C++ compiler found".to_string())?;
+        let compiler = build.try_get_compiler().map_err(|e| Failure {
+            summary: "the C++ compiler could not be set up".into(),
+            detail: e.to_string(),
+        })?;
         // The flags the project's own MSVC build uses: standard conformance, exception handling
         // (native_entry.cpp catches at the C ABI), UTF-8 sources.
         if compiler.is_like_msvc() {
             build.flag("/permissive-").flag("/EHsc").flag("/utf-8");
         }
+        // A missing compiler fails here too: cc only guesses at one it cannot find.
         build
             .try_compile("rapidproto_rustgen")
-            .map_err(|_| "compiling it failed".to_string())
+            .map_err(|_| Failure {
+                summary: "no C++17 compiler could build it: install one, then run `cargo clean -p \
+                      rapidproto-build`"
+                    .into(),
+                detail: "compiling it failed (the compiler's output is above)".into(),
+            })
     }
 
     // The one CMake-generated header the generator includes, rapidproto/version.hpp, made the way

@@ -55,8 +55,8 @@ fn run(args: &Args) -> Result<(), String> {
     }
     if let Some(reason) = rapidproto_build::NATIVE_FALLBACK {
         eprintln!(
-            "note: this rapidproto-rust uses the slower wasm generator: the native one did not build \
-             ({reason})"
+            "note: this rapidproto-rust uses the slower wasm generator: the native one did not build, \
+             {reason}"
         );
     }
     let rust = args

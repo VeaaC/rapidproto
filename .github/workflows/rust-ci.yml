@@ -52,14 +52,13 @@ jobs:
       - name: Test (std + alloc)
         run: cargo test --workspace --exclude rapidproto-bench --all-features
       # rapidproto-build with one generator backend at a time (`wasm` alone: no C++ compiler needed;
-      # `native` alone: no interpreter), and the fallback a failing C++ compiler takes.
-      - name: rapidproto-build with only the wasm generator, only the native one, and the fallback
+      # `native` alone: no interpreter).
+      - name: rapidproto-build with only the wasm generator, then only the native one
         run: |
           cargo clippy -p rapidproto-build --all-targets --no-default-features --features wasm -- -D warnings
           cargo test -p rapidproto-build --no-default-features --features wasm --test smoke
           cargo clippy -p rapidproto-build --all-targets --no-default-features --features native -- -D warnings
           cargo test -p rapidproto-build --no-default-features --features native --test smoke
-          CXX=false cargo test -p rapidproto-build --test smoke
       # rapidproto-bench is excluded above (its off-by-default `google-upb` arm would need protoc under
       # `--all-features`), so test it on its own at DEFAULT features -- debug here (the agreement tests
       # + the debug-only quick-protobuf drop path) and release below.
@@ -90,6 +89,10 @@ jobs:
         run: |
           cargo build -p rustgen-golden --no-default-features --features alloc,serde
           cargo build -p rustgen-golden --no-default-features --features serde
+      # Last, since changing CXX rebuilds rapidproto-build's C++: a failing compiler must fall back
+      # to the wasm generator (the smoke test checks that it did).
+      - name: rapidproto-build falls back to the wasm generator when the C++ build fails
+        run: CXX=false RAPIDPROTO_EXPECT_FALLBACK=1 cargo test -p rapidproto-build --test smoke
 
   native-generator:
     # rapidproto-build compiles its generator with the platform's C++ compiler. Native only, so a

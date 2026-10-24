@@ -29,12 +29,13 @@ same generation surface for committing generated code instead.
 ## How the generator runs
 
 The crate's build script compiles the generator natively from RapidProto's C++ sources, which
-needs a C++17 compiler and a RapidProto checkout (a path or git dependency). If that is not
-possible, the crate uses a copy of the generator embedded as WebAssembly and run in the `wasmi`
-interpreter, and `Config::compile` warns. Both produce the same output.
+needs a C++17 compiler and a RapidProto checkout (a path or git dependency, not vendored). If that
+is not possible, the crate uses a copy of the generator embedded as WebAssembly and run in the
+`wasmi` interpreter, and `Config::compile` warns. Both produce the same output.
 
 The `native` and `wasm` features choose between them; both are on by default. With a C++ compiler
-at hand, `default-features = false, features = ["native"]` builds the least: no interpreter.
+at hand, `default-features = false, features = ["native"]` builds the least: no interpreter. To
+use the wasm generator on purpose, without the warning, enable only `wasm`.
 
 Cargo builds build scripts unoptimized by default, which makes the interpreter slow: seconds for a
 small schema, minutes for a very large one. If you use the wasm generator, optimize build-time code
