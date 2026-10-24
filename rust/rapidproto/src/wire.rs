@@ -1,6 +1,6 @@
 //! The wire-decode primitives generated decoders build on: the value-threaded free functions
 //! ([`read_tag_or_end`], [`read_varint`], [`read_fixed32`]/[`read_fixed64`], [`read_length_delimited`],
-//! [`skip`]) and an ergonomic [`Cursor`] wrapper over them.
+//! [`skip`]), [`PackedVarints`] for a packed varint run, and an ergonomic [`Cursor`] wrapper over them.
 //!
 //! # Two surfaces
 //!
@@ -139,7 +139,7 @@ impl<'a> Cursor<'a> {
     }
 
     /// Read a base-128 varint (up to 10 bytes). `Truncated` if the continuation bit is still set at
-    /// end of input; `InvalidTag` if the 10th byte sets bits above bit 0 (an over-long encoding).
+    /// end of input; `VarintOverflow` for an over-long encoding.
     /// A thin wrapper over the value-threaded [`read_varint`] free function (which is what the hot
     /// field loop calls directly); the error offset is this cursor's position, the varint start.
     #[inline]
@@ -258,22 +258,21 @@ pub fn read_varint<'a>(rest: &'a [u8], out: &mut u64) -> Result<&'a [u8], ErrorK
 // The multibyte / empty / malformed continuation of `read_varint`: everything the 1-byte fast path did
 // not handle. `#[cold]` + `#[inline(never)]` so it stays out-of-line and the MAIN per-field decode loop
 // (`read_varint`'s many call sites) keeps only the tiny fast path inline. A thin wrapper over the fully
-// inlined [`read_varint_full`] so the multibyte decode has a single definition.
+// inlined [`read_varint_full`].
 #[cold]
 #[inline(never)]
 fn read_varint_cold<'a>(rest: &'a [u8], out: &mut u64) -> Result<&'a [u8], ErrorKind> {
     read_varint_full(rest, out)
 }
 
-/// The complete varint decode, fully inlined: the 1-byte fast path AND the multibyte loop in one
-/// `#[inline(always)]` body with no out-of-line `#[cold]` tail. For a tight inner loop over a packed /
-/// repeated-field span, where inlining the whole decode avoids the per-element out-of-line call that
-/// [`read_varint`]'s `#[cold]` multibyte tail would cost on multibyte values -- matching the C++
-/// `RP_FLATTEN`ed small packed kernel. The 1-byte case costs the same as `read_varint`'s fast path (the
-/// loop returns on its first iteration). NOT for the main per-field decode loop: inlining the full loop
-/// at its many call sites spills the value-threaded slice (see `read_varint`). Re-reads from `rest`
-/// (including byte 0) so it is a correct standalone decode. `VarintOverflow` on an over-long encoding
-/// (10th byte above bit 0, or ten continuation bytes), `Truncated` if the input runs out mid-varint.
+/// The complete varint decode, fully inlined: one `#[inline(always)]` loop with no out-of-line
+/// `#[cold]` tail. The arena's per-element read over a packed span (`packed_varint`), where inlining
+/// the whole decode avoids the out-of-line call [`read_varint`] makes per multibyte value -- matching
+/// the C++ `RP_FLATTEN`ed small packed kernel. (The stream decoders' packed loops use
+/// [`PackedVarints`].) NOT for the main per-field decode loop: inlining the full loop at its many call
+/// sites spills the value-threaded slice (see `read_varint`). Re-reads from `rest` (including byte 0)
+/// so it is a correct standalone decode. `VarintOverflow` on an over-long encoding (10th byte above bit
+/// 0, or ten continuation bytes), `Truncated` if the input runs out mid-varint.
 #[inline(always)]
 pub(crate) fn read_varint_full<'a>(rest: &'a [u8], out: &mut u64) -> Result<&'a [u8], ErrorKind> {
     let mut result: u64 = 0;
@@ -298,12 +297,10 @@ pub(crate) fn read_varint_full<'a>(rest: &'a [u8], out: &mut u64) -> Result<&'a 
     }
 }
 
-/// The varints of a packed run (a packed repeated varint field's payload), read front to back, as the
-/// generated stream decoders read them. Faster than [`read_varint`] in a loop: it reads through a
-/// `slice::Iter`, a start and an end pointer, so the loop advances one pointer per byte where a `&[u8]`
-/// advances a pointer and a length -- on a run of 1-byte varints the loop is only a handful of
-/// instructions, so that one counts. And the multibyte decode is inline too, where `read_varint` calls
-/// out of line: a packed loop is one call site, so inlining it there is cheap.
+/// The varints of a packed run (a packed repeated varint field's payload), read front to back; the
+/// generated stream decoders read packed varint fields with it. Use it rather than [`read_varint`] in a
+/// loop: it decodes multibyte varints inline, where `read_varint` calls out of line, and it walks the
+/// run with one pointer against an end pointer, where a `&[u8]` advances a pointer and a length.
 pub struct PackedVarints<'a> {
     run: &'a [u8],
     rest: core::slice::Iter<'a, u8>,
@@ -312,6 +309,7 @@ pub struct PackedVarints<'a> {
 impl<'a> PackedVarints<'a> {
     /// The varints of `run`, a packed field's payload.
     #[inline(always)]
+    #[must_use]
     pub fn new(run: &'a [u8]) -> Self {
         Self {
             run,
@@ -346,21 +344,26 @@ impl<'a> PackedVarints<'a> {
         Err(self.rewind_by(10, ErrorKind::VarintOverflow))
     }
 
-    /// The bytes not yet read.
+    /// The rest of the run: from the next varint, or after an error from the malformed one.
     #[inline(always)]
+    #[must_use]
     pub fn remaining(&self) -> &'a [u8] {
         self.rest.as_slice()
     }
 
     // Point `rest` back at the malformed varint, of which `consumed` bytes were read, for its error.
-    // Rebuilt from the whole run rather than a copy of `rest` saved before each varint: keeping that
-    // copy live costs the 1-byte path a register move per element.
-    #[cold]
+    #[inline(always)]
     fn rewind_by(&mut self, consumed: usize, kind: ErrorKind) -> ErrorKind {
-        let at = self.run.len() - self.rest.len() - consumed;
-        self.rest = self.run[at..].iter();
+        self.rest = rewind(self.run, self.rest.len(), consumed);
         kind
     }
+}
+
+// `run` from the malformed varint on, given the `left` bytes after its `consumed` ones. Out of line and
+// by value, so the reader itself never has its address taken and stays in registers.
+#[cold]
+fn rewind(run: &[u8], left: usize, consumed: usize) -> core::slice::Iter<'_, u8> {
+    run[run.len() - left - consumed..].iter()
 }
 
 /// Read the next field tag, or report clean end of input as `Ok(None)` -- THE hot-loop driver a

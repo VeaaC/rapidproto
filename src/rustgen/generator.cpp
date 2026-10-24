@@ -2907,10 +2907,9 @@ void emit_stream_dispatch(Printer& printer, const std::string& name, const std::
     printer.print("}\n");
 }
 
-// Deliver each varint of the packed payload `rp_p` to `on_<name>`, as `conv` of the raw value `rp_v`.
-// `PackedVarints` reads the run through a start/end pointer pair, one pointer to advance per element
-// like the C++ decoder's loop (a `&[u8]` would advance a pointer and a length), and inlines the
-// multibyte decode. A malformed varint errors at its own offset (`remaining` starts at it).
+// Deliver each varint of the packed payload `rp_p` to `on_<name>`, as `conv` of the raw value `rp_v`,
+// read with `wire::PackedVarints`. A malformed varint errors at its own offset (`remaining` starts at
+// it after the error).
 void emit_packed_varints_loop(Printer& printer, const std::string& name, const std::string& conv) {
     printer.print("let mut rp_pv = ::rapidproto::wire::PackedVarints::new(rp_p);\n");
     printer.print("loop {\n");
