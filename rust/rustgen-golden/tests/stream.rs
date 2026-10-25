@@ -9,7 +9,8 @@
 //! field fired per element, an enum delivered as its typed newtype, a oneof member selected
 //! individually, a recursive sub-message handed its typed reader handle (`sub.decode(..)`), error
 //! propagation from a malformed sub-message, the `unknown`-field handler, `Flow::Stop`, map entries
-//! (scalar, bytes and message values), and a hand-implemented visitor; the shared-state form
+//! (scalar, bytes and message values), the field-order probes agreeing with the decode loop, and a
+//! hand-implemented visitor; the shared-state form
 //! `msg_stream!(&mut state; { field => |state, value| .. })` aggregating many fields into one
 //! accumulator re-threaded across nested decodes. The glob of a message's stream module brings in its
 //! handle, trait and macro plus the hidden per-message scope the expansion names everything through, so
@@ -105,19 +106,22 @@ fn packed_repeated_fires_once_per_element() {
 
 #[test]
 fn a_malformed_packed_element_errors_at_its_own_offset() {
-    // nums (field 6), packed after implicit_i so the payload starts mid-body: 1 and 300 arrive, then
-    // a varint the payload cuts off is Truncated at its own offset, not the payload's or the field's.
-    let mut input = vec![0x08, 0x2a];
-    put_len(&mut input, 6, &[0x01, 0xac, 0x02, 0x80]);
-    let mut nums = Vec::new();
-    let err = Msg::new(&input)
-        .decode(msg_stream! { nums => |v| nums.push(v) })
-        .unwrap_err();
-    assert_eq!(nums, vec![1, 300]);
-    assert_eq!(
-        (err.kind(), err.offset()),
-        (ErrorKind::Truncated, input.len() - 1)
-    );
+    // nums (field 6), packed after another field so the payload starts mid-body: 1 and 300 arrive,
+    // then a varint the payload cuts off is Truncated at its own offset, not the payload's or the
+    // field's. After implicit_i (1) the run meets its field-order probe; after a (10), the loop's arm.
+    for prefix in [[0x08, 0x2a], [0x50, 0x01]] {
+        let mut input = prefix.to_vec();
+        put_len(&mut input, 6, &[0x01, 0xac, 0x02, 0x80]);
+        let mut nums = Vec::new();
+        let err = Msg::new(&input)
+            .decode(msg_stream! { nums => |v| nums.push(v) })
+            .unwrap_err();
+        assert_eq!(nums, vec![1, 300]);
+        assert_eq!(
+            (err.kind(), err.offset()),
+            (ErrorKind::Truncated, input.len() - 1)
+        );
+    }
 
     // An over-long element (ten continuation bytes) errors at its first byte as well.
     let mut payload = vec![0x05];
@@ -170,12 +174,15 @@ fn oneof_member_is_individually_selectable() {
 
 #[test]
 fn an_unknown_handler_receives_only_non_schema_fields() {
-    // Mirrors C++ "an unknown-field handler receives only non-schema fields".
+    // Mirrors C++ "an unknown-field handler receives only non-schema fields". The known, unselected
+    // fields follow an undeclared one, so the loop's catch-all, not a field-order probe, meets them.
     let mut buf = Vec::new();
     put_var(&mut buf, 1, 7); // implicit_i: known, selected
-    put_var(&mut buf, 2, 20); // explicit_i: known, NOT selected
     put_var(&mut buf, 99, 42); // undeclared
+    put_var(&mut buf, 2, 20); // explicit_i: known, NOT selected
     put_len(&mut buf, 100, b"hi"); // undeclared, length-delimited
+    put_len(&mut buf, 9, &[0x0a, 0x01, b'k', 0x10, 0x01]); // counts (map): known, NOT selected
+    put_var(&mut buf, 10, 5); // a (oneof member): known, NOT selected
     #[derive(Default)]
     struct Seen {
         known: i32,
@@ -201,8 +208,9 @@ fn an_unknown_handler_receives_only_non_schema_fields() {
         }))
         .unwrap();
     assert_eq!(seen.known, 7);
-    assert_eq!(seen.numbers, vec![99, 100]); // not field 2: known, merely unselected
-                                             // The raw value bytes after the tag: the varint itself, or a LEN field with its length prefix.
+    // Not fields 2, 9 or 10: known, merely unselected.
+    assert_eq!(seen.numbers, vec![99, 100]);
+    // The raw value bytes after the tag: the varint itself, or a LEN field with its length prefix.
     assert_eq!(seen.varint_bytes, [0x2a]);
     assert_eq!(seen.len_bytes, b"\x02hi");
 
@@ -735,8 +743,8 @@ fn oneof_members_fire_per_occurrence_in_wire_order() {
 #[test]
 fn a_field_past_a_straddling_oneof_is_reached() {
     // Mirrors C++ "a probe past a straddling oneof reaches the member". `mid` (4) precedes the oneof's
-    // int member `tail` (5), whose oneof also holds a group member. (The C++ decoder's probe chain has
-    // no Rust stream counterpart; this pins the outcome.)
+    // int member `tail` (5), whose oneof also holds a group member: the field-order probes take `mid`
+    // and `tail` and leave the group to the loop.
     use rustgen_golden::proto2::stream::p2::*;
     let mut buf = Vec::new();
     put_var(&mut buf, 4, 7);
@@ -999,8 +1007,15 @@ fn the_one_byte_tag_fast_path_matches_the_general_path() {
         Ok(seen)
     };
 
-    // Both sides of the boundary decode in one message.
+    // Both sides of the boundary decode in one message: in field order through the field-order
+    // probes, and after a repeat of field 1 through the loop's one- and two-byte tag reads.
     let mut buf = Vec::new();
+    put_var(&mut buf, 1, 123);
+    put_var(&mut buf, 16, 2);
+    let seen = decode(&buf).unwrap();
+    assert_eq!((seen.i32, seen.color), (Some(123), Some(2)));
+    let mut buf = Vec::new();
+    put_var(&mut buf, 1, 5);
     put_var(&mut buf, 1, 123);
     put_var(&mut buf, 16, 2);
     let seen = decode(&buf).unwrap();
@@ -1027,6 +1042,124 @@ fn the_one_byte_tag_fast_path_matches_the_general_path() {
     put_varint(&mut buf, 55);
     let seen = decode(&buf).unwrap();
     assert_eq!((seen.i32, seen.unknown.len()), (Some(55), 0));
+}
+
+#[test]
+fn the_field_order_probes_and_the_loop_deliver_the_same_events() {
+    // In field order, fields go through the field-order probes ahead of the decode loop; reversed (an
+    // undeclared field first), every probe misses and the loop's arms take them. Both deliver the same
+    // events in wire order, with every field selected and with a subset, whose other fields a probe's
+    // constant-key skip or the loop's catch-all skips.
+    let mut nested = Vec::new();
+    put_var(&mut nested, 1, 9);
+    let mut packed = Vec::new();
+    put_varint(&mut packed, 1);
+    put_varint(&mut packed, 300);
+    let record = |put: &dyn Fn(&mut Vec<u8>)| {
+        let mut b = Vec::new();
+        put(&mut b);
+        b
+    };
+    // Each field occurrence with the events it yields, in field order.
+    let records = [
+        (record(&|b| put_var(b, 1, 7)), "i=7"),
+        (record(&|b| put_var(b, 2, 300)), "x=300"),
+        (record(&|b| put_len(b, 3, b"n")), "name=n"),
+        (record(&|b| put_var(b, 4, 1)), "state=1"),
+        (record(&|b| put_len(b, 5, &nested)), "self.i=9"),
+        (record(&|b| put_var(b, 6, 5)), "nums=5"),
+        (record(&|b| put_len(b, 6, &packed)), "nums=1 nums=300"),
+        (
+            record(&|b| put_len(b, 9, &[0x0a, 0x01, b'k', 0x10, 0x02])),
+            "counts=k:2",
+        ),
+        (record(&|b| put_var(b, 10, 42)), "a=42"),
+        (
+            record(&|b| {
+                put_tag(b, 20, 1);
+                b.extend(2.5f64.to_le_bytes());
+            }),
+            "ratio=2.5",
+        ),
+        (
+            record(&|b| {
+                put_tag(b, 21, 5);
+                b.extend(1.5f32.to_le_bytes());
+            }),
+            "scale=1.5",
+        ),
+        (record(&|b| put_var(b, 99, 1)), "unknown=99"),
+    ];
+    let all = |buf: &[u8]| {
+        let mut events: Vec<String> = Vec::new();
+        Msg::new(buf)
+            .decode(msg_stream!(&mut events; {
+                implicit_i => |e, v| e.push(format!("i={v}")),
+                explicit_i => |e, v| e.push(format!("x={v}")),
+                name => |e, v| e.push(format!("name={}", v.to_str().unwrap())),
+                state => |e, v| e.push(format!("state={}", v.0)),
+                self_ => |e, sub| {
+                    let mut i = 0;
+                    sub.decode(msg_stream! { implicit_i => |v| i = v })?;
+                    e.push(format!("self.i={i}"));
+                    Ok::<(), DecodeError>(())
+                },
+                nums => |e, v| e.push(format!("nums={v}")),
+                counts => |e, (k, v)| e.push(format!("counts={}:{v}", k.to_str().unwrap())),
+                a => |e, v| e.push(format!("a={v}")),
+                ratio => |e, v| e.push(format!("ratio={v}")),
+                scale => |e, v| e.push(format!("scale={v}")),
+                unknown => |e, u| e.push(format!("unknown={}", u.field_number())),
+            }))
+            .unwrap();
+        events
+    };
+    let subset = |buf: &[u8]| {
+        let mut events: Vec<String> = Vec::new();
+        Msg::new(buf)
+            .decode(msg_stream!(&mut events; {
+                explicit_i => |e, v| e.push(format!("x={v}")),
+                counts => |e, (k, v)| e.push(format!("counts={}:{v}", k.to_str().unwrap())),
+                scale => |e, v| e.push(format!("scale={v}")),
+                unknown => |e, u| e.push(format!("unknown={}", u.field_number())),
+            }))
+            .unwrap();
+        events
+    };
+    let in_subset = |e: &&str| {
+        ["x=", "counts=", "scale=", "unknown="]
+            .iter()
+            .any(|p| e.starts_with(p))
+    };
+    let forward: Vec<_> = records.iter().collect();
+    let reversed: Vec<_> = records.iter().rev().collect();
+    for order in [&forward, &reversed] {
+        let buf: Vec<u8> = order.iter().flat_map(|(b, _)| b.iter().copied()).collect();
+        let expected: Vec<&str> = order.iter().flat_map(|(_, e)| e.split(' ')).collect();
+        assert_eq!(all(&buf), expected);
+        let expected: Vec<&str> = expected.into_iter().filter(in_subset).collect();
+        assert_eq!(subset(&buf), expected);
+    }
+
+    // A handler stopping inside a self-looping probe ends the walk there.
+    let buf: Vec<u8> = forward
+        .iter()
+        .flat_map(|(b, _)| b.iter().copied())
+        .collect();
+    let mut nums = Vec::new();
+    Msg::new(&buf)
+        .decode(msg_stream! { nums => |v| { nums.push(v); Flow::Stop } })
+        .unwrap();
+    assert_eq!(nums, [5]);
+
+    // A malformed field nobody selected errors at its value either way: through its probe's
+    // constant-key skip, and through the loop's catch-all once a oneof member came first.
+    let err = Msg::new(&[0x08, 0x80]).decode(msg_stream! {}).unwrap_err();
+    assert_eq!((err.kind(), err.offset()), (ErrorKind::Truncated, 1));
+    let err = Msg::new(&[0x50, 0x01, 0x08, 0x80])
+        .decode(msg_stream! {})
+        .unwrap_err();
+    assert_eq!((err.kind(), err.offset()), (ErrorKind::Truncated, 3));
 }
 
 #[test]

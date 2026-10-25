@@ -1103,13 +1103,12 @@ void emit_reserve(Printer& printer, const std::string& acc, const std::string& c
         {{"acc", acc}, {"c", count}});
 }
 
-// Advance the slice `at.src` past the current unmatched field via `skip_field` (given its raw tag key
-// `rp_tagkey`), erroring at `at.off`. The loop's `_` catch-all uses this: the peek hub dispatches on
-// the raw key, so an unknown or wrong-wire field reaches here with only the key (no rebuilt Tag), and
+// Advance the slice `at.src` past the current field via `skip_field`, given its raw tag key `key`,
+// erroring at `at.off`. The loop's `_` catch-all passes `rp_tagkey`: the peek hub dispatches on the raw
+// key, so an unknown or wrong-wire field reaches here with only the key (no rebuilt Tag), and
 // `skip_field` reconstructs the wire type -- rejecting a malformed one-byte tag (field 0 / reserved
-// wire code) as InvalidTag, the kind a full tag read would have raised.
-// `key` is the key expression: the loop's `rp_tagkey`, or a constant one (a threaded probe's), for
-// which `skip_field` folds to that wire type's skip.
+// wire code) as InvalidTag, the kind a full tag read would have raised. A stream probe passes its
+// field's constant key, for which `skip_field` folds to that wire type's skip.
 void emit_skip_field_body(Printer& printer, const ReadAt& at,
                           const std::string& key = "rp_tagkey") {
     printer.print("$s$ = match ::rapidproto::wire::skip_field($s$, $k$) {\n",
@@ -1867,14 +1866,31 @@ struct ThreadItem {
     const MapFieldNode* map = nullptr;            // non-null only for ThreadKind::Map
 };
 
-// Append the threadable maps of `msg` to `items`. A map is a repeated series of LEN entries, so it
-// self-loops like a repeated field; threaded up to a two-byte tag (<= 2047). A dropped map is left to
-// the hub (skipped there).
+// Whether the Rust prologues (arena and stream) thread a repeated field, which self-loops on its own
+// element tag. A group element (SGROUP/EGROUP-delimited) must NOT thread as a bare LEN self-loop -- it
+// dispatches on the SGroup hub arm and reads via `read_group` -- so a repeated group field is excluded
+// (mirroring arenagen's `is_threaded` "delimited never thread"); its elements decode through the hub.
+// Unlike the C++ reference (repeated threads at a one-byte tag only), Rust threads up to a two-byte
+// tag (<= 2047): lacking C++'s goto re-entry, an unthreaded field ends the straight-line prologue for
+// everything after it, so a two-byte repeated field left out would break threading of a well-ordered
+// message's tail.
+bool is_threadable_repeated(const FieldNode& field) {
+    const bool group =
+        field.is_message_type && field.message_encoding == MessageEncoding::Delimited;
+    return field.number >= 1 && field.number <= codegen::kMaxTwoByteTagField && !group;
+}
+
+// Whether the Rust prologues thread a map: a repeated series of LEN entries, so it self-loops like a
+// repeated field, up to a two-byte tag (<= 2047).
+bool is_threadable_map(const MapFieldNode& map) {
+    return map.number >= 1 && map.number <= codegen::kMaxTwoByteTagField;
+}
+
+// Append the threadable maps of `msg` to `items`. A dropped map is left to the hub (skipped there).
 void append_map_threaded_items(const MessageNode& msg, const FieldModes& modes,
                                std::vector<ThreadItem>& items) {
     for (const MapFieldNode& map : msg.map_fields) {
-        if (map_mode(modes, map) == arenagen::FieldMode::Drop || map.number < 1 ||
-            map.number > codegen::kMaxTwoByteTagField) {
+        if (map_mode(modes, map) == arenagen::FieldMode::Drop || !is_threadable_map(map)) {
             continue;
         }
         items.push_back(
@@ -1916,17 +1932,7 @@ std::vector<ThreadItem> collect_threaded_items(const NameTable& table, const Mes
             continue;  // dropped/raw fields are never threaded (handled by the hub loop / catch-all)
         }
         if (f.is_repeated) {
-            // Repeated fields self-loop on their own element tag. A group element (SGROUP/EGROUP-
-            // delimited) must NOT thread as a bare LEN self-loop -- it dispatches on the SGroup hub arm
-            // and reads via `read_group` -- so a repeated group field is excluded here (mirroring
-            // arenagen's `is_threaded` "delimited never thread"); its elements decode through the hub.
-            // Unlike the C++ reference (repeated threads at a one-byte tag only), Rust threads up to a
-            // two-byte tag (<= 2047): lacking C++'s goto re-entry, an unthreaded field ends the
-            // straight-line prologue for everything after it, so a two-byte repeated field left out
-            // would break threading of a well-ordered message's tail.
-            const bool group =
-                f.is_message_type && f.message_encoding == MessageEncoding::Delimited;
-            if (f.number >= 1 && f.number <= codegen::kMaxTwoByteTagField && !group) {
+            if (is_threadable_repeated(f)) {
                 const std::string wire = f.is_message_type ? "Len" : scalar_wire_variant(f);
                 const bool packable = !f.is_message_type && wire != "Len";
                 items.push_back({f.number, ThreadKind::Repeated, packable, wire, &f, false, nullptr,
@@ -2868,7 +2874,7 @@ std::string stream_slot_value_type(const NameTable& table,
 // `pub trait <Msg>Visitor<'a> { const WANT_<f>: bool = false; fn on_<f>(&mut self, V) -> Result<Flow>
 // { Ok(Continue) } .. const WANT_UNKNOWN; fn on_unknown(..) .. }` -- the handler surface a consumer
 // overrides. Every const defaults false and every method to a no-op continue, so an un-overridden field
-// is genuinely unselected (its arm folds to a pure skip). The `<'a>` is always present.
+// is genuinely unselected (its read compiles away, leaving only its skip). The `<'a>` is always present.
 void emit_stream_visitor_trait(Printer& printer, const NameTable& table,
                                const std::vector<std::string>& current_mod,
                                const std::vector<StreamSlot>& slots, const StreamAliases& aliases) {
@@ -2993,7 +2999,7 @@ std::string driver_handle_path(const NameTable& table, const std::vector<std::st
 
 // Open the `match rp_tagkey` arm for raw key `key`, guarded by the slot's `V::WANT_<name>`. The guard
 // is a constant, so an arm the visitor does not select compiles away and its field falls to the `_`
-// catch-all, which skips it: one skip site per decode for every unselected field.
+// catch-all, which skips it: one skip site in the loop for every unselected field.
 void emit_stream_arm_open(Printer& printer, const std::string& key, const std::string& name) {
     printer.print("$k$ if V::WANT_$n$ => {\n", {{"k", key}, {"n", name}});
     printer.indent();
@@ -3118,12 +3124,17 @@ bool stream_slot_packable(const StreamSlot& slot) {
            scalar_wire_variant(*slot.field) != "Len";
 }
 
+// The field number of the slot's field or map.
+int stream_slot_number(const StreamSlot& slot) {
+    return slot.map != nullptr ? slot.map->number : slot.field->number;
+}
+
 // The `match rp_tagkey` arm(s) for one slot in the decode driver, each read + deliver (unselected
 // fields are skipped by the catch-all, see `emit_stream_arm_open`). A repeated numeric field emits an
 // unpacked arm + a packed arm (per element).
 void emit_stream_arm(Printer& printer, const NameTable& table,
                      const std::vector<std::string>& current_mod, const StreamSlot& slot) {
-    const int number = slot.map != nullptr ? slot.map->number : slot.field->number;
+    const int number = stream_slot_number(slot);
     emit_stream_arm_open(printer, raw_tag_key(number, stream_slot_wire(slot)), slot.name);
     if (slot.map != nullptr) {
         emit_stream_map_body(printer, table, current_mod, slot);
@@ -3141,8 +3152,9 @@ void emit_stream_arm(Printer& printer, const NameTable& table,
 // Field-order threading for the stream driver: the arena prologue's straight-line probe chain (see
 // `emit_threaded_prologue` for why it is straight-line and why its scope is broader than the C++
 // reference's), with the same scope: singular fields and oneof members admitted by
-// codegen::is_threadable_singular, plus repeated non-group fields and maps up to a two-byte tag, which
-// self-loop (a repeated numeric also probes its packed run). A probed field is delivered when the
+// codegen::is_threadable_singular, plus the repeated fields and maps admitted by
+// `is_threadable_repeated` / `is_threadable_map`, which self-loop (a repeated numeric also probes its
+// packed run). A probed field is delivered when the
 // visitor selects it and skipped otherwise, through `skip_field` with its constant tag, which folds to
 // that wire type's skip -- as C++ streamgen skips an unselected threaded field. So a well-ordered
 // message with few selected fields costs one tag compare per field, with no `match` and no runtime
@@ -3150,27 +3162,26 @@ void emit_stream_arm(Printer& printer, const NameTable& table,
 void emit_stream_prologue(Printer& printer, const NameTable& table,
                           const std::vector<std::string>& current_mod,
                           const std::vector<StreamSlot>& slots) {
-    std::vector<std::pair<int, const StreamSlot*>> items;
+    std::vector<const StreamSlot*> items;
     for (const StreamSlot& slot : slots) {
+        bool threadable = false;
         if (slot.map != nullptr) {
-            if (slot.map->number >= 1 && slot.map->number <= codegen::kMaxTwoByteTagField) {
-                items.emplace_back(slot.map->number, &slot);
-            }
-            continue;
+            threadable = is_threadable_map(*slot.map);
+        } else if (slot.field->is_repeated) {
+            threadable = is_threadable_repeated(*slot.field);
+        } else {
+            threadable = codegen::is_threadable_singular(*slot.field);
         }
-        const FieldNode& f = *slot.field;
-        const bool group = f.is_message_type && f.message_encoding == MessageEncoding::Delimited;
-        const bool threadable =
-            f.is_repeated ? (f.number >= 1 && f.number <= codegen::kMaxTwoByteTagField && !group)
-                          : codegen::is_threadable_singular(f);
         if (threadable) {
-            items.emplace_back(f.number, &slot);
+            items.push_back(&slot);
         }
     }
-    std::stable_sort(items.begin(), items.end(),
-                     [](const auto& a, const auto& b) { return a.first < b.first; });
-    const auto probe = [&](int number, const std::string& wire, bool self_loop,
-                           const StreamSlot& slot, auto&& body) {
+    std::sort(items.begin(), items.end(), [](const StreamSlot* a, const StreamSlot* b) {
+        return stream_slot_number(*a) < stream_slot_number(*b);
+    });
+    const auto probe = [&](const StreamSlot& slot, const std::string& wire, bool self_loop,
+                           auto&& body) {
+        const int number = stream_slot_number(slot);
         emit_probe_open(printer, number, wire, self_loop);
         printer.print("if V::WANT_$n$ {\n", {{"n", slot.name}});
         printer.indent();
@@ -3183,20 +3194,19 @@ void emit_stream_prologue(Printer& printer, const NameTable& table,
         printer.print("}\n");
         emit_probe_close(printer);
     };
-    for (const auto& item : items) {
-        const StreamSlot& slot = *item.second;
-        const bool self_loop = slot.map != nullptr || slot.field->is_repeated;
-        probe(item.first, stream_slot_wire(slot), self_loop, slot, [&] {
-            if (slot.map != nullptr) {
-                emit_stream_map_body(printer, table, current_mod, slot);
+    for (const StreamSlot* slot : items) {
+        const bool self_loop = slot->map != nullptr || slot->field->is_repeated;
+        probe(*slot, stream_slot_wire(*slot), self_loop, [&] {
+            if (slot->map != nullptr) {
+                emit_stream_map_body(printer, table, current_mod, *slot);
             } else {
-                emit_stream_value_body(printer, table, current_mod, slot);
+                emit_stream_value_body(printer, table, current_mod, *slot);
             }
         });
-        if (stream_slot_packable(slot)) {
+        if (stream_slot_packable(*slot)) {
             // One packed run (a second falls to the hub loop).
-            probe(item.first, "Len", /*self_loop=*/false, slot,
-                  [&] { emit_stream_packed_body(printer, table, current_mod, slot); });
+            probe(*slot, "Len", /*self_loop=*/false,
+                  [&] { emit_stream_packed_body(printer, table, current_mod, *slot); });
         }
     }
 }
@@ -3257,7 +3267,8 @@ void emit_stream_unknown_arm(Printer& printer, const MessageNode& msg) {
 }
 
 // `pub struct Msg<'a> { .. }` reader handle (`Msg::new(bytes).decode(visitor)`) + the decode driver:
-// the shared peek-hub field loop, each arm gated on its field's `WANT_` const.
+// the field-order probes, then the shared peek-hub field loop, each arm gated on its field's `WANT_`
+// const.
 void emit_stream_decode(Printer& printer, const NameTable& table,
                         const std::vector<std::string>& current_mod, const MessageNode& msg,
                         const std::vector<StreamSlot>& slots) {

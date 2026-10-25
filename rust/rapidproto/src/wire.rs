@@ -609,9 +609,10 @@ pub fn read_group<'a>(
     Ok(rest)
 }
 
-/// Skip a field the generated decoder had no typed arm for, given its raw tag key
-/// (`field << 3 | wire_code` -- the value the decode loop's one-byte peek hub dispatches on).
-/// Reconstructs the wire type and skips the field's value, returning the slice past it.
+/// Skip a field the generated decoder does not read, given its raw tag key (`field << 3 | wire_code`
+/// -- the value the decode loop's one-byte peek hub dispatches on, or a stream decoder's constant key
+/// for an unselected field). Reconstructs the wire type and skips the field's value, returning the
+/// slice past it.
 ///
 /// `rest` is positioned at the field's VALUE (the tag already consumed), like [`skip`]. The key may
 /// be unvalidated: the hot loop's one-byte fast path builds it straight from the tag byte without the
@@ -643,27 +644,11 @@ pub fn skip_field(rest: &[u8], key: u32) -> Result<&[u8], ErrorKind> {
     skip_field_cold(rest, key)
 }
 
-// Past one varint, without assembling its value; the errors are `read_varint`'s.
+// Past one varint. Inlined, the value it assembles is dead, so this is a scan for the last byte.
 #[inline(always)]
 fn skip_varint(rest: &[u8]) -> Result<&[u8], ErrorKind> {
-    if let Some((&b0, tail)) = rest.split_first() {
-        if b0 & 0x80 == 0 {
-            return Ok(tail);
-        }
-    }
-    for (i, &byte) in rest.iter().take(10).enumerate() {
-        if byte & 0x80 == 0 {
-            if i == 9 && byte > 0x01 {
-                return Err(ErrorKind::VarintOverflow);
-            }
-            return Ok(&rest[i + 1..]);
-        }
-    }
-    if rest.len() >= 10 {
-        Err(ErrorKind::VarintOverflow)
-    } else {
-        Err(ErrorKind::Truncated)
-    }
+    let mut value = 0;
+    read_varint_inline(rest, &mut value)
 }
 
 // `skip_field` for a group, an end-group or a malformed key.
@@ -1079,6 +1064,14 @@ mod tests {
         assert_eq!(skip_field(&[], 0x04).unwrap_err(), ErrorKind::InvalidTag);
         // A reserved wire code (7) is InvalidTag: field 1, wire 7 -> key 0x0f.
         assert_eq!(skip_field(&[], 0x0f).unwrap_err(), ErrorKind::InvalidTag);
+        // Field 0 with a scalar wire type is InvalidTag too, though its value would skip.
+        for key in [0x00, 0x01, 0x02, 0x05] {
+            assert_eq!(
+                skip_field(&[0; 16], key),
+                Err(ErrorKind::InvalidTag),
+                "{key:#x}"
+            );
+        }
         // A large (multi-byte) field number round-trips through the key losslessly: field 2^29 - 1,
         // wire Len, skipping an empty payload.
         let big = key(MAX_FIELD_NUMBER, WireType::Len);
