@@ -80,7 +80,7 @@ fn recordset_arms_agree() {
                 f7: true,
                 f8: 8,
                 f9: 9,
-                f10: 10,
+                f10: -10,
                 f11: 11,
                 f12: 12,
                 f13: 13,
@@ -104,10 +104,11 @@ fn recordset_arms_agree() {
     };
     let bytes = rs.encode_to_vec();
     all_agree(rapidproto_bench::recordset_arms(), &bytes);
-    // The drop profile's decoder reads the three kept fields and skips the rest, s1 included.
+    // The drop profile's decoder reads the three kept fields and skips the rest, s1 included. A
+    // negative int32 sign-extends to u64, as the C++ arms' `static_cast<std::uint64_t>` does.
     assert_eq!(
         all_agree(rapidproto_bench::recordset_sparse_arms(), &bytes),
-        1 + 10 + 20
+        1u64.wrapping_add(-10i64 as u64).wrapping_add(20)
     );
 }
 

@@ -1,7 +1,7 @@
 # Decode profile for the arena benches' `records sparse (dropped)` scenario: each Record keeps f1, f10
 # and f20, the fields the streaming bench's `records sparse (stream)` reads, and drops the rest. Used
 # by the C++ arena bench (CMakeLists.txt) and the Rust golden `bench_records_sparse`
-# (tests/test_rustgen.cpp).
+# (tests/test_rustgen.cpp, rust/rapidproto-build/tests/goldens.rs).
 name records_sparse
 
 drop bench.Record.f2

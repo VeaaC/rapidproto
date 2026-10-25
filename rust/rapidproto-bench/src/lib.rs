@@ -168,8 +168,8 @@ pub fn recordset_arms() -> Vec<Arm> {
 pub fn particleset_arms() -> Vec<Arm> {
     arms!(particleset)
 }
-/// `records sparse (dropped)`: RapidProto's arms only, as in C++. A drop profile is RapidProto's
-/// own feature, and the competitors would decode every field.
+/// `records sparse (dropped)`: RapidProto's arms only. The scenario measures RapidProto's drop
+/// profile against C++'s, where protoc's full parse is the baseline arm.
 pub fn recordset_sparse_arms() -> Vec<Arm> {
     ours::recordset_sparse()
 }

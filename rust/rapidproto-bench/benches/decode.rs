@@ -10,7 +10,8 @@
 //! - `records`    -- scalar-only records, 20 fields incl. 2-byte-tag nested sub-messages (dispatch-bound).
 //! - `particles`  -- small records with always-present fixed-size value sub-messages.
 //!
-//! Each shape runs cold (group `decode`) and warm (group `decode_warm`). Also: the repeated-varint
+//! Plus `records sparse (dropped)`: the `records` payload under a drop profile that keeps 3 of the
+//! 20 fields (`tests/bench/records_sparse.modes`). Each shape runs cold (group `decode`) and warm (group `decode_warm`). Also: the repeated-varint
 //! sweeps `rv <dist> <count>`, `rv-zz ..`, `rv-enum ..` (group `decode_rv`: a single `Big` carrying one
 //! packed varint field, across element byte width x count) and the real-world datasets with every arm
 //! (group `decode_external`, see `rapidproto_bench::external`).
@@ -37,6 +38,7 @@ use rapidproto::Arena;
 use rapidproto_bench::checksum::*;
 use rapidproto_bench::payloads::{self, Source};
 use rustgen_golden::bench::arena::bench::{Big, BigSet, Dataset, ParticleSet, RecordSet, WideSet};
+use rustgen_golden::bench_records_sparse::arena::bench::RecordSet as SparseRecordSet;
 
 // --- wire encoders (the decoder is the system under test, not these) ---
 fn put_varint(b: &mut Vec<u8>, mut v: u64) {
@@ -430,6 +432,14 @@ fn decode_bench(c: &mut Criterion) {
             &records_bin,
             RecordSet,
             checksum_recordset
+        );
+        scenario!(
+            group,
+            warm,
+            "records sparse (dropped)",
+            &records_bin,
+            SparseRecordSet,
+            checksum_recordset_sparse
         );
         scenario!(
             group,

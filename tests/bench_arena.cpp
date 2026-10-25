@@ -58,12 +58,12 @@
 #include <string_view>
 #include <vector>
 
-#include "bench.pb.h"              // protoc: bench::Dataset / WideSet / BigSet
-#include "bench.rp.hpp"            // arenagen: rp::arena::bench::Dataset / WideSet / BigSet
-#include "bench.rp.stream.hpp"     // streamgen: rp::stream::bench::Dataset
-#include "bench_arm_messages.hpp"  // google_message1/2 scenarios (declaration only; own TU)
-#include "bench_arm_osm.hpp"       // OSM PBF scenarios (declaration only; own TU)
-#include "bench_arm_records_sparse.hpp"
+#include "bench.pb.h"                    // protoc: bench::Dataset / WideSet / BigSet
+#include "bench.rp.hpp"                  // arenagen: rp::arena::bench::Dataset / WideSet / BigSet
+#include "bench.rp.stream.hpp"           // streamgen: rp::stream::bench::Dataset
+#include "bench_arm_messages.hpp"        // google_message1/2 scenarios (declaration only; own TU)
+#include "bench_arm_osm.hpp"             // OSM PBF scenarios (declaration only; own TU)
+#include "bench_arm_records_sparse.hpp"  // records under a drop profile (declaration only; own TU)
 #include "bench_baselines.hpp"  // third-party baselines, in their own TUs (see that header)
 #include "bench_harness.hpp"  // rpbench: the shared measurement harness (also used by rapidproto_bench)
 #include "bench_payloads.hpp"  // the shared payload directory (RAPIDPROTO_BENCH_DIR / _DUMP_DIR)
