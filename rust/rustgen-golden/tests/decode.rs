@@ -1095,6 +1095,38 @@ fn dropped_field_record_is_still_wire_validated() {
 }
 
 #[test]
+fn dropped_fields_in_field_order_are_skipped() {
+    // debug (2), extra (3) and old_ids (4) are DROPPED. Written in field order between kept fields,
+    // each is skipped by its own in-order probe (old_ids unpacked twice, then packed), and the kept
+    // fields after them still decode. A truncated dropped value there is still a wire error.
+    let mut buf = Vec::new();
+    put_var(&mut buf, 1, 11); // keep
+    put_var(&mut buf, 2, 300); // debug
+    put_len(&mut buf, 3, &[0x0a, 0x01, b'x']); // extra
+    put_var(&mut buf, 4, 1); // old_ids
+    put_var(&mut buf, 4, 2);
+    put_len(&mut buf, 4, &[3, 4]); // old_ids, packed
+    put_var(&mut buf, 5, 55); // must
+    put_var(&mut buf, 6, 66); // big_num
+    let mut rb = Vec::new();
+    put_len(&mut rb, 1, b"r");
+    put_len(&mut buf, 13, &rb); // req_blob
+    let arena = Arena::new();
+    let h = ModedHolder::decode(&buf, &arena).unwrap();
+    assert_eq!((h.keep(), h.must(), h.big_num()), (Some(11), 55, Some(66)));
+    assert_eq!(h.req_blob(), Some(&rb[..]));
+
+    let mut bad = Vec::new();
+    put_var(&mut bad, 1, 11); // keep
+    put_tag(&mut bad, 2, 0); // debug's tag...
+    bad.push(0x80); // ...and a truncated varint
+    assert!(matches!(
+        ModedHolder::decode(&bad, &arena),
+        Err(e) if e.kind() == ErrorKind::Truncated
+    ));
+}
+
+#[test]
 fn cross_file_imported_submessages_decode_through_the_forwarder() {
     // Main's fields are imported dep.Dep types -- singular (d), repeated (ds), map value (dm), oneof
     // member (od). They decode through the cross-file rp_decode_into forwarder. Mirrors C++ "imported

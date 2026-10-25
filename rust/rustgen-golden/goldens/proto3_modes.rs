@@ -317,6 +317,13 @@ pub mod arena {
           rp_field_2 = rp_v as i32;
           rp_presence |= 1 << 0;
         }
+        if rp_rest.first() == ::core::option::Option::Some(&26u8) {
+          rp_rest = &rp_rest[1..];
+          rp_rest = match ::rapidproto::wire::skip_field(rp_rest, 26u32) {
+            ::core::result::Result::Ok(r) => r,
+            ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          };
+        }
         if rp_rest.first() == ::core::option::Option::Some(&32u8) {
           rp_rest = &rp_rest[1..];
           let mut rp_v = 0u64;
