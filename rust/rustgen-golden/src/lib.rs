@@ -233,6 +233,10 @@ pub mod bench {
     include!("../goldens/bench.rs");
 }
 
+pub mod bench_records_sparse {
+    include!("../goldens/bench_records_sparse.rs");
+}
+
 pub mod wire_all {
     include!("../goldens/wire_all.rs");
 }

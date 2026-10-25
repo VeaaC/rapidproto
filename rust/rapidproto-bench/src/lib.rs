@@ -10,8 +10,8 @@
 //! `Arena` per decode); `rapidproto-warm`, one arena reset per decode; and `rapidproto-stream`, the
 //! streaming decoder, where the C++ bench runs one. Then each competitor crate (a module under
 //! `competitors/` and a line in the `arms!` macro below): prost, rust-protobuf, quick-protobuf,
-//! femtopb, and google-upb behind its feature. The real-world datasets run RapidProto's arms only
-//! ([`external`]).
+//! femtopb, and google-upb behind its feature. The real-world datasets ([`external`]) and
+//! `records sparse (dropped)` run RapidProto's arms only.
 //!
 //! CHECKSUM. On the shared shapes (`tests/bench/bench.proto`) every arm walks every field into one
 //! wrapping `u64` sum, so a lazy or owning decoder is not flattered by skipping work, and a scenario's
@@ -20,7 +20,8 @@
 //! contributes its element COUNT where C++ sums the elements' lengths, so on these shapes the sum is a
 //! per-language gate, not a cross-language one. The messages are proto3 (absent fields read as zero),
 //! so walking every accessor equals walking the present fields. The real-world datasets use the C++
-//! walks, ported, instead.
+//! walks, ported, instead. `records sparse (dropped)` sums the three fields its drop profile keeps,
+//! as C++ does.
 
 // RapidProto's cold and warm arms for message type `$ty`, `$ck` walking the decoded tree; the warm
 // arm owns its arena. Defined ahead of the modules using it.
@@ -167,6 +168,11 @@ pub fn recordset_arms() -> Vec<Arm> {
 pub fn particleset_arms() -> Vec<Arm> {
     arms!(particleset)
 }
+/// `records sparse (dropped)`: RapidProto's arms only, as in C++. A drop profile is RapidProto's
+/// own feature, and the competitors would decode every field.
+pub fn recordset_sparse_arms() -> Vec<Arm> {
+    ours::recordset_sparse()
+}
 
 /// Whether `arm`'s decode of `scenario` reads a packed fixed-width float field as an UNALIGNED
 /// borrowed slice -- undefined behaviour. Only quick-protobuf's zero-copy `read_packed_fixed` does
@@ -183,8 +189,9 @@ pub fn has_unaligned_fixed_slice_ub(scenario: &str, arm: &str) -> bool {
 }
 
 /// The arena scenarios, in the C++ bench's order: `dataset` (with the arena memory report), the
-/// real-world datasets ([`external`]), the other 7 shared shapes (named by their payload file), then
-/// the repeated-varint sweeps -- `rv <dist> <count>` (a single `Big` carrying packed int64 `numbers`,
+/// real-world datasets ([`external`]), the other 7 shared shapes (named by their payload file) with
+/// `records sparse (dropped)` (the `records` payload under a drop profile) after `records`, then the
+/// repeated-varint sweeps -- `rv <dist> <count>` (a single `Big` carrying packed int64 `numbers`,
 /// field 1) and, at 1M elements, the same varints as packed sint64 (`rv-zz`, field 3) and enum
 /// (`rv-enum`, narrow widths only, field 4).
 pub fn scenario_specs() -> Vec<Scenario> {
@@ -213,6 +220,11 @@ pub fn scenario_specs() -> Vec<Scenario> {
             Some("scalar records (dispatch-bound)"),
             recordset_arms,
         ),
+        Scenario {
+            name: "records sparse (dropped)".to_string(),
+            cpp_name: Some("records sparse (dropped)".to_string()),
+            ..shape("records", None, recordset_sparse_arms)
+        },
         shape("particles", None, particleset_arms),
     ]);
     let sweep = |name: String, arms: ArmsFn| Scenario {

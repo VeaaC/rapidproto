@@ -102,7 +102,13 @@ fn recordset_arms_agree() {
             pb::Record::default(),
         ],
     };
-    all_agree(rapidproto_bench::recordset_arms(), &rs.encode_to_vec());
+    let bytes = rs.encode_to_vec();
+    all_agree(rapidproto_bench::recordset_arms(), &bytes);
+    // The drop profile's decoder reads the three kept fields and skips the rest, s1 included.
+    assert_eq!(
+        all_agree(rapidproto_bench::recordset_sparse_arms(), &bytes),
+        1 + 10 + 20
+    );
 }
 
 // Only DEFINED Kind values: pb-rs (quick-protobuf) generates closed enums whose `From<i32>` maps any
@@ -462,9 +468,10 @@ fn every_stream_scenario_sums_what_cpp_sums() {
 #[test]
 fn every_arena_scenario_is_listed_once() {
     let specs = rapidproto_bench::scenario_specs();
-    // The 8 shapes, the 5 real-world datasets (listed whether or not this build decodes them), the
-    // 90-scenario `rv` sweep, and the 1M per-type sweep (15 `rv-zz`, 5 `rv-enum`).
-    assert_eq!(specs.len(), 8 + 5 + 90 + 15 + 5);
+    // The 8 shapes and `records sparse (dropped)`, the 5 real-world datasets (listed whether or not
+    // this build decodes them), the 90-scenario `rv` sweep, and the 1M per-type sweep (15 `rv-zz`,
+    // 5 `rv-enum`).
+    assert_eq!(specs.len(), 8 + 1 + 5 + 90 + 15 + 5);
     let mut names: Vec<&str> = specs.iter().map(|s| s.name.as_str()).collect();
     names.sort_unstable();
     names.dedup();

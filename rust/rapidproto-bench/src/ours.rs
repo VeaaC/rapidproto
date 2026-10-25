@@ -36,6 +36,13 @@ pub fn recordset() -> Vec<Arm> {
     arena_arms!(RecordSet, checksum::checksum_recordset)
 }
 
+/// `records sparse (dropped)`: the `records` payload through the `bench_records_sparse` golden, the
+/// bench schema under a drop profile that keeps 3 of each Record's 20 fields.
+pub fn recordset_sparse() -> Vec<Arm> {
+    use rustgen_golden::bench_records_sparse::arena::bench::RecordSet;
+    arena_arms!(RecordSet, checksum::checksum_recordset_sparse)
+}
+
 pub fn particleset() -> Vec<Arm> {
     arena_arms!(ParticleSet, checksum::checksum_particleset)
 }
