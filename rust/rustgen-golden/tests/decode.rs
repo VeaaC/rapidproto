@@ -1116,14 +1116,42 @@ fn dropped_fields_in_field_order_are_skipped() {
     assert_eq!((h.keep(), h.must(), h.big_num()), (Some(11), 55, Some(66)));
     assert_eq!(h.req_blob(), Some(&rb[..]));
 
-    let mut bad = Vec::new();
-    put_var(&mut bad, 1, 11); // keep
-    put_tag(&mut bad, 2, 0); // debug's tag...
-    bad.push(0x80); // ...and a truncated varint
-    assert!(matches!(
-        ModedHolder::decode(&bad, &arena),
-        Err(e) if e.kind() == ErrorKind::Truncated
-    ));
+    // A truncated debug after keep (its probe) fails like one after an undeclared field of the same
+    // size (the dispatch loop): same kind, same offset.
+    let truncated_after = |first: u32| {
+        let mut bad = Vec::new();
+        put_var(&mut bad, first, 11);
+        put_tag(&mut bad, 2, 0); // debug's tag...
+        bad.push(0x80); // ...and a truncated varint
+        match ModedHolder::decode(&bad, &arena) {
+            Ok(_) => panic!("expected a decode error"),
+            Err(e) => (e.kind(), e.offset()),
+        }
+    };
+    assert_eq!(truncated_after(1), (ErrorKind::Truncated, 3)); // at debug's value
+    assert_eq!(truncated_after(1), truncated_after(15));
+}
+
+#[test]
+fn dropped_maps_in_field_order_are_skipped() {
+    // flags (14) and blobs (22, a two-byte tag) are DROPPED maps. In field order, each entry is skipped
+    // by the map's in-order probe; the kept fields between them decode, and a dropped map is a known
+    // field, not an unknown one.
+    let mut buf = Vec::new();
+    put_var(&mut buf, 1, 5); // implicit_i
+    map_entry(&mut buf, 14, &varint_field(1, 1), &len_field(2, b"on")); // flags
+    map_entry(&mut buf, 14, &varint_field(1, 0), &len_field(2, b"off"));
+    put_len(&mut buf, 17, &[1, 0]); // bools, packed
+    put_tag(&mut buf, 20, 1); // ratio
+    buf.extend_from_slice(&2.5f64.to_le_bytes());
+    map_entry(&mut buf, 22, &len_field(1, b"k"), &len_field(2, &[0xff])); // blobs
+    map_entry(&mut buf, 22, &len_field(1, b"j"), &[]);
+    let arena = Arena::new();
+    let m = ModedMsg::decode(&buf, &arena).unwrap();
+    assert_eq!(m.implicit_i(), 5);
+    assert_eq!(m.bools(), &[true, false]);
+    assert_eq!(m.ratio(), 2.5);
+    assert!(!m.has_unknown_fields());
 }
 
 #[test]

@@ -611,9 +611,9 @@ pub fn read_group<'a>(
 }
 
 /// Skip a field the generated decoder does not read, given its raw tag key (`field << 3 | wire_code`
-/// -- the value the decode loop's one-byte peek hub dispatches on, or a stream decoder's constant key
-/// for an unselected field). Reconstructs the wire type and skips the field's value, returning the
-/// slice past it.
+/// -- the value the decode loop's one-byte peek hub dispatches on, or the constant key of a stream
+/// decoder's unselected field or an arena decoder's dropped field). Reconstructs the wire type and
+/// skips the field's value, returning the slice past it.
 ///
 /// `rest` is positioned at the field's VALUE (the tag already consumed), like [`skip`]. The key may
 /// be unvalidated: the hot loop's one-byte fast path builds it straight from the tag byte without the

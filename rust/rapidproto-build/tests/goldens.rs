@@ -157,7 +157,8 @@ fn goldens_match(backend: Backend) {
         (
             "proto3_modes",
             "proto3.proto",
-            "drop p3.Msg.name\nraw p3.Msg.self\nunknown-fields p3.Msg\n",
+            "drop p3.Msg.name\ndrop p3.Msg.flags\ndrop p3.Msg.blobs\nraw p3.Msg.self\n\
+             unknown-fields p3.Msg\n",
         ),
         (
             "arena_modes_lean",

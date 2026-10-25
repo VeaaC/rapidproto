@@ -1113,8 +1113,9 @@ void emit_reserve(Printer& printer, const std::string& acc, const std::string& c
 // erroring at `at.off`. The loop's `_` catch-all passes `rp_tagkey`: the peek hub dispatches on the raw
 // key, so an unknown or wrong-wire field reaches here with only the key (no rebuilt Tag), and
 // `skip_field` reconstructs the wire type -- rejecting a malformed one-byte tag (field 0 / reserved
-// wire code) as InvalidTag, the kind a full tag read would have raised. A stream probe passes its
-// field's constant key, for which `skip_field` folds to that wire type's skip.
+// wire code) as InvalidTag, the kind a full tag read would have raised. A threading probe (a stream
+// decoder's unselected field, an arena decoder's dropped field) passes its field's constant key, for
+// which `skip_field` folds to that wire type's skip.
 void emit_skip_field_body(Printer& printer, const ReadAt& at,
                           const std::string& key = "rp_tagkey") {
     printer.print("$s$ = match ::rapidproto::wire::skip_field($s$, $k$) {\n",
@@ -1688,7 +1689,7 @@ void emit_map_arm(Printer& printer, const NameTable& table,
 // The decode locals: a repeated field / map accumulates into a `DecodeVec`; a oneof holds its enum
 // (None until a member is seen); a proto2 `required` field a transient seen-flag; `unknown-fields` a
 // bool; the rest plain values at their proto3 zero / None default. A dropped field/map has no local
-// (its arm skip-validates and discards). `submodule` names the message's own oneof-enum submodule.
+// (it is skip-validated and discarded). `submodule` names the message's own oneof-enum submodule.
 void emit_decode_locals(Printer& printer, const NameTable& table,
                         const std::vector<std::string>& current_mod, const MessageNode& msg,
                         const FieldModes& modes, const std::string& submodule,
@@ -1869,7 +1870,7 @@ struct ThreadItem {
     bool required;
     const arenagen::MemberPlan* member;
     std::string oneof_local, enum_path, variant;  // oneof members only
-    const MapFieldNode* map = nullptr;            // non-null only for ThreadKind::Map
+    const MapFieldNode* map = nullptr;  // non-null for a map, kept (Map) or dropped (Skip)
 };
 
 // Whether the Rust prologues (arena and stream) can thread a repeated field, which self-loops on its
@@ -1942,7 +1943,7 @@ std::vector<ThreadItem> collect_threaded_items(const NameTable& table, const Mes
             continue;
         }
         const std::string wire = f.is_message_type ? "Len" : scalar_wire_variant(f);
-        const bool packable = f.is_repeated && is_packable_repeated(f);
+        const bool packable = is_packable_repeated(f);
         if (mode == arenagen::FieldMode::Drop) {
             items.push_back(
                 {f.number, ThreadKind::Skip, packable, wire, &f, false, nullptr, "", "", ""});
@@ -2009,12 +2010,12 @@ void emit_probe_close(Printer& printer) {
 // one-byte only; maps never): C++ re-enters threading from its hub via goto, so an unthreaded field
 // mid-message costs it nothing, but Rust's straight-line prologue can't re-enter -- once it falls to
 // the hub it stays there -- so leaving a map or a two-byte repeated field unthreaded would end
-// threading for every later field of a well-ordered message. Threading them keeps a well-ordered
-// message (fields <= 2047) on the fast path end to end. For the same reason a dropped field or map is
-// probed by the same rules, its probe skipping the value through `skip_field` with the constant tag
-// (as the stream prologue skips an unselected field); C++ leaves dropped fields to its hub. Decoded
-// output is unchanged either way (threading is a pure fast path; the hub decodes whatever the
-// prologue did not).
+// threading for every later field of a well-ordered message. For the same reason a dropped field or
+// map is probed by the same rules, its probe skipping the value through `skip_field` with the
+// constant tag (as the stream prologue skips an unselected field); C++ leaves dropped fields to its
+// hub. A well-ordered message (fields <= 2047) thus stays on the fast path end to end, except past a
+// group or a raw field, which still end threading. Decoded output is unchanged either way (threading
+// is a pure fast path; the hub decodes whatever the prologue did not).
 void emit_threaded_prologue(Printer& printer, const NameTable& table,
                             const std::vector<std::string>& current_mod, const MessageNode& msg,
                             const FieldModes& modes, const std::string& submodule,
