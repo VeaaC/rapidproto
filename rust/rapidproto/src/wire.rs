@@ -245,7 +245,8 @@ pub fn read_varint<'a>(rest: &'a [u8], out: &mut u64) -> Result<&'a [u8], ErrorK
     // value-threaded design. Multibyte and all error cases go out-of-line to `read_varint_cold`, which
     // the `#[cold]` keeps off this hot path, so the fast path remains inline-sized. Like the C++
     // reader's inline 1-byte fast path; C++ keeps its multibyte loop in the same body, whereas here it
-    // is outlined so the Rust fast path stays small enough for LLVM to inline it at every call site.
+    // is outlined so the Rust fast path stays small enough for LLVM to inline it at every call site
+    // (`read_varint_inline` keeps it in the body, for decoders with few call sites).
     if let Some((&b0, tail)) = rest.split_first() {
         if b0 & 0x80 == 0 {
             *out = u64::from(b0);
@@ -265,14 +266,29 @@ fn read_varint_cold<'a>(rest: &'a [u8], out: &mut u64) -> Result<&'a [u8], Error
     read_varint_full(rest, out)
 }
 
+/// [`read_varint`] with the multibyte decode inline too, so a multibyte value costs no call. It makes
+/// every call site larger, which pays off in a decode loop with few of them: the generated stream
+/// decoders read values with it, since only the fields a visitor selects keep their reads. The arena
+/// decoders read every field and use [`read_varint`].
+#[inline(always)]
+pub fn read_varint_inline<'a>(rest: &'a [u8], out: &mut u64) -> Result<&'a [u8], ErrorKind> {
+    if let Some((&b0, tail)) = rest.split_first() {
+        if b0 & 0x80 == 0 {
+            *out = u64::from(b0);
+            return Ok(tail);
+        }
+    }
+    read_varint_full(rest, out)
+}
+
 /// The complete varint decode, fully inlined: one `#[inline(always)]` loop with no out-of-line
 /// `#[cold]` tail. The arena's per-element read over a packed span (`packed_varint`), where inlining
 /// the whole decode avoids the out-of-line call [`read_varint`] makes per multibyte value -- matching
 /// the C++ `RP_FLATTEN`ed small packed kernel. (The stream decoders' packed loops use
-/// [`PackedVarints`].) NOT for the main per-field decode loop: inlining the full loop at its many call
-/// sites spills the value-threaded slice (see `read_varint`). Re-reads from `rest` (including byte 0)
-/// so it is a correct standalone decode. `VarintOverflow` on an over-long encoding (10th byte above bit
-/// 0, or ten continuation bytes), `Truncated` if the input runs out mid-varint.
+/// [`PackedVarints`].) NOT for the arena's per-field decode loop: inlining the full loop at its many
+/// call sites spills the value-threaded slice (see `read_varint`). Re-reads from `rest` (including byte
+/// 0) so it is a correct standalone decode. `VarintOverflow` on an over-long encoding (10th byte above
+/// bit 0, or ten continuation bytes), `Truncated` if the input runs out mid-varint.
 #[inline(always)]
 pub(crate) fn read_varint_full<'a>(rest: &'a [u8], out: &mut u64) -> Result<&'a [u8], ErrorKind> {
     let mut result: u64 = 0;
@@ -603,8 +619,57 @@ pub fn read_group<'a>(
 /// wire code 6/7) reaches here and is rejected as `InvalidTag` -- the same kind [`read_tag`] would
 /// have raised, only detected after the tag byte rather than before it. (Multi-byte tags still go
 /// through [`read_tag`] in the hot loop, so a malformed one never reaches this function.)
-#[inline]
+///
+/// The scalar wire types skip inline, failing as [`skip`] does; a group, a stray end-group and a
+/// malformed key go out of line.
+#[inline(always)]
 pub fn skip_field(rest: &[u8], key: u32) -> Result<&[u8], ErrorKind> {
+    let wire = key & 0x07;
+    if key >> 3 != 0 {
+        if wire == 0 {
+            return skip_varint(rest);
+        }
+        if wire == 2 {
+            let mut p: &[u8] = &[];
+            return read_length_delimited(rest, &mut p);
+        }
+        if wire == 1 {
+            return rest.get(8..).ok_or(ErrorKind::Truncated);
+        }
+        if wire == 5 {
+            return rest.get(4..).ok_or(ErrorKind::Truncated);
+        }
+    }
+    skip_field_cold(rest, key)
+}
+
+// Past one varint, without assembling its value; the errors are `read_varint`'s.
+#[inline(always)]
+fn skip_varint(rest: &[u8]) -> Result<&[u8], ErrorKind> {
+    if let Some((&b0, tail)) = rest.split_first() {
+        if b0 & 0x80 == 0 {
+            return Ok(tail);
+        }
+    }
+    for (i, &byte) in rest.iter().take(10).enumerate() {
+        if byte & 0x80 == 0 {
+            if i == 9 && byte > 0x01 {
+                return Err(ErrorKind::VarintOverflow);
+            }
+            return Ok(&rest[i + 1..]);
+        }
+    }
+    if rest.len() >= 10 {
+        Err(ErrorKind::VarintOverflow)
+    } else {
+        Err(ErrorKind::Truncated)
+    }
+}
+
+// `skip_field` for a group, an end-group or a malformed key.
+#[cold]
+#[inline(never)]
+fn skip_field_cold(rest: &[u8], key: u32) -> Result<&[u8], ErrorKind> {
     let field = key >> 3;
     if field == 0 {
         return Err(ErrorKind::InvalidTag);
@@ -683,6 +748,31 @@ mod tests {
             kind(&[0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x02]),
             ErrorKind::VarintOverflow
         );
+    }
+
+    #[test]
+    fn read_varint_inline_agrees_with_read_varint() {
+        let mut max = vec![0xff; 9];
+        max.extend([0x01, 0xaa]);
+        let overlong_tenth = [0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x02];
+        for input in [
+            &[][..],
+            &[0x7f, 0xaa],
+            &[0x80, 0x01],
+            &[0xac, 0x02, 0x7f],
+            &max,
+            &[0x80],
+            &[0x80; 10],
+            &overlong_tenth,
+        ] {
+            let (mut inline, mut split) = (0u64, 0u64);
+            assert_eq!(
+                read_varint_inline(input, &mut inline),
+                read_varint(input, &mut split),
+                "{input:02x?}"
+            );
+            assert_eq!(inline, split, "{input:02x?}");
+        }
     }
 
     // Every varint of `run` through `PackedVarints`, then the error and its offset in `run`, if any.
@@ -993,6 +1083,44 @@ mod tests {
         // wire Len, skipping an empty payload.
         let big = key(MAX_FIELD_NUMBER, WireType::Len);
         assert_eq!(skip_field(&[0x00], big).unwrap(), &[] as &[u8]);
+    }
+
+    #[test]
+    fn skip_field_agrees_with_skip() {
+        // The inline scalar skips and the out-of-line group path, success and error alike.
+        let mut max = vec![0xff; 9];
+        max.extend([0x01, 0xaa]);
+        let overlong_tenth = [0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x02];
+        let inputs: &[&[u8]] = &[
+            &[],
+            &[0x7f, 0xaa],
+            &[0xac, 0x02, 0x7f],
+            &max,
+            &[0x80],
+            &[0x80; 10],
+            &overlong_tenth,
+            &[0x02, 1, 2, 3],
+            &[0x03, 1, 2],
+            &[0; 7],
+            &[0x0c, 0xaa],
+        ];
+        for wire in [
+            WireType::Varint,
+            WireType::I64,
+            WireType::Len,
+            WireType::SGroup,
+            WireType::EGroup,
+            WireType::I32,
+        ] {
+            for &input in inputs {
+                let key = (1 << 3) | u32::from(wire as u8);
+                assert_eq!(
+                    skip_field(input, key),
+                    skip(input, tag(1, wire)),
+                    "{wire:?} {input:02x?}"
+                );
+            }
+        }
     }
 
     #[test]

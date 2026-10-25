@@ -1029,9 +1029,16 @@ void emit_read_arms(Printer& printer, const std::string& off) {
     printer.print("};\n");
 }
 
+// How a varint value is read: `Split` (`read_varint`) inlines only the one-byte case and calls out of
+// line for the rest, which keeps a decoder that reads every field compact (the arena's); `Inline`
+// (`read_varint_inline`) inlines the multibyte decode too, for the stream decoders, where only the
+// selected fields' reads remain.
+enum class VarintRead : std::uint8_t { Split, Inline };
+
 // Emit a scalar (Varint/I32/I64) value read from `at.src` into `rp_v`, erroring at `at.off`. After it
 // `scalar_convert_expr` yields the typed value.
-void emit_scalar_value_read(Printer& printer, const FieldNode& field, const ReadAt& at) {
+void emit_scalar_value_read(Printer& printer, const FieldNode& field, const ReadAt& at,
+                            VarintRead varint = VarintRead::Split) {
     const std::string wire = scalar_wire_variant(field);
     if (wire == "I32") {
         printer.print("let mut rp_v = 0u32;\n");
@@ -1043,8 +1050,9 @@ void emit_scalar_value_read(Printer& printer, const FieldNode& field, const Read
                       {{"s", at.src}});
     } else {
         printer.print("let mut rp_v = 0u64;\n");
-        printer.print("$s$ = match ::rapidproto::wire::read_varint($s$, &mut rp_v) {\n",
-                      {{"s", at.src}});
+        printer.print("$s$ = match ::rapidproto::wire::$r$($s$, &mut rp_v) {\n",
+                      {{"s", at.src},
+                       {"r", varint == VarintRead::Inline ? "read_varint_inline" : "read_varint"}});
     }
     emit_read_arms(printer, at.off);
 }
@@ -1100,9 +1108,12 @@ void emit_reserve(Printer& printer, const std::string& acc, const std::string& c
 // the raw key, so an unknown or wrong-wire field reaches here with only the key (no rebuilt Tag), and
 // `skip_field` reconstructs the wire type -- rejecting a malformed one-byte tag (field 0 / reserved
 // wire code) as InvalidTag, the kind a full tag read would have raised.
-void emit_skip_field_body(Printer& printer, const ReadAt& at) {
-    printer.print("$s$ = match ::rapidproto::wire::skip_field($s$, rp_tagkey) {\n",
-                  {{"s", at.src}});
+// `key` is the key expression: the loop's `rp_tagkey`, or a constant one (a threaded probe's), for
+// which `skip_field` folds to that wire type's skip.
+void emit_skip_field_body(Printer& printer, const ReadAt& at,
+                          const std::string& key = "rp_tagkey") {
+    printer.print("$s$ = match ::rapidproto::wire::skip_field($s$, $k$) {\n",
+                  {{"s", at.src}, {"k", key}});
     emit_read_arms(printer, at.off);
 }
 
@@ -2605,7 +2616,7 @@ void emit_arena_node(Printer& printer, const NameTable& table, const PkgTrie& no
 //
 // The generated code is O(N): the trait, the driver and the macro are each one unit per field -- no
 // quadratic setter reconstruction (there is no builder). A map field is a selectable slot too: its
-// handler receives `(key, value)` per entry (`emit_stream_map_arm`), mirroring C++ streamgen. Field
+// handler receives `(key, value)` per entry (`emit_stream_map_body`), mirroring C++ streamgen. Field
 // modes (drop/raw/unknown-fields) are arena-STORAGE options and do not apply to a streaming visitor,
 // which materializes nothing, so streaming ignores the modes. Groups ride the message path
 // (`message_field_wire` / `emit_msg_payload_read`).
@@ -2963,7 +2974,7 @@ void emit_stream_map_component(Printer& printer, const NameTable& table,
     if (scalar_wire_variant(field) == "Len") {
         emit_len_read(printer, at);
     } else {
-        emit_scalar_value_read(printer, field, at);
+        emit_scalar_value_read(printer, field, at, VarintRead::Inline);
     }
     printer.print("$l$ = $c$;\n",
                   {{"l", local}, {"c", scalar_convert_expr(table, current_mod, field)}});
@@ -2980,23 +2991,31 @@ std::string driver_handle_path(const NameTable& table, const std::vector<std::st
     return path.rfind("super::", 0) == 0 ? path : "self::" + path;
 }
 
-// The `match rp_tagkey` arm for a MAP field: gate on `V::WANT_<name>`, and when selected decode each
-// length-delimited entry's `{ key=1, value=2 }` in an inner loop (absent key/value default to zero,
-// unknown entry fields skipped) and deliver `(key, value)` to the handler -- the Rust mirror of C++
-// streamgen's per-entry map callback. A scalar/enum value is delivered by value; a message value as the
-// child's reader handle over the (possibly empty) value payload. Unselected: the entry is skipped whole.
-void emit_stream_map_arm(Printer& printer, const NameTable& table,
-                         const std::vector<std::string>& current_mod, const StreamSlot& slot) {
+// Open the `match rp_tagkey` arm for raw key `key`, guarded by the slot's `V::WANT_<name>`. The guard
+// is a constant, so an arm the visitor does not select compiles away and its field falls to the `_`
+// catch-all, which skips it: one skip site per decode for every unselected field.
+void emit_stream_arm_open(Printer& printer, const std::string& key, const std::string& name) {
+    printer.print("$k$ if V::WANT_$n$ => {\n", {{"k", key}, {"n", name}});
+    printer.indent();
+}
+
+void emit_stream_arm_close(Printer& printer) {
+    printer.outdent();
+    printer.print("}\n");
+}
+
+// One MAP entry, its tag consumed: decode the length-delimited entry's `{ key=1, value=2 }` in an inner
+// loop (absent key/value default to zero, unknown entry fields skipped) and deliver `(key, value)` to
+// the handler -- the Rust mirror of C++ streamgen's per-entry map callback. A scalar/enum value is
+// delivered by value; a message value as the child's reader handle over the (possibly empty) value
+// payload. Shared by the map's `match` arm and its threaded probe.
+void emit_stream_map_body(Printer& printer, const NameTable& table,
+                          const std::vector<std::string>& current_mod, const StreamSlot& slot) {
     const MapFieldNode& map = *slot.map;
     const FieldNode key = map_key_field(map);
     const FieldNode val = map_value_field(map);
-    const std::string gate = "V::WANT_" + slot.name;
     const ReadAt entry_at{"rp_ent", "rp_ent_body.len() - rp_ent.len()"};
 
-    printer.print("$k$ => {\n", {{"k", raw_tag_key(map.number, "Len")}});
-    printer.indent();
-    printer.print("if $g$ {\n", {{"g", gate}});
-    printer.indent();
     emit_len_read(printer, loop_read());  // the entry payload -> rp_p
     printer.print("let rp_ent_body: &'a [u8] = rp_p;\n");
     printer.print("let mut rp_key: $t$ = $d$;\n",
@@ -3042,114 +3061,150 @@ void emit_stream_map_arm(Printer& printer, const NameTable& table,
             ? driver_handle_path(table, current_mod, val.resolved_type_fqn) + "::new(rp_val)"
             : "rp_val";
     emit_stream_dispatch(printer, slot.name, "(rp_key, " + value_expr + ")");
-    printer.outdent();
-    printer.print("} else {\n");
-    printer.indent();
-    emit_skip_field_body(printer, loop_read());
-    printer.outdent();
-    printer.print("}\n");
-    printer.outdent();
-    printer.print("}\n");
 }
 
-// The `match rp_tagkey` arm(s) for one slot in the decode driver: gate on `V::WANT_<name>`, read +
-// deliver when selected, else wire-skip. A repeated numeric field emits an unpacked arm + a packed arm
-// (per element); a message/group field delivers the child's reader handle `<Child>::new(payload)`.
-void emit_stream_arm(Printer& printer, const NameTable& table,
-                     const std::vector<std::string>& current_mod, const StreamSlot& slot) {
-    if (slot.map != nullptr) {
-        emit_stream_map_arm(printer, table, current_mod, slot);
-        return;
-    }
+// One occurrence of a non-map field, its tag consumed: read the value and deliver it (a message/group
+// field as the child's reader handle `<Child>::new(payload)`). Shared by the `match` arm and the
+// threaded probe.
+void emit_stream_value_body(Printer& printer, const NameTable& table,
+                            const std::vector<std::string>& current_mod, const StreamSlot& slot) {
     const FieldNode& field = *slot.field;
-    const std::string gate = "V::WANT_" + slot.name;
-
     if (field.is_message_type) {
         const std::string path = driver_handle_path(table, current_mod, field.resolved_type_fqn);
-        printer.print("$k$ => {\n", {{"k", raw_tag_key(field.number, message_field_wire(field))}});
-        printer.indent();
-        printer.print("if $g$ {\n", {{"g", gate}});
-        printer.indent();
         emit_msg_payload_read(printer, field, loop_read());
         emit_stream_dispatch(printer, slot.name, path + "::new(rp_p)");
-        printer.outdent();
-        printer.print("} else {\n");
-        printer.indent();
-        emit_skip_field_body(printer, loop_read());
-        printer.outdent();
-        printer.print("}\n");
-        printer.outdent();
-        printer.print("}\n");
         return;
     }
-
-    const std::string wire = scalar_wire_variant(field);
-    const std::string conv = scalar_convert_expr(table, current_mod, field);
-
-    if (field.is_repeated && wire != "Len") {
-        printer.print("$k$ => {\n", {{"k", raw_tag_key(field.number, wire)}});
-        printer.indent();
-        printer.print("if $g$ {\n", {{"g", gate}});
-        printer.indent();
-        emit_scalar_value_read(printer, field, loop_read());
-        emit_stream_dispatch(printer, slot.name, conv);
-        printer.outdent();
-        printer.print("} else {\n");
-        printer.indent();
-        emit_skip_field_body(printer, loop_read());
-        printer.outdent();
-        printer.print("}\n");
-        printer.outdent();
-        printer.print("}\n");
-        printer.print("$k$ => {\n", {{"k", raw_tag_key(field.number, "Len")}});
-        printer.indent();
-        printer.print("if $g$ {\n", {{"g", gate}});
-        printer.indent();
-        emit_len_read(printer, loop_read());
-        if (wire == "Varint") {
-            emit_packed_varints_loop(printer, slot.name, conv);
-        } else {
-            printer.print("while !rp_p.is_empty() {\n");
-            printer.indent();
-            emit_scalar_value_read(printer, field, packed_read());
-            emit_stream_dispatch(printer, slot.name, conv);
-            printer.outdent();
-            printer.print("}\n");
-        }
-        printer.outdent();
-        printer.print("} else {\n");
-        printer.indent();
-        emit_skip_field_body(printer, loop_read());
-        printer.outdent();
-        printer.print("}\n");
-        printer.outdent();
-        printer.print("}\n");
-        return;
-    }
-
-    printer.print("$k$ => {\n", {{"k", raw_tag_key(field.number, wire)}});
-    printer.indent();
-    printer.print("if $g$ {\n", {{"g", gate}});
-    printer.indent();
-    if (wire == "Len") {
+    if (scalar_wire_variant(field) == "Len") {
         emit_len_read(printer, loop_read());
     } else {
-        emit_scalar_value_read(printer, field, loop_read());
+        emit_scalar_value_read(printer, field, loop_read(), VarintRead::Inline);
     }
-    emit_stream_dispatch(printer, slot.name, conv);
-    printer.outdent();
-    printer.print("} else {\n");
+    emit_stream_dispatch(printer, slot.name, scalar_convert_expr(table, current_mod, field));
+}
+
+// A packed run of a repeated numeric field, its tag consumed: deliver each element. Shared by the
+// `match` arm and the threaded probe.
+void emit_stream_packed_body(Printer& printer, const NameTable& table,
+                             const std::vector<std::string>& current_mod, const StreamSlot& slot) {
+    const FieldNode& field = *slot.field;
+    const std::string conv = scalar_convert_expr(table, current_mod, field);
+    emit_len_read(printer, loop_read());
+    if (scalar_wire_variant(field) == "Varint") {
+        emit_packed_varints_loop(printer, slot.name, conv);
+        return;
+    }
+    printer.print("while !rp_p.is_empty() {\n");
     printer.indent();
-    emit_skip_field_body(printer, loop_read());
-    printer.outdent();
-    printer.print("}\n");
+    emit_scalar_value_read(printer, field, packed_read());
+    emit_stream_dispatch(printer, slot.name, conv);
     printer.outdent();
     printer.print("}\n");
 }
 
-// The `_ =>` catch-all: a field number the schema declares (regular / oneof member / map) that arrives
-// with a wrong wire type is skipped silently; a number the schema does NOT declare is delivered to the
-// `unknown` handler (when selected) as an `UnknownField` carrying its value bytes, else skipped.
+// The wire form one occurrence of a slot's field arrives in: LEN for a map entry, the message wire for
+// a message/group field, else the scalar's (for a repeated numeric, its unpacked element).
+std::string stream_slot_wire(const StreamSlot& slot) {
+    if (slot.map != nullptr) {
+        return "Len";
+    }
+    return slot.field->is_message_type ? message_field_wire(*slot.field)
+                                       : scalar_wire_variant(*slot.field);
+}
+
+// Whether the slot is a repeated numeric field, which also arrives as a packed LEN run.
+bool stream_slot_packable(const StreamSlot& slot) {
+    return slot.field != nullptr && slot.field->is_repeated && !slot.field->is_message_type &&
+           scalar_wire_variant(*slot.field) != "Len";
+}
+
+// The `match rp_tagkey` arm(s) for one slot in the decode driver, each read + deliver (unselected
+// fields are skipped by the catch-all, see `emit_stream_arm_open`). A repeated numeric field emits an
+// unpacked arm + a packed arm (per element).
+void emit_stream_arm(Printer& printer, const NameTable& table,
+                     const std::vector<std::string>& current_mod, const StreamSlot& slot) {
+    const int number = slot.map != nullptr ? slot.map->number : slot.field->number;
+    emit_stream_arm_open(printer, raw_tag_key(number, stream_slot_wire(slot)), slot.name);
+    if (slot.map != nullptr) {
+        emit_stream_map_body(printer, table, current_mod, slot);
+    } else {
+        emit_stream_value_body(printer, table, current_mod, slot);
+    }
+    emit_stream_arm_close(printer);
+    if (stream_slot_packable(slot)) {
+        emit_stream_arm_open(printer, raw_tag_key(number, "Len"), slot.name);
+        emit_stream_packed_body(printer, table, current_mod, slot);
+        emit_stream_arm_close(printer);
+    }
+}
+
+// Field-order threading for the stream driver: the arena prologue's straight-line probe chain (see
+// `emit_threaded_prologue` for why it is straight-line and why its scope is broader than the C++
+// reference's), with the same scope: singular fields and oneof members admitted by
+// codegen::is_threadable_singular, plus repeated non-group fields and maps up to a two-byte tag, which
+// self-loop (a repeated numeric also probes its packed run). A probed field is delivered when the
+// visitor selects it and skipped otherwise, through `skip_field` with its constant tag, which folds to
+// that wire type's skip -- as C++ streamgen skips an unselected threaded field. So a well-ordered
+// message with few selected fields costs one tag compare per field, with no `match` and no runtime
+// wire-type switch. The hub loop after it decodes whatever the chain did not consume.
+void emit_stream_prologue(Printer& printer, const NameTable& table,
+                          const std::vector<std::string>& current_mod,
+                          const std::vector<StreamSlot>& slots) {
+    std::vector<std::pair<int, const StreamSlot*>> items;
+    for (const StreamSlot& slot : slots) {
+        if (slot.map != nullptr) {
+            if (slot.map->number >= 1 && slot.map->number <= codegen::kMaxTwoByteTagField) {
+                items.emplace_back(slot.map->number, &slot);
+            }
+            continue;
+        }
+        const FieldNode& f = *slot.field;
+        const bool group = f.is_message_type && f.message_encoding == MessageEncoding::Delimited;
+        const bool threadable =
+            f.is_repeated ? (f.number >= 1 && f.number <= codegen::kMaxTwoByteTagField && !group)
+                          : codegen::is_threadable_singular(f);
+        if (threadable) {
+            items.emplace_back(f.number, &slot);
+        }
+    }
+    std::stable_sort(items.begin(), items.end(),
+                     [](const auto& a, const auto& b) { return a.first < b.first; });
+    const auto probe = [&](int number, const std::string& wire, bool self_loop,
+                           const StreamSlot& slot, auto&& body) {
+        emit_probe_open(printer, number, wire, self_loop);
+        printer.print("if V::WANT_$n$ {\n", {{"n", slot.name}});
+        printer.indent();
+        body();
+        printer.outdent();
+        printer.print("} else {\n");
+        printer.indent();
+        emit_skip_field_body(printer, loop_read(), raw_tag_key(number, wire));
+        printer.outdent();
+        printer.print("}\n");
+        emit_probe_close(printer);
+    };
+    for (const auto& item : items) {
+        const StreamSlot& slot = *item.second;
+        const bool self_loop = slot.map != nullptr || slot.field->is_repeated;
+        probe(item.first, stream_slot_wire(slot), self_loop, slot, [&] {
+            if (slot.map != nullptr) {
+                emit_stream_map_body(printer, table, current_mod, slot);
+            } else {
+                emit_stream_value_body(printer, table, current_mod, slot);
+            }
+        });
+        if (stream_slot_packable(slot)) {
+            // One packed run (a second falls to the hub loop).
+            probe(item.first, "Len", /*self_loop=*/false, slot,
+                  [&] { emit_stream_packed_body(printer, table, current_mod, slot); });
+        }
+    }
+}
+
+// The `_ =>` catch-all: a field number the schema declares (regular / oneof member / map) is skipped
+// silently -- an unselected field, whose guarded arm compiled away, or one with a wrong wire type; a
+// number the schema does NOT declare is delivered to the `unknown` handler (when selected) as an
+// `UnknownField` carrying its value bytes, else skipped.
 void emit_stream_unknown_arm(Printer& printer, const MessageNode& msg) {
     std::string known;
     const auto note = [&](std::int64_t number) {
@@ -3234,6 +3289,7 @@ void emit_stream_decode(Printer& printer, const NameTable& table,
     printer.indent();
     printer.print("let rp_body: &'a [u8] = self.rp_input;\n");
     printer.print("let mut rp_rest: &'a [u8] = rp_body;\n");
+    emit_stream_prologue(printer, table, current_mod, slots);
     printer.print("loop {\n");
     printer.indent();
     emit_peek_hub(printer, loop_read(), "rp_tag");
